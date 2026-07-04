@@ -84,7 +84,7 @@ export function createComfyImageForCharacter(
 ) {
   const runner = context.runScratch.get(runScratchKeys.createComfyImageForCharacter);
   if (typeof runner !== 'function') {
-    throw new Error('Create image action is not available for this graph run.');
+    throw new Error('Create character phone image action is not available for this graph run.');
   }
   return (runner as CreateComfyImageForCharacterRunner)(request, context.reportWarning);
 }

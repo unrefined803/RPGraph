@@ -172,16 +172,6 @@ export const defaultComfyLoraSlots: ComfyLoraSlot[] = [
   { name: 'None', strength: 1 },
   { name: 'None', strength: 1 },
 ];
-const obsoleteDefaultComfyPrompt = 'woman taking a stylish mirror selfie, cinematic light, detailed skin, modern apartment';
-const obsoleteDefaultComfyDiffusionModelName = 'krea2_turbo_fp8.safetensors';
-const obsoleteDefaultComfyVaeName = 'qwen_image_vae.safetensors';
-const obsoleteDefaultComfyTextEncoderName = 'qwen3vl_4b_abliterated_bf16_comfy.safetensors';
-const obsoleteDefaultComfyLoraNames = [
-  'MysticXXX_KREA2_v1.safetensors',
-  'KNP_V2_krea.safetensors',
-  'None',
-  'None',
-];
 export const connectionReasoningEfforts = [
   'auto',
   'none',
@@ -275,11 +265,6 @@ function validComfyLoraName(value: unknown, fallback: string) {
   return name.length > 0 ? name : fallback;
 }
 
-function validCurrentComfyModelName(value: unknown, fallback: string, obsoleteDefault: string) {
-  const name = validComfyModelName(value, fallback);
-  return name === obsoleteDefault ? fallback : name;
-}
-
 export function validComfyLoraSlots(value: unknown): ComfyLoraSlot[] {
   const source = Array.isArray(value) ? value : [];
   return defaultComfyLoraSlots.map((fallback, index) => {
@@ -287,17 +272,15 @@ export function validComfyLoraSlots(value: unknown): ComfyLoraSlot[] {
     if (!slot || typeof slot !== 'object' || Array.isArray(slot)) {
       return { ...fallback };
     }
-    const slotName = validComfyLoraName((slot as Partial<ComfyLoraSlot>).name, fallback.name);
     return {
-      name: slotName === obsoleteDefaultComfyLoraNames[index] ? fallback.name : slotName,
+      name: validComfyLoraName((slot as Partial<ComfyLoraSlot>).name, fallback.name),
       strength: validComfyStrength((slot as Partial<ComfyLoraSlot>).strength, fallback.strength),
     };
   });
 }
 
 function validCurrentComfyPrompt(value: unknown) {
-  const prompt = typeof value === 'string' ? value : defaultComfyPrompt;
-  return prompt === obsoleteDefaultComfyPrompt ? defaultComfyPrompt : prompt;
+  return typeof value === 'string' ? value : defaultComfyPrompt;
 }
 
 export function runtimeComfyLoraSlots(value: unknown): ComfyLoraSlot[] {
@@ -362,21 +345,13 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
       ? validComfyModelName(connection.comfyCheckpointName, defaultComfyCheckpointName)
       : undefined,
     comfyDiffusionModelName: kind === 'comfyui'
-      ? validCurrentComfyModelName(
-          connection.comfyDiffusionModelName,
-          defaultComfyDiffusionModelName,
-          obsoleteDefaultComfyDiffusionModelName,
-        )
+      ? validComfyModelName(connection.comfyDiffusionModelName, defaultComfyDiffusionModelName)
       : undefined,
     comfyVaeName: kind === 'comfyui'
-      ? validCurrentComfyModelName(connection.comfyVaeName, defaultComfyVaeName, obsoleteDefaultComfyVaeName)
+      ? validComfyModelName(connection.comfyVaeName, defaultComfyVaeName)
       : undefined,
     comfyTextEncoderName: kind === 'comfyui'
-      ? validCurrentComfyModelName(
-          connection.comfyTextEncoderName,
-          defaultComfyTextEncoderName,
-          obsoleteDefaultComfyTextEncoderName,
-        )
+      ? validComfyModelName(connection.comfyTextEncoderName, defaultComfyTextEncoderName)
       : undefined,
     comfyLoraSlots: kind === 'comfyui'
       ? validComfyLoraSlots(connection.comfyLoraSlots)

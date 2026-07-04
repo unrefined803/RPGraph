@@ -1076,7 +1076,7 @@ function storybookCharacterComfyStatus({
   if (createImageActions.length === 0) {
     return {
       active: false,
-      text: 'This function is not used because the workflow does not call a Create image action.',
+      text: 'This function is not used because the workflow does not call a Create character phone image action.',
     };
   }
   const selectedProviderIds = Array.from(new Set(
@@ -1087,7 +1087,7 @@ function storybookCharacterComfyStatus({
   if (selectedProviderIds.length === 0) {
     return {
       active: false,
-      text: 'This function is not used because no ComfyUI provider is selected in the Create image action.',
+      text: 'This function is not used because no ComfyUI provider is selected in the Create character phone image action.',
     };
   }
   const comfyProviderIds = new Set(connections.filter((connection) => connection.kind === 'comfyui').map((connection) => connection.id));
@@ -1102,7 +1102,7 @@ function storybookCharacterComfyStatus({
   if (healthValues.some((health) => health?.status === 'online')) {
     return {
       active: true,
-      text: 'This character setup is used by the workflow Create image action.',
+      text: 'This character setup is used by the workflow Create character phone image action.',
     };
   }
   if (healthValues.some((health) => health?.status === 'checking' || health?.status === 'unknown')) {

@@ -339,7 +339,7 @@ export async function executeGraph({
     const characterName = request.characterName.trim();
     const prompt = request.prompt.trim();
     if (!characterName || !prompt) {
-      throw new Error('Create image action requires a character and prompt.');
+      throw new Error('Create character phone image action requires a character and prompt.');
     }
 
     const character = storybookCreateImageCharactersFromNodes(nodes).find((entry) => {
@@ -348,10 +348,10 @@ export async function executeGraph({
       return left === right || left.split(/\s+/)[0] === right.split(/\s+/)[0];
     });
     if (!character) {
-      throw new Error(`Create image action could not find character "${characterName}".`);
+      throw new Error(`Create character phone image action could not find character "${characterName}".`);
     }
     if (!character.createImage.available) {
-      throw new Error(`Create image action requires Character Appearance or LoRA for ${character.name}.`);
+      throw new Error(`Create character phone image action requires Character Appearance or LoRA for ${character.name}.`);
     }
 
     const comfyProviderId = request.comfyProviderId?.trim();
@@ -360,15 +360,15 @@ export async function executeGraph({
       : connections.find((connection) => connection.kind === 'comfyui');
     if (!comfyConnection) {
       throw new Error(comfyProviderId
-        ? 'Create image action requires the selected ComfyUI provider.'
-        : 'Create image action requires a saved ComfyUI provider.');
+        ? 'Create character phone image action requires the selected ComfyUI provider.'
+        : 'Create character phone image action requires a saved ComfyUI provider.');
     }
     const comfyHealth = providerHealthById[comfyConnection.id];
     if (comfyHealth?.status === 'offline') {
-      throw new Error(`Create image action skipped because ${comfyConnection.label} is offline${comfyHealth.detail ? `: ${comfyHealth.detail}` : '.'}`);
+      throw new Error(`Create character phone image action skipped because ${comfyConnection.label} is offline${comfyHealth.detail ? `: ${comfyHealth.detail}` : '.'}`);
     }
     if (comfyHealth?.status === 'warning') {
-      throw new Error(`Create image action skipped because ${comfyConnection.label} is not fully set up${comfyHealth.detail ? `: ${comfyHealth.detail}` : '.'}`);
+      throw new Error(`Create character phone image action skipped because ${comfyConnection.label} is not fully set up${comfyHealth.detail ? `: ${comfyHealth.detail}` : '.'}`);
     }
     const missingComfyFields = missingComfySetupFields(comfyConnection);
     if (missingComfyFields.length > 0) {
@@ -435,7 +435,7 @@ export async function executeGraph({
       ? runStorybookJsonByNodeId.get(storybookNode.id) ?? storybookNode.data.storybookJson
       : undefined;
     if (!storybookNode || !storybookJson) {
-      throw new Error(`Create image action could not update ${character.name}'s Storybook.`);
+      throw new Error(`Create character phone image action could not update ${character.name}'s Storybook.`);
     }
     const storybook = parseRpStorybookJson(storybookJson);
     const ensureResult = withImagesEnsuredForStorybookCharacter(

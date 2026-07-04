@@ -62,7 +62,7 @@ export const promptActionIds: PromptActionId[] = ['getImageId', 'updatePhoneImag
 export const defaultPromptActionTitle = 'Get character phone image list';
 export const updatePhoneImageCaptionActionTitle = 'Update phone image caption';
 export const describeInputImageActionTitle = 'Describe input image';
-export const createImageActionTitle = 'Create image';
+export const createImageActionTitle = 'Create character phone image';
 
 export function promptActionTitle(actionId: PromptActionId) {
   switch (actionId) {
@@ -89,6 +89,7 @@ export function promptActionPromptTitle(actionId: PromptActionId) {
 const legacyPromptActionTitleKeys = new Map<string, string>([
   ['get character image list', 'get character phone image list'],
   ['update incoming image caption', 'update phone image caption'],
+  ['create image', 'create character phone image'],
 ]);
 
 export type PromptActionCondition = {
@@ -226,9 +227,9 @@ export const updatePhoneImageCaptionAfterReplyInstruction = [
 ].join('\n');
 
 export const createImageInstruction = [
-  'Available action: create image',
+  'Available action: create character phone image',
   '',
-  'Use this internal action when no stored image fits and a new outgoing phone/RP image should be generated for a character.',
+  'Use this internal action when no stored image fits and a new outgoing phone image should be generated for a character.',
   'Call it once before the final visible reply. Do not write a normal message together with this action.',
   '',
   'Available characters:',
@@ -242,12 +243,38 @@ export const createImageInstruction = [
   '"prompt": "complete image generation prompt"',
   '}',
   '',
-  'The character must be the sender/owner of the outgoing generated image.',
+  'The character must be the sender/owner of the outgoing generated phone image.',
   'The character value must match one of the available character names exactly.',
   'The prompt should describe the current RP image moment for ComfyUI: pose, expression, clothing for this scene, setting, lighting, mood, camera/framing, and relevant RP context.',
   'Do not try to redefine the character identity or permanent base appearance. RPGraph automatically prepends the character appearance saved in Storybook and applies that character LoRA when configured.',
-  'Do not include instructions to send a message. This action only creates and stores the image.',
+  'Do not include instructions to send a message. This action only creates and stores the image in the character phone image library.',
 ].join('\n');
+
+const previousCreateImageInstructions = new Set([
+  [
+    'Available action: create image',
+    '',
+    'Use this internal action when no stored image fits and a new outgoing phone/RP image should be generated for a character.',
+    'Call it once before the final visible reply. Do not write a normal message together with this action.',
+    '',
+    'Available characters:',
+    '{{availableCharacters}}',
+    '',
+    'To call it, output exactly one JSON object and nothing else:',
+    '',
+    '{',
+    '"action": "create_image",',
+    '"character": "Character Name",',
+    '"prompt": "complete image generation prompt"',
+    '}',
+    '',
+    'The character must be the sender/owner of the outgoing generated image.',
+    'The character value must match one of the available character names exactly.',
+    'The prompt should describe the current RP image moment for ComfyUI: pose, expression, clothing for this scene, setting, lighting, mood, camera/framing, and relevant RP context.',
+    'Do not try to redefine the character identity or permanent base appearance. RPGraph automatically prepends the character appearance saved in Storybook and applies that character LoRA when configured.',
+    'Do not include instructions to send a message. This action only creates and stores the image.',
+  ].join('\n'),
+]);
 
 const updatePhoneImageCaptionMissingCaptionRule =
   'If the image label shows an imageId but no caption yet, always use imageAction "update" with that exact imageId and write its first caption.';
@@ -341,13 +368,24 @@ export const defaultDescribeInputImageResultTemplate = [
 ].join('\n');
 
 export const defaultCreateImageResultTemplate = [
-  'Generated image for {{character}}:',
+  'Generated phone image for {{character}}:',
   '',
   '* imageId: {{imageId}}',
   '* description: {{description}}',
   '',
-  'This image was generated for the current RP moment and saved to the character image library. Use this image in the final phone/RP reply. For phone output, set sendImageId to "{{imageId}}".',
+  'This image was generated for the current phone moment and saved to the character phone image library. Use this image in the final phone reply. Set sendImageId to "{{imageId}}".',
 ].join('\n');
+
+const previousCreateImageResultTemplates = new Set([
+  [
+    'Generated image for {{character}}:',
+    '',
+    '* imageId: {{imageId}}',
+    '* description: {{description}}',
+    '',
+    'This image was generated for the current RP moment and saved to the character image library. Use this image in the final phone/RP reply. For phone output, set sendImageId to "{{imageId}}".',
+  ].join('\n'),
+]);
 
 const previousGetImagesResultTemplates = new Set([
   [
@@ -585,6 +623,12 @@ export function normalizePromptActionConfig(
             updatePhoneImageCaptionInstruction,
             previousUpdatePhoneImageCaptionInstructions,
           )
+      : actionId === 'createImage'
+        ? currentOrCustomTemplate(
+            record.instructionTemplate,
+            createImageInstruction,
+            previousCreateImageInstructions,
+          )
       : (typeof record.instructionTemplate === 'string' && record.instructionTemplate.trim()
         ? record.instructionTemplate
         : defaultPromptActionInstructionTemplate(actionId)),
@@ -604,7 +648,13 @@ export function normalizePromptActionConfig(
           previousGetImagesResultTemplates,
         )
       : (typeof record.resultTemplate === 'string' && record.resultTemplate.trim()
-        ? record.resultTemplate
+        ? (actionId === 'createImage'
+          ? currentOrCustomTemplate(
+              record.resultTemplate,
+              defaultCreateImageResultTemplate,
+              previousCreateImageResultTemplates,
+            )
+          : record.resultTemplate)
         : defaultResultTemplate(actionId)),
   };
 }

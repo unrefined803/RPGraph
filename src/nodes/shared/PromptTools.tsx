@@ -52,7 +52,7 @@ type PromptActionReplaceOptions = {
 };
 
 const createImageMemoryTooltip =
-  'Before Create image runs, RPGraph unloads local LM Studio/Ollama models so ComfyUI can load its image model. After generation, it frees ComfyUI model memory. API-based LLM providers are ignored. With enough cached RAM for both models, switching is usually quick, often within about two seconds.';
+  'Before Create character phone image runs, RPGraph unloads local LM Studio/Ollama models so ComfyUI can load its image model. After generation, it frees ComfyUI model memory. API-based LLM providers are ignored. With enough cached RAM for both models, switching is usually quick, often within about two seconds.';
 
 function promptActionTemplateVariableStatuses(
   config: PromptActionConfig,

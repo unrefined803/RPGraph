@@ -82,7 +82,7 @@ The action flow is two-pass:
 3. The prompt is replayed with the same `@action` location replaced by the action result, such as found image IDs, a recorded incoming-image caption decision, or a generated ComfyUI image ID.
 4. The final model pass writes the visible roleplay or phone response using those returned results.
 
-This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries, caption actions return a compact JSON record for the latest incoming phone image, and create-image actions generate and store a new character image through ComfyUI before replaying the prompt.
+This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries, caption actions return a compact JSON record for the latest incoming phone image, and Create character phone image actions generate and store a new outgoing character phone image through ComfyUI before replaying the prompt.
 
 ## Phone And JSON Outputs
 
