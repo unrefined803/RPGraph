@@ -4,6 +4,8 @@
 
 ![RPgraph Studio main screen](docs/main-screen.png)
 
+🎬 **Demo video:** https://youtu.be/5QAYmLudR0M
+
 RPGraph Studio is a **local-first desktop app** for interactive AI roleplay. Instead of a plain chatbox, you get a full studio: a **visual node workflow** decides how your story is built, a rich **RP chat** shows the results, and an in-world **phone messenger** lets your characters text each other — complete with images, events, and a living timeline.
 
 No cloud account. No subscription. Your stories stay on **your** computer. 🔒
