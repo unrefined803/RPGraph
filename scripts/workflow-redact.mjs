@@ -1,11 +1,22 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const dataUrlPattern = /data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,([a-z0-9+/_=-]+)/gi;
 const markerPattern = /__RPGRAPH_DATA_URL_REDACTED__sha256:([a-f0-9]{64});mime:([^;]+);bytes:(\d+)__/g;
 const defaultRedactedPath = '/tmp/rpgraph-workflow.default.redacted.json';
+
+function bundledDefaultWorkflowFile() {
+  const names = readdirSync('.')
+    .filter((name) => /^workflow\.default.*\.json$/i.test(name))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  if (names.length === 0) {
+    throw new Error('No workflow.default*.json file was found in the current directory.');
+  }
+  return names[names.length - 1];
+}
 
 function usage() {
   return [
@@ -14,11 +25,11 @@ function usage() {
     '  node scripts/workflow-redact.mjs merge [redactedSource] [originalSource] [dest]',
     '',
     'Defaults:',
-    `  redact source: workflow.default.json`,
+    '  redact source: workflow.default*.json (auto-detected in the current directory)',
     `  redact dest:   ${defaultRedactedPath}`,
     `  merge redacted:${defaultRedactedPath}`,
-    '  merge original:workflow.default.json',
-    '  merge dest:    workflow.default.json',
+    '  merge original:workflow.default*.json (auto-detected)',
+    '  merge dest:    workflow.default*.json (auto-detected)',
   ].join('\n');
 }
 
@@ -175,14 +186,15 @@ async function mergeWorkflow(redactedPath, originalPath, destPath) {
 async function main() {
   const [command, first, second, third] = process.argv.slice(2);
   if (command === 'redact') {
-    await redactWorkflow(first ?? 'workflow.default.json', second ?? defaultRedactedPath);
+    await redactWorkflow(first ?? bundledDefaultWorkflowFile(), second ?? defaultRedactedPath);
     return;
   }
   if (command === 'merge') {
+    const bundledFile = first && second && third ? undefined : bundledDefaultWorkflowFile();
     await mergeWorkflow(
       first ?? defaultRedactedPath,
-      second ?? 'workflow.default.json',
-      third ?? 'workflow.default.json',
+      second ?? bundledFile,
+      third ?? bundledFile,
     );
     return;
   }

@@ -1,4 +1,3 @@
-import currentWorkflow from '../../workflow.default.json';
 import { captureTurnRuntime } from '../chat/turns';
 import { currentSessionFormatVersion } from '../session/version';
 import type { MessageRecord, TurnRecord, WorkflowFile, WorkflowNode, WorkflowNodeData } from '../types';
@@ -110,6 +109,20 @@ import {
   resolveWorkflowVariables,
   workflowVariablePreviewValues,
 } from './variables';
+
+const bundledDefaultWorkflows = import.meta.glob<{ default: unknown }>(
+  '../../workflow.default*.json',
+  { eager: true },
+);
+const bundledDefaultWorkflowPaths = Object.keys(bundledDefaultWorkflows)
+  .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+const bundledDefaultWorkflowPath =
+  bundledDefaultWorkflowPaths[bundledDefaultWorkflowPaths.length - 1];
+if (!bundledDefaultWorkflowPath) {
+  throw new Error('No workflow.default*.json file was found in the project root.');
+}
+const currentWorkflow = bundledDefaultWorkflows[bundledDefaultWorkflowPath]
+  .default as WorkflowFile;
 
 function assertFixture(condition: boolean, message: string) {
   if (!condition) {
@@ -2516,7 +2529,8 @@ export function verifyWorkflowValidationFixtures() {
   );
 
   const workflowWithInvalidVersion = structuredClone(currentWorkflow);
-  workflowWithInvalidVersion.nodes[0]!.data.nodeDataVersion = '1.0';
+  workflowWithInvalidVersion.nodes[0]!.data.nodeDataVersion =
+    '1.0' as unknown as WorkflowNodeData['nodeDataVersion'];
   assertFixture(
     !isWorkflowFile(workflowWithInvalidVersion),
     'an invalid node version string must be rejected',
