@@ -25,9 +25,15 @@ import {
   llmProviderKind,
 } from '../llm/providerKind';
 import {
+  comfyConnectionRole,
+  isComfyImageConnection,
+  isComfyVoiceConnection,
+} from '../comfy/connectionRole';
+import {
   characterComfyLoraSlots,
   comfySetupRequiredMessage,
   defaultComfyBaseUrl,
+  defaultComfyVoiceWorkflowPath,
   defaultComfyCheckpointName,
   defaultComfyDiffusionModelName,
   defaultComfyHeight,
@@ -46,6 +52,7 @@ import {
   validConnectionReasoningEffort,
 } from '../settings';
 import type {
+  ComfyConnectionRole,
   ConnectionPreset,
   LmStudioModelInfo,
   OllamaModelInfo,
@@ -64,7 +71,27 @@ type AvailableComfyModels = {
   diffusion_models: string[];
 };
 
+function comfyConnectionCapabilities(connection: ConnectionPreset) {
+  return comfyConnectionRole(connection) === 'voice' ? { voice: true } : { image: true };
+}
+
 function comfySetupHealth(connection: ConnectionPreset, detail: string): ProviderConnectionHealth {
+  const role = comfyConnectionRole(connection);
+  if (role === null) {
+    return {
+      status: 'warning',
+      detail: 'Choose Image Generation or Voice Generation for this ComfyUI preset.',
+      checkedAt: providerCheckedAt(),
+    };
+  }
+  if (role === 'voice') {
+    return {
+      status: 'online',
+      detail,
+      capabilities: { voice: true },
+      checkedAt: providerCheckedAt(),
+    };
+  }
   const missingFields = missingComfySetupFields(connection);
   if (missingFields.length === 0) {
     return {
@@ -220,12 +247,15 @@ export function useProviderConnections({
           id: createProviderConnectionId(),
           ...(presetKind === 'comfyui' ? {} : defaultConnectionSampling),
           ...preset,
+          // Applying the ComfyUI type always re-enters the image/voice picker step.
+          comfyRole: undefined,
           providerKind: presetKind === 'comfyui' ? undefined : preset.providerKind,
           vision: false,
         }
       : {
           ...editingConnection,
           ...preset,
+          comfyRole: undefined,
           providerKind: presetKind === 'comfyui' ? undefined : preset.providerKind,
           vision: presetKind === 'comfyui' ? false : editingConnection.vision ?? false,
         };
@@ -264,15 +294,49 @@ export function useProviderConnections({
     setConnectionStatus(
       connectionDraftPending
         ? preset.kind === 'comfyui'
-          ? 'ComfyUI preset created. Check the Base URL. Changes are saved automatically.'
+          ? 'ComfyUI preset created. Choose Image Generation or Voice Generation.'
           : `${preset.label} preset created. Changes are saved automatically.`
         : preset.kind === 'comfyui'
-          ? 'ComfyUI type applied. Check the Base URL. Changes are saved automatically.'
+          ? 'ComfyUI type applied. Choose Image Generation or Voice Generation.'
           : `${preset.label} type applied. Add your API key if needed.`,
     );
     void checkProviderConnection(nextConnection, { showStatus: true });
-    if (nextConnection.kind === 'comfyui') {
-      void inspectComfyWorkflow(nextConnection, { showStatus: false });
+  }
+
+  function applyComfyConnectionRole(role: ComfyConnectionRole) {
+    if (editingConnection.kind !== 'comfyui') {
+      return;
+    }
+    const roleLabels = ['ComfyUI Default', 'ComfyUI Image', 'ComfyUI Voice'];
+    const currentLabel = editingConnection.label.trim();
+    const bundledWorkflowPaths: string[] = [defaultComfyWorkflowPath, defaultComfyVoiceWorkflowPath];
+    const currentWorkflowPath = editingConnection.comfyWorkflowPath?.trim() ?? '';
+    const roleDefaultWorkflowPath = role === 'voice' ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath;
+    const nextConnection: ConnectionPreset = {
+      ...editingConnection,
+      comfyRole: role,
+      label: !currentLabel || roleLabels.includes(currentLabel)
+        ? (role === 'voice' ? 'ComfyUI Voice' : 'ComfyUI Image')
+        : editingConnection.label,
+      comfyWorkflowPath: !currentWorkflowPath || bundledWorkflowPaths.includes(currentWorkflowPath)
+        ? roleDefaultWorkflowPath
+        : currentWorkflowPath,
+    };
+    setConnections((current) =>
+      current.map((entry) => (entry.id === nextConnection.id ? nextConnection : entry)),
+    );
+    setEditingConnection(nextConnection);
+    setComfyWorkflowInspection(null);
+    setPendingComfyWorkflowRepair(null);
+    setComfyWorkflowRepairStatus('');
+    setConnectionStatus(
+      role === 'voice'
+        ? 'ComfyUI voice generation selected. Check the Base URL and workflow.'
+        : 'ComfyUI image generation selected. Check the Base URL and workflow.',
+    );
+    void checkProviderConnection(nextConnection, { showStatus: true });
+    void inspectComfyWorkflow(nextConnection, { showStatus: false });
+    if (role === 'image') {
       void loadComfyModelLists(nextConnection);
     }
   }
@@ -280,9 +344,12 @@ export function useProviderConnections({
   function connectionFromEditingConnection(): ConnectionPreset {
     const kind: NonNullable<ConnectionPreset['kind']> =
       editingConnection.kind === 'comfyui' ? 'comfyui' : 'llm';
+    const comfyRole = kind === 'comfyui' ? comfyConnectionRole(editingConnection) : null;
+    const isComfyImage = comfyRole === 'image';
     return {
       ...editingConnection,
       kind,
+      comfyRole: comfyRole ?? undefined,
       providerKind: kind === 'comfyui'
         ? undefined
         : editingConnection.providerKind ?? inferredProviderKind(editingConnection),
@@ -291,30 +358,31 @@ export function useProviderConnections({
       model: kind === 'comfyui' ? '' : editingConnection.model.trim(),
       apiKey: kind === 'comfyui' ? '' : editingConnection.apiKey.trim(),
       comfyWorkflowPath: kind === 'comfyui'
-        ? editingConnection.comfyWorkflowPath?.trim() || defaultComfyWorkflowPath
+        ? editingConnection.comfyWorkflowPath?.trim() ||
+          (comfyRole === 'voice' ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath)
         : undefined,
-      comfyWidth: kind === 'comfyui'
+      comfyWidth: isComfyImage
         ? validComfyDimension(editingConnection.comfyWidth, defaultComfyWidth)
         : undefined,
-      comfyHeight: kind === 'comfyui'
+      comfyHeight: isComfyImage
         ? validComfyDimension(editingConnection.comfyHeight, defaultComfyHeight)
         : undefined,
-      comfyPrompt: kind === 'comfyui'
+      comfyPrompt: isComfyImage
         ? editingConnection.comfyPrompt?.trim() || defaultComfyPrompt
         : undefined,
-      comfyCheckpointName: kind === 'comfyui'
+      comfyCheckpointName: isComfyImage
         ? editingConnection.comfyCheckpointName ?? defaultComfyCheckpointName
         : undefined,
-      comfyDiffusionModelName: kind === 'comfyui'
+      comfyDiffusionModelName: isComfyImage
         ? editingConnection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName
         : undefined,
-      comfyVaeName: kind === 'comfyui'
+      comfyVaeName: isComfyImage
         ? editingConnection.comfyVaeName ?? defaultComfyVaeName
         : undefined,
-      comfyTextEncoderName: kind === 'comfyui'
+      comfyTextEncoderName: isComfyImage
         ? editingConnection.comfyTextEncoderName ?? defaultComfyTextEncoderName
         : undefined,
-      comfyLoraSlots: kind === 'comfyui'
+      comfyLoraSlots: isComfyImage
         ? validComfyLoraSlots(editingConnection.comfyLoraSlots ?? defaultComfyLoraSlots)
         : undefined,
       reasoningEffort: kind === 'comfyui'
@@ -476,7 +544,7 @@ export function useProviderConnections({
           health = {
             status: 'offline',
             detail: result.error ?? 'ComfyUI is not reachable.',
-            capabilities: { image: true },
+            capabilities: comfyConnectionCapabilities(connection),
             checkedAt: providerCheckedAt(),
           };
           updateProviderHealth(connection.id, health);
@@ -750,7 +818,7 @@ export function useProviderConnections({
       return;
     }
     void inspectComfyWorkflowRef.current(editingConnectionRef.current, { showStatus: false });
-  }, [editingConnection.kind, editingConnection.comfyWorkflowPath, showConnections]);
+  }, [editingConnection.kind, editingConnection.comfyRole, editingConnection.comfyWorkflowPath, showConnections]);
 
   function deleteConnection() {
     if (connections.length === 1) {
@@ -978,8 +1046,8 @@ export function useProviderConnections({
     options: { showStatus?: boolean; markActive?: boolean } = {},
   ) {
     const connection = connectionOverride ?? connectionFromEditingConnection();
-    if (connection.kind !== 'comfyui') {
-      setConnectionStatus('Choose a ComfyUI provider before loading ComfyUI models.');
+    if (!isComfyImageConnection(connection)) {
+      setConnectionStatus('Choose a ComfyUI image provider before loading ComfyUI models.');
       return;
     }
 
@@ -1062,23 +1130,29 @@ export function useProviderConnections({
     }
   }
 
+  function comfyWorkflowPathForConnection(connection: ConnectionPreset) {
+    return connection.comfyWorkflowPath ||
+      (comfyConnectionRole(connection) === 'voice' ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath);
+  }
+
   async function inspectComfyWorkflow(
     connectionOverride?: ConnectionPreset,
     options: { showStatus?: boolean } = {},
   ) {
     const connection = connectionOverride ?? connectionFromEditingConnection();
-    if (connection.kind !== 'comfyui') {
+    const role = comfyConnectionRole(connection);
+    if (connection.kind !== 'comfyui' || role === null) {
       setComfyWorkflowInspection(null);
       return null;
     }
 
-    const workflowPath = connection.comfyWorkflowPath || defaultComfyWorkflowPath;
+    const workflowPath = comfyWorkflowPathForConnection(connection);
     if (pendingComfyWorkflowRepair?.workflowPath !== workflowPath) {
       setPendingComfyWorkflowRepair(null);
       setComfyWorkflowRepairStatus('');
     }
     try {
-      const inspection = await window.rpgraph.inspectComfyWorkflow({ workflowPath });
+      const inspection = await window.rpgraph.inspectComfyWorkflow({ workflowPath, role });
       setComfyWorkflowInspection(inspection);
       if (inspection.ok) {
         setPendingComfyWorkflowRepair(null);
@@ -1092,6 +1166,7 @@ export function useProviderConnections({
       const inspection: ComfyWorkflowInspection = {
         ok: false,
         format: 'unknown',
+        role,
         modelSource: 'missing',
         placeholders: [],
         missing: [error instanceof Error ? error.message : String(error)],
@@ -1118,13 +1193,14 @@ export function useProviderConnections({
       return;
     }
 
-    const workflowPath = connection.comfyWorkflowPath || defaultComfyWorkflowPath;
+    const workflowPath = comfyWorkflowPathForConnection(connection);
     setComfyProviderActionActive('repair');
     setPendingComfyWorkflowRepair(null);
     setComfyWorkflowRepairStatus(`Fixing workflow with ${llmConnection.label} ...`);
     try {
       const result = await window.rpgraph.repairComfyWorkflow({
         workflowPath,
+        role: comfyConnectionRole(connection) ?? 'image',
         connection: llmConnection,
       });
       setPendingComfyWorkflowRepair({
@@ -1152,7 +1228,7 @@ export function useProviderConnections({
   async function applyComfyWorkflowRepair() {
     const connection = connectionFromEditingConnection();
     const workflowPath = connection.kind === 'comfyui'
-      ? connection.comfyWorkflowPath || defaultComfyWorkflowPath
+      ? comfyWorkflowPathForConnection(connection)
       : '';
     if (!pendingComfyWorkflowRepair || pendingComfyWorkflowRepair.workflowPath !== workflowPath) {
       setComfyWorkflowRepairStatus('Run Fix Prompt before applying a repair.');
@@ -1164,6 +1240,7 @@ export function useProviderConnections({
     try {
       const result = await window.rpgraph.applyComfyWorkflowRepair({
         workflowPath,
+        role: comfyConnectionRole(connection) ?? 'image',
         workflowJson: pendingComfyWorkflowRepair.workflowJson,
       });
       setPendingComfyWorkflowRepair(null);
@@ -1208,8 +1285,8 @@ export function useProviderConnections({
 
   async function generateComfyTestImage() {
     const connection = connectionFromEditingConnection();
-    if (connection.kind !== 'comfyui') {
-      setConnectionStatus('Choose a ComfyUI provider before generating an image.');
+    if (!isComfyImageConnection(connection)) {
+      setConnectionStatus('Choose a ComfyUI image provider before generating an image.');
       return;
     }
     const missingFields = missingComfySetupFields(connection);
@@ -1272,9 +1349,9 @@ export function useProviderConnections({
   }
 
   async function loadCharacterComfyLoras(providerId: string) {
-    const connection = connections.find((entry) => entry.id === providerId && entry.kind === 'comfyui');
+    const connection = connections.find((entry) => entry.id === providerId && isComfyImageConnection(entry));
     if (!connection) {
-      throw new Error('Choose a ComfyUI provider first.');
+      throw new Error('Choose a ComfyUI image provider first.');
     }
     const cacheKey = `${connection.id}|${connection.baseUrl}`;
     const cachedLoras = characterComfyLoraCacheRef.current[cacheKey];
@@ -1321,9 +1398,9 @@ export function useProviderConnections({
     appearance: string;
     scenarioPrompt: string;
   }) {
-    const connection = connections.find((entry) => entry.id === request.providerId && entry.kind === 'comfyui');
+    const connection = connections.find((entry) => entry.id === request.providerId && isComfyImageConnection(entry));
     if (!connection) {
-      throw new Error('Choose a ComfyUI provider first.');
+      throw new Error('Choose a ComfyUI image provider first.');
     }
     const missingFields = missingComfySetupFields(connection);
     if (missingFields.length > 0) {
@@ -1358,6 +1435,42 @@ export function useProviderConnections({
     return result.images.map((image) => ({
       dataUrl: image.dataUrl,
       filename: image.filename,
+    }));
+  }
+
+  async function generateCharacterVoicePreview(request: {
+    providerId: string;
+    speechText: string;
+    sampleDataUrl: string;
+  }) {
+    const connection = connections.find((entry) => entry.id === request.providerId && isComfyVoiceConnection(entry));
+    if (!connection) {
+      throw new Error('Choose a ComfyUI voice provider first.');
+    }
+    const speechText = request.speechText.trim();
+    if (!speechText) {
+      throw new Error('Enter a text to speak first.');
+    }
+    if (!request.sampleDataUrl) {
+      throw new Error('Upload a voice sample for this character first.');
+    }
+    await unloadLocalLlmModelsForComfy('Local LLM unload before voice preview failed');
+    const result = await window.rpgraph.runComfyVoiceWorkflowPath({
+      baseUrl: connection.baseUrl,
+      workflowPath: comfyWorkflowPathForConnection(connection),
+      speechText,
+      sampleDataUrl: request.sampleDataUrl,
+      timeoutMs: 300000,
+    });
+    updateProviderHealth(connection.id, {
+      status: 'online',
+      detail: `Generated ${result.audio.length} voice clip${result.audio.length === 1 ? '' : 's'}.`,
+      capabilities: { voice: true },
+      checkedAt: providerCheckedAt(),
+    });
+    return result.audio.map((clip) => ({
+      dataUrl: clip.dataUrl,
+      filename: clip.filename,
     }));
   }
 
@@ -1571,7 +1684,9 @@ export function useProviderConnections({
     void checkProviderConnection(connection, { showStatus: true });
     if (connection.kind === 'comfyui') {
       void inspectComfyWorkflow(connection, { showStatus: false });
-      void loadComfyModelLists(connection);
+      if (isComfyImageConnection(connection)) {
+        void loadComfyModelLists(connection);
+      }
     }
   }
 
@@ -1685,6 +1800,7 @@ export function useProviderConnections({
     selectConnection,
     newConnection,
     applyProviderPreset,
+    applyComfyConnectionRole,
     editConnection,
     loadConnectionModels,
     deleteConnection,
@@ -1706,6 +1822,7 @@ export function useProviderConnections({
     checkProviderConnections,
     loadCharacterComfyLoras,
     generateCharacterComfyPreview,
+    generateCharacterVoicePreview,
     unloadCharacterComfyModels,
     resolveConnection,
   };

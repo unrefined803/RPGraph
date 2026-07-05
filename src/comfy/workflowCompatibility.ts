@@ -1,6 +1,7 @@
 export type ComfyWorkflowInspection = {
   ok: boolean;
   format: 'api' | 'ui' | 'unknown';
+  role: 'image' | 'voice';
   modelSource: 'checkpoint' | 'diffusion_model' | 'both' | 'missing';
   placeholders: string[];
   missing: string[];

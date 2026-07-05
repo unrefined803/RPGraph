@@ -27,9 +27,12 @@ export type LlmProviderKind =
   | 'gemini'
   | 'custom';
 
+export type ComfyConnectionRole = 'image' | 'voice';
+
 export type ConnectionPreset = {
   id: string;
   kind?: 'llm' | 'comfyui';
+  comfyRole?: ComfyConnectionRole;
   providerKind?: LlmProviderKind;
   label: string;
   baseUrl: string;
@@ -57,6 +60,7 @@ export type ProviderConnectionCapabilities = {
   vision?: boolean;
   tools?: boolean;
   image?: boolean;
+  voice?: boolean;
 };
 
 export type ProviderConnectionHealth = {

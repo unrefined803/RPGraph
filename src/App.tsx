@@ -161,6 +161,7 @@ import {
 } from '@xyflow/react';
 import { StudioDialogs } from './dialogs/StudioDialogs';
 import { ComfyGeneratedImageDialog } from './comfy/ComfyGeneratedImageDialog';
+import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import {
   withSourceNodeStatusConnectionColors,
@@ -1230,6 +1231,7 @@ function App() {
     selectConnection,
     newConnection,
     applyProviderPreset,
+    applyComfyConnectionRole,
     editConnection,
     loadConnectionModels,
     deleteConnection,
@@ -1246,10 +1248,12 @@ function App() {
     loadOllamaModel,
     unloadOllamaModels,
     applyConnectionToAllNodes,
+    checkProviderConnection,
     checkProviderConnectionById,
     checkProviderConnections,
     loadCharacterComfyLoras,
     generateCharacterComfyPreview,
+    generateCharacterVoicePreview,
     unloadCharacterComfyModels,
     resolveConnection,
   } = useProviderConnections({
@@ -5911,6 +5915,7 @@ function App() {
           }
           onLoadCharacterComfyLoras={loadCharacterComfyLoras}
           onGenerateCharacterComfyPreview={generateCharacterComfyPreview}
+          onGenerateCharacterVoicePreview={generateCharacterVoicePreview}
           onUnloadCharacterComfyModels={unloadCharacterComfyModels}
           onImportOpeningHistory={() => importCurrentChatAsOpeningHistory(storybookCreatorNode.id)}
           onClearOpeningHistory={() => clearStorybookOpeningHistory(storybookCreatorNode.id)}
@@ -6185,11 +6190,19 @@ function App() {
         onSelectConnection={selectConnection}
         onNewConnection={newConnection}
         onApplyProviderPreset={applyProviderPreset}
+        onApplyComfyConnectionRole={applyComfyConnectionRole}
         onEditConnection={editConnection}
         onRefreshConnectionModels={() => void loadConnectionModels(false)}
         onDeleteConnection={deleteConnection}
         onCheckConnectionModels={() => void checkConnectionModels()}
-        onConnectComfyProvider={() => void loadComfyModelLists(connectionFromEditingConnection())}
+        onConnectComfyProvider={() => {
+          const connection = connectionFromEditingConnection();
+          if (isComfyVoiceConnection(connection)) {
+            void checkProviderConnection(connection, { showStatus: true });
+          } else {
+            void loadComfyModelLists(connection);
+          }
+        }}
         onSelectComfyWorkflow={() => void selectComfyWorkflow()}
         onRepairComfyWorkflow={(llmConnectionId) => void repairComfyWorkflow(llmConnectionId)}
         onApplyComfyWorkflowRepair={() => void applyComfyWorkflowRepair()}

@@ -146,7 +146,7 @@ The app supports saved provider connections for LLM and ComfyUI usage.
 
 LLM providers are represented as OpenAI-compatible connection presets. The default is a local LM Studio-style connection at `http://localhost:1234/v1`.
 
-ComfyUI providers are used for image generation. The default ComfyUI base URL is `http://127.0.0.1:8188`, with a bundled workflow path at `comfy-workflows/Krea2.json`.
+ComfyUI providers are used for image and voice generation. Each ComfyUI preset has a role (`image` or `voice`) chosen when the preset is created. The default ComfyUI base URL is `http://127.0.0.1:8188`, with bundled workflow paths at `comfy-workflows/Krea2.json` (image) and `comfy-workflows/VibeVoice.json` (voice). Voice presets clone a character voice from an MP3 sample stored in the storybook (`characters[].voiceConfig`); the sample is uploaded to the ComfyUI input directory before each run, and generated audio is fetched back as a data URL.
 
 Provider management includes:
 
@@ -156,8 +156,8 @@ Provider management includes:
 - Health checks.
 - Vision capability detection.
 - Local model load/unload helpers for LM Studio and Ollama.
-- ComfyUI workflow inspection and repair.
-- ComfyUI model memory management around image generation.
+- ComfyUI workflow inspection and repair (role-aware placeholders for image and voice workflows).
+- ComfyUI model memory management around image and voice generation.
 
 ## Built-in AI Assistant
 

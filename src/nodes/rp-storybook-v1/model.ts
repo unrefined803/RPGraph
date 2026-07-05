@@ -34,6 +34,12 @@ export type RpStorybookCharacterComfyConfig = {
   appearance: string;
 };
 
+export type RpStorybookCharacterVoiceConfig = {
+  sampleName: string;
+  sampleMimeType: string;
+  sampleDataUrl: string;
+};
+
 export type RpStorybookV1Character = {
   id: string;
   name: string;
@@ -42,6 +48,7 @@ export type RpStorybookV1Character = {
   speechStyle: string;
   role: string;
   comfyConfig?: RpStorybookCharacterComfyConfig;
+  voiceConfig?: RpStorybookCharacterVoiceConfig;
   profileImage?: RpStorybookCharacterProfileImage;
 } & RpStorybookCharacterImageOwner;
 
@@ -353,6 +360,27 @@ export function rpStorybookCharacterComfyConfig(value: unknown): RpStorybookChar
   };
 }
 
+export function defaultRpStorybookCharacterVoiceConfig(): RpStorybookCharacterVoiceConfig {
+  return {
+    sampleName: '',
+    sampleMimeType: '',
+    sampleDataUrl: '',
+  };
+}
+
+export function rpStorybookCharacterVoiceConfig(value: unknown): RpStorybookCharacterVoiceConfig {
+  const config = recordValue(value);
+  const sampleDataUrl = stringValue(config.sampleDataUrl);
+  if (!sampleDataUrl.startsWith('data:audio/')) {
+    return defaultRpStorybookCharacterVoiceConfig();
+  }
+  return {
+    sampleName: stringValue(config.sampleName),
+    sampleMimeType: stringValue(config.sampleMimeType) || 'audio/mpeg',
+    sampleDataUrl,
+  };
+}
+
 function normalizeCharacter(value: unknown, index: number, usedImageIds: Set<string>): RpStorybookV1Character {
   const character = recordValue(value);
   const name = stringValue(character.name);
@@ -369,6 +397,7 @@ function normalizeCharacter(value: unknown, index: number, usedImageIds: Set<str
     speechStyle: stringValue(character.speechStyle),
     role: stringValue(character.role),
     comfyConfig: rpStorybookCharacterComfyConfig(character.comfyConfig),
+    voiceConfig: rpStorybookCharacterVoiceConfig(character.voiceConfig),
     ...(profileImage ? { profileImage } : {}),
     images,
   };
@@ -816,6 +845,9 @@ export function rpStorybookPromptJsonText(storybook: RpStorybookV1) {
       ...(character.profileImage
         ? { profileImage: { ...character.profileImage, dataUrl: 'data:image/jpeg;base64,...' } }
         : {}),
+      ...(character.voiceConfig?.sampleDataUrl
+        ? { voiceConfig: { ...character.voiceConfig, sampleDataUrl: 'data:audio/mpeg;base64,...' } }
+        : {}),
       images: character.images.map(({ dataUrl: _dataUrl, ...image }) => image),
     })),
     openingHistory: {
@@ -852,6 +884,10 @@ function withPreservedCharacterImages(
       comfyConfig: character.comfyConfig?.loraName || character.comfyConfig?.loraUrl || character.comfyConfig?.appearance
         ? character.comfyConfig
         : fallbackCharacters.get(character.id)?.comfyConfig ?? character.comfyConfig ?? defaultRpStorybookCharacterComfyConfig(),
+      // Voice samples are binary payloads the assistant never edits; always keep the stored ones.
+      voiceConfig: fallbackCharacters.get(character.id)?.voiceConfig ??
+        character.voiceConfig ??
+        defaultRpStorybookCharacterVoiceConfig(),
       images: fallbackCharacters.get(character.id)?.images ?? character.images,
     })),
   };
@@ -985,11 +1021,12 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string) 
     'Keep the exact storybook shape below:',
     '{"format":"rpgraph-storybook","version":"1.16.0","title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[]}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
-    'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].profileImage, and characters[].images dataUrl values, unless the user explicitly changes them.',
+    'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, and characters[].images dataUrl values, unless the user explicitly changes them.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
     'For character renames, replace only characters/{index}/name and keep the character id stable.',
     'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, comfyConfig, and images.',
     'characters[].comfyConfig is optional image-generation configuration. loraName is a ComfyUI LoRA file name for that character. loraUrl is an optional download/source URL for that LoRA. appearance is a concise visual description for generated images. Leave them empty unless the user explicitly provides image-generation details.',
+    'characters[].voiceConfig stores a binary voice sample managed by the app. Never create, edit, or remove it.',
     'For edits, changedFields must list compact field paths that changed, for example "title", "scenario", "characters".',
     'Every playable person, npc, or roleplay participant belongs in characters. Do not create any other character container fields.',
     'phoneContacts.blocked stores bidirectional hidden phone contact pairs for the Phone UI only. It is not story context. Default is everyone can see everyone, so keep blocked empty unless the user explicitly says two characters should not appear as phone contacts.',

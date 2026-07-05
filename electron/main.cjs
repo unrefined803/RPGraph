@@ -32,6 +32,8 @@ const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
 const defaultWorkflowFileNamePattern = /^workflow\.default.*\.json$/i;
 const defaultComfyWorkflowPath = path.join(__dirname, '../comfy-workflows/Krea2.json');
+const defaultComfyVoiceWorkflowPath = path.join(__dirname, '../comfy-workflows/VibeVoice.json');
+const maxComfyVoiceSampleBytes = 24 * 1024 * 1024;
 const appIconPath = path.join(
   __dirname,
   process.platform === 'win32'
@@ -46,7 +48,10 @@ const workflowCipherAad = Buffer.from('rpgraph-encrypted-workflow:v2');
 const storybookCipherAad = Buffer.from('rpgraph-encrypted-storybook:v1');
 const approvedWorkflowPaths = new Set();
 const approvedFilePaths = new Set();
-const approvedComfyWorkflowPaths = new Set([path.resolve(defaultComfyWorkflowPath)]);
+const approvedComfyWorkflowPaths = new Set([
+  path.resolve(defaultComfyWorkflowPath),
+  path.resolve(defaultComfyVoiceWorkflowPath),
+]);
 
 function bundledDefaultWorkflowPath() {
   const names = fsSync
@@ -1690,7 +1695,11 @@ function extractComfyWorkflowPlaceholders(value, placeholders = new Set()) {
   return placeholders;
 }
 
-function comfyWorkflowInspection(value, workflowPath = '') {
+function comfyWorkflowRole(role) {
+  return role === 'voice' ? 'voice' : 'image';
+}
+
+function comfyWorkflowInspection(value, workflowPath = '', role = 'image') {
   let format = 'unknown';
   let prompt = null;
   if (value && typeof value === 'object' && !Array.isArray(value) && Array.isArray(value.nodes)) {
@@ -1716,16 +1725,24 @@ function comfyWorkflowInspection(value, workflowPath = '') {
   if (placeholders.length === 0) {
     missing.push('RPGraph placeholders');
   }
-  for (const required of ['width', 'height', 'prompt', 'vae', 'text_encoder']) {
-    if (!placeholderSet.has(required)) {
-      missing.push(required);
+  if (comfyWorkflowRole(role) === 'voice') {
+    for (const required of ['speech_text', 'voice_audio']) {
+      if (!placeholderSet.has(required)) {
+        missing.push(required);
+      }
     }
-  }
-  if (!hasCheckpoint && !hasDiffusionModel) {
-    missing.push('checkpoint or diffusion_model');
-  }
-  if (!hasLora) {
-    missing.push('at least one lora placeholder');
+  } else {
+    for (const required of ['width', 'height', 'prompt', 'vae', 'text_encoder']) {
+      if (!placeholderSet.has(required)) {
+        missing.push(required);
+      }
+    }
+    if (!hasCheckpoint && !hasDiffusionModel) {
+      missing.push('checkpoint or diffusion_model');
+    }
+    if (!hasLora) {
+      missing.push('at least one lora placeholder');
+    }
   }
 
   const modelSource = hasCheckpoint && hasDiffusionModel
@@ -1739,6 +1756,7 @@ function comfyWorkflowInspection(value, workflowPath = '') {
   return {
     ok: format === 'api' && missing.length === 0,
     format,
+    role: comfyWorkflowRole(role),
     modelSource,
     placeholders,
     missing: Array.from(new Set(missing)),
@@ -1747,8 +1765,8 @@ function comfyWorkflowInspection(value, workflowPath = '') {
   };
 }
 
-function assertComfyWorkflowCompatible(value, workflowPath = '') {
-  const inspection = comfyWorkflowInspection(value, workflowPath);
+function assertComfyWorkflowCompatible(value, workflowPath = '', role = 'image') {
+  const inspection = comfyWorkflowInspection(value, workflowPath, role);
   if (!inspection.ok) {
     throw new Error(
       `ComfyUI workflow is not compatible with RPGraph. Missing: ${inspection.missing.join(', ')}.`,
@@ -1757,7 +1775,32 @@ function assertComfyWorkflowCompatible(value, workflowPath = '') {
   return inspection;
 }
 
+function comfyVoiceWorkflowRepairPrompt(workflowJson, inspection) {
+  return `You are fixing a ComfyUI voice generation workflow for RPGraph.
+
+Return only a valid RFC 6902 JSON Patch array. Do not wrap it in Markdown. Do not explain. Do not return the complete workflow.
+
+The patch must transform the provided workflow into a ComfyUI API workflow: an object whose node IDs map to nodes with class_type and inputs. Do not transform it into the ComfyUI UI graph format with nodes/links.
+
+Keep the original workflow logic as much as possible, but make it RPGraph-compatible by using these exact placeholders:
+- Text to speak: {{speech_text}} as the spoken text input of the text-to-speech node.
+- Reference voice clip: {{voice_audio}} as the audio file name of the LoadAudio node that provides the voice to clone. Remove any audioUI preview inputs from that node.
+- Do not invent other RPGraph placeholder names.
+- The workflow must save its generated audio as an output. Replace preview-only audio nodes (like PreviewAudio) with a saving node such as SaveAudioMP3 with a filename_prefix input.
+
+Current RPGraph check:
+- Format: ${inspection.format}
+- Missing: ${inspection.missing.join(', ') || 'none'}
+- Existing placeholders: ${inspection.placeholders.join(', ') || 'none'}
+
+Workflow JSON:
+${workflowJson}`;
+}
+
 function comfyWorkflowRepairPrompt(workflowJson, inspection) {
+  if (inspection.role === 'voice') {
+    return comfyVoiceWorkflowRepairPrompt(workflowJson, inspection);
+  }
   return `You are fixing a ComfyUI workflow for RPGraph.
 
 Return only a valid RFC 6902 JSON Patch array. Do not wrap it in Markdown. Do not explain. Do not return the complete workflow.
@@ -1938,10 +1981,10 @@ function applyJsonPatchDocument(value, patch) {
   return target;
 }
 
-async function repairComfyWorkflowWithLlm(workflowPath, connection, abort) {
+async function repairComfyWorkflowWithLlm(workflowPath, connection, abort, role = 'image') {
   const contents = await fs.readFile(workflowPath, 'utf8');
   const parsedWorkflow = JSON.parse(contents);
-  const inspection = comfyWorkflowInspection(parsedWorkflow, workflowPath);
+  const inspection = comfyWorkflowInspection(parsedWorkflow, workflowPath, role);
   if (inspection.ok) {
     return {
       ok: true,
@@ -1990,7 +2033,7 @@ async function repairComfyWorkflowWithLlm(workflowPath, connection, abort) {
   if (!fixedWorkflow) {
     throw new Error('The LLM must return a JSON Patch array.');
   }
-  const fixedInspection = comfyWorkflowInspection(fixedWorkflow, workflowPath);
+  const fixedInspection = comfyWorkflowInspection(fixedWorkflow, workflowPath, role);
   if (!fixedInspection.ok) {
     throw new Error(`The LLM returned a workflow that is still incompatible. Missing: ${fixedInspection.missing.join(', ')}.`);
   }
@@ -2119,12 +2162,12 @@ function comfyModelCategory(value) {
   return value;
 }
 
-async function requestComfyImage(baseUrl, image, abort) {
+async function requestComfyOutputFile(baseUrl, file, abort, fallbackMimeType) {
   const params = new URLSearchParams();
-  params.set('filename', image.filename);
-  params.set('type', image.type || 'output');
-  if (image.subfolder) {
-    params.set('subfolder', image.subfolder);
+  params.set('filename', file.filename);
+  params.set('type', file.type || 'output');
+  if (file.subfolder) {
+    params.set('subfolder', file.subfolder);
   }
 
   const response = await requestLlmResponse(
@@ -2139,37 +2182,96 @@ async function requestComfyImage(baseUrl, image, abort) {
   const contentType = Array.isArray(response.headers['content-type'])
     ? response.headers['content-type'][0]
     : response.headers['content-type'];
-  const mimeType = contentType || 'image/png';
+  const mimeType = contentType || fallbackMimeType;
   const buffer = await response.buffer();
   return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
-function comfyHistoryImages(promptId, history) {
+function comfyVoiceSampleFromDataUrl(dataUrl) {
+  const match = typeof dataUrl === 'string'
+    ? dataUrl.match(/^data:(audio\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/i)
+    : null;
+  if (!match) {
+    throw new Error('The voice sample must be a base64 audio data URL.');
+  }
+  const buffer = Buffer.from(match[2], 'base64');
+  if (buffer.length === 0) {
+    throw new Error('The voice sample is empty.');
+  }
+  if (buffer.length > maxComfyVoiceSampleBytes) {
+    throw new Error(
+      `The voice sample is too large: ${formatMegabytes(buffer.length)}. ` +
+        `The limit is ${formatMegabytes(maxComfyVoiceSampleBytes)}.`,
+    );
+  }
+  return { buffer, mimeType: match[1].toLowerCase() };
+}
+
+// ComfyUI's upload route is named "image" for historical reasons; it stores any
+// file in the server's input directory, which is what LoadAudio reads from.
+async function uploadComfyVoiceSample(baseUrl, sampleDataUrl, abort) {
+  const sample = comfyVoiceSampleFromDataUrl(sampleDataUrl);
+  const contentHash = crypto.createHash('sha256').update(sample.buffer).digest('hex').slice(0, 16);
+  const fileName = `rpgraph-voice-${contentHash}.mp3`;
+  const boundary = `----rpgraph-${crypto.randomUUID()}`;
+  const body = Buffer.concat([
+    Buffer.from(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="image"; filename="${fileName}"\r\n` +
+        `Content-Type: ${sample.mimeType}\r\n\r\n`,
+    ),
+    sample.buffer,
+    Buffer.from(
+      `\r\n--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="overwrite"\r\n\r\n' +
+        'true\r\n' +
+        `--${boundary}--\r\n`,
+    ),
+  ]);
+
+  const response = await requestLlmResponse(comfyEndpoint(baseUrl, 'upload/image'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'Content-Length': String(body.length),
+    },
+    body,
+  }, abort);
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  const result = JSON.parse((await response.text()) || '{}');
+  const uploadedName = typeof result?.name === 'string' && result.name.trim() ? result.name : fileName;
+  const subfolder = typeof result?.subfolder === 'string' && result.subfolder ? result.subfolder : '';
+  return subfolder ? `${subfolder}/${uploadedName}` : uploadedName;
+}
+
+function comfyHistoryOutputFiles(promptId, history, outputKey) {
   const promptHistory = history?.[promptId];
   const outputs = promptHistory?.outputs;
   if (!outputs || typeof outputs !== 'object') {
     return [];
   }
 
-  const images = [];
+  const files = [];
   for (const [nodeId, output] of Object.entries(outputs)) {
-    const outputImages = Array.isArray(output?.images) ? output.images : [];
-    for (const image of outputImages) {
-      if (typeof image?.filename !== 'string' || !image.filename.trim()) {
+    const outputFiles = Array.isArray(output?.[outputKey]) ? output[outputKey] : [];
+    for (const file of outputFiles) {
+      if (typeof file?.filename !== 'string' || !file.filename.trim()) {
         continue;
       }
-      images.push({
+      files.push({
         nodeId,
-        filename: image.filename,
-        subfolder: typeof image.subfolder === 'string' ? image.subfolder : '',
-        type: typeof image.type === 'string' ? image.type : 'output',
+        filename: file.filename,
+        subfolder: typeof file.subfolder === 'string' ? file.subfolder : '',
+        type: typeof file.type === 'string' ? file.type : 'output',
       });
     }
   }
-  return images;
+  return files;
 }
 
-async function runComfyPrompt(baseUrl, workflow, timeoutMs, abort) {
+async function waitForComfyPromptHistory(baseUrl, workflow, timeoutMs, abort) {
   if (!workflow || typeof workflow !== 'object' || Array.isArray(workflow)) {
     throw new Error('Choose a ComfyUI API workflow JSON before sending.');
   }
@@ -2205,7 +2307,12 @@ async function runComfyPrompt(baseUrl, workflow, timeoutMs, abort) {
     throw new Error(`Timed out waiting for ComfyUI prompt ${promptId}.`);
   }
 
-  const imageRefs = comfyHistoryImages(promptId, history);
+  return { promptId, history };
+}
+
+async function runComfyPrompt(baseUrl, workflow, timeoutMs, abort) {
+  const { promptId, history } = await waitForComfyPromptHistory(baseUrl, workflow, timeoutMs, abort);
+  const imageRefs = comfyHistoryOutputFiles(promptId, history, 'images');
   if (imageRefs.length === 0) {
     throw new Error(`ComfyUI prompt ${promptId} finished, but no output images were found in history.`);
   }
@@ -2214,11 +2321,29 @@ async function runComfyPrompt(baseUrl, workflow, timeoutMs, abort) {
   for (const image of imageRefs) {
     images.push({
       ...image,
-      dataUrl: await requestComfyImage(baseUrl, image, abort),
+      dataUrl: await requestComfyOutputFile(baseUrl, image, abort, 'image/png'),
     });
   }
 
   return { promptId, images };
+}
+
+async function runComfyVoicePrompt(baseUrl, workflow, timeoutMs, abort) {
+  const { promptId, history } = await waitForComfyPromptHistory(baseUrl, workflow, timeoutMs, abort);
+  const audioRefs = comfyHistoryOutputFiles(promptId, history, 'audio');
+  if (audioRefs.length === 0) {
+    throw new Error(`ComfyUI prompt ${promptId} finished, but no output audio was found in history.`);
+  }
+
+  const audio = [];
+  for (const clip of audioRefs) {
+    audio.push({
+      ...clip,
+      dataUrl: await requestComfyOutputFile(baseUrl, clip, abort, 'audio/mpeg'),
+    });
+  }
+
+  return { promptId, audio };
 }
 
 function delay(ms, abort) {
@@ -2704,16 +2829,24 @@ ipcMain.handle('comfy:select-workflow', async () => {
   };
 });
 
+function defaultComfyWorkflowPathForRole(role) {
+  return comfyWorkflowRole(role) === 'voice'
+    ? 'comfy-workflows/VibeVoice.json'
+    : 'comfy-workflows/Krea2.json';
+}
+
 ipcMain.handle('comfy:inspect-workflow', async (_event, request) => {
   let filePath = '';
+  const role = comfyWorkflowRole(request?.role);
   try {
-    filePath = validateComfyWorkflowPath(request?.workflowPath || 'comfy-workflows/Krea2.json');
+    filePath = validateComfyWorkflowPath(request?.workflowPath || defaultComfyWorkflowPathForRole(role));
     const contents = await fs.readFile(filePath, 'utf8');
-    return comfyWorkflowInspection(JSON.parse(contents), filePath);
+    return comfyWorkflowInspection(JSON.parse(contents), filePath, role);
   } catch (error) {
     return {
       ok: false,
       format: 'unknown',
+      role,
       modelSource: 'missing',
       placeholders: [],
       missing: [error instanceof Error ? error.message : String(error)],
@@ -2725,9 +2858,10 @@ ipcMain.handle('comfy:inspect-workflow', async (_event, request) => {
 
 ipcMain.handle('comfy:repair-workflow', async (_event, request) => {
   const abort = createLlmAbortController(request);
+  const role = comfyWorkflowRole(request?.role);
   try {
-    const filePath = validateComfyWorkflowPath(request?.workflowPath || 'comfy-workflows/Krea2.json');
-    return await repairComfyWorkflowWithLlm(filePath, request?.connection, abort);
+    const filePath = validateComfyWorkflowPath(request?.workflowPath || defaultComfyWorkflowPathForRole(role));
+    return await repairComfyWorkflowWithLlm(filePath, request?.connection, abort, role);
   } catch (error) {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
@@ -2740,9 +2874,10 @@ ipcMain.handle('comfy:repair-workflow', async (_event, request) => {
 
 ipcMain.handle('comfy:apply-workflow-repair', async (_event, request) => {
   try {
-    const filePath = validateComfyWorkflowPath(request?.workflowPath || 'comfy-workflows/Krea2.json');
+    const role = comfyWorkflowRole(request?.role);
+    const filePath = validateComfyWorkflowPath(request?.workflowPath || defaultComfyWorkflowPathForRole(role));
     const workflow = extractJsonObjectFromText(request?.workflowJson);
-    const inspection = assertComfyWorkflowCompatible(workflow, filePath);
+    const inspection = assertComfyWorkflowCompatible(workflow, filePath, role);
     const workflowJson = `${JSON.stringify(workflow, null, 2)}\n`;
     await fs.writeFile(filePath, workflowJson, 'utf8');
     return {
@@ -2769,6 +2904,36 @@ ipcMain.handle('comfy:run-workflow-path', async (_event, request) => {
     );
     const workflow = comfyPromptFromWorkflow(workflowJson);
     return await runComfyPrompt(request?.baseUrl, workflow, request?.timeoutMs, abort);
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  try {
+    const filePath = validateComfyWorkflowPath(
+      request?.workflowPath || defaultComfyWorkflowPathForRole('voice'),
+    );
+    const contents = await fs.readFile(filePath, 'utf8');
+    const parsedWorkflow = JSON.parse(contents);
+    assertComfyWorkflowCompatible(parsedWorkflow, filePath, 'voice');
+    const speechText = typeof request?.speechText === 'string' ? request.speechText.trim() : '';
+    if (!speechText) {
+      throw new Error('Enter a text to speak before generating a voice clip.');
+    }
+    const voiceAudio = await uploadComfyVoiceSample(request?.baseUrl, request?.sampleDataUrl, abort);
+    const workflowJson = replaceComfyWorkflowPlaceholders(parsedWorkflow, {
+      speech_text: speechText,
+      voice_audio: voiceAudio,
+    });
+    const workflow = comfyPromptFromWorkflow(workflowJson);
+    return await runComfyVoicePrompt(request?.baseUrl, workflow, request?.timeoutMs, abort);
   } catch (error) {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
@@ -3254,6 +3419,43 @@ ipcMain.handle('image:select', async (_event, request = {}) => {
   );
 
   return { canceled: false, images };
+});
+
+ipcMain.handle('audio:select', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Choose Voice Sample',
+    properties: ['openFile'],
+    filters: [
+      {
+        name: 'MP3 Audio',
+        extensions: ['mp3'],
+      },
+    ],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { canceled: true };
+  }
+
+  const filePath = result.filePaths[0];
+  const stats = await fs.stat(filePath);
+  if (stats.size > maxComfyVoiceSampleBytes) {
+    throw new Error(
+      `Selected audio file is too large: ${path.basename(filePath)} is ` +
+        `${formatMegabytes(stats.size)}. The limit is ` +
+        `${formatMegabytes(maxComfyVoiceSampleBytes)}.`,
+    );
+  }
+  const contents = await fs.readFile(filePath);
+  return {
+    canceled: false,
+    audio: {
+      name: path.basename(filePath),
+      mimeType: 'audio/mpeg',
+      size: stats.size,
+      dataUrl: `data:audio/mpeg;base64,${contents.toString('base64')}`,
+    },
+  };
 });
 
 ipcMain.handle('file:select', async () => {

@@ -51,6 +51,7 @@ import {
   defaultComfyVaeName,
   defaultComfyWidth,
   defaultComfyWorkflowPath,
+  defaultComfyVoiceWorkflowPath,
   defaultConnectionSampling,
   comfySetupRequiredMessage,
   maxSmoothChatAutoScrollMinSpeed,
@@ -64,6 +65,7 @@ import {
   comfyWorkflowCompatibilityMessage,
   type ComfyWorkflowInspection,
 } from '../comfy/workflowCompatibility';
+import { comfyConnectionRole } from '../comfy/connectionRole';
 
 type ComfyModelLists = {
   checkpoints: string[];
@@ -203,6 +205,7 @@ type StudioDialogsProps = {
   onApplyProviderPreset: (
     preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'>,
   ) => void;
+  onApplyComfyConnectionRole: (role: 'image' | 'voice') => void;
   onEditConnection: (field: keyof ConnectionPreset, value: ConnectionPreset[keyof ConnectionPreset]) => void;
   onRefreshConnectionModels: () => void;
   onDeleteConnection: () => void;
@@ -355,11 +358,21 @@ const providerCapabilityLabels: Record<ProviderCapabilityKind, string> = {
   vision: 'Vision',
   tools: 'Tools',
   image: 'Image generation',
+  voice: 'Voice generation',
 };
 
 function ProviderCapabilityIcon({ kind }: { kind: ProviderCapabilityKind }) {
   if (kind === 'text') {
     return <span className="provider-capability-text-mark" aria-hidden="true">TXT</span>;
+  }
+  if (kind === 'voice') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="9" y="2" width="6" height="12" rx="3" />
+        <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
+        <path d="M12 18v4" />
+      </svg>
+    );
   }
   if (kind === 'vision') {
     return (
@@ -498,7 +511,7 @@ const providerPresets = [
     comfyLoraSlots: defaultComfyLoraSlots,
     reasoningEffort: 'none',
     models: [''],
-    description: 'Local image generation server',
+    description: 'Image and voice generation server',
   },
 ] satisfies Array<
   Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'> & {
@@ -812,6 +825,7 @@ export function StudioDialogs({
   onSelectConnection,
   onNewConnection,
   onApplyProviderPreset,
+  onApplyComfyConnectionRole,
   onEditConnection,
   onRefreshConnectionModels,
   onDeleteConnection,
@@ -874,6 +888,10 @@ export function StudioDialogs({
     ),
   );
   const isComfyConnection = editingConnection.kind === 'comfyui';
+  const editingComfyRole = comfyConnectionRole(editingConnection);
+  const isComfyImageEditing = isComfyConnection && editingComfyRole === 'image';
+  const isComfyVoiceEditing = isComfyConnection && editingComfyRole === 'voice';
+  const comfyRolePending = isComfyConnection && editingComfyRole === null;
   const editingProviderKind = llmProviderKind(editingConnection);
   const comfyLoraSlots = validComfyLoraSlots(editingConnection.comfyLoraSlots ?? defaultComfyLoraSlots);
   const [comfyRepairProviderId, setComfyRepairProviderId] = useState('');
@@ -936,6 +954,25 @@ export function StudioDialogs({
       ok,
       added,
     });
+    if (isComfyVoiceEditing) {
+      const placeholderItem = (id: string, label: string) =>
+        item(
+          id,
+          label,
+          !missing.has(id) && nextPlaceholders.has(id),
+          !originalPlaceholders.has(id) && nextPlaceholders.has(id),
+        );
+      return [
+        item(
+          'format',
+          'API workflow',
+          comfyWorkflowChecklistInspection?.format === 'api',
+          originalMissing.has('API workflow export') || originalMissing.has('ComfyUI API workflow JSON'),
+        ),
+        placeholderItem('speech_text', 'Speech text'),
+        placeholderItem('voice_audio', 'Voice sample'),
+      ];
+    }
     const modelLabel = comfyWorkflowChecklistInspection?.modelSource === 'checkpoint'
       ? 'Checkpoint'
       : comfyWorkflowChecklistInspection?.modelSource === 'diffusion_model'
@@ -2542,7 +2579,7 @@ export function StudioDialogs({
             <div className="dialog-header">
               <div>
                 <h2>Providers</h2>
-                <p>LLM providers and local image providers, saved locally</p>
+                <p>LLM providers and local image and voice providers, saved locally</p>
               </div>
               <button type="button" className="close-button" onClick={onCloseConnections}>
                 Close
@@ -2585,6 +2622,24 @@ export function StudioDialogs({
                     Choose a type from the list on the right. It creates the new preset with the
                     matching Base URL and defaults — everything can be adjusted afterwards.
                   </span>
+                </div>
+                ) : comfyRolePending ? (
+                <div className="connection-draft-placeholder comfy-role-chooser">
+                  <strong>Choose the ComfyUI setup</strong>
+                  <span>
+                    A ComfyUI preset either generates images or voice clips. Pick one — the
+                    matching workflow and defaults are prepared for you.
+                  </span>
+                  <div className="comfy-role-options">
+                    <button type="button" onClick={() => onApplyComfyConnectionRole('image')}>
+                      <strong>Image Generation</strong>
+                      <span>Create character and scene images with a ComfyUI image workflow.</span>
+                    </button>
+                    <button type="button" onClick={() => onApplyComfyConnectionRole('voice')}>
+                      <strong>Voice Generation</strong>
+                      <span>Clone character voices from short MP3 samples with a ComfyUI voice workflow.</span>
+                    </button>
+                  </div>
                 </div>
                 ) : (
                 <>
@@ -2630,7 +2685,10 @@ export function StudioDialogs({
                         <div className="comfy-workflow-row">
                           <input
                             id="comfy-workflow-path"
-                            value={editingConnection.comfyWorkflowPath || defaultComfyWorkflowPath}
+                            value={
+                              editingConnection.comfyWorkflowPath ||
+                              (isComfyVoiceEditing ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath)
+                            }
                             readOnly
                           />
                           <button
@@ -2702,7 +2760,37 @@ export function StudioDialogs({
                           </div>
                         ) : null}
                       </div>
-                      {!comfyWorkflowIncompatible ? (
+                      {!comfyWorkflowIncompatible && isComfyVoiceEditing ? (
+                        <div className="connection-provider-tools comfy-connection-tools" aria-label="ComfyUI voice connection tools">
+                          <div>
+                            <strong>
+                              ComfyUI Voice
+                              <span className={providerHealthClass(editingConnectionHealth)}>
+                                {providerHealthLabel(editingConnectionHealth)}
+                              </span>
+                              <ProviderCapabilityBadges
+                                capabilities={editingConnectionHealth.capabilities ?? { voice: true }}
+                                kinds={['voice']}
+                              />
+                            </strong>
+                            <span>
+                              {editingConnectionHealth.detail ||
+                                'Voice clips are generated from the character voice samples in the Storybook character setup.'}
+                            </span>
+                          </div>
+                          <div className="connection-provider-actions">
+                            <button
+                              type="button"
+                              className="danger"
+                              onClick={onUnloadComfyModels}
+                              disabled={comfyProviderActionActive !== null}
+                            >
+                              {comfyProviderActionActive === 'unload' ? 'Unloading ...' : 'Unload Models'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {!comfyWorkflowIncompatible && isComfyImageEditing ? (
                         <>
                           <div className="connection-field">
                             <label htmlFor="comfy-width">WIDTH</label>

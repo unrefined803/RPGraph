@@ -29,6 +29,7 @@ import {
   isLocalProviderConnection,
   isOllamaConnection,
 } from '../llm/providerKind';
+import { isComfyImageConnection } from '../comfy/connectionRole';
 import { withImagesEnsuredForStorybookCharacter } from '../storybook/imageLibrary';
 import { storybookCreateImageCharactersFromNodes } from '../storybook/runtime';
 import type {
@@ -356,8 +357,8 @@ export async function executeGraph({
 
     const comfyProviderId = request.comfyProviderId?.trim();
     const comfyConnection = comfyProviderId
-      ? connections.find((connection) => connection.kind === 'comfyui' && connection.id === comfyProviderId)
-      : connections.find((connection) => connection.kind === 'comfyui');
+      ? connections.find((connection) => isComfyImageConnection(connection) && connection.id === comfyProviderId)
+      : connections.find(isComfyImageConnection);
     if (!comfyConnection) {
       throw new Error(comfyProviderId
         ? 'Create character phone image action requires the selected ComfyUI provider.'
@@ -570,7 +571,7 @@ export async function executeGraph({
             retryFormatErrorsEnabled,
             runScratch,
             comfyProviderIds: connections
-              .filter((connection) => connection.kind === 'comfyui')
+              .filter(isComfyImageConnection)
               .map((connection) => connection.id),
             providerHealthById,
             executeInput: async (sourceNodeId, sourceHandle) => {

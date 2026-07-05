@@ -227,9 +227,11 @@ declare global {
       }) => Promise<string[]>;
       inspectComfyWorkflow: (request: {
         workflowPath: string;
+        role?: 'image' | 'voice';
       }) => Promise<{
         ok: boolean;
         format: 'api' | 'ui' | 'unknown';
+        role: 'image' | 'voice';
         modelSource: 'checkpoint' | 'diffusion_model' | 'both' | 'missing';
         placeholders: string[];
         missing: string[];
@@ -238,6 +240,7 @@ declare global {
       }>;
       repairComfyWorkflow: (request: {
         workflowPath: string;
+        role?: 'image' | 'voice';
         connection: ConnectionPreset;
       }) => Promise<{
         ok: boolean;
@@ -245,6 +248,7 @@ declare global {
         inspection: {
           ok: boolean;
           format: 'api' | 'ui' | 'unknown';
+          role: 'image' | 'voice';
           modelSource: 'checkpoint' | 'diffusion_model' | 'both' | 'missing';
           placeholders: string[];
           missing: string[];
@@ -255,12 +259,14 @@ declare global {
       }>;
       applyComfyWorkflowRepair: (request: {
         workflowPath: string;
+        role?: 'image' | 'voice';
         workflowJson: string;
       }) => Promise<{
         ok: boolean;
         inspection: {
           ok: boolean;
           format: 'api' | 'ui' | 'unknown';
+          role: 'image' | 'voice';
           modelSource: 'checkpoint' | 'diffusion_model' | 'both' | 'missing';
           placeholders: string[];
           missing: string[];
@@ -299,6 +305,31 @@ declare global {
           type: string;
           dataUrl: string;
         }>;
+      }>;
+      runComfyVoiceWorkflowPath: (request: {
+        baseUrl: string;
+        workflowPath: string;
+        speechText: string;
+        sampleDataUrl: string;
+        timeoutMs?: number;
+      }) => Promise<{
+        promptId: string;
+        audio: Array<{
+          nodeId: string;
+          filename: string;
+          subfolder: string;
+          type: string;
+          dataUrl: string;
+        }>;
+      }>;
+      selectAudio: () => Promise<{
+        canceled: boolean;
+        audio?: {
+          name: string;
+          mimeType: string;
+          size: number;
+          dataUrl: string;
+        };
       }>;
       loadSettings: () => Promise<{
         filePath: string;

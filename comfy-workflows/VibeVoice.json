@@ -1,0 +1,50 @@
+{
+  "8": {
+    "inputs": {
+      "audio": "{{voice_audio}}"
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Voice Sample"
+    }
+  },
+  "9": {
+    "inputs": {
+      "text": "{{speech_text}}",
+      "model": "VibeVoice-Large-pt",
+      "attention_type": "auto",
+      "quantize_llm": "full precision",
+      "free_memory_after_generate": true,
+      "diffusion_steps": 80,
+      "seed": 1337,
+      "cfg_scale": 2,
+      "use_sampling": false,
+      "temperature": 1,
+      "top_p": 0.95,
+      "max_words_per_chunk": 250,
+      "voice_speed_factor": 1,
+      "voice_to_clone": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "VibeVoiceSingleSpeakerNode",
+    "_meta": {
+      "title": "VibeVoice Single Speaker"
+    }
+  },
+  "10": {
+    "inputs": {
+      "filename_prefix": "rpgraph-voice",
+      "quality": "V0",
+      "audio": [
+        "9",
+        0
+      ]
+    },
+    "class_type": "SaveAudioMP3",
+    "_meta": {
+      "title": "Save Audio (MP3)"
+    }
+  }
+}

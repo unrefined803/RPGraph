@@ -140,6 +140,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
   applyComfyWorkflowRepair: (request) => ipcRenderer.invoke('comfy:apply-workflow-repair', request),
   selectComfyWorkflow: () => ipcRenderer.invoke('comfy:select-workflow'),
   runComfyWorkflowPath: (request) => ipcRenderer.invoke('comfy:run-workflow-path', request),
+  runComfyVoiceWorkflowPath: (request) => ipcRenderer.invoke('comfy:run-voice-workflow-path', request),
+  selectAudio: () => ipcRenderer.invoke('audio:select'),
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   getResourceStats: () => ipcRenderer.invoke('system:resource-stats'),

@@ -24,6 +24,7 @@ import { HighlightedPreviewText } from './HighlightedPreviewText';
 import { NodeCustomSelect } from './NodeCustomSelect';
 import { providerOption } from './providerHealthLabels';
 import { storybookCreateImageCharactersFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
+import { isComfyImageConnection } from '../../comfy/connectionRole';
 import { useBackdropDismiss } from '../../components/useBackdropDismiss';
 
 const promptActionResultLineHeight = 19;
@@ -293,7 +294,7 @@ export function PromptActionModal({
   const resultPanelBasis = promptActionResultChromeHeight + resultVisibleRows * promptActionResultLineHeight;
   const templateVariableStatuses = promptActionTemplateVariableStatuses(draft, visionEnabled);
   const instructionVariableStatuses = promptActionInstructionVariableStatuses(draft);
-  const comfyConnections = connections.filter((connection) => connection.kind === 'comfyui');
+  const comfyConnections = connections.filter(isComfyImageConnection);
   const comfyProviderIds = comfyConnections.map((connection) => connection.id);
   const createImageCharacters = storybookCreateImageCharactersFromNodes(nodes);
   const selectedComfyProviderId = comfyProviderIds.includes(draft.comfyProviderId ?? '')

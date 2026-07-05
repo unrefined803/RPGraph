@@ -158,6 +158,7 @@ export const defaultChatPanelWidth = 779;
 const defaultConnectionReasoningEffort: ConnectionReasoningEffort = 'none';
 export const defaultComfyBaseUrl = 'http://127.0.0.1:8188';
 export const defaultComfyWorkflowPath = 'comfy-workflows/Krea2.json';
+export const defaultComfyVoiceWorkflowPath = 'comfy-workflows/VibeVoice.json';
 export const defaultComfyWidth = 832;
 export const defaultComfyHeight = 1216;
 export const defaultComfyPrompt = '';
@@ -321,39 +322,46 @@ export function characterComfyLoraSlots(value: unknown, loraName: string): Comfy
 
 function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPreset {
   const kind = connection.kind === 'comfyui' ? 'comfyui' : 'llm';
+  // Stored ComfyUI presets without a role predate voice support and were image presets.
+  const comfyRole = kind === 'comfyui'
+    ? (connection.comfyRole === 'voice' ? 'voice' as const : 'image' as const)
+    : undefined;
+  const isComfyImage = comfyRole === 'image';
   return {
     ...connection,
     kind,
+    comfyRole,
     providerKind: kind === 'comfyui'
       ? undefined
       : validLlmProviderKind(connection.providerKind) ?? inferredProviderKind(connection),
     apiKey: kind === 'comfyui' ? '' : connection.apiKey,
     model: kind === 'comfyui' ? '' : connection.model,
     comfyWorkflowPath: kind === 'comfyui'
-      ? connection.comfyWorkflowPath || defaultComfyWorkflowPath
+      ? connection.comfyWorkflowPath ||
+        (comfyRole === 'voice' ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath)
       : undefined,
-    comfyWidth: kind === 'comfyui'
+    comfyWidth: isComfyImage
       ? validComfyDimension(connection.comfyWidth, defaultComfyWidth)
       : undefined,
-    comfyHeight: kind === 'comfyui'
+    comfyHeight: isComfyImage
       ? validComfyDimension(connection.comfyHeight, defaultComfyHeight)
       : undefined,
-    comfyPrompt: kind === 'comfyui'
+    comfyPrompt: isComfyImage
       ? validCurrentComfyPrompt(connection.comfyPrompt)
       : undefined,
-    comfyCheckpointName: kind === 'comfyui'
+    comfyCheckpointName: isComfyImage
       ? validComfyModelName(connection.comfyCheckpointName, defaultComfyCheckpointName)
       : undefined,
-    comfyDiffusionModelName: kind === 'comfyui'
+    comfyDiffusionModelName: isComfyImage
       ? validComfyModelName(connection.comfyDiffusionModelName, defaultComfyDiffusionModelName)
       : undefined,
-    comfyVaeName: kind === 'comfyui'
+    comfyVaeName: isComfyImage
       ? validComfyModelName(connection.comfyVaeName, defaultComfyVaeName)
       : undefined,
-    comfyTextEncoderName: kind === 'comfyui'
+    comfyTextEncoderName: isComfyImage
       ? validComfyModelName(connection.comfyTextEncoderName, defaultComfyTextEncoderName)
       : undefined,
-    comfyLoraSlots: kind === 'comfyui'
+    comfyLoraSlots: isComfyImage
       ? validComfyLoraSlots(connection.comfyLoraSlots)
       : undefined,
     reasoningEffort: kind === 'comfyui'
