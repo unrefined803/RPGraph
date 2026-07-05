@@ -347,6 +347,8 @@ export const defaultGetImagesResultTemplate = [
   defaultGetImagesResultLineTemplate,
   '',
   'Use a returned imageId as sendImageId only if that image fits the replying/sending character and would feel natural in-character as an outgoing stored phone attachment.',
+  'For Normal RP, you may instead display exactly one returned image in the Chat tab without sending a phone message. Add one hidden metadata object to the final RP output: {"displayImageId":"returned_image_id"}',
+  'Only display an image when the story beat is literally about seeing, taking, browsing, showing, or looking at that image. Do not display multiple images.',
   'Prefer images that belong to the sender, or image IDs established in recent phone/photo history. Only use another character\'s image ID if recent context clearly makes it available, such as forwarded, shared, saved, or plausibly obtained.',
   'Do not invent image IDs. If no returned image clearly fits, omit sendImageId.',
 ].join('\n');
@@ -373,10 +375,21 @@ export const defaultCreateImageResultTemplate = [
   '* imageId: {{imageId}}',
   '* description: {{description}}',
   '',
-  'This image was generated for the current phone moment and saved to the character phone image library. Use this image in the final phone reply. Set sendImageId to "{{imageId}}".',
+  'This image was generated for the current moment and saved to the character phone image library.',
+  'For Phone Message output, use this image in the final phone reply by setting sendImageId to "{{imageId}}".',
+  'For Normal RP output, display this image in the Chat tab without sending a phone message by adding one hidden metadata object to the final RP output: {"displayImageId":"{{imageId}}"}',
+  'Do not display or send more than one image in the same final reply.',
 ].join('\n');
 
 const previousCreateImageResultTemplates = new Set([
+  [
+    'Generated phone image for {{character}}:',
+    '',
+    '* imageId: {{imageId}}',
+    '* description: {{description}}',
+    '',
+    'This image was generated for the current phone moment and saved to the character phone image library. Use this image in the final phone reply. Set sendImageId to "{{imageId}}".',
+  ].join('\n'),
   [
     'Generated image for {{character}}:',
     '',
@@ -388,6 +401,14 @@ const previousCreateImageResultTemplates = new Set([
 ]);
 
 const previousGetImagesResultTemplates = new Set([
+  [
+    'Found Images: {{tags}}',
+    defaultGetImagesResultLineTemplate,
+    '',
+    'Use a returned imageId as sendImageId only if that image fits the replying/sending character and would feel natural in-character as an outgoing stored phone attachment.',
+    'Prefer images that belong to the sender, or image IDs established in recent phone/photo history. Only use another character\'s image ID if recent context clearly makes it available, such as forwarded, shared, saved, or plausibly obtained.',
+    'Do not invent image IDs. If no returned image clearly fits, omit sendImageId.',
+  ].join('\n'),
   [
     'Action result: {{actionId}}',
     '',

@@ -10,10 +10,15 @@ Normal RP can also contain a phoneMessages JSON object when the story beat truly
 
 Use embedded phoneMessages only when it clearly belongs in the scene, such as a character sending a text, receiving a reply, ordering something, or getting a confirmation. Ordinary dialogue and narration should stay as normal RP prose.
 
+Normal RP can display exactly one stored Storybook/phone-gallery image in the Chat tab without sending a phone message. Add one hidden metadata object at the end of the RP output:
+{"displayImageId":"stored_image_id"}
+
+Use displayImageId only for a fitting image ID returned by an image-list/create-image action or clearly established in recent phone/photo history. It displays the image in Chat and does not add a Phone message.
+
 Embedded phone messages use this shape. sendImageId is optional and attaches an outgoing stored Storybook/phone-history image:
 {"phoneMessages":[{"from":"sender name","to":"recipient name","message":"message text","sendImageId":"name_image_01"}]}
 
-Use sendImageId only for outgoing stored image attachments. Do not use imageId for outgoing attachments; imageId is reserved for image action commands in the dedicated Phone Message channel.
+Use sendImageId only for outgoing stored image attachments in Phone messages. Use displayImageId only for showing one stored image in Normal RP. Do not use imageId for outgoing attachments; imageId is reserved for image action commands in the dedicated Phone Message channel.
 
 Output Actions UI commands such as buttons, info boxes, progress bars, context capacity bars, setTab, and setPlayer only work through the Output Actions input, not through Normal RP.`;
 
