@@ -162,6 +162,7 @@ import {
 import { StudioDialogs } from './dialogs/StudioDialogs';
 import { ComfyGeneratedImageDialog } from './comfy/ComfyGeneratedImageDialog';
 import { isComfyVoiceConnection } from './comfy/connectionRole';
+import { useDialogueVoice } from './chat/useDialogueVoice';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import {
   withSourceNodeStatusConnectionColors,
@@ -1264,6 +1265,16 @@ function App() {
     settingsLoadComplete,
     nodesRef,
     setNodes,
+    notifySystem,
+  });
+  const {
+    dialogueVoiceSpeakerNames,
+    activeDialogueVoiceKey,
+    speakDialogue,
+  } = useDialogueVoice({
+    storyCharacters,
+    connections,
+    generateVoiceClip: generateCharacterVoicePreview,
     notifySystem,
   });
   const {
@@ -5724,6 +5735,15 @@ function App() {
               isRunning={isRunning}
               englishProcessingEnabled={englishProcessingEnabled}
               dialogueHighlightEnabled={dialogueColorsEnabled}
+              dialogueVoiceSpeakerNames={dialogueVoiceSpeakerNames}
+              activeDialogueVoiceKey={activeDialogueVoiceKey}
+              onSpeakDialogue={(request) => {
+                // Voice generation unloads local LLM models first; never do that mid-run.
+                if (isRunning) {
+                  return;
+                }
+                void speakDialogue(request);
+              }}
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
               chatTextSize={chatTextSize}
               onChatTextSizeChange={setChatTextSize}

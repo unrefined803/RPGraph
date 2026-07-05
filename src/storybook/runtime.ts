@@ -5,6 +5,7 @@ import {
   type RpStorybookCharacterComfyConfig,
   type RpStorybookCharacterImage,
   type RpStorybookCharacterProfileImage,
+  type RpStorybookCharacterVoiceConfig,
 } from '../nodes/rp-storybook-v1/model';
 
 type StorybookCharacterKind = 'character';
@@ -26,6 +27,7 @@ export type StorybookCharacter = {
   label: string;
   profile: StorybookCharacterProfile;
   comfyConfig?: RpStorybookCharacterComfyConfig;
+  voiceConfig?: RpStorybookCharacterVoiceConfig;
   profileImage?: RpStorybookCharacterProfileImage;
 };
 
@@ -96,6 +98,7 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
           role: character.role,
         },
         ...(character.comfyConfig ? { comfyConfig: character.comfyConfig } : {}),
+        ...(character.voiceConfig?.sampleDataUrl ? { voiceConfig: character.voiceConfig } : {}),
         ...(character.profileImage ? { profileImage: character.profileImage } : {}),
       };
     });

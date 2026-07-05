@@ -8719,6 +8719,32 @@ button.message-timeline-row.phone:focus-visible {
   animation: dialogue-highlight-pending-in 2s ease-out;
 }
 
+.dialogue-voice {
+  cursor: pointer;
+}
+
+.dialogue-voice:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.dialogue-voice-active {
+  border-radius: 4px;
+  background: rgba(238, 246, 255, 0.1);
+  animation: dialogue-voice-active-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes dialogue-voice-active-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 4px rgba(238, 246, 255, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(238, 246, 255, 0.3);
+  }
+}
+
 @keyframes rp-time-appear {
   from {
     opacity: 0;

@@ -85,6 +85,9 @@ type ChatConversationPanelProps = {
   isRunning: boolean;
   englishProcessingEnabled: boolean;
   dialogueHighlightEnabled: boolean;
+  dialogueVoiceSpeakerNames: ReadonlySet<string>;
+  activeDialogueVoiceKey: string | null;
+  onSpeakDialogue: (request: { key: string; speakerName: string; text: string }) => void;
   rpTimeTrackingEnabled: boolean;
   chatTextSize: number;
   onChatTextSizeChange: (value: number) => void;
@@ -135,6 +138,9 @@ export function ChatConversationPanel({
   isRunning,
   englishProcessingEnabled,
   dialogueHighlightEnabled,
+  dialogueVoiceSpeakerNames,
+  activeDialogueVoiceKey,
+  onSpeakDialogue,
   rpTimeTrackingEnabled,
   chatTextSize,
   onChatTextSizeChange,
@@ -574,29 +580,45 @@ export function ChatConversationPanel({
             rpTimeTrackingEnabled && effectiveMessageRpDateTime && messageDay !== previousDay
               ? formatRpDayLabel(effectiveMessageRpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
               : '';
-          const renderDialogueTextParts = (text: string) => {
-            const textParts = llmDialogueHighlightActive && dialogue.length > 0
-              ? coloredDialogueParts(text, dialogue)
-              : quotedSpeechParts(text);
-            return textParts.map((part, index) => {
-              const speechColor =
-                'speakerName' in part && part.speakerName
-                  ? message.speakerColors?.[part.speakerName] ??
-                    characterColors.get(part.speakerName) ??
-                    dialogueColors[0]
-                  : undefined;
+          const renderDialoguePartSpans = (
+            textParts: Array<{ text: string; speakerName?: string; isSpeech?: boolean }>,
+            keyPrefix: string,
+          ) =>
+            textParts.map((part, index) => {
+              const partSpeakerName = 'speakerName' in part ? part.speakerName : undefined;
+              const speechColor = partSpeakerName
+                ? message.speakerColors?.[partSpeakerName] ??
+                  characterColors.get(partSpeakerName) ??
+                  dialogueColors[0]
+                : undefined;
               const pendingSpeech = !speechColor && 'isSpeech' in part && part.isSpeech;
+              const voiceKey =
+                partSpeakerName && dialogueVoiceSpeakerNames.has(partSpeakerName)
+                  ? `${message.id}:${keyPrefix}:${index}`
+                  : undefined;
+              const voiceActive = !!voiceKey && voiceKey === activeDialogueVoiceKey;
+              const className = [
+                speechColor ? 'dialogue-highlight' : pendingSpeech ? 'dialogue-highlight pending' : '',
+                voiceKey ? 'dialogue-voice' : '',
+                voiceActive ? 'dialogue-voice-active' : '',
+              ].filter(Boolean).join(' ');
               return (
                 <span
-                  key={index}
-                  className={
-                    speechColor
-                      ? 'dialogue-highlight'
-                      : pendingSpeech
-                        ? 'dialogue-highlight pending'
-                        : undefined
-                  }
+                  key={`${keyPrefix}:${index}`}
+                  className={className || undefined}
                   style={speechColor ? { color: speechColor } : undefined}
+                  title={
+                    voiceKey
+                      ? voiceActive
+                        ? 'Stop voice playback'
+                        : `Speak with the voice of ${partSpeakerName}`
+                      : undefined
+                  }
+                  onClick={
+                    voiceKey && partSpeakerName
+                      ? () => onSpeakDialogue({ key: voiceKey, speakerName: partSpeakerName, text: part.text })
+                      : undefined
+                  }
                 >
                   {thoughtParts(part.text).map((thoughtPart, thoughtIndex) => (
                     <span
@@ -613,6 +635,11 @@ export function ChatConversationPanel({
                 </span>
               );
             });
+          const renderDialogueTextParts = (text: string, keyPrefix: string) => {
+            const textParts = llmDialogueHighlightActive && dialogue.length > 0
+              ? coloredDialogueParts(text, dialogue)
+              : quotedSpeechParts(text);
+            return renderDialoguePartSpans(textParts, keyPrefix);
           };
           const characterNameStyle = (name: string) => {
             const color = characterColors.get(name);
@@ -1231,7 +1258,7 @@ export function ChatConversationPanel({
                         >
                           {compositeTextBefore && (
                             <span className="message-composite-text">
-                              {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextBefore, speakerNames))}
+                              {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextBefore, speakerNames), 'before')}
                             </span>
                           )}
                           {outsidePhoneDisplayMode === 'bubbles' ? (
@@ -1245,7 +1272,7 @@ export function ChatConversationPanel({
                           )}
                           {compositeTextAfter && (
                             <span className="message-composite-text">
-                              {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextAfter, speakerNames))}
+                              {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextAfter, speakerNames), 'after')}
                             </span>
                           )}
                           {rpTimeTrackingEnabled &&
@@ -1254,43 +1281,7 @@ export function ChatConversationPanel({
                         </div>
                       ) : (visibleText || message.rpDateTime) && (
                         <p style={{ fontSize: chatTextSize || defaultChatTextSize }}>
-                          {parts.map((part, index) => {
-                            const speechColor =
-                              'speakerName' in part && part.speakerName
-                                ? message.speakerColors?.[part.speakerName] ??
-                                  characterColors.get(part.speakerName) ??
-                                  dialogueColors[0]
-                                : undefined;
-                            const pendingSpeech = !speechColor && 'isSpeech' in part && part.isSpeech;
-                            return (
-                              <span
-                                key={index}
-                                className={
-                                  speechColor
-                                    ? 'dialogue-highlight'
-                                    : pendingSpeech
-                                      ? 'dialogue-highlight pending'
-                                      : undefined
-                                }
-                                style={speechColor ? { color: speechColor } : undefined}
-                              >
-                                {thoughtParts(part.text).map((thoughtPart, thoughtIndex) => (
-                                  <span
-                                    className={
-                                      thoughtPart.isThought
-                                        ? thoughtStyleClass(
-                                            thoughtTextStyle || defaultThoughtTextStyle,
-                                          )
-                                        : undefined
-                                    }
-                                    key={thoughtIndex}
-                                  >
-                                    {thoughtPart.text}
-                                  </span>
-                                ))}
-                              </span>
-                            );
-                          })}
+                          {renderDialoguePartSpans(parts, 'main')}
                           {rpTimeTrackingEnabled &&
                             !message.eventInput &&
                             renderRpTime(message.rpDateTime, 'message-rp-time')}
