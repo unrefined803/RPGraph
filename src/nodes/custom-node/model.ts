@@ -384,6 +384,7 @@ export function customNodeAssistantPrompt(
     'Non-button controls render full node width. Button controls render two per row by array order, or one alone when only one button is present.',
     'If there are four buttons, they render as a compact 2x2 button grid.',
     'When no special order is requested, group controls in a clean top-to-bottom order: mode/settings controls first, text or number controls next, state buttons if any, run button near the end.',
+    'Be sparing with displays. The normal Custom Node shape is inputs, processing code, and outputs with no displays; downstream nodes show the values. Add a display only when the user explicitly asks to see a value on the node itself.',
     'Displays should usually use type "text" and may include text.',
     'Use display type "meter" for a read-only green min/max/current bar. A meter display uses min, max, value, label, and optional text. Runtime code can update it by returning displays: { meter_id: currentValue }.',
     'If the user asks for UI-only behavior, inputs and outputs may be empty arrays.',

@@ -4370,15 +4370,18 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 50%;
   background: var(--wire);
   box-shadow: 0 0 8px rgba(126, 185, 197, 0.26);
-  transform: translateY(-50%);
 }
 
+/* Center the dot on the card border like real node handles:
+   16px card padding + 1px card border, then shift by half the dot width. */
 .custom-node-preview-handle.input {
-  left: -16px;
+  left: -17px;
+  transform: translate(-50%, -50%);
 }
 
 .custom-node-preview-handle.output {
-  right: -16px;
+  right: -17px;
+  transform: translate(50%, -50%);
 }
 
 .run-note {
@@ -10640,6 +10643,21 @@ button.message-timeline-row.phone:focus-visible {
 
 .custom-node-assistant-dialog .storybook-main-workspace {
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+}
+
+.custom-node-assistant-dialog .storybook-title-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.custom-node-assistant-dialog .storybook-title-row h2 {
+  font-size: 16px;
+}
+
+.custom-node-assistant-dialog .storybook-title-row p {
+  color: #8390ac;
+  font-size: 12px;
 }
 
 .custom-node-assistant-header-actions {

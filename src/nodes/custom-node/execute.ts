@@ -35,6 +35,11 @@ export async function executeCustomNode(node: WorkflowNode, context: ExecuteCont
     inputs[port.id] = coercePortValue(rawValue, port.valueType);
   }));
 
+  // Stream raw LLM chunks as a live preview only when this node feeds the RP
+  // Output directly; the node's processed result replaces the preview at the end.
+  const streamsVisibleOutput = !!context.streamOutput && context.edges.some(
+    (edge) => edge.source === node.id && edge.target === context.outputNodeId,
+  );
   const result = await runCustomNodeDefinition(definition, inputs, {
     llm: async (request) => {
       const prompt = typeof request === 'string' ? request : request.prompt;
@@ -48,6 +53,7 @@ export async function executeCustomNode(node: WorkflowNode, context: ExecuteCont
         images,
         maxTokens: typeof request === 'string' ? undefined : request.maxTokens,
         temperature: typeof request === 'string' ? undefined : request.temperature,
+        onChunk: streamsVisibleOutput ? context.streamOutput : undefined,
         contributesToTokenCalibration: true,
       });
       return output.text;

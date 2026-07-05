@@ -128,7 +128,10 @@ async function runPromptSwitch(node: WorkflowNode, context: ExecuteContext) {
     context.promptActionSettings,
   );
   const streamsVisibleOutput = !!context.streamOutput && context.edges.some(
-    (edge) => edge.source === node.id && edge.target === context.outputNodeId,
+    (edge) =>
+      edge.source === node.id &&
+      edge.sourceHandle === llmPromptSwitchOutputHandle(outputChannel) &&
+      edge.target === context.outputNodeId,
   );
   const outputTitle = outputTitles[outputChannel] ?? `Output ${outputChannel}`;
   const promptTitle = promptTitles[promptSlot] ?? `Prompt ${promptSlot}`;
