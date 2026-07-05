@@ -500,6 +500,14 @@ async function workflowFiles() {
 }
 
 async function restoreDefaultWorkflowFile() {
+  return ensureDefaultWorkflowFile(false);
+}
+
+async function refreshDefaultWorkflowFile() {
+  return ensureDefaultWorkflowFile(true);
+}
+
+async function ensureDefaultWorkflowFile(overwriteExisting) {
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const baseName = 'workflow.default';
@@ -508,6 +516,10 @@ async function restoreDefaultWorkflowFile() {
   for (let index = 2; fsSync.existsSync(filePath); index += 1) {
     const metadata = await readStoredFileMetadata(filePath);
     if (metadata.type === 'workflow' && metadata.protection === 'plain' && metadata.compatible) {
+      if (overwriteExisting) {
+        const contents = await fs.readFile(defaultWorkflowPath, 'utf8');
+        await writeTextFileAtomically(filePath, contents);
+      }
       approveWorkflowPath(filePath);
       await saveLastWorkflowFileName(fileName);
       return { fileName, name: storedJsonName(fileName), filePath };
@@ -3021,7 +3033,7 @@ ipcMain.handle('workflow:load-default', async () => {
 });
 
 ipcMain.handle('workflow:restore-default', async () => {
-  const restored = await restoreDefaultWorkflowFile();
+  const restored = await refreshDefaultWorkflowFile();
   const contents = await fs.readFile(restored.filePath, 'utf8');
   return {
     filePath: restored.filePath,
