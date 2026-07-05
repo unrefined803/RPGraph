@@ -3,7 +3,51 @@ import { isRecord } from '../utils/records';
 export type ParsedRpOutput = {
   story: string;
   imageDescription?: string;
+  displayImageId?: string;
 };
+
+function displayImageIdFromMetadata(metadata: Record<string, unknown>) {
+  const direct =
+    typeof metadata.displayImageId === 'string'
+      ? metadata.displayImageId.trim()
+      : typeof metadata.display_image_id === 'string'
+        ? metadata.display_image_id.trim()
+        : '';
+  if (direct) {
+    return direct;
+  }
+  const imageEntry = Array.isArray(metadata.rpImages)
+    ? metadata.rpImages[0]
+    : isRecord(metadata.rpImage)
+      ? metadata.rpImage
+      : undefined;
+  if (!isRecord(imageEntry)) {
+    return undefined;
+  }
+  return typeof imageEntry.imageId === 'string'
+    ? imageEntry.imageId.trim() || undefined
+    : typeof imageEntry.image_id === 'string'
+      ? imageEntry.image_id.trim() || undefined
+      : undefined;
+}
+
+function rpOutputMetadata(metadata: unknown) {
+  if (!isRecord(metadata)) {
+    return undefined;
+  }
+  const imageDescription =
+    typeof metadata.image === 'string' && metadata.image.trim()
+      ? metadata.image.trim()
+      : undefined;
+  const displayImageId = displayImageIdFromMetadata(metadata);
+  if (!imageDescription && !displayImageId) {
+    return undefined;
+  }
+  return {
+    ...(imageDescription ? { imageDescription } : {}),
+    ...(displayImageId ? { displayImageId } : {}),
+  };
+}
 
 function trailingRpImageMetadata(value: string) {
   const text = value.trimEnd();
@@ -13,13 +57,10 @@ function trailingRpImageMetadata(value: string) {
   for (let start = text.lastIndexOf('{'); start >= 0; start = text.lastIndexOf('{', start - 1)) {
     try {
       const metadata = JSON.parse(text.slice(start)) as unknown;
-      if (
-        isRecord(metadata) &&
-        typeof metadata.image === 'string' &&
-        metadata.image.trim()
-      ) {
+      const parsedMetadata = rpOutputMetadata(metadata);
+      if (parsedMetadata) {
         return {
-          imageDescription: metadata.image.trim(),
+          ...parsedMetadata,
           story: text.slice(0, start).trim(),
         };
       }
@@ -42,13 +83,10 @@ export function parseRpOutput(value: string): ParsedRpOutput {
   if (jsonMatch) {
     try {
       const metadata = JSON.parse(jsonMatch[1]) as unknown;
-      if (
-        isRecord(metadata) &&
-        typeof metadata.image === 'string' &&
-        metadata.image.trim()
-      ) {
+      const parsedMetadata = rpOutputMetadata(metadata);
+      if (parsedMetadata) {
         return {
-          imageDescription: metadata.image.trim(),
+          ...parsedMetadata,
           story: jsonMatch[2].trim(),
         };
       }
@@ -70,21 +108,26 @@ export function parseRpOutput(value: string): ParsedRpOutput {
 
 function couldBecomeJsonRpImageMetadataBlock(value: string) {
   const text = value.trimStart();
-  return (
-    /^\{\s*(?:"(?:i(?:m(?:a(?:g(?:e)?)?)?)?)?)?$/i.test(text) ||
-    /^\{\s*"image"\s*(?::\s*(?:"[^"]*)?)?$/i.test(text) ||
-    /^\{\s*"image"\s*:\s*"[^"]*"\s*$/i.test(text)
-  );
+  if (!text.startsWith('{')) {
+    return false;
+  }
+  const afterBrace = text.slice(1).trimStart();
+  if (!afterBrace) {
+    return true;
+  }
+  const keyMatch = afterBrace.match(/^"([^"]*)"?/);
+  if (!keyMatch) {
+    return false;
+  }
+  const partialKey = keyMatch[1].toLocaleLowerCase();
+  return ['image', 'displayimageid', 'display_image_id', 'rpimages', 'rpimage']
+    .some((key) => key.startsWith(partialKey));
 }
 
 function isRpImageMetadataLine(value: string) {
   try {
     const metadata = JSON.parse(value) as unknown;
-    if (
-      isRecord(metadata) &&
-      typeof metadata.image === 'string' &&
-      metadata.image.trim()
-    ) {
+    if (rpOutputMetadata(metadata)) {
       return true;
     }
   } catch {

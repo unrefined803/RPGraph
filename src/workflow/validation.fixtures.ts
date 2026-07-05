@@ -1,4 +1,3 @@
-import currentWorkflow from '../../workflow.default.json';
 import { captureTurnRuntime } from '../chat/turns';
 import { currentSessionFormatVersion } from '../session/version';
 import type { MessageRecord, TurnRecord, WorkflowFile, WorkflowNode, WorkflowNodeData } from '../types';
@@ -77,6 +76,7 @@ import {
   phoneImageActionMatchesMessage,
 } from '../chat/phoneMessages';
 import { parseOutputActions } from '../chat/outputActions';
+import { parseRpOutput } from '../chat/rpOutput';
 import { formatPhoneInput } from '../chat/phoneReplies';
 import {
   collectRecentReferenceImages,
@@ -109,6 +109,20 @@ import {
   resolveWorkflowVariables,
   workflowVariablePreviewValues,
 } from './variables';
+
+const bundledDefaultWorkflows = import.meta.glob<{ default: unknown }>(
+  '../../workflow.default*.json',
+  { eager: true },
+);
+const bundledDefaultWorkflowPaths = Object.keys(bundledDefaultWorkflows)
+  .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+const bundledDefaultWorkflowPath =
+  bundledDefaultWorkflowPaths[bundledDefaultWorkflowPaths.length - 1];
+if (!bundledDefaultWorkflowPath) {
+  throw new Error('No workflow.default*.json file was found in the project root.');
+}
+const currentWorkflow = bundledDefaultWorkflows[bundledDefaultWorkflowPath]
+  .default as WorkflowFile;
 
 function assertFixture(condition: boolean, message: string) {
   if (!condition) {
@@ -1695,6 +1709,25 @@ export function verifyWorkflowValidationFixtures() {
     embeddedPhoneWithSendImageId.phoneMessages[0]?.imageId === 'lara_miller_image_01',
     'embedded phone parser must preserve outgoing sendImageId attachments',
   );
+  const rpOutputWithDisplayImage = parseRpOutput([
+    'Lara swipes to the cat photo and smiles.',
+    '{"displayImageId":"lara_cat_image_01"}',
+  ].join('\n'));
+  assertFixture(
+    rpOutputWithDisplayImage.story === 'Lara swipes to the cat photo and smiles.' &&
+      rpOutputWithDisplayImage.displayImageId === 'lara_cat_image_01',
+    'normal RP parser must remove trailing displayImageId metadata',
+  );
+  const rpOutputWithRpImages = parseRpOutput([
+    '{"rpImages":[{"imageId":"lara_cat_image_02"}]}',
+    '',
+    'The photo fills the screen: whiskers, sunlight, and Lara laughing behind the camera.',
+  ].join('\n'));
+  assertFixture(
+    rpOutputWithRpImages.story === 'The photo fills the screen: whiskers, sunlight, and Lara laughing behind the camera.' &&
+      rpOutputWithRpImages.displayImageId === 'lara_cat_image_02',
+    'normal RP parser must accept leading rpImages metadata',
+  );
   assertFixture(
     parsePhoneMessageOutput(
       '{"from":"Lara Miller","to":"Robert Miller","message":"Look at this."}',
@@ -2496,7 +2529,8 @@ export function verifyWorkflowValidationFixtures() {
   );
 
   const workflowWithInvalidVersion = structuredClone(currentWorkflow);
-  workflowWithInvalidVersion.nodes[0]!.data.nodeDataVersion = '1.0';
+  workflowWithInvalidVersion.nodes[0]!.data.nodeDataVersion =
+    '1.0' as unknown as WorkflowNodeData['nodeDataVersion'];
   assertFixture(
     !isWorkflowFile(workflowWithInvalidVersion),
     'an invalid node version string must be rejected',

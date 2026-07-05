@@ -21,7 +21,7 @@ import type {
   WorkflowNodeData,
 } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
-import { findChatEndpoints } from '../storybook/runtime';
+import { chatAttachmentFromStorybookImage, findChatEndpoints } from '../storybook/runtime';
 import { storybookImageForAttachment } from '../storybook/imageLibrary';
 import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
 import type { ExecuteTraceFormatResult, ExecuteTraceNodeInfo } from '../nodes/types';
@@ -250,6 +250,25 @@ function nextRpPictureName(messages: readonly MessageRecord[]) {
     .map((value) => Number(value))
     .filter((value) => Number.isFinite(value));
   return formatRpPictureName((existingNumbers.length ? Math.max(...existingNumbers) : 0) + 1);
+}
+
+function storybookImageAttachmentById(
+  storybooksByNodeId: Map<string, RpStorybookV1>,
+  imageId: string | undefined,
+) {
+  const normalizedImageId = imageId?.trim();
+  if (!normalizedImageId) {
+    return undefined;
+  }
+  for (const storybook of storybooksByNodeId.values()) {
+    for (const character of storybook.characters) {
+      const image = character.images.find((entry) => entry.id === normalizedImageId);
+      if (image) {
+        return chatAttachmentFromStorybookImage(image);
+      }
+    }
+  }
+  return undefined;
 }
 
 export function useGraphRun(options: UseGraphRunOptions) {
@@ -1173,9 +1192,23 @@ export function useGraphRun(options: UseGraphRunOptions) {
           name: 'RP Output format',
           status: 'ok',
           detail: parsedRpOutput.imageDescription
-            ? 'Story text and image metadata parsed.'
-            : 'Story text parsed.',
+            ? parsedRpOutput.displayImageId
+              ? 'Story text, image metadata, and display image parsed.'
+              : 'Story text and image metadata parsed.'
+            : parsedRpOutput.displayImageId
+              ? 'Story text and display image parsed.'
+              : 'Story text parsed.',
         });
+      }
+      const rpDisplayImageAttachment =
+        !isPhoneMessage
+          ? storybookImageAttachmentById(storybooksByNodeId, parsedRpOutput.displayImageId)
+          : undefined;
+      if (!isPhoneMessage && parsedRpOutput.displayImageId && !rpDisplayImageAttachment) {
+        reportRunWarning(
+          `RP Output displayImageId "${parsedRpOutput.displayImageId}" was not found in the Storybook image libraries.`,
+          outputNodeTraceInfo,
+        );
       }
       const embeddedPhoneResult =
         !isPhoneMessage
@@ -1338,7 +1371,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
           flushLiveOutput();
           const earlyOutput = {
             originalText: rpOutput,
-            includeInHistory: !!rpOutput.trim(),
+            imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
+            includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
             embeddedPhoneMessages: embeddedPhoneMessages.map((link) => ({ ...link })),
             embeddedPhoneTextBefore: embeddedPhoneResult.textBefore,
             embeddedPhoneTextAfter: embeddedPhoneResult.textAfter,
@@ -1477,7 +1511,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const completedOutput: Partial<MessageRecord> = {
         originalText: rpOutput,
         translatedText: translatedOutput,
-        includeInHistory: !!rpOutput.trim(),
+        imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
+        includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
         speakerName: primarySpeaker,
         speakerNames: attributedNames,
         speakerColors,
@@ -1496,7 +1531,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
           role: 'output',
           originalText: rpOutput,
           translatedText: translatedOutput,
-          includeInHistory: !!rpOutput.trim(),
+          imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
+          includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
           speakerName: primarySpeaker,
           speakerNames: attributedNames,
           speakerColors,

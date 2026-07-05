@@ -29,7 +29,8 @@ const {
 } = require('./storybookFormat.cjs');
 
 const developmentUrl = 'http://localhost:5173';
-const defaultWorkflowPath = path.join(__dirname, '../workflow.default.json');
+const projectRootPath = path.join(__dirname, '..');
+const defaultWorkflowFileNamePattern = /^workflow\.default.*\.json$/i;
 const defaultComfyWorkflowPath = path.join(__dirname, '../comfy-workflows/Krea2.json');
 const appIconPath = path.join(
   __dirname,
@@ -43,9 +44,22 @@ const maxSelectedImagesTotalBytes = 96 * 1024 * 1024;
 const sessionCipherAad = Buffer.from('rpgraph-encrypted-session:v2.1');
 const workflowCipherAad = Buffer.from('rpgraph-encrypted-workflow:v2');
 const storybookCipherAad = Buffer.from('rpgraph-encrypted-storybook:v1');
-const approvedWorkflowPaths = new Set([path.resolve(defaultWorkflowPath)]);
+const approvedWorkflowPaths = new Set();
 const approvedFilePaths = new Set();
 const approvedComfyWorkflowPaths = new Set([path.resolve(defaultComfyWorkflowPath)]);
+
+function bundledDefaultWorkflowPath() {
+  const names = fsSync
+    .readdirSync(projectRootPath)
+    .filter((name) => defaultWorkflowFileNamePattern.test(name))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  if (names.length === 0) {
+    throw new Error('No workflow.default*.json file was found in the app directory.');
+  }
+  const resolved = path.resolve(projectRootPath, names[names.length - 1]);
+  approvedWorkflowPaths.add(resolved);
+  return resolved;
+}
 const activeLlmRequests = new Map();
 const pendingCancelledLlmRequests = new Set();
 const fileBaseNameControlCharacters = `${String.fromCharCode(0)}-${String.fromCharCode(31)}`;
@@ -463,15 +477,23 @@ async function loadWorkflowState() {
         typeof state.lastWorkflowFileName === 'string'
           ? path.basename(state.lastWorkflowFileName)
           : '',
+      importedDefaultFileName:
+        typeof state.importedDefaultFileName === 'string'
+          ? path.basename(state.importedDefaultFileName)
+          : '',
     };
   } catch {
-    return { lastWorkflowFileName: '' };
+    return { lastWorkflowFileName: '', importedDefaultFileName: '' };
   }
 }
 
-async function saveLastWorkflowFileName(fileName) {
-  const state = { lastWorkflowFileName: validatedStoredFileName(fileName) };
+async function saveWorkflowState(partialState) {
+  const state = { ...(await loadWorkflowState()), ...partialState };
   await writeTextFileAtomically(workflowStateFilePath(), `${JSON.stringify(state, null, 2)}\n`);
+}
+
+async function saveLastWorkflowFileName(fileName) {
+  await saveWorkflowState({ lastWorkflowFileName: validatedStoredFileName(fileName) });
 }
 
 async function workflowFiles() {
@@ -500,25 +522,45 @@ async function workflowFiles() {
 }
 
 async function restoreDefaultWorkflowFile() {
+  return ensureDefaultWorkflowFile(false);
+}
+
+async function refreshDefaultWorkflowFile() {
+  return ensureDefaultWorkflowFile(true);
+}
+
+async function ensureDefaultWorkflowFile(overwriteExisting) {
+  const bundledPath = bundledDefaultWorkflowPath();
+  const bundledFileName = path.basename(bundledPath);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
-  const baseName = 'workflow.default';
+  const baseName = bundledFileName.replace(/\.json$/i, '');
   let fileName = `${baseName}${jsonFileExtension}`;
   let filePath = path.join(directory, fileName);
   for (let index = 2; fsSync.existsSync(filePath); index += 1) {
     const metadata = await readStoredFileMetadata(filePath);
     if (metadata.type === 'workflow' && metadata.protection === 'plain' && metadata.compatible) {
+      if (overwriteExisting) {
+        const contents = await fs.readFile(bundledPath, 'utf8');
+        await writeTextFileAtomically(filePath, contents);
+      }
       approveWorkflowPath(filePath);
-      await saveLastWorkflowFileName(fileName);
+      await saveWorkflowState({
+        lastWorkflowFileName: validatedStoredFileName(fileName),
+        importedDefaultFileName: bundledFileName,
+      });
       return { fileName, name: storedJsonName(fileName), filePath };
     }
     fileName = `${baseName}-${index}${jsonFileExtension}`;
     filePath = path.join(directory, fileName);
   }
-  const contents = await fs.readFile(defaultWorkflowPath, 'utf8');
+  const contents = await fs.readFile(bundledPath, 'utf8');
   await fs.writeFile(filePath, contents, { encoding: 'utf8', flag: 'wx' });
   approveWorkflowPath(filePath);
-  await saveLastWorkflowFileName(fileName);
+  await saveWorkflowState({
+    lastWorkflowFileName: validatedStoredFileName(fileName),
+    importedDefaultFileName: bundledFileName,
+  });
   return { fileName, name: storedJsonName(fileName), filePath };
 }
 
@@ -3021,7 +3063,7 @@ ipcMain.handle('workflow:load-default', async () => {
 });
 
 ipcMain.handle('workflow:restore-default', async () => {
-  const restored = await restoreDefaultWorkflowFile();
+  const restored = await refreshDefaultWorkflowFile();
   const contents = await fs.readFile(restored.filePath, 'utf8');
   return {
     filePath: restored.filePath,
@@ -3031,6 +3073,15 @@ ipcMain.handle('workflow:restore-default', async () => {
 });
 
 ipcMain.handle('workflow:load-startup', async () => {
+  try {
+    const bundledFileName = path.basename(bundledDefaultWorkflowPath());
+    const { importedDefaultFileName } = await loadWorkflowState();
+    if (importedDefaultFileName !== bundledFileName) {
+      await restoreDefaultWorkflowFile();
+    }
+  } catch (error) {
+    console.error('Unable to import the bundled default workflow:', error);
+  }
   let files = await workflowFiles();
   if (files.length === 0) {
     await restoreDefaultWorkflowFile();
