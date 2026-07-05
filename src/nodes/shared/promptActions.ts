@@ -118,9 +118,9 @@ export function promptActionConditions(actionId: PromptActionId): PromptActionCo
 export const getImagesLlmInstruction = [
   'Available action: get character phone image list',
   '',
-  'Call this action when image list information is needed. Do not write a normal message together with this action.',
+  'Returns a list of stored phone images for the requested characters.',
   '',
-  'To call it, output exactly one JSON object and nothing else:',
+  'To call it, output exactly one JSON object and nothing else. Do not write a normal message together with this action:',
   '',
   '{',
   '"action": "get_image_id",',
@@ -128,9 +128,7 @@ export const getImagesLlmInstruction = [
   '"tags": "name, location, pose, clothing, selfie, mirror"',
   '}',
   '',
-  'Search with at least 6 tags.',
-  '',
-  'Use the image ID action proactively when the phone situation is about appearance, outfit, clothes, getting ready, selfies, mirrors, parties, bedrooms, current look, a character asking what someone is wearing, or sending/receiving photos. Do not wait for the sender to explicitly say "send a picture" if a fitting stored image would naturally support the reply.',
+  'Search with at least 10 tags.',
 ].join('\n');
 
 export const updatePhoneImageCaptionInstruction = [
@@ -229,13 +227,12 @@ export const updatePhoneImageCaptionAfterReplyInstruction = [
 export const createImageInstruction = [
   'Available action: create character phone image',
   '',
-  'Use this internal action when no stored image fits and a new outgoing phone image should be generated for a character.',
-  'Call it once before the final visible reply. Do not write a normal message together with this action.',
+  'Generates a new phone image for a character and saves it to that character phone image library.',
   '',
   'Available characters:',
   '{{availableCharacters}}',
   '',
-  'To call it, output exactly one JSON object and nothing else:',
+  'To call it, output exactly one JSON object and nothing else. Do not write a normal message together with this action:',
   '',
   '{',
   '"action": "create_image",',
@@ -243,14 +240,35 @@ export const createImageInstruction = [
   '"prompt": "complete image generation prompt"',
   '}',
   '',
-  'The character must be the sender/owner of the outgoing generated phone image.',
   'The character value must match one of the available character names exactly.',
-  'The prompt should describe the current RP image moment for ComfyUI: pose, expression, clothing for this scene, setting, lighting, mood, camera/framing, and relevant RP context.',
-  'Do not try to redefine the character identity or permanent base appearance. RPGraph automatically prepends the character appearance saved in Storybook and applies that character LoRA when configured.',
-  'Do not include instructions to send a message. This action only creates and stores the image in the character phone image library.',
+  'The prompt should describe the current image moment: pose, expression, clothing, action, setting, lighting, mood, and camera/framing.',
+  'Do not redefine the character identity or permanent base appearance. RPGraph automatically prepends the saved character appearance and applies the character LoRA when configured.',
 ].join('\n');
 
 const previousCreateImageInstructions = new Set([
+  [
+    'Available action: create character phone image',
+    '',
+    'Use this internal action when no stored image fits and a new outgoing phone image should be generated for a character.',
+    'Call it once before the final visible reply. Do not write a normal message together with this action.',
+    '',
+    'Available characters:',
+    '{{availableCharacters}}',
+    '',
+    'To call it, output exactly one JSON object and nothing else:',
+    '',
+    '{',
+    '"action": "create_image",',
+    '"character": "Character Name",',
+    '"prompt": "complete image generation prompt"',
+    '}',
+    '',
+    'The character must be the sender/owner of the outgoing generated phone image.',
+    'The character value must match one of the available character names exactly.',
+    'The prompt should describe the current RP image moment for ComfyUI: pose, expression, clothing for this scene, setting, lighting, mood, camera/framing, and relevant RP context.',
+    'Do not try to redefine the character identity or permanent base appearance. RPGraph automatically prepends the character appearance saved in Storybook and applies that character LoRA when configured.',
+    'Do not include instructions to send a message. This action only creates and stores the image in the character phone image library.',
+  ].join('\n'),
   [
     'Available action: create image',
     '',
@@ -288,6 +306,23 @@ const previousUpdatePhoneImageCaptionAfterReplyInstructions = new Set([
 ]);
 
 const previousGetImagesLlmInstructions = new Set([
+  [
+    'Available action: get character phone image list',
+    '',
+    'Call this action when image list information is needed. Do not write a normal message together with this action.',
+    '',
+    'To call it, output exactly one JSON object and nothing else:',
+    '',
+    '{',
+    '"action": "get_image_id",',
+    '"characters": "Character Name, Other Name",',
+    '"tags": "name, location, pose, clothing, selfie, mirror"',
+    '}',
+    '',
+    'Search with at least 6 tags.',
+    '',
+    'Use the image ID action proactively when the phone situation is about appearance, outfit, clothes, getting ready, selfies, mirrors, parties, bedrooms, current look, a character asking what someone is wearing, or sending/receiving photos. Do not wait for the sender to explicitly say "send a picture" if a fitting stored image would naturally support the reply.',
+  ].join('\n'),
   [
     'Available action: get image ID list',
     '',
@@ -343,14 +378,9 @@ const previousGetImagesLlmInstructions = new Set([
 const defaultGetImagesResultLineTemplate = '* {{imageReference}}: {{imageId}} : {{imageText}}';
 
 export const defaultGetImagesResultTemplate = [
-  'Found Images: {{tags}}',
+  'Action executed: get character phone image list.',
+  'Found images for tags: {{tags}}',
   defaultGetImagesResultLineTemplate,
-  '',
-  'Use a returned imageId as sendImageId only if that image fits the replying/sending character and would feel natural in-character as an outgoing stored phone attachment.',
-  'For Normal RP, you may instead display exactly one returned image in the Chat tab without sending a phone message. Add one hidden metadata object to the final RP output: {"displayImageId":"returned_image_id"}',
-  'Only display an image when the story beat is literally about seeing, taking, browsing, showing, or looking at that image. Do not display multiple images.',
-  'Prefer images that belong to the sender, or image IDs established in recent phone/photo history. Only use another character\'s image ID if recent context clearly makes it available, such as forwarded, shared, saved, or plausibly obtained.',
-  'Do not invent image IDs. If no returned image clearly fits, omit sendImageId.',
 ].join('\n');
 
 export const defaultUpdatePhoneImageCaptionResultTemplate = [
@@ -370,18 +400,26 @@ export const defaultDescribeInputImageResultTemplate = [
 ].join('\n');
 
 export const defaultCreateImageResultTemplate = [
-  'Generated phone image for {{character}}:',
+  'Action executed: create character phone image for {{character}}.',
   '',
   '* imageId: {{imageId}}',
   '* description: {{description}}',
   '',
-  'This image was generated for the current moment and saved to the character phone image library.',
-  'For Phone Message output, use this image in the final phone reply by setting sendImageId to "{{imageId}}".',
-  'For Normal RP output, display this image in the Chat tab without sending a phone message by adding one hidden metadata object to the final RP output: {"displayImageId":"{{imageId}}"}',
-  'Do not display or send more than one image in the same final reply.',
+  'The image was generated from your prompt and saved to the character phone image library.',
 ].join('\n');
 
 const previousCreateImageResultTemplates = new Set([
+  [
+    'Generated phone image for {{character}}:',
+    '',
+    '* imageId: {{imageId}}',
+    '* description: {{description}}',
+    '',
+    'This image was generated for the current moment and saved to the character phone image library.',
+    'For Phone Message output, use this image in the final phone reply by setting sendImageId to "{{imageId}}".',
+    'For Normal RP output, display this image in the Chat tab without sending a phone message by adding one hidden metadata object to the final RP output: {"displayImageId":"{{imageId}}"}',
+    'Do not display or send more than one image in the same final reply.',
+  ].join('\n'),
   [
     'Generated phone image for {{character}}:',
     '',
@@ -401,6 +439,16 @@ const previousCreateImageResultTemplates = new Set([
 ]);
 
 const previousGetImagesResultTemplates = new Set([
+  [
+    'Found Images: {{tags}}',
+    defaultGetImagesResultLineTemplate,
+    '',
+    'Use a returned imageId as sendImageId only if that image fits the replying/sending character and would feel natural in-character as an outgoing stored phone attachment.',
+    'For Normal RP, you may instead display exactly one returned image in the Chat tab without sending a phone message. Add one hidden metadata object to the final RP output: {"displayImageId":"returned_image_id"}',
+    'Only display an image when the story beat is literally about seeing, taking, browsing, showing, or looking at that image. Do not display multiple images.',
+    'Prefer images that belong to the sender, or image IDs established in recent phone/photo history. Only use another character\'s image ID if recent context clearly makes it available, such as forwarded, shared, saved, or plausibly obtained.',
+    'Do not invent image IDs. If no returned image clearly fits, omit sendImageId.',
+  ].join('\n'),
   [
     'Found Images: {{tags}}',
     defaultGetImagesResultLineTemplate,
