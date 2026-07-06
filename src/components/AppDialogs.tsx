@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { outputFormatHelp, type OutputFormatHelpKind } from '../nodes/output/formatHelp';
 import { CustomNodeBody } from '../nodes/custom-node/Card';
 import {
@@ -2233,6 +2233,163 @@ function CharacterImagesDialog({
   );
 }
 
+function formatAudioTime(seconds: number): string {
+  if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) {
+    return '0:00';
+  }
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+function DarkAudioPlayer({
+  src,
+  title,
+  onRemove,
+  className = '',
+}: {
+  src: string;
+  title?: string;
+  onRemove?: () => void;
+  className?: string;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const [prevSrc, setPrevSrc] = useState(src);
+  if (src !== prevSrc) {
+    setPrevSrc(src);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }
+
+  const togglePlay = () => {
+    if (!audioRef.current) {
+      return;
+    }
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (event: ChangeEvent<HTMLInputElement>) => {
+    const time = Number(event.target.value);
+    setCurrentTime(time);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
+  };
+
+  const toggleMute = () => {
+    if (!audioRef.current) {
+      return;
+    }
+    audioRef.current.muted = !isMuted;
+    setIsMuted(!isMuted);
+  };
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div className={`dark-audio-player ${className}`}>
+      <audio
+        ref={audioRef}
+        src={src}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+      />
+      <div className="dark-audio-controls">
+        <button
+          type="button"
+          className="dark-audio-play-btn nodrag"
+          onClick={togglePlay}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+        >
+          {isPlaying ? (
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1" />
+              <rect x="14" y="4" width="4" height="16" rx="1" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          )}
+        </button>
+        <div className="dark-audio-track-container">
+          <div className="dark-audio-info-row">
+            <span className="dark-audio-title">{title || 'Audio clip'}</span>
+            <span className="dark-audio-time">
+              {formatAudioTime(currentTime)} / {formatAudioTime(duration)}
+            </span>
+          </div>
+          <div className="dark-audio-slider-wrapper">
+            <input
+              type="range"
+              className="dark-audio-slider nodrag"
+              min={0}
+              max={duration || 100}
+              step={0.1}
+              value={currentTime}
+              onChange={handleSeek}
+              style={{
+                background: `linear-gradient(to right, #7eb9c5 ${progressPercent}%, #233147 ${progressPercent}%)`,
+              }}
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          className="dark-audio-mute-btn nodrag"
+          onClick={toggleMute}
+          aria-label={isMuted ? 'Unmute' : 'Mute'}
+        >
+          {isMuted ? (
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+            </svg>
+          )}
+        </button>
+        {onRemove && (
+          <button
+            type="button"
+            className="contextual-action-button danger nodrag"
+            onClick={onRemove}
+            title="Remove sample"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CharacterSetupDialog({
   storybook,
   characterId,
@@ -2395,10 +2552,11 @@ function CharacterSetupDialog({
       return;
     }
     if (!voiceTestText.trim()) {
-      setStatus('Enter a text the character should speak.');
+      setStatus('Enter a text the character should say.');
       return;
     }
     setVoiceGenerating(true);
+    setVoiceClip(null);
     setStatus('Unloading local LLM models and generating voice clip ...');
     try {
       const clips = await onGenerateCharacterVoicePreview({
@@ -2434,6 +2592,7 @@ function CharacterSetupDialog({
       characterComfyPreviewScenarios.find((entry) => entry.id === previewScenarioId) ??
       characterComfyPreviewScenarios[0];
     setGenerating(true);
+    setPreviewImage(null);
     setStatus('Unloading local LLM models and generating test image ...');
     try {
       const images = await onGenerateCharacterComfyPreview({
@@ -2526,8 +2685,8 @@ function CharacterSetupDialog({
             <p>{characterName}</p>
           </div>
           <div className="storybook-image-dialog-actions">
-            <button type="button" className="close-button" onClick={save}>Save</button>
             <button type="button" className="close-button" onClick={() => void closeDialog()}>Close</button>
+            <button type="button" className="close-button primary-save" onClick={save}>Save</button>
           </div>
         </div>
         {status && <span className="run-note storybook-image-status">{status}</span>}
@@ -2540,7 +2699,12 @@ function CharacterSetupDialog({
               className={activeSetupTab === 'image' ? 'active' : ''}
               onClick={() => setActiveSetupTab('image')}
             >
-              Image Setup
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <span>Image Setup</span>
             </button>
             <button
               type="button"
@@ -2549,77 +2713,98 @@ function CharacterSetupDialog({
               className={activeSetupTab === 'voice' ? 'active' : ''}
               onClick={() => setActiveSetupTab('voice')}
             >
-              Voice Setup
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
+              <span>Voice Setup</span>
             </button>
           </div>
           {activeSetupTab === 'voice' ? (
-        <div className="character-comfy-body character-voice-body">
-          <div className="character-comfy-form">
-            <label className="character-comfy-field">
-              <span>VOICE PROVIDER</span>
-              <NodeCustomSelect
-                value={voiceProviderId}
-                onChange={(value) => setVoiceProviderId(String(value))}
-                options={voiceConnections.length
-                  ? voiceConnections.map((connection) => providerOption(connection, providerHealthById[connection.id]))
-                  : [{ value: '', label: 'No ComfyUI voice provider', disabled: true }]}
-              />
-            </label>
-            <div className="character-comfy-field character-voice-sample-field">
-              <span>VOICE SAMPLE (MP3)</span>
-              <p className="character-voice-hint">
-                Upload a short MP3 voice sample of this character — ideally 10 to 20 seconds of
-                clear speech without music or background noise. It is stored in the storybook and
-                used as the reference voice for cloning.
-              </p>
-              {voiceDraft.sampleDataUrl ? (
-                <div className="character-voice-sample-row">
-                  <audio controls src={voiceDraft.sampleDataUrl} />
-                  <span className="character-voice-sample-name">{voiceDraft.sampleName || 'Voice sample'}</span>
-                  <button type="button" className="contextual-action-button nodrag" onClick={removeVoiceSample}>
-                    Remove
+            <div className="character-voice-body">
+              <div className="character-voice-card">
+                <label className="character-comfy-field">
+                  <span>VOICE PROVIDER</span>
+                  <NodeCustomSelect
+                    value={voiceProviderId}
+                    onChange={(value) => setVoiceProviderId(String(value))}
+                    options={voiceConnections.length
+                      ? voiceConnections.map((connection) => providerOption(connection, providerHealthById[connection.id]))
+                      : [{ value: '', label: 'No ComfyUI voice provider', disabled: true }]}
+                  />
+                </label>
+              </div>
+
+              <div className="character-voice-card">
+                <div className="character-voice-card-header">
+                  <span className="character-voice-card-title">VOICE SAMPLE (MP3)</span>
+                  <button type="button" className="contextual-action-button nodrag" onClick={() => void chooseVoiceSample()}>
+                    {voiceDraft.sampleDataUrl ? 'Replace MP3 Sample' : 'Choose MP3 Sample'}
                   </button>
                 </div>
-              ) : null}
-              <button type="button" className="contextual-action-button nodrag" onClick={() => void chooseVoiceSample()}>
-                {voiceDraft.sampleDataUrl ? 'Replace MP3 Sample' : 'Choose MP3 Sample'}
-              </button>
+                <p className="character-voice-hint">
+                  Upload a short MP3 voice sample of this character — ideally 10 to 20 seconds of
+                  clear speech without music or background noise. It is stored in the storybook and
+                  used as the reference voice for cloning.
+                </p>
+                {voiceDraft.sampleDataUrl ? (
+                  <DarkAudioPlayer
+                    src={voiceDraft.sampleDataUrl}
+                    title={voiceDraft.sampleName || 'Voice sample'}
+                    onRemove={removeVoiceSample}
+                    className="voice-sample-player"
+                  />
+                ) : (
+                  <div className="character-voice-empty-sample">
+                    <span>No voice sample uploaded yet</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="character-voice-card">
+                <span className="character-voice-card-title">VOICE GENERATION &amp; TESTING</span>
+                <label className="character-comfy-field">
+                  <span>TEST TEXT</span>
+                  <textarea
+                    className="node-textarea nodrag nowheel"
+                    rows={3}
+                    value={voiceTestText}
+                    placeholder="Write a sentence the character should say ..."
+                    onChange={(event) => setVoiceTestText(event.currentTarget.value)}
+                  />
+                </label>
+                <div className="character-comfy-actions">
+                  <button
+                    type="button"
+                    className="contextual-action-button nodrag"
+                    disabled={voiceGenerating}
+                    onClick={() => void generateVoicePreview()}
+                  >
+                    {voiceGenerating ? 'Generating ...' : 'Generate Voice'}
+                  </button>
+                  <button type="button" className="contextual-action-button nodrag" disabled={unloading} onClick={() => void unloadVoiceModels()}>
+                    {unloading ? 'Unloading ...' : 'Unload Models'}
+                  </button>
+                </div>
+
+                {voiceGenerating ? (
+                  <div className="character-voice-generating-box">
+                    <div className="character-voice-spinner" />
+                    <span>Generating voice clip ...</span>
+                  </div>
+                ) : voiceClip ? (
+                  <div className="character-voice-result-box">
+                    <span className="character-voice-result-label">GENERATED VOICE CLIP</span>
+                    <DarkAudioPlayer
+                      src={voiceClip.dataUrl}
+                      title={voiceClip.filename || 'Generated voice clip'}
+                      className="voice-generated-player"
+                    />
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <label className="character-comfy-field">
-              <span>TEST TEXT</span>
-              <textarea
-                className="node-textarea nodrag nowheel"
-                rows={4}
-                value={voiceTestText}
-                placeholder="Write a sentence the character should say ..."
-                onChange={(event) => setVoiceTestText(event.currentTarget.value)}
-              />
-            </label>
-            <div className="character-comfy-actions">
-              <button
-                type="button"
-                className="contextual-action-button nodrag"
-                disabled={voiceGenerating}
-                onClick={() => void generateVoicePreview()}
-              >
-                {voiceGenerating ? 'Generating ...' : 'Generate Voice'}
-              </button>
-              <button type="button" className="contextual-action-button nodrag" disabled={unloading} onClick={() => void unloadVoiceModels()}>
-                {unloading ? 'Unloading ...' : 'Unload Models'}
-              </button>
-            </div>
-          </div>
-          <div className="character-comfy-preview character-voice-preview">
-            {voiceClip ? (
-              <>
-                <audio controls src={voiceClip.dataUrl} />
-                <span>{voiceClip.filename || 'Generated voice clip'}</span>
-              </>
-            ) : (
-              <p>Generate a test clip to hear this character's cloned voice.</p>
-            )}
-          </div>
-        </div>
           ) : (
         <div className="character-comfy-body">
           <div className="character-comfy-form">
@@ -2697,7 +2882,12 @@ function CharacterSetupDialog({
             </div>
           </div>
           <div className="character-comfy-preview">
-            {previewImage ? (
+            {generating ? (
+              <div className="character-image-generating-box">
+                <div className="character-voice-spinner" />
+                <span>Generating test image ...</span>
+              </div>
+            ) : previewImage ? (
               <>
                 <img src={previewImage.dataUrl} alt={previewImage.filename || `${characterName} generated preview`} />
                 <span>{previewImage.filename || 'Generated preview'}</span>

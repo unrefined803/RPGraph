@@ -42,6 +42,8 @@ import { llmProviderKind } from '../llm/providerKind';
 import { sanitizeDataUrlsInText } from '../utils/sanitize';
 import {
   connectionReasoningEfforts,
+  bundledComfyWorkflows,
+  bundledComfyWorkflowPathForRole,
   defaultComfyCheckpointName,
   defaultComfyDiffusionModelName,
   defaultComfyHeight,
@@ -51,7 +53,6 @@ import {
   defaultComfyVaeName,
   defaultComfyWidth,
   defaultComfyWorkflowPath,
-  defaultComfyVoiceWorkflowPath,
   defaultConnectionSampling,
   comfySetupRequiredMessage,
   maxSmoothChatAutoScrollMinSpeed,
@@ -66,6 +67,7 @@ import {
   type ComfyWorkflowInspection,
 } from '../comfy/workflowCompatibility';
 import { comfyConnectionRole } from '../comfy/connectionRole';
+import { copyTextToClipboard } from '../utils/clipboard';
 
 type ComfyModelLists = {
   checkpoints: string[];
@@ -211,7 +213,7 @@ type StudioDialogsProps = {
   onDeleteConnection: () => void;
   onCheckConnectionModels: () => void;
   onConnectComfyProvider: () => void;
-  onSelectComfyWorkflow: () => void;
+  onSelectBundledComfyWorkflow: (workflowPath: string) => void;
   onRepairComfyWorkflow: (llmConnectionId: string) => void;
   onApplyComfyWorkflowRepair: () => void;
   onGenerateComfyTestImage: () => void;
@@ -831,7 +833,7 @@ export function StudioDialogs({
   onDeleteConnection,
   onCheckConnectionModels,
   onConnectComfyProvider,
-  onSelectComfyWorkflow,
+  onSelectBundledComfyWorkflow,
   onRepairComfyWorkflow,
   onApplyComfyWorkflowRepair,
   onGenerateComfyTestImage,
@@ -862,6 +864,7 @@ export function StudioDialogs({
   const [editingWorkflowVariableKey, setEditingWorkflowVariableKey] = useState<string | null>(null);
   const [workflowVariableNameDraft, setWorkflowVariableNameDraft] = useState('');
   const [workflowVariableStatus, setWorkflowVariableStatus] = useState('');
+  const [comfyWorkflowCopyStatus, setComfyWorkflowCopyStatus] = useState('');
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [uiScalePercentDraft, setUiScalePercentDraft] = useState(() =>
     String(Math.round(uiScale * 100)),
@@ -892,6 +895,14 @@ export function StudioDialogs({
   const isComfyImageEditing = isComfyConnection && editingComfyRole === 'image';
   const isComfyVoiceEditing = isComfyConnection && editingComfyRole === 'voice';
   const comfyRolePending = isComfyConnection && editingComfyRole === null;
+  const comfyWorkflowOptions = bundledComfyWorkflows.filter((workflow) => workflow.role === editingComfyRole);
+  const currentComfyWorkflowPath = bundledComfyWorkflowPathForRole(
+    editingConnection.comfyWorkflowPath,
+    editingComfyRole,
+  );
+  const selectedComfyWorkflow =
+    comfyWorkflowOptions.find((workflow) => workflow.apiWorkflowPath === currentComfyWorkflowPath) ??
+    comfyWorkflowOptions[0];
   const editingProviderKind = llmProviderKind(editingConnection);
   const comfyLoraSlots = validComfyLoraSlots(editingConnection.comfyLoraSlots ?? defaultComfyLoraSlots);
   const [comfyRepairProviderId, setComfyRepairProviderId] = useState('');
@@ -1081,6 +1092,17 @@ export function StudioDialogs({
       setWorkflowVariableNameDraft('');
     }
   }
+
+  async function copyComfyWorkflowPath(path: string, label: string) {
+    try {
+      await copyTextToClipboard(path);
+      setComfyWorkflowCopyStatus(`${label} path copied.`);
+    } catch (error) {
+      setComfyWorkflowCopyStatus(
+        `Copy failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
   const textDialogBytesPerEstimatedToken = textDialogNode?.data.displayTokenBytesPerToken;
   const formattedHistoryText =
     textDialogNode?.data.nodeType === 'history'
@@ -1200,7 +1222,10 @@ export function StudioDialogs({
 
   useEffect(() => {
     if (!showConnections) {
-      queueMicrotask(() => setApiKeyVisible(false));
+      queueMicrotask(() => {
+        setApiKeyVisible(false);
+        setComfyWorkflowCopyStatus('');
+      });
     }
   }, [showConnections]);
 
@@ -2681,25 +2706,52 @@ export function StudioDialogs({
                   {isComfyConnection ? (
                     <>
                       <div className="connection-field comfy-workflow-field">
-                        <label htmlFor="comfy-workflow-path">WORKFLOW JSON</label>
-                        <div className="comfy-workflow-row">
-                          <input
-                            id="comfy-workflow-path"
-                            value={
-                              editingConnection.comfyWorkflowPath ||
-                              (isComfyVoiceEditing ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath)
-                            }
-                            readOnly
-                          />
-                          <button
-                            type="button"
-                            className="connection-inline-button"
-                            onClick={onSelectComfyWorkflow}
-                            disabled={comfyProviderActionActive !== null}
-                          >
-                            Choose
-                          </button>
-                        </div>
+                        <label htmlFor="comfy-workflow-path">WORKFLOW</label>
+                        <NodeCustomSelect
+                          id="comfy-workflow-path"
+                          value={selectedComfyWorkflow?.apiWorkflowPath ?? currentComfyWorkflowPath}
+                          options={comfyWorkflowOptions.length
+                            ? comfyWorkflowOptions.map((workflow) => ({
+                                value: workflow.apiWorkflowPath,
+                                label: workflow.label,
+                              }))
+                            : [{ value: currentComfyWorkflowPath, label: 'No bundled workflow', disabled: true }]}
+                          onChange={(workflowPath) => {
+                            setComfyWorkflowCopyStatus('');
+                            onSelectBundledComfyWorkflow(String(workflowPath));
+                          }}
+                        />
+                        {selectedComfyWorkflow ? (
+                          <div className="comfy-workflow-onboarding">
+                            <div>
+                              <strong>{selectedComfyWorkflow.label}</strong>
+                              <span>{selectedComfyWorkflow.description}</span>
+                            </div>
+                            <ol>
+                              <li>Copy the setup workflow path and open that workflow in ComfyUI.</li>
+                              <li>Install the required custom nodes and download the required models there.</li>
+                              <li>Run the normal ComfyUI workflow once until it works.</li>
+                              <li>Return to RPGraph, connect this provider, and use the selected API workflow here.</li>
+                            </ol>
+                            <div className="connection-provider-actions">
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => void copyComfyWorkflowPath(selectedComfyWorkflow.setupWorkflowPath, 'Setup workflow')}
+                              >
+                                Copy Setup Path
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => void copyComfyWorkflowPath(selectedComfyWorkflow.apiWorkflowPath, 'API workflow')}
+                              >
+                                Copy API Path
+                              </button>
+                            </div>
+                            {comfyWorkflowCopyStatus ? <em>{comfyWorkflowCopyStatus}</em> : null}
+                          </div>
+                        ) : null}
                         {comfyWorkflowIncompatible ? (
                           <div className={`comfy-workflow-compatibility ${comfyWorkflowRepairReady ? 'ready' : 'error'}`}>
                             <div>

@@ -157,8 +157,58 @@ const connectionStorageKey = 'rpgraph.connections';
 export const defaultChatPanelWidth = 779;
 const defaultConnectionReasoningEffort: ConnectionReasoningEffort = 'none';
 export const defaultComfyBaseUrl = 'http://127.0.0.1:8188';
-export const defaultComfyWorkflowPath = 'comfy-workflows/Krea2.json';
-export const defaultComfyVoiceWorkflowPath = 'comfy-workflows/VibeVoice.json';
+export type BundledComfyWorkflow = {
+  id: string;
+  label: string;
+  role: 'image' | 'voice';
+  apiWorkflowPath: string;
+  setupWorkflowPath: string;
+  description: string;
+};
+
+export const bundledComfyWorkflows: BundledComfyWorkflow[] = [
+  {
+    id: 'krea2-image',
+    label: 'Krea2 Image Workflow',
+    role: 'image',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/image/Krea2.json',
+    setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/image',
+    description: 'Default image generation workflow with RPGraph variables.',
+  },
+  {
+    id: 'vibevoice',
+    label: 'VibeVoice',
+    role: 'voice',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
+    setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/voice',
+    description: 'Default voice generation workflow with text and voice-sample variables.',
+  },
+  {
+    id: 'higgs-audio-v3-tts',
+    label: 'Higgs Audio V3 TTS',
+    role: 'voice',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json',
+    setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/voice',
+    description: 'Alternative voice workflow with text and voice-sample variables.',
+  },
+];
+export const defaultComfyWorkflowPath = bundledComfyWorkflows.find((workflow) => workflow.role === 'image')?.apiWorkflowPath ??
+  'comfy-workflows/api-workflows-with-variables/image/Krea2.json';
+export const defaultComfyVoiceWorkflowPath = bundledComfyWorkflows.find((workflow) => workflow.role === 'voice')?.apiWorkflowPath ??
+  'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json';
+
+function defaultComfyWorkflowPathForRole(role: 'image' | 'voice' | null) {
+  return role === 'voice' ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath;
+}
+
+export function bundledComfyWorkflowPathForRole(path: string | undefined, role: 'image' | 'voice' | null) {
+  const trimmedPath = path?.trim() ?? '';
+  return bundledComfyWorkflows.some((workflow) =>
+    workflow.role === role && workflow.apiWorkflowPath === trimmedPath
+  )
+    ? trimmedPath
+    : defaultComfyWorkflowPathForRole(role);
+}
 export const defaultComfyWidth = 832;
 export const defaultComfyHeight = 1216;
 export const defaultComfyPrompt = '';

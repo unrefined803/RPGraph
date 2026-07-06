@@ -31,8 +31,22 @@ const {
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
 const defaultWorkflowFileNamePattern = /^workflow\.default.*\.json$/i;
-const defaultComfyWorkflowPath = path.join(__dirname, '../comfy-workflows/Krea2.json');
-const defaultComfyVoiceWorkflowPath = path.join(__dirname, '../comfy-workflows/VibeVoice.json');
+const bundledComfyWorkflows = [
+  {
+    role: 'image',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/image/Krea2.json',
+  },
+  {
+    role: 'voice',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
+  },
+  {
+    role: 'voice',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json',
+  },
+];
+const defaultComfyWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/image/Krea2.json');
+const defaultComfyVoiceWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json');
 const maxComfyVoiceSampleBytes = 24 * 1024 * 1024;
 const appIconPath = path.join(
   __dirname,
@@ -48,10 +62,9 @@ const workflowCipherAad = Buffer.from('rpgraph-encrypted-workflow:v2');
 const storybookCipherAad = Buffer.from('rpgraph-encrypted-storybook:v1');
 const approvedWorkflowPaths = new Set();
 const approvedFilePaths = new Set();
-const approvedComfyWorkflowPaths = new Set([
-  path.resolve(defaultComfyWorkflowPath),
-  path.resolve(defaultComfyVoiceWorkflowPath),
-]);
+const approvedComfyWorkflowPaths = new Set(
+  bundledComfyWorkflows.map((workflow) => path.resolve(projectRootPath, workflow.apiWorkflowPath)),
+);
 
 function bundledDefaultWorkflowPath() {
   const names = fsSync
@@ -2831,8 +2844,8 @@ ipcMain.handle('comfy:select-workflow', async () => {
 
 function defaultComfyWorkflowPathForRole(role) {
   return comfyWorkflowRole(role) === 'voice'
-    ? 'comfy-workflows/VibeVoice.json'
-    : 'comfy-workflows/Krea2.json';
+    ? 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json'
+    : 'comfy-workflows/api-workflows-with-variables/image/Krea2.json';
 }
 
 ipcMain.handle('comfy:inspect-workflow', async (_event, request) => {
@@ -2894,7 +2907,7 @@ ipcMain.handle('comfy:apply-workflow-repair', async (_event, request) => {
 ipcMain.handle('comfy:run-workflow-path', async (_event, request) => {
   const abort = createLlmAbortController(request);
   try {
-    const filePath = validateComfyWorkflowPath(request?.workflowPath || 'comfy-workflows/Krea2.json');
+    const filePath = validateComfyWorkflowPath(request?.workflowPath || defaultComfyWorkflowPathForRole('image'));
     const contents = await fs.readFile(filePath, 'utf8');
     const parsedWorkflow = JSON.parse(contents);
     assertComfyWorkflowCompatible(parsedWorkflow, filePath);

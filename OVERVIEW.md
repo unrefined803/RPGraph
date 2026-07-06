@@ -146,7 +146,7 @@ The app supports saved provider connections for LLM and ComfyUI usage.
 
 LLM providers are represented as OpenAI-compatible connection presets. The default is a local LM Studio-style connection at `http://localhost:1234/v1`.
 
-ComfyUI providers are used for image and voice generation. Each ComfyUI preset has a role (`image` or `voice`) chosen when the preset is created. The default ComfyUI base URL is `http://127.0.0.1:8188`, with bundled workflow paths at `comfy-workflows/Krea2.json` (image) and `comfy-workflows/VibeVoice.json` (voice). Voice presets clone a character voice from an MP3 sample stored in the storybook (`characters[].voiceConfig`); the sample is uploaded to the ComfyUI input directory before each run, and generated audio is fetched back as a data URL.
+ComfyUI providers are used for image and voice generation. Each ComfyUI preset has a role (`image` or `voice`) chosen when the preset is created. Bundled ComfyUI workflows are split by role and shape: `comfy-workflows/api-workflows-with-variables/` contains the API JSON files that RPGraph can run, while `comfy-workflows/normal-comfyui-workflows/` is reserved for regular ComfyUI setup workflows that users open in ComfyUI first. Voice presets clone a character voice from an MP3 sample stored in the storybook (`characters[].voiceConfig`); the sample is uploaded to the ComfyUI input directory before each run, and generated audio is fetched back as a data URL.
 
 Provider management includes:
 

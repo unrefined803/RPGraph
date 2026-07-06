@@ -1239,7 +1239,7 @@ function App() {
     checkConnectionModels,
     loadComfyModelLists,
     connectionFromEditingConnection,
-    selectComfyWorkflow,
+    selectBundledComfyWorkflow,
     repairComfyWorkflow,
     applyComfyWorkflowRepair,
     generateComfyTestImage,
@@ -6223,7 +6223,7 @@ function App() {
             void loadComfyModelLists(connection);
           }
         }}
-        onSelectComfyWorkflow={() => void selectComfyWorkflow()}
+        onSelectBundledComfyWorkflow={selectBundledComfyWorkflow}
         onRepairComfyWorkflow={(llmConnectionId) => void repairComfyWorkflow(llmConnectionId)}
         onApplyComfyWorkflowRepair={() => void applyComfyWorkflowRepair()}
         onGenerateComfyTestImage={() => void generateComfyTestImage()}

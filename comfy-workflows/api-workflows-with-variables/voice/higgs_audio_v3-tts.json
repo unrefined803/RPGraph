@@ -1,0 +1,64 @@
+{
+  "1": {
+    "inputs": {
+      "model": "Higgs Audio v3 TTS 4B - bosonai (auto-download)",
+      "dtype": "auto",
+      "device": "auto",
+      "attention": "auto",
+      "download_if_missing": true
+    },
+    "class_type": "HiggsV3LoadModel",
+    "_meta": {
+      "title": "Higgs v3 Load Model"
+    }
+  },
+  "8": {
+    "inputs": {
+      "audio": "{{voice_audio}}"
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Audio"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "audio/RPgraph",
+      "quality": "V0",
+      "audio": [
+        "35",
+        0
+      ]
+    },
+    "class_type": "SaveAudioMP3",
+    "_meta": {
+      "title": "Save Audio (MP3)"
+    }
+  },
+  "35": {
+    "inputs": {
+      "text": "{{speech_text}}",
+      "reference_text": "",
+      "max_new_tokens": 2048,
+      "temperature": 1,
+      "top_p": 0.95,
+      "top_k": 50,
+      "seed": 1928107625,
+      "longform_chunking": true,
+      "words_per_chunk": 45,
+      "pause_between_chunks": 0.15,
+      "higgs_model": [
+        "1",
+        0
+      ],
+      "reference_audio": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "HiggsV3VoiceClone",
+    "_meta": {
+      "title": "Higgs v3 Voice Clone"
+    }
+  }
+}

@@ -1,0 +1,334 @@
+{
+  "id": "c6ef8963-032c-45f6-954f-b5f6b354343b",
+  "revision": 0,
+  "last_node_id": 44,
+  "last_link_id": 61,
+  "nodes": [
+    {
+      "id": 15,
+      "type": "LoadAudio",
+      "pos": [
+        15.256911277770996,
+        126.44892883300781
+      ],
+      "size": [
+        270,
+        136
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            60
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.49",
+        "Node name for S&R": "LoadAudio",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "audio": true,
+            "audioUI": true,
+            "upload": true
+          },
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "Voice.mp3",
+        null,
+        null
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 16,
+      "type": "PreviewAudio",
+      "pos": [
+        894.1837768554688,
+        126.69258117675781
+      ],
+      "size": [
+        270,
+        88
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 61
+        }
+      ],
+      "outputs": [
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.49",
+        "Node name for S&R": "PreviewAudio",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "audioUI": true
+          },
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 44,
+      "type": "VibeVoiceSingleSpeakerNode",
+      "pos": [
+        388.8460693359375,
+        126.70189666748047
+      ],
+      "size": [
+        400,
+        420
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "voice_to_clone",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": 60
+        },
+        {
+          "name": "lora",
+          "shape": 7,
+          "type": "LORA_CONFIG",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            61
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "vibevoice-comfyui",
+        "ver": "1.8.1",
+        "Node name for S&R": "VibeVoiceSingleSpeakerNode",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "text": true,
+            "model": true,
+            "attention_type": true,
+            "quantize_llm": true,
+            "free_memory_after_generate": true,
+            "diffusion_steps": true,
+            "seed": true,
+            "cfg_scale": true,
+            "use_sampling": true,
+            "temperature": true,
+            "top_p": true,
+            "max_words_per_chunk": true,
+            "voice_speed_factor": true
+          },
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "Hello, this is a test of the VibeVoice text-to-speech system.",
+        "VibeVoice-1.5B",
+        "auto",
+        "full precision",
+        true,
+        20,
+        42,
+        "fixed",
+        1.3,
+        false,
+        0.95,
+        0.95,
+        250,
+        1
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 40,
+      "type": "Note",
+      "pos": [
+        546.7173461914065,
+        719.8176635742195
+      ],
+      "size": [
+        415,
+        88
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Voice Speed Factor",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "The voice speed factor influences the original source audio to attempt to achieve a slower or faster final speech. 1.0 is the normal speed. It is recommended not to exceed values ​​between 0.95 and 1.05. The effect is best when you provide a sample audio of at least 20 seconds."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 22,
+      "type": "Note",
+      "pos": [
+        -539.2780151367188,
+        186.78372192382812
+      ],
+      "size": [
+        398.15972900390625,
+        317.8674621582031
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "1) Download Models",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "You have to manually download the models you would like to use and put them into: ComfyUI/models/vibevoice/\n\nMake a directory for each model and put all the files inside them.\n\nVibeVoice-1.5B model (~ 5.4 GB):\nhttps://huggingface.co/microsoft/VibeVoice-1.5B/tree/main\n\nVibeVoice-Large model (~ 18.7 GB):\nhttps://huggingface.co/aoi-ot/VibeVoice-Large/tree/main\n\nVibeVoice-Large-Q-8bit model (~ 11.6 GB):\nhttps://huggingface.co/FabioSarracino/VibeVoice-Large-Q8/tree/main\n\nVibeVoice-Large-Q-4bit model (~ 6.6 GB):\nhttps://huggingface.co/DevParker/VibeVoice7b-low-vram/tree/main/4bit"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 42,
+      "type": "Note",
+      "pos": [
+        -541.1271362304688,
+        568.1253051757812
+      ],
+      "size": [
+        401.8499450683594,
+        210.19009399414062
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "2) Download Tokenizer",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "You have to manually download the Qwen2.5 Tokenizer files and put them into: ComfyUI/models/vibevoice/tokenizer/\n\nhttps://huggingface.co/Qwen/Qwen2.5-1.5B/tree/main\n\nRequired files: tokenizer_config.json, vocab.json, merges.txt, tokenizer.json (~11MB)\n\nPut the files directly inside tokenizer directory without make another directory inside."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 21,
+      "type": "Note",
+      "pos": [
+        82.3009170532226,
+        725.1449340820315
+      ],
+      "size": [
+        415,
+        88
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Load Text From File",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "Use Load Text From File if you want to use a .txt file instead of text-area. You can load .txt files from ComfyUI/input, ComfyUI/output or ComfyUI/temp directories."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    }
+  ],
+  "links": [
+    [
+      60,
+      15,
+      0,
+      44,
+      0,
+      "AUDIO"
+    ],
+    [
+      61,
+      44,
+      0,
+      16,
+      0,
+      "AUDIO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.620921323059155,
+      "offset": [
+        1136.9963359021183,
+        380.8648599175051
+      ]
+    },
+    "ue_links": [],
+    "frontendVersion": "1.45.20",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}
