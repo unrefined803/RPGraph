@@ -176,6 +176,9 @@ declare global {
         value?: unknown;
         workflow?: unknown;
       }>;
+      resolveProjectPath: (relativePath: string) => Promise<{
+        path: string;
+      }>;
       restoreDefaultWorkflow: () => Promise<{
         filePath: string;
         fileName: string;

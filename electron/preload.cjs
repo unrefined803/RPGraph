@@ -127,6 +127,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
   loadJsonFile: () => ipcRenderer.invoke('json-file:load'),
   loadDefaultWorkflow: () => ipcRenderer.invoke('workflow:load-default'),
   loadStartupWorkflow: () => ipcRenderer.invoke('workflow:load-startup'),
+  resolveProjectPath: (relativePath) => ipcRenderer.invoke('app:resolve-project-path', relativePath),
   restoreDefaultWorkflow: () => ipcRenderer.invoke('workflow:restore-default'),
   reloadWorkflow: (filePath) => ipcRenderer.invoke('workflow:reload', filePath),
   saveCurrentWorkflow: (filePath, workflow) =>

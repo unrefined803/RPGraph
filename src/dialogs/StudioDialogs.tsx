@@ -214,6 +214,7 @@ type StudioDialogsProps = {
   onCheckConnectionModels: () => void;
   onConnectComfyProvider: () => void;
   onSelectBundledComfyWorkflow: (workflowPath: string) => void;
+  onConfirmComfyWorkflowSetup: () => void;
   onRepairComfyWorkflow: (llmConnectionId: string) => void;
   onApplyComfyWorkflowRepair: () => void;
   onGenerateComfyTestImage: () => void;
@@ -834,6 +835,7 @@ export function StudioDialogs({
   onCheckConnectionModels,
   onConnectComfyProvider,
   onSelectBundledComfyWorkflow,
+  onConfirmComfyWorkflowSetup,
   onRepairComfyWorkflow,
   onApplyComfyWorkflowRepair,
   onGenerateComfyTestImage,
@@ -896,6 +898,7 @@ export function StudioDialogs({
   const isComfyVoiceEditing = isComfyConnection && editingComfyRole === 'voice';
   const comfyRolePending = isComfyConnection && editingComfyRole === null;
   const comfyWorkflowOptions = bundledComfyWorkflows.filter((workflow) => workflow.role === editingComfyRole);
+  const comfyWorkflowSetupConfirmed = isComfyConnection && editingConnection.comfyWorkflowSetupConfirmed === true;
   const currentComfyWorkflowPath = bundledComfyWorkflowPathForRole(
     editingConnection.comfyWorkflowPath,
     editingComfyRole,
@@ -1095,8 +1098,9 @@ export function StudioDialogs({
 
   async function copyComfyWorkflowPath(path: string, label: string) {
     try {
-      await copyTextToClipboard(path);
-      setComfyWorkflowCopyStatus(`${label} path copied.`);
+      const resolvedPath = await window.rpgraph.resolveProjectPath(path);
+      await copyTextToClipboard(resolvedPath.path);
+      setComfyWorkflowCopyStatus(`${label} copied.`);
     } catch (error) {
       setComfyWorkflowCopyStatus(
         `Copy failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -2721,38 +2725,34 @@ export function StudioDialogs({
                             onSelectBundledComfyWorkflow(String(workflowPath));
                           }}
                         />
-                        {selectedComfyWorkflow ? (
+                        {selectedComfyWorkflow && !comfyWorkflowSetupConfirmed ? (
                           <div className="comfy-workflow-onboarding">
                             <div>
                               <strong>{selectedComfyWorkflow.label}</strong>
                               <span>{selectedComfyWorkflow.description}</span>
                             </div>
                             <ol>
-                              <li>Copy the setup workflow path and open that workflow in ComfyUI.</li>
+                              <li>Copy the normal workflow path and open that workflow in ComfyUI.</li>
                               <li>Install the required custom nodes and download the required models there.</li>
                               <li>Run the normal ComfyUI workflow once until it works.</li>
-                              <li>Return to RPGraph, connect this provider, and use the selected API workflow here.</li>
+                              <li>Return to RPGraph and confirm that ComfyUI is set up and working.</li>
                             </ol>
                             <div className="connection-provider-actions">
                               <button
                                 type="button"
                                 className="secondary"
-                                onClick={() => void copyComfyWorkflowPath(selectedComfyWorkflow.setupWorkflowPath, 'Setup workflow')}
+                                onClick={() => void copyComfyWorkflowPath(selectedComfyWorkflow.setupWorkflowPath, 'Normal workflow path')}
                               >
-                                Copy Setup Path
+                                Copy Normal Workflow Path
                               </button>
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() => void copyComfyWorkflowPath(selectedComfyWorkflow.apiWorkflowPath, 'API workflow')}
-                              >
-                                Copy API Path
+                              <button type="button" onClick={onConfirmComfyWorkflowSetup}>
+                                ComfyUI Is Set Up and Working
                               </button>
                             </div>
                             {comfyWorkflowCopyStatus ? <em>{comfyWorkflowCopyStatus}</em> : null}
                           </div>
                         ) : null}
-                        {comfyWorkflowIncompatible ? (
+                        {comfyWorkflowSetupConfirmed && comfyWorkflowIncompatible ? (
                           <div className={`comfy-workflow-compatibility ${comfyWorkflowRepairReady ? 'ready' : 'error'}`}>
                             <div>
                               <strong>{comfyWorkflowRepairReady ? 'Fix ready' : 'Workflow incompatible'}</strong>
@@ -2812,7 +2812,7 @@ export function StudioDialogs({
                           </div>
                         ) : null}
                       </div>
-                      {!comfyWorkflowIncompatible && isComfyVoiceEditing ? (
+                      {comfyWorkflowSetupConfirmed && !comfyWorkflowIncompatible && isComfyVoiceEditing ? (
                         <div className="connection-provider-tools comfy-connection-tools" aria-label="ComfyUI voice connection tools">
                           <div>
                             <strong>
@@ -2842,7 +2842,7 @@ export function StudioDialogs({
                           </div>
                         </div>
                       ) : null}
-                      {!comfyWorkflowIncompatible && isComfyImageEditing ? (
+                      {comfyWorkflowSetupConfirmed && !comfyWorkflowIncompatible && isComfyImageEditing ? (
                         <>
                           <div className="connection-field">
                             <label htmlFor="comfy-width">WIDTH</label>

@@ -38,15 +38,15 @@ const bundledComfyWorkflows = [
   },
   {
     role: 'voice',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json',
   },
   {
     role: 'voice',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
   },
 ];
 const defaultComfyWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/image/Krea2.json');
-const defaultComfyVoiceWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json');
+const defaultComfyVoiceWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json');
 const maxComfyVoiceSampleBytes = 24 * 1024 * 1024;
 const appIconPath = path.join(
   __dirname,
@@ -65,6 +65,18 @@ const approvedFilePaths = new Set();
 const approvedComfyWorkflowPaths = new Set(
   bundledComfyWorkflows.map((workflow) => path.resolve(projectRootPath, workflow.apiWorkflowPath)),
 );
+
+function resolveProjectPath(relativePath) {
+  if (typeof relativePath !== 'string' || relativePath.trim().length === 0) {
+    throw new Error('Project path is missing.');
+  }
+  const resolved = path.resolve(projectRootPath, relativePath);
+  const relative = path.relative(projectRootPath, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('Project path must stay inside the application folder.');
+  }
+  return resolved;
+}
 
 function bundledDefaultWorkflowPath() {
   const names = fsSync
@@ -2842,9 +2854,13 @@ ipcMain.handle('comfy:select-workflow', async () => {
   };
 });
 
+ipcMain.handle('app:resolve-project-path', async (_event, relativePath) => ({
+  path: resolveProjectPath(relativePath),
+}));
+
 function defaultComfyWorkflowPathForRole(role) {
   return comfyWorkflowRole(role) === 'voice'
-    ? 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json'
+    ? 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json'
     : 'comfy-workflows/api-workflows-with-variables/image/Krea2.json';
 }
 

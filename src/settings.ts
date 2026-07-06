@@ -176,18 +176,18 @@ export const bundledComfyWorkflows: BundledComfyWorkflow[] = [
     description: 'Default image generation workflow with RPGraph variables.',
   },
   {
-    id: 'vibevoice',
-    label: 'VibeVoice',
-    role: 'voice',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
-    setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/voice',
-    description: 'Default voice generation workflow with text and voice-sample variables.',
-  },
-  {
     id: 'higgs-audio-v3-tts',
     label: 'Higgs Audio V3 TTS',
     role: 'voice',
     apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json',
+    setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/voice',
+    description: 'Default voice workflow with text and voice-sample variables.',
+  },
+  {
+    id: 'vibevoice',
+    label: 'VibeVoice',
+    role: 'voice',
+    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
     setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/voice',
     description: 'Alternative voice workflow with text and voice-sample variables.',
   },
@@ -195,7 +195,7 @@ export const bundledComfyWorkflows: BundledComfyWorkflow[] = [
 export const defaultComfyWorkflowPath = bundledComfyWorkflows.find((workflow) => workflow.role === 'image')?.apiWorkflowPath ??
   'comfy-workflows/api-workflows-with-variables/image/Krea2.json';
 export const defaultComfyVoiceWorkflowPath = bundledComfyWorkflows.find((workflow) => workflow.role === 'voice')?.apiWorkflowPath ??
-  'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json';
+  'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json';
 
 function defaultComfyWorkflowPathForRole(role: 'image' | 'voice' | null) {
   return role === 'voice' ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath;
@@ -387,8 +387,10 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
     apiKey: kind === 'comfyui' ? '' : connection.apiKey,
     model: kind === 'comfyui' ? '' : connection.model,
     comfyWorkflowPath: kind === 'comfyui'
-      ? connection.comfyWorkflowPath ||
-        (comfyRole === 'voice' ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath)
+      ? bundledComfyWorkflowPathForRole(connection.comfyWorkflowPath, comfyRole ?? null)
+      : undefined,
+    comfyWorkflowSetupConfirmed: kind === 'comfyui'
+      ? connection.comfyWorkflowSetupConfirmed === true
       : undefined,
     comfyWidth: isComfyImage
       ? validComfyDimension(connection.comfyWidth, defaultComfyWidth)

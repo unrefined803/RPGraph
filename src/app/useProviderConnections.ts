@@ -251,6 +251,7 @@ export function useProviderConnections({
           ...preset,
           // Applying the ComfyUI type always re-enters the image/voice picker step.
           comfyRole: undefined,
+          comfyWorkflowSetupConfirmed: presetKind === 'comfyui' ? false : undefined,
           providerKind: presetKind === 'comfyui' ? undefined : preset.providerKind,
           vision: false,
         }
@@ -258,6 +259,7 @@ export function useProviderConnections({
           ...editingConnection,
           ...preset,
           comfyRole: undefined,
+          comfyWorkflowSetupConfirmed: presetKind === 'comfyui' ? false : undefined,
           providerKind: presetKind === 'comfyui' ? undefined : preset.providerKind,
           vision: presetKind === 'comfyui' ? false : editingConnection.vision ?? false,
         };
@@ -322,6 +324,7 @@ export function useProviderConnections({
       comfyWorkflowPath: !currentWorkflowPath
         ? roleDefaultWorkflowPath
         : bundledComfyWorkflowPathForRole(currentWorkflowPath, role),
+      comfyWorkflowSetupConfirmed: false,
     };
     setConnections((current) =>
       current.map((entry) => (entry.id === nextConnection.id ? nextConnection : entry)),
@@ -332,14 +335,9 @@ export function useProviderConnections({
     setComfyWorkflowRepairStatus('');
     setConnectionStatus(
       role === 'voice'
-        ? 'ComfyUI voice generation selected. Check the Base URL and workflow.'
-        : 'ComfyUI image generation selected. Check the Base URL and workflow.',
+        ? 'ComfyUI voice generation selected. Open the normal workflow in ComfyUI first.'
+        : 'ComfyUI image generation selected. Open the normal workflow in ComfyUI first.',
     );
-    void checkProviderConnection(nextConnection, { showStatus: true });
-    void inspectComfyWorkflow(nextConnection, { showStatus: false });
-    if (role === 'image') {
-      void loadComfyModelLists(nextConnection);
-    }
   }
 
   function connectionFromEditingConnection(): ConnectionPreset {
@@ -360,6 +358,9 @@ export function useProviderConnections({
       apiKey: kind === 'comfyui' ? '' : editingConnection.apiKey.trim(),
       comfyWorkflowPath: kind === 'comfyui'
         ? bundledComfyWorkflowPathForRole(editingConnection.comfyWorkflowPath, comfyRole)
+        : undefined,
+      comfyWorkflowSetupConfirmed: kind === 'comfyui'
+        ? editingConnection.comfyWorkflowSetupConfirmed === true
         : undefined,
       comfyWidth: isComfyImage
         ? validComfyDimension(editingConnection.comfyWidth, defaultComfyWidth)
@@ -1297,6 +1298,7 @@ export function useProviderConnections({
     const nextConnection: ConnectionPreset = {
       ...connection,
       comfyWorkflowPath: workflow.apiWorkflowPath,
+      comfyWorkflowSetupConfirmed: false,
     };
     setConnections((current) =>
       current.map((entry) => (entry.id === nextConnection.id ? nextConnection : entry)),
@@ -1305,9 +1307,30 @@ export function useProviderConnections({
     setComfyWorkflowInspection(null);
     setPendingComfyWorkflowRepair(null);
     setComfyWorkflowRepairStatus('');
-    setConnectionStatus(`ComfyUI workflow selected: ${workflow.label}.`);
+    setConnectionStatus(`ComfyUI workflow selected: ${workflow.label}. Open the normal workflow in ComfyUI first.`);
+  }
+
+  function confirmComfyWorkflowSetup() {
+    const connection = connectionFromEditingConnection();
+    if (connection.kind !== 'comfyui') {
+      setConnectionStatus('Choose a ComfyUI provider before confirming setup.');
+      return;
+    }
+    const nextConnection: ConnectionPreset = {
+      ...connection,
+      comfyWorkflowSetupConfirmed: true,
+    };
+    setConnections((current) =>
+      current.map((entry) => (entry.id === nextConnection.id ? nextConnection : entry)),
+    );
+    setEditingConnection(nextConnection);
+    setComfyWorkflowInspection(null);
+    setPendingComfyWorkflowRepair(null);
+    setComfyWorkflowRepairStatus('');
+    setConnectionStatus('ComfyUI setup confirmed. Provider settings are available.');
+    void checkProviderConnection(nextConnection, { showStatus: true });
     void inspectComfyWorkflow(nextConnection, { showStatus: false });
-    if (workflow.role === 'image') {
+    if (isComfyImageConnection(nextConnection)) {
       void loadComfyModelLists(nextConnection);
     }
   }
@@ -1711,7 +1734,7 @@ export function useProviderConnections({
     setComfyWorkflowRepairStatus('');
     setConnectionStatus('');
     void checkProviderConnection(connection, { showStatus: true });
-    if (connection.kind === 'comfyui') {
+    if (connection.kind === 'comfyui' && connection.comfyWorkflowSetupConfirmed === true) {
       void inspectComfyWorkflow(connection, { showStatus: false });
       if (isComfyImageConnection(connection)) {
         void loadComfyModelLists(connection);
@@ -1838,6 +1861,7 @@ export function useProviderConnections({
     connectionFromEditingConnection,
     selectComfyWorkflow,
     selectBundledComfyWorkflow,
+    confirmComfyWorkflowSetup,
     repairComfyWorkflow,
     applyComfyWorkflowRepair,
     generateComfyTestImage,

@@ -39,6 +39,7 @@ export type ConnectionPreset = {
   apiKey: string;
   model: string;
   comfyWorkflowPath?: string;
+  comfyWorkflowSetupConfirmed?: boolean;
   comfyWidth?: number;
   comfyHeight?: number;
   comfyPrompt?: string;

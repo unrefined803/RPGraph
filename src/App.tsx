@@ -1240,6 +1240,7 @@ function App() {
     loadComfyModelLists,
     connectionFromEditingConnection,
     selectBundledComfyWorkflow,
+    confirmComfyWorkflowSetup,
     repairComfyWorkflow,
     applyComfyWorkflowRepair,
     generateComfyTestImage,
@@ -6224,6 +6225,7 @@ function App() {
           }
         }}
         onSelectBundledComfyWorkflow={selectBundledComfyWorkflow}
+        onConfirmComfyWorkflowSetup={confirmComfyWorkflowSetup}
         onRepairComfyWorkflow={(llmConnectionId) => void repairComfyWorkflow(llmConnectionId)}
         onApplyComfyWorkflowRepair={() => void applyComfyWorkflowRepair()}
         onGenerateComfyTestImage={() => void generateComfyTestImage()}
