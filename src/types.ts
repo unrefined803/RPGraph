@@ -48,6 +48,7 @@ export type ConnectionPreset = {
   comfyWorkflowPath?: string;
   comfyWorkflowSetupConfirmed?: boolean;
   comfyNarratorVoice?: ComfyNarratorVoice;
+  comfyDeleteVoiceOutputs?: boolean;
   comfyWidth?: number;
   comfyHeight?: number;
   comfyPrompt?: string;

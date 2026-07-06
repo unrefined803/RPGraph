@@ -314,6 +314,7 @@ declare global {
         workflowPath: string;
         speechText: string;
         sampleDataUrl: string;
+        deleteOutputs?: boolean;
         timeoutMs?: number;
       }) => Promise<{
         promptId: string;

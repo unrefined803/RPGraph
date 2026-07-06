@@ -14,6 +14,7 @@ import {
   thoughtParts,
   thoughtStyleClass,
 } from '../chat/textRendering';
+import { dialogueSpeechText } from '../chat/dialogueVoiceSegments';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
   ChatImageAttachment,
@@ -49,6 +50,7 @@ import {
   CommandPillList,
   type CommandPillComposerHandle,
 } from './CommandPillComposer';
+import { PhoneVoiceMessage } from './PhoneVoiceMessage';
 import type { CommandInputCommand } from '../chat/structuredCommands';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
@@ -89,6 +91,7 @@ type ChatConversationPanelProps = {
   dialogueVoiceSpeakerNames: ReadonlySet<string>;
   activeDialogueVoiceKey: string | null;
   onSpeakDialogue: (request: { key: string; messageId: number; speakerName: string; text: string }) => void;
+  onGenerateVoiceMessageClip: (request: { messageId: number; speakerName: string; text: string }) => Promise<string | null>;
   dialogueVoiceMode: DialogueVoiceMode;
   onDialogueVoiceModeChange: (mode: DialogueVoiceMode) => void;
   dialogueVoicePreloadDisabledReason: string | null;
@@ -148,6 +151,7 @@ export function ChatConversationPanel({
   dialogueVoiceSpeakerNames,
   activeDialogueVoiceKey,
   onSpeakDialogue,
+  onGenerateVoiceMessageClip,
   dialogueVoiceMode,
   onDialogueVoiceModeChange,
   dialogueVoicePreloadDisabledReason,
@@ -688,6 +692,15 @@ export function ChatConversationPanel({
             const rpDateTime = phoneMessageRpDateTime(phoneMessageId, phoneMessagesById);
             return renderRpTime(rpDateTime, 'phone-bubble-time');
           };
+          const phoneVoiceClipDataUrl = (message: MessageRecord, speakerName: string, text: string) => {
+            const speechText = dialogueSpeechText(text);
+            return message.voiceClips?.find((clip) =>
+              clip.source === 'phone' &&
+              clip.speakerName === speakerName &&
+              clip.text === speechText &&
+              !!clip.dataUrl
+            )?.dataUrl;
+          };
           const renderPhoneActionContent = (phoneMessage: EmbeddedPhoneMessageLink) => (
             <>
               <strong style={characterNameStyle(phoneMessage.from)}>{phoneMessage.from}</strong>
@@ -904,7 +917,28 @@ export function ChatConversationPanel({
                           ))}
                         </div>
                       )}
-                      {text && <span>{text}</span>}
+                      {text && linkedMessage?.phoneVoiceMessage && dialogueVoiceSpeakerNames.has(phoneMessage.from) ? (
+                        <div
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          <PhoneVoiceMessage
+                            text={text}
+                            clipDataUrl={phoneVoiceClipDataUrl(linkedMessage, phoneMessage.from, text)}
+                            disabled={isRunning}
+                            disabledReason="Voice messages are unavailable while the chat is running."
+                            onGenerateClip={() =>
+                              onGenerateVoiceMessageClip({
+                                messageId: linkedMessage.id,
+                                speakerName: phoneMessage.from,
+                                text,
+                              })
+                            }
+                          />
+                        </div>
+                      ) : text ? (
+                        <span>{text}</span>
+                      ) : null}
                       {linkedMessage?.phoneImageCaptionChange && (
                         <button
                           className="caption-change-chip"

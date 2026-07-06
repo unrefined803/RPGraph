@@ -379,6 +379,9 @@ export function useProviderConnections({
       comfyNarratorVoice: comfyRole === 'voice'
         ? editingConnection.comfyNarratorVoice
         : undefined,
+      comfyDeleteVoiceOutputs: comfyRole === 'voice'
+        ? editingConnection.comfyDeleteVoiceOutputs !== false
+        : undefined,
       comfyWidth: isComfyImage
         ? validComfyDimension(editingConnection.comfyWidth, defaultComfyWidth)
         : undefined,
@@ -1532,6 +1535,7 @@ export function useProviderConnections({
         workflowPath: comfyWorkflowPathForConnection(connection),
         speechText,
         sampleDataUrl: request.sampleDataUrl,
+        deleteOutputs: connection.comfyDeleteVoiceOutputs !== false,
         timeoutMs: 300000,
       });
     } finally {

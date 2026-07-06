@@ -5857,6 +5857,21 @@ function App() {
                 }
                 void speakDialogue(request);
               }}
+              onGenerateVoiceMessageClip={async ({ messageId, speakerName, text }) => {
+                // Voice generation unloads local LLM models first; never do that mid-run.
+                if (isRunning) {
+                  return null;
+                }
+                try {
+                  return await generateVoiceMessageClip(messageId, speakerName, text);
+                } catch (error) {
+                  notifySystem(
+                    'error',
+                    `Phone voice message failed: ${error instanceof Error ? error.message : String(error)}`,
+                  );
+                  return null;
+                }
+              }}
               dialogueVoiceMode={dialogueVoiceMode}
               onDialogueVoiceModeChange={(mode) => {
                 setDialogueVoiceMode(mode);

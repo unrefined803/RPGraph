@@ -417,6 +417,9 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
     comfyNarratorVoice: comfyRole === 'voice'
       ? validComfyNarratorVoice(connection.comfyNarratorVoice)
       : undefined,
+    comfyDeleteVoiceOutputs: comfyRole === 'voice'
+      ? connection.comfyDeleteVoiceOutputs !== false
+      : undefined,
     comfyWidth: isComfyImage
       ? validComfyDimension(connection.comfyWidth, defaultComfyWidth)
       : undefined,
@@ -495,6 +498,7 @@ function isConnectionPreset(value: unknown): value is ConnectionPreset {
     (connection.comfyWorkflowPath === undefined || typeof connection.comfyWorkflowPath === 'string') &&
     (connection.comfyNarratorVoice === undefined ||
       validComfyNarratorVoice(connection.comfyNarratorVoice) !== undefined) &&
+    (connection.comfyDeleteVoiceOutputs === undefined || typeof connection.comfyDeleteVoiceOutputs === 'boolean') &&
     (connection.comfyWidth === undefined || (typeof connection.comfyWidth === 'number' && Number.isFinite(connection.comfyWidth))) &&
     (connection.comfyHeight === undefined || (typeof connection.comfyHeight === 'number' && Number.isFinite(connection.comfyHeight))) &&
     (connection.comfyPrompt === undefined || typeof connection.comfyPrompt === 'string') &&

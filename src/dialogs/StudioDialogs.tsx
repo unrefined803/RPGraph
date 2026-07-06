@@ -2855,6 +2855,22 @@ export function StudioDialogs({
                         </div>
                       ) : null}
                       {isComfyVoiceEditing ? (
+                        <div className="connection-field">
+                          <label className="node-toggle nodrag">
+                            <input
+                              className="nodrag nowheel"
+                              type="checkbox"
+                              checked={editingConnection.comfyDeleteVoiceOutputs !== false}
+                              onChange={(event) => onEditConnection('comfyDeleteVoiceOutputs', event.target.checked)}
+                            />
+                            Delete generated voice files after download
+                          </label>
+                          <p className="character-voice-hint">
+                            Keeps the voice clip embedded in RPGraph, then removes the temporary ComfyUI output file.
+                          </p>
+                        </div>
+                      ) : null}
+                      {isComfyVoiceEditing ? (
                         <div className="connection-field comfy-narrator-voice-field">
                           <label htmlFor="comfy-narrator-voice">NARRATOR VOICE (MP3)</label>
                           <p className="character-voice-hint">

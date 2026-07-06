@@ -45,8 +45,6 @@ const bundledComfyWorkflows = [
     apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
   },
 ];
-const defaultComfyWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/image/Krea2.json');
-const defaultComfyVoiceWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json');
 const maxComfyVoiceSampleBytes = 24 * 1024 * 1024;
 const windowCloseCleanupTimeoutMs = 8000;
 const appIconPath = path.join(
@@ -2286,6 +2284,38 @@ async function requestComfyOutputFile(baseUrl, file, abort, fallbackMimeType) {
   return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
+async function deleteComfyOutputFile(baseUrl, file, abort) {
+  const body = JSON.stringify({
+    filename: file.filename,
+    subfolder: file.subfolder || '',
+    type: file.type || 'output',
+  });
+  try {
+    await requestComfyJson(baseUrl, 'delete', {
+      method: 'POST',
+      body,
+    }, abort);
+    return true;
+  } catch {
+    const params = new URLSearchParams();
+    params.set('filename', file.filename);
+    params.set('type', file.type || 'output');
+    if (file.subfolder) {
+      params.set('subfolder', file.subfolder);
+    }
+    try {
+      const response = await requestLlmResponse(
+        `${comfyEndpoint(baseUrl, 'view')}?${params.toString()}`,
+        { method: 'DELETE', headers: {} },
+        abort,
+      );
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
 function comfyVoiceSampleFromDataUrl(dataUrl) {
   const match = typeof dataUrl === 'string'
     ? dataUrl.match(/^data:(audio\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/i)
@@ -2470,7 +2500,7 @@ async function runComfyPrompt(baseUrl, workflow, timeoutMs, abort) {
   return { promptId, images };
 }
 
-async function runComfyVoicePrompt(baseUrl, workflow, timeoutMs, abort) {
+async function runComfyVoicePrompt(baseUrl, workflow, timeoutMs, abort, options = {}) {
   const { promptId, history } = await waitForComfyPromptHistory(baseUrl, workflow, timeoutMs, abort);
   const audioRefs = comfyHistoryOutputFiles(promptId, history, 'audio');
   if (audioRefs.length === 0) {
@@ -2482,9 +2512,13 @@ async function runComfyVoicePrompt(baseUrl, workflow, timeoutMs, abort) {
 
   const audio = [];
   for (const clip of audioRefs) {
+    const dataUrl = await requestComfyOutputFile(baseUrl, clip, abort, 'audio/mpeg');
+    if (options.deleteOutputs) {
+      await deleteComfyOutputFile(baseUrl, clip, abort);
+    }
     audio.push({
       ...clip,
-      dataUrl: await requestComfyOutputFile(baseUrl, clip, abort, 'audio/mpeg'),
+      dataUrl,
     });
   }
 
@@ -3087,7 +3121,9 @@ ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
       voice_audio: voiceAudio,
     });
     const workflow = withRandomizedComfySeeds(comfyPromptFromWorkflow(workflowJson));
-    const result = await runComfyVoicePrompt(request?.baseUrl, workflow, request?.timeoutMs, abort);
+    const result = await runComfyVoicePrompt(request?.baseUrl, workflow, request?.timeoutMs, abort, {
+      deleteOutputs: request?.deleteOutputs === true,
+    });
     return result;
   } catch (error) {
     if (abort.signal.aborted) {
