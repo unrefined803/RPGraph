@@ -2347,7 +2347,7 @@ function CharacterSetupDialog({
     };
   }, [onLoadCharacterComfyLoras, providerId]);
 
-  function save() {
+  function commitCharacterSetup() {
     onUpdateStorybook(
       withStorybookCharacterVoiceConfig(
         withStorybookCharacterComfyConfig(storybook, characterId, {
@@ -2374,7 +2374,7 @@ function CharacterSetupDialog({
         sampleDataUrl: result.audio.dataUrl,
       });
       setVoiceClip(null);
-      setStatus(`Voice sample selected: ${result.audio.name}. Save to keep it in the storybook.`);
+      setStatus(`Voice sample selected: ${result.audio.name}. Close to keep it in the storybook.`);
     } catch (error) {
       setStatus(`Voice sample selection failed: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -2383,7 +2383,7 @@ function CharacterSetupDialog({
   function removeVoiceSample() {
     setVoiceDraft(defaultRpStorybookCharacterVoiceConfig());
     setVoiceClip(null);
-    setStatus('Voice sample removed. Save to apply.');
+    setStatus('Voice sample removed. Close to apply.');
   }
 
   async function generateVoicePreview() {
@@ -2457,6 +2457,7 @@ function CharacterSetupDialog({
   }
 
   async function closeDialog() {
+    commitCharacterSetup();
     if (!providerId) {
       onClose();
       return;
@@ -2530,7 +2531,6 @@ function CharacterSetupDialog({
           </div>
           <div className="storybook-image-dialog-actions">
             <button type="button" className="close-button" onClick={() => void closeDialog()}>Close</button>
-            <button type="button" className="close-button primary-save" onClick={save}>Save</button>
           </div>
         </div>
         {status && <span className="run-note storybook-image-status">{status}</span>}

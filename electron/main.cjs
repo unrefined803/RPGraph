@@ -1318,7 +1318,7 @@ const supportedReasoningEfforts = new Set([
 
 function chatCompletionReasoningOptions(connection) {
   const effort = connection?.reasoningEffort;
-  if (!supportedReasoningEfforts.has(effort) || effort === 'auto' || effort === 'none') {
+  if (!supportedReasoningEfforts.has(effort)) {
     return {};
   }
   return {
@@ -1381,15 +1381,6 @@ function textFromChatMessage(message) {
     (typeof message.text === 'string' ? message.text : '');
 }
 
-function hasReasoningText(message) {
-  if (!message || typeof message !== 'object') {
-    return false;
-  }
-  return textFromChatContent(message.reasoning_content) !== '' ||
-    textFromChatContent(message.reasoning) !== '' ||
-    textFromChatContent(message.thinking) !== '';
-}
-
 function textFromChatChoice(choice) {
   if (!choice || typeof choice !== 'object') {
     return '';
@@ -1404,9 +1395,6 @@ function emptyChatCompletionTextError(choice) {
   const details = [];
   if (finishReason) {
     details.push(`finish_reason: ${finishReason}`);
-  }
-  if (hasReasoningText(choice?.message) || hasReasoningText(choice?.delta)) {
-    details.push('the model returned reasoning but no final text');
   }
   if (finishReason === 'length') {
     details.push('the output token limit may be too low for this model');
@@ -2961,7 +2949,6 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
     let content = '';
     let usage;
     let finishReason = '';
-    let sawReasoningText = false;
 
     function consumeLine(line) {
       if (!line.startsWith('data:')) {
@@ -2980,9 +2967,6 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
       const choice = chunk.choices?.[0];
       const deltaText = textFromChatMessage(choice?.delta) ||
         (!content ? textFromChatChoice(choice) : '');
-      if (hasReasoningText(choice?.delta) || hasReasoningText(choice?.message)) {
-        sawReasoningText = true;
-      }
       if (deltaText) {
         content += deltaText;
         event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, deltaText);
@@ -3010,10 +2994,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
     }
 
     if (!content) {
-      throw emptyChatCompletionTextError({
-        finish_reason: finishReason,
-        message: sawReasoningText ? { reasoning_content: 'present' } : undefined,
-      });
+      throw emptyChatCompletionTextError({ finish_reason: finishReason });
     }
 
     return {
