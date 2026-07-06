@@ -15,8 +15,8 @@ Normal RP can display exactly one stored Storybook/phone-gallery image in the Ch
 
 Use displayImageId only for a fitting image ID returned by an image-list/create-image action or clearly established in recent phone/photo history. It displays the image in Chat and does not add a Phone message.
 
-Embedded phone messages use this shape. sendImageId is optional and attaches an outgoing stored Storybook/phone-history image:
-{"phoneMessages":[{"from":"sender name","to":"recipient name","message":"message text","sendImageId":"name_image_01"}]}
+Embedded phone messages use this shape. sendImageId is optional and attaches an outgoing stored Storybook/phone-history image. isVoiceMessage is optional; set it to true only when the sender records the message as a spoken voice message instead of typing it (omitting it means a normal text message):
+{"phoneMessages":[{"from":"sender name","to":"recipient name","message":"message text","isVoiceMessage":true,"sendImageId":"name_image_01"}]}
 
 Use sendImageId only for outgoing stored image attachments in Phone messages. Use displayImageId only for showing one stored image in Normal RP. Do not use imageId for outgoing attachments; imageId is reserved for image action commands in the dedicated Phone Message channel.
 
@@ -26,10 +26,13 @@ export const phoneOutputPrompt = `Phone Message is the dedicated phone channel.
 
 Use it when the graph is generating one phone reply or one phone event instead of a normal RP scene.
 
-The first JSON object should be one small phone message object with from, to, and message fields. It may also include sendImageId when the replying character sends a stored Storybook/phone-history image as an outgoing attachment.
+The first JSON object should be one small phone message object with from, to, and message fields. It may also include sendImageId when the replying character sends a stored Storybook/phone-history image as an outgoing attachment, and the optional isVoiceMessage set to true when the character records the reply as a spoken voice message instead of typing it.
 
 Example without outgoing image:
 {"from":"Mia","to":"Alex","message":"I am outside. Want me to come up?"}
+
+Example voice message:
+{"from":"Mia","to":"Alex","message":"Spoken message text.","isVoiceMessage":true}
 
 Example with outgoing stored image:
 {"from":"Mia","to":"Alex","message":"I brought proof. Open the door?","sendImageId":"mia_image_01"}
@@ -55,6 +58,7 @@ Return either {"actions":[...]} or an empty string if no extra action is needed.
 Supported actions:
 {"type":"phoneMessage","from":"Name","to":"Name","message":"text message"}
 {"type":"phoneMessage","from":"Name","to":"Name","message":"text message","sendImageId":"stored_image_id"}
+{"type":"phoneMessage","from":"Name","to":"Name","message":"spoken message text","isVoiceMessage":true}
 {"type":"chatMessage","speaker":"Name","text":"visible chat bubble text"}
 {"type":"setPlayer","name":"Narrator"}
 {"type":"buttons","id":"next_scene_choice","prompt":"How should the story continue?","columns":3,"options":[{"id":"ask","label":"Ask","value":"Ask what happened.","player":"Current"},{"id":"leave","label":"Leave","value":"Leave the road.","player":"Narrator"}]}

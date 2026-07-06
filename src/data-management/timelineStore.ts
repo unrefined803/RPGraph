@@ -85,6 +85,7 @@ function messageToTimelineEntry(
       ? {
           from: message.phoneFrom ?? '',
           to: message.phoneTo ?? '',
+          voiceMessage: message.phoneVoiceMessage || undefined,
           imageIds: message.phoneImageIds,
           imageDescription: message.phoneImageDescription,
         }

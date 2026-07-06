@@ -21,6 +21,7 @@ import {
 import { formatRpDateTimeParts, formatRpDayLabel } from '../workflow';
 import { phoneReplyVisibleText } from '../chat/phoneReplies';
 import { PhoneImagePicker } from './PhoneImagePicker';
+import { PhoneVoiceMessage } from './PhoneVoiceMessage';
 import { CharacterAvatar } from './CharacterAvatar';
 import { ImageContextControl } from './ImageContextControl';
 import {
@@ -80,6 +81,8 @@ type PhonePanelProps = {
   isRunning: boolean;
   canSend: boolean;
   inputLocked?: boolean;
+  voiceMessageSpeakerNames: ReadonlySet<string>;
+  onGenerateVoiceMessageClip: (request: { speakerName: string; text: string }) => Promise<string | null>;
   englishProcessingEnabled: boolean;
   rpTimeTrackingEnabled: boolean;
   phoneAuthorBadgesEnabled: boolean;
@@ -139,6 +142,8 @@ export function PhonePanel({
   isRunning,
   canSend,
   inputLocked = false,
+  voiceMessageSpeakerNames,
+  onGenerateVoiceMessageClip,
   englishProcessingEnabled,
   rpTimeTrackingEnabled,
   phoneAuthorBadgesEnabled,
@@ -381,7 +386,23 @@ export function PhonePanel({
                               ))}
                             </div>
                           )}
-                          {view.visibleText && <span>{view.visibleText}</span>}
+                          {view.visibleText && (
+                            message.phoneVoiceMessage && voiceMessageSpeakerNames.has(view.senderName) ? (
+                              <PhoneVoiceMessage
+                                text={view.visibleText}
+                                disabled={isRunning}
+                                disabledReason="Voice messages are unavailable while the chat is running."
+                                onGenerateClip={() =>
+                                  onGenerateVoiceMessageClip({
+                                    speakerName: view.senderName,
+                                    text: view.visibleText,
+                                  })
+                                }
+                              />
+                            ) : (
+                              <span>{view.visibleText}</span>
+                            )
+                          )}
                           {message.phoneImageCaptionChange && (
                             <button
                               className="caption-change-chip"

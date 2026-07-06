@@ -42,6 +42,7 @@ type SpeakerAttribution = {
 type PhoneMetadata = {
   from: string;
   to: string;
+  voiceMessage?: boolean;
   embeddedInMessageId?: string;
   imageIds?: string[];
   imageDescription?: string;

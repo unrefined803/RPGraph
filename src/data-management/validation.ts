@@ -40,6 +40,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       isRecord(value.phone) &&
       typeof value.phone.from === 'string' &&
       typeof value.phone.to === 'string' &&
+      (value.phone.voiceMessage === undefined || typeof value.phone.voiceMessage === 'boolean') &&
       (
         value.phone.imageIds === undefined ||
         (Array.isArray(value.phone.imageIds) && value.phone.imageIds.every((id) => typeof id === 'string'))

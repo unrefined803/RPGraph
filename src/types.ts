@@ -589,6 +589,7 @@ export type MessageRecord = {
   phoneMessage?: boolean;
   phoneFrom?: string;
   phoneTo?: string;
+  phoneVoiceMessage?: boolean;
   phoneAutoTurnSource?: 'narrator';
   embeddedPhoneMessages?: EmbeddedPhoneMessageLink[];
   embeddedPhoneTextBefore?: string;

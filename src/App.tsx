@@ -1279,12 +1279,14 @@ function App() {
     speakDialogue,
     preloadDialogueVoices,
     readMessagesAloud,
+    generateVoiceMessageClip,
     stopDialogueVoice,
   } = useDialogueVoice({
     storyCharacters,
     connections,
     englishProcessingEnabled,
     generateVoiceClip: generateCharacterVoicePreview,
+    unloadVoiceModels: unloadCharacterComfyModels,
     notifySystem,
   });
   const dialogueVoicePreloadDisabledReason = !connections.some(isComfyVoiceConnection)
@@ -4231,6 +4233,7 @@ function App() {
       phoneMessage: true,
       phoneFrom: canonicalMessage.from,
       phoneTo: canonicalMessage.to,
+      phoneVoiceMessage: canonicalMessage.isVoiceMessage || undefined,
       phoneAutoTurnSource,
       phoneImageIds,
       phoneImageDescription: imageDescription,
@@ -5891,6 +5894,22 @@ function App() {
                 )
               }
               inputLocked={narratorSelected}
+              voiceMessageSpeakerNames={dialogueVoiceSpeakerNames}
+              onGenerateVoiceMessageClip={async ({ speakerName, text }) => {
+                // Voice generation unloads local LLM models first; never do that mid-run.
+                if (isRunning) {
+                  return null;
+                }
+                try {
+                  return await generateVoiceMessageClip(speakerName, text);
+                } catch (error) {
+                  notifySystem(
+                    'error',
+                    `Phone voice message failed: ${error instanceof Error ? error.message : String(error)}`,
+                  );
+                  return null;
+                }
+              }}
               englishProcessingEnabled={englishProcessingEnabled}
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
               phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}

@@ -150,6 +150,10 @@ ComfyUI providers are used for image and voice generation. Each ComfyUI preset h
 
 The chat supports three voice playback modes (gear menu in the composer, stored as `dialogueVoiceMode` in the settings): generate on click, preload voices (clips for the latest turn are generated ahead of time in reading order), and read aloud automatically (narrator plus character voices play the whole output sequentially; requires the narrator sample and a voice sample for every storybook character). The logic lives in `src/chat/useDialogueVoice.ts` and `src/chat/dialogueVoiceSegments.ts`.
 
+The ComfyUI voice model stays loaded between clips. It is freed lazily in the Electron main process right before the next local LLM request (plus a short settle delay so the VRAM is released before the LLM loads), and eagerly after a preload or read-aloud queue finishes.
+
+Phone messages support an optional `isVoiceMessage` flag in the LLM JSON (`phoneMessages` array, dedicated Phone Message output, and Output Actions). When the sender has a stored voice sample and a ComfyUI voice provider exists, the Phone tab renders the message as a WhatsApp-style voice bar (`src/components/PhoneVoiceMessage.tsx`) that generates and plays the clip on demand; otherwise the message falls back to plain text. The flag is stored as `phone.voiceMessage` in the session timeline.
+
 Provider management includes:
 
 - Saved connections.

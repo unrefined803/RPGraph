@@ -25,6 +25,7 @@ export function useDialogueVoice({
   connections,
   englishProcessingEnabled,
   generateVoiceClip,
+  unloadVoiceModels,
   notifySystem,
 }: {
   storyCharacters: StorybookCharacter[];
@@ -35,6 +36,7 @@ export function useDialogueVoice({
     speechText: string;
     sampleDataUrl: string;
   }) => Promise<Array<{ dataUrl: string; filename: string }>>;
+  unloadVoiceModels: (providerId: string) => Promise<void>;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
 }) {
   const [activeDialogueVoiceKey, setActiveDialogueVoiceKey] = useState<string | null>(null);
@@ -164,6 +166,22 @@ export function useDialogueVoice({
     return clipDataUrl;
   }
 
+  // Frees the ComfyUI voice model once a whole preload or read-aloud queue is
+  // done. Single clicked clips keep it loaded; the next local LLM call frees it.
+  async function unloadVoiceModelsAfterQueue() {
+    if (!voiceProviderId) {
+      return;
+    }
+    try {
+      await unloadVoiceModels(voiceProviderId);
+    } catch (error) {
+      notifySystem(
+        'warning',
+        `ComfyUI voice unload failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   async function speakDialogue({ key, speakerName, text }: DialogueVoiceRequest) {
     if (activeKeyRef.current === key) {
       // Clicking the playing (or generating) quote again stops it.
@@ -204,6 +222,7 @@ export function useDialogueVoice({
     }
     const token = ++preloadTokenRef.current;
     const queuedKeys = new Set<string>();
+    let generatedCount = 0;
     for (const message of messages) {
       for (const segment of dialogueVoiceMessageSegments(message, englishProcessingEnabled)) {
         if (preloadTokenRef.current !== token) {
@@ -219,6 +238,7 @@ export function useDialogueVoice({
         queuedKeys.add(cacheKey);
         try {
           await getOrGenerateClip(segment.speakerName, segment.text);
+          generatedCount += 1;
         } catch (error) {
           notifySystem(
             'error',
@@ -227,6 +247,9 @@ export function useDialogueVoice({
           return;
         }
       }
+    }
+    if (generatedCount > 0 && preloadTokenRef.current === token) {
+      await unloadVoiceModelsAfterQueue();
     }
   }
 
@@ -247,13 +270,18 @@ export function useDialogueVoice({
     }
     setReadAloudActive(true);
     let playback = Promise.resolve();
+    let generatedCount = 0;
     for (const segment of segments) {
       if (readAloudTokenRef.current !== token) {
         break;
       }
       let clipDataUrl: string | null;
       try {
+        const cached = clipCacheRef.current.has(clipCacheKey(segment.speakerName, segment.text));
         clipDataUrl = await getOrGenerateClip(segment.speakerName, segment.text);
+        if (!cached && clipDataUrl) {
+          generatedCount += 1;
+        }
       } catch (error) {
         notifySystem(
           'error',
@@ -272,7 +300,16 @@ export function useDialogueVoice({
     await playback;
     if (readAloudTokenRef.current === token) {
       setReadAloudActive(false);
+      if (generatedCount > 0) {
+        await unloadVoiceModelsAfterQueue();
+      }
     }
+  }
+
+  // Generates (or serves from cache) one clip for a phone voice message.
+  // Returns null when the speaker has no sample or no voice provider exists.
+  async function generateVoiceMessageClip(speakerName: string, text: string) {
+    return getOrGenerateClip(speakerName, dialogueSpeechText(text));
   }
 
   return {
@@ -283,6 +320,7 @@ export function useDialogueVoice({
     speakDialogue,
     preloadDialogueVoices,
     readMessagesAloud,
+    generateVoiceMessageClip,
     stopDialogueVoice,
   };
 }

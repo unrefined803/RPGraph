@@ -5,6 +5,7 @@ export type ParsedPhoneMessage = {
   from: string;
   to: string;
   message: string;
+  isVoiceMessage?: boolean;
   imageId?: string;
   imageDescription?: string;
   incomingImageAction?: ParsedPhoneImageAction;
@@ -181,6 +182,21 @@ function phoneImageIdFromRecord(value: Record<string, unknown>) {
       : undefined;
 }
 
+// The LLM may emit the flag as a boolean or as the strings "true"/"false",
+// or omit it entirely; only a clear true counts as a voice message.
+export function phoneVoiceMessageFlag(value: unknown): boolean {
+  if (value === true) {
+    return true;
+  }
+  return typeof value === 'string' && value.trim().toLocaleLowerCase() === 'true';
+}
+
+function phoneVoiceMessageFlagFromRecord(value: Record<string, unknown>) {
+  return phoneVoiceMessageFlag(
+    value.isVoiceMessage ?? value.is_voice_message ?? value.voiceMessage ?? value.voice_message,
+  );
+}
+
 function outgoingPhoneImageIdFromRecord(value: Record<string, unknown>) {
   return typeof value.sendImageId === 'string'
     ? value.sendImageId.trim() || undefined
@@ -209,6 +225,7 @@ function parsePhoneReplyRecord(value: unknown): ParsedPhoneMessage | undefined {
     from: value.from.trim(),
     to: value.to.trim(),
     message: value.message.trim(),
+    isVoiceMessage: phoneVoiceMessageFlagFromRecord(value) || undefined,
     imageId: outgoingPhoneImageIdFromRecord(value),
   };
   return parsed.from && parsed.to && parsed.message ? parsed : undefined;
@@ -371,6 +388,7 @@ function parseEmbeddedPhoneMessagesObject(value: unknown): ParsedPhoneMessage[] 
     const parsed = {
       from: entry.from.trim(),
       to: entry.to.trim(),
+      isVoiceMessage: phoneVoiceMessageFlagFromRecord(entry) || undefined,
       imageId: outgoingPhoneImageIdFromRecord(entry) ?? phoneImageIdFromRecord(entry),
       imageDescription: phoneImageDescriptionFromRecord(entry),
       message: entry.message.trim(),

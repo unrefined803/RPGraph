@@ -4,11 +4,13 @@ import type {
   OutputActionProgressBar,
 } from '../types';
 import { isRecord } from '../utils/records';
+import { phoneVoiceMessageFlag } from './phoneMessages';
 
 type OutputActionPhoneMessage = {
   from: string;
   to: string;
   message: string;
+  isVoiceMessage?: boolean;
   imageId?: string;
   imageDescription?: string;
 };
@@ -197,6 +199,9 @@ function parsePhoneMessage(entry: Record<string, unknown>) {
     from,
     to,
     message,
+    isVoiceMessage: phoneVoiceMessageFlag(
+      entry.isVoiceMessage ?? entry.is_voice_message ?? entry.voiceMessage ?? entry.voice_message,
+    ) || undefined,
     imageId: stringValue(entry, ['sendImageId', 'send_image_id', 'imageId', 'imageID', 'image_id']),
     imageDescription: stringValue(entry, ['image', 'imageDescription']),
   };

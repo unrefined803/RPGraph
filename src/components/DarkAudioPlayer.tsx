@@ -14,11 +14,13 @@ export function DarkAudioPlayer({
   title,
   onRemove,
   className = '',
+  autoPlay = false,
 }: {
   src: string;
   title?: string;
   onRemove?: () => void;
   className?: string;
+  autoPlay?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -80,6 +82,7 @@ export function DarkAudioPlayer({
       <audio
         ref={audioRef}
         src={src}
+        autoPlay={autoPlay}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}

@@ -2155,6 +2155,44 @@ async function requestComfyJson(baseUrl, route, init, abort) {
   return body ? JSON.parse(body) : {};
 }
 
+// Voice generation keeps the ComfyUI voice model loaded so successive clips
+// (click-to-speak, preload, read-aloud) do not reload it every time. The
+// memory is freed lazily: right before the next local LLM request needs the
+// VRAM, plus a short settle delay so the memory is actually released before
+// the local LLM starts loading.
+let pendingComfyVoiceFreeBaseUrl = '';
+const comfyVoiceFreeSettleMs = 1000;
+
+function isLocalLlmBaseUrl(value) {
+  try {
+    const hostname = new URL(String(value || '')).hostname;
+    return ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(hostname);
+  } catch {
+    return false;
+  }
+}
+
+async function freeComfyVoiceMemoryForLocalLlm(connection) {
+  const comfyBaseUrl = pendingComfyVoiceFreeBaseUrl;
+  if (!comfyBaseUrl || !isLocalLlmBaseUrl(connection?.baseUrl)) {
+    return;
+  }
+  pendingComfyVoiceFreeBaseUrl = '';
+  const abort = { signal: new AbortController().signal };
+  try {
+    await requestComfyJson(comfyBaseUrl, 'free', {
+      method: 'POST',
+      body: JSON.stringify({
+        unload_models: true,
+        free_memory: true,
+      }),
+    }, abort);
+    await new Promise((resolve) => setTimeout(resolve, comfyVoiceFreeSettleMs));
+  } catch {
+    // ComfyUI may already be gone; the LLM request proceeds either way.
+  }
+}
+
 function isComfyConnectionUnavailable(error) {
   const code = error && typeof error === 'object' ? error.code : undefined;
   if (code === 'ECONNREFUSED' ||
@@ -2402,6 +2440,7 @@ ipcMain.handle('lmstudio:load-model', async (_event, request) => {
     if (!model) {
       throw new Error('Choose a model ID before loading an LM Studio model.');
     }
+    await freeComfyVoiceMemoryForLocalLlm(connection);
     try {
       await requestLmStudioJson(connection, 'models/load', {
         method: 'POST',
@@ -2582,6 +2621,7 @@ ipcMain.handle('ollama:load-model', async (_event, request) => {
     if (!model) {
       throw new Error('Choose a model ID before loading an Ollama model.');
     }
+    await freeComfyVoiceMemoryForLocalLlm(connection);
     await requestOllamaJson(connection, 'generate', {
       method: 'POST',
       body: JSON.stringify({
@@ -2667,6 +2707,7 @@ ipcMain.handle('llm:chat-completion', async (_event, request) => {
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   try {
+    await freeComfyVoiceMemoryForLocalLlm(request.connection);
     const response = await requestLlmResponse(endpoint(request.connection.baseUrl, 'chat/completions'), {
       method: 'POST',
       headers: requestHeaders(request.connection),
@@ -2713,6 +2754,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   try {
+    await freeComfyVoiceMemoryForLocalLlm(request.connection);
     const response = await requestLlmResponse(endpoint(request.connection.baseUrl, 'chat/completions'), {
       method: 'POST',
       headers: requestHeaders(request.connection),
@@ -2962,7 +3004,9 @@ ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
       voice_audio: voiceAudio,
     });
     const workflow = comfyPromptFromWorkflow(workflowJson);
-    return await runComfyVoicePrompt(request?.baseUrl, workflow, request?.timeoutMs, abort);
+    const result = await runComfyVoicePrompt(request?.baseUrl, workflow, request?.timeoutMs, abort);
+    pendingComfyVoiceFreeBaseUrl = typeof request?.baseUrl === 'string' ? request.baseUrl : '';
+    return result;
   } catch (error) {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
@@ -3004,6 +3048,7 @@ ipcMain.handle('comfy:free-memory', async (_event, request) => {
         free_memory: true,
       }),
     }, abort);
+    pendingComfyVoiceFreeBaseUrl = '';
     return { ok: true };
   } catch (error) {
     if (abort.signal.aborted) {
