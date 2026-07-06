@@ -1254,6 +1254,7 @@ function App() {
     lmStudioModelActionActive,
     ollamaModelActionActive,
     editingConnectionCapabilities,
+    editingConnectionSupportedVoices,
     comfyWorkflowRepairStatus,
     comfyWorkflowRepairReady,
     comfyWorkflowRepairInspection,
@@ -6356,6 +6357,7 @@ function App() {
         editingConnection={editingConnection}
         connectionDraftPending={connectionDraftPending}
         editingConnectionCapabilities={editingConnectionCapabilities}
+        editingConnectionSupportedVoices={editingConnectionSupportedVoices}
         providerHealthById={providerHealthById}
         availableConnectionModels={availableConnectionModels}
         availableComfyModels={availableComfyModels}

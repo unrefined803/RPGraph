@@ -395,6 +395,7 @@ export function useProviderConnections({
       label: editingConnection.label.trim() || (kind === 'comfyui' ? 'ComfyUI Default' : 'Provider'),
       baseUrl: editingConnection.baseUrl.trim() || (kind === 'comfyui' ? defaultComfyBaseUrl : defaultConnection.baseUrl),
       model: kind === 'comfyui' ? '' : editingConnection.model.trim(),
+      ttsVoice: kind === 'comfyui' ? undefined : editingConnection.ttsVoice?.trim() || undefined,
       apiKey: kind === 'comfyui' ? '' : editingConnection.apiKey.trim(),
       comfyWorkflowPath: kind === 'comfyui'
         ? bundledComfyWorkflowPathForRole(editingConnection.comfyWorkflowPath, comfyRole)
@@ -1095,6 +1096,15 @@ export function useProviderConnections({
         connection = connectionWithOllamaCapabilities(connection, ollamaModels);
       } else if (openRouterModels) {
         connection = connectionWithOpenRouterCapabilities(connection, openRouterModels);
+        const selectedModel = openRouterModels.find((model) => model.id === connection.model);
+        if (selectedModel?.supportedVoices.length) {
+          connection = {
+            ...connection,
+            ttsVoice: selectedModel.supportedVoices.includes(connection.ttsVoice ?? '')
+              ? connection.ttsVoice
+              : selectedModel.supportedVoices[0],
+          };
+        }
       } else if (geminiModels) {
         connection = connectionWithGeminiCapabilities(connection, geminiModels);
       }
@@ -1911,6 +1921,12 @@ export function useProviderConnections({
     } else if (field === 'model' && isOpenRouterConnection(nextConnection)) {
       const modelDetails = openRouterModelsByConnectionIdRef.current[nextConnection.id] ?? [];
       nextConnection = connectionWithOpenRouterCapabilities(nextConnection, modelDetails);
+      const selectedModel = modelDetails.find((model) => model.id === nextConnection.model);
+      nextConnection.ttsVoice = selectedModel?.supportedVoices.length
+        ? selectedModel.supportedVoices.includes(nextConnection.ttsVoice ?? '')
+          ? nextConnection.ttsVoice
+          : selectedModel.supportedVoices[0]
+        : undefined;
       updateProviderHealth(nextConnection.id, {
         ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
         capabilities: openRouterCapabilitiesForConnection(nextConnection, modelDetails),
@@ -1968,6 +1984,11 @@ export function useProviderConnections({
         : isGeminiConnection(editingConnection)
           ? geminiCapabilitiesForConnection(editingConnection, geminiModelsByConnectionId[editingConnection.id] ?? [])
         : providerHealthById[editingConnection.id]?.capabilities;
+  const editingConnectionSupportedVoices = isOpenRouterConnection(editingConnection)
+    ? openRouterModelsByConnectionId[editingConnection.id]
+        ?.find((model) => model.id === editingConnection.model)
+        ?.supportedVoices ?? []
+    : [];
   const editingComfyWorkflowPath = comfyWorkflowPathForConnection(editingConnection);
   const comfyWorkflowRepairReady = !!pendingComfyWorkflowRepair && pendingComfyWorkflowRepair.workflowPath === editingComfyWorkflowPath;
   const comfyWorkflowRepairInspection = pendingComfyWorkflowRepair?.workflowPath === editingComfyWorkflowPath
@@ -2006,6 +2027,7 @@ export function useProviderConnections({
     lmStudioModelActionActive,
     ollamaModelActionActive,
     editingConnectionCapabilities,
+    editingConnectionSupportedVoices,
     comfyWorkflowRepairStatus,
     comfyWorkflowRepairReady,
     comfyWorkflowRepairInspection,

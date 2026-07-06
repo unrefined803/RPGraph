@@ -89,7 +89,7 @@ export function openRouterCapabilitiesForConnection(
     text: model ? model.text === true || outputModalities.includes('text') : models.length > 0,
     vision: model?.vision === true || inputModalities.includes('image'),
     image: model?.image === true || outputModalities.includes('image'),
-    voice: model?.voice === true || outputModalities.includes('audio'),
+    voice: model?.voice === true || outputModalities.includes('audio') || outputModalities.includes('speech'),
   };
 }
 
@@ -104,7 +104,7 @@ export function geminiCapabilitiesForConnection(
     text: model ? model.text === true || outputModalities.includes('text') : models.length > 0,
     vision: model?.vision === true || inputModalities.includes('image'),
     image: model?.image === true || outputModalities.includes('image'),
-    voice: model?.voice === true || outputModalities.includes('audio'),
+    voice: model?.voice === true || outputModalities.includes('audio') || outputModalities.includes('speech'),
   };
 }
 

@@ -430,6 +430,9 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
       : validLlmProviderKind(connection.providerKind) ?? inferredProviderKind(connection),
     apiKey: kind === 'comfyui' ? '' : connection.apiKey,
     model: kind === 'comfyui' ? '' : connection.model,
+    ttsVoice: kind === 'comfyui' || typeof connection.ttsVoice !== 'string'
+      ? undefined
+      : connection.ttsVoice.trim() || undefined,
     comfyWorkflowPath: kind === 'comfyui'
       ? bundledComfyWorkflowPathForRole(connection.comfyWorkflowPath, comfyRole ?? null)
       : undefined,
@@ -517,6 +520,7 @@ function isConnectionPreset(value: unknown): value is ConnectionPreset {
     typeof connection.baseUrl === 'string' &&
     typeof connection.apiKey === 'string' &&
     typeof connection.model === 'string' &&
+    (connection.ttsVoice === undefined || typeof connection.ttsVoice === 'string') &&
     (connection.comfyWorkflowPath === undefined || typeof connection.comfyWorkflowPath === 'string') &&
     (connection.comfyNarratorVoice === undefined ||
       validComfyNarratorVoice(connection.comfyNarratorVoice) !== undefined) &&

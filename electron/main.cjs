@@ -1141,9 +1141,10 @@ function openRouterNormalizedModel(model) {
     text: outputModalities.includes('text'),
     vision: inputModalities.includes('image'),
     image: outputModalities.includes('image'),
-    voice: outputModalities.includes('audio') || Array.isArray(model?.supported_voices),
+    voice: outputModalities.includes('audio') || outputModalities.includes('speech') || Array.isArray(model?.supported_voices),
     inputModalities,
     outputModalities,
+    supportedVoices: stringArray(model?.supported_voices),
     contextLength: Number.isFinite(model?.context_length) ? model.context_length : undefined,
     pricing: model?.pricing,
   };

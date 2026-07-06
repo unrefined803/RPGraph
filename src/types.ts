@@ -43,6 +43,7 @@ export type ConnectionPreset = {
   baseUrl: string;
   apiKey: string;
   model: string;
+  ttsVoice?: string;
   comfyWorkflowPath?: string;
   comfyWorkflowSetupConfirmed?: boolean;
   comfyNarratorVoice?: ComfyNarratorVoice;
@@ -102,6 +103,7 @@ export type OpenRouterModelInfo = {
   voice?: boolean;
   inputModalities: string[];
   outputModalities: string[];
+  supportedVoices: string[];
   contextLength?: number;
   pricing?: unknown;
 };

@@ -217,6 +217,7 @@ type StudioDialogsProps = {
   editingConnection: ConnectionPreset;
   connectionDraftPending: boolean;
   editingConnectionCapabilities?: ProviderConnectionCapabilities;
+  editingConnectionSupportedVoices: string[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   availableConnectionModels: string[];
   availableComfyModels: ComfyModelLists;
@@ -823,6 +824,7 @@ export function StudioDialogs({
   editingConnection,
   connectionDraftPending,
   editingConnectionCapabilities,
+  editingConnectionSupportedVoices,
   providerHealthById,
   availableConnectionModels,
   availableComfyModels,
@@ -907,6 +909,12 @@ export function StudioDialogs({
     ),
   );
   const isComfyConnection = editingConnection.kind === 'comfyui';
+  const isVoiceOnlyModel =
+    editingConnectionCapabilities?.voice === true &&
+    editingConnectionCapabilities.text !== true &&
+    editingConnectionCapabilities.vision !== true &&
+    editingConnectionCapabilities.image !== true &&
+    editingConnectionCapabilities.tools !== true;
   const editingComfyRole = comfyConnectionRole(editingConnection);
   const isComfyImageEditing = isComfyConnection && editingComfyRole === 'image';
   const isComfyVoiceEditing = isComfyConnection && editingComfyRole === 'voice';
@@ -3200,7 +3208,7 @@ export function StudioDialogs({
                           onOpenOptions={onRefreshConnectionModels}
                         />
                       </div>
-                      <div className="connection-field">
+                      {!isVoiceOnlyModel && <div className="connection-field">
                         <label htmlFor="reasoning-effort">REASONING</label>
                         <NodeCustomSelect
                           id="reasoning-effort"
@@ -3211,7 +3219,7 @@ export function StudioDialogs({
                             label: connectionReasoningLabels[effort],
                           }))}
                         />
-                      </div>
+                      </div>}
                       <div className="connection-field connection-field-api-key">
                         <label htmlFor="api-key">API KEY (OPTIONAL)</label>
                         <div className="secret-input-row">
@@ -3273,7 +3281,27 @@ export function StudioDialogs({
                           </span>
                         </div>
                       )}
-                      <div className="connection-sampling-section">
+                      {isVoiceOnlyModel && (
+                        <div className="connection-field">
+                          <label htmlFor="tts-voice">VOICE</label>
+                          {editingConnectionSupportedVoices.length > 0 ? (
+                            <NodeCustomSelect
+                              id="tts-voice"
+                              value={editingConnection.ttsVoice ?? editingConnectionSupportedVoices[0]}
+                              onChange={(voice) => onEditConnection('ttsVoice', String(voice))}
+                              options={editingConnectionSupportedVoices.map((voice) => ({
+                                value: voice,
+                                label: voice,
+                              }))}
+                            />
+                          ) : (
+                            <span className="connection-field-hint">
+                              Open the model list to load the voices provided by OpenRouter.
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {!isVoiceOnlyModel && <div className="connection-sampling-section">
                         <div className="connection-sampling-header">
                           <strong>Story sampling</strong>
                           <span>
@@ -3376,7 +3404,7 @@ export function StudioDialogs({
                             />
                           </div>
                         </div>
-                      </div>
+                      </div>}
                     </>
                   )}
                   {!isComfyConnection && (

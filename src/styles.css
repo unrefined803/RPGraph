@@ -15487,6 +15487,12 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 12px;
 }
 
+.connection-field-hint {
+  color: #8794b1;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .comfy-workflow-field {
   grid-column: 1 / -1;
 }
