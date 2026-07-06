@@ -1306,7 +1306,7 @@ function App() {
     activeDialogueVoiceKey,
     readAloudActive,
     speakDialogue,
-    preloadDialogueVoices,
+    preloadTurnVoices,
     readMessagesAloud,
     generateVoiceMessageClip,
     stopDialogueVoice,
@@ -1358,7 +1358,7 @@ function App() {
       return;
     }
     if (dialogueVoiceMode === 'preload') {
-      void preloadDialogueVoices(latestOutputTurnMessages(messages));
+      void preloadTurnVoices(latestOutputTurnMessages(messages));
     } else if (dialogueVoiceMode === 'read-aloud') {
       void readMessagesAloud(latestOutputTurnMessages(messages));
     }
@@ -1366,7 +1366,7 @@ function App() {
     isRunning,
     dialogueVoiceMode,
     messages,
-    preloadDialogueVoices,
+    preloadTurnVoices,
     readMessagesAloud,
     stopDialogueVoice,
   ]);
@@ -5864,7 +5864,7 @@ function App() {
                   stopDialogueVoice();
                 }
                 if (mode !== 'click' && !isRunning) {
-                  void preloadDialogueVoices(latestOutputTurnMessages(messages));
+                  void preloadTurnVoices(latestOutputTurnMessages(messages));
                 }
               }}
               dialogueVoicePreloadDisabledReason={dialogueVoicePreloadDisabledReason}

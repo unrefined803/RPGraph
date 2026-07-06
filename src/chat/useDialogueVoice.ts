@@ -86,6 +86,19 @@ export function useDialogueVoice({
     return `${speakerName ?? narratorSpeakerCacheName}\u0000${speechText}`;
   }
 
+  function phoneVoiceMessageSpeechText(message: MessageRecord) {
+    const text = englishProcessingEnabled
+      ? message.translatedText ?? message.originalText
+      : message.originalText;
+    return message.imageAttachments?.length && text === 'Attached image.'
+      ? ''
+      : dialogueSpeechText(text);
+  }
+
+  function phoneVoiceMessageSpeakerName(message: MessageRecord) {
+    return message.phoneFrom?.trim() || message.speakerName?.trim() || '';
+  }
+
   useEffect(() => {
     messagesRef.current = messages;
     for (const message of messages) {
@@ -277,42 +290,105 @@ export function useDialogueVoice({
 
   // Generates the clips for all character quotes of the given messages in
   // reading order, so later clicks play instantly from the cache.
-  async function preloadDialogueVoices(messages: MessageRecord[]) {
+  async function preloadDialogueVoices(messages: MessageRecord[], options: { unloadAfterQueue?: boolean } = {}) {
     if (!voiceProviderId) {
-      return;
+      return 0;
     }
     const token = ++preloadTokenRef.current;
-    const queuedKeys = new Set<string>();
     let generatedCount = 0;
     for (const message of messages) {
       for (const segment of dialogueVoiceMessageSegments(message, englishProcessingEnabled)) {
         if (preloadTokenRef.current !== token) {
-          return;
+          return generatedCount;
         }
         if (segment.speakerName === null || !voiceSamplesByName.has(segment.speakerName)) {
           continue;
         }
         const cacheKey = clipCacheKey(segment.speakerName, segment.text);
-        if (queuedKeys.has(cacheKey) || clipCacheRef.current.has(cacheKey)) {
-          continue;
-        }
-        queuedKeys.add(cacheKey);
+        const hadCachedClip = clipCacheRef.current.has(cacheKey);
+        const hadStoredClip = message.voiceClips?.some((clip) =>
+          clip.speakerName === segment.speakerName &&
+          clip.text === segment.text &&
+          clip.source === 'dialogue' &&
+          !!clip.dataUrl
+        );
         try {
           await getOrGenerateClip(segment.speakerName, segment.text, {
             messageId: message.id,
             source: 'dialogue',
           });
-          generatedCount += 1;
+          if (!hadCachedClip && !hadStoredClip) {
+            generatedCount += 1;
+          }
         } catch (error) {
           notifySystem(
             'error',
             `Voice preload stopped: ${error instanceof Error ? error.message : String(error)}`,
           );
-          return;
+          return generatedCount;
         }
       }
     }
-    if (generatedCount > 0 && preloadTokenRef.current === token) {
+    if (generatedCount > 0 && preloadTokenRef.current === token && options.unloadAfterQueue !== false) {
+      await unloadVoiceModelsAfterQueue();
+    }
+    return generatedCount;
+  }
+
+  // Generates phone voice-message clips after a turn when voice preloading is
+  // enabled, so the Phone tab can play them instantly from the stored clip.
+  async function preloadPhoneVoiceMessages(messages: MessageRecord[], options: { unloadAfterQueue?: boolean } = {}) {
+    if (!voiceProviderId) {
+      return 0;
+    }
+    const token = ++preloadTokenRef.current;
+    let generatedCount = 0;
+    for (const message of messages) {
+      if (preloadTokenRef.current !== token) {
+        return generatedCount;
+      }
+      if (!message.phoneVoiceMessage) {
+        continue;
+      }
+      const speakerName = phoneVoiceMessageSpeakerName(message);
+      const speechText = phoneVoiceMessageSpeechText(message);
+      if (!speakerName || !voiceSamplesByName.has(speakerName) || !speechText) {
+        continue;
+      }
+      const cacheKey = clipCacheKey(speakerName, speechText);
+      const hadCachedClip = clipCacheRef.current.has(cacheKey);
+      const hadStoredClip = message.voiceClips?.some((clip) =>
+        clip.speakerName === speakerName &&
+        clip.text === speechText &&
+        clip.source === 'phone' &&
+        !!clip.dataUrl
+      );
+      try {
+        await getOrGenerateClip(speakerName, speechText, {
+          messageId: message.id,
+          source: 'phone',
+        });
+        if (!hadCachedClip && !hadStoredClip) {
+          generatedCount += 1;
+        }
+      } catch (error) {
+        notifySystem(
+          'error',
+          `Phone voice preload stopped: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return generatedCount;
+      }
+    }
+    if (generatedCount > 0 && preloadTokenRef.current === token && options.unloadAfterQueue !== false) {
+      await unloadVoiceModelsAfterQueue();
+    }
+    return generatedCount;
+  }
+
+  async function preloadTurnVoices(messages: MessageRecord[]) {
+    const dialogueGeneratedCount = await preloadDialogueVoices(messages, { unloadAfterQueue: false });
+    const phoneGeneratedCount = await preloadPhoneVoiceMessages(messages, { unloadAfterQueue: false });
+    if (dialogueGeneratedCount + phoneGeneratedCount > 0) {
       await unloadVoiceModelsAfterQueue();
     }
   }
@@ -393,6 +469,8 @@ export function useDialogueVoice({
     readAloudActive,
     speakDialogue,
     preloadDialogueVoices,
+    preloadPhoneVoiceMessages,
+    preloadTurnVoices,
     readMessagesAloud,
     generateVoiceMessageClip,
     stopDialogueVoice,

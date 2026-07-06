@@ -19,6 +19,7 @@ import {
   phoneConversationMessageViews,
 } from '../data-management/selectors';
 import { formatRpDateTimeParts, formatRpDayLabel } from '../workflow';
+import { dialogueSpeechText } from '../chat/dialogueVoiceSegments';
 import { phoneReplyVisibleText } from '../chat/phoneReplies';
 import { PhoneImagePicker } from './PhoneImagePicker';
 import { PhoneVoiceMessage } from './PhoneVoiceMessage';
@@ -214,6 +215,16 @@ export function PhonePanel({
     return matchedCharacter ? characterColors.get(matchedCharacter.name) : undefined;
   }
 
+  function phoneVoiceClipDataUrl(message: MessageRecord, speakerName: string, text: string) {
+    const speechText = dialogueSpeechText(text);
+    return message.voiceClips?.find((clip) =>
+      clip.source === 'phone' &&
+      clip.speakerName === speakerName &&
+      clip.text === speechText &&
+      !!clip.dataUrl
+    )?.dataUrl;
+  }
+
   return (
     <div className="phone-surface">
       <div className="phone-list" aria-label="Phone chats">
@@ -390,6 +401,7 @@ export function PhonePanel({
                             message.phoneVoiceMessage && voiceMessageSpeakerNames.has(view.senderName) ? (
                               <PhoneVoiceMessage
                                 text={view.visibleText}
+                                clipDataUrl={phoneVoiceClipDataUrl(message, view.senderName, view.visibleText)}
                                 disabled={isRunning}
                                 disabledReason="Voice messages are unavailable while the chat is running."
                                 onGenerateClip={() =>

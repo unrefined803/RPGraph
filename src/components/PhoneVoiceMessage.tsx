@@ -6,18 +6,21 @@ import { DarkAudioPlayer } from './DarkAudioPlayer';
 // anything fails, the bubble falls back to showing the plain message text.
 export function PhoneVoiceMessage({
   text,
+  clipDataUrl,
   disabled,
   disabledReason,
   onGenerateClip,
 }: {
   text: string;
+  clipDataUrl?: string;
   disabled: boolean;
   disabledReason?: string;
   onGenerateClip: () => Promise<string | null>;
 }) {
-  const [clipDataUrl, setClipDataUrl] = useState<string | null>(null);
+  const [generatedClipDataUrl, setGeneratedClipDataUrl] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [failed, setFailed] = useState(false);
+  const playableClipDataUrl = generatedClipDataUrl ?? clipDataUrl ?? null;
 
   async function generate() {
     if (generating || disabled) {
@@ -27,7 +30,7 @@ export function PhoneVoiceMessage({
     try {
       const clip = await onGenerateClip();
       if (clip) {
-        setClipDataUrl(clip);
+        setGeneratedClipDataUrl(clip);
       } else {
         setFailed(true);
       }
@@ -41,13 +44,13 @@ export function PhoneVoiceMessage({
   if (failed) {
     return <span>{text}</span>;
   }
-  if (clipDataUrl) {
+  if (playableClipDataUrl) {
     return (
       <DarkAudioPlayer
-        src={clipDataUrl}
+        src={playableClipDataUrl}
         title="Voice message"
         className="phone-voice-message-player"
-        autoPlay
+        autoPlay={!!generatedClipDataUrl}
       />
     );
   }
