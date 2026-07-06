@@ -261,6 +261,7 @@ type StudioDialogsProps = {
   onLoadOllamaModel: () => void;
   onUnloadOllamaModels: () => void;
   onApplyConnectionToAllNodes: () => void;
+  onSetNarratorOnlyProvider: (providerId: string) => void;
 };
 
 function PencilIcon() {
@@ -863,6 +864,7 @@ export function StudioDialogs({
   onLoadOllamaModel,
   onUnloadOllamaModels,
   onApplyConnectionToAllNodes,
+  onSetNarratorOnlyProvider,
 }: StudioDialogsProps) {
   const sessionPasswordInputRef = useRef<HTMLInputElement>(null);
   const saveFileNameInputRef = useRef<HTMLInputElement>(null);
@@ -3308,6 +3310,7 @@ export function StudioDialogs({
                             )}
                           </div>
                           {supportsTtsTemperature && (
+                            <div className="connection-tts-runtime-row">
                             <div className="connection-field connection-tts-temperature">
                               <label htmlFor="tts-temperature">
                                 TEMPERATURE <span>{(editingConnection.ttsTemperature ?? 1).toFixed(2)}</span>
@@ -3322,27 +3325,29 @@ export function StudioDialogs({
                                 onChange={(event) => onEditConnection('ttsTemperature', Number(event.target.value))}
                               />
                             </div>
+                            {supportsGeminiVoiceDirection && (
+                              <label className="node-toggle post-output-toggle connection-tts-stream-toggle nodrag">
+                                <input
+                                  className="nodrag nowheel"
+                                  type="checkbox"
+                                  checked={editingConnection.ttsStreamAudio === true}
+                                  onChange={(event) => onEditConnection('ttsStreamAudio', event.target.checked)}
+                                />
+                                <span>Stream audio</span>
+                              </label>
+                            )}
+                            </div>
                           )}
                           {supportsGeminiVoiceDirection && (
                             <div className="connection-tts-direction-grid">
                               <div className="connection-field connection-tts-wide-field">
                                 <label htmlFor="tts-audio-profile">AUDIO PROFILE</label>
-                                <textarea
+                                <input
                                   id="tts-audio-profile"
-                                  rows={2}
+                                  type="text"
                                   placeholder="Persona, role, age, and vocal character"
                                   value={editingConnection.ttsAudioProfile ?? ''}
                                   onChange={(event) => onEditConnection('ttsAudioProfile', event.target.value)}
-                                />
-                              </div>
-                              <div className="connection-field connection-tts-wide-field">
-                                <label htmlFor="tts-scene">SCENE</label>
-                                <textarea
-                                  id="tts-scene"
-                                  rows={2}
-                                  placeholder="Location, mood, and situation"
-                                  value={editingConnection.ttsScene ?? ''}
-                                  onChange={(event) => onEditConnection('ttsScene', event.target.value)}
                                 />
                               </div>
                               {([
@@ -3553,9 +3558,14 @@ export function StudioDialogs({
                       Check Models
                       </button>
                     )}
-                    {!isComfyConnection && (
+                    {!isComfyConnection && !isVoiceOnlyModel && (
                       <button type="button" onClick={onApplyConnectionToAllNodes}>
                         Apply to all nodes
+                      </button>
+                    )}
+                    {!isComfyConnection && isVoiceOnlyModel && (
+                      <button type="button" onClick={() => onSetNarratorOnlyProvider(editingConnection.id)}>
+                        Set Narrator Only model
                       </button>
                     )}
                   </div>

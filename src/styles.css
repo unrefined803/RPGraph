@@ -15549,6 +15549,19 @@ button.message-timeline-row.phone:focus-visible {
   width: 100%;
 }
 
+.connection-tts-runtime-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.connection-tts-stream-toggle {
+  min-height: 38px;
+  align-items: center;
+}
+
 .connection-tts-direction-grid {
   grid-column: 1 / -1;
   display: grid;

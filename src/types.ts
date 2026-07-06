@@ -45,8 +45,8 @@ export type ConnectionPreset = {
   model: string;
   ttsVoice?: string;
   ttsTemperature?: number;
+  ttsStreamAudio?: boolean;
   ttsAudioProfile?: string;
-  ttsScene?: string;
   ttsStyle?: string;
   ttsAccent?: string;
   ttsPace?: string;

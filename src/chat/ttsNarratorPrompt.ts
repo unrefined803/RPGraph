@@ -8,9 +8,6 @@ export function ttsNarratorPrompt(connection: ConnectionPreset, transcript: stri
     connection.ttsAudioProfile
       ? `# AUDIO PROFILE\n${connection.ttsAudioProfile.trim()}`
       : '',
-    connection.ttsScene
-      ? `## THE SCENE\n${connection.ttsScene.trim()}`
-      : '',
   ];
   const directorNotes = [
     connection.ttsStyle ? `Style: ${connection.ttsStyle.trim()}` : '',

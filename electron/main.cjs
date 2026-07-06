@@ -2893,7 +2893,25 @@ ipcMain.handle('openrouter:list-models', async (_event, request) => {
   }
 });
 
-ipcMain.handle('openrouter:generate-speech', async (_event, request) => {
+function pcm16MonoToWav(pcm, sampleRate = 24000) {
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+
+ipcMain.handle('openrouter:generate-speech', async (event, request) => {
   const abort = createLlmAbortController(request);
   const connection = request?.connection;
   const input = typeof request?.input === 'string' ? request.input.trim() : '';
@@ -2906,11 +2924,13 @@ ipcMain.handle('openrouter:generate-speech', async (_event, request) => {
   if (!input) {
     throw new Error('Enter text to speak first.');
   }
+  const model = connection.model.trim();
+  const requiresPcm = model.startsWith('google/gemini-');
   const body = {
-    model: connection.model.trim(),
+    model,
     input,
     voice: connection.ttsVoice.trim(),
-    response_format: 'mp3',
+    response_format: requiresPcm ? 'pcm' : 'mp3',
     ...(Number.isFinite(connection.ttsTemperature)
       ? { temperature: connection.ttsTemperature }
       : {}),
@@ -2924,16 +2944,35 @@ ipcMain.handle('openrouter:generate-speech', async (_event, request) => {
     if (!response.ok) {
       throw new Error(await readError(response));
     }
-    const rawContentType = response.headers['content-type'];
-    const contentType = (Array.isArray(rawContentType) ? rawContentType[0] : rawContentType)
-      ?.split(';')[0]?.trim() || 'audio/mpeg';
-    const audio = await response.buffer();
-    if (audio.length === 0) {
+    let responseAudio;
+    if (requiresPcm && connection.ttsStreamAudio === true && request?.requestId) {
+      const chunks = [];
+      for await (const chunk of response.body) {
+        const bytes = streamChunkBytes(chunk);
+        chunks.push(bytes);
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(
+            `openrouter:speech-chunk:${request.requestId}`,
+            bytes.toString('base64'),
+          );
+        }
+      }
+      responseAudio = Buffer.concat(chunks);
+    } else {
+      responseAudio = await response.buffer();
+    }
+    if (responseAudio.length === 0) {
       throw new Error('OpenRouter returned an empty audio response.');
     }
+    const audio = requiresPcm ? pcm16MonoToWav(responseAudio) : responseAudio;
+    const rawContentType = response.headers['content-type'];
+    const responseContentType = (Array.isArray(rawContentType) ? rawContentType[0] : rawContentType)
+      ?.split(';')[0]?.trim();
+    const contentType = requiresPcm ? 'audio/wav' : responseContentType || 'audio/mpeg';
+    const extension = requiresPcm ? 'wav' : 'mp3';
     return {
       dataUrl: `data:${contentType};base64,${audio.toString('base64')}`,
-      filename: `openrouter-tts-${Date.now()}.mp3`,
+      filename: `openrouter-tts-${Date.now()}.${extension}`,
     };
   } finally {
     abort.dispose();

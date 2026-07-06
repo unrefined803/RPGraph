@@ -1329,12 +1329,14 @@ function App() {
     dialogueVoiceSpeakerNames,
     narratorVoiceReady,
     narratorOnlyReady,
+    apiNarratorGenerationActive,
     activeDialogueVoiceKey,
     readAloudActive,
     speakDialogue,
     preloadTurnVoices,
     readMessagesAloud,
     readMessagesAsNarrator,
+    readTextAsApiNarratorEarly,
     generateVoiceMessageClip,
     stopDialogueVoice,
   } = useDialogueVoice({
@@ -1344,8 +1346,8 @@ function App() {
     englishProcessingEnabled,
     narratorOnlyProviderId: resolvedNarratorProviderId,
     generateVoiceClip: generateCharacterVoicePreview,
-    generateApiNarratorClip: (connection, input) =>
-      window.rpgraph.generateOpenRouterSpeech({ connection, input }),
+    generateApiNarratorClip: (connection, input, onChunk) =>
+      window.rpgraph.generateOpenRouterSpeech({ connection, input }, onChunk),
     unloadVoiceModels: unloadCharacterComfyModels,
     onVoiceClipGenerated: storeMessageVoiceClip,
     notifySystem,
@@ -4437,6 +4439,10 @@ function App() {
     nodeHasVision,
     checkProviderConnections,
     notifySystem,
+    onRpOutputReady:
+      dialogueVoiceMode === 'narrator-only' && !englishProcessingEnabled
+        ? (text) => { void readTextAsApiNarratorEarly(text); }
+        : undefined,
     updateRuntimeNode,
     clearAllRunActiveTimers,
     updateWorkflowComfyGenerationActive,
@@ -5213,7 +5219,9 @@ function App() {
     const explicitComfyProviderIds = new Set<string>();
     let usesVision = false;
     let usesImage = false;
-    const usesAudio = storyCharacters.some((character) => !!character.voiceConfig?.sampleDataUrl);
+    const usesAudio =
+      dialogueVoiceMode === 'narrator-only' ||
+      storyCharacters.some((character) => !!character.voiceConfig?.sampleDataUrl);
 
     const connectionIdForNode = (node: WorkflowNode) => {
       const connectionId = typeof node.data.connectionId === 'string' && node.data.connectionId.trim()
@@ -5295,7 +5303,19 @@ function App() {
     const imageProviders = connections.filter(isComfyImageConnection);
     const voiceProviders = connections.filter(isComfyVoiceConnection);
     const anyImageConnected = imageProviders.some((connection) => connectionIsOnline(connection.id));
-    const anyVoiceConnected = voiceProviders.some((connection) => connectionIsOnline(connection.id));
+    const anyApiVoiceConnected = connections.some((connection) => {
+      const capabilities = providerHealthById[connection.id]?.capabilities;
+      return isOpenRouterConnection(connection) &&
+        capabilities?.voice === true &&
+        capabilities.text !== true &&
+        connectionIsOnline(connection.id);
+    });
+    const selectedNarratorConnected = resolvedNarratorProviderId
+      ? connectionIsOnline(resolvedNarratorProviderId)
+      : false;
+    const anyVoiceConnected =
+      voiceProviders.some((connection) => connectionIsOnline(connection.id)) ||
+      anyApiVoiceConnected;
     const imageReady = usesImage && (
       explicitComfyProviderIds.size > 0
         ? [...explicitComfyProviderIds].every((providerId) =>
@@ -5310,7 +5330,7 @@ function App() {
       node.data.kind === undefined && node.data.runVisionActive === true,
     );
     const imageActive = workflowComfyGenerationActive || comfyProviderActionActive === 'generate';
-    const audioActive = voiceGenerationActive;
+    const audioActive = voiceGenerationActive || apiNarratorGenerationActive || readAloudActive;
     const effectiveTextReady = llmConnectionIds.size > 0 ? textReady : anyTextConnected;
 
     const indicators: WorkflowCapabilityIndicator[] = [{
@@ -5348,7 +5368,9 @@ function App() {
       });
     }
     if (usesAudio || anyVoiceConnected || audioActive) {
-      const ready = anyVoiceConnected;
+      const ready = dialogueVoiceMode === 'narrator-only'
+        ? selectedNarratorConnected
+        : anyVoiceConnected;
       indicators.push({
         kind: 'audio',
         tone: (ready || audioActive) ? 'ready' : 'missing',
@@ -5357,7 +5379,7 @@ function App() {
           ? usesAudio
             ? 'Audio generation: required and connected'
             : 'Audio generation: connected'
-          : 'Audio generation: required, but the ComfyUI voice provider is not connected',
+          : 'Audio generation: required, but the selected voice provider is not connected',
       });
     }
     return indicators;
@@ -5365,10 +5387,14 @@ function App() {
     comfyProviderActionActive,
     connections,
     defaultConnectionId,
+    dialogueVoiceMode,
     nodeViewNodes,
     promptActionSettings,
     providerHealthById,
+    readAloudActive,
+    resolvedNarratorProviderId,
     storyCharacters,
+    apiNarratorGenerationActive,
     voiceGenerationActive,
     workflowComfyGenerationActive,
   ]);
@@ -6441,6 +6467,7 @@ function App() {
         onLoadOllamaModel={() => void loadOllamaModel()}
         onUnloadOllamaModels={() => void unloadOllamaModels()}
         onApplyConnectionToAllNodes={applyConnectionToAllNodes}
+        onSetNarratorOnlyProvider={setDialogueNarratorProviderId}
       />
       {showSystemLog && (
         <SystemLogDialog

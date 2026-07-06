@@ -62,8 +62,15 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('lmstudio:list-models', { connection }).then(throwIfRpgraphIpcError),
   listOpenRouterModels: (connection) =>
     ipcRenderer.invoke('openrouter:list-models', { connection }),
-  generateOpenRouterSpeech: (request) =>
-    ipcRenderer.invoke('openrouter:generate-speech', request),
+  generateOpenRouterSpeech: (request, onChunk) => {
+    const requestId = nextLlmRequestId();
+    const channel = `openrouter:speech-chunk:${requestId}`;
+    const listener = (_event, base64Chunk) => onChunk?.(base64Chunk);
+    ipcRenderer.on(channel, listener);
+    return ipcRenderer
+      .invoke('openrouter:generate-speech', { ...request, requestId })
+      .finally(() => ipcRenderer.removeListener(channel, listener));
+  },
   listGeminiModels: (connection) =>
     ipcRenderer.invoke('gemini:list-models', { connection }),
   loadLmStudioModel: (connection) =>

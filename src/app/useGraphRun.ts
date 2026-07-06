@@ -135,6 +135,7 @@ type UseGraphRunOptions = Pick<
     connectionsToCheck: ConnectionPreset[],
   ) => Promise<Record<string, ProviderConnectionHealth>>;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
+  onRpOutputReady?: (text: string) => void;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   clearAllRunActiveTimers: () => void;
   updateWorkflowComfyGenerationActive: (active: boolean) => void;
@@ -305,6 +306,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     nodeHasVision,
     checkProviderConnections,
     notifySystem,
+    onRpOutputReady,
     updateRuntimeNode,
     clearAllRunActiveTimers,
     updateWorkflowComfyGenerationActive,
@@ -1225,6 +1227,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
         ? stripEventOutputHeader(embeddedPhoneResult.text, eventDisplayText)
         : embeddedPhoneResult.text;
       updateRuntimeNode(outputNode.id, { preview: rpOutput });
+      if (!isPhoneMessage && rpOutput.trim()) {
+        onRpOutputReady?.(rpOutput);
+      }
       if (parsedRpOutput.imageDescription) {
         const describedInput = activeTurnCollectorRef.current?.inputMessages.find(
           (message) =>

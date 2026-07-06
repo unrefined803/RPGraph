@@ -49,6 +49,7 @@ export function useDialogueVoice({
   generateApiNarratorClip: (
     connection: ConnectionPreset,
     input: string,
+    onChunk?: (base64PcmChunk: string) => void,
   ) => Promise<{ dataUrl: string; filename: string }>;
   unloadVoiceModels: (providerId: string) => Promise<void>;
   onVoiceClipGenerated: (messageId: number, clip: MessageVoiceClip) => void;
@@ -56,9 +57,17 @@ export function useDialogueVoice({
 }) {
   const [activeDialogueVoiceKey, setActiveDialogueVoiceKey] = useState<string | null>(null);
   const [readAloudActive, setReadAloudActive] = useState(false);
+  const [apiNarratorGenerationActive, setApiNarratorGenerationActive] = useState(false);
   const activeKeyRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playbackDoneRef = useRef<(() => void) | null>(null);
+  const streamAudioContextRef = useRef<AudioContext | null>(null);
+  const streamNextStartRef = useRef(0);
+  const streamPcmCarryRef = useRef<Uint8Array>(new Uint8Array());
+  const earlyNarrationRef = useRef<{
+    text: string;
+    clip?: { dataUrl: string; filename: string };
+  } | null>(null);
   const preloadTokenRef = useRef(0);
   const readAloudTokenRef = useRef(0);
   const clipCacheRef = useRef(new Map<string, string>());
@@ -136,6 +145,64 @@ export function useDialogueVoice({
     const resolvePlayback = playbackDoneRef.current;
     playbackDoneRef.current = null;
     resolvePlayback?.();
+    const streamContext = streamAudioContextRef.current;
+    streamAudioContextRef.current = null;
+    streamNextStartRef.current = 0;
+    streamPcmCarryRef.current = new Uint8Array();
+    if (streamContext) {
+      void streamContext.close().catch(() => {});
+    }
+  }
+
+  function beginPcmStream() {
+    const context = new AudioContext({ sampleRate: 24000 });
+    streamAudioContextRef.current = context;
+    streamNextStartRef.current = context.currentTime + 0.08;
+    streamPcmCarryRef.current = new Uint8Array();
+  }
+
+  function schedulePcmChunk(base64Chunk: string) {
+    const context = streamAudioContextRef.current;
+    if (!context || !base64Chunk) {
+      return;
+    }
+    const binary = atob(base64Chunk);
+    const incoming = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const carried = streamPcmCarryRef.current;
+    const combined = new Uint8Array(carried.length + incoming.length);
+    combined.set(carried);
+    combined.set(incoming, carried.length);
+    const playableLength = combined.length - (combined.length % 2);
+    streamPcmCarryRef.current = combined.slice(playableLength);
+    if (playableLength === 0) {
+      return;
+    }
+    const sampleCount = playableLength / 2;
+    const audioBuffer = context.createBuffer(1, sampleCount, 24000);
+    const channel = audioBuffer.getChannelData(0);
+    const view = new DataView(combined.buffer, combined.byteOffset, playableLength);
+    for (let index = 0; index < sampleCount; index += 1) {
+      channel[index] = view.getInt16(index * 2, true) / 32768;
+    }
+    const source = context.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(context.destination);
+    const startAt = Math.max(context.currentTime + 0.03, streamNextStartRef.current);
+    source.start(startAt);
+    streamNextStartRef.current = startAt + audioBuffer.duration;
+  }
+
+  async function waitForPcmStreamPlayback() {
+    const context = streamAudioContextRef.current;
+    if (!context) {
+      return;
+    }
+    const remainingMs = Math.max(0, (streamNextStartRef.current - context.currentTime) * 1000);
+    await new Promise<void>((resolve) => setTimeout(resolve, remainingMs + 50));
+    if (streamAudioContextRef.current === context) {
+      streamAudioContextRef.current = null;
+      await context.close().catch(() => {});
+    }
   }
 
   function cancelReadAloud() {
@@ -472,21 +539,95 @@ export function useDialogueVoice({
     }
   }
 
-  async function readMessagesAsNarrator(messages: MessageRecord[]) {
-    if (!narratorOnlyConnection || !narratorOnlyReady) {
+  async function generateAndPlayApiNarration(connection: ConnectionPreset, text: string) {
+    const streamAudio = connection.ttsStreamAudio === true;
+    if (streamAudio) {
+      beginPcmStream();
+    }
+    setApiNarratorGenerationActive(true);
+    let clip: { dataUrl: string; filename: string };
+    try {
+      clip = await generateApiNarratorClip(
+        connection,
+        ttsNarratorPrompt(connection, text),
+        streamAudio ? schedulePcmChunk : undefined,
+      );
+    } finally {
+      setApiNarratorGenerationActive(false);
+    }
+    if (streamAudio) {
+      await waitForPcmStreamPlayback();
+    } else {
+      await playClipAndWait(clip.dataUrl);
+    }
+    return clip;
+  }
+
+  async function readTextAsApiNarratorEarly(text: string) {
+    if (
+      !narratorOnlyConnection ||
+      !isOpenRouterConnection(narratorOnlyConnection) ||
+      !narratorOnlyReady
+    ) {
+      return;
+    }
+    const speechText = dialogueSpeechText(text);
+    if (!speechText) {
       return;
     }
     stopDialogueVoice();
     const token = ++readAloudTokenRef.current;
+    earlyNarrationRef.current = { text: speechText };
+    setReadAloudActive(true);
+    try {
+      const clip = await generateAndPlayApiNarration(narratorOnlyConnection, speechText);
+      if (readAloudTokenRef.current === token && earlyNarrationRef.current) {
+        earlyNarrationRef.current.clip = clip;
+      }
+    } catch (error) {
+      earlyNarrationRef.current = null;
+      notifySystem(
+        'error',
+        `Narrator playback stopped: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      if (readAloudTokenRef.current === token) {
+        setReadAloudActive(false);
+      }
+    }
+  }
+
+  async function readMessagesAsNarrator(messages: MessageRecord[]) {
+    if (!narratorOnlyConnection || !narratorOnlyReady) {
+      return;
+    }
     const speakableMessages = messages
       .map((message) => ({
         message,
         text: dialogueVoiceWholeMessageText(message, englishProcessingEnabled),
       }))
       .filter((entry) => entry.text.length > 0);
+    const earlyNarration = earlyNarrationRef.current;
+    if (earlyNarration && speakableMessages.length > 0) {
+      const first = speakableMessages[0];
+      if (earlyNarration.clip) {
+        storeVoiceClip(
+          first.message.id,
+          null,
+          first.text,
+          earlyNarration.clip.dataUrl,
+          earlyNarration.clip.filename,
+          'narration',
+        );
+      }
+      earlyNarrationRef.current = null;
+      return;
+    }
     if (speakableMessages.length === 0) {
       return;
     }
+    stopDialogueVoice();
+    const token = ++readAloudTokenRef.current;
     setReadAloudActive(true);
     try {
       for (const { message, text } of speakableMessages) {
@@ -505,16 +646,15 @@ export function useDialogueVoice({
             sampleDataUrl,
           }))[0];
         } else if (isOpenRouterConnection(narratorOnlyConnection)) {
-          clip = await generateApiNarratorClip(
-            narratorOnlyConnection,
-            ttsNarratorPrompt(narratorOnlyConnection, text),
-          );
+          clip = await generateAndPlayApiNarration(narratorOnlyConnection, text);
         }
         if (!clip?.dataUrl || readAloudTokenRef.current !== token) {
           continue;
         }
         storeVoiceClip(message.id, null, text, clip.dataUrl, clip.filename, 'narration');
-        await playClipAndWait(clip.dataUrl);
+        if (!isOpenRouterConnection(narratorOnlyConnection)) {
+          await playClipAndWait(clip.dataUrl);
+        }
       }
     } catch (error) {
       notifySystem(
@@ -551,6 +691,7 @@ export function useDialogueVoice({
     dialogueVoiceSpeakerNames,
     narratorVoiceReady,
     narratorOnlyReady,
+    apiNarratorGenerationActive,
     activeDialogueVoiceKey,
     readAloudActive,
     speakDialogue,
@@ -559,6 +700,7 @@ export function useDialogueVoice({
     preloadTurnVoices,
     readMessagesAloud,
     readMessagesAsNarrator,
+    readTextAsApiNarratorEarly,
     generateVoiceMessageClip,
     stopDialogueVoice,
   };

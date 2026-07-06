@@ -436,8 +436,8 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
     ttsTemperature: kind === 'comfyui'
       ? undefined
       : validSamplingValue(connection.ttsTemperature, 0, 2),
+    ttsStreamAudio: kind === 'comfyui' ? undefined : connection.ttsStreamAudio === true,
     ttsAudioProfile: kind === 'comfyui' ? undefined : connection.ttsAudioProfile?.trim() || undefined,
-    ttsScene: kind === 'comfyui' ? undefined : connection.ttsScene?.trim() || undefined,
     ttsStyle: kind === 'comfyui' ? undefined : connection.ttsStyle?.trim() || undefined,
     ttsAccent: kind === 'comfyui' ? undefined : connection.ttsAccent?.trim() || undefined,
     ttsPace: kind === 'comfyui' ? undefined : connection.ttsPace?.trim() || undefined,
@@ -531,8 +531,8 @@ function isConnectionPreset(value: unknown): value is ConnectionPreset {
     (connection.ttsVoice === undefined || typeof connection.ttsVoice === 'string') &&
     (connection.ttsTemperature === undefined ||
       (typeof connection.ttsTemperature === 'number' && Number.isFinite(connection.ttsTemperature))) &&
+    (connection.ttsStreamAudio === undefined || typeof connection.ttsStreamAudio === 'boolean') &&
     (connection.ttsAudioProfile === undefined || typeof connection.ttsAudioProfile === 'string') &&
-    (connection.ttsScene === undefined || typeof connection.ttsScene === 'string') &&
     (connection.ttsStyle === undefined || typeof connection.ttsStyle === 'string') &&
     (connection.ttsAccent === undefined || typeof connection.ttsAccent === 'string') &&
     (connection.ttsPace === undefined || typeof connection.ttsPace === 'string') &&
