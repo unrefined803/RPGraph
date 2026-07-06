@@ -104,7 +104,6 @@ export function VoicePlaybackDialog({
                   className={`voice-playback-mode-card${mode === entry.id ? ' active' : ''}`}
                   role="radio"
                   aria-checked={mode === entry.id}
-                  disabled={disabledReason !== null}
                   title={disabledReason ?? undefined}
                   key={entry.id}
                   onClick={() => onModeChange(entry.id)}
@@ -166,7 +165,7 @@ export function VoicePlaybackDialog({
                       {' '}or another speech-only model.
                     </li>
                     <li>Choose its voice and optional delivery settings.</li>
-                    <li>Click <strong>Set Narrator Only model</strong>.</li>
+                    <li>Click <strong>Set as Narrator Model</strong>.</li>
                   </ol>
                 </div>
               </>

@@ -274,6 +274,7 @@ export function useProviderConnections({
       apiKey: template?.apiKey ?? '',
       model: recommendedOpenRouterTtsModel,
       ttsVoice: selectedModel?.supportedVoices[0],
+      ttsStreamAudio: true,
       reasoningEffort: 'none',
       vision: false,
       ...defaultConnectionSampling,
@@ -330,7 +331,7 @@ export function useProviderConnections({
   }
 
   function applyProviderPreset(
-    preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'>,
+    preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'>,
   ) {
     const currentKind = editingConnection.kind === 'comfyui' ? 'comfyui' : 'llm';
     const presetKind = preset.kind === 'comfyui' ? 'comfyui' : 'llm';
@@ -401,7 +402,7 @@ export function useProviderConnections({
     if (editingConnection.kind !== 'comfyui') {
       return;
     }
-    const roleLabels = ['ComfyUI Default', 'ComfyUI Image', 'ComfyUI Voice'];
+    const roleLabels = ['ComfyUI Default', 'ComfyUI Image + Voice', 'ComfyUI Image', 'ComfyUI Voice'];
     const currentLabel = editingConnection.label.trim();
     const currentWorkflowPath = editingConnection.comfyWorkflowPath?.trim() ?? '';
     const roleDefaultWorkflowPath = role === 'voice' ? defaultComfyVoiceWorkflowPath : defaultComfyWorkflowPath;

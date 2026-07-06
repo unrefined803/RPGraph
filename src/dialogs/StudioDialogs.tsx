@@ -231,7 +231,7 @@ type StudioDialogsProps = {
   onSelectConnection: (connection: ConnectionPreset) => void;
   onNewConnection: () => void;
   onApplyProviderPreset: (
-    preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'>,
+    preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'>,
   ) => void;
   onApplyComfyConnectionRole: (role: 'image' | 'voice') => void;
   onEditConnection: (field: keyof ConnectionPreset, value: ConnectionPreset[keyof ConnectionPreset]) => void;
@@ -492,6 +492,7 @@ const providerPresets = [
     baseUrl: 'https://openrouter.ai/api/v1',
     apiKey: '',
     model: 'openrouter/auto',
+    ttsStreamAudio: true,
     reasoningEffort: 'none',
     models: ['openrouter/auto'],
     description: 'Model router and marketplace',
@@ -527,7 +528,7 @@ const providerPresets = [
     description: 'Image and voice generation server',
   },
 ] satisfies Array<
-  Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'> & {
+  Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'> & {
     models: string[];
     description: string;
   }
@@ -3565,7 +3566,7 @@ export function StudioDialogs({
                     )}
                     {!isComfyConnection && isVoiceOnlyModel && (
                       <button type="button" onClick={() => onSetNarratorOnlyProvider(editingConnection.id)}>
-                        Set Narrator Only model
+                        Set as Narrator Model
                       </button>
                     )}
                   </div>
