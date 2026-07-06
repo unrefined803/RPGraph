@@ -3,10 +3,8 @@ import type { ConnectionPreset, LlmProviderKind } from '../types';
 const llmProviderKinds = [
   'lm-studio',
   'ollama',
-  'openai',
   'openrouter',
   'gemini',
-  'custom',
 ] as const satisfies readonly LlmProviderKind[];
 
 export function validLlmProviderKind(value: unknown): LlmProviderKind | undefined {
@@ -54,20 +52,17 @@ export function inferredProviderKind(connection: ConnectionPreset): LlmProviderK
   if (label.includes('openrouter') || hostname === 'openrouter.ai' || baseUrl.includes('openrouter.ai')) {
     return 'openrouter';
   }
-  if (baseUrl.includes('api.openai.com')) {
-    return 'openai';
-  }
   if (baseUrl.includes('generativelanguage.googleapis.com')) {
     return 'gemini';
   }
-  return 'custom';
+  return 'lm-studio';
 }
 
 export function llmProviderKind(connection: ConnectionPreset): LlmProviderKind | null {
   if (connection.kind === 'comfyui') {
     return null;
   }
-  return connection.providerKind ?? inferredProviderKind(connection);
+  return validLlmProviderKind(connection.providerKind) ?? inferredProviderKind(connection);
 }
 
 export function isLmStudioConnection(connection: ConnectionPreset): boolean {
@@ -80,4 +75,8 @@ export function isOllamaConnection(connection: ConnectionPreset): boolean {
 
 export function isOpenRouterConnection(connection: ConnectionPreset): boolean {
   return llmProviderKind(connection) === 'openrouter';
+}
+
+export function isGeminiConnection(connection: ConnectionPreset): boolean {
+  return llmProviderKind(connection) === 'gemini';
 }

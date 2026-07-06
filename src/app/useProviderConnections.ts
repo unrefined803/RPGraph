@@ -3,10 +3,12 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { ComfyGeneratedImage } from '../comfy/api';
 import type { ComfyWorkflowInspection } from '../comfy/workflowCompatibility';
 import {
+  connectionWithGeminiCapabilities as connectionWithGeminiCapabilitiesForModels,
   connectionWithLmStudioCapabilities as connectionWithLmStudioCapabilitiesForModels,
   connectionWithOllamaCapabilities as connectionWithOllamaCapabilitiesForModels,
   connectionWithOpenRouterCapabilities as connectionWithOpenRouterCapabilitiesForModels,
   createProviderConnectionId,
+  geminiCapabilitiesForConnection,
   lmStudioCapabilitiesForConnection,
   lmStudioLlmModels,
   ollamaCapabilitiesForConnection,
@@ -22,6 +24,7 @@ import {
   isLocalProviderConnection,
   isOllamaConnection,
   isOpenRouterConnection,
+  isGeminiConnection,
   llmProviderKind,
 } from '../llm/providerKind';
 import {
@@ -56,6 +59,7 @@ import {
 import type {
   ComfyConnectionRole,
   ConnectionPreset,
+  GeminiModelInfo,
   LmStudioModelInfo,
   OllamaModelInfo,
   OpenRouterModelInfo,
@@ -161,6 +165,8 @@ export function useProviderConnections({
   const lmStudioModelsByConnectionIdRef = useRef<Record<string, LmStudioModelInfo[]>>({});
   const [openRouterModelsByConnectionId, setOpenRouterModelsByConnectionId] = useState<Record<string, OpenRouterModelInfo[]>>({});
   const openRouterModelsByConnectionIdRef = useRef<Record<string, OpenRouterModelInfo[]>>({});
+  const [geminiModelsByConnectionId, setGeminiModelsByConnectionId] = useState<Record<string, GeminiModelInfo[]>>({});
+  const geminiModelsByConnectionIdRef = useRef<Record<string, GeminiModelInfo[]>>({});
   const [ollamaModelsByConnectionId, setOllamaModelsByConnectionId] = useState<Record<string, OllamaModelInfo[]>>({});
   const ollamaModelsByConnectionIdRef = useRef<Record<string, OllamaModelInfo[]>>({});
   const startupProviderCheckCompleteRef = useRef(false);
@@ -190,6 +196,9 @@ export function useProviderConnections({
   useEffect(() => {
     openRouterModelsByConnectionIdRef.current = openRouterModelsByConnectionId;
   }, [openRouterModelsByConnectionId]);
+  useEffect(() => {
+    geminiModelsByConnectionIdRef.current = geminiModelsByConnectionId;
+  }, [geminiModelsByConnectionId]);
   useEffect(() => {
     ollamaModelsByConnectionIdRef.current = ollamaModelsByConnectionId;
   }, [ollamaModelsByConnectionId]);
@@ -382,7 +391,7 @@ export function useProviderConnections({
       comfyRole: comfyRole ?? undefined,
       providerKind: kind === 'comfyui'
         ? undefined
-        : editingConnection.providerKind ?? inferredProviderKind(editingConnection),
+        : llmProviderKind(editingConnection) ?? inferredProviderKind(editingConnection),
       label: editingConnection.label.trim() || (kind === 'comfyui' ? 'ComfyUI Default' : 'Provider'),
       baseUrl: editingConnection.baseUrl.trim() || (kind === 'comfyui' ? defaultComfyBaseUrl : defaultConnection.baseUrl),
       model: kind === 'comfyui' ? '' : editingConnection.model.trim(),
@@ -505,6 +514,14 @@ export function useProviderConnections({
     setOpenRouterModelsByConnectionId(openRouterModelsByConnectionIdRef.current);
   }
 
+  function updateGeminiModelCache(connectionId: string, models: GeminiModelInfo[]) {
+    geminiModelsByConnectionIdRef.current = {
+      ...geminiModelsByConnectionIdRef.current,
+      [connectionId]: models,
+    };
+    setGeminiModelsByConnectionId(geminiModelsByConnectionIdRef.current);
+  }
+
   function updateOllamaModelCache(connectionId: string, models: OllamaModelInfo[]) {
     ollamaModelsByConnectionIdRef.current = {
       ...ollamaModelsByConnectionIdRef.current,
@@ -527,6 +544,13 @@ export function useProviderConnections({
     return connectionWithOpenRouterCapabilitiesForModels(connection, models);
   }
 
+  function connectionWithGeminiCapabilities(
+    connection: ConnectionPreset,
+    models = geminiModelsByConnectionIdRef.current[connection.id] ?? [],
+  ): ConnectionPreset {
+    return connectionWithGeminiCapabilitiesForModels(connection, models);
+  }
+
   function connectionWithOllamaCapabilities(
     connection: ConnectionPreset,
     models = ollamaModelsByConnectionIdRef.current[connection.id] ?? [],
@@ -541,7 +565,8 @@ export function useProviderConnections({
     if (
       !isLmStudioConnection(connection) &&
       !isOllamaConnection(connection) &&
-      !isOpenRouterConnection(connection)
+      !isOpenRouterConnection(connection) &&
+      !isGeminiConnection(connection)
     ) {
       return;
     }
@@ -552,7 +577,9 @@ export function useProviderConnections({
           ? connectionWithLmStudioCapabilities(current)
           : isOllamaConnection(current)
             ? connectionWithOllamaCapabilities(current)
-            : connectionWithOpenRouterCapabilities(current)
+            : isOpenRouterConnection(current)
+              ? connectionWithOpenRouterCapabilities(current)
+              : connectionWithGeminiCapabilities(current)
         : current,
     );
     setConnections((current) =>
@@ -707,6 +734,42 @@ export function useProviderConnections({
           setAvailableConnectionModels(models);
         }
         const capabilities = openRouterCapabilitiesForConnection(detectedConnection, modelDetails);
+        health = {
+          status: models.length > 0 ? 'online' : 'offline',
+          detail: models.length > 0
+            ? providerModelCountDetail(models.length)
+            : 'Connection succeeded, but no models were returned.',
+          capabilities,
+          checkedAt: providerCheckedAt(),
+        };
+      } else if (isGeminiConnection(connection)) {
+        const modelDetails = await window.rpgraph.listGeminiModels(connection);
+        updateGeminiModelCache(connection.id, modelDetails);
+        const models = modelDetails.map((model) => model.id);
+        const fallbackModel = models.includes(connection.model)
+          ? connection.model
+          : options.selectFallbackModel
+            ? models[0] ?? connection.model
+            : connection.model;
+        const detectedConnection = connectionWithGeminiCapabilities(
+          { ...connection, model: fallbackModel },
+          modelDetails,
+        );
+        if (options.selectFallbackModel && detectedConnection.model !== connection.model) {
+          setEditingConnection(detectedConnection);
+          setConnections((current) =>
+            current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
+          );
+        } else {
+          applyDetectedConnectionCapabilities(
+            detectedConnection,
+            geminiCapabilitiesForConnection(detectedConnection, modelDetails),
+          );
+        }
+        if (editingConnection.id === connection.id) {
+          setAvailableConnectionModels(models);
+        }
+        const capabilities = geminiCapabilitiesForConnection(detectedConnection, modelDetails);
         health = {
           status: models.length > 0 ? 'online' : 'offline',
           detail: models.length > 0
@@ -933,7 +996,7 @@ export function useProviderConnections({
 
   function connectionRequiresApiKeyForModelList(connection: ConnectionPreset) {
     const providerKind = llmProviderKind(connection);
-    return providerKind === 'openai' || providerKind === 'gemini';
+    return providerKind === 'gemini';
   }
 
   function fallbackModelsForConnection(connection: ConnectionPreset, error: unknown) {
@@ -983,12 +1046,20 @@ export function useProviderConnections({
       if (openRouterModels) {
         updateOpenRouterModelCache(editingConnection.id, openRouterModels);
       }
+      const geminiModels = !lmStudioModels && !ollamaModels && !openRouterModels && isGeminiConnection(editingConnection)
+        ? await window.rpgraph.listGeminiModels(editingConnection)
+        : null;
+      if (geminiModels) {
+        updateGeminiModelCache(editingConnection.id, geminiModels);
+      }
       const models = lmStudioModels
         ? lmStudioModels.map((model) => model.id)
         : ollamaModels
           ? ollamaModels.map((model) => model.id)
         : openRouterModels
           ? openRouterModels.map((model) => model.id)
+        : geminiModels
+          ? geminiModels.map((model) => model.id)
         : await window.rpgraph.listModels(editingConnection);
       if (models.length === 0) {
         setAvailableConnectionModels([]);
@@ -1000,7 +1071,9 @@ export function useProviderConnections({
           capabilities: lmStudioModels || ollamaModels
             ? { text: false, vision: false, tools: false }
             : openRouterModels
-              ? { text: false, vision: false }
+              ? { text: false, vision: false, image: false, voice: false }
+              : geminiModels
+                ? { text: false, vision: false, image: false, voice: false }
               : undefined,
           checkedAt: providerCheckedAt(),
         });
@@ -1022,6 +1095,8 @@ export function useProviderConnections({
         connection = connectionWithOllamaCapabilities(connection, ollamaModels);
       } else if (openRouterModels) {
         connection = connectionWithOpenRouterCapabilities(connection, openRouterModels);
+      } else if (geminiModels) {
+        connection = connectionWithGeminiCapabilities(connection, geminiModels);
       }
       const capabilities = lmStudioModels
         ? lmStudioCapabilitiesForConnection(connection, lmStudioModels)
@@ -1029,6 +1104,8 @@ export function useProviderConnections({
           ? ollamaCapabilitiesForConnection(connection, ollamaModels)
         : openRouterModels
           ? openRouterCapabilitiesForConnection(connection, openRouterModels)
+        : geminiModels
+          ? geminiCapabilitiesForConnection(connection, geminiModels)
         : { text: true };
       setAvailableConnectionModels(models);
       setEditingConnection(connection);
@@ -1838,6 +1915,13 @@ export function useProviderConnections({
         ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
         capabilities: openRouterCapabilitiesForConnection(nextConnection, modelDetails),
       });
+    } else if (field === 'model' && isGeminiConnection(nextConnection)) {
+      const modelDetails = geminiModelsByConnectionIdRef.current[nextConnection.id] ?? [];
+      nextConnection = connectionWithGeminiCapabilities(nextConnection, modelDetails);
+      updateProviderHealth(nextConnection.id, {
+        ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
+        capabilities: geminiCapabilitiesForConnection(nextConnection, modelDetails),
+      });
     } else if (
       nextConnection.kind === 'comfyui' &&
       (
@@ -1881,6 +1965,8 @@ export function useProviderConnections({
       ? ollamaCapabilitiesForConnection(editingConnection, ollamaModelsByConnectionId[editingConnection.id] ?? [])
       : isOpenRouterConnection(editingConnection)
         ? openRouterCapabilitiesForConnection(editingConnection, openRouterModelsByConnectionId[editingConnection.id] ?? [])
+        : isGeminiConnection(editingConnection)
+          ? geminiCapabilitiesForConnection(editingConnection, geminiModelsByConnectionId[editingConnection.id] ?? [])
         : providerHealthById[editingConnection.id]?.capabilities;
   const editingComfyWorkflowPath = comfyWorkflowPathForConnection(editingConnection);
   const comfyWorkflowRepairReady = !!pendingComfyWorkflowRepair && pendingComfyWorkflowRepair.workflowPath === editingComfyWorkflowPath;
@@ -1893,7 +1979,9 @@ export function useProviderConnections({
       ? 'Ollama'
       : isOpenRouterConnection(editingConnection)
         ? 'OpenRouter'
-        : undefined;
+        : isGeminiConnection(editingConnection)
+          ? 'Google Gemini'
+          : undefined;
 
   return {
     showConnections,
@@ -1911,6 +1999,7 @@ export function useProviderConnections({
     providerHealthById,
     lmStudioModelsByConnectionId,
     openRouterModelsByConnectionId,
+    geminiModelsByConnectionId,
     ollamaModelsByConnectionId,
     comfyProviderActionActive,
     voiceGenerationActive,

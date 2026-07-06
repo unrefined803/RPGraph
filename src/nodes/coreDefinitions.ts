@@ -524,7 +524,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
     type: 'llm-prompt',
     dataVersion: currentCoreNodeVersions['llm-prompt'],
     label: 'LLM Prompt',
-    description: 'OpenAI-compatible LLM call',
+    description: 'LLM provider call',
     menuDescription: 'LLM prompt step',
     origin: 'core',
     usesLlm: true,
@@ -555,7 +555,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       style: { width: coreNodeLayout.llmPromptWidth, height: coreNodeLayout.llmPromptHeight },
       data: {
         label: 'LLM Prompt',
-        description: 'OpenAI-compatible LLM call',
+        description: 'LLM provider call',
         preview: 'Not run yet',
         nodeType: 'llm-prompt',
         llmPromptBefore: '',

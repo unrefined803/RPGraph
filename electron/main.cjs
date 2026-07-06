@@ -1138,11 +1138,111 @@ function openRouterNormalizedModel(model) {
   return {
     id,
     name: typeof model?.name === 'string' && model.name.trim() ? model.name.trim() : id,
+    text: outputModalities.includes('text'),
     vision: inputModalities.includes('image'),
+    image: outputModalities.includes('image'),
+    voice: outputModalities.includes('audio') || Array.isArray(model?.supported_voices),
     inputModalities,
     outputModalities,
     contextLength: Number.isFinite(model?.context_length) ? model.context_length : undefined,
     pricing: model?.pricing,
+  };
+}
+
+function geminiModelId(model) {
+  const name = typeof model?.name === 'string' ? model.name.trim() : '';
+  const baseModelId = typeof model?.baseModelId === 'string' ? model.baseModelId.trim() : '';
+  return (baseModelId || name.replace(/^models\//, '')).trim();
+}
+
+function geminiNativeModelsUrl(connection) {
+  const baseUrl = typeof connection?.baseUrl === 'string' && connection.baseUrl.trim()
+    ? connection.baseUrl.trim()
+    : 'https://generativelanguage.googleapis.com/v1beta';
+  const parsed = new URL(baseUrl);
+  parsed.pathname = parsed.pathname.replace(/\/openai\/?$/, '').replace(/\/+$/, '');
+  if (!parsed.pathname) {
+    parsed.pathname = '/v1beta';
+  }
+  parsed.pathname = `${parsed.pathname}/models`;
+  parsed.search = '';
+  parsed.searchParams.set('pageSize', '1000');
+  if (typeof connection?.apiKey === 'string' && connection.apiKey.trim()) {
+    parsed.searchParams.set('key', connection.apiKey.trim());
+  }
+  parsed.hash = '';
+  return parsed.toString();
+}
+
+function geminiNativeBaseUrl(connection) {
+  const baseUrl = typeof connection?.baseUrl === 'string' && connection.baseUrl.trim()
+    ? connection.baseUrl.trim()
+    : 'https://generativelanguage.googleapis.com/v1beta';
+  const parsed = new URL(baseUrl);
+  parsed.pathname = parsed.pathname.replace(/\/openai\/?$/, '').replace(/\/+$/, '');
+  if (!parsed.pathname) {
+    parsed.pathname = '/v1beta';
+  }
+  parsed.search = '';
+  parsed.hash = '';
+  return parsed.toString().replace(/\/+$/, '');
+}
+
+function geminiApiUrl(connection, route) {
+  const model = typeof connection?.model === 'string' && connection.model.trim()
+    ? connection.model.trim().replace(/^models\//, '')
+    : 'gemini-2.5-flash';
+  const url = new URL(`${geminiNativeBaseUrl(connection)}/models/${encodeURIComponent(model)}:${route}`);
+  if (typeof connection?.apiKey === 'string' && connection.apiKey.trim()) {
+    url.searchParams.set('key', connection.apiKey.trim());
+  }
+  if (route === 'streamGenerateContent') {
+    url.searchParams.set('alt', 'sse');
+  }
+  return url.toString();
+}
+
+function geminiNormalizedModel(model) {
+  const id = geminiModelId(model);
+  if (!id) {
+    return null;
+  }
+  const supportedGenerationMethods = stringArray(model?.supportedGenerationMethods);
+  const description = `${model?.displayName ?? ''} ${model?.description ?? ''} ${id}`.toLowerCase();
+  const canGenerate = supportedGenerationMethods.includes('generateContent');
+  const isImage = description.includes('image') || description.includes('imagen');
+  const isAudio = description.includes('audio') || description.includes('speech') || description.includes('tts');
+  const hasVision = canGenerate && !description.includes('embedding');
+  const inputModalities = ['text'];
+  if (hasVision || isImage) {
+    inputModalities.push('image');
+  }
+  if (isAudio) {
+    inputModalities.push('audio');
+  }
+  const outputModalities = [];
+  if (canGenerate && !isImage && !isAudio) {
+    outputModalities.push('text');
+  }
+  if (isImage) {
+    outputModalities.push('image');
+  }
+  if (isAudio) {
+    outputModalities.push('audio');
+  }
+  return {
+    id,
+    name: typeof model?.displayName === 'string' && model.displayName.trim()
+      ? model.displayName.trim()
+      : id,
+    text: outputModalities.includes('text'),
+    vision: hasVision,
+    image: outputModalities.includes('image'),
+    voice: outputModalities.includes('audio'),
+    inputModalities,
+    outputModalities,
+    contextLength: Number.isFinite(model?.inputTokenLimit) ? model.inputTokenLimit : undefined,
+    supportedGenerationMethods,
   };
 }
 
@@ -1306,6 +1406,71 @@ function chatMessageContent(prompt, images) {
   ];
 }
 
+function geminiInlineDataPart(image) {
+  if (!image || typeof image.dataUrl !== 'string') {
+    return null;
+  }
+  const match = image.dataUrl.match(/^data:([^;,]+);base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    inlineData: {
+      mimeType: match[1],
+      data: match[2].replace(/\s+/g, ''),
+    },
+  };
+}
+
+function geminiRequestBody(request) {
+  const parts = [
+    { text: request.prompt },
+    ...(Array.isArray(request.images)
+      ? request.images.map(geminiInlineDataPart).filter(Boolean)
+      : []),
+  ];
+  const generationConfig = {};
+  if (typeof request.temperature === 'number' && Number.isFinite(request.temperature)) {
+    generationConfig.temperature = request.temperature;
+  }
+  if (typeof request.topP === 'number' && Number.isFinite(request.topP)) {
+    generationConfig.topP = request.topP;
+  }
+  if (Number.isInteger(request.maxTokens) && request.maxTokens > 0) {
+    generationConfig.maxOutputTokens = request.maxTokens;
+  }
+  return {
+    contents: [{ role: 'user', parts }],
+    ...(Object.keys(generationConfig).length > 0 ? { generationConfig } : {}),
+  };
+}
+
+function textFromGeminiContent(content) {
+  if (!content || typeof content !== 'object' || !Array.isArray(content.parts)) {
+    return '';
+  }
+  return content.parts
+    .map((part) => (part && typeof part.text === 'string' ? part.text : ''))
+    .filter(Boolean)
+    .join('');
+}
+
+function textFromGeminiCandidate(candidate) {
+  if (!candidate || typeof candidate !== 'object') {
+    return '';
+  }
+  return textFromGeminiContent(candidate.content);
+}
+
+function emptyGeminiTextError(candidate) {
+  const finishReason = typeof candidate?.finishReason === 'string' ? candidate.finishReason : '';
+  return new Error(
+    finishReason
+      ? `The Gemini response does not contain any text (finishReason: ${finishReason}).`
+      : 'The Gemini response does not contain any text.',
+  );
+}
+
 const supportedReasoningEfforts = new Set([
   'none',
   'minimal',
@@ -1406,10 +1571,6 @@ function emptyChatCompletionTextError(choice) {
   );
 }
 
-function finiteNumber(value) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
 function firstFiniteNumber(...values) {
   return values.find((value) => typeof value === 'number' && Number.isFinite(value));
 }
@@ -1424,13 +1585,18 @@ function usageReasoningTokens(usage) {
     usage.reasoning_tokens,
     usage.internal_reasoning_tokens,
     usage.internal_reasoning,
+    usage.thoughtsTokenCount,
   );
 }
 
 function llmStatsFromUsage(usage, durationMs) {
-  const inputTokens = firstFiniteNumber(usage?.prompt_tokens, usage?.input_tokens);
-  const rawOutputTokens = firstFiniteNumber(usage?.completion_tokens, usage?.output_tokens);
-  const totalTokens = finiteNumber(usage?.total_tokens);
+  const inputTokens = firstFiniteNumber(usage?.prompt_tokens, usage?.input_tokens, usage?.promptTokenCount);
+  const rawOutputTokens = firstFiniteNumber(
+    usage?.completion_tokens,
+    usage?.output_tokens,
+    usage?.candidatesTokenCount,
+  );
+  const totalTokens = firstFiniteNumber(usage?.total_tokens, usage?.totalTokenCount);
   const inferredExtraOutputTokens =
     inputTokens !== undefined && rawOutputTokens !== undefined && totalTokens !== undefined
       ? Math.max(0, totalTokens - inputTokens - rawOutputTokens)
@@ -2243,6 +2409,12 @@ async function freeComfyVoiceMemoryForLocalLlm(connection) {
   }
 }
 
+function isGeminiProviderConnection(connection) {
+  const providerKind = typeof connection?.providerKind === 'string' ? connection.providerKind : '';
+  const baseUrl = typeof connection?.baseUrl === 'string' ? connection.baseUrl.toLowerCase() : '';
+  return providerKind === 'gemini' || baseUrl.includes('generativelanguage.googleapis.com');
+}
+
 function isComfyConnectionUnavailable(error) {
   const code = error && typeof error === 'object' ? error.code : undefined;
   if (code === 'ECONNREFUSED' ||
@@ -2719,6 +2891,40 @@ ipcMain.handle('openrouter:list-models', async (_event, request) => {
   }
 });
 
+ipcMain.handle('gemini:list-models', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    const response = await requestLlmResponse(geminiNativeModelsUrl(connection), {
+      headers: { 'Content-Type': 'application/json' },
+    }, abort);
+
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+
+    const result = await response.json();
+    const models = Array.isArray(result.models)
+      ? result.models.map(geminiNormalizedModel).filter(Boolean)
+      : [];
+    const seen = new Set();
+    return models.filter((model) => {
+      if (seen.has(model.id)) {
+        return false;
+      }
+      seen.add(model.id);
+      return true;
+    });
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
 // The renderer polls local providers every 2 seconds; without this cache each
 // poll would issue one /api/show request per installed Ollama model.
 const ollamaCapabilitiesByModelDigest = new Map();
@@ -2871,6 +3077,30 @@ ipcMain.handle('llm:chat-completion', async (_event, request) => {
   const abort = createLlmAbortController(request);
   try {
     await freeComfyVoiceMemoryForLocalLlm(request.connection);
+    if (isGeminiProviderConnection(request.connection)) {
+      const response = await requestLlmResponse(geminiApiUrl(request.connection, 'generateContent'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiRequestBody(request)),
+      }, abort);
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+
+      const result = await response.json();
+      const candidate = result.candidates?.[0];
+      const content = textFromGeminiCandidate(candidate);
+      if (!content) {
+        throw emptyGeminiTextError(candidate);
+      }
+
+      return {
+        text: content,
+        stats: llmStatsFromUsage(result.usageMetadata, Math.round(performance.now() - startedAt)),
+      };
+    }
+
     const response = await requestLlmResponse(endpoint(request.connection.baseUrl, 'chat/completions'), {
       method: 'POST',
       headers: requestHeaders(request.connection),
@@ -2918,6 +3148,80 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
   const abort = createLlmAbortController(request);
   try {
     await freeComfyVoiceMemoryForLocalLlm(request.connection);
+    if (isGeminiProviderConnection(request.connection)) {
+      const response = await requestLlmResponse(geminiApiUrl(request.connection, 'streamGenerateContent'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiRequestBody(request)),
+      }, abort);
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+      if (!response.body) {
+        throw new Error('The Gemini streaming response does not contain a body.');
+      }
+
+      const decoder = new TextDecoder();
+      let buffered = '';
+      let content = '';
+      let usage;
+      let finishReason = '';
+
+      function consumeGeminiLine(line) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) {
+          return;
+        }
+        const data = trimmed.slice(5).trim();
+        if (!data || data === '[DONE]') {
+          return;
+        }
+        let chunk;
+        try {
+          chunk = JSON.parse(data);
+        } catch {
+          return;
+        }
+        const candidate = chunk.candidates?.[0];
+        const deltaText = textFromGeminiCandidate(candidate);
+        if (deltaText) {
+          content += deltaText;
+          event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, deltaText);
+        }
+        if (typeof candidate?.finishReason === 'string') {
+          finishReason = candidate.finishReason;
+        }
+        if (chunk.usageMetadata) {
+          usage = chunk.usageMetadata;
+        }
+      }
+
+      for await (const value of response.body) {
+        if (abort.signal.aborted) {
+          throw cancelledLlmError();
+        }
+        buffered += decoder.decode(streamChunkBytes(value), { stream: true });
+        const lines = buffered.split(/\r?\n/);
+        buffered = lines.pop() ?? '';
+        lines.forEach(consumeGeminiLine);
+      }
+      buffered += decoder.decode();
+      buffered.split(/\r?\n/).forEach(consumeGeminiLine);
+
+      if (!content) {
+        throw new Error(
+          finishReason
+            ? `The Gemini stream finished without text (finishReason: ${finishReason}).`
+            : 'The Gemini stream finished without text.',
+        );
+      }
+      return {
+        text: content,
+        stats: llmStatsFromUsage(usage, Math.round(performance.now() - startedAt)),
+      };
+    }
+
     const response = await requestLlmResponse(endpoint(request.connection.baseUrl, 'chat/completions'), {
       method: 'POST',
       headers: requestHeaders(request.connection),

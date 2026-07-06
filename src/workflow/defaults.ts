@@ -92,7 +92,7 @@ export function createInitialNodes(): WorkflowNode[] {
       style: { width: 548, height: 1140 },
       data: {
         label: 'LLM Prompt',
-        description: 'OpenAI-compatible LLM call',
+        description: 'LLM provider call',
         preview: 'Not run yet',
         nodeType: 'llm-prompt',
         llmPromptBefore: '',

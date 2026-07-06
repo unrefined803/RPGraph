@@ -390,7 +390,7 @@ const providerCapabilityLabels: Record<ProviderCapabilityKind, string> = {
   vision: 'Vision',
   tools: 'Tools',
   image: 'Image generation',
-  voice: 'Voice generation',
+  voice: 'Audio generation',
 };
 
 function ProviderCapabilityIcon({ kind }: { kind: ProviderCapabilityKind }) {
@@ -400,9 +400,9 @@ function ProviderCapabilityIcon({ kind }: { kind: ProviderCapabilityKind }) {
   if (kind === 'voice') {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="9" y="2" width="6" height="12" rx="3" />
-        <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
-        <path d="M12 18v4" />
+        <polygon points="4 9 8 9 13 4 13 20 8 15 4 15" />
+        <path d="M17 9.5a4 4 0 0 1 0 5" />
+        <path d="M19.5 7a7.5 7.5 0 0 1 0 10" />
       </svg>
     );
   }
@@ -469,7 +469,7 @@ const providerPresets = [
     model: '',
     reasoningEffort: 'none',
     models: [''],
-    description: 'Local OpenAI-compatible server',
+    description: 'Local LM Studio server',
   },
   {
     label: 'Ollama',
@@ -481,17 +481,6 @@ const providerPresets = [
     reasoningEffort: 'none',
     models: [''],
     description: 'Local Ollama server',
-  },
-  {
-    label: 'OpenAI',
-    kind: 'llm',
-    providerKind: 'openai',
-    baseUrl: 'https://api.openai.com/v1',
-    apiKey: '',
-    model: '',
-    reasoningEffort: 'none',
-    models: [''],
-    description: 'Official OpenAI API',
   },
   {
     label: 'OpenRouter',
@@ -508,23 +497,12 @@ const providerPresets = [
     label: 'Google Gemini',
     kind: 'llm',
     providerKind: 'gemini',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     apiKey: '',
     model: 'gemini-2.5-flash',
     reasoningEffort: 'none',
     models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-    description: 'Gemini OpenAI compatibility',
-  },
-  {
-    label: 'Custom Provider',
-    kind: 'llm',
-    providerKind: 'custom',
-    baseUrl: 'http://localhost:8000/v1',
-    apiKey: '',
-    model: '',
-    reasoningEffort: 'none',
-    models: [''],
-    description: 'Any OpenAI-compatible endpoint',
+    description: 'Google Gemini API',
   },
   {
     label: 'ComfyUI Image + Voice',
@@ -3261,7 +3239,11 @@ export function StudioDialogs({
                           <div className="connection-detected-capabilities">
                             <ProviderCapabilityBadges
                               capabilities={editingConnectionCapabilities}
-                              kinds={lmStudioToolsAvailable || ollamaToolsAvailable ? ['text', 'vision', 'tools'] : ['text', 'vision']}
+                              kinds={
+                                lmStudioToolsAvailable || ollamaToolsAvailable
+                                  ? ['text', 'vision', 'tools']
+                                  : ['text', 'vision', 'image', 'voice']
+                              }
                               showInactive
                             />
                             <span>

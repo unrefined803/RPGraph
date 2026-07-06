@@ -2,6 +2,7 @@ import type {
   AppSettings,
   ChatImageAttachment,
   ConnectionPreset,
+  GeminiModelInfo,
   LmStudioModelInfo,
   LlmCompletionResult,
   OllamaModelInfo,
@@ -28,6 +29,7 @@ declare global {
       ) => Promise<string[]>;
       listLmStudioModels: (connection: ConnectionPreset) => Promise<LmStudioModelInfo[]>;
       listOpenRouterModels: (connection: ConnectionPreset) => Promise<OpenRouterModelInfo[]>;
+      listGeminiModels: (connection: ConnectionPreset) => Promise<GeminiModelInfo[]>;
       loadLmStudioModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
         method?: 'rest' | 'cli';

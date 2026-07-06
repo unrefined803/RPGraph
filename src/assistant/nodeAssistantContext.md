@@ -1,8 +1,8 @@
 # RPGraph Node Assistant Context
 
-RPGraph Studio is a local-first desktop app for building roleplay workflows as a visible node graph. Users connect nodes to assemble context, call local OpenAI-compatible LLM providers, route text, maintain story state, and produce normal roleplay or phone-style messages. Workflows are meant to be inspectable: each node shows what it receives, stores, or generates so users can debug the prompt process.
+RPGraph Studio is a local-first desktop app for building roleplay workflows as a visible node graph. Users connect nodes to assemble context, call configured LLM providers, route text, maintain story state, and produce normal roleplay or phone-style messages. Workflows are meant to be inspectable: each node shows what it receives, stores, or generates so users can debug the prompt process.
 
-The app combines a graph editor, RP chat, phone conversations, scheduled events, RP Storybook data, local workflow/session files, and optional password-encrypted saves. Connections and API keys stay local. The default provider target is usually LM Studio through an OpenAI-compatible endpoint.
+The app combines a graph editor, RP chat, phone conversations, scheduled events, RP Storybook data, local workflow/session files, and optional password-encrypted saves. Connections and API keys stay local. The default provider target is usually LM Studio.
 
 Important concepts:
 - Workflow settings are saved configuration, such as prompts, labels, toggles, limits, and selected connections.
@@ -39,7 +39,7 @@ Core node map:
 - Event Manager: tracks scheduled or conditional roleplay events and exposes upcoming event text. It can update event state after output and provide event context when running selected events.
 - Text Router: routes one text input by a boolean or number into separate output paths.
 - Text Selector: chooses one of several text inputs by boolean or number and outputs the selected text.
-- LLM Prompt: simple OpenAI-compatible LLM call. It wraps connected input text with editable prompt-before and prompt-after fields, optional image input, and a selected connection.
+- LLM Prompt: simple LLM provider call. It wraps connected input text with editable prompt-before and prompt-after fields, optional image input, and a selected connection.
 - LLM Prompt Switch: selects an output channel, then selects one of that channel's own prompt slots, calls an LLM, and emits the result on the selected output channel. Each output channel can have different prompt slot names and counts. Prompt fields can include clickable `@action` or `@action:Title` blocks; at run time those editor-only blocks become LLM-visible action instructions. If the LLM returns an action JSON object, the node executes the internal action, injects the result, and replays the prompt. Bundled actions include `getImageId` / `get_image_id` for Storybook character image lookup and `updatePhoneImageCaption` / `update_phone_image_caption` for incoming Phone image caption create/update/no-change handling.
 - LLM Decision: asks configurable LLM questions about input text/images and can output boolean, text, and number answers for routing or extraction.
 - Text Combiner: merges ordered text inputs with optional per-input prefix text into one text output.

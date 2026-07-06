@@ -22,10 +22,8 @@ export type ConnectionReasoningEffort =
 export type LlmProviderKind =
   | 'lm-studio'
   | 'ollama'
-  | 'openai'
   | 'openrouter'
-  | 'gemini'
-  | 'custom';
+  | 'gemini';
 
 export type ComfyConnectionRole = 'image' | 'voice';
 
@@ -99,10 +97,17 @@ export type OpenRouterModelInfo = {
   id: string;
   name: string;
   vision: boolean;
+  text?: boolean;
+  image?: boolean;
+  voice?: boolean;
   inputModalities: string[];
   outputModalities: string[];
   contextLength?: number;
   pricing?: unknown;
+};
+
+export type GeminiModelInfo = OpenRouterModelInfo & {
+  supportedGenerationMethods: string[];
 };
 
 export type ComfyLoraSlot = {

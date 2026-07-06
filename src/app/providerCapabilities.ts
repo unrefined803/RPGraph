@@ -1,16 +1,28 @@
 import {
+  isGeminiConnection,
   isLmStudioConnection,
   isOllamaConnection,
   isOpenRouterConnection,
 } from '../llm/providerKind';
 import type {
   ConnectionPreset,
+  GeminiModelInfo,
   LmStudioModelInfo,
   OllamaModelInfo,
   OpenRouterModelInfo,
   ProviderConnectionCapabilities,
   ProviderConnectionHealth,
 } from '../types';
+
+type ModelCapabilityInfo = {
+  id: string;
+  text?: boolean;
+  vision?: boolean;
+  image?: boolean;
+  voice?: boolean;
+  inputModalities?: string[];
+  outputModalities?: string[];
+};
 
 export function lmStudioLlmModels(models: LmStudioModelInfo[]) {
   return models.filter((model) =>
@@ -29,9 +41,9 @@ function selectedLmStudioModel(
   return models.find((model) => model.id === selectedModelId);
 }
 
-function selectedOpenRouterModel(
+function selectedCapabilityModel<T extends ModelCapabilityInfo>(
   connection: ConnectionPreset,
-  models: OpenRouterModelInfo[],
+  models: T[],
 ) {
   const selectedModelId = connection.model.trim();
   if (!selectedModelId) {
@@ -39,6 +51,9 @@ function selectedOpenRouterModel(
   }
   return models.find((model) => model.id === selectedModelId);
 }
+
+const selectedOpenRouterModel = selectedCapabilityModel<OpenRouterModelInfo>;
+const selectedGeminiModel = selectedCapabilityModel<GeminiModelInfo>;
 
 function selectedOllamaModel(
   connection: ConnectionPreset,
@@ -68,9 +83,28 @@ export function openRouterCapabilitiesForConnection(
   models: OpenRouterModelInfo[],
 ): ProviderConnectionCapabilities {
   const model = selectedOpenRouterModel(connection, models);
+  const inputModalities = model?.inputModalities ?? [];
+  const outputModalities = model?.outputModalities ?? [];
   return {
-    text: !!model || models.length > 0,
-    vision: model?.vision === true,
+    text: model ? model.text === true || outputModalities.includes('text') : models.length > 0,
+    vision: model?.vision === true || inputModalities.includes('image'),
+    image: model?.image === true || outputModalities.includes('image'),
+    voice: model?.voice === true || outputModalities.includes('audio'),
+  };
+}
+
+export function geminiCapabilitiesForConnection(
+  connection: ConnectionPreset,
+  models: GeminiModelInfo[],
+): ProviderConnectionCapabilities {
+  const model = selectedGeminiModel(connection, models);
+  const inputModalities = model?.inputModalities ?? [];
+  const outputModalities = model?.outputModalities ?? [];
+  return {
+    text: model ? model.text === true || outputModalities.includes('text') : models.length > 0,
+    vision: model?.vision === true || inputModalities.includes('image'),
+    image: model?.image === true || outputModalities.includes('image'),
+    voice: model?.voice === true || outputModalities.includes('audio'),
   };
 }
 
@@ -108,6 +142,20 @@ export function connectionWithOpenRouterCapabilities(
     return connection;
   }
   const capabilities = openRouterCapabilitiesForConnection(connection, models);
+  return {
+    ...connection,
+    vision: capabilities.vision === true,
+  };
+}
+
+export function connectionWithGeminiCapabilities(
+  connection: ConnectionPreset,
+  models: GeminiModelInfo[],
+): ConnectionPreset {
+  if (!isGeminiConnection(connection)) {
+    return connection;
+  }
+  const capabilities = geminiCapabilitiesForConnection(connection, models);
   return {
     ...connection,
     vision: capabilities.vision === true,
