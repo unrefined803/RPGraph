@@ -188,31 +188,53 @@ export type BundledComfyWorkflow = {
   description: string;
 };
 
+const discoveredImageWorkflowPaths = Object.keys(
+  import.meta.glob('/comfy-workflows/api-workflows-with-variables/image/*.json'),
+).map((path) => path.replace(/^\//, ''));
+const discoveredVoiceWorkflowPaths = Object.keys(
+  import.meta.glob('/comfy-workflows/api-workflows-with-variables/voice/*.json'),
+).map((path) => path.replace(/^\//, ''));
+
+function sortComfyWorkflowPaths(paths: string[]) {
+  return [...paths].sort((left, right) => {
+    const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Krea2.json');
+    const rightDefault = right.includes('/higgs_audio_v3-tts.json') || right.includes('/Krea2.json');
+    if (leftDefault !== rightDefault) {
+      return leftDefault ? -1 : 1;
+    }
+    return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
+function workflowFileLabel(path: string) {
+  const fileName = path.split('/').pop()?.replace(/\.json$/i, '') ?? path;
+  return fileName
+    .replace(/[_-]+/g, ' ')
+    .replace(/\btts\b/gi, 'TTS')
+    .replace(/\bv3\b/gi, 'V3')
+    .replace(/\bpt\b/gi, 'PT')
+    .replace(/\b(\d+(?:\.\d+)?b)\b/gi, (match) => match.toUpperCase())
+    .replace(/\b[a-z]/g, (match) => match.toUpperCase())
+    .trim();
+}
+
+function comfyWorkflowFromPath(path: string, role: 'image' | 'voice'): BundledComfyWorkflow {
+  const label = workflowFileLabel(path);
+  return {
+    id: `${role}-${path.split('/').pop()?.replace(/\.json$/i, '').toLocaleLowerCase() ?? label.toLocaleLowerCase()}`,
+    label: role === 'image' && label === 'Krea2' ? 'Krea2 Image Workflow' : label,
+    role,
+    apiWorkflowPath: path,
+    setupWorkflowPath: `comfy-workflows/normal-comfyui-workflows/${role}`,
+    description: role === 'voice'
+      ? 'Voice workflow with text and voice-sample variables.'
+      : 'Image generation workflow with RPGraph variables.',
+  };
+}
+
 export const bundledComfyWorkflows: BundledComfyWorkflow[] = [
-  {
-    id: 'krea2-image',
-    label: 'Krea2 Image Workflow',
-    role: 'image',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/image/Krea2.json',
-    setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/image',
-    description: 'Default image generation workflow with RPGraph variables.',
-  },
-  {
-    id: 'higgs-audio-v3-tts',
-    label: 'Higgs Audio V3 TTS',
-    role: 'voice',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json',
-    setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/voice',
-    description: 'Default voice workflow with text and voice-sample variables.',
-  },
-  {
-    id: 'vibevoice',
-    label: 'VibeVoice',
-    role: 'voice',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
-    setupWorkflowPath: 'comfy-workflows/normal-comfyui-workflows/voice',
-    description: 'Alternative voice workflow with text and voice-sample variables.',
-  },
+  ...sortComfyWorkflowPaths(discoveredImageWorkflowPaths).map((path) => comfyWorkflowFromPath(path, 'image')),
+  ...sortComfyWorkflowPaths(discoveredVoiceWorkflowPaths).map((path) => comfyWorkflowFromPath(path, 'voice')),
 ];
 export const defaultComfyWorkflowPath = bundledComfyWorkflows.find((workflow) => workflow.role === 'image')?.apiWorkflowPath ??
   'comfy-workflows/api-workflows-with-variables/image/Krea2.json';

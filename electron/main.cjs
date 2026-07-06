@@ -31,19 +31,35 @@ const {
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
 const defaultWorkflowFileNamePattern = /^workflow\.default.*\.json$/i;
+
+function sortComfyWorkflowPaths(paths) {
+  return [...paths].sort((left, right) => {
+    const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Krea2.json');
+    const rightDefault = right.includes('/higgs_audio_v3-tts.json') || right.includes('/Krea2.json');
+    if (leftDefault !== rightDefault) {
+      return leftDefault ? -1 : 1;
+    }
+    return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
+function bundledComfyWorkflowsForRole(role) {
+  const relativeDir = `comfy-workflows/api-workflows-with-variables/${role}`;
+  const absoluteDir = path.join(projectRootPath, relativeDir);
+  try {
+    return sortComfyWorkflowPaths(
+      fsSync.readdirSync(absoluteDir, { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.toLocaleLowerCase().endsWith('.json'))
+        .map((entry) => `${relativeDir}/${entry.name}`),
+    ).map((apiWorkflowPath) => ({ role, apiWorkflowPath }));
+  } catch {
+    return [];
+  }
+}
+
 const bundledComfyWorkflows = [
-  {
-    role: 'image',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/image/Krea2.json',
-  },
-  {
-    role: 'voice',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json',
-  },
-  {
-    role: 'voice',
-    apiWorkflowPath: 'comfy-workflows/api-workflows-with-variables/voice/VibeVoice.json',
-  },
+  ...bundledComfyWorkflowsForRole('image'),
+  ...bundledComfyWorkflowsForRole('voice'),
 ];
 const maxComfyVoiceSampleBytes = 24 * 1024 * 1024;
 const windowCloseCleanupTimeoutMs = 8000;
