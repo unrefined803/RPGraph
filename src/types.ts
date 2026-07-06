@@ -766,6 +766,7 @@ export type AppSettings = {
     retryFormatErrorsEnabled?: boolean;
     dialogueVoiceMode?: DialogueVoiceMode;
     dialogueNarratorProviderId?: string;
+    dialogueCloneVoiceProviderId?: string;
   };
   layout?: {
     chatPanelWidth: number;

@@ -814,6 +814,8 @@ function App() {
     setDialogueVoiceMode,
     dialogueNarratorProviderId,
     setDialogueNarratorProviderId,
+    dialogueCloneVoiceProviderId,
+    setDialogueCloneVoiceProviderId,
   } = useAppSettings();
   const {
     appliedUiScale,
@@ -1326,6 +1328,14 @@ function App() {
   )
     ? dialogueNarratorProviderId
     : narratorProviderOptions[0]?.value ?? '';
+  const cloneVoiceProviderOptions = connections
+    .filter(isComfyVoiceConnection)
+    .map((connection) => ({ value: connection.id, label: connection.label }));
+  const resolvedCloneVoiceProviderId = cloneVoiceProviderOptions.some(
+    (option) => option.value === dialogueCloneVoiceProviderId,
+  )
+    ? dialogueCloneVoiceProviderId
+    : cloneVoiceProviderOptions[0]?.value ?? '';
   const {
     dialogueVoiceSpeakerNames,
     narratorVoiceReady,
@@ -1345,6 +1355,7 @@ function App() {
     connections,
     messages,
     englishProcessingEnabled,
+    cloneVoiceProviderId: resolvedCloneVoiceProviderId,
     narratorOnlyProviderId: resolvedNarratorProviderId,
     generateVoiceClip: generateCharacterVoicePreview,
     generateApiNarratorClip: (connection, input, onChunk) =>
@@ -5951,6 +5962,9 @@ function App() {
               narratorProviderOptions={narratorProviderOptions}
               narratorProviderId={resolvedNarratorProviderId}
               onNarratorProviderChange={setDialogueNarratorProviderId}
+              cloneVoiceProviderOptions={cloneVoiceProviderOptions}
+              cloneVoiceProviderId={resolvedCloneVoiceProviderId}
+              onCloneVoiceProviderChange={setDialogueCloneVoiceProviderId}
               onConfigureOpenRouterTts={openOpenRouterTtsSetup}
               voiceReadAloudActive={readAloudActive}
               onStopVoiceReadAloud={stopDialogueVoice}

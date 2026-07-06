@@ -706,6 +706,8 @@ function isAppSettings(value: unknown): value is AppSettings {
       dialogueVoiceModes.includes(settings.options.dialogueVoiceMode)) &&
     (settings.options.dialogueNarratorProviderId === undefined ||
       typeof settings.options.dialogueNarratorProviderId === 'string') &&
+    (settings.options.dialogueCloneVoiceProviderId === undefined ||
+      typeof settings.options.dialogueCloneVoiceProviderId === 'string') &&
     (!settings.layout || validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined)
   );
 }
@@ -773,6 +775,8 @@ type AppSettingsState = {
   setDialogueVoiceMode: Dispatch<SetStateAction<DialogueVoiceMode>>;
   dialogueNarratorProviderId: string;
   setDialogueNarratorProviderId: Dispatch<SetStateAction<string>>;
+  dialogueCloneVoiceProviderId: string;
+  setDialogueCloneVoiceProviderId: Dispatch<SetStateAction<string>>;
 };
 
 export function useAppSettings(): AppSettingsState {
@@ -828,6 +832,7 @@ export function useAppSettings(): AppSettingsState {
     defaultDialogueVoiceMode,
   );
   const [dialogueNarratorProviderId, setDialogueNarratorProviderId] = useState('');
+  const [dialogueCloneVoiceProviderId, setDialogueCloneVoiceProviderId] = useState('');
   const [settingsLoadComplete, setSettingsLoadComplete] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState('');
@@ -915,6 +920,7 @@ export function useAppSettings(): AppSettingsState {
         );
         setDialogueVoiceMode(validDialogueVoiceMode(result.settings.options.dialogueVoiceMode));
         setDialogueNarratorProviderId(result.settings.options.dialogueNarratorProviderId ?? '');
+        setDialogueCloneVoiceProviderId(result.settings.options.dialogueCloneVoiceProviderId ?? '');
         setChatPanelWidth(
           validChatPanelWidth(result.settings.layout?.chatPanelWidth) ?? defaultChatPanelWidth,
         );
@@ -977,6 +983,7 @@ export function useAppSettings(): AppSettingsState {
         retryFormatErrorsEnabled,
         dialogueVoiceMode,
         dialogueNarratorProviderId,
+        dialogueCloneVoiceProviderId,
       },
       layout: {
         chatPanelWidth,
@@ -1028,6 +1035,7 @@ export function useAppSettings(): AppSettingsState {
     retryFormatErrorsEnabled,
     dialogueVoiceMode,
     dialogueNarratorProviderId,
+    dialogueCloneVoiceProviderId,
     settingsLoaded,
     settingsRecoveryNotice,
     apiKeyStorageNotice,
@@ -1096,5 +1104,7 @@ export function useAppSettings(): AppSettingsState {
     setDialogueVoiceMode,
     dialogueNarratorProviderId,
     setDialogueNarratorProviderId,
+    dialogueCloneVoiceProviderId,
+    setDialogueCloneVoiceProviderId,
   };
 }

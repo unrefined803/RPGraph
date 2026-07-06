@@ -256,31 +256,32 @@ export function useProviderConnections({
   }
 
   function openOpenRouterTtsSetup() {
-    const existing = connections.find(isOpenRouterConnection);
-    const baseConnection: ConnectionPreset = existing ?? {
-      id: createProviderConnectionId(),
+    const template = connections.find(isOpenRouterConnection);
+    const existingTtsCount = connections.filter((connection) =>
+      isOpenRouterConnection(connection) && connection.label.startsWith('OpenRouter TTS')
+    ).length;
+    const connectionId = createProviderConnectionId();
+    const modelDetails = template
+      ? openRouterModelsByConnectionIdRef.current[template.id] ?? []
+      : [];
+    const selectedModel = modelDetails.find((model) => model.id === recommendedOpenRouterTtsModel);
+    const nextConnection = connectionWithOpenRouterCapabilities({
+      id: connectionId,
       kind: 'llm',
       providerKind: 'openrouter',
-      label: 'OpenRouter TTS',
-      baseUrl: 'https://openrouter.ai/api/v1',
-      apiKey: '',
+      label: existingTtsCount > 0 ? `OpenRouter TTS ${existingTtsCount + 1}` : 'OpenRouter TTS',
+      baseUrl: template?.baseUrl || 'https://openrouter.ai/api/v1',
+      apiKey: template?.apiKey ?? '',
       model: recommendedOpenRouterTtsModel,
+      ttsVoice: selectedModel?.supportedVoices[0],
       reasoningEffort: 'none',
       vision: false,
       ...defaultConnectionSampling,
-    };
-    const modelDetails = openRouterModelsByConnectionIdRef.current[baseConnection.id] ?? [];
-    const selectedModel = modelDetails.find((model) => model.id === recommendedOpenRouterTtsModel);
-    const nextConnection = connectionWithOpenRouterCapabilities({
-      ...baseConnection,
-      model: recommendedOpenRouterTtsModel,
-      ttsVoice: selectedModel?.supportedVoices.includes(baseConnection.ttsVoice ?? '')
-        ? baseConnection.ttsVoice
-        : selectedModel?.supportedVoices[0],
     }, modelDetails);
-    setConnections((current) => current.some((connection) => connection.id === nextConnection.id)
-      ? current.map((connection) => connection.id === nextConnection.id ? nextConnection : connection)
-      : [...current, nextConnection]);
+    if (modelDetails.length > 0) {
+      updateOpenRouterModelCache(connectionId, modelDetails);
+    }
+    setConnections((current) => [...current, nextConnection]);
     setEditingConnection(nextConnection);
     setConnectionDraftPending(false);
     setAvailableConnectionModels(modelDetails.map((model) => model.id));
@@ -294,11 +295,9 @@ export function useProviderConnections({
     setComfyWorkflowInspection(null);
     setPendingComfyWorkflowRepair(null);
     setComfyWorkflowRepairStatus('');
-    setConnectionStatus(
-      existing
-        ? 'OpenRouter TTS model selected. Choose its voice and delivery settings.'
-        : 'OpenRouter TTS provider created. Add your API key, then check the models.',
-    );
+    setConnectionStatus(template?.apiKey
+      ? 'New OpenRouter TTS provider created. Choose its voice and delivery settings.'
+      : 'New OpenRouter TTS provider created. Add your API key, then check the models.');
     setShowConnections(true);
     void checkProviderConnection(nextConnection, { showStatus: false });
   }

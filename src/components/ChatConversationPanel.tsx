@@ -101,6 +101,9 @@ type ChatConversationPanelProps = {
   narratorProviderOptions: Array<{ value: string; label: string }>;
   narratorProviderId: string;
   onNarratorProviderChange: (providerId: string) => void;
+  cloneVoiceProviderOptions: Array<{ value: string; label: string }>;
+  cloneVoiceProviderId: string;
+  onCloneVoiceProviderChange: (providerId: string) => void;
   onConfigureOpenRouterTts: () => void;
   voiceReadAloudActive: boolean;
   onStopVoiceReadAloud: () => void;
@@ -166,6 +169,9 @@ export function ChatConversationPanel({
   narratorProviderOptions,
   narratorProviderId,
   onNarratorProviderChange,
+  cloneVoiceProviderOptions,
+  cloneVoiceProviderId,
+  onCloneVoiceProviderChange,
   onConfigureOpenRouterTts,
   voiceReadAloudActive,
   onStopVoiceReadAloud,
@@ -1647,6 +1653,9 @@ export function ChatConversationPanel({
           narratorProviderOptions={narratorProviderOptions}
           narratorProviderId={narratorProviderId}
           onNarratorProviderChange={onNarratorProviderChange}
+          cloneVoiceProviderOptions={cloneVoiceProviderOptions}
+          cloneVoiceProviderId={cloneVoiceProviderId}
+          onCloneVoiceProviderChange={onCloneVoiceProviderChange}
           onConfigureOpenRouterTts={onConfigureOpenRouterTts}
           onClose={() => setVoicePlaybackDialogOpen(false)}
         />

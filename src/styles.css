@@ -9675,6 +9675,26 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 13px;
 }
 
+.voice-playback-dialog-header > button {
+  width: auto;
+  padding: 8px 14px;
+  border: 1px solid #40506b;
+  border-radius: 8px;
+  color: #dbe4f7;
+  background: #182237;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.voice-playback-dialog-header > button:hover,
+.voice-playback-dialog-header > button:focus-visible {
+  outline: none;
+  border-color: #60779c;
+  color: #ffffff;
+  background: #22304a;
+}
+
 .voice-playback-dialog-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 0.85fr);

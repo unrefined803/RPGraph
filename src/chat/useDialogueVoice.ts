@@ -29,6 +29,7 @@ export function useDialogueVoice({
   connections,
   messages,
   englishProcessingEnabled,
+  cloneVoiceProviderId,
   narratorOnlyProviderId,
   generateVoiceClip,
   generateApiNarratorClip,
@@ -40,6 +41,7 @@ export function useDialogueVoice({
   connections: ConnectionPreset[];
   messages: MessageRecord[];
   englishProcessingEnabled: boolean;
+  cloneVoiceProviderId: string;
   narratorOnlyProviderId: string;
   generateVoiceClip: (request: {
     providerId: string;
@@ -74,8 +76,10 @@ export function useDialogueVoice({
   const messagesRef = useRef(messages);
 
   const voiceConnection = useMemo(
-    () => connections.find(isComfyVoiceConnection),
-    [connections],
+    () => connections.find((connection) =>
+      connection.id === cloneVoiceProviderId && isComfyVoiceConnection(connection)
+    ) ?? connections.find(isComfyVoiceConnection),
+    [cloneVoiceProviderId, connections],
   );
   const voiceProviderId = voiceConnection?.id ?? '';
   const narratorVoiceSampleDataUrl = voiceConnection?.comfyNarratorVoice?.dataUrl ?? '';
