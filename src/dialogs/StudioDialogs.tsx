@@ -480,7 +480,7 @@ const providerPresets = [
     model: '',
     reasoningEffort: 'none',
     models: [''],
-    description: 'Local Ollama server - not tested locally',
+    description: 'Local Ollama server',
   },
   {
     label: 'OpenAI',
@@ -527,7 +527,7 @@ const providerPresets = [
     description: 'Any OpenAI-compatible endpoint',
   },
   {
-    label: 'ComfyUI Default',
+    label: 'ComfyUI Image + Voice',
     kind: 'comfyui',
     baseUrl: 'http://127.0.0.1:8188',
     apiKey: '',
@@ -3433,7 +3433,7 @@ export function StudioDialogs({
                         <div className="connection-provider-tools" aria-label="Ollama model tools">
                           <div>
                             <strong>Ollama</strong>
-                            <span>Load selected model or unload every running Ollama model. Not tested locally.</span>
+                            <span>Load selected model or unload every running Ollama model.</span>
                           </div>
                           <div className="connection-provider-actions">
                             <button
