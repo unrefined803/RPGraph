@@ -218,6 +218,7 @@ type StudioDialogsProps = {
   connectionDraftPending: boolean;
   editingConnectionCapabilities?: ProviderConnectionCapabilities;
   editingConnectionSupportedVoices: string[];
+  editingConnectionSupportedParameters: string[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   availableConnectionModels: string[];
   availableComfyModels: ComfyModelLists;
@@ -825,6 +826,7 @@ export function StudioDialogs({
   connectionDraftPending,
   editingConnectionCapabilities,
   editingConnectionSupportedVoices,
+  editingConnectionSupportedParameters,
   providerHealthById,
   availableConnectionModels,
   availableComfyModels,
@@ -915,6 +917,10 @@ export function StudioDialogs({
     editingConnectionCapabilities.vision !== true &&
     editingConnectionCapabilities.image !== true &&
     editingConnectionCapabilities.tools !== true;
+  const supportsTtsTemperature =
+    isVoiceOnlyModel && editingConnectionSupportedParameters.includes('temperature');
+  const supportsGeminiVoiceDirection =
+    isVoiceOnlyModel && editingConnection.model.startsWith('google/gemini-');
   const editingComfyRole = comfyConnectionRole(editingConnection);
   const isComfyImageEditing = isComfyConnection && editingComfyRole === 'image';
   const isComfyVoiceEditing = isComfyConnection && editingComfyRole === 'voice';
@@ -3282,22 +3288,83 @@ export function StudioDialogs({
                         </div>
                       )}
                       {isVoiceOnlyModel && (
-                        <div className="connection-field">
-                          <label htmlFor="tts-voice">VOICE</label>
-                          {editingConnectionSupportedVoices.length > 0 ? (
-                            <NodeCustomSelect
-                              id="tts-voice"
-                              value={editingConnection.ttsVoice ?? editingConnectionSupportedVoices[0]}
-                              onChange={(voice) => onEditConnection('ttsVoice', String(voice))}
-                              options={editingConnectionSupportedVoices.map((voice) => ({
-                                value: voice,
-                                label: voice,
-                              }))}
-                            />
-                          ) : (
-                            <span className="connection-field-hint">
-                              Open the model list to load the voices provided by OpenRouter.
-                            </span>
+                        <div className="connection-tts-section">
+                          <div className="connection-field">
+                            <label htmlFor="tts-voice">VOICE</label>
+                            {editingConnectionSupportedVoices.length > 0 ? (
+                              <NodeCustomSelect
+                                id="tts-voice"
+                                value={editingConnection.ttsVoice ?? editingConnectionSupportedVoices[0]}
+                                onChange={(voice) => onEditConnection('ttsVoice', String(voice))}
+                                options={editingConnectionSupportedVoices.map((voice) => ({
+                                  value: voice,
+                                  label: voice,
+                                }))}
+                              />
+                            ) : (
+                              <span className="connection-field-hint">
+                                Open the model list to load the voices provided by OpenRouter.
+                              </span>
+                            )}
+                          </div>
+                          {supportsTtsTemperature && (
+                            <div className="connection-field connection-tts-temperature">
+                              <label htmlFor="tts-temperature">
+                                TEMPERATURE <span>{(editingConnection.ttsTemperature ?? 1).toFixed(2)}</span>
+                              </label>
+                              <input
+                                id="tts-temperature"
+                                type="range"
+                                min={0}
+                                max={2}
+                                step={0.05}
+                                value={editingConnection.ttsTemperature ?? 1}
+                                onChange={(event) => onEditConnection('ttsTemperature', Number(event.target.value))}
+                              />
+                            </div>
+                          )}
+                          {supportsGeminiVoiceDirection && (
+                            <div className="connection-tts-direction-grid">
+                              <div className="connection-field connection-tts-wide-field">
+                                <label htmlFor="tts-audio-profile">AUDIO PROFILE</label>
+                                <textarea
+                                  id="tts-audio-profile"
+                                  rows={2}
+                                  placeholder="Persona, role, age, and vocal character"
+                                  value={editingConnection.ttsAudioProfile ?? ''}
+                                  onChange={(event) => onEditConnection('ttsAudioProfile', event.target.value)}
+                                />
+                              </div>
+                              <div className="connection-field connection-tts-wide-field">
+                                <label htmlFor="tts-scene">SCENE</label>
+                                <textarea
+                                  id="tts-scene"
+                                  rows={2}
+                                  placeholder="Location, mood, and situation"
+                                  value={editingConnection.ttsScene ?? ''}
+                                  onChange={(event) => onEditConnection('ttsScene', event.target.value)}
+                                />
+                              </div>
+                              {([
+                                ['ttsStyle', 'tts-style', 'STYLE', 'Conversational and intimate'],
+                                ['ttsAccent', 'tts-accent', 'ACCENT', 'Neutral German'],
+                                ['ttsPace', 'tts-pace', 'PACE', 'Calm and measured'],
+                              ] as const).map(([field, id, label, placeholder]) => (
+                                <div className="connection-field" key={field}>
+                                  <label htmlFor={id}>{label}</label>
+                                  <input
+                                    id={id}
+                                    type="text"
+                                    placeholder={placeholder}
+                                    value={editingConnection[field] ?? ''}
+                                    onChange={(event) => onEditConnection(field, event.target.value)}
+                                  />
+                                </div>
+                              ))}
+                              <span className="connection-field-hint connection-tts-wide-field">
+                                Gemini uses these directions as part of its speech prompt. Empty fields are omitted.
+                              </span>
+                            </div>
                           )}
                         </div>
                       )}

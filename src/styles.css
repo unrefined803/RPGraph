@@ -15493,6 +15493,37 @@ button.message-timeline-row.phone:focus-visible {
   line-height: 1.5;
 }
 
+.connection-tts-section {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #21293a;
+  border-radius: 9px;
+  background: #0f141f;
+}
+
+.connection-tts-temperature label {
+  display: flex;
+  justify-content: space-between;
+}
+
+.connection-tts-temperature input[type='range'] {
+  width: 100%;
+}
+
+.connection-tts-direction-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.connection-tts-wide-field {
+  grid-column: 1 / -1;
+}
+
 .comfy-workflow-field {
   grid-column: 1 / -1;
 }

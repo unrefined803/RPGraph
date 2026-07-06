@@ -1145,6 +1145,7 @@ function openRouterNormalizedModel(model) {
     inputModalities,
     outputModalities,
     supportedVoices: stringArray(model?.supported_voices),
+    supportedParameters: stringArray(model?.supported_parameters),
     contextLength: Number.isFinite(model?.context_length) ? model.context_length : undefined,
     pricing: model?.pricing,
   };

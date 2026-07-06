@@ -44,6 +44,12 @@ export type ConnectionPreset = {
   apiKey: string;
   model: string;
   ttsVoice?: string;
+  ttsTemperature?: number;
+  ttsAudioProfile?: string;
+  ttsScene?: string;
+  ttsStyle?: string;
+  ttsAccent?: string;
+  ttsPace?: string;
   comfyWorkflowPath?: string;
   comfyWorkflowSetupConfirmed?: boolean;
   comfyNarratorVoice?: ComfyNarratorVoice;
@@ -104,6 +110,7 @@ export type OpenRouterModelInfo = {
   inputModalities: string[];
   outputModalities: string[];
   supportedVoices: string[];
+  supportedParameters: string[];
   contextLength?: number;
   pricing?: unknown;
 };

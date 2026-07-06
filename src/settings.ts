@@ -433,6 +433,14 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
     ttsVoice: kind === 'comfyui' || typeof connection.ttsVoice !== 'string'
       ? undefined
       : connection.ttsVoice.trim() || undefined,
+    ttsTemperature: kind === 'comfyui'
+      ? undefined
+      : validSamplingValue(connection.ttsTemperature, 0, 2),
+    ttsAudioProfile: kind === 'comfyui' ? undefined : connection.ttsAudioProfile?.trim() || undefined,
+    ttsScene: kind === 'comfyui' ? undefined : connection.ttsScene?.trim() || undefined,
+    ttsStyle: kind === 'comfyui' ? undefined : connection.ttsStyle?.trim() || undefined,
+    ttsAccent: kind === 'comfyui' ? undefined : connection.ttsAccent?.trim() || undefined,
+    ttsPace: kind === 'comfyui' ? undefined : connection.ttsPace?.trim() || undefined,
     comfyWorkflowPath: kind === 'comfyui'
       ? bundledComfyWorkflowPathForRole(connection.comfyWorkflowPath, comfyRole ?? null)
       : undefined,
@@ -521,6 +529,13 @@ function isConnectionPreset(value: unknown): value is ConnectionPreset {
     typeof connection.apiKey === 'string' &&
     typeof connection.model === 'string' &&
     (connection.ttsVoice === undefined || typeof connection.ttsVoice === 'string') &&
+    (connection.ttsTemperature === undefined ||
+      (typeof connection.ttsTemperature === 'number' && Number.isFinite(connection.ttsTemperature))) &&
+    (connection.ttsAudioProfile === undefined || typeof connection.ttsAudioProfile === 'string') &&
+    (connection.ttsScene === undefined || typeof connection.ttsScene === 'string') &&
+    (connection.ttsStyle === undefined || typeof connection.ttsStyle === 'string') &&
+    (connection.ttsAccent === undefined || typeof connection.ttsAccent === 'string') &&
+    (connection.ttsPace === undefined || typeof connection.ttsPace === 'string') &&
     (connection.comfyWorkflowPath === undefined || typeof connection.comfyWorkflowPath === 'string') &&
     (connection.comfyNarratorVoice === undefined ||
       validComfyNarratorVoice(connection.comfyNarratorVoice) !== undefined) &&

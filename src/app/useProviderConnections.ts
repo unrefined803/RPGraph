@@ -396,6 +396,12 @@ export function useProviderConnections({
       baseUrl: editingConnection.baseUrl.trim() || (kind === 'comfyui' ? defaultComfyBaseUrl : defaultConnection.baseUrl),
       model: kind === 'comfyui' ? '' : editingConnection.model.trim(),
       ttsVoice: kind === 'comfyui' ? undefined : editingConnection.ttsVoice?.trim() || undefined,
+      ttsTemperature: kind === 'comfyui' ? undefined : editingConnection.ttsTemperature,
+      ttsAudioProfile: kind === 'comfyui' ? undefined : editingConnection.ttsAudioProfile?.trim() || undefined,
+      ttsScene: kind === 'comfyui' ? undefined : editingConnection.ttsScene?.trim() || undefined,
+      ttsStyle: kind === 'comfyui' ? undefined : editingConnection.ttsStyle?.trim() || undefined,
+      ttsAccent: kind === 'comfyui' ? undefined : editingConnection.ttsAccent?.trim() || undefined,
+      ttsPace: kind === 'comfyui' ? undefined : editingConnection.ttsPace?.trim() || undefined,
       apiKey: kind === 'comfyui' ? '' : editingConnection.apiKey.trim(),
       comfyWorkflowPath: kind === 'comfyui'
         ? bundledComfyWorkflowPathForRole(editingConnection.comfyWorkflowPath, comfyRole)
@@ -1989,6 +1995,11 @@ export function useProviderConnections({
         ?.find((model) => model.id === editingConnection.model)
         ?.supportedVoices ?? []
     : [];
+  const editingConnectionSupportedParameters = isOpenRouterConnection(editingConnection)
+    ? openRouterModelsByConnectionId[editingConnection.id]
+        ?.find((model) => model.id === editingConnection.model)
+        ?.supportedParameters ?? []
+    : [];
   const editingComfyWorkflowPath = comfyWorkflowPathForConnection(editingConnection);
   const comfyWorkflowRepairReady = !!pendingComfyWorkflowRepair && pendingComfyWorkflowRepair.workflowPath === editingComfyWorkflowPath;
   const comfyWorkflowRepairInspection = pendingComfyWorkflowRepair?.workflowPath === editingComfyWorkflowPath
@@ -2028,6 +2039,7 @@ export function useProviderConnections({
     ollamaModelActionActive,
     editingConnectionCapabilities,
     editingConnectionSupportedVoices,
+    editingConnectionSupportedParameters,
     comfyWorkflowRepairStatus,
     comfyWorkflowRepairReady,
     comfyWorkflowRepairInspection,
