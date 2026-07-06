@@ -2112,7 +2112,7 @@ function comfyWorkflowVariables(request) {
         [
           `lora_strength_${suffix}`,
           typeof slot?.strength === 'number' && Number.isFinite(slot.strength)
-            ? Math.min(2, Math.max(-2, slot.strength))
+            ? Math.max(0, slot.strength)
             : fallbackStrength,
         ],
       ];

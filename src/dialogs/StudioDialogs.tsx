@@ -3150,14 +3150,17 @@ export function StudioDialogs({
                                     <input
                                       id={`comfy-lora-strength-${slotNumber}`}
                                       type="number"
-                                      min={-2}
-                                      max={2}
+                                      min={0}
                                       step={0.05}
                                       value={slot.strength}
                                       onChange={(event) => {
+                                        const nextStrength = Number(event.target.value);
                                         const nextSlots = comfyLoraSlots.map((currentSlot, slotIndex) =>
                                           slotIndex === index
-                                            ? { ...currentSlot, strength: Number(event.target.value) }
+                                            ? {
+                                                ...currentSlot,
+                                                strength: Number.isFinite(nextStrength) ? nextStrength : currentSlot.strength,
+                                              }
                                             : currentSlot,
                                         );
                                         onEditConnection('comfyLoraSlots', nextSlots);

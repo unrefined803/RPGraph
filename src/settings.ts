@@ -348,7 +348,7 @@ function validComfyStrength(value: unknown, fallback = 1) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return fallback;
   }
-  return Math.min(2, Math.max(-2, value));
+  return Math.max(0, value);
 }
 
 function validComfyModelName(value: unknown, fallback: string) {
