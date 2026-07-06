@@ -32,7 +32,7 @@ export type ComfyNarratorVoice = {
   dataUrl: string;
 };
 
-export type DialogueVoiceMode = 'click' | 'preload' | 'read-aloud';
+export type DialogueVoiceMode = 'click' | 'preload' | 'read-aloud' | 'narrator-only';
 
 export type ConnectionPreset = {
   id: string;
@@ -765,6 +765,7 @@ export type AppSettings = {
     uiScale?: number;
     retryFormatErrorsEnabled?: boolean;
     dialogueVoiceMode?: DialogueVoiceMode;
+    dialogueNarratorProviderId?: string;
   };
   layout?: {
     chatPanelWidth: number;

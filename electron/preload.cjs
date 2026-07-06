@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('lmstudio:list-models', { connection }).then(throwIfRpgraphIpcError),
   listOpenRouterModels: (connection) =>
     ipcRenderer.invoke('openrouter:list-models', { connection }),
+  generateOpenRouterSpeech: (request) =>
+    ipcRenderer.invoke('openrouter:generate-speech', request),
   listGeminiModels: (connection) =>
     ipcRenderer.invoke('gemini:list-models', { connection }),
   loadLmStudioModel: (connection) =>

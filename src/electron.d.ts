@@ -29,6 +29,10 @@ declare global {
       ) => Promise<string[]>;
       listLmStudioModels: (connection: ConnectionPreset) => Promise<LmStudioModelInfo[]>;
       listOpenRouterModels: (connection: ConnectionPreset) => Promise<OpenRouterModelInfo[]>;
+      generateOpenRouterSpeech: (request: {
+        connection: ConnectionPreset;
+        input: string;
+      }) => Promise<{ dataUrl: string; filename: string }>;
       listGeminiModels: (connection: ConnectionPreset) => Promise<GeminiModelInfo[]>;
       loadLmStudioModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;

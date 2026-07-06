@@ -96,6 +96,10 @@ type ChatConversationPanelProps = {
   onDialogueVoiceModeChange: (mode: DialogueVoiceMode) => void;
   dialogueVoicePreloadDisabledReason: string | null;
   dialogueVoiceReadAloudDisabledReason: string | null;
+  dialogueNarratorOnlyDisabledReason: string | null;
+  narratorProviderOptions: Array<{ value: string; label: string }>;
+  narratorProviderId: string;
+  onNarratorProviderChange: (providerId: string) => void;
   voiceReadAloudActive: boolean;
   onStopVoiceReadAloud: () => void;
   rpTimeTrackingEnabled: boolean;
@@ -156,6 +160,10 @@ export function ChatConversationPanel({
   onDialogueVoiceModeChange,
   dialogueVoicePreloadDisabledReason,
   dialogueVoiceReadAloudDisabledReason,
+  dialogueNarratorOnlyDisabledReason,
+  narratorProviderOptions,
+  narratorProviderId,
+  onNarratorProviderChange,
   voiceReadAloudActive,
   onStopVoiceReadAloud,
   rpTimeTrackingEnabled,
@@ -220,6 +228,7 @@ export function ChatConversationPanel({
       }
     });
   const [outsidePhoneMenuOpen, setOutsidePhoneMenuOpen] = useState(false);
+  const [narratorSettingsOpen, setNarratorSettingsOpen] = useState(false);
   const outsidePhoneMenuRef = useRef<HTMLDivElement | null>(null);
   const [expandedPhoneGroups, setExpandedPhoneGroups] = useState<Record<string, boolean>>({});
   const [phoneBubbleHeadersEnabled, setPhoneBubbleHeadersEnabled] = useState(() => {
@@ -1575,6 +1584,48 @@ export function ChatConversationPanel({
                           {label}
                         </button>
                       ),
+                    )}
+                    <div className="voice-narrator-mode-row">
+                      <button
+                        className={dialogueVoiceMode === 'narrator-only' ? 'active' : undefined}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={dialogueVoiceMode === 'narrator-only'}
+                        disabled={dialogueNarratorOnlyDisabledReason !== null}
+                        title={dialogueNarratorOnlyDisabledReason ?? undefined}
+                        onClick={() => {
+                          onDialogueVoiceModeChange('narrator-only');
+                          setOutsidePhoneMenuOpen(false);
+                        }}
+                      >
+                        Narrator Only
+                      </button>
+                      <button
+                        className="voice-narrator-settings-button"
+                        type="button"
+                        aria-label="Configure narrator provider"
+                        title="Configure narrator provider"
+                        onClick={() => setNarratorSettingsOpen((open) => !open)}
+                      >
+                        ⚙
+                      </button>
+                    </div>
+                    {narratorSettingsOpen && (
+                      <div className="voice-narrator-settings">
+                        <label htmlFor="voice-narrator-provider">Narrator provider</label>
+                        <select
+                          id="voice-narrator-provider"
+                          value={narratorProviderId}
+                          disabled={narratorProviderOptions.length === 0}
+                          onChange={(event) => onNarratorProviderChange(event.target.value)}
+                        >
+                          {narratorProviderOptions.length === 0 ? (
+                            <option value="">No narrator provider ready</option>
+                          ) : narratorProviderOptions.map((option) => (
+                            <option value={option.value} key={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
                     )}
                   </div>
                   <div className="phone-display-popover-section">

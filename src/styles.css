@@ -9519,6 +9519,42 @@ button.message-timeline-row.phone:focus-visible {
   cursor: not-allowed;
 }
 
+.voice-narrator-mode-row {
+  display: grid;
+  grid-template-columns: 1fr 30px;
+  gap: 3px;
+}
+
+.phone-display-popover .voice-narrator-mode-row .voice-narrator-settings-button {
+  padding: 7px;
+  text-align: center;
+}
+
+.voice-narrator-settings {
+  display: grid;
+  gap: 5px;
+  padding: 7px 8px 9px;
+}
+
+.voice-narrator-settings label {
+  color: #7d8ba6;
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.voice-narrator-settings select {
+  min-width: 0;
+  width: 100%;
+  padding: 6px 7px;
+  border: 1px solid #39455a;
+  border-radius: 6px;
+  color: #dbe4f7;
+  background: #0c111a;
+  font: inherit;
+  font-size: 11px;
+}
+
 .phone-display-popover button.phone-display-checkbox {
   display: grid;
   grid-template-columns: 14px 1fr;

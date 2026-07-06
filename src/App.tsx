@@ -177,6 +177,7 @@ import type { NodeLlmApi } from './llm/NodeLlmApi';
 import {
   isLmStudioConnection,
   isOllamaConnection,
+  isOpenRouterConnection,
 } from './llm/providerKind';
 import { TextMetricsApi } from './llm/tokenMetrics';
 import { NodeActionsContext } from './nodes/NodeActionsContext';
@@ -811,6 +812,8 @@ function App() {
     setRetryFormatErrorsEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
+    dialogueNarratorProviderId,
+    setDialogueNarratorProviderId,
   } = useAppSettings();
   const {
     appliedUiScale,
@@ -1302,14 +1305,36 @@ function App() {
     setNodes,
     notifySystem,
   });
+  const narratorProviderOptions = connections.flatMap((connection) => {
+    if (isComfyVoiceConnection(connection) && connection.comfyNarratorVoice?.dataUrl) {
+      return [{ value: connection.id, label: `${connection.label} — ComfyUI narrator` }];
+    }
+    const capabilities = providerHealthById[connection.id]?.capabilities;
+    if (
+      isOpenRouterConnection(connection) &&
+      capabilities?.voice === true &&
+      capabilities.text !== true &&
+      connection.ttsVoice
+    ) {
+      return [{ value: connection.id, label: `${connection.label} — ${connection.ttsVoice}` }];
+    }
+    return [];
+  });
+  const resolvedNarratorProviderId = narratorProviderOptions.some(
+    (option) => option.value === dialogueNarratorProviderId,
+  )
+    ? dialogueNarratorProviderId
+    : narratorProviderOptions[0]?.value ?? '';
   const {
     dialogueVoiceSpeakerNames,
     narratorVoiceReady,
+    narratorOnlyReady,
     activeDialogueVoiceKey,
     readAloudActive,
     speakDialogue,
     preloadTurnVoices,
     readMessagesAloud,
+    readMessagesAsNarrator,
     generateVoiceMessageClip,
     stopDialogueVoice,
   } = useDialogueVoice({
@@ -1317,7 +1342,10 @@ function App() {
     connections,
     messages,
     englishProcessingEnabled,
+    narratorOnlyProviderId: resolvedNarratorProviderId,
     generateVoiceClip: generateCharacterVoicePreview,
+    generateApiNarratorClip: (connection, input) =>
+      window.rpgraph.generateOpenRouterSpeech({ connection, input }),
     unloadVoiceModels: unloadCharacterComfyModels,
     onVoiceClipGenerated: storeMessageVoiceClip,
     notifySystem,
@@ -1337,6 +1365,9 @@ function App() {
       : charactersWithoutVoice.length > 0
         ? `Requires a voice sample for every storybook character (missing: ${charactersWithoutVoice.join(', ')}).`
       : null);
+  const dialogueNarratorOnlyDisabledReason = narratorOnlyReady
+    ? null
+    : 'Requires a configured ComfyUI narrator or OpenRouter TTS provider.';
 
   useEffect(() => {
     return window.rpgraph.onWindowCleanupBeforeClose(async () => {
@@ -1363,6 +1394,8 @@ function App() {
       void preloadTurnVoices(latestOutputTurnMessages(messages));
     } else if (dialogueVoiceMode === 'read-aloud') {
       void readMessagesAloud(latestOutputTurnMessages(messages));
+    } else if (dialogueVoiceMode === 'narrator-only') {
+      void readMessagesAsNarrator(latestOutputTurnMessages(messages));
     }
   }, [
     isRunning,
@@ -1370,6 +1403,7 @@ function App() {
     messages,
     preloadTurnVoices,
     readMessagesAloud,
+    readMessagesAsNarrator,
     stopDialogueVoice,
   ]);
   const {
@@ -5877,15 +5911,19 @@ function App() {
               dialogueVoiceMode={dialogueVoiceMode}
               onDialogueVoiceModeChange={(mode) => {
                 setDialogueVoiceMode(mode);
-                if (mode !== 'read-aloud' && readAloudActive) {
+                if (mode !== 'read-aloud' && mode !== 'narrator-only' && readAloudActive) {
                   stopDialogueVoice();
                 }
-                if (mode !== 'click' && !isRunning) {
+                if ((mode === 'preload' || mode === 'read-aloud') && !isRunning) {
                   void preloadTurnVoices(latestOutputTurnMessages(messages));
                 }
               }}
               dialogueVoicePreloadDisabledReason={dialogueVoicePreloadDisabledReason}
               dialogueVoiceReadAloudDisabledReason={dialogueVoiceReadAloudDisabledReason}
+              dialogueNarratorOnlyDisabledReason={dialogueNarratorOnlyDisabledReason}
+              narratorProviderOptions={narratorProviderOptions}
+              narratorProviderId={resolvedNarratorProviderId}
+              onNarratorProviderChange={setDialogueNarratorProviderId}
               voiceReadAloudActive={readAloudActive}
               onStopVoiceReadAloud={stopDialogueVoice}
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}

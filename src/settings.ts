@@ -61,7 +61,7 @@ const defaultGlassDesignEnabled = true;
 const defaultRetryFormatErrorsEnabled = true;
 const defaultGlassDesignOpacity = 0.6;
 const defaultDialogueVoiceMode: DialogueVoiceMode = 'click';
-const dialogueVoiceModes = ['click', 'preload', 'read-aloud'] as const satisfies readonly DialogueVoiceMode[];
+const dialogueVoiceModes = ['click', 'preload', 'read-aloud', 'narrator-only'] as const satisfies readonly DialogueVoiceMode[];
 
 function validDialogueVoiceMode(value: unknown): DialogueVoiceMode {
   return dialogueVoiceModes.includes(value as DialogueVoiceMode)
@@ -703,6 +703,8 @@ function isAppSettings(value: unknown): value is AppSettings {
       typeof settings.options.retryFormatErrorsEnabled === 'boolean') &&
     (settings.options.dialogueVoiceMode === undefined ||
       dialogueVoiceModes.includes(settings.options.dialogueVoiceMode)) &&
+    (settings.options.dialogueNarratorProviderId === undefined ||
+      typeof settings.options.dialogueNarratorProviderId === 'string') &&
     (!settings.layout || validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined)
   );
 }
@@ -768,6 +770,8 @@ type AppSettingsState = {
   setRetryFormatErrorsEnabled: Dispatch<SetStateAction<boolean>>;
   dialogueVoiceMode: DialogueVoiceMode;
   setDialogueVoiceMode: Dispatch<SetStateAction<DialogueVoiceMode>>;
+  dialogueNarratorProviderId: string;
+  setDialogueNarratorProviderId: Dispatch<SetStateAction<string>>;
 };
 
 export function useAppSettings(): AppSettingsState {
@@ -822,6 +826,7 @@ export function useAppSettings(): AppSettingsState {
   const [dialogueVoiceMode, setDialogueVoiceMode] = useState<DialogueVoiceMode>(
     defaultDialogueVoiceMode,
   );
+  const [dialogueNarratorProviderId, setDialogueNarratorProviderId] = useState('');
   const [settingsLoadComplete, setSettingsLoadComplete] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState('');
@@ -908,6 +913,7 @@ export function useAppSettings(): AppSettingsState {
           result.settings.options.retryFormatErrorsEnabled ?? defaultRetryFormatErrorsEnabled,
         );
         setDialogueVoiceMode(validDialogueVoiceMode(result.settings.options.dialogueVoiceMode));
+        setDialogueNarratorProviderId(result.settings.options.dialogueNarratorProviderId ?? '');
         setChatPanelWidth(
           validChatPanelWidth(result.settings.layout?.chatPanelWidth) ?? defaultChatPanelWidth,
         );
@@ -969,6 +975,7 @@ export function useAppSettings(): AppSettingsState {
         uiScale: validUiScale(uiScale),
         retryFormatErrorsEnabled,
         dialogueVoiceMode,
+        dialogueNarratorProviderId,
       },
       layout: {
         chatPanelWidth,
@@ -1019,6 +1026,7 @@ export function useAppSettings(): AppSettingsState {
     uiScale,
     retryFormatErrorsEnabled,
     dialogueVoiceMode,
+    dialogueNarratorProviderId,
     settingsLoaded,
     settingsRecoveryNotice,
     apiKeyStorageNotice,
@@ -1085,5 +1093,7 @@ export function useAppSettings(): AppSettingsState {
     setRetryFormatErrorsEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
+    dialogueNarratorProviderId,
+    setDialogueNarratorProviderId,
   };
 }

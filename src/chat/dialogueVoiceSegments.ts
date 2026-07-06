@@ -95,6 +95,18 @@ export function dialogueVoiceMessageSegments(
   return segments;
 }
 
+export function dialogueVoiceWholeMessageText(
+  message: MessageRecord,
+  englishProcessingEnabled: boolean,
+) {
+  const speakerNames = messageSpeakerNames(message);
+  return messageBodyTexts(message, englishProcessingEnabled)
+    .map((text) => stripRecognizedSpeakerLabels(text, speakerNames))
+    .map(dialogueSpeechText)
+    .filter(hasSpeakableContent)
+    .join('\n\n');
+}
+
 // The output messages of the most recent turn, in chat order. Used to decide
 // which text the preload and read-aloud voice modes process after a run.
 export function latestOutputTurnMessages(messages: MessageRecord[]): MessageRecord[] {

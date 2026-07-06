@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isComfyVoiceConnection } from '../comfy/connectionRole';
+import { isOpenRouterConnection } from '../llm/providerKind';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { ConnectionPreset, MessageRecord, MessageVoiceClip } from '../types';
 import {
   dialogueSpeechText,
   dialogueVoiceMessageSegments,
+  dialogueVoiceWholeMessageText,
 } from './dialogueVoiceSegments';
+import { ttsNarratorPrompt } from './ttsNarratorPrompt';
 
 const dialogueVoiceCacheMaxEntries = 64;
 // Reserved cache name for the narrator; the NUL byte cannot appear in character names.
@@ -26,7 +29,9 @@ export function useDialogueVoice({
   connections,
   messages,
   englishProcessingEnabled,
+  narratorOnlyProviderId,
   generateVoiceClip,
+  generateApiNarratorClip,
   unloadVoiceModels,
   onVoiceClipGenerated,
   notifySystem,
@@ -35,11 +40,16 @@ export function useDialogueVoice({
   connections: ConnectionPreset[];
   messages: MessageRecord[];
   englishProcessingEnabled: boolean;
+  narratorOnlyProviderId: string;
   generateVoiceClip: (request: {
     providerId: string;
     speechText: string;
     sampleDataUrl: string;
   }) => Promise<Array<{ dataUrl: string; filename: string }>>;
+  generateApiNarratorClip: (
+    connection: ConnectionPreset,
+    input: string,
+  ) => Promise<{ dataUrl: string; filename: string }>;
   unloadVoiceModels: (providerId: string) => Promise<void>;
   onVoiceClipGenerated: (messageId: number, clip: MessageVoiceClip) => void;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
@@ -75,6 +85,15 @@ export function useDialogueVoice({
     [voiceProviderId, voiceSamplesByName],
   );
   const narratorVoiceReady = !!voiceProviderId && !!narratorVoiceSampleDataUrl;
+  const narratorOnlyConnection = useMemo(
+    () => connections.find((connection) => connection.id === narratorOnlyProviderId),
+    [connections, narratorOnlyProviderId],
+  );
+  const narratorOnlyReady = narratorOnlyConnection
+    ? isComfyVoiceConnection(narratorOnlyConnection)
+      ? !!narratorOnlyConnection.comfyNarratorVoice?.dataUrl
+      : isOpenRouterConnection(narratorOnlyConnection) && !!narratorOnlyConnection.ttsVoice
+    : false;
 
   function sampleForSpeaker(speakerName: string | null) {
     return speakerName === null
@@ -453,6 +472,72 @@ export function useDialogueVoice({
     }
   }
 
+  async function readMessagesAsNarrator(messages: MessageRecord[]) {
+    if (!narratorOnlyConnection || !narratorOnlyReady) {
+      return;
+    }
+    stopDialogueVoice();
+    const token = ++readAloudTokenRef.current;
+    const speakableMessages = messages
+      .map((message) => ({
+        message,
+        text: dialogueVoiceWholeMessageText(message, englishProcessingEnabled),
+      }))
+      .filter((entry) => entry.text.length > 0);
+    if (speakableMessages.length === 0) {
+      return;
+    }
+    setReadAloudActive(true);
+    try {
+      for (const { message, text } of speakableMessages) {
+        if (readAloudTokenRef.current !== token) {
+          break;
+        }
+        let clip: { dataUrl: string; filename: string } | undefined;
+        if (isComfyVoiceConnection(narratorOnlyConnection)) {
+          const sampleDataUrl = narratorOnlyConnection.comfyNarratorVoice?.dataUrl;
+          if (!sampleDataUrl) {
+            break;
+          }
+          clip = (await generateVoiceClip({
+            providerId: narratorOnlyConnection.id,
+            speechText: text,
+            sampleDataUrl,
+          }))[0];
+        } else if (isOpenRouterConnection(narratorOnlyConnection)) {
+          clip = await generateApiNarratorClip(
+            narratorOnlyConnection,
+            ttsNarratorPrompt(narratorOnlyConnection, text),
+          );
+        }
+        if (!clip?.dataUrl || readAloudTokenRef.current !== token) {
+          continue;
+        }
+        storeVoiceClip(message.id, null, text, clip.dataUrl, clip.filename, 'narration');
+        await playClipAndWait(clip.dataUrl);
+      }
+    } catch (error) {
+      notifySystem(
+        'error',
+        `Narrator playback stopped: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      if (readAloudTokenRef.current === token) {
+        setReadAloudActive(false);
+      }
+      if (isComfyVoiceConnection(narratorOnlyConnection)) {
+        try {
+          await unloadVoiceModels(narratorOnlyConnection.id);
+        } catch (error) {
+          notifySystem(
+            'warning',
+            `ComfyUI voice unload failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+    }
+  }
+
   // Generates (or serves from cache) one clip for a phone voice message.
   // Returns null when the speaker has no sample or no voice provider exists.
   async function generateVoiceMessageClip(messageId: number, speakerName: string, text: string) {
@@ -465,6 +550,7 @@ export function useDialogueVoice({
   return {
     dialogueVoiceSpeakerNames,
     narratorVoiceReady,
+    narratorOnlyReady,
     activeDialogueVoiceKey,
     readAloudActive,
     speakDialogue,
@@ -472,6 +558,7 @@ export function useDialogueVoice({
     preloadPhoneVoiceMessages,
     preloadTurnVoices,
     readMessagesAloud,
+    readMessagesAsNarrator,
     generateVoiceMessageClip,
     stopDialogueVoice,
   };

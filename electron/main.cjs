@@ -2893,6 +2893,53 @@ ipcMain.handle('openrouter:list-models', async (_event, request) => {
   }
 });
 
+ipcMain.handle('openrouter:generate-speech', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  const connection = request?.connection;
+  const input = typeof request?.input === 'string' ? request.input.trim() : '';
+  if (!connection?.model?.trim()) {
+    throw new Error('Choose an OpenRouter TTS model first.');
+  }
+  if (!connection?.ttsVoice?.trim()) {
+    throw new Error('Choose a TTS voice first.');
+  }
+  if (!input) {
+    throw new Error('Enter text to speak first.');
+  }
+  const body = {
+    model: connection.model.trim(),
+    input,
+    voice: connection.ttsVoice.trim(),
+    response_format: 'mp3',
+    ...(Number.isFinite(connection.ttsTemperature)
+      ? { temperature: connection.ttsTemperature }
+      : {}),
+  };
+  try {
+    const response = await requestLlmResponse(endpoint(connection.baseUrl, 'audio/speech'), {
+      method: 'POST',
+      headers: requestHeaders(connection),
+      body: JSON.stringify(body),
+    }, abort);
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    const rawContentType = response.headers['content-type'];
+    const contentType = (Array.isArray(rawContentType) ? rawContentType[0] : rawContentType)
+      ?.split(';')[0]?.trim() || 'audio/mpeg';
+    const audio = await response.buffer();
+    if (audio.length === 0) {
+      throw new Error('OpenRouter returned an empty audio response.');
+    }
+    return {
+      dataUrl: `data:${contentType};base64,${audio.toString('base64')}`,
+      filename: `openrouter-tts-${Date.now()}.mp3`,
+    };
+  } finally {
+    abort.dispose();
+  }
+});
+
 ipcMain.handle('gemini:list-models', async (_event, request) => {
   const connection = request?.connection ?? request;
   const abort = createLlmAbortController(request);
