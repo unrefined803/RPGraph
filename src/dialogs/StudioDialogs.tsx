@@ -2951,11 +2951,12 @@ export function StudioDialogs({
                                 checked={editingConnection.comfyDeleteVoiceOutputs !== false}
                                 onChange={(event) => onEditConnection('comfyDeleteVoiceOutputs', event.target.checked)}
                               />
-                              <span>Delete voice files on the server after download</span>
+                              <span>Store voice files in the ComfyUI temp folder so ComfyUI deletes them</span>
                             </label>
                             <p className="character-voice-hint">
-                              Keeps the voice clip embedded in RPGraph, then removes the generated audio and the
-                              uploaded voice sample from the ComfyUI server and verifies they are gone.
+                              The voice clip stays embedded in RPGraph. The generated audio and the uploaded voice
+                              sample go to the ComfyUI temp folder instead of the output and input folders; ComfyUI
+                              empties the temp folder when it shuts down or starts.
                             </p>
                           </div>
                           <div className="character-voice-card">
@@ -3202,6 +3203,22 @@ export function StudioDialogs({
                                 {comfyProviderActionActive === 'unload' ? 'Unloading ...' : 'Unload Models'}
                               </button>
                             </div>
+                          </div>
+                          <div className="connection-field connection-field-checkbox">
+                            <label className="node-toggle nodrag">
+                              <input
+                                className="nodrag nowheel"
+                                type="checkbox"
+                                checked={editingConnection.comfyDeleteImageOutputs !== false}
+                                onChange={(event) => onEditConnection('comfyDeleteImageOutputs', event.target.checked)}
+                              />
+                              <span>Store images in the ComfyUI temp folder so ComfyUI deletes them</span>
+                            </label>
+                            <p className="character-voice-hint">
+                              The generated image stays embedded in RPGraph and goes to the ComfyUI temp folder
+                              instead of the output folder; ComfyUI empties the temp folder when it shuts down or
+                              starts. Requires the standard Save Image node in the workflow.
+                            </p>
                           </div>
                         </>
                       ) : null}

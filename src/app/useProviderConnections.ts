@@ -218,8 +218,9 @@ export function useProviderConnections({
     }
   }
 
-  // Warns at most twice per provider and session; the second warning tells the
-  // user to clean the ComfyUI folders manually, then the failure stays silent.
+  // Only fires when a voice workflow saves clips with a custom node that
+  // RPGraph cannot reroute through the ComfyUI temp folder. Warns at most
+  // twice per provider and session, then the failure stays silent.
   function notifyVoiceCleanupFailure(connection: ConnectionPreset) {
     const warningCount = voiceCleanupWarningCountsRef.current[connection.id] ?? 0;
     if (warningCount >= 2) {
@@ -229,8 +230,8 @@ export function useProviderConnections({
     notifySystem(
       'warning',
       warningCount === 0
-        ? `${connection.label}: could not delete the generated voice files on the ComfyUI server. They remain in the ComfyUI output and input folders.`
-        : `${connection.label}: deleting voice files on the ComfyUI server failed again. This ComfyUI does not seem to support file deletion — delete the rpgraph voice files in its output and input folders manually. This warning will not be shown again.`,
+        ? `${connection.label}: could not remove the generated voice files from the ComfyUI server. The voice workflow saves them with a custom node, so they remain in the ComfyUI output folder.`
+        : `${connection.label}: removing voice files from the ComfyUI server failed again. Use a standard audio save node (e.g. Save Audio (MP3)) in the voice workflow so RPGraph can route the clips through the ComfyUI temp folder, or delete the rpgraph files in the ComfyUI output folder manually. This warning will not be shown again.`,
     );
   }
 
@@ -468,6 +469,9 @@ export function useProviderConnections({
         : undefined,
       comfyDeleteVoiceOutputs: comfyRole === 'voice'
         ? editingConnection.comfyDeleteVoiceOutputs !== false
+        : undefined,
+      comfyDeleteImageOutputs: isComfyImage
+        ? editingConnection.comfyDeleteImageOutputs !== false
         : undefined,
       comfyWidth: isComfyImage
         ? validComfyDimension(editingConnection.comfyWidth, defaultComfyWidth)
@@ -1563,6 +1567,7 @@ export function useProviderConnections({
         vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
         textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
         loraSlots: runtimeComfyLoraSlots(connection.comfyLoraSlots ?? defaultComfyLoraSlots),
+        deleteOutputs: connection.comfyDeleteImageOutputs !== false,
         timeoutMs: 180000,
       });
       setEditingConnection(connection);
@@ -1665,6 +1670,7 @@ export function useProviderConnections({
       vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
       textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
       loraSlots: characterComfyLoraSlots(connection.comfyLoraSlots ?? defaultComfyLoraSlots, request.loraName),
+      deleteOutputs: connection.comfyDeleteImageOutputs !== false,
       timeoutMs: 180000,
     });
     updateProviderHealth(connection.id, {

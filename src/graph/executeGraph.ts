@@ -404,6 +404,7 @@ export async function executeGraph({
         vaeName: comfyConnection.comfyVaeName ?? defaultComfyVaeName,
         textEncoderName: comfyConnection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
         loraSlots: characterComfyLoraSlots(comfyConnection.comfyLoraSlots ?? defaultComfyLoraSlots, characterLoraName),
+        deleteOutputs: comfyConnection.comfyDeleteImageOutputs !== false,
         timeoutMs: 180000,
       });
     } finally {

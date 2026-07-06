@@ -304,6 +304,7 @@ declare global {
           name: string;
           strength: number;
         }>;
+        deleteOutputs?: boolean;
         timeoutMs?: number;
       }) => Promise<{
         promptId: string;

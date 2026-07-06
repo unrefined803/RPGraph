@@ -2469,9 +2469,26 @@ async function requestComfyOutputFile(baseUrl, file, abort, fallbackMimeType) {
   const contentType = Array.isArray(response.headers['content-type'])
     ? response.headers['content-type'][0]
     : response.headers['content-type'];
-  const mimeType = contentType || fallbackMimeType;
+  const mimeType = contentType && contentType !== 'application/octet-stream'
+    ? contentType
+    : fallbackMimeType;
   const buffer = await response.buffer();
   return `data:${mimeType};base64,${buffer.toString('base64')}`;
+}
+
+const comfyAudioMimeTypesByExtension = {
+  flac: 'audio/flac',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  opus: 'audio/ogg',
+  wav: 'audio/wav',
+};
+
+function comfyAudioMimeType(filename) {
+  const extension = typeof filename === 'string'
+    ? filename.slice(filename.lastIndexOf('.') + 1).toLowerCase()
+    : '';
+  return comfyAudioMimeTypesByExtension[extension] ?? 'audio/mpeg';
 }
 
 async function deleteComfyServerFile(baseUrl, file, abort) {
@@ -2553,9 +2570,12 @@ function comfyVoiceSampleFromDataUrl(dataUrl) {
   return { buffer, mimeType: match[1].toLowerCase() };
 }
 
-// ComfyUI's upload route is named "image" for historical reasons; it stores any
-// file in the server's input directory, which is what LoadAudio reads from.
-async function uploadComfyVoiceSample(baseUrl, sampleDataUrl, abort) {
+// ComfyUI's upload route is named "image" for historical reasons; it stores
+// any file. With cleanup enabled the sample goes to the temp directory, which
+// ComfyUI empties itself (stock ComfyUI has no HTTP route to delete files);
+// LoadAudio reads it via the "name [temp]" annotation. Without cleanup it goes
+// to the input directory, which LoadAudio reads by default.
+async function uploadComfyVoiceSample(baseUrl, sampleDataUrl, abort, useTempStorage) {
   const sample = comfyVoiceSampleFromDataUrl(sampleDataUrl);
   const contentHash = crypto.createHash('sha256').update(sample.buffer).digest('hex').slice(0, 16);
   const fileName = `rpgraph-voice-${contentHash}.mp3`;
@@ -2571,6 +2591,9 @@ async function uploadComfyVoiceSample(baseUrl, sampleDataUrl, abort) {
       `\r\n--${boundary}\r\n` +
         'Content-Disposition: form-data; name="overwrite"\r\n\r\n' +
         'true\r\n' +
+        `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="type"\r\n\r\n' +
+        `${useTempStorage ? 'temp' : 'input'}\r\n` +
         `--${boundary}--\r\n`,
     ),
   ]);
@@ -2589,10 +2612,30 @@ async function uploadComfyVoiceSample(baseUrl, sampleDataUrl, abort) {
   const result = JSON.parse((await response.text()) || '{}');
   const uploadedName = typeof result?.name === 'string' && result.name.trim() ? result.name : fileName;
   const subfolder = typeof result?.subfolder === 'string' && result.subfolder ? result.subfolder : '';
+  // The response reports where the file was actually stored; a server that
+  // ignored the requested temp storage falls back to the input directory.
+  const storedType = result?.type === 'temp' || result?.type === 'output' ? result.type : 'input';
+  const relativeName = subfolder ? `${subfolder}/${uploadedName}` : uploadedName;
   return {
-    voiceAudioName: subfolder ? `${subfolder}/${uploadedName}` : uploadedName,
-    file: { filename: uploadedName, subfolder, type: 'input' },
+    voiceAudioName: storedType === 'input' ? relativeName : `${relativeName} [${storedType}]`,
+    file: { filename: uploadedName, subfolder, type: storedType },
   };
+}
+
+// Core save nodes write into ComfyUI's output folder, and stock ComfyUI has
+// no HTTP route to delete files there. Rerouting them to the matching preview
+// node stores the generated files in ComfyUI's temp folder instead, which
+// ComfyUI empties itself; leftover inputs like filename_prefix are ignored.
+const comfyAudioSaveNodeTypes = new Set(['SaveAudio', 'SaveAudioMP3', 'SaveAudioOpus']);
+const comfyImageSaveNodeTypes = new Set(['SaveImage']);
+
+function withTempOutputs(workflow, saveNodeTypes, previewNodeType) {
+  for (const node of Object.values(workflow)) {
+    if (node && typeof node === 'object' && saveNodeTypes.has(node.class_type)) {
+      node.class_type = previewNodeType;
+    }
+  }
+  return workflow;
 }
 
 // ComfyUI skips execution completely when a prompt is identical to an already
@@ -2733,8 +2776,14 @@ async function runComfyVoicePrompt(baseUrl, workflow, timeoutMs, abort, options 
   const audio = [];
   let cleanupFailed = false;
   for (const clip of audioRefs) {
-    const dataUrl = await requestComfyOutputFile(baseUrl, clip, abort, 'audio/mpeg');
-    if (options.deleteOutputs && !(await deleteComfyServerFileVerified(baseUrl, clip, abort))) {
+    const dataUrl = await requestComfyOutputFile(baseUrl, clip, abort, comfyAudioMimeType(clip.filename));
+    // Clips in the temp folder are cleaned up by ComfyUI itself; clips a
+    // custom save node wrote elsewhere need the (rarely supported) delete API.
+    if (
+      options.deleteOutputs &&
+      clip.type !== 'temp' &&
+      !(await deleteComfyServerFileVerified(baseUrl, clip, abort))
+    ) {
       cleanupFailed = true;
     }
     audio.push({
@@ -3529,6 +3578,9 @@ ipcMain.handle('comfy:run-workflow-path', async (_event, request) => {
       comfyWorkflowVariables(request),
     );
     const workflow = comfyPromptFromWorkflow(workflowJson);
+    if (request?.deleteOutputs === true) {
+      withTempOutputs(workflow, comfyImageSaveNodeTypes, 'PreviewImage');
+    }
     return await runComfyPrompt(request?.baseUrl, workflow, request?.timeoutMs, abort);
   } catch (error) {
     if (abort.signal.aborted) {
@@ -3555,12 +3607,20 @@ ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
       throw new Error('Enter a text to speak before generating a voice clip.');
     }
     const deleteServerFiles = request?.deleteOutputs === true;
-    const sampleUpload = await uploadComfyVoiceSample(request?.baseUrl, request?.sampleDataUrl, abort);
+    const sampleUpload = await uploadComfyVoiceSample(
+      request?.baseUrl,
+      request?.sampleDataUrl,
+      abort,
+      deleteServerFiles,
+    );
     const workflowJson = replaceComfyWorkflowPlaceholders(parsedWorkflow, {
       speech_text: speechText,
       voice_audio: sampleUpload.voiceAudioName,
     });
     const workflow = withRandomizedComfySeeds(comfyPromptFromWorkflow(workflowJson));
+    if (deleteServerFiles) {
+      withTempOutputs(workflow, comfyAudioSaveNodeTypes, 'PreviewAudio');
+    }
     let result;
     let sampleCleanupFailed = false;
     try {
@@ -3569,7 +3629,8 @@ ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
       });
     } finally {
       // Remove the uploaded reference voice sample even when the run failed.
-      if (deleteServerFiles && !abort.signal.aborted) {
+      // A sample in the temp folder is cleaned up by ComfyUI itself.
+      if (deleteServerFiles && sampleUpload.file.type !== 'temp' && !abort.signal.aborted) {
         sampleCleanupFailed = !(await deleteComfyServerFileVerified(
           request?.baseUrl,
           sampleUpload.file,
