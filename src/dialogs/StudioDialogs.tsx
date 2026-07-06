@@ -3290,8 +3290,8 @@ export function StudioDialogs({
                         </div>
                       )}
                       {isVoiceOnlyModel && (
-                        <div className="connection-tts-section">
-                          <div className="connection-field">
+                        <div className={`connection-tts-section${supportsTtsTemperature ? ' has-temperature' : ''}`}>
+                          <div className="connection-field connection-tts-voice-field">
                             <label htmlFor="tts-voice">VOICE</label>
                             {editingConnectionSupportedVoices.length > 0 ? (
                               <NodeCustomSelect
@@ -3310,8 +3310,7 @@ export function StudioDialogs({
                             )}
                           </div>
                           {supportsTtsTemperature && (
-                            <div className="connection-tts-runtime-row">
-                            <div className="connection-field connection-tts-temperature">
+                            <div className="connection-field connection-tts-temperature-field">
                               <label htmlFor="tts-temperature">
                                 TEMPERATURE <span>{(editingConnection.ttsTemperature ?? 1).toFixed(2)}</span>
                               </label>
@@ -3325,7 +3324,9 @@ export function StudioDialogs({
                                 onChange={(event) => onEditConnection('ttsTemperature', Number(event.target.value))}
                               />
                             </div>
-                            {supportsGeminiVoiceDirection && (
+                          )}
+                          {supportsGeminiVoiceDirection && (
+                            <div className="connection-tts-stream-container">
                               <label className="node-toggle post-output-toggle connection-tts-stream-toggle nodrag">
                                 <input
                                   className="nodrag nowheel"
@@ -3333,9 +3334,8 @@ export function StudioDialogs({
                                   checked={editingConnection.ttsStreamAudio === true}
                                   onChange={(event) => onEditConnection('ttsStreamAudio', event.target.checked)}
                                 />
-                                <span>Stream audio</span>
+                                <span>Stream Audio Live</span>
                               </label>
-                            )}
                             </div>
                           )}
                           {supportsGeminiVoiceDirection && (

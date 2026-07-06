@@ -9861,6 +9861,31 @@ button.message-timeline-row.phone:focus-visible {
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
 }
 
+.connection-dialog .dialog-header {
+  padding: 14px 23px;
+  align-items: center;
+}
+
+.connection-dialog .dialog-header > div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.connection-dialog .dialog-header h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.connection-dialog .dialog-header p {
+  line-height: 1.35;
+}
+
+.connection-dialog .close-button {
+  flex: none;
+}
+
 .options-dialog {
   -webkit-app-region: no-drag;
   width: min(820px, calc(100vw - 40px));
@@ -15725,21 +15750,30 @@ button.message-timeline-row.phone:focus-visible {
   background: #0f141f;
 }
 
-.connection-tts-temperature label {
+.connection-tts-voice-field {
+  grid-column: 1 / -1;
+}
+
+.connection-tts-section.has-temperature .connection-tts-voice-field {
+  grid-column: span 1;
+}
+
+.connection-tts-temperature-field {
+  grid-column: span 1;
+}
+
+.connection-tts-temperature-field label {
   display: flex;
   justify-content: space-between;
 }
 
-.connection-tts-temperature input[type='range'] {
+.connection-tts-temperature-field input[type='range'] {
   width: 100%;
+  height: 38px;
 }
 
-.connection-tts-runtime-row {
+.connection-tts-stream-container {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: end;
-  gap: 12px;
 }
 
 .connection-tts-stream-toggle {
@@ -15754,7 +15788,7 @@ button.message-timeline-row.phone:focus-visible {
   gap: 12px;
 }
 
-.connection-tts-wide-field {
+.connection-tts-direction-grid .connection-field {
   grid-column: 1 / -1;
 }
 
