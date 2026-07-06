@@ -6386,6 +6386,7 @@ function App() {
         onRepairComfyWorkflow={(llmConnectionId) => void repairComfyWorkflow(llmConnectionId)}
         onApplyComfyWorkflowRepair={() => void applyComfyWorkflowRepair()}
         onGenerateComfyTestImage={() => void generateComfyTestImage()}
+        onGenerateCharacterVoicePreview={generateCharacterVoicePreview}
         onUnloadComfyModels={() => void unloadComfyModels()}
         comfyProviderActionActive={comfyProviderActionActive}
         lmStudioToolsAvailable={isLmStudioConnection(editingConnection)}

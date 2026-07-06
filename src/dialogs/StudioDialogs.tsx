@@ -219,6 +219,11 @@ type StudioDialogsProps = {
   onRepairComfyWorkflow: (llmConnectionId: string) => void;
   onApplyComfyWorkflowRepair: () => void;
   onGenerateComfyTestImage: () => void;
+  onGenerateCharacterVoicePreview: (request: {
+    providerId: string;
+    speechText: string;
+    sampleDataUrl: string;
+  }) => Promise<Array<{ dataUrl: string; filename: string }>>;
   onUnloadComfyModels: () => void;
   comfyProviderActionActive: 'models' | 'generate' | 'unload' | 'repair' | 'apply-repair' | null;
   lmStudioToolsAvailable: boolean;
@@ -840,6 +845,7 @@ export function StudioDialogs({
   onRepairComfyWorkflow,
   onApplyComfyWorkflowRepair,
   onGenerateComfyTestImage,
+  onGenerateCharacterVoicePreview,
   onUnloadComfyModels,
   comfyProviderActionActive,
   lmStudioToolsAvailable,
@@ -869,6 +875,12 @@ export function StudioDialogs({
   const [workflowVariableStatus, setWorkflowVariableStatus] = useState('');
   const [comfyWorkflowCopyStatus, setComfyWorkflowCopyStatus] = useState('');
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [narratorVoiceTestText, setNarratorVoiceTestText] = useState(
+    'The night was quiet as the rain fell softly against the window. Somewhere in the distance, a clock struck midnight.',
+  );
+  const [narratorVoiceTestClip, setNarratorVoiceTestClip] = useState<{ dataUrl: string; filename: string } | null>(null);
+  const [narratorVoiceTestStatus, setNarratorVoiceTestStatus] = useState('');
+  const [narratorVoiceTesting, setNarratorVoiceTesting] = useState(false);
   const [uiScalePercentDraft, setUiScalePercentDraft] = useState(() =>
     String(Math.round(uiScale * 100)),
   );
@@ -1118,6 +1130,42 @@ export function StudioDialogs({
       name: result.audio.name,
       dataUrl: result.audio.dataUrl,
     });
+  }
+
+  async function testNarratorVoice() {
+    const speechText = narratorVoiceTestText.trim();
+    const sampleDataUrl = editingConnection.comfyNarratorVoice?.dataUrl;
+    if (!sampleDataUrl) {
+      setNarratorVoiceTestStatus('Choose a narrator voice sample first.');
+      return;
+    }
+    if (!speechText) {
+      setNarratorVoiceTestStatus('Enter test text first.');
+      return;
+    }
+    setNarratorVoiceTesting(true);
+    setNarratorVoiceTestStatus('');
+    setNarratorVoiceTestClip(null);
+    try {
+      const clips = await onGenerateCharacterVoicePreview({
+        providerId: editingConnection.id,
+        speechText,
+        sampleDataUrl,
+      });
+      const clip = clips[0];
+      if (!clip) {
+        setNarratorVoiceTestStatus('No voice clip was returned.');
+        return;
+      }
+      setNarratorVoiceTestClip(clip);
+      setNarratorVoiceTestStatus('Narrator voice test generated.');
+    } catch (error) {
+      setNarratorVoiceTestStatus(
+        `Narrator voice test failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setNarratorVoiceTesting(false);
+    }
   }
   const textDialogBytesPerEstimatedToken = textDialogNode?.data.displayTokenBytesPerToken;
   const formattedHistoryText =
@@ -2825,78 +2873,122 @@ export function StudioDialogs({
                         ) : null}
                       </div>
                       {comfyWorkflowSetupConfirmed && !comfyWorkflowIncompatible && isComfyVoiceEditing ? (
-                        <div className="connection-provider-tools comfy-connection-tools" aria-label="ComfyUI voice connection tools">
-                          <div>
-                            <strong>
-                              ComfyUI Voice
-                              <span className={providerHealthClass(editingConnectionHealth)}>
-                                {providerHealthLabel(editingConnectionHealth)}
+                        <>
+                          <div className="connection-provider-tools comfy-connection-tools" aria-label="ComfyUI voice connection tools">
+                            <div>
+                              <strong>
+                                ComfyUI Voice
+                                <span className={providerHealthClass(editingConnectionHealth)}>
+                                  {providerHealthLabel(editingConnectionHealth)}
+                                </span>
+                                <ProviderCapabilityBadges
+                                  capabilities={editingConnectionHealth.capabilities ?? { voice: true }}
+                                  kinds={['voice']}
+                                />
+                              </strong>
+                              <span>
+                                {editingConnectionHealth.detail ||
+                                  'Voice clips are generated from the character voice samples in the Storybook character setup.'}
                               </span>
-                              <ProviderCapabilityBadges
-                                capabilities={editingConnectionHealth.capabilities ?? { voice: true }}
-                                kinds={['voice']}
+                            </div>
+                            <div className="connection-provider-actions">
+                              <button
+                                type="button"
+                                className="danger"
+                                onClick={onUnloadComfyModels}
+                                disabled={comfyProviderActionActive !== null}
+                              >
+                                {comfyProviderActionActive === 'unload' ? 'Unloading ...' : 'Unload Models'}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="connection-field connection-field-checkbox">
+                            <label className="node-toggle nodrag">
+                              <input
+                                className="nodrag nowheel"
+                                type="checkbox"
+                                checked={editingConnection.comfyDeleteVoiceOutputs !== false}
+                                onChange={(event) => onEditConnection('comfyDeleteVoiceOutputs', event.target.checked)}
                               />
-                            </strong>
-                            <span>
-                              {editingConnectionHealth.detail ||
-                                'Voice clips are generated from the character voice samples in the Storybook character setup.'}
-                            </span>
+                              <span>Delete generated voice files after download</span>
+                            </label>
+                            <p className="character-voice-hint">
+                              Keeps the voice clip embedded in RPGraph, then removes the temporary ComfyUI output file.
+                            </p>
                           </div>
-                          <div className="connection-provider-actions">
-                            <button
-                              type="button"
-                              className="danger"
-                              onClick={onUnloadComfyModels}
-                              disabled={comfyProviderActionActive !== null}
-                            >
-                              {comfyProviderActionActive === 'unload' ? 'Unloading ...' : 'Unload Models'}
-                            </button>
+                          <div className="character-voice-card">
+                            <div className="character-voice-card-header">
+                              <span className="character-voice-card-title">NARRATOR VOICE (MP3)</span>
+                              <button
+                                id="comfy-narrator-voice"
+                                type="button"
+                                className="contextual-action-button nodrag"
+                                onClick={() => void chooseNarratorVoiceSample()}
+                              >
+                                {editingConnection.comfyNarratorVoice ? 'Replace MP3 Sample' : 'Choose MP3 Sample'}
+                              </button>
+                            </div>
+                            <p className="character-voice-hint">
+                              Optional MP3 sample of 10 to 20 seconds for the narrator. It reads the
+                              narration text between the character quotes when the chat uses the
+                              read-aloud voice playback.
+                            </p>
+                            {editingConnection.comfyNarratorVoice ? (
+                              <DarkAudioPlayer
+                                src={editingConnection.comfyNarratorVoice.dataUrl}
+                                title={editingConnection.comfyNarratorVoice.name || 'Narrator voice sample'}
+                                onRemove={() => onEditConnection('comfyNarratorVoice', undefined)}
+                                className="voice-sample-player"
+                              />
+                            ) : (
+                              <div className="character-voice-empty-sample">
+                                <span>No narrator voice sample uploaded yet</span>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ) : null}
-                      {isComfyVoiceEditing ? (
-                        <div className="connection-field">
-                          <label className="node-toggle nodrag">
-                            <input
-                              className="nodrag nowheel"
-                              type="checkbox"
-                              checked={editingConnection.comfyDeleteVoiceOutputs !== false}
-                              onChange={(event) => onEditConnection('comfyDeleteVoiceOutputs', event.target.checked)}
-                            />
-                            Delete generated voice files after download
-                          </label>
-                          <p className="character-voice-hint">
-                            Keeps the voice clip embedded in RPGraph, then removes the temporary ComfyUI output file.
-                          </p>
-                        </div>
-                      ) : null}
-                      {isComfyVoiceEditing ? (
-                        <div className="connection-field comfy-narrator-voice-field">
-                          <label htmlFor="comfy-narrator-voice">NARRATOR VOICE (MP3)</label>
-                          <p className="character-voice-hint">
-                            Optional MP3 sample of 10 to 20 seconds for the narrator. It reads the
-                            narration text between the character quotes when the chat uses the
-                            read-aloud voice playback.
-                          </p>
-                          {editingConnection.comfyNarratorVoice ? (
-                            <DarkAudioPlayer
-                              src={editingConnection.comfyNarratorVoice.dataUrl}
-                              title={editingConnection.comfyNarratorVoice.name || 'Narrator voice sample'}
-                              onRemove={() => onEditConnection('comfyNarratorVoice', undefined)}
-                              className="voice-sample-player"
-                            />
-                          ) : null}
-                          <div className="connection-provider-actions">
-                            <button
-                              id="comfy-narrator-voice"
-                              type="button"
-                              className="secondary"
-                              onClick={() => void chooseNarratorVoiceSample()}
-                            >
-                              {editingConnection.comfyNarratorVoice ? 'Replace MP3 Sample' : 'Choose MP3 Sample'}
-                            </button>
+                          <div className="character-voice-card">
+                            <div className="character-voice-card-header">
+                              <span className="character-voice-card-title">NARRATOR VOICE GENERATION &amp; TESTING</span>
+                              <button
+                                type="button"
+                                className="contextual-action-button nodrag"
+                                disabled={narratorVoiceTesting || !editingConnection.comfyNarratorVoice}
+                                onClick={() => void testNarratorVoice()}
+                              >
+                                {narratorVoiceTesting ? 'Testing ...' : 'Test Narrator Voice'}
+                              </button>
+                            </div>
+                            <label className="character-comfy-field">
+                              <span>TEST TEXT</span>
+                              <textarea
+                                className="node-textarea nodrag nowheel"
+                                rows={3}
+                                value={narratorVoiceTestText}
+                                placeholder="Write a sentence the narrator should read ..."
+                                onChange={(event) => setNarratorVoiceTestText(event.currentTarget.value)}
+                              />
+                            </label>
+                            {narratorVoiceTesting ? (
+                              <div className="character-voice-generating-box">
+                                <span className="character-voice-spinner" aria-hidden="true" />
+                                <span>Generating narrator voice test ...</span>
+                              </div>
+                            ) : narratorVoiceTestClip ? (
+                              <div className="character-voice-result-box">
+                                <span className="character-voice-result-label">TEST RESULT</span>
+                                <DarkAudioPlayer
+                                  src={narratorVoiceTestClip.dataUrl}
+                                  title={narratorVoiceTestClip.filename || 'Narrator voice test'}
+                                  className="voice-sample-player"
+                                  autoPlay
+                                />
+                              </div>
+                            ) : null}
+                            {narratorVoiceTestStatus && (
+                              <p className="character-voice-hint">{narratorVoiceTestStatus}</p>
+                            )}
                           </div>
-                        </div>
+                        </>
                       ) : null}
                       {comfyWorkflowSetupConfirmed && !comfyWorkflowIncompatible && isComfyImageEditing ? (
                         <>
