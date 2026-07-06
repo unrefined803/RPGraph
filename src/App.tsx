@@ -1264,6 +1264,7 @@ function App() {
     comfyWorkflowRepairInspection,
     modelCapabilitiesSourceLabel,
     openConnectionManager,
+    openOpenRouterTtsSetup,
     closeConnectionManager,
     selectConnection,
     newConnection,
@@ -5950,7 +5951,7 @@ function App() {
               narratorProviderOptions={narratorProviderOptions}
               narratorProviderId={resolvedNarratorProviderId}
               onNarratorProviderChange={setDialogueNarratorProviderId}
-              onOpenProviders={openConnectionManager}
+              onConfigureOpenRouterTts={openOpenRouterTtsSetup}
               voiceReadAloudActive={readAloudActive}
               onStopVoiceReadAloud={stopDialogueVoice}
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}

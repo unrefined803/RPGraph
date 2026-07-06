@@ -78,6 +78,8 @@ type AvailableComfyModels = {
   diffusion_models: string[];
 };
 
+const recommendedOpenRouterTtsModel = 'google/gemini-3.1-flash-tts-preview';
+
 function comfyConnectionCapabilities(connection: ConnectionPreset) {
   return comfyConnectionRole(connection) === 'voice' ? { voice: true } : { image: true };
 }
@@ -251,6 +253,54 @@ export function useProviderConnections({
     setConnectionStatus('');
     setShowConnections(true);
     void checkProviderConnections(connections, { showStatus: true });
+  }
+
+  function openOpenRouterTtsSetup() {
+    const existing = connections.find(isOpenRouterConnection);
+    const baseConnection: ConnectionPreset = existing ?? {
+      id: createProviderConnectionId(),
+      kind: 'llm',
+      providerKind: 'openrouter',
+      label: 'OpenRouter TTS',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      apiKey: '',
+      model: recommendedOpenRouterTtsModel,
+      reasoningEffort: 'none',
+      vision: false,
+      ...defaultConnectionSampling,
+    };
+    const modelDetails = openRouterModelsByConnectionIdRef.current[baseConnection.id] ?? [];
+    const selectedModel = modelDetails.find((model) => model.id === recommendedOpenRouterTtsModel);
+    const nextConnection = connectionWithOpenRouterCapabilities({
+      ...baseConnection,
+      model: recommendedOpenRouterTtsModel,
+      ttsVoice: selectedModel?.supportedVoices.includes(baseConnection.ttsVoice ?? '')
+        ? baseConnection.ttsVoice
+        : selectedModel?.supportedVoices[0],
+    }, modelDetails);
+    setConnections((current) => current.some((connection) => connection.id === nextConnection.id)
+      ? current.map((connection) => connection.id === nextConnection.id ? nextConnection : connection)
+      : [...current, nextConnection]);
+    setEditingConnection(nextConnection);
+    setConnectionDraftPending(false);
+    setAvailableConnectionModels(modelDetails.map((model) => model.id));
+    setAvailableComfyModels({
+      checkpoints: [],
+      loras: [],
+      vae: [],
+      text_encoders: [],
+      diffusion_models: [],
+    });
+    setComfyWorkflowInspection(null);
+    setPendingComfyWorkflowRepair(null);
+    setComfyWorkflowRepairStatus('');
+    setConnectionStatus(
+      existing
+        ? 'OpenRouter TTS model selected. Choose its voice and delivery settings.'
+        : 'OpenRouter TTS provider created. Add your API key, then check the models.',
+    );
+    setShowConnections(true);
+    void checkProviderConnection(nextConnection, { showStatus: false });
   }
 
   function closeConnectionManager() {
@@ -595,9 +645,13 @@ export function useProviderConnections({
     );
     setConnections((current) =>
       current.map((entry) =>
-        entry.id === connection.id && entry.vision !== vision
-          ? { ...entry, vision }
-          : entry,
+        entry.id !== connection.id
+          ? entry
+          : isOpenRouterConnection(entry)
+            ? connectionWithOpenRouterCapabilities(entry)
+            : entry.vision !== vision
+              ? { ...entry, vision }
+              : entry,
       ),
     );
   }
@@ -2049,6 +2103,7 @@ export function useProviderConnections({
     comfyWorkflowRepairInspection,
     modelCapabilitiesSourceLabel,
     openConnectionManager,
+    openOpenRouterTtsSetup,
     closeConnectionManager,
     selectConnection,
     newConnection,

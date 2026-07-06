@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { DialogueVoiceMode } from '../types';
 
 type VoicePlaybackDialogProps = {
@@ -10,7 +11,7 @@ type VoicePlaybackDialogProps = {
   narratorProviderOptions: Array<{ value: string; label: string }>;
   narratorProviderId: string;
   onNarratorProviderChange: (providerId: string) => void;
-  onOpenProviders: () => void;
+  onConfigureOpenRouterTts: () => void;
   onClose: () => void;
 };
 
@@ -50,7 +51,7 @@ export function VoicePlaybackDialog({
   narratorProviderOptions,
   narratorProviderId,
   onNarratorProviderChange,
-  onOpenProviders,
+  onConfigureOpenRouterTts,
   onClose,
 }: VoicePlaybackDialogProps) {
   useEffect(() => {
@@ -70,7 +71,7 @@ export function VoicePlaybackDialog({
     return null;
   };
 
-  return (
+  return createPortal(
     <div className="dialog-backdrop voice-playback-dialog-backdrop" onMouseDown={onClose}>
       <section
         className="voice-playback-dialog"
@@ -137,7 +138,25 @@ export function VoicePlaybackDialog({
               <h3>API narrator setup</h3>
               <ol>
                 <li>Create or select an OpenRouter provider.</li>
-                <li>Select <code>google/gemini-3.1-flash-tts-preview</code> or another speech-only model.</li>
+                <li>
+                  Select{' '}
+                  <button
+                    type="button"
+                    className="voice-playback-provider-link"
+                    onClick={() => {
+                      onClose();
+                      onConfigureOpenRouterTts();
+                    }}
+                  >
+                    <code>google/gemini-3.1-flash-tts-preview</code>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M14 5h5v5" />
+                      <path d="M10 14 19 5" />
+                      <path d="M19 13v6H5V5h6" />
+                    </svg>
+                  </button>
+                  {' '}or another speech-only model.
+                </li>
                 <li>Choose its voice and optional delivery settings.</li>
                 <li>Click <strong>Set Narrator Only model</strong>.</li>
               </ol>
@@ -152,19 +171,10 @@ export function VoicePlaybackDialog({
               </p>
             </div>
 
-            <button
-              type="button"
-              className="voice-playback-open-providers"
-              onClick={() => {
-                onClose();
-                onOpenProviders();
-              }}
-            >
-              Open Providers
-            </button>
           </aside>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

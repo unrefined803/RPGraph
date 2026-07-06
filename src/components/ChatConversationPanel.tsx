@@ -101,7 +101,7 @@ type ChatConversationPanelProps = {
   narratorProviderOptions: Array<{ value: string; label: string }>;
   narratorProviderId: string;
   onNarratorProviderChange: (providerId: string) => void;
-  onOpenProviders: () => void;
+  onConfigureOpenRouterTts: () => void;
   voiceReadAloudActive: boolean;
   onStopVoiceReadAloud: () => void;
   rpTimeTrackingEnabled: boolean;
@@ -166,7 +166,7 @@ export function ChatConversationPanel({
   narratorProviderOptions,
   narratorProviderId,
   onNarratorProviderChange,
-  onOpenProviders,
+  onConfigureOpenRouterTts,
   voiceReadAloudActive,
   onStopVoiceReadAloud,
   rpTimeTrackingEnabled,
@@ -1647,7 +1647,7 @@ export function ChatConversationPanel({
           narratorProviderOptions={narratorProviderOptions}
           narratorProviderId={narratorProviderId}
           onNarratorProviderChange={onNarratorProviderChange}
-          onOpenProviders={onOpenProviders}
+          onConfigureOpenRouterTts={onConfigureOpenRouterTts}
           onClose={() => setVoicePlaybackDialogOpen(false)}
         />
       )}

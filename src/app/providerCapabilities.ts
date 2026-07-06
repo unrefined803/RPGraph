@@ -142,9 +142,16 @@ export function connectionWithOpenRouterCapabilities(
     return connection;
   }
   const capabilities = openRouterCapabilitiesForConnection(connection, models);
+  const model = selectedOpenRouterModel(connection, models);
+  const supportedVoices = model?.supportedVoices ?? [];
   return {
     ...connection,
     vision: capabilities.vision === true,
+    ttsVoice: capabilities.voice === true && capabilities.text !== true && supportedVoices.length > 0
+      ? supportedVoices.includes(connection.ttsVoice ?? '')
+        ? connection.ttsVoice
+        : supportedVoices[0]
+      : connection.ttsVoice,
   };
 }
 

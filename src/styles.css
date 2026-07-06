@@ -9644,6 +9644,10 @@ button.message-timeline-row.phone:focus-visible {
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
 }
 
+.voice-playback-dialog-backdrop {
+  z-index: 80;
+}
+
 .voice-playback-dialog-header {
   display: flex;
   align-items: flex-start;
@@ -9789,8 +9793,34 @@ button.message-timeline-row.phone:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.voice-playback-open-providers {
-  justify-self: start;
+.voice-playback-provider-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 3px;
+  border: 0;
+  border-radius: 4px;
+  color: #a8c7ff;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.voice-playback-provider-link:hover,
+.voice-playback-provider-link:focus-visible {
+  outline: none;
+  color: #d9e8ff;
+  background: #1c2b43;
+}
+
+.voice-playback-provider-link svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 @media (max-width: 760px) {
