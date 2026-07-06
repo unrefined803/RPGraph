@@ -48,6 +48,7 @@ const bundledComfyWorkflows = [
 const defaultComfyWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/image/Krea2.json');
 const defaultComfyVoiceWorkflowPath = path.join(__dirname, '../comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json');
 const maxComfyVoiceSampleBytes = 24 * 1024 * 1024;
+const windowCloseCleanupTimeoutMs = 8000;
 const appIconPath = path.join(
   __dirname,
   process.platform === 'win32'
@@ -2159,9 +2160,38 @@ async function requestComfyJson(baseUrl, route, init, abort) {
 // (click-to-speak, preload, read-aloud) do not reload it every time. The
 // memory is freed lazily: right before the next local LLM request needs the
 // VRAM, plus a short settle delay so the memory is actually released before
-// the local LLM starts loading.
+// the local LLM starts loading. The pending state is persisted because
+// ComfyUI keeps the model loaded across RPGraph restarts.
 let pendingComfyVoiceFreeBaseUrl = '';
-const comfyVoiceFreeSettleMs = 1000;
+let pendingComfyVoiceFreeLoaded = false;
+const comfyVoiceFreeSettleMs = 1500;
+
+function comfyVoiceStatePath() {
+  return path.join(app.getPath('userData'), 'comfy-voice-state.json');
+}
+
+async function pendingComfyVoiceFree() {
+  if (!pendingComfyVoiceFreeLoaded) {
+    pendingComfyVoiceFreeLoaded = true;
+    try {
+      const parsed = JSON.parse(await fs.readFile(comfyVoiceStatePath(), 'utf8'));
+      if (!pendingComfyVoiceFreeBaseUrl && typeof parsed?.pendingFreeBaseUrl === 'string') {
+        pendingComfyVoiceFreeBaseUrl = parsed.pendingFreeBaseUrl;
+      }
+    } catch {
+      // First run or unreadable state file; nothing pending.
+    }
+  }
+  return pendingComfyVoiceFreeBaseUrl;
+}
+
+function setPendingComfyVoiceFree(baseUrl) {
+  pendingComfyVoiceFreeBaseUrl = typeof baseUrl === 'string' ? baseUrl : '';
+  pendingComfyVoiceFreeLoaded = true;
+  void fs
+    .writeFile(comfyVoiceStatePath(), JSON.stringify({ pendingFreeBaseUrl: pendingComfyVoiceFreeBaseUrl }))
+    .catch(() => {});
+}
 
 function isLocalLlmBaseUrl(value) {
   try {
@@ -2173,11 +2203,15 @@ function isLocalLlmBaseUrl(value) {
 }
 
 async function freeComfyVoiceMemoryForLocalLlm(connection) {
-  const comfyBaseUrl = pendingComfyVoiceFreeBaseUrl;
-  if (!comfyBaseUrl || !isLocalLlmBaseUrl(connection?.baseUrl)) {
+  const comfyBaseUrl = await pendingComfyVoiceFree();
+  const providerKind = typeof connection?.providerKind === 'string' ? connection.providerKind : '';
+  const shouldFreeBeforeLlm =
+    providerKind === 'lm-studio' ||
+    providerKind === 'ollama' ||
+    isLocalLlmBaseUrl(connection?.baseUrl);
+  if (!comfyBaseUrl || !shouldFreeBeforeLlm) {
     return;
   }
-  pendingComfyVoiceFreeBaseUrl = '';
   const abort = { signal: new AbortController().signal };
   try {
     await requestComfyJson(comfyBaseUrl, 'free', {
@@ -2187,9 +2221,11 @@ async function freeComfyVoiceMemoryForLocalLlm(connection) {
         free_memory: true,
       }),
     }, abort);
+    setPendingComfyVoiceFree('');
     await new Promise((resolve) => setTimeout(resolve, comfyVoiceFreeSettleMs));
   } catch {
-    // ComfyUI may already be gone; the LLM request proceeds either way.
+    // ComfyUI may already be gone; keep the pending marker so the next local
+    // LLM request can try again if the voice model is still occupying VRAM.
   }
 }
 
@@ -2309,6 +2345,46 @@ async function uploadComfyVoiceSample(baseUrl, sampleDataUrl, abort) {
   return subfolder ? `${subfolder}/${uploadedName}` : uploadedName;
 }
 
+// ComfyUI skips execution completely when a prompt is identical to an already
+// executed one, and the new history entry then contains no outputs. Voice
+// workflows use fixed seeds, so repeated generations of the same text would
+// hit that cache; randomizing the seed inputs forces a real run every time.
+function withRandomizedComfySeeds(workflow) {
+  for (const node of Object.values(workflow)) {
+    const inputs = node && typeof node === 'object' ? node.inputs : undefined;
+    if (!inputs || typeof inputs !== 'object') {
+      continue;
+    }
+    for (const seedKey of ['seed', 'noise_seed']) {
+      if (typeof inputs[seedKey] === 'number') {
+        inputs[seedKey] = crypto.randomInt(0, 2 ** 31);
+      }
+    }
+  }
+  return workflow;
+}
+
+function comfyHistoryErrorDetail(promptId, history) {
+  const status = history?.[promptId]?.status;
+  if (!status || status.status_str !== 'error') {
+    return '';
+  }
+  const messages = Array.isArray(status.messages) ? status.messages : [];
+  for (const message of messages) {
+    if (Array.isArray(message) && message[0] === 'execution_error') {
+      const detail = message[1];
+      const nodeType = typeof detail?.node_type === 'string' ? detail.node_type : '';
+      const exceptionMessage = typeof detail?.exception_message === 'string'
+        ? detail.exception_message.trim()
+        : '';
+      if (exceptionMessage) {
+        return nodeType ? `${nodeType}: ${exceptionMessage}` : exceptionMessage;
+      }
+    }
+  }
+  return 'the ComfyUI execution failed';
+}
+
 function comfyHistoryOutputFiles(promptId, history, outputKey) {
   const promptHistory = history?.[promptId];
   const outputs = promptHistory?.outputs;
@@ -2377,7 +2453,10 @@ async function runComfyPrompt(baseUrl, workflow, timeoutMs, abort) {
   const { promptId, history } = await waitForComfyPromptHistory(baseUrl, workflow, timeoutMs, abort);
   const imageRefs = comfyHistoryOutputFiles(promptId, history, 'images');
   if (imageRefs.length === 0) {
-    throw new Error(`ComfyUI prompt ${promptId} finished, but no output images were found in history.`);
+    const errorDetail = comfyHistoryErrorDetail(promptId, history);
+    throw new Error(errorDetail
+      ? `ComfyUI image generation failed: ${errorDetail}`
+      : `ComfyUI prompt ${promptId} finished, but no output images were found in history.`);
   }
 
   const images = [];
@@ -2395,7 +2474,10 @@ async function runComfyVoicePrompt(baseUrl, workflow, timeoutMs, abort) {
   const { promptId, history } = await waitForComfyPromptHistory(baseUrl, workflow, timeoutMs, abort);
   const audioRefs = comfyHistoryOutputFiles(promptId, history, 'audio');
   if (audioRefs.length === 0) {
-    throw new Error(`ComfyUI prompt ${promptId} finished, but no output audio was found in history.`);
+    const errorDetail = comfyHistoryErrorDetail(promptId, history);
+    throw new Error(errorDetail
+      ? `ComfyUI voice generation failed: ${errorDetail}`
+      : `ComfyUI prompt ${promptId} finished, but no output audio was found in history.`);
   }
 
   const audio = [];
@@ -2988,6 +3070,7 @@ ipcMain.handle('comfy:run-workflow-path', async (_event, request) => {
 ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
   const abort = createLlmAbortController(request);
   try {
+    setPendingComfyVoiceFree(typeof request?.baseUrl === 'string' ? request.baseUrl : '');
     const filePath = validateComfyWorkflowPath(
       request?.workflowPath || defaultComfyWorkflowPathForRole('voice'),
     );
@@ -3003,9 +3086,8 @@ ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
       speech_text: speechText,
       voice_audio: voiceAudio,
     });
-    const workflow = comfyPromptFromWorkflow(workflowJson);
+    const workflow = withRandomizedComfySeeds(comfyPromptFromWorkflow(workflowJson));
     const result = await runComfyVoicePrompt(request?.baseUrl, workflow, request?.timeoutMs, abort);
-    pendingComfyVoiceFreeBaseUrl = typeof request?.baseUrl === 'string' ? request.baseUrl : '';
     return result;
   } catch (error) {
     if (abort.signal.aborted) {
@@ -3048,7 +3130,7 @@ ipcMain.handle('comfy:free-memory', async (_event, request) => {
         free_memory: true,
       }),
     }, abort);
-    pendingComfyVoiceFreeBaseUrl = '';
+    setPendingComfyVoiceFree('');
     return { ok: true };
   } catch (error) {
     if (abort.signal.aborted) {
@@ -3654,6 +3736,23 @@ ipcMain.handle('window:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close();
 });
 
+const windowCloseCleanupCompleted = new WeakSet();
+const windowCloseCleanupTimeouts = new WeakMap();
+
+ipcMain.handle('window:cleanup-complete-close', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window.isDestroyed()) {
+    return;
+  }
+  const timeout = windowCloseCleanupTimeouts.get(window);
+  if (timeout) {
+    clearTimeout(timeout);
+    windowCloseCleanupTimeouts.delete(window);
+  }
+  windowCloseCleanupCompleted.add(window);
+  window.close();
+});
+
 async function createWindow() {
   Menu.setApplicationMenu(null);
   const windowState = await loadWindowState();
@@ -3699,7 +3798,26 @@ async function createWindow() {
   ]) {
     window.on(eventName, () => scheduleWindowStateSave(window));
   }
-  window.on('close', () => saveWindowState(window));
+  window.on('close', (event) => {
+    saveWindowState(window);
+    if (windowCloseCleanupCompleted.has(window) || window.webContents.isDestroyed()) {
+      return;
+    }
+    event.preventDefault();
+    if (windowCloseCleanupTimeouts.has(window)) {
+      return;
+    }
+    window.webContents.send('window:cleanup-before-close');
+    const timeout = setTimeout(() => {
+      windowCloseCleanupTimeouts.delete(window);
+      if (window.isDestroyed()) {
+        return;
+      }
+      windowCloseCleanupCompleted.add(window);
+      window.close();
+    }, windowCloseCleanupTimeoutMs);
+    windowCloseCleanupTimeouts.set(window, timeout);
+  });
   window.once('ready-to-show', () => {
     if (windowState.isFullScreen) {
       window.setFullScreen(true);

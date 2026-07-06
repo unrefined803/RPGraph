@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ComfyGeneratedImage } from '../comfy/api';
 import type { ComfyWorkflowInspection } from '../comfy/workflowCompatibility';
@@ -169,6 +169,8 @@ export function useProviderConnections({
   const [lmStudioModelActionActive, setLmStudioModelActionActive] = useState<'load' | 'unload' | null>(null);
   const [ollamaModelActionActive, setOllamaModelActionActive] = useState<'load' | 'unload' | null>(null);
   const [comfyProviderActionActive, setComfyProviderActionActive] = useState<'models' | 'generate' | 'unload' | 'repair' | 'apply-repair' | null>(null);
+  const [voiceGenerationActive, setVoiceGenerationActive] = useState(false);
+  const voiceGenerationCountRef = useRef(0);
 
   function isLlmConnection(connection: ConnectionPreset) {
     return connection.kind !== 'comfyui';
@@ -190,6 +192,18 @@ export function useProviderConnections({
   useEffect(() => {
     ollamaModelsByConnectionIdRef.current = ollamaModelsByConnectionId;
   }, [ollamaModelsByConnectionId]);
+
+  function beginVoiceGeneration() {
+    voiceGenerationCountRef.current += 1;
+    setVoiceGenerationActive(true);
+  }
+
+  function endVoiceGeneration() {
+    voiceGenerationCountRef.current = Math.max(0, voiceGenerationCountRef.current - 1);
+    if (voiceGenerationCountRef.current === 0) {
+      setVoiceGenerationActive(false);
+    }
+  }
 
   function openConnectionManager() {
     const selected =
@@ -1510,13 +1524,19 @@ export function useProviderConnections({
       throw new Error('Upload a voice sample for this character first.');
     }
     await unloadLocalLlmModelsForComfy('Local LLM unload before voice preview failed');
-    const result = await window.rpgraph.runComfyVoiceWorkflowPath({
-      baseUrl: connection.baseUrl,
-      workflowPath: comfyWorkflowPathForConnection(connection),
-      speechText,
-      sampleDataUrl: request.sampleDataUrl,
-      timeoutMs: 300000,
-    });
+    beginVoiceGeneration();
+    let result: Awaited<ReturnType<typeof window.rpgraph.runComfyVoiceWorkflowPath>>;
+    try {
+      result = await window.rpgraph.runComfyVoiceWorkflowPath({
+        baseUrl: connection.baseUrl,
+        workflowPath: comfyWorkflowPathForConnection(connection),
+        speechText,
+        sampleDataUrl: request.sampleDataUrl,
+        timeoutMs: 300000,
+      });
+    } finally {
+      endVoiceGeneration();
+    }
     updateProviderHealth(connection.id, {
       status: 'online',
       detail: `Generated ${result.audio.length} voice clip${result.audio.length === 1 ? '' : 's'}.`,
@@ -1564,6 +1584,32 @@ export function useProviderConnections({
       setComfyProviderActionActive(null);
     }
   }
+
+  const unloadAllProviderModelsForClose = useCallback(async () => {
+    const failures: string[] = [];
+    await Promise.all(
+      connections.map(async (connection) => {
+        try {
+          if (connection.kind === 'comfyui') {
+            await window.rpgraph.freeComfyMemory({ baseUrl: connection.baseUrl });
+            return;
+          }
+          if (isLmStudioConnection(connection)) {
+            await window.rpgraph.unloadLmStudioModels(connection);
+            return;
+          }
+          if (isOllamaConnection(connection)) {
+            await window.rpgraph.unloadOllamaModels(connection);
+          }
+        } catch (error) {
+          failures.push(`${connection.label}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }),
+    );
+    if (failures.length > 0) {
+      notifySystem('warning', `Provider unload before close failed: ${failures.join('; ')}`);
+    }
+  }, [connections, notifySystem]);
 
   async function loadLmStudioModel() {
     const connection = connectionFromEditingConnection();
@@ -1843,6 +1889,7 @@ export function useProviderConnections({
     openRouterModelsByConnectionId,
     ollamaModelsByConnectionId,
     comfyProviderActionActive,
+    voiceGenerationActive,
     lmStudioModelActionActive,
     ollamaModelActionActive,
     editingConnectionCapabilities,
@@ -1873,6 +1920,7 @@ export function useProviderConnections({
     unloadLmStudioModels,
     loadOllamaModel,
     unloadOllamaModels,
+    unloadAllProviderModelsForClose,
     applyConnectionToAllNodes,
     checkProviderConnection,
     checkProviderConnectionById,

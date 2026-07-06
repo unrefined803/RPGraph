@@ -156,6 +156,14 @@ contextBridge.exposeInMainWorld('rpgraph', {
   toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggle-maximize'),
   toggleFullScreenWindow: () => ipcRenderer.invoke('window:toggle-full-screen'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
+  onWindowCleanupBeforeClose: (callback) => {
+    const listener = () => {
+      void callback();
+    };
+    ipcRenderer.on('window:cleanup-before-close', listener);
+    return () => ipcRenderer.removeListener('window:cleanup-before-close', listener);
+  },
+  finishWindowCloseCleanup: () => ipcRenderer.invoke('window:cleanup-complete-close'),
   setZoomFactor: (zoomFactor) => {
     const safeZoomFactor = Number.isFinite(zoomFactor)
       ? Math.min(2, Math.max(0.5, zoomFactor))

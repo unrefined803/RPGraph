@@ -161,7 +161,7 @@ import {
 } from '@xyflow/react';
 import { StudioDialogs } from './dialogs/StudioDialogs';
 import { ComfyGeneratedImageDialog } from './comfy/ComfyGeneratedImageDialog';
-import { isComfyVoiceConnection } from './comfy/connectionRole';
+import { isComfyImageConnection, isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
@@ -668,7 +668,7 @@ type PreviewImageState = {
   image: ChatImageAttachment;
 };
 
-type WorkflowCapabilityKind = 'text' | 'vision' | 'image';
+type WorkflowCapabilityKind = 'text' | 'vision' | 'image' | 'audio';
 type WorkflowCapabilityTone = 'ready' | 'missing';
 
 type WorkflowCapabilityIndicator = {
@@ -687,6 +687,15 @@ function WorkflowCapabilityIcon({ kind }: { kind: WorkflowCapabilityKind }) {
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
         <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
+  if (kind === 'audio') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <polygon points="4 9 8 9 13 4 13 20 8 15 4 15" />
+        <path d="M17 9.5a4 4 0 0 1 0 5" />
+        <path d="M19.5 7a7.5 7.5 0 0 1 0 10" />
       </svg>
     );
   }
@@ -1223,6 +1232,7 @@ function App() {
     connectionStatus,
     providerHealthById,
     comfyProviderActionActive,
+    voiceGenerationActive,
     lmStudioModelActionActive,
     ollamaModelActionActive,
     editingConnectionCapabilities,
@@ -1252,6 +1262,7 @@ function App() {
     unloadLmStudioModels,
     loadOllamaModel,
     unloadOllamaModels,
+    unloadAllProviderModelsForClose,
     applyConnectionToAllNodes,
     checkProviderConnection,
     checkProviderConnectionById,
@@ -1303,7 +1314,17 @@ function App() {
       ? 'Requires a narrator voice sample in the ComfyUI voice provider.'
       : charactersWithoutVoice.length > 0
         ? `Requires a voice sample for every storybook character (missing: ${charactersWithoutVoice.join(', ')}).`
-        : null);
+      : null);
+
+  useEffect(() => {
+    return window.rpgraph.onWindowCleanupBeforeClose(async () => {
+      try {
+        await unloadAllProviderModelsForClose();
+      } finally {
+        await window.rpgraph.finishWindowCloseCleanup();
+      }
+    });
+  }, [unloadAllProviderModelsForClose]);
   const wasRunningForDialogueVoiceRef = useRef(false);
   useEffect(() => {
     const wasRunning = wasRunningForDialogueVoiceRef.current;
@@ -5136,6 +5157,7 @@ function App() {
     const explicitComfyProviderIds = new Set<string>();
     let usesVision = false;
     let usesImage = false;
+    const usesAudio = storyCharacters.some((character) => !!character.voiceConfig?.sampleDataUrl);
 
     const connectionIdForNode = (node: WorkflowNode) => {
       const connectionId = typeof node.data.connectionId === 'string' && node.data.connectionId.trim()
@@ -5214,12 +5236,14 @@ function App() {
       (connection, connectionId) =>
         isLlmConnection(connection) && connection.vision === true && connectionIsOnline(connectionId),
     );
-    const comfyProviders = connections.filter((connection) => connection.kind === 'comfyui');
-    const anyImageConnected = comfyProviders.some((connection) => connectionIsOnline(connection.id));
+    const imageProviders = connections.filter(isComfyImageConnection);
+    const voiceProviders = connections.filter(isComfyVoiceConnection);
+    const anyImageConnected = imageProviders.some((connection) => connectionIsOnline(connection.id));
+    const anyVoiceConnected = voiceProviders.some((connection) => connectionIsOnline(connection.id));
     const imageReady = usesImage && (
       explicitComfyProviderIds.size > 0
         ? [...explicitComfyProviderIds].every((providerId) =>
-            comfyProviders.some((connection) => connection.id === providerId && connectionIsOnline(connection.id)),
+            imageProviders.some((connection) => connection.id === providerId && connectionIsOnline(connection.id)),
           )
         : anyImageConnected
     );
@@ -5230,6 +5254,7 @@ function App() {
       node.data.kind === undefined && node.data.runVisionActive === true,
     );
     const imageActive = workflowComfyGenerationActive || comfyProviderActionActive === 'generate';
+    const audioActive = voiceGenerationActive;
     const effectiveTextReady = llmConnectionIds.size > 0 ? textReady : anyTextConnected;
 
     const indicators: WorkflowCapabilityIndicator[] = [{
@@ -5266,6 +5291,19 @@ function App() {
           : 'Image generation: required, but the ComfyUI provider is not connected',
       });
     }
+    if (usesAudio || anyVoiceConnected || audioActive) {
+      const ready = anyVoiceConnected;
+      indicators.push({
+        kind: 'audio',
+        tone: (ready || audioActive) ? 'ready' : 'missing',
+        active: audioActive,
+        label: ready || audioActive
+          ? usesAudio
+            ? 'Audio generation: required and connected'
+            : 'Audio generation: connected'
+          : 'Audio generation: required, but the ComfyUI voice provider is not connected',
+      });
+    }
     return indicators;
   }, [
     comfyProviderActionActive,
@@ -5274,6 +5312,8 @@ function App() {
     nodeViewNodes,
     promptActionSettings,
     providerHealthById,
+    storyCharacters,
+    voiceGenerationActive,
     workflowComfyGenerationActive,
   ]);
 

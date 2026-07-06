@@ -11,7 +11,7 @@
   },
   "9": {
     "inputs": {
-      "text": "speech_text",
+      "text": "{{speech_text}}",
       "model": "VibeVoice-Large-pt",
       "attention_type": "auto",
       "quantize_llm": "full precision",

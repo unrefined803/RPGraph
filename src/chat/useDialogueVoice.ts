@@ -297,12 +297,16 @@ export function useDialogueVoice({
         readAloudTokenRef.current === token ? playClipAndWait(nextClip) : undefined,
       );
     }
-    await playback;
     if (readAloudTokenRef.current === token) {
-      setReadAloudActive(false);
       if (generatedCount > 0) {
         await unloadVoiceModelsAfterQueue();
       }
+      await playback;
+      if (readAloudTokenRef.current === token) {
+        setReadAloudActive(false);
+      }
+    } else {
+      await playback;
     }
   }
 

@@ -381,6 +381,8 @@ declare global {
       toggleMaximizeWindow: () => Promise<{ isMaximized: boolean }>;
       toggleFullScreenWindow: () => Promise<{ isFullScreen: boolean }>;
       closeWindow: () => Promise<void>;
+      onWindowCleanupBeforeClose: (callback: () => void | Promise<void>) => () => void;
+      finishWindowCloseCleanup: () => Promise<void>;
       setZoomFactor: (zoomFactor: number) => void;
     };
   }
