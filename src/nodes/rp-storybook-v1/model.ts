@@ -831,11 +831,15 @@ export function rpStorybookJsonText(storybook: RpStorybookV1) {
 }
 
 export function rpStorybookPromptJsonText(storybook: RpStorybookV1) {
-  const redactMessageImages = (message: MessageRecord): MessageRecord => ({
+  const redactMessageBinaries = (message: MessageRecord): MessageRecord => ({
     ...message,
     imageAttachments: message.imageAttachments?.map((image) => ({
       ...image,
       dataUrl: 'data:image/jpeg;base64,...',
+    })),
+    voiceClips: message.voiceClips?.map((clip) => ({
+      ...clip,
+      dataUrl: 'data:audio/mpeg;base64,...',
     })),
   });
   return JSON.stringify({
@@ -857,11 +861,11 @@ export function rpStorybookPromptJsonText(storybook: RpStorybookV1) {
         ...turn,
         input: {
           ...turn.input,
-          messages: turn.input.messages.map(redactMessageImages),
+          messages: turn.input.messages.map(redactMessageBinaries),
         },
         output: {
           ...turn.output,
-          messages: turn.output.messages.map(redactMessageImages),
+          messages: turn.output.messages.map(redactMessageBinaries),
         },
       })),
     },

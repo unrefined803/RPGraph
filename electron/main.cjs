@@ -3182,7 +3182,11 @@ ipcMain.handle('comfy:free-memory', async (_event, request) => {
         free_memory: true,
       }),
     }, abort);
-    setPendingComfyVoiceFree('');
+    // Only clear the lazy voice-unload marker when this request freed the
+    // ComfyUI instance the voice model was loaded on.
+    if ((await pendingComfyVoiceFree()) === String(request?.baseUrl || '')) {
+      setPendingComfyVoiceFree('');
+    }
     return { ok: true };
   } catch (error) {
     if (abort.signal.aborted) {
