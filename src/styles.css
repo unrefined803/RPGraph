@@ -9406,6 +9406,15 @@ button.message-timeline-row.phone:focus-visible {
     0 4px 9px rgba(0, 0, 0, 0.25);
 }
 
+.composer .voice-stop-button {
+  border-color: #7a4b4b;
+  animation: dialogue-voice-active-pulse 1.4s ease-in-out infinite;
+}
+
+.composer .voice-stop-button:hover:not(:disabled) {
+  border-color: #c65f5f;
+}
+
 .phone-display-menu {
   position: relative;
   flex: 0 0 auto;
@@ -9502,6 +9511,12 @@ button.message-timeline-row.phone:focus-visible {
   outline: none;
   color: #ffffff;
   background: #1a2536;
+}
+
+.phone-display-popover button:disabled {
+  color: #5d6b83;
+  background: transparent;
+  cursor: not-allowed;
 }
 
 .phone-display-popover button.phone-display-checkbox {

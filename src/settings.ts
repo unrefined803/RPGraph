@@ -2,8 +2,10 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type {
   AppSettings,
   ComfyLoraSlot,
+  ComfyNarratorVoice,
   ConnectionReasoningEffort,
   ConnectionPreset,
+  DialogueVoiceMode,
   RpDateTimeFormat,
   RpWeekdayLanguage,
 } from './types';
@@ -58,6 +60,26 @@ const rpWeekdayLanguages = [
 const defaultGlassDesignEnabled = true;
 const defaultRetryFormatErrorsEnabled = true;
 const defaultGlassDesignOpacity = 0.6;
+const defaultDialogueVoiceMode: DialogueVoiceMode = 'click';
+const dialogueVoiceModes = ['click', 'preload', 'read-aloud'] as const satisfies readonly DialogueVoiceMode[];
+
+function validDialogueVoiceMode(value: unknown): DialogueVoiceMode {
+  return dialogueVoiceModes.includes(value as DialogueVoiceMode)
+    ? (value as DialogueVoiceMode)
+    : defaultDialogueVoiceMode;
+}
+
+function validComfyNarratorVoice(value: unknown): ComfyNarratorVoice | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const voice = value as Partial<ComfyNarratorVoice>;
+  return typeof voice.name === 'string' &&
+    typeof voice.dataUrl === 'string' &&
+    voice.dataUrl.startsWith('data:audio/')
+    ? { name: voice.name, dataUrl: voice.dataUrl }
+    : undefined;
+}
 const defaultUiScale = 1;
 export const minUiScale = 0.5;
 export const maxUiScale = 2;
@@ -392,6 +414,9 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
     comfyWorkflowSetupConfirmed: kind === 'comfyui'
       ? connection.comfyWorkflowSetupConfirmed === true
       : undefined,
+    comfyNarratorVoice: comfyRole === 'voice'
+      ? validComfyNarratorVoice(connection.comfyNarratorVoice)
+      : undefined,
     comfyWidth: isComfyImage
       ? validComfyDimension(connection.comfyWidth, defaultComfyWidth)
       : undefined,
@@ -468,6 +493,8 @@ function isConnectionPreset(value: unknown): value is ConnectionPreset {
     typeof connection.apiKey === 'string' &&
     typeof connection.model === 'string' &&
     (connection.comfyWorkflowPath === undefined || typeof connection.comfyWorkflowPath === 'string') &&
+    (connection.comfyNarratorVoice === undefined ||
+      validComfyNarratorVoice(connection.comfyNarratorVoice) !== undefined) &&
     (connection.comfyWidth === undefined || (typeof connection.comfyWidth === 'number' && Number.isFinite(connection.comfyWidth))) &&
     (connection.comfyHeight === undefined || (typeof connection.comfyHeight === 'number' && Number.isFinite(connection.comfyHeight))) &&
     (connection.comfyPrompt === undefined || typeof connection.comfyPrompt === 'string') &&
@@ -629,6 +656,8 @@ function isAppSettings(value: unknown): value is AppSettings {
         settings.options.uiScale <= maxUiScale)) &&
     (settings.options.retryFormatErrorsEnabled === undefined ||
       typeof settings.options.retryFormatErrorsEnabled === 'boolean') &&
+    (settings.options.dialogueVoiceMode === undefined ||
+      dialogueVoiceModes.includes(settings.options.dialogueVoiceMode)) &&
     (!settings.layout || validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined)
   );
 }
@@ -692,6 +721,8 @@ type AppSettingsState = {
   setUiScale: Dispatch<SetStateAction<number>>;
   retryFormatErrorsEnabled: boolean;
   setRetryFormatErrorsEnabled: Dispatch<SetStateAction<boolean>>;
+  dialogueVoiceMode: DialogueVoiceMode;
+  setDialogueVoiceMode: Dispatch<SetStateAction<DialogueVoiceMode>>;
 };
 
 export function useAppSettings(): AppSettingsState {
@@ -742,6 +773,9 @@ export function useAppSettings(): AppSettingsState {
   const [uiScale, setUiScale] = useState(defaultUiScale);
   const [retryFormatErrorsEnabled, setRetryFormatErrorsEnabled] = useState(
     defaultRetryFormatErrorsEnabled,
+  );
+  const [dialogueVoiceMode, setDialogueVoiceMode] = useState<DialogueVoiceMode>(
+    defaultDialogueVoiceMode,
   );
   const [settingsLoadComplete, setSettingsLoadComplete] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -828,6 +862,7 @@ export function useAppSettings(): AppSettingsState {
         setRetryFormatErrorsEnabled(
           result.settings.options.retryFormatErrorsEnabled ?? defaultRetryFormatErrorsEnabled,
         );
+        setDialogueVoiceMode(validDialogueVoiceMode(result.settings.options.dialogueVoiceMode));
         setChatPanelWidth(
           validChatPanelWidth(result.settings.layout?.chatPanelWidth) ?? defaultChatPanelWidth,
         );
@@ -888,6 +923,7 @@ export function useAppSettings(): AppSettingsState {
         nodeTextSize: validNodeTextSize(nodeTextSize),
         uiScale: validUiScale(uiScale),
         retryFormatErrorsEnabled,
+        dialogueVoiceMode,
       },
       layout: {
         chatPanelWidth,
@@ -937,6 +973,7 @@ export function useAppSettings(): AppSettingsState {
     nodeTextSize,
     uiScale,
     retryFormatErrorsEnabled,
+    dialogueVoiceMode,
     settingsLoaded,
     settingsRecoveryNotice,
     apiKeyStorageNotice,
@@ -1001,5 +1038,7 @@ export function useAppSettings(): AppSettingsState {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    dialogueVoiceMode,
+    setDialogueVoiceMode,
   };
 }

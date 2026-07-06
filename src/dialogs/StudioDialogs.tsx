@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { StatLine } from '../components/StatLine';
 import { ModelIdPicker } from '../components/ModelIdPicker';
+import { DarkAudioPlayer } from '../components/DarkAudioPlayer';
 import type {
   MessageRecord,
   ConnectionPreset,
@@ -1106,6 +1107,17 @@ export function StudioDialogs({
         `Copy failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  async function chooseNarratorVoiceSample() {
+    const result = await window.rpgraph.selectAudio();
+    if (result.canceled || !result.audio) {
+      return;
+    }
+    onEditConnection('comfyNarratorVoice', {
+      name: result.audio.name,
+      dataUrl: result.audio.dataUrl,
+    });
   }
   const textDialogBytesPerEstimatedToken = textDialogNode?.data.displayTokenBytesPerToken;
   const formattedHistoryText =
@@ -2838,6 +2850,34 @@ export function StudioDialogs({
                               disabled={comfyProviderActionActive !== null}
                             >
                               {comfyProviderActionActive === 'unload' ? 'Unloading ...' : 'Unload Models'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {isComfyVoiceEditing ? (
+                        <div className="connection-field comfy-narrator-voice-field">
+                          <label htmlFor="comfy-narrator-voice">NARRATOR VOICE (MP3)</label>
+                          <p className="character-voice-hint">
+                            Optional MP3 sample of 10 to 20 seconds for the narrator. It reads the
+                            narration text between the character quotes when the chat uses the
+                            read-aloud voice playback.
+                          </p>
+                          {editingConnection.comfyNarratorVoice ? (
+                            <DarkAudioPlayer
+                              src={editingConnection.comfyNarratorVoice.dataUrl}
+                              title={editingConnection.comfyNarratorVoice.name || 'Narrator voice sample'}
+                              onRemove={() => onEditConnection('comfyNarratorVoice', undefined)}
+                              className="voice-sample-player"
+                            />
+                          ) : null}
+                          <div className="connection-provider-actions">
+                            <button
+                              id="comfy-narrator-voice"
+                              type="button"
+                              className="secondary"
+                              onClick={() => void chooseNarratorVoiceSample()}
+                            >
+                              {editingConnection.comfyNarratorVoice ? 'Replace MP3 Sample' : 'Choose MP3 Sample'}
                             </button>
                           </div>
                         </div>

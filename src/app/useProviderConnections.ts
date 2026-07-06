@@ -362,6 +362,9 @@ export function useProviderConnections({
       comfyWorkflowSetupConfirmed: kind === 'comfyui'
         ? editingConnection.comfyWorkflowSetupConfirmed === true
         : undefined,
+      comfyNarratorVoice: comfyRole === 'voice'
+        ? editingConnection.comfyNarratorVoice
+        : undefined,
       comfyWidth: isComfyImage
         ? validComfyDimension(editingConnection.comfyWidth, defaultComfyWidth)
         : undefined,

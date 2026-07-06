@@ -1,7 +1,8 @@
 {
   "8": {
     "inputs": {
-      "audio": "{{voice_audio}}"
+      "audio": "{{voice_audio}}",
+      "audioUI": "/api/view?filename=%7B%7Bvoice_audio%7D%7D&type=input&subfolder=&rand=0.5659257153224965"
     },
     "class_type": "LoadAudio",
     "_meta": {
@@ -10,11 +11,11 @@
   },
   "9": {
     "inputs": {
-      "text": "{{speech_text}}",
+      "text": "speech_text",
       "model": "VibeVoice-Large-pt",
       "attention_type": "auto",
       "quantize_llm": "full precision",
-      "free_memory_after_generate": true,
+      "free_memory_after_generate": false,
       "diffusion_steps": 80,
       "seed": 1337,
       "cfg_scale": 2,
@@ -33,10 +34,11 @@
       "title": "VibeVoice Single Speaker"
     }
   },
-  "10": {
+  "11": {
     "inputs": {
-      "filename_prefix": "rpgraph-voice",
+      "filename_prefix": "audio/RPgraph",
       "quality": "V0",
+      "audioUI": "",
       "audio": [
         "9",
         0

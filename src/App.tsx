@@ -163,6 +163,7 @@ import { StudioDialogs } from './dialogs/StudioDialogs';
 import { ComfyGeneratedImageDialog } from './comfy/ComfyGeneratedImageDialog';
 import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
+import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import {
   withSourceNodeStatusConnectionColors,
@@ -798,6 +799,8 @@ function App() {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    dialogueVoiceMode,
+    setDialogueVoiceMode,
   } = useAppSettings();
   const {
     appliedUiScale,
@@ -1270,14 +1273,60 @@ function App() {
   });
   const {
     dialogueVoiceSpeakerNames,
+    narratorVoiceReady,
     activeDialogueVoiceKey,
+    readAloudActive,
     speakDialogue,
+    preloadDialogueVoices,
+    readMessagesAloud,
+    stopDialogueVoice,
   } = useDialogueVoice({
     storyCharacters,
     connections,
+    englishProcessingEnabled,
     generateVoiceClip: generateCharacterVoicePreview,
     notifySystem,
   });
+  const dialogueVoicePreloadDisabledReason = !connections.some(isComfyVoiceConnection)
+    ? 'Requires a ComfyUI voice provider.'
+    : dialogueVoiceSpeakerNames.size === 0
+      ? 'Requires at least one character voice sample in the storybook.'
+      : null;
+  const charactersWithoutVoice = storyCharacters
+    .filter((character) => !character.voiceConfig?.sampleDataUrl)
+    .map((character) => character.name);
+  const dialogueVoiceReadAloudDisabledReason =
+    dialogueVoicePreloadDisabledReason ??
+    (!narratorVoiceReady
+      ? 'Requires a narrator voice sample in the ComfyUI voice provider.'
+      : charactersWithoutVoice.length > 0
+        ? `Requires a voice sample for every storybook character (missing: ${charactersWithoutVoice.join(', ')}).`
+        : null);
+  const wasRunningForDialogueVoiceRef = useRef(false);
+  useEffect(() => {
+    const wasRunning = wasRunningForDialogueVoiceRef.current;
+    wasRunningForDialogueVoiceRef.current = isRunning;
+    if (isRunning === wasRunning) {
+      return;
+    }
+    if (isRunning) {
+      // Voice generation unloads local LLM models; never keep it running into a chat run.
+      stopDialogueVoice();
+      return;
+    }
+    if (dialogueVoiceMode === 'preload') {
+      void preloadDialogueVoices(latestOutputTurnMessages(messages));
+    } else if (dialogueVoiceMode === 'read-aloud') {
+      void readMessagesAloud(latestOutputTurnMessages(messages));
+    }
+  }, [
+    isRunning,
+    dialogueVoiceMode,
+    messages,
+    preloadDialogueVoices,
+    readMessagesAloud,
+    stopDialogueVoice,
+  ]);
   const {
     showFiles,
     setShowFiles,
@@ -5745,6 +5794,20 @@ function App() {
                 }
                 void speakDialogue(request);
               }}
+              dialogueVoiceMode={dialogueVoiceMode}
+              onDialogueVoiceModeChange={(mode) => {
+                setDialogueVoiceMode(mode);
+                if (mode !== 'read-aloud' && readAloudActive) {
+                  stopDialogueVoice();
+                }
+                if (mode !== 'click' && !isRunning) {
+                  void preloadDialogueVoices(latestOutputTurnMessages(messages));
+                }
+              }}
+              dialogueVoicePreloadDisabledReason={dialogueVoicePreloadDisabledReason}
+              dialogueVoiceReadAloudDisabledReason={dialogueVoiceReadAloudDisabledReason}
+              voiceReadAloudActive={readAloudActive}
+              onStopVoiceReadAloud={stopDialogueVoice}
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
               chatTextSize={chatTextSize}
               onChatTextSizeChange={setChatTextSize}

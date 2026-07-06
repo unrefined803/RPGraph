@@ -17,6 +17,7 @@ import {
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
   ChatImageAttachment,
+  DialogueVoiceMode,
   ImageCaptionChange,
   InputActionSelection,
   MessageRecord,
@@ -88,6 +89,12 @@ type ChatConversationPanelProps = {
   dialogueVoiceSpeakerNames: ReadonlySet<string>;
   activeDialogueVoiceKey: string | null;
   onSpeakDialogue: (request: { key: string; speakerName: string; text: string }) => void;
+  dialogueVoiceMode: DialogueVoiceMode;
+  onDialogueVoiceModeChange: (mode: DialogueVoiceMode) => void;
+  dialogueVoicePreloadDisabledReason: string | null;
+  dialogueVoiceReadAloudDisabledReason: string | null;
+  voiceReadAloudActive: boolean;
+  onStopVoiceReadAloud: () => void;
   rpTimeTrackingEnabled: boolean;
   chatTextSize: number;
   onChatTextSizeChange: (value: number) => void;
@@ -141,6 +148,12 @@ export function ChatConversationPanel({
   dialogueVoiceSpeakerNames,
   activeDialogueVoiceKey,
   onSpeakDialogue,
+  dialogueVoiceMode,
+  onDialogueVoiceModeChange,
+  dialogueVoicePreloadDisabledReason,
+  dialogueVoiceReadAloudDisabledReason,
+  voiceReadAloudActive,
+  onStopVoiceReadAloud,
   rpTimeTrackingEnabled,
   chatTextSize,
   onChatTextSizeChange,
@@ -1505,6 +1518,32 @@ export function ChatConversationPanel({
                     </button>
                   </div>
                   <div className="phone-display-popover-section">
+                    <span className="phone-display-popover-heading">Voice Playback</span>
+                    {([
+                      ['click', 'Generate On Click', null],
+                      ['preload', 'Preload Voices', dialogueVoicePreloadDisabledReason],
+                      ['read-aloud', 'Read Aloud Automatically', dialogueVoiceReadAloudDisabledReason],
+                    ] as Array<[DialogueVoiceMode, string, string | null]>).map(
+                      ([mode, label, disabledReason]) => (
+                        <button
+                          className={dialogueVoiceMode === mode ? 'active' : undefined}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={dialogueVoiceMode === mode}
+                          disabled={disabledReason !== null}
+                          title={disabledReason ?? undefined}
+                          key={mode}
+                          onClick={() => {
+                            onDialogueVoiceModeChange(mode);
+                            setOutsidePhoneMenuOpen(false);
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  <div className="phone-display-popover-section">
                     <span className="phone-display-popover-heading">Chat Text</span>
                     <div className="phone-display-size-control" aria-label="Normal chat text size">
                       <span>Size</span>
@@ -1532,6 +1571,16 @@ export function ChatConversationPanel({
                 </div>
               )}
             </div>
+            {voiceReadAloudActive && (
+              <button
+                className="attach-image-button voice-stop-button"
+                type="button"
+                onClick={onStopVoiceReadAloud}
+                title="Stop the automatic voice read-aloud"
+              >
+                Stop Voices
+              </button>
+            )}
           </div>
           {draftCommands.length > 0 && (
             <CommandPillList

@@ -29,6 +29,13 @@ export type LlmProviderKind =
 
 export type ComfyConnectionRole = 'image' | 'voice';
 
+export type ComfyNarratorVoice = {
+  name: string;
+  dataUrl: string;
+};
+
+export type DialogueVoiceMode = 'click' | 'preload' | 'read-aloud';
+
 export type ConnectionPreset = {
   id: string;
   kind?: 'llm' | 'comfyui';
@@ -40,6 +47,7 @@ export type ConnectionPreset = {
   model: string;
   comfyWorkflowPath?: string;
   comfyWorkflowSetupConfirmed?: boolean;
+  comfyNarratorVoice?: ComfyNarratorVoice;
   comfyWidth?: number;
   comfyHeight?: number;
   comfyPrompt?: string;
@@ -730,6 +738,7 @@ export type AppSettings = {
     nodeTextSize?: 'small' | 'normal' | 'big';
     uiScale?: number;
     retryFormatErrorsEnabled?: boolean;
+    dialogueVoiceMode?: DialogueVoiceMode;
   };
   layout?: {
     chatPanelWidth: number;
