@@ -325,6 +325,7 @@ declare global {
           type: string;
           dataUrl: string;
         }>;
+        cleanupFailed: boolean;
       }>;
       selectAudio: () => Promise<{
         canceled: boolean;

@@ -2300,7 +2300,7 @@ async function requestComfyOutputFile(baseUrl, file, abort, fallbackMimeType) {
   return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
-async function deleteComfyOutputFile(baseUrl, file, abort) {
+async function deleteComfyServerFile(baseUrl, file, abort) {
   const body = JSON.stringify({
     filename: file.filename,
     subfolder: file.subfolder || '',
@@ -2330,6 +2330,33 @@ async function deleteComfyOutputFile(baseUrl, file, abort) {
       return false;
     }
   }
+}
+
+async function comfyServerFileExists(baseUrl, file, abort) {
+  const params = new URLSearchParams();
+  params.set('filename', file.filename);
+  params.set('type', file.type || 'output');
+  if (file.subfolder) {
+    params.set('subfolder', file.subfolder);
+  }
+  try {
+    const response = await requestLlmResponse(
+      `${comfyEndpoint(baseUrl, 'view')}?${params.toString()}`,
+      { method: 'GET', headers: {} },
+      abort,
+    );
+    response.body.destroy();
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ComfyUI builds without a delete route can report success while deleting
+// nothing, so only the follow-up existence check is trusted.
+async function deleteComfyServerFileVerified(baseUrl, file, abort) {
+  await deleteComfyServerFile(baseUrl, file, abort);
+  return !(await comfyServerFileExists(baseUrl, file, abort));
 }
 
 function comfyVoiceSampleFromDataUrl(dataUrl) {
@@ -2388,7 +2415,10 @@ async function uploadComfyVoiceSample(baseUrl, sampleDataUrl, abort) {
   const result = JSON.parse((await response.text()) || '{}');
   const uploadedName = typeof result?.name === 'string' && result.name.trim() ? result.name : fileName;
   const subfolder = typeof result?.subfolder === 'string' && result.subfolder ? result.subfolder : '';
-  return subfolder ? `${subfolder}/${uploadedName}` : uploadedName;
+  return {
+    voiceAudioName: subfolder ? `${subfolder}/${uploadedName}` : uploadedName,
+    file: { filename: uploadedName, subfolder, type: 'input' },
+  };
 }
 
 // ComfyUI skips execution completely when a prompt is identical to an already
@@ -2527,10 +2557,11 @@ async function runComfyVoicePrompt(baseUrl, workflow, timeoutMs, abort, options 
   }
 
   const audio = [];
+  let cleanupFailed = false;
   for (const clip of audioRefs) {
     const dataUrl = await requestComfyOutputFile(baseUrl, clip, abort, 'audio/mpeg');
-    if (options.deleteOutputs) {
-      await deleteComfyOutputFile(baseUrl, clip, abort);
+    if (options.deleteOutputs && !(await deleteComfyServerFileVerified(baseUrl, clip, abort))) {
+      cleanupFailed = true;
     }
     audio.push({
       ...clip,
@@ -2538,7 +2569,7 @@ async function runComfyVoicePrompt(baseUrl, workflow, timeoutMs, abort, options 
     });
   }
 
-  return { promptId, audio };
+  return { promptId, audio, cleanupFailed };
 }
 
 function delay(ms, abort) {
@@ -3131,16 +3162,33 @@ ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
     if (!speechText) {
       throw new Error('Enter a text to speak before generating a voice clip.');
     }
-    const voiceAudio = await uploadComfyVoiceSample(request?.baseUrl, request?.sampleDataUrl, abort);
+    const deleteServerFiles = request?.deleteOutputs === true;
+    const sampleUpload = await uploadComfyVoiceSample(request?.baseUrl, request?.sampleDataUrl, abort);
     const workflowJson = replaceComfyWorkflowPlaceholders(parsedWorkflow, {
       speech_text: speechText,
-      voice_audio: voiceAudio,
+      voice_audio: sampleUpload.voiceAudioName,
     });
     const workflow = withRandomizedComfySeeds(comfyPromptFromWorkflow(workflowJson));
-    const result = await runComfyVoicePrompt(request?.baseUrl, workflow, request?.timeoutMs, abort, {
-      deleteOutputs: request?.deleteOutputs === true,
-    });
-    return result;
+    let result;
+    let sampleCleanupFailed = false;
+    try {
+      result = await runComfyVoicePrompt(request?.baseUrl, workflow, request?.timeoutMs, abort, {
+        deleteOutputs: deleteServerFiles,
+      });
+    } finally {
+      // Remove the uploaded reference voice sample even when the run failed.
+      if (deleteServerFiles && !abort.signal.aborted) {
+        sampleCleanupFailed = !(await deleteComfyServerFileVerified(
+          request?.baseUrl,
+          sampleUpload.file,
+          abort,
+        ));
+      }
+    }
+    return {
+      ...result,
+      cleanupFailed: result.cleanupFailed || sampleCleanupFailed,
+    };
   } catch (error) {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();

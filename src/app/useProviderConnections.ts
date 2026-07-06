@@ -171,6 +171,7 @@ export function useProviderConnections({
   const [comfyProviderActionActive, setComfyProviderActionActive] = useState<'models' | 'generate' | 'unload' | 'repair' | 'apply-repair' | null>(null);
   const [voiceGenerationActive, setVoiceGenerationActive] = useState(false);
   const voiceGenerationCountRef = useRef(0);
+  const voiceCleanupWarningCountsRef = useRef<Record<string, number>>({});
 
   function isLlmConnection(connection: ConnectionPreset) {
     return connection.kind !== 'comfyui';
@@ -203,6 +204,22 @@ export function useProviderConnections({
     if (voiceGenerationCountRef.current === 0) {
       setVoiceGenerationActive(false);
     }
+  }
+
+  // Warns at most twice per provider and session; the second warning tells the
+  // user to clean the ComfyUI folders manually, then the failure stays silent.
+  function notifyVoiceCleanupFailure(connection: ConnectionPreset) {
+    const warningCount = voiceCleanupWarningCountsRef.current[connection.id] ?? 0;
+    if (warningCount >= 2) {
+      return;
+    }
+    voiceCleanupWarningCountsRef.current[connection.id] = warningCount + 1;
+    notifySystem(
+      'warning',
+      warningCount === 0
+        ? `${connection.label}: could not delete the generated voice files on the ComfyUI server. They remain in the ComfyUI output and input folders.`
+        : `${connection.label}: deleting voice files on the ComfyUI server failed again. This ComfyUI does not seem to support file deletion — delete the rpgraph voice files in its output and input folders manually. This warning will not be shown again.`,
+    );
   }
 
   function openConnectionManager() {
@@ -1540,6 +1557,9 @@ export function useProviderConnections({
       });
     } finally {
       endVoiceGeneration();
+    }
+    if (result.cleanupFailed) {
+      notifyVoiceCleanupFailure(connection);
     }
     updateProviderHealth(connection.id, {
       status: 'online',

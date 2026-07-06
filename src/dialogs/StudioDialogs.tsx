@@ -2956,10 +2956,11 @@ export function StudioDialogs({
                                 checked={editingConnection.comfyDeleteVoiceOutputs !== false}
                                 onChange={(event) => onEditConnection('comfyDeleteVoiceOutputs', event.target.checked)}
                               />
-                              <span>Delete generated voice files after download</span>
+                              <span>Delete voice files on the server after download</span>
                             </label>
                             <p className="character-voice-hint">
-                              Keeps the voice clip embedded in RPGraph, then removes the temporary ComfyUI output file.
+                              Keeps the voice clip embedded in RPGraph, then removes the generated audio and the
+                              uploaded voice sample from the ComfyUI server and verifies they are gone.
                             </p>
                           </div>
                           <div className="character-voice-card">
