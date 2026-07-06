@@ -1,0 +1,558 @@
+{
+  "id": "08988737-a544-4ab1-99fb-22d67b7c36e3",
+  "revision": 0,
+  "last_node_id": 70,
+  "last_link_id": 107,
+  "nodes": [
+    {
+      "id": 58,
+      "type": "ConditioningZeroOut",
+      "pos": [
+        435.62584846243135,
+        219.61333099108066
+      ],
+      "size": [
+        225,
+        26
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 80
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            76
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "ConditioningZeroOut"
+      }
+    },
+    {
+      "id": 53,
+      "type": "KSampler",
+      "pos": [
+        711.4539999471893,
+        147.98215839811476
+      ],
+      "size": [
+        320,
+        590
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 106
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 75
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 76
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 77
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            78
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        1249817461973,
+        "randomize",
+        8,
+        1,
+        "euler",
+        "simple",
+        1
+      ]
+    },
+    {
+      "id": 51,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -100.08986007740572,
+        134.27517012718434
+      ],
+      "size": [
+        480,
+        420
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 73
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            75,
+            80
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "A high-resolution, surreal digital illustration showing a human hand holding a martini glass. The image is overlaid with whimsical, expressive ink-style doodles, including a cartoon figure inside the glass, a drawn citrus wedge on the rim, and various abstract sketches and faces surrounding the glass against a clean, white background. The style seamlessly blends a realistic, lit photograph with loose, hand-drawn marker artistry, creating a playful and artistic juxtaposition."
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 54,
+      "type": "VAEDecode",
+      "pos": [
+        1192.5179819722912,
+        145.3939907451025
+      ],
+      "size": [
+        230,
+        100
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 78
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 79
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            97
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 29,
+      "type": "SaveImage",
+      "pos": [
+        1575.0531238436752,
+        170.30939262483628
+      ],
+      "size": [
+        880,
+        1020
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 97
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "Node name for S&R": "SaveImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "Krea2_turbo"
+      ]
+    },
+    {
+      "id": 52,
+      "type": "EmptyLatentImage",
+      "pos": [
+        40.930061513810536,
+        759.0082043555444
+      ],
+      "size": [
+        320,
+        170
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            77
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "widgets_values": [
+        832,
+        1216,
+        1
+      ]
+    },
+    {
+      "id": 55,
+      "type": "UNETLoader",
+      "pos": [
+        -808.7060138978829,
+        -115.07242919928215
+      ],
+      "size": [
+        450,
+        140
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            106
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "krea2_turbo_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "krea2_turbo_fp8.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 57,
+      "type": "VAELoader",
+      "pos": [
+        -759.6175272513251,
+        500.8699525093342
+      ],
+      "size": [
+        450,
+        120
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            79
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "qwen_image_vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen_image_vae.safetensors"
+      ]
+    },
+    {
+      "id": 56,
+      "type": "CLIPLoader",
+      "pos": [
+        -786.1678114496624,
+        174.18708056146122
+      ],
+      "size": [
+        450,
+        170
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            73
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.25.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        },
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_4b_fp8_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen3vl_4b_fp8_scaled.safetensors",
+        "krea2",
+        "default"
+      ]
+    },
+    {
+      "id": 48,
+      "type": "MarkdownNote",
+      "pos": [
+        -1639.7935748704147,
+        -201.70174995091725
+      ],
+      "size": [
+        700,
+        990
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Model Links",
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Model Links (for Local Users)\n\nFor BF16 and NVFP4 variants, see [Comfy-Org/Krea-2](https://huggingface.co/Comfy-Org/Krea-2)\n\n**diffusion_models**\n\n- [krea2_turbo_fp8_scaled.safetensors](https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_fp8_scaled.safetensors)\n\n**text_encoders**\n\n- [qwen3vl_4b_fp8_scaled.safetensors](https://huggingface.co/Comfy-Org/Krea-2/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors)\n\n**vae**\n\n- [qwen_image_vae.safetensors](https://huggingface.co/Comfy-Org/Krea-2/resolve/main/vae/qwen_image_vae.safetensors)\n\n**loras**\n\n- [krea2_darkbrush.safetensors](https://huggingface.co/Comfy-Org/Krea-2/resolve/main/loras/krea2_darkbrush.safetensors)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   └── krea2_turbo_fp8_scaled.safetensors\n│   ├── 📂 text_encoders/\n│   │   └── qwen3vl_4b_fp8_scaled.safetensors\n│   ├── 📂 vae/\n│   │   └── qwen_image_vae.safetensors\n│   └── 📂 loras/\n│       └── krea2_darkbrush.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    }
+  ],
+  "links": [
+    [
+      73,
+      56,
+      0,
+      51,
+      0,
+      "CLIP"
+    ],
+    [
+      75,
+      51,
+      0,
+      53,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      76,
+      58,
+      0,
+      53,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      77,
+      52,
+      0,
+      53,
+      3,
+      "LATENT"
+    ],
+    [
+      78,
+      53,
+      0,
+      54,
+      0,
+      "LATENT"
+    ],
+    [
+      79,
+      57,
+      0,
+      54,
+      1,
+      "VAE"
+    ],
+    [
+      80,
+      51,
+      0,
+      58,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      97,
+      54,
+      0,
+      29,
+      0,
+      "IMAGE"
+    ],
+    [
+      106,
+      55,
+      0,
+      53,
+      0,
+      "MODEL"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.39287694013303853,
+      "offset": [
+        2238.4272195442018,
+        791.2350008038682
+      ]
+    },
+    "frontendVersion": "1.45.20",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true,
+    "ue_links": [],
+    "links_added_by_ue": []
+  },
+  "version": 0.4
+}
