@@ -9519,42 +9519,6 @@ button.message-timeline-row.phone:focus-visible {
   cursor: not-allowed;
 }
 
-.voice-narrator-mode-row {
-  display: grid;
-  grid-template-columns: 1fr 30px;
-  gap: 3px;
-}
-
-.phone-display-popover .voice-narrator-mode-row .voice-narrator-settings-button {
-  padding: 7px;
-  text-align: center;
-}
-
-.voice-narrator-settings {
-  display: grid;
-  gap: 5px;
-  padding: 7px 8px 9px;
-}
-
-.voice-narrator-settings label {
-  color: #7d8ba6;
-  font-size: 10px;
-  font-weight: 750;
-  text-transform: uppercase;
-}
-
-.voice-narrator-settings select {
-  min-width: 0;
-  width: 100%;
-  padding: 6px 7px;
-  border: 1px solid #39455a;
-  border-radius: 6px;
-  color: #dbe4f7;
-  background: #0c111a;
-  font: inherit;
-  font-size: 11px;
-}
-
 .phone-display-popover button.phone-display-checkbox {
   display: grid;
   grid-template-columns: 14px 1fr;
@@ -9662,6 +9626,177 @@ button.message-timeline-row.phone:focus-visible {
   place-items: center;
   background: rgba(4, 7, 12, 0.7);
   backdrop-filter: blur(4px);
+}
+
+.composer-icon-button[aria-label='Voice playback settings'] polygon {
+  fill: currentColor;
+  stroke: none;
+}
+
+.voice-playback-dialog {
+  width: min(900px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid #303a4e;
+  border-radius: 18px;
+  color: #dbe4f7;
+  background: #111722;
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+}
+
+.voice-playback-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid #263349;
+}
+
+.voice-playback-dialog-header h2,
+.voice-playback-dialog-header p,
+.voice-playback-setup-section h3,
+.voice-playback-setup-section p {
+  margin: 0;
+}
+
+.voice-playback-dialog-header h2 {
+  color: #f3f7ff;
+  font-size: 22px;
+}
+
+.voice-playback-dialog-header p {
+  margin-top: 5px;
+  color: #8d9ab4;
+  font-size: 13px;
+}
+
+.voice-playback-dialog-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.85fr);
+  gap: 18px;
+  padding: 22px 24px 24px;
+}
+
+.voice-playback-mode-list,
+.voice-playback-setup-panel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.voice-playback-mode-card {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 10px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #2b364a;
+  border-radius: 10px;
+  color: #dbe4f7;
+  background: #0c111a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.voice-playback-mode-card:hover:not(:disabled),
+.voice-playback-mode-card:focus-visible,
+.voice-playback-mode-card.active {
+  outline: none;
+  border-color: #5c79aa;
+  background: #152036;
+}
+
+.voice-playback-mode-card:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.voice-playback-mode-check {
+  color: #59d68b;
+  font-size: 16px;
+}
+
+.voice-playback-mode-card strong,
+.voice-playback-mode-card small {
+  display: block;
+}
+
+.voice-playback-mode-card strong {
+  font-size: 13px;
+}
+
+.voice-playback-mode-card small {
+  margin-top: 5px;
+  color: #8d9ab4;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.voice-playback-setup-panel {
+  padding: 14px;
+  border: 1px solid #2b364a;
+  border-radius: 12px;
+  background: #0c111a;
+}
+
+.voice-playback-setup-section {
+  display: grid;
+  gap: 7px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #263349;
+}
+
+.voice-playback-setup-section h3 {
+  color: #f3f7ff;
+  font-size: 13px;
+}
+
+.voice-playback-setup-section p,
+.voice-playback-setup-section li {
+  color: #9aa7bf;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.voice-playback-setup-section label {
+  color: #7d8ba6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.voice-playback-setup-section select {
+  min-width: 0;
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid #39455a;
+  border-radius: 7px;
+  color: #dbe4f7;
+  background: #111722;
+  font: inherit;
+  font-size: 12px;
+}
+
+.voice-playback-setup-section ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.voice-playback-setup-section code {
+  color: #a8c7ff;
+  overflow-wrap: anywhere;
+}
+
+.voice-playback-open-providers {
+  justify-self: start;
+}
+
+@media (max-width: 760px) {
+  .voice-playback-dialog-body {
+    grid-template-columns: 1fr;
+  }
 }
 
 .connection-dialog {

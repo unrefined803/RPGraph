@@ -9,6 +9,7 @@ import type {
   RpDateTimeFormat,
   RpWeekdayLanguage,
 } from './types';
+import { bundledComfyNarratorVoice } from './comfy/defaultNarratorVoice';
 import {
   promptActionConfigs,
   promptActionRuntimeSettings,
@@ -448,7 +449,7 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
       ? connection.comfyWorkflowSetupConfirmed === true
       : undefined,
     comfyNarratorVoice: comfyRole === 'voice'
-      ? validComfyNarratorVoice(connection.comfyNarratorVoice)
+      ? validComfyNarratorVoice(connection.comfyNarratorVoice) ?? bundledComfyNarratorVoice()
       : undefined,
     comfyDeleteVoiceOutputs: comfyRole === 'voice'
       ? connection.comfyDeleteVoiceOutputs !== false

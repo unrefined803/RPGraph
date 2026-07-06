@@ -15,6 +15,7 @@ import {
   thoughtStyleClass,
 } from '../chat/textRendering';
 import { dialogueSpeechText } from '../chat/dialogueVoiceSegments';
+import { VoicePlaybackDialog } from '../chat/VoicePlaybackDialog';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
   ChatImageAttachment,
@@ -100,6 +101,7 @@ type ChatConversationPanelProps = {
   narratorProviderOptions: Array<{ value: string; label: string }>;
   narratorProviderId: string;
   onNarratorProviderChange: (providerId: string) => void;
+  onOpenProviders: () => void;
   voiceReadAloudActive: boolean;
   onStopVoiceReadAloud: () => void;
   rpTimeTrackingEnabled: boolean;
@@ -164,6 +166,7 @@ export function ChatConversationPanel({
   narratorProviderOptions,
   narratorProviderId,
   onNarratorProviderChange,
+  onOpenProviders,
   voiceReadAloudActive,
   onStopVoiceReadAloud,
   rpTimeTrackingEnabled,
@@ -228,7 +231,7 @@ export function ChatConversationPanel({
       }
     });
   const [outsidePhoneMenuOpen, setOutsidePhoneMenuOpen] = useState(false);
-  const [narratorSettingsOpen, setNarratorSettingsOpen] = useState(false);
+  const [voicePlaybackDialogOpen, setVoicePlaybackDialogOpen] = useState(false);
   const outsidePhoneMenuRef = useRef<HTMLDivElement | null>(null);
   const [expandedPhoneGroups, setExpandedPhoneGroups] = useState<Record<string, boolean>>({});
   const [phoneBubbleHeadersEnabled, setPhoneBubbleHeadersEnabled] = useState(() => {
@@ -1561,74 +1564,6 @@ export function ChatConversationPanel({
                     </button>
                   </div>
                   <div className="phone-display-popover-section">
-                    <span className="phone-display-popover-heading">Voice Playback</span>
-                    {([
-                      ['click', 'Generate On Click', null],
-                      ['preload', 'Preload Voices', dialogueVoicePreloadDisabledReason],
-                      ['read-aloud', 'Read Aloud Automatically', dialogueVoiceReadAloudDisabledReason],
-                    ] as Array<[DialogueVoiceMode, string, string | null]>).map(
-                      ([mode, label, disabledReason]) => (
-                        <button
-                          className={dialogueVoiceMode === mode ? 'active' : undefined}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={dialogueVoiceMode === mode}
-                          disabled={disabledReason !== null}
-                          title={disabledReason ?? undefined}
-                          key={mode}
-                          onClick={() => {
-                            onDialogueVoiceModeChange(mode);
-                            setOutsidePhoneMenuOpen(false);
-                          }}
-                        >
-                          {label}
-                        </button>
-                      ),
-                    )}
-                    <div className="voice-narrator-mode-row">
-                      <button
-                        className={dialogueVoiceMode === 'narrator-only' ? 'active' : undefined}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={dialogueVoiceMode === 'narrator-only'}
-                        disabled={dialogueNarratorOnlyDisabledReason !== null}
-                        title={dialogueNarratorOnlyDisabledReason ?? undefined}
-                        onClick={() => {
-                          onDialogueVoiceModeChange('narrator-only');
-                          setOutsidePhoneMenuOpen(false);
-                        }}
-                      >
-                        Narrator Only
-                      </button>
-                      <button
-                        className="voice-narrator-settings-button"
-                        type="button"
-                        aria-label="Configure narrator provider"
-                        title="Configure narrator provider"
-                        onClick={() => setNarratorSettingsOpen((open) => !open)}
-                      >
-                        ⚙
-                      </button>
-                    </div>
-                    {narratorSettingsOpen && (
-                      <div className="voice-narrator-settings">
-                        <label htmlFor="voice-narrator-provider">Narrator provider</label>
-                        <select
-                          id="voice-narrator-provider"
-                          value={narratorProviderId}
-                          disabled={narratorProviderOptions.length === 0}
-                          onChange={(event) => onNarratorProviderChange(event.target.value)}
-                        >
-                          {narratorProviderOptions.length === 0 ? (
-                            <option value="">No narrator provider ready</option>
-                          ) : narratorProviderOptions.map((option) => (
-                            <option value={option.value} key={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  <div className="phone-display-popover-section">
                     <span className="phone-display-popover-heading">Chat Text</span>
                     <div className="phone-display-size-control" aria-label="Normal chat text size">
                       <span>Size</span>
@@ -1656,6 +1591,20 @@ export function ChatConversationPanel({
                 </div>
               )}
             </div>
+            <button
+              className={`composer-icon-button${voicePlaybackDialogOpen ? ' active' : ''}`}
+              type="button"
+              onClick={() => setVoicePlaybackDialogOpen(true)}
+              title="Voice playback settings"
+              aria-label="Voice playback settings"
+              aria-haspopup="dialog"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <polygon points="4 9 8 9 13 4 13 20 8 15 4 15" />
+                <path d="M17 9.5a4 4 0 0 1 0 5" />
+                <path d="M19.5 7a7.5 7.5 0 0 1 0 10" />
+              </svg>
+            </button>
             {voiceReadAloudActive && (
               <button
                 className="attach-image-button voice-stop-button"
@@ -1688,6 +1637,20 @@ export function ChatConversationPanel({
           </button>
         </div>
       </form>
+      {voicePlaybackDialogOpen && (
+        <VoicePlaybackDialog
+          mode={dialogueVoiceMode}
+          onModeChange={onDialogueVoiceModeChange}
+          preloadDisabledReason={dialogueVoicePreloadDisabledReason}
+          readAloudDisabledReason={dialogueVoiceReadAloudDisabledReason}
+          narratorOnlyDisabledReason={dialogueNarratorOnlyDisabledReason}
+          narratorProviderOptions={narratorProviderOptions}
+          narratorProviderId={narratorProviderId}
+          onNarratorProviderChange={onNarratorProviderChange}
+          onOpenProviders={onOpenProviders}
+          onClose={() => setVoicePlaybackDialogOpen(false)}
+        />
+      )}
     </>
   );
 }

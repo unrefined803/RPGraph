@@ -5950,6 +5950,7 @@ function App() {
               narratorProviderOptions={narratorProviderOptions}
               narratorProviderId={resolvedNarratorProviderId}
               onNarratorProviderChange={setDialogueNarratorProviderId}
+              onOpenProviders={openConnectionManager}
               voiceReadAloudActive={readAloudActive}
               onStopVoiceReadAloud={stopDialogueVoice}
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
