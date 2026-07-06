@@ -87,4 +87,4 @@ RPGraph Studio is free software, licensed under the **GNU AGPL v3.0 or later**. 
 
 ## 🧪 Beta Notice
 
-RPGraph Studio (v0.4.3 Beta) is a hobby project built with AI assistance. I am not a professional developer — bugs are expected, feedback is welcome! 💙
+RPGraph Studio (v0.4.4 Beta) is a hobby project built with AI assistance. I am not a professional developer — bugs are expected, feedback is welcome! 💙

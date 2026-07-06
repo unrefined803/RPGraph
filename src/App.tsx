@@ -5432,7 +5432,7 @@ function App() {
         <div className="brand">
           <h1>
             <span className="brand-name"><span className="brand-name-rp">RP</span>graph Studio</span>
-            <span className="app-version">v0.4.3 Beta</span>
+            <span className="app-version">v0.4.4 Beta</span>
           </h1>
           <div className="header-brand-actions">
             <button
