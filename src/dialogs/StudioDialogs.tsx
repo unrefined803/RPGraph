@@ -78,6 +78,29 @@ type ComfyModelLists = {
   diffusion_models: string[];
 };
 
+type ComfyOnboardingMemoryInfo = {
+  title: string;
+  body: string;
+};
+
+function comfyOnboardingMemoryInfo(role: 'image' | 'voice' | null): ComfyOnboardingMemoryInfo | null {
+  if (role === 'voice') {
+    return {
+      title: 'How voice model memory is managed',
+      body: 'Higgs Audio needs about 11 GB of VRAM while it is active. A local Gemma 4 LLM can need about 24 GB, so keeping both ready for fast switching needs about 35 GB of system memory/cache. RPGraph keeps the voice model warm for quick clips, then unloads it before the next local LM Studio or Ollama LLM request; with enough memory this switch is usually around two seconds. API LLM providers do not need that local LLM switch.',
+    };
+  }
+
+  if (role === 'image') {
+    return {
+      title: 'How image model memory is managed',
+      body: 'Krea 2 needs about 16 GB of VRAM while it is active. Together with a local Gemma 4 LLM at about 24 GB, fast local switching needs about 40 GB of system memory/cache. RPGraph unloads local LM Studio or Ollama models before ComfyUI image generation and can unload ComfyUI again after generation when the workflow asks for memory management. API LLM providers do not use local LLM VRAM, so they avoid this swap.',
+    };
+  }
+
+  return null;
+}
+
 function formatFileDate(value: string | number) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -878,9 +901,9 @@ export function StudioDialogs({
   const [narratorVoiceTestText, setNarratorVoiceTestText] = useState(
     'The night was quiet as the rain fell softly against the window. Somewhere in the distance, a clock struck midnight.',
   );
-  const [narratorVoiceTestClip, setNarratorVoiceTestClip] = useState<{ dataUrl: string; filename: string } | null>(null);
   const [narratorVoiceTestStatus, setNarratorVoiceTestStatus] = useState('');
   const [narratorVoiceTesting, setNarratorVoiceTesting] = useState(false);
+  const narratorVoiceTestAudioRef = useRef<HTMLAudioElement | null>(null);
   const [uiScalePercentDraft, setUiScalePercentDraft] = useState(() =>
     String(Math.round(uiScale * 100)),
   );
@@ -919,6 +942,7 @@ export function StudioDialogs({
   const selectedComfyWorkflow =
     comfyWorkflowOptions.find((workflow) => workflow.apiWorkflowPath === currentComfyWorkflowPath) ??
     comfyWorkflowOptions[0];
+  const comfyOnboardingMemory = comfyOnboardingMemoryInfo(editingComfyRole);
   const editingProviderKind = llmProviderKind(editingConnection);
   const comfyLoraSlots = validComfyLoraSlots(editingConnection.comfyLoraSlots ?? defaultComfyLoraSlots);
   const [comfyRepairProviderId, setComfyRepairProviderId] = useState('');
@@ -1045,6 +1069,13 @@ export function StudioDialogs({
       ),
     ];
   })();
+
+  useEffect(() => {
+    return () => {
+      narratorVoiceTestAudioRef.current?.pause();
+      narratorVoiceTestAudioRef.current = null;
+    };
+  }, []);
   const isHistoryTimeResponseDialog =
     textDialogNode?.data.nodeType === 'history' && textDialogView === 'history-time-response';
   const isEventManagerResponseDialog =
@@ -1145,7 +1176,8 @@ export function StudioDialogs({
     }
     setNarratorVoiceTesting(true);
     setNarratorVoiceTestStatus('');
-    setNarratorVoiceTestClip(null);
+    narratorVoiceTestAudioRef.current?.pause();
+    narratorVoiceTestAudioRef.current = null;
     try {
       const clips = await onGenerateCharacterVoicePreview({
         providerId: editingConnection.id,
@@ -1157,8 +1189,16 @@ export function StudioDialogs({
         setNarratorVoiceTestStatus('No voice clip was returned.');
         return;
       }
-      setNarratorVoiceTestClip(clip);
-      setNarratorVoiceTestStatus('Narrator voice test generated.');
+      const audio = new Audio(clip.dataUrl);
+      narratorVoiceTestAudioRef.current = audio;
+      audio.addEventListener('ended', () => {
+        if (narratorVoiceTestAudioRef.current === audio) {
+          narratorVoiceTestAudioRef.current = null;
+          setNarratorVoiceTestStatus('');
+        }
+      }, { once: true });
+      await audio.play();
+      setNarratorVoiceTestStatus('Playing narrator voice test.');
     } catch (error) {
       setNarratorVoiceTestStatus(
         `Narrator voice test failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -2797,6 +2837,12 @@ export function StudioDialogs({
                               <li>Run the normal ComfyUI workflow once until it works.</li>
                               <li>Return to RPGraph and confirm that ComfyUI is set up and working.</li>
                             </ol>
+                            {comfyOnboardingMemory ? (
+                              <div className="comfy-workflow-memory-note">
+                                <strong>{comfyOnboardingMemory.title}</strong>
+                                <span>{comfyOnboardingMemory.body}</span>
+                              </div>
+                            ) : null}
                             <div className="connection-provider-actions">
                               <button
                                 type="button"
@@ -2972,16 +3018,6 @@ export function StudioDialogs({
                               <div className="character-voice-generating-box">
                                 <span className="character-voice-spinner" aria-hidden="true" />
                                 <span>Generating narrator voice test ...</span>
-                              </div>
-                            ) : narratorVoiceTestClip ? (
-                              <div className="character-voice-result-box">
-                                <span className="character-voice-result-label">TEST RESULT</span>
-                                <DarkAudioPlayer
-                                  src={narratorVoiceTestClip.dataUrl}
-                                  title={narratorVoiceTestClip.filename || 'Narrator voice test'}
-                                  className="voice-sample-player"
-                                  autoPlay
-                                />
                               </div>
                             ) : null}
                             {narratorVoiceTestStatus && (

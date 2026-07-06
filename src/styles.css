@@ -15568,6 +15568,23 @@ button.message-timeline-row.phone:focus-visible {
   padding-left: 19px;
 }
 
+.comfy-workflow-memory-note {
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid rgba(245, 192, 93, 0.28);
+  border-radius: 7px;
+  background: rgba(57, 43, 18, 0.32);
+}
+
+.comfy-workflow-onboarding .comfy-workflow-memory-note strong {
+  color: #f1d18a;
+}
+
+.comfy-workflow-onboarding .comfy-workflow-memory-note span {
+  color: #c6b68b;
+}
+
 .comfy-workflow-onboarding .connection-provider-actions {
   justify-content: flex-start;
 }
