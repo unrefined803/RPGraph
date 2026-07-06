@@ -46,6 +46,23 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         (Array.isArray(value.phone.imageIds) && value.phone.imageIds.every((id) => typeof id === 'string'))
       )
     );
+    const validVoiceClips = value.voiceClips === undefined || (
+      Array.isArray(value.voiceClips) &&
+      value.voiceClips.every((clip) =>
+        isRecord(clip) &&
+        (typeof clip.speakerName === 'string' || clip.speakerName === null) &&
+        typeof clip.text === 'string' &&
+        typeof clip.dataUrl === 'string' &&
+        (clip.filename === undefined || typeof clip.filename === 'string') &&
+        (
+          clip.source === undefined ||
+          clip.source === 'dialogue' ||
+          clip.source === 'narration' ||
+          clip.source === 'phone'
+        ) &&
+        (clip.createdAt === undefined || typeof clip.createdAt === 'string')
+      )
+    );
     return (
       typeof value.turnId === 'string' &&
       typeof value.turnNumber === 'number' &&
@@ -59,6 +76,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         (value.channel === 'phone' && typeof value.replyToMessageId === 'string')
       ) &&
       validImages &&
+      validVoiceClips &&
       validEmbeddedPhoneText &&
       validPhone
     );

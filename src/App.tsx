@@ -248,6 +248,7 @@ import type {
   ImageCaptionChange,
   InputActionSelection,
   MessageRecord,
+  MessageVoiceClip,
   OutputActionContextCapacityBar,
   ConnectionPreset,
   RpAppointment,
@@ -1058,6 +1059,23 @@ function App() {
     workflowVariablesRef: workflowSettingsValuesRef,
     setWorkflowVariables: replaceWorkflowSettingsValues,
   });
+  const storeMessageVoiceClip = useCallback((messageId: number, clip: MessageVoiceClip) => {
+    const existingMessage = messagesRef.current.find((message) => message.id === messageId);
+    if (!existingMessage) {
+      return;
+    }
+    const existingClips = existingMessage.voiceClips ?? [];
+    if (existingClips.some((entry) =>
+      entry.speakerName === clip.speakerName &&
+      entry.text === clip.text &&
+      entry.source === clip.source
+    )) {
+      return;
+    }
+    updateMessage(messageId, {
+      voiceClips: [...existingClips, clip],
+    });
+  }, [messagesRef, updateMessage]);
   const {
     turnTraces,
     recordTurnTrace,
@@ -1295,9 +1313,11 @@ function App() {
   } = useDialogueVoice({
     storyCharacters,
     connections,
+    messages,
     englishProcessingEnabled,
     generateVoiceClip: generateCharacterVoicePreview,
     unloadVoiceModels: unloadCharacterComfyModels,
+    onVoiceClipGenerated: storeMessageVoiceClip,
     notifySystem,
   });
   const dialogueVoicePreloadDisabledReason = !connections.some(isComfyVoiceConnection)
@@ -5935,13 +5955,13 @@ function App() {
               }
               inputLocked={narratorSelected}
               voiceMessageSpeakerNames={dialogueVoiceSpeakerNames}
-              onGenerateVoiceMessageClip={async ({ speakerName, text }) => {
+              onGenerateVoiceMessageClip={async ({ messageId, speakerName, text }) => {
                 // Voice generation unloads local LLM models first; never do that mid-run.
                 if (isRunning) {
                   return null;
                 }
                 try {
-                  return await generateVoiceMessageClip(speakerName, text);
+                  return await generateVoiceMessageClip(messageId, speakerName, text);
                 } catch (error) {
                   notifySystem(
                     'error',

@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isComfyVoiceConnection } from '../comfy/connectionRole';
 import type { StorybookCharacter } from '../storybook/runtime';
-import type { ConnectionPreset, MessageRecord } from '../types';
+import type { ConnectionPreset, MessageRecord, MessageVoiceClip } from '../types';
 import {
   dialogueSpeechText,
   dialogueVoiceMessageSegments,
@@ -13,6 +13,7 @@ const narratorSpeakerCacheName = '\u0000narrator';
 
 export type DialogueVoiceRequest = {
   key: string;
+  messageId: number;
   speakerName: string;
   text: string;
 };
@@ -23,13 +24,16 @@ export type DialogueVoiceRequest = {
 export function useDialogueVoice({
   storyCharacters,
   connections,
+  messages,
   englishProcessingEnabled,
   generateVoiceClip,
   unloadVoiceModels,
+  onVoiceClipGenerated,
   notifySystem,
 }: {
   storyCharacters: StorybookCharacter[];
   connections: ConnectionPreset[];
+  messages: MessageRecord[];
   englishProcessingEnabled: boolean;
   generateVoiceClip: (request: {
     providerId: string;
@@ -37,6 +41,7 @@ export function useDialogueVoice({
     sampleDataUrl: string;
   }) => Promise<Array<{ dataUrl: string; filename: string }>>;
   unloadVoiceModels: (providerId: string) => Promise<void>;
+  onVoiceClipGenerated: (messageId: number, clip: MessageVoiceClip) => void;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
 }) {
   const [activeDialogueVoiceKey, setActiveDialogueVoiceKey] = useState<string | null>(null);
@@ -47,6 +52,7 @@ export function useDialogueVoice({
   const preloadTokenRef = useRef(0);
   const readAloudTokenRef = useRef(0);
   const clipCacheRef = useRef(new Map<string, string>());
+  const messagesRef = useRef(messages);
 
   const voiceConnection = useMemo(
     () => connections.find(isComfyVoiceConnection),
@@ -79,6 +85,17 @@ export function useDialogueVoice({
   function clipCacheKey(speakerName: string | null, speechText: string) {
     return `${speakerName ?? narratorSpeakerCacheName}\u0000${speechText}`;
   }
+
+  useEffect(() => {
+    messagesRef.current = messages;
+    for (const message of messages) {
+      for (const clip of message.voiceClips ?? []) {
+        if (clip.dataUrl && clip.text) {
+          cacheClip(clipCacheKey(clip.speakerName, clip.text), clip.dataUrl);
+        }
+      }
+    }
+  }, [messages]);
 
   function stopPlayback() {
     const audio = audioRef.current;
@@ -143,7 +160,32 @@ export function useDialogueVoice({
 
   // Returns the clip data URL, or null when the speaker has no sample.
   // Throws when the ComfyUI generation fails.
-  async function getOrGenerateClip(speakerName: string | null, speechText: string) {
+  function storeVoiceClip(
+    messageId: number | undefined,
+    speakerName: string | null,
+    speechText: string,
+    dataUrl: string,
+    filename: string | undefined,
+    source: MessageVoiceClip['source'],
+  ) {
+    if (messageId === undefined) {
+      return;
+    }
+    onVoiceClipGenerated(messageId, {
+      speakerName,
+      text: speechText,
+      dataUrl,
+      filename,
+      source,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  async function getOrGenerateClip(
+    speakerName: string | null,
+    speechText: string,
+    options: { messageId?: number; source?: MessageVoiceClip['source'] } = {},
+  ) {
     const sampleDataUrl = sampleForSpeaker(speakerName);
     if (!voiceProviderId || !sampleDataUrl || !speechText) {
       return null;
@@ -151,7 +193,22 @@ export function useDialogueVoice({
     const cacheKey = clipCacheKey(speakerName, speechText);
     const cachedClip = clipCacheRef.current.get(cacheKey);
     if (cachedClip) {
+      storeVoiceClip(options.messageId, speakerName, speechText, cachedClip, undefined, options.source);
       return cachedClip;
+    }
+    const storedClip = options.messageId !== undefined
+      ? messagesRef.current
+          .find((message) => message.id === options.messageId)
+          ?.voiceClips
+          ?.find((clip) =>
+            clip.speakerName === speakerName &&
+            clip.text === speechText &&
+            (!options.source || clip.source === options.source)
+          )
+      : undefined;
+    if (storedClip?.dataUrl) {
+      cacheClip(cacheKey, storedClip.dataUrl);
+      return storedClip.dataUrl;
     }
     const clips = await generateVoiceClip({
       providerId: voiceProviderId,
@@ -163,6 +220,7 @@ export function useDialogueVoice({
       throw new Error('No voice clip was returned.');
     }
     cacheClip(cacheKey, clipDataUrl);
+    storeVoiceClip(options.messageId, speakerName, speechText, clipDataUrl, clips[0]?.filename, options.source);
     return clipDataUrl;
   }
 
@@ -182,7 +240,7 @@ export function useDialogueVoice({
     }
   }
 
-  async function speakDialogue({ key, speakerName, text }: DialogueVoiceRequest) {
+  async function speakDialogue({ key, messageId, speakerName, text }: DialogueVoiceRequest) {
     if (activeKeyRef.current === key) {
       // Clicking the playing (or generating) quote again stops it.
       stopDialogueVoice();
@@ -199,7 +257,10 @@ export function useDialogueVoice({
     setActiveDialogueVoiceKey(key);
 
     try {
-      const clipDataUrl = await getOrGenerateClip(speakerName, speechText);
+      const clipDataUrl = await getOrGenerateClip(speakerName, speechText, {
+        messageId,
+        source: 'dialogue',
+      });
       if (!clipDataUrl || activeKeyRef.current !== key) {
         return;
       }
@@ -237,7 +298,10 @@ export function useDialogueVoice({
         }
         queuedKeys.add(cacheKey);
         try {
-          await getOrGenerateClip(segment.speakerName, segment.text);
+          await getOrGenerateClip(segment.speakerName, segment.text, {
+            messageId: message.id,
+            source: 'dialogue',
+          });
           generatedCount += 1;
         } catch (error) {
           notifySystem(
@@ -278,7 +342,10 @@ export function useDialogueVoice({
       let clipDataUrl: string | null;
       try {
         const cached = clipCacheRef.current.has(clipCacheKey(segment.speakerName, segment.text));
-        clipDataUrl = await getOrGenerateClip(segment.speakerName, segment.text);
+        clipDataUrl = await getOrGenerateClip(segment.speakerName, segment.text, {
+          messageId: segment.messageId,
+          source: segment.speakerName === null ? 'narration' : 'dialogue',
+        });
         if (!cached && clipDataUrl) {
           generatedCount += 1;
         }
@@ -312,8 +379,11 @@ export function useDialogueVoice({
 
   // Generates (or serves from cache) one clip for a phone voice message.
   // Returns null when the speaker has no sample or no voice provider exists.
-  async function generateVoiceMessageClip(speakerName: string, text: string) {
-    return getOrGenerateClip(speakerName, dialogueSpeechText(text));
+  async function generateVoiceMessageClip(messageId: number, speakerName: string, text: string) {
+    return getOrGenerateClip(speakerName, dialogueSpeechText(text), {
+      messageId,
+      source: 'phone',
+    });
   }
 
   return {

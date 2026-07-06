@@ -5,6 +5,7 @@ import type {
   ChatDialogueQuote,
   ChatImageAttachment,
   ImageCaptionChange,
+  MessageVoiceClip,
   NodeLlmCallStats,
   RpAppointment,
   WorkflowFile,
@@ -91,6 +92,7 @@ export type TimelineMessageEntry = {
   inputPromptSlot?: number;
   rpDateTime?: string;
   workflowVariableSetCommands?: WorkflowVariableSetCommand[];
+  voiceClips?: MessageVoiceClip[];
 };
 
 export type TimelineEventEntry = {

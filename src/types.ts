@@ -576,6 +576,15 @@ export type OutputActionContextCapacityBar = {
   showLegend: boolean;
 };
 
+export type MessageVoiceClip = {
+  speakerName: string | null;
+  text: string;
+  dataUrl: string;
+  filename?: string;
+  source?: 'dialogue' | 'narration' | 'phone';
+  createdAt?: string;
+};
+
 export type MessageRecord = {
   id: number;
   role: 'user' | 'output' | 'error';
@@ -622,6 +631,7 @@ export type MessageRecord = {
   turnPart?: 'input' | 'output';
   rpDateTime?: string;
   workflowVariableSetCommands?: WorkflowVariableSetCommand[];
+  voiceClips?: MessageVoiceClip[];
 };
 
 export type RpAppointment = {

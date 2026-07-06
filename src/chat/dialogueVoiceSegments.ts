@@ -5,6 +5,7 @@ import { coloredDialogueParts, quotedSpeechParts } from './textRendering';
 // A message split into the pieces the voice playback reads in order:
 // character quotes carry the speaker name, narration segments use null.
 export type DialogueVoiceSegment = {
+  messageId: number;
   speakerName: string | null;
   text: string;
 };
@@ -88,7 +89,7 @@ export function dialogueVoiceMessageSegments(
         previous.text = `${previous.text} ${text}`;
         continue;
       }
-      segments.push({ speakerName, text });
+      segments.push({ messageId: message.id, speakerName, text });
     }
   }
   return segments;

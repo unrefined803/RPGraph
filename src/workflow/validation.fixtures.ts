@@ -963,6 +963,14 @@ export function verifyWorkflowValidationFixtures() {
           turnId: 'turn-1',
           turnNumber: 1,
           turnPart: 'output',
+          voiceClips: [{
+            speakerName: 'Bob',
+            text: 'Bob waves from the bus stop.',
+            dataUrl: 'data:audio/mpeg;base64,QUJD',
+            filename: 'bob-voice.mp3',
+            source: 'dialogue',
+            createdAt: '2026-06-01T00:00:00.000Z',
+          }],
         }],
       },
   } satisfies TurnRecord;
@@ -1110,6 +1118,13 @@ export function verifyWorkflowValidationFixtures() {
       embeddedPhoneRoundtripMessage.embeddedPhoneTranslatedTextAfter === 'Alice steckt ihr Handy ein.' &&
       embeddedPhoneRoundtripMessage.embeddedPhoneMessages?.[0]?.phoneMessageId === embeddedPhoneRoundtripLinkedPhone?.id,
     'RP Save Format v2 must restore embedded phone composite text and relinked phone ids',
+  );
+  assertFixture(
+    embeddedPhoneRoundtripMessage?.voiceClips?.[0]?.dataUrl === 'data:audio/mpeg;base64,QUJD' &&
+      sessionV2.timeline.find(
+        (entry): entry is TimelineMessageEntry => entry.kind === 'message' && entry.id === 'turn-1-output-6',
+      )?.voiceClips?.[0]?.source === 'dialogue',
+    'RP Save Format v2 must store and restore generated voice clips',
   );
   assertFixture(restoredAppState.openingMessages[0]?.originalText === 'Opening line', 'RP Save Format v2 must restore opening messages');
   assertFixture(

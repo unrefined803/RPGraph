@@ -88,7 +88,7 @@ type ChatConversationPanelProps = {
   dialogueHighlightEnabled: boolean;
   dialogueVoiceSpeakerNames: ReadonlySet<string>;
   activeDialogueVoiceKey: string | null;
-  onSpeakDialogue: (request: { key: string; speakerName: string; text: string }) => void;
+  onSpeakDialogue: (request: { key: string; messageId: number; speakerName: string; text: string }) => void;
   dialogueVoiceMode: DialogueVoiceMode;
   onDialogueVoiceModeChange: (mode: DialogueVoiceMode) => void;
   dialogueVoicePreloadDisabledReason: string | null;
@@ -629,7 +629,7 @@ export function ChatConversationPanel({
                   }
                   onClick={
                     voiceKey && partSpeakerName
-                      ? () => onSpeakDialogue({ key: voiceKey, speakerName: partSpeakerName, text: part.text })
+                      ? () => onSpeakDialogue({ key: voiceKey, messageId: message.id, speakerName: partSpeakerName, text: part.text })
                       : undefined
                   }
                 >

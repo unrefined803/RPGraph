@@ -82,7 +82,7 @@ type PhonePanelProps = {
   canSend: boolean;
   inputLocked?: boolean;
   voiceMessageSpeakerNames: ReadonlySet<string>;
-  onGenerateVoiceMessageClip: (request: { speakerName: string; text: string }) => Promise<string | null>;
+  onGenerateVoiceMessageClip: (request: { messageId: number; speakerName: string; text: string }) => Promise<string | null>;
   englishProcessingEnabled: boolean;
   rpTimeTrackingEnabled: boolean;
   phoneAuthorBadgesEnabled: boolean;
@@ -394,6 +394,7 @@ export function PhonePanel({
                                 disabledReason="Voice messages are unavailable while the chat is running."
                                 onGenerateClip={() =>
                                   onGenerateVoiceMessageClip({
+                                    messageId: message.id,
                                     speakerName: view.senderName,
                                     text: view.visibleText,
                                   })

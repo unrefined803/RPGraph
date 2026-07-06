@@ -113,6 +113,7 @@ export function useTurnRecordState({
     outputActionProgressBars,
     outputActionContextCapacityBars,
     rpDateTime,
+    voiceClips,
   }: AppendMessageInput) {
     const id = nextMessageIdRef.current;
     nextMessageIdRef.current += 1;
@@ -158,6 +159,7 @@ export function useTurnRecordState({
       outputActionProgressBars,
       outputActionContextCapacityBars,
       rpDateTime,
+      voiceClips,
       turnId: collector?.turnId,
       turnNumber: collector?.turnNumber,
       turnPart: collector?.part,
@@ -173,18 +175,28 @@ export function useTurnRecordState({
   }
 
   function updateMessage(messageId: number, patch: Partial<MessageRecord>) {
+    const patchMessages = (current: MessageRecord[]) =>
+      current.map((message) =>
+        message.id === messageId ? { ...message, ...patch } : message,
+      );
     const collector = activeTurnCollectorRef.current;
     if (collector) {
-      [collector.inputMessages, collector.outputMessages].forEach((collectedMessages) => {
-        const index = collectedMessages.findIndex((message) => message.id === messageId);
-        if (index >= 0) {
-          collectedMessages[index] = { ...collectedMessages[index], ...patch };
-        }
-      });
+      collector.inputMessages = patchMessages(collector.inputMessages);
+      collector.outputMessages = patchMessages(collector.outputMessages);
     }
-    messagesRef.current = messagesRef.current.map((message) =>
-      message.id === messageId ? { ...message, ...patch } : message,
-    );
+    const nextTurns = turnsRef.current.map((turn) => ({
+      ...turn,
+      input: {
+        ...turn.input,
+        messages: patchMessages(turn.input.messages),
+      },
+      output: {
+        ...turn.output,
+        messages: patchMessages(turn.output.messages),
+      },
+    }));
+    setTurns(nextTurns);
+    messagesRef.current = patchMessages(messagesRef.current);
     setMessages(messagesRef.current);
   }
 

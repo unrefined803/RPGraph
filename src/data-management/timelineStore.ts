@@ -107,6 +107,7 @@ function messageToTimelineEntry(
     inputPromptSlot: message.inputPromptSlot,
     rpDateTime: message.rpDateTime,
     workflowVariableSetCommands: message.workflowVariableSetCommands,
+    voiceClips: message.voiceClips?.length ? message.voiceClips : undefined,
   };
 }
 

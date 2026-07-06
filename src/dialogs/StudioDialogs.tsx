@@ -40,7 +40,7 @@ import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 import { HighlightedPreviewText } from '../nodes/shared/HighlightedPreviewText';
 import { providerOption } from '../nodes/shared/providerHealthLabels';
 import { llmProviderKind } from '../llm/providerKind';
-import { sanitizeDataUrlsInText } from '../utils/sanitize';
+import { sanitizeDataUrls, sanitizeDataUrlsInText } from '../utils/sanitize';
 import {
   connectionReasoningEfforts,
   bundledComfyWorkflows,
@@ -1189,7 +1189,7 @@ export function StudioDialogs({
             textDialogNode?.data.nodeType === 'llm-prompt-switch'
           ? textDialogNode.data.generatedText ?? ''
           : textDialogNode?.data.preview ?? '';
-  const jsonDialogContent = JSON.stringify(jsonDialogNode?.data ?? {}, null, 2);
+  const jsonDialogContent = JSON.stringify(sanitizeDataUrls(jsonDialogNode?.data ?? {}), null, 2);
   const roundedUiScalePercent = Math.round(uiScale * 100);
   const canDecreaseUiScale = uiScale > minUiScale + 0.0001;
   const canIncreaseUiScale = uiScale < maxUiScale - 0.0001;

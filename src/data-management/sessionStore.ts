@@ -220,6 +220,7 @@ function chatMessageFromTimelineEntry(
     turnPart: entry.phase,
     rpDateTime: entry.rpDateTime,
     workflowVariableSetCommands: entry.workflowVariableSetCommands,
+    voiceClips: entry.voiceClips,
   };
 }
 
