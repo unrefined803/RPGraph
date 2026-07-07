@@ -302,21 +302,24 @@ export async function executeGraph({
         .filter((connectionId): connectionId is string => !!connectionId),
     );
 
-  const unloadLocalLlmModelsBeforeComfy = async (
-    warn: (message: string) => void,
-    llmConnectionId?: string,
-  ) => {
+  const activeLocalLlmConnections = (llmConnectionId?: string) => {
     const activeConnectionIds = workflowConnectionIds();
     if (llmConnectionId) {
       activeConnectionIds.add(llmConnectionId);
     }
+    return connections.filter((connection) =>
+      activeConnectionIds.has(connection.id) &&
+      isLocalProviderConnection(connection) &&
+      (isLmStudioConnection(connection) || isOllamaConnection(connection)),
+    );
+  };
+
+  const unloadLocalLlmModelsBeforeComfy = async (
+    warn: (message: string) => void,
+    llmConnectionId?: string,
+  ) => {
     await Promise.all(
-      connections
-        .filter((connection) =>
-          activeConnectionIds.has(connection.id) &&
-          isLocalProviderConnection(connection) &&
-          (isLmStudioConnection(connection) || isOllamaConnection(connection)),
-        )
+      activeLocalLlmConnections(llmConnectionId)
         .map(async (connection) => {
           try {
             if (isLmStudioConnection(connection)) {
@@ -376,7 +379,10 @@ export async function executeGraph({
       throw new Error(comfySetupRequiredMessage(missingComfyFields));
     }
 
-    const manageModelMemory = request.manageModelMemory ?? true;
+    // With only API LLM providers in play, nothing competes with ComfyUI
+    // for local VRAM, so its model can stay loaded across generations.
+    const manageModelMemory = (request.manageModelMemory ?? true) &&
+      activeLocalLlmConnections(request.llmConnectionId).length > 0;
     if (manageModelMemory) {
       await unloadLocalLlmModelsBeforeComfy(warn, request.llmConnectionId);
     }

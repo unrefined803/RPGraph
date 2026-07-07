@@ -368,7 +368,7 @@ export function ImageGenerationAssistantDialog({
                       className={`image-model-state-button ${assistantModelState}`}
                       disabled={!assistantIsLocal || assistantModelState === 'loading' || assistantModelState === 'unloading'}
                       title={!assistantIsLocal
-                        ? 'Remote providers do not need local model control.'
+                        ? 'API providers run remotely and need no local model management.'
                         : assistantModelState === 'loaded' ? 'Unload the model' : 'Load the selected model'}
                       onClick={() => {
                         setModelActionError('');
@@ -376,7 +376,7 @@ export function ImageGenerationAssistantDialog({
                           .catch((error) => setModelActionError(error instanceof Error ? error.message : String(error)));
                       }}
                     >
-                      {assistantIsLocal ? modelStateLabel(assistantModelState) : 'Remote model'}
+                      {assistantIsLocal ? modelStateLabel(assistantModelState) : 'API'}
                     </button>
                   </div>
                 </label>

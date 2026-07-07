@@ -1791,6 +1791,12 @@ export function useProviderConnections({
     llmProviderId: string;
     comfyProviderId?: string;
   }) {
+    const llmConnection = connections.find((entry) => entry.id === request.llmProviderId);
+    if (!llmConnection || !isLocalProviderConnection(llmConnection)) {
+      // API providers do not compete with ComfyUI for local VRAM,
+      // so the ComfyUI model can stay loaded.
+      return;
+    }
     const comfyConnection = connections.find(
       (entry) => entry.id === request.comfyProviderId && isComfyImageConnection(entry),
     );
@@ -1803,10 +1809,6 @@ export function useProviderConnections({
         // An unreachable ComfyUI holds no VRAM; keep the assistant usable.
         setImageAssistantModelState(comfyConnection.id, 'unknown');
       }
-    }
-    const llmConnection = connections.find((entry) => entry.id === request.llmProviderId);
-    if (!llmConnection || !isLocalProviderConnection(llmConnection)) {
-      return;
     }
     setImageAssistantModelState(llmConnection.id, 'loading');
     try {
