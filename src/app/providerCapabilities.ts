@@ -1,6 +1,7 @@
 import {
   isGeminiConnection,
   isLmStudioConnection,
+  isLlamaCppConnection,
   isOllamaConnection,
   isOpenRouterConnection,
 } from '../llm/providerKind';
@@ -8,6 +9,7 @@ import type {
   ConnectionPreset,
   GeminiModelInfo,
   LmStudioModelInfo,
+  LlamaCppModelInfo,
   OllamaModelInfo,
   OpenRouterModelInfo,
   ProviderConnectionCapabilities,
@@ -64,6 +66,17 @@ function selectedOllamaModel(
     return undefined;
   }
   return models.find((model) => model.id === selectedModelId);
+}
+
+export function llamaCppCapabilitiesForConnection(
+  connection: ConnectionPreset,
+  models: LlamaCppModelInfo[],
+): ProviderConnectionCapabilities {
+  const model = selectedCapabilityModel(connection, models);
+  return {
+    text: model?.text === true,
+    vision: model?.vision === true,
+  };
 }
 
 export function lmStudioCapabilitiesForConnection(
@@ -188,6 +201,14 @@ export function connectionWithOllamaCapabilities(
     ...connection,
     vision: capabilities.vision === true,
   };
+}
+
+export function connectionWithLlamaCppCapabilities(
+  connection: ConnectionPreset,
+  models: LlamaCppModelInfo[],
+): ConnectionPreset {
+  if (!isLlamaCppConnection(connection)) return connection;
+  return { ...connection, vision: llamaCppCapabilitiesForConnection(connection, models).vision === true };
 }
 
 export function providerErrorMessage(error: unknown) {

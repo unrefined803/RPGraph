@@ -2,6 +2,7 @@ import type { ConnectionPreset, LlmProviderKind } from '../types';
 
 const llmProviderKinds = [
   'lm-studio',
+  'llama-cpp',
   'ollama',
   'openrouter',
   'gemini',
@@ -47,6 +48,9 @@ export function inferredProviderKind(connection: ConnectionPreset): LlmProviderK
   if ((label.includes('ollama') && isLocal) || matchesLocalDefaultPort(connection, '11434')) {
     return 'ollama';
   }
+  if (label.includes('llama.cpp') || label.includes('llama cpp')) {
+    return 'llama-cpp';
+  }
   const hostname = connectionUrl(connection)?.hostname ?? '';
   const baseUrl = connection.baseUrl.toLowerCase();
   if (label.includes('openrouter') || hostname === 'openrouter.ai' || baseUrl.includes('openrouter.ai')) {
@@ -71,6 +75,10 @@ export function isLmStudioConnection(connection: ConnectionPreset): boolean {
 
 export function isOllamaConnection(connection: ConnectionPreset): boolean {
   return llmProviderKind(connection) === 'ollama';
+}
+
+export function isLlamaCppConnection(connection: ConnectionPreset): boolean {
+  return llmProviderKind(connection) === 'llama-cpp';
 }
 
 export function isOpenRouterConnection(connection: ConnectionPreset): boolean {

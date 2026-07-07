@@ -15727,6 +15727,53 @@ button.message-timeline-row.phone:focus-visible {
   line-height: 1.5;
 }
 
+.connection-draft-placeholder.llama-router-notice {
+  padding: 24px;
+}
+
+.llama-router-notice span {
+  max-width: 480px;
+}
+
+.llama-router-notice code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #101a2a;
+  color: #b7c5e4;
+  font-size: 11.5px;
+}
+
+.llama-router-notice pre {
+  max-width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #2c374d;
+  border-radius: 8px;
+  background: #101a2a;
+  color: #b7c5e4;
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.llama-router-notice button {
+  margin-top: 8px;
+  padding: 8px 18px;
+  border: 1px solid #2c374d;
+  border-radius: 8px;
+  background: #101a2a;
+  color: #dbe4f7;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.llama-router-notice button:hover {
+  border-color: rgba(126, 185, 197, 0.55);
+  background: #142235;
+}
+
 .provider-presets button.active {
   border-color: rgba(126, 185, 197, 0.55);
   background: #142235;

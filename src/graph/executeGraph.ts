@@ -26,6 +26,7 @@ import {
 } from '../settings';
 import {
   isLmStudioConnection,
+  isLlamaCppConnection,
   isLocalProviderConnection,
   isOllamaConnection,
 } from '../llm/providerKind';
@@ -310,7 +311,7 @@ export async function executeGraph({
     return connections.filter((connection) =>
       activeConnectionIds.has(connection.id) &&
       isLocalProviderConnection(connection) &&
-      (isLmStudioConnection(connection) || isOllamaConnection(connection)),
+      (isLmStudioConnection(connection) || isOllamaConnection(connection) || isLlamaCppConnection(connection)),
     );
   };
 
@@ -324,6 +325,10 @@ export async function executeGraph({
           try {
             if (isLmStudioConnection(connection)) {
               await window.rpgraph.unloadLmStudioModels(connection);
+              return;
+            }
+            if (isLlamaCppConnection(connection)) {
+              await window.rpgraph.unloadLlamaCppModels(connection);
               return;
             }
             await window.rpgraph.unloadOllamaModels(connection);

@@ -1057,6 +1057,36 @@ function ollamaBaseUrl(connection) {
   return nativeProviderBaseUrl(connection, 'http://localhost:11434/v1');
 }
 
+function llamaCppBaseUrl(connection) {
+  return nativeProviderBaseUrl(connection, 'http://localhost:8080/v1');
+}
+
+function llamaCppEndpoint(connection, route) {
+  return `${llamaCppBaseUrl(connection)}/${route}`;
+}
+
+function llamaCppModelEntries(result) {
+  if (Array.isArray(result?.data)) return result.data;
+  if (Array.isArray(result?.models)) return result.models;
+  return Array.isArray(result) ? result : [];
+}
+
+function llamaCppNormalizedModel(model) {
+  const id = [model?.id, model?.model].find((value) => typeof value === 'string' && value.trim())?.trim();
+  if (!id) return null;
+  const architecture = model?.architecture && typeof model.architecture === 'object' ? model.architecture : {};
+  const inputModalities = stringArray(architecture.input_modalities);
+  const rawStatus = typeof model?.status?.value === 'string' ? model.status.value : model?.status;
+  const status = ['unloaded', 'loading', 'loaded', 'sleeping', 'failed'].includes(rawStatus) ? rawStatus : 'unknown';
+  return {
+    id,
+    name: typeof model?.name === 'string' && model.name.trim() ? model.name.trim() : id,
+    text: inputModalities.includes('text'),
+    vision: inputModalities.includes('image'),
+    status,
+  };
+}
+
 function ollamaEndpoint(connection, route) {
   return `${ollamaBaseUrl(connection)}/api/${route}`;
 }
@@ -1537,6 +1567,17 @@ function chatCompletionReasoningOptions(connection) {
   if (!supportedReasoningEfforts.has(effort)) {
     return {};
   }
+  if (connection?.providerKind === 'llama-cpp') {
+    if (effort === 'none') {
+      return {
+        chat_template_kwargs: { enable_thinking: false },
+        thinking_budget_tokens: 0,
+      };
+    }
+    return {
+      chat_template_kwargs: { enable_thinking: true },
+    };
+  }
   return {
     reasoning: { effort },
   };
@@ -1865,6 +1906,47 @@ async function requestOllamaJson(connection, route, init, abort) {
   }
   const body = await response.text();
   return body ? JSON.parse(body) : {};
+}
+
+async function requestLlamaCppJson(connection, route, init, abort) {
+  const response = await requestLlmResponse(llamaCppEndpoint(connection, route), {
+    ...init,
+    headers: requestHeaders(connection),
+  }, abort);
+  if (!response.ok) throw new Error(await readError(response));
+  const body = await response.text();
+  return body ? JSON.parse(body) : {};
+}
+
+async function llamaCppModels(connection, abort) {
+  const result = await requestLlamaCppJson(connection, 'models', {}, abort);
+  return llamaCppModelEntries(result).map(llamaCppNormalizedModel).filter(Boolean);
+}
+
+async function waitForLlamaCppStatus(connection, modelId, expected, abort) {
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
+    const model = (await llamaCppModels(connection, abort)).find((entry) => entry.id === modelId);
+    if (model?.status === expected) return model;
+    if (expected === 'unloaded' && !model) return null;
+    if (expected === 'loaded' && model?.status === 'failed') {
+      throw new Error(`llama.cpp failed to load model "${modelId}".`);
+    }
+    await delay(250, abort);
+  }
+  throw new Error(`Timed out waiting for llama.cpp model "${modelId}" to become ${expected}.`);
+}
+
+async function ensureLlamaCppModelLoaded(connection, abort) {
+  if (connection?.providerKind !== 'llama-cpp') return;
+  const modelId = typeof connection?.model === 'string' ? connection.model.trim() : '';
+  if (!modelId) throw new Error('Choose a model ID before loading a llama.cpp model.');
+  const current = (await llamaCppModels(connection, abort)).find((model) => model.id === modelId);
+  if (current?.status === 'loaded') return;
+  if (current?.status !== 'loading') {
+    await requestLlamaCppJson(connection, 'models/load', { method: 'POST', body: JSON.stringify({ model: modelId }) }, abort);
+  }
+  await waitForLlamaCppStatus(connection, modelId, 'loaded', abort);
 }
 
 function comfyBaseUrl(baseUrl) {
@@ -2268,6 +2350,8 @@ async function repairComfyWorkflowWithLlm(workflowPath, connection, abort, role 
     throw new Error('Choose an LLM provider with a model before fixing the ComfyUI workflow.');
   }
 
+  await freeComfyMemoryForLocalLlm(connection);
+  await ensureLlamaCppModelLoaded(connection, abort);
   const response = await requestLlmResponse(endpoint(connection.baseUrl, 'chat/completions'), {
     method: 'POST',
     headers: requestHeaders(connection),
@@ -2451,6 +2535,7 @@ async function freeComfyMemoryForLocalLlm(connection) {
   const shouldFreeBeforeLlm =
     providerKind === 'lm-studio' ||
     providerKind === 'ollama' ||
+    providerKind === 'llama-cpp' ||
     isLocalLlmBaseUrl(connection?.baseUrl);
   if (!comfyBaseUrl || !shouldFreeBeforeLlm) {
     return;
@@ -2996,6 +3081,69 @@ ipcMain.handle('lmstudio:list-models', async (_event, request) => {
   }
 });
 
+ipcMain.handle('llamacpp:list-models', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    return await llamaCppModels(connection, abort);
+  } catch (error) {
+    if (abort.signal.aborted) return cancelledLlmIpcResult();
+    return failedLlmIpcResult(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('llamacpp:load-model', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    await freeComfyMemoryForLocalLlm(connection);
+    await ensureLlamaCppModelLoaded(connection, abort);
+    return { loadedModel: connection.model.trim() };
+  } catch (error) {
+    if (abort.signal.aborted) return cancelledLlmIpcResult();
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('llamacpp:model-loaded', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    const model = (await llamaCppModels(connection, abort)).find((entry) => entry.id === connection?.model?.trim());
+    return { loaded: model?.status === 'loaded', status: model?.status ?? 'unknown' };
+  } catch (error) {
+    if (abort.signal.aborted) return cancelledLlmIpcResult();
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('llamacpp:unload-models', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    const loaded = (await llamaCppModels(connection, abort)).filter((model) => model.status !== 'unloaded');
+    for (const model of loaded) {
+      await requestLlamaCppJson(connection, 'models/unload', {
+        method: 'POST',
+        body: JSON.stringify({ model: model.id }),
+      }, abort);
+      await waitForLlamaCppStatus(connection, model.id, 'unloaded', abort);
+    }
+    return { unloadedCount: loaded.length, models: loaded.map((model) => model.id) };
+  } catch (error) {
+    if (abort.signal.aborted) return cancelledLlmIpcResult();
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
 ipcMain.handle('openrouter:list-models', async (_event, request) => {
   const connection = request?.connection ?? request;
   const abort = createLlmAbortController(request);
@@ -3435,6 +3583,7 @@ ipcMain.handle('llm:chat-completion', async (_event, request) => {
   const abort = createLlmAbortController(request);
   try {
     await freeComfyMemoryForLocalLlm(request.connection);
+    await ensureLlamaCppModelLoaded(request.connection, abort);
     if (isGeminiProviderConnection(request.connection)) {
       const response = await requestLlmResponse(geminiApiUrl(request.connection, 'generateContent'), {
         method: 'POST',
@@ -3506,6 +3655,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
   const abort = createLlmAbortController(request);
   try {
     await freeComfyMemoryForLocalLlm(request.connection);
+    await ensureLlamaCppModelLoaded(request.connection, abort);
     if (isGeminiProviderConnection(request.connection)) {
       const response = await requestLlmResponse(geminiApiUrl(request.connection, 'streamGenerateContent'), {
         method: 'POST',

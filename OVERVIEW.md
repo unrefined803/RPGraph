@@ -162,6 +162,7 @@ Provider management includes:
 - Health checks.
 - Vision capability detection.
 - Local model load/unload helpers for LM Studio and Ollama.
+- Local model load/unload helpers for LM Studio, Ollama, and llama.cpp router mode. llama.cpp model discovery reads text/vision capabilities and explicit load states from `/models`; RPGraph waits for confirmed load/unload completion when sharing GPU memory with ComfyUI. The provider's Reasoning setting is translated to llama.cpp chat-template controls, so short structured helper calls can disable hidden thinking tokens reliably.
 - ComfyUI workflow inspection and repair (role-aware placeholders for image and voice workflows).
 - ComfyUI model memory management around image and voice generation.
 

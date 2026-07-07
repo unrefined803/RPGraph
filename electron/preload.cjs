@@ -60,6 +60,14 @@ contextBridge.exposeInMainWorld('rpgraph', {
     abortableLlmInvoke('llm:list-models', { connection }, onAbort),
   listLmStudioModels: (connection) =>
     ipcRenderer.invoke('lmstudio:list-models', { connection }).then(throwIfRpgraphIpcError),
+  listLlamaCppModels: (connection) =>
+    ipcRenderer.invoke('llamacpp:list-models', { connection }).then(throwIfRpgraphIpcError),
+  loadLlamaCppModel: (connection) =>
+    ipcRenderer.invoke('llamacpp:load-model', { connection }),
+  isLlamaCppModelLoaded: (connection) =>
+    ipcRenderer.invoke('llamacpp:model-loaded', { connection }),
+  unloadLlamaCppModels: (connection) =>
+    ipcRenderer.invoke('llamacpp:unload-models', { connection }),
   listOpenRouterModels: (connection) =>
     ipcRenderer.invoke('openrouter:list-models', { connection }),
   generateOpenRouterSpeech: (request, onChunk) => {

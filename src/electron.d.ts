@@ -4,6 +4,7 @@ import type {
   ConnectionPreset,
   GeminiModelInfo,
   LmStudioModelInfo,
+  LlamaCppModelInfo,
   LlmCompletionResult,
   OllamaModelInfo,
   OpenRouterModelInfo,
@@ -28,6 +29,10 @@ declare global {
         onAbort?: (cancel: () => void) => void,
       ) => Promise<string[]>;
       listLmStudioModels: (connection: ConnectionPreset) => Promise<LmStudioModelInfo[]>;
+      listLlamaCppModels: (connection: ConnectionPreset) => Promise<LlamaCppModelInfo[]>;
+      loadLlamaCppModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
+      isLlamaCppModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: LlamaCppModelInfo['status'] }>;
+      unloadLlamaCppModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
       listOpenRouterModels: (connection: ConnectionPreset) => Promise<OpenRouterModelInfo[]>;
       generateOpenRouterSpeech: (request: {
         connection: ConnectionPreset;

@@ -21,6 +21,7 @@ export type ConnectionReasoningEffort =
 
 export type LlmProviderKind =
   | 'lm-studio'
+  | 'llama-cpp'
   | 'ollama'
   | 'openrouter'
   | 'gemini';
@@ -99,6 +100,16 @@ export type OllamaModelInfo = {
   name: string;
   vision: boolean;
   trainedForToolUse: boolean;
+};
+
+type LlamaCppModelStatus = 'unloaded' | 'loading' | 'loaded' | 'sleeping' | 'failed' | 'unknown';
+
+export type LlamaCppModelInfo = {
+  id: string;
+  name: string;
+  text: boolean;
+  vision: boolean;
+  status: LlamaCppModelStatus;
 };
 
 export type OpenRouterModelInfo = {

@@ -5,12 +5,14 @@ import type { ComfyWorkflowInspection } from '../comfy/workflowCompatibility';
 import {
   connectionWithGeminiCapabilities as connectionWithGeminiCapabilitiesForModels,
   connectionWithLmStudioCapabilities as connectionWithLmStudioCapabilitiesForModels,
+  connectionWithLlamaCppCapabilities as connectionWithLlamaCppCapabilitiesForModels,
   connectionWithOllamaCapabilities as connectionWithOllamaCapabilitiesForModels,
   connectionWithOpenRouterCapabilities as connectionWithOpenRouterCapabilitiesForModels,
   createProviderConnectionId,
   geminiCapabilitiesForConnection,
   lmStudioCapabilitiesForConnection,
   lmStudioLlmModels,
+  llamaCppCapabilitiesForConnection,
   ollamaCapabilitiesForConnection,
   providerCheckedAt,
   openRouterCapabilitiesForConnection,
@@ -21,6 +23,7 @@ import {
 import {
   inferredProviderKind,
   isLmStudioConnection,
+  isLlamaCppConnection,
   isLocalProviderConnection,
   isOllamaConnection,
   isOpenRouterConnection,
@@ -62,6 +65,7 @@ import type {
   ConnectionPreset,
   GeminiModelInfo,
   LmStudioModelInfo,
+  LlamaCppModelInfo,
   OllamaModelInfo,
   OpenRouterModelInfo,
   ProviderConnectionCapabilities,
@@ -174,6 +178,8 @@ export function useProviderConnections({
   const geminiModelsByConnectionIdRef = useRef<Record<string, GeminiModelInfo[]>>({});
   const [ollamaModelsByConnectionId, setOllamaModelsByConnectionId] = useState<Record<string, OllamaModelInfo[]>>({});
   const ollamaModelsByConnectionIdRef = useRef<Record<string, OllamaModelInfo[]>>({});
+  const [llamaCppModelsByConnectionId, setLlamaCppModelsByConnectionId] = useState<Record<string, LlamaCppModelInfo[]>>({});
+  const llamaCppModelsByConnectionIdRef = useRef<Record<string, LlamaCppModelInfo[]>>({});
   const startupProviderCheckCompleteRef = useRef(false);
   const localProviderPollActiveRef = useRef(false);
   const characterComfyLoraCacheRef = useRef<Record<string, string[] | Promise<string[]>>>({});
@@ -211,6 +217,9 @@ export function useProviderConnections({
   useEffect(() => {
     ollamaModelsByConnectionIdRef.current = ollamaModelsByConnectionId;
   }, [ollamaModelsByConnectionId]);
+  useEffect(() => {
+    llamaCppModelsByConnectionIdRef.current = llamaCppModelsByConnectionId;
+  }, [llamaCppModelsByConnectionId]);
 
   function beginVoiceGeneration() {
     voiceGenerationCountRef.current += 1;
@@ -601,6 +610,11 @@ export function useProviderConnections({
     setOllamaModelsByConnectionId(ollamaModelsByConnectionIdRef.current);
   }
 
+  function updateLlamaCppModelCache(connectionId: string, models: LlamaCppModelInfo[]) {
+    llamaCppModelsByConnectionIdRef.current = { ...llamaCppModelsByConnectionIdRef.current, [connectionId]: models };
+    setLlamaCppModelsByConnectionId(llamaCppModelsByConnectionIdRef.current);
+  }
+
   function connectionWithLmStudioCapabilities(
     connection: ConnectionPreset,
     models = lmStudioModelsByConnectionIdRef.current[connection.id] ?? [],
@@ -629,12 +643,20 @@ export function useProviderConnections({
     return connectionWithOllamaCapabilitiesForModels(connection, models);
   }
 
+  function connectionWithLlamaCppCapabilities(
+    connection: ConnectionPreset,
+    models = llamaCppModelsByConnectionIdRef.current[connection.id] ?? [],
+  ): ConnectionPreset {
+    return connectionWithLlamaCppCapabilitiesForModels(connection, models);
+  }
+
   function applyDetectedConnectionCapabilities(
     connection: ConnectionPreset,
     capabilities: ProviderConnectionCapabilities,
   ) {
     if (
       !isLmStudioConnection(connection) &&
+      !isLlamaCppConnection(connection) &&
       !isOllamaConnection(connection) &&
       !isOpenRouterConnection(connection) &&
       !isGeminiConnection(connection)
@@ -646,6 +668,8 @@ export function useProviderConnections({
       current.id === connection.id
         ? isLmStudioConnection(current)
           ? connectionWithLmStudioCapabilities(current)
+          : isLlamaCppConnection(current)
+            ? connectionWithLlamaCppCapabilities(current)
           : isOllamaConnection(current)
             ? connectionWithOllamaCapabilities(current)
             : isOpenRouterConnection(current)
@@ -743,6 +767,43 @@ export function useProviderConnections({
           status: models.length > 0 ? 'online' : 'offline',
           detail: models.length > 0
             ? providerModelCountDetail(models.length)
+            : 'Connection succeeded, but no LLM models were returned.',
+          capabilities,
+          checkedAt: providerCheckedAt(),
+        };
+      } else if (isLlamaCppConnection(connection)) {
+        const modelDetails = await window.rpgraph.listLlamaCppModels(connection);
+        updateLlamaCppModelCache(connection.id, modelDetails);
+        const models = modelDetails.map((model) => model.id);
+        const fallbackModel = models.includes(connection.model)
+          ? connection.model
+          : options.selectFallbackModel
+            ? models[0] ?? connection.model
+            : connection.model;
+        const detectedConnection = connectionWithLlamaCppCapabilities(
+          { ...connection, model: fallbackModel },
+          modelDetails,
+        );
+        if (options.selectFallbackModel && detectedConnection.model !== connection.model) {
+          setEditingConnection(detectedConnection);
+          setConnections((current) =>
+            current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
+          );
+        } else {
+          applyDetectedConnectionCapabilities(
+            detectedConnection,
+            llamaCppCapabilitiesForConnection(detectedConnection, modelDetails),
+          );
+        }
+        if (editingConnection.id === connection.id) {
+          setAvailableConnectionModels(models);
+        }
+        const capabilities = llamaCppCapabilitiesForConnection(detectedConnection, modelDetails);
+        const selected = modelDetails.find((model) => model.id === detectedConnection.model);
+        health = {
+          status: models.length > 0 ? 'online' : 'offline',
+          detail: models.length > 0
+            ? `${providerModelCountDetail(models.length)} Selected model: ${selected?.status ?? 'unknown'}.`
             : 'Connection succeeded, but no LLM models were returned.',
           capabilities,
           checkedAt: providerCheckedAt(),
@@ -1036,7 +1097,7 @@ export function useProviderConnections({
   async function unloadLocalLlmModelsForComfy(reason: string) {
     const localLlmConnections = connections.filter((connection) =>
       isLocalProviderConnection(connection) &&
-      (isLmStudioConnection(connection) || isOllamaConnection(connection)),
+      (isLmStudioConnection(connection) || isOllamaConnection(connection) || isLlamaCppConnection(connection)),
     );
     if (!localLlmConnections.length) {
       return [];
@@ -1048,6 +1109,8 @@ export function useProviderConnections({
           setImageAssistantModelState(connection.id, 'unloading');
           if (isLmStudioConnection(connection)) {
             await window.rpgraph.unloadLmStudioModels(connection);
+          } else if (isLlamaCppConnection(connection)) {
+            await window.rpgraph.unloadLlamaCppModels(connection);
           } else {
             await window.rpgraph.unloadOllamaModels(connection);
           }
@@ -1129,7 +1192,13 @@ export function useProviderConnections({
       if (ollamaModels) {
         updateOllamaModelCache(editingConnection.id, ollamaModels);
       }
-      const openRouterModels = !lmStudioModels && !ollamaModels && isOpenRouterConnection(editingConnection)
+      const llamaCppModels = !lmStudioModels && !ollamaModels && isLlamaCppConnection(editingConnection)
+        ? await window.rpgraph.listLlamaCppModels(editingConnection)
+        : null;
+      if (llamaCppModels) {
+        updateLlamaCppModelCache(editingConnection.id, llamaCppModels);
+      }
+      const openRouterModels = !lmStudioModels && !ollamaModels && !llamaCppModels && isOpenRouterConnection(editingConnection)
         ? await window.rpgraph.listOpenRouterModels(editingConnection)
         : null;
       if (openRouterModels) {
@@ -1145,6 +1214,8 @@ export function useProviderConnections({
         ? lmStudioModels.map((model) => model.id)
         : ollamaModels
           ? ollamaModels.map((model) => model.id)
+        : llamaCppModels
+          ? llamaCppModels.map((model) => model.id)
         : openRouterModels
           ? openRouterModels.map((model) => model.id)
         : geminiModels
@@ -1154,10 +1225,10 @@ export function useProviderConnections({
         setAvailableConnectionModels([]);
         updateProviderHealth(editingConnection.id, {
           status: 'offline',
-          detail: lmStudioModels || ollamaModels
+          detail: lmStudioModels || ollamaModels || llamaCppModels
             ? 'Connection succeeded, but no LLM models were returned.'
             : 'Connection succeeded, but no models were returned.',
-          capabilities: lmStudioModels || ollamaModels
+          capabilities: lmStudioModels || ollamaModels || llamaCppModels
             ? { text: false, vision: false, tools: false }
             : openRouterModels
               ? { text: false, vision: false, image: false, voice: false }
@@ -1182,6 +1253,8 @@ export function useProviderConnections({
         connection = connectionWithLmStudioCapabilities(connection, lmStudioModels);
       } else if (ollamaModels) {
         connection = connectionWithOllamaCapabilities(connection, ollamaModels);
+      } else if (llamaCppModels) {
+        connection = connectionWithLlamaCppCapabilities(connection, llamaCppModels);
       } else if (openRouterModels) {
         connection = connectionWithOpenRouterCapabilities(connection, openRouterModels);
         const selectedModel = openRouterModels.find((model) => model.id === connection.model);
@@ -1200,6 +1273,8 @@ export function useProviderConnections({
         ? lmStudioCapabilitiesForConnection(connection, lmStudioModels)
         : ollamaModels
           ? ollamaCapabilitiesForConnection(connection, ollamaModels)
+        : llamaCppModels
+          ? llamaCppCapabilitiesForConnection(connection, llamaCppModels)
         : openRouterModels
           ? openRouterCapabilitiesForConnection(connection, openRouterModels)
         : geminiModels
@@ -1814,6 +1889,8 @@ export function useProviderConnections({
     try {
       if (isLmStudioConnection(llmConnection)) {
         await window.rpgraph.loadLmStudioModel(llmConnection);
+      } else if (isLlamaCppConnection(llmConnection)) {
+        await window.rpgraph.loadLlamaCppModel(llmConnection);
       } else if (isOllamaConnection(llmConnection)) {
         await window.rpgraph.loadOllamaModel(llmConnection);
       }
@@ -1827,7 +1904,7 @@ export function useProviderConnections({
   async function setImageAssistantLlmModelLoaded(providerId: string, loaded: boolean) {
     const connection = connections.find((entry) => entry.id === providerId);
     if (!connection || !isLocalProviderConnection(connection)) {
-      throw new Error('Manual model control requires a local LM Studio or Ollama provider.');
+      throw new Error('Manual model control requires a local LM Studio, Ollama, or llama.cpp provider.');
     }
     setImageAssistantModelState(connection.id, loaded ? 'loading' : 'unloading');
     try {
@@ -1852,6 +1929,10 @@ export function useProviderConnections({
         await (loaded
           ? window.rpgraph.loadOllamaModel(connection)
           : window.rpgraph.unloadOllamaModels(connection));
+      } else if (isLlamaCppConnection(connection)) {
+        await (loaded
+          ? window.rpgraph.loadLlamaCppModel(connection)
+          : window.rpgraph.unloadLlamaCppModels(connection));
       }
       setImageAssistantModelState(connection.id, loaded ? 'loaded' : 'unloaded');
     } catch (error) {
@@ -1865,7 +1946,7 @@ export function useProviderConnections({
     if (
       !connection ||
       !isLocalProviderConnection(connection) ||
-      !(isLmStudioConnection(connection) || isOllamaConnection(connection))
+      !(isLmStudioConnection(connection) || isOllamaConnection(connection) || isLlamaCppConnection(connection))
     ) {
       return;
     }
@@ -1873,7 +1954,9 @@ export function useProviderConnections({
     try {
       const result = isLmStudioConnection(connection)
         ? await window.rpgraph.isLmStudioModelLoaded(connection)
-        : await window.rpgraph.isOllamaModelLoaded(connection);
+        : isLlamaCppConnection(connection)
+          ? await window.rpgraph.isLlamaCppModelLoaded(connection)
+          : await window.rpgraph.isOllamaModelLoaded(connection);
       probed = result.loaded === true ? 'loaded' : result.loaded === false ? 'unloaded' : 'unknown';
     } catch {
       probed = 'unknown';
@@ -2001,6 +2084,10 @@ export function useProviderConnections({
           }
           if (isOllamaConnection(connection)) {
             await window.rpgraph.unloadOllamaModels(connection);
+            return;
+          }
+          if (isLlamaCppConnection(connection)) {
+            await window.rpgraph.unloadLlamaCppModels(connection);
           }
         } catch (error) {
           failures.push(`${connection.label}: ${error instanceof Error ? error.message : String(error)}`);
@@ -2122,6 +2209,46 @@ export function useProviderConnections({
     }
   }
 
+  async function loadLlamaCppModel() {
+    const connection = connectionFromEditingConnection();
+    if (!isLlamaCppConnection(connection)) return;
+    if (!connection.model.trim()) {
+      setConnectionStatus('Choose a model ID before loading a llama.cpp model.');
+      return;
+    }
+    setOllamaModelActionActive('load');
+    setConnectionStatus(`Loading llama.cpp model "${connection.model}" ...`);
+    try {
+      await window.rpgraph.loadLlamaCppModel(connection);
+      const models = await window.rpgraph.listLlamaCppModels(connection);
+      updateLlamaCppModelCache(connection.id, models);
+      setConnectionStatus(`llama.cpp loaded "${connection.model}".`);
+    } catch (error) {
+      setConnectionStatus(`llama.cpp load failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setOllamaModelActionActive(null);
+    }
+  }
+
+  async function unloadLlamaCppModels() {
+    const connection = connectionFromEditingConnection();
+    if (!isLlamaCppConnection(connection)) return;
+    setOllamaModelActionActive('unload');
+    setConnectionStatus('Unloading llama.cpp models ...');
+    try {
+      const result = await window.rpgraph.unloadLlamaCppModels(connection);
+      const models = await window.rpgraph.listLlamaCppModels(connection);
+      updateLlamaCppModelCache(connection.id, models);
+      setConnectionStatus(result.unloadedCount === 0
+        ? 'llama.cpp did not report any active models.'
+        : `llama.cpp unloaded ${result.unloadedCount} ${result.unloadedCount === 1 ? 'model' : 'models'}.`);
+    } catch (error) {
+      setConnectionStatus(`llama.cpp unload failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setOllamaModelActionActive(null);
+    }
+  }
+
   async function resolveConnection(
     connectionId?: string,
     purpose = 'an LLM node',
@@ -2201,6 +2328,13 @@ export function useProviderConnections({
         ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
         capabilities: lmStudioCapabilitiesForConnection(nextConnection, modelDetails),
       });
+    } else if (field === 'model' && isLlamaCppConnection(nextConnection)) {
+      const modelDetails = llamaCppModelsByConnectionIdRef.current[nextConnection.id] ?? [];
+      nextConnection = connectionWithLlamaCppCapabilities(nextConnection, modelDetails);
+      updateProviderHealth(nextConnection.id, {
+        ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
+        capabilities: llamaCppCapabilitiesForConnection(nextConnection, modelDetails),
+      });
     } else if (field === 'model' && isOllamaConnection(nextConnection)) {
       const modelDetails = ollamaModelsByConnectionIdRef.current[nextConnection.id] ?? [];
       nextConnection = connectionWithOllamaCapabilities(nextConnection, modelDetails);
@@ -2267,6 +2401,8 @@ export function useProviderConnections({
 
   const editingConnectionCapabilities = isLmStudioConnection(editingConnection)
     ? lmStudioCapabilitiesForConnection(editingConnection, lmStudioModelsByConnectionId[editingConnection.id] ?? [])
+    : isLlamaCppConnection(editingConnection)
+      ? llamaCppCapabilitiesForConnection(editingConnection, llamaCppModelsByConnectionId[editingConnection.id] ?? [])
     : isOllamaConnection(editingConnection)
       ? ollamaCapabilitiesForConnection(editingConnection, ollamaModelsByConnectionId[editingConnection.id] ?? [])
       : isOpenRouterConnection(editingConnection)
@@ -2292,6 +2428,8 @@ export function useProviderConnections({
     : null;
   const modelCapabilitiesSourceLabel = isLmStudioConnection(editingConnection)
     ? 'LM Studio'
+    : isLlamaCppConnection(editingConnection)
+      ? 'llama.cpp'
     : isOllamaConnection(editingConnection)
       ? 'Ollama'
       : isOpenRouterConnection(editingConnection)
@@ -2319,6 +2457,7 @@ export function useProviderConnections({
     openRouterModelsByConnectionId,
     geminiModelsByConnectionId,
     ollamaModelsByConnectionId,
+    llamaCppModelsByConnectionId,
     comfyProviderActionActive,
     voiceGenerationActive,
     lmStudioModelActionActive,
@@ -2354,6 +2493,8 @@ export function useProviderConnections({
     unloadLmStudioModels,
     loadOllamaModel,
     unloadOllamaModels,
+    loadLlamaCppModel,
+    unloadLlamaCppModels,
     unloadAllProviderModelsForClose,
     applyConnectionToAllNodes,
     checkProviderConnection,

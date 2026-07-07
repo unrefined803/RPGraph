@@ -87,14 +87,14 @@ function comfyOnboardingMemoryInfo(role: 'image' | 'voice' | null): ComfyOnboard
   if (role === 'voice') {
     return {
       title: 'How voice model memory is managed',
-      body: 'Higgs Audio needs about 11 GB of VRAM while it is active. A local Gemma 4 LLM can need about 24 GB, so keeping both ready for fast switching needs about 35 GB of system memory/cache. RPGraph keeps the voice model warm for quick clips, then unloads it before the next local LM Studio or Ollama LLM request; with enough memory this switch is usually around two seconds. API LLM providers do not need that local LLM switch.',
+      body: 'Higgs Audio needs about 11 GB of VRAM while it is active. A local Gemma 4 LLM can need about 24 GB, so keeping both ready for fast switching needs about 35 GB of system memory/cache. RPGraph keeps the voice model warm for quick clips, then unloads it before the next local LM Studio, Ollama, or llama.cpp LLM request; with enough memory this switch is usually around two seconds. API LLM providers do not need that local LLM switch.',
     };
   }
 
   if (role === 'image') {
     return {
       title: 'How image model memory is managed',
-      body: 'Krea 2 needs about 16 GB of VRAM while it is active. Together with a local Gemma 4 LLM at about 24 GB, fast local switching needs about 40 GB of system memory/cache. RPGraph unloads local LM Studio or Ollama models before ComfyUI image generation and can unload ComfyUI again after generation when the workflow asks for memory management. API LLM providers do not use local LLM VRAM, so they avoid this swap.',
+      body: 'Krea 2 needs about 16 GB of VRAM while it is active. Together with a local Gemma 4 LLM at about 24 GB, fast local switching needs about 40 GB of system memory/cache. RPGraph unloads local LM Studio, Ollama, or llama.cpp models before ComfyUI image generation and can unload ComfyUI again after generation when the workflow asks for memory management. API LLM providers do not use local LLM VRAM, so they avoid this swap.',
     };
   }
 
@@ -257,9 +257,12 @@ type StudioDialogsProps = {
   onLoadLmStudioModel: () => void;
   onUnloadLmStudioModels: () => void;
   ollamaToolsAvailable: boolean;
+  llamaCppToolsAvailable: boolean;
   ollamaModelActionActive: 'load' | 'unload' | null;
   onLoadOllamaModel: () => void;
   onUnloadOllamaModels: () => void;
+  onLoadLlamaCppModel: () => void;
+  onUnloadLlamaCppModels: () => void;
   onApplyConnectionToAllNodes: () => void;
   onSetNarratorOnlyProvider: (providerId: string) => void;
 };
@@ -484,6 +487,17 @@ const providerPresets = [
     reasoningEffort: 'none',
     models: [''],
     description: 'Local Ollama server',
+  },
+  {
+    label: 'llama.cpp',
+    kind: 'llm',
+    providerKind: 'llama-cpp',
+    baseUrl: 'http://localhost:8080/v1',
+    apiKey: '',
+    model: '',
+    reasoningEffort: 'none',
+    models: [''],
+    description: 'Local llama-server router',
   },
   {
     label: 'OpenRouter',
@@ -861,9 +875,12 @@ export function StudioDialogs({
   onLoadLmStudioModel,
   onUnloadLmStudioModels,
   ollamaToolsAvailable,
+  llamaCppToolsAvailable,
   ollamaModelActionActive,
   onLoadOllamaModel,
   onUnloadOllamaModels,
+  onLoadLlamaCppModel,
+  onUnloadLlamaCppModels,
   onApplyConnectionToAllNodes,
   onSetNarratorOnlyProvider,
 }: StudioDialogsProps) {
@@ -883,6 +900,7 @@ export function StudioDialogs({
   const [workflowVariableStatus, setWorkflowVariableStatus] = useState('');
   const [comfyWorkflowCopyStatus, setComfyWorkflowCopyStatus] = useState('');
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [llamaCppRouterNoticePending, setLlamaCppRouterNoticePending] = useState(false);
   const [narratorVoiceTestText, setNarratorVoiceTestText] = useState(
     'The night was quiet as the rain fell softly against the window. Somewhere in the distance, a clock struck midnight.',
   );
@@ -1327,6 +1345,7 @@ export function StudioDialogs({
       queueMicrotask(() => {
         setApiKeyVisible(false);
         setComfyWorkflowCopyStatus('');
+        setLlamaCppRouterNoticePending(false);
       });
     }
   }, [showConnections]);
@@ -2723,7 +2742,10 @@ export function StudioDialogs({
                         className={active ? 'active' : ''}
                         key={connection.id}
                         type="button"
-                        onClick={() => onSelectConnection(active ? editingConnection : connection)}
+                        onClick={() => {
+                          setLlamaCppRouterNoticePending(false);
+                          onSelectConnection(active ? editingConnection : connection);
+                        }}
                       >
                         <span className="provider-tab-label">{label}</span>
                         <span className={providerHealthClass(providerHealthById[connection.id])}>
@@ -2767,6 +2789,25 @@ export function StudioDialogs({
                       <span>Clone character voices from short MP3 samples with a ComfyUI voice workflow.</span>
                     </button>
                   </div>
+                </div>
+                ) : llamaCppRouterNoticePending ? (
+                <div className="connection-draft-placeholder llama-router-notice">
+                  <strong>llama.cpp must run in router mode</strong>
+                  <span>
+                    RPGraph loads and unloads llama.cpp models on demand — to free GPU memory
+                    for ComfyUI image and voice generation and to detect model capabilities.
+                    This needs the llama-server router mode; a server started the classic way
+                    with <code>-m model.gguf</code> cannot load or unload models, and requests
+                    will fail.
+                  </span>
+                  <span>
+                    Start llama-server without <code>-m</code> and point it at a models
+                    directory, where each model has its own subfolder:
+                  </span>
+                  <pre>llama-server --models-dir /path/to/models --models-max 1 --no-models-autoload --jinja</pre>
+                  <button type="button" onClick={() => setLlamaCppRouterNoticePending(false)}>
+                    Understood — continue
+                  </button>
                 </div>
                 ) : (
                 <>
@@ -3279,6 +3320,8 @@ export function StudioDialogs({
                               kinds={
                                 lmStudioToolsAvailable || ollamaToolsAvailable
                                   ? ['text', 'vision', 'tools']
+                                  : llamaCppToolsAvailable
+                                    ? ['text', 'vision']
                                   : ['text', 'vision', 'image', 'voice']
                               }
                               showInactive
@@ -3557,6 +3600,22 @@ export function StudioDialogs({
                           </div>
                         </div>
                       )}
+                      {llamaCppToolsAvailable && (
+                        <div className="connection-provider-tools" aria-label="llama.cpp model tools">
+                          <div>
+                            <strong>llama.cpp</strong>
+                            <span>{editingConnectionHealth.detail ?? 'Router model state is read from /models.'}</span>
+                          </div>
+                          <div className="connection-provider-actions">
+                            <button type="button" onClick={onLoadLlamaCppModel} disabled={ollamaModelActionActive !== null}>
+                              {ollamaModelActionActive === 'load' ? 'Loading ...' : 'Load Selected Model'}
+                            </button>
+                            <button type="button" className="danger" onClick={onUnloadLlamaCppModels} disabled={ollamaModelActionActive !== null}>
+                              {ollamaModelActionActive === 'unload' ? 'Unloading ...' : 'Unload All Models'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -3618,7 +3677,10 @@ export function StudioDialogs({
                         type="button"
                         key={provider.label}
                         className={activeType ? 'active' : ''}
-                        onClick={() => onApplyProviderPreset(provider)}
+                        onClick={() => {
+                          setLlamaCppRouterNoticePending(provider.providerKind === 'llama-cpp');
+                          onApplyProviderPreset(provider);
+                        }}
                       >
                         <strong>{provider.label}</strong>
                         <span>{provider.description}</span>

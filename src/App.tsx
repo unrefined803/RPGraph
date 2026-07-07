@@ -184,6 +184,7 @@ import {
   isGeminiConnection,
   isLmStudioConnection,
   isOllamaConnection,
+  isLlamaCppConnection,
   isOpenRouterConnection,
 } from './llm/providerKind';
 import { TextMetricsApi } from './llm/tokenMetrics';
@@ -1296,6 +1297,8 @@ function App() {
     unloadLmStudioModels,
     loadOllamaModel,
     unloadOllamaModels,
+    loadLlamaCppModel,
+    unloadLlamaCppModels,
     unloadAllProviderModelsForClose,
     applyConnectionToAllNodes,
     checkProviderConnection,
@@ -6620,9 +6623,12 @@ function App() {
         onLoadLmStudioModel={() => void loadLmStudioModel()}
         onUnloadLmStudioModels={() => void unloadLmStudioModels()}
         ollamaToolsAvailable={isOllamaConnection(editingConnection)}
+        llamaCppToolsAvailable={isLlamaCppConnection(editingConnection)}
         ollamaModelActionActive={ollamaModelActionActive}
         onLoadOllamaModel={() => void loadOllamaModel()}
         onUnloadOllamaModels={() => void unloadOllamaModels()}
+        onLoadLlamaCppModel={() => void loadLlamaCppModel()}
+        onUnloadLlamaCppModels={() => void unloadLlamaCppModels()}
         onApplyConnectionToAllNodes={applyConnectionToAllNodes}
         onSetNarratorOnlyProvider={setDialogueNarratorProviderId}
       />
