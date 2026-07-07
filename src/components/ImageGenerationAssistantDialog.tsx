@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useBackdropDismiss } from './useBackdropDismiss';
 import type { ConnectionPreset, ProviderConnectionHealth } from '../types';
@@ -25,6 +25,13 @@ type ImageSaveCharacter = {
   id: string;
   name: string;
 };
+
+class ImageSettingsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ImageSettingsError';
+  }
+}
 
 type ImageGenerationAssistantDialogProps = {
   connections: ConnectionPreset[];
@@ -111,9 +118,23 @@ export function ImageGenerationAssistantDialog({
   const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   const [isSavingImage, setIsSavingImage] = useState(false);
   const [saveImageError, setSaveImageError] = useState('');
+  const [savedImageDataUrls, setSavedImageDataUrls] = useState<Set<string>>(() => new Set());
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const saveMenuRef = useRef<HTMLDivElement | null>(null);
 
-  const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   const currentImage = currentImageIndex >= 0 ? generatedImages[currentImageIndex] : undefined;
+  const hasUnsavedImages = generatedImages.some((image) => !savedImageDataUrls.has(image.dataUrl));
+  const requestClose = useCallback(() => {
+    if (isSubmitting || isGenerating || isSavingImage) {
+      return;
+    }
+    if (hasUnsavedImages) {
+      setDiscardConfirmOpen(true);
+      return;
+    }
+    onClose();
+  }, [hasUnsavedImages, isGenerating, isSavingImage, isSubmitting, onClose]);
+  const backdropDismiss = useBackdropDismiss<HTMLDivElement>(requestClose);
   const textMetrics = new TextMetricsApi(estimatedTokenBytesPerToken);
   const characterContextTokens = textMetrics.measure(characterContext).tokens;
   const chatHistoryContextTokens = textMetrics.measure(chatHistoryContext).tokens;
@@ -155,6 +176,7 @@ export function ImageGenerationAssistantDialog({
         dataUrl: currentImage.dataUrl,
         description: currentImage.description.trim(),
       });
+      setSavedImageDataUrls((current) => new Set(current).add(currentImage.dataUrl));
       setSaveMenuOpen(false);
     } catch (error) {
       setSaveImageError(error instanceof Error ? error.message : String(error));
@@ -168,10 +190,10 @@ export function ImageGenerationAssistantDialog({
     try {
       value = JSON.parse(settingsText);
     } catch {
-      throw new Error('Image Settings must be valid JSON.');
+      throw new ImageSettingsError('Image Settings must be valid JSON.');
     }
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      throw new Error('Image Settings must be a JSON object.');
+      throw new ImageSettingsError('Image Settings must be a JSON object.');
     }
     const record = value as Record<string, unknown>;
     if (
@@ -179,11 +201,11 @@ export function ImageGenerationAssistantDialog({
       typeof record.height !== 'number' || !Number.isInteger(record.height) || record.height < 64 || record.height > 4096 ||
       typeof record.characterLora !== 'string'
     ) {
-      throw new Error('Image Settings require whole-number width and height plus a Character LoRA string.');
+      throw new ImageSettingsError('Image Settings require whole-number width and height plus a Character LoRA string.');
     }
     const characterLora = record.characterLora.trim();
     if (characterLora && !availableLoraEntries.some((entry) => entry.loraName === characterLora)) {
-      throw new Error('Image Settings must use a Character LoRA defined in the Storybook.');
+      throw new ImageSettingsError('Image Settings must use a Character LoRA defined in the Storybook.');
     }
     return {
       width: validComfyDimension(record.width, defaultComfyWidth),
@@ -205,7 +227,7 @@ export function ImageGenerationAssistantDialog({
       result.settings?.characterLora &&
       !availableLoraEntries.some((entry) => entry.loraName === result.settings?.characterLora)
     ) {
-      throw new Error('The assistant selected a Character LoRA that is not defined in the Storybook. Prompt and description were applied; the settings were kept unchanged.');
+      throw new ImageSettingsError('The assistant selected a Character LoRA that is not defined in the Storybook. Prompt and description were applied; the settings were kept unchanged.');
     }
     if (result.settings !== null) {
       setSettingsText(JSON.stringify(result.settings, null, 2));
@@ -222,12 +244,25 @@ export function ImageGenerationAssistantDialog({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !isSubmitting && !isGenerating) {
-        onClose();
+        requestClose();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, isSubmitting, isGenerating]);
+  }, [isGenerating, isSubmitting, requestClose]);
+
+  useEffect(() => {
+    if (!saveMenuOpen) {
+      return;
+    }
+    const closeSaveMenu = (event: PointerEvent) => {
+      if (event.target instanceof Node && !saveMenuRef.current?.contains(event.target)) {
+        setSaveMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeSaveMenu);
+    return () => document.removeEventListener('pointerdown', closeSaveMenu);
+  }, [saveMenuOpen]);
 
   async function submitMessage(event: FormEvent) {
     event.preventDefault();
@@ -257,7 +292,7 @@ export function ImageGenerationAssistantDialog({
       setMessages((current) => [...current, { role: 'assistant', text: result.reply }]);
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
-      if (text.startsWith('Image Settings')) {
+      if (error instanceof ImageSettingsError) {
         setSettingsError(text);
         setEditorMode('settings');
       }
@@ -317,7 +352,7 @@ export function ImageGenerationAssistantDialog({
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (message.startsWith('Image Settings')) {
+      if (error instanceof ImageSettingsError) {
         setSettingsError(message);
         setEditorMode('settings');
       } else {
@@ -367,7 +402,7 @@ export function ImageGenerationAssistantDialog({
             <p>Compose a picture for this phone conversation.</p>
           </div>
           <div className="storybook-header-actions">
-            <button type="button" className="close-button danger" onClick={onClose}>
+            <button type="button" className="close-button danger" onClick={requestClose}>
               Close
             </button>
           </div>
@@ -401,7 +436,7 @@ export function ImageGenerationAssistantDialog({
                     →
                   </button>
                   {currentImage?.description.trim() ? (
-                    <div className="image-save-menu-container">
+                    <div className="image-save-menu-container" ref={saveMenuRef}>
                       <button
                         type="button"
                         className="preview-save-btn"
@@ -691,6 +726,31 @@ export function ImageGenerationAssistantDialog({
             </form>
           </section>
         </div>
+        {discardConfirmOpen && (
+          <div className="storybook-confirm-backdrop" role="presentation" onClick={() => setDiscardConfirmOpen(false)}>
+            <section
+              className="storybook-confirm-dialog"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="image-discard-confirm-title"
+              aria-describedby="image-discard-confirm-message"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h3 id="image-discard-confirm-title">Discard unsaved images?</h3>
+              <p id="image-discard-confirm-message">
+                Unsaved generated images will be lost when you close the assistant.
+              </p>
+              <div className="storybook-confirm-actions">
+                <button className="inspect-button" type="button" onClick={() => setDiscardConfirmOpen(false)}>
+                  Keep Editing
+                </button>
+                <button className="inspect-button danger" type="button" onClick={onClose}>
+                  Close Anyway
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </section>
     </div>,
     document.body,
