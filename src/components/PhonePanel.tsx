@@ -149,6 +149,11 @@ type PhonePanelProps = {
     prompt: string;
     settings: ImageGenerationSettings;
   }) => Promise<string[]>;
+  onSaveImageAssistantImage: (request: {
+    characterId: string;
+    dataUrl: string;
+    description: string;
+  }) => Promise<void>;
   imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
   onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadImageAssistantComfyModel: (providerId: string) => Promise<void>;
@@ -220,6 +225,7 @@ export function PhonePanel({
   imageAssistantChatHistoryContext,
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
+  onSaveImageAssistantImage,
   imageAssistantModelStateById,
   onSetImageAssistantLlmModelLoaded,
   onUnloadImageAssistantComfyModel,
@@ -684,8 +690,11 @@ export function PhonePanel({
                       characterCount={storyCharacters.length}
                       chatHistoryContext={imageAssistantChatHistoryContext}
                       estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
+                      saveCharacters={storyCharacters}
+                      preferredSaveCharacterId={selectedCharacter?.id}
                       onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
                       onGenerateImageAssistantImages={onGenerateImageAssistantImages}
+                      onSaveImageAssistantImage={onSaveImageAssistantImage}
                       imageAssistantModelStateById={imageAssistantModelStateById}
                       onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
                       onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}

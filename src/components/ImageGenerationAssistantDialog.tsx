@@ -21,6 +21,11 @@ type GeneratedImageDraft = {
   description: string;
 };
 
+type ImageSaveCharacter = {
+  id: string;
+  name: string;
+};
+
 type ImageGenerationAssistantDialogProps = {
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
@@ -29,6 +34,8 @@ type ImageGenerationAssistantDialogProps = {
   characterCount: number;
   chatHistoryContext: string;
   estimatedTokenBytesPerToken: number;
+  saveCharacters: ImageSaveCharacter[];
+  preferredSaveCharacterId?: string;
   modelStateById: Record<string, ImageAssistantModelState>;
   onSetLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadComfyModel: (providerId: string) => Promise<void>;
@@ -52,6 +59,11 @@ type ImageGenerationAssistantDialogProps = {
     prompt: string;
     settings: ImageGenerationSettings;
   }) => Promise<string[]>;
+  onSaveImage: (request: {
+    characterId: string;
+    dataUrl: string;
+    description: string;
+  }) => Promise<void>;
 };
 
 export function ImageGenerationAssistantDialog({
@@ -62,6 +74,8 @@ export function ImageGenerationAssistantDialog({
   characterCount,
   chatHistoryContext,
   estimatedTokenBytesPerToken,
+  saveCharacters,
+  preferredSaveCharacterId,
   modelStateById,
   onSetLlmModelLoaded,
   onUnloadComfyModel,
@@ -69,6 +83,7 @@ export function ImageGenerationAssistantDialog({
   onClose,
   onSubmitAssistantMessage,
   onGenerateImages,
+  onSaveImage,
 }: ImageGenerationAssistantDialogProps) {
   const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
   const comfyConnections = connections.filter(isComfyImageConnection);
@@ -93,6 +108,9 @@ export function ImageGenerationAssistantDialog({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
   const [modelActionError, setModelActionError] = useState('');
+  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
+  const [isSavingImage, setIsSavingImage] = useState(false);
+  const [saveImageError, setSaveImageError] = useState('');
 
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   const currentImage = currentImageIndex >= 0 ? generatedImages[currentImageIndex] : undefined;
@@ -119,6 +137,31 @@ export function ImageGenerationAssistantDialog({
     }
   })();
   const selectedLoraEntry = availableLoraEntries.find((entry) => entry.loraName === settingsCharacterLora);
+  const orderedSaveCharacters = [...saveCharacters].sort((left, right) => {
+    if (left.id === preferredSaveCharacterId) return -1;
+    if (right.id === preferredSaveCharacterId) return 1;
+    return left.name.localeCompare(right.name);
+  });
+
+  async function saveCurrentImage(characterId: string) {
+    if (!currentImage?.description.trim() || isSavingImage) {
+      return;
+    }
+    setIsSavingImage(true);
+    setSaveImageError('');
+    try {
+      await onSaveImage({
+        characterId,
+        dataUrl: currentImage.dataUrl,
+        description: currentImage.description.trim(),
+      });
+      setSaveMenuOpen(false);
+    } catch (error) {
+      setSaveImageError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsSavingImage(false);
+    }
+  }
 
   function readSettings(): ImageGenerationSettings {
     let value: unknown;
@@ -355,21 +398,49 @@ export function ImageGenerationAssistantDialog({
                   >
                     →
                   </button>
-                  <span
-                    className="prompt-generate-tooltip"
-                    title={!selectedAssistantConnection?.vision
-                      ? 'Describe Image requires an assistant provider with vision enabled.'
-                      : 'Describe the currently selected image'}
-                  >
-                    <button
-                      type="button"
-                      className="preview-describe-btn"
-                      disabled={!selectedAssistantConnection?.vision || isSubmitting}
-                      onClick={() => void describeCurrentImage()}
+                  {currentImage?.description.trim() ? (
+                    <div className="image-save-menu-container">
+                      <button
+                        type="button"
+                        className="preview-save-btn"
+                        disabled={isSavingImage || orderedSaveCharacters.length === 0}
+                        onClick={() => setSaveMenuOpen((current) => !current)}
+                      >
+                        {isSavingImage ? 'Saving...' : 'Save Image in Phone'}
+                      </button>
+                      {saveMenuOpen && (
+                        <div className="image-save-character-menu" role="menu" aria-label="Save image for character">
+                          {orderedSaveCharacters.map((character) => (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              key={character.id}
+                              onClick={() => void saveCurrentImage(character.id)}
+                            >
+                              <strong>{character.name}</strong>
+                              {character.id === preferredSaveCharacterId && <small>Current phone</small>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span
+                      className="prompt-generate-tooltip"
+                      title={!selectedAssistantConnection?.vision
+                        ? 'Describe Image requires an assistant provider with vision enabled.'
+                        : 'Describe the currently selected image'}
                     >
-                      Describe Image
-                    </button>
-                  </span>
+                      <button
+                        type="button"
+                        className="preview-describe-btn"
+                        disabled={!selectedAssistantConnection?.vision || isSubmitting}
+                        onClick={() => void describeCurrentImage()}
+                      >
+                        Describe Image
+                      </button>
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -395,6 +466,7 @@ export function ImageGenerationAssistantDialog({
             {currentImage?.description && (
               <p className="image-generation-description">{currentImage.description}</p>
             )}
+            {saveImageError && <p className="image-generation-save-error" role="alert">{saveImageError}</p>}
           </section>
 
           <section className="image-generation-control-panel">

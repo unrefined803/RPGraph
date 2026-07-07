@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ChatImageAttachment, ConnectionPreset, ProviderConnectionHealth } from '../types';
+import type { StorybookCharacter } from '../storybook/runtime';
 import { ImageGenerationAssistantDialog } from './ImageGenerationAssistantDialog';
 import { useBackdropDismiss } from './useBackdropDismiss';
 import type {
@@ -28,6 +29,8 @@ type PhoneImagePickerProps = {
   characterCount: number;
   chatHistoryContext: string;
   estimatedTokenBytesPerToken: number;
+  saveCharacters: StorybookCharacter[];
+  preferredSaveCharacterId?: string;
   imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
   onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadImageAssistantComfyModel: (providerId: string) => Promise<void>;
@@ -50,6 +53,11 @@ type PhoneImagePickerProps = {
     prompt: string;
     settings: ImageGenerationSettings;
   }) => Promise<string[]>;
+  onSaveImageAssistantImage: (request: {
+    characterId: string;
+    dataUrl: string;
+    description: string;
+  }) => Promise<void>;
 };
 
 export function PhoneImagePicker({
@@ -68,12 +76,15 @@ export function PhoneImagePicker({
   characterCount,
   chatHistoryContext,
   estimatedTokenBytesPerToken,
+  saveCharacters,
+  preferredSaveCharacterId,
   imageAssistantModelStateById,
   onSetImageAssistantLlmModelLoaded,
   onUnloadImageAssistantComfyModel,
   onRefreshImageAssistantModelState,
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
+  onSaveImageAssistantImage,
 }: PhoneImagePickerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -234,12 +245,15 @@ export function PhoneImagePicker({
           characterCount={characterCount}
           chatHistoryContext={chatHistoryContext}
           estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
+          saveCharacters={saveCharacters.map((character) => ({ id: character.id, name: character.name }))}
+          preferredSaveCharacterId={preferredSaveCharacterId}
           modelStateById={imageAssistantModelStateById}
           onSetLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
           onUnloadComfyModel={onUnloadImageAssistantComfyModel}
           onRefreshModelState={onRefreshImageAssistantModelState}
           onSubmitAssistantMessage={onSubmitImageAssistantMessage}
           onGenerateImages={onGenerateImageAssistantImages}
+          onSaveImage={onSaveImageAssistantImage}
           onClose={() => setGenerationAssistantOpen(false)}
         />
       )}

@@ -18975,7 +18975,9 @@ button.message-timeline-row.phone:focus-visible {
 .image-generation-lora-meter {
   display: flex;
   align-items: center;
-  padding: 8px 16px 0;
+  padding: 8px 18px;
+  border-bottom: 1px solid #232d42;
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .image-generation-lora-pill {
@@ -18990,6 +18992,59 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.image-save-menu-container {
+  position: relative;
+}
+
+.image-save-character-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 7px);
+  right: 0;
+  min-width: 210px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid #3a465b;
+  border-radius: 9px;
+  background: #111927;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+.image-save-character-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 6px;
+  color: #e6ebf7;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.image-save-character-menu button:hover {
+  background: rgba(138, 115, 201, 0.2);
+}
+
+.image-save-character-menu small {
+  color: #9fadd0;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.image-generation-save-error {
+  margin: 0;
+  padding: 8px 16px;
+  border-top: 1px solid #4b2930;
+  color: #f3a4aa;
+  background: rgba(94, 32, 42, 0.22);
+  font-size: 11px;
 }
 
 /* Chat Header clear button and row layout */

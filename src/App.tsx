@@ -187,6 +187,7 @@ import {
   isOpenRouterConnection,
 } from './llm/providerKind';
 import { TextMetricsApi } from './llm/tokenMetrics';
+import { encodedDataUrlBytes, normalizeImageAttachment } from './utils/imageNormalization';
 import { NodeActionsContext } from './nodes/NodeActionsContext';
 import type { OutputFormatHelpKind } from './nodes/output/formatHelp';
 import type { ExecuteTraceFormatResult } from './nodes/types';
@@ -6219,6 +6220,34 @@ function App() {
                 return parseImageGenerationAssistantResult(completion.text);
               }}
               onGenerateImageAssistantImages={generateImageAssistantImages}
+              onSaveImageAssistantImage={async ({ characterId, dataUrl, description }) => {
+                const character = storyCharacters.find((entry) => entry.id === characterId);
+                if (!character) {
+                  throw new Error('The selected Storybook character is no longer available.');
+                }
+                const mimeType = /^data:([^;,]+)/.exec(dataUrl)?.[1] ?? 'image/png';
+                const image = await normalizeImageAttachment({
+                  name: `generated-${character.name}.png`,
+                  mimeType,
+                  size: encodedDataUrlBytes(dataUrl),
+                  dataUrl,
+                }, () => `image-${uniqueId()}`);
+                const savedImages = ensureImagesForStorybookCharacter(
+                  character,
+                  [image],
+                  description,
+                  (addedCount, updatedCount) =>
+                    addedCount > 0
+                      ? `Saved generated image for ${character.name}.`
+                      : updatedCount > 0
+                        ? `Updated generated image for ${character.name}.`
+                        : `Generated image already saved for ${character.name}.`,
+                );
+                if (!savedImages?.length) {
+                  throw new Error(`Could not save the image for ${character.name}.`);
+                }
+                notifySystem('info', `Saved generated image in ${character.name}'s Phone Gallery.`);
+              }}
               imageAssistantModelStateById={imageAssistantModelStateById}
               onSetImageAssistantLlmModelLoaded={setImageAssistantLlmModelLoaded}
               onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
