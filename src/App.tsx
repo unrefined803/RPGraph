@@ -3561,6 +3561,12 @@ function App() {
     recentHistoryContext = '',
     label = 'Translate',
   ) {
+    // Nothing to translate — skip the LLM call. Passing an empty string to the
+    // translator otherwise yields a spurious "I don't see the text to translate"
+    // style reply that surfaces as the translated output.
+    if (!text.trim()) {
+      return '';
+    }
     const language = displayLanguageOverride.trim() || 'German';
     const prompt = translationPrompt({
       text,
