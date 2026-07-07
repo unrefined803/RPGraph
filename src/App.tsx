@@ -6210,7 +6210,7 @@ function App() {
                     id: 'image-generation-assistant-current',
                     name: 'Currently selected generated image',
                     mimeType: /^data:([^;,]+)/.exec(currentImage.dataUrl)?.[1] ?? 'image/png',
-                    size: currentImage.dataUrl.length,
+                    size: encodedDataUrlBytes(currentImage.dataUrl),
                     dataUrl: currentImage.dataUrl,
                     description: currentImage.description,
                   }] : undefined,

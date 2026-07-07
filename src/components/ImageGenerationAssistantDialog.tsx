@@ -193,23 +193,23 @@ export function ImageGenerationAssistantDialog({
   }
 
   function applyAssistantResult(result: ImageGenerationAssistantResult) {
-    if (
-      result.settings?.characterLora &&
-      !availableLoraEntries.some((entry) => entry.loraName === result.settings?.characterLora)
-    ) {
-      throw new Error('The assistant selected a Character LoRA that is not defined in the Storybook.');
-    }
     if (result.prompt !== null) {
       setPrompt(result.prompt);
-    }
-    if (result.settings !== null) {
-      setSettingsText(JSON.stringify(result.settings, null, 2));
-      setSettingsError('');
     }
     if (result.imageDescription !== null && currentImageIndex >= 0) {
       setGeneratedImages((current) => current.map((image, index) =>
         index === currentImageIndex ? { ...image, description: result.imageDescription ?? '' } : image
       ));
+    }
+    if (
+      result.settings?.characterLora &&
+      !availableLoraEntries.some((entry) => entry.loraName === result.settings?.characterLora)
+    ) {
+      throw new Error('The assistant selected a Character LoRA that is not defined in the Storybook. Prompt and description were applied; the settings were kept unchanged.');
+    }
+    if (result.settings !== null) {
+      setSettingsText(JSON.stringify(result.settings, null, 2));
+      setSettingsError('');
     }
   }
 
@@ -221,13 +221,13 @@ export function ImageGenerationAssistantDialog({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !isSubmitting && !isGenerating) {
         onClose();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, isSubmitting, isGenerating]);
 
   async function submitMessage(event: FormEvent) {
     event.preventDefault();
@@ -256,10 +256,12 @@ export function ImageGenerationAssistantDialog({
       applyAssistantResult(result);
       setMessages((current) => [...current, { role: 'assistant', text: result.reply }]);
     } catch (error) {
-      setMessages((current) => [
-        ...current,
-        { role: 'error', text: error instanceof Error ? error.message : String(error) },
-      ]);
+      const text = error instanceof Error ? error.message : String(error);
+      if (text.startsWith('Image Settings')) {
+        setSettingsError(text);
+        setEditorMode('settings');
+      }
+      setMessages((current) => [...current, { role: 'error', text }]);
     } finally {
       setIsSubmitting(false);
       onRefreshModelState(assistantProvider);
