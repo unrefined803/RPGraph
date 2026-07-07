@@ -1309,8 +1309,9 @@ function App() {
     notifySystem,
   });
   const narratorProviderOptions = connections.flatMap((connection) => {
+    const status = providerHealthById[connection.id]?.status ?? 'unknown';
     if (isComfyVoiceConnection(connection) && connection.comfyNarratorVoice?.dataUrl) {
-      return [{ value: connection.id, label: `${connection.label} — ComfyUI narrator` }];
+      return [{ value: connection.id, label: `${connection.label} — ComfyUI narrator`, status }];
     }
     const capabilities = providerHealthById[connection.id]?.capabilities;
     if (
@@ -1319,7 +1320,7 @@ function App() {
       capabilities.text !== true &&
       connection.ttsVoice
     ) {
-      return [{ value: connection.id, label: `${connection.label} — ${connection.ttsVoice}` }];
+      return [{ value: connection.id, label: `${connection.label} — ${connection.ttsVoice}`, status }];
     }
     return [];
   });
@@ -1330,7 +1331,11 @@ function App() {
     : narratorProviderOptions[0]?.value ?? '';
   const cloneVoiceProviderOptions = connections
     .filter(isComfyVoiceConnection)
-    .map((connection) => ({ value: connection.id, label: connection.label }));
+    .map((connection) => ({
+      value: connection.id,
+      label: connection.label,
+      status: providerHealthById[connection.id]?.status ?? 'unknown',
+    }));
   const resolvedCloneVoiceProviderId = cloneVoiceProviderOptions.some(
     (option) => option.value === dialogueCloneVoiceProviderId,
   )

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { DialogueVoiceMode } from '../types';
+import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 
 type VoicePlaybackDialogProps = {
   mode: DialogueVoiceMode;
@@ -8,11 +9,19 @@ type VoicePlaybackDialogProps = {
   preloadDisabledReason: string | null;
   readAloudDisabledReason: string | null;
   narratorOnlyDisabledReason: string | null;
-  narratorProviderOptions: Array<{ value: string; label: string }>;
+  narratorProviderOptions: Array<{
+    value: string;
+    label: string;
+    status?: 'unknown' | 'checking' | 'online' | 'warning' | 'offline';
+  }>;
   narratorProviderId: string;
   narratorProviderWarning: string | null;
   onNarratorProviderChange: (providerId: string) => void;
-  cloneVoiceProviderOptions: Array<{ value: string; label: string }>;
+  cloneVoiceProviderOptions: Array<{
+    value: string;
+    label: string;
+    status?: 'unknown' | 'checking' | 'online' | 'warning' | 'offline';
+  }>;
   cloneVoiceProviderId: string;
   cloneVoiceProviderWarning: string | null;
   onCloneVoiceProviderChange: (providerId: string) => void;
@@ -131,18 +140,15 @@ export function VoicePlaybackDialog({
                   <h3>Narrator provider</h3>
                   <p>Reads the complete chat bubble with one selected API or ComfyUI voice.</p>
                   <label htmlFor="voice-playback-narrator-provider">Provider and voice</label>
-                  <select
+                  <NodeCustomSelect
                     id="voice-playback-narrator-provider"
                     value={narratorProviderId}
                     disabled={narratorProviderOptions.length === 0}
-                    onChange={(event) => onNarratorProviderChange(event.target.value)}
-                  >
-                    {narratorProviderOptions.length === 0 ? (
-                      <option value="">No narrator provider ready</option>
-                    ) : narratorProviderOptions.map((option) => (
-                      <option value={option.value} key={option.value}>{option.label}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => onNarratorProviderChange(val)}
+                    options={narratorProviderOptions.length === 0
+                      ? [{ value: '', label: 'No narrator provider ready', disabled: true }]
+                      : narratorProviderOptions}
+                  />
                   {narratorProviderWarning && (
                     <p className="voice-playback-provider-warning" role="alert">
                       Not connected: {narratorProviderWarning}
@@ -186,18 +192,15 @@ export function VoicePlaybackDialog({
                   samples stored in Storybook character setup.
                 </p>
                 <label htmlFor="voice-playback-clone-provider">ComfyUI Voice provider</label>
-                <select
+                <NodeCustomSelect
                   id="voice-playback-clone-provider"
                   value={cloneVoiceProviderId}
                   disabled={cloneVoiceProviderOptions.length === 0}
-                  onChange={(event) => onCloneVoiceProviderChange(event.target.value)}
-                >
-                  {cloneVoiceProviderOptions.length === 0 ? (
-                    <option value="">No ComfyUI Voice provider ready</option>
-                  ) : cloneVoiceProviderOptions.map((option) => (
-                    <option value={option.value} key={option.value}>{option.label}</option>
-                  ))}
-                </select>
+                  onChange={(val) => onCloneVoiceProviderChange(val)}
+                  options={cloneVoiceProviderOptions.length === 0
+                    ? [{ value: '', label: 'No ComfyUI Voice provider ready', disabled: true }]
+                    : cloneVoiceProviderOptions}
+                />
                 {cloneVoiceProviderWarning && (
                   <p className="voice-playback-provider-warning" role="alert">
                     Not connected: {cloneVoiceProviderWarning}

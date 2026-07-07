@@ -98,11 +98,19 @@ type ChatConversationPanelProps = {
   dialogueVoicePreloadDisabledReason: string | null;
   dialogueVoiceReadAloudDisabledReason: string | null;
   dialogueNarratorOnlyDisabledReason: string | null;
-  narratorProviderOptions: Array<{ value: string; label: string }>;
+  narratorProviderOptions: Array<{
+    value: string;
+    label: string;
+    status?: 'unknown' | 'checking' | 'online' | 'warning' | 'offline';
+  }>;
   narratorProviderId: string;
   narratorProviderWarning: string | null;
   onNarratorProviderChange: (providerId: string) => void;
-  cloneVoiceProviderOptions: Array<{ value: string; label: string }>;
+  cloneVoiceProviderOptions: Array<{
+    value: string;
+    label: string;
+    status?: 'unknown' | 'checking' | 'online' | 'warning' | 'offline';
+  }>;
   cloneVoiceProviderId: string;
   cloneVoiceProviderWarning: string | null;
   onCloneVoiceProviderChange: (providerId: string) => void;
