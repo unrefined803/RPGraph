@@ -124,6 +124,7 @@ import {
 } from './data-management/sessionStore';
 import { isRpgraphSessionV2 } from './data-management/validation';
 import type { RpgraphSessionV2 } from './data-management/types';
+import { LiveRunClock } from './components/LiveRunClock';
 import {
   appointmentsFromEventEntities,
   eventEntitiesFromNodes,
@@ -295,9 +296,6 @@ type DeletedGraphRestoreAction = {
   edges: Edge[];
 };
 
-function formatRuntimeSeconds(durationMs: number) {
-  return (durationMs / 1000).toFixed(2);
-}
 
 
 
@@ -5611,7 +5609,7 @@ function App() {
                 disabled={!runLlmReport}
                 title="Show LLM calls for the current or last run"
               >
-                Runtime: {formatRuntimeSeconds(runDurationMs)} s
+                Runtime: <LiveRunClock isRunning={isRunning} finalMs={runDurationMs} /> s
               </button>
               <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
               {visibleLogEntry && (

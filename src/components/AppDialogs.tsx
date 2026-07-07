@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
+import { LiveRunClock } from './LiveRunClock';
 import { outputFormatHelp, type OutputFormatHelpKind } from '../nodes/output/formatHelp';
 import { CustomNodeBody } from '../nodes/custom-node/Card';
 import {
@@ -200,7 +201,9 @@ export function RunLlmReportDialog({
           <div className="run-llm-card-row">
             <span className="run-llm-card-label">Duration</span>
             <span className="run-llm-card-value font-mono">
-              {durationMs !== undefined ? `${formatRuntimeSeconds(durationMs)} s` : '-'}
+              {isCurrent && isRunning
+                ? <><LiveRunClock isRunning={isRunning} finalMs={durationMs ?? 0} /> s</>
+                : durationMs !== undefined ? `${formatRuntimeSeconds(durationMs)} s` : '-'}
             </span>
           </div>
           <div className="run-llm-card-row">
