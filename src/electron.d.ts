@@ -42,7 +42,7 @@ declare global {
         loadedModel: string;
         method?: 'rest' | 'cli' | 'already-loaded';
       }>;
-      isLmStudioModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean }>;
+      isLmStudioModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean | null }>;
       unloadLmStudioModels: (connection: ConnectionPreset) => Promise<{
         unloadedCount?: number;
         instanceIds: string[];

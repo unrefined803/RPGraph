@@ -1872,7 +1872,7 @@ export function useProviderConnections({
       const result = isLmStudioConnection(connection)
         ? await window.rpgraph.isLmStudioModelLoaded(connection)
         : await window.rpgraph.isOllamaModelLoaded(connection);
-      probed = result.loaded ? 'loaded' : 'unloaded';
+      probed = result.loaded === true ? 'loaded' : result.loaded === false ? 'unloaded' : 'unknown';
     } catch {
       probed = 'unknown';
     }

@@ -172,6 +172,7 @@ export function ImageGenerationAssistantDialog({
       ]);
     } finally {
       setIsSubmitting(false);
+      onRefreshModelState(assistantProvider);
     }
   }
 
@@ -201,6 +202,7 @@ export function ImageGenerationAssistantDialog({
       }]);
     } finally {
       setIsSubmitting(false);
+      onRefreshModelState(assistantProvider);
     }
   }
 

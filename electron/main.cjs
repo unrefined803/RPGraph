@@ -1036,6 +1036,10 @@ function lmStudioEndpoint(connection, route) {
   return `${lmStudioBaseUrl(connection)}/api/v1/${route}`;
 }
 
+function lmStudioV0Endpoint(connection, route) {
+  return `${lmStudioBaseUrl(connection)}/api/v0/${route}`;
+}
+
 function nativeProviderBaseUrl(connection, defaultBaseUrl) {
   const baseUrl = typeof connection?.baseUrl === 'string' && connection.baseUrl.trim()
     ? connection.baseUrl.trim()
@@ -1274,15 +1278,39 @@ function lmStudioLoadedInstanceIds(models, preferredModel) {
   return [...new Set(loaded)];
 }
 
-function lmStudioModelIsLoaded(models, modelKey) {
-  return lmStudioModelEntries(models).some((entry) => {
-    const key = lmStudioModelKey(entry);
-    if (key !== modelKey && entry?.instance_id !== modelKey) {
-      return false;
+function lmStudioEntryMatchesModel(entry, modelKey) {
+  return [
+    lmStudioModelKey(entry),
+    entry?.identifier,
+    entry?.identifier?.split?.(':')[0],
+    entry?.modelKey,
+    entry?.path,
+    entry?.instance_id,
+  ].some((value) => typeof value === 'string' && value.trim() === modelKey);
+}
+
+// Returns true/false when a source could report the loaded state, or null
+// when no source is available. The /api/v1 model list only catalogs
+// downloaded models, so loadedness comes from /api/v0 or the lms CLI.
+async function lmStudioModelLoadedState(connection, model, abort) {
+  try {
+    const result = await requestLmStudioV0Json(connection, 'models', {}, abort);
+    const entry = lmStudioModelEntries(result).find((candidate) =>
+      lmStudioEntryMatchesModel(candidate, model));
+    if (entry && typeof entry.state === 'string') {
+      return entry.state === 'loaded';
     }
-    return entry?.state === 'loaded' ||
-      (typeof entry?.instance_id === 'string' && entry.instance_id.trim().length > 0);
-  });
+  } catch {
+    // Fall through to the CLI check below.
+  }
+  try {
+    const { stdout } = await runLmStudioCli(['ps', '--json']);
+    const parsed = JSON.parse(stdout);
+    const entries = Array.isArray(parsed) ? parsed : lmStudioModelEntries(parsed);
+    return entries.some((entry) => lmStudioEntryMatchesModel(entry, model));
+  } catch {
+    return null;
+  }
 }
 
 function lmStudioCliName() {
@@ -1805,6 +1833,18 @@ async function readError(response) {
 
 async function requestLmStudioJson(connection, route, init, abort) {
   const response = await requestLlmResponse(lmStudioEndpoint(connection, route), {
+    ...init,
+    headers: requestHeaders(connection),
+  }, abort);
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  const body = await response.text();
+  return body ? JSON.parse(body) : {};
+}
+
+async function requestLmStudioV0Json(connection, route, init, abort) {
+  const response = await requestLlmResponse(lmStudioV0Endpoint(connection, route), {
     ...init,
     headers: requestHeaders(connection),
   }, abort);
@@ -2847,13 +2887,8 @@ ipcMain.handle('lmstudio:load-model', async (_event, request) => {
     if (!model) {
       throw new Error('Choose a model ID before loading an LM Studio model.');
     }
-    try {
-      const models = await requestLmStudioJson(connection, 'models', {}, abort);
-      if (lmStudioModelIsLoaded(models, model)) {
-        return { loadedModel: model, method: 'already-loaded' };
-      }
-    } catch {
-      // Loading an unreachable server fails below with the real error.
+    if (await lmStudioModelLoadedState(connection, model, abort) === true) {
+      return { loadedModel: model, method: 'already-loaded' };
     }
     await freeComfyMemoryForLocalLlm(connection);
     try {
@@ -2865,6 +2900,11 @@ ipcMain.handle('lmstudio:load-model', async (_event, request) => {
     } catch (restError) {
       if (abort.signal.aborted) {
         throw restError;
+      }
+      // A load can fail because the model turns out to be loaded already
+      // (for example when the state probe above had no source to ask).
+      if (await lmStudioModelLoadedState(connection, model, abort) === true) {
+        return { loadedModel: model, method: 'already-loaded' };
       }
       try {
         await runLmStudioCli(['load', model]);
@@ -2891,8 +2931,7 @@ ipcMain.handle('lmstudio:model-loaded', async (_event, request) => {
     if (!model) {
       return { loaded: false };
     }
-    const models = await requestLmStudioJson(connection, 'models', {}, abort);
-    return { loaded: lmStudioModelIsLoaded(models, model) };
+    return { loaded: await lmStudioModelLoadedState(connection, model, abort) };
   } catch (error) {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
