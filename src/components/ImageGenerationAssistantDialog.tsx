@@ -5,61 +5,30 @@ import type { ConnectionPreset, ProviderConnectionHealth } from '../types';
 import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 import { providerOption } from '../nodes/shared/providerHealthLabels';
 import { isComfyImageConnection } from '../comfy/connectionRole';
+import type {
+  ImageGenerationAssistantMessage,
+  ImageGenerationAssistantResult,
+} from '../chat/imageGenerationAssistant';
 
 type ImageGenerationAssistantDialogProps = {
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   onClose: () => void;
-  onSave?: (dataUrl: string) => void;
+  onSubmitAssistantMessage: (request: {
+    connectionId: string;
+    currentPrompt: string;
+    messages: ImageGenerationAssistantMessage[];
+    userMessage: string;
+  }) => Promise<ImageGenerationAssistantResult>;
+  onGenerateImages: (request: { providerId: string; prompt: string }) => Promise<string[]>;
 };
-
-function generateMockImage(prompt: string, index: number) {
-  const gradients = [
-    ['#4f46e5', '#06b6d4'], // Indigo -> Cyan
-    ['#ec4899', '#8b5cf6'], // Pink -> Purple
-    ['#f59e0b', '#ef4444'], // Amber -> Red
-    ['#10b981', '#3b82f6'], // Emerald -> Blue
-    ['#6366f1', '#a855f7'], // Indigo -> Purple
-  ];
-  const gradient = gradients[index % gradients.length];
-  const displayPrompt = prompt.trim()
-    ? (prompt.length > 50 ? prompt.slice(0, 47) + '...' : prompt)
-    : 'Scenic View';
-
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="100%" height="100%">
-      <defs>
-        <linearGradient id="grad-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${gradient[0]};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${gradient[1]};stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#grad-${index})" />
-      <g stroke="rgba(255,255,255,0.06)" stroke-width="1.5">
-        <line x1="0" y1="200" x2="800" y2="200" />
-        <line x1="0" y1="400" x2="800" y2="400" />
-        <line x1="0" y1="600" x2="800" y2="600" />
-        <line x1="0" y1="800" x2="800" y2="800" />
-        <line x1="200" y1="0" x2="200" y2="1000" />
-        <line x1="400" y1="0" x2="400" y2="1000" />
-        <line x1="600" y1="0" x2="600" y2="1000" />
-      </g>
-      <circle cx="400" cy="420" r="160" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2" />
-      <circle cx="400" cy="420" r="200" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="12 12" />
-      <rect x="100" y="700" width="600" height="220" rx="16" fill="rgba(15, 23, 42, 0.65)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1" />
-      <text x="140" y="750" fill="rgba(255,255,255,0.4)" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" letter-spacing="1.5">AI IMAGE GENERATOR</text>
-      <text x="140" y="795" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="800">Generation #${index + 1}</text>
-      <text x="140" y="850" fill="rgba(255,255,255,0.8)" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="500">${displayPrompt}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
 
 export function ImageGenerationAssistantDialog({
   connections,
   providerHealthById,
   onClose,
-  onSave,
+  onSubmitAssistantMessage,
+  onGenerateImages,
 }: ImageGenerationAssistantDialogProps) {
   const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
   const comfyConnections = connections.filter(isComfyImageConnection);
@@ -68,11 +37,13 @@ export function ImageGenerationAssistantDialog({
   const [imageProvider, setImageProvider] = useState(() => comfyConnections[0]?.id ?? '');
   const [prompt, setPrompt] = useState('');
   const [draft, setDraft] = useState('');
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<ImageGenerationAssistantMessage[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Generated images navigation states
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(-1);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState('');
 
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
 
@@ -86,25 +57,70 @@ export function ImageGenerationAssistantDialog({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  function submitMessage(event: FormEvent) {
+  async function submitMessage(event: FormEvent) {
     event.preventDefault();
     const message = draft.trim();
-    if (!message) {
+    if (!message || !assistantProvider || isSubmitting) {
       return;
     }
-    setMessages((current) => [...current, message]);
+    const previousMessages = messages;
+    setMessages((current) => [...current, { role: 'user', text: message }]);
     setDraft('');
+    setIsSubmitting(true);
+    try {
+      const result = await onSubmitAssistantMessage({
+        connectionId: assistantProvider,
+        currentPrompt: prompt,
+        messages: previousMessages,
+        userMessage: message,
+      });
+      if (result.prompt !== null) {
+        setPrompt(result.prompt);
+      }
+      setMessages((current) => [...current, { role: 'assistant', text: result.reply }]);
+    } catch (error) {
+      setMessages((current) => [
+        ...current,
+        { role: 'error', text: error instanceof Error ? error.message : String(error) },
+      ]);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  function handleGenerateImage() {
-    if (!prompt.trim()) {
+  async function handleGenerateImage() {
+    if (!prompt.trim() || !imageProvider || isGenerating) {
       return;
     }
-    const nextIndex = generatedImages.length;
-    const newImage = generateMockImage(prompt, nextIndex);
-    setGeneratedImages((prev) => [...prev, newImage]);
-    setCurrentImageIndex(nextIndex);
+    setIsGenerating(true);
+    setGenerationError('');
+    try {
+      const images = await onGenerateImages({ providerId: imageProvider, prompt });
+      setGeneratedImages((current) => {
+        const next = [...current, ...images];
+        setCurrentImageIndex(next.length - 1);
+        return next;
+      });
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsGenerating(false);
+    }
   }
+
+  const selectedImageConnection = comfyConnections.find((connection) => connection.id === imageProvider);
+  const selectedImageHealth = imageProvider ? providerHealthById[imageProvider] : undefined;
+  const generateDisabledReason = !prompt.trim()
+    ? 'Enter an image prompt first.'
+    : !selectedImageConnection
+      ? 'No ComfyUI image provider selected.'
+      : selectedImageHealth?.status === 'offline'
+        ? `Provider is offline${selectedImageHealth.detail ? `: ${selectedImageHealth.detail}` : '.'}`
+        : selectedImageHealth?.status === 'warning'
+          ? `Provider is not fully set up${selectedImageHealth.detail ? `: ${selectedImageHealth.detail}` : '.'}`
+          : selectedImageHealth?.status === 'checking'
+            ? 'Provider connection is being checked.'
+            : '';
 
   return createPortal(
     <div className="dialog-backdrop" role="presentation" {...backdropDismiss}>
@@ -151,18 +167,6 @@ export function ImageGenerationAssistantDialog({
                   >
                     →
                   </button>
-                  <button
-                    type="button"
-                    className="preview-save-btn"
-                    onClick={() => {
-                      if (currentImageIndex >= 0 && onSave) {
-                        onSave(generatedImages[currentImageIndex]);
-                      }
-                    }}
-                    title="Save current image to message attachments"
-                  >
-                    Save
-                  </button>
                 </div>
               )}
             </div>
@@ -181,7 +185,7 @@ export function ImageGenerationAssistantDialog({
                     <polyline points="21 15 16 10 5 21" />
                   </svg>
                   <strong>Your generated image will appear here</strong>
-                  <span>Click Generate Image to create mock visual options.</span>
+                  <span>Generate an image to preview it here.</span>
                 </div>
               )}
             </div>
@@ -221,21 +225,28 @@ export function ImageGenerationAssistantDialog({
             <div className="image-generation-prompt-panel">
               <div className="storybook-panel-header image-prompt-header">
                 <span className="panel-title">Image Prompt</span>
-                <button
-                  type="button"
-                  className="prompt-generate-btn"
-                  onClick={handleGenerateImage}
-                  disabled={!prompt.trim()}
+                <span
+                  className="prompt-generate-tooltip"
+                  title={generateDisabledReason || (isGenerating ? 'Image generation is running.' : 'Generate image')}
                 >
-                  Generate Image
-                </button>
+                  <button
+                    type="button"
+                    className="prompt-generate-btn"
+                    onClick={() => void handleGenerateImage()}
+                    disabled={!!generateDisabledReason || isGenerating}
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate Image'}
+                  </button>
+                </span>
               </div>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.currentTarget.value)}
                 placeholder="The final image prompt will appear here..."
                 spellCheck={false}
+                disabled={isSubmitting}
               />
+              {generationError && <p className="image-generation-error" role="alert">{generationError}</p>}
             </div>
           </section>
 
@@ -250,6 +261,7 @@ export function ImageGenerationAssistantDialog({
                 className="chat-clear-btn"
                 onClick={() => setMessages([])}
                 title="Clear all chat history"
+                disabled={isSubmitting}
               >
                 Clear Chat
               </button>
@@ -264,11 +276,21 @@ export function ImageGenerationAssistantDialog({
                   </p>
                 </div>
               ) : messages.map((message, index) => (
-                <div className="chat-message-row user" key={`${message}-${index}`}>
-                  <div className="message-sender-avatar">U</div>
-                  <div className="chat-message-bubble"><p>{message}</p></div>
+                <div className={`chat-message-row ${message.role}`} key={`${message.role}-${index}`}>
+                  <div className="message-sender-avatar">
+                    {message.role === 'user' ? 'U' : message.role === 'assistant' ? 'AI' : '!'}
+                  </div>
+                  <div className="chat-message-bubble"><p>{message.text}</p></div>
                 </div>
               ))}
+              {isSubmitting && (
+                <div className="chat-message-row assistant thinking">
+                  <div className="message-sender-avatar">AI</div>
+                  <div className="chat-message-bubble typing-bubble">
+                    <div className="typing-indicator"><span /><span /><span /></div>
+                  </div>
+                </div>
+              )}
             </div>
             <form className="storybook-chat-form" onSubmit={submitMessage}>
               <textarea
@@ -277,7 +299,13 @@ export function ImageGenerationAssistantDialog({
                 placeholder="Describe the picture or request a change..."
                 onChange={(event) => setDraft(event.currentTarget.value)}
               />
-              <button type="submit" className="send-message-button" disabled={!draft.trim()}>Send</button>
+              <button
+                type="submit"
+                className="send-message-button"
+                disabled={!draft.trim() || !assistantProvider || isSubmitting}
+              >
+                {isSubmitting ? 'Sending...' : 'Send'}
+              </button>
             </form>
           </section>
         </div>

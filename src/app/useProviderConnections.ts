@@ -1702,6 +1702,68 @@ export function useProviderConnections({
     }));
   }
 
+  async function generateImageAssistantImages(request: { providerId: string; prompt: string }) {
+    const connection = connections.find(
+      (entry) => entry.id === request.providerId && isComfyImageConnection(entry),
+    );
+    if (!connection) {
+      throw new Error('Choose a ComfyUI image provider first.');
+    }
+    const health = providerHealthByIdRef.current[connection.id];
+    if (health?.status === 'offline') {
+      throw new Error(`${connection.label} is offline${health.detail ? `: ${health.detail}` : '.'}`);
+    }
+    if (health?.status === 'warning') {
+      throw new Error(`${connection.label} is not fully set up${health.detail ? `: ${health.detail}` : '.'}`);
+    }
+    const missingFields = missingComfySetupFields(connection);
+    if (missingFields.length > 0) {
+      const message = comfySetupRequiredMessage(missingFields);
+      updateProviderHealth(connection.id, comfySetupHealth(connection, message));
+      throw new Error(message);
+    }
+
+    setComfyProviderActionActive('generate');
+    try {
+      await unloadLocalLlmModelsForComfy('Local LLM unload before image generation failed');
+      const result = await window.rpgraph.runComfyWorkflowPath({
+        baseUrl: connection.baseUrl,
+        workflowPath: comfyWorkflowPathForConnection(connection),
+        width: connection.comfyWidth ?? defaultComfyWidth,
+        height: connection.comfyHeight ?? defaultComfyHeight,
+        prompt: request.prompt.trim(),
+        checkpointName: connection.comfyCheckpointName ?? defaultComfyCheckpointName,
+        diffusionModelName: connection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
+        vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
+        textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
+        loraSlots: runtimeComfyLoraSlots(connection.comfyLoraSlots ?? defaultComfyLoraSlots),
+        deleteOutputs: connection.comfyDeleteImageOutputs !== false,
+        timeoutMs: 180000,
+      });
+      if (result.images.length === 0) {
+        throw new Error('ComfyUI finished without returning an image.');
+      }
+      updateProviderHealth(connection.id, {
+        status: 'online',
+        detail: `Generated ${result.images.length} image${result.images.length === 1 ? '' : 's'}.`,
+        capabilities: { image: true },
+        checkedAt: providerCheckedAt(),
+      });
+      return result.images.map((image) => image.dataUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateProviderHealth(connection.id, {
+        status: 'offline',
+        detail: message,
+        capabilities: { image: true },
+        checkedAt: providerCheckedAt(),
+      });
+      throw error;
+    } finally {
+      setComfyProviderActionActive(null);
+    }
+  }
+
   async function generateCharacterVoicePreview(request: {
     providerId: string;
     speechText: string;
@@ -2158,6 +2220,7 @@ export function useProviderConnections({
     checkProviderConnections,
     loadCharacterComfyLoras,
     generateCharacterComfyPreview,
+    generateImageAssistantImages,
     generateCharacterVoicePreview,
     unloadCharacterComfyModels,
     resolveConnection,

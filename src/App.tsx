@@ -61,6 +61,10 @@ import {
   extractDialogueQuotes,
 } from './chat/textRendering';
 import {
+  imageGenerationAssistantPrompt,
+  parseImageGenerationAssistantResult,
+} from './chat/imageGenerationAssistant';
+import {
   chatAttachmentFromStorybookImage,
   findChatEndpoints,
   storybookOpeningSituation,
@@ -1296,6 +1300,7 @@ function App() {
     checkProviderConnections,
     loadCharacterComfyLoras,
     generateCharacterComfyPreview,
+    generateImageAssistantImages,
     generateCharacterVoicePreview,
     unloadCharacterComfyModels,
     resolveConnection,
@@ -6146,6 +6151,22 @@ function App() {
               onAddPhoneImages={addPhoneImagesFromComposer}
               connections={connections}
               providerHealthById={providerHealthById}
+              onSubmitImageAssistantMessage={async ({
+                connectionId,
+                currentPrompt,
+                messages,
+                userMessage,
+              }) => {
+                const completion = await nodeLlm.complete({
+                  connectionId,
+                  label: 'Image Generation Assistant',
+                  prompt: imageGenerationAssistantPrompt(currentPrompt, messages, userMessage),
+                  maxTokens: 1200,
+                  temperature: 0.2,
+                });
+                return parseImageGenerationAssistantResult(completion.text);
+              }}
+              onGenerateImageAssistantImages={generateImageAssistantImages}
             />
           ) : (
             <EventsPanel

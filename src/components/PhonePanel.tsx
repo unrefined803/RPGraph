@@ -33,6 +33,7 @@ import {
   type CommandPillComposerHandle,
 } from './CommandPillComposer';
 import type { CommandInputCommand } from '../chat/structuredCommands';
+import type { ImageGenerationAssistantMessage, ImageGenerationAssistantResult } from '../chat/imageGenerationAssistant';
 
 type PhoneContact = {
   character: StorybookCharacter;
@@ -122,6 +123,13 @@ type PhonePanelProps = {
   onAddPhoneImages: (files: FileList | null) => void;
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
+  onSubmitImageAssistantMessage: (request: {
+    connectionId: string;
+    currentPrompt: string;
+    messages: ImageGenerationAssistantMessage[];
+    userMessage: string;
+  }) => Promise<ImageGenerationAssistantResult>;
+  onGenerateImageAssistantImages: (request: { providerId: string; prompt: string }) => Promise<string[]>;
 };
 
 export function PhonePanel({
@@ -185,6 +193,8 @@ export function PhonePanel({
   onAddPhoneImages,
   connections = [],
   providerHealthById = {},
+  onSubmitImageAssistantMessage,
+  onGenerateImageAssistantImages,
 }: PhonePanelProps) {
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   const isImageInContext = (image: ChatImageAttachment) =>
@@ -637,6 +647,8 @@ export function PhonePanel({
                       onUploadFromComputer={onSelectPhoneImages}
                       connections={connections}
                       providerHealthById={providerHealthById}
+                      onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
+                      onGenerateImageAssistantImages={onGenerateImageAssistantImages}
                     />
                   </div>
                 </div>

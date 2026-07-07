@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ChatImageAttachment, ConnectionPreset, ProviderConnectionHealth } from '../types';
 import { ImageGenerationAssistantDialog } from './ImageGenerationAssistantDialog';
 import { useBackdropDismiss } from './useBackdropDismiss';
+import type { ImageGenerationAssistantMessage, ImageGenerationAssistantResult } from '../chat/imageGenerationAssistant';
 
 const phoneGalleryPageSize = 100;
 
@@ -17,6 +18,13 @@ type PhoneImagePickerProps = {
   onUploadFromComputer: () => void;
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
+  onSubmitImageAssistantMessage: (request: {
+    connectionId: string;
+    currentPrompt: string;
+    messages: ImageGenerationAssistantMessage[];
+    userMessage: string;
+  }) => Promise<ImageGenerationAssistantResult>;
+  onGenerateImageAssistantImages: (request: { providerId: string; prompt: string }) => Promise<string[]>;
 };
 
 export function PhoneImagePicker({
@@ -30,6 +38,8 @@ export function PhoneImagePicker({
   onUploadFromComputer,
   connections = [],
   providerHealthById = {},
+  onSubmitImageAssistantMessage,
+  onGenerateImageAssistantImages,
 }: PhoneImagePickerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -185,19 +195,9 @@ export function PhoneImagePicker({
         <ImageGenerationAssistantDialog
           connections={connections}
           providerHealthById={providerHealthById}
+          onSubmitAssistantMessage={onSubmitImageAssistantMessage}
+          onGenerateImages={onGenerateImageAssistantImages}
           onClose={() => setGenerationAssistantOpen(false)}
-          onSave={(dataUrl) => {
-            const attachment: ChatImageAttachment = {
-              id: `gen-${Date.now()}`,
-              name: `Generated-${Date.now()}.png`,
-              mimeType: 'image/png',
-              size: dataUrl.length,
-              dataUrl,
-              description: 'AI Generated Image',
-            };
-            onSelectImage(attachment);
-            setGenerationAssistantOpen(false);
-          }}
         />
       )}
 

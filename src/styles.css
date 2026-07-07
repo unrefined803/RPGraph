@@ -18843,6 +18843,17 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 /* Prompt Header button styling */
+.prompt-generate-tooltip {
+  display: inline-flex;
+}
+
+.image-generation-error {
+  margin: -8px 16px 14px;
+  color: #f3a4aa;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .prompt-generate-btn {
   display: inline-flex;
   align-items: center;
@@ -18913,4 +18924,3 @@ button.message-timeline-row.phone:focus-visible {
   flex-direction: column;
   gap: 7px;
 }
-
