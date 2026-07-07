@@ -18880,25 +18880,62 @@ button.message-timeline-row.phone:focus-visible {
   cursor: not-allowed;
 }
 
-.image-generation-editor-tabs {
-  display: flex;
-  gap: 4px;
-}
-
 .image-generation-editor-tabs button {
-  padding: 5px 9px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: #8894a8;
-  background: transparent;
-  font-size: 11px;
-  font-weight: 700;
+  min-width: 92px;
 }
 
-.image-generation-editor-tabs button.active {
-  border-color: rgba(138, 115, 201, 0.5);
-  color: #f1edff;
-  background: rgba(138, 115, 201, 0.2);
+.image-generation-provider-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.image-model-state-button {
+  min-width: 104px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid #3a465b;
+  border-radius: 7px;
+  color: #aeb8ca;
+  background: #151d2c;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.image-model-state-button.loaded {
+  border-color: rgba(74, 190, 125, 0.55);
+  color: #a8e7c1;
+  background: rgba(41, 117, 76, 0.2);
+}
+
+.image-model-state-button.loading,
+.image-model-state-button.unloading {
+  border-color: rgba(226, 181, 90, 0.55);
+  color: #f0d494;
+}
+
+.image-model-state-button.unloaded {
+  color: #8e9bb1;
+}
+
+.image-model-state-button.loaded:hover:not(:disabled) {
+  border-color: rgba(218, 91, 103, 0.75);
+  color: #ffc0c5;
+  background: rgba(139, 45, 54, 0.25);
+}
+
+.image-model-state-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.image-generation-provider-error {
+  margin: 0;
+  color: #f3a4aa;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .image-generation-prompt-panel textarea.image-generation-settings-json {

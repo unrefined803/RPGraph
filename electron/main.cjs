@@ -2348,40 +2348,40 @@ async function requestComfyJson(baseUrl, route, init, abort) {
   return body ? JSON.parse(body) : {};
 }
 
-// Voice generation keeps the ComfyUI voice model loaded so successive clips
-// (click-to-speak, preload, read-aloud) do not reload it every time. The
+// ComfyUI generation keeps models loaded so successive jobs do not reload them
+// every time. The
 // memory is freed lazily: right before the next local LLM request needs the
 // VRAM, plus a short settle delay so the memory is actually released before
 // the local LLM starts loading. The pending state is persisted because
 // ComfyUI keeps the model loaded across RPGraph restarts.
-let pendingComfyVoiceFreeBaseUrl = '';
-let pendingComfyVoiceFreeLoaded = false;
-const comfyVoiceFreeSettleMs = 1500;
+let pendingComfyFreeBaseUrl = '';
+let pendingComfyFreeLoaded = false;
+const comfyFreeSettleMs = 1500;
 
-function comfyVoiceStatePath() {
-  return path.join(app.getPath('userData'), 'comfy-voice-state.json');
+function comfyModelStatePath() {
+  return path.join(app.getPath('userData'), 'comfy-model-state.json');
 }
 
-async function pendingComfyVoiceFree() {
-  if (!pendingComfyVoiceFreeLoaded) {
-    pendingComfyVoiceFreeLoaded = true;
+async function pendingComfyFree() {
+  if (!pendingComfyFreeLoaded) {
+    pendingComfyFreeLoaded = true;
     try {
-      const parsed = JSON.parse(await fs.readFile(comfyVoiceStatePath(), 'utf8'));
-      if (!pendingComfyVoiceFreeBaseUrl && typeof parsed?.pendingFreeBaseUrl === 'string') {
-        pendingComfyVoiceFreeBaseUrl = parsed.pendingFreeBaseUrl;
+      const parsed = JSON.parse(await fs.readFile(comfyModelStatePath(), 'utf8'));
+      if (!pendingComfyFreeBaseUrl && typeof parsed?.pendingFreeBaseUrl === 'string') {
+        pendingComfyFreeBaseUrl = parsed.pendingFreeBaseUrl;
       }
     } catch {
       // First run or unreadable state file; nothing pending.
     }
   }
-  return pendingComfyVoiceFreeBaseUrl;
+  return pendingComfyFreeBaseUrl;
 }
 
-function setPendingComfyVoiceFree(baseUrl) {
-  pendingComfyVoiceFreeBaseUrl = typeof baseUrl === 'string' ? baseUrl : '';
-  pendingComfyVoiceFreeLoaded = true;
+function setPendingComfyFree(baseUrl) {
+  pendingComfyFreeBaseUrl = typeof baseUrl === 'string' ? baseUrl : '';
+  pendingComfyFreeLoaded = true;
   void fs
-    .writeFile(comfyVoiceStatePath(), JSON.stringify({ pendingFreeBaseUrl: pendingComfyVoiceFreeBaseUrl }))
+    .writeFile(comfyModelStatePath(), JSON.stringify({ pendingFreeBaseUrl: pendingComfyFreeBaseUrl }))
     .catch(() => {});
 }
 
@@ -2394,8 +2394,8 @@ function isLocalLlmBaseUrl(value) {
   }
 }
 
-async function freeComfyVoiceMemoryForLocalLlm(connection) {
-  const comfyBaseUrl = await pendingComfyVoiceFree();
+async function freeComfyMemoryForLocalLlm(connection) {
+  const comfyBaseUrl = await pendingComfyFree();
   const providerKind = typeof connection?.providerKind === 'string' ? connection.providerKind : '';
   const shouldFreeBeforeLlm =
     providerKind === 'lm-studio' ||
@@ -2413,8 +2413,8 @@ async function freeComfyVoiceMemoryForLocalLlm(connection) {
         free_memory: true,
       }),
     }, abort);
-    setPendingComfyVoiceFree('');
-    await new Promise((resolve) => setTimeout(resolve, comfyVoiceFreeSettleMs));
+    setPendingComfyFree('');
+    await new Promise((resolve) => setTimeout(resolve, comfyFreeSettleMs));
   } catch {
     // ComfyUI may already be gone; keep the pending marker so the next local
     // LLM request can try again if the voice model is still occupying VRAM.
@@ -2836,7 +2836,7 @@ ipcMain.handle('lmstudio:load-model', async (_event, request) => {
     if (!model) {
       throw new Error('Choose a model ID before loading an LM Studio model.');
     }
-    await freeComfyVoiceMemoryForLocalLlm(connection);
+    await freeComfyMemoryForLocalLlm(connection);
     try {
       await requestLmStudioJson(connection, 'models/load', {
         method: 'POST',
@@ -3245,7 +3245,7 @@ ipcMain.handle('ollama:load-model', async (_event, request) => {
     if (!model) {
       throw new Error('Choose a model ID before loading an Ollama model.');
     }
-    await freeComfyVoiceMemoryForLocalLlm(connection);
+    await freeComfyMemoryForLocalLlm(connection);
     await requestOllamaJson(connection, 'generate', {
       method: 'POST',
       body: JSON.stringify({
@@ -3331,7 +3331,7 @@ ipcMain.handle('llm:chat-completion', async (_event, request) => {
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   try {
-    await freeComfyVoiceMemoryForLocalLlm(request.connection);
+    await freeComfyMemoryForLocalLlm(request.connection);
     if (isGeminiProviderConnection(request.connection)) {
       const response = await requestLlmResponse(geminiApiUrl(request.connection, 'generateContent'), {
         method: 'POST',
@@ -3402,7 +3402,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   try {
-    await freeComfyVoiceMemoryForLocalLlm(request.connection);
+    await freeComfyMemoryForLocalLlm(request.connection);
     if (isGeminiProviderConnection(request.connection)) {
       const response = await requestLlmResponse(geminiApiUrl(request.connection, 'streamGenerateContent'), {
         method: 'POST',
@@ -3687,6 +3687,7 @@ ipcMain.handle('comfy:apply-workflow-repair', async (_event, request) => {
 ipcMain.handle('comfy:run-workflow-path', async (_event, request) => {
   const abort = createLlmAbortController(request);
   try {
+    setPendingComfyFree(typeof request?.baseUrl === 'string' ? request.baseUrl : '');
     const filePath = validateComfyWorkflowPath(request?.workflowPath || defaultComfyWorkflowPathForRole('image'));
     const contents = await fs.readFile(filePath, 'utf8');
     const parsedWorkflow = JSON.parse(contents);
@@ -3713,7 +3714,7 @@ ipcMain.handle('comfy:run-workflow-path', async (_event, request) => {
 ipcMain.handle('comfy:run-voice-workflow-path', async (_event, request) => {
   const abort = createLlmAbortController(request);
   try {
-    setPendingComfyVoiceFree(typeof request?.baseUrl === 'string' ? request.baseUrl : '');
+    setPendingComfyFree(typeof request?.baseUrl === 'string' ? request.baseUrl : '');
     const filePath = validateComfyWorkflowPath(
       request?.workflowPath || defaultComfyWorkflowPathForRole('voice'),
     );
@@ -3803,8 +3804,8 @@ ipcMain.handle('comfy:free-memory', async (_event, request) => {
     }, abort);
     // Only clear the lazy voice-unload marker when this request freed the
     // ComfyUI instance the voice model was loaded on.
-    if ((await pendingComfyVoiceFree()) === String(request?.baseUrl || '')) {
-      setPendingComfyVoiceFree('');
+    if ((await pendingComfyFree()) === String(request?.baseUrl || '')) {
+      setPendingComfyFree('');
     }
     return { ok: true };
   } catch (error) {

@@ -7,6 +7,7 @@ import type {
   ImageGenerationAssistantMessage,
   ImageGenerationAssistantResult,
   ImageGenerationSettings,
+  ImageAssistantModelState,
 } from '../chat/imageGenerationAssistant';
 
 const phoneGalleryPageSize = 100;
@@ -23,8 +24,12 @@ type PhoneImagePickerProps = {
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
   availableCharacterLoras: string[];
+  imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
+  onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
+  onUnloadImageAssistantComfyModel: (providerId: string) => Promise<void>;
   onSubmitImageAssistantMessage: (request: {
     connectionId: string;
+    imageProviderId: string;
     currentPrompt: string;
     currentSettings: ImageGenerationSettings;
     currentImage?: { dataUrl: string; description: string };
@@ -52,6 +57,9 @@ export function PhoneImagePicker({
   connections = [],
   providerHealthById = {},
   availableCharacterLoras,
+  imageAssistantModelStateById,
+  onSetImageAssistantLlmModelLoaded,
+  onUnloadImageAssistantComfyModel,
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
 }: PhoneImagePickerProps) {
@@ -210,6 +218,9 @@ export function PhoneImagePicker({
           connections={connections}
           providerHealthById={providerHealthById}
           availableCharacterLoras={availableCharacterLoras}
+          modelStateById={imageAssistantModelStateById}
+          onSetLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
+          onUnloadComfyModel={onUnloadImageAssistantComfyModel}
           onSubmitAssistantMessage={onSubmitImageAssistantMessage}
           onGenerateImages={onGenerateImageAssistantImages}
           onClose={() => setGenerationAssistantOpen(false)}

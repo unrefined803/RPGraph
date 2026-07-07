@@ -9,8 +9,10 @@ import type {
   ImageGenerationAssistantMessage,
   ImageGenerationAssistantResult,
   ImageGenerationSettings,
+  ImageAssistantModelState,
 } from '../chat/imageGenerationAssistant';
 import { defaultComfyHeight, defaultComfyWidth, validComfyDimension } from '../settings';
+import { isLocalProviderConnection } from '../llm/providerKind';
 
 type GeneratedImageDraft = {
   dataUrl: string;
@@ -21,9 +23,13 @@ type ImageGenerationAssistantDialogProps = {
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   availableCharacterLoras: string[];
+  modelStateById: Record<string, ImageAssistantModelState>;
+  onSetLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
+  onUnloadComfyModel: (providerId: string) => Promise<void>;
   onClose: () => void;
   onSubmitAssistantMessage: (request: {
     connectionId: string;
+    imageProviderId: string;
     currentPrompt: string;
     currentSettings: ImageGenerationSettings;
     currentImage?: GeneratedImageDraft;
@@ -43,6 +49,9 @@ export function ImageGenerationAssistantDialog({
   connections,
   providerHealthById,
   availableCharacterLoras,
+  modelStateById,
+  onSetLlmModelLoaded,
+  onUnloadComfyModel,
   onClose,
   onSubmitAssistantMessage,
   onGenerateImages,
@@ -69,6 +78,7 @@ export function ImageGenerationAssistantDialog({
   const [currentImageIndex, setCurrentImageIndex] = useState(-1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
+  const [modelActionError, setModelActionError] = useState('');
 
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   const currentImage = currentImageIndex >= 0 ? generatedImages[currentImageIndex] : undefined;
@@ -137,6 +147,7 @@ export function ImageGenerationAssistantDialog({
       const settings = readSettings();
       const result = await onSubmitAssistantMessage({
         connectionId: assistantProvider,
+        imageProviderId: imageProvider,
         currentPrompt: prompt,
         currentSettings: settings,
         currentImage,
@@ -164,6 +175,7 @@ export function ImageGenerationAssistantDialog({
     try {
       const result = await onSubmitAssistantMessage({
         connectionId: assistantProvider,
+        imageProviderId: imageProvider,
         currentPrompt: prompt,
         currentSettings: readSettings(),
         currentImage,
@@ -215,6 +227,16 @@ export function ImageGenerationAssistantDialog({
   const selectedImageConnection = comfyConnections.find((connection) => connection.id === imageProvider);
   const selectedAssistantConnection = llmConnections.find((connection) => connection.id === assistantProvider);
   const selectedImageHealth = imageProvider ? providerHealthById[imageProvider] : undefined;
+  const assistantModelState = assistantProvider ? modelStateById[assistantProvider] ?? 'unknown' : 'unknown';
+  const imageModelState = imageProvider ? modelStateById[imageProvider] ?? 'unknown' : 'unknown';
+  const assistantIsLocal = !!selectedAssistantConnection && isLocalProviderConnection(selectedAssistantConnection);
+  const modelStateLabel = (state: ImageAssistantModelState) => {
+    if (state === 'loading') return 'Loading...';
+    if (state === 'unloading') return 'Unloading...';
+    if (state === 'loaded') return 'Model loaded';
+    if (state === 'unloaded') return 'Model unloaded';
+    return 'Status unknown';
+  };
   const generateDisabledReason = !prompt.trim()
     ? 'Enter an image prompt first.'
     : !selectedImageConnection
@@ -322,20 +344,38 @@ export function ImageGenerationAssistantDialog({
               <div className="image-generation-provider-fields">
                 <label className="image-generation-provider-label">
                   <span>Assistant Provider</span>
-                  <NodeCustomSelect
-                    value={assistantProvider}
-                    onChange={setAssistantProvider}
-                    options={llmConnections.length
-                      ? llmConnections.map((c) => providerOption(c, providerHealthById[c.id]))
-                      : [{ value: '', label: 'No assistant providers available' }]
-                    }
-                  />
+                  <div className="image-generation-provider-row">
+                    <NodeCustomSelect
+                      value={assistantProvider}
+                      onChange={setAssistantProvider}
+                      options={llmConnections.length
+                        ? llmConnections.map((c) => providerOption(c, providerHealthById[c.id]))
+                        : [{ value: '', label: 'No assistant providers available' }]
+                      }
+                    />
+                    <button
+                      type="button"
+                      className={`image-model-state-button ${assistantModelState}`}
+                      disabled={!assistantIsLocal || assistantModelState === 'loading' || assistantModelState === 'unloading'}
+                      title={!assistantIsLocal
+                        ? 'Remote providers do not need local model control.'
+                        : assistantModelState === 'loaded' ? 'Unload the model' : 'Load the selected model'}
+                      onClick={() => {
+                        setModelActionError('');
+                        void onSetLlmModelLoaded(assistantProvider, assistantModelState !== 'loaded')
+                          .catch((error) => setModelActionError(error instanceof Error ? error.message : String(error)));
+                      }}
+                    >
+                      {assistantIsLocal ? modelStateLabel(assistantModelState) : 'Remote model'}
+                    </button>
+                  </div>
                 </label>
                 <label className="image-generation-provider-label">
                   <span>ComfyUI Image Provider</span>
-                  <NodeCustomSelect
-                    value={imageProvider}
-                    onChange={(providerId) => {
+                  <div className="image-generation-provider-row">
+                    <NodeCustomSelect
+                      value={imageProvider}
+                      onChange={(providerId) => {
                       setImageProvider(providerId);
                       const connection = comfyConnections.find((entry) => entry.id === providerId);
                       setSettingsText(JSON.stringify({
@@ -344,19 +384,38 @@ export function ImageGenerationAssistantDialog({
                         characterLora: '',
                       }, null, 2));
                       setSettingsError('');
-                    }}
-                    options={comfyConnections.length
-                      ? comfyConnections.map((c) => providerOption(c, providerHealthById[c.id]))
-                      : [{ value: '', label: 'No image providers available' }]
-                    }
-                  />
+                      }}
+                      options={comfyConnections.length
+                        ? comfyConnections.map((c) => providerOption(c, providerHealthById[c.id]))
+                        : [{ value: '', label: 'No image providers available' }]
+                      }
+                    />
+                    <button
+                      type="button"
+                      className={`image-model-state-button ${imageModelState}`}
+                      disabled={!imageProvider || imageModelState !== 'loaded'}
+                      title={imageModelState === 'loaded'
+                        ? 'Unload the ComfyUI model'
+                        : 'ComfyUI loads image models when Generate Image runs. Its API has no separate load-only action.'}
+                      onClick={() => {
+                        setModelActionError('');
+                        if (imageModelState === 'loaded') {
+                          void onUnloadComfyModel(imageProvider)
+                            .catch((error) => setModelActionError(error instanceof Error ? error.message : String(error)));
+                        }
+                      }}
+                    >
+                      {modelStateLabel(imageModelState)}
+                    </button>
+                  </div>
                 </label>
+                {modelActionError && <p className="image-generation-provider-error" role="alert">{modelActionError}</p>}
               </div>
             </div>
 
             <div className="image-generation-prompt-panel">
               <div className="storybook-panel-header image-prompt-header">
-                <div className="image-generation-editor-tabs" role="tablist" aria-label="Image generation editor">
+                <div className="chat-panel-tabs image-generation-editor-tabs" role="tablist" aria-label="Image generation editor">
                   <button
                     type="button"
                     role="tab"

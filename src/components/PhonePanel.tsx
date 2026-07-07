@@ -37,6 +37,7 @@ import type {
   ImageGenerationAssistantMessage,
   ImageGenerationAssistantResult,
   ImageGenerationSettings,
+  ImageAssistantModelState,
 } from '../chat/imageGenerationAssistant';
 
 type PhoneContact = {
@@ -129,6 +130,7 @@ type PhonePanelProps = {
   providerHealthById?: Record<string, ProviderConnectionHealth>;
   onSubmitImageAssistantMessage: (request: {
     connectionId: string;
+    imageProviderId: string;
     currentPrompt: string;
     currentSettings: ImageGenerationSettings;
     currentImage?: { dataUrl: string; description: string };
@@ -142,6 +144,9 @@ type PhonePanelProps = {
     prompt: string;
     settings: ImageGenerationSettings;
   }) => Promise<string[]>;
+  imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
+  onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
+  onUnloadImageAssistantComfyModel: (providerId: string) => Promise<void>;
 };
 
 export function PhonePanel({
@@ -207,6 +212,9 @@ export function PhonePanel({
   providerHealthById = {},
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
+  imageAssistantModelStateById,
+  onSetImageAssistantLlmModelLoaded,
+  onUnloadImageAssistantComfyModel,
 }: PhonePanelProps) {
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   const isImageInContext = (image: ChatImageAttachment) =>
@@ -665,6 +673,9 @@ export function PhonePanel({
                       })}
                       onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
                       onGenerateImageAssistantImages={onGenerateImageAssistantImages}
+                      imageAssistantModelStateById={imageAssistantModelStateById}
+                      onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
+                      onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
                     />
                   </div>
                 </div>

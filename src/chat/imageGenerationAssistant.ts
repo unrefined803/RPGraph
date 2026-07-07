@@ -3,6 +3,8 @@ export type ImageGenerationAssistantMessage = {
   text: string;
 };
 
+export type ImageAssistantModelState = 'unknown' | 'loading' | 'loaded' | 'unloading' | 'unloaded';
+
 export type ImageGenerationAssistantResult = {
   reply: string;
   prompt: string | null;

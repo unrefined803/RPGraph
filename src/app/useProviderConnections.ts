@@ -69,6 +69,7 @@ import type {
   WorkflowNode,
   WorkflowNodeData,
 } from '../types';
+import type { ImageAssistantModelState } from '../chat/imageGenerationAssistant';
 
 type AvailableComfyModels = {
   checkpoints: string[];
@@ -163,6 +164,7 @@ export function useProviderConnections({
   const [comfyWorkflowRepairStatus, setComfyWorkflowRepairStatus] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('');
   const [providerHealthById, setProviderHealthById] = useState<Record<string, ProviderConnectionHealth>>({});
+  const [imageAssistantModelStateById, setImageAssistantModelStateById] = useState<Record<string, ImageAssistantModelState>>({});
   const providerHealthByIdRef = useRef<Record<string, ProviderConnectionHealth>>({});
   const [lmStudioModelsByConnectionId, setLmStudioModelsByConnectionId] = useState<Record<string, LmStudioModelInfo[]>>({});
   const lmStudioModelsByConnectionIdRef = useRef<Record<string, LmStudioModelInfo[]>>({});
@@ -184,6 +186,10 @@ export function useProviderConnections({
 
   function isLlmConnection(connection: ConnectionPreset) {
     return connection.kind !== 'comfyui';
+  }
+
+  function setImageAssistantModelState(connectionId: string, state: ImageAssistantModelState) {
+    setImageAssistantModelStateById((current) => ({ ...current, [connectionId]: state }));
   }
 
   function firstLlmConnection(connectionsToSearch = connections) {
@@ -1033,18 +1039,21 @@ export function useProviderConnections({
       (isLmStudioConnection(connection) || isOllamaConnection(connection)),
     );
     if (!localLlmConnections.length) {
-      return;
+      return [];
     }
     const failures: string[] = [];
     await Promise.all(
       localLlmConnections.map(async (connection) => {
         try {
+          setImageAssistantModelState(connection.id, 'unloading');
           if (isLmStudioConnection(connection)) {
             await window.rpgraph.unloadLmStudioModels(connection);
           } else {
             await window.rpgraph.unloadOllamaModels(connection);
           }
+          setImageAssistantModelState(connection.id, 'unloaded');
         } catch (error) {
+          setImageAssistantModelState(connection.id, 'unknown');
           failures.push(`${connection.label}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }),
@@ -1052,6 +1061,7 @@ export function useProviderConnections({
     if (failures.length) {
       notifySystem('warning', `${reason}: ${failures.join('; ')}`);
     }
+    return failures;
   }
 
   async function unloadComfyConnectionForClose(connection: ConnectionPreset) {
@@ -1728,8 +1738,12 @@ export function useProviderConnections({
     }
 
     setComfyProviderActionActive('generate');
+    setImageAssistantModelState(connection.id, 'loading');
     try {
-      await unloadLocalLlmModelsForComfy('Local LLM unload before image generation failed');
+      const unloadFailures = await unloadLocalLlmModelsForComfy('Local LLM unload before image generation failed');
+      if (unloadFailures.length > 0) {
+        throw new Error(`Could not unload local LLM models: ${unloadFailures.join('; ')}`);
+      }
       const result = await window.rpgraph.runComfyWorkflowPath({
         baseUrl: connection.baseUrl,
         workflowPath: comfyWorkflowPathForConnection(connection),
@@ -1756,6 +1770,7 @@ export function useProviderConnections({
         capabilities: { image: true },
         checkedAt: providerCheckedAt(),
       });
+      setImageAssistantModelState(connection.id, 'loaded');
       return result.images.map((image) => image.dataUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1765,9 +1780,93 @@ export function useProviderConnections({
         capabilities: { image: true },
         checkedAt: providerCheckedAt(),
       });
+      setImageAssistantModelState(connection.id, 'unknown');
       throw error;
     } finally {
       setComfyProviderActionActive(null);
+    }
+  }
+
+  async function prepareImageAssistantLlmProvider(request: {
+    llmProviderId: string;
+    comfyProviderId?: string;
+  }) {
+    const comfyConnection = connections.find(
+      (entry) => entry.id === request.comfyProviderId && isComfyImageConnection(entry),
+    );
+    if (comfyConnection) {
+      setImageAssistantModelState(comfyConnection.id, 'unloading');
+      await window.rpgraph.freeComfyMemory({ baseUrl: comfyConnection.baseUrl });
+      setImageAssistantModelState(comfyConnection.id, 'unloaded');
+    }
+    const llmConnection = connections.find((entry) => entry.id === request.llmProviderId);
+    if (!llmConnection || !isLocalProviderConnection(llmConnection)) {
+      return;
+    }
+    setImageAssistantModelState(llmConnection.id, 'loading');
+    try {
+      if (isLmStudioConnection(llmConnection)) {
+        await window.rpgraph.loadLmStudioModel(llmConnection);
+      } else if (isOllamaConnection(llmConnection)) {
+        await window.rpgraph.loadOllamaModel(llmConnection);
+      }
+      setImageAssistantModelState(llmConnection.id, 'loaded');
+    } catch (error) {
+      setImageAssistantModelState(llmConnection.id, 'unknown');
+      throw error;
+    }
+  }
+
+  async function setImageAssistantLlmModelLoaded(providerId: string, loaded: boolean) {
+    const connection = connections.find((entry) => entry.id === providerId);
+    if (!connection || !isLocalProviderConnection(connection)) {
+      throw new Error('Manual model control requires a local LM Studio or Ollama provider.');
+    }
+    setImageAssistantModelState(connection.id, loaded ? 'loading' : 'unloading');
+    try {
+      if (loaded) {
+        const comfyConnections = connections.filter(isComfyImageConnection);
+        for (const comfyConnection of comfyConnections) {
+          setImageAssistantModelState(comfyConnection.id, 'unloading');
+          await window.rpgraph.freeComfyMemory({ baseUrl: comfyConnection.baseUrl });
+          setImageAssistantModelState(comfyConnection.id, 'unloaded');
+        }
+      }
+      if (isLmStudioConnection(connection)) {
+        await (loaded
+          ? window.rpgraph.loadLmStudioModel(connection)
+          : window.rpgraph.unloadLmStudioModels(connection));
+      } else if (isOllamaConnection(connection)) {
+        await (loaded
+          ? window.rpgraph.loadOllamaModel(connection)
+          : window.rpgraph.unloadOllamaModels(connection));
+      }
+      setImageAssistantModelState(connection.id, loaded ? 'loaded' : 'unloaded');
+    } catch (error) {
+      if (loaded) {
+        connections.filter(isComfyImageConnection).forEach((entry) => {
+          setImageAssistantModelState(entry.id, 'unknown');
+        });
+      }
+      setImageAssistantModelState(connection.id, 'unknown');
+      throw error;
+    }
+  }
+
+  async function unloadImageAssistantComfyModel(providerId: string) {
+    const connection = connections.find(
+      (entry) => entry.id === providerId && isComfyImageConnection(entry),
+    );
+    if (!connection) {
+      throw new Error('Choose a ComfyUI image provider first.');
+    }
+    setImageAssistantModelState(connection.id, 'unloading');
+    try {
+      await window.rpgraph.freeComfyMemory({ baseUrl: connection.baseUrl });
+      setImageAssistantModelState(connection.id, 'unloaded');
+    } catch (error) {
+      setImageAssistantModelState(connection.id, 'unknown');
+      throw error;
     }
   }
 
@@ -2181,6 +2280,7 @@ export function useProviderConnections({
     comfyWorkflowInspection,
     connectionStatus,
     providerHealthById,
+    imageAssistantModelStateById,
     lmStudioModelsByConnectionId,
     openRouterModelsByConnectionId,
     geminiModelsByConnectionId,
@@ -2228,6 +2328,9 @@ export function useProviderConnections({
     loadCharacterComfyLoras,
     generateCharacterComfyPreview,
     generateImageAssistantImages,
+    prepareImageAssistantLlmProvider,
+    setImageAssistantLlmModelLoaded,
+    unloadImageAssistantComfyModel,
     generateCharacterVoicePreview,
     unloadCharacterComfyModels,
     resolveConnection,

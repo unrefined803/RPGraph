@@ -1259,6 +1259,7 @@ function App() {
     comfyWorkflowInspection,
     connectionStatus,
     providerHealthById,
+    imageAssistantModelStateById,
     comfyProviderActionActive,
     voiceGenerationActive,
     lmStudioModelActionActive,
@@ -1301,6 +1302,9 @@ function App() {
     loadCharacterComfyLoras,
     generateCharacterComfyPreview,
     generateImageAssistantImages,
+    prepareImageAssistantLlmProvider,
+    setImageAssistantLlmModelLoaded,
+    unloadImageAssistantComfyModel,
     generateCharacterVoicePreview,
     unloadCharacterComfyModels,
     resolveConnection,
@@ -6153,6 +6157,7 @@ function App() {
               providerHealthById={providerHealthById}
               onSubmitImageAssistantMessage={async ({
                 connectionId,
+                imageProviderId,
                 currentPrompt,
                 currentSettings,
                 currentImage,
@@ -6161,6 +6166,10 @@ function App() {
                 userMessage,
                 describeImage,
               }) => {
+                await prepareImageAssistantLlmProvider({
+                  llmProviderId: connectionId,
+                  comfyProviderId: imageProviderId,
+                });
                 if (currentImage) {
                   const visionEnabled = await nodeLlm.supportsVision(
                     connectionId,
@@ -6196,6 +6205,9 @@ function App() {
                 return parseImageGenerationAssistantResult(completion.text);
               }}
               onGenerateImageAssistantImages={generateImageAssistantImages}
+              imageAssistantModelStateById={imageAssistantModelStateById}
+              onSetImageAssistantLlmModelLoaded={setImageAssistantLlmModelLoaded}
+              onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
             />
           ) : (
             <EventsPanel
