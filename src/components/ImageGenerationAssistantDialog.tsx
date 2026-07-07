@@ -11,6 +11,7 @@ import type {
   ImageGenerationSettings,
   ImageAssistantModelState,
 } from '../chat/imageGenerationAssistant';
+import { imageGenerationAssistantInstructions } from '../chat/imageGenerationAssistant';
 import { defaultComfyHeight, defaultComfyWidth, validComfyDimension } from '../settings';
 import { isLocalProviderConnection } from '../llm/providerKind';
 import { TextMetricsApi } from '../llm/tokenMetrics';
@@ -26,6 +27,7 @@ type ImageGenerationAssistantDialogProps = {
   availableCharacterLoras: string[];
   characterContext: string;
   characterCount: number;
+  chatHistoryContext: string;
   estimatedTokenBytesPerToken: number;
   modelStateById: Record<string, ImageAssistantModelState>;
   onSetLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
@@ -40,6 +42,7 @@ type ImageGenerationAssistantDialogProps = {
     currentImage?: GeneratedImageDraft;
     availableCharacterLoras: string[];
     characterContext: string;
+    chatHistoryContext: string;
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
     describeImage?: boolean;
@@ -57,6 +60,7 @@ export function ImageGenerationAssistantDialog({
   availableCharacterLoras,
   characterContext,
   characterCount,
+  chatHistoryContext,
   estimatedTokenBytesPerToken,
   modelStateById,
   onSetLlmModelLoaded,
@@ -92,7 +96,10 @@ export function ImageGenerationAssistantDialog({
 
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   const currentImage = currentImageIndex >= 0 ? generatedImages[currentImageIndex] : undefined;
-  const characterContextTokens = new TextMetricsApi(estimatedTokenBytesPerToken).measure(characterContext).tokens;
+  const textMetrics = new TextMetricsApi(estimatedTokenBytesPerToken);
+  const characterContextTokens = textMetrics.measure(characterContext).tokens;
+  const chatHistoryContextTokens = textMetrics.measure(chatHistoryContext).tokens;
+  const assistantPromptTokens = textMetrics.measure(imageGenerationAssistantInstructions).tokens;
 
   function readSettings(): ImageGenerationSettings {
     let value: unknown;
@@ -170,6 +177,7 @@ export function ImageGenerationAssistantDialog({
         currentImage,
         availableCharacterLoras,
         characterContext,
+        chatHistoryContext,
         messages: previousMessages,
         userMessage: message,
       });
@@ -200,6 +208,7 @@ export function ImageGenerationAssistantDialog({
         currentImage,
         availableCharacterLoras,
         characterContext,
+        chatHistoryContext,
         messages,
         userMessage: 'Describe the currently selected image.',
         describeImage: true,
@@ -520,6 +529,8 @@ export function ImageGenerationAssistantDialog({
               <span className="context-meter-total">
                 Characters {characterCount} · ~{characterContextTokens.toLocaleString()} tokens
               </span>
+              <span>Last 4 Turns · ~{chatHistoryContextTokens.toLocaleString()} tokens</span>
+              <span>Assistant Prompt · ~{assistantPromptTokens.toLocaleString()} tokens</span>
             </div>
             <div className="storybook-chat-log">
               {messages.length === 0 ? (

@@ -64,6 +64,7 @@ import {
   imageGenerationAssistantPrompt,
   parseImageGenerationAssistantResult,
 } from './chat/imageGenerationAssistant';
+import { lastTurnMessages } from './data-management/historyStore';
 import {
   chatAttachmentFromStorybookImage,
   findChatEndpoints,
@@ -6060,6 +6061,13 @@ function App() {
               phoneContacts={phoneContacts}
               storyCharacters={storyCharacters}
               estimatedTokenBytesPerToken={activeTokenEstimateBytesPerToken}
+              imageAssistantChatHistoryContext={formatChatHistory(
+                lastTurnMessages(messages, 4),
+                false,
+                rpDateTimeFormat,
+                rpWeekdayLanguage,
+                messages,
+              )}
               characterColors={characterColors}
               selectedPhoneContact={selectedPhoneContact}
               selectedCharacter={viewedPhoneCharacter}
@@ -6165,6 +6173,7 @@ function App() {
                 currentImage,
                 availableCharacterLoras,
                 characterContext,
+                chatHistoryContext,
                 messages,
                 userMessage,
                 describeImage,
@@ -6191,6 +6200,7 @@ function App() {
                     currentImage?.description ?? '',
                     availableCharacterLoras,
                     characterContext,
+                    chatHistoryContext,
                     messages,
                     userMessage,
                     describeImage,

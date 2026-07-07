@@ -130,6 +130,7 @@ type PhonePanelProps = {
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
   estimatedTokenBytesPerToken: number;
+  imageAssistantChatHistoryContext: string;
   onSubmitImageAssistantMessage: (request: {
     connectionId: string;
     imageProviderId: string;
@@ -138,6 +139,7 @@ type PhonePanelProps = {
     currentImage?: { dataUrl: string; description: string };
     availableCharacterLoras: string[];
     characterContext: string;
+    chatHistoryContext: string;
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
     describeImage?: boolean;
@@ -215,6 +217,7 @@ export function PhonePanel({
   connections = [],
   providerHealthById = {},
   estimatedTokenBytesPerToken,
+  imageAssistantChatHistoryContext,
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
   imageAssistantModelStateById,
@@ -679,6 +682,7 @@ export function PhonePanel({
                       })}
                       characterContext={imageGenerationCharacterContext(storyCharacters)}
                       characterCount={storyCharacters.length}
+                      chatHistoryContext={imageAssistantChatHistoryContext}
                       estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
                       onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
                       onGenerateImageAssistantImages={onGenerateImageAssistantImages}

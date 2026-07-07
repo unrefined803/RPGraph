@@ -26,6 +26,7 @@ type PhoneImagePickerProps = {
   availableCharacterLoras: string[];
   characterContext: string;
   characterCount: number;
+  chatHistoryContext: string;
   estimatedTokenBytesPerToken: number;
   imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
   onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
@@ -39,6 +40,7 @@ type PhoneImagePickerProps = {
     currentImage?: { dataUrl: string; description: string };
     availableCharacterLoras: string[];
     characterContext: string;
+    chatHistoryContext: string;
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
     describeImage?: boolean;
@@ -64,6 +66,7 @@ export function PhoneImagePicker({
   availableCharacterLoras,
   characterContext,
   characterCount,
+  chatHistoryContext,
   estimatedTokenBytesPerToken,
   imageAssistantModelStateById,
   onSetImageAssistantLlmModelLoaded,
@@ -229,6 +232,7 @@ export function PhoneImagePicker({
           availableCharacterLoras={availableCharacterLoras}
           characterContext={characterContext}
           characterCount={characterCount}
+          chatHistoryContext={chatHistoryContext}
           estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
           modelStateById={imageAssistantModelStateById}
           onSetLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
