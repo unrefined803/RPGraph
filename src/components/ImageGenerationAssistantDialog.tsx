@@ -8,24 +8,41 @@ import { isComfyImageConnection } from '../comfy/connectionRole';
 import type {
   ImageGenerationAssistantMessage,
   ImageGenerationAssistantResult,
+  ImageGenerationSettings,
 } from '../chat/imageGenerationAssistant';
+import { defaultComfyHeight, defaultComfyWidth, validComfyDimension } from '../settings';
+
+type GeneratedImageDraft = {
+  dataUrl: string;
+  description: string;
+};
 
 type ImageGenerationAssistantDialogProps = {
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
+  availableCharacterLoras: string[];
   onClose: () => void;
   onSubmitAssistantMessage: (request: {
     connectionId: string;
     currentPrompt: string;
+    currentSettings: ImageGenerationSettings;
+    currentImage?: GeneratedImageDraft;
+    availableCharacterLoras: string[];
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
+    describeImage?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
-  onGenerateImages: (request: { providerId: string; prompt: string }) => Promise<string[]>;
+  onGenerateImages: (request: {
+    providerId: string;
+    prompt: string;
+    settings: ImageGenerationSettings;
+  }) => Promise<string[]>;
 };
 
 export function ImageGenerationAssistantDialog({
   connections,
   providerHealthById,
+  availableCharacterLoras,
   onClose,
   onSubmitAssistantMessage,
   onGenerateImages,
@@ -35,17 +52,66 @@ export function ImageGenerationAssistantDialog({
 
   const [assistantProvider, setAssistantProvider] = useState(() => llmConnections[0]?.id ?? '');
   const [imageProvider, setImageProvider] = useState(() => comfyConnections[0]?.id ?? '');
+  const initialImageConnection = comfyConnections[0];
   const [prompt, setPrompt] = useState('');
+  const [editorMode, setEditorMode] = useState<'prompt' | 'settings'>('prompt');
+  const [settingsText, setSettingsText] = useState(() => JSON.stringify({
+    width: initialImageConnection?.comfyWidth ?? defaultComfyWidth,
+    height: initialImageConnection?.comfyHeight ?? defaultComfyHeight,
+    characterLora: '',
+  }, null, 2));
+  const [settingsError, setSettingsError] = useState('');
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<ImageGenerationAssistantMessage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImageDraft[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(-1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
 
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
+  const currentImage = currentImageIndex >= 0 ? generatedImages[currentImageIndex] : undefined;
+
+  function readSettings(): ImageGenerationSettings {
+    let value: unknown;
+    try {
+      value = JSON.parse(settingsText);
+    } catch {
+      throw new Error('Image Settings must be valid JSON.');
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('Image Settings must be a JSON object.');
+    }
+    const record = value as Record<string, unknown>;
+    if (
+      typeof record.width !== 'number' || !Number.isInteger(record.width) || record.width < 64 || record.width > 4096 ||
+      typeof record.height !== 'number' || !Number.isInteger(record.height) || record.height < 64 || record.height > 4096 ||
+      typeof record.characterLora !== 'string'
+    ) {
+      throw new Error('Image Settings require whole-number width and height plus a Character LoRA string.');
+    }
+    return {
+      width: validComfyDimension(record.width, defaultComfyWidth),
+      height: validComfyDimension(record.height, defaultComfyHeight),
+      characterLora: record.characterLora.trim(),
+    };
+  }
+
+  function applyAssistantResult(result: ImageGenerationAssistantResult) {
+    if (result.prompt !== null) {
+      setPrompt(result.prompt);
+    }
+    if (result.settings !== null) {
+      setSettingsText(JSON.stringify(result.settings, null, 2));
+      setSettingsError('');
+    }
+    if (result.imageDescription !== null && currentImageIndex >= 0) {
+      setGeneratedImages((current) => current.map((image, index) =>
+        index === currentImageIndex ? { ...image, description: result.imageDescription ?? '' } : image
+      ));
+    }
+  }
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -68,21 +134,51 @@ export function ImageGenerationAssistantDialog({
     setDraft('');
     setIsSubmitting(true);
     try {
+      const settings = readSettings();
       const result = await onSubmitAssistantMessage({
         connectionId: assistantProvider,
         currentPrompt: prompt,
+        currentSettings: settings,
+        currentImage,
+        availableCharacterLoras,
         messages: previousMessages,
         userMessage: message,
       });
-      if (result.prompt !== null) {
-        setPrompt(result.prompt);
-      }
+      applyAssistantResult(result);
       setMessages((current) => [...current, { role: 'assistant', text: result.reply }]);
     } catch (error) {
       setMessages((current) => [
         ...current,
         { role: 'error', text: error instanceof Error ? error.message : String(error) },
       ]);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function describeCurrentImage() {
+    if (!currentImage || !assistantProvider || isSubmitting) {
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const result = await onSubmitAssistantMessage({
+        connectionId: assistantProvider,
+        currentPrompt: prompt,
+        currentSettings: readSettings(),
+        currentImage,
+        availableCharacterLoras,
+        messages,
+        userMessage: 'Describe the currently selected image.',
+        describeImage: true,
+      });
+      applyAssistantResult(result);
+      setMessages((current) => [...current, { role: 'assistant', text: result.reply }]);
+    } catch (error) {
+      setMessages((current) => [...current, {
+        role: 'error',
+        text: error instanceof Error ? error.message : String(error),
+      }]);
     } finally {
       setIsSubmitting(false);
     }
@@ -95,20 +191,29 @@ export function ImageGenerationAssistantDialog({
     setIsGenerating(true);
     setGenerationError('');
     try {
-      const images = await onGenerateImages({ providerId: imageProvider, prompt });
+      const settings = readSettings();
+      setSettingsError('');
+      const images = await onGenerateImages({ providerId: imageProvider, prompt, settings });
       setGeneratedImages((current) => {
-        const next = [...current, ...images];
+        const next = [...current, ...images.map((dataUrl) => ({ dataUrl, description: '' }))];
         setCurrentImageIndex(next.length - 1);
         return next;
       });
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.startsWith('Image Settings')) {
+        setSettingsError(message);
+        setEditorMode('settings');
+      } else {
+        setGenerationError(message);
+      }
     } finally {
       setIsGenerating(false);
     }
   }
 
   const selectedImageConnection = comfyConnections.find((connection) => connection.id === imageProvider);
+  const selectedAssistantConnection = llmConnections.find((connection) => connection.id === assistantProvider);
   const selectedImageHealth = imageProvider ? providerHealthById[imageProvider] : undefined;
   const generateDisabledReason = !prompt.trim()
     ? 'Enter an image prompt first.'
@@ -167,13 +272,28 @@ export function ImageGenerationAssistantDialog({
                   >
                     →
                   </button>
+                  <span
+                    className="prompt-generate-tooltip"
+                    title={!selectedAssistantConnection?.vision
+                      ? 'Describe Image requires an assistant provider with vision enabled.'
+                      : 'Describe the currently selected image'}
+                  >
+                    <button
+                      type="button"
+                      className="preview-describe-btn"
+                      disabled={!selectedAssistantConnection?.vision || isSubmitting}
+                      onClick={() => void describeCurrentImage()}
+                    >
+                      Describe Image
+                    </button>
+                  </span>
                 </div>
               )}
             </div>
             <div className="image-generation-preview-stage">
               {currentImageIndex >= 0 ? (
                 <img
-                  src={generatedImages[currentImageIndex]}
+                  src={currentImage?.dataUrl}
                   alt={`Generated Preview ${currentImageIndex + 1}`}
                   style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '12px' }}
                 />
@@ -189,6 +309,9 @@ export function ImageGenerationAssistantDialog({
                 </div>
               )}
             </div>
+            {currentImage?.description && (
+              <p className="image-generation-description">{currentImage.description}</p>
+            )}
           </section>
 
           <section className="image-generation-control-panel">
@@ -212,7 +335,16 @@ export function ImageGenerationAssistantDialog({
                   <span>ComfyUI Image Provider</span>
                   <NodeCustomSelect
                     value={imageProvider}
-                    onChange={setImageProvider}
+                    onChange={(providerId) => {
+                      setImageProvider(providerId);
+                      const connection = comfyConnections.find((entry) => entry.id === providerId);
+                      setSettingsText(JSON.stringify({
+                        width: connection?.comfyWidth ?? defaultComfyWidth,
+                        height: connection?.comfyHeight ?? defaultComfyHeight,
+                        characterLora: '',
+                      }, null, 2));
+                      setSettingsError('');
+                    }}
                     options={comfyConnections.length
                       ? comfyConnections.map((c) => providerOption(c, providerHealthById[c.id]))
                       : [{ value: '', label: 'No image providers available' }]
@@ -224,7 +356,26 @@ export function ImageGenerationAssistantDialog({
 
             <div className="image-generation-prompt-panel">
               <div className="storybook-panel-header image-prompt-header">
-                <span className="panel-title">Image Prompt</span>
+                <div className="image-generation-editor-tabs" role="tablist" aria-label="Image generation editor">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={editorMode === 'prompt'}
+                    className={editorMode === 'prompt' ? 'active' : ''}
+                    onClick={() => setEditorMode('prompt')}
+                  >
+                    Image Prompt
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={editorMode === 'settings'}
+                    className={editorMode === 'settings' ? 'active' : ''}
+                    onClick={() => setEditorMode('settings')}
+                  >
+                    Image Settings
+                  </button>
+                </div>
                 <span
                   className="prompt-generate-tooltip"
                   title={generateDisabledReason || (isGenerating ? 'Image generation is running.' : 'Generate image')}
@@ -239,13 +390,28 @@ export function ImageGenerationAssistantDialog({
                   </button>
                 </span>
               </div>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.currentTarget.value)}
-                placeholder="The final image prompt will appear here..."
-                spellCheck={false}
-                disabled={isSubmitting}
-              />
+              {editorMode === 'prompt' ? (
+                <textarea
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.currentTarget.value)}
+                  placeholder="The final image prompt will appear here..."
+                  spellCheck={false}
+                  disabled={isSubmitting}
+                />
+              ) : (
+                <textarea
+                  className="image-generation-settings-json"
+                  value={settingsText}
+                  onChange={(event) => {
+                    setSettingsText(event.currentTarget.value);
+                    setSettingsError('');
+                  }}
+                  aria-label="Image Settings JSON"
+                  spellCheck={false}
+                  disabled={isSubmitting || isGenerating}
+                />
+              )}
+              {settingsError && <p className="image-generation-error" role="alert">{settingsError}</p>}
               {generationError && <p className="image-generation-error" role="alert">{generationError}</p>}
             </div>
           </section>

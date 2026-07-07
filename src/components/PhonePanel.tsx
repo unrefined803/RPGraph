@@ -33,7 +33,11 @@ import {
   type CommandPillComposerHandle,
 } from './CommandPillComposer';
 import type { CommandInputCommand } from '../chat/structuredCommands';
-import type { ImageGenerationAssistantMessage, ImageGenerationAssistantResult } from '../chat/imageGenerationAssistant';
+import type {
+  ImageGenerationAssistantMessage,
+  ImageGenerationAssistantResult,
+  ImageGenerationSettings,
+} from '../chat/imageGenerationAssistant';
 
 type PhoneContact = {
   character: StorybookCharacter;
@@ -126,10 +130,18 @@ type PhonePanelProps = {
   onSubmitImageAssistantMessage: (request: {
     connectionId: string;
     currentPrompt: string;
+    currentSettings: ImageGenerationSettings;
+    currentImage?: { dataUrl: string; description: string };
+    availableCharacterLoras: string[];
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
+    describeImage?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
-  onGenerateImageAssistantImages: (request: { providerId: string; prompt: string }) => Promise<string[]>;
+  onGenerateImageAssistantImages: (request: {
+    providerId: string;
+    prompt: string;
+    settings: ImageGenerationSettings;
+  }) => Promise<string[]>;
 };
 
 export function PhonePanel({
@@ -647,6 +659,10 @@ export function PhonePanel({
                       onUploadFromComputer={onSelectPhoneImages}
                       connections={connections}
                       providerHealthById={providerHealthById}
+                      availableCharacterLoras={storyCharacters.flatMap((character) => {
+                        const loraName = character.comfyConfig?.loraName.trim();
+                        return loraName ? [`${character.name}: ${loraName}`] : [];
+                      })}
                       onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
                       onGenerateImageAssistantImages={onGenerateImageAssistantImages}
                     />

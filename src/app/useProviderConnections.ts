@@ -1702,7 +1702,11 @@ export function useProviderConnections({
     }));
   }
 
-  async function generateImageAssistantImages(request: { providerId: string; prompt: string }) {
+  async function generateImageAssistantImages(request: {
+    providerId: string;
+    prompt: string;
+    settings: { width: number; height: number; characterLora: string };
+  }) {
     const connection = connections.find(
       (entry) => entry.id === request.providerId && isComfyImageConnection(entry),
     );
@@ -1729,14 +1733,17 @@ export function useProviderConnections({
       const result = await window.rpgraph.runComfyWorkflowPath({
         baseUrl: connection.baseUrl,
         workflowPath: comfyWorkflowPathForConnection(connection),
-        width: connection.comfyWidth ?? defaultComfyWidth,
-        height: connection.comfyHeight ?? defaultComfyHeight,
+        width: validComfyDimension(request.settings.width, connection.comfyWidth ?? defaultComfyWidth),
+        height: validComfyDimension(request.settings.height, connection.comfyHeight ?? defaultComfyHeight),
         prompt: request.prompt.trim(),
         checkpointName: connection.comfyCheckpointName ?? defaultComfyCheckpointName,
         diffusionModelName: connection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
         vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
         textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
-        loraSlots: runtimeComfyLoraSlots(connection.comfyLoraSlots ?? defaultComfyLoraSlots),
+        loraSlots: characterComfyLoraSlots(
+          connection.comfyLoraSlots ?? defaultComfyLoraSlots,
+          request.settings.characterLora,
+        ),
         deleteOutputs: connection.comfyDeleteImageOutputs !== false,
         timeoutMs: 180000,
       });

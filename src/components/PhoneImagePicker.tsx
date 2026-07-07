@@ -3,7 +3,11 @@ import { createPortal } from 'react-dom';
 import type { ChatImageAttachment, ConnectionPreset, ProviderConnectionHealth } from '../types';
 import { ImageGenerationAssistantDialog } from './ImageGenerationAssistantDialog';
 import { useBackdropDismiss } from './useBackdropDismiss';
-import type { ImageGenerationAssistantMessage, ImageGenerationAssistantResult } from '../chat/imageGenerationAssistant';
+import type {
+  ImageGenerationAssistantMessage,
+  ImageGenerationAssistantResult,
+  ImageGenerationSettings,
+} from '../chat/imageGenerationAssistant';
 
 const phoneGalleryPageSize = 100;
 
@@ -18,13 +22,22 @@ type PhoneImagePickerProps = {
   onUploadFromComputer: () => void;
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
+  availableCharacterLoras: string[];
   onSubmitImageAssistantMessage: (request: {
     connectionId: string;
     currentPrompt: string;
+    currentSettings: ImageGenerationSettings;
+    currentImage?: { dataUrl: string; description: string };
+    availableCharacterLoras: string[];
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
+    describeImage?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
-  onGenerateImageAssistantImages: (request: { providerId: string; prompt: string }) => Promise<string[]>;
+  onGenerateImageAssistantImages: (request: {
+    providerId: string;
+    prompt: string;
+    settings: ImageGenerationSettings;
+  }) => Promise<string[]>;
 };
 
 export function PhoneImagePicker({
@@ -38,6 +51,7 @@ export function PhoneImagePicker({
   onUploadFromComputer,
   connections = [],
   providerHealthById = {},
+  availableCharacterLoras,
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
 }: PhoneImagePickerProps) {
@@ -195,6 +209,7 @@ export function PhoneImagePicker({
         <ImageGenerationAssistantDialog
           connections={connections}
           providerHealthById={providerHealthById}
+          availableCharacterLoras={availableCharacterLoras}
           onSubmitAssistantMessage={onSubmitImageAssistantMessage}
           onGenerateImages={onGenerateImageAssistantImages}
           onClose={() => setGenerationAssistantOpen(false)}

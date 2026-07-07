@@ -18854,6 +18854,58 @@ button.message-timeline-row.phone:focus-visible {
   line-height: 1.4;
 }
 
+.image-generation-description {
+  margin: 0;
+  padding: 10px 16px;
+  border-top: 1px solid #232d42;
+  color: #aeb8ca;
+  background: #0d1421;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.preview-describe-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #e2e8f0;
+  background: #1e293b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.preview-describe-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.image-generation-editor-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.image-generation-editor-tabs button {
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #8894a8;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.image-generation-editor-tabs button.active {
+  border-color: rgba(138, 115, 201, 0.5);
+  color: #f1edff;
+  background: rgba(138, 115, 201, 0.2);
+}
+
+.image-generation-prompt-panel textarea.image-generation-settings-json {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  line-height: 1.7;
+}
+
 .prompt-generate-btn {
   display: inline-flex;
   align-items: center;

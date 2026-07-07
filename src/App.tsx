@@ -6154,13 +6154,42 @@ function App() {
               onSubmitImageAssistantMessage={async ({
                 connectionId,
                 currentPrompt,
+                currentSettings,
+                currentImage,
+                availableCharacterLoras,
                 messages,
                 userMessage,
+                describeImage,
               }) => {
+                if (currentImage) {
+                  const visionEnabled = await nodeLlm.supportsVision(
+                    connectionId,
+                    'Image Generation Assistant',
+                  );
+                  if (!visionEnabled) {
+                    throw new Error('The selected assistant provider needs vision enabled to inspect the generated image.');
+                  }
+                }
                 const completion = await nodeLlm.complete({
                   connectionId,
                   label: 'Image Generation Assistant',
-                  prompt: imageGenerationAssistantPrompt(currentPrompt, messages, userMessage),
+                  prompt: imageGenerationAssistantPrompt(
+                    currentPrompt,
+                    currentSettings,
+                    currentImage?.description ?? '',
+                    availableCharacterLoras,
+                    messages,
+                    userMessage,
+                    describeImage,
+                  ),
+                  images: currentImage ? [{
+                    id: 'image-generation-assistant-current',
+                    name: 'Currently selected generated image',
+                    mimeType: /^data:([^;,]+)/.exec(currentImage.dataUrl)?.[1] ?? 'image/png',
+                    size: currentImage.dataUrl.length,
+                    dataUrl: currentImage.dataUrl,
+                    description: currentImage.description,
+                  }] : undefined,
                   maxTokens: 1200,
                   temperature: 0.2,
                 });
