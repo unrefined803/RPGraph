@@ -227,6 +227,7 @@ type UseGraphRunOptions = Pick<
   setActiveRunId: (runId: string | null) => void;
   setIsRunning: (running: boolean) => void;
   setRunDurationMs: (ms: number) => void;
+  setRunStartTimeMs: (ms: number | null) => void;
   runStartTimeRef: Ref<number | null>;
   runEndTimeRef: Ref<number | null>;
   pendingRunRestart: Ref<(() => void) | null>;
@@ -356,6 +357,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     setActiveRunId,
     setIsRunning,
     setRunDurationMs,
+    setRunStartTimeMs,
     runStartTimeRef,
     runEndTimeRef,
     pendingRunRestart,
@@ -615,6 +617,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     setNodes(resetRunNodes);
     removeReplacedMessages();
     runStartTimeRef.current = runClockNow();
+    setRunStartTimeMs(runStartTimeRef.current);
     runEndTimeRef.current = null;
     setRunDurationMs(0);
     setIsRunning(true);

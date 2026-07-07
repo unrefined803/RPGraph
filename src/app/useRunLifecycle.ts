@@ -25,6 +25,9 @@ export function useRunLifecycle() {
   const pendingRunRestart = useRef<(() => void) | null>(null);
   const runStartTimeRef = useRef<number | null>(null);
   const runEndTimeRef = useRef<number | null>(null);
+  // Render-safe mirror of runStartTimeRef for the <LiveRunClock> instances
+  // (React forbids reading refs during render).
+  const [runStartTimeMs, setRunStartTimeMs] = useState<number | null>(null);
 
   // NOTE: the live run-duration display is driven by the self-contained
   // <LiveRunClock> leaf component, NOT by an App-level interval. A former 50ms
@@ -76,6 +79,8 @@ export function useRunLifecycle() {
     pendingRunRestartRef: pendingRunRestart,
     runStartTimeRef,
     runEndTimeRef,
+    runStartTimeMs,
+    setRunStartTimeMs,
     cancelCurrentRun,
   };
 }

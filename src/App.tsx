@@ -995,6 +995,8 @@ function App() {
     pendingRunRestartRef,
     runStartTimeRef,
     runEndTimeRef,
+    runStartTimeMs,
+    setRunStartTimeMs,
     cancelCurrentRun,
   } = useRunLifecycle();
   const [characterDropdownOpen, setCharacterDropdownOpen] = useState(false);
@@ -4525,6 +4527,7 @@ function App() {
     setActiveRunId,
     setIsRunning,
     setRunDurationMs,
+    setRunStartTimeMs,
     runStartTimeRef,
     runEndTimeRef,
     pendingRunRestart: pendingRunRestartRef,
@@ -5452,6 +5455,7 @@ function App() {
           currentDurationMs={runDurationMs}
           history={runHistory}
           isRunning={isRunning && activeRunId === runLlmReport.runId}
+          runStartTimeMs={runStartTimeMs}
           onClose={() => setShowRunLlmReport(false)}
         />
       )}
@@ -5609,7 +5613,7 @@ function App() {
                 disabled={!runLlmReport}
                 title="Show LLM calls for the current or last run"
               >
-                Runtime: <LiveRunClock isRunning={isRunning} finalMs={runDurationMs} /> s
+                Runtime: <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
               </button>
               <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
               {visibleLogEntry && (

@@ -177,12 +177,14 @@ export function RunLlmReportDialog({
   currentDurationMs,
   history,
   isRunning,
+  runStartTimeMs,
   onClose,
 }: {
   currentReport: RunLlmReport;
   currentDurationMs: number;
   history: LlmRunHistoryEntry[];
   isRunning: boolean;
+  runStartTimeMs: number | null;
   onClose: () => void;
 }) {
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
@@ -202,7 +204,7 @@ export function RunLlmReportDialog({
             <span className="run-llm-card-label">Duration</span>
             <span className="run-llm-card-value font-mono">
               {isCurrent && isRunning
-                ? <><LiveRunClock isRunning={isRunning} finalMs={durationMs ?? 0} /> s</>
+                ? <><LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={durationMs ?? 0} /> s</>
                 : durationMs !== undefined ? `${formatRuntimeSeconds(durationMs)} s` : '-'}
             </span>
           </div>
