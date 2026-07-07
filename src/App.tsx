@@ -1305,6 +1305,7 @@ function App() {
     prepareImageAssistantLlmProvider,
     setImageAssistantLlmModelLoaded,
     unloadImageAssistantComfyModel,
+    refreshImageAssistantModelState,
     generateCharacterVoicePreview,
     unloadCharacterComfyModels,
     resolveConnection,
@@ -6208,6 +6209,7 @@ function App() {
               imageAssistantModelStateById={imageAssistantModelStateById}
               onSetImageAssistantLlmModelLoaded={setImageAssistantLlmModelLoaded}
               onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
+              onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
           ) : (
             <EventsPanel

@@ -27,6 +27,7 @@ type PhoneImagePickerProps = {
   imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
   onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadImageAssistantComfyModel: (providerId: string) => Promise<void>;
+  onRefreshImageAssistantModelState: (providerId: string) => void;
   onSubmitImageAssistantMessage: (request: {
     connectionId: string;
     imageProviderId: string;
@@ -60,6 +61,7 @@ export function PhoneImagePicker({
   imageAssistantModelStateById,
   onSetImageAssistantLlmModelLoaded,
   onUnloadImageAssistantComfyModel,
+  onRefreshImageAssistantModelState,
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
 }: PhoneImagePickerProps) {
@@ -221,6 +223,7 @@ export function PhoneImagePicker({
           modelStateById={imageAssistantModelStateById}
           onSetLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
           onUnloadComfyModel={onUnloadImageAssistantComfyModel}
+          onRefreshModelState={onRefreshImageAssistantModelState}
           onSubmitAssistantMessage={onSubmitImageAssistantMessage}
           onGenerateImages={onGenerateImageAssistantImages}
           onClose={() => setGenerationAssistantOpen(false)}

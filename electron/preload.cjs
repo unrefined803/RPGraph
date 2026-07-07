@@ -84,12 +84,16 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('gemini:list-models', { connection }),
   loadLmStudioModel: (connection) =>
     ipcRenderer.invoke('lmstudio:load-model', { connection }),
+  isLmStudioModelLoaded: (connection) =>
+    ipcRenderer.invoke('lmstudio:model-loaded', { connection }),
   unloadLmStudioModels: (connection) =>
     ipcRenderer.invoke('lmstudio:unload-models', { connection }),
   listOllamaModels: (connection) =>
     ipcRenderer.invoke('ollama:list-models', { connection }).then(throwIfRpgraphIpcError),
   loadOllamaModel: (connection) =>
     ipcRenderer.invoke('ollama:load-model', { connection }),
+  isOllamaModelLoaded: (connection) =>
+    ipcRenderer.invoke('ollama:model-loaded', { connection }),
   unloadOllamaModels: (connection) =>
     ipcRenderer.invoke('ollama:unload-models', { connection }),
   chatCompletion: (request, onAbort) => abortableLlmInvoke('llm:chat-completion', request, onAbort),

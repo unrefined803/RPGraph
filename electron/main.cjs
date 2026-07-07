@@ -1274,6 +1274,17 @@ function lmStudioLoadedInstanceIds(models, preferredModel) {
   return [...new Set(loaded)];
 }
 
+function lmStudioModelIsLoaded(models, modelKey) {
+  return lmStudioModelEntries(models).some((entry) => {
+    const key = lmStudioModelKey(entry);
+    if (key !== modelKey && entry?.instance_id !== modelKey) {
+      return false;
+    }
+    return entry?.state === 'loaded' ||
+      (typeof entry?.instance_id === 'string' && entry.instance_id.trim().length > 0);
+  });
+}
+
 function lmStudioCliName() {
   return process.platform === 'win32' ? 'lms.cmd' : 'lms';
 }
@@ -2836,6 +2847,14 @@ ipcMain.handle('lmstudio:load-model', async (_event, request) => {
     if (!model) {
       throw new Error('Choose a model ID before loading an LM Studio model.');
     }
+    try {
+      const models = await requestLmStudioJson(connection, 'models', {}, abort);
+      if (lmStudioModelIsLoaded(models, model)) {
+        return { loadedModel: model, method: 'already-loaded' };
+      }
+    } catch {
+      // Loading an unreachable server fails below with the real error.
+    }
     await freeComfyMemoryForLocalLlm(connection);
     try {
       await requestLmStudioJson(connection, 'models/load', {
@@ -2854,6 +2873,26 @@ ipcMain.handle('lmstudio:load-model', async (_event, request) => {
         throw restError;
       }
     }
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('lmstudio:model-loaded', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    const model = typeof connection?.model === 'string' ? connection.model.trim() : '';
+    if (!model) {
+      return { loaded: false };
+    }
+    const models = await requestLmStudioJson(connection, 'models', {}, abort);
+    return { loaded: lmStudioModelIsLoaded(models, model) };
   } catch (error) {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
@@ -3255,6 +3294,31 @@ ipcMain.handle('ollama:load-model', async (_event, request) => {
       }),
     }, abort);
     return { loadedModel: model };
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('ollama:model-loaded', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    const model = typeof connection?.model === 'string' ? connection.model.trim() : '';
+    if (!model) {
+      return { loaded: false };
+    }
+    const ps = await requestOllamaJson(connection, 'ps', {}, abort);
+    const normalized = (value) => value.replace(/:latest$/, '');
+    const target = normalized(model);
+    const loaded = Array.isArray(ps?.models) && ps.models.some((entry) =>
+      [entry?.name, entry?.model].some((value) =>
+        typeof value === 'string' && normalized(value.trim()) === target));
+    return { loaded };
   } catch (error) {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();

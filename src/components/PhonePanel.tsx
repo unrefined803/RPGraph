@@ -147,6 +147,7 @@ type PhonePanelProps = {
   imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
   onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadImageAssistantComfyModel: (providerId: string) => Promise<void>;
+  onRefreshImageAssistantModelState: (providerId: string) => void;
 };
 
 export function PhonePanel({
@@ -215,6 +216,7 @@ export function PhonePanel({
   imageAssistantModelStateById,
   onSetImageAssistantLlmModelLoaded,
   onUnloadImageAssistantComfyModel,
+  onRefreshImageAssistantModelState,
 }: PhonePanelProps) {
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   const isImageInContext = (image: ChatImageAttachment) =>
@@ -676,6 +678,7 @@ export function PhonePanel({
                       imageAssistantModelStateById={imageAssistantModelStateById}
                       onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
                       onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
+                      onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
                     />
                   </div>
                 </div>

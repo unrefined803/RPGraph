@@ -1796,8 +1796,13 @@ export function useProviderConnections({
     );
     if (comfyConnection) {
       setImageAssistantModelState(comfyConnection.id, 'unloading');
-      await window.rpgraph.freeComfyMemory({ baseUrl: comfyConnection.baseUrl });
-      setImageAssistantModelState(comfyConnection.id, 'unloaded');
+      try {
+        await window.rpgraph.freeComfyMemory({ baseUrl: comfyConnection.baseUrl });
+        setImageAssistantModelState(comfyConnection.id, 'unloaded');
+      } catch {
+        // An unreachable ComfyUI holds no VRAM; keep the assistant usable.
+        setImageAssistantModelState(comfyConnection.id, 'unknown');
+      }
     }
     const llmConnection = connections.find((entry) => entry.id === request.llmProviderId);
     if (!llmConnection || !isLocalProviderConnection(llmConnection)) {
@@ -1828,8 +1833,13 @@ export function useProviderConnections({
         const comfyConnections = connections.filter(isComfyImageConnection);
         for (const comfyConnection of comfyConnections) {
           setImageAssistantModelState(comfyConnection.id, 'unloading');
-          await window.rpgraph.freeComfyMemory({ baseUrl: comfyConnection.baseUrl });
-          setImageAssistantModelState(comfyConnection.id, 'unloaded');
+          try {
+            await window.rpgraph.freeComfyMemory({ baseUrl: comfyConnection.baseUrl });
+            setImageAssistantModelState(comfyConnection.id, 'unloaded');
+          } catch {
+            // An unreachable ComfyUI holds no VRAM; keep loading the LLM.
+            setImageAssistantModelState(comfyConnection.id, 'unknown');
+          }
         }
       }
       if (isLmStudioConnection(connection)) {
@@ -1843,14 +1853,36 @@ export function useProviderConnections({
       }
       setImageAssistantModelState(connection.id, loaded ? 'loaded' : 'unloaded');
     } catch (error) {
-      if (loaded) {
-        connections.filter(isComfyImageConnection).forEach((entry) => {
-          setImageAssistantModelState(entry.id, 'unknown');
-        });
-      }
       setImageAssistantModelState(connection.id, 'unknown');
       throw error;
     }
+  }
+
+  async function refreshImageAssistantModelState(providerId: string) {
+    const connection = connections.find((entry) => entry.id === providerId);
+    if (
+      !connection ||
+      !isLocalProviderConnection(connection) ||
+      !(isLmStudioConnection(connection) || isOllamaConnection(connection))
+    ) {
+      return;
+    }
+    let probed: ImageAssistantModelState;
+    try {
+      const result = isLmStudioConnection(connection)
+        ? await window.rpgraph.isLmStudioModelLoaded(connection)
+        : await window.rpgraph.isOllamaModelLoaded(connection);
+      probed = result.loaded ? 'loaded' : 'unloaded';
+    } catch {
+      probed = 'unknown';
+    }
+    setImageAssistantModelStateById((current) => {
+      const state = current[connection.id];
+      if (state === 'loading' || state === 'unloading') {
+        return current;
+      }
+      return { ...current, [connection.id]: probed };
+    });
   }
 
   async function unloadImageAssistantComfyModel(providerId: string) {
@@ -2331,6 +2363,7 @@ export function useProviderConnections({
     prepareImageAssistantLlmProvider,
     setImageAssistantLlmModelLoaded,
     unloadImageAssistantComfyModel,
+    refreshImageAssistantModelState,
     generateCharacterVoicePreview,
     unloadCharacterComfyModels,
     resolveConnection,

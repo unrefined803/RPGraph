@@ -26,6 +26,7 @@ type ImageGenerationAssistantDialogProps = {
   modelStateById: Record<string, ImageAssistantModelState>;
   onSetLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadComfyModel: (providerId: string) => Promise<void>;
+  onRefreshModelState: (providerId: string) => void;
   onClose: () => void;
   onSubmitAssistantMessage: (request: {
     connectionId: string;
@@ -52,6 +53,7 @@ export function ImageGenerationAssistantDialog({
   modelStateById,
   onSetLlmModelLoaded,
   onUnloadComfyModel,
+  onRefreshModelState,
   onClose,
   onSubmitAssistantMessage,
   onGenerateImages,
@@ -122,6 +124,12 @@ export function ImageGenerationAssistantDialog({
       ));
     }
   }
+
+  useEffect(() => {
+    if (assistantProvider) {
+      onRefreshModelState(assistantProvider);
+    }
+  }, [assistantProvider, onRefreshModelState]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

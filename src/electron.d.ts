@@ -40,8 +40,9 @@ declare global {
       listGeminiModels: (connection: ConnectionPreset) => Promise<GeminiModelInfo[]>;
       loadLmStudioModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
-        method?: 'rest' | 'cli';
+        method?: 'rest' | 'cli' | 'already-loaded';
       }>;
+      isLmStudioModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean }>;
       unloadLmStudioModels: (connection: ConnectionPreset) => Promise<{
         unloadedCount?: number;
         instanceIds: string[];
@@ -51,6 +52,7 @@ declare global {
       loadOllamaModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
       }>;
+      isOllamaModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean }>;
       unloadOllamaModels: (connection: ConnectionPreset) => Promise<{
         unloadedCount: number;
         models: string[];
