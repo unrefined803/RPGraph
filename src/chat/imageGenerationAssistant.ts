@@ -25,7 +25,10 @@ type ImageGenerationCharacter = {
     personality: string;
     speechStyle: string;
   };
-  comfyConfig?: { appearance: string };
+  comfyConfig?: {
+    appearance: string;
+    loraName: string;
+  };
 };
 
 export function imageGenerationCharacterContext(characters: ImageGenerationCharacter[]) {
@@ -35,6 +38,7 @@ export function imageGenerationCharacterContext(characters: ImageGenerationChara
     `Personality: ${character.profile.personality.trim() || '(none)'}`,
     `Speech Style: ${character.profile.speechStyle.trim() || '(none)'}`,
     `Character Appearance: ${character.comfyConfig?.appearance.trim() || '(none)'}`,
+    `Character LoRA: ${character.comfyConfig?.loraName.trim() || '(none)'}`,
   ].join('\n')).join('\n\n');
 }
 

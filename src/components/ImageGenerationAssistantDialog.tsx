@@ -100,6 +100,25 @@ export function ImageGenerationAssistantDialog({
   const characterContextTokens = textMetrics.measure(characterContext).tokens;
   const chatHistoryContextTokens = textMetrics.measure(chatHistoryContext).tokens;
   const assistantPromptTokens = textMetrics.measure(imageGenerationAssistantInstructions).tokens;
+  const availableLoraEntries = availableCharacterLoras.map((entry) => {
+    const separatorIndex = entry.indexOf(': ');
+    return separatorIndex >= 0
+      ? { characterName: entry.slice(0, separatorIndex).trim(), loraName: entry.slice(separatorIndex + 2).trim() }
+      : { characterName: '', loraName: entry.trim() };
+  });
+  const settingsCharacterLora = (() => {
+    try {
+      const value = JSON.parse(settingsText) as unknown;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return '';
+      }
+      const loraName = (value as Record<string, unknown>).characterLora;
+      return typeof loraName === 'string' ? loraName.trim() : '';
+    } catch {
+      return '';
+    }
+  })();
+  const selectedLoraEntry = availableLoraEntries.find((entry) => entry.loraName === settingsCharacterLora);
 
   function readSettings(): ImageGenerationSettings {
     let value: unknown;
@@ -119,14 +138,24 @@ export function ImageGenerationAssistantDialog({
     ) {
       throw new Error('Image Settings require whole-number width and height plus a Character LoRA string.');
     }
+    const characterLora = record.characterLora.trim();
+    if (characterLora && !availableLoraEntries.some((entry) => entry.loraName === characterLora)) {
+      throw new Error('Image Settings must use a Character LoRA defined in the Storybook.');
+    }
     return {
       width: validComfyDimension(record.width, defaultComfyWidth),
       height: validComfyDimension(record.height, defaultComfyHeight),
-      characterLora: record.characterLora.trim(),
+      characterLora,
     };
   }
 
   function applyAssistantResult(result: ImageGenerationAssistantResult) {
+    if (
+      result.settings?.characterLora &&
+      !availableLoraEntries.some((entry) => entry.loraName === result.settings?.characterLora)
+    ) {
+      throw new Error('The assistant selected a Character LoRA that is not defined in the Storybook.');
+    }
     if (result.prompt !== null) {
       setPrompt(result.prompt);
     }
@@ -481,6 +510,13 @@ export function ImageGenerationAssistantDialog({
                   </button>
                 </span>
               </div>
+              {editorMode === 'prompt' && settingsCharacterLora && (
+                <div className="image-generation-lora-meter" aria-label="Selected Character LoRA">
+                  <span className="image-generation-lora-pill">
+                    LoRA · {selectedLoraEntry?.characterName || settingsCharacterLora}
+                  </span>
+                </div>
+              )}
               {editorMode === 'prompt' ? (
                 <textarea
                   value={prompt}
@@ -529,8 +565,8 @@ export function ImageGenerationAssistantDialog({
               <span className="context-meter-total">
                 Characters {characterCount} · ~{characterContextTokens.toLocaleString()} tokens
               </span>
-              <span>Last 4 Turns · ~{chatHistoryContextTokens.toLocaleString()} tokens</span>
-              <span>Assistant Prompt · ~{assistantPromptTokens.toLocaleString()} tokens</span>
+              <span className="context-meter-total">Last 4 Turns · ~{chatHistoryContextTokens.toLocaleString()} tokens</span>
+              <span className="context-meter-total">Assistant Prompt · ~{assistantPromptTokens.toLocaleString()} tokens</span>
             </div>
             <div className="storybook-chat-log">
               {messages.length === 0 ? (

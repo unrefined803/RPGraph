@@ -18972,6 +18972,26 @@ button.message-timeline-row.phone:focus-visible {
   padding: 8px 18px;
 }
 
+.image-generation-lora-meter {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px 0;
+}
+
+.image-generation-lora-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 9px;
+  border: 1px solid rgba(74, 190, 125, 0.55);
+  border-radius: 999px;
+  color: #b8efcd;
+  background: rgba(41, 117, 76, 0.22);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* Chat Header clear button and row layout */
 .image-generation-chat-panel .storybook-chat-header {
   flex-direction: row;
