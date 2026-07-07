@@ -18745,21 +18745,16 @@ button.message-timeline-row.phone:focus-visible {
 
 /* Main Header adjustments */
 .image-generation-assistant-dialog .dialog-header.storybook-creator-header {
-  padding: 8px 18px;
-  min-height: 44px;
+  padding: 9px 23px;
+  min-height: 54px;
   align-items: center;
 }
 
 .image-generation-assistant-dialog .storybook-title-row h2 {
-  font-size: 15px;
+  font-size: 18px;
 }
 
 .image-generation-assistant-dialog .storybook-title-row p {
-  font-size: 11px;
-}
-
-.image-generation-assistant-dialog .close-button {
-  padding: 5px 12px;
   font-size: 12px;
 }
 
@@ -18947,9 +18942,10 @@ button.message-timeline-row.phone:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 26px;
-  padding: 0 12px;
-  font-size: 11px;
+  min-width: 104px;
+  height: 34px;
+  padding: 0 14px;
+  font-size: 12px;
   font-weight: 700;
   border-radius: 6px;
   cursor: pointer;
@@ -18972,6 +18968,10 @@ button.message-timeline-row.phone:focus-visible {
   cursor: not-allowed;
 }
 
+.image-generation-context-meter {
+  padding: 8px 18px;
+}
+
 /* Chat Header clear button and row layout */
 .image-generation-chat-panel .storybook-chat-header {
   flex-direction: row;
@@ -18983,28 +18983,6 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.chat-clear-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  padding: 0 10px;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: transparent;
-  border: 1px solid #334155;
-  color: #94a3b8;
-}
-
-.chat-clear-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #ef4444;
 }
 
 /* Dropdown label adjustments */

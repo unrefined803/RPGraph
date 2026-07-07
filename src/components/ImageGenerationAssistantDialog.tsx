@@ -13,6 +13,7 @@ import type {
 } from '../chat/imageGenerationAssistant';
 import { defaultComfyHeight, defaultComfyWidth, validComfyDimension } from '../settings';
 import { isLocalProviderConnection } from '../llm/providerKind';
+import { TextMetricsApi } from '../llm/tokenMetrics';
 
 type GeneratedImageDraft = {
   dataUrl: string;
@@ -23,6 +24,9 @@ type ImageGenerationAssistantDialogProps = {
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   availableCharacterLoras: string[];
+  characterContext: string;
+  characterCount: number;
+  estimatedTokenBytesPerToken: number;
   modelStateById: Record<string, ImageAssistantModelState>;
   onSetLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadComfyModel: (providerId: string) => Promise<void>;
@@ -35,6 +39,7 @@ type ImageGenerationAssistantDialogProps = {
     currentSettings: ImageGenerationSettings;
     currentImage?: GeneratedImageDraft;
     availableCharacterLoras: string[];
+    characterContext: string;
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
     describeImage?: boolean;
@@ -50,6 +55,9 @@ export function ImageGenerationAssistantDialog({
   connections,
   providerHealthById,
   availableCharacterLoras,
+  characterContext,
+  characterCount,
+  estimatedTokenBytesPerToken,
   modelStateById,
   onSetLlmModelLoaded,
   onUnloadComfyModel,
@@ -84,6 +92,7 @@ export function ImageGenerationAssistantDialog({
 
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   const currentImage = currentImageIndex >= 0 ? generatedImages[currentImageIndex] : undefined;
+  const characterContextTokens = new TextMetricsApi(estimatedTokenBytesPerToken).measure(characterContext).tokens;
 
   function readSettings(): ImageGenerationSettings {
     let value: unknown;
@@ -160,6 +169,7 @@ export function ImageGenerationAssistantDialog({
         currentSettings: settings,
         currentImage,
         availableCharacterLoras,
+        characterContext,
         messages: previousMessages,
         userMessage: message,
       });
@@ -189,6 +199,7 @@ export function ImageGenerationAssistantDialog({
         currentSettings: readSettings(),
         currentImage,
         availableCharacterLoras,
+        characterContext,
         messages,
         userMessage: 'Describe the currently selected image.',
         describeImage: true,
@@ -272,9 +283,11 @@ export function ImageGenerationAssistantDialog({
             <h2>Image Generation Assistant</h2>
             <p>Compose a picture for this phone conversation.</p>
           </div>
-          <button type="button" className="close-button danger" onClick={onClose}>
-            Close
-          </button>
+          <div className="storybook-header-actions">
+            <button type="button" className="close-button danger" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </header>
 
         <div className="image-generation-assistant-workspace">
@@ -491,15 +504,22 @@ export function ImageGenerationAssistantDialog({
                 <span className="panel-title">AI Image Assistant</span>
                 <span className="panel-subtitle">By AI Image Assistant</span>
               </div>
-              <button
-                type="button"
-                className="chat-clear-btn"
-                onClick={() => setMessages([])}
-                title="Clear all chat history"
-                disabled={isSubmitting}
-              >
-                Clear Chat
-              </button>
+              <div className="storybook-header-actions">
+                <button
+                  type="button"
+                  className="prompt-generate-btn"
+                  onClick={() => setMessages([])}
+                  title="Clear all chat history"
+                  disabled={isSubmitting}
+                >
+                  Clear Chat
+                </button>
+              </div>
+            </div>
+            <div className="node-assistant-context-meter image-generation-context-meter">
+              <span className="context-meter-total">
+                Characters {characterCount} · ~{characterContextTokens.toLocaleString()} tokens
+              </span>
             </div>
             <div className="storybook-chat-log">
               {messages.length === 0 ? (
@@ -533,6 +553,12 @@ export function ImageGenerationAssistantDialog({
                 value={draft}
                 placeholder="Describe the picture or request a change..."
                 onChange={(event) => setDraft(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
               />
               <button
                 type="submit"

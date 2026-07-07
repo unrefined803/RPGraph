@@ -18,6 +18,26 @@ export type ImageGenerationSettings = {
   characterLora: string;
 };
 
+type ImageGenerationCharacter = {
+  name: string;
+  profile: {
+    description: string;
+    personality: string;
+    speechStyle: string;
+  };
+  comfyConfig?: { appearance: string };
+};
+
+export function imageGenerationCharacterContext(characters: ImageGenerationCharacter[]) {
+  return characters.map((character, index) => [
+    `Character ${index + 1}: ${character.name.trim() || 'Unnamed'}`,
+    `Description: ${character.profile.description.trim() || '(none)'}`,
+    `Personality: ${character.profile.personality.trim() || '(none)'}`,
+    `Speech Style: ${character.profile.speechStyle.trim() || '(none)'}`,
+    `Character Appearance: ${character.comfyConfig?.appearance.trim() || '(none)'}`,
+  ].join('\n')).join('\n\n');
+}
+
 function assistantConversation(messages: ImageGenerationAssistantMessage[]) {
   return messages
     .filter((message) => message.role !== 'error')
@@ -30,6 +50,7 @@ export function imageGenerationAssistantPrompt(
   currentSettings: ImageGenerationSettings,
   currentImageDescription: string,
   availableCharacterLoras: string[],
+  characterContext: string,
   messages: ImageGenerationAssistantMessage[],
   userMessage: string,
   describeImage = false,
@@ -57,6 +78,8 @@ export function imageGenerationAssistantPrompt(
     `Current image settings:\n${JSON.stringify(currentSettings, null, 2)}`,
     '',
     `Available Character LoRAs (character name: exact filename):\n${availableCharacterLoras.join('\n') || '(none)'}`,
+    '',
+    `Storybook Characters:\n${characterContext || '(none)'}`,
     '',
     `Current selected image description:\n${currentImageDescription.trim() || '(none)'}`,
     '',

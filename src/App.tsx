@@ -6059,6 +6059,7 @@ function App() {
             <PhonePanel
               phoneContacts={phoneContacts}
               storyCharacters={storyCharacters}
+              estimatedTokenBytesPerToken={activeTokenEstimateBytesPerToken}
               characterColors={characterColors}
               selectedPhoneContact={selectedPhoneContact}
               selectedCharacter={viewedPhoneCharacter}
@@ -6163,6 +6164,7 @@ function App() {
                 currentSettings,
                 currentImage,
                 availableCharacterLoras,
+                characterContext,
                 messages,
                 userMessage,
                 describeImage,
@@ -6188,6 +6190,7 @@ function App() {
                     currentSettings,
                     currentImage?.description ?? '',
                     availableCharacterLoras,
+                    characterContext,
                     messages,
                     userMessage,
                     describeImage,

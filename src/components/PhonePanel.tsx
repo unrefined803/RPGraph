@@ -39,6 +39,7 @@ import type {
   ImageGenerationSettings,
   ImageAssistantModelState,
 } from '../chat/imageGenerationAssistant';
+import { imageGenerationCharacterContext } from '../chat/imageGenerationAssistant';
 
 type PhoneContact = {
   character: StorybookCharacter;
@@ -128,6 +129,7 @@ type PhonePanelProps = {
   onAddPhoneImages: (files: FileList | null) => void;
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
+  estimatedTokenBytesPerToken: number;
   onSubmitImageAssistantMessage: (request: {
     connectionId: string;
     imageProviderId: string;
@@ -135,6 +137,7 @@ type PhonePanelProps = {
     currentSettings: ImageGenerationSettings;
     currentImage?: { dataUrl: string; description: string };
     availableCharacterLoras: string[];
+    characterContext: string;
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
     describeImage?: boolean;
@@ -211,6 +214,7 @@ export function PhonePanel({
   onAddPhoneImages,
   connections = [],
   providerHealthById = {},
+  estimatedTokenBytesPerToken,
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
   imageAssistantModelStateById,
@@ -673,6 +677,9 @@ export function PhonePanel({
                         const loraName = character.comfyConfig?.loraName.trim();
                         return loraName ? [`${character.name}: ${loraName}`] : [];
                       })}
+                      characterContext={imageGenerationCharacterContext(storyCharacters)}
+                      characterCount={storyCharacters.length}
+                      estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
                       onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
                       onGenerateImageAssistantImages={onGenerateImageAssistantImages}
                       imageAssistantModelStateById={imageAssistantModelStateById}

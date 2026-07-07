@@ -24,6 +24,9 @@ type PhoneImagePickerProps = {
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
   availableCharacterLoras: string[];
+  characterContext: string;
+  characterCount: number;
+  estimatedTokenBytesPerToken: number;
   imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
   onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadImageAssistantComfyModel: (providerId: string) => Promise<void>;
@@ -35,6 +38,7 @@ type PhoneImagePickerProps = {
     currentSettings: ImageGenerationSettings;
     currentImage?: { dataUrl: string; description: string };
     availableCharacterLoras: string[];
+    characterContext: string;
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
     describeImage?: boolean;
@@ -58,6 +62,9 @@ export function PhoneImagePicker({
   connections = [],
   providerHealthById = {},
   availableCharacterLoras,
+  characterContext,
+  characterCount,
+  estimatedTokenBytesPerToken,
   imageAssistantModelStateById,
   onSetImageAssistantLlmModelLoaded,
   onUnloadImageAssistantComfyModel,
@@ -220,6 +227,9 @@ export function PhoneImagePicker({
           connections={connections}
           providerHealthById={providerHealthById}
           availableCharacterLoras={availableCharacterLoras}
+          characterContext={characterContext}
+          characterCount={characterCount}
+          estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
           modelStateById={imageAssistantModelStateById}
           onSetLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
           onUnloadComfyModel={onUnloadImageAssistantComfyModel}
