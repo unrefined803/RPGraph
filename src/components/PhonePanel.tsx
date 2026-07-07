@@ -9,8 +9,10 @@ import { defaultPhoneChatTextSize } from '../settings';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
   ChatImageAttachment,
+  ConnectionPreset,
   ImageCaptionChange,
   MessageRecord,
+  ProviderConnectionHealth,
   RpDateTimeFormat,
   RpWeekdayLanguage,
 } from '../types';
@@ -118,6 +120,8 @@ type PhonePanelProps = {
   onSelectPhoneImages: () => void;
   onSelectPhoneGalleryImage: (image: ChatImageAttachment) => void;
   onAddPhoneImages: (files: FileList | null) => void;
+  connections?: ConnectionPreset[];
+  providerHealthById?: Record<string, ProviderConnectionHealth>;
 };
 
 export function PhonePanel({
@@ -179,6 +183,8 @@ export function PhonePanel({
   onSelectPhoneImages,
   onSelectPhoneGalleryImage,
   onAddPhoneImages,
+  connections = [],
+  providerHealthById = {},
 }: PhonePanelProps) {
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   const isImageInContext = (image: ChatImageAttachment) =>
@@ -629,6 +635,8 @@ export function PhonePanel({
                       uploadDisabledReason={imageUploadDisabledReason}
                       onSelectImage={onSelectPhoneGalleryImage}
                       onUploadFromComputer={onSelectPhoneImages}
+                      connections={connections}
+                      providerHealthById={providerHealthById}
                     />
                   </div>
                 </div>

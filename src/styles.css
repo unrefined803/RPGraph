@@ -10676,6 +10676,127 @@ button.message-timeline-row.phone:focus-visible {
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
 }
 
+.image-generation-assistant-dialog {
+  width: min(1680px, calc(100vw - 24px));
+  height: min(920px, calc(100vh - 24px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #303a4e;
+  border-radius: 18px;
+  background: #111722;
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+}
+
+.image-generation-assistant-workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(300px, 0.8fr) minmax(340px, 0.85fr);
+  gap: 18px;
+  padding: 18px 22px 22px;
+}
+
+.image-generation-preview-panel,
+.image-generation-settings,
+.image-generation-prompt-panel {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #232d42;
+  border-radius: 12px;
+  background: rgba(13, 20, 32, 0.45);
+}
+
+.image-generation-preview-panel,
+.image-generation-prompt-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.image-generation-preview-stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at center, #182238, #090e17 72%);
+}
+
+.image-generation-placeholder {
+  width: min(100%, 520px);
+  aspect-ratio: 4 / 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px;
+  border: 1px dashed #3a4863;
+  border-radius: 14px;
+  color: #77849b;
+  text-align: center;
+  background: rgba(7, 11, 19, 0.55);
+}
+
+.image-generation-placeholder strong { color: #cbd3e4; }
+.image-generation-placeholder span { max-width: 300px; font-size: 12px; line-height: 1.5; }
+
+.image-generation-control-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 18px;
+}
+
+.image-generation-provider-fields {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.image-generation-provider-fields label { display: grid; gap: 7px; }
+.image-generation-provider-fields label > span { color: #aeb8ca; font-size: 12px; font-weight: 700; }
+.image-generation-provider-fields select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #344159;
+  border-radius: 8px;
+  color: #edf1ff;
+  background: #0d1421;
+}
+
+.image-generation-prompt-panel textarea {
+  flex: 1;
+  min-height: 180px;
+  resize: none;
+  margin: 16px;
+  padding: 14px;
+  border: 1px solid #344159;
+  border-radius: 9px;
+  color: #e7ecf8;
+  background: #090f19;
+  font: inherit;
+  line-height: 1.55;
+}
+
+.image-generation-prompt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.image-generation-prompt-actions span { color: var(--muted); font-size: 11px; }
+.image-generation-prompt-actions button { padding: 9px 14px; }
+
+@media (max-width: 1120px) {
+  .image-generation-assistant-workspace {
+    grid-template-columns: 1fr 1fr;
+  }
+  .image-generation-chat-panel { grid-column: 1 / -1; min-height: 320px; }
+}
+
 .storybook-creator-header {
   align-items: center;
   padding: 9px 23px;
@@ -18617,3 +18738,179 @@ button.message-timeline-row.phone:focus-visible {
   color: var(--muted);
   line-height: 1.45;
 }
+
+/* ==========================================================================
+   Image Generation Assistant Dialog Refinements
+   ========================================================================== */
+
+/* Main Header adjustments */
+.image-generation-assistant-dialog .dialog-header.storybook-creator-header {
+  padding: 8px 18px;
+  min-height: 44px;
+  align-items: center;
+}
+
+.image-generation-assistant-dialog .storybook-title-row h2 {
+  font-size: 15px;
+}
+
+.image-generation-assistant-dialog .storybook-title-row p {
+  font-size: 11px;
+}
+
+.image-generation-assistant-dialog .close-button {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+/* Image Preview Header larger padding & font size */
+.image-generation-preview-panel .storybook-panel-header.image-preview-header {
+  padding: 16px 20px;
+}
+
+.image-generation-preview-panel .storybook-panel-header.image-preview-header .panel-title {
+  font-size: 15px;
+}
+
+/* Image Preview Controls styling */
+.image-preview-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-nav-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.preview-nav-btn:hover:not(:disabled) {
+  background: #334155;
+  border-color: #475569;
+}
+
+.preview-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.preview-counter {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 48px;
+  text-align: center;
+}
+
+.preview-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(138, 115, 201, 0.25);
+  border: 1px solid rgba(138, 115, 201, 0.4);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(138, 115, 201, 0.15);
+}
+
+.preview-save-btn:hover:not(:disabled) {
+  background: rgba(138, 115, 201, 0.4);
+  border-color: rgba(138, 115, 201, 0.6);
+  transform: translateY(-1px);
+}
+
+.preview-save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Prompt Header button styling */
+.prompt-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(138, 115, 201, 0.25);
+  border: 1px solid rgba(138, 115, 201, 0.4);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(138, 115, 201, 0.1);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.prompt-generate-btn:hover:not(:disabled) {
+  background: rgba(138, 115, 201, 0.4);
+  border-color: rgba(138, 115, 201, 0.6);
+}
+
+.prompt-generate-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Chat Header clear button and row layout */
+.image-generation-chat-panel .storybook-chat-header {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.storybook-chat-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: 1px solid #334155;
+  color: #94a3b8;
+}
+
+.chat-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+/* Dropdown label adjustments */
+.image-generation-provider-label {
+  display: flex !important;
+  flex-direction: column;
+  gap: 7px;
+}
+

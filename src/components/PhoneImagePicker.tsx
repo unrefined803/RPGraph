@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ChatImageAttachment } from '../types';
+import type { ChatImageAttachment, ConnectionPreset, ProviderConnectionHealth } from '../types';
+import { ImageGenerationAssistantDialog } from './ImageGenerationAssistantDialog';
 import { useBackdropDismiss } from './useBackdropDismiss';
 
 const phoneGalleryPageSize = 100;
@@ -14,6 +15,8 @@ type PhoneImagePickerProps = {
   uploadDisabledReason?: string;
   onSelectImage: (image: ChatImageAttachment) => void;
   onUploadFromComputer: () => void;
+  connections?: ConnectionPreset[];
+  providerHealthById?: Record<string, ProviderConnectionHealth>;
 };
 
 export function PhoneImagePicker({
@@ -25,9 +28,12 @@ export function PhoneImagePicker({
   uploadDisabledReason,
   onSelectImage,
   onUploadFromComputer,
+  connections = [],
+  providerHealthById = {},
 }: PhoneImagePickerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [generationAssistantOpen, setGenerationAssistantOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ChatImageAttachment>();
   const [page, setPage] = useState(0);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -109,6 +115,27 @@ export function PhoneImagePicker({
               role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
+                setGenerationAssistantOpen(true);
+              }}
+            >
+              <span aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 4l5.5 5.5" />
+                  <path d="M3 21l3.5-1 12-12a2.1 2.1 0 0 0-3-3l-12 12L3 21z" />
+                  <path d="M12 3h-2" />
+                  <path d="M4 9V7" />
+                </svg>
+              </span>
+              <span>
+                <strong>Take a Picture</strong>
+                <small>Create an image with the assistant</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
                 setGalleryOpen(true);
               }}
             >
@@ -153,6 +180,26 @@ export function PhoneImagePicker({
           </div>
         )}
       </div>
+
+      {generationAssistantOpen && (
+        <ImageGenerationAssistantDialog
+          connections={connections}
+          providerHealthById={providerHealthById}
+          onClose={() => setGenerationAssistantOpen(false)}
+          onSave={(dataUrl) => {
+            const attachment: ChatImageAttachment = {
+              id: `gen-${Date.now()}`,
+              name: `Generated-${Date.now()}.png`,
+              mimeType: 'image/png',
+              size: dataUrl.length,
+              dataUrl,
+              description: 'AI Generated Image',
+            };
+            onSelectImage(attachment);
+            setGenerationAssistantOpen(false);
+          }}
+        />
+      )}
 
       {galleryOpen && createPortal(
         <div

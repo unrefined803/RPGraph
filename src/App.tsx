@@ -6144,6 +6144,8 @@ function App() {
               onSelectPhoneImages={selectPhoneImagesFromComposer}
               onSelectPhoneGalleryImage={selectPhoneGalleryImageFromComposer}
               onAddPhoneImages={addPhoneImagesFromComposer}
+              connections={connections}
+              providerHealthById={providerHealthById}
             />
           ) : (
             <EventsPanel
