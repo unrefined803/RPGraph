@@ -1193,7 +1193,32 @@ export function parsePromptActionCall(text: string): ParsedPromptActionCall | un
   } catch {
     // Fall through to the multi-object parser below.
   }
-  return parsePromptActionFromJsonSequence(parseText);
+  return parsePromptActionFromJsonSequence(parseText) ?? parseEmbeddedPromptActionCall(parseText);
+}
+
+// Reasoning-capable models (e.g. Claude Opus) may prepend a sentence of narration
+// before the action JSON ("Let me first check if there's a stored image ...").
+// That preamble makes both the whole-text JSON.parse above and
+// parsePromptActionFromJsonSequence (which requires no surrounding text) fail, so
+// the action call would otherwise leak into the visible reply. As a tolerant
+// fallback, scan every balanced JSON object in the reply and accept the last one
+// that validates to a KNOWN action. parsePromptActionRecord only accepts objects
+// with a recognised `action` key and required fields, so narrative prose that
+// merely contains braces is never mistaken for an action call.
+function parseEmbeddedPromptActionCall(text: string): ParsedPromptActionCall | undefined {
+  const ranges = jsonObjectRanges(text);
+  for (let index = ranges.length - 1; index >= 0; index -= 1) {
+    const range = ranges[index];
+    try {
+      const action = parsePromptActionRecord(JSON.parse(text.slice(range.start, range.end)) as unknown);
+      if (action) {
+        return action;
+      }
+    } catch {
+      // Not a usable JSON object; try the next range.
+    }
+  }
+  return undefined;
 }
 
 function compactImageAction(value: unknown) {
