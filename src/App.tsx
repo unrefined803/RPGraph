@@ -46,6 +46,7 @@ import {
   type ParsedPhoneMessage,
 } from './chat/phoneMessages';
 import { useNextTurnReferenceImages } from './chat/useNextTurnReferenceImages';
+import { shieldTranslationEmoji, restoreTranslationEmoji } from './chat/translationEmojiShield';
 import { type OutputActionContextCapacityRequest } from './chat/outputActions';
 import {
   applyTimeCommandsToWorkflowNodes,
@@ -3568,8 +3569,12 @@ function App() {
       return '';
     }
     const language = displayLanguageOverride.trim() || 'German';
+    // W11: shield emoji so a weak translation model (e.g. Haiku) cannot mangle
+    // them into U+FFFD replacement characters. Translate ASCII placeholders and
+    // restore the original emoji afterwards (streamed output restored on the fly).
+    const { shielded, tokens } = shieldTranslationEmoji(text);
     const prompt = translationPrompt({
-      text,
+      text: shielded,
       direction,
       displayLanguage: language,
       recentHistoryContext,
@@ -3582,9 +3587,11 @@ function App() {
         nodeId,
         label,
         prompt,
-        onChunk,
+        onChunk: onChunk
+          ? (streamed) => onChunk(restoreTranslationEmoji(streamed, tokens))
+          : undefined,
       });
-      const translated = completion.text.trim();
+      const translated = restoreTranslationEmoji(completion.text, tokens).trim();
       if (!translated) {
         if (direction === 'to-english') {
           return '';
