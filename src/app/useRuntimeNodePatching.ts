@@ -14,7 +14,6 @@ function llmCallStatsLabelsToReplace(label: string) {
 type UseRuntimeNodePatchingOptions = {
   nodesRef: { current: WorkflowNode[] };
   commitNodes: (nextNodes: WorkflowNode[]) => void;
-  setNodes: Dispatch<SetStateAction<WorkflowNode[]>>;
   activeRunRef: { current: ActiveRun | null };
   activeRunLlmReportRef: { current: RunLlmReport | null };
   setRunLlmReport: Dispatch<SetStateAction<RunLlmReport | null>>;
@@ -26,7 +25,6 @@ type UseRuntimeNodePatchingOptions = {
 export function useRuntimeNodePatching({
   nodesRef,
   commitNodes,
-  setNodes,
   activeRunRef,
   activeRunLlmReportRef,
   setRunLlmReport,
@@ -157,22 +155,15 @@ export function useRuntimeNodePatching({
       setRunLlmReport(nextReport);
     }
 
-    setNodes((currentNodes) =>
-      currentNodes.map((node) => {
-        if (node.id !== nodeId) {
-          return node;
-        }
-        const replacedLabels = llmCallStatsLabelsToReplace(label);
-        const otherCalls = (node.data.llmCallStats ?? []).filter((call) => !replacedLabels.has(call.label));
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            llmCallStats: [...otherCalls, { label, ...stats }],
-          } as WorkflowNodeData,
-        };
-      }),
-    );
+    const node = nodesRef.current.find((entry) => entry.id === nodeId);
+    if (!node) {
+      return;
+    }
+    const replacedLabels = llmCallStatsLabelsToReplace(label);
+    const otherCalls = (node.data.llmCallStats ?? []).filter((call) => !replacedLabels.has(call.label));
+    applyRuntimeNodePatch(nodeId, {
+      llmCallStats: [...otherCalls, { label, ...stats }],
+    });
   }
 
   return {

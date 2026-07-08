@@ -1243,7 +1243,6 @@ function App() {
   } = useRuntimeNodePatching({
     nodesRef,
     commitNodes,
-    setNodes,
     activeRunRef,
     activeRunLlmReportRef,
     setRunLlmReport,
