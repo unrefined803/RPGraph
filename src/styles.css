@@ -15524,7 +15524,10 @@ button.message-timeline-row.phone:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 24px;
-  overflow: hidden;
+  /* Scroll when a provider's config is taller than the dialog instead of clipping
+     the bottom; min-height:0 lets this flex child shrink so overflow-y engages. */
+  min-height: 0;
+  overflow-y: auto;
   padding: 0 23px 20px;
 }
 
