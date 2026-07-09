@@ -41,6 +41,8 @@ import {
   configForPromptActionToken,
   parsePromptActionTokens,
   promptActionConfigs,
+  withPromptActionRuntimeSettingsList,
+  type PromptActionRuntimeSettings,
   type PromptActionConfig,
 } from '../nodes/shared/promptActions';
 import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
@@ -1035,6 +1037,7 @@ export function CustomNodeAssistantDialog({
 type StorybookCreatorDialogProps = {
   node: WorkflowNode;
   workflowNodes: WorkflowNode[];
+  promptActionSettings: PromptActionRuntimeSettings;
   messages: StorybookCreatorMessage[];
   isSubmitting: boolean;
   connections: ConnectionPreset[];
@@ -1172,7 +1175,10 @@ function storybookCharacterComfyConfigured(character: { comfyConfig?: RpStoryboo
   );
 }
 
-function usedCreateImagePromptActions(nodes: WorkflowNode[]) {
+function usedCreateImagePromptActions(
+  nodes: WorkflowNode[],
+  promptActionSettings: PromptActionRuntimeSettings,
+) {
   return nodes.flatMap((node): PromptActionConfig[] => {
     if (
       node.data.kind !== undefined ||
@@ -1180,7 +1186,14 @@ function usedCreateImagePromptActions(nodes: WorkflowNode[]) {
     ) {
       return [];
     }
-    const actionConfigs = promptActionConfigs(node.data.llmPromptActions);
+    // Merge the runtime prompt-action settings (where the provider dropdown writes
+    // comfyProviderId), like the run path does. Reading only the stored
+    // llmPromptActions produced a false "no ComfyUI provider" warning even though
+    // the run resolves the provider and image generation works.
+    const actionConfigs = withPromptActionRuntimeSettingsList(
+      promptActionConfigs(node.data.llmPromptActions),
+      promptActionSettings,
+    );
     const promptTexts = node.data.nodeType === 'llm-prompt'
       ? [node.data.llmPromptBefore ?? '', node.data.llmPromptAfter ?? '']
       : [
@@ -2250,6 +2263,7 @@ function CharacterSetupDialog({
   onGenerateCharacterComfyPreview,
   onGenerateCharacterVoicePreview,
   onUnloadCharacterComfyModels,
+  promptActionSettings,
   onClose,
 }: {
   storybook: RpStorybookV1;
@@ -2262,6 +2276,7 @@ function CharacterSetupDialog({
   onGenerateCharacterComfyPreview: StorybookCreatorDialogProps['onGenerateCharacterComfyPreview'];
   onGenerateCharacterVoicePreview: StorybookCreatorDialogProps['onGenerateCharacterVoicePreview'];
   onUnloadCharacterComfyModels: StorybookCreatorDialogProps['onUnloadCharacterComfyModels'];
+  promptActionSettings: PromptActionRuntimeSettings;
   onClose: () => void;
 }) {
   const character = storybook.characters.find((entry) => entry.id === characterId);
@@ -2290,7 +2305,7 @@ function CharacterSetupDialog({
   const [unloading, setUnloading] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ dataUrl: string; filename: string } | null>(null);
   const loraOptionsCacheRef = useRef<Record<string, string[]>>({});
-  const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes), [workflowNodes]);
+  const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
   const comfyUsageStatus = storybookCharacterComfyStatus({
     character: { name: characterName, comfyConfig: draft },
     createImageActions,
@@ -2761,6 +2776,7 @@ function CharacterSetupDialog({
 export function StorybookCreatorDialog({
   node,
   workflowNodes,
+  promptActionSettings,
   messages,
   isSubmitting,
   connections,
@@ -2816,7 +2832,7 @@ export function StorybookCreatorDialog({
   }, [node.data.storybookJson]);
   const formattedTextSettings = rpStorybookFormattedTextSettings(node.data.storybookFormattedTextSettings);
   const phoneContactCharacters = useMemo(() => rpStorybookPhoneContactCharacters(storybook), [storybook]);
-  const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes), [workflowNodes]);
+  const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
   const openingHistoryMessages = useMemo(
     () => storybook.openingHistory.turns.flatMap((turn) => [
       ...turn.input.messages.map((message) => ({ message, turnNumber: turn.number })),
@@ -3467,6 +3483,7 @@ export function StorybookCreatorDialog({
             storybook={storybook}
             characterId={comfyConfigCharacterId}
             workflowNodes={workflowNodes}
+            promptActionSettings={promptActionSettings}
             connections={connections}
             providerHealthById={providerHealthById}
             onUpdateStorybook={onUpdateStorybook}

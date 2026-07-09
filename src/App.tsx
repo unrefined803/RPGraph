@@ -6314,6 +6314,7 @@ function App() {
         <StorybookCreatorDialog
           node={storybookCreatorNode}
           workflowNodes={nodeViewNodes}
+          promptActionSettings={promptActionSettings}
           messages={storybookCreatorMessages}
           isSubmitting={storybookCreatorSubmitting}
           connections={connections}
