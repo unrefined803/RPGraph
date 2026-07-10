@@ -20093,6 +20093,27 @@ button.message-timeline-row.phone:focus-visible {
   background: var(--social-header-gradient);
 }
 
+.phone-social-sidebar .phone-social-header {
+  padding: 8px 12px;
+  min-height: 52px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--social-header-gradient);
+  gap: 10px;
+}
+
+.phone-social-sidebar .phone-social-header strong {
+  font-size: 13px;
+}
+
+.phone-social-sidebar .phone-social-header span {
+  font-size: 8px;
+}
+
+.phone-social-sidebar .phone-social-header > button {
+  width: 28px;
+  height: 28px;
+}
+
 .phone-social-surface {
   display: grid;
   grid-template-columns: minmax(138px, 32%) minmax(0, 1fr);
@@ -20563,6 +20584,40 @@ button.message-timeline-row.phone:focus-visible {
   gap: 12px;
 }
 
+.phone-social-post-actions.text-only-actions {
+  margin-top: 4px;
+}
+
+.phone-social-post-image-actions {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: rgba(13, 18, 28, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.phone-social-post-image-actions .phone-social-like-button,
+.phone-social-post-image-actions .phone-social-comment-button {
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+.phone-social-post-image-actions .phone-social-like-button:hover,
+.phone-social-post-image-actions .phone-social-comment-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .phone-social-like-button,
 .phone-social-comment-button {
   display: flex;
@@ -20592,8 +20647,10 @@ button.message-timeline-row.phone:focus-visible {
 
 .phone-social-post-caption {
   margin: 0;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 13px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .phone-social-comments {
@@ -20605,18 +20662,22 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .phone-social-comment {
-  display: flex;
-  gap: 6px;
-  font-size: 12px;
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 4px;
 }
 
 .phone-social-comment strong {
-  flex: none;
+  display: inline;
+  margin-right: 6px;
   color: var(--social-accent);
+  font-weight: 700;
 }
 
 .phone-social-comment span {
-  color: rgba(255, 255, 255, 0.8);
+  display: inline;
+  color: rgba(255, 255, 255, 0.85);
   overflow-wrap: anywhere;
 }
 

@@ -509,30 +509,24 @@ export function PhoneSocialFeedScreen({
     );
   }
 
-  const header = (
-    <header className="phone-gallery-header phone-social-header">
-      <button type="button" onClick={onBack} aria-label="Back" title="Back">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-      </button>
-      <div>
-        <span>{app.name}</span>
-        <strong>
-          {account
-            ? `@${account}`
-            : owner
-              ? `${owner.name} — no account`
-              : 'No account'}
-        </strong>
-      </div>
-    </header>
-  );
-
   if (!account) {
     return (
       <div className={`phone-social-screen ${app.themeClass}`} aria-label={app.name}>
-        {header}
+        <header className="phone-gallery-header phone-social-header">
+          <button type="button" onClick={onBack} aria-label="Back" title="Back">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <div>
+            <span>{app.name}</span>
+            <strong>
+              {owner
+                ? `${owner.name} — no account`
+                : 'No account'}
+            </strong>
+          </div>
+        </header>
         <div className="phone-social-onboarding">
           <div className="phone-social-onboarding-card">
             <strong>{app.name}</strong>
@@ -566,9 +560,21 @@ export function PhoneSocialFeedScreen({
 
   return (
     <div className={`phone-social-screen ${app.themeClass}`} aria-label={app.name}>
-      {header}
       <div className="phone-social-surface">
         <div className="phone-social-sidebar" aria-label="Followed accounts">
+          <header className="phone-gallery-header phone-social-header">
+            <button type="button" onClick={onBack} aria-label="Back" title="Back">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <div>
+              <span>{app.name}</span>
+              <strong>
+                {`@${account}`}
+              </strong>
+            </div>
+          </header>
           <div className="phone-social-account-list">
             <button
               type="button"
@@ -808,7 +814,37 @@ export function PhoneSocialFeedScreen({
                   )}
                 </div>
                 {post.textOnly && (
-                  <p className="phone-social-post-caption">{post.caption}</p>
+                  <>
+                    <p className="phone-social-post-caption">{post.caption}</p>
+                    <div className="phone-social-post-actions text-only-actions">
+                      <button
+                        type="button"
+                        className={`phone-social-like-button${liked ? ' liked' : ''}`}
+                        onClick={() => toggleLike(post)}
+                        aria-pressed={liked}
+                        aria-label={liked ? 'Unlike' : 'Like'}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
+                        </svg>
+                        <span>{formatSocialCount(post.likeCount)}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="phone-social-comment-button"
+                        onClick={() => {
+                          setOpenCommentsPostId(commentsOpen ? undefined : post.id);
+                          setCommentDraft('');
+                        }}
+                        aria-expanded={commentsOpen}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M21 12a8 8 0 0 1-8 8H4l1.3-3.2A8 8 0 1 1 21 12Z" />
+                        </svg>
+                        <span>{formatSocialCount(post.commentCount)}</span>
+                      </button>
+                    </div>
+                  </>
                 )}
                 {!post.textOnly && (
                 <div
@@ -862,36 +898,37 @@ export function PhoneSocialFeedScreen({
                       )}
                     </div>
                   )}
+                  {/* Floating Action Pill */}
+                  <div className="phone-social-post-image-actions">
+                    <button
+                      type="button"
+                      className={`phone-social-like-button${liked ? ' liked' : ''}`}
+                      onClick={() => toggleLike(post)}
+                      aria-pressed={liked}
+                      aria-label={liked ? 'Unlike' : 'Like'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
+                      </svg>
+                      <span>{formatSocialCount(post.likeCount)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="phone-social-comment-button"
+                      onClick={() => {
+                        setOpenCommentsPostId(commentsOpen ? undefined : post.id);
+                        setCommentDraft('');
+                      }}
+                      aria-expanded={commentsOpen}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M21 12a8 8 0 0 1-8 8H4l1.3-3.2A8 8 0 1 1 21 12Z" />
+                      </svg>
+                      <span>{formatSocialCount(post.commentCount)}</span>
+                    </button>
+                  </div>
                 </div>
                 )}
-                <div className="phone-social-post-actions">
-                  <button
-                    type="button"
-                    className={`phone-social-like-button${liked ? ' liked' : ''}`}
-                    onClick={() => toggleLike(post)}
-                    aria-pressed={liked}
-                    aria-label={liked ? 'Unlike' : 'Like'}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
-                    </svg>
-                    <span>{formatSocialCount(post.likeCount)}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="phone-social-comment-button"
-                    onClick={() => {
-                      setOpenCommentsPostId(commentsOpen ? undefined : post.id);
-                      setCommentDraft('');
-                    }}
-                    aria-expanded={commentsOpen}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M21 12a8 8 0 0 1-8 8H4l1.3-3.2A8 8 0 1 1 21 12Z" />
-                    </svg>
-                    <span>{formatSocialCount(post.commentCount)}</span>
-                  </button>
-                </div>
                 {!lockedNow && !post.textOnly && (
                   <p className="phone-social-post-caption">{post.caption}</p>
                 )}
