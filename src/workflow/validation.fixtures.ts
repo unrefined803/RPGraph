@@ -87,6 +87,10 @@ import {
   unreadBankTransferCountForCharacter,
 } from '../chat/bankTransfers';
 import {
+  onlyFriendsWalletBalance,
+  onlyFriendsWalletName,
+} from '../chat/onlyFriendsWallet';
+import {
   parseSocialReactionsOutput,
   socialMessageHiddenFromChat,
   socialPostEngagementByPostId,
@@ -212,6 +216,28 @@ export function verifyWorkflowValidationFixtures() {
       ['Taylor Reed', 'danny harper'],
     ).join('|') === 'Danny Harper|Ryan Parker|Taylor Reed',
     'Banking recipients must include transfer counterparties and deduplicated saved contacts',
+  );
+  const onlyFriendsWalletMessages: MessageRecord[] = [
+    {
+      id: 13,
+      role: 'output',
+      originalText: 'Wallet top-up',
+      bankTransfer: { from: bankingCharacter.name, to: onlyFriendsWalletName, amount: 100 },
+    },
+    {
+      id: 14,
+      role: 'output',
+      originalText: 'Wallet withdrawal',
+      bankTransfer: { from: onlyFriendsWalletName, to: bankingCharacter.name, amount: 20 },
+    },
+  ];
+  assertFixture(
+    onlyFriendsWalletBalance(
+      bankingCharacter,
+      onlyFriendsWalletMessages,
+      { 'onlyfriends-post-1': 9.99 },
+    ) === 70.01,
+    'OnlyFriends balance must combine bank funding, withdrawals, and internal post purchases',
   );
 
   const socialThreadAction = {
@@ -987,6 +1013,7 @@ export function verifyWorkflowValidationFixtures() {
       bankingSeenByCharacter: {},
       bankingContactsByCharacter: {},
       socialLikesByAccount: {},
+      onlyFriendsPurchasesByCharacter: {},
       phoneDividerAfterByConversation: {},
     },
   };
@@ -1295,6 +1322,11 @@ export function verifyWorkflowValidationFixtures() {
     bankingContactsByCharacter: {
       'storybook:character:alice': ['Danny Harper'],
     },
+    onlyFriendsPurchasesByCharacter: {
+      'storybook:character:alice': {
+        'onlyfriends-post-1': 9.99,
+      },
+    },
     phoneDividerAfterByConversation: {
       'Alice::Bob': 1,
     },
@@ -1392,8 +1424,10 @@ export function verifyWorkflowValidationFixtures() {
       sessionV2.ui.bankingSeenByCharacter['storybook:character:alice'] === 6 &&
       restoredAppState.bankingSeenByCharacter?.['storybook:character:alice'] === 6 &&
       sessionV2.ui.bankingContactsByCharacter['storybook:character:alice']?.[0] === 'Danny Harper' &&
-      restoredAppState.bankingContactsByCharacter?.['storybook:character:alice']?.[0] === 'Danny Harper',
-    'RP Save Format v2 must store and restore phone and Banking UI state',
+      restoredAppState.bankingContactsByCharacter?.['storybook:character:alice']?.[0] === 'Danny Harper' &&
+      sessionV2.ui.onlyFriendsPurchasesByCharacter['storybook:character:alice']?.['onlyfriends-post-1'] === 9.99 &&
+      restoredAppState.onlyFriendsPurchasesByCharacter['storybook:character:alice']?.['onlyfriends-post-1'] === 9.99,
+    'RP Save Format v2 must store and restore phone, Banking, and OnlyFriends UI state',
   );
   const timelinePhoneImage = sessionV2.timeline.find(
     (entry): entry is TimelineMessageEntry => entry.kind === 'message' && entry.channel === 'phone',

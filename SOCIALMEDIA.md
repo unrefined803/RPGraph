@@ -47,10 +47,11 @@ same way a bank transfer is. This is the pattern every future action follows:
    info lines (`[Fotogram] Name (@handle) posted: "…"`), so the narrator LLM
    knows what happened. Comment turns use the model's one-sentence summary;
    complete threads and invented NPC noise stay inside the app.
-5. The data is **persisted as records on chat messages** (`socialPost`,
-   `socialThreadAction`, `socialReactions`, later likes), which makes it part of
-   the RP save automatically and also lets Opening History imports carry the
-   activity with the imported turns.
+5. Posts and generated activity are **persisted as records on chat messages**
+   (`socialPost`, `socialThreadAction`, `socialReactions`), which makes them
+   part of the RP save automatically and lets Opening History imports carry
+   them with the imported turns. Player likes and OnlyFriends purchases are
+   stored separately in per-character session UI state.
 
 Because Fotogram and OnlyFriends audiences react differently, **every action
 always gets two prompt slots** — one per app.
@@ -147,7 +148,7 @@ ids, and the player likes all survive "Import Current Chat" round trips.
 
 ## Phases
 
-### Phase 1 — UI only (current)
+### Phase 1 — UI foundation (implemented)
 
 - Add both app icons to the phone desktop (`PhonePanel.tsx` app grid, alongside
   `whatsup`, `gallery`, `camera`, `banking`). ✅
@@ -164,17 +165,17 @@ ids, and the player likes all survive "Import Current Chat" round trips.
   Text Post — then the editor shows the picked image on top with the caption
   below. ✅
 - OnlyFriends variant: locked posts with an unlock/pay interaction. ✅
-- Unlocking is a real purchase (first backend link-up): "Unlock" opens a
-  "Pay with Bank Account" confirmation showing the price and the owner's
-  current balance; paying sends a normal bank transfer from the owner to the
-  post's author (visible in the Banking app, lowers the balance; blocked when
-  the balance is too low). ✅
+- OnlyFriends has a separate per-character wallet. Users top it up from their
+  bank account or withdraw available funds back to the bank. Those wallet
+  transfers use the Banking pipeline and appear as bank activity. Individual
+  post unlocks spend the app balance internally, so they do not flood the chat
+  and Banking history with one transfer per purchase. ✅
 - No LLM, no persistence beyond basic session state; goal is that clicking
   through both apps feels right and both provably share the same components.
-  Post/account state is still local to the opened screen; the shared post
-  store comes with Phase 2.
+  Published post and account persistence arrived with Phase 2. Manually added
+  accounts remain local pending the recent-accounts/favorites work.
 
-### Phase 2 — LLM content generation (started)
+### Phase 2 — LLM content generation (largely implemented)
 
 Every action in a social app is its own workflow turn. The new **Message
 Format 3 = Social Media** routes these turns; each action type gets its own
@@ -294,28 +295,34 @@ Later, those recently seen or favorited accounts can become DM targets.
    id references.~~ Done: posts store `imageId`; camera and gallery picks
    already carry Gallery ids, computer uploads are imported into the acting
    character's Gallery first (deduplicated).
-3. Track recently seen accounts from comments and allow favorites in the social
+3. ~~Add a separate OnlyFriends wallet and persist post unlocks.~~ Done: each
+   character has an independent app balance funded through occasional Banking
+   top-ups. Withdrawals return available funds to the bank; individual unlocks
+   are internal purchases. Purchased post ids and prices persist in RP Save
+   Format 2.9, prevent duplicate payment, and restore after loading a save.
+4. Track recently seen accounts from comments and allow favorites in the social
    sidebar. Player characters start as favorites; NPCs can be favorited later
    and eventually become DM targets.
-4. Rename "Import Current Chat" to "Import Current Session" and describe that
+5. Rename "Import Current Chat" to "Import Current Session" and describe that
    it imports chat, phone, bank transfers, events, and social message records.
-5. "Load More" in the feed (separate from the implemented comment-thread
+6. "Load More" in the feed (separate from the implemented comment-thread
    button): generate additional feed posts per account via a prompt slot instead
    of deterministic dummy posts.
-6. Shared post store across characters (character A's post visible on
+7. Shared post store across characters (character A's post visible on
    character B's phone) — the vision section below.
-7. OnlyFriends creator role from the Storybook (creator posts & earns; viewer
-   pays & unlocks) and unlock money actually reaching the creator's account.
-8. Close-app summary (Phase 3): summarize the session in the app and emit it
+8. OnlyFriends creator role from the Storybook (creator posts and earns app
+   balance; viewer spends app balance and unlocks). Creator earnings can then
+   be withdrawn through the implemented wallet.
+9. Close-app summary (Phase 3): summarize the session in the app and emit it
    into the chat history like bank transfers.
-9. Username fields in the storybook creator dialog (currently only the
+10. Username fields in the storybook creator dialog (currently only the
    storybook assistant / app onboarding set them).
-10. DMs inside the apps (writing to other accounts).
-11. Opening a chat post card while the viewed phone character has no account
+11. DMs inside the apps (writing to other accounts).
+12. Opening a chat post card while the viewed phone character has no account
     in that app lands on the onboarding screen instead of the post (Fotogram
     only; OnlyFriends cards switch to the post author first). Decide whether
     the card should pick an account-holding character automatically.
-12. Unified image linking beyond the social apps: WhatsUp/chat messages
+13. Unified image linking beyond the social apps: WhatsUp/chat messages
     already reference the Storybook image id (`phoneImageIds`) but still embed
     a full `imageAttachments` copy on every message record, duplicating the
     base64 data in saves and opening histories. Migrating them to pure id
@@ -339,11 +346,12 @@ Later, those recently seen or favorited accounts can become DM targets.
 - For OnlyFriends, the Storybook entry also records the role: regular user or
   creator.
 - User comments already live in session message records, and player likes are
-  stored in the session's UI state per character and app. Manually added
-  people, recently seen commenters, favorites, and unlocks are session/app
-  state, not durable Storybook facts, and should follow the same persistence
-  pattern without turning every passerby NPC into a permanent Storybook
-  character.
+  stored in the session's UI state per character and app. OnlyFriends unlocks
+  are stored per character with their purchase price; the wallet balance is
+  calculated from Banking top-ups, withdrawals, and those purchases. Manually
+  added people, recently seen commenters, and favorites remain session/app
+  state rather than durable Storybook facts, so passerby NPCs do not become
+  permanent Storybook characters.
 - Recently seen accounts are created by activity. If someone comments under a
   Fotogram post or OnlyFriends post, that account can appear in the sidebar.
   Favorites pin important accounts above recent accounts. The main playable
@@ -355,8 +363,9 @@ Later, those recently seen or favorited accounts can become DM targets.
 
 - OnlyFriends creator role: what exactly changes in the UI for a creator
   (posting & earning vs. paying & unlocking)?
-- ~~Should unlocking OnlyFriends posts spend Banking money (shared wallet)?~~
-  Answered: yes — unlocks pay via the Banking pipeline (implemented in Phase 1).
+- ~~Should every OnlyFriends unlock create a Banking transfer?~~ Answered: no.
+  Banking is used only to top up or withdraw the separate app wallet. Unlocks
+  spend app balance internally.
 - How many dummy accounts/posts per session, and are generated feed posts
   persisted or regenerated per visit?
 - Exact JSON shape of the close-app summary entries (Phase 3).

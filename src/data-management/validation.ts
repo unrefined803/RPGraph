@@ -147,6 +147,18 @@ function isStringArrayRecord(value: unknown) {
   );
 }
 
+function isNestedNonNegativeNumberRecord(value: unknown) {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((entry) =>
+      isRecord(entry) &&
+      Object.values(entry).every(
+        (amount) => typeof amount === 'number' && Number.isFinite(amount) && amount >= 0,
+      )
+    )
+  );
+}
+
 function hasValidReplyReferences(timeline: unknown[]) {
   const phoneMessagesById = new Map<string, Record<string, unknown>>();
   timeline.forEach((entry) => {
@@ -216,6 +228,7 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     isNumberRecord(value.ui.bankingSeenByCharacter) &&
     isStringArrayRecord(value.ui.bankingContactsByCharacter) &&
     isStringArrayRecord(value.ui.socialLikesByAccount) &&
+    isNestedNonNegativeNumberRecord(value.ui.onlyFriendsPurchasesByCharacter) &&
     isNumberRecord(value.ui.phoneDividerAfterByConversation)
   );
 }

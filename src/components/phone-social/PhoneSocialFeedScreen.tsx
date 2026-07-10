@@ -10,6 +10,10 @@ import type {
 } from '../../types';
 import { formatRpDateTimeParts } from '../../workflow';
 import { bankingBalanceForCharacter, formatBankingAmount } from '../../chat/bankTransfers';
+import {
+  onlyFriendsWalletBalance,
+  type OnlyFriendsPurchasesByCharacter,
+} from '../../chat/onlyFriendsWallet';
 import type {
   ImageGenerationAssistantMessage,
   ImageGenerationAssistantResult,
@@ -61,6 +65,7 @@ type PhoneSocialFeedScreenProps = {
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   /** Liked post ids per "characterId/app" account (persisted in the RP save). */
   socialLikesByAccount: Record<string, string[]>;
+  onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   onToggleLike: (postId: string) => void;
   /** Saves an uploaded file into the owner's Gallery and returns the stored image. */
   onImportPostImage: (request: {
@@ -72,12 +77,12 @@ type PhoneSocialFeedScreenProps = {
     postId: string;
   };
   isRunning: boolean;
-  onSendBankTransfer: (request: {
-    from: StorybookCharacter;
-    to: string;
+  onTransferOnlyFriendsWallet: (request: {
+    owner: StorybookCharacter;
+    direction: 'top-up' | 'withdraw';
     amount: number;
-    note: string;
   }) => void;
+  onUnlockOnlyFriendsPost: (characterId: string, postId: string, price: number) => void;
   onSubmitSocialPost: (request: {
     author: StorybookCharacter;
     post: SocialPostRecord;
@@ -138,9 +143,8 @@ type PhoneSocialFeedScreenProps = {
  * (the phone contacts double as followed social accounts), feed on the right.
  *
  * Published posts, user thread actions, and generated reactions are persisted
- * on chat messages; player likes live in the RP save per character and app.
- * Manually added accounts and unlock UI state remain local until their later
- * phases (see SOCIALMEDIA.md).
+ * on chat messages. Player likes and OnlyFriends purchases live in the RP save
+ * per character; manually added accounts remain local until a later phase.
  */
 export function PhoneSocialFeedScreen({
   app,
@@ -152,11 +156,13 @@ export function PhoneSocialFeedScreen({
   socialMediaMessages,
   socialImageById,
   socialLikesByAccount,
+  onlyFriendsPurchasesByCharacter,
   onToggleLike,
   onImportPostImage,
   openPostRequest,
   isRunning,
-  onSendBankTransfer,
+  onTransferOnlyFriendsWallet,
+  onUnlockOnlyFriendsPost,
   onSubmitSocialPost,
   onSubmitSocialThreadAction,
   onCreateSocialAccount,
@@ -183,9 +189,10 @@ export function PhoneSocialFeedScreen({
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
   const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
   const [selectedAccountKey, setSelectedAccountKey] = useState<string>();
-  const [unlockedPostIds, setUnlockedPostIds] = useState<ReadonlySet<string>>(new Set());
-  // Post currently showing the "pay with bank account" confirmation.
+  // Post currently showing the OnlyFriends balance confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [walletAmountText, setWalletAmountText] = useState('10');
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string | undefined>(
     openPostRequest?.postId,
   );
@@ -208,6 +215,15 @@ export function PhoneSocialFeedScreen({
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
   const ownerColor = owner ? characterColors.get(owner.name) : undefined;
   const bankBalance = owner ? bankingBalanceForCharacter(owner, bankTransferMessages) : 0;
+  const onlyFriendsPurchases = owner
+    ? onlyFriendsPurchasesByCharacter[owner.id] ?? {}
+    : {};
+  const unlockedPostIds = new Set(Object.keys(onlyFriendsPurchases));
+  const walletBalance = owner
+    ? onlyFriendsWalletBalance(owner, bankTransferMessages, onlyFriendsPurchases)
+    : 0;
+  const walletAmount = Math.round(Number(walletAmountText) * 100) / 100;
+  const walletAmountValid = Number.isFinite(walletAmount) && walletAmount > 0;
   const ownerFirstName = owner?.name.trim().split(/\s+/)[0];
 
   useEffect(() => {
@@ -385,22 +401,27 @@ export function PhoneSocialFeedScreen({
     onToggleLike(post.id);
   }
 
-  // Unlocking is a real purchase: the price is transferred from the owner's
-  // bank account to the post's author through the normal banking pipeline, so
-  // it shows up in the Banking app and lowers the balance.
   function payUnlock(post: SocialPost) {
     const price = post.unlockPrice ?? 4.99;
-    if (!owner || isRunning || price <= 0 || price > bankBalance) {
+    if (!owner || isRunning || price <= 0 || price > walletBalance || unlockedPostIds.has(post.id)) {
       return;
     }
-    onSendBankTransfer({
-      from: owner,
-      to: post.authorName,
-      amount: price,
-      note: `${app.name}: unlocked a post by @${post.authorHandle}`,
-    });
-    setUnlockedPostIds((current) => new Set(current).add(post.id));
+    onUnlockOnlyFriendsPost(owner.id, post.id, price);
     setUnlockCandidateId(undefined);
+  }
+
+  function changeWalletAmount(delta: number) {
+    const current = Number(walletAmountText) || 0;
+    setWalletAmountText(String(Math.max(0, Math.round((current + delta) * 100) / 100)));
+  }
+
+  function transferWallet(direction: 'top-up' | 'withdraw') {
+    const available = direction === 'top-up' ? bankBalance : walletBalance;
+    if (!owner || isRunning || !walletAmountValid || walletAmount > available) {
+      return;
+    }
+    onTransferOnlyFriendsWallet({ owner, direction, amount: walletAmount });
+    setWalletOpen(false);
   }
 
   async function submitComment(event: FormEvent<HTMLFormElement>, post: SocialPost) {
@@ -651,6 +672,55 @@ export function PhoneSocialFeedScreen({
               </strong>
             </div>
           </header>
+          {app.id === 'onlyfriends' && owner && (
+            <div className="phone-social-wallet">
+              <button
+                type="button"
+                className="phone-social-wallet-summary"
+                onClick={() => setWalletOpen((current) => !current)}
+                aria-expanded={walletOpen}
+              >
+                <span>OnlyFriends Balance</span>
+                <strong>{formatBankingAmount(walletBalance)}</strong>
+                <small>Manage funds</small>
+              </button>
+              {walletOpen && (
+                <div className="phone-social-wallet-panel">
+                  <label>
+                    <span>Amount</span>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={walletAmountText}
+                      onChange={(event) => setWalletAmountText(event.target.value)}
+                    />
+                  </label>
+                  <div className="phone-social-wallet-quick-actions">
+                    <button type="button" onClick={() => changeWalletAmount(10)}>+$10</button>
+                    <button type="button" onClick={() => changeWalletAmount(50)}>+$50</button>
+                  </div>
+                  <div className="phone-social-wallet-transfer-actions">
+                    <button
+                      type="button"
+                      onClick={() => transferWallet('top-up')}
+                      disabled={isRunning || !walletAmountValid || walletAmount > bankBalance}
+                    >
+                      Top Up
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => transferWallet('withdraw')}
+                      disabled={isRunning || !walletAmountValid || walletAmount > walletBalance}
+                    >
+                      Withdraw
+                    </button>
+                  </div>
+                  <small>Bank balance: {formatBankingAmount(bankBalance)}</small>
+                </div>
+              )}
+            </div>
+          )}
           <div className="phone-social-account-list">
             <button
               type="button"
@@ -994,15 +1064,15 @@ export function PhoneSocialFeedScreen({
                           </svg>
                           {unlockCandidateId === post.id ? (
                             <div className="phone-social-unlock-confirm">
-                              <strong>Pay with Bank Account</strong>
+                              <strong>Pay with OnlyFriends Balance</strong>
                               <span>
-                                {formatBankingAmount(price)} · Balance {formatBankingAmount(bankBalance)}
+                                {formatBankingAmount(price)} · Balance {formatBankingAmount(walletBalance)}
                               </span>
                               <div className="phone-social-unlock-confirm-actions">
                                 <button
                                   type="button"
                                   onClick={() => payUnlock(post)}
-                                  disabled={isRunning || price > bankBalance}
+                                  disabled={isRunning || price > walletBalance}
                                 >
                                   {isRunning ? 'Paying...' : `Pay ${formatBankingAmount(price)}`}
                                 </button>
@@ -1010,8 +1080,18 @@ export function PhoneSocialFeedScreen({
                                   Cancel
                                 </button>
                               </div>
-                              {price > bankBalance && (
-                                <span className="phone-social-unlock-hint">Not enough balance.</span>
+                              {price > walletBalance && (
+                                <>
+                                  <span className="phone-social-unlock-hint">
+                                    Not enough OnlyFriends balance.
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setWalletOpen(true)}
+                                  >
+                                    Add funds
+                                  </button>
+                                </>
                               )}
                             </div>
                           ) : (

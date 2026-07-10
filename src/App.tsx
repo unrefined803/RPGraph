@@ -63,6 +63,7 @@ import {
   bankTransferActionJson,
   bankTransferMessages,
 } from './chat/bankTransfers';
+import { onlyFriendsWalletName } from './chat/onlyFriendsWallet';
 import { socialPostInputText, socialThreadActionInputText } from './chat/socialMedia';
 import {
   extractDialogueQuotes,
@@ -1173,6 +1174,9 @@ function App() {
     socialLikesByAccount,
     setSocialLikesByAccount,
     toggleSocialLike,
+    onlyFriendsPurchasesByCharacter,
+    setOnlyFriendsPurchasesByCharacter,
+    unlockOnlyFriendsPost,
     unreadEventCount,
     unreadChatCount,
     unreadBankingCount,
@@ -2588,6 +2592,7 @@ function App() {
       bankingSeenByCharacter,
       bankingContactsByCharacter,
       socialLikesByAccount,
+      onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
     };
@@ -2646,6 +2651,7 @@ function App() {
     setBankingSeenByCharacter({});
     setBankingContactsByCharacter({});
     setSocialLikesByAccount({});
+    setOnlyFriendsPurchasesByCharacter({});
     setPhoneDividerAfterByConversation({});
     setOpenedPhoneConversationKey('');
     setRecentlyUsedEmojis([]);
@@ -2784,6 +2790,7 @@ function App() {
     setBankingSeenByCharacter(sessionState.bankingSeenByCharacter);
     setBankingContactsByCharacter(sessionState.bankingContactsByCharacter);
     setSocialLikesByAccount(sessionState.socialLikesByAccount);
+    setOnlyFriendsPurchasesByCharacter(sessionState.onlyFriendsPurchasesByCharacter);
     setPhoneDividerAfterByConversation(sessionState.phoneDividerAfterByConversation);
     setRecentlyUsedEmojis(sessionState.recentlyUsedEmojis ?? []);
     setRecentChatCharacterIds([]);
@@ -2891,6 +2898,7 @@ function App() {
       );
       setBankingContactsByCharacter({});
       setSocialLikesByAccount({});
+      setOnlyFriendsPurchasesByCharacter({});
       setPhoneDividerAfterByConversation({});
       setOpenedPhoneConversationKey('');
       nextMessageIdRef.current =
@@ -5031,12 +5039,43 @@ function App() {
     amount: number;
     note: string;
   }) {
+    submitBankTransferAction({
+      actor: request.from,
+      from: request.from.name,
+      to: request.to,
+      amount: request.amount,
+      note: request.note,
+    });
+  }
+
+  function submitOnlyFriendsWalletTransfer(request: {
+    owner: StorybookCharacter;
+    direction: 'top-up' | 'withdraw';
+    amount: number;
+  }) {
+    const topUp = request.direction === 'top-up';
+    submitBankTransferAction({
+      actor: request.owner,
+      from: topUp ? request.owner.name : onlyFriendsWalletName,
+      to: topUp ? onlyFriendsWalletName : request.owner.name,
+      amount: request.amount,
+      note: topUp ? 'OnlyFriends wallet top-up' : 'OnlyFriends wallet withdrawal',
+    });
+  }
+
+  function submitBankTransferAction(request: {
+    actor: StorybookCharacter;
+    from: string;
+    to: string;
+    amount: number;
+    note: string;
+  }) {
     if (isRunning) {
       return;
     }
     void runGraph(
       bankTransferActionJson({
-        from: request.from.name,
+        from: request.from,
         to: request.to,
         amount: request.amount,
         note: request.note,
@@ -5045,7 +5084,7 @@ function App() {
       undefined,
       messagesRef.current,
       undefined,
-      request.from,
+      request.actor,
       false,
       undefined,
       undefined,
@@ -6490,11 +6529,14 @@ function App() {
               socialImageById={socialImageById}
               socialLikesByAccount={socialLikesByAccount}
               onToggleSocialLike={toggleSocialLike}
+              onlyFriendsPurchasesByCharacter={onlyFriendsPurchasesByCharacter}
+              onUnlockOnlyFriendsPost={unlockOnlyFriendsPost}
               bankingContactNames={viewedPhoneCharacter
                 ? bankingContactsByCharacter[viewedPhoneCharacter.id] ?? []
                 : []}
               onAddBankingContact={addBankingContact}
               onSendBankTransfer={submitBankTransfer}
+              onTransferOnlyFriendsWallet={submitOnlyFriendsWalletTransfer}
               connections={connections}
               providerHealthById={providerHealthById}
               onSubmitImageAssistantMessage={async ({

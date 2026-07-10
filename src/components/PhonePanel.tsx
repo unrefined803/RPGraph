@@ -40,6 +40,7 @@ import { PhoneGalleryScreen } from './PhoneGalleryScreen';
 import { PhoneBankingScreen } from './PhoneBankingScreen';
 import { PhoneSocialFeedScreen } from './phone-social/PhoneSocialFeedScreen';
 import { socialApps } from './phone-social/socialApps';
+import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
 import { PhoneVoiceMessage } from './PhoneVoiceMessage';
 import { CharacterAvatar } from './CharacterAvatar';
 import { ImageContextControl } from './ImageContextControl';
@@ -227,6 +228,11 @@ type PhonePanelProps = {
     amount: number;
     note: string;
   }) => void;
+  onTransferOnlyFriendsWallet: (request: {
+    owner: StorybookCharacter;
+    direction: 'top-up' | 'withdraw';
+    amount: number;
+  }) => void;
   socialMediaMessages: MessageRecord[];
   onSubmitSocialPost: (request: {
     author: StorybookCharacter;
@@ -255,6 +261,8 @@ type PhonePanelProps = {
     app: 'fotogram' | 'onlyfriends',
     postId: string,
   ) => void;
+  onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
+  onUnlockOnlyFriendsPost: (characterId: string, postId: string, price: number) => void;
   phoneDesktopLayout: PhoneDesktopLayout;
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
@@ -342,6 +350,7 @@ export function PhonePanel({
   bankingContactNames,
   onAddBankingContact,
   onSendBankTransfer,
+  onTransferOnlyFriendsWallet,
   socialMediaMessages,
   onSubmitSocialPost,
   onSubmitSocialThreadAction,
@@ -350,6 +359,8 @@ export function PhonePanel({
   socialImageById,
   socialLikesByAccount,
   onToggleSocialLike,
+  onlyFriendsPurchasesByCharacter,
+  onUnlockOnlyFriendsPost,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
@@ -706,13 +717,15 @@ export function PhonePanel({
             : undefined
         }
         isRunning={isRunning}
-        onSendBankTransfer={onSendBankTransfer}
+        onTransferOnlyFriendsWallet={onTransferOnlyFriendsWallet}
         onSubmitSocialPost={onSubmitSocialPost}
         onSubmitSocialThreadAction={onSubmitSocialThreadAction}
         onCreateSocialAccount={onCreateSocialAccount}
         onImportPostImage={onImportSocialPostImage}
         socialImageById={socialImageById}
         socialLikesByAccount={socialLikesByAccount}
+        onlyFriendsPurchasesByCharacter={onlyFriendsPurchasesByCharacter}
+        onUnlockOnlyFriendsPost={onUnlockOnlyFriendsPost}
         onToggleLike={(postId) => {
           if (selectedCharacter) {
             onToggleSocialLike(selectedCharacter.id, socialScreen, postId);

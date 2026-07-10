@@ -20,6 +20,7 @@ import {
   unreadBankTransferCountForCharacter,
   unreadBankTransfersForCharacter,
 } from '../chat/bankTransfers';
+import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
 import { normalizePhoneName } from '../chat/phoneMessages';
 import {
   socialCharacterForPost,
@@ -117,6 +118,8 @@ export function useRoleplayPanelRuntime({
   const [bankingContactsByCharacter, setBankingContactsByCharacter] = useState<Record<string, string[]>>({});
   // Liked post ids per "characterId/app" account key; part of the RP save.
   const [socialLikesByAccount, setSocialLikesByAccount] = useState<Record<string, string[]>>({});
+  const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
+    useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = useState(0);
   const [socialPostOpenRequest, setSocialPostOpenRequest] = useState<{
     requestId: number;
@@ -609,6 +612,22 @@ export function useRoleplayPanelRuntime({
     });
   }
 
+  function unlockOnlyFriendsPost(characterId: string, postId: string, price: number) {
+    setOnlyFriendsPurchasesByCharacter((current) => {
+      const purchases = current[characterId] ?? {};
+      if (purchases[postId] !== undefined) {
+        return current;
+      }
+      return {
+        ...current,
+        [characterId]: {
+          ...purchases,
+          [postId]: Math.round(price * 100) / 100,
+        },
+      };
+    });
+  }
+
   function openSocialPost(post: SocialPostRecord) {
     if (post.app === 'onlyfriends') {
       const author = socialCharacterForPost(post, storyCharacters);
@@ -1088,6 +1107,9 @@ export function useRoleplayPanelRuntime({
     socialLikesByAccount,
     setSocialLikesByAccount,
     toggleSocialLike,
+    onlyFriendsPurchasesByCharacter,
+    setOnlyFriendsPurchasesByCharacter,
+    unlockOnlyFriendsPost,
     unreadEventCount,
     unreadChatCount,
     unreadBankingCount,

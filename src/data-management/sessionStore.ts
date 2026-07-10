@@ -9,6 +9,7 @@ import type {
   WorkflowFile,
   WorkflowNode,
 } from '../types';
+import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { runtimeSnapshotForNode } from './checkpointStore';
 import { debugStateFromNodes } from './debugContext';
@@ -41,6 +42,7 @@ export type SessionV2AppState = {
   bankingSeenByCharacter: Record<string, number>;
   bankingContactsByCharacter: Record<string, string[]>;
   socialLikesByAccount: Record<string, string[]>;
+  onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   phoneDividerAfterByConversation: Record<string, number>;
   recentlyUsedEmojis?: string[];
 };
@@ -56,6 +58,7 @@ export type SessionV2CurrentStateInput = {
   bankingSeenByCharacter?: Record<string, number>;
   bankingContactsByCharacter?: Record<string, string[]>;
   socialLikesByAccount?: Record<string, string[]>;
+  onlyFriendsPurchasesByCharacter?: OnlyFriendsPurchasesByCharacter;
   phoneDividerAfterByConversation?: Record<string, number>;
   recentlyUsedEmojis?: string[];
 };
@@ -145,6 +148,7 @@ export function sessionV2FromCurrentState(
       bankingSeenByCharacter: state.bankingSeenByCharacter ?? {},
       bankingContactsByCharacter: state.bankingContactsByCharacter ?? {},
       socialLikesByAccount: state.socialLikesByAccount ?? {},
+      onlyFriendsPurchasesByCharacter: state.onlyFriendsPurchasesByCharacter ?? {},
       phoneDividerAfterByConversation: state.phoneDividerAfterByConversation ?? {},
       recentlyUsedEmojis: state.recentlyUsedEmojis ?? [],
     },
@@ -310,6 +314,7 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
     bankingSeenByCharacter: session.ui.bankingSeenByCharacter,
     bankingContactsByCharacter: session.ui.bankingContactsByCharacter,
     socialLikesByAccount: session.ui.socialLikesByAccount,
+    onlyFriendsPurchasesByCharacter: session.ui.onlyFriendsPurchasesByCharacter,
     phoneDividerAfterByConversation: session.ui.phoneDividerAfterByConversation,
     recentlyUsedEmojis: session.ui.recentlyUsedEmojis ?? [],
   };
