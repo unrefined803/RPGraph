@@ -13274,6 +13274,11 @@ button.message-timeline-row.phone:focus-visible {
   grid-template-columns: 150px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+  /* Scroll when a character's setup content is taller than the dialog; min-height:0
+     lets this grid child shrink so overflow-y:auto engages instead of clipping the
+     bottom (mirrors the .connection-dialog-grid dialog scroll fix). */
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .character-setup-tabs {
