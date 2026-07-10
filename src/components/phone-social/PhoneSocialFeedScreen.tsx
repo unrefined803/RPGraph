@@ -5,7 +5,10 @@ import type {
   ConnectionPreset,
   MessageRecord,
   ProviderConnectionHealth,
+  RpDateTimeFormat,
+  RpWeekdayLanguage,
 } from '../../types';
+import { formatRpDateTimeParts } from '../../workflow';
 import { bankingBalanceForCharacter, formatBankingAmount } from '../../chat/bankTransfers';
 import type {
   ImageGenerationAssistantMessage,
@@ -112,6 +115,8 @@ type PhoneSocialFeedScreenProps = {
     dataUrl: string;
     description: string;
   }) => Promise<void>;
+  rpDateTimeFormat?: RpDateTimeFormat;
+  rpWeekdayLanguage?: RpWeekdayLanguage;
 };
 
 /**
@@ -151,6 +156,8 @@ export function PhoneSocialFeedScreen({
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
   onSaveImageAssistantImage,
+  rpDateTimeFormat,
+  rpWeekdayLanguage,
 }: PhoneSocialFeedScreenProps) {
   const [nickname, setNickname] = useState('');
   // A username stored in the Storybook means the character already has an
@@ -276,19 +283,19 @@ export function PhoneSocialFeedScreen({
     }
   });
   const persistedPosts: SocialPost[] = socialPostMessages(app.id, socialMediaMessages)
-    .map((message) => message.socialPost)
     .reverse()
-    .map((record) => ({
-      id: record.postId,
-      authorName: record.author,
-      authorHandle: record.authorHandle,
-      caption: record.caption,
+    .map((message) => ({
+      id: message.socialPost.postId,
+      authorName: message.socialPost.author,
+      authorHandle: message.socialPost.authorHandle,
+      caption: message.socialPost.caption,
       likeCount: 0,
       commentCount: 0,
       locked: false,
       dummy: false,
-      textOnly: record.textOnly,
-      imageDataUrl: record.imageDataUrl,
+      textOnly: message.socialPost.textOnly,
+      imageDataUrl: message.socialPost.imageDataUrl,
+      rpDateTime: message.rpDateTime,
     }));
   const feedPosts = selectedAccount
     ? persistedPosts.filter((post) =>
@@ -836,6 +843,9 @@ export function PhoneSocialFeedScreen({
             const postAuthorColor = postAuthorCharacter
               ? characterColors.get(postAuthorCharacter.name)
               : undefined;
+            const timeParts = post.rpDateTime && rpDateTimeFormat && rpWeekdayLanguage
+              ? formatRpDateTimeParts(post.rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
+              : undefined;
             return (
               <article
                 className="phone-social-post"
@@ -848,142 +858,188 @@ export function PhoneSocialFeedScreen({
                   }
                 }}
               >
-                <div className="phone-social-post-author">
-                  <CharacterAvatar
-                    className="phone-avatar"
-                    name={post.authorName}
-                    fallback={post.authorName.slice(0, 1).toUpperCase()}
-                    profileImageDataUrl={postAuthorCharacter?.profileImage?.dataUrl}
-                    style={postAuthorColor
-                      ? { borderColor: postAuthorColor, color: postAuthorColor }
-                      : undefined}
-                  />
-                  <div>
-                    <strong>{post.authorName}</strong>
-                    <span>@{post.authorHandle}</span>
+                <div className="phone-social-post-header">
+                  <div className="phone-social-post-author">
+                    <CharacterAvatar
+                      className="phone-avatar"
+                      name={post.authorName}
+                      fallback={post.authorName.slice(0, 1).toUpperCase()}
+                      profileImageDataUrl={postAuthorCharacter?.profileImage?.dataUrl}
+                      style={postAuthorColor
+                        ? { borderColor: postAuthorColor, color: postAuthorColor }
+                        : undefined}
+                    />
+                    <div className="phone-social-post-author-info">
+                      <strong>{post.authorName}</strong>
+                      <span>@{post.authorHandle}</span>
+                    </div>
                   </div>
-                  {lockedNow && (
-                    <span className="phone-social-locked-chip">Locked</span>
-                  )}
+                  <div className="phone-social-post-header-right">
+                    {lockedNow && (
+                      <span className="phone-social-locked-chip">Locked</span>
+                    )}
+                    {timeParts && (
+                      <time className="phone-social-post-time">
+                        <span>{timeParts.date}</span>
+                        <span>{timeParts.time}</span>
+                      </time>
+                    )}
+                  </div>
                 </div>
-                {post.textOnly && (
+                {post.textOnly ? (
                   <>
-                    <p className="phone-social-post-caption">{post.caption}</p>
-                    <div className="phone-social-post-actions text-only-actions">
+                    <p className="phone-social-post-caption text-only-caption">
+                      <strong>{post.authorName}</strong> {post.caption}
+                    </p>
+                    <hr className="phone-social-post-separator" />
+                    <div className="phone-social-post-footer">
+                      <div className="phone-social-post-actions text-only-actions">
+                        <button
+                          type="button"
+                          className={`phone-social-like-button${liked ? ' liked' : ''}`}
+                          onClick={() => toggleLike(post)}
+                          aria-pressed={liked}
+                          aria-label={liked ? 'Unlike' : 'Like'}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
+                          </svg>
+                          <span>{formatSocialCount(post.likeCount)}</span>
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        className={`phone-social-like-button${liked ? ' liked' : ''}`}
-                        onClick={() => toggleLike(post)}
-                        aria-pressed={liked}
-                        aria-label={liked ? 'Unlike' : 'Like'}
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
-                        </svg>
-                        <span>{formatSocialCount(post.likeCount)}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="phone-social-comment-button"
+                        className="phone-social-open-comments-toggle"
                         onClick={() => {
                           setOpenCommentsPostId(commentsOpen ? undefined : post.id);
                           setCommentDraft('');
                         }}
                         aria-expanded={commentsOpen}
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M21 12a8 8 0 0 1-8 8H4l1.3-3.2A8 8 0 1 1 21 12Z" />
+                        <span>{commentsOpen ? 'Hide comments' : 'Open comments'}</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" width="16" height="16">
+                          {commentsOpen ? (
+                            <path d="M19 12H5M12 19l-7-7 7-7" />
+                          ) : (
+                            <path d="M5 12h14M14 7l5 5-5 5" />
+                          )}
                         </svg>
-                        <span>{formatSocialCount(post.commentCount)}</span>
                       </button>
                     </div>
                   </>
-                )}
-                {!post.textOnly && (
-                <div
-                  className={`phone-social-post-image${lockedNow ? ' locked' : ''}${
-                    post.imageDataUrl && !lockedNow ? '' : ' placeholder'
-                  }`}
-                >
-                  {post.imageDataUrl && !lockedNow ? (
-                    <img src={post.imageDataUrl} alt={post.caption} />
-                  ) : (
-                    <div className="phone-social-post-placeholder" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="4" />
-                        <circle cx="8.5" cy="8.5" r="1.4" />
-                        <path d="m4.5 18 5.5-5.5 3.2 3.2 2.1-2.1 4.2 4.4" />
-                      </svg>
-                    </div>
-                  )}
-                  {lockedNow && (
-                    <div className="phone-social-unlock-overlay">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <rect x="4" y="10" width="16" height="10" rx="2" />
-                        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                      </svg>
-                      {unlockCandidateId === post.id ? (
-                        <div className="phone-social-unlock-confirm">
-                          <strong>Pay with Bank Account</strong>
-                          <span>
-                            {formatBankingAmount(price)} · Balance {formatBankingAmount(bankBalance)}
-                          </span>
-                          <div className="phone-social-unlock-confirm-actions">
-                            <button
-                              type="button"
-                              onClick={() => payUnlock(post)}
-                              disabled={isRunning || price > bankBalance}
-                            >
-                              {isRunning ? 'Paying...' : `Pay ${formatBankingAmount(price)}`}
+                ) : (
+                  <>
+                    <div
+                      className={`phone-social-post-image${lockedNow ? ' locked' : ''}${
+                        post.imageDataUrl && !lockedNow ? '' : ' placeholder'
+                      }`}
+                    >
+                      {post.imageDataUrl && !lockedNow ? (
+                        <img src={post.imageDataUrl} alt={post.caption} />
+                      ) : (
+                        <div className="phone-social-post-placeholder" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="4" />
+                            <circle cx="8.5" cy="8.5" r="1.4" />
+                            <path d="m4.5 18 5.5-5.5 3.2 3.2 2.1-2.1 4.2 4.4" />
+                          </svg>
+                        </div>
+                      )}
+                      {lockedNow && (
+                        <div className="phone-social-unlock-overlay">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <rect x="4" y="10" width="16" height="10" rx="2" />
+                            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                          </svg>
+                          {unlockCandidateId === post.id ? (
+                            <div className="phone-social-unlock-confirm">
+                              <strong>Pay with Bank Account</strong>
+                              <span>
+                                {formatBankingAmount(price)} · Balance {formatBankingAmount(bankBalance)}
+                              </span>
+                              <div className="phone-social-unlock-confirm-actions">
+                                <button
+                                  type="button"
+                                  onClick={() => payUnlock(post)}
+                                  disabled={isRunning || price > bankBalance}
+                                >
+                                  {isRunning ? 'Paying...' : `Pay ${formatBankingAmount(price)}`}
+                                </button>
+                                <button type="button" onClick={() => setUnlockCandidateId(undefined)}>
+                                  Cancel
+                                </button>
+                              </div>
+                              {price > bankBalance && (
+                                <span className="phone-social-unlock-hint">Not enough balance.</span>
+                              )}
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => setUnlockCandidateId(post.id)}>
+                              Unlock for {formatBankingAmount(price)}
                             </button>
-                            <button type="button" onClick={() => setUnlockCandidateId(undefined)}>
-                              Cancel
-                            </button>
-                          </div>
-                          {price > bankBalance && (
-                            <span className="phone-social-unlock-hint">Not enough balance.</span>
                           )}
                         </div>
-                      ) : (
-                        <button type="button" onClick={() => setUnlockCandidateId(post.id)}>
-                          Unlock for {formatBankingAmount(price)}
-                        </button>
+                      )}
+                      {!lockedNow && (
+                        <div className="phone-social-post-image-actions">
+                          <button
+                            type="button"
+                            className={`phone-social-like-button${liked ? ' liked' : ''}`}
+                            onClick={() => toggleLike(post)}
+                            aria-pressed={liked}
+                            aria-label={liked ? 'Unlike' : 'Like'}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
+                            </svg>
+                            <span>{formatSocialCount(post.likeCount)}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="phone-social-comment-button"
+                            onClick={() => {
+                              setOpenCommentsPostId(commentsOpen ? undefined : post.id);
+                              setCommentDraft('');
+                            }}
+                            aria-expanded={commentsOpen}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M21 12a8 8 0 0 1-8 8H4l1.3-3.2A8 8 0 1 1 21 12Z" />
+                            </svg>
+                            <span>{formatSocialCount(post.commentCount)}</span>
+                          </button>
+                        </div>
                       )}
                     </div>
-                  )}
-                  {/* Floating Action Pill */}
-                  <div className="phone-social-post-image-actions">
-                    <button
-                      type="button"
-                      className={`phone-social-like-button${liked ? ' liked' : ''}`}
-                      onClick={() => toggleLike(post)}
-                      aria-pressed={liked}
-                      aria-label={liked ? 'Unlike' : 'Like'}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
-                      </svg>
-                      <span>{formatSocialCount(post.likeCount)}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="phone-social-comment-button"
-                      onClick={() => {
-                        setOpenCommentsPostId(commentsOpen ? undefined : post.id);
-                        setCommentDraft('');
-                      }}
-                      aria-expanded={commentsOpen}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M21 12a8 8 0 0 1-8 8H4l1.3-3.2A8 8 0 1 1 21 12Z" />
-                      </svg>
-                      <span>{formatSocialCount(post.commentCount)}</span>
-                    </button>
-                  </div>
-                </div>
-                )}
-                {!lockedNow && !post.textOnly && (
-                  <p className="phone-social-post-caption">{post.caption}</p>
+                    {!lockedNow && (
+                      <>
+                        <hr className="phone-social-post-separator" />
+                        <p className="phone-social-post-caption">
+                          <strong>{post.authorName}</strong> {post.caption}
+                        </p>
+                        <div className="phone-social-post-footer">
+                          <button
+                            type="button"
+                            className="phone-social-open-comments-toggle"
+                            onClick={() => {
+                              setOpenCommentsPostId(commentsOpen ? undefined : post.id);
+                              setCommentDraft('');
+                            }}
+                            aria-expanded={commentsOpen}
+                          >
+                            <span>{commentsOpen ? 'Hide comments' : 'Open comments'}</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" width="16" height="16">
+                              {commentsOpen ? (
+                                <path d="M19 12H5M12 19l-7-7 7-7" />
+                              ) : (
+                                <path d="M5 12h14M14 7l5 5-5 5" />
+                              )}
+                            </svg>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
                 {commentsOpen && (
                   <div className="phone-social-comments">

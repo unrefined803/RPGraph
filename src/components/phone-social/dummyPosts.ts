@@ -18,6 +18,7 @@ export type SocialPost = {
   /** Text-only posts have no image area at all; the caption moves on top. */
   textOnly?: boolean;
   imageDataUrl?: string;
+  rpDateTime?: string;
 };
 
 export type SocialComment = {
