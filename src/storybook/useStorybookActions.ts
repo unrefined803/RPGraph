@@ -19,6 +19,7 @@ import {
 } from '../data-management/eventStore';
 import { usedStorybookImageIdsRemoved } from './imageUsage';
 import { withChangedStorybookImageDescriptionsSynchronized } from './imageLibrary';
+import { turnsWithStorybookImageRefs } from './openingHistoryRuntime';
 import storybookFormatVersions from './formatVersions.json';
 import type { TurnCheckpoint } from '../data-management/types';
 
@@ -228,10 +229,15 @@ export function useStorybookActions({
     const storybook = node.data.storybookJson
       ? parseRpStorybookJson(node.data.storybookJson)
       : emptyRpStorybookV1;
-    const historyTurns = turnsRef.current.map((turn) => {
-      const { openingHistory: _openingHistory, ...storedTurn } = structuredClone(turn);
-      return storedTurn;
-    });
+    // Images that live in a Storybook gallery are stored as id-only
+    // references instead of embedded copies; loading resolves them again.
+    const historyTurns = turnsWithStorybookImageRefs(
+      turnsRef.current.map((turn) => {
+        const { openingHistory: _openingHistory, ...storedTurn } = structuredClone(turn);
+        return storedTurn;
+      }),
+      nodesRef.current,
+    );
     const historyMessageCount = historyTurns.reduce(
       (count, turn) => count + turn.input.messages.length + turn.output.messages.length,
       0,

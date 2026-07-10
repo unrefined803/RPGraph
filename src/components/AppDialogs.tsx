@@ -59,11 +59,13 @@ import type {
   ChatImageAttachment,
   ConnectionPreset,
   ImageCaptionChange,
+  MessageRecord,
   ProviderConnectionHealth,
   SystemLogEntry,
   SystemLogLevel,
   WorkflowNode,
 } from '../types';
+import { storybookImageById } from '../storybook/imageLibrary';
 import { formatContextValue } from '../data-management/formatters';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import { sanitizeDataUrls, sanitizeDataUrlsInText } from '../utils/sanitize';
@@ -2834,10 +2836,29 @@ export function StorybookCreatorDialog({
   const phoneContactCharacters = useMemo(() => rpStorybookPhoneContactCharacters(storybook), [storybook]);
   const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
   const openingHistoryMessages = useMemo(
-    () => storybook.openingHistory.turns.flatMap((turn) => [
-      ...turn.input.messages.map((message) => ({ message, turnNumber: turn.number })),
-      ...turn.output.messages.map((message) => ({ message, turnNumber: turn.number })),
-    ]),
+    () => {
+      // Stored messages reference gallery images by id only; resolve the
+      // pixels from this storybook's image library for the preview.
+      const rehydrated = (message: MessageRecord): MessageRecord => {
+        if (!message.imageAttachments?.some((image) => !image.dataUrl)) {
+          return message;
+        }
+        return {
+          ...message,
+          imageAttachments: message.imageAttachments.flatMap((image) => {
+            if (image.dataUrl) {
+              return [image];
+            }
+            const stored = storybookImageById([storybook], image.id);
+            return stored ? [{ ...image, dataUrl: stored.dataUrl }] : [];
+          }),
+        };
+      };
+      return storybook.openingHistory.turns.flatMap((turn) => [
+        ...turn.input.messages.map((message) => ({ message: rehydrated(message), turnNumber: turn.number })),
+        ...turn.output.messages.map((message) => ({ message: rehydrated(message), turnNumber: turn.number })),
+      ]);
+    },
     [storybook],
   );
 

@@ -29,6 +29,7 @@ import {
   openingHistoryCheckpointsFromNodes,
   openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
+  turnsWithStorybookImageRefs,
   remapOpeningTurnMessageIds,
 } from '../storybook/openingHistoryRuntime';
 import {
@@ -823,6 +824,20 @@ export function verifyWorkflowValidationFixtures() {
   if (!openingHistoryNode || openingHistoryNode.data.nodeType !== 'rp-storybook-v1') {
     throw new Error('Workflow validation fixture failed: default Storybook node is missing');
   }
+  // Import stores gallery-backed images as id-only references (no base64
+  // copy); attachments without a gallery entry keep their embedded data.
+  openingHistoryNode.data.storybookJson = rpStorybookJsonText(openingHistoryStorybook);
+  openingHistoryStorybook.openingHistory.turns = turnsWithStorybookImageRefs(
+    openingHistoryStorybook.openingHistory.turns,
+    [openingHistoryNode],
+  );
+  const storedOpeningAttachment = openingHistoryStorybook.openingHistory.turns[0]
+    ?.output.messages[0]?.imageAttachments?.[0];
+  assertFixture(
+    storedOpeningAttachment?.id === 'emily_miller_image_01' &&
+      storedOpeningAttachment.dataUrl === '',
+    'importing the current chat must strip gallery-backed image copies to id references',
+  );
   openingHistoryNode.data.storybookJson = rpStorybookJsonText(openingHistoryStorybook);
   const restoredOpeningMessages = openingHistoryTurnsFromNodes([openingHistoryNode])
     .flatMap((turn) => [...turn.input.messages, ...turn.output.messages]);
@@ -832,7 +847,7 @@ export function verifyWorkflowValidationFixtures() {
     restoredPhoneImage?.phoneImageIds?.[0] === 'emily_miller_image_01' &&
       restoredPhoneImage.imageAttachments?.[0]?.dataUrl === 'data:image/jpeg;base64,AA==' &&
       restoredPhoneImage.includeInHistory === true,
-    'Phone Opening History turns must preserve full image attachments and normal history behavior',
+    'Phone Opening History image references must rehydrate from the Storybook image library',
   );
   assertFixture(
     restoredRpImage?.imageAttachments?.[0]?.id === 'emily_miller_image_01' &&

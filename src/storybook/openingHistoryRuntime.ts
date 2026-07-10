@@ -1,6 +1,76 @@
-import { parseRpStorybookJson } from '../nodes/rp-storybook-v1/model';
+import { parseRpStorybookJson, type RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
+import { chatAttachmentFromStorybookImage } from './runtime';
+import { storybookImageSourceById } from './imageLibrary';
 import type { MessageRecord, TurnRecord, RpAppointment, WorkflowNode } from '../types';
 import type { TurnCheckpoint } from '../data-management/types';
+
+function storybooksFromNodes(nodes: WorkflowNode[]): RpStorybookV1[] {
+  return nodes.flatMap((node) => {
+    if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+      return [];
+    }
+    try {
+      return [parseRpStorybookJson(node.data.storybookJson)];
+    } catch {
+      return [];
+    }
+  });
+}
+
+/**
+ * Replace stored image copies on turn messages with id-only references.
+ * Images live once in the Storybook image library; a stored message keeps its
+ * attachment metadata but drops the base64 data when the image id resolves in
+ * the library. Attachments whose id is unknown keep their embedded copy so
+ * nothing is lost.
+ */
+export function turnsWithStorybookImageRefs(
+  turns: TurnRecord[],
+  nodes: WorkflowNode[],
+): TurnRecord[] {
+  const storybooks = storybooksFromNodes(nodes);
+  const withImageRefs = (message: MessageRecord): MessageRecord => {
+    if (!message.imageAttachments?.length) {
+      return message;
+    }
+    return {
+      ...message,
+      imageAttachments: message.imageAttachments.map((image) =>
+        storybookImageSourceById(storybooks, image.id) ? { ...image, dataUrl: '' } : image,
+      ),
+    };
+  };
+  return turns.map((turn) => ({
+    ...turn,
+    input: { ...turn.input, messages: turn.input.messages.map(withImageRefs) },
+    output: { ...turn.output, messages: turn.output.messages.map(withImageRefs) },
+  }));
+}
+
+/**
+ * Restore id-only image references back into full attachments from the
+ * Storybook image library. References whose image was deleted from the
+ * library are dropped.
+ */
+function messageWithRehydratedImages(
+  message: MessageRecord,
+  storybooks: RpStorybookV1[],
+): MessageRecord {
+  if (!message.imageAttachments?.some((image) => !image.dataUrl)) {
+    return message;
+  }
+  const imageAttachments = message.imageAttachments.flatMap((image) => {
+    if (image.dataUrl) {
+      return [image];
+    }
+    const source = storybookImageSourceById(storybooks, image.id);
+    return source ? [chatAttachmentFromStorybookImage(source.image)] : [];
+  });
+  return {
+    ...message,
+    imageAttachments: imageAttachments.length ? imageAttachments : undefined,
+  };
+}
 
 export function openingHistoryEventsFromNodes(nodes: WorkflowNode[]): RpAppointment[] {
   return nodes.flatMap((node) => {
@@ -16,6 +86,9 @@ export function openingHistoryEventsFromNodes(nodes: WorkflowNode[]): RpAppointm
 }
 
 export function openingHistoryTurnsFromNodes(nodes: WorkflowNode[]) {
+  // Image resolution spans every storybook: opening history messages store
+  // id-only image references whose pixels live in the character galleries.
+  const storybooks = storybooksFromNodes(nodes);
   return nodes.flatMap((node) => {
     if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
       return [];
@@ -34,7 +107,7 @@ export function openingHistoryTurnsFromNodes(nodes: WorkflowNode[]) {
       ): MessageRecord => {
         const { isOpening: _isOpening, ...storedMessage } = structuredClone(message);
         return {
-          ...storedMessage,
+          ...messageWithRehydratedImages(storedMessage as MessageRecord, storybooks),
           turnId,
           turnNumber: storedTurn.number,
           turnPart,

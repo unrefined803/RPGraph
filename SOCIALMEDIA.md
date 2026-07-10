@@ -315,6 +315,12 @@ Later, those recently seen or favorited accounts can become DM targets.
     in that app lands on the onboarding screen instead of the post (Fotogram
     only; OnlyFriends cards switch to the post author first). Decide whether
     the card should pick an account-holding character automatically.
+12. Unified image linking beyond the social apps: WhatsUp/chat messages
+    already reference the Storybook image id (`phoneImageIds`) but still embed
+    a full `imageAttachments` copy on every message record, duplicating the
+    base64 data in saves and opening histories. Migrating them to pure id
+    links (like social posts) is a larger refactor across rendering, vision
+    runs, and the opening-history fixtures — discuss before starting.
 
 ### Phase 3 — Workflow integration
 
