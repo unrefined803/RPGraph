@@ -47,6 +47,28 @@ function socialIdentityMatches(left: string, right: string) {
     right.trim().replace(/^@/, '').toLowerCase();
 }
 
+function characterSocialHandle(character: StorybookCharacter, app: SocialAppConfig) {
+  const storedHandle = app.id === 'fotogram'
+    ? character.social.fotogramUsername
+    : character.social.onlyfriendsUsername;
+  return storedHandle || socialHandleForName(character.name);
+}
+
+function characterForPost(
+  post: SocialPost,
+  app: SocialAppConfig,
+  storyCharacters: StorybookCharacter[],
+) {
+  if (post.dummy) {
+    return undefined;
+  }
+  return storyCharacters.find((character) =>
+    socialIdentityMatches(characterSocialHandle(character, app), post.authorHandle),
+  ) ?? storyCharacters.find((character) =>
+    socialIdentityMatches(character.name, post.authorName),
+  );
+}
+
 type PhoneSocialFeedScreenProps = {
   app: SocialAppConfig;
   owner?: StorybookCharacter;
@@ -211,10 +233,7 @@ export function PhoneSocialFeedScreen({
     .map((character) => ({
       key: `character-${character.id}`,
       name: character.name,
-      handle:
-        app.id === 'fotogram' && character.social.fotogramUsername
-          ? character.social.fotogramUsername
-          : socialHandleForName(character.name),
+      handle: characterSocialHandle(character, app),
       character,
     }));
   const followedAccounts = [...characterAccounts, ...addedAccounts];
@@ -285,10 +304,10 @@ export function PhoneSocialFeedScreen({
       imageDataUrl: record.imageDataUrl,
     }));
   const feedPosts = selectedAccount
-    ? dummySocialPosts(app, `${selectedAccount.key}`, {
-        name: selectedAccount.name,
-        handle: selectedAccount.handle,
-      })
+    ? persistedPosts.filter((post) =>
+        socialIdentityMatches(post.authorHandle, selectedAccount.handle) ||
+        socialIdentityMatches(post.authorName, selectedAccount.name),
+      )
     : [
         ...persistedPosts,
         ...dummySocialPosts(app, owner?.id ?? 'no-account'),
@@ -781,7 +800,11 @@ export function PhoneSocialFeedScreen({
             <div className="phone-social-profile-banner">
               <strong>{selectedAccount.name}</strong>
               <span>@{selectedAccount.handle}</span>
+              <small>Latest Posts</small>
             </div>
+          )}
+          {selectedAccount && posts.length === 0 && (
+            <span className="phone-social-empty">No posts yet.</span>
           )}
           {posts.map((post) => {
             const liked = likedPostIds.has(post.id);
@@ -792,7 +815,10 @@ export function PhoneSocialFeedScreen({
               ...(persistedCommentsByPostId[post.id] ?? []),
             ];
             const commentsOpen = openCommentsPostId === post.id;
-            const ownPost = post.authorHandle === account;
+            const postAuthorCharacter = characterForPost(post, app, storyCharacters);
+            const postAuthorColor = postAuthorCharacter
+              ? characterColors.get(postAuthorCharacter.name)
+              : undefined;
             return (
               <article className="phone-social-post" key={post.id}>
                 <div className="phone-social-post-author">
@@ -800,9 +826,9 @@ export function PhoneSocialFeedScreen({
                     className="phone-avatar"
                     name={post.authorName}
                     fallback={post.authorName.slice(0, 1).toUpperCase()}
-                    profileImageDataUrl={ownPost ? owner?.profileImage?.dataUrl : undefined}
-                    style={ownPost && ownerColor
-                      ? { borderColor: ownerColor, color: ownerColor }
+                    profileImageDataUrl={postAuthorCharacter?.profileImage?.dataUrl}
+                    style={postAuthorColor
+                      ? { borderColor: postAuthorColor, color: postAuthorColor }
                       : undefined}
                   />
                   <div>
