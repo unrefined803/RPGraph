@@ -6209,7 +6209,9 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-whatsup-icon,
 .phone-gallery-icon,
 .phone-camera-icon,
-.phone-banking-icon {
+.phone-banking-icon,
+.phone-fotogram-icon,
+.phone-onlyfriends-icon {
   display: grid;
   width: calc(var(--phone-icon, 52px) * 0.85);
   height: calc(var(--phone-icon, 52px) * 0.85);
@@ -6244,10 +6246,22 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgba(59, 130, 246, 0.5);
 }
 
+.phone-fotogram-icon {
+  background: linear-gradient(135deg, rgba(217, 70, 160, 0.4), rgba(249, 115, 22, 0.22));
+  border-color: rgba(217, 70, 160, 0.55);
+}
+
+.phone-onlyfriends-icon {
+  background: linear-gradient(135deg, rgba(0, 175, 240, 0.4), rgba(37, 99, 235, 0.2));
+  border-color: rgba(0, 175, 240, 0.55);
+}
+
 .phone-whatsup-icon svg,
 .phone-gallery-icon svg,
 .phone-camera-icon svg,
-.phone-banking-icon svg {
+.phone-banking-icon svg,
+.phone-fotogram-icon svg,
+.phone-onlyfriends-icon svg {
   width: 54%;
   height: 54%;
 }
@@ -6278,6 +6292,24 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgba(59, 130, 246, 0.75);
   box-shadow: 
     0 8px 24px rgba(59, 130, 246, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+.phone-desktop-app:hover .phone-fotogram-icon,
+.phone-desktop-app:focus-visible .phone-fotogram-icon {
+  transform: translateY(-3px) scale(1.06);
+  border-color: rgba(217, 70, 160, 0.8);
+  box-shadow:
+    0 8px 24px rgba(217, 70, 160, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+.phone-desktop-app:hover .phone-onlyfriends-icon,
+.phone-desktop-app:focus-visible .phone-onlyfriends-icon {
+  transform: translateY(-3px) scale(1.06);
+  border-color: rgba(0, 175, 240, 0.8);
+  box-shadow:
+    0 8px 24px rgba(0, 175, 240, 0.45),
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
 
@@ -20036,4 +20068,368 @@ button.message-timeline-row.phone:focus-visible {
   display: flex !important;
   flex-direction: column;
   gap: 7px;
+}
+
+.phone-social-screen {
+  --social-accent: #d946a0;
+  --social-accent-soft: rgba(217, 70, 160, 0.25);
+  --social-header-gradient: linear-gradient(135deg, rgba(217, 70, 160, 0.2), rgba(249, 115, 22, 0.08));
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0d121c;
+}
+
+.phone-social-theme-onlyfriends {
+  --social-accent: #00aff0;
+  --social-accent-soft: rgba(0, 175, 240, 0.25);
+  --social-header-gradient: linear-gradient(135deg, rgba(0, 175, 240, 0.2), rgba(37, 99, 235, 0.08));
+}
+
+.phone-social-header {
+  justify-content: flex-start;
+  background: var(--social-header-gradient);
+}
+
+.phone-social-new-post-button {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid var(--social-accent-soft);
+  border-radius: 6px;
+  color: #ffffff;
+  background: rgba(23, 32, 51, 0.6);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.phone-social-new-post-button:hover,
+.phone-social-new-post-button:focus-visible {
+  outline: none;
+  border-color: var(--social-accent);
+}
+
+.phone-social-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.phone-social-onboarding {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  place-items: center;
+  padding: 16px;
+}
+
+.phone-social-onboarding-card {
+  display: flex;
+  width: min(320px, 100%);
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 18px;
+  border: 1px solid var(--social-accent-soft);
+  border-radius: 16px;
+  background: rgba(23, 32, 51, 0.55);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.phone-social-onboarding-card > strong {
+  color: #ffffff;
+  font-size: 20px;
+}
+
+.phone-social-onboarding-card > span {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 13px;
+}
+
+.phone-social-onboarding-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  text-align: left;
+}
+
+.phone-social-onboarding-card form button {
+  min-height: 34px;
+  border: 1px solid var(--social-accent);
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--social-accent-soft);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.phone-social-onboarding-card form button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.phone-social-post {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(23, 32, 51, 0.45);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.phone-social-post-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phone-social-post-author > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.phone-social-post-author strong {
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.phone-social-post-author span {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+}
+
+.phone-social-locked-chip {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--social-accent-soft);
+  border-radius: 999px;
+  color: var(--social-accent);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.phone-social-post-image {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  background: rgba(13, 18, 28, 0.8);
+}
+
+.phone-social-post-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.phone-social-post-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.18);
+}
+
+.phone-social-post-placeholder svg {
+  width: 34%;
+  height: 34%;
+}
+
+.phone-social-post-image.locked .phone-social-post-placeholder {
+  filter: blur(3px);
+}
+
+.phone-social-unlock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(13, 18, 28, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.phone-social-unlock-overlay button {
+  padding: 6px 14px;
+  border: 1px solid var(--social-accent);
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--social-accent-soft);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.phone-social-unlock-overlay button:hover,
+.phone-social-unlock-overlay button:focus-visible {
+  outline: none;
+  background: var(--social-accent);
+}
+
+.phone-social-post-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.phone-social-like-button,
+.phone-social-comment-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.phone-social-like-button:hover,
+.phone-social-like-button:focus-visible,
+.phone-social-comment-button:hover,
+.phone-social-comment-button:focus-visible {
+  outline: none;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.phone-social-like-button.liked {
+  color: var(--social-accent);
+}
+
+.phone-social-post-caption {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+}
+
+.phone-social-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.phone-social-comment {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.phone-social-comment strong {
+  flex: none;
+  color: var(--social-accent);
+}
+
+.phone-social-comment span {
+  color: rgba(255, 255, 255, 0.8);
+  overflow-wrap: anywhere;
+}
+
+.phone-social-comment-form {
+  display: flex;
+  gap: 6px;
+}
+
+.phone-social-comment-form input {
+  min-width: 0;
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  background: rgba(13, 18, 28, 0.8);
+  font-size: 12px;
+}
+
+.phone-social-comment-form input:focus-visible {
+  outline: none;
+  border-color: var(--social-accent);
+}
+
+.phone-social-comment-form button,
+.phone-social-composer button {
+  padding: 6px 12px;
+  border: 1px solid var(--social-accent);
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--social-accent-soft);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.phone-social-comment-form button:disabled,
+.phone-social-composer button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.phone-social-composer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--social-accent-soft);
+  border-radius: 14px;
+  background: rgba(23, 32, 51, 0.55);
+}
+
+.phone-social-composer-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+}
+
+.phone-social-composer-image svg {
+  width: 22px;
+  height: 22px;
+}
+
+.phone-social-composer textarea {
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  background: rgba(13, 18, 28, 0.8);
+  font-size: 13px;
+  resize: none;
+}
+
+.phone-social-composer textarea:focus-visible {
+  outline: none;
+  border-color: var(--social-accent);
+}
+
+.phone-social-empty {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
 }

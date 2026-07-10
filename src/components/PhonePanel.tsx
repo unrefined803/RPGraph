@@ -35,6 +35,8 @@ import { phoneReplyVisibleText } from '../chat/phoneReplies';
 import { PhoneImagePicker } from './PhoneImagePicker';
 import { PhoneGalleryScreen } from './PhoneGalleryScreen';
 import { PhoneBankingScreen } from './PhoneBankingScreen';
+import { PhoneSocialFeedScreen } from './phone-social/PhoneSocialFeedScreen';
+import { socialApps } from './phone-social/socialApps';
 import { PhoneVoiceMessage } from './PhoneVoiceMessage';
 import { CharacterAvatar } from './CharacterAvatar';
 import { ImageContextControl } from './ImageContextControl';
@@ -74,11 +76,14 @@ type UnreadPhoneConversation = {
   unread: boolean;
 };
 
-type PhoneScreen = 'desktop' | 'whatsup' | 'gallery' | 'chat-gallery' | 'camera' | 'banking';
+type PhoneScreen =
+  | 'desktop' | 'whatsup' | 'gallery' | 'chat-gallery' | 'camera' | 'banking'
+  | 'fotogram' | 'onlyfriends';
 
-type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking';
+type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends';
 
-const phoneDesktopAppIds: readonly PhoneDesktopAppId[] = ['whatsup', 'gallery', 'camera', 'banking'];
+const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
+  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends'];
 
 const defaultPhoneWallpapers: ChatImageAttachment[] = [
   {
@@ -617,6 +622,18 @@ export function PhonePanel({
     );
   }
 
+  if (screen === 'fotogram' || screen === 'onlyfriends') {
+    return (
+      <PhoneSocialFeedScreen
+        key={`${screen}-${selectedCharacter?.id ?? 'no-account'}`}
+        app={socialApps[screen]}
+        owner={selectedCharacter}
+        characterColors={characterColors}
+        onBack={() => setScreen('desktop')}
+      />
+    );
+  }
+
   if (screen === 'camera') {
     return (
       <div className="phone-desktop" style={desktopStyle} aria-label="Phone desktop">
@@ -800,6 +817,58 @@ export function PhonePanel({
               </span>
             )}
             <span>Banking</span>
+          </button>
+          <button
+            className="phone-desktop-app"
+            type="button"
+            style={{
+              gridColumn: desktopLayout.apps.fotogram.column,
+              gridRow: desktopLayout.apps.fotogram.row,
+            }}
+            onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'app', appId: 'fotogram' })}
+            onClick={() => {
+              if (suppressAppClickRef.current) {
+                suppressAppClickRef.current = false;
+                return;
+              }
+              setScreen('fotogram');
+            }}
+            aria-label="Open Fotogram"
+          >
+            <span className="phone-fotogram-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="5" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="17.2" cy="6.8" r="1" />
+              </svg>
+            </span>
+            <span>Fotogram</span>
+          </button>
+          <button
+            className="phone-desktop-app"
+            type="button"
+            style={{
+              gridColumn: desktopLayout.apps.onlyfriends.column,
+              gridRow: desktopLayout.apps.onlyfriends.row,
+            }}
+            onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'app', appId: 'onlyfriends' })}
+            onClick={() => {
+              if (suppressAppClickRef.current) {
+                suppressAppClickRef.current = false;
+                return;
+              }
+              setScreen('onlyfriends');
+            }}
+            aria-label="Open OnlyFriends"
+          >
+            <span className="phone-onlyfriends-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />
+                <path d="M9.5 12.5h5" />
+                <path d="M12 10v5" />
+              </svg>
+            </span>
+            <span>OnlyFriends</span>
           </button>
         </div>
         <div className="phone-desktop-settings" ref={desktopSettingsRef}>
