@@ -234,7 +234,7 @@ export function PhoneSocialFeedScreen({
   );
 
   const feedPosts = selectedAccount
-    ? dummySocialPosts(app, `${selectedAccount.key}`, 6, {
+    ? dummySocialPosts(app, `${selectedAccount.key}`, {
         name: selectedAccount.name,
         handle: selectedAccount.handle,
       })
@@ -685,6 +685,7 @@ export function PhoneSocialFeedScreen({
             const lockedNow = post.locked && !unlockedPostIds.has(post.id);
             const price = post.unlockPrice ?? 4.99;
             const comments = [
+              ...(post.comments ?? []),
               ...(reactionCommentsByPostId[post.id] ?? []),
               ...(commentsByPostId[post.id] ?? []),
             ];

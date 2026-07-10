@@ -146,7 +146,10 @@ files can grow quickly.
 - Add both app icons to the phone desktop (`PhonePanel.tsx` app grid, alongside
   `whatsup`, `gallery`, `camera`, `banking`). ✅
 - Build the shared feed screen with static dummy content: scrollable feed,
-  placeholder-image posts, like/comment UI, "create post" UI. ✅
+  placeholder-image posts, like/comment UI, "create post" UI. Each app has a
+  separate pool of ten hand-written posts; a Banking-style stable character
+  seed picks the same three to five posts on every opening. Every chosen post
+  has four or five matching deterministic NPC comments. ✅
 - WhatsUp-style two-column layout: left side panel with the followed accounts
   (phone contacts + manually added people, "Add Person", "New Post"), feed on
   the right; clicking an account shows that account's posts. ✅
