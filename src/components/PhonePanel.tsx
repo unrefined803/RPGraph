@@ -361,6 +361,10 @@ export function PhonePanel({
   const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = useState(
     socialPostOpenRequest?.requestId ?? 0,
   );
+  // Leaving the social screen consumes the request; otherwise reopening the
+  // app from the desktop would jump back to the previously requested post.
+  const [dismissedSocialPostOpenRequestId, setDismissedSocialPostOpenRequestId] =
+    useState<number>();
   if (
     socialPostOpenRequest &&
     seenSocialPostOpenRequestId !== socialPostOpenRequest.requestId
@@ -677,7 +681,8 @@ export function PhonePanel({
         bankTransferMessages={bankTransferMessages}
         socialMediaMessages={socialMediaMessages}
         openPostRequest={
-          socialPostOpenRequest?.app === screen
+          socialPostOpenRequest?.app === screen &&
+          socialPostOpenRequest.requestId !== dismissedSocialPostOpenRequestId
             ? {
                 requestId: socialPostOpenRequest.requestId,
                 postId: socialPostOpenRequest.postId,
@@ -689,7 +694,10 @@ export function PhonePanel({
         onSubmitSocialPost={onSubmitSocialPost}
         onSubmitSocialThreadAction={onSubmitSocialThreadAction}
         onCreateSocialAccount={onCreateSocialAccount}
-        onBack={() => setScreen('desktop')}
+        onBack={() => {
+          setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
+          setScreen('desktop');
+        }}
         connections={connections}
         providerHealthById={providerHealthById}
         estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}

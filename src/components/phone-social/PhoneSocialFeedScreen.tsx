@@ -190,6 +190,7 @@ export function PhoneSocialFeedScreen({
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const postMenuRef = useRef<HTMLDivElement | null>(null);
   const postElementsRef = useRef(new Map<string, HTMLElement>());
+  const scrolledOpenPostRequestIdRef = useRef<number | undefined>(undefined);
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
   const ownerColor = owner ? characterColors.get(owner.name) : undefined;
   const bankBalance = owner ? bankingBalanceForCharacter(owner, bankTransferMessages) : 0;
@@ -330,6 +331,12 @@ export function PhoneSocialFeedScreen({
     if (openPostRequestId === undefined || !openPostId || selectedAccountKey !== undefined) {
       return;
     }
+    // Scroll once per request; deselecting an account later must not jump
+    // back to the previously requested post.
+    if (scrolledOpenPostRequestIdRef.current === openPostRequestId) {
+      return;
+    }
+    scrolledOpenPostRequestIdRef.current = openPostRequestId;
     const frame = window.requestAnimationFrame(() => {
       postElementsRef.current.get(openPostId)?.scrollIntoView({
         behavior: 'smooth',

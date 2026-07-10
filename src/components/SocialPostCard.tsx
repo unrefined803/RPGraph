@@ -7,6 +7,7 @@ import type {
 import { socialAppNames } from '../chat/socialMedia';
 import { formatRpDateTimeParts } from '../workflow';
 import { CharacterAvatar } from './CharacterAvatar';
+import { formatSocialCount } from './phone-social/dummyPosts';
 
 type SocialPostCardProps = {
   post: SocialPostRecord;
@@ -21,14 +22,6 @@ type SocialPostCardProps = {
   onOpen: () => void;
   onImageLoaded: () => void;
 };
-
-function formatCount(count: number) {
-  if (count >= 1000) {
-    const compact = (count / 1000).toFixed(count >= 10_000 ? 0 : 1);
-    return `${compact.replace(/\.0$/, '')}k`;
-  }
-  return String(count);
-}
 
 export function SocialPostCard({
   post,
@@ -121,13 +114,13 @@ export function SocialPostCard({
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
           </svg>
-          {formatCount(likeCount)}
+          {formatSocialCount(likeCount)}
         </span>
         <span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M21 12a8 8 0 0 1-8 8H4l1.3-3.2A8 8 0 1 1 21 12Z" />
           </svg>
-          {formatCount(commentCount)}
+          {formatSocialCount(commentCount)}
         </span>
         <span className="chat-social-post-open-label">
           Open comments

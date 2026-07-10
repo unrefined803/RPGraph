@@ -244,6 +244,26 @@ requested thread action:
   remains directly before the generated replies belonging to that action. ✅
 - The same controls work on generated posts and deterministic dummy posts. ✅
 
+### Chat post cards and feed UI (implemented)
+
+- Published posts appear in the Chat timeline as interactive **social post
+  cards** (app icon, author with avatar/color, image or text, aggregated like
+  and comment counts). Clicking a card opens the right app on the phone and
+  scrolls to the post; OnlyFriends cards first switch to the post author's
+  character so the private feed shows the post. ✅
+- The raw reaction/thread history lines are hidden from the Chat view (they
+  stay in the LLM history); their engagement is folded into the post card's
+  like/comment counters instead, and they no longer count as unread chat
+  messages. ✅
+- Feed UI v2: post header with author info, locked chip, and the RP timestamp
+  of the post's message; caption below the image prefixed with the author
+  name; like/comment pill on the image; separate "Open comments" footer
+  toggle; text-only posts share the same layout without the image block. ✅
+- Selecting an account in the sidebar shows only that account's published
+  posts (profile banner + "Latest Posts"); "Your Feed" shows everything plus
+  the deterministic dummy posts. Post author avatars resolve to the matching
+  Storybook character via handle or name. ✅
+
 When commenters appear, they should also become visible in the app's account
 sidebar as "recently seen" people. The main playable characters are pinned as
 favorites, and later any NPC account can also be favorited so it stays near the
@@ -280,6 +300,10 @@ Later, those recently seen or favorited accounts can become DM targets.
 9. Username fields in the storybook creator dialog (currently only the
    storybook assistant / app onboarding set them).
 10. DMs inside the apps (writing to other accounts).
+11. Opening a chat post card while the viewed phone character has no account
+    in that app lands on the onboarding screen instead of the post (Fotogram
+    only; OnlyFriends cards switch to the post author first). Decide whether
+    the card should pick an account-holding character automatically.
 
 ### Phase 3 — Workflow integration
 
