@@ -12,6 +12,16 @@ export type SocialAppConfig = {
   allowCreatorRole: boolean;
 };
 
+/** Derive a handle-looking nickname from a character name, e.g. "Nova Reyes" → "nova.reyes". */
+export function socialHandleForName(name: string) {
+  const handle = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '');
+  return handle || 'user';
+}
+
 export const socialApps: Record<SocialAppId, SocialAppConfig> = {
   fotogram: {
     id: 'fotogram',

@@ -56,16 +56,21 @@ function seedNumber(seed: string) {
  * has not finished loading: placeholder images, generic captions, plausible
  * like counts. Later phases replace parts of this with LLM-generated content.
  */
-export function dummySocialPosts(app: SocialAppConfig, seed: string, count = 8): SocialPost[] {
+export function dummySocialPosts(
+  app: SocialAppConfig,
+  seed: string,
+  count = 8,
+  author?: { name: string; handle: string },
+): SocialPost[] {
   const base = seedNumber(`${app.id}:${seed}`);
   return Array.from({ length: count }, (_, index) => {
     const value = seedNumber(`${base}:${index}`);
-    const author = dummyAuthors[value % dummyAuthors.length];
+    const postAuthor = author ?? dummyAuthors[value % dummyAuthors.length];
     const locked = app.postsRequireUnlock && index % 3 !== 2;
     return {
-      id: `dummy-${app.id}-${index}`,
-      authorName: author.name,
-      authorHandle: author.handle,
+      id: `dummy-${app.id}-${seed}-${index}`,
+      authorName: postAuthor.name,
+      authorHandle: postAuthor.handle,
       caption: dummyCaptions[value % dummyCaptions.length],
       likeCount: (value % 900) + 12,
       commentCount: value % 48,

@@ -628,8 +628,21 @@ export function PhonePanel({
         key={`${screen}-${selectedCharacter?.id ?? 'no-account'}`}
         app={socialApps[screen]}
         owner={selectedCharacter}
+        storyCharacters={storyCharacters}
         characterColors={characterColors}
+        phoneGalleryImages={phoneGalleryImages}
         onBack={() => setScreen('desktop')}
+        connections={connections}
+        providerHealthById={providerHealthById}
+        estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
+        imageAssistantChatHistoryContext={imageAssistantChatHistoryContext}
+        imageAssistantModelStateById={imageAssistantModelStateById}
+        onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
+        onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
+        onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
+        onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
+        onGenerateImageAssistantImages={onGenerateImageAssistantImages}
+        onSaveImageAssistantImage={onSaveImageAssistantImage}
       />
     );
   }

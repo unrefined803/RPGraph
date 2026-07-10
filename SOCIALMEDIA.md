@@ -44,17 +44,41 @@ and `2` are reserved for Fotogram and OnlyFriends.
   and their own activity state (posts, likes, comments, DMs). Accounts never mix;
   switching the viewed character switches the account, like the Phone tab does.
 
+## Shared platform (vision)
+
+- Both apps sit on one shared platform simulation. Posts live in a common
+  post store ("shared database"): if character A posts something and the
+  player switches to character B and opens the app on B's phone, B sees A's
+  post too.
+- All characters that share phones also share the social platform: the phone
+  contacts double as the followed accounts in the left side panel. Additional
+  people can be added manually ("Add Person").
+- Accounts are discoverable across both apps — a character can also be found
+  on OnlyFriends, enabling roleplay intrigue (finding, unlocking, liking
+  someone's account).
+- What flows outward is always attributed to the acting person: when an app
+  is closed, the summary describes who did what (who posted, who liked whose
+  post, who unlocked what). That requires tracking interactions per account —
+  built in a later phase, after the UI basics.
+
 ## Phases
 
 ### Phase 1 — UI only (current)
 
 - Add both app icons to the phone desktop (`PhonePanel.tsx` app grid, alongside
-  `whatsup`, `gallery`, `camera`, `banking`).
+  `whatsup`, `gallery`, `camera`, `banking`). ✅
 - Build the shared feed screen with static dummy content: scrollable feed,
-  placeholder-image posts, like/comment UI, "create post" UI.
-- OnlyFriends variant: locked posts with an unlock/pay interaction (visual only).
+  placeholder-image posts, like/comment UI, "create post" UI. ✅
+- WhatsUp-style two-column layout: left side panel with the followed accounts
+  (phone contacts + manually added people, "Add Person", "New Post"), feed on
+  the right; clicking an account shows that account's posts. ✅
+- Posting with images: reuse the WhatsUp image menu (Camera assistant /
+  Choose from Phone Gallery / Upload from Computer). ✅
+- OnlyFriends variant: locked posts with an unlock/pay interaction (visual only). ✅
 - No LLM, no persistence beyond basic session state; goal is that clicking
   through both apps feels right and both provably share the same components.
+  Post/account state is still local to the opened screen; the shared post
+  store comes with Phase 2.
 
 ### Phase 2 — LLM content generation
 
