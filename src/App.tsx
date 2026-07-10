@@ -231,6 +231,7 @@ import {
   parseRpStorybookJson,
   rpStorybookJsonText,
   withRpStorybookCharacterPhoneWallpaper,
+  withRpStorybookCharacterSocialUsername,
   withRpStorybookPhoneContactPairAllowed,
   type RpStorybookCharacterImage,
   type RpStorybookV1,
@@ -4045,6 +4046,34 @@ function App() {
     });
   }
 
+  function saveStorybookSocialUsername(
+    character: StorybookCharacter,
+    app: 'fotogram' | 'onlyfriends',
+    username: string,
+  ) {
+    const storybookNode = nodesRef.current.find(
+      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook-v1',
+    );
+    if (!storybookNode?.data.storybookJson) {
+      return;
+    }
+    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
+    const nextStorybook = withRpStorybookCharacterSocialUsername(
+      storybook,
+      character.sourceId,
+      app,
+      username,
+    );
+    const nextJson = rpStorybookJsonText(nextStorybook);
+    if (nextJson === storybookNode.data.storybookJson) {
+      return;
+    }
+    updateRuntimeNode(storybookNode.id, {
+      storybookJson: nextJson,
+      storybookStatus: `${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account saved for ${character.name}.`,
+    });
+  }
+
   function storybookCharacterByPhoneName(name: string) {
     return storyCharacters.find((character) => phoneNamesMatch(character.name, name));
   }
@@ -5011,7 +5040,8 @@ function App() {
       undefined,
       false,
       3,
-      0,
+      // Each social app has its own prompt slot: 0 = Fotogram, 1 = OnlyFriends.
+      request.post.app === 'fotogram' ? 0 : 1,
       undefined,
       undefined,
       request.post,
@@ -6324,6 +6354,7 @@ function App() {
                 (message) => !!message.socialPost || !!message.socialReactions,
               )}
               onSubmitSocialPost={submitSocialPost}
+              onCreateSocialAccount={saveStorybookSocialUsername}
               bankingContactNames={viewedPhoneCharacter
                 ? bankingContactsByCharacter[viewedPhoneCharacter.id] ?? []
                 : []}

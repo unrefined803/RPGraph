@@ -81,15 +81,16 @@ Do not wrap the JSON in markdown.`;
 
 export const socialMediaOutputPrompt = `Social Media is the channel for reactions inside the phone social apps (Fotogram, OnlyFriends).
 
-It is used by Message Format 3 runs. The input describes what the player character just did in the app (for example a [SOCIAL MEDIA POST] block with app, post id, author, and caption). The response must be one JSON object describing how the platform reacts.
-
-For a new post, return likes and two to three short comments from people the character knows (Storybook characters and phone contacts), fitting each commenter's personality:
-{"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Character Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
+It is used by Message Format 3 runs; each app has its own prompt slot (Turn Mode 0 = Fotogram, 1 = OnlyFriends). The input describes what the player character just did in the app (for example a [SOCIAL MEDIA POST] block with app, post id, author, and caption). The response must be one JSON object describing how the platform reacts:
+{"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
 
 Rules:
-- likes is a plausible small number for a personal account (roughly 3 to 40).
-- Each comment needs from (a real name) and text. An optional handle field overrides the generated @handle.
-- Comments must react to the caption and stay in character; keep them short like real social media comments.
+- likes is a plausible number for the app and audience.
+- Fotogram: zero to two comments from other story characters (dynamic, never the author) plus two to three invented NPC friends.
+- OnlyFriends: two to five comments from invented fans only; story characters never appear there.
+- Each comment needs from (a name) and text. An optional handle field overrides the generated @handle.
+- Comments react to the caption, short like real social media comments; story character comments stay in character.
+- Only story character comments are written to the chat history; NPC comments stay in the app.
 - Always use valid JSON with double quotes. Do not wrap the JSON in markdown. Do not add prose.`;
 
 export const outputFormatHelp = {

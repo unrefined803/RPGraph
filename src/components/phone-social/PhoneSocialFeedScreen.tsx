@@ -53,6 +53,11 @@ type PhoneSocialFeedScreenProps = {
     author: StorybookCharacter;
     post: SocialPostRecord;
   }) => void;
+  onCreateSocialAccount: (
+    character: StorybookCharacter,
+    app: 'fotogram' | 'onlyfriends',
+    username: string,
+  ) => void;
   onBack: () => void;
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
@@ -110,6 +115,7 @@ export function PhoneSocialFeedScreen({
   isRunning,
   onSendBankTransfer,
   onSubmitSocialPost,
+  onCreateSocialAccount,
   onBack,
   connections = [],
   providerHealthById = {},
@@ -124,13 +130,11 @@ export function PhoneSocialFeedScreen({
   onSaveImageAssistantImage,
 }: PhoneSocialFeedScreenProps) {
   const [nickname, setNickname] = useState('');
-  // A Fotogram username stored in the Storybook means the character already
-  // has an account; the onboarding step is skipped then.
-  const [account, setAccount] = useState<string | undefined>(() =>
-    app.id === 'fotogram' && owner?.social.fotogramUsername
-      ? owner.social.fotogramUsername
-      : undefined,
-  );
+  // A username stored in the Storybook means the character already has an
+  // account in this app; the onboarding step is skipped then.
+  const storedUsername =
+    app.id === 'fotogram' ? owner?.social.fotogramUsername : owner?.social.onlyfriendsUsername;
+  const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
   const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
   const [selectedAccountKey, setSelectedAccountKey] = useState<string>();
   const [ownPosts, setOwnPosts] = useState<SocialPost[]>([]);
@@ -180,9 +184,10 @@ export function PhoneSocialFeedScreen({
     return () => document.removeEventListener('pointerdown', closeMenu);
   }, [postStage]);
 
-  // Every character with a phone shares the social platform: the phone
-  // contacts double as the followed accounts, plus manually added people.
-  const characterAccounts: SocialAccount[] = storyCharacters
+  // On public apps every character with a phone shares the platform: the
+  // phone contacts double as the followed accounts, plus manually added
+  // people. Private apps (OnlyFriends) start with an empty sidebar.
+  const characterAccounts: SocialAccount[] = (app.showCharacterAccounts ? storyCharacters : [])
     .filter((character) => character.id !== owner?.id)
     .map((character) => ({
       key: `character-${character.id}`,
@@ -338,9 +343,12 @@ export function PhoneSocialFeedScreen({
   function createAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = nickname.trim().replace(/\s+/g, ' ');
-    if (!name) {
+    if (!name || !owner) {
       return;
     }
+    // The account name is persisted in the Storybook so it survives closing
+    // the app and is part of the story data.
+    onCreateSocialAccount(owner, app.id, name);
     setAccount(name);
     setNickname('');
   }

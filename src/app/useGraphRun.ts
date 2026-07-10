@@ -1827,7 +1827,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
           parsedReactions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
           if (parsedReactions.reactions) {
-            const reactionsText = socialReactionsHistoryText(parsedReactions.reactions, socialPost);
+            // Only comments from real Storybook characters matter to the
+            // story; generated NPC comments stay in the app but are left out
+            // of the chat-history line.
+            const characterComments = parsedReactions.reactions.comments.filter((comment) =>
+              storyCharacters.some((character) => bankTransferPartyMatches(character, comment.from)),
+            );
+            const reactionsText = socialReactionsHistoryText(
+              { ...parsedReactions.reactions, comments: characterComments },
+              socialPost,
+            );
             const translatedReactionsText = await translateOutputActionText(reactionsText, {
               text: reactionsText,
             });

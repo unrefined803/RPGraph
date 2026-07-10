@@ -97,20 +97,30 @@ Format 3 = Social Media** routes these turns; each action type gets its own
 prompt slot on the "Social Media" output channel of the LLM Prompt Switch,
 which is wired to the new **Social Media** input of RP Output.
 
-- Turn Mode 0 — **Post**: publishing a post runs the workflow; the post is
-  recorded in the chat history (`[Fotogram] Name (@handle) posted: "…"`) and
-  the LLM returns JSON reactions (likes + 2–3 short comments from people the
-  character knows), which appear on the post and also land in the history. ✅
+- Posting runs the workflow; the post is recorded in the chat history
+  (`[Fotogram] Name (@handle) posted: "…"`) and the LLM returns JSON reactions
+  (likes + comments), which appear on the post. ✅
+- Per-app prompt slots on the Social Media channel: **Turn Mode 0 = Fotogram
+  Post**, **Turn Mode 1 = OnlyFriends Post**. Fotogram reactions: 0–2 comments
+  from real story characters (dynamic, never the author) plus 2–3 invented NPC
+  friends. OnlyFriends reactions: 2–5 comments from invented fans only (the
+  platform is private; story characters never appear). ✅
+- Only story-character comments are written to the chat history; invented NPC
+  comments stay in the app (they are unimportant background noise). ✅
 - Posts and reactions are persisted on chat messages (`socialPost` /
   `socialReactions` records), so they are part of the RP save and reload with
   the session. ✅
-- Fotogram accounts come from the Storybook: `characters[].social.fotogramUsername`
-  (storybook format 1.18.0). A stored username skips the app's onboarding and
-  is used as the sidebar handle; an empty string means no account. The bundled
-  default workflow (v7) gives all four characters usernames. ✅
+- Accounts live in the Storybook (`characters[].social.fotogramUsername` and
+  `.onlyfriendsUsername`, storybook format 1.18.0). A stored username skips
+  the app's onboarding; creating an account in either app writes the username
+  back into the Storybook. Fotogram accounts are expected for every character
+  (the assistant always sets one); OnlyFriends accounts stay empty unless
+  created. The bundled default workflow (v7) gives all four characters
+  Fotogram usernames. ✅
+- OnlyFriends sidebar starts empty (no story-character contacts) because the
+  platform is private; accounts can only be added manually. ✅
 - Planned next: more prompt slots (comment on an existing post, like activity,
-  "Load More" dummy-feed generation, DM replies), reactions from unknown
-  outside people, OnlyFriends-specific post prompts.
+  "Load More" dummy-feed generation, DM replies).
 
 ### Phase 3 — Workflow integration
 

@@ -13,6 +13,12 @@ export type SocialAppConfig = {
   postsRequireUnlock: boolean;
   /** The app distinguishes regular users from creators. */
   allowCreatorRole: boolean;
+  /**
+   * Whether the other story characters appear as followed accounts in the
+   * sidebar. Fotogram is public (everyone sees everyone); OnlyFriends is
+   * private, so the sidebar starts empty.
+   */
+  showCharacterAccounts: boolean;
 };
 
 export const socialApps: Record<SocialAppId, SocialAppConfig> = {
@@ -23,6 +29,7 @@ export const socialApps: Record<SocialAppId, SocialAppConfig> = {
     themeClass: 'phone-social-theme-fotogram',
     postsRequireUnlock: false,
     allowCreatorRole: false,
+    showCharacterAccounts: true,
   },
   onlyfriends: {
     id: 'onlyfriends',
@@ -31,5 +38,6 @@ export const socialApps: Record<SocialAppId, SocialAppConfig> = {
     themeClass: 'phone-social-theme-onlyfriends',
     postsRequireUnlock: true,
     allowCreatorRole: true,
+    showCharacterAccounts: false,
   },
 };

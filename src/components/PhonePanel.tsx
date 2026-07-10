@@ -225,6 +225,11 @@ type PhonePanelProps = {
     author: StorybookCharacter;
     post: SocialPostRecord;
   }) => void;
+  onCreateSocialAccount: (
+    character: StorybookCharacter,
+    app: 'fotogram' | 'onlyfriends',
+    username: string,
+  ) => void;
   phoneDesktopLayout: PhoneDesktopLayout;
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
@@ -313,6 +318,7 @@ export function PhonePanel({
   onSendBankTransfer,
   socialMediaMessages,
   onSubmitSocialPost,
+  onCreateSocialAccount,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
@@ -644,6 +650,7 @@ export function PhonePanel({
         isRunning={isRunning}
         onSendBankTransfer={onSendBankTransfer}
         onSubmitSocialPost={onSubmitSocialPost}
+        onCreateSocialAccount={onCreateSocialAccount}
         onBack={() => setScreen('desktop')}
         connections={connections}
         providerHealthById={providerHealthById}
