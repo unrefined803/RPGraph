@@ -81,7 +81,7 @@ Do not wrap the JSON in markdown.`;
 
 export const socialMediaOutputPrompt = `Social Media is the channel for reactions inside the phone social apps (Fotogram, OnlyFriends).
 
-It is used by Message Format 3 runs; each app has its own prompt slot (Turn Mode 0 = Fotogram, 1 = OnlyFriends). The input describes what the player character just did in the app (for example a [SOCIAL MEDIA POST] block with app, post id, author, and caption). The response must be one JSON object describing how the platform reacts:
+It is used by Message Format 3 runs; each app has its own prompt slot (Turn Mode 0 = Fotogram, 1 = OnlyFriends). The input describes what the player character just did in the app (for example a [SOCIAL MEDIA POST] block with app, post id, author, the post text, and for photo posts an image description; the image itself may also be attached for vision models). The response must be one JSON object describing how the platform reacts:
 {"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
 
 Rules:

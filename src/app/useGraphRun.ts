@@ -75,6 +75,7 @@ import {
 import {
   parseSocialReactionsOutput,
   socialPostHistoryText,
+  socialPostTextFromInput,
   socialReactionsHistoryText,
 } from '../chat/socialMedia';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
@@ -1805,7 +1806,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         // reactions as history messages, mirroring how bank transfers land in
         // the timeline. The post is only persisted when the run succeeds.
         if (socialPost) {
-          const postHistoryText = socialPostHistoryText(socialPost);
+          // The whole input block was translated to English for the run, so
+          // the chat history records the English post text; the app itself
+          // keeps showing the caption as typed.
+          const englishCaption = socialPostTextFromInput(originalInput) ?? socialPost.caption;
+          const postHistoryText = socialPostHistoryText({ ...socialPost, caption: englishCaption });
           const translatedPostText = await translateOutputActionText(postHistoryText, {
             text: postHistoryText,
           });

@@ -71,7 +71,8 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       typeof value.socialPost.authorHandle === 'string' &&
       typeof value.socialPost.caption === 'string' &&
       (value.socialPost.textOnly === undefined || typeof value.socialPost.textOnly === 'boolean') &&
-      (value.socialPost.imageDataUrl === undefined || typeof value.socialPost.imageDataUrl === 'string')
+      (value.socialPost.imageDataUrl === undefined || typeof value.socialPost.imageDataUrl === 'string') &&
+      (value.socialPost.imageDescription === undefined || typeof value.socialPost.imageDescription === 'string')
     );
     const validSocialReactions = value.socialReactions === undefined || (
       isRecord(value.socialReactions) &&

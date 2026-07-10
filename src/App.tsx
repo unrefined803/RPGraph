@@ -5020,13 +5020,17 @@ function App() {
     );
   }
 
-  function submitSocialPost(request: { author: StorybookCharacter; post: SocialPostRecord }) {
+  function submitSocialPost(request: {
+    author: StorybookCharacter;
+    post: SocialPostRecord;
+    image?: ChatImageAttachment;
+  }) {
     if (isRunning) {
       return;
     }
     void runGraph(
       socialPostInputText(request.post),
-      [],
+      request.image ? [request.image] : [],
       undefined,
       messagesRef.current,
       undefined,

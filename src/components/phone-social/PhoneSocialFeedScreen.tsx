@@ -52,6 +52,7 @@ type PhoneSocialFeedScreenProps = {
   onSubmitSocialPost: (request: {
     author: StorybookCharacter;
     post: SocialPostRecord;
+    image?: ChatImageAttachment;
   }) => void;
   onCreateSocialAccount: (
     character: StorybookCharacter,
@@ -317,10 +318,12 @@ export function PhoneSocialFeedScreen({
       caption,
       textOnly: !postDraftImage || undefined,
       imageDataUrl: postDraftImage?.dataUrl,
+      imageDescription: postDraftImage?.description,
     };
-    // Publishing runs the workflow (Message Format 3, Turn Mode 0): the post
-    // is recorded in the chat history and the AI generates the reactions.
-    onSubmitSocialPost({ author: owner, post: record });
+    // Publishing runs the workflow (Message Format 3, prompt slot per app):
+    // the post is recorded in the chat history and the AI generates the
+    // reactions. The image travels along so vision models can see it.
+    onSubmitSocialPost({ author: owner, post: record, image: postDraftImage });
     const post: SocialPost = {
       id: record.postId,
       authorName: record.author,

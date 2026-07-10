@@ -100,6 +100,13 @@ which is wired to the new **Social Media** input of RP Output.
 - Posting runs the workflow; the post is recorded in the chat history
   (`[Fotogram] Name (@handle) posted: "…"`) and the LLM returns JSON reactions
   (likes + comments), which appear on the post. ✅
+- Photo posts pass the image to the run (vision models can see it) and include
+  the stored gallery image description in the input block, so reactions can
+  refer to what the photo actually shows. The input labels separate the
+  user-written "Post text" from the "Image description". ✅
+- The history line uses the English (translated) post text so the internal
+  English pipeline stays consistent; the app keeps showing the caption as
+  typed. ✅
 - Per-app prompt slots on the Social Media channel: **Turn Mode 0 = Fotogram
   Post**, **Turn Mode 1 = OnlyFriends Post**. Fotogram reactions: 0–2 comments
   from real story characters (dynamic, never the author) plus 2–3 invented NPC

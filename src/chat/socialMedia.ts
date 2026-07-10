@@ -21,6 +21,10 @@ export function socialHandleForName(name: string) {
   return handle || 'user';
 }
 
+function singleLine(text: string) {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
 /** LLM-facing input text for a "user posted something" turn (Message Format 3). */
 export function socialPostInputText(post: SocialPostRecord) {
   return [
@@ -28,9 +32,26 @@ export function socialPostInputText(post: SocialPostRecord) {
     `App: ${socialAppNames[post.app]}`,
     `Post ID: ${post.postId}`,
     `Author: ${post.author} (@${post.authorHandle})`,
-    `Caption: ${post.caption}`,
-    post.textOnly ? 'Content: text-only post, no image' : 'Content: photo post (the caption describes the image)',
+    `Post text: ${singleLine(post.caption)}`,
+    ...(post.textOnly
+      ? ['Content: text-only post, no image']
+      : [
+          'Content: photo post',
+          ...(post.imageDescription
+            ? [`Image description (what the photo shows): ${singleLine(post.imageDescription)}`]
+            : []),
+        ]),
   ].join('\n');
+}
+
+/**
+ * Read the post text back out of the (possibly translated) graph input block.
+ * The run translates the whole [SOCIAL MEDIA POST] block into English, so
+ * this returns the English post text for the chat history.
+ */
+export function socialPostTextFromInput(inputText: string) {
+  const match = inputText.match(/^Post text: (.*)$/m);
+  return match?.[1]?.trim() || undefined;
 }
 
 /** Chat-history text that records the post itself. */

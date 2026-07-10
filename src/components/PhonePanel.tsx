@@ -224,6 +224,7 @@ type PhonePanelProps = {
   onSubmitSocialPost: (request: {
     author: StorybookCharacter;
     post: SocialPostRecord;
+    image?: ChatImageAttachment;
   }) => void;
   onCreateSocialAccount: (
     character: StorybookCharacter,

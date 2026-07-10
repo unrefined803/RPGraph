@@ -630,6 +630,8 @@ export type SocialPostRecord = {
   caption: string;
   textOnly?: boolean;
   imageDataUrl?: string;
+  /** Stored description of the attached image (from the phone gallery), for the LLM. */
+  imageDescription?: string;
 };
 
 export type SocialReactionComment = {
