@@ -12,6 +12,11 @@ export const socialAppNames: Record<SocialAppKind, string> = {
   onlyfriends: 'OnlyFriends',
 };
 
+export type SocialThreadRunContext = {
+  existingComments: SocialReactionComment[];
+  likeCount: number;
+};
+
 /** Derive a handle-looking nickname from a character name, e.g. "Nova Reyes" → "nova.reyes". */
 export function socialHandleForName(name: string) {
   const handle = name
@@ -76,25 +81,28 @@ export function socialPostHistoryText(post: SocialPostRecord) {
 export function socialThreadActionInputText(
   action: SocialThreadActionRecord,
   existingComments: SocialReactionComment[],
+  likeCount = 0,
 ) {
   const actorOwnsPost =
     action.actor.trim().toLowerCase() === action.postAuthor.trim().toLowerCase() ||
     action.actorHandle.trim().toLowerCase() === action.postAuthorHandle.trim().toLowerCase();
-  const commentContext = existingComments
-    .slice(-20)
-    .map((comment) => `- ${comment.from} (@${comment.handle}): ${singleLine(comment.text)}`);
+  const commentContext = existingComments.map(
+    (comment) => `- ${comment.from} (@${comment.handle}): ${singleLine(comment.text)}`,
+  );
   return [
     '[SOCIAL MEDIA THREAD ACTION]',
     `App: ${socialAppNames[action.app]}`,
-    `Action: ${action.action === 'comment' ? 'Write a comment' : 'Load more comments'}`,
     `Action ID: ${action.actionId}`,
     `Actor: ${action.actor} (@${action.actorHandle})`,
     `Post ID: ${action.postId}`,
     `Post author: ${action.postAuthor} (@${action.postAuthorHandle})`,
     `Post ownership: ${actorOwnsPost ? "actor's own post" : "another person's post"}`,
     `Post text: ${singleLine(action.postCaption)}`,
+    `Likes: ${Math.max(0, Math.trunc(likeCount))}`,
+    `Comment count: ${existingComments.length}`,
     'Existing comments:',
     ...(commentContext.length ? commentContext : ['- None']),
+    `Action: ${action.action === 'comment' ? 'Write a comment' : 'Load more comments'}`,
     ...(action.action === 'comment'
       ? [`New comment from the actor: ${singleLine(action.commentText ?? '')}`]
       : ['Request: Generate additional comments for this existing thread.']),
@@ -252,19 +260,6 @@ export function socialReactionsByPostId(app: SocialAppKind, messages: MessageRec
         };
       }
     }
-  });
-  return byPostId;
-}
-
-/** Persisted user thread actions per post id, oldest first. */
-export function socialThreadActionsByPostId(app: SocialAppKind, messages: MessageRecord[]) {
-  const byPostId: Record<string, SocialThreadActionRecord[]> = {};
-  messages.forEach((message) => {
-    const action = message.socialThreadAction;
-    if (action?.app !== app) {
-      return;
-    }
-    byPostId[action.postId] = [...(byPostId[action.postId] ?? []), action];
   });
   return byPostId;
 }

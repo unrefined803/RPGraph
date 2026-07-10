@@ -21,7 +21,6 @@ import {
   socialHandleForName,
   socialPostMessages,
   socialReactionsByPostId,
-  socialThreadActionsByPostId,
 } from '../../chat/socialMedia';
 import type {
   SocialPostRecord,
@@ -43,6 +42,11 @@ type SocialAccount = {
   character?: StorybookCharacter;
 };
 
+function socialIdentityMatches(left: string, right: string) {
+  return left.trim().replace(/^@/, '').toLowerCase() ===
+    right.trim().replace(/^@/, '').toLowerCase();
+}
+
 type PhoneSocialFeedScreenProps = {
   app: SocialAppConfig;
   owner?: StorybookCharacter;
@@ -62,12 +66,13 @@ type PhoneSocialFeedScreenProps = {
     author: StorybookCharacter;
     post: SocialPostRecord;
     image?: ChatImageAttachment;
-  }) => void;
+  }) => Promise<boolean>;
   onSubmitSocialThreadAction: (request: {
     actor: StorybookCharacter;
     action: SocialThreadActionRecord;
     existingComments: SocialReactionComment[];
-  }) => void;
+    likeCount: number;
+  }) => Promise<boolean>;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
@@ -152,13 +157,11 @@ export function PhoneSocialFeedScreen({
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
   const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
   const [selectedAccountKey, setSelectedAccountKey] = useState<string>();
-  const [ownPosts, setOwnPosts] = useState<SocialPost[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<ReadonlySet<string>>(new Set());
   const [likeDeltaByPostId, setLikeDeltaByPostId] = useState<Record<string, number>>({});
   const [unlockedPostIds, setUnlockedPostIds] = useState<ReadonlySet<string>>(new Set());
   // Post currently showing the "pay with bank account" confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
-  const [commentsByPostId, setCommentsByPostId] = useState<Record<string, SocialComment[]>>({});
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string>();
   const [commentDraft, setCommentDraft] = useState('');
   // Posting flow: pick the image source first (menu), then describe (editor).
@@ -220,37 +223,49 @@ export function PhoneSocialFeedScreen({
   // Posts published through the workflow live on chat messages (and therefore
   // in the RP save); the AI reactions to them are matched by post id.
   const persistedReactions = socialReactionsByPostId(app.id, socialMediaMessages);
-  const persistedThreadActions = socialThreadActionsByPostId(app.id, socialMediaMessages);
-  const persistedThreadActionIds = new Set(
-    Object.values(persistedThreadActions).flat().map((action) => action.actionId),
-  );
   // Rebuild the visible thread in message order. A user comment and the LLM
   // replies share one message record, so the user comment is inserted first
   // and the generated replies follow it instead of pushing it to the bottom.
   const persistedCommentsByPostId: Record<string, SocialComment[]> = {};
   socialMediaMessages.forEach((message) => {
     const action = message.socialThreadAction;
+    const reactions = message.socialReactions?.app === app.id
+      ? message.socialReactions
+      : undefined;
+    const actorEchoIndex = action?.app === app.id && action.action === 'comment'
+      ? reactions?.comments.findIndex((comment) =>
+          socialIdentityMatches(comment.from, action.actor) ||
+          socialIdentityMatches(comment.handle, action.actorHandle)) ?? -1
+      : -1;
     if (action?.app === app.id && action.action === 'comment' && action.commentText) {
+      const translatedActorEcho = actorEchoIndex >= 0
+        ? reactions?.comments[actorEchoIndex]?.text
+        : undefined;
       persistedCommentsByPostId[action.postId] = [
         ...(persistedCommentsByPostId[action.postId] ?? []),
         {
           id: action.actionId,
           authorName: action.actor,
           authorHandle: action.actorHandle,
-          text: action.commentText,
+          // Older malformed runs sometimes echoed the translated actor comment
+          // as an LLM reaction. Prefer that translation and hide the duplicate.
+          text: translatedActorEcho ?? action.commentText,
         },
       ];
     }
-    const reactions = message.socialReactions;
-    if (reactions?.app === app.id) {
+    if (reactions) {
       persistedCommentsByPostId[reactions.postId] = [
         ...(persistedCommentsByPostId[reactions.postId] ?? []),
-        ...reactions.comments.map((comment, index) => ({
-          id: `reaction-${message.id}-${index}`,
-          authorName: comment.from,
-          authorHandle: comment.handle,
-          text: comment.text,
-        })),
+        ...reactions.comments.flatMap((comment, index) =>
+          index === actorEchoIndex
+            ? []
+            : [{
+                id: `reaction-${message.id}-${index}`,
+                authorName: comment.from,
+                authorHandle: comment.handle,
+                text: comment.text,
+              }],
+        ),
       ];
     }
   });
@@ -269,17 +284,12 @@ export function PhoneSocialFeedScreen({
       textOnly: record.textOnly,
       imageDataUrl: record.imageDataUrl,
     }));
-  const persistedPostIds = new Set(persistedPosts.map((post) => post.id));
-
   const feedPosts = selectedAccount
     ? dummySocialPosts(app, `${selectedAccount.key}`, {
         name: selectedAccount.name,
         handle: selectedAccount.handle,
       })
     : [
-        // Pending posts are optimistic copies while the reaction run is still
-        // going; once the persisted post arrives they are dropped.
-        ...ownPosts.filter((post) => !persistedPostIds.has(post.id)),
         ...persistedPosts,
         ...dummySocialPosts(app, owner?.id ?? 'no-account'),
       ];
@@ -291,10 +301,7 @@ export function PhoneSocialFeedScreen({
       (likeDeltaByPostId[post.id] ?? 0),
     commentCount:
       post.commentCount +
-      (persistedCommentsByPostId[post.id]?.length ?? 0) +
-      (commentsByPostId[post.id]?.filter(
-        (comment) => !persistedThreadActionIds.has(comment.id),
-      ).length ?? 0),
+      (persistedCommentsByPostId[post.id]?.length ?? 0),
   }));
 
   function toggleLike(post: SocialPost) {
@@ -332,21 +339,15 @@ export function PhoneSocialFeedScreen({
     setUnlockCandidateId(undefined);
   }
 
-  function submitComment(event: FormEvent<HTMLFormElement>, post: SocialPost) {
+  async function submitComment(event: FormEvent<HTMLFormElement>, post: SocialPost) {
     event.preventDefault();
     const text = commentDraft.trim();
     if (!text || !account || !owner || isRunning) {
       return;
     }
     const actionId = nextThreadActionId(post.id);
-    const comment: SocialComment = {
-      id: actionId,
-      authorName: owner.name,
-      authorHandle: account,
-      text,
-    };
     const existingComments = commentsForPost(post);
-    onSubmitSocialThreadAction({
+    const succeeded = await onSubmitSocialThreadAction({
       actor: owner,
       action: {
         actionId,
@@ -361,12 +362,11 @@ export function PhoneSocialFeedScreen({
         commentText: text,
       },
       existingComments,
+      likeCount: post.likeCount,
     });
-    setCommentsByPostId((current) => ({
-      ...current,
-      [post.id]: [...(current[post.id] ?? []), comment],
-    }));
-    setCommentDraft('');
+    if (succeeded) {
+      setCommentDraft('');
+    }
   }
 
   function nextThreadActionId(postId: string) {
@@ -378,9 +378,6 @@ export function PhoneSocialFeedScreen({
     return [
       ...(post.comments ?? []),
       ...(persistedCommentsByPostId[post.id] ?? []),
-      ...(commentsByPostId[post.id] ?? []).filter(
-        (comment) => !persistedThreadActionIds.has(comment.id),
-      ),
     ].map((comment) => ({
       from: comment.authorName ?? comment.authorHandle,
       handle: comment.authorHandle,
@@ -392,7 +389,7 @@ export function PhoneSocialFeedScreen({
     if (!account || !owner || isRunning) {
       return;
     }
-    onSubmitSocialThreadAction({
+    void onSubmitSocialThreadAction({
       actor: owner,
       action: {
         actionId: nextThreadActionId(post.id),
@@ -406,10 +403,11 @@ export function PhoneSocialFeedScreen({
         actorHandle: account,
       },
       existingComments: commentsForPost(post),
+      likeCount: post.likeCount,
     });
   }
 
-  function submitPost(event: FormEvent<HTMLFormElement>) {
+  async function submitPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const caption = postDraft.trim();
     if (!caption || !account || !owner || isRunning) {
@@ -428,20 +426,14 @@ export function PhoneSocialFeedScreen({
     // Publishing runs the workflow (Message Format 3, prompt slot per app):
     // the post is recorded in the chat history and the AI generates the
     // reactions. The image travels along so vision models can see it.
-    onSubmitSocialPost({ author: owner, post: record, image: postDraftImage });
-    const post: SocialPost = {
-      id: record.postId,
-      authorName: record.author,
-      authorHandle: record.authorHandle,
-      caption: record.caption,
-      likeCount: 0,
-      commentCount: 0,
-      locked: false,
-      dummy: false,
-      textOnly: record.textOnly,
-      imageDataUrl: record.imageDataUrl,
-    };
-    setOwnPosts((current) => [post, ...current]);
+    const succeeded = await onSubmitSocialPost({
+      author: owner,
+      post: record,
+      image: postDraftImage,
+    });
+    if (!succeeded) {
+      return;
+    }
     setPostDraft('');
     setPostDraftImage(undefined);
     setPostStage(undefined);
@@ -792,9 +784,6 @@ export function PhoneSocialFeedScreen({
             const comments = [
               ...(post.comments ?? []),
               ...(persistedCommentsByPostId[post.id] ?? []),
-              ...(commentsByPostId[post.id] ?? []).filter(
-                (comment) => !persistedThreadActionIds.has(comment.id),
-              ),
             ];
             const commentsOpen = openCommentsPostId === post.id;
             const ownPost = post.authorHandle === account;

@@ -75,11 +75,14 @@ import {
 } from '../chat/bankTransfers';
 import {
   parseSocialReactionsOutput,
+  socialPostInputText,
   socialPostHistoryText,
   socialPostTextFromInput,
   socialReactionsHistoryText,
+  socialThreadActionInputText,
   socialThreadCommentTextFromInput,
   socialThreadHistoryText,
+  type SocialThreadRunContext,
 } from '../chat/socialMedia';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import { withSpeakerPrefix } from '../chat/instructions';
@@ -406,10 +409,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
     structuredInput?: StructuredInputPayload,
     socialPost?: SocialPostRecord,
     socialThreadAction?: SocialThreadActionRecord,
+    socialThreadContext?: SocialThreadRunContext,
   ) {
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
-    const shouldRestoreCancelledInput = !isAutoTurn && !narratorAutoTurn;
+    const shouldRestoreCancelledInput =
+      !isAutoTurn && !narratorAutoTurn && messageFormatOverride !== 3;
     const runtimeNodes = nodesRef.current;
     const { inputNode, outputNode } = findChatEndpoints(runtimeNodes);
     if (!outputNode || !inputNode) {
@@ -490,6 +495,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         structuredInput,
         socialPost,
         socialThreadAction,
+        socialThreadContext,
       );
     };
     const finishRun = () => {
@@ -861,8 +867,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       displayText.trim()
     ) {
       try {
-        inputText = await translateText(
-          displayText,
+        const translateSocialText = (text: string) => translateText(
+          text,
           'to-english',
           inputNode.data.connectionId ?? defaultConnectionId,
           inputNode.id,
@@ -871,6 +877,26 @@ export function useGraphRun(options: UseGraphRunOptions) {
           runSignal,
           inputHistoryContext,
         );
+        if (socialPost) {
+          const translatedCaption = await translateSocialText(socialPost.caption);
+          inputText = socialPostInputText({
+            ...socialPost,
+            caption: translatedCaption || socialPost.caption,
+          });
+        } else if (socialThreadAction && socialThreadContext) {
+          const translatedComment = socialThreadAction.action === 'comment'
+            ? await translateSocialText(socialThreadAction.commentText ?? '')
+            : undefined;
+          inputText = socialThreadActionInputText(
+            translatedComment
+              ? { ...socialThreadAction, commentText: translatedComment }
+              : socialThreadAction,
+            socialThreadContext.existingComments,
+            socialThreadContext.likeCount,
+          );
+        } else {
+          inputText = await translateSocialText(displayText);
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const cancelled = isRunCancelledError(error);

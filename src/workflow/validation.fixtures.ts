@@ -219,8 +219,16 @@ export function verifyWorkflowValidationFixtures() {
     actorHandle: 'alex',
     commentText: 'How does everyone like this place?',
   };
+  const socialThreadInput = socialThreadActionInputText(
+    socialThreadAction,
+    [{ from: 'Background Friend', handle: 'background.friend', text: 'Looks great!' }],
+    12,
+  );
   assertFixture(
-    socialThreadActionInputText(socialThreadAction, []).includes("Post ownership: actor's own post") &&
+    socialThreadInput.includes("Post ownership: actor's own post") &&
+      socialThreadInput.includes('Likes: 12') &&
+      socialThreadInput.includes('Comment count: 1') &&
+      socialThreadInput.includes('Background Friend (@background.friend): Looks great!') &&
       socialPostTextFromInput('[SOCIAL MEDIA POST]\nPost text: Translated caption') ===
         'Translated caption' &&
       socialThreadCommentTextFromInput(

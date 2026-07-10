@@ -5022,15 +5022,15 @@ function App() {
     );
   }
 
-  function submitSocialPost(request: {
+  async function submitSocialPost(request: {
     author: StorybookCharacter;
     post: SocialPostRecord;
     image?: ChatImageAttachment;
   }) {
     if (isRunning) {
-      return;
+      return false;
     }
-    void runGraph(
+    return runGraph(
       socialPostInputText(request.post),
       request.image ? [request.image] : [],
       undefined,
@@ -5054,16 +5054,21 @@ function App() {
     );
   }
 
-  function submitSocialThreadAction(request: {
+  async function submitSocialThreadAction(request: {
     actor: StorybookCharacter;
     action: SocialThreadActionRecord;
     existingComments: SocialReactionComment[];
+    likeCount: number;
   }) {
     if (isRunning) {
-      return;
+      return false;
     }
-    void runGraph(
-      socialThreadActionInputText(request.action, request.existingComments),
+    return runGraph(
+      socialThreadActionInputText(
+        request.action,
+        request.existingComments,
+        request.likeCount,
+      ),
       [],
       undefined,
       messagesRef.current,
@@ -5084,6 +5089,10 @@ function App() {
       undefined,
       undefined,
       request.action,
+      {
+        existingComments: request.existingComments,
+        likeCount: request.likeCount,
+      },
     );
   }
 

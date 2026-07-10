@@ -216,8 +216,10 @@ one prompt slot per platform because the structured input identifies the
 requested thread action:
 
 - The input block describes the situation: which post (id, author, post text),
-  whether it belongs to the actor, the existing comments, and either the user's
-  new comment or a request to generate more comments.
+  whether it belongs to the actor, current likes, the complete visible comment
+  thread including NPC comments, and either the user's new comment or a request
+  to generate more comments. This full snapshot is turn-local input and is not
+  copied into chat history.
 - The prompt is **dynamic** — how the thread reacts depends on whose post it
   is and what the comment says:
   - Comment **under the user's own post**: the repliers mostly address the
@@ -237,8 +239,9 @@ requested thread action:
   replies use appendable `socialReactions` records, so comments and loaded
   batches survive closing the app and reloading the RP save. ✅
 - With English processing enabled, the translated user comment is stored and
-  shown in the app. The user's comment remains directly before the generated
-  replies belonging to that action. ✅
+  shown in the app. The UI waits for that translated workflow record instead of
+  inserting an optimistic copy in the display language. The user's comment
+  remains directly before the generated replies belonging to that action. ✅
 - The same controls work on generated posts and deterministic dummy posts. ✅
 
 When commenters appear, they should also become visible in the app's account

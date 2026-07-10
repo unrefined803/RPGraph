@@ -227,12 +227,13 @@ type PhonePanelProps = {
     author: StorybookCharacter;
     post: SocialPostRecord;
     image?: ChatImageAttachment;
-  }) => void;
+  }) => Promise<boolean>;
   onSubmitSocialThreadAction: (request: {
     actor: StorybookCharacter;
     action: SocialThreadActionRecord;
     existingComments: SocialReactionComment[];
-  }) => void;
+    likeCount: number;
+  }) => Promise<boolean>;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
