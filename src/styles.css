@@ -20345,11 +20345,64 @@ button.message-timeline-row.phone:focus-visible {
   --social-card-bg: radial-gradient(circle at 94% 4%, rgba(168, 85, 247, 0.18), transparent 42%), linear-gradient(145deg, rgba(29, 29, 53, 0.98), rgba(17, 24, 39, 0.98));
   --social-card-accent: linear-gradient(#c084fc, #60a5fa);
   display: flex;
+  position: relative;
   min-height: 0;
   flex: 1;
   flex-direction: column;
   overflow: hidden;
   background: #0d121c;
+}
+
+.phone-social-notice {
+  position: absolute;
+  z-index: 40;
+  top: 14px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(18, 28, 43, 0.94);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: 700;
+  transform: translateX(-50%);
+  animation: phone-social-notice-in 220ms ease-out both;
+}
+
+.phone-social-notice.success svg {
+  color: #6ee7a0;
+}
+
+.phone-social-notice.error {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(67, 26, 34, 0.96);
+}
+
+.phone-social-notice.error svg {
+  color: #fda4af;
+}
+
+.phone-social-notice svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+@keyframes phone-social-notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .phone-social-theme-onlyfriends {
@@ -20820,6 +20873,21 @@ button.message-timeline-row.phone:focus-visible {
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
+.phone-social-post.fresh {
+  animation: phone-social-post-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes phone-social-post-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .phone-social-post-header {
   display: flex;
   justify-content: space-between;
@@ -21047,6 +21115,25 @@ button.message-timeline-row.phone:focus-visible {
   color: var(--social-accent);
 }
 
+.phone-social-like-count-pop {
+  display: inline-block;
+  min-width: 1ch;
+  animation: phone-social-heart-pop 220ms ease-out both;
+}
+
+@keyframes phone-social-heart-pop {
+  0% {
+    color: var(--social-accent);
+    transform: scale(0.72);
+  }
+  70% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .phone-social-post-caption {
   margin: 0;
   color: rgba(255, 255, 255, 0.9);
@@ -21126,6 +21213,27 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 13px;
   line-height: 1.45;
   margin-bottom: 4px;
+  animation: phone-social-comment-in 280ms ease-out both;
+}
+
+@keyframes phone-social-comment-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone-social-notice,
+  .phone-social-post.fresh,
+  .phone-social-like-count-pop,
+  .phone-social-comment {
+    animation: none;
+  }
 }
 
 .phone-social-comment strong {
