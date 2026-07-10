@@ -13,6 +13,8 @@ export type SocialPost = {
   locked: boolean;
   /** Dummy posts render a placeholder instead of a real image. */
   dummy: boolean;
+  /** Text-only posts have no image area at all; the caption moves on top. */
+  textOnly?: boolean;
   imageDataUrl?: string;
 };
 

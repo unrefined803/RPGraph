@@ -121,6 +121,7 @@ export function PhoneSocialFeedScreen({
   const [newPersonName, setNewPersonName] = useState('');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const postMenuRef = useRef<HTMLDivElement | null>(null);
   const ownerColor = owner ? characterColors.get(owner.name) : undefined;
   const ownerFirstName = owner?.name.trim().split(/\s+/)[0];
 
@@ -133,6 +134,20 @@ export function PhoneSocialFeedScreen({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [cameraOpen, galleryOpen, onBack]);
+
+  // Close the post source menu when clicking anywhere outside it.
+  useEffect(() => {
+    if (postStage !== 'menu') {
+      return;
+    }
+    const closeMenu = (event: PointerEvent) => {
+      if (event.target instanceof Node && !postMenuRef.current?.contains(event.target)) {
+        setPostStage(undefined);
+      }
+    };
+    document.addEventListener('pointerdown', closeMenu);
+    return () => document.removeEventListener('pointerdown', closeMenu);
+  }, [postStage]);
 
   // Every character with a phone shares the social platform: the phone
   // contacts double as the followed accounts, plus manually added people.
@@ -212,7 +227,8 @@ export function PhoneSocialFeedScreen({
       likeCount: 0,
       commentCount: 0,
       locked: false,
-      dummy: !postDraftImage,
+      dummy: false,
+      textOnly: !postDraftImage,
       imageDataUrl: postDraftImage?.dataUrl,
     };
     setOwnPosts((current) => [post, ...current]);
@@ -413,7 +429,7 @@ export function PhoneSocialFeedScreen({
             >
               {addingPerson ? 'Cancel' : '+ Add Person'}
             </button>
-            <div className="phone-social-post-menu-anchor">
+            <div className="phone-social-post-menu-anchor" ref={postMenuRef}>
               {postStage === 'menu' && (
                 <div className="phone-image-action-menu phone-social-post-menu" role="menu" aria-label="New post image source">
                   <button
@@ -582,7 +598,15 @@ export function PhoneSocialFeedScreen({
                     <span className="phone-social-locked-chip">Locked</span>
                   )}
                 </div>
-                <div className={`phone-social-post-image${lockedNow ? ' locked' : ''}`}>
+                {post.textOnly && (
+                  <p className="phone-social-post-caption">{post.caption}</p>
+                )}
+                {!post.textOnly && (
+                <div
+                  className={`phone-social-post-image${lockedNow ? ' locked' : ''}${
+                    post.imageDataUrl && !lockedNow ? '' : ' placeholder'
+                  }`}
+                >
                   {post.imageDataUrl && !lockedNow ? (
                     <img src={post.imageDataUrl} alt={post.caption} />
                   ) : (
@@ -606,6 +630,7 @@ export function PhoneSocialFeedScreen({
                     </div>
                   )}
                 </div>
+                )}
                 <div className="phone-social-post-actions">
                   <button
                     type="button"
@@ -634,7 +659,9 @@ export function PhoneSocialFeedScreen({
                     <span>{formatSocialCount(post.commentCount)}</span>
                   </button>
                 </div>
-                {!lockedNow && <p className="phone-social-post-caption">{post.caption}</p>}
+                {!lockedNow && !post.textOnly && (
+                  <p className="phone-social-post-caption">{post.caption}</p>
+                )}
                 {commentsOpen && (
                   <div className="phone-social-comments">
                     {comments.map((comment) => (

@@ -20461,15 +20461,21 @@ button.message-timeline-row.phone:focus-visible {
 .phone-social-post-image {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
   border-radius: 10px;
   background: rgba(13, 18, 28, 0.8);
 }
 
+/* Placeholder and locked posts keep a fixed frame; real images size freely. */
+.phone-social-post-image.placeholder {
+  aspect-ratio: 4 / 3;
+}
+
 .phone-social-post-image img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
 }
 
 .phone-social-post-placeholder {
