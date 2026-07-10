@@ -20236,6 +20236,67 @@ button.message-timeline-row.phone:focus-visible {
   cursor: default;
 }
 
+.phone-social-post-menu-anchor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-social-post-menu-anchor .phone-social-sidebar-button {
+  width: 100%;
+}
+
+.phone-social-post-menu {
+  right: auto;
+  left: 0;
+  min-width: 210px;
+}
+
+.phone-social-post-menu > button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 0;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.phone-social-post-menu > button + button {
+  border-top: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 0 0 10px 10px;
+}
+
+.phone-social-post-menu > button:hover,
+.phone-social-post-menu > button:focus-visible {
+  outline: none;
+  background: rgba(148, 163, 184, 0.11);
+}
+
+.phone-social-post-menu > button strong {
+  display: block;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.phone-social-post-menu > button small {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+}
+
+.phone-social-post-menu > button > span:first-child {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .phone-social-profile-banner {
   display: flex;
   flex: none;
@@ -20257,21 +20318,8 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 12px;
 }
 
-.phone-social-composer-image-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.phone-social-composer-image-row .phone-social-composer-image {
-  min-width: 0;
-  flex: 1;
-}
-
 .phone-social-composer-preview {
   position: relative;
-  min-width: 0;
-  flex: 1;
 }
 
 .phone-social-composer-preview img {
@@ -20582,23 +20630,6 @@ button.message-timeline-row.phone:focus-visible {
   border: 1px solid var(--social-accent-soft);
   border-radius: 14px;
   background: rgba(23, 32, 51, 0.55);
-}
-
-.phone-social-composer-image {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 12px;
-}
-
-.phone-social-composer-image svg {
-  width: 22px;
-  height: 22px;
 }
 
 .phone-social-composer textarea {

@@ -72,8 +72,10 @@ and `2` are reserved for Fotogram and OnlyFriends.
 - WhatsUp-style two-column layout: left side panel with the followed accounts
   (phone contacts + manually added people, "Add Person", "New Post"), feed on
   the right; clicking an account shows that account's posts. ✅
-- Posting with images: reuse the WhatsUp image menu (Camera assistant /
-  Choose from Phone Gallery / Upload from Computer). ✅
+- Posting flow (same in all social apps): "New Post" first asks for the image
+  source — Camera assistant / Choose from Phone Gallery / Upload from Computer /
+  Text Post — then the editor shows the picked image on top with the caption
+  below. ✅
 - OnlyFriends variant: locked posts with an unlock/pay interaction (visual only). ✅
 - No LLM, no persistence beyond basic session state; goal is that clicking
   through both apps feels right and both provably share the same components.

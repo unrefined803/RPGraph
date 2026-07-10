@@ -112,7 +112,9 @@ export function PhoneSocialFeedScreen({
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, SocialComment[]>>({});
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string>();
   const [commentDraft, setCommentDraft] = useState('');
-  const [composerOpen, setComposerOpen] = useState(false);
+  // Posting flow: pick the image source first (menu), then describe (editor).
+  const [postStage, setPostStage] = useState<'menu' | 'editor'>();
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [postDraft, setPostDraft] = useState('');
   const [postDraftImage, setPostDraftImage] = useState<ChatImageAttachment>();
   const [addingPerson, setAddingPerson] = useState(false);
@@ -124,13 +126,13 @@ export function PhoneSocialFeedScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !galleryOpen) {
+      if (event.key === 'Escape' && !galleryOpen && !cameraOpen) {
         onBack();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [galleryOpen, onBack]);
+  }, [cameraOpen, galleryOpen, onBack]);
 
   // Every character with a phone shares the social platform: the phone
   // contacts double as the followed accounts, plus manually added people.
@@ -216,7 +218,7 @@ export function PhoneSocialFeedScreen({
     setOwnPosts((current) => [post, ...current]);
     setPostDraft('');
     setPostDraftImage(undefined);
-    setComposerOpen(false);
+    setPostStage(undefined);
     setSelectedAccountKey(undefined);
   }
 
@@ -264,6 +266,7 @@ export function PhoneSocialFeedScreen({
           size: file.size,
           dataUrl: reader.result,
         });
+        setPostStage('editor');
       }
     };
     reader.readAsDataURL(file);
@@ -279,7 +282,7 @@ export function PhoneSocialFeedScreen({
         onSelectImage={(image) => {
           setPostDraftImage(image);
           setGalleryOpen(false);
-          setComposerOpen(true);
+          setPostStage('editor');
         }}
       />
     );
@@ -410,84 +413,133 @@ export function PhoneSocialFeedScreen({
             >
               {addingPerson ? 'Cancel' : '+ Add Person'}
             </button>
-            <button
-              type="button"
-              className="phone-social-sidebar-button primary"
-              onClick={() => {
-                setComposerOpen((open) => !open);
-                setSelectedAccountKey(undefined);
+            <div className="phone-social-post-menu-anchor">
+              {postStage === 'menu' && (
+                <div className="phone-image-action-menu phone-social-post-menu" role="menu" aria-label="New post image source">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => setCameraOpen(true)}
+                  >
+                    <span aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 7h3l1.2-2h7.6L17 7h3a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a1 1 0 0 1 1-1Z" />
+                        <circle cx="12" cy="13" r="4" />
+                      </svg>
+                    </span>
+                    <span>
+                      <strong>Camera</strong>
+                      <small>Create an image with the assistant</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => setGalleryOpen(true)}
+                  >
+                    <span aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                      </svg>
+                    </span>
+                    <span>
+                      <strong>Choose from Phone Gallery</strong>
+                      <small>Use a saved Storybook image</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => uploadInputRef.current?.click()}
+                  >
+                    <span aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                    </span>
+                    <span>
+                      <strong>Upload from Computer</strong>
+                      <small>Choose a local image file</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setPostDraftImage(undefined);
+                      setPostStage('editor');
+                    }}
+                  >
+                    <span aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 6h16M4 12h16M4 18h10" />
+                      </svg>
+                    </span>
+                    <span>
+                      <strong>Text Post</strong>
+                      <small>Post without an image</small>
+                    </span>
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                className="phone-social-sidebar-button primary"
+                onClick={() => {
+                  if (postStage) {
+                    setPostStage(undefined);
+                    setPostDraftImage(undefined);
+                  } else {
+                    setPostStage('menu');
+                    setSelectedAccountKey(undefined);
+                  }
+                }}
+                aria-expanded={postStage !== undefined}
+              >
+                {postStage ? 'Cancel Post' : '+ New Post'}
+              </button>
+            </div>
+            <input
+              ref={uploadInputRef}
+              className="phone-file-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                addUploadedImage(event.target.files);
+                event.target.value = '';
               }}
-              aria-expanded={composerOpen}
-            >
-              {composerOpen ? 'Cancel Post' : '+ New Post'}
-            </button>
+            />
           </div>
         </div>
         <div className="phone-social-scroll">
-          {composerOpen && !selectedAccount && (
+          {postStage === 'editor' && !selectedAccount && (
             <form className="phone-social-composer" onSubmit={submitPost}>
-              <div className="phone-social-composer-image-row">
-                {postDraftImage ? (
-                  <div className="phone-social-composer-preview">
-                    <img src={postDraftImage.dataUrl} alt={postDraftImage.name} />
-                    <button
-                      type="button"
-                      onClick={() => setPostDraftImage(undefined)}
-                      aria-label="Remove image"
-                      title="Remove image"
-                    >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="phone-social-composer-image" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="4" />
-                      <circle cx="8.5" cy="8.5" r="1.4" />
-                      <path d="m4.5 18 5.5-5.5 3.2 3.2 2.1-2.1 4.2 4.4" />
+              {postDraftImage && (
+                <div className="phone-social-composer-preview">
+                  <img src={postDraftImage.dataUrl} alt={postDraftImage.name} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPostDraftImage(undefined);
+                      setPostStage('menu');
+                    }}
+                    aria-label="Remove image"
+                    title="Remove image"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
-                    <span>Add an image to your post</span>
-                  </div>
-                )}
-                <PhoneImagePicker
-                  onOpenGallery={() => setGalleryOpen(true)}
-                  onUploadFromComputer={() => uploadInputRef.current?.click()}
-                  connections={connections}
-                  providerHealthById={providerHealthById}
-                  availableCharacterLoras={storyCharacters.flatMap((character) => {
-                    const loraName = character.comfyConfig?.loraName.trim();
-                    return loraName ? [`${character.name}: ${loraName}`] : [];
-                  })}
-                  characterContext={imageGenerationCharacterContext(storyCharacters)}
-                  characterCount={storyCharacters.length}
-                  chatHistoryContext={imageAssistantChatHistoryContext}
-                  estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
-                  saveCharacters={storyCharacters}
-                  preferredSaveCharacterId={owner?.id}
-                  onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
-                  onGenerateImageAssistantImages={onGenerateImageAssistantImages}
-                  onSaveImageAssistantImage={onSaveImageAssistantImage}
-                  imageAssistantModelStateById={imageAssistantModelStateById}
-                  onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
-                  onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
-                  onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
-                />
-                <input
-                  ref={uploadInputRef}
-                  className="phone-file-input"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => {
-                    addUploadedImage(event.target.files);
-                    event.target.value = '';
-                  }}
-                />
-              </div>
+                  </button>
+                </div>
+              )}
               <textarea
-                placeholder="Write a caption"
+                placeholder={postDraftImage ? 'Describe your image' : 'Write your post'}
                 value={postDraft}
                 onChange={(event) => setPostDraft(event.target.value)}
                 rows={2}
@@ -616,6 +668,38 @@ export function PhoneSocialFeedScreen({
           })}
         </div>
       </div>
+      {cameraOpen && (
+        <PhoneImagePicker
+          hideLauncher
+          openCameraOnMount
+          onCameraClose={() => {
+            // Camera images are saved into the Phone Gallery; open it so the
+            // new image can be picked for the post right away.
+            setCameraOpen(false);
+            setGalleryOpen(true);
+          }}
+          onUploadFromComputer={() => {}}
+          connections={connections}
+          providerHealthById={providerHealthById}
+          availableCharacterLoras={storyCharacters.flatMap((character) => {
+            const loraName = character.comfyConfig?.loraName.trim();
+            return loraName ? [`${character.name}: ${loraName}`] : [];
+          })}
+          characterContext={imageGenerationCharacterContext(storyCharacters)}
+          characterCount={storyCharacters.length}
+          chatHistoryContext={imageAssistantChatHistoryContext}
+          estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
+          saveCharacters={storyCharacters}
+          preferredSaveCharacterId={owner?.id}
+          onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
+          onGenerateImageAssistantImages={onGenerateImageAssistantImages}
+          onSaveImageAssistantImage={onSaveImageAssistantImage}
+          imageAssistantModelStateById={imageAssistantModelStateById}
+          onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
+          onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
+          onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
+        />
+      )}
     </div>
   );
 }
