@@ -76,7 +76,12 @@ and `2` are reserved for Fotogram and OnlyFriends.
   source — Camera assistant / Choose from Phone Gallery / Upload from Computer /
   Text Post — then the editor shows the picked image on top with the caption
   below. ✅
-- OnlyFriends variant: locked posts with an unlock/pay interaction (visual only). ✅
+- OnlyFriends variant: locked posts with an unlock/pay interaction. ✅
+- Unlocking is a real purchase (first backend link-up): "Unlock" opens a
+  "Pay with Bank Account" confirmation showing the price and the owner's
+  current balance; paying sends a normal bank transfer from the owner to the
+  post's author (visible in the Banking app, lowers the balance; blocked when
+  the balance is too low). ✅
 - No LLM, no persistence beyond basic session state; goal is that clicking
   through both apps feels right and both provably share the same components.
   Post/account state is still local to the opened screen; the shared post
@@ -114,7 +119,8 @@ and `2` are reserved for Fotogram and OnlyFriends.
 
 - OnlyFriends creator role: what changes in the UI for a creator
   (posting & earning vs. paying & unlocking)?
-- Should unlocking OnlyFriends posts spend Banking money (shared wallet)?
+- ~~Should unlocking OnlyFriends posts spend Banking money (shared wallet)?~~
+  Answered: yes — unlocks pay via the Banking pipeline (implemented in Phase 1).
 - How many dummy accounts/posts per session, and are they persisted or
   regenerated?
 - Exact JSON shape of the Output Actions summary entries (Phase 3).

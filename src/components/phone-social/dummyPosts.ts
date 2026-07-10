@@ -7,8 +7,8 @@ export type SocialPost = {
   caption: string;
   likeCount: number;
   commentCount: number;
-  /** Price label shown on locked posts; only used when the app requires unlocking. */
-  unlockPrice?: string;
+  /** Price in dollars for locked posts; only used when the app requires unlocking. */
+  unlockPrice?: number;
   /** Locked posts hide their image and caption until unlocked. */
   locked: boolean;
   /** Dummy posts render a placeholder instead of a real image. */
@@ -42,7 +42,7 @@ const dummyCaptions = [
   'Behind the scenes of today 📸',
 ];
 
-const dummyUnlockPrices = ['$4.99', '$9.99', '$14.99', '$7.49'];
+const dummyUnlockPrices = [4.99, 9.99, 14.99, 7.49];
 
 // Simple deterministic hash so the same seed always produces the same feed.
 function seedNumber(seed: string) {

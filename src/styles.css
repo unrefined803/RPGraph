@@ -20525,6 +20525,38 @@ button.message-timeline-row.phone:focus-visible {
   background: var(--social-accent);
 }
 
+.phone-social-unlock-overlay button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: var(--social-accent-soft);
+}
+
+.phone-social-unlock-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(13, 18, 28, 0.85);
+  font-size: 12px;
+}
+
+.phone-social-unlock-confirm strong {
+  color: #ffffff;
+}
+
+.phone-social-unlock-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.phone-social-unlock-hint {
+  color: rgba(255, 160, 160, 0.9);
+  font-size: 11px;
+}
+
 .phone-social-post-actions {
   display: flex;
   align-items: center;

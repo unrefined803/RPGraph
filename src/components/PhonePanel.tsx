@@ -631,6 +631,9 @@ export function PhonePanel({
         storyCharacters={storyCharacters}
         characterColors={characterColors}
         phoneGalleryImages={phoneGalleryImages}
+        bankTransferMessages={bankTransferMessages}
+        isRunning={isRunning}
+        onSendBankTransfer={onSendBankTransfer}
         onBack={() => setScreen('desktop')}
         connections={connections}
         providerHealthById={providerHealthById}

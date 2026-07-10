@@ -3,8 +3,10 @@ import type { StorybookCharacter } from '../../storybook/runtime';
 import type {
   ChatImageAttachment,
   ConnectionPreset,
+  MessageRecord,
   ProviderConnectionHealth,
 } from '../../types';
+import { bankingBalanceForCharacter, formatBankingAmount } from '../../chat/bankTransfers';
 import type {
   ImageGenerationAssistantMessage,
   ImageGenerationAssistantResult,
@@ -36,6 +38,14 @@ type PhoneSocialFeedScreenProps = {
   storyCharacters: StorybookCharacter[];
   characterColors: Map<string, string>;
   phoneGalleryImages: ChatImageAttachment[];
+  bankTransferMessages: MessageRecord[];
+  isRunning: boolean;
+  onSendBankTransfer: (request: {
+    from: StorybookCharacter;
+    to: string;
+    amount: number;
+    note: string;
+  }) => void;
   onBack: () => void;
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
@@ -88,6 +98,9 @@ export function PhoneSocialFeedScreen({
   storyCharacters,
   characterColors,
   phoneGalleryImages,
+  bankTransferMessages,
+  isRunning,
+  onSendBankTransfer,
   onBack,
   connections = [],
   providerHealthById = {},
@@ -109,6 +122,8 @@ export function PhoneSocialFeedScreen({
   const [likedPostIds, setLikedPostIds] = useState<ReadonlySet<string>>(new Set());
   const [likeDeltaByPostId, setLikeDeltaByPostId] = useState<Record<string, number>>({});
   const [unlockedPostIds, setUnlockedPostIds] = useState<ReadonlySet<string>>(new Set());
+  // Post currently showing the "pay with bank account" confirmation.
+  const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
   const [commentsByPostId, setCommentsByPostId] = useState<Record<string, SocialComment[]>>({});
   const [openCommentsPostId, setOpenCommentsPostId] = useState<string>();
   const [commentDraft, setCommentDraft] = useState('');
@@ -123,6 +138,7 @@ export function PhoneSocialFeedScreen({
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const postMenuRef = useRef<HTMLDivElement | null>(null);
   const ownerColor = owner ? characterColors.get(owner.name) : undefined;
+  const bankBalance = owner ? bankingBalanceForCharacter(owner, bankTransferMessages) : 0;
   const ownerFirstName = owner?.name.trim().split(/\s+/)[0];
 
   useEffect(() => {
@@ -191,8 +207,22 @@ export function PhoneSocialFeedScreen({
     }));
   }
 
-  function unlockPost(post: SocialPost) {
+  // Unlocking is a real purchase: the price is transferred from the owner's
+  // bank account to the post's author through the normal banking pipeline, so
+  // it shows up in the Banking app and lowers the balance.
+  function payUnlock(post: SocialPost) {
+    const price = post.unlockPrice ?? 4.99;
+    if (!owner || isRunning || price <= 0 || price > bankBalance) {
+      return;
+    }
+    onSendBankTransfer({
+      from: owner,
+      to: post.authorName,
+      amount: price,
+      note: `${app.name}: unlocked a post by @${post.authorHandle}`,
+    });
     setUnlockedPostIds((current) => new Set(current).add(post.id));
+    setUnlockCandidateId(undefined);
   }
 
   function submitComment(event: FormEvent<HTMLFormElement>, post: SocialPost) {
@@ -575,6 +605,7 @@ export function PhoneSocialFeedScreen({
           {posts.map((post) => {
             const liked = likedPostIds.has(post.id);
             const lockedNow = post.locked && !unlockedPostIds.has(post.id);
+            const price = post.unlockPrice ?? 4.99;
             const comments = commentsByPostId[post.id] ?? [];
             const commentsOpen = openCommentsPostId === post.id;
             const ownPost = post.authorHandle === account;
@@ -624,9 +655,33 @@ export function PhoneSocialFeedScreen({
                         <rect x="4" y="10" width="16" height="10" rx="2" />
                         <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                       </svg>
-                      <button type="button" onClick={() => unlockPost(post)}>
-                        Unlock for {post.unlockPrice ?? '$4.99'}
-                      </button>
+                      {unlockCandidateId === post.id ? (
+                        <div className="phone-social-unlock-confirm">
+                          <strong>Pay with Bank Account</strong>
+                          <span>
+                            {formatBankingAmount(price)} · Balance {formatBankingAmount(bankBalance)}
+                          </span>
+                          <div className="phone-social-unlock-confirm-actions">
+                            <button
+                              type="button"
+                              onClick={() => payUnlock(post)}
+                              disabled={isRunning || price > bankBalance}
+                            >
+                              {isRunning ? 'Paying...' : `Pay ${formatBankingAmount(price)}`}
+                            </button>
+                            <button type="button" onClick={() => setUnlockCandidateId(undefined)}>
+                              Cancel
+                            </button>
+                          </div>
+                          {price > bankBalance && (
+                            <span className="phone-social-unlock-hint">Not enough balance.</span>
+                          )}
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => setUnlockCandidateId(post.id)}>
+                          Unlock for {formatBankingAmount(price)}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
