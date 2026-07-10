@@ -183,9 +183,9 @@ which is wired to the new **Social Media** input of RP Output.
   the stored gallery image description in the input block, so reactions can
   refer to what the photo actually shows. The input labels separate the
   user-written "Post text" from the "Image description". ✅
-- The history line uses the English (translated) post text so the internal
-  English pipeline stays consistent; the app keeps showing the caption as
-  typed. ✅
+- With English processing enabled, the translated post text is stored on the
+  social record, so both the app and internal history use the same English
+  caption. Without it, the original text is retained. ✅
 - Per-app prompt slots on the Social Media channel: **Turn Mode 0 = Fotogram
   Post**, **Turn Mode 1 = OnlyFriends Post**. Fotogram reactions: 0–2 comments
   from real story characters (dynamic, never the author) plus 2–3 invented NPC
@@ -236,6 +236,9 @@ requested thread action:
 - User thread actions are persisted as `socialThreadAction` records. Generated
   replies use appendable `socialReactions` records, so comments and loaded
   batches survive closing the app and reloading the RP save. ✅
+- With English processing enabled, the translated user comment is stored and
+  shown in the app. The user's comment remains directly before the generated
+  replies belonging to that action. ✅
 - The same controls work on generated posts and deterministic dummy posts. ✅
 
 When commenters appear, they should also become visible in the app's account

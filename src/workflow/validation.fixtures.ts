@@ -86,8 +86,10 @@ import {
 } from '../chat/bankTransfers';
 import {
   parseSocialReactionsOutput,
+  socialPostTextFromInput,
   socialReactionsByPostId,
   socialThreadActionInputText,
+  socialThreadCommentTextFromInput,
 } from '../chat/socialMedia';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
@@ -218,8 +220,13 @@ export function verifyWorkflowValidationFixtures() {
     commentText: 'How does everyone like this place?',
   };
   assertFixture(
-    socialThreadActionInputText(socialThreadAction, []).includes("Post ownership: actor's own post"),
-    'social thread input must tell the prompt when the actor owns the post',
+    socialThreadActionInputText(socialThreadAction, []).includes("Post ownership: actor's own post") &&
+      socialPostTextFromInput('[SOCIAL MEDIA POST]\nPost text: Translated caption') ===
+        'Translated caption' &&
+      socialThreadCommentTextFromInput(
+        '[SOCIAL MEDIA THREAD ACTION]\nNew comment from the actor: Translated comment',
+      ) === 'Translated comment',
+    'social inputs must expose ownership and translated user text for persistence',
   );
   const parsedSocialThread = parseSocialReactionsOutput(
     '{"reactions":{"postId":"post-1","additionalLikes":2,"comments":[{"from":"Jamie","text":"Love it!"}]},"summary":"Alex asked the thread about the location; Jamie responded positively."}',

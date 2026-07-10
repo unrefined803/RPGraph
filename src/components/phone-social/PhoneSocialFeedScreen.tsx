@@ -224,19 +224,36 @@ export function PhoneSocialFeedScreen({
   const persistedThreadActionIds = new Set(
     Object.values(persistedThreadActions).flat().map((action) => action.actionId),
   );
-  const persistedUserCommentsByPostId: Record<string, SocialComment[]> = Object.fromEntries(
-    Object.entries(persistedThreadActions).map(([postId, actions]) => [
-      postId,
-      actions
-        .filter((action) => action.action === 'comment' && action.commentText)
-        .map((action) => ({
+  // Rebuild the visible thread in message order. A user comment and the LLM
+  // replies share one message record, so the user comment is inserted first
+  // and the generated replies follow it instead of pushing it to the bottom.
+  const persistedCommentsByPostId: Record<string, SocialComment[]> = {};
+  socialMediaMessages.forEach((message) => {
+    const action = message.socialThreadAction;
+    if (action?.app === app.id && action.action === 'comment' && action.commentText) {
+      persistedCommentsByPostId[action.postId] = [
+        ...(persistedCommentsByPostId[action.postId] ?? []),
+        {
           id: action.actionId,
           authorName: action.actor,
           authorHandle: action.actorHandle,
-          text: action.commentText ?? '',
+          text: action.commentText,
+        },
+      ];
+    }
+    const reactions = message.socialReactions;
+    if (reactions?.app === app.id) {
+      persistedCommentsByPostId[reactions.postId] = [
+        ...(persistedCommentsByPostId[reactions.postId] ?? []),
+        ...reactions.comments.map((comment, index) => ({
+          id: `reaction-${message.id}-${index}`,
+          authorName: comment.from,
+          authorHandle: comment.handle,
+          text: comment.text,
         })),
-    ]),
-  );
+      ];
+    }
+  });
   const persistedPosts: SocialPost[] = socialPostMessages(app.id, socialMediaMessages)
     .map((message) => message.socialPost)
     .reverse()
@@ -253,17 +270,6 @@ export function PhoneSocialFeedScreen({
       imageDataUrl: record.imageDataUrl,
     }));
   const persistedPostIds = new Set(persistedPosts.map((post) => post.id));
-  const reactionCommentsByPostId: Record<string, SocialComment[]> = Object.fromEntries(
-    Object.entries(persistedReactions).map(([postId, reactions]) => [
-      postId,
-      reactions.comments.map((comment, index) => ({
-        id: `reaction-${postId}-${index}`,
-        authorName: comment.from,
-        authorHandle: comment.handle,
-        text: comment.text,
-      })),
-    ]),
-  );
 
   const feedPosts = selectedAccount
     ? dummySocialPosts(app, `${selectedAccount.key}`, {
@@ -285,8 +291,7 @@ export function PhoneSocialFeedScreen({
       (likeDeltaByPostId[post.id] ?? 0),
     commentCount:
       post.commentCount +
-      (persistedReactions[post.id]?.comments.length ?? 0) +
-      (persistedUserCommentsByPostId[post.id]?.length ?? 0) +
+      (persistedCommentsByPostId[post.id]?.length ?? 0) +
       (commentsByPostId[post.id]?.filter(
         (comment) => !persistedThreadActionIds.has(comment.id),
       ).length ?? 0),
@@ -372,8 +377,7 @@ export function PhoneSocialFeedScreen({
   function commentsForPost(post: SocialPost): SocialReactionComment[] {
     return [
       ...(post.comments ?? []),
-      ...(reactionCommentsByPostId[post.id] ?? []),
-      ...(persistedUserCommentsByPostId[post.id] ?? []),
+      ...(persistedCommentsByPostId[post.id] ?? []),
       ...(commentsByPostId[post.id] ?? []).filter(
         (comment) => !persistedThreadActionIds.has(comment.id),
       ),
@@ -787,8 +791,7 @@ export function PhoneSocialFeedScreen({
             const price = post.unlockPrice ?? 4.99;
             const comments = [
               ...(post.comments ?? []),
-              ...(reactionCommentsByPostId[post.id] ?? []),
-              ...(persistedUserCommentsByPostId[post.id] ?? []),
+              ...(persistedCommentsByPostId[post.id] ?? []),
               ...(commentsByPostId[post.id] ?? []).filter(
                 (comment) => !persistedThreadActionIds.has(comment.id),
               ),

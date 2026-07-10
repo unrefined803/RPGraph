@@ -60,6 +60,12 @@ export function socialPostTextFromInput(inputText: string) {
   return match?.[1]?.trim() || undefined;
 }
 
+/** Read the translated user comment back out of a thread-action input block. */
+export function socialThreadCommentTextFromInput(inputText: string) {
+  const match = inputText.match(/^New comment from the actor: (.*)$/m);
+  return match?.[1]?.trim() || undefined;
+}
+
 /** Chat-history text that records the post itself. */
 export function socialPostHistoryText(post: SocialPostRecord) {
   const kind = post.textOnly ? 'posted' : 'posted a photo';

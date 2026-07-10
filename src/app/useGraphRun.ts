@@ -78,6 +78,7 @@ import {
   socialPostHistoryText,
   socialPostTextFromInput,
   socialReactionsHistoryText,
+  socialThreadCommentTextFromInput,
   socialThreadHistoryText,
 } from '../chat/socialMedia';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
@@ -1810,11 +1811,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         // reactions as history messages, mirroring how bank transfers land in
         // the timeline. The post is only persisted when the run succeeds.
         if (socialPost) {
-          // The whole input block was translated to English for the run, so
-          // the chat history records the English post text; the app itself
-          // keeps showing the caption as typed.
+          // The whole input block was translated to English for the run. The
+          // persisted record uses that text too, so the app and history agree.
           const englishCaption = socialPostTextFromInput(originalInput) ?? socialPost.caption;
-          const postHistoryText = socialPostHistoryText({ ...socialPost, caption: englishCaption });
+          const persistedSocialPost = { ...socialPost, caption: englishCaption };
+          const postHistoryText = socialPostHistoryText(persistedSocialPost);
           const translatedPostText = await translateOutputActionText(postHistoryText, {
             text: postHistoryText,
           });
@@ -1823,7 +1824,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             originalText: postHistoryText,
             translatedText: translatedPostText,
             includeInHistory: true,
-            socialPost,
+            socialPost: persistedSocialPost,
           });
           const parsedReactions = parseSocialReactionsOutput(socialMediaOutputText, socialPost);
           reportFormatResult({
@@ -1844,7 +1845,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             );
             const reactionsText = socialReactionsHistoryText(
               { ...parsedReactions.reactions, comments: characterComments },
-              socialPost,
+              persistedSocialPost,
             );
             const translatedReactionsText = await translateOutputActionText(reactionsText, {
               text: reactionsText,
@@ -1859,9 +1860,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
         }
         if (socialThreadAction) {
+          const persistedThreadAction = socialThreadAction.action === 'comment'
+            ? {
+                ...socialThreadAction,
+                commentText:
+                  socialThreadCommentTextFromInput(originalInput) ?? socialThreadAction.commentText,
+              }
+            : socialThreadAction;
           const parsedReactions = parseSocialReactionsOutput(socialMediaOutputText, {
-            app: socialThreadAction.app,
-            postId: socialThreadAction.postId,
+            app: persistedThreadAction.app,
+            postId: persistedThreadAction.postId,
             append: true,
           });
           reportFormatResult({
@@ -1874,14 +1882,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
           parsedReactions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
           const historyReactions = parsedReactions.reactions ?? {
-            app: socialThreadAction.app,
-            postId: socialThreadAction.postId,
+            app: persistedThreadAction.app,
+            postId: persistedThreadAction.postId,
             likes: 0,
             comments: [],
             append: true,
           };
           const historyText = socialThreadHistoryText(
-            socialThreadAction,
+            persistedThreadAction,
             historyReactions,
             parsedReactions.historySummary,
           );
@@ -1893,7 +1901,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             originalText: historyText,
             translatedText: translatedHistoryText,
             includeInHistory: true,
-            socialThreadAction,
+            socialThreadAction: persistedThreadAction,
             socialReactions: parsedReactions.reactions,
           });
         }
