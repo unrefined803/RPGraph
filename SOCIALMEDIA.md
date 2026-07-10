@@ -135,10 +135,11 @@ Posting image sources should follow this shape:
   post by image id.
 - **Text Post**: store no image id.
 
-Current implementation note: social post records still carry `imageDataUrl`
-directly. That is temporary and should be replaced by an image-id reference
-before larger feeds or imports are relied on, otherwise workflow and Storybook
-files can grow quickly.
+Implemented: social post records store `imageId` (the Storybook/Gallery image
+id) instead of their own image copy. The pixels live once in the Storybook
+image library and are resolved by id wherever the post appears (feed, chat
+post card). Uploads from the computer are imported into the acting
+character's Gallery first (deduplicated by image data), then posted by id.
 
 ## Phases
 
@@ -196,9 +197,9 @@ which is wired to the new **Social Media** input of RP Output.
 - Posts and reactions are persisted on chat messages (`socialPost` /
   `socialReactions` records), so they are part of the RP save and reload with
   the session. ✅
-- Current limitation: photo posts still persist the raw `imageDataUrl` on the
-  post record. Replace this with a Storybook/Gallery image id reference so a
-  single stored image can be reused everywhere without duplication.
+- Photo posts persist only the Storybook/Gallery image id (`imageId`) plus the
+  image description; the image itself is stored once in the Storybook image
+  library and resolved by id in the feed and the chat post card. ✅
 - Accounts live in the Storybook (`characters[].social.fotogramUsername` and
   `.onlyfriendsUsername`, storybook format 1.18.0). A stored username skips
   the app's onboarding; creating an account in either app writes the username
@@ -279,10 +280,14 @@ Later, those recently seen or favorited accounts can become DM targets.
 
 ### Backlog (rough order)
 
-1. Persist likes as records so they survive reopening and land in the RP save.
-2. Replace social photo `imageDataUrl` storage with Storybook/Gallery image id
-   references. Camera and computer uploads must first be saved into the acting
-   character's Gallery; social posts then reuse that id.
+1. ~~Persist likes so they survive reopening and land in the RP save.~~ Done:
+   player likes are stored per character and app in the session's UI state
+   (`socialLikesByAccount`, session format 2.8); the feed and the chat post
+   card count one like per liking character.
+2. ~~Replace social photo `imageDataUrl` storage with Storybook/Gallery image
+   id references.~~ Done: posts store `imageId`; camera and gallery picks
+   already carry Gallery ids, computer uploads are imported into the acting
+   character's Gallery first (deduplicated).
 3. Track recently seen accounts from comments and allow favorites in the social
    sidebar. Player characters start as favorites; NPCs can be favorited later
    and eventually become DM targets.
@@ -321,10 +326,12 @@ Later, those recently seen or favorited accounts can become DM targets.
   user picks a nickname — same flow in both apps.
 - For OnlyFriends, the Storybook entry also records the role: regular user or
   creator.
-- User comments already live in session message records. Manually added people,
-  recently seen commenters, favorites, likes, and unlocks are session/app state,
-  not durable Storybook facts, and should follow the same persistence pattern
-  without turning every passerby NPC into a permanent Storybook character.
+- User comments already live in session message records, and player likes are
+  stored in the session's UI state per character and app. Manually added
+  people, recently seen commenters, favorites, and unlocks are session/app
+  state, not durable Storybook facts, and should follow the same persistence
+  pattern without turning every passerby NPC into a permanent Storybook
+  character.
 - Recently seen accounts are created by activity. If someone comments under a
   Fotogram post or OnlyFriends post, that account can appear in the sidebar.
   Favorites pin important accounts above recent accounts. The main playable

@@ -244,6 +244,17 @@ type PhonePanelProps = {
     app: 'fotogram' | 'onlyfriends',
     username: string,
   ) => void;
+  onImportSocialPostImage: (request: {
+    owner: StorybookCharacter;
+    image: ChatImageAttachment;
+  }) => Promise<ChatImageAttachment | undefined>;
+  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialLikesByAccount: Record<string, string[]>;
+  onToggleSocialLike: (
+    characterId: string,
+    app: 'fotogram' | 'onlyfriends',
+    postId: string,
+  ) => void;
   phoneDesktopLayout: PhoneDesktopLayout;
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
@@ -335,6 +346,10 @@ export function PhonePanel({
   onSubmitSocialPost,
   onSubmitSocialThreadAction,
   onCreateSocialAccount,
+  onImportSocialPostImage,
+  socialImageById,
+  socialLikesByAccount,
+  onToggleSocialLike,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
@@ -670,6 +685,7 @@ export function PhonePanel({
   }
 
   if (screen === 'fotogram' || screen === 'onlyfriends') {
+    const socialScreen = screen;
     return (
       <PhoneSocialFeedScreen
         key={`${screen}-${selectedCharacter?.id ?? 'no-account'}`}
@@ -694,6 +710,14 @@ export function PhonePanel({
         onSubmitSocialPost={onSubmitSocialPost}
         onSubmitSocialThreadAction={onSubmitSocialThreadAction}
         onCreateSocialAccount={onCreateSocialAccount}
+        onImportPostImage={onImportSocialPostImage}
+        socialImageById={socialImageById}
+        socialLikesByAccount={socialLikesByAccount}
+        onToggleLike={(postId) => {
+          if (selectedCharacter) {
+            onToggleSocialLike(selectedCharacter.id, socialScreen, postId);
+          }
+        }}
         onBack={() => {
           setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
           setScreen('desktop');

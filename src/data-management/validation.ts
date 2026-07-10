@@ -71,7 +71,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       typeof value.socialPost.authorHandle === 'string' &&
       typeof value.socialPost.caption === 'string' &&
       (value.socialPost.textOnly === undefined || typeof value.socialPost.textOnly === 'boolean') &&
-      (value.socialPost.imageDataUrl === undefined || typeof value.socialPost.imageDataUrl === 'string') &&
+      (value.socialPost.imageId === undefined || typeof value.socialPost.imageId === 'string') &&
       (value.socialPost.imageDescription === undefined || typeof value.socialPost.imageDescription === 'string')
     );
     const validSocialThreadAction = value.socialThreadAction === undefined || (
@@ -215,6 +215,7 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     isNumberRecord(value.ui.phoneSeenByConversation) &&
     isNumberRecord(value.ui.bankingSeenByCharacter) &&
     isStringArrayRecord(value.ui.bankingContactsByCharacter) &&
+    isStringArrayRecord(value.ui.socialLikesByAccount) &&
     isNumberRecord(value.ui.phoneDividerAfterByConversation)
   );
 }

@@ -25,6 +25,7 @@ import {
   socialHandleForCharacter,
   socialHandleForName,
   socialIdentityMatches,
+  socialLikeAccountKey,
   socialPostMessages,
   socialReactionsByPostId,
 } from '../../chat/socialMedia';
@@ -56,6 +57,16 @@ type PhoneSocialFeedScreenProps = {
   phoneGalleryImages: ChatImageAttachment[];
   bankTransferMessages: MessageRecord[];
   socialMediaMessages: MessageRecord[];
+  /** Resolves a Storybook/Gallery image id to the stored image. */
+  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  /** Liked post ids per "characterId/app" account (persisted in the RP save). */
+  socialLikesByAccount: Record<string, string[]>;
+  onToggleLike: (postId: string) => void;
+  /** Saves an uploaded file into the owner's Gallery and returns the stored image. */
+  onImportPostImage: (request: {
+    owner: StorybookCharacter;
+    image: ChatImageAttachment;
+  }) => Promise<ChatImageAttachment | undefined>;
   openPostRequest?: {
     requestId: number;
     postId: string;
@@ -127,8 +138,9 @@ type PhoneSocialFeedScreenProps = {
  * (the phone contacts double as followed social accounts), feed on the right.
  *
  * Published posts, user thread actions, and generated reactions are persisted
- * on chat messages. Likes, manually added accounts, and unlock UI state remain
- * local until their later phases (see SOCIALMEDIA.md).
+ * on chat messages; player likes live in the RP save per character and app.
+ * Manually added accounts and unlock UI state remain local until their later
+ * phases (see SOCIALMEDIA.md).
  */
 export function PhoneSocialFeedScreen({
   app,
@@ -138,6 +150,10 @@ export function PhoneSocialFeedScreen({
   phoneGalleryImages,
   bankTransferMessages,
   socialMediaMessages,
+  socialImageById,
+  socialLikesByAccount,
+  onToggleLike,
+  onImportPostImage,
   openPostRequest,
   isRunning,
   onSendBankTransfer,
@@ -167,8 +183,6 @@ export function PhoneSocialFeedScreen({
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
   const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
   const [selectedAccountKey, setSelectedAccountKey] = useState<string>();
-  const [likedPostIds, setLikedPostIds] = useState<ReadonlySet<string>>(new Set());
-  const [likeDeltaByPostId, setLikeDeltaByPostId] = useState<Record<string, number>>({});
   const [unlockedPostIds, setUnlockedPostIds] = useState<ReadonlySet<string>>(new Set());
   // Post currently showing the "pay with bank account" confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
@@ -295,7 +309,11 @@ export function PhoneSocialFeedScreen({
       locked: false,
       dummy: false,
       textOnly: message.socialPost.textOnly,
-      imageDataUrl: message.socialPost.imageDataUrl,
+      // Posts store only the Gallery image id; the pixels live in the
+      // Storybook image library and are resolved here for display.
+      imageDataUrl: message.socialPost.imageId
+        ? socialImageById(message.socialPost.imageId)?.dataUrl
+        : undefined,
       rpDateTime: message.rpDateTime,
     }));
   const feedPosts = selectedAccount
@@ -307,12 +325,26 @@ export function PhoneSocialFeedScreen({
         ...persistedPosts,
         ...dummySocialPosts(app, owner?.id ?? 'no-account'),
       ];
+  // The heart state belongs to the owner; the visible count adds one like
+  // per player character that liked the post (persisted in the RP save).
+  const likedPostIds = new Set(
+    owner ? socialLikesByAccount[socialLikeAccountKey(owner.id, app.id)] ?? [] : [],
+  );
+  const characterLikeCountByPostId: Record<string, number> = {};
+  Object.entries(socialLikesByAccount).forEach(([accountKey, postIds]) => {
+    if (!accountKey.endsWith(`/${app.id}`)) {
+      return;
+    }
+    postIds.forEach((postId) => {
+      characterLikeCountByPostId[postId] = (characterLikeCountByPostId[postId] ?? 0) + 1;
+    });
+  });
   const posts = feedPosts.map((post) => ({
     ...post,
     likeCount:
       post.likeCount +
       (persistedReactions[post.id]?.likes ?? 0) +
-      (likeDeltaByPostId[post.id] ?? 0),
+      (characterLikeCountByPostId[post.id] ?? 0),
     commentCount:
       post.commentCount +
       (persistedCommentsByPostId[post.id]?.length ?? 0),
@@ -347,20 +379,10 @@ export function PhoneSocialFeedScreen({
   }, [openPostId, openPostRequestId, selectedAccountKey]);
 
   function toggleLike(post: SocialPost) {
-    const liked = likedPostIds.has(post.id);
-    setLikedPostIds((current) => {
-      const next = new Set(current);
-      if (liked) {
-        next.delete(post.id);
-      } else {
-        next.add(post.id);
-      }
-      return next;
-    });
-    setLikeDeltaByPostId((current) => ({
-      ...current,
-      [post.id]: (current[post.id] ?? 0) + (liked ? -1 : 1),
-    }));
+    if (!owner) {
+      return;
+    }
+    onToggleLike(post.id);
   }
 
   // Unlocking is a real purchase: the price is transferred from the owner's
@@ -462,7 +484,9 @@ export function PhoneSocialFeedScreen({
       authorHandle: account,
       caption,
       textOnly: !postDraftImage || undefined,
-      imageDataUrl: postDraftImage?.dataUrl,
+      // Only the Gallery image id is persisted; uploads were imported into
+      // the Gallery when they were picked, so every draft image has one.
+      imageId: postDraftImage?.id,
       imageDescription: postDraftImage?.description,
     };
     // Publishing runs the workflow (Message Format 3, prompt slot per app):
@@ -516,21 +540,31 @@ export function PhoneSocialFeedScreen({
 
   function addUploadedImage(files: FileList | null) {
     const file = files?.[0];
-    if (!file) {
+    if (!file || !owner) {
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setPostDraftImage({
+      if (typeof reader.result !== 'string') {
+        return;
+      }
+      // Uploads are imported into the owner's Gallery first (deduplicated
+      // there); the post then links the stored image by its Gallery id.
+      void onImportPostImage({
+        owner,
+        image: {
           id: `upload-${Date.now()}`,
           name: file.name,
           mimeType: file.type,
           size: file.size,
           dataUrl: reader.result,
-        });
-        setPostStage('editor');
-      }
+        },
+      }).then((savedImage) => {
+        if (savedImage) {
+          setPostDraftImage(savedImage);
+          setPostStage('editor');
+        }
+      });
     };
     reader.readAsDataURL(file);
   }

@@ -629,7 +629,12 @@ export type SocialPostRecord = {
   authorHandle: string;
   caption: string;
   textOnly?: boolean;
-  imageDataUrl?: string;
+  /**
+   * Storybook/Gallery image id of the posted photo. The post links the image
+   * instead of storing its own copy; the pixels live once in the Storybook
+   * image library and are resolved by id wherever the post is shown.
+   */
+  imageId?: string;
   /** Stored description of the attached image (from the phone gallery), for the LLM. */
   imageDescription?: string;
 };

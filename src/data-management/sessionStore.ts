@@ -40,6 +40,7 @@ export type SessionV2AppState = {
   phoneSeenByConversation: Record<string, number>;
   bankingSeenByCharacter: Record<string, number>;
   bankingContactsByCharacter: Record<string, string[]>;
+  socialLikesByAccount: Record<string, string[]>;
   phoneDividerAfterByConversation: Record<string, number>;
   recentlyUsedEmojis?: string[];
 };
@@ -54,6 +55,7 @@ export type SessionV2CurrentStateInput = {
   phoneSeenByConversation?: Record<string, number>;
   bankingSeenByCharacter?: Record<string, number>;
   bankingContactsByCharacter?: Record<string, string[]>;
+  socialLikesByAccount?: Record<string, string[]>;
   phoneDividerAfterByConversation?: Record<string, number>;
   recentlyUsedEmojis?: string[];
 };
@@ -142,6 +144,7 @@ export function sessionV2FromCurrentState(
       phoneSeenByConversation: state.phoneSeenByConversation ?? {},
       bankingSeenByCharacter: state.bankingSeenByCharacter ?? {},
       bankingContactsByCharacter: state.bankingContactsByCharacter ?? {},
+      socialLikesByAccount: state.socialLikesByAccount ?? {},
       phoneDividerAfterByConversation: state.phoneDividerAfterByConversation ?? {},
       recentlyUsedEmojis: state.recentlyUsedEmojis ?? [],
     },
@@ -306,6 +309,7 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
     phoneSeenByConversation: session.ui.phoneSeenByConversation,
     bankingSeenByCharacter: session.ui.bankingSeenByCharacter,
     bankingContactsByCharacter: session.ui.bankingContactsByCharacter,
+    socialLikesByAccount: session.ui.socialLikesByAccount,
     phoneDividerAfterByConversation: session.ui.phoneDividerAfterByConversation,
     recentlyUsedEmojis: session.ui.recentlyUsedEmojis ?? [],
   };

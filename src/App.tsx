@@ -1168,6 +1168,10 @@ function App() {
     openEmbeddedPhoneMessage,
     openSocialPost,
     socialPostOpenRequest,
+    socialImageById,
+    socialLikesByAccount,
+    setSocialLikesByAccount,
+    toggleSocialLike,
     unreadEventCount,
     unreadChatCount,
     unreadBankingCount,
@@ -2562,6 +2566,7 @@ function App() {
       phoneSeenByConversation,
       bankingSeenByCharacter,
       bankingContactsByCharacter,
+      socialLikesByAccount,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
     };
@@ -2619,6 +2624,7 @@ function App() {
     setPhoneSeenByConversation({});
     setBankingSeenByCharacter({});
     setBankingContactsByCharacter({});
+    setSocialLikesByAccount({});
     setPhoneDividerAfterByConversation({});
     setOpenedPhoneConversationKey('');
     setRecentlyUsedEmojis([]);
@@ -2756,6 +2762,7 @@ function App() {
     );
     setBankingSeenByCharacter(sessionState.bankingSeenByCharacter);
     setBankingContactsByCharacter(sessionState.bankingContactsByCharacter);
+    setSocialLikesByAccount(sessionState.socialLikesByAccount);
     setPhoneDividerAfterByConversation(sessionState.phoneDividerAfterByConversation);
     setRecentlyUsedEmojis(sessionState.recentlyUsedEmojis ?? []);
     setRecentChatCharacterIds([]);
@@ -2862,6 +2869,7 @@ function App() {
         bankingSeenStateFromMessages(storyCharactersFromNodes(loadedNodes), openingMessages),
       );
       setBankingContactsByCharacter({});
+      setSocialLikesByAccount({});
       setPhoneDividerAfterByConversation({});
       setOpenedPhoneConversationKey('');
       nextMessageIdRef.current =
@@ -5056,6 +5064,38 @@ function App() {
     );
   }
 
+  // Social posts link images by Storybook/Gallery id instead of storing their
+  // own copy. Uploaded files are imported into the acting character's Gallery
+  // first (deduplicated by image data), then the post references the saved id.
+  async function importSocialPostImage(request: {
+    owner: StorybookCharacter;
+    image: ChatImageAttachment;
+  }) {
+    const normalized = await normalizeImageAttachment(
+      {
+        name: request.image.name,
+        mimeType: request.image.mimeType,
+        size: request.image.size,
+        dataUrl: request.image.dataUrl,
+      },
+      () => `image-${uniqueId()}`,
+    );
+    const savedImages = ensureImagesForStorybookCharacter(
+      request.owner,
+      [normalized],
+      '',
+      (addedCount) =>
+        addedCount > 0
+          ? `Saved uploaded image for ${request.owner.name}.`
+          : `Uploaded image already saved for ${request.owner.name}.`,
+    );
+    if (!savedImages?.length) {
+      notifySystem('error', `Could not save the uploaded image for ${request.owner.name}.`);
+      return undefined;
+    }
+    return savedImages[0];
+  }
+
   async function submitSocialThreadAction(request: {
     actor: StorybookCharacter;
     action: SocialThreadActionRecord;
@@ -6281,6 +6321,8 @@ function App() {
               }
               onOpenEmbeddedPhoneMessage={openEmbeddedPhoneMessage}
               onOpenSocialPost={openSocialPost}
+              socialImageById={socialImageById}
+              socialLikesByAccount={socialLikesByAccount}
               onOutputActionChoice={submitOutputActionChoice}
               onSubmitMessage={submitMessage}
               onDraftChange={setDraft}
@@ -6411,6 +6453,10 @@ function App() {
               onSubmitSocialPost={submitSocialPost}
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onCreateSocialAccount={saveStorybookSocialUsername}
+              onImportSocialPostImage={importSocialPostImage}
+              socialImageById={socialImageById}
+              socialLikesByAccount={socialLikesByAccount}
+              onToggleSocialLike={toggleSocialLike}
               bankingContactNames={viewedPhoneCharacter
                 ? bankingContactsByCharacter[viewedPhoneCharacter.id] ?? []
                 : []}

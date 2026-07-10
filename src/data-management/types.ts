@@ -222,6 +222,7 @@ type SessionUiState = {
   phoneSeenByConversation: Record<string, number>;
   bankingSeenByCharacter: Record<string, number>;
   bankingContactsByCharacter: Record<string, string[]>;
+  socialLikesByAccount: Record<string, string[]>;
   phoneDividerAfterByConversation: Record<string, number>;
   selectedEventId?: string;
   openedPhoneConversationKey?: string;

@@ -153,6 +153,8 @@ type ChatConversationPanelProps = {
   onRemoveDraftImage: (imageId: string) => void;
   onOpenEmbeddedPhoneMessage: (message: EmbeddedPhoneMessageLink) => void;
   onOpenSocialPost: (post: SocialPostRecord) => void;
+  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialLikesByAccount: Record<string, string[]>;
   onOutputActionChoice: (selection: InputActionSelection) => void;
   onSubmitMessage: (event: FormEvent<HTMLFormElement>) => void;
   onDraftChange: (value: string) => void;
@@ -224,6 +226,8 @@ export function ChatConversationPanel({
   onRemoveDraftImage,
   onOpenEmbeddedPhoneMessage,
   onOpenSocialPost,
+  socialImageById,
+  socialLikesByAccount,
   onOutputActionChoice,
   onSubmitMessage,
   onDraftChange,
@@ -234,9 +238,9 @@ export function ChatConversationPanel({
 }: ChatConversationPanelProps) {
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   const socialEngagementByApp = useMemo(() => ({
-    fotogram: socialPostEngagementByPostId('fotogram', messages),
-    onlyfriends: socialPostEngagementByPostId('onlyfriends', messages),
-  }), [messages]);
+    fotogram: socialPostEngagementByPostId('fotogram', messages, socialLikesByAccount),
+    onlyfriends: socialPostEngagementByPostId('onlyfriends', messages, socialLikesByAccount),
+  }), [messages, socialLikesByAccount]);
   const isImageInContext = (image: ChatImageAttachment) =>
     !!image.id.trim() && contextualReferenceImageIds.has(image.id.trim());
   const isImageManuallySelected = (image: ChatImageAttachment) =>
@@ -1313,6 +1317,9 @@ export function ChatConversationPanel({
                 {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
                 <SocialPostCard
                   post={socialPost}
+                  imageDataUrl={socialPost.imageId
+                    ? socialImageById(socialPost.imageId)?.dataUrl
+                    : undefined}
                   authorCharacter={authorCharacter}
                   authorColor={authorColor}
                   likeCount={engagement.likeCount}

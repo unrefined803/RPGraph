@@ -54,6 +54,11 @@ export function socialCharacterForPost(
   );
 }
 
+/** Key for the per-character, per-app liked-post store in the RP save. */
+export function socialLikeAccountKey(characterId: string, app: SocialAppKind) {
+  return `${characterId}/${app}`;
+}
+
 /** Social reaction/history records remain available to the LLM but are folded into the post card in Chat. */
 export function socialMessageHiddenFromChat(message: MessageRecord) {
   return !message.socialPost && (!!message.socialThreadAction || !!message.socialReactions);
@@ -296,7 +301,11 @@ export function socialReactionsByPostId(app: SocialAppKind, messages: MessageRec
   return byPostId;
 }
 
-export function socialPostEngagementByPostId(app: SocialAppKind, messages: MessageRecord[]) {
+export function socialPostEngagementByPostId(
+  app: SocialAppKind,
+  messages: MessageRecord[],
+  likesByAccount: Record<string, string[]> = {},
+) {
   const reactionsByPostId = socialReactionsByPostId(app, messages);
   const engagementByPostId: Record<string, { likeCount: number; commentCount: number }> =
     Object.fromEntries(
@@ -325,6 +334,17 @@ export function socialPostEngagementByPostId(app: SocialAppKind, messages: Messa
       // comment, so an echoed actor must not increase the visible total twice.
       commentCount: current.commentCount + (actorWasEchoed ? 0 : 1),
     };
+  });
+  // Player-character likes are stored per "characterId/app" account; each
+  // liking account adds one like to the visible total.
+  Object.entries(likesByAccount).forEach(([accountKey, postIds]) => {
+    if (!accountKey.endsWith(`/${app}`)) {
+      return;
+    }
+    postIds.forEach((postId) => {
+      const current = engagementByPostId[postId] ?? { likeCount: 0, commentCount: 0 };
+      engagementByPostId[postId] = { ...current, likeCount: current.likeCount + 1 };
+    });
   });
   return engagementByPostId;
 }

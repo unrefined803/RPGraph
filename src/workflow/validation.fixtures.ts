@@ -263,13 +263,23 @@ export function verifyWorkflowValidationFixtures() {
     },
   ];
   const combinedSocialReactions = socialReactionsByPostId('fotogram', socialReactionMessages);
-  const combinedSocialEngagement = socialPostEngagementByPostId('fotogram', socialReactionMessages);
+  const combinedSocialEngagement = socialPostEngagementByPostId(
+    'fotogram',
+    socialReactionMessages,
+    // Persisted player likes: one per liking account, only for this app.
+    {
+      'alex/fotogram': ['post-1'],
+      'robin/fotogram': ['post-1', 'post-2'],
+      'alex/onlyfriends': ['post-1'],
+    },
+  );
   assertFixture(
     parsedSocialThread.historySummary?.startsWith('Alex asked') === true &&
       combinedSocialReactions['post-1']?.likes === 12 &&
       combinedSocialReactions['post-1']?.comments.length === 2 &&
-      combinedSocialEngagement['post-1']?.likeCount === 12 &&
+      combinedSocialEngagement['post-1']?.likeCount === 14 &&
       combinedSocialEngagement['post-1']?.commentCount === 3 &&
+      combinedSocialEngagement['post-2']?.likeCount === 1 &&
       socialReactionMessages.every(socialMessageHiddenFromChat),
     'social thread output must aggregate engagement while reaction history stays hidden in Chat',
   );
@@ -909,6 +919,7 @@ export function verifyWorkflowValidationFixtures() {
       phoneSeenByConversation: {},
       bankingSeenByCharacter: {},
       bankingContactsByCharacter: {},
+      socialLikesByAccount: {},
       phoneDividerAfterByConversation: {},
     },
   };

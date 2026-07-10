@@ -11,6 +11,8 @@ import { formatSocialCount } from './phone-social/dummyPosts';
 
 type SocialPostCardProps = {
   post: SocialPostRecord;
+  /** Resolved Gallery image of the post (posts only store the image id). */
+  imageDataUrl?: string;
   authorCharacter?: StorybookCharacter;
   authorColor?: string;
   likeCount: number;
@@ -25,6 +27,7 @@ type SocialPostCardProps = {
 
 export function SocialPostCard({
   post,
+  imageDataUrl,
   authorCharacter,
   authorColor,
   likeCount,
@@ -92,9 +95,9 @@ export function SocialPostCard({
       </span>
 
       {!post.textOnly && (
-        <span className={`chat-social-post-image${post.imageDataUrl ? '' : ' placeholder'}`}>
-          {post.imageDataUrl ? (
-            <img src={post.imageDataUrl} alt={post.caption} onLoad={onImageLoaded} />
+        <span className={`chat-social-post-image${imageDataUrl ? '' : ' placeholder'}`}>
+          {imageDataUrl ? (
+            <img src={imageDataUrl} alt={post.caption} onLoad={onImageLoaded} />
           ) : (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <rect x="3" y="3" width="18" height="18" rx="4" />
