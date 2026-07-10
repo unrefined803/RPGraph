@@ -49,6 +49,7 @@ type UseStorybookActionsOptions = {
   nodesRef: MutableRefObject<WorkflowNode[]>;
   turnsRef: MutableRefObject<TurnRecord[]>;
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
+  currentSocialLikesByAccount: () => Record<string, string[]>;
   replaceCurrentChatWithOpeningHistoryRef: MutableRefObject<boolean>;
   nodeLlm: NodeLlmApi;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
@@ -68,6 +69,7 @@ export function useStorybookActions({
   nodesRef,
   turnsRef,
   turnCheckpointsRef,
+  currentSocialLikesByAccount,
   replaceCurrentChatWithOpeningHistoryRef,
   nodeLlm,
   updateRuntimeNode,
@@ -263,6 +265,9 @@ export function useStorybookActions({
         turns: historyTurns,
         checkpoints: historyCheckpoints,
         events: normalizedOpeningEvents,
+        // Player likes are session UI state, not message records, so they are
+        // snapshotted into the opening history explicitly.
+        socialLikes: structuredClone(currentSocialLikesByAccount()),
       },
     };
     replaceCurrentChatWithOpeningHistoryRef.current = true;

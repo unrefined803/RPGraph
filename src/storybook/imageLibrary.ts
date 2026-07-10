@@ -160,6 +160,11 @@ export function withStorybookExternalImagesPruned(
         usedImageIds.add(normalizedImageId);
       }
     });
+    // Social photo posts keep their linked Gallery image alive.
+    const socialImageId = message.socialPost?.imageId?.trim();
+    if (socialImageId) {
+      usedImageIds.add(socialImageId);
+    }
   });
 
   let removedCount = 0;

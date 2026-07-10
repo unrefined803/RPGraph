@@ -149,6 +149,7 @@ import storybookFormatVersions from './storybook/formatVersions.json';
 import {
   openingHistoryEventsFromNodes,
   openingHistoryCheckpointsFromNodes,
+  openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
   remapOpeningTurnMessageIds,
 } from './storybook/openingHistoryRuntime';
@@ -1608,6 +1609,7 @@ function App() {
     setActiveStorybookProtection,
     notifySystem,
     usedStorybookImageIds,
+    currentSocialLikesByAccount: () => socialLikesByAccount,
   });
   async function describeStorybookCharacterImage(
     node: WorkflowNode,
@@ -2520,6 +2522,24 @@ function App() {
         bankingSeenStateFromMessages(storyCharactersFromNodes(nextNodes), openingMessages),
       )
     );
+
+    // Imported opening histories bring the players' likes back; when the
+    // current chat is kept, the imported likes are merged in on top.
+    const openingSocialLikes = openingHistorySocialLikesFromNodes(nextNodes);
+    setSocialLikesByAccount((current) => {
+      if (replaceCurrentChat) {
+        return openingSocialLikes;
+      }
+      const merged = { ...current };
+      Object.entries(openingSocialLikes).forEach(([accountKey, postIds]) => {
+        const existing = merged[accountKey] ?? [];
+        merged[accountKey] = [
+          ...existing,
+          ...postIds.filter((postId) => !existing.includes(postId)),
+        ];
+      });
+      return merged;
+    });
 
     const openingEvents = openingHistoryEventsFromNodes(nextNodes);
     if (openingEvents.length > 0) {

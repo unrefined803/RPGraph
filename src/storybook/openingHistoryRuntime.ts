@@ -109,3 +109,27 @@ export function remapOpeningTurnMessageIds(openingTurns: TurnRecord[], startId: 
   });
   return { remappedTurns, nextId };
 }
+
+/** Union of the imported player likes from every storybook's opening history. */
+export function openingHistorySocialLikesFromNodes(nodes: WorkflowNode[]) {
+  const likesByAccount: Record<string, string[]> = {};
+  nodes.forEach((node) => {
+    if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+      return;
+    }
+    let storybook;
+    try {
+      storybook = parseRpStorybookJson(node.data.storybookJson);
+    } catch {
+      return;
+    }
+    Object.entries(storybook.openingHistory.socialLikes).forEach(([accountKey, postIds]) => {
+      const current = likesByAccount[accountKey] ?? [];
+      likesByAccount[accountKey] = [
+        ...current,
+        ...postIds.filter((postId) => !current.includes(postId)),
+      ];
+    });
+  });
+  return likesByAccount;
+}

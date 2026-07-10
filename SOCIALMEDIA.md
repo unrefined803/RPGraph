@@ -140,6 +140,10 @@ id) instead of their own image copy. The pixels live once in the Storybook
 image library and are resolved by id wherever the post appears (feed, chat
 post card). Uploads from the computer are imported into the acting
 character's Gallery first (deduplicated by image data), then posted by id.
+Social image ids count as "used by chat history" everywhere images are
+protected: the Storybook editor refuses to delete them and the automatic
+pruning of inactive received images keeps them. Posts, their linked image
+ids, and the player likes all survive "Import Current Chat" round trips.
 
 ## Phases
 
@@ -283,7 +287,9 @@ Later, those recently seen or favorited accounts can become DM targets.
 1. ~~Persist likes so they survive reopening and land in the RP save.~~ Done:
    player likes are stored per character and app in the session's UI state
    (`socialLikesByAccount`, session format 2.8); the feed and the chat post
-   card count one like per liking character.
+   card count one like per liking character. "Import Current Chat" snapshots
+   the likes into the Storybook opening history (`openingHistory.socialLikes`)
+   and loading an opening history restores them.
 2. ~~Replace social photo `imageDataUrl` storage with Storybook/Gallery image
    id references.~~ Done: posts store `imageId`; camera and gallery picks
    already carry Gallery ids, computer uploads are imported into the acting

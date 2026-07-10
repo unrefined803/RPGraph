@@ -17,6 +17,11 @@ export function storybookImageIdsUsedByMessages(messages: MessageRecord[]) {
         imageIds.add(imageId.trim());
       }
     });
+    // Social photo posts link their image by Storybook/Gallery id.
+    const socialImageId = message.socialPost?.imageId?.trim();
+    if (socialImageId) {
+      imageIds.add(socialImageId);
+    }
   });
   return imageIds;
 }

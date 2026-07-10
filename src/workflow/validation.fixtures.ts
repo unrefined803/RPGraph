@@ -27,6 +27,7 @@ import {
 } from '../storybook/imageUsage';
 import {
   openingHistoryCheckpointsFromNodes,
+  openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
   remapOpeningTurnMessageIds,
 } from '../storybook/openingHistoryRuntime';
@@ -388,10 +389,24 @@ export function verifyWorkflowValidationFixtures() {
       originalText: 'Ignored error',
       phoneImageIds: ['ignored_image_01'],
     },
+    {
+      id: 4,
+      role: 'output',
+      originalText: '[Fotogram] Sarah posted a photo',
+      socialPost: {
+        app: 'fotogram',
+        postId: 'post-1',
+        author: 'Sarah Miller',
+        authorHandle: 'sarah',
+        caption: 'Party!',
+        imageId: 'sarah_miller_image_02',
+      },
+    },
   ]);
   assertFixture(
     usedImageIds.has('emily_miller_image_01') &&
       usedImageIds.has('sarah_miller_image_01') &&
+      usedImageIds.has('sarah_miller_image_02') &&
       !usedImageIds.has('ignored_image_01'),
     'chat history image usage must include RP attachments and Phone image IDs',
   );
@@ -765,7 +780,33 @@ export function verifyWorkflowValidationFixtures() {
         replyToMessageId: 1,
       }],
     },
+  }, {
+    id: 'opening-turn-3',
+    number: 3,
+    createdAt: '2026-06-01T12:10:00.000Z',
+    input: { graphText: '', messages: [] },
+    output: {
+      graphText: 'Social post',
+      messages: [{
+        id: 4,
+        role: 'output',
+        originalText: '[Fotogram] Emily Miller (@emily) posted a photo: "Party!"',
+        includeInHistory: true,
+        socialPost: {
+          app: 'fotogram',
+          postId: 'post-import-1',
+          author: 'Emily Miller',
+          authorHandle: 'emily',
+          caption: 'Party!',
+          imageId: 'emily_miller_image_01',
+          imageDescription: 'Emily at the party.',
+        },
+      }],
+    },
   }];
+  openingHistoryStorybook.openingHistory.socialLikes = {
+    'emily-miller/fotogram': ['post-import-1'],
+  };
   openingHistoryStorybook.openingHistory.checkpoints = [{
     turnId: 'opening-turn-2',
     createdTimelineEntryIds: [],
@@ -814,6 +855,14 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     openingHistoryCheckpointsFromNodes([openingHistoryNode])[0]?.turnId === restoredOpeningTurns[1]?.id,
     'Opening History checkpoints must follow their namespaced runtime turn ids',
+  );
+  const restoredSocialPostMessage = restoredOpeningMessages.find((message) => message.socialPost);
+  assertFixture(
+    restoredSocialPostMessage?.socialPost?.imageId === 'emily_miller_image_01' &&
+      restoredSocialPostMessage.socialPost.postId === 'post-import-1' &&
+      openingHistorySocialLikesFromNodes([openingHistoryNode])['emily-miller/fotogram']?.[0] ===
+        'post-import-1',
+    'Opening History must carry social post image ids and imported player likes',
   );
 
   assertFixture(isWorkflowFile(currentWorkflow), 'workflow.default.json must load');
@@ -1037,6 +1086,7 @@ export function verifyWorkflowValidationFixtures() {
             sourceTurnId: 'turn-1',
             sourceTurnNumber: 1,
           }],
+          socialLikes: { 'alex/fotogram': ['post-1'] },
         },
       }),
     },

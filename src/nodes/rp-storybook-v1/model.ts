@@ -108,6 +108,8 @@ export type RpStorybookV1 = {
     turns: TurnRecord[];
     checkpoints: TurnCheckpoint[];
     events: RpAppointment[];
+    /** Liked post ids per "characterId/app" account key, imported with the session. */
+    socialLikes: Record<string, string[]>;
   };
 };
 
@@ -215,6 +217,7 @@ export const emptyRpStorybookV1: RpStorybookV1 = {
     turns: [],
     checkpoints: [],
     events: [],
+    socialLikes: {},
   },
 };
 
@@ -540,6 +543,21 @@ function normalizeOpeningHistoryMessage(value: unknown, index: number): MessageR
   };
 }
 
+function normalizeOpeningHistorySocialLikes(value: unknown): Record<string, string[]> {
+  const likes = recordValue(value);
+  return Object.fromEntries(
+    Object.entries(likes).flatMap(([accountKey, postIds]) => {
+      if (!accountKey.trim() || !Array.isArray(postIds)) {
+        return [];
+      }
+      const normalizedPostIds = postIds.filter(
+        (postId): postId is string => typeof postId === 'string' && !!postId.trim(),
+      );
+      return normalizedPostIds.length ? [[accountKey, normalizedPostIds]] : [];
+    }),
+  );
+}
+
 function normalizeOpeningHistoryTurn(value: unknown, index: number): TurnRecord | undefined {
   const turn = recordValue(value);
   const input = recordValue(turn.input);
@@ -669,6 +687,7 @@ export function normalizeRpStorybookV1(value: unknown): RpStorybookV1 {
       events: openingHistoryEvents
         .map(normalizeOpeningHistoryEvent)
         .filter((event): event is RpAppointment => !!event),
+      socialLikes: normalizeOpeningHistorySocialLikes(openingHistory.socialLikes),
     },
   };
 }
