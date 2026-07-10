@@ -116,6 +116,7 @@ export function useTurnRecordState({
     voiceClips,
     bankTransfer,
     socialPost,
+    socialThreadAction,
     socialReactions,
   }: AppendMessageInput) {
     const id = nextMessageIdRef.current;
@@ -165,6 +166,7 @@ export function useTurnRecordState({
       voiceClips,
       bankTransfer,
       socialPost,
+      socialThreadAction,
       socialReactions,
       turnId: collector?.turnId,
       turnNumber: collector?.turnNumber,

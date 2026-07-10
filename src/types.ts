@@ -640,12 +640,28 @@ export type SocialReactionComment = {
   text: string;
 };
 
+/** A user action inside one social post's comment thread. */
+export type SocialThreadActionRecord = {
+  actionId: string;
+  action: 'comment' | 'load-more';
+  app: SocialAppKind;
+  postId: string;
+  postAuthor: string;
+  postAuthorHandle: string;
+  postCaption: string;
+  actor: string;
+  actorHandle: string;
+  commentText?: string;
+};
+
 /** LLM-generated reactions (likes and comments) to one social post. */
 export type SocialReactionsRecord = {
   app: SocialAppKind;
   postId: string;
   likes: number;
   comments: SocialReactionComment[];
+  /** Append records add their likes and comments to earlier reactions. */
+  append?: boolean;
 };
 
 export type MessageRecord = {
@@ -697,6 +713,7 @@ export type MessageRecord = {
   voiceClips?: MessageVoiceClip[];
   bankTransfer?: BankTransferRecord;
   socialPost?: SocialPostRecord;
+  socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
 };
 

@@ -22,6 +22,8 @@ import type {
   ImageCaptionChange,
   MessageRecord,
   SocialPostRecord,
+  SocialReactionComment,
+  SocialThreadActionRecord,
   ProviderConnectionHealth,
   RpDateTimeFormat,
   RpWeekdayLanguage,
@@ -226,6 +228,11 @@ type PhonePanelProps = {
     post: SocialPostRecord;
     image?: ChatImageAttachment;
   }) => void;
+  onSubmitSocialThreadAction: (request: {
+    actor: StorybookCharacter;
+    action: SocialThreadActionRecord;
+    existingComments: SocialReactionComment[];
+  }) => void;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
@@ -319,6 +326,7 @@ export function PhonePanel({
   onSendBankTransfer,
   socialMediaMessages,
   onSubmitSocialPost,
+  onSubmitSocialThreadAction,
   onCreateSocialAccount,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
@@ -651,6 +659,7 @@ export function PhonePanel({
         isRunning={isRunning}
         onSendBankTransfer={onSendBankTransfer}
         onSubmitSocialPost={onSubmitSocialPost}
+        onSubmitSocialThreadAction={onSubmitSocialThreadAction}
         onCreateSocialAccount={onCreateSocialAccount}
         onBack={() => setScreen('desktop')}
         connections={connections}

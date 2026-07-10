@@ -74,11 +74,28 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       (value.socialPost.imageDataUrl === undefined || typeof value.socialPost.imageDataUrl === 'string') &&
       (value.socialPost.imageDescription === undefined || typeof value.socialPost.imageDescription === 'string')
     );
+    const validSocialThreadAction = value.socialThreadAction === undefined || (
+      isRecord(value.socialThreadAction) &&
+      typeof value.socialThreadAction.actionId === 'string' &&
+      (value.socialThreadAction.action === 'comment' || value.socialThreadAction.action === 'load-more') &&
+      (value.socialThreadAction.app === 'fotogram' || value.socialThreadAction.app === 'onlyfriends') &&
+      typeof value.socialThreadAction.postId === 'string' &&
+      typeof value.socialThreadAction.postAuthor === 'string' &&
+      typeof value.socialThreadAction.postAuthorHandle === 'string' &&
+      typeof value.socialThreadAction.postCaption === 'string' &&
+      typeof value.socialThreadAction.actor === 'string' &&
+      typeof value.socialThreadAction.actorHandle === 'string' &&
+      (
+        value.socialThreadAction.commentText === undefined ||
+        typeof value.socialThreadAction.commentText === 'string'
+      )
+    );
     const validSocialReactions = value.socialReactions === undefined || (
       isRecord(value.socialReactions) &&
       (value.socialReactions.app === 'fotogram' || value.socialReactions.app === 'onlyfriends') &&
       typeof value.socialReactions.postId === 'string' &&
       typeof value.socialReactions.likes === 'number' &&
+      (value.socialReactions.append === undefined || typeof value.socialReactions.append === 'boolean') &&
       Array.isArray(value.socialReactions.comments) &&
       value.socialReactions.comments.every((comment) =>
         isRecord(comment) &&
@@ -104,6 +121,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validEmbeddedPhoneText &&
       validPhone &&
       validSocialPost &&
+      validSocialThreadAction &&
       validSocialReactions
     );
   }

@@ -84,6 +84,11 @@ import {
   latestBankTransferMessageIdForCharacter,
   unreadBankTransferCountForCharacter,
 } from '../chat/bankTransfers';
+import {
+  parseSocialReactionsOutput,
+  socialReactionsByPostId,
+  socialThreadActionInputText,
+} from '../chat/socialMedia';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
   collectRecentReferenceImages,
@@ -198,6 +203,52 @@ export function verifyWorkflowValidationFixtures() {
       ['Taylor Reed', 'danny harper'],
     ).join('|') === 'Danny Harper|Ryan Parker|Taylor Reed',
     'Banking recipients must include transfer counterparties and deduplicated saved contacts',
+  );
+
+  const socialThreadAction = {
+    actionId: 'thread-action-1',
+    action: 'comment' as const,
+    app: 'fotogram' as const,
+    postId: 'post-1',
+    postAuthor: 'Alex',
+    postAuthorHandle: 'alex',
+    postCaption: 'A sunny afternoon.',
+    actor: 'Alex',
+    actorHandle: 'alex',
+    commentText: 'How does everyone like this place?',
+  };
+  assertFixture(
+    socialThreadActionInputText(socialThreadAction, []).includes("Post ownership: actor's own post"),
+    'social thread input must tell the prompt when the actor owns the post',
+  );
+  const parsedSocialThread = parseSocialReactionsOutput(
+    '{"reactions":{"postId":"post-1","additionalLikes":2,"comments":[{"from":"Jamie","text":"Love it!"}]},"summary":"Alex asked the thread about the location; Jamie responded positively."}',
+    { app: 'fotogram', postId: 'post-1', append: true },
+  );
+  const combinedSocialReactions = socialReactionsByPostId('fotogram', [
+    {
+      id: 20,
+      role: 'output',
+      originalText: 'Initial reactions',
+      socialReactions: {
+        app: 'fotogram',
+        postId: 'post-1',
+        likes: 10,
+        comments: [{ from: 'Robin', handle: 'robin', text: 'Beautiful.' }],
+      },
+    },
+    {
+      id: 21,
+      role: 'output',
+      originalText: 'Thread reactions',
+      socialReactions: parsedSocialThread.reactions,
+    },
+  ]);
+  assertFixture(
+    parsedSocialThread.historySummary?.startsWith('Alex asked') === true &&
+      combinedSocialReactions['post-1']?.likes === 12 &&
+      combinedSocialReactions['post-1']?.comments.length === 2,
+    'social thread output must parse summaries and append likes and comments',
   );
 
   const assistantStorybook = {
@@ -839,6 +890,43 @@ export function verifyWorkflowValidationFixtures() {
     },
   };
   assertFixture(isRpSaveFile(currentSession), 'current RP Save Format v2 must load');
+  assertFixture(
+    isRpSaveFile({
+      ...currentSession,
+      timeline: [
+        {
+          id: 'turn-1-output-1',
+          kind: 'message',
+          turnId: 'turn-1',
+          turnNumber: 1,
+          phase: 'output',
+          channel: 'rp',
+          role: 'assistant',
+          text: { original: '[Fotogram] Alex commented and received a reply.' },
+          socialThreadAction: {
+            actionId: 'social-thread-fotogram-1',
+            action: 'comment',
+            app: 'fotogram',
+            postId: 'post-1',
+            postAuthor: 'Jamie',
+            postAuthorHandle: 'jamie',
+            postCaption: 'A sunny afternoon.',
+            actor: 'Alex',
+            actorHandle: 'alex',
+            commentText: 'Great photo!',
+          },
+          socialReactions: {
+            app: 'fotogram',
+            postId: 'post-1',
+            likes: 2,
+            comments: [{ from: 'Jamie', handle: 'jamie', text: 'Thank you!' }],
+            append: true,
+          },
+        },
+      ],
+    }),
+    'current RP Save Format must accept persisted social thread actions',
+  );
   assertFixture(
     !isRpSaveFile({ ...currentSession, formatVersion: '1.1' }),
     'a different session format version must be rejected during beta',

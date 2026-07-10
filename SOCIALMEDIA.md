@@ -11,9 +11,10 @@ This document is the working plan; we refine it before and while implementing.
   to both. Only branding (colors, name, icon) and a few behavior flags differ.
 - Like the Banking app, the apps are simulated in the background during roleplay.
   Most feed content is dummy posts (placeholder images that look "not loaded").
-- The only interface to the outside world: when the user closes the app, the LLM
-  summarizes what happened, and that summary is sent to the chat history as an
-  info box (same pattern as bank transfers: "X sent Y money").
+- The only interface to the outside world is compact chat-history activity.
+  Meaningful workflow actions write a short summary instead of copying full
+  posts or comment threads into narrator context. A later close-app summary can
+  combine several local-only interactions such as likes.
 
 ## App identities
 
@@ -44,11 +45,11 @@ same way a bank transfer is. This is the pattern every future action follows:
    app (likes, comments, …).
 4. The action and its result are written to the **chat history** as compact
    info lines (`[Fotogram] Name (@handle) posted: "…"`), so the narrator LLM
-   knows what happened. Only story-relevant parts go there (story character
-   comments yes, invented NPC comments no).
+   knows what happened. Comment turns use the model's one-sentence summary;
+   complete threads and invented NPC noise stay inside the app.
 5. The data is **persisted as records on chat messages** (`socialPost`,
-   `socialReactions`, later user comments/likes), which makes it part of the
-   RP save automatically and also lets Opening History imports carry the
+   `socialThreadAction`, `socialReactions`, later likes), which makes it part of
+   the RP save automatically and also lets Opening History imports carry the
    activity with the imported turns.
 
 Because Fotogram and OnlyFriends audiences react differently, **every action
@@ -60,8 +61,8 @@ always gets two prompt slots** — one per app.
 |---|---|---|
 | `0` | Fotogram: new post → likes + comments | ✅ implemented |
 | `1` | OnlyFriends: new post → likes + fan comments | ✅ implemented |
-| `2` | Fotogram: user writes a comment → thread reacts | planned next |
-| `3` | OnlyFriends: user writes a comment → fans react | planned next |
+| `2` | Fotogram: write a comment or load more comments → thread reacts | ✅ implemented |
+| `3` | OnlyFriends: write a comment or load more comments → thread reacts | ✅ implemented |
 | `4+` | later: like activity, "Load More" feed generation, DMs, close-app summary | open |
 
 Message Format `2` + Turn Mode `0` stays Banking.
@@ -203,18 +204,20 @@ which is wired to the new **Social Media** input of RP Output.
   the app's onboarding; creating an account in either app writes the username
   back into the Storybook. Fotogram accounts are expected for every character
   (the assistant always sets one); OnlyFriends accounts stay empty unless
-  created. The bundled default workflow (v7) gives all four characters
+  created. The bundled default workflow (v8) gives all four characters
   Fotogram usernames. ✅
 - OnlyFriends sidebar starts empty (no story-character contacts) because the
   platform is private; accounts can only be added manually. ✅
 
-### Next up — commenting (Turn Modes 2 and 3)
+### Commenting and thread loading (Turn Modes 2 and 3)
 
-The user can already type comments locally; the next step makes the platform
-react to them. Writing a comment becomes a turn (same mechanism as posting):
+Writing a comment and loading more comments both run the workflow. They share
+one prompt slot per platform because the structured input identifies the
+requested thread action:
 
 - The input block describes the situation: which post (id, author, post text),
-  the existing comments on it, and the user's new comment.
+  whether it belongs to the actor, the existing comments, and either the user's
+  new comment or a request to generate more comments.
 - The prompt is **dynamic** — how the thread reacts depends on whose post it
   is and what the comment says:
   - Comment **under the user's own post**: the repliers mostly address the
@@ -223,17 +226,17 @@ react to them. Writing a comment becomes a turn (same mechanism as posting):
     (especially when asked something), or other commenters chime in, or the
     comment simply gets **ignored** and the thread just grows with unrelated
     new comments. The LLM decides based on the comment's content.
-- The response is the same reactions JSON (extra likes plus new comments,
-  appended to the existing thread); new comments land under the post.
-- Two prompt slots as always: **Turn Mode 2 = Fotogram Comment** (mix of story
-  characters where fitting plus NPC friends), **Turn Mode 3 = OnlyFriends
-  Comment** (fans only, thirsty tone).
-- History rule stays: the user's comment and story-character replies go into
-  the chat history; NPC noise stays in the app.
-- Technical groundwork this needs: comments must become persistent records
-  (currently only the user's local comments and the initial reactions are
-  stored) and reaction records must be appendable per post instead of one
-  record per post.
+- The response contains append-only reactions JSON (extra likes plus new
+  comments) and one mandatory short `summary` sentence. Full comments appear
+  only inside the app; the summary is the only thread text sent to chat history.
+- Two prompt slots as always: **Turn Mode 2 = Fotogram Comment Thread** (post
+  author, fitting story characters, and NPC friends), **Turn Mode 3 =
+  OnlyFriends Comment Thread** (the post author where appropriate plus invented
+  fans; unrelated story characters stay out of the private thread).
+- User thread actions are persisted as `socialThreadAction` records. Generated
+  replies use appendable `socialReactions` records, so comments and loaded
+  batches survive closing the app and reloading the RP save. ✅
+- The same controls work on generated posts and deterministic dummy posts. ✅
 
 When commenters appear, they should also become visible in the app's account
 sidebar as "recently seen" people. The main playable characters are pinned as
@@ -250,28 +253,27 @@ Later, those recently seen or favorited accounts can become DM targets.
 
 ### Backlog (rough order)
 
-1. Commenting turns as described above (Turn Modes 2/3).
-2. Persist user comments and likes as records so they survive reopening and
-   land in the RP save (posts and initial reactions already do).
-3. Replace social photo `imageDataUrl` storage with Storybook/Gallery image id
+1. Persist likes as records so they survive reopening and land in the RP save.
+2. Replace social photo `imageDataUrl` storage with Storybook/Gallery image id
    references. Camera and computer uploads must first be saved into the acting
    character's Gallery; social posts then reuse that id.
-4. Track recently seen accounts from comments and allow favorites in the social
+3. Track recently seen accounts from comments and allow favorites in the social
    sidebar. Player characters start as favorites; NPCs can be favorited later
    and eventually become DM targets.
-5. Rename "Import Current Chat" to "Import Current Session" and describe that
+4. Rename "Import Current Chat" to "Import Current Session" and describe that
    it imports chat, phone, bank transfers, events, and social message records.
-6. "Load More" in the feed: generate additional feed posts per account via a
-   prompt slot instead of deterministic dummy posts.
-7. Shared post store across characters (character A's post visible on
+5. "Load More" in the feed (separate from the implemented comment-thread
+   button): generate additional feed posts per account via a prompt slot instead
+   of deterministic dummy posts.
+6. Shared post store across characters (character A's post visible on
    character B's phone) — the vision section below.
-8. OnlyFriends creator role from the Storybook (creator posts & earns; viewer
+7. OnlyFriends creator role from the Storybook (creator posts & earns; viewer
    pays & unlocks) and unlock money actually reaching the creator's account.
-9. Close-app summary (Phase 3): summarize the session in the app and emit it
+8. Close-app summary (Phase 3): summarize the session in the app and emit it
    into the chat history like bank transfers.
-10. Username fields in the storybook creator dialog (currently only the
+9. Username fields in the storybook creator dialog (currently only the
    storybook assistant / app onboarding set them).
-11. DMs inside the apps (writing to other accounts).
+10. DMs inside the apps (writing to other accounts).
 
 ### Phase 3 — Workflow integration
 
@@ -289,11 +291,10 @@ Later, those recently seen or favorited accounts can become DM targets.
   user picks a nickname — same flow in both apps.
 - For OnlyFriends, the Storybook entry also records the role: regular user or
   creator.
-- Manually added people, recently seen commenters, favorites, likes, unlocks,
-  and user comments are session/app state, not durable Storybook facts by
-  default. They should live in session/message records so RP saves and Opening
-  History imports can preserve them without turning every passerby NPC into a
-  permanent Storybook character.
+- User comments already live in session message records. Manually added people,
+  recently seen commenters, favorites, likes, and unlocks are session/app state,
+  not durable Storybook facts, and should follow the same persistence pattern
+  without turning every passerby NPC into a permanent Storybook character.
 - Recently seen accounts are created by activity. If someone comments under a
   Fotogram post or OnlyFriends post, that account can appear in the sidebar.
   Favorites pin important accounts above recent accounts. The main playable

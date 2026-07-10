@@ -10,6 +10,7 @@ import type {
   ImageCaptionChange,
   MessageRecord,
   SocialPostRecord,
+  SocialThreadActionRecord,
   ChatDialogueQuote,
   OutputActionContextCapacityBar,
   ProviderConnectionHealth,
@@ -77,6 +78,7 @@ import {
   socialPostHistoryText,
   socialPostTextFromInput,
   socialReactionsHistoryText,
+  socialThreadHistoryText,
 } from '../chat/socialMedia';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import { withSpeakerPrefix } from '../chat/instructions';
@@ -402,6 +404,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     phoneReplyToOverride?: MessageRecord,
     structuredInput?: StructuredInputPayload,
     socialPost?: SocialPostRecord,
+    socialThreadAction?: SocialThreadActionRecord,
   ) {
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
@@ -485,6 +488,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         phoneReplyToOverride,
         structuredInput,
         socialPost,
+        socialThreadAction,
       );
     };
     const finishRun = () => {
@@ -1853,6 +1857,45 @@ export function useGraphRun(options: UseGraphRunOptions) {
               socialReactions: parsedReactions.reactions,
             });
           }
+        }
+        if (socialThreadAction) {
+          const parsedReactions = parseSocialReactionsOutput(socialMediaOutputText, {
+            app: socialThreadAction.app,
+            postId: socialThreadAction.postId,
+            append: true,
+          });
+          reportFormatResult({
+            name: 'Social Media Thread JSON',
+            status: parsedReactions.reactions && parsedReactions.warnings.length === 0 ? 'ok' : 'error',
+            detail: parsedReactions.warnings.length
+              ? parsedReactions.warnings.join(' ')
+              : `${parsedReactions.reactions?.likes ?? 0} additional like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s) parsed.`,
+            preview: parsedReactions.warnings.length ? socialMediaOutputText : undefined,
+          });
+          parsedReactions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+          const historyReactions = parsedReactions.reactions ?? {
+            app: socialThreadAction.app,
+            postId: socialThreadAction.postId,
+            likes: 0,
+            comments: [],
+            append: true,
+          };
+          const historyText = socialThreadHistoryText(
+            socialThreadAction,
+            historyReactions,
+            parsedReactions.historySummary,
+          );
+          const translatedHistoryText = await translateOutputActionText(historyText, {
+            text: historyText,
+          });
+          appendMessage({
+            role: 'output',
+            originalText: historyText,
+            translatedText: translatedHistoryText,
+            includeInHistory: true,
+            socialThreadAction,
+            socialReactions: parsedReactions.reactions,
+          });
         }
       }
       if (!isPhoneMessage && translationError) {

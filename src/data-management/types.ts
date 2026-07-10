@@ -4,6 +4,7 @@ import type {
   BankTransferRecord,
   SocialPostRecord,
   SocialReactionsRecord,
+  SocialThreadActionRecord,
   CharacterStatsState,
   ChatDialogueQuote,
   ChatImageAttachment,
@@ -98,6 +99,7 @@ export type TimelineMessageEntry = {
   voiceClips?: MessageVoiceClip[];
   bankTransfer?: BankTransferRecord;
   socialPost?: SocialPostRecord;
+  socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
 };
 

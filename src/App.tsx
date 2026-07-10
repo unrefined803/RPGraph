@@ -63,7 +63,7 @@ import {
   bankTransferInputText,
   bankTransferMessages,
 } from './chat/bankTransfers';
-import { socialPostInputText } from './chat/socialMedia';
+import { socialPostInputText, socialThreadActionInputText } from './chat/socialMedia';
 import {
   extractDialogueQuotes,
 } from './chat/textRendering';
@@ -269,6 +269,8 @@ import type {
   InputActionSelection,
   MessageRecord,
   SocialPostRecord,
+  SocialReactionComment,
+  SocialThreadActionRecord,
   MessageVoiceClip,
   OutputActionContextCapacityBar,
   ConnectionPreset,
@@ -5052,6 +5054,39 @@ function App() {
     );
   }
 
+  function submitSocialThreadAction(request: {
+    actor: StorybookCharacter;
+    action: SocialThreadActionRecord;
+    existingComments: SocialReactionComment[];
+  }) {
+    if (isRunning) {
+      return;
+    }
+    void runGraph(
+      socialThreadActionInputText(request.action, request.existingComments),
+      [],
+      undefined,
+      messagesRef.current,
+      undefined,
+      request.actor,
+      false,
+      undefined,
+      undefined,
+      'user',
+      undefined,
+      undefined,
+      undefined,
+      false,
+      3,
+      // Both thread actions share the app's prompt slot.
+      request.action.app === 'fotogram' ? 2 : 3,
+      undefined,
+      undefined,
+      undefined,
+      request.action,
+    );
+  }
+
   function selectPhoneImagesFromComposer() {
     void selectPhoneImages();
   }
@@ -6355,9 +6390,13 @@ function App() {
               onAddPhoneImages={addPhoneImagesFromComposer}
               bankTransferMessages={bankTransferMessages(messages)}
               socialMediaMessages={messages.filter(
-                (message) => !!message.socialPost || !!message.socialReactions,
+                (message) =>
+                  !!message.socialPost ||
+                  !!message.socialThreadAction ||
+                  !!message.socialReactions,
               )}
               onSubmitSocialPost={submitSocialPost}
+              onSubmitSocialThreadAction={submitSocialThreadAction}
               onCreateSocialAccount={saveStorybookSocialUsername}
               bankingContactNames={viewedPhoneCharacter
                 ? bankingContactsByCharacter[viewedPhoneCharacter.id] ?? []

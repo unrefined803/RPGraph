@@ -4,6 +4,7 @@ import type {
   SocialPostRecord,
   SocialReactionComment,
   SocialReactionsRecord,
+  SocialThreadActionRecord,
 } from '../types';
 
 export const socialAppNames: Record<SocialAppKind, string> = {
@@ -23,6 +24,11 @@ export function socialHandleForName(name: string) {
 
 function singleLine(text: string) {
   return text.replace(/\s+/g, ' ').trim();
+}
+
+function compactHistorySummary(text: string) {
+  const summary = singleLine(text);
+  return summary.length <= 280 ? summary : `${summary.slice(0, 277).trimEnd()}...`;
 }
 
 /** LLM-facing input text for a "user posted something" turn (Message Format 3). */
@@ -60,6 +66,35 @@ export function socialPostHistoryText(post: SocialPostRecord) {
   return `[${socialAppNames[post.app]}] ${post.author} (@${post.authorHandle}) ${kind}: "${post.caption}"`;
 }
 
+/** LLM-facing input for writing or loading comments in an existing thread. */
+export function socialThreadActionInputText(
+  action: SocialThreadActionRecord,
+  existingComments: SocialReactionComment[],
+) {
+  const actorOwnsPost =
+    action.actor.trim().toLowerCase() === action.postAuthor.trim().toLowerCase() ||
+    action.actorHandle.trim().toLowerCase() === action.postAuthorHandle.trim().toLowerCase();
+  const commentContext = existingComments
+    .slice(-20)
+    .map((comment) => `- ${comment.from} (@${comment.handle}): ${singleLine(comment.text)}`);
+  return [
+    '[SOCIAL MEDIA THREAD ACTION]',
+    `App: ${socialAppNames[action.app]}`,
+    `Action: ${action.action === 'comment' ? 'Write a comment' : 'Load more comments'}`,
+    `Action ID: ${action.actionId}`,
+    `Actor: ${action.actor} (@${action.actorHandle})`,
+    `Post ID: ${action.postId}`,
+    `Post author: ${action.postAuthor} (@${action.postAuthorHandle})`,
+    `Post ownership: ${actorOwnsPost ? "actor's own post" : "another person's post"}`,
+    `Post text: ${singleLine(action.postCaption)}`,
+    'Existing comments:',
+    ...(commentContext.length ? commentContext : ['- None']),
+    ...(action.action === 'comment'
+      ? [`New comment from the actor: ${singleLine(action.commentText ?? '')}`]
+      : ['Request: Generate additional comments for this existing thread.']),
+  ].join('\n');
+}
+
 /** Chat-history text that records the generated reactions to a post. */
 export function socialReactionsHistoryText(reactions: SocialReactionsRecord, post: SocialPostRecord) {
   const comments = reactions.comments
@@ -91,18 +126,22 @@ function extractJsonObject(text: string): unknown {
 
 export type SocialReactionsParseResult = {
   reactions?: SocialReactionsRecord;
+  historySummary?: string;
   warnings: string[];
 };
 
+type SocialReactionTarget = Pick<SocialPostRecord, 'app' | 'postId'> & {
+  append?: boolean;
+};
+
 /**
- * Parse the Social Media output of a post turn. Expected shape (tolerant):
- * {"reactions": {"postId": "...", "likes": 12, "comments": [{"from": "Name", "text": "..."}]}}
- * The wrapper object, postId, and comment handles are all optional; the post
- * the reactions belong to is known from the run.
+ * Parse initial-post or append-only thread reactions. The wrapper object,
+ * postId, comment handles, and alternate historySummary name are tolerated;
+ * the target post is already known from the run.
  */
 export function parseSocialReactionsOutput(
   text: string,
-  post: SocialPostRecord,
+  target: SocialReactionTarget,
 ): SocialReactionsParseResult {
   if (!text.trim()) {
     return { warnings: ['Social Media output was empty; no reactions were generated.'] };
@@ -113,13 +152,15 @@ export function parseSocialReactionsOutput(
   }
   const payload = isRecord(parsed.reactions) ? parsed.reactions : parsed;
   const warnings: string[] = [];
-  const likesValue = payload.likes;
+  const likesValue = target.append ? payload.additionalLikes ?? payload.likes : payload.likes;
   const likes =
     typeof likesValue === 'number' && Number.isFinite(likesValue)
       ? Math.max(0, Math.trunc(likesValue))
       : undefined;
   if (likes === undefined) {
-    warnings.push('Social Media reactions are missing a numeric "likes" value; using 0.');
+    warnings.push(
+      `Social Media reactions are missing a numeric "${target.append ? 'additionalLikes' : 'likes'}" value; using 0.`,
+    );
   }
   const comments: SocialReactionComment[] = [];
   if (Array.isArray(payload.comments)) {
@@ -136,15 +177,44 @@ export function parseSocialReactionsOutput(
       comments.push({ from, handle, text: entry.text.trim() });
     });
   }
+  const summaryValue = isRecord(parsed) ? parsed.summary ?? parsed.historySummary : undefined;
+  const compactSummary = typeof summaryValue === 'string'
+    ? compactHistorySummary(summaryValue)
+    : '';
+  const historySummary = compactSummary || undefined;
+  if (target.append && !historySummary) {
+    warnings.push('Social Media thread output is missing a short history summary.');
+  }
   return {
     reactions: {
-      app: post.app,
-      postId: post.postId,
+      app: target.app,
+      postId: target.postId,
       likes: likes ?? 0,
       comments,
+      append: target.append || undefined,
     },
+    historySummary,
     warnings,
   };
+}
+
+/** Compact chat-history line for a comment/load-more turn. */
+export function socialThreadHistoryText(
+  action: SocialThreadActionRecord,
+  reactions: SocialReactionsRecord,
+  generatedSummary?: string,
+) {
+  const summary = singleLine(generatedSummary ?? '').replace(/^\[[^\]]+\]\s*/, '');
+  if (summary) {
+    return `[${socialAppNames[action.app]}] ${summary}`;
+  }
+  const activity = action.action === 'comment'
+    ? `${action.actor} commented on @${action.postAuthorHandle}'s post`
+    : `${action.actor} loaded more comments on @${action.postAuthorHandle}'s post`;
+  const reactionCount = reactions.comments.length;
+  return `[${socialAppNames[action.app]}] ${activity}; the thread added ${reactionCount} comment${
+    reactionCount === 1 ? '' : 's'
+  }.`;
 }
 
 /** All messages that carry a social post for the given app, oldest first. */
@@ -160,8 +230,35 @@ export function socialReactionsByPostId(app: SocialAppKind, messages: MessageRec
   const byPostId: Record<string, SocialReactionsRecord> = {};
   messages.forEach((message) => {
     if (message.socialReactions?.app === app) {
-      byPostId[message.socialReactions.postId] = message.socialReactions;
+      const next = message.socialReactions;
+      const current = byPostId[next.postId];
+      if (!current || !next.append) {
+        byPostId[next.postId] = {
+          ...next,
+          comments: [...next.comments],
+        };
+      } else {
+        byPostId[next.postId] = {
+          app,
+          postId: next.postId,
+          likes: current.likes + next.likes,
+          comments: [...current.comments, ...next.comments],
+        };
+      }
     }
+  });
+  return byPostId;
+}
+
+/** Persisted user thread actions per post id, oldest first. */
+export function socialThreadActionsByPostId(app: SocialAppKind, messages: MessageRecord[]) {
+  const byPostId: Record<string, SocialThreadActionRecord[]> = {};
+  messages.forEach((message) => {
+    const action = message.socialThreadAction;
+    if (action?.app !== app) {
+      return;
+    }
+    byPostId[action.postId] = [...(byPostId[action.postId] ?? []), action];
   });
   return byPostId;
 }

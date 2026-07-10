@@ -20620,6 +20620,29 @@ button.message-timeline-row.phone:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.phone-social-load-comments {
+  align-self: flex-start;
+  padding: 3px 0;
+  border: none;
+  color: var(--social-accent);
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.phone-social-load-comments:hover,
+.phone-social-load-comments:focus-visible {
+  outline: none;
+  text-decoration: underline;
+}
+
+.phone-social-load-comments:disabled {
+  opacity: 0.45;
+  cursor: default;
+  text-decoration: none;
+}
+
 .phone-social-comment-form {
   display: flex;
   gap: 6px;

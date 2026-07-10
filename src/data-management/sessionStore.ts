@@ -229,6 +229,7 @@ function chatMessageFromTimelineEntry(
     voiceClips: entry.voiceClips,
     bankTransfer: entry.bankTransfer,
     socialPost: entry.socialPost,
+    socialThreadAction: entry.socialThreadAction,
     socialReactions: entry.socialReactions,
   };
 }
