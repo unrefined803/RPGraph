@@ -63,6 +63,7 @@ import {
   bankTransferInputText,
   bankTransferMessages,
 } from './chat/bankTransfers';
+import { socialPostInputText } from './chat/socialMedia';
 import {
   extractDialogueQuotes,
 } from './chat/textRendering';
@@ -266,6 +267,7 @@ import type {
   ImageCaptionChange,
   InputActionSelection,
   MessageRecord,
+  SocialPostRecord,
   MessageVoiceClip,
   OutputActionContextCapacityBar,
   ConnectionPreset,
@@ -4989,6 +4991,33 @@ function App() {
     );
   }
 
+  function submitSocialPost(request: { author: StorybookCharacter; post: SocialPostRecord }) {
+    if (isRunning) {
+      return;
+    }
+    void runGraph(
+      socialPostInputText(request.post),
+      [],
+      undefined,
+      messagesRef.current,
+      undefined,
+      request.author,
+      false,
+      undefined,
+      undefined,
+      'user',
+      undefined,
+      undefined,
+      undefined,
+      false,
+      3,
+      0,
+      undefined,
+      undefined,
+      request.post,
+    );
+  }
+
   function selectPhoneImagesFromComposer() {
     void selectPhoneImages();
   }
@@ -6291,6 +6320,10 @@ function App() {
               onSelectPhoneGalleryImage={selectPhoneGalleryImageFromComposer}
               onAddPhoneImages={addPhoneImagesFromComposer}
               bankTransferMessages={bankTransferMessages(messages)}
+              socialMediaMessages={messages.filter(
+                (message) => !!message.socialPost || !!message.socialReactions,
+              )}
+              onSubmitSocialPost={submitSocialPost}
               bankingContactNames={viewedPhoneCharacter
                 ? bankingContactsByCharacter[viewedPhoneCharacter.id] ?? []
                 : []}

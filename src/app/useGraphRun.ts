@@ -9,6 +9,7 @@ import type {
   EmbeddedPhoneMessageLink,
   ImageCaptionChange,
   MessageRecord,
+  SocialPostRecord,
   ChatDialogueQuote,
   OutputActionContextCapacityBar,
   ProviderConnectionHealth,
@@ -71,6 +72,11 @@ import {
   bankTransferHistoryText,
   bankTransferPartyMatches,
 } from '../chat/bankTransfers';
+import {
+  parseSocialReactionsOutput,
+  socialPostHistoryText,
+  socialReactionsHistoryText,
+} from '../chat/socialMedia';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import { withSpeakerPrefix } from '../chat/instructions';
 import { executeGraph } from '../graph/executeGraph';
@@ -394,6 +400,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     turnModeOverride?: number,
     phoneReplyToOverride?: MessageRecord,
     structuredInput?: StructuredInputPayload,
+    socialPost?: SocialPostRecord,
   ) {
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
@@ -476,6 +483,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         turnModeOverride,
         phoneReplyToOverride,
         structuredInput,
+        socialPost,
       );
     };
     const finishRun = () => {
@@ -1088,7 +1096,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
         turnContext,
       });
     }
-    if (shouldAppendInputMessage && !isAutoTurn && !isPhoneMessage && messageFormat !== 2) {
+    // Output-actions (2) and social-media (3) runs do not append the raw input
+    // text; their results are recorded as dedicated history messages instead.
+    if (shouldAppendInputMessage && !isAutoTurn && !isPhoneMessage && messageFormat !== 2 && messageFormat !== 3) {
       appendMessage({
         role: 'user',
         originalText: narratorAutoTurn ? 'Narrator AutoTurn' : originalInput,
@@ -1136,6 +1146,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       let outputHighlightingContext = '';
       let phoneMessageOutput = '';
       let outputActionsText = '';
+      let socialMediaOutputText = '';
       const graphOutput = await executeGraph({
         outputNodeId: outputNode.id,
         nodes: executionNodes,
@@ -1172,7 +1183,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           runTraceEvents.push({ kind: 'format', ...result });
         },
         trackRunCompletion: true,
-        auxiliaryOutputHandles: ['output-actions', 'highlighting-context', 'phone-message'],
+        auxiliaryOutputHandles: ['output-actions', 'highlighting-context', 'phone-message', 'social-media'],
         onAuxiliaryOutput: (handle, text) => {
           if (handle === 'highlighting-context') {
             outputHighlightingContext = text;
@@ -1182,6 +1193,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
           if (handle === 'output-actions') {
             outputActionsText = text;
+          }
+          if (handle === 'social-media') {
+            socialMediaOutputText = text;
           }
         },
         streamOutput:
@@ -1785,6 +1799,46 @@ export function useGraphRun(options: UseGraphRunOptions) {
             includeInHistory: true,
             bankTransfer: canonicalTransfer,
           });
+        }
+
+        // Social-media runs record the post itself plus the generated
+        // reactions as history messages, mirroring how bank transfers land in
+        // the timeline. The post is only persisted when the run succeeds.
+        if (socialPost) {
+          const postHistoryText = socialPostHistoryText(socialPost);
+          const translatedPostText = await translateOutputActionText(postHistoryText, {
+            text: postHistoryText,
+          });
+          appendMessage({
+            role: 'output',
+            originalText: postHistoryText,
+            translatedText: translatedPostText,
+            includeInHistory: true,
+            socialPost,
+          });
+          const parsedReactions = parseSocialReactionsOutput(socialMediaOutputText, socialPost);
+          reportFormatResult({
+            name: 'Social Media JSON',
+            status: parsedReactions.reactions && parsedReactions.warnings.length === 0 ? 'ok' : 'error',
+            detail: parsedReactions.warnings.length
+              ? parsedReactions.warnings.join(' ')
+              : `${parsedReactions.reactions?.likes ?? 0} like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s) parsed.`,
+            preview: parsedReactions.warnings.length ? socialMediaOutputText : undefined,
+          });
+          parsedReactions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+          if (parsedReactions.reactions) {
+            const reactionsText = socialReactionsHistoryText(parsedReactions.reactions, socialPost);
+            const translatedReactionsText = await translateOutputActionText(reactionsText, {
+              text: reactionsText,
+            });
+            appendMessage({
+              role: 'output',
+              originalText: reactionsText,
+              translatedText: translatedReactionsText,
+              includeInHistory: true,
+              socialReactions: parsedReactions.reactions,
+            });
+          }
         }
       }
       if (!isPhoneMessage && translationError) {

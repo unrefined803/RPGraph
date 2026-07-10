@@ -162,6 +162,7 @@ export function verifyWorkflowValidationFixtures() {
     },
     phoneSettings: { wallpaperId: 'wallpaper-1' },
     banking: { startBalance: 100, fixedExpenses: [] },
+    social: { fotogramUsername: '' },
   };
   const bankingMessages: MessageRecord[] = [
     {

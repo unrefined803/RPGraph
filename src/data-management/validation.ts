@@ -63,6 +63,29 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         (clip.createdAt === undefined || typeof clip.createdAt === 'string')
       )
     );
+    const validSocialPost = value.socialPost === undefined || (
+      isRecord(value.socialPost) &&
+      (value.socialPost.app === 'fotogram' || value.socialPost.app === 'onlyfriends') &&
+      typeof value.socialPost.postId === 'string' &&
+      typeof value.socialPost.author === 'string' &&
+      typeof value.socialPost.authorHandle === 'string' &&
+      typeof value.socialPost.caption === 'string' &&
+      (value.socialPost.textOnly === undefined || typeof value.socialPost.textOnly === 'boolean') &&
+      (value.socialPost.imageDataUrl === undefined || typeof value.socialPost.imageDataUrl === 'string')
+    );
+    const validSocialReactions = value.socialReactions === undefined || (
+      isRecord(value.socialReactions) &&
+      (value.socialReactions.app === 'fotogram' || value.socialReactions.app === 'onlyfriends') &&
+      typeof value.socialReactions.postId === 'string' &&
+      typeof value.socialReactions.likes === 'number' &&
+      Array.isArray(value.socialReactions.comments) &&
+      value.socialReactions.comments.every((comment) =>
+        isRecord(comment) &&
+        typeof comment.from === 'string' &&
+        typeof comment.handle === 'string' &&
+        typeof comment.text === 'string'
+      )
+    );
     return (
       typeof value.turnId === 'string' &&
       typeof value.turnNumber === 'number' &&
@@ -78,7 +101,9 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validImages &&
       validVoiceClips &&
       validEmbeddedPhoneText &&
-      validPhone
+      validPhone &&
+      validSocialPost &&
+      validSocialReactions
     );
   }
   if (value.kind === 'event-change') {

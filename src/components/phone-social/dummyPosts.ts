@@ -20,6 +20,7 @@ export type SocialPost = {
 
 export type SocialComment = {
   id: string;
+  authorName?: string;
   authorHandle: string;
   text: string;
 };

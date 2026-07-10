@@ -619,6 +619,33 @@ export type BankTransferRecord = {
   note?: string;
 };
 
+export type SocialAppKind = 'fotogram' | 'onlyfriends';
+
+/** A post a character published in a social app; persisted on the message. */
+export type SocialPostRecord = {
+  app: SocialAppKind;
+  postId: string;
+  author: string;
+  authorHandle: string;
+  caption: string;
+  textOnly?: boolean;
+  imageDataUrl?: string;
+};
+
+export type SocialReactionComment = {
+  from: string;
+  handle: string;
+  text: string;
+};
+
+/** LLM-generated reactions (likes and comments) to one social post. */
+export type SocialReactionsRecord = {
+  app: SocialAppKind;
+  postId: string;
+  likes: number;
+  comments: SocialReactionComment[];
+};
+
 export type MessageRecord = {
   id: number;
   role: 'user' | 'output' | 'error';
@@ -667,6 +694,8 @@ export type MessageRecord = {
   workflowVariableSetCommands?: WorkflowVariableSetCommand[];
   voiceClips?: MessageVoiceClip[];
   bankTransfer?: BankTransferRecord;
+  socialPost?: SocialPostRecord;
+  socialReactions?: SocialReactionsRecord;
 };
 
 export type RpAppointment = {

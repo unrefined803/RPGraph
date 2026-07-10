@@ -1,6 +1,6 @@
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
-import { defaultRpStorybookCharacterBanking } from '../nodes/rp-storybook-v1/model';
+import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterSocial } from '../nodes/rp-storybook-v1/model';
 import {
   normalizePhoneName,
   phoneNamesMatch,
@@ -60,6 +60,7 @@ export function phoneRuntimeCharactersFromMessages(
         },
         phoneSettings: { wallpaperId: 'wallpaper-1' },
         banking: defaultRpStorybookCharacterBanking(),
+        social: defaultRpStorybookCharacterSocial(),
         temporaryPhone: true,
       });
     });

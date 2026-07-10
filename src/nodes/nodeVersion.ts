@@ -36,7 +36,7 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'fixed-bool': '1.0.0',
   'settings-value': '1.0.1',
   'rp-storybook-v1': '1.13.0',
-  output: '1.4.1',
+  output: '1.4.2',
 };
 
 export function parseNodeVersion(value: unknown): ParsedNodeVersion | undefined {

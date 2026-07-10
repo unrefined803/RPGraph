@@ -1,4 +1,4 @@
-export type OutputFormatHelpKind = 'rp' | 'phone' | 'output-actions';
+export type OutputFormatHelpKind = 'rp' | 'phone' | 'output-actions' | 'social-media';
 
 export const rpOutputPrompt = `Normal RP is the main story output for the Chat tab.
 
@@ -79,6 +79,19 @@ For contextCapacity, source.index selects the first, second, etc. Context Compre
 Always use valid JSON with double quotes.
 Do not wrap the JSON in markdown.`;
 
+export const socialMediaOutputPrompt = `Social Media is the channel for reactions inside the phone social apps (Fotogram, OnlyFriends).
+
+It is used by Message Format 3 runs. The input describes what the player character just did in the app (for example a [SOCIAL MEDIA POST] block with app, post id, author, and caption). The response must be one JSON object describing how the platform reacts.
+
+For a new post, return likes and two to three short comments from people the character knows (Storybook characters and phone contacts), fitting each commenter's personality:
+{"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Character Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
+
+Rules:
+- likes is a plausible small number for a personal account (roughly 3 to 40).
+- Each comment needs from (a real name) and text. An optional handle field overrides the generated @handle.
+- Comments must react to the caption and stay in character; keep them short like real social media comments.
+- Always use valid JSON with double quotes. Do not wrap the JSON in markdown. Do not add prose.`;
+
 export const outputFormatHelp = {
   rp: {
     title: 'RP Text Input Format',
@@ -97,6 +110,12 @@ export const outputFormatHelp = {
     description:
       'Use this prompt in the Simple Prompt node that writes extra app actions. Phone and chat messages are added to the timeline; choices and UI items are displayed by the app.',
     prompt: outputActionsPrompt,
+  },
+  'social-media': {
+    title: 'Social Media Format',
+    description:
+      'Use this prompt in the LLM Prompt Switch channel that reacts to social app activity (Fotogram, OnlyFriends). The JSON reactions are applied to the post in the app and recorded in the chat history.',
+    prompt: socialMediaOutputPrompt,
   },
 } satisfies Record<OutputFormatHelpKind, {
   title: string;

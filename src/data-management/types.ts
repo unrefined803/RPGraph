@@ -2,6 +2,8 @@ import type { Edge } from '@xyflow/react';
 import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
 import type {
   BankTransferRecord,
+  SocialPostRecord,
+  SocialReactionsRecord,
   CharacterStatsState,
   ChatDialogueQuote,
   ChatImageAttachment,
@@ -95,6 +97,8 @@ export type TimelineMessageEntry = {
   workflowVariableSetCommands?: WorkflowVariableSetCommand[];
   voiceClips?: MessageVoiceClip[];
   bankTransfer?: BankTransferRecord;
+  socialPost?: SocialPostRecord;
+  socialReactions?: SocialReactionsRecord;
 };
 
 export type TimelineEventEntry = {

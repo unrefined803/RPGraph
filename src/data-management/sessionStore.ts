@@ -228,6 +228,8 @@ function chatMessageFromTimelineEntry(
     workflowVariableSetCommands: entry.workflowVariableSetCommands,
     voiceClips: entry.voiceClips,
     bankTransfer: entry.bankTransfer,
+    socialPost: entry.socialPost,
+    socialReactions: entry.socialReactions,
   };
 }
 

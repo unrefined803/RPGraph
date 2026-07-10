@@ -110,7 +110,7 @@ export type TurnTrace = {
   completedAt: string;
   status: 'completed' | 'error';
   mode: TurnRecord['mode'];
-  channel: 'rp' | 'phone' | 'narrator' | 'event' | 'output-actions';
+  channel: 'rp' | 'phone' | 'narrator' | 'event' | 'output-actions' | 'social-media';
   input: {
     messages: TurnTraceMessage[];
     graphText?: string;
@@ -334,6 +334,9 @@ function traceChannel(turn: TurnRecord) {
   }
   if (turn.messageFormat === 2) {
     return 'output-actions' as const;
+  }
+  if (turn.messageFormat === 3) {
+    return 'social-media' as const;
   }
   if (turn.mode === 'narrator') {
     return 'narrator' as const;

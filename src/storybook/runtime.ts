@@ -2,9 +2,11 @@ import type { ChatImageAttachment, WorkflowNode } from '../types';
 import {
   parseNodeStorybookJson,
   defaultRpStorybookCharacterBanking,
+  defaultRpStorybookCharacterSocial,
   defaultRpStorybookCharacterPhoneSettings,
   storybookCharacterId,
   type RpStorybookCharacterBanking,
+  type RpStorybookCharacterSocial,
   type RpStorybookCharacterComfyConfig,
   type RpStorybookCharacterImage,
   type RpStorybookCharacterProfileImage,
@@ -35,6 +37,7 @@ export type StorybookCharacter = {
   profileImage?: RpStorybookCharacterProfileImage;
   phoneSettings: RpStorybookCharacterPhoneSettings;
   banking: RpStorybookCharacterBanking;
+  social: RpStorybookCharacterSocial;
 };
 
 export type StorybookImageList = {
@@ -108,6 +111,7 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         ...(character.profileImage ? { profileImage: character.profileImage } : {}),
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
         banking: character.banking ?? defaultRpStorybookCharacterBanking(),
+        social: character.social ?? defaultRpStorybookCharacterSocial(),
       };
     });
   });

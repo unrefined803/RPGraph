@@ -23,10 +23,13 @@ This document is the working plan; we refine it before and while implementing.
 | Post visibility | All posts public | Posts locked, unlock by paying |
 | User role | Always a regular user | Creator **or** paying viewer (to be detailed) |
 | Color scheme | Instagram-like purple/orange gradient | OnlyFans-like blue/white |
-| Turn Mode (Output Actions) | `1` | `2` |
+| Routing | Message Format `3`, shared | Message Format `3`, shared |
 
-Message Format `2` (Output Actions) + Turn Mode `0` is Banking; Turn Modes `1`
-and `2` are reserved for Fotogram and OnlyFriends.
+Routing update: social media now has its own **Message Format `3`** ("Social
+Media" output channel on the LLM Prompt Switch, wired to the RP Output "Social
+Media" input). Both apps share the channel; each action type gets its own Turn
+Mode / prompt slot (currently `0` = Post). Message Format `2` + Turn Mode `0`
+stays Banking. The close-app summary (Phase 3) will also use these routes.
 
 ## Shared structure
 
@@ -87,12 +90,27 @@ and `2` are reserved for Fotogram and OnlyFriends.
   Post/account state is still local to the opened screen; the shared post
   store comes with Phase 2.
 
-### Phase 2 — LLM content generation
+### Phase 2 — LLM content generation (started)
 
-- While the user plays inside the app, the LLM generates content in the
-  background: post captions, comments, replies to DMs, reactions to the user's
-  own posts.
-- Interactions and generated content are stored per account in the session.
+Every action in a social app is its own workflow turn. The new **Message
+Format 3 = Social Media** routes these turns; each action type gets its own
+prompt slot on the "Social Media" output channel of the LLM Prompt Switch,
+which is wired to the new **Social Media** input of RP Output.
+
+- Turn Mode 0 — **Post**: publishing a post runs the workflow; the post is
+  recorded in the chat history (`[Fotogram] Name (@handle) posted: "…"`) and
+  the LLM returns JSON reactions (likes + 2–3 short comments from people the
+  character knows), which appear on the post and also land in the history. ✅
+- Posts and reactions are persisted on chat messages (`socialPost` /
+  `socialReactions` records), so they are part of the RP save and reload with
+  the session. ✅
+- Fotogram accounts come from the Storybook: `characters[].social.fotogramUsername`
+  (storybook format 1.18.0). A stored username skips the app's onboarding and
+  is used as the sidebar handle; an empty string means no account. The bundled
+  default workflow (v7) gives all four characters usernames. ✅
+- Planned next: more prompt slots (comment on an existing post, like activity,
+  "Load More" dummy-feed generation, DM replies), reactions from unknown
+  outside people, OnlyFriends-specific post prompts.
 
 ### Phase 3 — Workflow integration
 
@@ -116,6 +134,12 @@ and `2` are reserved for Fotogram and OnlyFriends.
   matters; the rest is worked out later.
 
 ## Open questions
+
+- Storybook "Import Current Chat" / opening history does not yet carry social
+  media activity (posts, reactions, account changes) into the storybook; needs
+  its own import block like chat, phone, and bank transfers.
+- No UI yet for editing `social.fotogramUsername` in the storybook creator
+  dialog; currently only the storybook assistant and JSON editing can set it.
 
 - OnlyFriends creator role: what changes in the UI for a creator
   (posting & earning vs. paying & unlocking)?

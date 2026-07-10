@@ -228,6 +228,18 @@ export function OutputNodeCard({ id, data }: NodeProps<WorkflowNode>) {
             ?
           </button>
         </div>
+        <div className="workflow-port workflow-port-input output-format-port">
+          <Handle id="social-media" type="target" position={Position.Left} />
+          <PortLabel data={data} direction="input" handle="social-media" label="Social Media" valueType="mixed" />
+          <button
+            className="node-info-button output-phone-info output-format-help-button nodrag"
+            type="button"
+            aria-label="Show social media format"
+            onClick={() => showOutputFormatHelp('social-media')}
+          >
+            ?
+          </button>
+        </div>
         <div className="workflow-port workflow-port-input">
           <Handle id="highlighting-context" type="target" position={Position.Left} />
           <PortLabel data={data} direction="input" handle="highlighting-context" label="Highlighting Context" valueType="text" />

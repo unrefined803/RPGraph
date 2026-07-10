@@ -17,7 +17,9 @@ import { imageGenerationCharacterContext } from '../../chat/imageGenerationAssis
 import { CharacterAvatar } from '../CharacterAvatar';
 import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { PhoneImagePicker } from '../PhoneImagePicker';
-import { socialHandleForName, type SocialAppConfig } from './socialApps';
+import { socialHandleForName, socialPostMessages, socialReactionsByPostId } from '../../chat/socialMedia';
+import type { SocialPostRecord } from '../../types';
+import type { SocialAppConfig } from './socialApps';
 import {
   dummySocialPosts,
   formatSocialCount,
@@ -39,12 +41,17 @@ type PhoneSocialFeedScreenProps = {
   characterColors: Map<string, string>;
   phoneGalleryImages: ChatImageAttachment[];
   bankTransferMessages: MessageRecord[];
+  socialMediaMessages: MessageRecord[];
   isRunning: boolean;
   onSendBankTransfer: (request: {
     from: StorybookCharacter;
     to: string;
     amount: number;
     note: string;
+  }) => void;
+  onSubmitSocialPost: (request: {
+    author: StorybookCharacter;
+    post: SocialPostRecord;
   }) => void;
   onBack: () => void;
   connections?: ConnectionPreset[];
@@ -99,8 +106,10 @@ export function PhoneSocialFeedScreen({
   characterColors,
   phoneGalleryImages,
   bankTransferMessages,
+  socialMediaMessages,
   isRunning,
   onSendBankTransfer,
+  onSubmitSocialPost,
   onBack,
   connections = [],
   providerHealthById = {},
@@ -115,7 +124,13 @@ export function PhoneSocialFeedScreen({
   onSaveImageAssistantImage,
 }: PhoneSocialFeedScreenProps) {
   const [nickname, setNickname] = useState('');
-  const [account, setAccount] = useState<string>();
+  // A Fotogram username stored in the Storybook means the character already
+  // has an account; the onboarding step is skipped then.
+  const [account, setAccount] = useState<string | undefined>(() =>
+    app.id === 'fotogram' && owner?.social.fotogramUsername
+      ? owner.social.fotogramUsername
+      : undefined,
+  );
   const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
   const [selectedAccountKey, setSelectedAccountKey] = useState<string>();
   const [ownPosts, setOwnPosts] = useState<SocialPost[]>([]);
@@ -172,18 +187,58 @@ export function PhoneSocialFeedScreen({
     .map((character) => ({
       key: `character-${character.id}`,
       name: character.name,
-      handle: socialHandleForName(character.name),
+      handle:
+        app.id === 'fotogram' && character.social.fotogramUsername
+          ? character.social.fotogramUsername
+          : socialHandleForName(character.name),
       character,
     }));
   const followedAccounts = [...characterAccounts, ...addedAccounts];
   const selectedAccount = followedAccounts.find((entry) => entry.key === selectedAccountKey);
+
+  // Posts published through the workflow live on chat messages (and therefore
+  // in the RP save); the AI reactions to them are matched by post id.
+  const persistedReactions = socialReactionsByPostId(app.id, socialMediaMessages);
+  const persistedPosts: SocialPost[] = socialPostMessages(app.id, socialMediaMessages)
+    .map((message) => message.socialPost)
+    .reverse()
+    .map((record) => ({
+      id: record.postId,
+      authorName: record.author,
+      authorHandle: record.authorHandle,
+      caption: record.caption,
+      likeCount: persistedReactions[record.postId]?.likes ?? 0,
+      commentCount: persistedReactions[record.postId]?.comments.length ?? 0,
+      locked: false,
+      dummy: false,
+      textOnly: record.textOnly,
+      imageDataUrl: record.imageDataUrl,
+    }));
+  const persistedPostIds = new Set(persistedPosts.map((post) => post.id));
+  const reactionCommentsByPostId: Record<string, SocialComment[]> = Object.fromEntries(
+    Object.entries(persistedReactions).map(([postId, reactions]) => [
+      postId,
+      reactions.comments.map((comment, index) => ({
+        id: `reaction-${postId}-${index}`,
+        authorName: comment.from,
+        authorHandle: comment.handle,
+        text: comment.text,
+      })),
+    ]),
+  );
 
   const feedPosts = selectedAccount
     ? dummySocialPosts(app, `${selectedAccount.key}`, 6, {
         name: selectedAccount.name,
         handle: selectedAccount.handle,
       })
-    : [...ownPosts, ...dummySocialPosts(app, owner?.id ?? 'no-account')];
+    : [
+        // Pending posts are optimistic copies while the reaction run is still
+        // going; once the persisted post arrives they are dropped.
+        ...ownPosts.filter((post) => !persistedPostIds.has(post.id)),
+        ...persistedPosts,
+        ...dummySocialPosts(app, owner?.id ?? 'no-account'),
+      ];
   const posts = feedPosts.map((post) => ({
     ...post,
     likeCount: post.likeCount + (likeDeltaByPostId[post.id] ?? 0),
@@ -246,20 +301,32 @@ export function PhoneSocialFeedScreen({
   function submitPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const caption = postDraft.trim();
-    if (!caption || !account || !owner) {
+    if (!caption || !account || !owner || isRunning) {
       return;
     }
-    const post: SocialPost = {
-      id: `own-${Date.now()}`,
-      authorName: owner.name,
+    const record: SocialPostRecord = {
+      app: app.id,
+      postId: `post-${app.id}-${Date.now()}`,
+      author: owner.name,
       authorHandle: account,
       caption,
+      textOnly: !postDraftImage || undefined,
+      imageDataUrl: postDraftImage?.dataUrl,
+    };
+    // Publishing runs the workflow (Message Format 3, Turn Mode 0): the post
+    // is recorded in the chat history and the AI generates the reactions.
+    onSubmitSocialPost({ author: owner, post: record });
+    const post: SocialPost = {
+      id: record.postId,
+      authorName: record.author,
+      authorHandle: record.authorHandle,
+      caption: record.caption,
       likeCount: 0,
       commentCount: 0,
       locked: false,
       dummy: false,
-      textOnly: !postDraftImage,
-      imageDataUrl: postDraftImage?.dataUrl,
+      textOnly: record.textOnly,
+      imageDataUrl: record.imageDataUrl,
     };
     setOwnPosts((current) => [post, ...current]);
     setPostDraft('');
@@ -591,8 +658,8 @@ export function PhoneSocialFeedScreen({
                 rows={2}
                 autoFocus
               />
-              <button type="submit" disabled={!postDraft.trim()}>
-                Share Post
+              <button type="submit" disabled={!postDraft.trim() || isRunning}>
+                {isRunning ? 'Posting...' : 'Share Post'}
               </button>
             </form>
           )}
@@ -606,7 +673,10 @@ export function PhoneSocialFeedScreen({
             const liked = likedPostIds.has(post.id);
             const lockedNow = post.locked && !unlockedPostIds.has(post.id);
             const price = post.unlockPrice ?? 4.99;
-            const comments = commentsByPostId[post.id] ?? [];
+            const comments = [
+              ...(reactionCommentsByPostId[post.id] ?? []),
+              ...(commentsByPostId[post.id] ?? []),
+            ];
             const commentsOpen = openCommentsPostId === post.id;
             const ownPost = post.authorHandle === account;
             return (
@@ -721,7 +791,7 @@ export function PhoneSocialFeedScreen({
                   <div className="phone-social-comments">
                     {comments.map((comment) => (
                       <div className="phone-social-comment" key={comment.id}>
-                        <strong>@{comment.authorHandle}</strong>
+                        <strong>{comment.authorName ?? `@${comment.authorHandle}`}</strong>
                         <span>{comment.text}</span>
                       </div>
                     ))}

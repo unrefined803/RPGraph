@@ -54,6 +54,11 @@ export type RpStorybookCharacterBanking = {
   fixedExpenses: RpStorybookBankingFixedExpense[];
 };
 
+export type RpStorybookCharacterSocial = {
+  /** Fotogram account username; empty string means the character has no account. */
+  fotogramUsername: string;
+};
+
 export type RpStorybookV1Character = {
   id: string;
   name: string;
@@ -66,6 +71,7 @@ export type RpStorybookV1Character = {
   profileImage?: RpStorybookCharacterProfileImage;
   phoneSettings?: RpStorybookCharacterPhoneSettings;
   banking?: RpStorybookCharacterBanking;
+  social?: RpStorybookCharacterSocial;
 } & RpStorybookCharacterImageOwner;
 
 export type RpStorybookPhoneContactBlock = {
@@ -78,7 +84,7 @@ export type RpStorybookImageDescriptionPromptSettings = {
   customText?: string;
 };
 
-export const currentRpStorybookVersion = '1.17.0' as const;
+export const currentRpStorybookVersion = '1.18.0' as const;
 
 export type RpStorybookV1 = {
   format: 'rpgraph-storybook';
@@ -417,6 +423,17 @@ export function rpStorybookCharacterBanking(value: unknown): RpStorybookCharacte
   };
 }
 
+export function defaultRpStorybookCharacterSocial(): RpStorybookCharacterSocial {
+  return { fotogramUsername: '' };
+}
+
+export function rpStorybookCharacterSocial(value: unknown): RpStorybookCharacterSocial {
+  const social = recordValue(value);
+  return {
+    fotogramUsername: stringValue(social.fotogramUsername).trim(),
+  };
+}
+
 export function rpStorybookCharacterPhoneSettings(
   value: unknown,
 ): RpStorybookCharacterPhoneSettings {
@@ -458,6 +475,7 @@ function normalizeCharacter(value: unknown, index: number, usedImageIds: Set<str
     voiceConfig: rpStorybookCharacterVoiceConfig(character.voiceConfig),
     phoneSettings: rpStorybookCharacterPhoneSettings(character.phoneSettings),
     banking: rpStorybookCharacterBanking(character.banking),
+    social: rpStorybookCharacterSocial(character.social),
     ...(profileImage ? { profileImage } : {}),
     images,
   };
@@ -1105,7 +1123,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string) 
     '{"reply":"short user-facing answer","changedFields":["title","scenario.openingSituation"],"patch":[{"op":"replace","path":"/title","value":"New title"}]}',
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
     'Keep the exact storybook shape below:',
-    '{"format":"rpgraph-storybook","version":"1.17.0","title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[]}}',
+    '{"format":"rpgraph-storybook","version":"1.18.0","title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes"},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[]}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
     'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, characters[].phoneSettings, and characters[].images dataUrl values, unless the user explicitly changes them.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
@@ -1113,6 +1131,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string) 
     'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, banking, comfyConfig, and images.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',
     'characters[].banking.fixedExpenses lists recurring payments shown in the Banking app history, each as {"label":"Mobile plan","amount":24.99} with a US dollar amount. Always include exactly one mobile plan entry with a realistic amount that fits the character. Add further fixed expenses in the same format only when the user asks for them; the app fills the rest of the history with generated everyday spending automatically.',
+    'characters[].social.fotogramUsername is the character\'s account username in the phone Fotogram app (a lowercase handle like "nova.reyes"). An empty string means the character has no Fotogram account yet. Set a fitting handle when the user asks for social media accounts; keep existing usernames unless the user asks to change them.',
     'characters[].comfyConfig is optional image-generation configuration. loraName is a ComfyUI LoRA file name for that character. loraUrl is an optional download/source URL for that LoRA. appearance is a concise visual description for generated images. Leave them empty unless the user explicitly provides image-generation details.',
     'characters[].voiceConfig stores a binary voice sample managed by the app. Never create, edit, or remove it.',
     'For edits, changedFields must list compact field paths that changed, for example "title", "scenario", "characters".',

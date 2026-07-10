@@ -1,4 +1,7 @@
-export type SocialAppId = 'fotogram' | 'onlyfriends';
+import type { SocialAppKind } from '../../types';
+import { socialAppNames } from '../../chat/socialMedia';
+
+export type SocialAppId = SocialAppKind;
 
 export type SocialAppConfig = {
   id: SocialAppId;
@@ -12,20 +15,10 @@ export type SocialAppConfig = {
   allowCreatorRole: boolean;
 };
 
-/** Derive a handle-looking nickname from a character name, e.g. "Nova Reyes" → "nova.reyes". */
-export function socialHandleForName(name: string) {
-  const handle = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '.')
-    .replace(/^\.+|\.+$/g, '');
-  return handle || 'user';
-}
-
 export const socialApps: Record<SocialAppId, SocialAppConfig> = {
   fotogram: {
     id: 'fotogram',
-    name: 'Fotogram',
+    name: socialAppNames.fotogram,
     tagline: 'Share your moments',
     themeClass: 'phone-social-theme-fotogram',
     postsRequireUnlock: false,
@@ -33,7 +26,7 @@ export const socialApps: Record<SocialAppId, SocialAppConfig> = {
   },
   onlyfriends: {
     id: 'onlyfriends',
-    name: 'OnlyFriends',
+    name: socialAppNames.onlyfriends,
     tagline: 'Exclusive content from your friends',
     themeClass: 'phone-social-theme-onlyfriends',
     postsRequireUnlock: true,

@@ -1001,6 +1001,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       input('default', 'text', 'Normal RP'),
       input('phone-message', 'text', 'Phone Message'),
       input('output-actions', 'mixed', 'Output Actions'),
+      input('social-media', 'mixed', 'Social Media'),
       input('highlighting-context', 'text', 'Highlighting Context'),
     ],
     Component: OutputNodeCard,

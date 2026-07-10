@@ -109,6 +109,8 @@ function messageToTimelineEntry(
     workflowVariableSetCommands: message.workflowVariableSetCommands,
     voiceClips: message.voiceClips?.length ? message.voiceClips : undefined,
     bankTransfer: message.bankTransfer,
+    socialPost: message.socialPost,
+    socialReactions: message.socialReactions,
   };
 }
 

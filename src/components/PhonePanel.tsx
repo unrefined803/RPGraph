@@ -21,6 +21,7 @@ import type {
   ConnectionPreset,
   ImageCaptionChange,
   MessageRecord,
+  SocialPostRecord,
   ProviderConnectionHealth,
   RpDateTimeFormat,
   RpWeekdayLanguage,
@@ -219,6 +220,11 @@ type PhonePanelProps = {
     amount: number;
     note: string;
   }) => void;
+  socialMediaMessages: MessageRecord[];
+  onSubmitSocialPost: (request: {
+    author: StorybookCharacter;
+    post: SocialPostRecord;
+  }) => void;
   phoneDesktopLayout: PhoneDesktopLayout;
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
@@ -305,6 +311,8 @@ export function PhonePanel({
   bankingContactNames,
   onAddBankingContact,
   onSendBankTransfer,
+  socialMediaMessages,
+  onSubmitSocialPost,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
@@ -632,8 +640,10 @@ export function PhonePanel({
         characterColors={characterColors}
         phoneGalleryImages={phoneGalleryImages}
         bankTransferMessages={bankTransferMessages}
+        socialMediaMessages={socialMediaMessages}
         isRunning={isRunning}
         onSendBankTransfer={onSendBankTransfer}
+        onSubmitSocialPost={onSubmitSocialPost}
         onBack={() => setScreen('desktop')}
         connections={connections}
         providerHealthById={providerHealthById}
