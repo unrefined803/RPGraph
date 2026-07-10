@@ -1166,6 +1166,8 @@ function App() {
     unreadPhoneSwitchName,
     openUnreadPhoneConversation,
     openEmbeddedPhoneMessage,
+    openSocialPost,
+    socialPostOpenRequest,
     unreadEventCount,
     unreadChatCount,
     unreadBankingCount,
@@ -6278,6 +6280,7 @@ function App() {
                 setDraftImages((current) => current.filter((entry) => entry.id !== imageId))
               }
               onOpenEmbeddedPhoneMessage={openEmbeddedPhoneMessage}
+              onOpenSocialPost={openSocialPost}
               onOutputActionChoice={submitOutputActionChoice}
               onSubmitMessage={submitMessage}
               onDraftChange={setDraft}
@@ -6312,6 +6315,7 @@ function App() {
               unreadPhoneConversations={unreadPhoneConversations}
               unreadBankingCount={unreadBankingCount}
               phoneHomeRequestId={phoneHomeRequestId}
+              socialPostOpenRequest={socialPostOpenRequest}
               phoneImages={phoneImages}
               phoneGalleryImages={phoneGalleryImages}
               phoneDraft={phoneDraft}

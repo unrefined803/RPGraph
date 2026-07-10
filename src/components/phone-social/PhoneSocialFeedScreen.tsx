@@ -18,7 +18,10 @@ import { CharacterAvatar } from '../CharacterAvatar';
 import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { PhoneImagePicker } from '../PhoneImagePicker';
 import {
+  socialCharacterForPost,
+  socialHandleForCharacter,
   socialHandleForName,
+  socialIdentityMatches,
   socialPostMessages,
   socialReactionsByPostId,
 } from '../../chat/socialMedia';
@@ -42,33 +45,6 @@ type SocialAccount = {
   character?: StorybookCharacter;
 };
 
-function socialIdentityMatches(left: string, right: string) {
-  return left.trim().replace(/^@/, '').toLowerCase() ===
-    right.trim().replace(/^@/, '').toLowerCase();
-}
-
-function characterSocialHandle(character: StorybookCharacter, app: SocialAppConfig) {
-  const storedHandle = app.id === 'fotogram'
-    ? character.social.fotogramUsername
-    : character.social.onlyfriendsUsername;
-  return storedHandle || socialHandleForName(character.name);
-}
-
-function characterForPost(
-  post: SocialPost,
-  app: SocialAppConfig,
-  storyCharacters: StorybookCharacter[],
-) {
-  if (post.dummy) {
-    return undefined;
-  }
-  return storyCharacters.find((character) =>
-    socialIdentityMatches(characterSocialHandle(character, app), post.authorHandle),
-  ) ?? storyCharacters.find((character) =>
-    socialIdentityMatches(character.name, post.authorName),
-  );
-}
-
 type PhoneSocialFeedScreenProps = {
   app: SocialAppConfig;
   owner?: StorybookCharacter;
@@ -77,6 +53,10 @@ type PhoneSocialFeedScreenProps = {
   phoneGalleryImages: ChatImageAttachment[];
   bankTransferMessages: MessageRecord[];
   socialMediaMessages: MessageRecord[];
+  openPostRequest?: {
+    requestId: number;
+    postId: string;
+  };
   isRunning: boolean;
   onSendBankTransfer: (request: {
     from: StorybookCharacter;
@@ -153,6 +133,7 @@ export function PhoneSocialFeedScreen({
   phoneGalleryImages,
   bankTransferMessages,
   socialMediaMessages,
+  openPostRequest,
   isRunning,
   onSendBankTransfer,
   onSubmitSocialPost,
@@ -184,7 +165,12 @@ export function PhoneSocialFeedScreen({
   const [unlockedPostIds, setUnlockedPostIds] = useState<ReadonlySet<string>>(new Set());
   // Post currently showing the "pay with bank account" confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
-  const [openCommentsPostId, setOpenCommentsPostId] = useState<string>();
+  const [openCommentsPostId, setOpenCommentsPostId] = useState<string | undefined>(
+    openPostRequest?.postId,
+  );
+  const [seenOpenPostRequestId, setSeenOpenPostRequestId] = useState(
+    openPostRequest?.requestId ?? 0,
+  );
   const [commentDraft, setCommentDraft] = useState('');
   // Posting flow: pick the image source first (menu), then describe (editor).
   const [postStage, setPostStage] = useState<'menu' | 'editor'>();
@@ -196,6 +182,7 @@ export function PhoneSocialFeedScreen({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const postMenuRef = useRef<HTMLDivElement | null>(null);
+  const postElementsRef = useRef(new Map<string, HTMLElement>());
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
   const ownerColor = owner ? characterColors.get(owner.name) : undefined;
   const bankBalance = owner ? bankingBalanceForCharacter(owner, bankTransferMessages) : 0;
@@ -233,7 +220,7 @@ export function PhoneSocialFeedScreen({
     .map((character) => ({
       key: `character-${character.id}`,
       name: character.name,
-      handle: characterSocialHandle(character, app),
+      handle: socialHandleForCharacter(character, app.id),
       character,
     }));
   const followedAccounts = [...characterAccounts, ...addedAccounts];
@@ -322,6 +309,28 @@ export function PhoneSocialFeedScreen({
       post.commentCount +
       (persistedCommentsByPostId[post.id]?.length ?? 0),
   }));
+
+  if (openPostRequest && seenOpenPostRequestId !== openPostRequest.requestId) {
+    setSeenOpenPostRequestId(openPostRequest.requestId);
+    setSelectedAccountKey(undefined);
+    setOpenCommentsPostId(openPostRequest.postId);
+    setCommentDraft('');
+  }
+
+  const openPostRequestId = openPostRequest?.requestId;
+  const openPostId = openPostRequest?.postId;
+  useEffect(() => {
+    if (openPostRequestId === undefined || !openPostId || selectedAccountKey !== undefined) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      postElementsRef.current.get(openPostId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [openPostId, openPostRequestId, selectedAccountKey]);
 
   function toggleLike(post: SocialPost) {
     const liked = likedPostIds.has(post.id);
@@ -815,12 +824,30 @@ export function PhoneSocialFeedScreen({
               ...(persistedCommentsByPostId[post.id] ?? []),
             ];
             const commentsOpen = openCommentsPostId === post.id;
-            const postAuthorCharacter = characterForPost(post, app, storyCharacters);
+            const postAuthorCharacter = post.dummy
+              ? undefined
+              : socialCharacterForPost({
+                  app: app.id,
+                  postId: post.id,
+                  author: post.authorName,
+                  authorHandle: post.authorHandle,
+                  caption: post.caption,
+                }, storyCharacters);
             const postAuthorColor = postAuthorCharacter
               ? characterColors.get(postAuthorCharacter.name)
               : undefined;
             return (
-              <article className="phone-social-post" key={post.id}>
+              <article
+                className="phone-social-post"
+                key={post.id}
+                ref={(element) => {
+                  if (element) {
+                    postElementsRef.current.set(post.id, element);
+                  } else {
+                    postElementsRef.current.delete(post.id);
+                  }
+                }}
+              >
                 <div className="phone-social-post-author">
                   <CharacterAvatar
                     className="phone-avatar"

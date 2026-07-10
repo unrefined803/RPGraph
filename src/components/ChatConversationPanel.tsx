@@ -4,6 +4,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -26,6 +27,7 @@ import type {
   EmbeddedPhoneMessageLink,
   RpDateTimeFormat,
   RpWeekdayLanguage,
+  SocialPostRecord,
 } from '../types';
 import {
   defaultChatTextSize,
@@ -53,7 +55,13 @@ import {
 } from './CommandPillComposer';
 import { PhoneVoiceMessage } from './PhoneVoiceMessage';
 import { BankTransferCard } from './BankTransferCard';
+import { SocialPostCard } from './SocialPostCard';
 import type { CommandInputCommand } from '../chat/structuredCommands';
+import {
+  socialCharacterForPost,
+  socialMessageHiddenFromChat,
+  socialPostEngagementByPostId,
+} from '../chat/socialMedia';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
 const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
@@ -144,6 +152,7 @@ type ChatConversationPanelProps = {
   onPreviewImageCaptionChange: (change: ImageCaptionChange) => void;
   onRemoveDraftImage: (imageId: string) => void;
   onOpenEmbeddedPhoneMessage: (message: EmbeddedPhoneMessageLink) => void;
+  onOpenSocialPost: (post: SocialPostRecord) => void;
   onOutputActionChoice: (selection: InputActionSelection) => void;
   onSubmitMessage: (event: FormEvent<HTMLFormElement>) => void;
   onDraftChange: (value: string) => void;
@@ -214,6 +223,7 @@ export function ChatConversationPanel({
   onPreviewImageCaptionChange,
   onRemoveDraftImage,
   onOpenEmbeddedPhoneMessage,
+  onOpenSocialPost,
   onOutputActionChoice,
   onSubmitMessage,
   onDraftChange,
@@ -223,6 +233,10 @@ export function ChatConversationPanel({
   onMessageContentLoaded,
 }: ChatConversationPanelProps) {
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
+  const socialEngagementByApp = useMemo(() => ({
+    fotogram: socialPostEngagementByPostId('fotogram', messages),
+    onlyfriends: socialPostEngagementByPostId('onlyfriends', messages),
+  }), [messages]);
   const isImageInContext = (image: ChatImageAttachment) =>
     !!image.id.trim() && contextualReferenceImageIds.has(image.id.trim());
   const isImageManuallySelected = (image: ChatImageAttachment) =>
@@ -422,7 +436,10 @@ export function ChatConversationPanel({
   const effectiveRpDateTime = (message: MessageRecord) =>
     messageEffectiveRpDateTime(message, phoneMessagesById);
   const visibleMessages = visibleMessageRecords(messages, {
-    hideMessage: (message) => isNarratorPhoneAutoTurnInstruction(message) || !!message.outputActionsHidden,
+    hideMessage: (message) =>
+      isNarratorPhoneAutoTurnInstruction(message) ||
+      !!message.outputActionsHidden ||
+      socialMessageHiddenFromChat(message),
   });
   const outsidePhoneEntriesByMessageId = new Map<number, PhoneTimelineEntry[]>();
 
@@ -1276,6 +1293,36 @@ export function ChatConversationPanel({
                   rpDateTimeFormat={rpDateTimeFormat}
                   rpWeekdayLanguage={rpWeekdayLanguage}
                   fontSize={chatTextSize || defaultChatTextSize}
+                />
+              </Fragment>
+            );
+          }
+
+          if (message.socialPost) {
+            const socialPost = message.socialPost;
+            const engagement = socialEngagementByApp[socialPost.app][socialPost.postId] ?? {
+              likeCount: 0,
+              commentCount: 0,
+            };
+            const authorCharacter = socialCharacterForPost(socialPost, storyCharacters);
+            const authorColor = authorCharacter
+              ? characterColors.get(authorCharacter.name)
+              : undefined;
+            return (
+              <Fragment key={message.id}>
+                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+                <SocialPostCard
+                  post={socialPost}
+                  authorCharacter={authorCharacter}
+                  authorColor={authorColor}
+                  likeCount={engagement.likeCount}
+                  commentCount={engagement.commentCount}
+                  rpDateTime={rpTimeTrackingEnabled ? effectiveMessageRpDateTime : undefined}
+                  rpDateTimeFormat={rpDateTimeFormat}
+                  rpWeekdayLanguage={rpWeekdayLanguage}
+                  fontSize={chatTextSize || defaultChatTextSize}
+                  onOpen={() => onOpenSocialPost(socialPost)}
+                  onImageLoaded={onMessageContentLoaded}
                 />
               </Fragment>
             );

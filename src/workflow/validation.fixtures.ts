@@ -86,6 +86,8 @@ import {
 } from '../chat/bankTransfers';
 import {
   parseSocialReactionsOutput,
+  socialMessageHiddenFromChat,
+  socialPostEngagementByPostId,
   socialPostTextFromInput,
   socialReactionsByPostId,
   socialThreadActionInputText,
@@ -240,7 +242,7 @@ export function verifyWorkflowValidationFixtures() {
     '{"reactions":{"postId":"post-1","additionalLikes":2,"comments":[{"from":"Jamie","text":"Love it!"}]},"summary":"Alex asked the thread about the location; Jamie responded positively."}',
     { app: 'fotogram', postId: 'post-1', append: true },
   );
-  const combinedSocialReactions = socialReactionsByPostId('fotogram', [
+  const socialReactionMessages: MessageRecord[] = [
     {
       id: 20,
       role: 'output',
@@ -256,14 +258,20 @@ export function verifyWorkflowValidationFixtures() {
       id: 21,
       role: 'output',
       originalText: 'Thread reactions',
+      socialThreadAction,
       socialReactions: parsedSocialThread.reactions,
     },
-  ]);
+  ];
+  const combinedSocialReactions = socialReactionsByPostId('fotogram', socialReactionMessages);
+  const combinedSocialEngagement = socialPostEngagementByPostId('fotogram', socialReactionMessages);
   assertFixture(
     parsedSocialThread.historySummary?.startsWith('Alex asked') === true &&
       combinedSocialReactions['post-1']?.likes === 12 &&
-      combinedSocialReactions['post-1']?.comments.length === 2,
-    'social thread output must parse summaries and append likes and comments',
+      combinedSocialReactions['post-1']?.comments.length === 2 &&
+      combinedSocialEngagement['post-1']?.likeCount === 12 &&
+      combinedSocialEngagement['post-1']?.commentCount === 3 &&
+      socialReactionMessages.every(socialMessageHiddenFromChat),
+    'social thread output must aggregate engagement while reaction history stays hidden in Chat',
   );
 
   const assistantStorybook = {

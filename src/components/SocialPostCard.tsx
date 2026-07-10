@@ -1,0 +1,141 @@
+import type { StorybookCharacter } from '../storybook/runtime';
+import type {
+  RpDateTimeFormat,
+  RpWeekdayLanguage,
+  SocialPostRecord,
+} from '../types';
+import { socialAppNames } from '../chat/socialMedia';
+import { formatRpDateTimeParts } from '../workflow';
+import { CharacterAvatar } from './CharacterAvatar';
+
+type SocialPostCardProps = {
+  post: SocialPostRecord;
+  authorCharacter?: StorybookCharacter;
+  authorColor?: string;
+  likeCount: number;
+  commentCount: number;
+  rpDateTime?: string;
+  rpDateTimeFormat: RpDateTimeFormat;
+  rpWeekdayLanguage: RpWeekdayLanguage;
+  fontSize?: number;
+  onOpen: () => void;
+  onImageLoaded: () => void;
+};
+
+function formatCount(count: number) {
+  if (count >= 1000) {
+    const compact = (count / 1000).toFixed(count >= 10_000 ? 0 : 1);
+    return `${compact.replace(/\.0$/, '')}k`;
+  }
+  return String(count);
+}
+
+export function SocialPostCard({
+  post,
+  authorCharacter,
+  authorColor,
+  likeCount,
+  commentCount,
+  rpDateTime,
+  rpDateTimeFormat,
+  rpWeekdayLanguage,
+  fontSize,
+  onOpen,
+  onImageLoaded,
+}: SocialPostCardProps) {
+  const timeParts = rpDateTime
+    ? formatRpDateTimeParts(rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
+    : undefined;
+  const appName = socialAppNames[post.app];
+
+  return (
+    <button
+      className={`chat-social-post-card ${post.app}`}
+      type="button"
+      style={fontSize ? { fontSize } : undefined}
+      onClick={onOpen}
+      aria-label={`Open ${appName} post by ${post.author} with comments`}
+    >
+      <span className="chat-social-post-accent" aria-hidden="true" />
+      <span className="chat-social-post-header">
+        <span className="chat-social-post-app-icon" aria-hidden="true">
+          {post.app === 'fotogram' ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="5" />
+              <circle cx="12" cy="12" r="4" />
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 21s-7-4.2-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.8-7 10-7 10Z" />
+              <path d="M9 12h6" />
+            </svg>
+          )}
+        </span>
+        <span className="chat-social-post-app-heading">
+          <strong>{appName}</strong>
+          <small>{post.textOnly ? 'Text post' : 'Photo post'}</small>
+        </span>
+        {timeParts && (
+          <time className="chat-social-post-time">
+            <span>{timeParts.date}</span>
+            <span>{timeParts.time}</span>
+          </time>
+        )}
+      </span>
+
+      <span className="chat-social-post-author">
+        <CharacterAvatar
+          className="chat-social-post-avatar"
+          name={post.author}
+          fallback={post.author.slice(0, 1).toUpperCase()}
+          profileImageDataUrl={authorCharacter?.profileImage?.dataUrl}
+          style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
+        />
+        <span>
+          <strong style={authorColor ? { color: authorColor } : undefined}>{post.author}</strong>
+          <small>@{post.authorHandle}</small>
+        </span>
+      </span>
+
+      {!post.textOnly && (
+        <span className={`chat-social-post-image${post.imageDataUrl ? '' : ' placeholder'}`}>
+          {post.imageDataUrl ? (
+            <img src={post.imageDataUrl} alt={post.caption} onLoad={onImageLoaded} />
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="4" />
+              <circle cx="8.5" cy="8.5" r="1.4" />
+              <path d="m4.5 18 5.5-5.5 3.2 3.2 2.1-2.1 4.2 4.4" />
+            </svg>
+          )}
+        </span>
+      )}
+
+      <span className="chat-social-post-caption">
+        <strong>{post.author}</strong>
+        <span>{post.caption}</span>
+      </span>
+      <span className="chat-social-post-footer">
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 12 6.6 4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 7Z" />
+          </svg>
+          {formatCount(likeCount)}
+        </span>
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 12a8 8 0 0 1-8 8H4l1.3-3.2A8 8 0 1 1 21 12Z" />
+          </svg>
+          {formatCount(commentCount)}
+        </span>
+        <span className="chat-social-post-open-label">
+          Open comments
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14M14 7l5 5-5 5" />
+          </svg>
+        </span>
+      </span>
+    </button>
+  );
+}

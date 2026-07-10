@@ -136,6 +136,11 @@ type PhonePanelProps = {
   unreadPhoneConversations: UnreadPhoneConversation[];
   unreadBankingCount: number;
   phoneHomeRequestId: number;
+  socialPostOpenRequest?: {
+    requestId: number;
+    app: 'fotogram' | 'onlyfriends';
+    postId: string;
+  };
   phoneImages: ChatImageAttachment[];
   phoneGalleryImages: ChatImageAttachment[];
   phoneDraft: string;
@@ -264,6 +269,7 @@ export function PhonePanel({
   unreadPhoneConversations,
   unreadBankingCount,
   phoneHomeRequestId,
+  socialPostOpenRequest,
   phoneImages,
   phoneGalleryImages,
   phoneDraft,
@@ -341,14 +347,27 @@ export function PhonePanel({
 }: PhonePanelProps) {
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   // Start on the conversation when the panel opens through a chat message
-  // link (the highlight is still pending); otherwise start on the desktop.
+  // link, or on a requested social post; otherwise start on the desktop.
   const [screen, setScreen] = useState<PhoneScreen>(() =>
-    highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop');
+    socialPostOpenRequest?.app ??
+    (highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop'));
   const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = useState(phoneHomeRequestId);
   if (seenPhoneHomeRequestId !== phoneHomeRequestId) {
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
     if (screen !== 'desktop') {
       setScreen('desktop');
+    }
+  }
+  const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = useState(
+    socialPostOpenRequest?.requestId ?? 0,
+  );
+  if (
+    socialPostOpenRequest &&
+    seenSocialPostOpenRequestId !== socialPostOpenRequest.requestId
+  ) {
+    setSeenSocialPostOpenRequestId(socialPostOpenRequest.requestId);
+    if (screen !== socialPostOpenRequest.app) {
+      setScreen(socialPostOpenRequest.app);
     }
   }
   const unreadWhatsUpCount = phoneContacts.reduce(
@@ -657,6 +676,14 @@ export function PhonePanel({
         phoneGalleryImages={phoneGalleryImages}
         bankTransferMessages={bankTransferMessages}
         socialMediaMessages={socialMediaMessages}
+        openPostRequest={
+          socialPostOpenRequest?.app === screen
+            ? {
+                requestId: socialPostOpenRequest.requestId,
+                postId: socialPostOpenRequest.postId,
+              }
+            : undefined
+        }
         isRunning={isRunning}
         onSendBankTransfer={onSendBankTransfer}
         onSubmitSocialPost={onSubmitSocialPost}

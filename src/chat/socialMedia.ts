@@ -6,6 +6,7 @@ import type {
   SocialReactionsRecord,
   SocialThreadActionRecord,
 } from '../types';
+import type { StorybookCharacter } from '../storybook/runtime';
 
 export const socialAppNames: Record<SocialAppKind, string> = {
   fotogram: 'Fotogram',
@@ -25,6 +26,37 @@ export function socialHandleForName(name: string) {
     .replace(/[^a-z0-9]+/g, '.')
     .replace(/^\.+|\.+$/g, '');
   return handle || 'user';
+}
+
+export function socialIdentityMatches(left: string, right: string) {
+  return left.trim().replace(/^@/, '').toLowerCase() ===
+    right.trim().replace(/^@/, '').toLowerCase();
+}
+
+export function socialHandleForCharacter(
+  character: StorybookCharacter,
+  app: SocialAppKind,
+) {
+  const storedHandle = app === 'fotogram'
+    ? character.social.fotogramUsername
+    : character.social.onlyfriendsUsername;
+  return storedHandle || socialHandleForName(character.name);
+}
+
+export function socialCharacterForPost(
+  post: SocialPostRecord,
+  storyCharacters: StorybookCharacter[],
+) {
+  return storyCharacters.find((character) =>
+    socialIdentityMatches(socialHandleForCharacter(character, post.app), post.authorHandle),
+  ) ?? storyCharacters.find((character) =>
+    socialIdentityMatches(character.name, post.author),
+  );
+}
+
+/** Social reaction/history records remain available to the LLM but are folded into the post card in Chat. */
+export function socialMessageHiddenFromChat(message: MessageRecord) {
+  return !message.socialPost && (!!message.socialThreadAction || !!message.socialReactions);
 }
 
 function singleLine(text: string) {
@@ -262,4 +294,37 @@ export function socialReactionsByPostId(app: SocialAppKind, messages: MessageRec
     }
   });
   return byPostId;
+}
+
+export function socialPostEngagementByPostId(app: SocialAppKind, messages: MessageRecord[]) {
+  const reactionsByPostId = socialReactionsByPostId(app, messages);
+  const engagementByPostId: Record<string, { likeCount: number; commentCount: number }> =
+    Object.fromEntries(
+      Object.entries(reactionsByPostId).map(([postId, reactions]) => [
+        postId,
+        {
+          likeCount: reactions.likes,
+          commentCount: reactions.comments.length,
+        },
+      ]),
+    );
+  messages.forEach((message) => {
+    const action = message.socialThreadAction;
+    if (action?.app !== app || action.action !== 'comment') {
+      return;
+    }
+    const current = engagementByPostId[action.postId] ?? { likeCount: 0, commentCount: 0 };
+    const actorWasEchoed = message.socialReactions?.app === app &&
+      message.socialReactions.comments.some((comment) =>
+        socialIdentityMatches(comment.from, action.actor) ||
+        socialIdentityMatches(comment.handle, action.actorHandle),
+      );
+    engagementByPostId[action.postId] = {
+      ...current,
+      // The phone thread replaces a malformed LLM echo with the user's real
+      // comment, so an echoed actor must not increase the visible total twice.
+      commentCount: current.commentCount + (actorWasEchoed ? 0 : 1),
+    };
+  });
+  return engagementByPostId;
 }
