@@ -254,6 +254,7 @@ export function PhoneSocialFeedScreen({
   const [visibleCommentCounts, setVisibleCommentCounts] = useState<Record<string, number>>({});
   const [pendingCommentReveal, setPendingCommentReveal] = useState<PendingCommentReveal>();
   const [addingPerson, setAddingPerson] = useState(false);
+  const [hiddenDirectMessageIds, setHiddenDirectMessageIds] = useState<Set<string>>(() => new Set());
   const [newPersonName, setNewPersonName] = useState('');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -261,6 +262,9 @@ export function PhoneSocialFeedScreen({
   const postElementsRef = useRef(new Map<string, HTMLElement>());
   const scrolledOpenPostRequestIdRef = useRef<number | undefined>(undefined);
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
+  const knownDirectMessageIdsRef = useRef<Set<string> | undefined>(undefined);
+  const dmRevealAccountRef = useRef<string | undefined>(undefined);
+  const dmRevealTimersRef = useRef<number[]>([]);
   const noticeTimerRef = useRef<number | undefined>(undefined);
   const postAppearTimersRef = useRef(new Map<string, number>());
   const reactionFallbackTimersRef = useRef(new Map<string, number>());
@@ -352,10 +356,53 @@ export function PhoneSocialFeedScreen({
   const persistedDirectMessages = socialMediaMessages.flatMap((message) =>
     message.socialDirectMessage ? [message.socialDirectMessage] : [],
   );
+  // New incoming DMs are revealed one after another with short delays so a
+  // fresh post feels alive instead of everything appearing in one blink.
+  const incomingDirectMessageIds = persistedDirectMessages
+    .filter((directMessage) =>
+      directMessage.app === app.id &&
+      !!account &&
+      !socialIdentityMatches(directMessage.fromHandle, account),
+    )
+    .map((directMessage) => directMessage.messageId);
+  useEffect(() => {
+    if (dmRevealAccountRef.current !== account) {
+      dmRevealAccountRef.current = account;
+      knownDirectMessageIdsRef.current = undefined;
+      setHiddenDirectMessageIds(new Set());
+    }
+    if (!knownDirectMessageIdsRef.current) {
+      knownDirectMessageIdsRef.current = new Set(incomingDirectMessageIds);
+      return;
+    }
+    const known = knownDirectMessageIdsRef.current;
+    const freshIds = incomingDirectMessageIds.filter((messageId) => !known.has(messageId));
+    if (freshIds.length === 0) {
+      return;
+    }
+    freshIds.forEach((messageId) => known.add(messageId));
+    setHiddenDirectMessageIds((current) => new Set([...current, ...freshIds]));
+    freshIds.forEach((messageId, index) => {
+      dmRevealTimersRef.current.push(window.setTimeout(() => {
+        setHiddenDirectMessageIds((current) => {
+          const next = new Set(current);
+          next.delete(messageId);
+          return next;
+        });
+      }, 1_500 + index * 2_200 + Math.round(Math.random() * 900)));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingDirectMessageIds.join('|'), account]);
+  useEffect(() => () => {
+    dmRevealTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+  const visibleDirectMessages = persistedDirectMessages.filter(
+    (directMessage) => !hiddenDirectMessageIds.has(directMessage.messageId),
+  );
   const handleKey = (handle: string) => handle.trim().replace(/^@/, '').toLowerCase();
   const dmRecencyByHandle = new Map<string, number>();
   const dmPartnerNamesByHandle = new Map<string, string>();
-  persistedDirectMessages.forEach((directMessage, index) => {
+  visibleDirectMessages.forEach((directMessage, index) => {
     if (directMessage.app !== app.id || !account) {
       return;
     }
@@ -1145,7 +1192,7 @@ export function PhoneSocialFeedScreen({
       entries.findIndex((entry) => socialIdentityMatches(entry.handle, participant.handle)) === index,
     )
     .sort((left, right) => dmRecency(right.handle) - dmRecency(left.handle));
-  const directMessages = persistedDirectMessages;
+  const directMessages = visibleDirectMessages;
 
   function openDirectMessages(participant?: SocialDirectMessageParticipant) {
     setDirectMessageParticipant(participant);

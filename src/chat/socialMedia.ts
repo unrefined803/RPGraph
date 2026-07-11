@@ -10,9 +10,12 @@ import type {
 import type { BankTransferRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
+  hasIncomingSocialDirectMessagesKey,
   jsonObjectRanges,
   parseEmbeddedBankTransfersObject,
   parseEmbeddedPhoneMessagesObject,
+  parseIncomingSocialDirectMessagesObject,
+  type ParsedIncomingSocialDirectMessage,
   type ParsedPhoneMessage,
 } from './phoneMessages';
 
@@ -137,14 +140,21 @@ export function socialDirectMessageInputText(
     ...(conversation.length ? conversation : ['- No previous messages']),
     ...(message.origin
       ? [
-          'Conversation origin: comment on a social post',
+          message.origin.commentText
+            ? 'Conversation origin: comment on a social post'
+            : 'Conversation origin: a social post',
+          `Post ID: ${message.origin.postId}`,
           `Post author: ${message.origin.postAuthor} (@${message.origin.postAuthorHandle})`,
           `Post text: ${singleLine(message.origin.postCaption)}`,
           ...(message.origin.postImageDescription
             ? [`Post image description: ${singleLine(message.origin.postImageDescription)}`]
             : []),
-          `Original comment from ${message.origin.commentAuthor} (@${message.origin.commentAuthorHandle}): ${singleLine(message.origin.commentText)}`,
-          'The sender opened this DM from that comment. Treat the new message as a reply in that context.',
+          ...(message.origin.commentText
+            ? [
+                `Original comment from ${message.origin.commentAuthor ?? 'someone'} (@${message.origin.commentAuthorHandle ?? 'unknown'}): ${singleLine(message.origin.commentText)}`,
+                'The sender opened this DM from that comment. Treat the new message as a reply in that context.',
+              ]
+            : ['This conversation is about that post. Treat the new message in that context.']),
         ]
       : []),
     `New message: ${singleLine(message.text)}`,
@@ -288,20 +298,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function extractJsonObject(text: string): unknown {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const start = trimmed.indexOf('{');
-  const end = trimmed.lastIndexOf('}');
-  if (start === -1 || end <= start) {
-    return undefined;
-  }
-  try {
-    return JSON.parse(trimmed.slice(start, end + 1));
-  } catch {
-    return undefined;
-  }
-}
-
 function withoutJsonCodeFences(text: string) {
   return text.replace(/^\s*```(?:json)?\s*$/gim, '');
 }
@@ -434,6 +430,8 @@ export function parseSocialDirectMessageOutput(
 export type SocialReactionsParseResult = {
   reactions?: SocialReactionsRecord;
   historySummary?: string;
+  /** Incoming DMs the LLM sent alongside the reactions. */
+  directMessages: ParsedIncomingSocialDirectMessage[];
   warnings: string[];
 };
 
@@ -450,15 +448,56 @@ export function parseSocialReactionsOutput(
   text: string,
   target: SocialReactionTarget,
 ): SocialReactionsParseResult {
+  const directMessages: ParsedIncomingSocialDirectMessage[] = [];
+  const warnings: string[] = [];
   if (!text.trim()) {
-    return { warnings: ['Social Media output was empty; no reactions were generated.'] };
+    return {
+      directMessages,
+      warnings: ['Social Media output was empty; no reactions were generated.'],
+    };
   }
-  const parsed = extractJsonObject(text);
-  if (!isRecord(parsed)) {
-    return { warnings: ['Social Media output could not be parsed as JSON.'] };
+  // The output may hold several standalone top-level JSON objects: the
+  // reactions block plus optional incoming direct-message blocks.
+  const cleaned = withoutJsonCodeFences(text);
+  let parsed: Record<string, unknown> | undefined;
+  for (const range of jsonObjectRanges(cleaned)) {
+    let block: unknown;
+    try {
+      block = JSON.parse(cleaned.slice(range.start, range.end)) as unknown;
+    } catch {
+      continue;
+    }
+    if (!isRecord(block)) {
+      warnings.push('A Social Media output block is not a JSON object; it was skipped.');
+      continue;
+    }
+    if (hasIncomingSocialDirectMessagesKey(block)) {
+      const blockDirectMessages = parseIncomingSocialDirectMessagesObject(block);
+      if (blockDirectMessages.length === 0) {
+        warnings.push('A social direct-message block has no valid entries (each needs from and text).');
+      }
+      directMessages.push(...blockDirectMessages);
+      continue;
+    }
+    if (!parsed) {
+      parsed = block;
+      continue;
+    }
+    warnings.push(
+      `Unknown Social Media output block with keys ${Object.keys(block).join(', ') || '(none)'}; it was skipped.`,
+    );
+  }
+  if (!parsed) {
+    if (directMessages.length > 0) {
+      warnings.push('Social Media output is missing the reactions block.');
+      return { directMessages, warnings };
+    }
+    return {
+      directMessages,
+      warnings: [...warnings, 'Social Media output could not be parsed as JSON.'],
+    };
   }
   const payload = isRecord(parsed.reactions) ? parsed.reactions : parsed;
-  const warnings: string[] = [];
   const likesValue = target.append ? payload.additionalLikes ?? payload.likes : payload.likes;
   const likes =
     typeof likesValue === 'number' && Number.isFinite(likesValue)
@@ -505,6 +544,7 @@ export function parseSocialReactionsOutput(
       append: target.append || undefined,
     },
     historySummary,
+    directMessages,
     warnings,
   };
 }

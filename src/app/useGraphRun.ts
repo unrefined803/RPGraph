@@ -49,6 +49,7 @@ import {
   parsePhoneMessageOutput,
   phoneNamesMatch,
   type EmbeddedPhoneMessagesResult,
+  type ParsedIncomingSocialDirectMessage,
   type ParsedPhoneImageAction,
   type ParsedPhoneMessage,
 } from '../chat/phoneMessages';
@@ -84,6 +85,7 @@ import {
   socialDirectMessageInputText,
   socialHandleForCharacter,
   socialHandleForName,
+  socialIdentityMatches,
   socialPostInputText,
   socialPostHistoryText,
   socialPostTextFromInput,
@@ -1425,6 +1427,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               phoneMessages: [],
               bankTransfers: [],
               socialPostComments: [],
+              socialDirectMessages: [],
             };
       // Phone replies may append a bankTransfers object after the reply JSON;
       // split it off so the reply still parses as a single phone message.
@@ -1435,7 +1438,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       if (
         phoneOutputBankResult &&
         (phoneOutputBankResult.bankTransfers.length > 0 ||
-          phoneOutputBankResult.socialPostComments.length > 0)
+          phoneOutputBankResult.socialPostComments.length > 0 ||
+          phoneOutputBankResult.socialDirectMessages.length > 0)
       ) {
         phoneMessageOutput = phoneOutputBankResult.text;
       }
@@ -1450,6 +1454,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
         ...embeddedPhoneResult.socialPostComments,
         ...(phoneOutputBankResult?.socialPostComments ?? []),
       ];
+      const embeddedSocialDirectMessages = [
+        ...embeddedPhoneResult.socialDirectMessages,
+        ...(phoneOutputBankResult?.socialDirectMessages ?? []),
+      ];
+      if (embeddedSocialDirectMessages.length > 0) {
+        reportFormatResult({
+          name: 'Social direct messages',
+          status: 'ok',
+          detail: `${embeddedSocialDirectMessages.length} social direct message(s) parsed.`,
+        });
+      }
       if (parsedSocialPostComments.length > 0) {
         reportFormatResult({
           name: 'Social post comments',
@@ -2054,6 +2069,106 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
+        // Incoming social DMs sent by the LLM (from reactions runs, RP, or
+        // phone replies). The recipient defaults to the run's post author or
+        // thread actor; a referenced post becomes the conversation origin.
+        let incomingSocialDmSequence = 0;
+        const appendIncomingSocialDirectMessage = async (
+          incoming: ParsedIncomingSocialDirectMessage,
+          defaultRecipient?: { name: string; handle: string },
+          runPost?: SocialPostRecord,
+        ) => {
+          const recipientName = incoming.to ?? defaultRecipient?.name;
+          if (!recipientName) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message from "${incoming.from}" was ignored because it has no recipient.`,
+              outputNodeTraceInfo,
+            );
+            return;
+          }
+          const to = canonicalPhoneName(phoneCharacters, recipientName);
+          const recipientCharacter = phoneCharacters.find((character) =>
+            phoneNamesMatch(character.name, to),
+          );
+          const toHandle = !incoming.to && defaultRecipient
+            ? defaultRecipient.handle
+            : recipientCharacter
+              ? socialHandleForCharacter(recipientCharacter, incoming.app)
+              : socialHandleForName(to);
+          const from = canonicalPhoneName(phoneCharacters, incoming.from);
+          const senderCharacter = phoneCharacters.find((character) =>
+            phoneNamesMatch(character.name, from),
+          );
+          const fromHandle = incoming.handle
+            ? socialHandleForName(incoming.handle)
+            : senderCharacter
+              ? socialHandleForCharacter(senderCharacter, incoming.app)
+              : socialHandleForName(from);
+          if (socialIdentityMatches(fromHandle, toHandle)) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message from "${from}" to themselves was ignored.`,
+              outputNodeTraceInfo,
+            );
+            return;
+          }
+          let originPost = runPost && runPost.postId === incoming.postId ? runPost : undefined;
+          if (!originPost && incoming.postId) {
+            originPost = messagesRef.current.find(
+              (message) =>
+                message.socialPost?.app === incoming.app &&
+                message.socialPost.postId === incoming.postId,
+            )?.socialPost;
+            if (!originPost) {
+              reportRunWarning(
+                `${socialAppNames[incoming.app]} direct message references unknown post "${incoming.postId}"; it was delivered without the post context.`,
+                outputNodeTraceInfo,
+              );
+            }
+          }
+          incomingSocialDmSequence += 1;
+          const record: SocialDirectMessageRecord = {
+            app: incoming.app,
+            messageId: `${incoming.app}-dm-incoming-${Date.now()}-${incomingSocialDmSequence}`,
+            from,
+            fromHandle,
+            to,
+            toHandle,
+            text: incoming.text,
+            ...(incoming.tip !== undefined ? { tip: incoming.tip } : {}),
+            sentAt: new Date().toISOString(),
+            ...(originPost
+              ? {
+                  origin: {
+                    postId: originPost.postId,
+                    postAuthor: originPost.author,
+                    postAuthorHandle: originPost.authorHandle,
+                    postCaption: originPost.caption,
+                    postImageId: originPost.imageId,
+                    postImageDescription: originPost.imageDescription,
+                  },
+                }
+              : {}),
+          };
+          const translatedDmText = await translateOutputActionText(incoming.text, {
+            text: incoming.text,
+          });
+          const persistedRecord = translatedDmText
+            ? { ...record, displayText: translatedDmText }
+            : record;
+          appendMessage({
+            role: 'output',
+            originalText: socialDirectMessageHistoryText(record),
+            translatedText: translatedDmText
+              ? socialDirectMessageHistoryText({ ...record, text: translatedDmText })
+              : undefined,
+            includeInHistory: true,
+            socialDirectMessage: persistedRecord,
+          });
+        };
+        for (const incomingSocialDm of embeddedSocialDirectMessages) {
+          await appendIncomingSocialDirectMessage(incomingSocialDm);
+        }
+
         // Social-media runs record the post itself plus the generated
         // reactions as history messages, mirroring how bank transfers land in
         // the timeline. The post is only persisted when the run succeeds.
@@ -2079,7 +2194,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
             status: parsedReactions.reactions && parsedReactions.warnings.length === 0 ? 'ok' : 'error',
             detail: parsedReactions.warnings.length
               ? parsedReactions.warnings.join(' ')
-              : `${parsedReactions.reactions?.likes ?? 0} like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s) parsed.`,
+              : `${parsedReactions.reactions?.likes ?? 0} like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s)${
+                  parsedReactions.directMessages.length
+                    ? `, ${parsedReactions.directMessages.length} direct message(s)`
+                    : ''
+                } parsed.`,
             preview: parsedReactions.warnings.length ? socialMediaOutputText : undefined,
           });
           parsedReactions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
@@ -2105,6 +2224,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
               socialReactions: parsedReactions.reactions,
             });
           }
+          for (const incomingSocialDm of parsedReactions.directMessages) {
+            await appendIncomingSocialDirectMessage(
+              incomingSocialDm,
+              { name: persistedSocialPost.author, handle: persistedSocialPost.authorHandle },
+              persistedSocialPost,
+            );
+          }
         }
         if (socialThreadAction) {
           const persistedThreadAction = socialThreadAction.action === 'comment'
@@ -2124,7 +2250,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
             status: parsedReactions.reactions && parsedReactions.warnings.length === 0 ? 'ok' : 'error',
             detail: parsedReactions.warnings.length
               ? parsedReactions.warnings.join(' ')
-              : `${parsedReactions.reactions?.likes ?? 0} additional like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s) parsed.`,
+              : `${parsedReactions.reactions?.likes ?? 0} additional like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s)${
+                  parsedReactions.directMessages.length
+                    ? `, ${parsedReactions.directMessages.length} direct message(s)`
+                    : ''
+                } parsed.`,
             preview: parsedReactions.warnings.length ? socialMediaOutputText : undefined,
           });
           parsedReactions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
@@ -2151,6 +2281,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
             socialThreadAction: persistedThreadAction,
             socialReactions: parsedReactions.reactions,
           });
+          for (const incomingSocialDm of parsedReactions.directMessages) {
+            await appendIncomingSocialDirectMessage(incomingSocialDm, {
+              name: persistedThreadAction.actor,
+              handle: persistedThreadAction.actorHandle,
+            });
+          }
         }
       }
       if (!isPhoneMessage && translationError) {

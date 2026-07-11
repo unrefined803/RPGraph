@@ -372,6 +372,53 @@ export function verifyWorkflowValidationFixtures() {
       }),
     'social direct messages must include conversation context, parse the recipient reply, and stay hidden in Chat',
   );
+  const parsedReactionsWithDms = parseSocialReactionsOutput(
+    [
+      '{"reactions":{"postId":"onlyfriends-post-01","likes":30,"comments":[{"from":"Fan","text":"Wow!"}]}}',
+      '{"onlyFriendsDirectMessages":[{"from":"Marcus Vane","text":"Any chance to see more?","postId":"onlyfriends-post-01","tip":5},{"from":"quiet.admirer","text":"You are stunning."}]}',
+    ].join('\n'),
+    { app: 'onlyfriends', postId: 'onlyfriends-post-01' },
+  );
+  const parsedFotogramTipIgnored = parseSocialReactionsOutput(
+    [
+      '{"reactions":{"postId":"fotogram-post-01","likes":10,"comments":[]}}',
+      '{"fotogramDirectMessages":[{"from":"Chloe Whitmore","text":"Long time no see!","tip":5}]}',
+    ].join('\n'),
+    { app: 'fotogram', postId: 'fotogram-post-01' },
+  );
+  assertFixture(
+    parsedReactionsWithDms.reactions?.likes === 30 &&
+      parsedReactionsWithDms.warnings.length === 0 &&
+      parsedReactionsWithDms.directMessages.length === 2 &&
+      parsedReactionsWithDms.directMessages[0]?.tip === 5 &&
+      parsedReactionsWithDms.directMessages[0]?.postId === 'onlyfriends-post-01' &&
+      parsedReactionsWithDms.directMessages[1]?.tip === undefined &&
+      parsedFotogramTipIgnored.directMessages[0]?.tip === undefined,
+    'social reactions must parse standalone incoming DM blocks and keep tips OnlyFriends-only',
+  );
+  const socialPostOriginInput = socialDirectMessageInputText({
+    app: 'onlyfriends',
+    messageId: 'onlyfriends-dm-user-2',
+    from: 'Helga Harper',
+    fromHandle: 'helga.harper',
+    to: 'Marcus Vane',
+    toHandle: 'marcus.vane',
+    text: 'Thanks for the message!',
+    sentAt: '2026-06-01T13:00:00.000Z',
+    origin: {
+      postId: 'onlyfriends-post-01',
+      postAuthor: 'Helga Harper',
+      postAuthorHandle: 'helga.harper',
+      postCaption: 'New set is live.',
+      postImageDescription: 'Helga poses in the new outfit set.',
+    },
+  }, []);
+  assertFixture(
+    socialPostOriginInput.includes('Conversation origin: a social post') &&
+      socialPostOriginInput.includes('Post ID: onlyfriends-post-01') &&
+      !socialPostOriginInput.includes('Original comment'),
+    'post-only DM origins must describe the post without inventing a comment',
+  );
   const parsedSocialThread = parseSocialReactionsOutput(
     '{"reactions":{"postId":"post-1","additionalLikes":2,"comments":[{"from":"Jamie","text":"Love it!"}]},"summary":"Alex asked the thread about the location; Jamie responded positively."}',
     { app: 'fotogram', postId: 'post-1', append: true },
@@ -2242,6 +2289,18 @@ export function verifyWorkflowValidationFixtures() {
         '{"fotogramPostComment":{"postId":"fotogram-post-01","text":"Missing commenter"}}',
       ).socialPostComments.length === 0,
     'embedded social post comments must parse per app and require postId, from, and text',
+  );
+  const embeddedSocialDm = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Later that night, her phone buzzes.',
+    '{"onlyFriendsDirectMessages":[{"from":"Marcus Vane","to":"Helga Harper","text":"That set was incredible.","postId":"onlyfriends-post-01","tip":10}]}',
+  ].join('\n'));
+  assertFixture(
+    embeddedSocialDm.text === 'Later that night, her phone buzzes.' &&
+      embeddedSocialDm.socialDirectMessages[0]?.app === 'onlyfriends' &&
+      embeddedSocialDm.socialDirectMessages[0]?.to === 'Helga Harper' &&
+      embeddedSocialDm.socialDirectMessages[0]?.tip === 10 &&
+      embeddedSocialDm.socialDirectMessages[0]?.postId === 'onlyfriends-post-01',
+    'embedded social DM blocks must parse sender, recipient, post reference, and tip',
   );
   const rpOutputWithDisplayImage = parseRpOutput([
     'Lara swipes to the cat photo and smiles.',

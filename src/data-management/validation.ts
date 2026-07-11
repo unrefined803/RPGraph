@@ -153,9 +153,18 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
             value.socialDirectMessage.origin.postImageDescription === undefined ||
             typeof value.socialDirectMessage.origin.postImageDescription === 'string'
           ) &&
-          typeof value.socialDirectMessage.origin.commentAuthor === 'string' &&
-          typeof value.socialDirectMessage.origin.commentAuthorHandle === 'string' &&
-          typeof value.socialDirectMessage.origin.commentText === 'string'
+          (
+            value.socialDirectMessage.origin.commentAuthor === undefined ||
+            typeof value.socialDirectMessage.origin.commentAuthor === 'string'
+          ) &&
+          (
+            value.socialDirectMessage.origin.commentAuthorHandle === undefined ||
+            typeof value.socialDirectMessage.origin.commentAuthorHandle === 'string'
+          ) &&
+          (
+            value.socialDirectMessage.origin.commentText === undefined ||
+            typeof value.socialDirectMessage.origin.commentText === 'string'
+          )
         )
       )
     );

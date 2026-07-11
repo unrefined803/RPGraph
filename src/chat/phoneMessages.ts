@@ -58,6 +58,21 @@ type ParsedSocialPostComment = {
   text: string;
 };
 
+/** An LLM-sent social DM ("fotogramDirectMessages"/"onlyFriendsDirectMessages" blocks). */
+export type ParsedIncomingSocialDirectMessage = {
+  app: SocialAppKind;
+  from: string;
+  /** Optional explicit sender handle; derived from the name when absent. */
+  handle?: string;
+  /** Recipient name; social-reactions runs default it to the post author/actor. */
+  to?: string;
+  text: string;
+  /** Optional referenced post the DM is about. */
+  postId?: string;
+  /** OnlyFriends-only optional tip credited to the recipient's wallet. */
+  tip?: number;
+};
+
 export type EmbeddedPhoneMessagesResult = {
   text: string;
   textBefore: string;
@@ -65,6 +80,7 @@ export type EmbeddedPhoneMessagesResult = {
   phoneMessages: ParsedPhoneMessage[];
   bankTransfers: BankTransferRecord[];
   socialPostComments: ParsedSocialPostComment[];
+  socialDirectMessages: ParsedIncomingSocialDirectMessage[];
 };
 
 export function parsePhoneGraphInput(text: string) {
@@ -470,6 +486,60 @@ function parseEmbeddedSocialPostCommentsObject(value: unknown): ParsedSocialPost
   });
 }
 
+const incomingSocialDirectMessagesKeysByApp: Record<SocialAppKind, string> = {
+  fotogram: 'fotogramDirectMessages',
+  onlyfriends: 'onlyFriendsDirectMessages',
+};
+
+/** True when the object claims one of the DM-send keys, even with invalid entries. */
+export function hasIncomingSocialDirectMessagesKey(value: unknown) {
+  return isRecord(value) &&
+    Object.values(incomingSocialDirectMessagesKeysByApp).some((key) => value[key] !== undefined);
+}
+
+export function parseIncomingSocialDirectMessagesObject(
+  value: unknown,
+): ParsedIncomingSocialDirectMessage[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+  return (Object.keys(incomingSocialDirectMessagesKeysByApp) as SocialAppKind[]).flatMap((app) => {
+    const entries = value[incomingSocialDirectMessagesKeysByApp[app]];
+    if (!Array.isArray(entries)) {
+      return [];
+    }
+    return entries.flatMap((entry) => {
+      if (!isRecord(entry) || typeof entry.from !== 'string' || typeof entry.text !== 'string') {
+        return [];
+      }
+      const from = entry.from.trim();
+      const text = entry.text.trim();
+      if (!from || !text) {
+        return [];
+      }
+      const tipValue = typeof entry.tip === 'number'
+        ? entry.tip
+        : typeof entry.tip === 'string' && entry.tip.trim()
+          ? Number(entry.tip)
+          : Number.NaN;
+      const tip = app === 'onlyfriends' && Number.isFinite(tipValue) && tipValue > 0
+        ? Math.round(tipValue * 100) / 100
+        : undefined;
+      const stringField = (field: unknown) =>
+        typeof field === 'string' && field.trim() ? field.trim() : undefined;
+      return [{
+        app,
+        from,
+        text,
+        handle: stringField(entry.handle),
+        to: stringField(entry.to),
+        postId: stringField(entry.postId),
+        ...(tip !== undefined ? { tip } : {}),
+      }];
+    });
+  });
+}
+
 function expandJsonFenceRange(text: string, range: { start: number; end: number }) {
   let start = range.start;
   let end = range.end;
@@ -494,6 +564,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     phoneMessages: ParsedPhoneMessage[];
     bankTransfers: BankTransferRecord[];
     socialPostComments: ParsedSocialPostComment[];
+    socialDirectMessages: ParsedIncomingSocialDirectMessage[];
   }> = [];
   for (const range of ranges) {
     const candidate = value.slice(range.start, range.end);
@@ -502,12 +573,19 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       const phoneMessages = parseEmbeddedPhoneMessagesObject(parsed);
       const bankTransfers = parseEmbeddedBankTransfersObject(parsed);
       const socialPostComments = parseEmbeddedSocialPostCommentsObject(parsed);
-      if (phoneMessages.length > 0 || bankTransfers.length > 0 || socialPostComments.length > 0) {
+      const socialDirectMessages = parseIncomingSocialDirectMessagesObject(parsed);
+      if (
+        phoneMessages.length > 0 ||
+        bankTransfers.length > 0 ||
+        socialPostComments.length > 0 ||
+        socialDirectMessages.length > 0
+      ) {
         parsedRanges.push({
           ...expandJsonFenceRange(value, range),
           phoneMessages,
           bankTransfers,
           socialPostComments,
+          socialDirectMessages,
         });
       }
     } catch {
@@ -527,7 +605,16 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     const phoneMessages = parsedRanges.flatMap((range) => range.phoneMessages);
     const bankTransfers = parsedRanges.flatMap((range) => range.bankTransfers);
     const socialPostComments = parsedRanges.flatMap((range) => range.socialPostComments);
-    return { text, textBefore, textAfter, phoneMessages, bankTransfers, socialPostComments };
+    const socialDirectMessages = parsedRanges.flatMap((range) => range.socialDirectMessages);
+    return {
+      text,
+      textBefore,
+      textAfter,
+      phoneMessages,
+      bankTransfers,
+      socialPostComments,
+      socialDirectMessages,
+    };
   }
   return {
     text: value.trim(),
@@ -536,6 +623,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     phoneMessages: [],
     bankTransfers: [],
     socialPostComments: [],
+    socialDirectMessages: [],
   };
 }
 
@@ -549,7 +637,9 @@ function stripIncompleteEmbeddedJsonTail(value: string) {
       tail.includes('"phoneMessages"') ||
       tail.includes('"bankTransfers"') ||
       tail.includes('"fotogramPostComment"') ||
-      tail.includes('"onlyFriendsPostComment"')
+      tail.includes('"onlyFriendsPostComment"') ||
+      tail.includes('"fotogramDirectMessages"') ||
+      tail.includes('"onlyFriendsDirectMessages"')
     ) {
       const start = expandJsonFenceRange(value, {
         start: openObjectStart,

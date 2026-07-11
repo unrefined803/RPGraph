@@ -644,7 +644,11 @@ export type SocialDirectMessageRecord = {
   imageIds?: string[];
   /** Social direct-message id this message replies to. */
   replyToMessageId?: string;
-  /** Post/comment that opened this conversation, retained as DM context. */
+  /**
+   * Post (and optionally the comment) that opened this conversation, retained
+   * as DM context. Comment fields are absent when the DM references a post
+   * directly, e.g. an incoming fan DM about a fresh post.
+   */
   origin?: {
     postId: string;
     postAuthor: string;
@@ -652,9 +656,9 @@ export type SocialDirectMessageRecord = {
     postCaption: string;
     postImageId?: string;
     postImageDescription?: string;
-    commentAuthor: string;
-    commentAuthorHandle: string;
-    commentText: string;
+    commentAuthor?: string;
+    commentAuthorHandle?: string;
+    commentText?: string;
   };
 };
 

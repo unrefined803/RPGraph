@@ -155,8 +155,9 @@ export function PhoneSocialDirectMessages({
   const originImage = origin?.postImageId ? socialImageById(origin.postImageId) : undefined;
   // The stored origin comment keeps its real author; when the viewer wrote
   // that comment (e.g. after switching characters), it renders as outgoing.
-  const originOutgoing = !!origin && identityMatches(origin.commentAuthorHandle, ownerHandle);
-  const originLabel = origin
+  const originOutgoing = !!origin?.commentAuthorHandle &&
+    identityMatches(origin.commentAuthorHandle, ownerHandle);
+  const originLabel = origin?.commentText
     ? originOutgoing
       ? `Your comment on @${origin.postAuthorHandle}'s post`
       : identityMatches(origin.postAuthorHandle, ownerHandle)
@@ -188,9 +189,17 @@ export function PhoneSocialDirectMessages({
         >
           {originImage && <img src={originImage.dataUrl} alt={originImage.name} />}
           <span className="phone-social-dm-origin-copy">
-            <small>Conversation started from a comment</small>
-            <strong>{origin.commentAuthor}: “{origin.commentText}”</strong>
-            {originExpanded && <span>{origin.postAuthor}: {origin.postCaption}</span>}
+            <small>
+              {origin.commentText ? 'Conversation started from a comment' : 'Conversation about a post'}
+            </small>
+            {origin.commentText ? (
+              <>
+                <strong>{origin.commentAuthor}: “{origin.commentText}”</strong>
+                {originExpanded && <span>{origin.postAuthor}: {origin.postCaption}</span>}
+              </>
+            ) : (
+              <strong>{origin.postAuthor}: “{origin.postCaption}”</strong>
+            )}
           </span>
           <span aria-hidden="true">{originExpanded ? '⌃' : '⌄'}</span>
         </button>
@@ -210,7 +219,7 @@ export function PhoneSocialDirectMessages({
             <small>Start your conversation</small>
           </div>
         )}
-        {origin && (
+        {origin?.commentText && (
           <div className={`phone-social-dm-message-row ${originOutgoing ? 'outgoing' : 'incoming'} origin-comment`}>
             <div className="phone-social-dm-bubble">
               <span>{origin.commentText}</span>
