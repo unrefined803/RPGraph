@@ -254,7 +254,7 @@ export function PhoneSocialFeedScreen({
   const [visibleCommentCounts, setVisibleCommentCounts] = useState<Record<string, number>>({});
   const [pendingCommentReveal, setPendingCommentReveal] = useState<PendingCommentReveal>();
   const [addingPerson, setAddingPerson] = useState(false);
-  const [hiddenDirectMessageIds, setHiddenDirectMessageIds] = useState<Set<string>>(() => new Set());
+  const [revealedDirectMessageIds, setRevealedDirectMessageIds] = useState<Set<string>>(() => new Set());
   const [newPersonName, setNewPersonName] = useState('');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -264,6 +264,7 @@ export function PhoneSocialFeedScreen({
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
   const knownDirectMessageIdsRef = useRef<Set<string> | undefined>(undefined);
   const dmRevealAccountRef = useRef<string | undefined>(undefined);
+  const dmScheduledRevealIdsRef = useRef<Set<string>>(new Set());
   const dmRevealTimersRef = useRef<number[]>([]);
   const noticeTimerRef = useRef<number | undefined>(undefined);
   const postAppearTimersRef = useRef(new Map<string, number>());
@@ -366,32 +367,32 @@ export function PhoneSocialFeedScreen({
       !socialIdentityMatches(directMessage.fromHandle, account),
     )
     .map((directMessage) => directMessage.messageId);
+  // The known-ids baseline is (re)built synchronously during render, so a
+  // brand-new incoming DM is already hidden on its very first paint instead
+  // of flashing once before the reveal timer runs.
+  if (dmRevealAccountRef.current !== account || !knownDirectMessageIdsRef.current) {
+    dmRevealAccountRef.current = account;
+    knownDirectMessageIdsRef.current = new Set(incomingDirectMessageIds);
+    dmScheduledRevealIdsRef.current = new Set();
+  }
+  const knownDirectMessageIds = knownDirectMessageIdsRef.current;
+  const hiddenDirectMessageIds = new Set(
+    incomingDirectMessageIds.filter(
+      (messageId) =>
+        !knownDirectMessageIds.has(messageId) && !revealedDirectMessageIds.has(messageId),
+    ),
+  );
   useEffect(() => {
-    if (dmRevealAccountRef.current !== account) {
-      dmRevealAccountRef.current = account;
-      knownDirectMessageIdsRef.current = undefined;
-      dmRevealTimersRef.current.forEach((timer) => window.clearTimeout(timer));
-      dmRevealTimersRef.current = [];
-      setHiddenDirectMessageIds(new Set());
-    }
-    if (!knownDirectMessageIdsRef.current) {
-      knownDirectMessageIdsRef.current = new Set(incomingDirectMessageIds);
-      return;
-    }
-    const known = knownDirectMessageIdsRef.current;
-    const freshIds = incomingDirectMessageIds.filter((messageId) => !known.has(messageId));
-    if (freshIds.length === 0) {
-      return;
-    }
-    freshIds.forEach((messageId) => known.add(messageId));
-    setHiddenDirectMessageIds((current) => new Set([...current, ...freshIds]));
+    const freshIds = incomingDirectMessageIds.filter(
+      (messageId) =>
+        !knownDirectMessageIdsRef.current?.has(messageId) &&
+        !revealedDirectMessageIds.has(messageId) &&
+        !dmScheduledRevealIdsRef.current.has(messageId),
+    );
     freshIds.forEach((messageId, index) => {
+      dmScheduledRevealIdsRef.current.add(messageId);
       dmRevealTimersRef.current.push(window.setTimeout(() => {
-        setHiddenDirectMessageIds((current) => {
-          const next = new Set(current);
-          next.delete(messageId);
-          return next;
-        });
+        setRevealedDirectMessageIds((current) => new Set(current).add(messageId));
       }, 1_500 + index * 2_200 + Math.round(Math.random() * 900)));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
