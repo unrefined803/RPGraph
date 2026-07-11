@@ -13,12 +13,16 @@ import {
   runCustomNodeDefinition,
 } from '../nodes/custom-node/runtime';
 import {
+  defaultRpStorybookCharacterBanking,
+  defaultRpStorybookCharacterSocial,
   defaultRpStorybookCharacterVoiceConfig,
   defaultRpStorybookImageDescriptionPrompt,
   defaultRpStorybookImageDescriptionPromptSettings,
   emptyRpStorybookV1,
   nextStorybookCharacterImageId,
   parseRpStorybookJson,
+  rpStorybookCharacterBanking,
+  rpStorybookCharacterSocial,
   rpStorybookFormattedText,
   rpStorybookFormattedTextSettings,
   rpStorybookImageDescriptionPromptSettings,
@@ -27,8 +31,11 @@ import {
   rpStorybookPhoneContactCharacters,
   storybookCharacterImageOwnerIdBase,
   withRpStorybookPhoneContactPairBlocked,
+  type RpStorybookCharacterBanking,
   type RpStorybookCharacterComfyConfig,
+  type RpStorybookCharacterSocial,
   type RpStorybookCharacterVoiceConfig,
+  type RpStorybookV1Character,
   type RpStorybookCharacterImage,
   type RpStorybookCharacterProfileImage,
   type RpStorybookFormattedTextSettings,
@@ -1315,6 +1322,50 @@ function withStorybookCharacterVoiceConfig(
   };
 }
 
+function storybookCharacterBanking(
+  storybook: RpStorybookV1,
+  characterId: string,
+): RpStorybookCharacterBanking {
+  return storybook.characters.find((character) => character.id === characterId)?.banking ??
+    defaultRpStorybookCharacterBanking();
+}
+
+function storybookCharacterSocial(
+  storybook: RpStorybookV1,
+  characterId: string,
+): RpStorybookCharacterSocial {
+  return storybook.characters.find((character) => character.id === characterId)?.social ??
+    defaultRpStorybookCharacterSocial();
+}
+
+function withStorybookCharacterPhoneAccounts(
+  storybook: RpStorybookV1,
+  characterId: string,
+  banking: RpStorybookCharacterBanking,
+  social: RpStorybookCharacterSocial,
+): RpStorybookV1 {
+  return {
+    ...storybook,
+    characters: storybook.characters.map((character) =>
+      character.id === characterId
+        ? { ...character, banking, social }
+        : character
+    ),
+  };
+}
+
+function characterPhoneSummaryText(character: RpStorybookV1Character) {
+  const banking = character.banking ?? defaultRpStorybookCharacterBanking();
+  const parts = [`Bank: $${banking.startBalance}`];
+  if (character.social?.fotogramUsername) {
+    parts.push(`Fotogram: @${character.social.fotogramUsername}`);
+  }
+  if (character.social?.onlyfriendsUsername) {
+    parts.push(`OnlyFriends: @${character.social.onlyfriendsUsername}`);
+  }
+  return parts.join(' · ');
+}
+
 function storybookCharacterImageFromAttachment(
   image: ChatImageAttachment,
 ): RpStorybookCharacterImage {
@@ -2292,12 +2343,23 @@ function CharacterSetupDialog({
     : `Name: ${characterName}`;
   const comfyConnections = connections.filter(isComfyImageConnection);
   const voiceConnections = connections.filter(isComfyVoiceConnection);
-  const [activeSetupTab, setActiveSetupTab] = useState<'image' | 'voice'>('image');
+  const [activeSetupTab, setActiveSetupTab] = useState<'image' | 'voice' | 'phone'>('image');
   const [providerId, setProviderId] = useState(comfyConnections[0]?.id ?? '');
   const [voiceProviderId, setVoiceProviderId] = useState(voiceConnections[0]?.id ?? '');
   const [loraOptions, setLoraOptions] = useState<string[]>([]);
   const [draft, setDraft] = useState(() => storybookCharacterComfyConfig(storybook, characterId));
   const [voiceDraft, setVoiceDraft] = useState(() => storybookCharacterVoiceConfig(storybook, characterId));
+  const [bankingDraft, setBankingDraft] = useState(() => {
+    const banking = storybookCharacterBanking(storybook, characterId);
+    return {
+      startBalance: String(banking.startBalance),
+      fixedExpenses: banking.fixedExpenses.map((expense) => ({
+        label: expense.label,
+        amount: String(expense.amount),
+      })),
+    };
+  });
+  const [socialDraft, setSocialDraft] = useState(() => storybookCharacterSocial(storybook, characterId));
   const [voiceTestText, setVoiceTestText] = useState('');
   const [voiceGenerating, setVoiceGenerating] = useState(false);
   const [voiceClip, setVoiceClip] = useState<{ dataUrl: string; filename: string } | null>(null);
@@ -2371,14 +2433,25 @@ function CharacterSetupDialog({
 
   function commitCharacterSetup() {
     onUpdateStorybook(
-      withStorybookCharacterVoiceConfig(
-        withStorybookCharacterComfyConfig(storybook, characterId, {
-          loraName: draft.loraName.trim(),
-          loraUrl: draft.loraUrl?.trim() ?? '',
-          appearance: draft.appearance.trim(),
-        }),
+      withStorybookCharacterPhoneAccounts(
+        withStorybookCharacterVoiceConfig(
+          withStorybookCharacterComfyConfig(storybook, characterId, {
+            loraName: draft.loraName.trim(),
+            loraUrl: draft.loraUrl?.trim() ?? '',
+            appearance: draft.appearance.trim(),
+          }),
+          characterId,
+          voiceDraft.sampleDataUrl ? voiceDraft : defaultRpStorybookCharacterVoiceConfig(),
+        ),
         characterId,
-        voiceDraft.sampleDataUrl ? voiceDraft : defaultRpStorybookCharacterVoiceConfig(),
+        rpStorybookCharacterBanking({
+          startBalance: bankingDraft.startBalance.trim() ? Number(bankingDraft.startBalance) : undefined,
+          fixedExpenses: bankingDraft.fixedExpenses.map((expense) => ({
+            label: expense.label.trim(),
+            amount: Number(expense.amount),
+          })),
+        }),
+        rpStorybookCharacterSocial(socialDraft),
       ),
       `Character setup saved for ${characterName}.`,
     );
@@ -2586,8 +2659,147 @@ function CharacterSetupDialog({
               </svg>
               <span>Voice Setup</span>
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSetupTab === 'phone'}
+              className={activeSetupTab === 'phone' ? 'active' : ''}
+              onClick={() => setActiveSetupTab('phone')}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="7" y="2" width="10" height="20" rx="2" ry="2" />
+                <line x1="11" y1="18" x2="13" y2="18" />
+              </svg>
+              <span>Phone Apps</span>
+            </button>
           </div>
-          {activeSetupTab === 'voice' ? (
+          {activeSetupTab === 'phone' ? (
+            <div className="character-voice-body">
+              <div className="character-voice-card">
+                <span className="character-voice-card-title">BANKING APP</span>
+                <p className="character-voice-hint">
+                  Bank account of this character in the phone Banking app. New characters start
+                  with $1000 unless you or the assistant set a value that fits their life situation.
+                </p>
+                <label className="character-comfy-field">
+                  <span>START BALANCE (USD)</span>
+                  <input
+                    className="node-text-input nodrag"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={bankingDraft.startBalance}
+                    onChange={(event) => {
+                      const startBalance = event.currentTarget.value;
+                      setBankingDraft((current) => ({ ...current, startBalance }));
+                    }}
+                  />
+                </label>
+                <label className="character-comfy-field">
+                  <span>FIXED EXPENSES</span>
+                </label>
+                {bankingDraft.fixedExpenses.map((expense, index) => (
+                  <div className="character-comfy-url-row" key={index}>
+                    <input
+                      className="node-text-input nodrag"
+                      type="text"
+                      value={expense.label}
+                      placeholder="Mobile plan"
+                      onChange={(event) => {
+                        const label = event.currentTarget.value;
+                        setBankingDraft((current) => ({
+                          ...current,
+                          fixedExpenses: current.fixedExpenses.map((entry, entryIndex) =>
+                            entryIndex === index ? { ...entry, label } : entry),
+                        }));
+                      }}
+                    />
+                    <input
+                      className="node-text-input nodrag"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={expense.amount}
+                      placeholder="24.99"
+                      onChange={(event) => {
+                        const amount = event.currentTarget.value;
+                        setBankingDraft((current) => ({
+                          ...current,
+                          fixedExpenses: current.fixedExpenses.map((entry, entryIndex) =>
+                            entryIndex === index ? { ...entry, amount } : entry),
+                        }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="contextual-action-button nodrag"
+                      onClick={() =>
+                        setBankingDraft((current) => ({
+                          ...current,
+                          fixedExpenses: current.fixedExpenses.filter((_, entryIndex) => entryIndex !== index),
+                        }))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <div className="character-comfy-actions">
+                  <button
+                    type="button"
+                    className="contextual-action-button nodrag"
+                    onClick={() =>
+                      setBankingDraft((current) => ({
+                        ...current,
+                        fixedExpenses: [...current.fixedExpenses, { label: '', amount: '' }],
+                      }))}
+                  >
+                    Add Fixed Expense
+                  </button>
+                </div>
+                <p className="character-voice-hint">
+                  Recurring payments shown in the Banking app history (for example a mobile plan).
+                  The app fills the rest of the history with generated everyday spending.
+                </p>
+              </div>
+              <div className="character-voice-card">
+                <span className="character-voice-card-title">SOCIAL APPS</span>
+                <label className="character-comfy-field">
+                  <span>FOTOGRAM USERNAME</span>
+                  <input
+                    className="node-text-input nodrag"
+                    type="text"
+                    value={socialDraft.fotogramUsername}
+                    placeholder="nova.reyes"
+                    onChange={(event) => {
+                      const fotogramUsername = event.currentTarget.value;
+                      setSocialDraft((current) => ({ ...current, fotogramUsername }));
+                    }}
+                  />
+                </label>
+                <p className="character-voice-hint">
+                  Every character is expected to have a Fotogram account. When empty, the app
+                  derives a handle from the character name automatically.
+                </p>
+                <label className="character-comfy-field">
+                  <span>ONLYFRIENDS USERNAME</span>
+                  <input
+                    className="node-text-input nodrag"
+                    type="text"
+                    value={socialDraft.onlyfriendsUsername}
+                    placeholder="Leave empty for no account"
+                    onChange={(event) => {
+                      const onlyfriendsUsername = event.currentTarget.value;
+                      setSocialDraft((current) => ({ ...current, onlyfriendsUsername }));
+                    }}
+                  />
+                </label>
+                <p className="character-voice-hint">
+                  OnlyFriends accounts are private. Leave this empty unless the story explicitly
+                  gives the character an account.
+                </p>
+              </div>
+            </div>
+          ) : activeSetupTab === 'voice' ? (
             <div className="character-voice-body">
               <div className="character-voice-card">
                 <label className="character-comfy-field">
@@ -3023,7 +3235,7 @@ export function StorybookCreatorDialog({
                     role="menuitem"
                     onClick={() => askConfirm({
                       title: 'Reset Storybook',
-                      message: 'This clears scenario, characters, and Opening History.',
+                      message: 'This resets the whole story: scenario, characters, Opening History, events, and the current chat session. Only the workflow stays.',
                       confirmLabel: 'Reset Storybook',
                       danger: true,
                       action: onResetStorybook,
@@ -3205,6 +3417,10 @@ export function StorybookCreatorDialog({
                                     <p>{character.speechStyle}</p>
                                   </div>
                                 )}
+                                <div className="character-field">
+                                  <span className="field-label">Phone Apps</span>
+                                  <p>{characterPhoneSummaryText(character)}</p>
+                                </div>
                               </div>
 
                               <div className="character-card-footer">

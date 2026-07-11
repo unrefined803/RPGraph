@@ -686,7 +686,7 @@ export function useRpgraphFiles({
         'Loaded encrypted storybook',
       );
       if (!applied) {
-        setFileStorageStatus('Cannot load storybook: an image is used in chat history.');
+        setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');
         return;
       }
       setActiveStorybookProtection('encrypted');

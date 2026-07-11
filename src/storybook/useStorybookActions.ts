@@ -6,9 +6,12 @@ import {
   parseRpStorybookAssistantResult,
   parseRpStorybookJson,
   rpStorybookEditPrompt,
+  rpStorybookIdentityLockViolations,
   rpStorybookJsonText,
   rpStorybookPromptJsonText,
+  type RpStorybookV1,
 } from '../nodes/rp-storybook-v1/model';
+import { resetCharacterStatsRuntimeData } from '../nodes/character-stats/runtime';
 import type { TurnRecord, WorkflowNode, WorkflowNodeData } from '../types';
 import type { SystemLogLevel } from '../types';
 import {
@@ -64,6 +67,7 @@ type UseStorybookActionsOptions = {
   setActiveStorybookProtection: Dispatch<SetStateAction<FileProtection>>;
   notifySystem: (level: SystemLogLevel, text: string) => number;
   usedStorybookImageIds: ReadonlySet<string>;
+  clearCurrentSession: () => void;
 };
 
 export function useStorybookActions({
@@ -84,6 +88,7 @@ export function useStorybookActions({
   setActiveStorybookProtection,
   notifySystem,
   usedStorybookImageIds,
+  clearCurrentSession,
 }: UseStorybookActionsOptions) {
   const [storybookCreatorNodeId, setStorybookCreatorNodeId] = useState<string | null>(null);
   const [storybookCreatorMessages, setStorybookCreatorMessages] = useState<StorybookCreatorMessage[]>([]);
@@ -99,11 +104,20 @@ export function useStorybookActions({
     return `Storybook Format ${file.formatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Storybook Format ${storybookFormatVersions.storybook}.`;
   }
 
+  function storyHistoryPresent(storybook: RpStorybookV1) {
+    return (
+      turnsRef.current.length > 0 ||
+      storybook.openingHistory.turns.length > 0 ||
+      storybook.openingHistory.events.length > 0
+    );
+  }
+
+  /** Returns null when the storybook was committed, otherwise the blocking error message. */
   function commitStorybookToNode(
     nodeId: string,
     storybook: ReturnType<typeof parseRpStorybookJson>,
     patch: Partial<WorkflowNodeData>,
-  ) {
+  ): string | null {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     let committedStorybook = storybook;
     if (node?.data.nodeType === 'rp-storybook-v1') {
@@ -123,14 +137,23 @@ export function useStorybookActions({
         const message = 'Cannot delete: image is used in chat history.';
         updateRuntimeNode(nodeId, { storybookStatus: message });
         notifySystem('info', message);
-        return false;
+        return message;
+      }
+      if (storyHistoryPresent(currentStorybook)) {
+        const violations = rpStorybookIdentityLockViolations(currentStorybook, committedStorybook);
+        if (violations.length > 0) {
+          const message = violations.join(' ');
+          updateRuntimeNode(nodeId, { storybookStatus: violations[0] });
+          notifySystem('info', message);
+          return message;
+        }
       }
     }
     updateRuntimeNode(nodeId, {
       ...patch,
       storybookJson: rpStorybookJsonText(committedStorybook),
     });
-    return true;
+    return null;
   }
 
   function updateStorybook(nodeId: string, storybook: ReturnType<typeof parseRpStorybookJson>, status?: string) {
@@ -138,7 +161,7 @@ export function useStorybookActions({
       nodeId,
       storybook,
       { storybookStatus: status ?? 'Storybook updated.' },
-    );
+    ) === null;
   }
 
   function openStorybookCreator(nodeId: string) {
@@ -169,7 +192,7 @@ export function useStorybookActions({
         connectionId: node.data.connectionId,
         nodeId,
         label: 'Storybook Chat',
-        prompt: rpStorybookEditPrompt(currentJson, message),
+        prompt: rpStorybookEditPrompt(currentJson, message, storyHistoryPresent(currentStorybook)),
       });
       const result = parseRpStorybookAssistantResult(completion.text, currentStorybook);
       const changedFields = result.changedFields.slice(0, 4);
@@ -177,13 +200,13 @@ export function useStorybookActions({
         ? `edit ${changedFields.join(' + ')}${result.changedFields.length > changedFields.length ? ' + more' : ''}`
         : 'answer';
       if (result.changedFields.length) {
-        const applied = commitStorybookToNode(nodeId, result.storybook, {
+        const commitError = commitStorybookToNode(nodeId, result.storybook, {
           storybookStatus: `Edited via ${completion.connection.label}`,
         });
-        if (!applied) {
+        if (commitError) {
           setStorybookCreatorMessages((current) => [
             ...current,
-            { role: 'error', text: 'Cannot delete: image is used in chat history.' },
+            { role: 'error', text: commitError },
           ]);
           return;
         }
@@ -213,12 +236,12 @@ export function useStorybookActions({
     status = 'Loaded storybook',
   ) {
     const storybook = parseRpStorybookJson(JSON.stringify(storybookValue));
-    const applied = commitStorybookToNode(nodeId, storybook, {
+    const commitError = commitStorybookToNode(nodeId, storybook, {
       storybookStatus: fileName ? `${status}: ${fileName}` : status,
       storybookFileName: fileName,
       storybookFilePath: filePath,
     });
-    return applied;
+    return commitError === null;
   }
 
   function importCurrentChatAsOpeningHistory(nodeId: string) {
@@ -324,9 +347,34 @@ export function useStorybookActions({
     });
   }
 
+  // A full reset wipes the running story with the storybook (chat session,
+  // events, character stats), so the image-usage and identity locks that
+  // protect a running story intentionally do not apply here.
   function resetStorybook(nodeId: string) {
-    commitStorybookToNode(nodeId, emptyRpStorybookV1, {
-      storybookStatus: 'Storybook reset.',
+    const node = nodesRef.current.find((entry) => entry.id === nodeId);
+    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+      return;
+    }
+    clearCurrentSession();
+    nodesRef.current
+      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'event-manager')
+      .forEach((entry) => {
+        updateRuntimeNode(entry.id, {
+          eventAppointments: [],
+          eventStatus: 'Storybook reset. All events cleared.',
+        });
+      });
+    nodesRef.current
+      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'character-stats')
+      .forEach((entry) => {
+        updateRuntimeNode(entry.id, {
+          ...resetCharacterStatsRuntimeData(),
+          characterStatsStatus: 'Storybook reset. State initializes on next run.',
+        });
+      });
+    updateRuntimeNode(nodeId, {
+      storybookJson: rpStorybookJsonText(emptyRpStorybookV1),
+      storybookStatus: 'Storybook and current session reset.',
       storybookFileName: undefined,
       storybookFilePath: undefined,
     });
@@ -384,18 +432,18 @@ export function useStorybookActions({
         connectionId: node.data.connectionId,
         nodeId,
         label: 'SillyTavern Import',
-        prompt: rpStorybookEditPrompt(currentJson, instruction),
+        prompt: rpStorybookEditPrompt(currentJson, instruction, storyHistoryPresent(currentStorybook)),
       });
       const result = parseRpStorybookAssistantResult(completion.text, currentStorybook);
-      const applied = commitStorybookToNode(nodeId, result.storybook, {
+      const commitError = commitStorybookToNode(nodeId, result.storybook, {
         storybookStatus: `Imported ${file.fileName ?? 'SillyTavern JSON'} via ${completion.connection.label}`,
         storybookFileName: undefined,
         storybookFilePath: undefined,
       });
-      if (!applied) {
+      if (commitError) {
         setStorybookCreatorMessages((current) => [
           ...current,
-          { role: 'error', text: 'Cannot delete: image is used in chat history.' },
+          { role: 'error', text: commitError },
         ]);
         return;
       }
@@ -454,7 +502,7 @@ export function useStorybookActions({
       }
       const applied = applyStorybookToNode(nodeId, result.value, result.fileName, result.filePath);
       if (!applied) {
-        setFileStorageStatus('Cannot load storybook: an image is used in chat history.');
+        setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');
         return false;
       }
       setActiveStorybookProtection('plain');

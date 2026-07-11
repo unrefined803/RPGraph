@@ -1144,6 +1144,39 @@ export function withRpStorybookCharacterSocialUsername(
   };
 }
 
+/**
+ * Fields that running chat or Opening History references by value: character
+ * existence, names, and established social handles. Changing them mid-story
+ * orphans messages, phone conversations, and social posts.
+ */
+export function rpStorybookIdentityLockViolations(
+  current: RpStorybookV1,
+  next: RpStorybookV1,
+): string[] {
+  const violations: string[] = [];
+  const nextById = new Map(next.characters.map((character) => [character.id, character]));
+  current.characters.forEach((character) => {
+    const label = character.name || character.id;
+    const nextCharacter = nextById.get(character.id);
+    if (!nextCharacter) {
+      violations.push(`Character "${label}" cannot be removed while the story has chat or Opening History.`);
+      return;
+    }
+    if (character.name && nextCharacter.name !== character.name) {
+      violations.push(`Character "${label}" cannot be renamed while the story has chat or Opening History.`);
+    }
+    const currentSocial = character.social ?? defaultRpStorybookCharacterSocial();
+    const nextSocial = nextCharacter.social ?? defaultRpStorybookCharacterSocial();
+    if (currentSocial.fotogramUsername && nextSocial.fotogramUsername !== currentSocial.fotogramUsername) {
+      violations.push(`The Fotogram username of "${label}" cannot be changed while the story has chat or Opening History.`);
+    }
+    if (currentSocial.onlyfriendsUsername && nextSocial.onlyfriendsUsername !== currentSocial.onlyfriendsUsername) {
+      violations.push(`The OnlyFriends username of "${label}" cannot be changed while the story has chat or Opening History.`);
+    }
+  });
+  return violations;
+}
+
 export function parseNodeStorybookJson(text: string | undefined): RpStorybookV1 | undefined {
   if (!text) {
     return undefined;
@@ -1159,8 +1192,13 @@ export function storybookCharacterId(nodeId: string, characterId: string, index:
   return `${nodeId}:character:${characterId || `character-${index + 1}`}`;
 }
 
-export function rpStorybookEditPrompt(currentJson: string, instruction: string) {
+export function rpStorybookEditPrompt(currentJson: string, instruction: string, identityLocked = false) {
   return [
+    ...(identityLocked
+      ? [
+          'IMPORTANT: The story is already running (current chat or Opening History exists). Character identity is locked: never remove a character, never change characters[].id or characters[].name, and never change or clear a non-empty social username. If the user asks for such a change, explain in reply that these fields are locked while a story is running (a full Storybook reset would unlock them) and return an empty patch for that part of the request.',
+        ]
+      : []),
     'You are the chat assistant for one RPGraph RP Storybook V1 JSON document.',
     'Return only valid JSON. No markdown. No comments. No extra keys.',
     'You can answer questions about the current storybook and you can edit the storybook when the user asks for changes.',
@@ -1173,7 +1211,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string) 
     'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, characters[].phoneSettings, and characters[].images dataUrl values, unless the user explicitly changes them.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
     'For character renames, replace only characters/{index}/name and keep the character id stable.',
-    'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, banking, comfyConfig, and images.',
+    'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, banking, social, comfyConfig, and images.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',
     'characters[].banking.fixedExpenses lists recurring payments shown in the Banking app history, each as {"label":"Mobile plan","amount":24.99} with a US dollar amount. Always include exactly one mobile plan entry with a realistic amount that fits the character. Add further fixed expenses in the same format only when the user asks for them; the app fills the rest of the history with generated everyday spending automatically.',
     'characters[].social.fotogramUsername is the character\'s account username in the phone Fotogram app (a lowercase handle like "nova.reyes"). Every character is expected to have a Fotogram account, so always set a fitting handle derived from the name for new characters. Keep existing usernames unless the user asks to change them.',

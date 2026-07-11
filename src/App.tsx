@@ -1615,6 +1615,7 @@ function App() {
     notifySystem,
     usedStorybookImageIds,
     currentSocialLikesByAccount: () => socialLikesByAccount,
+    clearCurrentSession: () => clearCurrentSession(),
   });
   async function describeStorybookCharacterImage(
     node: WorkflowNode,
@@ -2726,7 +2727,7 @@ function App() {
         result.protection === 'encrypted' ? 'Loaded encrypted storybook' : 'Loaded storybook',
       );
       if (!applied) {
-        setFileStorageStatus('Cannot load storybook: an image is used in chat history.');
+        setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');
         return;
       }
       setActiveStorybookProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
