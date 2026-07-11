@@ -32,6 +32,7 @@ import { CharacterAvatar } from '../CharacterAvatar';
 import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { PhoneImagePicker } from '../PhoneImagePicker';
 import {
+  nextSocialPostId,
   socialCharacterForPost,
   socialHandleForCharacter,
   socialHandleForName,
@@ -260,7 +261,6 @@ export function PhoneSocialFeedScreen({
   const postElementsRef = useRef(new Map<string, HTMLElement>());
   const scrolledOpenPostRequestIdRef = useRef<number | undefined>(undefined);
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
-  const nextPostSequenceRef = useRef(socialMediaMessages.length);
   const noticeTimerRef = useRef<number | undefined>(undefined);
   const postAppearTimersRef = useRef(new Map<string, number>());
   const reactionFallbackTimersRef = useRef(new Map<string, number>());
@@ -278,7 +278,11 @@ export function PhoneSocialFeedScreen({
     : {};
   const unlockedPostIds = new Set(Object.keys(onlyFriendsPurchases));
   const walletBalance = owner
-    ? onlyFriendsWalletBalance(owner, bankTransferMessages, onlyFriendsPurchases)
+    ? onlyFriendsWalletBalance(
+        owner,
+        [...bankTransferMessages, ...socialMediaMessages],
+        onlyFriendsPurchases,
+      )
     : 0;
   const walletAmount = Math.round(Number(walletAmountText) * 100) / 100;
   const walletAmountValid = Number.isFinite(walletAmount) && walletAmount > 0;
@@ -786,10 +790,13 @@ export function PhoneSocialFeedScreen({
     if (!caption || !account || !owner || isRunning) {
       return;
     }
-    nextPostSequenceRef.current += 1;
     const record: SocialPostRecord = {
       app: app.id,
-      postId: `post-${app.id}-${owner.id}-${nextPostSequenceRef.current}`,
+      postId: nextSocialPostId(
+        app.id,
+        socialMediaMessages,
+        optimisticPosts.map((post) => post.id),
+      ),
       author: owner.name,
       authorHandle: account,
       caption,

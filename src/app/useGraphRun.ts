@@ -4,6 +4,7 @@
 // then calls setNodes(...) so async continuations see fresh nodes immediately — the ref
 // must therefore keep its render-phase sync in App.tsx (see "Gefahr: nodesRef").
 import type {
+  BankTransferRecord,
   ChatImageAttachment,
   ConnectionPreset,
   EmbeddedPhoneMessageLink,
@@ -1244,6 +1245,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
       let socialMediaOutputText = '';
       let socialDirectMessageOutputPromise: Promise<void> | undefined;
       let directActionsText = '';
+      const socialDirectExtras: {
+        phoneMessages: ParsedPhoneMessage[];
+        bankTransfers: BankTransferRecord[];
+      } = { phoneMessages: [], bankTransfers: [] };
       const processSocialDirectMessageOutput = async (text: string) => {
         if (!socialDirectMessage) {
           return;
@@ -1253,6 +1258,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
           socialDirectMessage,
           new Date().toISOString(),
         );
+        socialDirectExtras.phoneMessages.push(...parsedReply.phoneMessages);
+        socialDirectExtras.bankTransfers.push(...parsedReply.bankTransfers);
         reportFormatResult({
           name: 'Social Media DM JSON',
           status: parsedReply.message && parsedReply.warnings.length === 0 ? 'ok' : 'error',
@@ -1893,7 +1900,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
 
         appliedActions.uiItems.forEach(appendOutputActionUiItem);
 
-        for (const [index, actionPhoneMessage] of appliedActions.phoneMessages.entries()) {
+        for (const [index, actionPhoneMessage] of [
+          ...appliedActions.phoneMessages,
+          ...socialDirectExtras.phoneMessages,
+        ].entries()) {
           const canonicalActionPhoneMessage = {
             ...actionPhoneMessage,
             from: canonicalPhoneName(phoneCharacters, actionPhoneMessage.from),
@@ -1941,6 +1951,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ...appliedActions.bankTransfers,
           ...embeddedPhoneResult.bankTransfers,
           ...(phoneOutputBankResult?.bankTransfers ?? []),
+          ...socialDirectExtras.bankTransfers,
         ]) {
           const canonicalTransfer = {
             ...bankTransfer,

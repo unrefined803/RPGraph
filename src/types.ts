@@ -630,6 +630,11 @@ export type SocialDirectMessageRecord = {
   to: string;
   toHandle: string;
   text: string;
+  /**
+   * OnlyFriends-only optional tip amount in USD sent with the message. It is
+   * credited to the recipient's OnlyFriends wallet and is not a bank transfer.
+   */
+  tip?: number;
   /** English processing text used for subsequent model context. */
   internalText?: string;
   /** Optional translation used by the UI while text remains the English history value. */

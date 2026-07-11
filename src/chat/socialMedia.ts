@@ -7,7 +7,14 @@ import type {
   SocialReactionsRecord,
   SocialThreadActionRecord,
 } from '../types';
+import type { BankTransferRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
+import {
+  jsonObjectRanges,
+  parseEmbeddedBankTransfersObject,
+  parseEmbeddedPhoneMessagesObject,
+  type ParsedPhoneMessage,
+} from './phoneMessages';
 
 export const socialAppNames: Record<SocialAppKind, string> = {
   fotogram: 'Fotogram',
@@ -21,7 +28,23 @@ export type SocialThreadRunContext = {
 
 export type SocialDirectMessageParseResult = {
   message?: SocialDirectMessageRecord;
+  /** Extra standalone phoneMessages blocks emitted next to the DM reply. */
+  phoneMessages: ParsedPhoneMessage[];
+  /** Extra standalone bankTransfers blocks emitted next to the DM reply. */
+  bankTransfers: BankTransferRecord[];
   warnings: string[];
+};
+
+/** JSON key the DM reply block must use, per social app. */
+const socialDirectMessageJsonKeys: Record<SocialAppKind, string> = {
+  fotogram: 'fotogramDirectMessage',
+  onlyfriends: 'onlyFriendsDirectMessage',
+};
+
+/** Structured-input header for a DM turn, per social app. */
+const socialDirectMessageInputHeaders: Record<SocialAppKind, string> = {
+  fotogram: '[FOTOGRAM DIRECT MESSAGE]',
+  onlyfriends: '[ONLYFRIENDS DIRECT MESSAGE]',
 };
 
 /** Derive a handle-looking nickname from a character name, e.g. "Nova Reyes" → "nova.reyes". */
@@ -106,7 +129,7 @@ export function socialDirectMessageInputText(
     ];
   });
   return [
-    '[SOCIAL MEDIA DIRECT MESSAGE]',
+    socialDirectMessageInputHeaders[message.app],
     `App: ${socialAppNames[message.app]}`,
     `Sender: ${message.from} (@${message.fromHandle})`,
     `Recipient: ${message.to} (@${message.toHandle})`,
@@ -167,10 +190,34 @@ export function socialThreadCommentTextFromInput(inputText: string) {
   return match?.[1]?.trim() || undefined;
 }
 
-/** Chat-history text that records the post itself. */
+/** Chat-history text that records the post itself, including its visible post id. */
 export function socialPostHistoryText(post: SocialPostRecord) {
   const kind = post.textOnly ? 'posted' : 'posted a photo';
-  return `[${socialAppNames[post.app]}] ${post.author} (@${post.authorHandle}) ${kind}: "${post.caption}"`;
+  return `[${socialAppNames[post.app]}] ${post.author} (@${post.authorHandle}) ${kind} (${post.postId}): "${post.caption}"`;
+}
+
+/**
+ * Next visible per-app post id, e.g. "fotogram-post-01". Derived from the
+ * stored posts so the sequence survives reloads and undo.
+ */
+export function nextSocialPostId(
+  app: SocialAppKind,
+  messages: MessageRecord[],
+  extraPostIds: string[] = [],
+) {
+  const pattern = new RegExp(`^${app}-post-(\\d+)$`);
+  const highestOf = (current: number, postId: string) => {
+    const match = postId.match(pattern);
+    return match ? Math.max(current, Number(match[1])) : current;
+  };
+  const highest = extraPostIds.reduce(
+    highestOf,
+    messages.reduce((current, message) => {
+      const post = message.socialPost;
+      return post?.app === app ? highestOf(current, post.postId) : current;
+    }, 0),
+  );
+  return `${app}-post-${String(highest + 1).padStart(2, '0')}`;
 }
 
 /** LLM-facing input for writing or loading comments in an existing thread. */
@@ -255,38 +302,133 @@ function extractJsonObject(text: string): unknown {
   }
 }
 
-/** Parse one AI reply; sender and recipient identities always come from the requested conversation. */
+function withoutJsonCodeFences(text: string) {
+  return text.replace(/^\s*```(?:json)?\s*$/gim, '');
+}
+
+function socialDirectMessageTip(
+  payload: Record<string, unknown>,
+  app: SocialAppKind,
+  warnings: string[],
+) {
+  if (payload.tip === undefined) {
+    return undefined;
+  }
+  if (app !== 'onlyfriends') {
+    warnings.push('A tip is only allowed in onlyFriendsDirectMessage; it was ignored.');
+    return undefined;
+  }
+  const tip = typeof payload.tip === 'number'
+    ? payload.tip
+    : typeof payload.tip === 'string' && payload.tip.trim()
+      ? Number(payload.tip)
+      : Number.NaN;
+  if (!Number.isFinite(tip) || tip <= 0) {
+    warnings.push('OnlyFriends DM tip must be a positive number; it was ignored.');
+    return undefined;
+  }
+  return Math.round(tip * 100) / 100;
+}
+
+/**
+ * Parse one AI DM reply plus optional standalone phoneMessages/bankTransfers
+ * blocks. The reply must use the app-specific JSON key; sender and recipient
+ * identities always come from the requested conversation.
+ */
 export function parseSocialDirectMessageOutput(
   text: string,
   userMessage: SocialDirectMessageRecord,
   sentAt = new Date().toISOString(),
 ): SocialDirectMessageParseResult {
-  if (!text.trim()) {
-    return { warnings: ['Social Media DM output was empty.'] };
-  }
-  const parsed = extractJsonObject(text);
-  if (!isRecord(parsed)) {
-    return { warnings: ['Social Media DM output could not be parsed as JSON.'] };
-  }
-  const payload = isRecord(parsed.directMessage) ? parsed.directMessage : parsed;
-  if (typeof payload.text !== 'string' || !payload.text.trim()) {
-    return { warnings: ['Social Media DM output is missing a message text.'] };
-  }
-  return {
-    message: {
-      app: userMessage.app,
-      messageId: `${userMessage.app}-dm-reply-${userMessage.messageId}`,
-      from: userMessage.to,
-      fromHandle: userMessage.toHandle,
-      to: userMessage.from,
-      toHandle: userMessage.fromHandle,
-      text: payload.text.trim(),
-      sentAt,
-      replyToMessageId: userMessage.messageId,
-      origin: userMessage.origin,
-    },
+  const result: SocialDirectMessageParseResult = {
+    phoneMessages: [],
+    bankTransfers: [],
     warnings: [],
   };
+  if (!text.trim()) {
+    result.warnings.push('Social Media DM output was empty.');
+    return result;
+  }
+  const expectedKey = socialDirectMessageJsonKeys[userMessage.app];
+  const wrongAppKey = socialDirectMessageJsonKeys[
+    userMessage.app === 'fotogram' ? 'onlyfriends' : 'fotogram'
+  ];
+  const cleaned = withoutJsonCodeFences(text);
+  const ranges = jsonObjectRanges(cleaned);
+  let sawAnyJson = false;
+  for (const range of ranges) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(cleaned.slice(range.start, range.end)) as unknown;
+    } catch {
+      continue;
+    }
+    sawAnyJson = true;
+    if (!isRecord(parsed)) {
+      result.warnings.push('A Social Media DM output block is not a JSON object; it was skipped.');
+      continue;
+    }
+    if (isRecord(parsed[expectedKey])) {
+      const payload = parsed[expectedKey] as Record<string, unknown>;
+      if (result.message) {
+        result.warnings.push(`Only one ${expectedKey} block is applied; an extra one was skipped.`);
+        continue;
+      }
+      if (typeof payload.text !== 'string' || !payload.text.trim()) {
+        result.warnings.push(`The ${expectedKey} block is missing a message text.`);
+        continue;
+      }
+      const tip = socialDirectMessageTip(payload, userMessage.app, result.warnings);
+      result.message = {
+        app: userMessage.app,
+        messageId: `${userMessage.app}-dm-reply-${userMessage.messageId}`,
+        from: userMessage.to,
+        fromHandle: userMessage.toHandle,
+        to: userMessage.from,
+        toHandle: userMessage.fromHandle,
+        text: payload.text.trim(),
+        sentAt,
+        replyToMessageId: userMessage.messageId,
+        origin: userMessage.origin,
+        ...(tip !== undefined ? { tip } : {}),
+      };
+      continue;
+    }
+    if (isRecord(parsed[wrongAppKey]) || isRecord(parsed.directMessage)) {
+      const usedKey = isRecord(parsed[wrongAppKey]) ? wrongAppKey : 'directMessage';
+      result.warnings.push(
+        `Social Media DM output used "${usedKey}" but this ${socialAppNames[userMessage.app]} conversation requires "${expectedKey}".`,
+      );
+      continue;
+    }
+    if (Array.isArray(parsed.phoneMessages)) {
+      const phoneMessages = parseEmbeddedPhoneMessagesObject(parsed);
+      if (phoneMessages.length !== parsed.phoneMessages.length) {
+        result.warnings.push('A phoneMessages entry is missing from, to, or message; it was skipped.');
+      }
+      result.phoneMessages.push(...phoneMessages);
+      continue;
+    }
+    if (Array.isArray(parsed.bankTransfers)) {
+      const bankTransfers = parseEmbeddedBankTransfersObject(parsed);
+      if (bankTransfers.length !== parsed.bankTransfers.length) {
+        result.warnings.push('A bankTransfers entry needs from, to, and a positive amount; it was skipped.');
+      }
+      result.bankTransfers.push(...bankTransfers);
+      continue;
+    }
+    result.warnings.push(
+      `Unknown Social Media DM output block with keys ${Object.keys(parsed).join(', ') || '(none)'}; it was skipped.`,
+    );
+  }
+  if (!sawAnyJson) {
+    result.warnings.push('Social Media DM output could not be parsed as JSON.');
+    return result;
+  }
+  if (!result.message) {
+    result.warnings.push(`Social Media DM output is missing the ${expectedKey} block.`);
+  }
+  return result;
 }
 
 export type SocialReactionsParseResult = {

@@ -369,11 +369,11 @@ function scanJsonObjects(text: string) {
   return { ranges, openObjectStart: depth > 0 && start >= 0 ? start : undefined };
 }
 
-function jsonObjectRanges(text: string) {
+export function jsonObjectRanges(text: string) {
   return scanJsonObjects(text).ranges;
 }
 
-function parseEmbeddedPhoneMessagesObject(value: unknown): ParsedPhoneMessage[] {
+export function parseEmbeddedPhoneMessagesObject(value: unknown): ParsedPhoneMessage[] {
   if (!isRecord(value) || !Array.isArray(value.phoneMessages)) {
     return [];
   }
@@ -398,7 +398,7 @@ function parseEmbeddedPhoneMessagesObject(value: unknown): ParsedPhoneMessage[] 
   });
 }
 
-function parseEmbeddedBankTransfersObject(value: unknown): BankTransferRecord[] {
+export function parseEmbeddedBankTransfersObject(value: unknown): BankTransferRecord[] {
   if (!isRecord(value) || !Array.isArray(value.bankTransfers)) {
     return [];
   }

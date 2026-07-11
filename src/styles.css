@@ -21051,6 +21051,17 @@ button.message-timeline-row.phone:focus-visible {
   background: var(--social-accent-soft);
 }
 
+.phone-social-dm-tip {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border: 1px solid var(--social-accent);
+  border-radius: 999px;
+  color: var(--social-accent);
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .phone-social-dm-bubble time {
   align-self: flex-end;
   color: rgba(255, 255, 255, 0.46);

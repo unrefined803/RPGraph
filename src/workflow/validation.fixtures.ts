@@ -233,14 +233,30 @@ export function verifyWorkflowValidationFixtures() {
       originalText: 'Wallet withdrawal',
       bankTransfer: { from: onlyFriendsWalletName, to: bankingCharacter.name, amount: 20 },
     },
+    {
+      id: 15,
+      role: 'output',
+      originalText: 'DM tip',
+      socialDirectMessage: {
+        app: 'onlyfriends',
+        messageId: 'onlyfriends-dm-tip-1',
+        from: 'Generous Fan',
+        fromHandle: 'generous.fan',
+        to: bankingCharacter.name,
+        toHandle: 'banking.character',
+        text: 'You earned this!',
+        tip: 5.5,
+        sentAt: '2026-06-01T12:00:00.000Z',
+      },
+    },
   ];
   assertFixture(
     onlyFriendsWalletBalance(
       bankingCharacter,
       onlyFriendsWalletMessages,
       { 'onlyfriends-post-1': 9.99 },
-    ) === 70.01,
-    'OnlyFriends balance must combine bank funding, withdrawals, and internal post purchases',
+    ) === 75.51,
+    'OnlyFriends balance must combine bank funding, withdrawals, received DM tips, and internal post purchases',
   );
 
   const socialThreadAction = {
@@ -312,12 +328,27 @@ export function verifyWorkflowValidationFixtures() {
     },
   }]);
   const parsedSocialDirectReply = parseSocialDirectMessageOutput(
-    '{"directMessage":{"text":"Yes, message me when you are done!"}}',
+    [
+      '{"fotogramDirectMessage":{"text":"Yes, message me when you are done!"}}',
+      '{"phoneMessages":[{"from":"Jamie","to":"Alex","message":"Here is my number."}]}',
+      '{"bankTransfers":[{"from":"Jamie","to":"Alex","amount":20,"note":"For the dress"}]}',
+    ].join('\n'),
     socialDirectMessage,
     '2026-06-01T12:31:00.000Z',
   );
+  const rejectedSocialDirectReply = parseSocialDirectMessageOutput(
+    '{"onlyFriendsDirectMessage":{"text":"Wrong app key"}}',
+    socialDirectMessage,
+    '2026-06-01T12:31:00.000Z',
+  );
+  const parsedOnlyFriendsTipReply = parseSocialDirectMessageOutput(
+    '{"onlyFriendsDirectMessage":{"text":"You are the best!","tip":10}}',
+    { ...socialDirectMessage, app: 'onlyfriends' as const },
+    '2026-06-01T12:31:00.000Z',
+  );
   assertFixture(
-    socialDirectInput.includes('Jamie (@jamie): Maybe after work.') &&
+    socialDirectInput.startsWith('[FOTOGRAM DIRECT MESSAGE]') &&
+      socialDirectInput.includes('Jamie (@jamie): Maybe after work.') &&
       socialDirectInput.includes('Post text: Trying this dress for tonight.') &&
       socialDirectInput.includes('Original comment from Jamie (@jamie): That dress looks amazing!') &&
       socialDirectInput.includes('New message: Are you free later?') &&
@@ -325,6 +356,14 @@ export function verifyWorkflowValidationFixtures() {
       parsedSocialDirectReply.message?.toHandle === 'alex' &&
       parsedSocialDirectReply.message?.replyToMessageId === 'fotogram-dm-user-1' &&
       parsedSocialDirectReply.message?.origin?.postImageId === 'alex_dress_01' &&
+      parsedSocialDirectReply.phoneMessages[0]?.message === 'Here is my number.' &&
+      parsedSocialDirectReply.bankTransfers[0]?.amount === 20 &&
+      parsedSocialDirectReply.warnings.length === 0 &&
+      rejectedSocialDirectReply.message === undefined &&
+      rejectedSocialDirectReply.warnings.some((warning) =>
+        warning.includes('fotogramDirectMessage'),
+      ) &&
+      parsedOnlyFriendsTipReply.message?.tip === 10 &&
       socialMessageHiddenFromChat({
         id: 22,
         role: 'output',

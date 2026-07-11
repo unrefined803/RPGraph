@@ -2,6 +2,7 @@ import type { MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { bankTransferMessages, bankTransferPartyMatches } from './bankTransfers';
 import { normalizePhoneName } from './phoneMessages';
+import { socialHandleForCharacter, socialIdentityMatches } from './socialMedia';
 
 export type OnlyFriendsPurchasesByCharacter = Record<string, Record<string, number>>;
 
@@ -32,6 +33,28 @@ function onlyFriendsWalletFundingBalance(
   return roundedMoney(balance);
 }
 
+/** DM tips received by the character; tips are wallet credits, not bank transfers. */
+function onlyFriendsTipTotal(character: StorybookCharacter, messages: MessageRecord[]) {
+  const characterHandle = socialHandleForCharacter(character, 'onlyfriends');
+  return roundedMoney(
+    messages.reduce((total, message) => {
+      const directMessage = message.socialDirectMessage;
+      if (
+        directMessage?.app === 'onlyfriends' &&
+        typeof directMessage.tip === 'number' &&
+        directMessage.tip > 0 &&
+        (
+          socialIdentityMatches(directMessage.toHandle, characterHandle) ||
+          normalizePhoneName(directMessage.to) === normalizePhoneName(character.name)
+        )
+      ) {
+        return total + directMessage.tip;
+      }
+      return total;
+    }, 0),
+  );
+}
+
 function onlyFriendsPurchaseTotal(purchases: Record<string, number> | undefined) {
   return roundedMoney(
     Object.values(purchases ?? {}).reduce((total, price) => total + price, 0),
@@ -44,6 +67,8 @@ export function onlyFriendsWalletBalance(
   purchases: Record<string, number> | undefined,
 ) {
   return roundedMoney(
-    onlyFriendsWalletFundingBalance(character, messages) - onlyFriendsPurchaseTotal(purchases),
+    onlyFriendsWalletFundingBalance(character, messages) +
+      onlyFriendsTipTotal(character, messages) -
+      onlyFriendsPurchaseTotal(purchases),
   );
 }

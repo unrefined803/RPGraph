@@ -1,6 +1,7 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import type { ChatImageAttachment, SocialAppKind, SocialDirectMessageRecord } from '../../types';
+import { formatBankingAmount } from '../../chat/bankTransfers';
 import { CharacterAvatar } from '../CharacterAvatar';
 
 export type SocialDirectMessageParticipant = {
@@ -213,6 +214,9 @@ export function PhoneSocialDirectMessages({
             <div className={`phone-social-dm-message-row ${outgoing ? 'outgoing' : 'incoming'}`} key={message.messageId}>
               <div className="phone-social-dm-bubble">
                 <span>{message.displayText ?? message.text}</span>
+                {message.tip !== undefined && (
+                  <span className="phone-social-dm-tip">+{formatBankingAmount(message.tip)} tip</span>
+                )}
                 <time>
                   {new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </time>

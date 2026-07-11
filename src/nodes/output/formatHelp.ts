@@ -165,8 +165,15 @@ A [SOCIAL MEDIA POST] input creates initial reactions:
 A [SOCIAL MEDIA THREAD ACTION] input either adds a user comment or loads more comments. Return new reactions to append plus a very short English history summary:
 {"reactions":{"postId":"the post id from the input","additionalLikes":2,"comments":[{"from":"Name","text":"new reply"}]},"summary":"Alex complimented Jamie's photo; Jamie thanked Alex while other people joined the thread."}
 
-A [SOCIAL MEDIA DIRECT MESSAGE] input asks the recipient to answer one private message. Return exactly one natural reply:
-{"directMessage":{"text":"Hey! Yes, I would love to."}}
+A [FOTOGRAM DIRECT MESSAGE] input asks the recipient to answer one private Fotogram message. Return the app-specific reply block:
+{"fotogramDirectMessage":{"text":"Hey! Yes, I would love to."}}
+
+An [ONLYFRIENDS DIRECT MESSAGE] input asks the recipient to answer one private OnlyFriends message. Return the app-specific reply block; tip is optional:
+{"onlyFriendsDirectMessage":{"text":"You look amazing!","tip":10}}
+
+A DM reply may be followed by extra standalone JSON objects, each on its own, not nested inside the DM block:
+{"phoneMessages":[{"from":"sender name","to":"recipient name","message":"message text"}]}
+{"bankTransfers":[{"from":"sender name","to":"recipient name","amount":20,"note":"reason"}]}
 
 Rules:
 - Initial-post likes is a plausible total for the app and audience. Thread additionalLikes is a small increase, usually zero to five.
@@ -175,6 +182,10 @@ Rules:
 - On the actor's own Fotogram post, replies usually address the actor directly when that fits the new comment.
 - OnlyFriends post and thread reactions use invented fans/subscribers only; story characters never appear in those public reactions. Keep the tone suggestive rather than explicit.
 - For direct messages, write only as the specified recipient. Respect their established personality and the existing conversation. Never invent a reply from the sender.
+- The DM reply must use the app-specific key: fotogramDirectMessage for Fotogram, onlyFriendsDirectMessage for OnlyFriends. A generic directMessage block is rejected.
+- tip is only allowed in onlyFriendsDirectMessage, must be a positive number, and is used only when the sender of the reply genuinely decides to tip the conversation partner. It credits the recipient's OnlyFriends wallet and is not a bank transfer.
+- Add a standalone phoneMessages object only when the conversation clearly moves to the phone messenger and the reply actually sends a phone message now.
+- Add a standalone bankTransfers object only when money is genuinely transferred now. Mentioning money is not a transfer; never invent amounts. When the reply states that money is sent, the bankTransfers object is required in addition to the DM text.
 - When the DM input includes a conversation origin, the sender opened the chat from that exact post comment. Use the supplied post caption, image description, attached post image, and original comment as the subject of the conversation.
 - Fotogram and OnlyFriends direct-message conversations are separate. OnlyFriends DMs may be more personal, but must remain non-explicit.
 - Each comment needs from (a name) and text. An optional handle field overrides the generated @handle.
