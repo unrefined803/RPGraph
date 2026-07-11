@@ -48,7 +48,15 @@ export function PhoneSocialDirectMessages({
   onBack,
   onSend,
 }: PhoneSocialDirectMessagesProps) {
-  const [draft, setDraft] = useState('');
+  // One draft per app, viewing account, and conversation partner, so switching
+  // the partner never carries an unsent private message into the wrong chat.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draftKey = selectedParticipant
+    ? `${app}/${ownerHandle}/${selectedParticipant.handle}`.toLowerCase()
+    : '';
+  const draft = draftKey ? drafts[draftKey] ?? '' : '';
+  const setDraft = (text: string) =>
+    setDrafts((current) => ({ ...current, [draftKey]: text }));
   const [sending, setSending] = useState(false);
   const [originExpanded, setOriginExpanded] = useState(false);
   const conversation = useMemo(() => {
@@ -111,8 +119,10 @@ export function PhoneSocialDirectMessages({
               : undefined;
             const latest = [...messages].reverse().find((message) =>
               message.app === app && (
-                identityMatches(message.fromHandle, participant.handle) ||
-                identityMatches(message.toHandle, participant.handle)
+                identityMatches(message.fromHandle, ownerHandle) &&
+                identityMatches(message.toHandle, participant.handle) ||
+                identityMatches(message.toHandle, ownerHandle) &&
+                identityMatches(message.fromHandle, participant.handle)
               ),
             );
             return (
@@ -233,7 +243,7 @@ export function PhoneSocialDirectMessages({
             <div className={`phone-social-dm-message-row ${outgoing ? 'outgoing' : 'incoming'}`} key={message.messageId}>
               <div className="phone-social-dm-bubble">
                 <span>{message.displayText ?? message.text}</span>
-                {message.tip !== undefined && (
+                {message.app === 'onlyfriends' && message.tip !== undefined && (
                   <span className="phone-social-dm-tip">+{formatBankingAmount(message.tip)} tip</span>
                 )}
                 <time>

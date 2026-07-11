@@ -115,7 +115,11 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       typeof value.socialDirectMessage.text === 'string' &&
       (
         value.socialDirectMessage.tip === undefined ||
-        (typeof value.socialDirectMessage.tip === 'number' && value.socialDirectMessage.tip > 0)
+        (
+          typeof value.socialDirectMessage.tip === 'number' &&
+          value.socialDirectMessage.tip > 0 &&
+          value.socialDirectMessage.app === 'onlyfriends'
+        )
       ) &&
       (
         value.socialDirectMessage.internalText === undefined ||

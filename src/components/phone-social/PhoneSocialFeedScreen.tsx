@@ -362,6 +362,7 @@ export function PhoneSocialFeedScreen({
     .filter((directMessage) =>
       directMessage.app === app.id &&
       !!account &&
+      socialIdentityMatches(directMessage.toHandle, account) &&
       !socialIdentityMatches(directMessage.fromHandle, account),
     )
     .map((directMessage) => directMessage.messageId);
@@ -369,6 +370,8 @@ export function PhoneSocialFeedScreen({
     if (dmRevealAccountRef.current !== account) {
       dmRevealAccountRef.current = account;
       knownDirectMessageIdsRef.current = undefined;
+      dmRevealTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      dmRevealTimersRef.current = [];
       setHiddenDirectMessageIds(new Set());
     }
     if (!knownDirectMessageIdsRef.current) {
@@ -1213,7 +1216,12 @@ export function PhoneSocialFeedScreen({
           socialImageById={socialImageById}
           disabled={isRunning}
           onSelectParticipant={setDirectMessageParticipant}
-          onCloseConversation={() => setDirectMessageParticipant(undefined)}
+          onCloseConversation={() => {
+            // Back from an open conversation leaves the DM view entirely; the
+            // contact list is reached only via the Messages bubble button.
+            setDirectMessageParticipant(undefined);
+            setDirectMessagesOpen(false);
+          }}
           onBack={() => {
             setDirectMessageParticipant(undefined);
             setDirectMessagesOpen(false);
