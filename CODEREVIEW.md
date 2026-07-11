@@ -41,13 +41,18 @@ Legend: `[ ]` open · `[✅]` done (add date + short note when closing).
   - Effort: **Medium** — reorder load/validate/commit flow.
   - Scope: **Medium** — App.tsx open handler + workflowHydration.
 
-- [ ] **3. Corrupted sessions can leave a mixed state**
+- [✅] **3. Corrupted sessions can leave a mixed state** (2026-07-11)
+  `isRpgraphSessionV2` now validates the previously unchecked session areas:
+  event entities, memory entities, runtime node state, undo checkpoints, and
+  `recentlyUsedEmojis`. The session load path in App.tsx prepares everything
+  that can fail (workflow hydration, app state, event appointments, runtime
+  nodes) before any existing state is touched, so a load either applies the
+  whole session or leaves the current one untouched. New negative fixtures
+  cover invalid events, runtime state, checkpoints, and memory entries.
   - Files: `src/data-management/validation.ts:265`, `src/data-management/sessionStore.ts:245`, `src/App.tsx:2770`
   - Several required session parts are not validated. The workflow may already be
     applied before a later error, leaving a new workflow with old or partially
     loaded session data.
-  - Recommendation: strictly validate all session areas and commit the whole session
-    only after fully successful preparation.
   - Effort: **Medium–High** — validation hardening + atomic commit.
   - Scope: **Medium** — validation.ts, sessionStore.ts, App.tsx load path.
 

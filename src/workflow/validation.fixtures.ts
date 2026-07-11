@@ -1651,6 +1651,35 @@ export function verifyWorkflowValidationFixtures() {
     !!externalVoiceEntry && !isRpgraphSessionV2(externalVoiceSession),
     'RP Save Format v2 must reject non-data voice clip URLs',
   );
+  const invalidEventSession = structuredClone(sessionV2);
+  const invalidEventId = Object.keys(invalidEventSession.entities.events)[0];
+  if (invalidEventId) {
+    (invalidEventSession.entities.events[invalidEventId] as unknown as Record<string, unknown>).status = 'bogus';
+  }
+  assertFixture(
+    !!invalidEventId && !isRpgraphSessionV2(invalidEventSession),
+    'RP Save Format v2 must reject event entities with invalid status',
+  );
+  const invalidRuntimeSession = structuredClone(sessionV2);
+  (invalidRuntimeSession.runtime.current as unknown as Record<string, unknown>).nodes = 'broken';
+  assertFixture(
+    !isRpgraphSessionV2(invalidRuntimeSession),
+    'RP Save Format v2 must reject non-record runtime node state',
+  );
+  const invalidCheckpointSession = structuredClone(sessionV2);
+  (invalidCheckpointSession.runtime as unknown as Record<string, unknown>).undo = [{ turnId: 7 }];
+  assertFixture(
+    !isRpgraphSessionV2(invalidCheckpointSession),
+    'RP Save Format v2 must reject malformed undo checkpoints',
+  );
+  const invalidMemorySession = structuredClone(sessionV2);
+  (invalidMemorySession.entities as unknown as Record<string, unknown>).memory = {
+    'memory-1': { id: 'memory-1', name: 'Notes', text: 42, mode: 'joined' },
+  };
+  assertFixture(
+    !isRpgraphSessionV2(invalidMemorySession),
+    'RP Save Format v2 must reject malformed memory entities',
+  );
   assertFixture(latestSessionV2TurnNumber(sessionV2) === 1, 'RP Save Format v2 must retain latest turn number');
   const restoredAppState = appStateFromSessionV2(sessionV2);
   assertFixture(

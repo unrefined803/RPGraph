@@ -2768,8 +2768,35 @@ function App() {
     session: RpgraphSessionV2,
     password: string,
   ) {
+    // Prepare everything that can fail before touching any state, so a
+    // corrupted session cannot leave a half-loaded mix of old and new data.
     const hydratedWorkflow = prepareLoadedWorkflow(workflowV2ToWorkflowFile(session.workflow), false);
     const sessionState = appStateFromSessionV2(session);
+    const canonicalAppointments = normalizedEventAppointments(
+      appointmentsFromEventEntities(session.entities.events),
+    );
+    const resetNodes = hydratedWorkflow.nodes.map((node) =>
+        node.data.nodeType === 'character-stats'
+          ? {
+              ...node,
+              data: { ...node.data, ...resetCharacterStatsRuntimeData() } as WorkflowNodeData,
+            }
+          : node,
+    );
+    const loadedRuntimeNodes = restoreTurnRuntime(resetNodes, sessionState.currentRuntime).map((node) =>
+      node.data.kind === undefined && node.data.nodeType === 'event-manager'
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              eventAppointments: canonicalAppointments,
+              eventStatus: canonicalAppointments.length
+                ? `Loaded ${canonicalAppointments.length} RP save events`
+                : node.data.eventStatus,
+            } as WorkflowNodeData,
+          }
+        : node,
+    );
     clearTurnTraces();
     setActiveWorkflowProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
     commitHydratedWorkflow(
@@ -2810,31 +2837,6 @@ function App() {
     setInputTranslationOnlyEnabled(sessionState.settings.inputTranslationOnlyEnabled ?? false);
     setDisplayLanguage(sessionState.settings.displayLanguage);
     replaceWorkflowSettingsValues(sessionState.workflowVariables);
-    const resetNodes = nodesRef.current.map((node) =>
-        node.data.nodeType === 'character-stats'
-          ? {
-              ...node,
-              data: { ...node.data, ...resetCharacterStatsRuntimeData() } as WorkflowNodeData,
-            }
-          : node,
-    );
-    const canonicalAppointments = normalizedEventAppointments(
-      appointmentsFromEventEntities(session.entities.events),
-    );
-    const loadedRuntimeNodes = restoreTurnRuntime(resetNodes, sessionState.currentRuntime).map((node) =>
-      node.data.kind === undefined && node.data.nodeType === 'event-manager'
-        ? {
-            ...node,
-            data: {
-              ...node.data,
-              eventAppointments: canonicalAppointments,
-              eventStatus: canonicalAppointments.length
-                ? `Loaded ${canonicalAppointments.length} RP save events`
-                : node.data.eventStatus,
-            } as WorkflowNodeData,
-          }
-        : node,
-    );
     commitNodes(loadedRuntimeNodes);
     setActiveSessionFileName(fileName);
     setActiveSessionSavedTurn(latestSessionTurnNumber(session));

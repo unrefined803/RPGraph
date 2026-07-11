@@ -276,6 +276,91 @@ function hasValidReplyReferences(timeline: unknown[]) {
   );
 }
 
+function isOptionalString(value: unknown) {
+  return value === undefined || typeof value === 'string';
+}
+
+function isEventEntityRecord(value: unknown) {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.id === 'string' &&
+        (entry.status === 'upcoming' || entry.status === 'completed' || entry.status === 'cancelled') &&
+        typeof entry.title === 'string' &&
+        isOptionalString(entry.scheduledAt) &&
+        isOptionalString(entry.condition) &&
+        isOptionalString(entry.details) &&
+        (entry.channel === undefined || entry.channel === 'chat' || entry.channel === 'phone') &&
+        (
+          entry.phone === undefined ||
+          (isRecord(entry.phone) && Object.values(entry.phone).every(isOptionalString))
+        ) &&
+        isOptionalString(entry.requestedBy) &&
+        isOptionalString(entry.assignedTo) &&
+        isRecord(entry.source),
+    )
+  );
+}
+
+function isMemoryEntityRecord(value: unknown) {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.id === 'string' &&
+        typeof entry.name === 'string' &&
+        typeof entry.text === 'string' &&
+        (entry.mode === 'joined' || entry.mode === 'input' || entry.mode === 'output'),
+    )
+  );
+}
+
+function isNodeRuntimeRecord(value: unknown) {
+  return isRecord(value) && Object.values(value).every(isRecord);
+}
+
+function isSnapshotPairRecord(value: unknown) {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (entry) => isRecord(entry) && isRecord(entry.before) && isRecord(entry.after),
+    )
+  );
+}
+
+function isTurnCheckpoint(value: unknown) {
+  return (
+    isRecord(value) &&
+    typeof value.turnId === 'string' &&
+    Array.isArray(value.createdTimelineEntryIds) &&
+    value.createdTimelineEntryIds.every((id) => typeof id === 'string') &&
+    isSnapshotPairRecord(value.nodeSnapshots) &&
+    (
+      value.workflowVariables === undefined ||
+      (
+        isRecord(value.workflowVariables) &&
+        isWorkflowVariableRecord(value.workflowVariables.before) &&
+        isWorkflowVariableRecord(value.workflowVariables.after)
+      )
+    ) &&
+    (
+      value.eventSnapshots === undefined ||
+      (
+        isRecord(value.eventSnapshots) &&
+        Object.values(value.eventSnapshots).every(
+          (entry) =>
+            isRecord(entry) &&
+            (entry.before === undefined || isRecord(entry.before)) &&
+            (entry.after === undefined || isRecord(entry.after)),
+        )
+      )
+    )
+  );
+}
+
 function isWorkflowVariableRecord(value: unknown) {
   return (
     isRecord(value) &&
@@ -315,15 +400,27 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     hasValidReplyReferences(value.timeline) &&
     isRecord(value.entities) &&
     isImageEntityRecord(value.entities.images) &&
+    isEventEntityRecord(value.entities.events) &&
+    isMemoryEntityRecord(value.entities.memory) &&
     isRecord(value.runtime) &&
     isRecord(value.runtime.current) &&
     isWorkflowVariableRecord(value.runtime.current.workflowVariables) &&
+    isNodeRuntimeRecord(value.runtime.current.nodes) &&
+    Array.isArray(value.runtime.undo) &&
+    value.runtime.undo.every(isTurnCheckpoint) &&
     isRecord(value.ui) &&
     isNumberRecord(value.ui.phoneSeenByConversation) &&
     isNumberRecord(value.ui.bankingSeenByCharacter) &&
     isStringArrayRecord(value.ui.bankingContactsByCharacter) &&
     isStringArrayRecord(value.ui.socialLikesByAccount) &&
     isNestedNonNegativeNumberRecord(value.ui.onlyFriendsPurchasesByCharacter) &&
-    isNumberRecord(value.ui.phoneDividerAfterByConversation)
+    isNumberRecord(value.ui.phoneDividerAfterByConversation) &&
+    (
+      value.ui.recentlyUsedEmojis === undefined ||
+      (
+        Array.isArray(value.ui.recentlyUsedEmojis) &&
+        value.ui.recentlyUsedEmojis.every((emoji) => typeof emoji === 'string')
+      )
+    )
   );
 }
