@@ -780,6 +780,7 @@ export function PhoneSocialFeedScreen({
         optimisticPost,
         ...current.filter((post) => post.id !== record.postId),
       ]);
+      setOpenCommentsPostId(record.postId);
       setDelayedPostIds((current) => {
         const next = new Set(current);
         next.delete(record.postId);
