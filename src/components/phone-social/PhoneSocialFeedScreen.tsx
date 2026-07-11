@@ -346,7 +346,49 @@ export function PhoneSocialFeedScreen({
       handle: socialHandleForCharacter(character, app.id),
       character,
     }));
-  const followedAccounts = [...characterAccounts, ...addedAccounts];
+  // DM conversations of the viewing account: recency per partner handle (in
+  // message order) plus quick-access sidebar entries for partners who are not
+  // story characters, e.g. virtual users or comment authors that were messaged.
+  const persistedDirectMessages = socialMediaMessages.flatMap((message) =>
+    message.socialDirectMessage ? [message.socialDirectMessage] : [],
+  );
+  const handleKey = (handle: string) => handle.trim().replace(/^@/, '').toLowerCase();
+  const dmRecencyByHandle = new Map<string, number>();
+  const dmPartnerNamesByHandle = new Map<string, string>();
+  persistedDirectMessages.forEach((directMessage, index) => {
+    if (directMessage.app !== app.id || !account) {
+      return;
+    }
+    const partner = socialIdentityMatches(directMessage.fromHandle, account)
+      ? { name: directMessage.to, handle: directMessage.toHandle }
+      : socialIdentityMatches(directMessage.toHandle, account)
+        ? { name: directMessage.from, handle: directMessage.fromHandle }
+        : undefined;
+    if (partner) {
+      dmRecencyByHandle.set(handleKey(partner.handle), index);
+      dmPartnerNamesByHandle.set(handleKey(partner.handle), partner.name);
+    }
+  });
+  const dmRecency = (handle: string) => dmRecencyByHandle.get(handleKey(handle)) ?? -1;
+  const dmPartnerAccounts: SocialAccount[] = [...dmPartnerNamesByHandle.entries()]
+    .filter(([partnerHandleKey]) =>
+      !characterAccounts.some((entry) => handleKey(entry.handle) === partnerHandleKey) &&
+      !addedAccounts.some((entry) => handleKey(entry.handle) === partnerHandleKey),
+    )
+    .map(([partnerHandleKey, name]) => ({
+      key: `dm-partner-${app.id}-${partnerHandleKey}`,
+      name,
+      handle: partnerHandleKey,
+      character: storyCharacters.find((character) =>
+        socialIdentityMatches(socialHandleForCharacter(character, app.id), partnerHandleKey) ||
+        socialIdentityMatches(character.name, name),
+      ),
+    }));
+  // Story characters keep their fixed order; added people and DM partners
+  // follow below, most recent conversation first.
+  const extraAccounts = [...addedAccounts, ...dmPartnerAccounts]
+    .sort((left, right) => dmRecency(right.handle) - dmRecency(left.handle));
+  const followedAccounts = [...characterAccounts, ...extraAccounts];
   const selectedAccount = followedAccounts.find((entry) => entry.key === selectedAccountKey);
 
   // Posts published through the workflow live on chat messages (and therefore
@@ -1037,9 +1079,6 @@ export function PhoneSocialFeedScreen({
     );
   }
 
-  const persistedDirectMessages = socialMediaMessages.flatMap((message) =>
-    message.socialDirectMessage ? [message.socialDirectMessage] : [],
-  );
   const directMessageCharacterAccounts: SocialDirectMessageParticipant[] = storyCharacters
     .filter((character) => character.id !== owner?.id)
     .map((character) => ({
@@ -1079,6 +1118,7 @@ export function PhoneSocialFeedScreen({
     ...directMessageCharacterAccounts,
     ...addedAccounts,
     ...directMessageCommentAccounts,
+    ...dmPartnerAccounts,
     ...dummySocialPosts(app, owner?.id ?? 'no-account').map((post) => ({
       key: `virtual-${app.id}-${post.authorHandle}`,
       name: post.authorName,
@@ -1097,10 +1137,14 @@ export function PhoneSocialFeedScreen({
       }, storyCharacters),
     })),
   ];
-  const directMessageParticipants = participantCandidates.filter((participant, index, entries) =>
-    !socialIdentityMatches(participant.handle, account) &&
-    entries.findIndex((entry) => socialIdentityMatches(entry.handle, participant.handle)) === index,
-  );
+  // Existing conversations bubble to the top, most recent first; contacts
+  // without a conversation keep their original order below them.
+  const directMessageParticipants = participantCandidates
+    .filter((participant, index, entries) =>
+      !socialIdentityMatches(participant.handle, account) &&
+      entries.findIndex((entry) => socialIdentityMatches(entry.handle, participant.handle)) === index,
+    )
+    .sort((left, right) => dmRecency(right.handle) - dmRecency(left.handle));
   const directMessages = persistedDirectMessages;
 
   function openDirectMessages(participant?: SocialDirectMessageParticipant) {

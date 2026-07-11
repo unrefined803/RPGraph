@@ -153,6 +153,16 @@ export function PhoneSocialDirectMessages({
     : undefined;
   const origin = selectedParticipant.origin ?? conversation.find((message) => message.origin)?.origin;
   const originImage = origin?.postImageId ? socialImageById(origin.postImageId) : undefined;
+  // The stored origin comment keeps its real author; when the viewer wrote
+  // that comment (e.g. after switching characters), it renders as outgoing.
+  const originOutgoing = !!origin && identityMatches(origin.commentAuthorHandle, ownerHandle);
+  const originLabel = origin
+    ? originOutgoing
+      ? `Your comment on @${origin.postAuthorHandle}'s post`
+      : identityMatches(origin.postAuthorHandle, ownerHandle)
+        ? 'Comment on your post'
+        : `Comment on @${origin.postAuthorHandle}'s post`
+    : '';
   return (
     <section className="phone-social-dm" aria-label={`Conversation with ${selectedParticipant.name}`}>
       <header className="phone-social-dm-header conversation">
@@ -201,10 +211,10 @@ export function PhoneSocialDirectMessages({
           </div>
         )}
         {origin && (
-          <div className="phone-social-dm-message-row incoming origin-comment">
+          <div className={`phone-social-dm-message-row ${originOutgoing ? 'outgoing' : 'incoming'} origin-comment`}>
             <div className="phone-social-dm-bubble">
               <span>{origin.commentText}</span>
-              <time>Comment on your post</time>
+              <time>{originLabel}</time>
             </div>
           </div>
         )}
