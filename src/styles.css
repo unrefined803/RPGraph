@@ -8674,7 +8674,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .bank-transfer-card-amount {
   flex: none;
   color: #ffffff;
-  font-size: 1.9em;
+  font-size: 1.7em;
   font-weight: 850;
   letter-spacing: -0.035em;
   line-height: 1;
@@ -8706,7 +8706,7 @@ input[type="number"]::-webkit-outer-spin-button {
   grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
   align-items: center;
   gap: 9px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid rgba(148, 163, 184, 0.13);
   border-radius: 5px;
   background: rgba(5, 12, 24, 0.3);
@@ -8715,16 +8715,16 @@ input[type="number"]::-webkit-outer-spin-button {
 .bank-transfer-card-route > span {
   display: flex;
   min-width: 0;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: 5px;
 }
 
 .bank-transfer-card-route small {
   color: #7890ae;
-  font-size: 0.66em;
+  font-size: 0.7em;
   font-weight: 750;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .bank-transfer-card-route strong {
@@ -8763,7 +8763,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .chat-social-post-card {
   position: relative;
   display: flex;
-  width: min(100%, 600px);
+  width: min(100%, 520px);
   min-width: 0;
   flex: 0 0 auto;
   align-self: flex-start;
@@ -8939,13 +8939,13 @@ input[type="number"]::-webkit-outer-spin-button {
   position: relative;
   display: grid;
   width: 100%;
-  max-height: 430px;
+  max-height: 480px;
   overflow: hidden;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 9px;
   background: rgba(7, 11, 20, 0.65);
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 10 / 9;
 }
 
 .chat-social-post-image img {
@@ -9074,7 +9074,7 @@ input[type="number"]::-webkit-outer-spin-button {
   }
 
   .chat-social-post-image {
-    max-height: 360px;
+    max-height: 420px;
   }
 }
 

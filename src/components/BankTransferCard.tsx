@@ -55,14 +55,14 @@ export function BankTransferCard({
       </div>
       <div className="bank-transfer-card-route">
         <span>
-          <small>From</small>
+          <small>From:</small>
           <strong>{transfer.from}</strong>
         </span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M5 12h14M14 7l5 5-5 5" />
         </svg>
         <span>
-          <small>To</small>
+          <small>To:</small>
           <strong>{transfer.to}</strong>
         </span>
       </div>
