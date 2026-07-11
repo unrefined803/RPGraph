@@ -571,7 +571,7 @@ export function PhoneSocialFeedScreen({
     const currentPersistedCount = persistedCommentsRef.current[postId]?.length ?? 0;
     const total = baselineCount + Math.max(0, currentPersistedCount - baselinePersistedCount);
     const firstVisibleCount = Math.min(total, baselineVisibleCount + 1);
-    const startTimer = window.setTimeout(() => {
+    queueMicrotask(() => {
       setVisibleCommentCounts((current) => ({
         ...current,
         [postId]: Math.max(current[postId] ?? 0, firstVisibleCount),
@@ -589,8 +589,7 @@ export function PhoneSocialFeedScreen({
       }
       commentRevealTimersRef.current.set(postId, timers);
       setPendingCommentReveal(undefined);
-    }, 0);
-    return () => window.clearTimeout(startTimer);
+    });
   }, [pendingCommentReveal, socialMediaMessages]);
 
   if (openPostRequest && seenOpenPostRequestId !== openPostRequest.requestId) {
@@ -664,6 +663,10 @@ export function PhoneSocialFeedScreen({
     const baselinePersistedCount = persistedCommentsByPostId[post.id]?.length ?? 0;
     pauseCommentReveal(post.id);
     setCommentDraft('');
+    setVisibleCommentCounts((current) => ({
+      ...current,
+      [post.id]: current[post.id] ?? baselineVisibleCount,
+    }));
     setPendingCommentReveal({
       actionId,
       postId: post.id,
@@ -733,6 +736,10 @@ export function PhoneSocialFeedScreen({
     const baselineVisibleCount = visibleCommentCounts[post.id] ?? baselineCount;
     const baselinePersistedCount = persistedCommentsByPostId[post.id]?.length ?? 0;
     pauseCommentReveal(post.id);
+    setVisibleCommentCounts((current) => ({
+      ...current,
+      [post.id]: current[post.id] ?? baselineVisibleCount,
+    }));
     setPendingCommentReveal({
       actionId,
       postId: post.id,
