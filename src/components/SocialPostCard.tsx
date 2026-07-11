@@ -43,6 +43,21 @@ export function SocialPostCard({
     ? formatRpDateTimeParts(rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
     : undefined;
   const appName = socialAppNames[post.app];
+  const authorIdentity = (
+    <span className="chat-social-post-author">
+      <CharacterAvatar
+        className="chat-social-post-avatar"
+        name={post.author}
+        fallback={post.author.slice(0, 1).toUpperCase()}
+        profileImageDataUrl={authorCharacter?.profileImage?.dataUrl}
+        style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
+      />
+      <span>
+        <strong style={authorColor ? { color: authorColor } : undefined}>{post.author}</strong>
+        <small>@{post.authorHandle}</small>
+      </span>
+    </span>
+  );
 
   return (
     <button
@@ -80,21 +95,15 @@ export function SocialPostCard({
         )}
       </span>
 
-      <span className="chat-social-post-author">
-        <CharacterAvatar
-          className="chat-social-post-avatar"
-          name={post.author}
-          fallback={post.author.slice(0, 1).toUpperCase()}
-          profileImageDataUrl={authorCharacter?.profileImage?.dataUrl}
-          style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
-        />
-        <span>
-          <strong style={authorColor ? { color: authorColor } : undefined}>{post.author}</strong>
-          <small>@{post.authorHandle}</small>
-        </span>
-      </span>
-
-      {!post.textOnly && (
+      {post.textOnly ? (
+        <>
+          {authorIdentity}
+          <span className="chat-social-post-caption">
+            <strong>{post.author}</strong>
+            <span>{post.caption}</span>
+          </span>
+        </>
+      ) : (
         <span className={`chat-social-post-image${imageDataUrl ? '' : ' placeholder'}`}>
           {imageDataUrl ? (
             <img src={imageDataUrl} alt={post.caption} onLoad={onImageLoaded} />
@@ -105,13 +114,14 @@ export function SocialPostCard({
               <path d="m4.5 18 5.5-5.5 3.2 3.2 2.1-2.1 4.2 4.4" />
             </svg>
           )}
+          <span className="chat-social-post-image-author">
+            {authorIdentity}
+          </span>
+          <span className="chat-social-post-image-caption">
+            {post.caption}
+          </span>
         </span>
       )}
-
-      <span className="chat-social-post-caption">
-        <strong>{post.author}</strong>
-        <span>{post.caption}</span>
-      </span>
       <span className="chat-social-post-footer">
         <span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

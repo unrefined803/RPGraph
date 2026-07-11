@@ -8763,7 +8763,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .chat-social-post-card {
   position: relative;
   display: flex;
-  width: min(100%, 520px);
+  width: min(100%, 600px);
   min-width: 0;
   flex: 0 0 auto;
   align-self: flex-start;
@@ -8939,13 +8939,13 @@ input[type="number"]::-webkit-outer-spin-button {
   position: relative;
   display: grid;
   width: 100%;
-  max-height: 270px;
+  max-height: 430px;
   overflow: hidden;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 9px;
   background: rgba(7, 11, 20, 0.65);
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 4 / 3;
 }
 
 .chat-social-post-image img {
@@ -8953,6 +8953,57 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
+}
+
+.chat-social-post-image-author {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(4, 8, 16, 0.68);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.chat-social-post-image-author .chat-social-post-author {
+  gap: 8px;
+}
+
+.chat-social-post-image-author .chat-social-post-avatar {
+  width: 38px;
+  height: 38px;
+}
+
+.chat-social-post-image-author .chat-social-post-author strong {
+  font-size: 0.88em;
+}
+
+.chat-social-post-image-author .chat-social-post-author small {
+  color: rgba(230, 237, 249, 0.75);
+}
+
+.chat-social-post-image-caption {
+  position: absolute;
+  z-index: 2;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #ffffff;
+  background: rgba(4, 8, 16, 0.7);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+  font-size: 0.84em;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
 .chat-social-post-image.placeholder {
@@ -9023,7 +9074,7 @@ input[type="number"]::-webkit-outer-spin-button {
   }
 
   .chat-social-post-image {
-    max-height: 220px;
+    max-height: 360px;
   }
 }
 
