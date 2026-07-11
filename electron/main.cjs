@@ -514,6 +514,18 @@ async function writeTextFileAtomically(filePath, contents) {
   }
 }
 
+async function writeNewTextFileAtomically(filePath, contents) {
+  // Detect name conflicts up front; the temp-file rename in
+  // writeTextFileAtomically would silently overwrite an existing file. The
+  // check-then-write race is acceptable for this single-user desktop app.
+  if (fsSync.existsSync(filePath)) {
+    const error = new Error(`File already exists: ${filePath}`);
+    error.code = 'EEXIST';
+    throw error;
+  }
+  await writeTextFileAtomically(filePath, contents);
+}
+
 async function loadWorkflowState() {
   try {
     const state = JSON.parse(await fs.readFile(workflowStateFilePath(), 'utf8'));
@@ -600,7 +612,7 @@ async function ensureDefaultWorkflowFile(overwriteExisting) {
     filePath = path.join(directory, fileName);
   }
   const contents = await fs.readFile(bundledPath, 'utf8');
-  await fs.writeFile(filePath, contents, { encoding: 'utf8', flag: 'wx' });
+  await writeNewTextFileAtomically(filePath, contents);
   approveWorkflowPath(filePath);
   await saveWorkflowState({
     lastWorkflowFileName: validatedStoredFileName(fileName),
@@ -1797,11 +1809,31 @@ function streamChunkBytes(chunk) {
   return chunk instanceof Uint8Array ? chunk : Buffer.from(String(chunk));
 }
 
+// Responses are accumulated in memory, so a faulty or malicious provider
+// could otherwise grow an endless response until the app crashes.
+const maxProviderResponseBytes = 512 * 1024 * 1024;
+
+async function* limitedResponseChunks(stream) {
+  let totalBytes = 0;
+  for await (const chunk of stream) {
+    const bytes = streamChunkBytes(chunk);
+    totalBytes += bytes.length;
+    if (totalBytes > maxProviderResponseBytes) {
+      const error = new Error(
+        'The provider response exceeded the 512 MB safety limit and was aborted.',
+      );
+      stream.destroy(error);
+      throw error;
+    }
+    yield bytes;
+  }
+}
+
 async function readNodeStreamText(stream) {
   const decoder = new TextDecoder();
   let text = '';
-  for await (const chunk of stream) {
-    text += decoder.decode(streamChunkBytes(chunk), { stream: true });
+  for await (const bytes of limitedResponseChunks(stream)) {
+    text += decoder.decode(bytes, { stream: true });
   }
   text += decoder.decode();
   return text;
@@ -1809,8 +1841,8 @@ async function readNodeStreamText(stream) {
 
 async function readNodeStreamBuffer(stream) {
   const chunks = [];
-  for await (const chunk of stream) {
-    chunks.push(streamChunkBytes(chunk));
+  for await (const bytes of limitedResponseChunks(stream)) {
+    chunks.push(bytes);
   }
   return Buffer.concat(chunks);
 }
@@ -3232,8 +3264,7 @@ ipcMain.handle('openrouter:generate-speech', async (event, request) => {
     let responseAudio;
     if (requiresPcm && connection.ttsStreamAudio === true && request?.requestId) {
       const chunks = [];
-      for await (const chunk of response.body) {
-        const bytes = streamChunkBytes(chunk);
+      for await (const bytes of limitedResponseChunks(response.body)) {
         chunks.push(bytes);
         if (!event.sender.isDestroyed()) {
           event.sender.send(
@@ -3346,8 +3377,8 @@ ipcMain.handle('gemini:generate-speech', async (event, request) => {
           // Ignore incomplete or non-JSON SSE lines.
         }
       };
-      for await (const value of response.body) {
-        buffered += decoder.decode(streamChunkBytes(value), { stream: true });
+      for await (const bytes of limitedResponseChunks(response.body)) {
+        buffered += decoder.decode(bytes, { stream: true });
         const lines = buffered.split(/\r?\n/);
         buffered = lines.pop() ?? '';
         lines.forEach(consumeLine);
@@ -3705,11 +3736,11 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
         }
       }
 
-      for await (const value of response.body) {
+      for await (const bytes of limitedResponseChunks(response.body)) {
         if (abort.signal.aborted) {
           throw cancelledLlmError();
         }
-        buffered += decoder.decode(streamChunkBytes(value), { stream: true });
+        buffered += decoder.decode(bytes, { stream: true });
         const lines = buffered.split(/\r?\n/);
         buffered = lines.pop() ?? '';
         lines.forEach(consumeGeminiLine);
@@ -3791,11 +3822,11 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
       }
     }
 
-    for await (const value of response.body) {
+    for await (const bytes of limitedResponseChunks(response.body)) {
       if (abort.signal.aborted) {
         throw cancelledLlmError();
       }
-      buffered += decoder.decode(streamChunkBytes(value), { stream: true });
+      buffered += decoder.decode(bytes, { stream: true });
       const lines = buffered.split(/\r?\n/);
       buffered = lines.pop() ?? '';
       lines.forEach(consumeLine);
@@ -4141,7 +4172,7 @@ ipcMain.handle('workflow:save-named', async (_event, request) => {
     if (request.overwrite) {
       await writeTextFileAtomically(filePath, contents);
     } else {
-      await fs.writeFile(filePath, contents, { encoding: 'utf8', flag: 'wx' });
+      await writeNewTextFileAtomically(filePath, contents);
     }
   } catch (error) {
     if (!request.overwrite && error && error.code === 'EEXIST') {
@@ -4175,7 +4206,7 @@ ipcMain.handle('storybook:save', async (_event, request) => {
     if (request.overwrite) {
       await writeTextFileAtomically(filePath, contents);
     } else {
-      await fs.writeFile(filePath, contents, { encoding: 'utf8', flag: 'wx' });
+      await writeNewTextFileAtomically(filePath, contents);
     }
   } catch (error) {
     if (!request.overwrite && error && error.code === 'EEXIST') {
@@ -4438,7 +4469,7 @@ ipcMain.handle('session:save', async (_event, request) => {
     if (request.overwrite) {
       await writeTextFileAtomically(filePath, contents);
     } else {
-      await fs.writeFile(filePath, contents, { encoding: 'utf8', flag: 'wx' });
+      await writeNewTextFileAtomically(filePath, contents);
     }
   } catch (error) {
     if (!request.overwrite && error && error.code === 'EEXIST') {

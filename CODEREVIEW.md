@@ -4,13 +4,13 @@ Findings from the multi-agent security/quality review. Each item has a checkbox,
 a short effort estimate (how complex the change is) and a scope estimate (how much
 code has to be searched/understood — "token cost" of the investigation).
 
-Legend: `[ ]` open · `[x]` done (add date + short note when closing).
+Legend: `[ ]` open · `[✅]` done (add date + short note when closing).
 
 ---
 
 ## High priority
 
-- [x] **1. Custom Nodes can escape their security boundary** ✅ 2026-07-11 —
+- [✅] **1. Custom Nodes can escape their security boundary** (2026-07-11)
   Custom Node code no longer runs in the app window. It now executes in a Web
   Worker inside a sandboxed iframe (opaque origin, deny-all CSP), with no file,
   network, storage, or Electron access; the only channel is postMessage for
@@ -49,7 +49,7 @@ Legend: `[ ]` open · `[x]` done (add date + short note when closing).
 
 ## Medium priority
 
-- [x] **4. Tampered RP saves can load external images** ✅ 2026-07-11 —
+- [✅] **4. Tampered RP saves can load external images** (2026-07-11)
   Session validation (the single load-time gate in `isRpgraphSessionV2`) now
   requires `data:image/` URLs for every entry in `entities.images` and
   `data:audio/` URLs for timeline voice clips, so foreign sessions with external
@@ -62,12 +62,10 @@ Legend: `[ ]` open · `[x]` done (add date + short note when closing).
   - Effort: **Low** — restrict allowed image URL schemes.
   - Scope: **Small** — validation + render site.
 
-- [ ] **5. Provider responses have no size limit**
-  - File: `electron/main.cjs:1800`
-  - A faulty/malicious LLM/ComfyUI server can send a huge or endless response,
-    filling memory and crashing the app.
-  - Effort: **Low–Medium** — add streamed size cap / abort.
-  - Scope: **Small** — provider response handler in main.cjs.
+- [✅] **5. Provider responses have no size limit** (2026-07-11)
+  - Fixed: all provider response readers (collected and streamed SSE/audio
+    paths) now go through a shared 512 MB guard that destroys the stream and
+    fails the request when a response grows past the limit.
 
 - [ ] **6. Corrupted storybooks are silently altered**
   - Files: `src/nodes/rp-storybook-v1/model.ts:646`, `src/storybook/useStorybookActions.ts:231`
@@ -76,12 +74,9 @@ Legend: `[ ]` open · `[x]` done (add date + short note when closing).
   - Effort: **Medium** — validate-or-refuse instead of coerce.
   - Scope: **Medium** — storybook model + actions.
 
-- [ ] **7. New files are not written crash-safely**
-  - File: `electron/main.cjs:4125`
-  - First save writes directly to the final file; on a full disk or crash an
-    incomplete JSON can remain. Overwrites are already safer.
-  - Effort: **Low** — write-to-temp-then-rename for new files too.
-  - Scope: **Small** — one save function.
+- [✅] **7. New files are not written crash-safely** (2026-07-11)
+  - Fixed: first saves now also use write-to-temp-then-rename via a new
+    `writeNewTextFileAtomically` helper that still reports name conflicts.
 
 - [ ] **8. The large main bundle is hidden by the warning threshold**
   - File: `vite.config.ts:8`
