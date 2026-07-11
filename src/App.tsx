@@ -119,7 +119,7 @@ import {
   suggestedWorkflowNameFromPath,
   workflowSnapshotFromGraph,
 } from './app/workflowSnapshot';
-import { hydrateLoadedWorkflow } from './app/workflowHydration';
+import { hydrateLoadedWorkflow, type HydratedWorkflow } from './app/workflowHydration';
 import {
   lastMessage,
   narratorCharacterId,
@@ -2702,10 +2702,11 @@ function App() {
     password = '',
   ) {
     if (result.type === 'workflow') {
+      const hydratedWorkflow = prepareLoadedWorkflow(result.value);
       clearCurrentSession();
       setActiveWorkflowProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
-      applyLoadedWorkflow(
-        result.value,
+      commitHydratedWorkflow(
+        hydratedWorkflow,
         result.protection === 'plain' ? result.filePath : null,
         'Loaded workflow',
         result.fileName,
@@ -2767,17 +2768,18 @@ function App() {
     session: RpgraphSessionV2,
     password: string,
   ) {
+    const hydratedWorkflow = prepareLoadedWorkflow(workflowV2ToWorkflowFile(session.workflow), false);
+    const sessionState = appStateFromSessionV2(session);
     clearTurnTraces();
     setActiveWorkflowProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
-    applyLoadedWorkflow(
-      workflowV2ToWorkflowFile(session.workflow),
+    commitHydratedWorkflow(
+      hydratedWorkflow,
       null,
       'Loaded session workflow',
       'embedded workflow',
       'embedded workflow',
       false,
     );
-    const sessionState = appStateFromSessionV2(session);
     const openingMessages = sessionState.openingMessages;
     const loadedTurns = sessionState.turns;
     const loadedMessages = [
@@ -2867,8 +2869,38 @@ function App() {
     return currentWorkflow(includeStorybook);
   }
 
+  function prepareLoadedWorkflow(workflow: unknown, hydrateOpeningHistory = true) {
+    return hydrateLoadedWorkflow({
+      workflow,
+      defaultConnectionId: firstLlmConnection().id,
+      connectionIds: new Set(connections.filter(isLlmConnection).map((connection) => connection.id)),
+      hydrateOpeningHistory,
+    });
+  }
+
   function applyLoadedWorkflow(
     workflow: unknown,
+    filePath: string | null,
+    status: string,
+    fileName?: string | null,
+    resetSnapshotFileName?: string,
+    hydrateOpeningHistory = true,
+  ) {
+    // Validate and hydrate before any state is cleared, so a corrupted file
+    // cannot wipe the running session.
+    const hydratedWorkflow = prepareLoadedWorkflow(workflow, hydrateOpeningHistory);
+    commitHydratedWorkflow(
+      hydratedWorkflow,
+      filePath,
+      status,
+      fileName,
+      resetSnapshotFileName,
+      hydrateOpeningHistory,
+    );
+  }
+
+  function commitHydratedWorkflow(
+    hydratedWorkflow: HydratedWorkflow,
     filePath: string | null,
     status: string,
     fileName?: string | null,
@@ -2880,12 +2912,6 @@ function App() {
     if (hydrateOpeningHistory) {
       clearTurnTraces();
     }
-    const hydratedWorkflow = hydrateLoadedWorkflow({
-      workflow,
-      defaultConnectionId: firstLlmConnection().id,
-      connectionIds: new Set(connections.filter(isLlmConnection).map((connection) => connection.id)),
-      hydrateOpeningHistory,
-    });
     const loadedNodes = hydratedWorkflow.nodes;
     const loadedEdges = hydratedWorkflow.edges;
     commitNodes(loadedNodes);

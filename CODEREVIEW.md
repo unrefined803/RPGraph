@@ -28,12 +28,16 @@ Legend: `[ ]` open · `[✅]` done (add date + short note when closing).
     possible but not fully safe.
   - Scope: **Medium** — runtime.ts + preload surface + call sites of Custom Node run.
 
-- [ ] **2. A corrupted workflow can wipe the current session**
+- [✅] **2. A corrupted workflow can wipe the current session** (2026-07-11)
+  Workflow loading is now split into a validation step (`prepareLoadedWorkflow`,
+  may throw) and a commit step (`commitHydratedWorkflow`, mutates state). Opening
+  a workflow hydrates and validates the file first; `clearCurrentSession()` and
+  all other state changes only run after validation succeeded, so a corrupted
+  file leaves the running session untouched. The session-load path prepares its
+  embedded workflow and session state the same way before committing.
   - Files: `src/App.tsx:2650`, `src/app/workflowHydration.ts:48`
   - On open the running session is cleared before the new workflow is fully
     validated. If validation then fails, unsaved progress can be lost.
-  - Recommendation: fully prepare and validate the new workflow before mutating any
-    existing state.
   - Effort: **Medium** — reorder load/validate/commit flow.
   - Scope: **Medium** — App.tsx open handler + workflowHydration.
 
