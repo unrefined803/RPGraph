@@ -4,11 +4,13 @@
 // then calls setNodes(...) so async continuations see fresh nodes immediately — the ref
 // must therefore keep its render-phase sync in App.tsx (see "Gefahr: nodesRef").
 import type {
+  BankTransferRecord,
   ChatImageAttachment,
   ConnectionPreset,
   EmbeddedPhoneMessageLink,
   ImageCaptionChange,
   MessageRecord,
+  SocialDirectMessageRecord,
   SocialPostRecord,
   SocialThreadActionRecord,
   ChatDialogueQuote,
@@ -47,6 +49,7 @@ import {
   parsePhoneMessageOutput,
   phoneNamesMatch,
   type EmbeddedPhoneMessagesResult,
+  type ParsedIncomingSocialDirectMessage,
   type ParsedPhoneImageAction,
   type ParsedPhoneMessage,
 } from '../chat/phoneMessages';
@@ -76,6 +79,13 @@ import {
 } from '../chat/bankTransfers';
 import {
   parseSocialReactionsOutput,
+  parseSocialDirectMessageOutput,
+  socialAppNames,
+  socialDirectMessageHistoryText,
+  socialDirectMessageInputText,
+  socialHandleForCharacter,
+  socialHandleForName,
+  socialIdentityMatches,
   socialPostInputText,
   socialPostHistoryText,
   socialPostTextFromInput,
@@ -430,6 +440,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     socialThreadAction?: SocialThreadActionRecord,
     socialThreadContext?: SocialThreadRunContext,
     directActionOnly = false,
+    socialDirectMessage?: SocialDirectMessageRecord,
   ) {
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
@@ -519,6 +530,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         socialThreadAction,
         socialThreadContext,
         directActionOnly,
+        socialDirectMessage,
       );
     };
     const finishRun = () => {
@@ -703,6 +715,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     }
     let inputText = displayText;
     let displayInputText = displayText;
+    let translatedSocialDirectMessageText: string | undefined;
     let liveOutputMessageId: number | undefined;
     let pendingLiveOutput:
       | {
@@ -900,7 +913,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
           runSignal,
           inputHistoryContext,
         );
-        if (socialPost) {
+        if (socialDirectMessage) {
+          const translatedMessage = await translateSocialText(socialDirectMessage.text);
+          translatedSocialDirectMessageText = translatedMessage || undefined;
+          inputText = socialDirectMessageInputText(
+            translatedMessage
+              ? { ...socialDirectMessage, text: translatedMessage }
+              : socialDirectMessage,
+            historyMessages,
+          );
+        } else if (socialPost) {
           const translatedCaption = await translateSocialText(socialPost.caption);
           inputText = socialPostInputText({
             ...socialPost,
@@ -1172,6 +1194,30 @@ export function useGraphRun(options: UseGraphRunOptions) {
         turnContext,
       });
     }
+    if (shouldAppendInputMessage && socialDirectMessage) {
+      const persistedSocialDirectMessage = translatedSocialDirectMessageText
+        ? {
+            ...socialDirectMessage,
+            internalText: translatedSocialDirectMessageText,
+            displayText: translateInputOnly
+              ? translatedSocialDirectMessageText
+              : socialDirectMessage.displayText,
+          }
+        : socialDirectMessage;
+      appendMessage({
+        role: 'user',
+        originalText: socialDirectMessageHistoryText(socialDirectMessage),
+        translatedText: translatedSocialDirectMessageText
+          ? socialDirectMessageHistoryText({
+              ...socialDirectMessage,
+              text: translatedSocialDirectMessageText,
+            })
+          : undefined,
+        includeInHistory: true,
+        turnContext,
+        socialDirectMessage: persistedSocialDirectMessage,
+      });
+    }
     if (activeTurnCollectorRef.current) {
       activeTurnCollectorRef.current.part = 'output';
     }
@@ -1202,7 +1248,71 @@ export function useGraphRun(options: UseGraphRunOptions) {
       let phoneMessageOutput = '';
       let outputActionsText = '';
       let socialMediaOutputText = '';
+      let socialDirectMessageOutputPromise: Promise<void> | undefined;
       let directActionsText = '';
+      const socialDirectExtras: {
+        phoneMessages: ParsedPhoneMessage[];
+        bankTransfers: BankTransferRecord[];
+      } = { phoneMessages: [], bankTransfers: [] };
+      const processSocialDirectMessageOutput = async (text: string) => {
+        if (!socialDirectMessage) {
+          return;
+        }
+        const parsedReply = parseSocialDirectMessageOutput(
+          text,
+          socialDirectMessage,
+          new Date().toISOString(),
+        );
+        socialDirectExtras.phoneMessages.push(...parsedReply.phoneMessages);
+        socialDirectExtras.bankTransfers.push(...parsedReply.bankTransfers);
+        reportFormatResult({
+          name: 'Social Media DM JSON',
+          status: parsedReply.message && parsedReply.warnings.length === 0 ? 'ok' : 'error',
+          detail: parsedReply.warnings.length
+            ? parsedReply.warnings.join(' ')
+            : `Direct message from @${parsedReply.message?.fromHandle} parsed.`,
+          preview: parsedReply.warnings.length ? text : undefined,
+        });
+        parsedReply.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+        if (!parsedReply.message) {
+          return;
+        }
+        let translatedReplyText: string | undefined;
+        if (runEnglishProcessing) {
+          try {
+            translatedReplyText = await translateText(
+              parsedReply.message.text,
+              'to-display',
+              outputNode.data.connectionId ?? defaultConnectionId,
+              outputNode.id,
+              undefined,
+              turnContext.displayLanguage,
+              runSignal,
+              inputHistoryContext,
+            ) || undefined;
+          } catch (error) {
+            if (isRunCancelledError(error)) {
+              throw error;
+            }
+            notifySystem(
+              'error',
+              `Social Media DM translation failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+        const persistedReply = translatedReplyText
+          ? { ...parsedReply.message, displayText: translatedReplyText }
+          : parsedReply.message;
+        appendMessage({
+          role: 'output',
+          originalText: socialDirectMessageHistoryText(parsedReply.message),
+          translatedText: translatedReplyText
+            ? socialDirectMessageHistoryText({ ...persistedReply, text: translatedReplyText })
+            : undefined,
+          includeInHistory: true,
+          socialDirectMessage: persistedReply,
+        });
+      };
       const executedOutput = await executeGraph({
         outputNodeId: outputNode.id,
         outputSourceHandle: directActionOnly ? 'direct-actions' : undefined,
@@ -1255,6 +1365,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
           if (handle === 'social-media') {
             socialMediaOutputText = text;
+            if (socialDirectMessage && !socialDirectMessageOutputPromise) {
+              socialDirectMessageOutputPromise = processSocialDirectMessageOutput(text);
+            }
           }
           if (handle === 'direct-actions') {
             directActionsText = text;
@@ -1270,6 +1383,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
         signal: runSignal,
       });
       const graphOutput = directActionOnly ? '' : executedOutput;
+      if (socialDirectMessage && !socialDirectMessageOutputPromise && socialMediaOutputText) {
+        socialDirectMessageOutputPromise = processSocialDirectMessageOutput(socialMediaOutputText);
+      }
+      await socialDirectMessageOutputPromise;
       if (directActionOnly) {
         directActionsText = executedOutput;
       }
@@ -1309,6 +1426,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
               textAfter: '',
               phoneMessages: [],
               bankTransfers: [],
+              socialPostComments: [],
+              socialDirectMessages: [],
             };
       // Phone replies may append a bankTransfers object after the reply JSON;
       // split it off so the reply still parses as a single phone message.
@@ -1316,7 +1435,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
         isPhoneMessage && phoneMessageOutput
           ? parseEmbeddedPhoneMessagesFromRpOutput(phoneMessageOutput)
           : undefined;
-      if (phoneOutputBankResult?.bankTransfers.length) {
+      if (
+        phoneOutputBankResult &&
+        (phoneOutputBankResult.bankTransfers.length > 0 ||
+          phoneOutputBankResult.socialPostComments.length > 0 ||
+          phoneOutputBankResult.socialDirectMessages.length > 0)
+      ) {
         phoneMessageOutput = phoneOutputBankResult.text;
       }
       if (!isPhoneMessage && embeddedPhoneResult.phoneMessages.length > 0) {
@@ -1324,6 +1448,28 @@ export function useGraphRun(options: UseGraphRunOptions) {
           name: 'Embedded phone messages',
           status: 'ok',
           detail: `${embeddedPhoneResult.phoneMessages.length} embedded phone message(s) parsed.`,
+        });
+      }
+      const parsedSocialPostComments = [
+        ...embeddedPhoneResult.socialPostComments,
+        ...(phoneOutputBankResult?.socialPostComments ?? []),
+      ];
+      const embeddedSocialDirectMessages = [
+        ...embeddedPhoneResult.socialDirectMessages,
+        ...(phoneOutputBankResult?.socialDirectMessages ?? []),
+      ];
+      if (embeddedSocialDirectMessages.length > 0) {
+        reportFormatResult({
+          name: 'Social direct messages',
+          status: 'ok',
+          detail: `${embeddedSocialDirectMessages.length} social direct message(s) parsed.`,
+        });
+      }
+      if (parsedSocialPostComments.length > 0) {
+        reportFormatResult({
+          name: 'Social post comments',
+          status: 'ok',
+          detail: `${parsedSocialPostComments.length} social post comment(s) parsed.`,
         });
       }
       const rpOutput = eventDisplayText
@@ -1788,7 +1934,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
 
         appliedActions.uiItems.forEach(appendOutputActionUiItem);
 
-        for (const [index, actionPhoneMessage] of appliedActions.phoneMessages.entries()) {
+        for (const [index, actionPhoneMessage] of [
+          ...appliedActions.phoneMessages,
+          ...socialDirectExtras.phoneMessages,
+        ].entries()) {
           const canonicalActionPhoneMessage = {
             ...actionPhoneMessage,
             from: canonicalPhoneName(phoneCharacters, actionPhoneMessage.from),
@@ -1836,6 +1985,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ...appliedActions.bankTransfers,
           ...embeddedPhoneResult.bankTransfers,
           ...(phoneOutputBankResult?.bankTransfers ?? []),
+          ...socialDirectExtras.bankTransfers,
         ]) {
           const canonicalTransfer = {
             ...bankTransfer,
@@ -1880,6 +2030,145 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
+        // A social post comment command appends one comment to an existing
+        // post via the same append-reactions record the comment thread uses.
+        for (const postComment of parsedSocialPostComments) {
+          const targetPost = messagesRef.current.find(
+            (message) =>
+              message.socialPost?.app === postComment.app &&
+              message.socialPost.postId === postComment.postId,
+          )?.socialPost;
+          if (!targetPost) {
+            reportRunWarning(
+              `${socialAppNames[postComment.app]} post comment was ignored because post "${postComment.postId}" does not exist.`,
+              outputNodeTraceInfo,
+            );
+            continue;
+          }
+          const from = canonicalPhoneName(phoneCharacters, postComment.from);
+          const commentCharacter = phoneCharacters.find((character) =>
+            phoneNamesMatch(character.name, from),
+          );
+          const handle = commentCharacter
+            ? socialHandleForCharacter(commentCharacter, postComment.app)
+            : socialHandleForName(from);
+          const historyText = `[${socialAppNames[postComment.app]}] ${from} (@${handle}) commented on ${postComment.postId}: "${postComment.text}"`;
+          const translatedText = await translateOutputActionText(historyText, { text: historyText });
+          appendMessage({
+            role: 'output',
+            originalText: historyText,
+            translatedText,
+            includeInHistory: true,
+            socialReactions: {
+              app: postComment.app,
+              postId: postComment.postId,
+              likes: 0,
+              comments: [{ from, handle, text: postComment.text }],
+              append: true,
+            },
+          });
+        }
+
+        // Incoming social DMs sent by the LLM (from reactions runs, RP, or
+        // phone replies). The recipient defaults to the run's post author or
+        // thread actor; a referenced post becomes the conversation origin.
+        let incomingSocialDmSequence = 0;
+        const appendIncomingSocialDirectMessage = async (
+          incoming: ParsedIncomingSocialDirectMessage,
+          defaultRecipient?: { name: string; handle: string },
+          runPost?: SocialPostRecord,
+        ) => {
+          const recipientName = incoming.to ?? defaultRecipient?.name;
+          if (!recipientName) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message from "${incoming.from}" was ignored because it has no recipient.`,
+              outputNodeTraceInfo,
+            );
+            return;
+          }
+          const to = canonicalPhoneName(phoneCharacters, recipientName);
+          const recipientCharacter = phoneCharacters.find((character) =>
+            phoneNamesMatch(character.name, to),
+          );
+          const toHandle = !incoming.to && defaultRecipient
+            ? defaultRecipient.handle
+            : recipientCharacter
+              ? socialHandleForCharacter(recipientCharacter, incoming.app)
+              : socialHandleForName(to);
+          const from = canonicalPhoneName(phoneCharacters, incoming.from);
+          const senderCharacter = phoneCharacters.find((character) =>
+            phoneNamesMatch(character.name, from),
+          );
+          const fromHandle = incoming.handle
+            ? socialHandleForName(incoming.handle)
+            : senderCharacter
+              ? socialHandleForCharacter(senderCharacter, incoming.app)
+              : socialHandleForName(from);
+          if (socialIdentityMatches(fromHandle, toHandle)) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message from "${from}" to themselves was ignored.`,
+              outputNodeTraceInfo,
+            );
+            return;
+          }
+          let originPost = runPost && runPost.postId === incoming.postId ? runPost : undefined;
+          if (!originPost && incoming.postId) {
+            originPost = messagesRef.current.find(
+              (message) =>
+                message.socialPost?.app === incoming.app &&
+                message.socialPost.postId === incoming.postId,
+            )?.socialPost;
+            if (!originPost) {
+              reportRunWarning(
+                `${socialAppNames[incoming.app]} direct message references unknown post "${incoming.postId}"; it was delivered without the post context.`,
+                outputNodeTraceInfo,
+              );
+            }
+          }
+          incomingSocialDmSequence += 1;
+          const record: SocialDirectMessageRecord = {
+            app: incoming.app,
+            messageId: `${incoming.app}-dm-incoming-${Date.now()}-${incomingSocialDmSequence}`,
+            from,
+            fromHandle,
+            to,
+            toHandle,
+            text: incoming.text,
+            ...(incoming.tip !== undefined ? { tip: incoming.tip } : {}),
+            sentAt: new Date().toISOString(),
+            ...(originPost
+              ? {
+                  origin: {
+                    postId: originPost.postId,
+                    postAuthor: originPost.author,
+                    postAuthorHandle: originPost.authorHandle,
+                    postCaption: originPost.caption,
+                    postImageId: originPost.imageId,
+                    postImageDescription: originPost.imageDescription,
+                  },
+                }
+              : {}),
+          };
+          const translatedDmText = await translateOutputActionText(incoming.text, {
+            text: incoming.text,
+          });
+          const persistedRecord = translatedDmText
+            ? { ...record, displayText: translatedDmText }
+            : record;
+          appendMessage({
+            role: 'output',
+            originalText: socialDirectMessageHistoryText(record),
+            translatedText: translatedDmText
+              ? socialDirectMessageHistoryText({ ...record, text: translatedDmText })
+              : undefined,
+            includeInHistory: true,
+            socialDirectMessage: persistedRecord,
+          });
+        };
+        for (const incomingSocialDm of embeddedSocialDirectMessages) {
+          await appendIncomingSocialDirectMessage(incomingSocialDm);
+        }
+
         // Social-media runs record the post itself plus the generated
         // reactions as history messages, mirroring how bank transfers land in
         // the timeline. The post is only persisted when the run succeeds.
@@ -1905,7 +2194,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
             status: parsedReactions.reactions && parsedReactions.warnings.length === 0 ? 'ok' : 'error',
             detail: parsedReactions.warnings.length
               ? parsedReactions.warnings.join(' ')
-              : `${parsedReactions.reactions?.likes ?? 0} like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s) parsed.`,
+              : `${parsedReactions.reactions?.likes ?? 0} like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s)${
+                  parsedReactions.directMessages.length
+                    ? `, ${parsedReactions.directMessages.length} direct message(s)`
+                    : ''
+                } parsed.`,
             preview: parsedReactions.warnings.length ? socialMediaOutputText : undefined,
           });
           parsedReactions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
@@ -1931,6 +2224,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
               socialReactions: parsedReactions.reactions,
             });
           }
+          for (const incomingSocialDm of parsedReactions.directMessages) {
+            await appendIncomingSocialDirectMessage(
+              incomingSocialDm,
+              { name: persistedSocialPost.author, handle: persistedSocialPost.authorHandle },
+              persistedSocialPost,
+            );
+          }
         }
         if (socialThreadAction) {
           const persistedThreadAction = socialThreadAction.action === 'comment'
@@ -1950,7 +2250,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
             status: parsedReactions.reactions && parsedReactions.warnings.length === 0 ? 'ok' : 'error',
             detail: parsedReactions.warnings.length
               ? parsedReactions.warnings.join(' ')
-              : `${parsedReactions.reactions?.likes ?? 0} additional like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s) parsed.`,
+              : `${parsedReactions.reactions?.likes ?? 0} additional like(s), ${parsedReactions.reactions?.comments.length ?? 0} comment(s)${
+                  parsedReactions.directMessages.length
+                    ? `, ${parsedReactions.directMessages.length} direct message(s)`
+                    : ''
+                } parsed.`,
             preview: parsedReactions.warnings.length ? socialMediaOutputText : undefined,
           });
           parsedReactions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
@@ -1977,6 +2281,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
             socialThreadAction: persistedThreadAction,
             socialReactions: parsedReactions.reactions,
           });
+          for (const incomingSocialDm of parsedReactions.directMessages) {
+            await appendIncomingSocialDirectMessage(incomingSocialDm, {
+              name: persistedThreadAction.actor,
+              handle: persistedThreadAction.actorHandle,
+            });
+          }
         }
       }
       if (!isPhoneMessage && translationError) {

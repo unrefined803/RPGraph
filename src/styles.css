@@ -20491,6 +20491,24 @@ button.message-timeline-row.phone:focus-visible {
   height: 28px;
 }
 
+.phone-social-sidebar .phone-social-header > .phone-social-messages-button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  place-items: center;
+  border: 1px solid var(--social-accent);
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--social-accent-soft);
+  cursor: pointer;
+}
+
+.phone-social-messages-button svg {
+  width: 16px;
+  height: 16px;
+}
+
 .phone-social-wallet {
   flex: none;
   padding: 8px;
@@ -20813,6 +20831,308 @@ button.message-timeline-row.phone:focus-visible {
   text-transform: uppercase;
 }
 
+.phone-social-profile-banner > button {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--social-accent);
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--social-accent-soft);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.phone-social-dm {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 90% 0%, var(--social-accent-soft), transparent 34%),
+    #0d121c;
+}
+
+.phone-social-dm-header {
+  display: flex;
+  min-height: 60px;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: var(--social-header-gradient);
+}
+
+.phone-social-dm-header > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  color: #ffffff;
+  background: rgba(13, 18, 28, 0.62);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.phone-social-dm-header > div,
+.phone-social-dm-contact-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.phone-social-dm-header strong {
+  font-size: 14px;
+}
+
+.phone-social-dm-header span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 10px;
+}
+
+.phone-social-dm-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.phone-social-dm-contact {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 11px 15px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.phone-social-dm-contact:hover,
+.phone-social-dm-contact:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.phone-social-dm-contact-copy {
+  flex: 1;
+  gap: 3px;
+}
+
+.phone-social-dm-contact-copy strong,
+.phone-social-dm-contact-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-social-dm-contact-copy strong {
+  font-size: 13px;
+}
+
+.phone-social-dm-contact-copy span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+}
+
+.phone-social-dm-thread {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.phone-social-dm-origin {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: calc(100% - 20px);
+  max-height: 62px;
+  margin: 9px 10px 0;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--social-accent-soft);
+  border-radius: 11px;
+  color: #ffffff;
+  background: rgba(24, 34, 50, 0.94);
+  cursor: pointer;
+  text-align: left;
+}
+
+.phone-social-dm-origin.expanded {
+  max-height: 150px;
+  align-items: start;
+}
+
+.phone-social-dm-origin > img {
+  width: 54px;
+  height: 48px;
+  border-radius: 7px;
+  object-fit: cover;
+}
+
+.phone-social-dm-origin.expanded > img {
+  height: 92px;
+}
+
+.phone-social-dm-origin-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.phone-social-dm-origin-copy small {
+  color: var(--social-accent);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.phone-social-dm-origin-copy strong,
+.phone-social-dm-origin-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-social-dm-origin-copy strong {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.phone-social-dm-origin-copy span {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 10px;
+}
+
+.phone-social-dm-message-row.origin-comment .phone-social-dm-bubble {
+  border-color: var(--social-accent-soft);
+}
+
+.phone-social-dm-message-row {
+  display: flex;
+}
+
+.phone-social-dm-message-row.outgoing {
+  justify-content: flex-end;
+}
+
+.phone-social-dm-bubble {
+  display: flex;
+  max-width: min(76%, 440px);
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px 14px 14px 4px;
+  background: rgba(35, 45, 62, 0.94);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.phone-social-dm-message-row.outgoing .phone-social-dm-bubble {
+  border-color: var(--social-accent);
+  border-radius: 14px 14px 4px 14px;
+  background: var(--social-accent-soft);
+}
+
+.phone-social-dm-tip {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border: 1px solid var(--social-accent);
+  border-radius: 999px;
+  color: var(--social-accent);
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.phone-social-dm-bubble time {
+  align-self: flex-end;
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 8px;
+}
+
+.phone-social-dm-empty {
+  display: flex;
+  min-height: 160px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  padding: 24px;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+}
+
+.phone-social-dm-empty strong {
+  color: #ffffff;
+}
+
+.phone-social-dm-empty small {
+  margin-top: 5px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.phone-social-dm-empty.conversation-empty {
+  margin: auto;
+}
+
+.phone-social-dm-composer {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 18, 28, 0.92);
+}
+
+.phone-social-dm-composer input {
+  min-width: 0;
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(30, 41, 59, 0.82);
+}
+
+.phone-social-dm-composer input:focus-visible {
+  outline: none;
+  border-color: var(--social-accent);
+}
+
+.phone-social-dm-composer button {
+  padding: 8px 13px;
+  border: 1px solid var(--social-accent);
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--social-accent-soft);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.phone-social-dm-composer button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
 .phone-social-composer-preview {
   position: relative;
 }
@@ -20951,6 +21271,17 @@ button.message-timeline-row.phone:focus-visible {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.phone-social-post-author:hover strong,
+.phone-social-post-author:focus-visible strong {
+  color: var(--social-accent);
 }
 
 .phone-social-post-author-info {
@@ -21261,10 +21592,29 @@ button.message-timeline-row.phone:focus-visible {
 
 .phone-social-comment {
   display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
   font-size: 13px;
   line-height: 1.45;
   margin-bottom: 4px;
   animation: phone-social-comment-in 280ms ease-out both;
+  text-align: left;
+}
+
+.phone-social-comment:hover strong,
+.phone-social-comment:focus-visible strong {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.phone-social-comment:focus-visible {
+  outline: 1px solid var(--social-accent);
+  outline-offset: 3px;
 }
 
 @keyframes phone-social-comment-in {

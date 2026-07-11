@@ -22,6 +22,7 @@ import type {
   ImageCaptionChange,
   MessageRecord,
   SocialPostRecord,
+  SocialDirectMessageRecord,
   SocialReactionComment,
   SocialThreadActionRecord,
   ProviderConnectionHealth,
@@ -245,6 +246,7 @@ type PhonePanelProps = {
     existingComments: SocialReactionComment[];
     likeCount: number;
   }) => Promise<boolean>;
+  onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord) => Promise<boolean>;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
@@ -354,6 +356,7 @@ export function PhonePanel({
   socialMediaMessages,
   onSubmitSocialPost,
   onSubmitSocialThreadAction,
+  onSubmitSocialDirectMessage,
   onCreateSocialAccount,
   onImportSocialPostImage,
   socialImageById,
@@ -707,6 +710,7 @@ export function PhonePanel({
         phoneGalleryImages={phoneGalleryImages}
         bankTransferMessages={bankTransferMessages}
         socialMediaMessages={socialMediaMessages}
+        onSendDirectMessage={onSubmitSocialDirectMessage}
         openPostRequest={
           socialPostOpenRequest?.app === screen &&
           socialPostOpenRequest.requestId !== dismissedSocialPostOpenRequestId

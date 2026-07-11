@@ -22,6 +22,16 @@ export function storybookImageIdsUsedByMessages(messages: MessageRecord[]) {
     if (socialImageId) {
       imageIds.add(socialImageId);
     }
+    // Social direct messages also link attachments by Storybook/Gallery id.
+    message.socialDirectMessage?.imageIds?.forEach((imageId) => {
+      if (imageId.trim()) {
+        imageIds.add(imageId.trim());
+      }
+    });
+    const socialDirectOriginImageId = message.socialDirectMessage?.origin?.postImageId?.trim();
+    if (socialDirectOriginImageId) {
+      imageIds.add(socialDirectOriginImageId);
+    }
   });
   return imageIds;
 }

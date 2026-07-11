@@ -91,13 +91,16 @@ import {
   onlyFriendsWalletName,
 } from '../chat/onlyFriendsWallet';
 import {
+  parseSocialDirectMessageOutput,
   parseSocialReactionsOutput,
+  socialDirectMessageInputText,
   socialMessageHiddenFromChat,
   socialPostEngagementByPostId,
   socialPostTextFromInput,
   socialReactionsByPostId,
   socialThreadActionInputText,
   socialThreadCommentTextFromInput,
+  socialThreadRunContextFromInput,
 } from '../chat/socialMedia';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
@@ -230,14 +233,30 @@ export function verifyWorkflowValidationFixtures() {
       originalText: 'Wallet withdrawal',
       bankTransfer: { from: onlyFriendsWalletName, to: bankingCharacter.name, amount: 20 },
     },
+    {
+      id: 15,
+      role: 'output',
+      originalText: 'DM tip',
+      socialDirectMessage: {
+        app: 'onlyfriends',
+        messageId: 'onlyfriends-dm-tip-1',
+        from: 'Generous Fan',
+        fromHandle: 'generous.fan',
+        to: bankingCharacter.name,
+        toHandle: 'banking.character',
+        text: 'You earned this!',
+        tip: 5.5,
+        sentAt: '2026-06-01T12:00:00.000Z',
+      },
+    },
   ];
   assertFixture(
     onlyFriendsWalletBalance(
       bankingCharacter,
       onlyFriendsWalletMessages,
       { 'onlyfriends-post-1': 9.99 },
-    ) === 70.01,
-    'OnlyFriends balance must combine bank funding, withdrawals, and internal post purchases',
+    ) === 75.51,
+    'OnlyFriends balance must combine bank funding, withdrawals, received DM tips, and internal post purchases',
   );
 
   const socialThreadAction = {
@@ -266,8 +285,139 @@ export function verifyWorkflowValidationFixtures() {
         'Translated caption' &&
       socialThreadCommentTextFromInput(
         '[SOCIAL MEDIA THREAD ACTION]\nNew comment from the actor: Translated comment',
-      ) === 'Translated comment',
+      ) === 'Translated comment' &&
+      socialThreadRunContextFromInput(socialThreadInput).likeCount === 12 &&
+      socialThreadRunContextFromInput(socialThreadInput).existingComments[0]?.handle ===
+        'background.friend',
     'social inputs must expose ownership and translated user text for persistence',
+  );
+  const socialDirectMessage = {
+    app: 'fotogram' as const,
+    messageId: 'fotogram-dm-user-1',
+    from: 'Alex',
+    fromHandle: 'alex',
+    to: 'Jamie',
+    toHandle: 'jamie',
+    text: 'Are you free later?',
+    sentAt: '2026-06-01T12:30:00.000Z',
+    origin: {
+      postId: 'post-dress-1',
+      postAuthor: 'Alex',
+      postAuthorHandle: 'alex',
+      postCaption: 'Trying this dress for tonight.',
+      postImageId: 'alex_dress_01',
+      postImageDescription: 'Alex wears a green evening dress.',
+      commentAuthor: 'Jamie',
+      commentAuthorHandle: 'jamie',
+      commentText: 'That dress looks amazing!',
+    },
+  };
+  const socialDirectInput = socialDirectMessageInputText(socialDirectMessage, [{
+    id: 19,
+    role: 'output',
+    originalText: 'Earlier DM',
+    socialDirectMessage: {
+      app: 'fotogram',
+      messageId: 'fotogram-dm-reply-0',
+      from: 'Jamie',
+      fromHandle: 'jamie',
+      to: 'Alex',
+      toHandle: 'alex',
+      text: 'Maybe after work.',
+      sentAt: '2026-06-01T12:00:00.000Z',
+    },
+  }]);
+  const parsedSocialDirectReply = parseSocialDirectMessageOutput(
+    [
+      '{"fotogramDirectMessage":{"text":"Yes, message me when you are done!"}}',
+      '{"phoneMessages":[{"from":"Jamie","to":"Alex","message":"Here is my number."}]}',
+      '{"bankTransfers":[{"from":"Jamie","to":"Alex","amount":20,"note":"For the dress"}]}',
+    ].join('\n'),
+    socialDirectMessage,
+    '2026-06-01T12:31:00.000Z',
+  );
+  const rejectedSocialDirectReply = parseSocialDirectMessageOutput(
+    '{"onlyFriendsDirectMessage":{"text":"Wrong app key"}}',
+    socialDirectMessage,
+    '2026-06-01T12:31:00.000Z',
+  );
+  const parsedOnlyFriendsTipReply = parseSocialDirectMessageOutput(
+    '{"onlyFriendsDirectMessage":{"text":"You are the best!","tip":10}}',
+    { ...socialDirectMessage, app: 'onlyfriends' as const },
+    '2026-06-01T12:31:00.000Z',
+  );
+  assertFixture(
+    socialDirectInput.startsWith('[FOTOGRAM DIRECT MESSAGE]') &&
+      socialDirectInput.includes('Jamie (@jamie): Maybe after work.') &&
+      socialDirectInput.includes('Post text: Trying this dress for tonight.') &&
+      socialDirectInput.includes('Original comment from Jamie (@jamie): That dress looks amazing!') &&
+      socialDirectInput.includes('New message: Are you free later?') &&
+      parsedSocialDirectReply.message?.fromHandle === 'jamie' &&
+      parsedSocialDirectReply.message?.toHandle === 'alex' &&
+      parsedSocialDirectReply.message?.replyToMessageId === 'fotogram-dm-user-1' &&
+      parsedSocialDirectReply.message?.origin?.postImageId === 'alex_dress_01' &&
+      parsedSocialDirectReply.phoneMessages[0]?.message === 'Here is my number.' &&
+      parsedSocialDirectReply.bankTransfers[0]?.amount === 20 &&
+      parsedSocialDirectReply.warnings.length === 0 &&
+      rejectedSocialDirectReply.message === undefined &&
+      rejectedSocialDirectReply.warnings.some((warning) =>
+        warning.includes('fotogramDirectMessage'),
+      ) &&
+      parsedOnlyFriendsTipReply.message?.tip === 10 &&
+      socialMessageHiddenFromChat({
+        id: 22,
+        role: 'output',
+        originalText: 'Hidden DM history',
+        socialDirectMessage: parsedSocialDirectReply.message,
+      }),
+    'social direct messages must include conversation context, parse the recipient reply, and stay hidden in Chat',
+  );
+  const parsedReactionsWithDms = parseSocialReactionsOutput(
+    [
+      '{"reactions":{"postId":"onlyfriends-post-01","likes":30,"comments":[{"from":"Fan","text":"Wow!"}]}}',
+      '{"onlyFriendsDirectMessages":[{"from":"Marcus Vane","text":"Any chance to see more?","postId":"onlyfriends-post-01","tip":5},{"from":"quiet.admirer","text":"You are stunning."}]}',
+    ].join('\n'),
+    { app: 'onlyfriends', postId: 'onlyfriends-post-01' },
+  );
+  const parsedFotogramTipIgnored = parseSocialReactionsOutput(
+    [
+      '{"reactions":{"postId":"fotogram-post-01","likes":10,"comments":[]}}',
+      '{"fotogramDirectMessages":[{"from":"Chloe Whitmore","text":"Long time no see!","tip":5}]}',
+    ].join('\n'),
+    { app: 'fotogram', postId: 'fotogram-post-01' },
+  );
+  assertFixture(
+    parsedReactionsWithDms.reactions?.likes === 30 &&
+      parsedReactionsWithDms.warnings.length === 0 &&
+      parsedReactionsWithDms.directMessages.length === 2 &&
+      parsedReactionsWithDms.directMessages[0]?.tip === 5 &&
+      parsedReactionsWithDms.directMessages[0]?.postId === 'onlyfriends-post-01' &&
+      parsedReactionsWithDms.directMessages[1]?.tip === undefined &&
+      parsedFotogramTipIgnored.directMessages[0]?.tip === undefined,
+    'social reactions must parse standalone incoming DM blocks and keep tips OnlyFriends-only',
+  );
+  const socialPostOriginInput = socialDirectMessageInputText({
+    app: 'onlyfriends',
+    messageId: 'onlyfriends-dm-user-2',
+    from: 'Helga Harper',
+    fromHandle: 'helga.harper',
+    to: 'Marcus Vane',
+    toHandle: 'marcus.vane',
+    text: 'Thanks for the message!',
+    sentAt: '2026-06-01T13:00:00.000Z',
+    origin: {
+      postId: 'onlyfriends-post-01',
+      postAuthor: 'Helga Harper',
+      postAuthorHandle: 'helga.harper',
+      postCaption: 'New set is live.',
+      postImageDescription: 'Helga poses in the new outfit set.',
+    },
+  }, []);
+  assertFixture(
+    socialPostOriginInput.includes('Conversation origin: a social post') &&
+      socialPostOriginInput.includes('Post ID: onlyfriends-post-01') &&
+      !socialPostOriginInput.includes('Original comment'),
+    'post-only DM origins must describe the post without inventing a comment',
   );
   const parsedSocialThread = parseSocialReactionsOutput(
     '{"reactions":{"postId":"post-1","additionalLikes":2,"comments":[{"from":"Jamie","text":"Love it!"}]},"summary":"Alex asked the thread about the location; Jamie responded positively."}',
@@ -432,13 +582,41 @@ export function verifyWorkflowValidationFixtures() {
         imageId: 'sarah_miller_image_02',
       },
     },
+    {
+      id: 5,
+      role: 'user',
+      originalText: 'Social direct message with image',
+      socialDirectMessage: {
+        app: 'onlyfriends',
+        messageId: 'onlyfriends-dm-1',
+        from: 'Emily Miller',
+        fromHandle: 'emily',
+        to: 'Sarah Miller',
+        toHandle: 'sarah',
+        text: 'Private photo',
+        sentAt: '2026-06-01T12:15',
+        imageIds: ['emily_miller_image_03'],
+        origin: {
+          postId: 'post-dress-image',
+          postAuthor: 'Emily Miller',
+          postAuthorHandle: 'emily',
+          postCaption: 'New dress.',
+          postImageId: 'emily_miller_image_04',
+          commentAuthor: 'Sarah Miller',
+          commentAuthorHandle: 'sarah',
+          commentText: 'Love this look!',
+        },
+      },
+    },
   ]);
   assertFixture(
     usedImageIds.has('emily_miller_image_01') &&
       usedImageIds.has('sarah_miller_image_01') &&
       usedImageIds.has('sarah_miller_image_02') &&
+      usedImageIds.has('emily_miller_image_03') &&
+      usedImageIds.has('emily_miller_image_04') &&
       !usedImageIds.has('ignored_image_01'),
-    'chat history image usage must include RP attachments and Phone image IDs',
+    'chat history image usage must include RP, Phone, and social direct-message image IDs',
   );
 
   const referenceStorybook = {
@@ -1054,6 +1232,82 @@ export function verifyWorkflowValidationFixtures() {
       ],
     }),
     'current RP Save Format must accept persisted social thread actions',
+  );
+  assertFixture(
+    isRpSaveFile({
+      ...currentSession,
+      timeline: [
+        {
+          id: 'turn-2-input-1',
+          kind: 'message',
+          turnId: 'turn-2',
+          turnNumber: 2,
+          phase: 'input',
+          channel: 'rp',
+          role: 'user',
+          text: { original: '[Fotogram DM] Alex: Are you free later?' },
+          socialDirectMessage: {
+            app: 'fotogram',
+            messageId: 'fotogram-dm-1',
+            from: 'Alex',
+            fromHandle: 'alex',
+            to: 'Jamie',
+            toHandle: 'jamie',
+            text: 'Are you free later?',
+            sentAt: '2026-06-01T12:30',
+            imageIds: ['alex_image_01'],
+          },
+        },
+        {
+          id: 'turn-2-output-1',
+          kind: 'message',
+          turnId: 'turn-2',
+          turnNumber: 2,
+          phase: 'output',
+          channel: 'rp',
+          role: 'assistant',
+          text: { original: '[Fotogram DM] Jamie: Yes.' },
+          socialDirectMessage: {
+            app: 'fotogram',
+            messageId: 'fotogram-dm-2',
+            from: 'Jamie',
+            fromHandle: 'jamie',
+            to: 'Alex',
+            toHandle: 'alex',
+            text: 'Yes.',
+            sentAt: '2026-06-01T12:31',
+            replyToMessageId: 'fotogram-dm-1',
+          },
+        },
+      ],
+    }),
+    'current RP Save Format must accept persisted social direct messages',
+  );
+  assertFixture(
+    !isRpSaveFile({
+      ...currentSession,
+      timeline: [{
+        id: 'turn-invalid-input-1',
+        kind: 'message',
+        turnId: 'turn-invalid',
+        turnNumber: 3,
+        phase: 'input',
+        channel: 'rp',
+        role: 'user',
+        text: { original: 'Invalid social direct message' },
+        socialDirectMessage: {
+          app: 'unknown',
+          messageId: 'invalid-dm',
+          from: 'Alex',
+          fromHandle: 'alex',
+          to: 'Jamie',
+          toHandle: 'jamie',
+          text: 'Hello',
+          sentAt: '2026-06-01T12:30',
+        },
+      }],
+    }),
+    'current RP Save Format must reject invalid social direct-message apps',
   );
   assertFixture(
     !isRpSaveFile({ ...currentSession, formatVersion: '1.1' }),
@@ -2019,6 +2273,34 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     embeddedPhoneWithSendImageId.phoneMessages[0]?.imageId === 'lara_miller_image_01',
     'embedded phone parser must preserve outgoing sendImageId attachments',
+  );
+  const embeddedSocialPostComment = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Jack grins and pulls out his phone.',
+    '{"fotogramPostComment":{"postId":"fotogram-post-01","from":"Jack Carter","text":"Looking stunning! See you tonight."}}',
+    '{"onlyFriendsPostComment":{"postId":"onlyfriends-post-02","from":"Generous Fan","text":"Love this set!"}}',
+  ].join('\n'));
+  assertFixture(
+    embeddedSocialPostComment.text === 'Jack grins and pulls out his phone.' &&
+      embeddedSocialPostComment.socialPostComments[0]?.app === 'fotogram' &&
+      embeddedSocialPostComment.socialPostComments[0]?.postId === 'fotogram-post-01' &&
+      embeddedSocialPostComment.socialPostComments[0]?.from === 'Jack Carter' &&
+      embeddedSocialPostComment.socialPostComments[1]?.app === 'onlyfriends' &&
+      parseEmbeddedPhoneMessagesFromRpOutput(
+        '{"fotogramPostComment":{"postId":"fotogram-post-01","text":"Missing commenter"}}',
+      ).socialPostComments.length === 0,
+    'embedded social post comments must parse per app and require postId, from, and text',
+  );
+  const embeddedSocialDm = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Later that night, her phone buzzes.',
+    '{"onlyFriendsDirectMessages":[{"from":"Marcus Vane","to":"Helga Harper","text":"That set was incredible.","postId":"onlyfriends-post-01","tip":10}]}',
+  ].join('\n'));
+  assertFixture(
+    embeddedSocialDm.text === 'Later that night, her phone buzzes.' &&
+      embeddedSocialDm.socialDirectMessages[0]?.app === 'onlyfriends' &&
+      embeddedSocialDm.socialDirectMessages[0]?.to === 'Helga Harper' &&
+      embeddedSocialDm.socialDirectMessages[0]?.tip === 10 &&
+      embeddedSocialDm.socialDirectMessages[0]?.postId === 'onlyfriends-post-01',
+    'embedded social DM blocks must parse sender, recipient, post reference, and tip',
   );
   const rpOutputWithDisplayImage = parseRpOutput([
     'Lara swipes to the cat photo and smiles.',

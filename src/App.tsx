@@ -64,7 +64,13 @@ import {
   bankTransferMessages,
 } from './chat/bankTransfers';
 import { onlyFriendsWalletName } from './chat/onlyFriendsWallet';
-import { socialPostInputText, socialThreadActionInputText } from './chat/socialMedia';
+import {
+  socialDirectMessageInputText,
+  socialIdentityMatches,
+  socialPostInputText,
+  socialThreadActionInputText,
+  socialThreadRunContextFromInput,
+} from './chat/socialMedia';
 import {
   extractDialogueQuotes,
 } from './chat/textRendering';
@@ -270,6 +276,7 @@ import type {
   ImageCaptionChange,
   InputActionSelection,
   MessageRecord,
+  SocialDirectMessageRecord,
   SocialPostRecord,
   SocialReactionComment,
   SocialThreadActionRecord,
@@ -4729,6 +4736,100 @@ function App() {
       turn.mode === 'auto-turn' ||
       turn.input.graphText.includes('[AUTO TURN]') ||
       turn.input.graphText.includes('[AUTO PHONE TURN]');
+    if (turn.messageFormat === 3) {
+      const turnMessages = [...turn.input.messages, ...turn.output.messages];
+      const socialPost = turnMessages.find((message) => message.socialPost)?.socialPost;
+      const socialThreadAction = turnMessages.find(
+        (message) => message.socialThreadAction,
+      )?.socialThreadAction;
+      const socialDirectInputMessage = turn.input.messages.find(
+        (message) => message.socialDirectMessage,
+      );
+      const socialDirectRegenerateInputMessage = socialDirectInputMessage
+        ? {
+            ...socialDirectInputMessage,
+            turnContext: socialDirectInputMessage.turnContext ?? {
+              englishProcessingEnabled,
+              inputTranslationOnlyEnabled,
+              displayLanguage,
+            },
+          }
+        : undefined;
+      const socialDirectMessage = socialDirectInputMessage?.socialDirectMessage;
+      const actorName = socialPost?.author ?? socialThreadAction?.actor ?? socialDirectMessage?.from;
+      const actorHandle = socialPost?.authorHandle ??
+        socialThreadAction?.actorHandle ??
+        socialDirectMessage?.fromHandle;
+      const actor = storyCharacters.find((character) =>
+        socialIdentityMatches(character.name, actorName ?? '') ||
+        socialIdentityMatches(character.id, actorName ?? '') ||
+        socialIdentityMatches(character.social.fotogramUsername, actorHandle ?? '') ||
+        socialIdentityMatches(character.social.onlyfriendsUsername, actorHandle ?? ''),
+      ) ?? selectedCharacter;
+      const historyMessages = messagesRef.current.filter(
+        (message) => !allTurnMessageIds.has(message.id),
+      );
+      const socialDirectRunMessage = socialDirectMessage
+        ? {
+            ...socialDirectMessage,
+            text: socialDirectMessage.internalText ?? socialDirectMessage.text,
+          }
+        : undefined;
+      const threadContext = socialThreadAction
+        ? socialThreadRunContextFromInput(turn.input.graphText)
+        : undefined;
+      const displayText = socialPost
+        ? socialPostInputText(socialPost)
+        : socialThreadAction
+          ? socialThreadActionInputText(
+              socialThreadAction,
+              threadContext?.existingComments ?? [],
+              threadContext?.likeCount ?? 0,
+            )
+          : socialDirectRunMessage
+            ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages)
+            : turn.input.graphText;
+      const imageId = socialPost?.imageId ?? socialDirectMessage?.origin?.postImageId;
+      const inputImages = imageId
+        ? [socialImageById(imageId)].filter(
+            (image): image is ChatImageAttachment => !!image,
+          )
+        : [];
+      const promptSlot = turn.promptSlot ?? (
+        socialPost
+          ? socialPost.app === 'fotogram' ? 0 : 1
+          : socialThreadAction
+            ? socialThreadAction.app === 'fotogram' ? 2 : 3
+            : socialDirectRunMessage?.app === 'fotogram' ? 4 : 5
+      );
+      applyTurnCheckpointRuntime(turn, 'before');
+      void runGraph(
+        displayText,
+        inputImages,
+        socialDirectRegenerateInputMessage,
+        historyMessages,
+        replacedMessageIds,
+        actor,
+        false,
+        undefined,
+        { turn, replaceInput: false },
+        turn.mode ?? 'user',
+        socialDirectRegenerateInputMessage?.eventDisplayText,
+        undefined,
+        undefined,
+        false,
+        3,
+        promptSlot,
+        undefined,
+        undefined,
+        socialPost,
+        socialThreadAction,
+        threadContext,
+        false,
+        socialDirectRunMessage,
+      );
+      return;
+    }
     if (turn.messageFormat === 2) {
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
@@ -5208,6 +5309,49 @@ function App() {
         existingComments: request.existingComments,
         likeCount: request.likeCount,
       },
+    );
+  }
+
+  async function submitSocialDirectMessage(message: SocialDirectMessageRecord) {
+    if (isRunning) {
+      return false;
+    }
+    const actor = storyCharacters.find((character) =>
+      socialIdentityMatches(character.name, message.from) ||
+      socialIdentityMatches(character.id, message.from),
+    ) ?? selectedCharacter;
+    if (!actor) {
+      notifySystem('warning', 'Select a Storybook character before sending a social direct message.');
+      return false;
+    }
+    return runGraph(
+      socialDirectMessageInputText(message, messagesRef.current),
+      message.origin?.postImageId
+        ? [socialImageById(message.origin.postImageId)].filter(
+            (image): image is ChatImageAttachment => !!image,
+          )
+        : [],
+      undefined,
+      messagesRef.current,
+      undefined,
+      actor,
+      false,
+      undefined,
+      undefined,
+      'user',
+      undefined,
+      undefined,
+      undefined,
+      false,
+      3,
+      message.app === 'fotogram' ? 4 : 5,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      message,
     );
   }
 
@@ -6521,10 +6665,12 @@ function App() {
                 (message) =>
                   !!message.socialPost ||
                   !!message.socialThreadAction ||
-                  !!message.socialReactions,
+                  !!message.socialReactions ||
+                  !!message.socialDirectMessage,
               )}
               onSubmitSocialPost={submitSocialPost}
               onSubmitSocialThreadAction={submitSocialThreadAction}
+              onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onCreateSocialAccount={saveStorybookSocialUsername}
               onImportSocialPostImage={importSocialPostImage}
               socialImageById={socialImageById}

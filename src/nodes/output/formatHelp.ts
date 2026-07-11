@@ -32,7 +32,7 @@ Selects the prompt slot inside the chosen normal output channel:
 4 = Narrator
 5 = Narrator AutoTurn
 
-Social Media uses its own slots: 0 = Fotogram post, 1 = OnlyFriends post, 2 = Fotogram comment thread, 3 = OnlyFriends comment thread.
+Social Media uses its own slots: 0 = Fotogram post, 1 = OnlyFriends post, 2 = Fotogram comment thread, 3 = OnlyFriends comment thread, 4 = Fotogram DM, 5 = OnlyFriends DM.
 
 Direct Actions
 Carries already-complete app-action JSON. A direct-only run evaluates only this output and the matching RP Output input. Text, Image, Message Format, Turn Mode, and the LLM Prompt Switch are not evaluated, so no LLM is called.
@@ -96,6 +96,16 @@ Embedded phone messages use this shape. sendImageId is optional and attaches an 
 
 Use sendImageId only for outgoing stored image attachments in Phone messages. Use displayImageId only for showing one stored image in Normal RP. Do not use imageId for outgoing attachments; imageId is reserved for image action commands in the dedicated Phone Message channel.
 
+Normal RP can also comment on an existing social post. Add one standalone JSON object with the post id from the chat history:
+{"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
+{"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
+The comment appears under that post in the social app. Use it only when the story clearly has someone comment on a specific existing post.
+
+Normal RP can also send a social direct message when the story has someone message a character privately in a social app:
+{"fotogramDirectMessages":[{"from":"sender name","to":"recipient name","text":"message text"}]}
+{"onlyFriendsDirectMessages":[{"from":"sender name","to":"recipient name","text":"message text","postId":"onlyfriends-post-01","tip":5}]}
+from and to are required here. postId optionally links the DM to an existing post from the chat history. tip is optional, OnlyFriends-only, and credits the recipient's wallet.
+
 Output Actions UI commands such as buttons, info boxes, progress bars, context capacity bars, setTab, and setPlayer only work through the Output Actions input, not through Normal RP.`;
 
 export const phoneOutputPrompt = `Phone Message is the dedicated phone channel.
@@ -124,6 +134,16 @@ When no incoming image is present, the second object is optional and should only
 Keep these concepts separate: sendImageId is an outgoing attachment in the phone message object. imageId belongs only to image action objects. imageAction objects update/create/no-change captions and are not visible phone messages.
 
 The from field is the sender of the generated phone message. The to field is the recipient. Use exact Storybook or phone contact names when they exist. For event-like messages, an outside contact can also be used when sensible, such as a delivery service, ticket office, pizza place, hotel reception, or other named service.
+
+A phone reply can also comment on an existing social post, for example when someone asks for a comment on their post in the chat. Add one extra standalone JSON object after the reply, with the post id from the chat history:
+{"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
+{"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
+The comment appears under that post in the social app.
+
+A phone reply can also send a social direct message as an extra standalone JSON object, when the conversation clearly moves into a social app DM:
+{"fotogramDirectMessages":[{"from":"sender name","to":"recipient name","text":"message text"}]}
+{"onlyFriendsDirectMessages":[{"from":"sender name","to":"recipient name","text":"message text","postId":"onlyfriends-post-01","tip":5}]}
+from and to are required here. postId optionally links the DM to an existing post; tip is optional and OnlyFriends-only.
 
 Phone Message is not for prose narration. It should produce the message payload that appears in the Phone tab.`;
 
@@ -157,20 +177,42 @@ Do not wrap the JSON in markdown.`;
 
 export const socialMediaOutputPrompt = `Social Media is the channel for reactions inside the phone social apps (Fotogram, OnlyFriends).
 
-It is used by Message Format 3 runs. Post slots are Turn Mode 0 = Fotogram and 1 = OnlyFriends. Comment-thread slots are Turn Mode 2 = Fotogram and 3 = OnlyFriends.
+It is used by Message Format 3 runs. Post slots are Turn Mode 0 = Fotogram and 1 = OnlyFriends. Comment-thread slots are Turn Mode 2 = Fotogram and 3 = OnlyFriends. Direct-message slots are Turn Mode 4 = Fotogram and 5 = OnlyFriends.
 
 A [SOCIAL MEDIA POST] input creates initial reactions:
 {"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
 
+Post and thread runs may additionally send incoming direct messages to the post author (or thread actor) as one extra standalone JSON object after the reactions:
+{"fotogramDirectMessages":[{"from":"Sender Name","text":"message text","postId":"fotogram-post-01"}]}
+{"onlyFriendsDirectMessages":[{"from":"Fan Name","text":"message text","postId":"onlyfriends-post-01","tip":5}]}
+postId is optional and links the DM to that post as conversation context; omit it for a general DM. tip is optional, OnlyFriends-only, a positive number credited to the recipient's wallet. On Fotogram incoming DMs are rare (zero or one, only when it fits naturally). On OnlyFriends one to two fan DMs per post are expected.
+
 A [SOCIAL MEDIA THREAD ACTION] input either adds a user comment or loads more comments. Return new reactions to append plus a very short English history summary:
 {"reactions":{"postId":"the post id from the input","additionalLikes":2,"comments":[{"from":"Name","text":"new reply"}]},"summary":"Alex complimented Jamie's photo; Jamie thanked Alex while other people joined the thread."}
+
+A [FOTOGRAM DIRECT MESSAGE] input asks the recipient to answer one private Fotogram message. Return the app-specific reply block:
+{"fotogramDirectMessage":{"text":"Hey! Yes, I would love to."}}
+
+An [ONLYFRIENDS DIRECT MESSAGE] input asks the recipient to answer one private OnlyFriends message. Return the app-specific reply block; tip is optional:
+{"onlyFriendsDirectMessage":{"text":"You look amazing!","tip":10}}
+
+A DM reply may be followed by extra standalone JSON objects, each on its own, not nested inside the DM block:
+{"phoneMessages":[{"from":"sender name","to":"recipient name","message":"message text"}]}
+{"bankTransfers":[{"from":"sender name","to":"recipient name","amount":20,"note":"reason"}]}
 
 Rules:
 - Initial-post likes is a plausible total for the app and audience. Thread additionalLikes is a small increase, usually zero to five.
 - Fotogram post reactions use zero to two fitting story characters plus two to three invented NPC friends. Thread reactions may include the post author, fitting story characters, or NPC commenters.
 - On someone else's Fotogram post, decide naturally whether the author replies, other commenters react, or the user's comment is ignored while unrelated comments appear.
 - On the actor's own Fotogram post, replies usually address the actor directly when that fits the new comment.
-- OnlyFriends uses invented fans/subscribers only; story characters never appear there. Keep the tone suggestive rather than explicit.
+- OnlyFriends post and thread reactions use invented fans/subscribers only; story characters never appear in those public reactions. Keep the tone suggestive rather than explicit.
+- For direct messages, write only as the specified recipient. Respect their established personality and the existing conversation. Never invent a reply from the sender.
+- The DM reply must use the app-specific key: fotogramDirectMessage for Fotogram, onlyFriendsDirectMessage for OnlyFriends. A generic directMessage block is rejected.
+- tip is only allowed in onlyFriendsDirectMessage, must be a positive number, and is used only when the sender of the reply genuinely decides to tip the conversation partner. It credits the recipient's OnlyFriends wallet and is not a bank transfer.
+- Add a standalone phoneMessages object only when the conversation clearly moves to the phone messenger and the reply actually sends a phone message now.
+- Add a standalone bankTransfers object only when money is genuinely transferred now. Mentioning money is not a transfer; never invent amounts. When the reply states that money is sent, the bankTransfers object is required in addition to the DM text.
+- When the DM input includes a conversation origin, the sender opened the chat from that exact post comment. Use the supplied post caption, image description, attached post image, and original comment as the subject of the conversation.
+- Fotogram and OnlyFriends direct-message conversations are separate. OnlyFriends DMs may be more personal, but must remain non-explicit.
 - Each comment needs from (a name) and text. An optional handle field overrides the generated @handle.
 - Do not repeat existing comments. New comments stay short and natural.
 - For thread actions, summary is mandatory, one short sentence, and is the only text sent to chat history. Summarize what the actor did and any meaningful response without copying the full comment thread or listing background NPC noise.

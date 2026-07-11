@@ -32,6 +32,7 @@ import { CharacterAvatar } from '../CharacterAvatar';
 import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { PhoneImagePicker } from '../PhoneImagePicker';
 import {
+  nextSocialPostId,
   socialCharacterForPost,
   socialHandleForCharacter,
   socialHandleForName,
@@ -42,10 +43,15 @@ import {
 } from '../../chat/socialMedia';
 import type {
   SocialPostRecord,
+  SocialDirectMessageRecord,
   SocialReactionComment,
   SocialThreadActionRecord,
 } from '../../types';
 import type { SocialAppConfig } from './socialApps';
+import {
+  PhoneSocialDirectMessages,
+  type SocialDirectMessageParticipant,
+} from './PhoneSocialDirectMessages';
 import {
   dummySocialPosts,
   formatSocialCount,
@@ -92,6 +98,7 @@ type PhoneSocialFeedScreenProps = {
   phoneGalleryImages: ChatImageAttachment[];
   bankTransferMessages: MessageRecord[];
   socialMediaMessages: MessageRecord[];
+  onSendDirectMessage: (message: SocialDirectMessageRecord) => Promise<boolean>;
   /** Resolves a Storybook/Gallery image id to the stored image. */
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   /** Liked post ids per "characterId/app" account (persisted in the RP save). */
@@ -185,6 +192,7 @@ export function PhoneSocialFeedScreen({
   phoneGalleryImages,
   bankTransferMessages,
   socialMediaMessages,
+  onSendDirectMessage,
   socialImageById,
   socialLikesByAccount,
   onlyFriendsPurchasesByCharacter,
@@ -220,6 +228,8 @@ export function PhoneSocialFeedScreen({
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
   const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
   const [selectedAccountKey, setSelectedAccountKey] = useState<string>();
+  const [directMessagesOpen, setDirectMessagesOpen] = useState(false);
+  const [directMessageParticipant, setDirectMessageParticipant] = useState<SocialDirectMessageParticipant>();
   // Post currently showing the OnlyFriends balance confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
   const [walletOpen, setWalletOpen] = useState(false);
@@ -244,6 +254,7 @@ export function PhoneSocialFeedScreen({
   const [visibleCommentCounts, setVisibleCommentCounts] = useState<Record<string, number>>({});
   const [pendingCommentReveal, setPendingCommentReveal] = useState<PendingCommentReveal>();
   const [addingPerson, setAddingPerson] = useState(false);
+  const [revealedDirectMessageIds, setRevealedDirectMessageIds] = useState<Set<string>>(() => new Set());
   const [newPersonName, setNewPersonName] = useState('');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -251,7 +262,10 @@ export function PhoneSocialFeedScreen({
   const postElementsRef = useRef(new Map<string, HTMLElement>());
   const scrolledOpenPostRequestIdRef = useRef<number | undefined>(undefined);
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
-  const nextPostSequenceRef = useRef(socialMediaMessages.length);
+  const knownDirectMessageIdsRef = useRef<Set<string> | undefined>(undefined);
+  const dmRevealAccountRef = useRef<string | undefined>(undefined);
+  const dmScheduledRevealIdsRef = useRef<Set<string>>(new Set());
+  const dmRevealTimersRef = useRef<number[]>([]);
   const noticeTimerRef = useRef<number | undefined>(undefined);
   const postAppearTimersRef = useRef(new Map<string, number>());
   const reactionFallbackTimersRef = useRef(new Map<string, number>());
@@ -269,7 +283,11 @@ export function PhoneSocialFeedScreen({
     : {};
   const unlockedPostIds = new Set(Object.keys(onlyFriendsPurchases));
   const walletBalance = owner
-    ? onlyFriendsWalletBalance(owner, bankTransferMessages, onlyFriendsPurchases)
+    ? onlyFriendsWalletBalance(
+        owner,
+        [...bankTransferMessages, ...socialMediaMessages],
+        onlyFriendsPurchases,
+      )
     : 0;
   const walletAmount = Math.round(Number(walletAmountText) * 100) / 100;
   const walletAmountValid = Number.isFinite(walletAmount) && walletAmount > 0;
@@ -333,7 +351,95 @@ export function PhoneSocialFeedScreen({
       handle: socialHandleForCharacter(character, app.id),
       character,
     }));
-  const followedAccounts = [...characterAccounts, ...addedAccounts];
+  // DM conversations of the viewing account: recency per partner handle (in
+  // message order) plus quick-access sidebar entries for partners who are not
+  // story characters, e.g. virtual users or comment authors that were messaged.
+  const persistedDirectMessages = socialMediaMessages.flatMap((message) =>
+    message.socialDirectMessage ? [message.socialDirectMessage] : [],
+  );
+  // New incoming DMs are revealed one after another with short delays so a
+  // fresh post feels alive instead of everything appearing in one blink.
+  const incomingDirectMessageIds = persistedDirectMessages
+    .filter((directMessage) =>
+      directMessage.app === app.id &&
+      !!account &&
+      socialIdentityMatches(directMessage.toHandle, account) &&
+      !socialIdentityMatches(directMessage.fromHandle, account),
+    )
+    .map((directMessage) => directMessage.messageId);
+  // The known-ids baseline is (re)built synchronously during render, so a
+  // brand-new incoming DM is already hidden on its very first paint instead
+  // of flashing once before the reveal timer runs.
+  if (dmRevealAccountRef.current !== account || !knownDirectMessageIdsRef.current) {
+    dmRevealAccountRef.current = account;
+    knownDirectMessageIdsRef.current = new Set(incomingDirectMessageIds);
+    dmScheduledRevealIdsRef.current = new Set();
+  }
+  const knownDirectMessageIds = knownDirectMessageIdsRef.current;
+  const hiddenDirectMessageIds = new Set(
+    incomingDirectMessageIds.filter(
+      (messageId) =>
+        !knownDirectMessageIds.has(messageId) && !revealedDirectMessageIds.has(messageId),
+    ),
+  );
+  useEffect(() => {
+    const freshIds = incomingDirectMessageIds.filter(
+      (messageId) =>
+        !knownDirectMessageIdsRef.current?.has(messageId) &&
+        !revealedDirectMessageIds.has(messageId) &&
+        !dmScheduledRevealIdsRef.current.has(messageId),
+    );
+    freshIds.forEach((messageId, index) => {
+      dmScheduledRevealIdsRef.current.add(messageId);
+      dmRevealTimersRef.current.push(window.setTimeout(() => {
+        setRevealedDirectMessageIds((current) => new Set(current).add(messageId));
+      }, 1_500 + index * 2_200 + Math.round(Math.random() * 900)));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingDirectMessageIds.join('|'), account]);
+  useEffect(() => () => {
+    dmRevealTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+  const visibleDirectMessages = persistedDirectMessages.filter(
+    (directMessage) => !hiddenDirectMessageIds.has(directMessage.messageId),
+  );
+  const handleKey = (handle: string) => handle.trim().replace(/^@/, '').toLowerCase();
+  const dmRecencyByHandle = new Map<string, number>();
+  const dmPartnerNamesByHandle = new Map<string, string>();
+  visibleDirectMessages.forEach((directMessage, index) => {
+    if (directMessage.app !== app.id || !account) {
+      return;
+    }
+    const partner = socialIdentityMatches(directMessage.fromHandle, account)
+      ? { name: directMessage.to, handle: directMessage.toHandle }
+      : socialIdentityMatches(directMessage.toHandle, account)
+        ? { name: directMessage.from, handle: directMessage.fromHandle }
+        : undefined;
+    if (partner) {
+      dmRecencyByHandle.set(handleKey(partner.handle), index);
+      dmPartnerNamesByHandle.set(handleKey(partner.handle), partner.name);
+    }
+  });
+  const dmRecency = (handle: string) => dmRecencyByHandle.get(handleKey(handle)) ?? -1;
+  const dmPartnerAccounts: SocialAccount[] = [...dmPartnerNamesByHandle.entries()]
+    .filter(([partnerHandleKey]) =>
+      !characterAccounts.some((entry) => handleKey(entry.handle) === partnerHandleKey) &&
+      !addedAccounts.some((entry) => handleKey(entry.handle) === partnerHandleKey),
+    )
+    .map(([partnerHandleKey, name]) => ({
+      key: `dm-partner-${app.id}-${partnerHandleKey}`,
+      name,
+      handle: partnerHandleKey,
+      character: storyCharacters.find((character) =>
+        socialIdentityMatches(socialHandleForCharacter(character, app.id), partnerHandleKey) ||
+        socialIdentityMatches(character.name, name),
+      ),
+    }));
+  // Story characters keep their fixed order; added people and DM partners
+  // follow below, most recent conversation first.
+  const extraAccounts = [...addedAccounts, ...dmPartnerAccounts]
+    .sort((left, right) => dmRecency(right.handle) - dmRecency(left.handle));
+  const followedAccounts = [...characterAccounts, ...extraAccounts];
   const selectedAccount = followedAccounts.find((entry) => entry.key === selectedAccountKey);
 
   // Posts published through the workflow live on chat messages (and therefore
@@ -408,6 +514,8 @@ export function PhoneSocialFeedScreen({
       imageDataUrl: message.socialPost.imageId
         ? socialImageById(message.socialPost.imageId)?.dataUrl
         : undefined,
+      imageId: message.socialPost.imageId,
+      imageDescription: message.socialPost.imageDescription,
       rpDateTime: message.rpDateTime,
     }));
   const persistedPostIds = new Set(persistedPosts.map((post) => post.id));
@@ -775,10 +883,13 @@ export function PhoneSocialFeedScreen({
     if (!caption || !account || !owner || isRunning) {
       return;
     }
-    nextPostSequenceRef.current += 1;
     const record: SocialPostRecord = {
       app: app.id,
-      postId: `post-${app.id}-${owner.id}-${nextPostSequenceRef.current}`,
+      postId: nextSocialPostId(
+        app.id,
+        socialMediaMessages,
+        optimisticPosts.map((post) => post.id),
+      ),
       author: owner.name,
       authorHandle: account,
       caption,
@@ -1019,6 +1130,109 @@ export function PhoneSocialFeedScreen({
     );
   }
 
+  const directMessageCharacterAccounts: SocialDirectMessageParticipant[] = storyCharacters
+    .filter((character) => character.id !== owner?.id)
+    .map((character) => ({
+      key: `character-${character.id}`,
+      name: character.name,
+      handle: socialHandleForCharacter(character, app.id),
+      character,
+    }));
+  const directMessageCommentAccounts: SocialDirectMessageParticipant[] = posts.flatMap((post) => [
+    ...(post.comments ?? []),
+    ...(persistedCommentsByPostId[post.id] ?? []),
+  ].map((comment) => {
+    const name = comment.authorName ?? `@${comment.authorHandle}`;
+    const character = storyCharacters.find((entry) =>
+      socialIdentityMatches(entry.name, name) ||
+      socialIdentityMatches(socialHandleForCharacter(entry, app.id), comment.authorHandle),
+    );
+    return {
+      key: `comment-author-${app.id}-${comment.authorHandle}`,
+      name: character?.name ?? name,
+      handle: comment.authorHandle,
+      character,
+      origin: {
+        postId: post.id,
+        postAuthor: post.authorName,
+        postAuthorHandle: post.authorHandle,
+        postCaption: post.caption,
+        postImageId: post.imageId,
+        postImageDescription: post.imageDescription,
+        commentAuthor: character?.name ?? name,
+        commentAuthorHandle: comment.authorHandle,
+        commentText: comment.text,
+      },
+    };
+  }));
+  const participantCandidates: SocialDirectMessageParticipant[] = [
+    ...directMessageCharacterAccounts,
+    ...addedAccounts,
+    ...directMessageCommentAccounts,
+    ...dmPartnerAccounts,
+    ...dummySocialPosts(app, owner?.id ?? 'no-account').map((post) => ({
+      key: `virtual-${app.id}-${post.authorHandle}`,
+      name: post.authorName,
+      handle: post.authorHandle,
+    })),
+    ...persistedPosts.map((post) => ({
+      key: `post-author-${app.id}-${post.authorHandle}`,
+      name: post.authorName,
+      handle: post.authorHandle,
+      character: socialCharacterForPost({
+        app: app.id,
+        postId: post.id,
+        author: post.authorName,
+        authorHandle: post.authorHandle,
+        caption: post.caption,
+      }, storyCharacters),
+    })),
+  ];
+  // Existing conversations bubble to the top, most recent first; contacts
+  // without a conversation keep their original order below them.
+  const directMessageParticipants = participantCandidates
+    .filter((participant, index, entries) =>
+      !socialIdentityMatches(participant.handle, account) &&
+      entries.findIndex((entry) => socialIdentityMatches(entry.handle, participant.handle)) === index,
+    )
+    .sort((left, right) => dmRecency(right.handle) - dmRecency(left.handle));
+  const directMessages = visibleDirectMessages;
+
+  function openDirectMessages(participant?: SocialDirectMessageParticipant) {
+    setDirectMessageParticipant(participant);
+    setDirectMessagesOpen(true);
+  }
+
+  if (directMessagesOpen && owner) {
+    return (
+      <div className={`phone-social-screen ${app.themeClass}`} aria-label={`${app.name} messages`}>
+        <PhoneSocialDirectMessages
+          app={app.id}
+          owner={owner}
+          ownerHandle={account}
+          participants={directMessageParticipants}
+          selectedParticipant={directMessageParticipant}
+          messages={directMessages}
+          characterColors={characterColors}
+          socialImageById={socialImageById}
+          disabled={isRunning}
+          onSelectParticipant={setDirectMessageParticipant}
+          onCloseConversation={() => {
+            // Back from an open conversation leaves the DM view entirely; the
+            // contact list is reached only via the Messages bubble button.
+            setDirectMessageParticipant(undefined);
+            setDirectMessagesOpen(false);
+          }}
+          onBack={() => {
+            setDirectMessageParticipant(undefined);
+            setDirectMessagesOpen(false);
+          }}
+          onSend={onSendDirectMessage}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={`phone-social-screen ${app.themeClass}`} aria-label={app.name}>
       {notice && (
@@ -1053,6 +1267,17 @@ export function PhoneSocialFeedScreen({
                 {`@${account}`}
               </strong>
             </div>
+            <button
+              type="button"
+              className="phone-social-messages-button"
+              onClick={() => openDirectMessages()}
+              aria-label="Open direct messages"
+              title="Messages"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+              </svg>
+            </button>
           </header>
           {app.id === 'onlyfriends' && owner && (
             <div className="phone-social-wallet">
@@ -1128,7 +1353,7 @@ export function PhoneSocialFeedScreen({
                   type="button"
                   key={entry.key}
                   className={`phone-social-account${selectedAccountKey === entry.key ? ' active' : ''}`}
-                  onClick={() => setSelectedAccountKey(entry.key)}
+                  onClick={() => openDirectMessages(entry)}
                 >
                   <CharacterAvatar
                     className="phone-avatar"
@@ -1310,7 +1535,9 @@ export function PhoneSocialFeedScreen({
             <div className="phone-social-profile-banner">
               <strong>{selectedAccount.name}</strong>
               <span>@{selectedAccount.handle}</span>
-              <small>Latest Posts</small>
+              <button type="button" onClick={() => openDirectMessages(selectedAccount)}>
+                Message
+              </button>
             </div>
           )}
           {selectedAccount && posts.length === 0 && (
@@ -1356,7 +1583,18 @@ export function PhoneSocialFeedScreen({
                 }}
               >
                 <div className="phone-social-post-header">
-                  <div className="phone-social-post-author">
+                  <button
+                    type="button"
+                    className="phone-social-post-author"
+                    onClick={() => openDirectMessages({
+                      key: `post-author-${app.id}-${post.authorHandle}`,
+                      name: post.authorName,
+                      handle: post.authorHandle,
+                      character: postAuthorCharacter,
+                    })}
+                    aria-label={`Message ${post.authorName}`}
+                    title={`Message ${post.authorName}`}
+                  >
                     <CharacterAvatar
                       className="phone-avatar"
                       name={post.authorName}
@@ -1370,7 +1608,7 @@ export function PhoneSocialFeedScreen({
                       <strong>{post.authorName}</strong>
                       <span>@{post.authorHandle}</span>
                     </div>
-                  </div>
+                  </button>
                   <div className="phone-social-post-header-right">
                     {lockedNow && (
                       <span className="phone-social-locked-chip">Locked</span>
@@ -1555,10 +1793,43 @@ export function PhoneSocialFeedScreen({
                 {commentsOpen && (
                   <div className="phone-social-comments">
                     {comments.map((comment) => (
-                      <div className="phone-social-comment" key={comment.id}>
+                      <button
+                        type="button"
+                        className="phone-social-comment"
+                        key={comment.id}
+                        onClick={() => {
+                          const character = storyCharacters.find((entry) =>
+                            socialIdentityMatches(entry.name, comment.authorName ?? '') ||
+                            socialIdentityMatches(
+                              socialHandleForCharacter(entry, app.id),
+                              comment.authorHandle,
+                            ),
+                          );
+                          openDirectMessages({
+                            key: `comment-author-${app.id}-${comment.authorHandle}`,
+                            name: character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
+                            handle: comment.authorHandle,
+                            character,
+                            origin: {
+                              postId: post.id,
+                              postAuthor: post.authorName,
+                              postAuthorHandle: post.authorHandle,
+                              postCaption: post.caption,
+                              postImageId: post.imageId,
+                              postImageDescription: post.imageDescription,
+                              commentAuthor:
+                                character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
+                              commentAuthorHandle: comment.authorHandle,
+                              commentText: comment.text,
+                            },
+                          });
+                        }}
+                        aria-label={`Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
+                        title={`Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
+                      >
                         <strong>{comment.authorName ?? `@${comment.authorHandle}`}</strong>
                         <span>{comment.text}</span>
-                      </div>
+                      </button>
                     ))}
                     {comments.length === 0 && (
                       <span className="phone-social-empty">No comments yet.</span>

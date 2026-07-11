@@ -621,6 +621,47 @@ export type BankTransferRecord = {
 
 export type SocialAppKind = 'fotogram' | 'onlyfriends';
 
+/** A direct message sent inside one social app; persisted on the timeline message. */
+export type SocialDirectMessageRecord = {
+  app: SocialAppKind;
+  messageId: string;
+  from: string;
+  fromHandle: string;
+  to: string;
+  toHandle: string;
+  text: string;
+  /**
+   * OnlyFriends-only optional tip amount in USD sent with the message. It is
+   * credited to the recipient's OnlyFriends wallet and is not a bank transfer.
+   */
+  tip?: number;
+  /** English processing text used for subsequent model context. */
+  internalText?: string;
+  /** Optional translation used by the UI while text remains the English history value. */
+  displayText?: string;
+  sentAt: string;
+  /** Storybook/Gallery image ids attached to the message. */
+  imageIds?: string[];
+  /** Social direct-message id this message replies to. */
+  replyToMessageId?: string;
+  /**
+   * Post (and optionally the comment) that opened this conversation, retained
+   * as DM context. Comment fields are absent when the DM references a post
+   * directly, e.g. an incoming fan DM about a fresh post.
+   */
+  origin?: {
+    postId: string;
+    postAuthor: string;
+    postAuthorHandle: string;
+    postCaption: string;
+    postImageId?: string;
+    postImageDescription?: string;
+    commentAuthor?: string;
+    commentAuthorHandle?: string;
+    commentText?: string;
+  };
+};
+
 /** A post a character published in a social app; persisted on the message. */
 export type SocialPostRecord = {
   app: SocialAppKind;
@@ -720,6 +761,7 @@ export type MessageRecord = {
   socialPost?: SocialPostRecord;
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
+  socialDirectMessage?: SocialDirectMessageRecord;
 };
 
 export type RpAppointment = {

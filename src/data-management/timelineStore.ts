@@ -112,6 +112,7 @@ function messageToTimelineEntry(
     socialPost: message.socialPost,
     socialThreadAction: message.socialThreadAction,
     socialReactions: message.socialReactions,
+    socialDirectMessage: message.socialDirectMessage,
   };
 }
 

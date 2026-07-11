@@ -238,6 +238,7 @@ function chatMessageFromTimelineEntry(
     socialPost: entry.socialPost,
     socialThreadAction: entry.socialThreadAction,
     socialReactions: entry.socialReactions,
+    socialDirectMessage: entry.socialDirectMessage,
   };
 }
 

@@ -104,6 +104,74 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         typeof comment.text === 'string'
       )
     );
+    const validSocialDirectMessage = value.socialDirectMessage === undefined || (
+      isRecord(value.socialDirectMessage) &&
+      (value.socialDirectMessage.app === 'fotogram' || value.socialDirectMessage.app === 'onlyfriends') &&
+      typeof value.socialDirectMessage.messageId === 'string' &&
+      typeof value.socialDirectMessage.from === 'string' &&
+      typeof value.socialDirectMessage.fromHandle === 'string' &&
+      typeof value.socialDirectMessage.to === 'string' &&
+      typeof value.socialDirectMessage.toHandle === 'string' &&
+      typeof value.socialDirectMessage.text === 'string' &&
+      (
+        value.socialDirectMessage.tip === undefined ||
+        (
+          typeof value.socialDirectMessage.tip === 'number' &&
+          value.socialDirectMessage.tip > 0 &&
+          value.socialDirectMessage.app === 'onlyfriends'
+        )
+      ) &&
+      (
+        value.socialDirectMessage.internalText === undefined ||
+        typeof value.socialDirectMessage.internalText === 'string'
+      ) &&
+      (
+        value.socialDirectMessage.displayText === undefined ||
+        typeof value.socialDirectMessage.displayText === 'string'
+      ) &&
+      typeof value.socialDirectMessage.sentAt === 'string' &&
+      (
+        value.socialDirectMessage.imageIds === undefined ||
+        (
+          Array.isArray(value.socialDirectMessage.imageIds) &&
+          value.socialDirectMessage.imageIds.every((id) => typeof id === 'string')
+        )
+      ) &&
+      (
+        value.socialDirectMessage.replyToMessageId === undefined ||
+        typeof value.socialDirectMessage.replyToMessageId === 'string'
+      ) &&
+      (
+        value.socialDirectMessage.origin === undefined ||
+        (
+          isRecord(value.socialDirectMessage.origin) &&
+          typeof value.socialDirectMessage.origin.postId === 'string' &&
+          typeof value.socialDirectMessage.origin.postAuthor === 'string' &&
+          typeof value.socialDirectMessage.origin.postAuthorHandle === 'string' &&
+          typeof value.socialDirectMessage.origin.postCaption === 'string' &&
+          (
+            value.socialDirectMessage.origin.postImageId === undefined ||
+            typeof value.socialDirectMessage.origin.postImageId === 'string'
+          ) &&
+          (
+            value.socialDirectMessage.origin.postImageDescription === undefined ||
+            typeof value.socialDirectMessage.origin.postImageDescription === 'string'
+          ) &&
+          (
+            value.socialDirectMessage.origin.commentAuthor === undefined ||
+            typeof value.socialDirectMessage.origin.commentAuthor === 'string'
+          ) &&
+          (
+            value.socialDirectMessage.origin.commentAuthorHandle === undefined ||
+            typeof value.socialDirectMessage.origin.commentAuthorHandle === 'string'
+          ) &&
+          (
+            value.socialDirectMessage.origin.commentText === undefined ||
+            typeof value.socialDirectMessage.origin.commentText === 'string'
+          )
+        )
+      )
+    );
     return (
       typeof value.turnId === 'string' &&
       typeof value.turnNumber === 'number' &&
@@ -122,7 +190,8 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validPhone &&
       validSocialPost &&
       validSocialThreadAction &&
-      validSocialReactions
+      validSocialReactions &&
+      validSocialDirectMessage
     );
   }
   if (value.kind === 'event-change') {
