@@ -278,7 +278,7 @@ export function socialReactionsHistoryText(reactions: SocialReactionsRecord, pos
   const comments = reactions.comments
     .map((comment) => `${comment.from} (@${comment.handle}): "${comment.text}"`)
     .join(' | ');
-  const base = `[${socialAppNames[reactions.app]}] Reactions to @${post.authorHandle}'s post: ${reactions.likes} like${
+  const base = `[${socialAppNames[reactions.app]}] Reactions to @${post.authorHandle}'s post (${post.postId}): ${reactions.likes} like${
     reactions.likes === 1 ? '' : 's'
   }`;
   return comments ? `${base}. Comments: ${comments}` : `${base}.`;
@@ -520,8 +520,8 @@ export function socialThreadHistoryText(
     return `[${socialAppNames[action.app]}] ${summary}`;
   }
   const activity = action.action === 'comment'
-    ? `${action.actor} commented on @${action.postAuthorHandle}'s post`
-    : `${action.actor} loaded more comments on @${action.postAuthorHandle}'s post`;
+    ? `${action.actor} commented on @${action.postAuthorHandle}'s post (${action.postId})`
+    : `${action.actor} loaded more comments on @${action.postAuthorHandle}'s post (${action.postId})`;
   const reactionCount = reactions.comments.length;
   return `[${socialAppNames[action.app]}] ${activity}; the thread added ${reactionCount} comment${
     reactionCount === 1 ? '' : 's'

@@ -1,4 +1,11 @@
-import type { BankTransferRecord, ChatImageAttachment, ImageCaptionChange, MessageRecord, TurnContext } from '../types';
+import type {
+  BankTransferRecord,
+  ChatImageAttachment,
+  ImageCaptionChange,
+  MessageRecord,
+  SocialAppKind,
+  TurnContext,
+} from '../types';
 import { isRecord } from '../utils/records';
 
 export type ParsedPhoneMessage = {
@@ -43,12 +50,21 @@ export function phoneImageActionMatchesMessage(
   return messageImageIds.includes(requestedImageId);
 }
 
+/** A "comment on an existing social post" command emitted next to any output. */
+type ParsedSocialPostComment = {
+  app: SocialAppKind;
+  postId: string;
+  from: string;
+  text: string;
+};
+
 export type EmbeddedPhoneMessagesResult = {
   text: string;
   textBefore: string;
   textAfter: string;
   phoneMessages: ParsedPhoneMessage[];
   bankTransfers: BankTransferRecord[];
+  socialPostComments: ParsedSocialPostComment[];
 };
 
 export function parsePhoneGraphInput(text: string) {
@@ -425,6 +441,35 @@ export function parseEmbeddedBankTransfersObject(value: unknown): BankTransferRe
   });
 }
 
+const socialPostCommentKeysByApp: Record<SocialAppKind, string> = {
+  fotogram: 'fotogramPostComment',
+  onlyfriends: 'onlyFriendsPostComment',
+};
+
+function parseEmbeddedSocialPostCommentsObject(value: unknown): ParsedSocialPostComment[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+  return (Object.keys(socialPostCommentKeysByApp) as SocialAppKind[]).flatMap((app) => {
+    const entry = value[socialPostCommentKeysByApp[app]];
+    if (
+      !isRecord(entry) ||
+      typeof entry.postId !== 'string' ||
+      typeof entry.from !== 'string' ||
+      typeof entry.text !== 'string'
+    ) {
+      return [];
+    }
+    const parsed = {
+      app,
+      postId: entry.postId.trim(),
+      from: entry.from.trim(),
+      text: entry.text.trim(),
+    };
+    return parsed.postId && parsed.from && parsed.text ? [parsed] : [];
+  });
+}
+
 function expandJsonFenceRange(text: string, range: { start: number; end: number }) {
   let start = range.start;
   let end = range.end;
@@ -448,6 +493,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     end: number;
     phoneMessages: ParsedPhoneMessage[];
     bankTransfers: BankTransferRecord[];
+    socialPostComments: ParsedSocialPostComment[];
   }> = [];
   for (const range of ranges) {
     const candidate = value.slice(range.start, range.end);
@@ -455,8 +501,14 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       const parsed = JSON.parse(candidate) as unknown;
       const phoneMessages = parseEmbeddedPhoneMessagesObject(parsed);
       const bankTransfers = parseEmbeddedBankTransfersObject(parsed);
-      if (phoneMessages.length > 0 || bankTransfers.length > 0) {
-        parsedRanges.push({ ...expandJsonFenceRange(value, range), phoneMessages, bankTransfers });
+      const socialPostComments = parseEmbeddedSocialPostCommentsObject(parsed);
+      if (phoneMessages.length > 0 || bankTransfers.length > 0 || socialPostComments.length > 0) {
+        parsedRanges.push({
+          ...expandJsonFenceRange(value, range),
+          phoneMessages,
+          bankTransfers,
+          socialPostComments,
+        });
       }
     } catch {
       // Ignore non-JSON prose blocks.
@@ -474,9 +526,17 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     const text = [textBefore, textAfter].filter(Boolean).join('\n\n');
     const phoneMessages = parsedRanges.flatMap((range) => range.phoneMessages);
     const bankTransfers = parsedRanges.flatMap((range) => range.bankTransfers);
-    return { text, textBefore, textAfter, phoneMessages, bankTransfers };
+    const socialPostComments = parsedRanges.flatMap((range) => range.socialPostComments);
+    return { text, textBefore, textAfter, phoneMessages, bankTransfers, socialPostComments };
   }
-  return { text: value.trim(), textBefore: value.trim(), textAfter: '', phoneMessages: [], bankTransfers: [] };
+  return {
+    text: value.trim(),
+    textBefore: value.trim(),
+    textAfter: '',
+    phoneMessages: [],
+    bankTransfers: [],
+    socialPostComments: [],
+  };
 }
 
 function stripIncompleteEmbeddedJsonTail(value: string) {
@@ -484,7 +544,13 @@ function stripIncompleteEmbeddedJsonTail(value: string) {
   if (openObjectStart !== undefined) {
     const tail = value.slice(openObjectStart);
     const startsOwnLine = /(?:^|\n)[ \t]*$/.test(value.slice(0, openObjectStart));
-    if (startsOwnLine || tail.includes('"phoneMessages"') || tail.includes('"bankTransfers"')) {
+    if (
+      startsOwnLine ||
+      tail.includes('"phoneMessages"') ||
+      tail.includes('"bankTransfers"') ||
+      tail.includes('"fotogramPostComment"') ||
+      tail.includes('"onlyFriendsPostComment"')
+    ) {
       const start = expandJsonFenceRange(value, {
         start: openObjectStart,
         end: value.length,

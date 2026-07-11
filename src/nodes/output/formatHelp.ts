@@ -96,6 +96,11 @@ Embedded phone messages use this shape. sendImageId is optional and attaches an 
 
 Use sendImageId only for outgoing stored image attachments in Phone messages. Use displayImageId only for showing one stored image in Normal RP. Do not use imageId for outgoing attachments; imageId is reserved for image action commands in the dedicated Phone Message channel.
 
+Normal RP can also comment on an existing social post. Add one standalone JSON object with the post id from the chat history:
+{"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
+{"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
+The comment appears under that post in the social app. Use it only when the story clearly has someone comment on a specific existing post.
+
 Output Actions UI commands such as buttons, info boxes, progress bars, context capacity bars, setTab, and setPlayer only work through the Output Actions input, not through Normal RP.`;
 
 export const phoneOutputPrompt = `Phone Message is the dedicated phone channel.
@@ -124,6 +129,11 @@ When no incoming image is present, the second object is optional and should only
 Keep these concepts separate: sendImageId is an outgoing attachment in the phone message object. imageId belongs only to image action objects. imageAction objects update/create/no-change captions and are not visible phone messages.
 
 The from field is the sender of the generated phone message. The to field is the recipient. Use exact Storybook or phone contact names when they exist. For event-like messages, an outside contact can also be used when sensible, such as a delivery service, ticket office, pizza place, hotel reception, or other named service.
+
+A phone reply can also comment on an existing social post, for example when someone asks for a comment on their post in the chat. Add one extra standalone JSON object after the reply, with the post id from the chat history:
+{"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
+{"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
+The comment appears under that post in the social app.
 
 Phone Message is not for prose narration. It should produce the message payload that appears in the Phone tab.`;
 

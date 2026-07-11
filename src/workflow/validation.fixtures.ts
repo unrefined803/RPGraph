@@ -2227,6 +2227,22 @@ export function verifyWorkflowValidationFixtures() {
     embeddedPhoneWithSendImageId.phoneMessages[0]?.imageId === 'lara_miller_image_01',
     'embedded phone parser must preserve outgoing sendImageId attachments',
   );
+  const embeddedSocialPostComment = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Jack grins and pulls out his phone.',
+    '{"fotogramPostComment":{"postId":"fotogram-post-01","from":"Jack Carter","text":"Looking stunning! See you tonight."}}',
+    '{"onlyFriendsPostComment":{"postId":"onlyfriends-post-02","from":"Generous Fan","text":"Love this set!"}}',
+  ].join('\n'));
+  assertFixture(
+    embeddedSocialPostComment.text === 'Jack grins and pulls out his phone.' &&
+      embeddedSocialPostComment.socialPostComments[0]?.app === 'fotogram' &&
+      embeddedSocialPostComment.socialPostComments[0]?.postId === 'fotogram-post-01' &&
+      embeddedSocialPostComment.socialPostComments[0]?.from === 'Jack Carter' &&
+      embeddedSocialPostComment.socialPostComments[1]?.app === 'onlyfriends' &&
+      parseEmbeddedPhoneMessagesFromRpOutput(
+        '{"fotogramPostComment":{"postId":"fotogram-post-01","text":"Missing commenter"}}',
+      ).socialPostComments.length === 0,
+    'embedded social post comments must parse per app and require postId, from, and text',
+  );
   const rpOutputWithDisplayImage = parseRpOutput([
     'Lara swipes to the cat photo and smiles.',
     '{"displayImageId":"lara_cat_image_01"}',

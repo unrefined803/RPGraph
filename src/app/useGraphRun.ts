@@ -79,8 +79,11 @@ import {
 import {
   parseSocialReactionsOutput,
   parseSocialDirectMessageOutput,
+  socialAppNames,
   socialDirectMessageHistoryText,
   socialDirectMessageInputText,
+  socialHandleForCharacter,
+  socialHandleForName,
   socialPostInputText,
   socialPostHistoryText,
   socialPostTextFromInput,
@@ -1421,6 +1424,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               textAfter: '',
               phoneMessages: [],
               bankTransfers: [],
+              socialPostComments: [],
             };
       // Phone replies may append a bankTransfers object after the reply JSON;
       // split it off so the reply still parses as a single phone message.
@@ -1428,7 +1432,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         isPhoneMessage && phoneMessageOutput
           ? parseEmbeddedPhoneMessagesFromRpOutput(phoneMessageOutput)
           : undefined;
-      if (phoneOutputBankResult?.bankTransfers.length) {
+      if (
+        phoneOutputBankResult &&
+        (phoneOutputBankResult.bankTransfers.length > 0 ||
+          phoneOutputBankResult.socialPostComments.length > 0)
+      ) {
         phoneMessageOutput = phoneOutputBankResult.text;
       }
       if (!isPhoneMessage && embeddedPhoneResult.phoneMessages.length > 0) {
@@ -1436,6 +1444,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
           name: 'Embedded phone messages',
           status: 'ok',
           detail: `${embeddedPhoneResult.phoneMessages.length} embedded phone message(s) parsed.`,
+        });
+      }
+      const parsedSocialPostComments = [
+        ...embeddedPhoneResult.socialPostComments,
+        ...(phoneOutputBankResult?.socialPostComments ?? []),
+      ];
+      if (parsedSocialPostComments.length > 0) {
+        reportFormatResult({
+          name: 'Social post comments',
+          status: 'ok',
+          detail: `${parsedSocialPostComments.length} social post comment(s) parsed.`,
         });
       }
       const rpOutput = eventDisplayText
@@ -1993,6 +2012,45 @@ export function useGraphRun(options: UseGraphRunOptions) {
             translatedText,
             includeInHistory: true,
             bankTransfer: canonicalTransfer,
+          });
+        }
+
+        // A social post comment command appends one comment to an existing
+        // post via the same append-reactions record the comment thread uses.
+        for (const postComment of parsedSocialPostComments) {
+          const targetPost = messagesRef.current.find(
+            (message) =>
+              message.socialPost?.app === postComment.app &&
+              message.socialPost.postId === postComment.postId,
+          )?.socialPost;
+          if (!targetPost) {
+            reportRunWarning(
+              `${socialAppNames[postComment.app]} post comment was ignored because post "${postComment.postId}" does not exist.`,
+              outputNodeTraceInfo,
+            );
+            continue;
+          }
+          const from = canonicalPhoneName(phoneCharacters, postComment.from);
+          const commentCharacter = phoneCharacters.find((character) =>
+            phoneNamesMatch(character.name, from),
+          );
+          const handle = commentCharacter
+            ? socialHandleForCharacter(commentCharacter, postComment.app)
+            : socialHandleForName(from);
+          const historyText = `[${socialAppNames[postComment.app]}] ${from} (@${handle}) commented on ${postComment.postId}: "${postComment.text}"`;
+          const translatedText = await translateOutputActionText(historyText, { text: historyText });
+          appendMessage({
+            role: 'output',
+            originalText: historyText,
+            translatedText,
+            includeInHistory: true,
+            socialReactions: {
+              app: postComment.app,
+              postId: postComment.postId,
+              likes: 0,
+              comments: [{ from, handle, text: postComment.text }],
+              append: true,
+            },
           });
         }
 
