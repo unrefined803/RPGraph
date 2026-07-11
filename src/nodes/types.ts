@@ -99,6 +99,7 @@ export type ExecuteContext<TLlm = NodeLlmApi, TTextMetrics = TextMetricsApi> = {
   userControlledCharacterId?: string;
   outputNodeId: string;
   sourceHandle?: string | null;
+  directActionOnly?: boolean;
   streamOutput?: (text: string) => void;
   llm: TLlm;
   textMetrics: TTextMetrics;

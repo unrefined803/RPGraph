@@ -220,10 +220,14 @@ export function parseSocialReactionsOutput(
         warnings.push('A Social Media comment without text was skipped.');
         return;
       }
-      const from = typeof entry.from === 'string' && entry.from.trim() ? entry.from.trim() : 'Someone';
+      const rawFrom = typeof entry.from === 'string' && entry.from.trim() ? entry.from.trim() : 'Someone';
+      const embeddedHandle = rawFrom.match(/^(.*?)\s*\(@([^()]+)\)\s*$/);
+      const from = embeddedHandle?.[1]?.trim() || rawFrom;
       const handle =
         typeof entry.handle === 'string' && entry.handle.trim()
           ? socialHandleForName(entry.handle)
+          : embeddedHandle?.[2]
+            ? socialHandleForName(embeddedHandle[2])
           : socialHandleForName(from);
       comments.push({ from, handle, text: entry.text.trim() });
     });

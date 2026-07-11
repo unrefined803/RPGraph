@@ -69,6 +69,7 @@ type PendingCommentReveal = {
   actionId: string;
   postId: string;
   baselineCount: number;
+  baselineVisibleCount: number;
   baselinePersistedCount: number;
 };
 
@@ -526,13 +527,19 @@ export function PhoneSocialFeedScreen({
       }
       scheduledInitialCommentsRef.current.add(postId);
       const total = persistedCommentsRef.current[postId]?.length ?? 0;
-      setVisibleCommentCounts((current) => ({ ...current, [postId]: Math.min(1, total) }));
+      setVisibleCommentCounts((current) => ({
+        ...current,
+        [postId]: Math.max(current[postId] ?? 0, Math.min(1, total)),
+      }));
       let elapsed = 0;
       const timers: number[] = [];
       for (let visibleCount = 2; visibleCount <= total; visibleCount += 1) {
         elapsed += randomDelay(COMMENT_APPEAR_DELAY_MIN_MS, COMMENT_APPEAR_DELAY_MAX_MS);
         timers.push(window.setTimeout(() => {
-          setVisibleCommentCounts((current) => ({ ...current, [postId]: visibleCount }));
+          setVisibleCommentCounts((current) => ({
+            ...current,
+            [postId]: Math.max(current[postId] ?? 0, visibleCount),
+          }));
         }, elapsed));
       }
       commentRevealTimersRef.current.set(postId, timers);
@@ -555,18 +562,29 @@ export function PhoneSocialFeedScreen({
       return;
     }
     scheduledThreadActionsRef.current.add(pendingCommentReveal.actionId);
-    const { postId, baselineCount, baselinePersistedCount } = pendingCommentReveal;
+    const {
+      postId,
+      baselineCount,
+      baselineVisibleCount,
+      baselinePersistedCount,
+    } = pendingCommentReveal;
     const currentPersistedCount = persistedCommentsRef.current[postId]?.length ?? 0;
     const total = baselineCount + Math.max(0, currentPersistedCount - baselinePersistedCount);
-    const firstVisibleCount = Math.min(total, baselineCount + 1);
+    const firstVisibleCount = Math.min(total, baselineVisibleCount + 1);
     const startTimer = window.setTimeout(() => {
-      setVisibleCommentCounts((current) => ({ ...current, [postId]: firstVisibleCount }));
+      setVisibleCommentCounts((current) => ({
+        ...current,
+        [postId]: Math.max(current[postId] ?? 0, firstVisibleCount),
+      }));
       let elapsed = 0;
       const timers: number[] = [];
       for (let visibleCount = firstVisibleCount + 1; visibleCount <= total; visibleCount += 1) {
         elapsed += randomDelay(COMMENT_APPEAR_DELAY_MIN_MS, COMMENT_APPEAR_DELAY_MAX_MS);
         timers.push(window.setTimeout(() => {
-          setVisibleCommentCounts((current) => ({ ...current, [postId]: visibleCount }));
+          setVisibleCommentCounts((current) => ({
+            ...current,
+            [postId]: Math.max(current[postId] ?? 0, visibleCount),
+          }));
         }, elapsed));
       }
       commentRevealTimersRef.current.set(postId, timers);
@@ -642,13 +660,15 @@ export function PhoneSocialFeedScreen({
     const actionId = nextThreadActionId(post.id);
     const existingComments = commentsForPost(post);
     const baselineCount = existingComments.length;
+    const baselineVisibleCount = visibleCommentCounts[post.id] ?? baselineCount;
     const baselinePersistedCount = persistedCommentsByPostId[post.id]?.length ?? 0;
+    pauseCommentReveal(post.id);
     setCommentDraft('');
-    setVisibleCommentCounts((current) => ({ ...current, [post.id]: baselineCount }));
     setPendingCommentReveal({
       actionId,
       postId: post.id,
       baselineCount,
+      baselineVisibleCount,
       baselinePersistedCount,
     });
     showNotice({ kind: 'success', text: 'Comment sent' });
@@ -697,6 +717,12 @@ export function PhoneSocialFeedScreen({
     }));
   }
 
+  function pauseCommentReveal(postId: string) {
+    const timers = commentRevealTimersRef.current.get(postId) ?? [];
+    timers.forEach((timer) => window.clearTimeout(timer));
+    commentRevealTimersRef.current.delete(postId);
+  }
+
   async function loadMoreComments(post: SocialPost) {
     if (!account || !owner || isRunning) {
       return;
@@ -704,12 +730,14 @@ export function PhoneSocialFeedScreen({
     const actionId = nextThreadActionId(post.id);
     const existingComments = commentsForPost(post);
     const baselineCount = existingComments.length;
+    const baselineVisibleCount = visibleCommentCounts[post.id] ?? baselineCount;
     const baselinePersistedCount = persistedCommentsByPostId[post.id]?.length ?? 0;
-    setVisibleCommentCounts((current) => ({ ...current, [post.id]: baselineCount }));
+    pauseCommentReveal(post.id);
     setPendingCommentReveal({
       actionId,
       postId: post.id,
       baselineCount,
+      baselineVisibleCount,
       baselinePersistedCount,
     });
     const succeeded = await onSubmitSocialThreadAction({
@@ -1532,9 +1560,11 @@ export function PhoneSocialFeedScreen({
                       type="button"
                       className="phone-social-load-comments"
                       onClick={() => void loadMoreComments(post)}
-                      disabled={isRunning}
+                      disabled={isRunning || pendingCommentReveal?.postId === post.id}
                     >
-                      {isRunning ? 'Loading...' : 'Load More Comments'}
+                      {isRunning || pendingCommentReveal?.postId === post.id
+                        ? 'Loading...'
+                        : 'Load More Comments'}
                     </button>
                     {pendingCommentReveal?.postId !== post.id && (
                       <form

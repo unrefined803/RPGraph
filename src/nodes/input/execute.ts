@@ -13,7 +13,14 @@ export async function executeInputNode(_node: unknown, context: ExecuteContext) 
       : '';
   }
   if (context.sourceHandle === 'direct-actions') {
-    return context.originalInput;
+    if (context.directActionOnly) {
+      return context.originalInput;
+    }
+    const trimmedInput = context.originalInput.trim();
+    const jsonInput = trimmedInput.replace(/^```(?:json)?\s*/i, '');
+    return jsonInput.startsWith('{') || jsonInput.startsWith('[')
+      ? context.originalInput
+      : '';
   }
   return context.originalInput;
 }

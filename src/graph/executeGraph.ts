@@ -571,6 +571,7 @@ export async function executeGraph({
             userControlledCharacterId,
             outputNodeId,
             sourceHandle,
+            directActionOnly: outputSourceHandle === 'direct-actions',
             streamOutput,
             llm: graphLlm,
             textMetrics,
