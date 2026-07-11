@@ -100,6 +100,7 @@ import {
   socialReactionsByPostId,
   socialThreadActionInputText,
   socialThreadCommentTextFromInput,
+  socialThreadRunContextFromInput,
 } from '../chat/socialMedia';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
@@ -268,7 +269,10 @@ export function verifyWorkflowValidationFixtures() {
         'Translated caption' &&
       socialThreadCommentTextFromInput(
         '[SOCIAL MEDIA THREAD ACTION]\nNew comment from the actor: Translated comment',
-      ) === 'Translated comment',
+      ) === 'Translated comment' &&
+      socialThreadRunContextFromInput(socialThreadInput).likeCount === 12 &&
+      socialThreadRunContextFromInput(socialThreadInput).existingComments[0]?.handle ===
+        'background.friend',
     'social inputs must expose ownership and translated user text for persistence',
   );
   const socialDirectMessage = {

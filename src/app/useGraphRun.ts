@@ -1208,6 +1208,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             })
           : undefined,
         includeInHistory: true,
+        turnContext,
         socialDirectMessage: persistedSocialDirectMessage,
       });
     }

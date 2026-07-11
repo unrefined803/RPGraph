@@ -205,6 +205,27 @@ export function socialThreadActionInputText(
   ].join('\n');
 }
 
+/** Recover the stored thread context from a structured Social Media input for regeneration. */
+export function socialThreadRunContextFromInput(inputText: string): SocialThreadRunContext {
+  const likesMatch = inputText.match(/^Likes:\s*(\d+)\s*$/m);
+  const commentsBlock = inputText.match(
+    /^Existing comments:\s*\n([\s\S]*?)(?=^Action:|^Request:|^New comment from the actor:)/m,
+  )?.[1] ?? '';
+  const existingComments = commentsBlock
+    .split('\n')
+    .flatMap((line) => {
+      const match = line.match(/^-\s*(.*?)\s*\(@([^()]+)\):\s*(.+)$/);
+      if (!match?.[1] || !match[2] || !match[3]) {
+        return [];
+      }
+      return [{ from: match[1].trim(), handle: match[2].trim(), text: match[3].trim() }];
+    });
+  return {
+    existingComments,
+    likeCount: likesMatch ? Number(likesMatch[1]) : 0,
+  };
+}
+
 /** Chat-history text that records the generated reactions to a post. */
 export function socialReactionsHistoryText(reactions: SocialReactionsRecord, post: SocialPostRecord) {
   const comments = reactions.comments
