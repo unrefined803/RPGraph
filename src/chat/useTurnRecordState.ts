@@ -118,6 +118,7 @@ export function useTurnRecordState({
     socialPost,
     socialThreadAction,
     socialReactions,
+    socialDirectMessage,
   }: AppendMessageInput) {
     const id = nextMessageIdRef.current;
     nextMessageIdRef.current += 1;
@@ -168,6 +169,7 @@ export function useTurnRecordState({
       socialPost,
       socialThreadAction,
       socialReactions,
+      socialDirectMessage,
       turnId: collector?.turnId,
       turnNumber: collector?.turnNumber,
       turnPart: collector?.part,

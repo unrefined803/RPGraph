@@ -2,6 +2,7 @@ import type { Edge } from '@xyflow/react';
 import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
 import type {
   BankTransferRecord,
+  SocialDirectMessageRecord,
   SocialPostRecord,
   SocialReactionsRecord,
   SocialThreadActionRecord,
@@ -101,6 +102,7 @@ export type TimelineMessageEntry = {
   socialPost?: SocialPostRecord;
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
+  socialDirectMessage?: SocialDirectMessageRecord;
 };
 
 export type TimelineEventEntry = {

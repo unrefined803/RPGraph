@@ -42,10 +42,15 @@ import {
 } from '../../chat/socialMedia';
 import type {
   SocialPostRecord,
+  SocialDirectMessageRecord,
   SocialReactionComment,
   SocialThreadActionRecord,
 } from '../../types';
 import type { SocialAppConfig } from './socialApps';
+import {
+  PhoneSocialDirectMessages,
+  type SocialDirectMessageParticipant,
+} from './PhoneSocialDirectMessages';
 import {
   dummySocialPosts,
   formatSocialCount,
@@ -92,6 +97,8 @@ type PhoneSocialFeedScreenProps = {
   phoneGalleryImages: ChatImageAttachment[];
   bankTransferMessages: MessageRecord[];
   socialMediaMessages: MessageRecord[];
+  localDirectMessages: SocialDirectMessageRecord[];
+  onSendDirectMessage: (message: SocialDirectMessageRecord) => void;
   /** Resolves a Storybook/Gallery image id to the stored image. */
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   /** Liked post ids per "characterId/app" account (persisted in the RP save). */
@@ -185,6 +192,8 @@ export function PhoneSocialFeedScreen({
   phoneGalleryImages,
   bankTransferMessages,
   socialMediaMessages,
+  localDirectMessages,
+  onSendDirectMessage,
   socialImageById,
   socialLikesByAccount,
   onlyFriendsPurchasesByCharacter,
@@ -220,6 +229,8 @@ export function PhoneSocialFeedScreen({
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
   const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
   const [selectedAccountKey, setSelectedAccountKey] = useState<string>();
+  const [directMessagesOpen, setDirectMessagesOpen] = useState(false);
+  const [directMessageParticipant, setDirectMessageParticipant] = useState<SocialDirectMessageParticipant>();
   // Post currently showing the OnlyFriends balance confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
   const [walletOpen, setWalletOpen] = useState(false);
@@ -1019,6 +1030,90 @@ export function PhoneSocialFeedScreen({
     );
   }
 
+  const persistedDirectMessages = socialMediaMessages.flatMap((message) =>
+    message.socialDirectMessage ? [message.socialDirectMessage] : [],
+  );
+  const directMessageCharacterAccounts: SocialDirectMessageParticipant[] = storyCharacters
+    .filter((character) => character.id !== owner?.id)
+    .map((character) => ({
+      key: `character-${character.id}`,
+      name: character.name,
+      handle: socialHandleForCharacter(character, app.id),
+      character,
+    }));
+  const directMessageCommentAccounts: SocialDirectMessageParticipant[] = posts.flatMap((post) => [
+    ...(post.comments ?? []),
+    ...(persistedCommentsByPostId[post.id] ?? []),
+  ].map((comment) => {
+    const name = comment.authorName ?? `@${comment.authorHandle}`;
+    const character = storyCharacters.find((entry) =>
+      socialIdentityMatches(entry.name, name) ||
+      socialIdentityMatches(socialHandleForCharacter(entry, app.id), comment.authorHandle),
+    );
+    return {
+      key: `comment-author-${app.id}-${comment.authorHandle}`,
+      name: character?.name ?? name,
+      handle: comment.authorHandle,
+      character,
+    };
+  }));
+  const participantCandidates: SocialDirectMessageParticipant[] = [
+    ...directMessageCharacterAccounts,
+    ...addedAccounts,
+    ...directMessageCommentAccounts,
+    ...dummySocialPosts(app, owner?.id ?? 'no-account').map((post) => ({
+      key: `virtual-${app.id}-${post.authorHandle}`,
+      name: post.authorName,
+      handle: post.authorHandle,
+    })),
+    ...persistedPosts.map((post) => ({
+      key: `post-author-${app.id}-${post.authorHandle}`,
+      name: post.authorName,
+      handle: post.authorHandle,
+      character: socialCharacterForPost({
+        app: app.id,
+        postId: post.id,
+        author: post.authorName,
+        authorHandle: post.authorHandle,
+        caption: post.caption,
+      }, storyCharacters),
+    })),
+  ];
+  const directMessageParticipants = participantCandidates.filter((participant, index, entries) =>
+    !socialIdentityMatches(participant.handle, account) &&
+    entries.findIndex((entry) => socialIdentityMatches(entry.handle, participant.handle)) === index,
+  );
+  const directMessages = [...persistedDirectMessages, ...localDirectMessages];
+
+  function openDirectMessages(participant?: SocialDirectMessageParticipant) {
+    setDirectMessageParticipant(participant);
+    setDirectMessagesOpen(true);
+  }
+
+  if (directMessagesOpen && owner) {
+    return (
+      <div className={`phone-social-screen ${app.themeClass}`} aria-label={`${app.name} messages`}>
+        <PhoneSocialDirectMessages
+          app={app.id}
+          owner={owner}
+          ownerHandle={account}
+          participants={directMessageParticipants}
+          selectedParticipant={directMessageParticipant}
+          messages={directMessages}
+          characterColors={characterColors}
+          disabled={isRunning}
+          onSelectParticipant={setDirectMessageParticipant}
+          onCloseConversation={() => setDirectMessageParticipant(undefined)}
+          onBack={() => {
+            setDirectMessageParticipant(undefined);
+            setDirectMessagesOpen(false);
+          }}
+          onSend={onSendDirectMessage}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={`phone-social-screen ${app.themeClass}`} aria-label={app.name}>
       {notice && (
@@ -1053,6 +1148,17 @@ export function PhoneSocialFeedScreen({
                 {`@${account}`}
               </strong>
             </div>
+            <button
+              type="button"
+              className="phone-social-messages-button"
+              onClick={() => openDirectMessages()}
+              aria-label="Open direct messages"
+              title="Messages"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+              </svg>
+            </button>
           </header>
           {app.id === 'onlyfriends' && owner && (
             <div className="phone-social-wallet">
@@ -1128,7 +1234,7 @@ export function PhoneSocialFeedScreen({
                   type="button"
                   key={entry.key}
                   className={`phone-social-account${selectedAccountKey === entry.key ? ' active' : ''}`}
-                  onClick={() => setSelectedAccountKey(entry.key)}
+                  onClick={() => openDirectMessages(entry)}
                 >
                   <CharacterAvatar
                     className="phone-avatar"
@@ -1310,7 +1416,9 @@ export function PhoneSocialFeedScreen({
             <div className="phone-social-profile-banner">
               <strong>{selectedAccount.name}</strong>
               <span>@{selectedAccount.handle}</span>
-              <small>Latest Posts</small>
+              <button type="button" onClick={() => openDirectMessages(selectedAccount)}>
+                Message
+              </button>
             </div>
           )}
           {selectedAccount && posts.length === 0 && (
@@ -1356,7 +1464,18 @@ export function PhoneSocialFeedScreen({
                 }}
               >
                 <div className="phone-social-post-header">
-                  <div className="phone-social-post-author">
+                  <button
+                    type="button"
+                    className="phone-social-post-author"
+                    onClick={() => openDirectMessages({
+                      key: `post-author-${app.id}-${post.authorHandle}`,
+                      name: post.authorName,
+                      handle: post.authorHandle,
+                      character: postAuthorCharacter,
+                    })}
+                    aria-label={`Message ${post.authorName}`}
+                    title={`Message ${post.authorName}`}
+                  >
                     <CharacterAvatar
                       className="phone-avatar"
                       name={post.authorName}
@@ -1370,7 +1489,7 @@ export function PhoneSocialFeedScreen({
                       <strong>{post.authorName}</strong>
                       <span>@{post.authorHandle}</span>
                     </div>
-                  </div>
+                  </button>
                   <div className="phone-social-post-header-right">
                     {lockedNow && (
                       <span className="phone-social-locked-chip">Locked</span>
@@ -1555,10 +1674,31 @@ export function PhoneSocialFeedScreen({
                 {commentsOpen && (
                   <div className="phone-social-comments">
                     {comments.map((comment) => (
-                      <div className="phone-social-comment" key={comment.id}>
+                      <button
+                        type="button"
+                        className="phone-social-comment"
+                        key={comment.id}
+                        onClick={() => {
+                          const character = storyCharacters.find((entry) =>
+                            socialIdentityMatches(entry.name, comment.authorName ?? '') ||
+                            socialIdentityMatches(
+                              socialHandleForCharacter(entry, app.id),
+                              comment.authorHandle,
+                            ),
+                          );
+                          openDirectMessages({
+                            key: `comment-author-${app.id}-${comment.authorHandle}`,
+                            name: character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
+                            handle: comment.authorHandle,
+                            character,
+                          });
+                        }}
+                        aria-label={`Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
+                        title={`Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
+                      >
                         <strong>{comment.authorName ?? `@${comment.authorHandle}`}</strong>
                         <span>{comment.text}</span>
-                      </div>
+                      </button>
                     ))}
                     {comments.length === 0 && (
                       <span className="phone-social-empty">No comments yet.</span>

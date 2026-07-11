@@ -22,6 +22,7 @@ import type {
   ImageCaptionChange,
   MessageRecord,
   SocialPostRecord,
+  SocialDirectMessageRecord,
   SocialReactionComment,
   SocialThreadActionRecord,
   ProviderConnectionHealth,
@@ -377,6 +378,7 @@ export function PhonePanel({
   const [screen, setScreen] = useState<PhoneScreen>(() =>
     socialPostOpenRequest?.app ??
     (highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop'));
+  const [localSocialDirectMessages, setLocalSocialDirectMessages] = useState<SocialDirectMessageRecord[]>([]);
   const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = useState(phoneHomeRequestId);
   if (seenPhoneHomeRequestId !== phoneHomeRequestId) {
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
@@ -707,6 +709,10 @@ export function PhonePanel({
         phoneGalleryImages={phoneGalleryImages}
         bankTransferMessages={bankTransferMessages}
         socialMediaMessages={socialMediaMessages}
+        localDirectMessages={localSocialDirectMessages}
+        onSendDirectMessage={(message) => {
+          setLocalSocialDirectMessages((current) => [...current, message]);
+        }}
         openPostRequest={
           socialPostOpenRequest?.app === screen &&
           socialPostOpenRequest.requestId !== dismissedSocialPostOpenRequestId

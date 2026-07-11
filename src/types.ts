@@ -621,6 +621,22 @@ export type BankTransferRecord = {
 
 export type SocialAppKind = 'fotogram' | 'onlyfriends';
 
+/** A direct message sent inside one social app; persisted on the timeline message. */
+export type SocialDirectMessageRecord = {
+  app: SocialAppKind;
+  messageId: string;
+  from: string;
+  fromHandle: string;
+  to: string;
+  toHandle: string;
+  text: string;
+  sentAt: string;
+  /** Storybook/Gallery image ids attached to the message. */
+  imageIds?: string[];
+  /** Social direct-message id this message replies to. */
+  replyToMessageId?: string;
+};
+
 /** A post a character published in a social app; persisted on the message. */
 export type SocialPostRecord = {
   app: SocialAppKind;
@@ -720,6 +736,7 @@ export type MessageRecord = {
   socialPost?: SocialPostRecord;
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
+  socialDirectMessage?: SocialDirectMessageRecord;
 };
 
 export type RpAppointment = {

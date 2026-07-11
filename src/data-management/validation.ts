@@ -104,6 +104,28 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         typeof comment.text === 'string'
       )
     );
+    const validSocialDirectMessage = value.socialDirectMessage === undefined || (
+      isRecord(value.socialDirectMessage) &&
+      (value.socialDirectMessage.app === 'fotogram' || value.socialDirectMessage.app === 'onlyfriends') &&
+      typeof value.socialDirectMessage.messageId === 'string' &&
+      typeof value.socialDirectMessage.from === 'string' &&
+      typeof value.socialDirectMessage.fromHandle === 'string' &&
+      typeof value.socialDirectMessage.to === 'string' &&
+      typeof value.socialDirectMessage.toHandle === 'string' &&
+      typeof value.socialDirectMessage.text === 'string' &&
+      typeof value.socialDirectMessage.sentAt === 'string' &&
+      (
+        value.socialDirectMessage.imageIds === undefined ||
+        (
+          Array.isArray(value.socialDirectMessage.imageIds) &&
+          value.socialDirectMessage.imageIds.every((id) => typeof id === 'string')
+        )
+      ) &&
+      (
+        value.socialDirectMessage.replyToMessageId === undefined ||
+        typeof value.socialDirectMessage.replyToMessageId === 'string'
+      )
+    );
     return (
       typeof value.turnId === 'string' &&
       typeof value.turnNumber === 'number' &&
@@ -122,7 +144,8 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validPhone &&
       validSocialPost &&
       validSocialThreadAction &&
-      validSocialReactions
+      validSocialReactions &&
+      validSocialDirectMessage
     );
   }
   if (value.kind === 'event-change') {

@@ -432,13 +432,30 @@ export function verifyWorkflowValidationFixtures() {
         imageId: 'sarah_miller_image_02',
       },
     },
+    {
+      id: 5,
+      role: 'user',
+      originalText: 'Social direct message with image',
+      socialDirectMessage: {
+        app: 'onlyfriends',
+        messageId: 'onlyfriends-dm-1',
+        from: 'Emily Miller',
+        fromHandle: 'emily',
+        to: 'Sarah Miller',
+        toHandle: 'sarah',
+        text: 'Private photo',
+        sentAt: '2026-06-01T12:15',
+        imageIds: ['emily_miller_image_03'],
+      },
+    },
   ]);
   assertFixture(
     usedImageIds.has('emily_miller_image_01') &&
       usedImageIds.has('sarah_miller_image_01') &&
       usedImageIds.has('sarah_miller_image_02') &&
+      usedImageIds.has('emily_miller_image_03') &&
       !usedImageIds.has('ignored_image_01'),
-    'chat history image usage must include RP attachments and Phone image IDs',
+    'chat history image usage must include RP, Phone, and social direct-message image IDs',
   );
 
   const referenceStorybook = {
@@ -1054,6 +1071,82 @@ export function verifyWorkflowValidationFixtures() {
       ],
     }),
     'current RP Save Format must accept persisted social thread actions',
+  );
+  assertFixture(
+    isRpSaveFile({
+      ...currentSession,
+      timeline: [
+        {
+          id: 'turn-2-input-1',
+          kind: 'message',
+          turnId: 'turn-2',
+          turnNumber: 2,
+          phase: 'input',
+          channel: 'rp',
+          role: 'user',
+          text: { original: '[Fotogram DM] Alex: Are you free later?' },
+          socialDirectMessage: {
+            app: 'fotogram',
+            messageId: 'fotogram-dm-1',
+            from: 'Alex',
+            fromHandle: 'alex',
+            to: 'Jamie',
+            toHandle: 'jamie',
+            text: 'Are you free later?',
+            sentAt: '2026-06-01T12:30',
+            imageIds: ['alex_image_01'],
+          },
+        },
+        {
+          id: 'turn-2-output-1',
+          kind: 'message',
+          turnId: 'turn-2',
+          turnNumber: 2,
+          phase: 'output',
+          channel: 'rp',
+          role: 'assistant',
+          text: { original: '[Fotogram DM] Jamie: Yes.' },
+          socialDirectMessage: {
+            app: 'fotogram',
+            messageId: 'fotogram-dm-2',
+            from: 'Jamie',
+            fromHandle: 'jamie',
+            to: 'Alex',
+            toHandle: 'alex',
+            text: 'Yes.',
+            sentAt: '2026-06-01T12:31',
+            replyToMessageId: 'fotogram-dm-1',
+          },
+        },
+      ],
+    }),
+    'current RP Save Format must accept persisted social direct messages',
+  );
+  assertFixture(
+    !isRpSaveFile({
+      ...currentSession,
+      timeline: [{
+        id: 'turn-invalid-input-1',
+        kind: 'message',
+        turnId: 'turn-invalid',
+        turnNumber: 3,
+        phase: 'input',
+        channel: 'rp',
+        role: 'user',
+        text: { original: 'Invalid social direct message' },
+        socialDirectMessage: {
+          app: 'unknown',
+          messageId: 'invalid-dm',
+          from: 'Alex',
+          fromHandle: 'alex',
+          to: 'Jamie',
+          toHandle: 'jamie',
+          text: 'Hello',
+          sentAt: '2026-06-01T12:30',
+        },
+      }],
+    }),
+    'current RP Save Format must reject invalid social direct-message apps',
   );
   assertFixture(
     !isRpSaveFile({ ...currentSession, formatVersion: '1.1' }),
