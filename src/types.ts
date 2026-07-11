@@ -630,6 +630,8 @@ export type SocialDirectMessageRecord = {
   to: string;
   toHandle: string;
   text: string;
+  /** English processing text used for subsequent model context. */
+  internalText?: string;
   /** Optional translation used by the UI while text remains the English history value. */
   displayText?: string;
   sentAt: string;

@@ -99,7 +99,11 @@ export function socialDirectMessageInputText(
     ) {
       return [];
     }
-    return [`- ${directMessage.from} (@${directMessage.fromHandle}): ${singleLine(directMessage.text)}`];
+    return [
+      `- ${directMessage.from} (@${directMessage.fromHandle}): ${singleLine(
+        directMessage.internalText ?? directMessage.text,
+      )}`,
+    ];
   });
   return [
     '[SOCIAL MEDIA DIRECT MESSAGE]',

@@ -1189,6 +1189,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
       });
     }
     if (shouldAppendInputMessage && socialDirectMessage) {
+      const persistedSocialDirectMessage = translatedSocialDirectMessageText
+        ? {
+            ...socialDirectMessage,
+            internalText: translatedSocialDirectMessageText,
+            displayText: translateInputOnly
+              ? translatedSocialDirectMessageText
+              : socialDirectMessage.displayText,
+          }
+        : socialDirectMessage;
       appendMessage({
         role: 'user',
         originalText: socialDirectMessageHistoryText(socialDirectMessage),
@@ -1199,7 +1208,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             })
           : undefined,
         includeInHistory: true,
-        socialDirectMessage,
+        socialDirectMessage: persistedSocialDirectMessage,
       });
     }
     if (activeTurnCollectorRef.current) {
@@ -1256,7 +1265,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           return;
         }
         let translatedReplyText: string | undefined;
-        if (runEnglishProcessing || translateInputOnly) {
+        if (runEnglishProcessing) {
           try {
             translatedReplyText = await translateText(
               parsedReply.message.text,
