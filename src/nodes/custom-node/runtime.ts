@@ -1,5 +1,6 @@
 import { runtimePortValueKey } from '../shared/portRuntime';
 import type { CustomNodeDefinition, CustomNodeElement } from './model';
+import { runCustomNodeCodeInSandbox } from './sandbox';
 
 export type CustomNodeRunResult = {
   outputs: Record<string, string>;
@@ -19,16 +20,6 @@ export type CustomNodeLlmRequest =
 
 export type CustomNodeLlm = (request: CustomNodeLlmRequest) => Promise<string>;
 
-type CustomNodeHelpers = {
-  json: (value: unknown, fallback?: unknown) => unknown;
-  number: (value: unknown, fallback?: number) => number;
-  text: (value: unknown, fallback?: string) => string;
-  clamp: (value: unknown, min: number, max: number) => number;
-  words: (value: unknown) => string[];
-  lines: (value: unknown) => string[];
-  llmJson: (request: CustomNodeLlmRequest, fallback?: unknown) => Promise<unknown>;
-};
-
 export async function runCustomNodeDefinition(
   definition: CustomNodeDefinition,
   inputs: Record<string, unknown>,
@@ -46,7 +37,6 @@ export async function runCustomNodeDefinition(
     controls,
     state,
     llm: options.llm,
-    helpers: createCustomNodeHelpers(options.llm),
   });
   const nextState = result.state && typeof result.state === 'object' && !Array.isArray(result.state)
     ? result.state as Record<string, unknown>
@@ -256,20 +246,8 @@ function stringifyRecord(value: unknown) {
   );
 }
 
-type CustomNodeRunner = (
-  inputs: Record<string, unknown>,
-  controls: Record<string, unknown>,
-  state: Record<string, unknown>,
-  llm: CustomNodeLlm,
-  llmJson: CustomNodeHelpers['llmJson'],
-  json: CustomNodeHelpers['json'],
-  number: CustomNodeHelpers['number'],
-  text: CustomNodeHelpers['text'],
-  clamp: CustomNodeHelpers['clamp'],
-  words: CustomNodeHelpers['words'],
-  lines: CustomNodeHelpers['lines'],
-) => Promise<unknown>;
-
+// Argument names the user code sees. Keep in sync with `runnerArgs` inside the
+// sandbox worker source in sandbox.ts, which performs the real execution.
 const customNodeRunnerArgs = [
   'inputs',
   'controls',
@@ -288,9 +266,11 @@ const customNodeRunnerPrelude =
   '"use strict";\n' +
   'const window = undefined, document = undefined, globalThis = undefined, self = undefined, fetch = undefined, XMLHttpRequest = undefined, WebSocket = undefined, EventSource = undefined, require = undefined, process = undefined;\n';
 
-function compileCustomNodeRunner(code: string): CustomNodeRunner {
+// Only parses the code to surface syntax errors early; the compiled function is
+// never invoked in the app realm. Execution happens in the sandbox (sandbox.ts).
+function compileCustomNodeRunner(code: string) {
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as FunctionConstructor;
-  return new AsyncFunction(...customNodeRunnerArgs, customNodeRunnerPrelude + code) as CustomNodeRunner;
+  return new AsyncFunction(...customNodeRunnerArgs, customNodeRunnerPrelude + code);
 }
 
 async function runCustomNodeCode(
@@ -300,93 +280,14 @@ async function runCustomNodeCode(
     controls: Record<string, unknown>;
     state: Record<string, unknown>;
     llm?: CustomNodeLlm;
-    helpers: CustomNodeHelpers;
   },
 ) {
   assertAllowedCustomNodeCode(code);
-  const runner = compileCustomNodeRunner(code);
   const llm = args.llm ?? (async () => {
     throw new Error('Custom Node LLM helper is not available in this run.');
   });
-  const result = await runner(
-    args.inputs,
-    args.controls,
-    args.state,
+  return runCustomNodeCodeInSandbox(
+    { code, inputs: args.inputs, controls: args.controls, state: args.state },
     llm,
-    args.helpers.llmJson,
-    args.helpers.json,
-    args.helpers.number,
-    args.helpers.text,
-    args.helpers.clamp,
-    args.helpers.words,
-    args.helpers.lines,
   );
-  if (!result || typeof result !== 'object' || Array.isArray(result)) {
-    throw new Error('Custom Node code must return an object.');
-  }
-  return result as {
-    outputs?: unknown;
-    displays?: unknown;
-    state?: unknown;
-  };
-}
-
-function createCustomNodeHelpers(llm: CustomNodeLlm | undefined): CustomNodeHelpers {
-  const json = (value: unknown, fallback: unknown = null) => {
-    if (typeof value !== 'string') {
-      return value ?? fallback;
-    }
-    try {
-      return JSON.parse(stripJsonFence(value));
-    } catch {
-      const objectMatch = value.match(/\{[\s\S]*\}/);
-      const arrayMatch = value.match(/\[[\s\S]*\]/);
-      const candidate = objectMatch?.[0] ?? arrayMatch?.[0];
-      if (candidate) {
-        try {
-          return JSON.parse(candidate);
-        } catch {
-          return fallback;
-        }
-      }
-      return fallback;
-    }
-  };
-  const number = (value: unknown, fallback = 0) => {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  };
-  const text = (value: unknown, fallback = '') => {
-    if (value === undefined || value === null) {
-      return fallback;
-    }
-    return typeof value === 'string' ? value : JSON.stringify(value);
-  };
-  const clamp = (value: unknown, min: number, max: number) => Math.min(max, Math.max(min, number(value, min)));
-  const words = (value: unknown) => text(value).trim().split(/\s+/).filter(Boolean);
-  const lines = (value: unknown) => text(value).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const llmJson = async (request: CustomNodeLlmRequest, fallback: unknown = null) => {
-    if (!llm) {
-      throw new Error('Custom Node LLM helper is not available in this run.');
-    }
-    const normalized = typeof request === 'string'
-      ? { prompt: request }
-      : request;
-    const response = await llm({
-      ...normalized,
-      prompt: [
-        normalized.prompt,
-        '',
-        'Return valid JSON only. Do not include markdown, prose, or code fences.',
-      ].join('\n'),
-    });
-    return json(response, fallback);
-  };
-  return { json, number, text, clamp, words, lines, llmJson };
-}
-
-function stripJsonFence(text: string) {
-  const trimmed = text.trim();
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
-  return fenced ? fenced[1].trim() : trimmed;
 }
