@@ -1,8 +1,15 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { StorybookCharacter } from '../../storybook/runtime';
-import type { ChatImageAttachment, SocialAppKind, SocialDirectMessageRecord } from '../../types';
+import type {
+  ChatImageAttachment,
+  RpDateTimeFormat,
+  RpWeekdayLanguage,
+  SocialAppKind,
+  SocialDirectMessageRecord,
+} from '../../types';
 import { formatBankingAmount } from '../../chat/bankTransfers';
 import { socialIdentityMatches } from '../../chat/socialMedia';
+import { formatRpDateTimeParts } from '../../workflow';
 import { CharacterAvatar } from '../CharacterAvatar';
 
 export type SocialDirectMessageParticipant = {
@@ -22,6 +29,12 @@ type PhoneSocialDirectMessagesProps = {
   messages: SocialDirectMessageRecord[];
   characterColors: Map<string, string>;
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  messageRpDateTimeById: ReadonlyMap<string, string>;
+  rpTimeTrackingEnabled: boolean;
+  rpDateTimeFormat: RpDateTimeFormat;
+  rpWeekdayLanguage: RpWeekdayLanguage;
+  emojiOptions: string[];
+  recentlyUsedEmojis: string[];
   disabled?: boolean;
   onSelectParticipant: (participant: SocialDirectMessageParticipant) => void;
   onCloseConversation: () => void;
@@ -38,6 +51,12 @@ export function PhoneSocialDirectMessages({
   messages,
   characterColors,
   socialImageById,
+  messageRpDateTimeById,
+  rpTimeTrackingEnabled,
+  rpDateTimeFormat,
+  rpWeekdayLanguage,
+  emojiOptions,
+  recentlyUsedEmojis,
   disabled = false,
   onSelectParticipant,
   onCloseConversation,
@@ -54,7 +73,11 @@ export function PhoneSocialDirectMessages({
   const setDraft = (text: string) =>
     setDrafts((current) => ({ ...current, [draftKey]: text }));
   const [sending, setSending] = useState(false);
-  const [originExpanded, setOriginExpanded] = useState(false);
+  const [expandedOriginDraftKey, setExpandedOriginDraftKey] = useState<string>();
+  const originExpanded = expandedOriginDraftKey === draftKey;
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
+  const emojiMenuRef = useRef<HTMLDivElement>(null);
   const conversation = useMemo(() => {
     if (!selectedParticipant) {
       return [];
@@ -68,6 +91,25 @@ export function PhoneSocialDirectMessages({
       ),
     );
   }, [app, messages, ownerHandle, selectedParticipant]);
+
+  useEffect(() => {
+    if (!emojiPickerOpen) {
+      return;
+    }
+    const closePicker = (event: PointerEvent) => {
+      if (event.target instanceof Node && !emojiMenuRef.current?.contains(event.target)) {
+        setEmojiPickerOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closePicker);
+    return () => document.removeEventListener('pointerdown', closePicker);
+  }, [emojiPickerOpen]);
+
+  function selectEmoji(emoji: string) {
+    setDraft(`${draft}${emoji}`);
+    setRecentEmojis((current) => [emoji, ...current.filter((entry) => entry !== emoji)].slice(0, 8));
+    setEmojiPickerOpen(false);
+  }
 
   async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,7 +144,11 @@ export function PhoneSocialDirectMessages({
     return (
       <section className="phone-social-dm" aria-label="Direct messages">
         <header className="phone-social-dm-header">
-          <button type="button" onClick={onBack} aria-label="Back to feed" title="Back to feed">←</button>
+          <button type="button" onClick={onBack} aria-label="Back to feed" title="Back to feed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
           <div>
             <strong>Messages</strong>
             <span>Choose someone to start chatting</span>
@@ -173,7 +219,11 @@ export function PhoneSocialDirectMessages({
   return (
     <section className="phone-social-dm" aria-label={`Conversation with ${selectedParticipant.name}`}>
       <header className="phone-social-dm-header conversation">
-        <button type="button" onClick={onCloseConversation} aria-label="Back to messages" title="Back to messages">←</button>
+        <button type="button" onClick={onCloseConversation} aria-label="Back to messages" title="Back to messages">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
         <CharacterAvatar
           className="phone-avatar"
           name={selectedParticipant.name}
@@ -190,7 +240,9 @@ export function PhoneSocialDirectMessages({
         <button
           type="button"
           className={`phone-social-dm-origin${originExpanded ? ' expanded' : ''}`}
-          onClick={() => setOriginExpanded((current) => !current)}
+          onClick={() => setExpandedOriginDraftKey((current) =>
+            current === draftKey ? undefined : draftKey,
+          )}
           aria-expanded={originExpanded}
         >
           {originImage && <img src={originImage.dataUrl} alt={originImage.name} />}
@@ -235,6 +287,13 @@ export function PhoneSocialDirectMessages({
         )}
         {conversation.map((message) => {
           const outgoing = socialIdentityMatches(message.fromHandle, ownerHandle);
+          const rpDateTime = messageRpDateTimeById.get(message.messageId);
+          const rpTimeParts = rpTimeTrackingEnabled && rpDateTime
+            ? formatRpDateTimeParts(rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
+            : undefined;
+          const timeLabel = rpTimeTrackingEnabled
+            ? rpTimeParts?.time
+            : new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           return (
             <div className={`phone-social-dm-message-row ${outgoing ? 'outgoing' : 'incoming'}`} key={message.messageId}>
               <div className="phone-social-dm-bubble">
@@ -242,9 +301,7 @@ export function PhoneSocialDirectMessages({
                 {message.app === 'onlyfriends' && message.tip !== undefined && (
                   <span className="phone-social-dm-tip">+{formatBankingAmount(message.tip)} tip</span>
                 )}
-                <time>
-                  {new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </time>
+                {timeLabel && <time dateTime={rpDateTime ?? message.sentAt}>{timeLabel}</time>}
               </div>
             </div>
           );
@@ -259,6 +316,45 @@ export function PhoneSocialDirectMessages({
           disabled={disabled}
           autoFocus
         />
+        <div className="phone-social-dm-emoji-menu" ref={emojiMenuRef}>
+          <button
+            type="button"
+            className="phone-social-dm-emoji-button"
+            onClick={() => setEmojiPickerOpen((current) => !current)}
+            aria-label="Open emoji picker"
+            aria-expanded={emojiPickerOpen}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+              <line x1="9" y1="9" x2="9.01" y2="9" />
+              <line x1="15" y1="9" x2="15.01" y2="9" />
+            </svg>
+          </button>
+          {emojiPickerOpen && (
+            <div className="phone-social-dm-emoji-picker">
+              {recentEmojis.length > 0 && (
+                <>
+                  <small>Recent</small>
+                  <div className="phone-social-dm-emoji-grid recent">
+                    {recentEmojis.map((emoji) => (
+                      <button type="button" key={`recent-${emoji}`} onClick={() => selectEmoji(emoji)}>
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="phone-social-dm-emoji-grid">
+                {emojiOptions.map((emoji) => (
+                  <button type="button" key={emoji} onClick={() => selectEmoji(emoji)}>
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <button type="submit" disabled={disabled || sending || !draft.trim()} aria-label="Send message">
           {sending ? 'Sending…' : 'Send'}
         </button>

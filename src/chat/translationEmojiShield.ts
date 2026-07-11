@@ -24,15 +24,16 @@ const EMOJI_RE = new RegExp(
   'gu',
 );
 
-// Tolerant of stray whitespace the model might introduce inside the sentinel.
-const SENTINEL_RE = /\[\[\s*E(\d+)\s*\]\]/g;
+// Tolerant of casing and stray whitespace while retaining support for the
+// shorter placeholder used by runs created before the stronger prompt rule.
+const SENTINEL_RE = /\[\[\s*(?:RPGRAPH_EMOJI_)?E?(\d+)\s*\]\]/gi;
 
 export function shieldTranslationEmoji(text: string): { shielded: string; tokens: string[] } {
   const tokens: string[] = [];
   const shielded = text.replace(EMOJI_RE, (match) => {
     const index = tokens.length;
     tokens.push(match);
-    return `[[E${index}]]`;
+    return `[[RPGRAPH_EMOJI_${index}]]`;
   });
   return { shielded, tokens };
 }

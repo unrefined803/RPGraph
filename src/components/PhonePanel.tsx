@@ -710,6 +710,9 @@ export function PhonePanel({
         phoneGalleryImages={phoneGalleryImages}
         bankTransferMessages={bankTransferMessages}
         socialMediaMessages={socialMediaMessages}
+        phoneEmojiOptions={phoneEmojiOptions}
+        recentlyUsedEmojis={recentlyUsedEmojis}
+        rpTimeTrackingEnabled={rpTimeTrackingEnabled}
         onSendDirectMessage={onSubmitSocialDirectMessage}
         openPostRequest={
           socialPostOpenRequest?.app === screen &&

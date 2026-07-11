@@ -98,6 +98,9 @@ type PhoneSocialFeedScreenProps = {
   phoneGalleryImages: ChatImageAttachment[];
   bankTransferMessages: MessageRecord[];
   socialMediaMessages: MessageRecord[];
+  phoneEmojiOptions: string[];
+  recentlyUsedEmojis: string[];
+  rpTimeTrackingEnabled: boolean;
   onSendDirectMessage: (message: SocialDirectMessageRecord) => Promise<boolean>;
   /** Resolves a Storybook/Gallery image id to the stored image. */
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
@@ -169,8 +172,8 @@ type PhoneSocialFeedScreenProps = {
     dataUrl: string;
     description: string;
   }) => Promise<void>;
-  rpDateTimeFormat?: RpDateTimeFormat;
-  rpWeekdayLanguage?: RpWeekdayLanguage;
+  rpDateTimeFormat: RpDateTimeFormat;
+  rpWeekdayLanguage: RpWeekdayLanguage;
 };
 
 /**
@@ -192,6 +195,9 @@ export function PhoneSocialFeedScreen({
   phoneGalleryImages,
   bankTransferMessages,
   socialMediaMessages,
+  phoneEmojiOptions,
+  recentlyUsedEmojis,
+  rpTimeTrackingEnabled,
   onSendDirectMessage,
   socialImageById,
   socialLikesByAccount,
@@ -227,7 +233,6 @@ export function PhoneSocialFeedScreen({
     app.id === 'fotogram' ? owner?.social.fotogramUsername : owner?.social.onlyfriendsUsername;
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
   const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
-  const [selectedAccountKey, setSelectedAccountKey] = useState<string>();
   const [directMessagesOpen, setDirectMessagesOpen] = useState(false);
   const [directMessageParticipant, setDirectMessageParticipant] = useState<SocialDirectMessageParticipant>();
   // Post currently showing the OnlyFriends balance confirmation.
@@ -357,6 +362,13 @@ export function PhoneSocialFeedScreen({
   const persistedDirectMessages = socialMediaMessages.flatMap((message) =>
     message.socialDirectMessage ? [message.socialDirectMessage] : [],
   );
+  const directMessageRpDateTimeById = new Map(
+    socialMediaMessages.flatMap((message) =>
+      message.socialDirectMessage && message.rpDateTime
+        ? [[message.socialDirectMessage.messageId, message.rpDateTime] as const]
+        : [],
+    ),
+  );
   // New incoming DMs are revealed one after another with short delays so a
   // fresh post feels alive instead of everything appearing in one blink.
   const incomingDirectMessageIds = persistedDirectMessages
@@ -440,7 +452,6 @@ export function PhoneSocialFeedScreen({
   const extraAccounts = [...addedAccounts, ...dmPartnerAccounts]
     .sort((left, right) => dmRecency(right.handle) - dmRecency(left.handle));
   const followedAccounts = [...characterAccounts, ...extraAccounts];
-  const selectedAccount = followedAccounts.find((entry) => entry.key === selectedAccountKey);
 
   // Posts published through the workflow live on chat messages (and therefore
   // in the RP save); the AI reactions to them are matched by post id.
@@ -523,15 +534,10 @@ export function PhoneSocialFeedScreen({
     ...optimisticPosts.filter((post) => !persistedPostIds.has(post.id)),
     ...persistedPosts,
   ].filter((post) => !delayedPostIds.has(post.id));
-  const feedPosts = selectedAccount
-    ? availablePosts.filter((post) =>
-        socialIdentityMatches(post.authorHandle, selectedAccount.handle) ||
-        socialIdentityMatches(post.authorName, selectedAccount.name),
-      )
-    : [
-        ...availablePosts,
-        ...dummySocialPosts(app, owner?.id ?? 'no-account'),
-      ];
+  const feedPosts = [
+    ...availablePosts,
+    ...dummySocialPosts(app, owner?.id ?? 'no-account'),
+  ];
   // The heart state belongs to the owner; the visible count adds one like
   // per player character that liked the post (persisted in the RP save).
   const likedPostIds = new Set(
@@ -702,7 +708,8 @@ export function PhoneSocialFeedScreen({
 
   if (openPostRequest && seenOpenPostRequestId !== openPostRequest.requestId) {
     setSeenOpenPostRequestId(openPostRequest.requestId);
-    setSelectedAccountKey(undefined);
+    setDirectMessageParticipant(undefined);
+    setDirectMessagesOpen(false);
     setOpenCommentsPostId(openPostRequest.postId);
     setCommentDraft('');
   }
@@ -710,11 +717,11 @@ export function PhoneSocialFeedScreen({
   const openPostRequestId = openPostRequest?.requestId;
   const openPostId = openPostRequest?.postId;
   useEffect(() => {
-    if (openPostRequestId === undefined || !openPostId || selectedAccountKey !== undefined) {
+    if (openPostRequestId === undefined || !openPostId) {
       return;
     }
-    // Scroll once per request; deselecting an account later must not jump
-    // back to the previously requested post.
+    // Scroll once per request; later view changes must not jump back to the
+    // previously requested post.
     if (scrolledOpenPostRequestIdRef.current === openPostRequestId) {
       return;
     }
@@ -726,7 +733,7 @@ export function PhoneSocialFeedScreen({
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [openPostId, openPostRequestId, selectedAccountKey]);
+  }, [openPostId, openPostRequestId]);
 
   function toggleLike(post: SocialPost) {
     if (!owner) {
@@ -915,7 +922,6 @@ export function PhoneSocialFeedScreen({
     setPostDraft('');
     setPostDraftImage(undefined);
     setPostStage(undefined);
-    setSelectedAccountKey(undefined);
     setDelayedPostIds((current) => new Set(current).add(record.postId));
     setFreshPostIds((current) => new Set(current).add(record.postId));
     setVisibleLikeCounts((current) => ({ ...current, [record.postId]: 0 }));
@@ -1032,7 +1038,7 @@ export function PhoneSocialFeedScreen({
     if (!existingAccount) {
       setAddedAccounts((current) => [...current, personAccount]);
     }
-    setSelectedAccountKey(existingAccount?.key ?? personAccount.key);
+    openDirectMessages(existingAccount ?? personAccount);
     setNewPersonName('');
     setAddingPerson(false);
   }
@@ -1205,42 +1211,16 @@ export function PhoneSocialFeedScreen({
   const directMessages = visibleDirectMessages;
 
   function openDirectMessages(participant?: SocialDirectMessageParticipant) {
+    setPostStage(undefined);
     setDirectMessageParticipant(participant);
     setDirectMessagesOpen(true);
   }
 
-  if (directMessagesOpen && owner) {
-    return (
-      <div className={`phone-social-screen ${app.themeClass}`} aria-label={`${app.name} messages`}>
-        <PhoneSocialDirectMessages
-          app={app.id}
-          owner={owner}
-          ownerHandle={account}
-          participants={directMessageParticipants}
-          selectedParticipant={directMessageParticipant}
-          messages={directMessages}
-          characterColors={characterColors}
-          socialImageById={socialImageById}
-          disabled={isRunning}
-          onSelectParticipant={setDirectMessageParticipant}
-          onCloseConversation={() => {
-            // Back from an open conversation leaves the DM view entirely; the
-            // contact list is reached only via the Messages bubble button.
-            setDirectMessageParticipant(undefined);
-            setDirectMessagesOpen(false);
-          }}
-          onBack={() => {
-            setDirectMessageParticipant(undefined);
-            setDirectMessagesOpen(false);
-          }}
-          onSend={onSendDirectMessage}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className={`phone-social-screen ${app.themeClass}`} aria-label={app.name}>
+    <div
+      className={`phone-social-screen ${app.themeClass}`}
+      aria-label={directMessagesOpen ? `${app.name} messages` : app.name}
+    >
       {notice && (
         <div
           className={`phone-social-notice ${notice.kind}`}
@@ -1337,8 +1317,11 @@ export function PhoneSocialFeedScreen({
           <div className="phone-social-account-list">
             <button
               type="button"
-              className={`phone-social-account${selectedAccountKey === undefined ? ' active' : ''}`}
-              onClick={() => setSelectedAccountKey(undefined)}
+              className={`phone-social-account${directMessagesOpen ? '' : ' active'}`}
+              onClick={() => {
+                setDirectMessageParticipant(undefined);
+                setDirectMessagesOpen(false);
+              }}
             >
               <CharacterAvatar
                 className="phone-avatar"
@@ -1358,8 +1341,13 @@ export function PhoneSocialFeedScreen({
                 <button
                   type="button"
                   key={entry.key}
-                  className={`phone-social-account${selectedAccountKey === entry.key ? ' active' : ''}`}
-                  onClick={() => setSelectedAccountKey(entry.key)}
+                  className={`phone-social-account${
+                    directMessagesOpen && directMessageParticipant &&
+                    socialIdentityMatches(directMessageParticipant.handle, entry.handle)
+                      ? ' active'
+                      : ''
+                  }`}
+                  onClick={() => openDirectMessages(entry)}
                 >
                   <CharacterAvatar
                     className="phone-avatar"
@@ -1482,7 +1470,8 @@ export function PhoneSocialFeedScreen({
                     setPostDraftImage(undefined);
                   } else {
                     setPostStage('menu');
-                    setSelectedAccountKey(undefined);
+                    setDirectMessageParticipant(undefined);
+                    setDirectMessagesOpen(false);
                   }
                 }}
                 aria-expanded={postStage !== undefined}
@@ -1502,8 +1491,34 @@ export function PhoneSocialFeedScreen({
             />
           </div>
         </div>
+        {directMessagesOpen && owner ? (
+          <PhoneSocialDirectMessages
+            app={app.id}
+            owner={owner}
+            ownerHandle={account}
+            participants={directMessageParticipants}
+            selectedParticipant={directMessageParticipant}
+            messages={directMessages}
+            characterColors={characterColors}
+            socialImageById={socialImageById}
+            messageRpDateTimeById={directMessageRpDateTimeById}
+            rpTimeTrackingEnabled={rpTimeTrackingEnabled}
+            rpDateTimeFormat={rpDateTimeFormat}
+            rpWeekdayLanguage={rpWeekdayLanguage}
+            emojiOptions={phoneEmojiOptions}
+            recentlyUsedEmojis={recentlyUsedEmojis}
+            disabled={isRunning}
+            onSelectParticipant={setDirectMessageParticipant}
+            onCloseConversation={() => setDirectMessageParticipant(undefined)}
+            onBack={() => {
+              setDirectMessageParticipant(undefined);
+              setDirectMessagesOpen(false);
+            }}
+            onSend={onSendDirectMessage}
+          />
+        ) : (
         <div className="phone-social-scroll">
-          {postStage === 'editor' && !selectedAccount && (
+          {postStage === 'editor' && (
             <form className="phone-social-composer" onSubmit={submitPost}>
               {postDraftImage && (
                 <div className="phone-social-composer-preview">
@@ -1536,18 +1551,6 @@ export function PhoneSocialFeedScreen({
                 {isRunning ? 'Posting...' : 'Share Post'}
               </button>
             </form>
-          )}
-          {selectedAccount && (
-            <div className="phone-social-profile-banner">
-              <strong>{selectedAccount.name}</strong>
-              <span>@{selectedAccount.handle}</span>
-              <button type="button" onClick={() => openDirectMessages(selectedAccount)}>
-                Message
-              </button>
-            </div>
-          )}
-          {selectedAccount && posts.length === 0 && (
-            <span className="phone-social-empty">No posts yet.</span>
           )}
           {posts.map((post) => {
             const liked = likedPostIds.has(post.id);
@@ -1873,6 +1876,7 @@ export function PhoneSocialFeedScreen({
             );
           })}
         </div>
+        )}
       </div>
       {cameraOpen && (
         <PhoneImagePicker

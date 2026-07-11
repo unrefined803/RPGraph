@@ -69,8 +69,9 @@ export function translationPrompt({
   return [
     instruction,
     'Preserve tone, meaning, names, formatting, and roleplay style.',
-    'Quotation marks inside the text mark spoken dialogue and are essential: keep every quoted passage quoted in the translation, and keep unquoted narration unquoted.',
-    'If a passage is clearly spoken dialogue but the user forgot the quotation marks, add them around the spoken words in the translation.',
+    'Preserve quotation boundaries exactly: keep every quoted passage quoted and every unquoted passage unquoted.',
+    'Never add quotation marks around text that was not quoted in the source, and never remove quotation marks that were present in the source.',
+    'Tokens such as [[RPGRAPH_EMOJI_0]] are immutable placeholders. Copy every one exactly once, unchanged and in its original position.',
     recentHistoryContext?.trim()
       ? [
           'Use this recent roleplay context only to resolve names, pronouns, tone, references, and wording:',
