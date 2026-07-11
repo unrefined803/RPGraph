@@ -630,11 +630,25 @@ export type SocialDirectMessageRecord = {
   to: string;
   toHandle: string;
   text: string;
+  /** Optional translation used by the UI while text remains the English history value. */
+  displayText?: string;
   sentAt: string;
   /** Storybook/Gallery image ids attached to the message. */
   imageIds?: string[];
   /** Social direct-message id this message replies to. */
   replyToMessageId?: string;
+  /** Post/comment that opened this conversation, retained as DM context. */
+  origin?: {
+    postId: string;
+    postAuthor: string;
+    postAuthorHandle: string;
+    postCaption: string;
+    postImageId?: string;
+    postImageDescription?: string;
+    commentAuthor: string;
+    commentAuthorHandle: string;
+    commentText: string;
+  };
 };
 
 /** A post a character published in a social app; persisted on the message. */

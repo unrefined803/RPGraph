@@ -246,6 +246,7 @@ type PhonePanelProps = {
     existingComments: SocialReactionComment[];
     likeCount: number;
   }) => Promise<boolean>;
+  onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord) => Promise<boolean>;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
@@ -355,6 +356,7 @@ export function PhonePanel({
   socialMediaMessages,
   onSubmitSocialPost,
   onSubmitSocialThreadAction,
+  onSubmitSocialDirectMessage,
   onCreateSocialAccount,
   onImportSocialPostImage,
   socialImageById,
@@ -378,7 +380,6 @@ export function PhonePanel({
   const [screen, setScreen] = useState<PhoneScreen>(() =>
     socialPostOpenRequest?.app ??
     (highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop'));
-  const [localSocialDirectMessages, setLocalSocialDirectMessages] = useState<SocialDirectMessageRecord[]>([]);
   const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = useState(phoneHomeRequestId);
   if (seenPhoneHomeRequestId !== phoneHomeRequestId) {
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
@@ -709,10 +710,7 @@ export function PhonePanel({
         phoneGalleryImages={phoneGalleryImages}
         bankTransferMessages={bankTransferMessages}
         socialMediaMessages={socialMediaMessages}
-        localDirectMessages={localSocialDirectMessages}
-        onSendDirectMessage={(message) => {
-          setLocalSocialDirectMessages((current) => [...current, message]);
-        }}
+        onSendDirectMessage={onSubmitSocialDirectMessage}
         openPostRequest={
           socialPostOpenRequest?.app === screen &&
           socialPostOpenRequest.requestId !== dismissedSocialPostOpenRequestId

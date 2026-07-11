@@ -97,8 +97,7 @@ type PhoneSocialFeedScreenProps = {
   phoneGalleryImages: ChatImageAttachment[];
   bankTransferMessages: MessageRecord[];
   socialMediaMessages: MessageRecord[];
-  localDirectMessages: SocialDirectMessageRecord[];
-  onSendDirectMessage: (message: SocialDirectMessageRecord) => void;
+  onSendDirectMessage: (message: SocialDirectMessageRecord) => Promise<boolean>;
   /** Resolves a Storybook/Gallery image id to the stored image. */
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   /** Liked post ids per "characterId/app" account (persisted in the RP save). */
@@ -192,7 +191,6 @@ export function PhoneSocialFeedScreen({
   phoneGalleryImages,
   bankTransferMessages,
   socialMediaMessages,
-  localDirectMessages,
   onSendDirectMessage,
   socialImageById,
   socialLikesByAccount,
@@ -419,6 +417,8 @@ export function PhoneSocialFeedScreen({
       imageDataUrl: message.socialPost.imageId
         ? socialImageById(message.socialPost.imageId)?.dataUrl
         : undefined,
+      imageId: message.socialPost.imageId,
+      imageDescription: message.socialPost.imageDescription,
       rpDateTime: message.rpDateTime,
     }));
   const persistedPostIds = new Set(persistedPosts.map((post) => post.id));
@@ -1055,6 +1055,17 @@ export function PhoneSocialFeedScreen({
       name: character?.name ?? name,
       handle: comment.authorHandle,
       character,
+      origin: {
+        postId: post.id,
+        postAuthor: post.authorName,
+        postAuthorHandle: post.authorHandle,
+        postCaption: post.caption,
+        postImageId: post.imageId,
+        postImageDescription: post.imageDescription,
+        commentAuthor: character?.name ?? name,
+        commentAuthorHandle: comment.authorHandle,
+        commentText: comment.text,
+      },
     };
   }));
   const participantCandidates: SocialDirectMessageParticipant[] = [
@@ -1083,7 +1094,7 @@ export function PhoneSocialFeedScreen({
     !socialIdentityMatches(participant.handle, account) &&
     entries.findIndex((entry) => socialIdentityMatches(entry.handle, participant.handle)) === index,
   );
-  const directMessages = [...persistedDirectMessages, ...localDirectMessages];
+  const directMessages = persistedDirectMessages;
 
   function openDirectMessages(participant?: SocialDirectMessageParticipant) {
     setDirectMessageParticipant(participant);
@@ -1101,6 +1112,7 @@ export function PhoneSocialFeedScreen({
           selectedParticipant={directMessageParticipant}
           messages={directMessages}
           characterColors={characterColors}
+          socialImageById={socialImageById}
           disabled={isRunning}
           onSelectParticipant={setDirectMessageParticipant}
           onCloseConversation={() => setDirectMessageParticipant(undefined)}
@@ -1691,6 +1703,18 @@ export function PhoneSocialFeedScreen({
                             name: character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
                             handle: comment.authorHandle,
                             character,
+                            origin: {
+                              postId: post.id,
+                              postAuthor: post.authorName,
+                              postAuthorHandle: post.authorHandle,
+                              postCaption: post.caption,
+                              postImageId: post.imageId,
+                              postImageDescription: post.imageDescription,
+                              commentAuthor:
+                                character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
+                              commentAuthorHandle: comment.authorHandle,
+                              commentText: comment.text,
+                            },
                           });
                         }}
                         aria-label={`Message ${comment.authorName ?? `@${comment.authorHandle}`}`}

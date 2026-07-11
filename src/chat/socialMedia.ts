@@ -1,6 +1,7 @@
 import type {
   MessageRecord,
   SocialAppKind,
+  SocialDirectMessageRecord,
   SocialPostRecord,
   SocialReactionComment,
   SocialReactionsRecord,
@@ -16,6 +17,11 @@ export const socialAppNames: Record<SocialAppKind, string> = {
 export type SocialThreadRunContext = {
   existingComments: SocialReactionComment[];
   likeCount: number;
+};
+
+export type SocialDirectMessageParseResult = {
+  message?: SocialDirectMessageRecord;
+  warnings: string[];
 };
 
 /** Derive a handle-looking nickname from a character name, e.g. "Nova Reyes" → "nova.reyes". */
@@ -61,7 +67,8 @@ export function socialLikeAccountKey(characterId: string, app: SocialAppKind) {
 
 /** Social reaction/history records remain available to the LLM but are folded into the post card in Chat. */
 export function socialMessageHiddenFromChat(message: MessageRecord) {
-  return !message.socialPost && (!!message.socialThreadAction || !!message.socialReactions);
+  return !!message.socialDirectMessage ||
+    (!message.socialPost && (!!message.socialThreadAction || !!message.socialReactions));
 }
 
 function singleLine(text: string) {
@@ -71,6 +78,54 @@ function singleLine(text: string) {
 function compactHistorySummary(text: string) {
   const summary = singleLine(text);
   return summary.length <= 280 ? summary : `${summary.slice(0, 277).trimEnd()}...`;
+}
+
+/** LLM-facing input for a direct-message turn, including only this app conversation. */
+export function socialDirectMessageInputText(
+  message: SocialDirectMessageRecord,
+  historyMessages: MessageRecord[],
+) {
+  const conversation = historyMessages.flatMap((entry) => {
+    const directMessage = entry.socialDirectMessage;
+    if (
+      !directMessage ||
+      directMessage.app !== message.app ||
+      !(
+        socialIdentityMatches(directMessage.fromHandle, message.fromHandle) &&
+        socialIdentityMatches(directMessage.toHandle, message.toHandle) ||
+        socialIdentityMatches(directMessage.fromHandle, message.toHandle) &&
+        socialIdentityMatches(directMessage.toHandle, message.fromHandle)
+      )
+    ) {
+      return [];
+    }
+    return [`- ${directMessage.from} (@${directMessage.fromHandle}): ${singleLine(directMessage.text)}`];
+  });
+  return [
+    '[SOCIAL MEDIA DIRECT MESSAGE]',
+    `App: ${socialAppNames[message.app]}`,
+    `Sender: ${message.from} (@${message.fromHandle})`,
+    `Recipient: ${message.to} (@${message.toHandle})`,
+    'Existing conversation:',
+    ...(conversation.length ? conversation : ['- No previous messages']),
+    ...(message.origin
+      ? [
+          'Conversation origin: comment on a social post',
+          `Post author: ${message.origin.postAuthor} (@${message.origin.postAuthorHandle})`,
+          `Post text: ${singleLine(message.origin.postCaption)}`,
+          ...(message.origin.postImageDescription
+            ? [`Post image description: ${singleLine(message.origin.postImageDescription)}`]
+            : []),
+          `Original comment from ${message.origin.commentAuthor} (@${message.origin.commentAuthorHandle}): ${singleLine(message.origin.commentText)}`,
+          'The sender opened this DM from that comment. Treat the new message as a reply in that context.',
+        ]
+      : []),
+    `New message: ${singleLine(message.text)}`,
+  ].join('\n');
+}
+
+export function socialDirectMessageHistoryText(message: SocialDirectMessageRecord) {
+  return `[${socialAppNames[message.app]} DM] ${message.from} (@${message.fromHandle}) to ${message.to} (@${message.toHandle}): "${message.text}"`;
 }
 
 /** LLM-facing input text for a "user posted something" turn (Message Format 3). */
@@ -173,6 +228,40 @@ function extractJsonObject(text: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+/** Parse one AI reply; sender and recipient identities always come from the requested conversation. */
+export function parseSocialDirectMessageOutput(
+  text: string,
+  userMessage: SocialDirectMessageRecord,
+  sentAt = new Date().toISOString(),
+): SocialDirectMessageParseResult {
+  if (!text.trim()) {
+    return { warnings: ['Social Media DM output was empty.'] };
+  }
+  const parsed = extractJsonObject(text);
+  if (!isRecord(parsed)) {
+    return { warnings: ['Social Media DM output could not be parsed as JSON.'] };
+  }
+  const payload = isRecord(parsed.directMessage) ? parsed.directMessage : parsed;
+  if (typeof payload.text !== 'string' || !payload.text.trim()) {
+    return { warnings: ['Social Media DM output is missing a message text.'] };
+  }
+  return {
+    message: {
+      app: userMessage.app,
+      messageId: `${userMessage.app}-dm-reply-${userMessage.messageId}`,
+      from: userMessage.to,
+      fromHandle: userMessage.toHandle,
+      to: userMessage.from,
+      toHandle: userMessage.fromHandle,
+      text: payload.text.trim(),
+      sentAt,
+      replyToMessageId: userMessage.messageId,
+      origin: userMessage.origin,
+    },
+    warnings: [],
+  };
 }
 
 export type SocialReactionsParseResult = {

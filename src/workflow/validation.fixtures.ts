@@ -91,7 +91,9 @@ import {
   onlyFriendsWalletName,
 } from '../chat/onlyFriendsWallet';
 import {
+  parseSocialDirectMessageOutput,
   parseSocialReactionsOutput,
+  socialDirectMessageInputText,
   socialMessageHiddenFromChat,
   socialPostEngagementByPostId,
   socialPostTextFromInput,
@@ -268,6 +270,64 @@ export function verifyWorkflowValidationFixtures() {
         '[SOCIAL MEDIA THREAD ACTION]\nNew comment from the actor: Translated comment',
       ) === 'Translated comment',
     'social inputs must expose ownership and translated user text for persistence',
+  );
+  const socialDirectMessage = {
+    app: 'fotogram' as const,
+    messageId: 'fotogram-dm-user-1',
+    from: 'Alex',
+    fromHandle: 'alex',
+    to: 'Jamie',
+    toHandle: 'jamie',
+    text: 'Are you free later?',
+    sentAt: '2026-06-01T12:30:00.000Z',
+    origin: {
+      postId: 'post-dress-1',
+      postAuthor: 'Alex',
+      postAuthorHandle: 'alex',
+      postCaption: 'Trying this dress for tonight.',
+      postImageId: 'alex_dress_01',
+      postImageDescription: 'Alex wears a green evening dress.',
+      commentAuthor: 'Jamie',
+      commentAuthorHandle: 'jamie',
+      commentText: 'That dress looks amazing!',
+    },
+  };
+  const socialDirectInput = socialDirectMessageInputText(socialDirectMessage, [{
+    id: 19,
+    role: 'output',
+    originalText: 'Earlier DM',
+    socialDirectMessage: {
+      app: 'fotogram',
+      messageId: 'fotogram-dm-reply-0',
+      from: 'Jamie',
+      fromHandle: 'jamie',
+      to: 'Alex',
+      toHandle: 'alex',
+      text: 'Maybe after work.',
+      sentAt: '2026-06-01T12:00:00.000Z',
+    },
+  }]);
+  const parsedSocialDirectReply = parseSocialDirectMessageOutput(
+    '{"directMessage":{"text":"Yes, message me when you are done!"}}',
+    socialDirectMessage,
+    '2026-06-01T12:31:00.000Z',
+  );
+  assertFixture(
+    socialDirectInput.includes('Jamie (@jamie): Maybe after work.') &&
+      socialDirectInput.includes('Post text: Trying this dress for tonight.') &&
+      socialDirectInput.includes('Original comment from Jamie (@jamie): That dress looks amazing!') &&
+      socialDirectInput.includes('New message: Are you free later?') &&
+      parsedSocialDirectReply.message?.fromHandle === 'jamie' &&
+      parsedSocialDirectReply.message?.toHandle === 'alex' &&
+      parsedSocialDirectReply.message?.replyToMessageId === 'fotogram-dm-user-1' &&
+      parsedSocialDirectReply.message?.origin?.postImageId === 'alex_dress_01' &&
+      socialMessageHiddenFromChat({
+        id: 22,
+        role: 'output',
+        originalText: 'Hidden DM history',
+        socialDirectMessage: parsedSocialDirectReply.message,
+      }),
+    'social direct messages must include conversation context, parse the recipient reply, and stay hidden in Chat',
   );
   const parsedSocialThread = parseSocialReactionsOutput(
     '{"reactions":{"postId":"post-1","additionalLikes":2,"comments":[{"from":"Jamie","text":"Love it!"}]},"summary":"Alex asked the thread about the location; Jamie responded positively."}',
@@ -446,6 +506,16 @@ export function verifyWorkflowValidationFixtures() {
         text: 'Private photo',
         sentAt: '2026-06-01T12:15',
         imageIds: ['emily_miller_image_03'],
+        origin: {
+          postId: 'post-dress-image',
+          postAuthor: 'Emily Miller',
+          postAuthorHandle: 'emily',
+          postCaption: 'New dress.',
+          postImageId: 'emily_miller_image_04',
+          commentAuthor: 'Sarah Miller',
+          commentAuthorHandle: 'sarah',
+          commentText: 'Love this look!',
+        },
       },
     },
   ]);
@@ -454,6 +524,7 @@ export function verifyWorkflowValidationFixtures() {
       usedImageIds.has('sarah_miller_image_01') &&
       usedImageIds.has('sarah_miller_image_02') &&
       usedImageIds.has('emily_miller_image_03') &&
+      usedImageIds.has('emily_miller_image_04') &&
       !usedImageIds.has('ignored_image_01'),
     'chat history image usage must include RP, Phone, and social direct-message image IDs',
   );

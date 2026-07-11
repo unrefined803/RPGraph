@@ -20955,6 +20955,75 @@ button.message-timeline-row.phone:focus-visible {
   overflow-y: auto;
 }
 
+.phone-social-dm-origin {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: calc(100% - 20px);
+  max-height: 62px;
+  margin: 9px 10px 0;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--social-accent-soft);
+  border-radius: 11px;
+  color: #ffffff;
+  background: rgba(24, 34, 50, 0.94);
+  cursor: pointer;
+  text-align: left;
+}
+
+.phone-social-dm-origin.expanded {
+  max-height: 150px;
+  align-items: start;
+}
+
+.phone-social-dm-origin > img {
+  width: 54px;
+  height: 48px;
+  border-radius: 7px;
+  object-fit: cover;
+}
+
+.phone-social-dm-origin.expanded > img {
+  height: 92px;
+}
+
+.phone-social-dm-origin-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.phone-social-dm-origin-copy small {
+  color: var(--social-accent);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.phone-social-dm-origin-copy strong,
+.phone-social-dm-origin-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-social-dm-origin-copy strong {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.phone-social-dm-origin-copy span {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 10px;
+}
+
+.phone-social-dm-message-row.origin-comment .phone-social-dm-bubble {
+  border-color: var(--social-accent-soft);
+}
+
 .phone-social-dm-message-row {
   display: flex;
 }

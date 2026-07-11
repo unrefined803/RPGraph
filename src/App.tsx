@@ -64,7 +64,12 @@ import {
   bankTransferMessages,
 } from './chat/bankTransfers';
 import { onlyFriendsWalletName } from './chat/onlyFriendsWallet';
-import { socialPostInputText, socialThreadActionInputText } from './chat/socialMedia';
+import {
+  socialDirectMessageInputText,
+  socialIdentityMatches,
+  socialPostInputText,
+  socialThreadActionInputText,
+} from './chat/socialMedia';
 import {
   extractDialogueQuotes,
 } from './chat/textRendering';
@@ -270,6 +275,7 @@ import type {
   ImageCaptionChange,
   InputActionSelection,
   MessageRecord,
+  SocialDirectMessageRecord,
   SocialPostRecord,
   SocialReactionComment,
   SocialThreadActionRecord,
@@ -5211,6 +5217,49 @@ function App() {
     );
   }
 
+  async function submitSocialDirectMessage(message: SocialDirectMessageRecord) {
+    if (isRunning) {
+      return false;
+    }
+    const actor = storyCharacters.find((character) =>
+      socialIdentityMatches(character.name, message.from) ||
+      socialIdentityMatches(character.id, message.from),
+    ) ?? selectedCharacter;
+    if (!actor) {
+      notifySystem('warning', 'Select a Storybook character before sending a social direct message.');
+      return false;
+    }
+    return runGraph(
+      socialDirectMessageInputText(message, messagesRef.current),
+      message.origin?.postImageId
+        ? [socialImageById(message.origin.postImageId)].filter(
+            (image): image is ChatImageAttachment => !!image,
+          )
+        : [],
+      undefined,
+      messagesRef.current,
+      undefined,
+      actor,
+      false,
+      undefined,
+      undefined,
+      'user',
+      undefined,
+      undefined,
+      undefined,
+      false,
+      3,
+      message.app === 'fotogram' ? 4 : 5,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      message,
+    );
+  }
+
   function selectPhoneImagesFromComposer() {
     void selectPhoneImages();
   }
@@ -6521,10 +6570,12 @@ function App() {
                 (message) =>
                   !!message.socialPost ||
                   !!message.socialThreadAction ||
-                  !!message.socialReactions,
+                  !!message.socialReactions ||
+                  !!message.socialDirectMessage,
               )}
               onSubmitSocialPost={submitSocialPost}
               onSubmitSocialThreadAction={submitSocialThreadAction}
+              onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onCreateSocialAccount={saveStorybookSocialUsername}
               onImportSocialPostImage={importSocialPostImage}
               socialImageById={socialImageById}

@@ -28,6 +28,10 @@ export function storybookImageIdsUsedByMessages(messages: MessageRecord[]) {
         imageIds.add(imageId.trim());
       }
     });
+    const socialDirectOriginImageId = message.socialDirectMessage?.origin?.postImageId?.trim();
+    if (socialDirectOriginImageId) {
+      imageIds.add(socialDirectOriginImageId);
+    }
   });
   return imageIds;
 }

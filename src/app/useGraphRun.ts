@@ -9,6 +9,7 @@ import type {
   EmbeddedPhoneMessageLink,
   ImageCaptionChange,
   MessageRecord,
+  SocialDirectMessageRecord,
   SocialPostRecord,
   SocialThreadActionRecord,
   ChatDialogueQuote,
@@ -76,6 +77,9 @@ import {
 } from '../chat/bankTransfers';
 import {
   parseSocialReactionsOutput,
+  parseSocialDirectMessageOutput,
+  socialDirectMessageHistoryText,
+  socialDirectMessageInputText,
   socialPostInputText,
   socialPostHistoryText,
   socialPostTextFromInput,
@@ -430,6 +434,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     socialThreadAction?: SocialThreadActionRecord,
     socialThreadContext?: SocialThreadRunContext,
     directActionOnly = false,
+    socialDirectMessage?: SocialDirectMessageRecord,
   ) {
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
@@ -519,6 +524,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         socialThreadAction,
         socialThreadContext,
         directActionOnly,
+        socialDirectMessage,
       );
     };
     const finishRun = () => {
@@ -703,6 +709,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     }
     let inputText = displayText;
     let displayInputText = displayText;
+    let translatedSocialDirectMessageText: string | undefined;
     let liveOutputMessageId: number | undefined;
     let pendingLiveOutput:
       | {
@@ -900,7 +907,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
           runSignal,
           inputHistoryContext,
         );
-        if (socialPost) {
+        if (socialDirectMessage) {
+          const translatedMessage = await translateSocialText(socialDirectMessage.text);
+          translatedSocialDirectMessageText = translatedMessage || undefined;
+          inputText = socialDirectMessageInputText(
+            translatedMessage
+              ? { ...socialDirectMessage, text: translatedMessage }
+              : socialDirectMessage,
+            historyMessages,
+          );
+        } else if (socialPost) {
           const translatedCaption = await translateSocialText(socialPost.caption);
           inputText = socialPostInputText({
             ...socialPost,
@@ -1172,6 +1188,20 @@ export function useGraphRun(options: UseGraphRunOptions) {
         turnContext,
       });
     }
+    if (shouldAppendInputMessage && socialDirectMessage) {
+      appendMessage({
+        role: 'user',
+        originalText: socialDirectMessageHistoryText(socialDirectMessage),
+        translatedText: translatedSocialDirectMessageText
+          ? socialDirectMessageHistoryText({
+              ...socialDirectMessage,
+              text: translatedSocialDirectMessageText,
+            })
+          : undefined,
+        includeInHistory: true,
+        socialDirectMessage,
+      });
+    }
     if (activeTurnCollectorRef.current) {
       activeTurnCollectorRef.current.part = 'output';
     }
@@ -1202,7 +1232,65 @@ export function useGraphRun(options: UseGraphRunOptions) {
       let phoneMessageOutput = '';
       let outputActionsText = '';
       let socialMediaOutputText = '';
+      let socialDirectMessageOutputPromise: Promise<void> | undefined;
       let directActionsText = '';
+      const processSocialDirectMessageOutput = async (text: string) => {
+        if (!socialDirectMessage) {
+          return;
+        }
+        const parsedReply = parseSocialDirectMessageOutput(
+          text,
+          socialDirectMessage,
+          new Date().toISOString(),
+        );
+        reportFormatResult({
+          name: 'Social Media DM JSON',
+          status: parsedReply.message && parsedReply.warnings.length === 0 ? 'ok' : 'error',
+          detail: parsedReply.warnings.length
+            ? parsedReply.warnings.join(' ')
+            : `Direct message from @${parsedReply.message?.fromHandle} parsed.`,
+          preview: parsedReply.warnings.length ? text : undefined,
+        });
+        parsedReply.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+        if (!parsedReply.message) {
+          return;
+        }
+        let translatedReplyText: string | undefined;
+        if (runEnglishProcessing || translateInputOnly) {
+          try {
+            translatedReplyText = await translateText(
+              parsedReply.message.text,
+              'to-display',
+              outputNode.data.connectionId ?? defaultConnectionId,
+              outputNode.id,
+              undefined,
+              turnContext.displayLanguage,
+              runSignal,
+              inputHistoryContext,
+            ) || undefined;
+          } catch (error) {
+            if (isRunCancelledError(error)) {
+              throw error;
+            }
+            notifySystem(
+              'error',
+              `Social Media DM translation failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+        const persistedReply = translatedReplyText
+          ? { ...parsedReply.message, displayText: translatedReplyText }
+          : parsedReply.message;
+        appendMessage({
+          role: 'output',
+          originalText: socialDirectMessageHistoryText(parsedReply.message),
+          translatedText: translatedReplyText
+            ? socialDirectMessageHistoryText({ ...persistedReply, text: translatedReplyText })
+            : undefined,
+          includeInHistory: true,
+          socialDirectMessage: persistedReply,
+        });
+      };
       const executedOutput = await executeGraph({
         outputNodeId: outputNode.id,
         outputSourceHandle: directActionOnly ? 'direct-actions' : undefined,
@@ -1255,6 +1343,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
           if (handle === 'social-media') {
             socialMediaOutputText = text;
+            if (socialDirectMessage && !socialDirectMessageOutputPromise) {
+              socialDirectMessageOutputPromise = processSocialDirectMessageOutput(text);
+            }
           }
           if (handle === 'direct-actions') {
             directActionsText = text;
@@ -1270,6 +1361,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
         signal: runSignal,
       });
       const graphOutput = directActionOnly ? '' : executedOutput;
+      if (socialDirectMessage && !socialDirectMessageOutputPromise && socialMediaOutputText) {
+        socialDirectMessageOutputPromise = processSocialDirectMessageOutput(socialMediaOutputText);
+      }
+      await socialDirectMessageOutputPromise;
       if (directActionOnly) {
         directActionsText = executedOutput;
       }

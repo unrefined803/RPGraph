@@ -113,6 +113,10 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       typeof value.socialDirectMessage.to === 'string' &&
       typeof value.socialDirectMessage.toHandle === 'string' &&
       typeof value.socialDirectMessage.text === 'string' &&
+      (
+        value.socialDirectMessage.displayText === undefined ||
+        typeof value.socialDirectMessage.displayText === 'string'
+      ) &&
       typeof value.socialDirectMessage.sentAt === 'string' &&
       (
         value.socialDirectMessage.imageIds === undefined ||
@@ -124,6 +128,27 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       (
         value.socialDirectMessage.replyToMessageId === undefined ||
         typeof value.socialDirectMessage.replyToMessageId === 'string'
+      ) &&
+      (
+        value.socialDirectMessage.origin === undefined ||
+        (
+          isRecord(value.socialDirectMessage.origin) &&
+          typeof value.socialDirectMessage.origin.postId === 'string' &&
+          typeof value.socialDirectMessage.origin.postAuthor === 'string' &&
+          typeof value.socialDirectMessage.origin.postAuthorHandle === 'string' &&
+          typeof value.socialDirectMessage.origin.postCaption === 'string' &&
+          (
+            value.socialDirectMessage.origin.postImageId === undefined ||
+            typeof value.socialDirectMessage.origin.postImageId === 'string'
+          ) &&
+          (
+            value.socialDirectMessage.origin.postImageDescription === undefined ||
+            typeof value.socialDirectMessage.origin.postImageDescription === 'string'
+          ) &&
+          typeof value.socialDirectMessage.origin.commentAuthor === 'string' &&
+          typeof value.socialDirectMessage.origin.commentAuthorHandle === 'string' &&
+          typeof value.socialDirectMessage.origin.commentText === 'string'
+        )
       )
     );
     return (

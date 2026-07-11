@@ -1,6 +1,6 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import type { StorybookCharacter } from '../../storybook/runtime';
-import type { SocialAppKind, SocialDirectMessageRecord } from '../../types';
+import type { ChatImageAttachment, SocialAppKind, SocialDirectMessageRecord } from '../../types';
 import { CharacterAvatar } from '../CharacterAvatar';
 
 export type SocialDirectMessageParticipant = {
@@ -8,6 +8,7 @@ export type SocialDirectMessageParticipant = {
   name: string;
   handle: string;
   character?: StorybookCharacter;
+  origin?: SocialDirectMessageRecord['origin'];
 };
 
 type PhoneSocialDirectMessagesProps = {
@@ -18,11 +19,12 @@ type PhoneSocialDirectMessagesProps = {
   selectedParticipant?: SocialDirectMessageParticipant;
   messages: SocialDirectMessageRecord[];
   characterColors: Map<string, string>;
+  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   disabled?: boolean;
   onSelectParticipant: (participant: SocialDirectMessageParticipant) => void;
   onCloseConversation: () => void;
   onBack: () => void;
-  onSend: (message: SocialDirectMessageRecord) => void;
+  onSend: (message: SocialDirectMessageRecord) => Promise<boolean>;
 };
 
 function identityMatches(left: string, right: string) {
@@ -38,6 +40,7 @@ export function PhoneSocialDirectMessages({
   selectedParticipant,
   messages,
   characterColors,
+  socialImageById,
   disabled = false,
   onSelectParticipant,
   onCloseConversation,
@@ -45,6 +48,8 @@ export function PhoneSocialDirectMessages({
   onSend,
 }: PhoneSocialDirectMessagesProps) {
   const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [originExpanded, setOriginExpanded] = useState(false);
   const conversation = useMemo(() => {
     if (!selectedParticipant) {
       return [];
@@ -59,24 +64,33 @@ export function PhoneSocialDirectMessages({
     );
   }, [app, messages, ownerHandle, selectedParticipant]);
 
-  function submitMessage(event: FormEvent<HTMLFormElement>) {
+  async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (!selectedParticipant || !text || disabled) {
+    if (!selectedParticipant || !text || disabled || sending) {
       return;
     }
     const sequence = messages.length + 1;
-    onSend({
-      app,
-      messageId: `${app}-dm-${Date.now()}-${sequence}`,
-      from: owner.name,
-      fromHandle: ownerHandle,
-      to: selectedParticipant.name,
-      toHandle: selectedParticipant.handle,
-      text,
-      sentAt: new Date().toISOString(),
-    });
     setDraft('');
+    setSending(true);
+    try {
+      const sent = await onSend({
+        app,
+        messageId: `${app}-dm-${Date.now()}-${sequence}`,
+        from: owner.name,
+        fromHandle: ownerHandle,
+        to: selectedParticipant.name,
+        toHandle: selectedParticipant.handle,
+        text,
+        sentAt: new Date().toISOString(),
+        origin: selectedParticipant.origin ?? conversation.find((message) => message.origin)?.origin,
+      });
+      if (!sent) {
+        setDraft(text);
+      }
+    } finally {
+      setSending(false);
+    }
   }
 
   if (!selectedParticipant) {
@@ -116,7 +130,7 @@ export function PhoneSocialDirectMessages({
                 />
                 <span className="phone-social-dm-contact-copy">
                   <strong>{participant.name}</strong>
-                  <span>{latest?.text ?? `@${participant.handle}`}</span>
+                  <span>{latest?.displayText ?? latest?.text ?? `@${participant.handle}`}</span>
                 </span>
                 <span aria-hidden="true">›</span>
               </button>
@@ -136,6 +150,8 @@ export function PhoneSocialDirectMessages({
   const participantColor = selectedParticipant.character
     ? characterColors.get(selectedParticipant.character.name)
     : undefined;
+  const origin = selectedParticipant.origin ?? conversation.find((message) => message.origin)?.origin;
+  const originImage = origin?.postImageId ? socialImageById(origin.postImageId) : undefined;
   return (
     <section className="phone-social-dm" aria-label={`Conversation with ${selectedParticipant.name}`}>
       <header className="phone-social-dm-header conversation">
@@ -152,8 +168,24 @@ export function PhoneSocialDirectMessages({
           <span>@{selectedParticipant.handle}</span>
         </div>
       </header>
+      {origin && (
+        <button
+          type="button"
+          className={`phone-social-dm-origin${originExpanded ? ' expanded' : ''}`}
+          onClick={() => setOriginExpanded((current) => !current)}
+          aria-expanded={originExpanded}
+        >
+          {originImage && <img src={originImage.dataUrl} alt={originImage.name} />}
+          <span className="phone-social-dm-origin-copy">
+            <small>Conversation started from a comment</small>
+            <strong>{origin.commentAuthor}: “{origin.commentText}”</strong>
+            {originExpanded && <span>{origin.postAuthor}: {origin.postCaption}</span>}
+          </span>
+          <span aria-hidden="true">{originExpanded ? '⌃' : '⌄'}</span>
+        </button>
+      )}
       <div className="phone-social-dm-thread">
-        {conversation.length === 0 && (
+        {conversation.length === 0 && !origin && (
           <div className="phone-social-dm-empty conversation-empty">
             <CharacterAvatar
               className="phone-avatar large"
@@ -167,12 +199,20 @@ export function PhoneSocialDirectMessages({
             <small>Start your conversation</small>
           </div>
         )}
+        {origin && (
+          <div className="phone-social-dm-message-row incoming origin-comment">
+            <div className="phone-social-dm-bubble">
+              <span>{origin.commentText}</span>
+              <time>Comment on your post</time>
+            </div>
+          </div>
+        )}
         {conversation.map((message) => {
           const outgoing = identityMatches(message.fromHandle, ownerHandle);
           return (
             <div className={`phone-social-dm-message-row ${outgoing ? 'outgoing' : 'incoming'}`} key={message.messageId}>
               <div className="phone-social-dm-bubble">
-                <span>{message.text}</span>
+                <span>{message.displayText ?? message.text}</span>
                 <time>
                   {new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </time>
@@ -190,7 +230,9 @@ export function PhoneSocialDirectMessages({
           disabled={disabled}
           autoFocus
         />
-        <button type="submit" disabled={disabled || !draft.trim()} aria-label="Send message">Send</button>
+        <button type="submit" disabled={disabled || sending || !draft.trim()} aria-label="Send message">
+          {sending ? 'Sending…' : 'Send'}
+        </button>
       </form>
     </section>
   );
