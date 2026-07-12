@@ -42,7 +42,7 @@ import { PhoneBankingScreen } from './PhoneBankingScreen';
 import { PhoneNotesScreen } from './PhoneNotesScreen';
 import { PhoneChatGpdScreen } from './PhoneChatGpdScreen';
 import type { ChatGpdPhoneApp } from '../chat/useChatGpdPhoneApp';
-import type { PhoneNoteRecord } from '../chat/phoneAppsSessions';
+import type { ChatGpdChatRecord, PhoneNoteRecord } from '../chat/phoneAppsSessions';
 import { PhoneSocialFeedScreen } from './phone-social/PhoneSocialFeedScreen';
 import { socialApps } from './phone-social/socialApps';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
@@ -276,6 +276,8 @@ type PhonePanelProps = {
   onChatGpdSidebarWidthChange: (width: number) => void;
   phoneNotes: PhoneNoteRecord[];
   onPhoneNotesChange: (notes: PhoneNoteRecord[]) => void;
+  onPhoneNoteCommit: (note: PhoneNoteRecord) => void;
+  onChatGpdChatCommit: (chat: ChatGpdChatRecord) => void;
   phoneDesktopLayout: PhoneDesktopLayout;
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
@@ -382,6 +384,8 @@ export function PhonePanel({
   onChatGpdSidebarWidthChange,
   phoneNotes,
   onPhoneNotesChange,
+  onPhoneNoteCommit,
+  onChatGpdChatCommit,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
@@ -726,6 +730,7 @@ export function PhonePanel({
         clockDateTime={clockDateTime}
         rpDateTimeFormat={rpDateTimeFormat}
         rpWeekdayLanguage={rpWeekdayLanguage}
+        onCommitNote={onPhoneNoteCommit}
         onBack={() => setScreen('desktop')}
       />
     );
@@ -740,6 +745,7 @@ export function PhonePanel({
         onSidebarOpenChange={onChatGpdSidebarOpenChange}
         sidebarWidth={chatGpdSidebarWidth}
         onSidebarWidthChange={onChatGpdSidebarWidthChange}
+        onCommitChat={onChatGpdChatCommit}
         onBack={() => setScreen('desktop')}
       />
     );

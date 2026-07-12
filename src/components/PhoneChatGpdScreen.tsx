@@ -11,6 +11,7 @@ import {
   type ChatGpdModel,
   type ChatGpdPhoneApp,
 } from '../chat/useChatGpdPhoneApp';
+import type { ChatGpdChatRecord } from '../chat/phoneAppsSessions';
 import { maxChatGpdSidebarWidth, minChatGpdSidebarWidth } from '../settings';
 
 type PhoneChatGpdScreenProps = {
@@ -19,6 +20,7 @@ type PhoneChatGpdScreenProps = {
   onSidebarOpenChange: (open: boolean) => void;
   sidebarWidth: number;
   onSidebarWidthChange: (width: number) => void;
+  onCommitChat: (chat: ChatGpdChatRecord) => void;
   onBack: () => void;
 };
 
@@ -28,6 +30,7 @@ export function PhoneChatGpdScreen({
   onSidebarOpenChange,
   sidebarWidth,
   onSidebarWidthChange,
+  onCommitChat,
   onBack,
 }: PhoneChatGpdScreenProps) {
   const {
@@ -127,10 +130,17 @@ export function PhoneChatGpdScreen({
     void chatGpd.sendMessage(text);
   }
 
+  function leaveChatGpd() {
+    if (activeChat && !isSending) {
+      onCommitChat(activeChat);
+    }
+    onBack();
+  }
+
   return (
     <div className="phone-chatgpd-screen" aria-label="ChatGPD">
       <header className="phone-gallery-header">
-        <button type="button" onClick={onBack} aria-label="Back" title="Back">
+        <button type="button" onClick={leaveChatGpd} aria-label="Back" title="Back">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6" />
           </svg>

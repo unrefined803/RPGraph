@@ -15,6 +15,7 @@ type PhoneNotesScreenProps = {
   clockDateTime: string;
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
+  onCommitNote: (note: PhoneNoteRecord) => void;
   onBack: () => void;
 };
 
@@ -52,6 +53,7 @@ export function PhoneNotesScreen({
   clockDateTime,
   rpDateTimeFormat,
   rpWeekdayLanguage,
+  onCommitNote,
   onBack,
 }: PhoneNotesScreenProps) {
   const [editingNoteId, setEditingNoteId] = useState<string>();
@@ -86,6 +88,8 @@ export function PhoneNotesScreen({
     const note = notes.find((entry) => entry.id === editingNoteId);
     if (note && !note.title.trim() && !note.text.trim()) {
       removeNote(note.id);
+    } else if (note) {
+      onCommitNote(note);
     }
     setEditingNoteId(undefined);
   }
@@ -102,12 +106,14 @@ export function PhoneNotesScreen({
       const note = notes.find((entry) => entry.id === editingNoteId);
       if (note && !note.title.trim() && !note.text.trim()) {
         onNotesChange(notes.filter((entry) => entry.id !== note.id));
+      } else if (note) {
+        onCommitNote(note);
       }
       setEditingNoteId(undefined);
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [editingNoteId, notes, onBack, onNotesChange]);
+  }, [editingNoteId, notes, onBack, onCommitNote, onNotesChange]);
 
   const editingNote = notes.find((note) => note.id === editingNoteId);
 

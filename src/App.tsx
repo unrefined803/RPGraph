@@ -123,6 +123,7 @@ import {
 import { hydrateLoadedWorkflow, type HydratedWorkflow } from './app/workflowHydration';
 import {
   lastMessage,
+  createTurnId,
   narratorCharacterId,
   narratorSpeakerName,
 } from './app/runOrchestration';
@@ -131,6 +132,10 @@ import {
   type OutputAttribution,
   type PhoneMessageSound,
 } from './app/useGraphRun';
+import {
+  createTurnCheckpointFromNodesForTurnRecord,
+  trimCheckpoints,
+} from './data-management/checkpointStore';
 import {
   latestHistoryRpDateTime,
   phoneConversationKey,
@@ -164,10 +169,20 @@ import {
   remapOpeningTurnMessageIds,
 } from './storybook/openingHistoryRuntime';
 import {
+  createdPhoneNoteHistoryText,
+  simulatedAiChatHistoryText,
   mergePhoneAppRecordsByCharacter,
   replaceCreatedPhoneNotesForTurn,
   replaceSimulatedAiChatsForTurn,
+  type ChatGpdChatRecord,
+  type PhoneNoteRecord,
 } from './chat/phoneAppsSessions';
+import {
+  hasCreatedPhoneNoteHistory,
+  hasSimulatedAiChatHistory,
+  manualCreatedPhoneNoteCommit,
+  manualSimulatedAiChatCommit,
+} from './chat/phoneAppHistoryMessages';
 import {
   flattenTurnMessages,
   lastSessionTurn,
@@ -296,6 +311,7 @@ import type {
   RpWeekdayLanguage,
   SettingsValueDefinition,
   SavedFileSummary,
+  TurnRecord,
   WorkflowFile,
   WorkflowNode,
   WorkflowNodeData,
@@ -4646,6 +4662,82 @@ function App() {
     return id;
   }
 
+  function appendManualPhoneAppHistoryTurn(
+    originalText: string,
+    metadata: Pick<MessageRecord, 'createdPhoneNote' | 'simulatedAiChat'>,
+  ) {
+    if (activeTurnCollectorRef.current) {
+      notifySystem('warning', 'Finish the current run before adding manual Phone App history.');
+      return;
+    }
+    const turnNumber = (turnsRef.current[turnsRef.current.length - 1]?.number ?? 0) + 1;
+    const turnId = createTurnId(turnNumber);
+    const messageId = nextMessageIdRef.current;
+    nextMessageIdRef.current += 1;
+    const createdAt = new Date().toISOString();
+    const message: MessageRecord = {
+      id: messageId,
+      role: 'output',
+      originalText,
+      includeInHistory: true,
+      channel: 'rp',
+      turnId,
+      turnNumber,
+      turnPart: 'output',
+      ...metadata,
+    };
+    const turn: TurnRecord = {
+      id: turnId,
+      number: turnNumber,
+      createdAt,
+      mode: 'user',
+      input: {
+        graphText: '',
+        messages: [],
+      },
+      output: {
+        graphText: originalText,
+        messages: [message],
+      },
+    };
+    const checkpoint = createTurnCheckpointFromNodesForTurnRecord(
+      turn,
+      nodesRef.current,
+      nodesRef.current,
+      workflowSettingsValuesRef.current,
+      workflowSettingsValuesRef.current,
+    );
+    messagesRef.current = [...messagesRef.current, message];
+    turnsRef.current = [...turnsRef.current, turn];
+    const nextCheckpoints = trimCheckpoints([...turnCheckpointsRef.current, checkpoint]);
+    turnCheckpointsRef.current = nextCheckpoints;
+    setMessages(messagesRef.current);
+    setTurns(turnsRef.current);
+    setTurnCheckpoints(nextCheckpoints);
+  }
+
+  function commitManualCreatedPhoneNote(note: PhoneNoteRecord) {
+    const commit = manualCreatedPhoneNoteCommit(viewedPhoneCharacter, note);
+    if (!commit || hasCreatedPhoneNoteHistory(messagesRef.current, commit)) {
+      return;
+    }
+    appendManualPhoneAppHistoryTurn(
+      createdPhoneNoteHistoryText(commit),
+      { createdPhoneNote: commit },
+    );
+  }
+
+  function commitManualChatGpdChat(chat: ChatGpdChatRecord) {
+    const commit = manualSimulatedAiChatCommit(viewedPhoneCharacter, chat);
+    if (!commit || hasSimulatedAiChatHistory(messagesRef.current, commit)) {
+      return;
+    }
+    appendManualPhoneAppHistoryTurn(
+      simulatedAiChatHistoryText(commit),
+      { simulatedAiChat: commit },
+    );
+  }
+
   function setOutputActionChoicesHiddenByTurn(turnId: string, hidden: boolean) {
     const shouldPatch = (message: MessageRecord) =>
       ((message.outputActionChoices?.length ?? 0) > 0 ||
@@ -6883,6 +6975,8 @@ function App() {
                   }));
                 }
               }}
+              onPhoneNoteCommit={commitManualCreatedPhoneNote}
+              onChatGpdChatCommit={commitManualChatGpdChat}
               phoneDesktopLayout={phoneDesktopLayout}
               onPhoneDesktopLayoutChange={setPhoneDesktopLayout}
               phoneDesktopIconSize={phoneDesktopIconSize}
