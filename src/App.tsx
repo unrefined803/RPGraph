@@ -1659,6 +1659,9 @@ function App() {
     importCharacterCard,
     loadStorybookFile,
     pendingStorybookConversion,
+    beginPendingStorybookReview,
+    acceptPendingStorybookConversionRow,
+    fixPendingStorybookConversionRow,
     applyPendingStorybookConversion,
     cancelPendingStorybookConversion,
   } = useStorybookActions({
@@ -7084,6 +7087,9 @@ function App() {
           }
           onApplyConversion={applyPendingStorybookConversion}
           onCancelConversion={cancelPendingStorybookConversion}
+          onBeginConversionReview={beginPendingStorybookReview}
+          onAcceptConversionRow={acceptPendingStorybookConversionRow}
+          onFixConversionRow={fixPendingStorybookConversionRow}
           onClose={() => setStorybookCreatorNodeId(null)}
         />
       )}

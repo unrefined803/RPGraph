@@ -166,6 +166,7 @@ export type RpStorybookV1 = {
 export type RpStorybookAssistantResult = {
   reply: string;
   changedFields: string[];
+  patchPaths: string[];
   storybook: RpStorybookV1;
 };
 
@@ -994,6 +995,13 @@ export function parseRpStorybookAssistantResult(text: string, fallback: RpStoryb
   return {
     reply: stringValue(parsed.reply) || (changedFields.length ? 'Updated the storybook.' : 'No changes.'),
     changedFields,
+    patchPaths: patch.flatMap((operation) => {
+      if (!operation || typeof operation !== 'object' || Array.isArray(operation)) {
+        return [];
+      }
+      const entry = operation as JsonPatchOperation;
+      return [entry.path, entry.from].filter((path): path is string => typeof path === 'string');
+    }),
     storybook: normalizedStorybook,
   };
 }

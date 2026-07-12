@@ -233,8 +233,10 @@ event details) still talk about the old cast.
    and per character; Apply commits and prompts to save; Cancel loads nothing;
    the old file is never touched. Verified against the real 1.19.0 export
    (`SaveStorybook_V11.rpgraph-storybook.json`): all sections carry over.
-3. ⬜ **Converter, AI repair stage** — not built yet; fully specified as the
-   two-step review flow in section 9 (next implementation step).
+3. ✅ **Converter, AI repair stage** — the two-step review flow keeps a draft
+   outside the active node, gives the assistant the draft plus a compact status
+   report, and offers per-row Accept/Fill/Fix actions. Successful scoped patches
+   turn their rows green before the final apply.
 4. ✅ **Character card format** — `rpgraph-character` / `1.0.0`
    (`*.rpgraph-character.json`, plain JSON): per-character "Export Character"
    button and "Import Character" (header + ⋯ menu) in the storybook editor;
@@ -270,10 +272,10 @@ event details) still talk about the old cast.
    the standing rule is text fields only, never images/voice/banking numbers.
    (Applies when stage 3 becomes necessary.)
 
-## 9. AI-assisted conversion — planned next step (specified 2026-07-12)
+## 9. AI-assisted conversion (implemented 2026-07-12)
 
-Not implemented yet. Goal: the assistant becomes part of the conversion flow
-instead of being blind to it (today it answers "I cannot see the checklist").
+The assistant is part of the conversion flow and works against the conversion
+draft instead of the still-active storybook node.
 
 ### Two-step flow with a conversion draft
 

@@ -22865,6 +22865,18 @@ button.message-timeline-row.phone:focus-visible {
   color: #b9c4d8;
 }
 
+.storybook-conversion-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.storybook-conversion-row-actions .load-text-button {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
 .storybook-conversion-row-text strong {
   color: #e7ecf5;
 }

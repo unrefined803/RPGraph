@@ -1095,7 +1095,11 @@ type StorybookCreatorDialogProps = {
     fileName?: string;
     sourceValue: unknown;
     result: StorybookConversionResult;
+    phase: 'convert' | 'review';
   } | null;
+  onBeginConversionReview: () => void;
+  onAcceptConversionRow: (rowId: string) => void;
+  onFixConversionRow: (rowId: string) => Promise<void>;
   onApplyConversion: () => string | null;
   onCancelConversion: () => void;
   onClose: () => void;
@@ -3030,6 +3034,9 @@ export function StorybookCreatorDialog({
   onImportCharacterCard,
   onExportCharacter,
   pendingConversion,
+  onBeginConversionReview,
+  onAcceptConversionRow,
+  onFixConversionRow,
   onApplyConversion,
   onCancelConversion,
   onClose,
@@ -3331,7 +3338,13 @@ export function StorybookCreatorDialog({
                       id="storybook-json-view"
                       readOnly
                       value={JSON.stringify(
-                        sanitizeDataUrls(pendingConversion ? pendingConversion.sourceValue : storybook),
+                        sanitizeDataUrls(
+                          pendingConversion
+                            ? pendingConversion.phase === 'review'
+                              ? pendingConversion.result.storybook
+                              : pendingConversion.sourceValue
+                            : storybook,
+                        ),
                         null,
                         2,
                       )}
@@ -3346,7 +3359,12 @@ export function StorybookCreatorDialog({
                       readOnly
                       spellCheck={false}
                       value={pendingConversion
-                        ? `Storybook Format ${pendingConversion.result.sourceVersion} is not compatible with this build. Convert it in the UI Preview tab first.`
+                        ? pendingConversion.phase === 'review'
+                          ? rpStorybookFormattedText(
+                              pendingConversion.result.storybook,
+                              node.data.storybookFormattedTextSettings,
+                            )
+                          : `Storybook Format ${pendingConversion.result.sourceVersion} is not compatible with this build. Convert it in the UI Preview tab first.`
                         : rpStorybookFormattedText(storybook, node.data.storybookFormattedTextSettings)}
                     />
                   </div>
@@ -3356,6 +3374,11 @@ export function StorybookCreatorDialog({
                   <StorybookConversionPanel
                     fileName={pendingConversion.fileName}
                     result={pendingConversion.result}
+                    phase={pendingConversion.phase}
+                    isSubmitting={isSubmitting}
+                    onBeginReview={onBeginConversionReview}
+                    onAcceptRow={onAcceptConversionRow}
+                    onFixRow={onFixConversionRow}
                     onApply={onApplyConversion}
                     onCancel={onCancelConversion}
                   />

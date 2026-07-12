@@ -5,13 +5,17 @@ import {
   type RpStorybookV1,
 } from '../nodes/rp-storybook-v1/model';
 
-type StorybookConversionRowState = 'mapped' | 'defaulted';
+type StorybookConversionRowState = 'mapped' | 'defaulted' | 'suggested';
+type StorybookConversionReviewState = 'pending' | 'accepted' | 'resolved';
 
 type StorybookConversionRow = {
   id: string;
   label: string;
   state: StorybookConversionRowState;
+  reviewState: StorybookConversionReviewState;
   message: string;
+  allowedPatchPaths: string[];
+  aiInstruction?: string;
 };
 
 export type StorybookConversionResult = {
@@ -43,34 +47,56 @@ export function isLegacyRpStorybookValue(value: unknown) {
   );
 }
 
-function characterRow(
+function characterRows(
   sourceCharacter: Record<string, unknown>,
+  characterIndex: number,
   name: string,
   imageCount: number,
-): StorybookConversionRow {
-  const newSections: string[] = [];
-  if (!('banking' in sourceCharacter)) newSections.push('banking');
-  if (!('social' in sourceCharacter)) newSections.push('social usernames');
-  if (!('voiceConfig' in sourceCharacter)) newSections.push('voice sample');
-  if (!('phoneSettings' in sourceCharacter)) newSections.push('phone settings');
-  if (!('comfyConfig' in sourceCharacter)) newSections.push('image generation config');
+): StorybookConversionRow[] {
+  const basePath = `/characters/${characterIndex}`;
   const imagesNote = imageCount
     ? `${imageCount} image${imageCount === 1 ? '' : 's'} kept unchanged.`
     : 'No images.';
-  if (newSections.length === 0) {
-    return {
-      id: `character:${name}`,
-      label: `Character: ${name}`,
-      state: 'mapped',
-      message: `All fields carried over. ${imagesNote}`,
-    };
-  }
-  return {
-    id: `character:${name}`,
+  const rows: StorybookConversionRow[] = [{
+    id: `character:${characterIndex}:identity`,
     label: `Character: ${name}`,
-    state: 'defaulted',
-    message: `New in this format, filled with defaults: ${newSections.join(', ')}. ${imagesNote}`,
-  };
+    state: 'mapped',
+    reviewState: 'resolved',
+    message: `Identity and story fields carried over. ${imagesNote}`,
+    allowedPatchPaths: [],
+  }];
+  const optionalSections: Array<{
+    key: 'banking' | 'social' | 'voiceConfig' | 'phoneSettings' | 'comfyConfig';
+    label: string;
+    instruction?: string;
+  }> = [
+    {
+      key: 'banking',
+      label: 'Banking',
+      instruction: `Choose a plausible starting balance and mobile-plan expense for ${name}, based on the character and story. Change only this character's banking fields.`,
+    },
+    {
+      key: 'social',
+      label: 'Social Accounts',
+      instruction: `Choose fitting social usernames for ${name} from the character's name, personality, and story. Keep OnlyFriends empty unless the story supports an account. Change only this character's social fields.`,
+    },
+    { key: 'voiceConfig', label: 'Voice Sample' },
+    { key: 'phoneSettings', label: 'Phone Settings' },
+    { key: 'comfyConfig', label: 'Image Generation Settings' },
+  ];
+  optionalSections.forEach((section) => {
+    const wasPresent = section.key in sourceCharacter;
+    rows.push({
+      id: `character:${characterIndex}:${section.key}`,
+      label: `${name}: ${section.label}`,
+      state: wasPresent ? 'mapped' : 'defaulted',
+      reviewState: wasPresent ? 'resolved' : 'pending',
+      message: wasPresent ? 'Carried over.' : 'Not present in the old format; filled with defaults.',
+      allowedPatchPaths: section.instruction ? [`${basePath}/${section.key}`] : [],
+      ...(section.instruction ? { aiInstruction: section.instruction } : {}),
+    });
+  });
+  return rows;
 }
 
 /**
@@ -87,9 +113,12 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
     id: 'title',
     label: 'Title & Introduction',
     state: hasText(source.title) || hasText(source.introduction) ? 'mapped' : 'defaulted',
+    reviewState: hasText(source.title) || hasText(source.introduction) ? 'resolved' : 'pending',
     message: hasText(source.title) || hasText(source.introduction)
       ? 'Carried over unchanged.'
       : 'Not present in the old file; left empty.',
+    allowedPatchPaths: ['/title', '/introduction'],
+    aiInstruction: 'Fill the missing title and introduction so they fit the existing characters and scenario. Change only title and introduction.',
   });
 
   const sourceScenario = recordValue(source.scenario);
@@ -99,15 +128,19 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
     id: 'scenario',
     label: 'Scenario',
     state: scenarioFields.length ? 'mapped' : 'defaulted',
+    reviewState: scenarioFields.length ? 'resolved' : 'pending',
     message: scenarioFields.length
       ? `Carried over: ${scenarioFields.join(', ')}.`
       : 'Not present in the old file; left empty.',
+    allowedPatchPaths: ['/scenario'],
+    aiInstruction: 'Fill the missing scenario text so it fits the existing characters and story. Change only scenario fields.',
   });
 
   const sourceCharacters = arrayValue(source.characters).map(recordValue);
   storybook.characters.forEach((character, index) => {
-    rows.push(characterRow(
+    rows.push(...characterRows(
       sourceCharacters[index] ?? {},
+      index,
       character.name || character.id,
       character.images.length,
     ));
@@ -117,7 +150,10 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
       id: 'characters',
       label: 'Characters',
       state: 'defaulted',
+      reviewState: 'pending',
       message: 'No characters found in the old file.',
+      allowedPatchPaths: ['/characters'],
+      aiInstruction: 'Create the characters needed for this story from the title, introduction, and scenario. Change only characters.',
     });
   }
 
@@ -127,11 +163,13 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
     id: 'phone-contacts',
     label: 'Phone Contacts',
     state: droppedBlocked > 0 ? 'defaulted' : 'mapped',
+    reviewState: droppedBlocked > 0 ? 'pending' : 'resolved',
     message: droppedBlocked > 0
       ? `${storybook.phoneContacts.blocked.length} blocked pairs kept, ${droppedBlocked} dropped (unknown characters).`
       : storybook.phoneContacts.blocked.length
         ? `${storybook.phoneContacts.blocked.length} blocked contact pairs carried over.`
         : 'No blocked contact pairs.',
+    allowedPatchPaths: [],
   });
 
   const sourceOpening = recordValue(source.openingHistory);
@@ -155,11 +193,13 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
     id: 'opening-history',
     label: 'Opening History',
     state: droppedParts.length ? 'defaulted' : 'mapped',
+    reviewState: droppedParts.length ? 'pending' : 'resolved',
     message: droppedParts.length
       ? `Carried over ${openingSummaryParts.join(', ') || 'nothing'}; dropped unreadable entries: ${droppedParts.join(', ')}.`
       : openingSummaryParts.length
         ? `Carried over ${openingSummaryParts.join(', ')}.`
         : 'No opening history in the old file.',
+    allowedPatchPaths: [],
   });
 
   const countRecords = (records: Record<string, unknown[]>) =>
@@ -177,9 +217,11 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
     id: 'phone-app-data',
     label: 'Phone App Data',
     state: 'mapped',
+    reviewState: 'resolved',
     message: phoneAppParts.length
       ? `Carried over ${phoneAppParts.join(', ')}.`
       : 'No phone app data in the old file.',
+    allowedPatchPaths: [],
   });
 
   return {

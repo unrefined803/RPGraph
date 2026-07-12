@@ -110,6 +110,7 @@ export function useStorybookActions({
     filePath?: string;
     sourceValue: unknown;
     result: StorybookConversionResult;
+    phase: 'convert' | 'review';
   } | null>(null);
   const [storybookCreatorNodeId, setStorybookCreatorNodeId] = useState<string | null>(null);
   const [storybookCreatorMessages, setStorybookCreatorMessages] = useState<StorybookCreatorMessage[]>([]);
@@ -187,10 +188,12 @@ export function useStorybookActions({
 
   function openStorybookCreator(nodeId: string) {
     setStorybookCreatorNodeId(nodeId);
-    setStorybookCreatorMessages([]);
+    if (pendingStorybookConversion?.nodeId !== nodeId || pendingStorybookConversion.phase !== 'review') {
+      setStorybookCreatorMessages([]);
+    }
   }
 
-  async function submitStorybookCreatorMessage(message: string) {
+  async function submitStorybookCreatorMessage(message: string, conversionRowId?: string) {
     const nodeId = storybookCreatorNodeId;
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (!nodeId || !node || node.data.nodeType !== 'rp-storybook-v1') {
@@ -205,22 +208,56 @@ export function useStorybookActions({
     });
 
     try {
-      const currentStorybook = node.data.storybookJson
+      const conversion = pendingStorybookConversion?.nodeId === nodeId && pendingStorybookConversion.phase === 'review'
+        ? pendingStorybookConversion
+        : null;
+      const currentStorybook = conversion?.result.storybook ?? (node.data.storybookJson
         ? parseRpStorybookJson(node.data.storybookJson)
-        : emptyRpStorybookV1;
+        : emptyRpStorybookV1);
+      const selectedRow = conversionRowId
+        ? conversion?.result.rows.find((row) => row.id === conversionRowId)
+        : undefined;
+      const conversionStatus = conversion
+        ? [
+            `Conversion review: Storybook ${conversion.result.sourceVersion} -> ${conversion.result.targetVersion}.`,
+            ...conversion.result.rows.map((row) =>
+              `${row.reviewState === 'resolved' || row.reviewState === 'accepted' ? 'GREEN' : row.state === 'suggested' ? 'BLUE' : row.state === 'defaulted' ? 'YELLOW' : 'GREEN'} | ${row.label} | ${row.message}`,
+            ),
+            'During conversion, patches update the conversion draft only. They do not update the active node.',
+          ].join('\n')
+        : '';
+      const instruction = [conversionStatus, selectedRow?.aiInstruction, message].filter(Boolean).join('\n\n');
       const currentJson = rpStorybookPromptJsonText(currentStorybook);
       const completion = await nodeLlm.complete({
         connectionId: node.data.connectionId,
         nodeId,
         label: 'Storybook Chat',
-        prompt: rpStorybookEditPrompt(currentJson, message, storyHistoryPresent(currentStorybook)),
+        prompt: rpStorybookEditPrompt(currentJson, instruction, storyHistoryPresent(currentStorybook)),
       });
       const result = parseRpStorybookAssistantResult(completion.text, currentStorybook);
+      if (selectedRow && result.patchPaths.some((path) =>
+        !selectedRow.allowedPatchPaths.some((allowed) => path === allowed || path.startsWith(`${allowed}/`)),
+      )) {
+        throw new Error(`The assistant tried to change fields outside ${selectedRow.label}. No changes were applied.`);
+      }
       const changedFields = result.changedFields.slice(0, 4);
+      const storybookChanged = JSON.stringify(result.storybook) !== JSON.stringify(currentStorybook);
       const changedSummary = changedFields.length
         ? `edit ${changedFields.join(' + ')}${result.changedFields.length > changedFields.length ? ' + more' : ''}`
         : 'answer';
-      if (result.changedFields.length) {
+      if (storybookChanged && conversion) {
+        const rows = conversion.result.rows.map((row) => {
+          const rowWasChanged = row.allowedPatchPaths.some((allowed) =>
+            result.patchPaths.some((path) => path === allowed || path.startsWith(`${allowed}/`)),
+          );
+          return rowWasChanged ? { ...row, reviewState: 'resolved' as const, message: 'Reviewed and updated by the AI assistant.' } : row;
+        });
+        setPendingStorybookConversion({
+          ...conversion,
+          result: { ...conversion.result, storybook: result.storybook, rows },
+        });
+        updateRuntimeNode(nodeId, { storybookStatus: `Conversion draft edited via ${completion.connection.label}` });
+      } else if (storybookChanged) {
         const commitError = commitStorybookToNode(nodeId, result.storybook, {
           storybookStatus: `Edited via ${completion.connection.label}`,
         });
@@ -258,7 +295,8 @@ export function useStorybookActions({
   ) {
     if (isLegacyRpStorybookValue(storybookValue)) {
       const result = convertLegacyRpStorybook(storybookValue);
-      setPendingStorybookConversion({ nodeId, fileName, filePath, sourceValue: storybookValue, result });
+      setStorybookCreatorMessages([]);
+      setPendingStorybookConversion({ nodeId, fileName, filePath, sourceValue: storybookValue, result, phase: 'convert' });
       // The conversion checklist lives in the storybook editor's UI Preview.
       setStorybookCreatorNodeId(nodeId);
       updateRuntimeNode(nodeId, {
@@ -275,10 +313,50 @@ export function useStorybookActions({
     return commitError === null;
   }
 
+  function beginPendingStorybookReview() {
+    const pending = pendingStorybookConversion;
+    if (!pending) {
+      return;
+    }
+    const reviewRows = pending.result.rows.filter((row) => row.reviewState === 'pending');
+    setPendingStorybookConversion({ ...pending, phase: 'review' });
+    const report = reviewRows.length
+      ? [
+          `Converted Storybook ${pending.result.sourceVersion} to ${pending.result.targetVersion}. ${reviewRows.length} section${reviewRows.length === 1 ? '' : 's'} need review:`,
+          ...reviewRows.map((row) => `• ${row.label}: ${row.message}`),
+          'Ask me about any item, accept its default, or use its AI button.',
+        ].join('\n')
+      : `Converted Storybook ${pending.result.sourceVersion} to ${pending.result.targetVersion}. All sections were carried over and are ready to apply.`;
+    setStorybookCreatorMessages((current) => [...current, { role: 'assistant', text: report }]);
+  }
+
+  function acceptPendingStorybookConversionRow(rowId: string) {
+    setPendingStorybookConversion((pending) => pending ? {
+      ...pending,
+      result: {
+        ...pending.result,
+        rows: pending.result.rows.map((row) => row.id === rowId
+          ? { ...row, reviewState: 'accepted', message: 'Default accepted.' }
+          : row),
+      },
+    } : null);
+  }
+
+  async function fixPendingStorybookConversionRow(rowId: string) {
+    const row = pendingStorybookConversion?.result.rows.find((entry) => entry.id === rowId);
+    if (!row?.aiInstruction) {
+      return;
+    }
+    await submitStorybookCreatorMessage(
+      `Fix this conversion review item: ${row.label}. ${row.message}`,
+      rowId,
+    );
+  }
+
   /** Returns null when applied, otherwise the blocking error message. */
   function applyPendingStorybookConversion(): string | null {
     const pending = pendingStorybookConversion;
-    if (!pending) {
+    if (!pending || pending.phase !== 'review') {
       return null;
     }
     const { nodeId, fileName, filePath, result } = pending;
@@ -690,6 +768,9 @@ export function useStorybookActions({
     updateStorybook,
     applyStorybookToNode,
     pendingStorybookConversion,
+    beginPendingStorybookReview,
+    acceptPendingStorybookConversionRow,
+    fixPendingStorybookConversionRow,
     applyPendingStorybookConversion,
     cancelPendingStorybookConversion,
     importCurrentSessionAsOpeningHistory,
