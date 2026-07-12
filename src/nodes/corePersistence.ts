@@ -409,4 +409,17 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
       outputSpeakerPrompt: outputSpeakerPromptSettings(data.outputSpeakerPrompt),
     }),
   },
+  'phone-apps': {
+    saveData: (data) => preservedData(data, 'Used directly by phone apps', {
+      connectionId: data.connectionId,
+      phoneAppsNotesConnectionId: data.phoneAppsNotesConnectionId,
+    }),
+    hydrateData: (data, context) => preservedData(data, 'Used directly by phone apps', {
+      connectionId: connectionId(data, context),
+      phoneAppsNotesConnectionId:
+        data.phoneAppsNotesConnectionId && context.connectionIds.has(data.phoneAppsNotesConnectionId)
+          ? data.phoneAppsNotesConnectionId
+          : context.defaultConnectionId,
+    }),
+  },
 };

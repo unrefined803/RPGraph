@@ -403,6 +403,7 @@ type WorkflowNodeCommonFields = {
   noteText?: string;
   noteFontSize?: number;
   groupTitle?: string;
+  phoneAppsNotesConnectionId?: string;
 };
 
 export type AutoTurnInstructionKey =
@@ -477,6 +478,7 @@ type CombinerNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'combiner' };
 type CharacterStatsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'character-stats' };
 type OutputNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'output' };
 type RpStorybookV1NodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook-v1' };
+type PhoneAppsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'phone-apps' };
 
 type ConcreteCoreWorkflowNodeData =
   | InputNodeData
@@ -504,7 +506,8 @@ type ConcreteCoreWorkflowNodeData =
   | CombinerNodeData
   | CharacterStatsNodeData
   | OutputNodeData
-  | RpStorybookV1NodeData;
+  | RpStorybookV1NodeData
+  | PhoneAppsNodeData;
 
 type MissingNodeWorkflowData = WorkflowNodeCommonFields & {
   nodeType: string;
@@ -905,7 +908,7 @@ export type PhoneDesktopLayout = {
     width: number;
     height: number;
   };
-  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes', {
+  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai', {
     column: number;
     row: number;
   }>;

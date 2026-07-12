@@ -26,6 +26,7 @@ import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PhonePanel } from './components/PhonePanel';
+import { useChatGbdPhoneApp } from './chat/useChatGbdPhoneApp';
 import { PromptPresetOverview } from './components/PromptPresetOverview';
 import { ResourceMonitor } from './components/ResourceMonitor';
 import {
@@ -1589,6 +1590,13 @@ function App() {
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
     recordCall: recordNodeLlmCall,
+  });
+  const chatGbd = useChatGbdPhoneApp({
+    nodes,
+    nodesRef,
+    nodeLlm,
+    updateLlmNodeActive,
+    notifySystem,
   });
   const {
     storybookCreatorNodeId,
@@ -6797,6 +6805,7 @@ function App() {
                 notifySystem('info', `Saved generated image in ${character.name}'s Phone Gallery.`);
               }}
               onPhoneWallpaperChange={changeStorybookPhoneWallpaper}
+              chatGbd={chatGbd}
               phoneDesktopLayout={phoneDesktopLayout}
               onPhoneDesktopLayoutChange={setPhoneDesktopLayout}
               phoneDesktopIconSize={phoneDesktopIconSize}

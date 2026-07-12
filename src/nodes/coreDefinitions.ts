@@ -99,6 +99,8 @@ import {
 } from './rp-storybook-v1/model';
 import { TextPreviewNodeCard } from './text-preview/Card';
 import { executeTextPreviewNode } from './text-preview/execute';
+import { PhoneAppsNodeCard } from './phone-apps/Card';
+import { executePhoneAppsNode } from './phone-apps/execute';
 import type { CoreNodeCreationDefinition, PortDefinition } from './types';
 import { corePersistence } from './corePersistence';
 import { currentCoreNodeVersions } from './nodeVersion';
@@ -988,6 +990,33 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         storybookJson: rpStorybookJsonText(emptyRpStorybookV1),
         storybookStatus: 'Ready',
         storybookFormattedTextSettings: defaultRpStorybookFormattedTextSettings,
+      },
+    }),
+  },
+  {
+    type: 'phone-apps',
+    dataVersion: currentCoreNodeVersions['phone-apps'],
+    label: 'Phone Apps',
+    description: 'Providers for direct phone apps',
+    menuDescription: 'Select LLM providers for phone apps',
+    origin: 'core',
+    singleton: true,
+    usesLlm: true,
+    ports: () => [],
+    Component: PhoneAppsNodeCard,
+    execute: executePhoneAppsNode,
+    create: ({ defaultConnectionId, position }) => ({
+      id: 'phone-apps',
+      type: 'workflow',
+      position,
+      style: { width: coreNodeLayout.standardWidth },
+      data: {
+        label: 'Phone Apps',
+        description: 'Providers for direct phone apps',
+        preview: 'Used directly by phone apps',
+        nodeType: 'phone-apps',
+        connectionId: defaultConnectionId,
+        phoneAppsNotesConnectionId: defaultConnectionId,
       },
     }),
   },

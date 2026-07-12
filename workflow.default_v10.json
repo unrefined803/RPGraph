@@ -563,6 +563,26 @@
       },
       "selected": false,
       "dragging": false
+    },
+    {
+      "id": "phone-apps",
+      "type": "workflow",
+      "position": {
+        "x": 488.9859454809267,
+        "y": -246.43036393107974
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "phone-apps",
+        "label": "Phone Apps",
+        "description": "Providers for direct phone apps",
+        "preview": "Used directly by phone apps",
+        "connectionId": "lm-studio-default",
+        "phoneAppsNotesConnectionId": "lm-studio-default",
+        "nodeDataVersion": "1.0.0"
+      }
     }
   ],
   "edges": [
