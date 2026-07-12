@@ -75,7 +75,6 @@ import type {
   WorkflowNode,
 } from '../types';
 import { storybookImageById } from '../storybook/imageLibrary';
-import { storybookWithoutCharacter } from '../storybook/characterManagement';
 import {
   StorybookConversionAssistantReport,
   StorybookConversionPanel,
@@ -97,7 +96,7 @@ import {
 } from '../workflow';
 
 export type StorybookCreatorMessage = {
-  role: 'user' | 'assistant' | 'error';
+  role: 'user' | 'assistant' | 'storybook' | 'error';
   text: string;
 };
 
@@ -1095,6 +1094,7 @@ type StorybookCreatorDialogProps = {
   onImportSillyTavernCharacter: () => Promise<void>;
   onImportCharacterCard: () => Promise<void>;
   onExportCharacter: (characterId: string) => Promise<void>;
+  onDeleteCharacter: (characterId: string) => void;
   pendingConversion: {
     fileName?: string;
     sourceValue: unknown;
@@ -3036,6 +3036,7 @@ export function StorybookCreatorDialog({
   onImportSillyTavernCharacter,
   onImportCharacterCard,
   onExportCharacter,
+  onDeleteCharacter,
   pendingConversion,
   onBeginConversionReview,
   onImproveConversion,
@@ -3552,10 +3553,7 @@ export function StorybookCreatorDialog({
                                     message: `Delete ${character.name || character.id} from this Storybook? This cannot be undone.`,
                                     confirmLabel: 'Delete Character',
                                     danger: true,
-                                    action: () => onUpdateStorybook(
-                                      storybookWithoutCharacter(storybook, character.id),
-                                      `Deleted character ${character.name || character.id}.`,
-                                    ),
+                                    action: () => onDeleteCharacter(character.id),
                                   })}
                                 >
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -3781,7 +3779,11 @@ export function StorybookCreatorDialog({
                   messages.map((message, index) => (
                     <div className={`chat-message-row ${message.role}`} key={`${message.role}-${index}`}>
                       <div className="message-sender-avatar">
-                        {message.role === 'user' ? 'U' : message.role === 'assistant' ? 'AI' : '!'}
+                        {message.role === 'user'
+                          ? 'U'
+                          : message.role === 'assistant'
+                            ? 'AI'
+                            : message.role === 'storybook' ? 'SB' : '!'}
                       </div>
                       <div className="chat-message-bubble">
                         <p>{message.text}</p>

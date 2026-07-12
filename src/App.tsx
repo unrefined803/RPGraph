@@ -1656,6 +1656,7 @@ function App() {
     resetStorybook,
     importSillyTavernCharacter,
     exportStorybookCharacter,
+    deleteStorybookCharacter,
     importCharacterCard,
     loadStorybookFile,
     pendingStorybookConversion,
@@ -7080,6 +7081,7 @@ function App() {
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
           onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}
+          onDeleteCharacter={(characterId) => deleteStorybookCharacter(storybookCreatorNode.id, characterId)}
           pendingConversion={
             pendingStorybookConversion?.nodeId === storybookCreatorNode.id
               ? pendingStorybookConversion

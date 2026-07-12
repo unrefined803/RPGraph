@@ -15592,6 +15592,11 @@ button.message-timeline-row.phone:focus-visible {
   max-width: 95%;
 }
 
+.chat-message-row.storybook {
+  align-self: flex-start;
+  max-width: 95%;
+}
+
 .message-sender-avatar {
   width: 32px;
   height: 32px;
@@ -15621,6 +15626,12 @@ button.message-timeline-row.phone:focus-visible {
   border: 1px solid #c65f5f;
 }
 
+.chat-message-row.storybook .message-sender-avatar {
+  color: #2a2105;
+  background: linear-gradient(135deg, #f4cf5d, #d49b25);
+  border: 1px solid #ffe08a;
+}
+
 .chat-message-bubble {
   background: #151d2d;
   border: 1px solid #232d42;
@@ -15646,6 +15657,14 @@ button.message-timeline-row.phone:focus-visible {
   border-color: rgba(198, 95, 95, 0.34);
   color: #fca5a5;
   border-radius: 12px;
+}
+
+.chat-message-row.storybook .chat-message-bubble {
+  border-color: rgba(235, 190, 61, 0.46);
+  border-radius: 12px;
+  color: #f5dda0;
+  background: rgba(112, 82, 18, 0.24);
+  box-shadow: 0 4px 14px rgba(91, 63, 10, 0.18);
 }
 
 .chat-message-bubble p {

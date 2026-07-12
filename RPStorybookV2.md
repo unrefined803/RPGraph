@@ -311,6 +311,9 @@ Nothing is written to the node before that.
 - The storybook JSON in the prompt is the **draft** (redacted as usual:
   image/voice placeholders, Opening History as summary + counts). The status
   block is small; token impact is negligible.
+- Blocked Storybook actions appear as persistent yellow `SB` notices in the
+  assistant transcript. Recent notices are included as assistant context so
+  follow-up questions can refer to the reason an action was rejected.
 - The grouped conversion report is separate from the chat transcript and is
   shown in full at the top of the scrollable chat area. Its AI action appears
   both in the report header and beside Cancel/Apply below the checklist.

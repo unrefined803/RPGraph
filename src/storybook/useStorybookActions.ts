@@ -30,6 +30,7 @@ import {
   type StorybookConversionResult,
 } from './conversion';
 import { planCharacterCardImport, rpCharacterCardForCharacter } from './characterCard';
+import { storybookWithoutCharacter } from './characterManagement';
 import type { TurnCheckpoint } from '../data-management/types';
 import type {
   ChatGpdChatsByCharacter,
@@ -189,11 +190,19 @@ export function useStorybookActions({
   }
 
   function updateStorybook(nodeId: string, storybook: ReturnType<typeof parseRpStorybookJson>, status?: string) {
-    return commitStorybookToNode(
+    const commitError = commitStorybookToNode(
       nodeId,
       storybook,
       { storybookStatus: status ?? 'Storybook updated.' },
-    ) === null;
+    );
+    if (commitError) {
+      setStorybookCreatorMessages((current) => [
+        ...current,
+        { role: 'storybook', text: commitError },
+      ]);
+      return false;
+    }
+    return true;
   }
 
   function openStorybookCreator(nodeId: string) {
@@ -233,7 +242,12 @@ export function useStorybookActions({
             'During conversion, patches update the conversion draft only. They do not update the active node.',
           ].join('\n')
         : '';
-      const instruction = [conversionStatus, message].filter(Boolean).join('\n\n');
+      const storybookMessageContext = storybookCreatorMessages
+        .filter((entry) => entry.role === 'storybook')
+        .slice(-6)
+        .map((entry) => `STORYBOOK NOTICE: ${entry.text}`)
+        .join('\n');
+      const instruction = [conversionStatus, storybookMessageContext, message].filter(Boolean).join('\n\n');
       const currentJson = rpStorybookPromptJsonText(currentStorybook);
       const completion = await nodeLlm.complete({
         connectionId: node.data.connectionId,
@@ -285,6 +299,31 @@ export function useStorybookActions({
       setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText }]);
     } finally {
       setStorybookCreatorSubmitting(false);
+    }
+  }
+
+  function deleteStorybookCharacter(nodeId: string, characterId: string) {
+    const node = nodesRef.current.find((entry) => entry.id === nodeId);
+    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+      return;
+    }
+    const storybook = node.data.storybookJson
+      ? parseRpStorybookJson(node.data.storybookJson)
+      : emptyRpStorybookV1;
+    const character = storybook.characters.find((entry) => entry.id === characterId);
+    if (!character) {
+      return;
+    }
+    const commitError = commitStorybookToNode(
+      nodeId,
+      storybookWithoutCharacter(storybook, characterId),
+      { storybookStatus: `Deleted character ${character.name || character.id}.` },
+    );
+    if (commitError) {
+      setStorybookCreatorMessages((current) => [
+        ...current,
+        { role: 'storybook', text: commitError },
+      ]);
     }
   }
 
@@ -779,6 +818,7 @@ export function useStorybookActions({
     resetStorybook,
     importSillyTavernCharacter,
     exportStorybookCharacter,
+    deleteStorybookCharacter,
     importCharacterCard,
     loadStorybookFile,
   };
