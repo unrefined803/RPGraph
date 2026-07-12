@@ -94,6 +94,15 @@ Legend: `[ ]` open · `[✅]` done (add date + short note when closing).
   - Effort: **Medium** — code-splitting / lazy loading.
   - Scope: **Medium** — bundle analysis + import boundaries.
 
+- [ ] **12. Manual phone app history commits only trigger on Back**
+  - Files: `src/components/PhoneChatGpdScreen.tsx:133`, `src/components/PhoneNotesScreen.tsx:86`
+  - A player-written note or ChatGPD chat becomes a history turn only via the
+    app's Back button (Notes also via Escape). Closing the phone panel or
+    switching characters while still inside the app skips the commit until the
+    app is reopened and left via Back.
+  - Effort: **Low–Medium** — commit on phone close/unmount as well.
+  - Scope: **Small** — phone screen components + PhonePanel.
+
 ## Low priority
 
 - [✅] **9. Launchers do not detect outdated packages** (2026-07-11)

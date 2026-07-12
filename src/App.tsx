@@ -182,6 +182,8 @@ import {
   hasSimulatedAiChatHistory,
   manualCreatedPhoneNoteCommit,
   manualSimulatedAiChatCommit,
+  revertCreatedPhoneNotesForMessages,
+  revertSimulatedAiChatsForMessages,
 } from './chat/phoneAppHistoryMessages';
 import {
   flattenTurnMessages,
@@ -5129,11 +5131,12 @@ function App() {
     setOutputActionChoicesHiddenByTurn(turn.id, false);
     removeTurnCheckpoint(turn.id);
     removeTurnTracesForTurn(turn.id);
+    const removedTurnMessages = flattenTurnMessages([turn]);
     setChatGpdChatsByCharacter((current) =>
-      replaceSimulatedAiChatsForTurn(current, turn.id, [])
+      revertSimulatedAiChatsForMessages(current, removedTurnMessages, messagesRef.current)
     );
     setPhoneNotesByCharacter((current) =>
-      replaceCreatedPhoneNotesForTurn(current, turn.id, [])
+      revertCreatedPhoneNotesForMessages(current, removedTurnMessages, messagesRef.current)
     );
     cancelEditMessage();
   }

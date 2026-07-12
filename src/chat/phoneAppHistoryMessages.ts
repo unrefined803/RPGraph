@@ -2,8 +2,10 @@ import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
 import type {
   ChatGpdChatRecord,
+  ChatGpdChatsByCharacter,
   CreatedPhoneNoteCommit,
   PhoneNoteRecord,
+  PhoneNotesByCharacter,
   SimulatedAiChatCommit,
 } from './phoneAppsSessions';
 
@@ -82,5 +84,74 @@ export function hasCreatedPhoneNoteHistory(messages: MessageRecord[], commit: Cr
 export function hasSimulatedAiChatHistory(messages: MessageRecord[], commit: SimulatedAiChatCommit) {
   return messages.some((message) =>
     message.simulatedAiChat && simulatedAiChatMatches(message.simulatedAiChat, commit)
+  );
+}
+
+// The commit snapshots stored on history messages are the source of truth for
+// undo: a record reverts to the latest snapshot still present in the remaining
+// history, or disappears from the phone app when no snapshot is left.
+function revertCommittedRecords<T extends { id: string }>(
+  current: Record<string, T[]>,
+  removedCommits: { characterId: string; record: T }[],
+  remainingCommits: { characterId: string; record: T }[],
+): Record<string, T[]> {
+  if (!removedCommits.length) {
+    return current;
+  }
+  const next = { ...current };
+  removedCommits.forEach(({ characterId, record }) => {
+    const snapshot = [...remainingCommits]
+      .reverse()
+      .find((commit) => commit.characterId === characterId && commit.record.id === record.id);
+    const records = next[characterId] ?? [];
+    const reverted = snapshot
+      ? records.map((entry) => (entry.id === record.id ? structuredClone(snapshot.record) : entry))
+      : records.filter((entry) => entry.id !== record.id);
+    if (reverted.length) {
+      next[characterId] = reverted;
+    } else {
+      delete next[characterId];
+    }
+  });
+  return next;
+}
+
+function createdPhoneNoteCommits(messages: MessageRecord[]) {
+  return messages.flatMap((message) =>
+    message.createdPhoneNote
+      ? [{ characterId: message.createdPhoneNote.characterId, record: message.createdPhoneNote.note }]
+      : [],
+  );
+}
+
+function simulatedAiChatCommits(messages: MessageRecord[]) {
+  return messages.flatMap((message) =>
+    message.simulatedAiChat
+      ? [{ characterId: message.simulatedAiChat.characterId, record: message.simulatedAiChat.chat }]
+      : [],
+  );
+}
+
+export function revertCreatedPhoneNotesForMessages(
+  current: PhoneNotesByCharacter,
+  removedMessages: MessageRecord[],
+  remainingMessages: MessageRecord[],
+): PhoneNotesByCharacter {
+  return revertCommittedRecords(
+    current,
+    createdPhoneNoteCommits(removedMessages),
+    createdPhoneNoteCommits(remainingMessages),
+  );
+}
+
+export function revertSimulatedAiChatsForMessages(
+  current: ChatGpdChatsByCharacter,
+  removedMessages: MessageRecord[],
+  remainingMessages: MessageRecord[],
+): ChatGpdChatsByCharacter {
+  return revertCommittedRecords(
+    current,
+    simulatedAiChatCommits(removedMessages),
+    simulatedAiChatCommits(remainingMessages),
   );
 }
