@@ -233,10 +233,8 @@ event details) still talk about the old cast.
    and per character; Apply commits and prompts to save; Cancel loads nothing;
    the old file is never touched. Verified against the real 1.19.0 export
    (`SaveStorybook_V11.rpgraph-storybook.json`): all sections carry over.
-3. ⬜ **Converter, AI repair stage** — not needed yet: every 1.x → 2.0.0
-   mapping is deterministic. Becomes relevant with the first field
-   rename/semantic change; the section-scoped redacted prompt design from
-   section 4 still applies.
+3. ⬜ **Converter, AI repair stage** — not built yet; fully specified as the
+   two-step review flow in section 9 (next implementation step).
 4. ✅ **Character card format** — `rpgraph-character` / `1.0.0`
    (`*.rpgraph-character.json`, plain JSON): per-character "Export Character"
    button and "Import Character" (header + ⋯ menu) in the storybook editor;
@@ -271,6 +269,62 @@ event details) still talk about the old cast.
 4. The AI repair stage should decide on its own what is sensible to touch;
    the standing rule is text fields only, never images/voice/banking numbers.
    (Applies when stage 3 becomes necessary.)
+
+## 9. AI-assisted conversion — planned next step (specified 2026-07-12)
+
+Not implemented yet. Goal: the assistant becomes part of the conversion flow
+instead of being blind to it (today it answers "I cannot see the checklist").
+
+### Two-step flow with a conversion draft
+
+The conversion mode (UI Preview checklist) gains a **draft**: the converted
+storybook lives only inside the conversion state until the final commit.
+Nothing is written to the node before that.
+
+1. **Step 1 — Convert.** Runs the deterministic conversion (exists today).
+   - All rows ✅ → commit immediately, leave conversion mode, prompt to save.
+     (Fast path, no second step.)
+   - Any 🟡 (defaulted) or 🔵 (AI repair suggested) rows → **stay in
+     conversion mode** with the draft; the checklist switches to review state.
+2. **Step 2 — Review.** Work through the non-green rows:
+   - 🟡 rows: buttons **Accept default** (turns ✅) and **Fill with AI**
+     (sends a section-scoped instruction to the assistant; on a successful
+     patch the row turns ✅).
+   - 🔵 rows: button **Fix with AI** (same mechanism, but the row's message
+     explains what could not be mapped deterministically).
+   - The assistant chat stays fully usable for free-form discussion; its
+     patches apply to the **draft**, not to the node.
+3. **Final Apply.** Enabled while no 🔵 rows remain (🟡 rows do not block —
+   a default is a valid value; Final Apply implicitly accepts them). Commits
+   the draft through the normal `commitStorybookToNode` path (identity lock,
+   image-usage checks run here), leaves conversion mode, prompts to save.
+4. **Cancel** at any point discards the draft; the node is untouched.
+
+### Assistant context while conversion mode is active
+
+- Every assistant call additionally receives a compact **conversion status
+  block**: source → target version, file name, and each checklist row as
+  `state | label | message` (✅/🟡/🔵), plus which step the flow is in.
+- The storybook JSON in the prompt is the **draft** (redacted as usual:
+  image/voice placeholders, Opening History as summary + counts). The status
+  block is small; token impact is negligible.
+- On entering review state, an automatic report message is posted into the
+  assistant chat ("Converted from 1.19.0 to 2.0.0. Filled with defaults:
+  banking for Helga, social usernames for Jack, … Say 'fill them' or use the
+  row buttons."), so the conversation has an anchor and the user can simply
+  answer in chat.
+- Assistant patches during review are validated like normal edits (text
+  fields only; never images, voice samples, or Opening History) and re-run
+  the row evaluation so repaired rows turn green.
+
+### When rows become 🔵
+
+Deterministic mapping marks a row 🔵 instead of 🟡 when data was present in
+the source but could not be mapped (unknown/renamed field with non-empty
+content, dropped opening-history entries with recoverable text, characters
+whose fields conflict). Today's 1.x → 2.0.0 conversions produce none of
+these; the state becomes real with the first breaking field change.
+
 
 ---
 
