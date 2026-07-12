@@ -943,8 +943,7 @@ async function encryptCharacterCard(card, password) {
     !card ||
     card.format !== 'rpgraph-character' ||
     characterCardVersionStatus(card.version) !== 'current' ||
-    !card.character ||
-    typeof card.character !== 'object'
+    !characterCardMetadata(card).compatible
   ) {
     throw new Error(
       `Only RPGraph Character Card Format ${currentCharacterCardFormatVersion} payloads can be encrypted.`,
@@ -4389,7 +4388,8 @@ ipcMain.handle('character:save', async (_event, request) => {
   if (
     !card ||
     card.format !== 'rpgraph-character' ||
-    characterCardVersionStatus(card.version) !== 'current'
+    characterCardVersionStatus(card.version) !== 'current' ||
+    !characterCardMetadata(card).compatible
   ) {
     throw new Error(
       `Only RPGraph Character Card Format ${currentCharacterCardFormatVersion} payloads can be saved.`,
@@ -4471,7 +4471,8 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
     if (
       !card ||
       card.format !== 'rpgraph-character' ||
-      characterCardVersionStatus(card.version) !== 'current'
+      characterCardVersionStatus(card.version) !== 'current' ||
+      !characterCardMetadata(card).compatible
     ) {
       throw new Error(
         `Only RPGraph Character Card Format ${currentCharacterCardFormatVersion} payloads can be exported.`,

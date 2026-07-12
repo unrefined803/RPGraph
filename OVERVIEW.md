@@ -49,14 +49,14 @@ The main app shell is built in [`src/App.tsx`](src/App.tsx). It renders a full s
 At a high level, the app works like this:
 
 1. The user opens or creates a workflow.
-2. The workflow graph contains nodes such as `User Input`, `LLM Prompt`, `RP Output`, `RP Storybook V1`, and supporting context nodes.
+2. The workflow graph contains nodes such as `User Input`, `LLM Prompt`, `RP Output`, `RP Storybook V2`, and supporting context nodes.
 3. The user selects who they are playing as in the chat panel.
 4. The user sends a chat message, phone message, social-media action, event run, auto-turn, direct app action, or regeneration request.
 5. `App.tsx` coordinates focused hooks such as `useGraphRun`, `useRoleplayPanelRuntime`, and `useRpgraphFiles`, which prepare the current session state and start the requested run.
 6. The runtime resolves connected nodes, calls LLM or utility nodes as needed, and updates runtime node state.
 7. The output is appended back into the chat/session timeline and shown in the UI.
 
-The bundled default workflow is a ready-to-use roleplay graph rather than a minimal three-node example. It currently combines `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, `RP Storybook V1`, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Phone Message, and Social Media runs into the matching `RP Output` inputs. The bundled file is the single project-root file matching `workflow.default*.json`; the app imports a newly named default into its managed workflow storage on startup.
+The bundled default workflow is a ready-to-use roleplay graph rather than a minimal three-node example. It currently combines `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, `RP Storybook V2`, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Phone Message, and Social Media runs into the matching `RP Output` inputs. The bundled file is the single project-root file matching `workflow.default*.json`; the app imports a newly named default into its managed workflow storage on startup.
 
 ## Prompt Routing
 
@@ -194,10 +194,10 @@ The app uses four user-facing file shapes:
 
 - **RP Save**: a complete playable session. It stores an embedded workflow snapshot plus timeline messages, entities, undo checkpoints, UI state, debug state, and current runtime state.
 - **Workflow File**: a reusable graph blueprint. It stores graph nodes, edges, viewport, defaults, and persisted node configuration. It can optionally include Storybook node data.
-- **Storybook File**: standalone story data that can be opened globally from `Files` or loaded into an individual `RP Storybook V1` node.
+- **Storybook File**: standalone story data that can be opened globally from `Files` or loaded into an individual `RP Storybook V2` node.
 - **Character Card** (`*.rpgraph-character.json`, format `rpgraph-character`): one self-contained storybook character with images, voice sample, and phone/banking/social setup. Exported per character from the storybook editor and imported into any storybook (same id or name replaces that character, otherwise it is added; image ids are re-namespaced on collision). Managed cards are stored in the `characters` user-data directory next to `files` and selected through the dedicated Characters dialog. A card placed directly in `files` still appears in the global Files dialog. Logic lives in `src/storybook/characterCard.ts` and `electron/characterCardFormat.cjs`.
 
-Saving can produce either readable **Plain JSON** or a password/PIN protected encrypted envelope for every file type. Encrypted character cards expose only the character name and card format version as character metadata; the full character content stays encrypted. Compatibility is checked through format versions before loading. Workflow and session files use exact-match versions and are rejected when incompatible. Storybook and character card versions are semver-compared (`electron/storybookFormat.cjs`, `rpStorybookVersionStatus` in the storybook model): files newer than the build are rejected with an update hint, while older files stay loadable — legacy storybooks are routed into the conversion dialog (`src/storybook/conversion.ts`, `src/storybook/StorybookConversionDialog.tsx`), a per-section checklist showing what was carried over or filled with defaults before the converted storybook is applied and re-saved. Encrypted legacy storybooks unlock with their password first and then enter the same conversion flow.
+Saving can produce either readable **Plain JSON** or a password/PIN protected encrypted envelope for every file type. Encrypted character cards expose only the character name and card format version as character metadata; the full character content stays encrypted. Compatibility is checked through format versions before loading. Workflow and session files use exact-match versions and are rejected when incompatible. Storybook and character card versions are semver-compared (`electron/storybookFormat.cjs`, `rpStorybookVersionStatus` in the storybook model): files newer than the build are rejected with an update hint, while older files stay loadable — legacy storybooks are routed into the conversion panel (`src/storybook/conversion.ts`, `src/storybook/StorybookConversionPanel.tsx`), a per-section checklist showing what was carried over or filled with defaults before the converted storybook is applied and re-saved. Encrypted legacy storybooks unlock with their password first and then enter the same conversion flow.
 
 Loading a Storybook file starts a fresh story session: current chat and phone-app runtime state are cleared, and the loaded Storybook fully replaces the previous node content. In-editor changes still retain image-usage and running-story identity protections.
 
@@ -223,7 +223,7 @@ Node palette groups in the current UI:
 - **Text & Values**: `note`, `group`, `combiner`, `memory-slot`, `phone-message-router`, `text-selector`, `write-text`, `fixed-number`, `fixed-bool`, `settings-value`
 - **Story Context**: `rp-storybook-v1`, `context-builder`
 
-Singleton nodes are `User Input`, `Chat History`, `Event Manager`, `RP Storybook V1`, and `RP Output`.
+Singleton nodes are `User Input`, `Chat History`, `Event Manager`, `RP Storybook V2`, and `RP Output`.
 
 ## Execution Runtime
 

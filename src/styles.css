@@ -20975,7 +20975,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .mini-storybook-card::before {
-  content: "RP Storybook V1";
+  content: "RP Storybook V2";
   position: absolute;
   top: -8px;
   left: 10px;

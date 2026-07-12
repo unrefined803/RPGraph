@@ -53,7 +53,7 @@ Core node map:
 - Fixed Number: outputs a numeric workflow parameter, often used for limits.
 - Fixed Bool: outputs a boolean workflow parameter for routing.
 - Workflow Variable: outputs centrally configured option values and supports `<Variable Name>` replacements in prompts and supported number fields.
-- RP Storybook V1: singleton story data node. Stores complete storybook JSON and formatted text, and outputs JSON, formatted storybook text, and character info.
+- RP Storybook V2: singleton story data node. Stores complete storybook JSON and formatted text, and outputs JSON, formatted storybook text, and character info.
 - RP Output: singleton final output node. Receives normal RP text, phone-message text, Output Actions, Social Media, Direct Actions, and optional highlighting context, then produces the visible roleplay response. Direct Actions accepts the same app-action JSON as Output Actions and runs after the normal channels when both are present. It applies and filters `@set` workflow-variable commands on all RP Output inputs.
 
 Assistant behavior:

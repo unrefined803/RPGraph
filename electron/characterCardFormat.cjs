@@ -20,6 +20,16 @@ function characterCardVersionStatus(value) {
   return semverStatus(value, currentCharacterCardFormatVersion);
 }
 
+function hasCharacterPayload(card) {
+  const character = card?.character;
+  return !!character &&
+    typeof character === 'object' &&
+    !Array.isArray(character) &&
+    ([character.id, character.name].some(
+      (value) => typeof value === 'string' && value.trim().length > 0,
+    ));
+}
+
 function characterCardMetadata(card) {
   const formatVersion = typeof card?.version === 'string' ? card.version : undefined;
   const versionStatus = characterCardVersionStatus(formatVersion);
@@ -30,6 +40,7 @@ function characterCardMetadata(card) {
     legacy: card?.format === 'rpgraph-character' && versionStatus === 'legacy',
     compatible:
       card?.format === 'rpgraph-character' &&
+      hasCharacterPayload(card) &&
       (versionStatus === 'current' || versionStatus === 'legacy'),
   };
 }

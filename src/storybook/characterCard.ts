@@ -68,10 +68,23 @@ export function planCharacterCardImport(
   const sourceCharacter = recordValue(card.character);
   const sourceId = typeof sourceCharacter.id === 'string' ? sourceCharacter.id.trim() : '';
   const sourceName = typeof sourceCharacter.name === 'string' ? sourceCharacter.name.trim() : '';
-  const replacesIndex = storybook.characters.findIndex((existing) =>
-    (sourceId && existing.id === sourceId) ||
-    (sourceName && existing.name.trim().toLowerCase() === sourceName.toLowerCase()),
-  );
+  if (!sourceId && !sourceName) {
+    throw new Error('This character card does not contain a valid character identity.');
+  }
+  const matchingIdIndex = sourceId
+    ? storybook.characters.findIndex((existing) => existing.id === sourceId)
+    : -1;
+  const matchingNameIndex = sourceName
+    ? storybook.characters.findIndex(
+        (existing) => existing.name.trim().toLowerCase() === sourceName.toLowerCase(),
+      )
+    : -1;
+  if (matchingIdIndex >= 0 && matchingNameIndex >= 0 && matchingIdIndex !== matchingNameIndex) {
+    throw new Error(
+      'This character card matches one existing character by id and another by name. Resolve the duplicate identity before importing it.',
+    );
+  }
+  const replacesIndex = matchingIdIndex >= 0 ? matchingIdIndex : matchingNameIndex;
 
   const usedImageIds = new Set<string>();
   storybook.characters.forEach((existing, index) => {

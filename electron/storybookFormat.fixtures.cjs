@@ -92,6 +92,8 @@ assert.equal(characterCardMetadata({ ...currentCard, format: 'other' }).compatib
 assert.equal(characterCardMetadata({ ...currentCard, version: '999.0.0' }).compatible, false);
 assert.equal(characterCardMetadata({ ...currentCard, version: '0.9.0' }).compatible, true);
 assert.equal(characterCardMetadata({ ...currentCard, version: '0.9.0' }).legacy, true);
+assert.equal(characterCardMetadata({ ...currentCard, character: {} }).compatible, false);
+assert.equal(characterCardMetadata({ ...currentCard, character: [] }).compatible, false);
 assert.equal(characterCardMetadata({}).compatible, false);
 
 const currentCharacterEnvelope = {
