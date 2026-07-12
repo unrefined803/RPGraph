@@ -27,6 +27,7 @@ import {
   rpStorybookFormattedTextSettings,
   rpStorybookImageDescriptionPromptSettings,
   rpStorybookImageDescriptionPromptText,
+  rpStorybookLogicCheckInstruction,
   rpStorybookPhoneContactAllowed,
   rpStorybookPhoneContactCharacters,
   storybookCharacterImageOwnerIdBase,
@@ -1085,6 +1086,8 @@ type StorybookCreatorDialogProps = {
   onClearOpeningHistory: () => void;
   onResetStorybook: () => void;
   onImportSillyTavernCharacter: () => Promise<void>;
+  onImportCharacterCard: () => Promise<void>;
+  onExportCharacter: (characterId: string) => Promise<void>;
   onClose: () => void;
 };
 
@@ -3014,6 +3017,8 @@ export function StorybookCreatorDialog({
   onClearOpeningHistory,
   onResetStorybook,
   onImportSillyTavernCharacter,
+  onImportCharacterCard,
+  onExportCharacter,
   onClose,
 }: StorybookCreatorDialogProps) {
   const [draft, setDraft] = useState('');
@@ -3246,6 +3251,16 @@ export function StorybookCreatorDialog({
                   <button type="button" role="menuitem" onClick={() => runMoreAction(onImportSillyTavernCharacter)}>
                     Import SillyTavern Character
                   </button>
+                  <button type="button" role="menuitem" onClick={() => runMoreAction(onImportCharacterCard)}>
+                    Import Character Card
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runMoreAction(() => onSubmit(rpStorybookLogicCheckInstruction))}
+                  >
+                    Check Story Logic
+                  </button>
                 </div>
               )}
             </div>
@@ -3359,6 +3374,14 @@ export function StorybookCreatorDialog({
                         >
                           <span className="button-icon">+</span> SillyTavern Import
                         </button>
+                        <button
+                          type="button"
+                          className="contextual-action-button nodrag"
+                          onClick={onImportCharacterCard}
+                          title="Import an RPGraph Character Card file"
+                        >
+                          <span className="button-icon">+</span> Import Character
+                        </button>
                       </div>
                        {storybook.characters.length ? (
                         <div className="storybook-actor-grid">
@@ -3441,6 +3464,14 @@ export function StorybookCreatorDialog({
                                   }}
                                 >
                                   Character Images
+                                </button>
+                                <button
+                                  type="button"
+                                  className="character-images-button nodrag"
+                                  title={`Export ${character.name || character.id} as an RPGraph Character Card file`}
+                                  onClick={() => void onExportCharacter(character.id)}
+                                >
+                                  Export Character
                                 </button>
                                 <span className="character-image-summary">{imageStatusText(character.images)}</span>
                               </div>

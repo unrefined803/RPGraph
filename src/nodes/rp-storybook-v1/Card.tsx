@@ -7,6 +7,7 @@ import { runStateClassName, useNodeLayoutSync } from '../shared/CardView';
 import { PortLabel } from '../shared/PortValue';
 import {
   emptyRpStorybookV1,
+  estimatedRpStorybookPromptTokens,
   parseRpStorybookJson,
   type RpStorybookV1,
 } from './model';
@@ -57,6 +58,11 @@ export function RpStorybookV1NodeCard({ id, data }: NodeProps<WorkflowNode>) {
           {storybook.introduction || 'No introduction defined.'}
         </span>
         <span>Charakter: {characterNames.length ? characterNames.join(', ') : 'None'}</span>
+        {storybookHasContent && (
+          <span className="storybook-node-token-estimate">
+            ~{estimatedRpStorybookPromptTokens(storybook).toLocaleString('en-US')} tokens (images excluded)
+          </span>
+        )}
       </div>
       <div className="storybook-actions">
         <button

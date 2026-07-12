@@ -156,7 +156,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
   selectImages: (multiple = true) => ipcRenderer.invoke('image:select', { multiple }),
   deleteFile: (fileName) => ipcRenderer.invoke('file:delete', fileName),
   loadTextFile: () => ipcRenderer.invoke('text-file:load'),
-  loadJsonFile: () => ipcRenderer.invoke('json-file:load'),
+  loadJsonFile: (options) => ipcRenderer.invoke('json-file:load', options),
   loadDefaultWorkflow: () => ipcRenderer.invoke('workflow:load-default'),
   loadStartupWorkflow: () => ipcRenderer.invoke('workflow:load-startup'),
   resolveProjectPath: (relativePath) => ipcRenderer.invoke('app:resolve-project-path', relativePath),

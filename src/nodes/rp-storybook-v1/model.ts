@@ -92,7 +92,47 @@ export type RpStorybookImageDescriptionPromptSettings = {
   customText?: string;
 };
 
-export const currentRpStorybookVersion = '1.19.0' as const;
+export const currentRpStorybookVersion = '2.0.0' as const;
+
+const rpStorybookVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+
+export type RpStorybookVersionStatus = 'current' | 'legacy' | 'newer' | 'invalid';
+
+function parsedRpStorybookVersion(value: unknown) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const match = rpStorybookVersionPattern.exec(value);
+  if (!match) {
+    return undefined;
+  }
+  return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
+}
+
+/**
+ * Older format versions load through the tolerant normalizer ("legacy"),
+ * newer versions than this build are rejected ("newer").
+ */
+export function rpFormatVersionStatus(
+  value: unknown,
+  currentVersion: string,
+): RpStorybookVersionStatus {
+  const version = parsedRpStorybookVersion(value);
+  const current = parsedRpStorybookVersion(currentVersion);
+  if (!version || !current) {
+    return 'invalid';
+  }
+  if (value === currentVersion) {
+    return 'current';
+  }
+  const difference =
+    version.major - current.major || version.minor - current.minor || version.patch - current.patch;
+  return difference > 0 ? 'newer' : 'legacy';
+}
+
+export function rpStorybookVersionStatus(value: unknown): RpStorybookVersionStatus {
+  return rpFormatVersionStatus(value, currentRpStorybookVersion);
+}
 
 export type RpStorybookV1 = {
   format: 'rpgraph-storybook';
@@ -499,6 +539,18 @@ function normalizeCharacter(value: unknown, index: number, usedImageIds: Set<str
   };
 }
 
+/**
+ * Normalizes one character from an external source (e.g. a character card
+ * import); image ids are re-namespaced against `usedImageIds` on collision.
+ */
+export function normalizeRpStorybookCharacter(
+  value: unknown,
+  index: number,
+  usedImageIds: Set<string>,
+): RpStorybookV1Character {
+  return normalizeCharacter(value, index, usedImageIds);
+}
+
 function phoneContactRef(value: string) {
   return value.trim();
 }
@@ -723,8 +775,17 @@ export function parseRpStorybookJson(text: string): RpStorybookV1 {
     throw new Error('The model did not return JSON.');
   }
   const parsed = recordValue(JSON.parse(stripped.slice(start, end + 1)));
-  if (parsed.format !== 'rpgraph-storybook' || parsed.version !== currentRpStorybookVersion) {
-    throw new Error(`Incompatible RP Storybook format. Expected ${currentRpStorybookVersion}.`);
+  if (parsed.format !== 'rpgraph-storybook') {
+    throw new Error('Incompatible RP Storybook format. Expected format "rpgraph-storybook".');
+  }
+  const versionStatus = rpStorybookVersionStatus(parsed.version);
+  if (versionStatus === 'newer') {
+    throw new Error(
+      `This storybook uses Storybook Format ${String(parsed.version)}, which is newer than the supported Format ${currentRpStorybookVersion}. Update RPGraph to open it.`,
+    );
+  }
+  if (versionStatus === 'invalid') {
+    throw new Error(`Incompatible RP Storybook format version. Expected ${currentRpStorybookVersion}.`);
   }
   const storybook = normalizeRpStorybookV1(parsed);
   storybookParseCache.unshift({ text, storybook });
@@ -945,17 +1006,10 @@ export function rpStorybookJsonText(storybook: RpStorybookV1) {
 }
 
 export function rpStorybookPromptJsonText(storybook: RpStorybookV1) {
-  const redactMessageBinaries = (message: MessageRecord): MessageRecord => ({
-    ...message,
-    imageAttachments: message.imageAttachments?.map((image) => ({
-      ...image,
-      dataUrl: 'data:image/jpeg;base64,...',
-    })),
-    voiceClips: message.voiceClips?.map((clip) => ({
-      ...clip,
-      dataUrl: 'data:audio/mpeg;base64,...',
-    })),
-  });
+  const omittedTurns = storybook.openingHistory.turns.length;
+  const omittedNote = omittedTurns
+    ? `[${omittedTurns} Opening History turn${omittedTurns === 1 ? '' : 's'} stored but omitted from this view; the app manages them.]`
+    : '';
   return JSON.stringify({
     ...storybook,
     characters: storybook.characters.map((character) => {
@@ -971,22 +1025,23 @@ export function rpStorybookPromptJsonText(storybook: RpStorybookV1) {
         images: character.images.map(({ dataUrl: _dataUrl, ...image }) => image),
       };
     }),
+    // Opening History turns and checkpoints hold imported runtime memory that
+    // can exceed any model context; the assistant only sees the summary.
     openingHistory: {
       ...storybook.openingHistory,
+      summary: [storybook.openingHistory.summary, omittedNote].filter(Boolean).join(' '),
       checkpoints: [],
-      turns: storybook.openingHistory.turns.map((turn) => ({
-        ...turn,
-        input: {
-          ...turn.input,
-          messages: turn.input.messages.map(redactMessageBinaries),
-        },
-        output: {
-          ...turn.output,
-          messages: turn.output.messages.map(redactMessageBinaries),
-        },
-      })),
+      turns: [],
     },
   }, null, 2);
+}
+
+/**
+ * Rough prompt-size estimate (~4 characters per token) of the storybook as an
+ * LLM sees it: image and voice data URLs excluded, Opening History summarized.
+ */
+export function estimatedRpStorybookPromptTokens(storybook: RpStorybookV1) {
+  return Math.ceil(rpStorybookPromptJsonText(storybook).length / 4);
 }
 
 function withPreservedCharacterImages(
@@ -1206,6 +1261,18 @@ export function storybookCharacterId(nodeId: string, characterId: string, index:
   return `${nodeId}:character:${characterId || `character-${index + 1}`}`;
 }
 
+/**
+ * Canned assistant instruction that checks scenario texts against the current
+ * cast, e.g. after a character card import swapped a character.
+ */
+export const rpStorybookLogicCheckInstruction = [
+  'Run a story logic check on this storybook.',
+  'Compare the characters list against introduction, scenario.summary, scenario.openingSituation, and scenario.currentSituation.',
+  'Find: references to characters that do not exist (anymore), main characters the scenario texts never mention, and contradictions in relationships, locations, or timeline.',
+  'Propose patches only for those text fields (introduction and scenario.*) so they match the current cast. Do not touch characters, openingHistory, phoneContacts, or images.',
+  'In reply, list every inconsistency you found and how you fixed it, or state that everything is consistent.',
+].join(' ');
+
 export function rpStorybookEditPrompt(currentJson: string, instruction: string, identityLocked = false) {
   return [
     ...(identityLocked
@@ -1213,14 +1280,15 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
           'IMPORTANT: The story is already running (current chat or Opening History exists). Character identity is locked: never remove a character, never change characters[].id or characters[].name, and never change or clear a non-empty social username. If the user asks for such a change, explain in reply that these fields are locked while a story is running (a full Storybook reset would unlock them) and return an empty patch for that part of the request.',
         ]
       : []),
-    'You are the chat assistant for one RPGraph RP Storybook V1 JSON document.',
+    'You are the chat assistant for one RPGraph RP Storybook JSON document.',
     'Return only valid JSON. No markdown. No comments. No extra keys.',
     'You can answer questions about the current storybook and you can edit the storybook when the user asks for changes.',
     'Return this response shape with a valid RFC 6902 JSON Patch array. The patch paths use RFC 6901 JSON Pointer.',
     '{"reply":"short user-facing answer","changedFields":["title","scenario.openingSituation"],"patch":[{"op":"replace","path":"/title","value":"New title"}]}',
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
     'Keep the exact storybook shape below:',
-    '{"format":"rpgraph-storybook","version":"1.18.0","title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[]}}',
+    `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
+    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[]}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
     'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, characters[].phoneSettings, and characters[].images dataUrl values, unless the user explicitly changes them.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',

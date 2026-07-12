@@ -190,13 +190,14 @@ The assistant uses lazy context loading. If it needs more detail, it can request
 
 Files are handled through the Electron bridge exposed as `window.rpgraph`. The React side coordinates file UI state in `useRpgraphFiles`, while the Electron side reads, writes, validates, and encrypts the actual JSON files.
 
-The app uses three user-facing file shapes:
+The app uses four user-facing file shapes:
 
 - **RP Save**: a complete playable session. It stores an embedded workflow snapshot plus timeline messages, entities, undo checkpoints, UI state, debug state, and current runtime state.
 - **Workflow File**: a reusable graph blueprint. It stores graph nodes, edges, viewport, defaults, and persisted node configuration. It can optionally include Storybook node data.
 - **Storybook File**: standalone story data that can be opened globally from `Files` or loaded into an individual `RP Storybook V1` node.
+- **Character Card** (`*.rpgraph-character.json`, format `rpgraph-character`): one self-contained storybook character with images, voice sample, and phone/banking/social setup. Exported per character from the storybook editor and imported into any storybook (same id or name replaces that character, otherwise it is added; image ids are re-namespaced on collision). Logic in `src/storybook/characterCard.ts` and `electron/characterCardFormat.cjs`.
 
-Saving can produce either readable **Plain JSON** or a password/PIN protected encrypted envelope. Compatibility is checked through format versions before loading; incompatible workflow, session, or storybook files are rejected with a status message instead of being silently converted.
+Saving can produce either readable **Plain JSON** or a password/PIN protected encrypted envelope (character cards are plain only). Compatibility is checked through format versions before loading. Workflow and session files use exact-match versions and are rejected when incompatible. Storybook and character card versions are semver-compared (`electron/storybookFormat.cjs`, `rpStorybookVersionStatus` in the storybook model): files newer than the build are rejected with an update hint, while older files stay loadable — legacy storybooks are routed into the conversion dialog (`src/storybook/conversion.ts`, `src/storybook/StorybookConversionDialog.tsx`), a per-section checklist showing what was carried over or filled with defaults before the converted storybook is applied and re-saved. Encrypted legacy storybooks unlock with their password first and then enter the same conversion flow.
 
 Important file actions:
 

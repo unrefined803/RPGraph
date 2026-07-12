@@ -1,6 +1,6 @@
 # RP Storybook V2 — Concept & Plan
 
-Status: **planning document, nothing implemented yet.**
+Status: **largely implemented (2026-07-12), see Implementation Status below.**
 Scope: storybook versioning + converter, character card export/import as a new
 fourth file type, and an assistant logic check after character swaps.
 
@@ -213,34 +213,57 @@ event details) still talk about the old cast.
   `commitStorybookToNode` path (identity lock still applies while a story
   runs).
 
-## 7. Implementation stages
+## 7. Implementation status (2026-07-12)
 
-1. **Versioning + gate** — semver compatibility in `storybookFormat.cjs`,
-   `legacy` flag, format bump to 2.0.0, new `check:storybook-format` fixtures,
-   load-time "upgraded, please save" notice. *(Smallest step, fixes future
-   breakage forever.)*
-2. **Converter, deterministic stage** — `src/storybook/convert/` module +
-   conversion dialog with checklist; V1→V2 mapping table.
-3. **Converter, AI repair stage** — redacted section-scoped prompts, opening
-   history toggles/chunking.
-4. **Character card format** — new file type end to end (electron format
-   module, save/load IPC, export/import UI, collision handling).
-5. **Logic check assistant action.**
-6. Docs: OVERVIEW.md file-format section, CODEREVIEW.md entries if debt
-   surfaces; update `workflow.default*.json` to the V2 storybook shape.
+1. ✅ **Versioning + gate** — `formatVersions.json` bumped to `2.0.0`; semver
+   status (`current`/`legacy`/`newer`/`invalid`) in
+   `electron/storybookFormat.cjs` and `rpStorybookVersionStatus` in the model;
+   `legacy` metadata flag; newer-than-build files rejected with an
+   "update RPGraph" message; new `npm run check:storybook-format` fixtures;
+   `rp-storybook-v1` node version 1.14.1 (patch — old workflows keep working);
+   default workflow's embedded storybook bumped to 2.0.0.
+2. ✅ **Converter, deterministic stage** — `src/storybook/conversion.ts` +
+   `StorybookConversionDialog`. Loading any older storybook (plain or
+   encrypted after password unlock) automatically enters the conversion
+   checklist (✅ carried over / 🟡 filled with defaults, per section and per
+   character); Apply commits and prompts to save; Cancel loads nothing; the
+   old file is never touched. Verified against the real 1.19.0 export
+   (`SaveStorybook_V11.rpgraph-storybook.json`): all sections carry over.
+3. ⬜ **Converter, AI repair stage** — not needed yet: every 1.x → 2.0.0
+   mapping is deterministic. Becomes relevant with the first field
+   rename/semantic change; the section-scoped redacted prompt design from
+   section 4 still applies.
+4. ✅ **Character card format** — `rpgraph-character` / `1.0.0`
+   (`*.rpgraph-character.json`, plain JSON): per-character "Export Character"
+   button and "Import Character" (header + ⋯ menu) in the storybook editor;
+   voice sample and all images always included; same id or name replaces the
+   character (keeping the established id), otherwise it is added; image and
+   character ids are de-collided; newer card versions rejected with an update
+   hint. `electron/characterCardFormat.cjs`, `src/storybook/characterCard.ts`.
+5. ✅ **Logic check assistant action** — "Check Story Logic" in the storybook
+   editor's ⋯ menu sends a canned instruction
+   (`rpStorybookLogicCheckInstruction`) through the normal assistant patch
+   flow (scenario/introduction text fields only); after a character card
+   import the assistant chat suggests running it.
+6. ✅ Docs — OVERVIEW.md file formats section updated; AGENTS.md check-script
+   list updated. Also done in this pass: assistant prompts no longer include
+   Opening History turns (summary + counts only; images/voice were already
+   placeholder-redacted), and the storybook node card shows an estimated
+   token count (`~N tokens, images excluded`), also shown in the conversion
+   dialog.
 
-## 8. Open questions for the maintainer
+## 8. Decisions from the maintainer (2026-07-12)
 
-1. Should the very first V2 release still auto-load 1.19.0 files *directly*
-   (they parse cleanly today) and reserve the converter dialog for genuinely
-   older/unknown 1.x versions? That would make the upgrade invisible for
-   current users.
-2. Encrypted legacy files: converting requires the password first — unlock
-   then convert in one flow, or require the user to re-save unencrypted first?
-3. Character card: should the voice sample (can be large) be optional at
-   export ("include voice sample" checkbox)?
-4. Which sections should the AI repair be allowed to touch at all? Proposal:
-   text fields only, never images/voice/banking numbers.
+1. Old files are **not** loaded silently: any older version automatically
+   enters the conversion UI, which shows per section what fits and what was
+   filled. (Implemented exactly this way.)
+2. Encrypted legacy files: load normally, enter the password, then the
+   conversion UI opens. (Implemented.)
+3. Voice samples are small (1–2 min) and always belong in the character card
+   together with the images. (Implemented — no opt-out checkbox.)
+4. The AI repair stage should decide on its own what is sensible to touch;
+   the standing rule is text fields only, never images/voice/banking numbers.
+   (Applies when stage 3 becomes necessary.)
 
 ---
 

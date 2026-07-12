@@ -157,6 +157,7 @@ import {
   normalizeEventAppointments,
 } from './data-management/eventStore';
 import { useStorybookActions } from './storybook/useStorybookActions';
+import { StorybookConversionDialog } from './storybook/StorybookConversionDialog';
 import { storybookImageIdsUsedByMessages } from './storybook/imageUsage';
 import storybookFormatVersions from './storybook/formatVersions.json';
 import {
@@ -1655,7 +1656,12 @@ function App() {
     clearStorybookOpeningHistory,
     resetStorybook,
     importSillyTavernCharacter,
+    exportStorybookCharacter,
+    importCharacterCard,
     loadStorybookFile,
+    pendingStorybookConversion,
+    applyPendingStorybookConversion,
+    cancelPendingStorybookConversion,
   } = useStorybookActions({
     nodesRef,
     turnsRef,
@@ -7070,7 +7076,18 @@ function App() {
           onClearOpeningHistory={() => clearStorybookOpeningHistory(storybookCreatorNode.id)}
           onResetStorybook={() => resetStorybook(storybookCreatorNode.id)}
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
+          onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
+          onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}
           onClose={() => setStorybookCreatorNodeId(null)}
+        />
+      )}
+
+      {pendingStorybookConversion && (
+        <StorybookConversionDialog
+          fileName={pendingStorybookConversion.fileName}
+          result={pendingStorybookConversion.result}
+          onApply={applyPendingStorybookConversion}
+          onCancel={cancelPendingStorybookConversion}
         />
       )}
 

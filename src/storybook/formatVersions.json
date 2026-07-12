@@ -1,4 +1,5 @@
 {
-  "storybook": "1.19.0",
-  "encryptedStorybookEnvelope": "1.0"
+  "storybook": "2.0.0",
+  "encryptedStorybookEnvelope": "1.0",
+  "characterCard": "1.0.0"
 }

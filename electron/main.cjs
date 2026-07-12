@@ -26,7 +26,13 @@ const {
   currentStorybookFormatVersion,
   encryptedStorybookMetadata,
   storybookMetadata,
+  storybookVersionStatus,
 } = require('./storybookFormat.cjs');
+const {
+  characterCardMetadata,
+  characterCardVersionStatus,
+  currentCharacterCardFormatVersion,
+} = require('./characterCardFormat.cjs');
 
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
@@ -444,8 +450,21 @@ function validatedStoredFileName(fileName) {
   return fileName;
 }
 
+function safeCharacterCardBaseName(value) {
+  const cleaned = String(value ?? '')
+    .trim()
+    .replace(invalidFileBaseNameCharacters, '-')
+    .replace(/[. ]+$/g, '')
+    .replace(/(\.rpgraph-character)?\.json$/i, '')
+    .slice(0, 80);
+  const baseName = cleaned || `character-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)
+    ? `${baseName}-file`
+    : baseName;
+}
+
 function storedJsonName(fileName) {
-  return fileName.replace(/(\.rpgraph-storybook|\.rpgraph-session|\.rpgraph)?\.json$/i, '');
+  return fileName.replace(/(\.rpgraph-storybook|\.rpgraph-character|\.rpgraph-session|\.rpgraph)?\.json$/i, '');
 }
 
 function storedFileMetadata(value) {
@@ -454,6 +473,9 @@ function storedFileMetadata(value) {
   }
   if (value?.format === 'rpgraph-encrypted-storybook') {
     return encryptedStorybookMetadata(value);
+  }
+  if (value?.format === 'rpgraph-character') {
+    return characterCardMetadata(value);
   }
   if (value?.format === 'rpgraph-workflow') {
     return workflowMetadata(value);
@@ -671,9 +693,14 @@ function unsupportedStorybookFormatError(envelope) {
       `This encrypted storybook uses Envelope Format ${envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedStorybookEnvelopeFormatVersion}.`,
     );
   }
-  return new Error(
-    `This storybook uses Storybook Format ${formatVersion ?? 'Unknown'}, which is incompatible with supported Storybook Format ${currentStorybookFormatVersion}.`,
-  );
+  return new Error(storybookFormatVersionErrorText(formatVersion));
+}
+
+function storybookFormatVersionErrorText(formatVersion) {
+  if (storybookVersionStatus(formatVersion) === 'newer') {
+    return `This storybook uses Storybook Format ${formatVersion}, which is newer than the supported Storybook Format ${currentStorybookFormatVersion}. Update RPGraph to open it.`;
+  }
+  return `This storybook uses Storybook Format ${formatVersion ?? 'Unknown'}, which is incompatible with supported Storybook Format ${currentStorybookFormatVersion}.`;
 }
 
 function unsupportedStoredFileError(value, metadata) {
@@ -706,9 +733,7 @@ function unsupportedStoredFileError(value, metadata) {
         `This encrypted storybook uses Envelope Format ${metadata.envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedStorybookEnvelopeFormatVersion}.`,
       );
     }
-    return new Error(
-      `This storybook uses Storybook Format ${metadata.formatVersion ?? 'Unknown'}, which is incompatible with supported Storybook Format ${currentStorybookFormatVersion}.`,
-    );
+    return new Error(storybookFormatVersionErrorText(metadata.formatVersion));
   }
   return new Error('This is not a supported RPGraph file.');
 }
@@ -4257,8 +4282,27 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
       : protection === 'plain'
         ? request.session
         : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
+  } else if (kind === 'character') {
+    baseName = safeCharacterCardBaseName(request?.name ?? request?.characterCard?.character?.name);
+    expectedType = 'character-card';
+    title = 'Export Character Card';
+    defaultFileName = `${baseName}.rpgraph-character${jsonFileExtension}`;
+    const card = request?.characterCard;
+    if (
+      !card ||
+      card.format !== 'rpgraph-character' ||
+      characterCardVersionStatus(card.version) !== 'current'
+    ) {
+      throw new Error(
+        `Only RPGraph Character Card Format ${currentCharacterCardFormatVersion} payloads can be exported.`,
+      );
+    }
+    if (protection !== 'plain') {
+      throw new Error('Character cards are exported as Plain JSON.');
+    }
+    payload = card;
   } else {
-    throw new Error('Choose Workflow, Storybook, or RP save.');
+    throw new Error('Choose Workflow, Storybook, RP save, or Character.');
   }
 
   const result = await dialog.showSaveDialog({
@@ -4314,9 +4358,11 @@ ipcMain.handle('text-file:load', async () => {
   return { canceled: false, fileName: path.basename(filePath), contents };
 });
 
-ipcMain.handle('json-file:load', async () => {
+ipcMain.handle('json-file:load', async (_event, options) => {
   const result = await dialog.showOpenDialog({
-    title: 'Import SillyTavern Character JSON',
+    title: typeof options?.title === 'string' && options.title
+      ? options.title
+      : 'Import SillyTavern Character JSON',
     properties: ['openFile'],
     filters: [
       { name: 'JSON Files', extensions: ['json'] },

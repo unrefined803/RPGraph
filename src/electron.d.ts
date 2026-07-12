@@ -12,6 +12,7 @@ import type {
   WorkflowFile,
 } from './types';
 import type { RpStorybookV1 } from './nodes/rp-storybook-v1/model';
+import type { RpCharacterCard } from './storybook/characterCard';
 import type { RpgraphSessionV2 } from './data-management/types';
 
 type SelectedImageFile = {
@@ -124,6 +125,12 @@ declare global {
           protection: 'plain' | 'encrypted';
           password: string;
         }
+        | {
+          kind: 'character';
+          name: string;
+          characterCard: RpCharacterCard;
+          protection: 'plain';
+        }
       ) => Promise<{
         canceled: boolean;
         filePath?: string;
@@ -169,7 +176,7 @@ declare global {
         fileName?: string;
         contents?: string;
       }>;
-      loadJsonFile: () => Promise<{
+      loadJsonFile: (options?: { title?: string }) => Promise<{
         canceled: boolean;
         fileName?: string;
         contents?: string;
