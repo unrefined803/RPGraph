@@ -75,6 +75,7 @@ import type {
   WorkflowNode,
 } from '../types';
 import { storybookImageById } from '../storybook/imageLibrary';
+import { storybookWithoutCharacter } from '../storybook/characterManagement';
 import {
   StorybookConversionAssistantReport,
   StorybookConversionPanel,
@@ -1405,7 +1406,7 @@ function imageStatusText(images: RpStorybookCharacterImage[]) {
     return 'No images';
   }
   const described = images.filter((image) => image.description.trim()).length;
-  return `${images.length} image${images.length === 1 ? '' : 's'}, ${described} described`;
+  return `${images.length} image${images.length === 1 ? '' : 's'} · ${described} described`;
 }
 
 function imageProvenanceLabel(image: RpStorybookCharacterImage) {
@@ -3426,22 +3427,24 @@ export function StorybookCreatorDialog({
                     <section className="storybook-section actors-section">
                       <div className="section-header">
                         <h4>Charakter</h4>
-                        <button
-                          type="button"
-                          className="contextual-action-button nodrag"
-                          onClick={onImportSillyTavernCharacter}
-                          title="Import SillyTavern Character Card"
-                        >
-                          <span className="button-icon">+</span> SillyTavern Import
-                        </button>
-                        <button
-                          type="button"
-                          className="contextual-action-button nodrag"
-                          onClick={onImportCharacterCard}
-                          title="Import an RPGraph Character Card file"
-                        >
-                          <span className="button-icon">+</span> Import Character
-                        </button>
+                        <div className="storybook-section-header-actions">
+                          <button
+                            type="button"
+                            className="contextual-action-button nodrag"
+                            onClick={onImportSillyTavernCharacter}
+                            title="Import SillyTavern Character Card"
+                          >
+                            <span className="button-icon">+</span> SillyTavern Import
+                          </button>
+                          <button
+                            type="button"
+                            className="contextual-action-button nodrag"
+                            onClick={onImportCharacterCard}
+                            title="Import an RPGraph Character Card file"
+                          >
+                            <span className="button-icon">+</span> Import Character
+                          </button>
+                        </div>
                       </div>
                        {storybook.characters.length ? (
                         <div className="storybook-actor-grid">
@@ -3504,36 +3507,61 @@ export function StorybookCreatorDialog({
                                   <span className="field-label">Phone Apps</span>
                                   <p>{characterPhoneSummaryText(character)}</p>
                                 </div>
+                                <div className="character-field character-images-summary-field">
+                                  <span className="field-label">Images</span>
+                                  <p>{imageStatusText(character.images)}</p>
+                                </div>
                               </div>
 
                               <div className="character-card-footer">
+                                <div className="character-card-footer-actions">
+                                  <button
+                                    type="button"
+                                    className={`character-images-button character-comfy-config-button nodrag${comfyStatus.active ? ' configured' : ''}`}
+                                    onClick={() => setComfyConfigCharacterId(character.id)}
+                                  >
+                                    <span>Character Setup</span>
+                                    {comfyStatus.active ? <span aria-hidden="true">✓</span> : null}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="character-images-button nodrag"
+                                    onClick={() => {
+                                      setImageDialogMode('images');
+                                      setImageOwner({ kind: 'character', characterId: character.id });
+                                    }}
+                                  >
+                                    Character Images
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="character-images-button nodrag"
+                                    title={`Export ${character.name || character.id} as an RPGraph Character Card file`}
+                                    onClick={() => void onExportCharacter(character.id)}
+                                  >
+                                    Export Character
+                                  </button>
+                                </div>
                                 <button
                                   type="button"
-                                  className={`character-images-button character-comfy-config-button nodrag${comfyStatus.active ? ' configured' : ''}`}
-                                  onClick={() => setComfyConfigCharacterId(character.id)}
+                                  className="character-delete-button nodrag"
+                                  aria-label={`Delete ${character.name || character.id}`}
+                                  title={`Delete ${character.name || character.id}`}
+                                  onClick={() => askConfirm({
+                                    title: 'Delete Character',
+                                    message: `Delete ${character.name || character.id} from this Storybook? This cannot be undone.`,
+                                    confirmLabel: 'Delete Character',
+                                    danger: true,
+                                    action: () => onUpdateStorybook(
+                                      storybookWithoutCharacter(storybook, character.id),
+                                      `Deleted character ${character.name || character.id}.`,
+                                    ),
+                                  })}
                                 >
-                                  <span>Character Setup</span>
-                                  {comfyStatus.active ? <span aria-hidden="true">✓</span> : null}
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6" />
+                                  </svg>
                                 </button>
-                                <button
-                                  type="button"
-                                  className="character-images-button nodrag"
-                                  onClick={() => {
-                                    setImageDialogMode('images');
-                                    setImageOwner({ kind: 'character', characterId: character.id });
-                                  }}
-                                >
-                                  Character Images
-                                </button>
-                                <button
-                                  type="button"
-                                  className="character-images-button nodrag"
-                                  title={`Export ${character.name || character.id} as an RPGraph Character Card file`}
-                                  onClick={() => void onExportCharacter(character.id)}
-                                >
-                                  Export Character
-                                </button>
-                                <span className="character-image-summary">{imageStatusText(character.images)}</span>
                               </div>
                             </article>
                           );

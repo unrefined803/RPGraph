@@ -13790,6 +13790,14 @@ button.message-timeline-row.phone:focus-visible {
   font-weight: 700;
 }
 
+.storybook-section-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .storybook-section-help::after {
   width: 320px;
 }
@@ -13867,7 +13875,7 @@ button.message-timeline-row.phone:focus-visible {
 .character-card-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
   padding-top: 12px;
@@ -13875,12 +13883,51 @@ button.message-timeline-row.phone:focus-visible {
   margin-top: auto;
 }
 
-.character-image-summary {
-  min-width: 0;
+.character-card-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.character-images-summary-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.character-images-summary-field .field-label {
+  margin: 0;
+}
+
+.character-images-summary-field p {
   color: #adc6ef;
-  font-size: 11px;
   font-weight: 650;
-  line-height: 1.2;
+  text-align: right;
+}
+
+.character-delete-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(239, 111, 111, 0.35);
+  border-radius: 6px;
+  color: #f0a0a0;
+  background: rgba(130, 48, 48, 0.16);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.character-delete-button:hover,
+.character-delete-button:focus-visible {
+  outline: none;
+  border-color: rgba(255, 131, 131, 0.72);
+  color: #ffd0d0;
+  background: rgba(164, 57, 57, 0.3);
 }
 
 .character-images-button {
