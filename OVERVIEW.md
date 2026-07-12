@@ -133,12 +133,12 @@ During execution, `executeGraph` sets `runActive`, `runCompleted`, `runPrepared`
 The right-side chat drawer has three user-facing modes:
 
 - **Chat**: the main roleplay conversation view. It supports character selection, narrator mode, drafts, image attachments, reference images, editing/regeneration, output actions, dialogue highlighting, phone-message display inside chat, and turn controls.
-- **Phone**: a character-owned phone desktop with WhatsUp, Gallery, Camera, Banking, Fotogram, and OnlyFriends apps.
+- **Phone**: a character-owned phone desktop with WhatsUp, Gallery, Camera, Banking, Fotogram, OnlyFriends, and Notes apps.
 - **Events**: a view for upcoming scheduled roleplay events. Events can be selected, cancelled, or run through the workflow.
 
 These UI panels are backed by chat parsing, phone message parsing, timeline selectors, event entities, and session runtime state.
 
-WhatsUp supports contact lists, unread conversations, replies, text and voice messages, images, gallery selection, emoji insertion, and per-character viewing. Gallery and Camera connect Storybook images, uploads, and the image-generation assistant. Banking shows character accounts, contacts, balances, statements, and transfers. Fotogram and OnlyFriends share a social feed implementation with accounts, posts, comments, likes, direct messages, and app-specific prompts. OnlyFriends additionally supports a wallet, DM tips, paid post unlocks, and creator accounts.
+WhatsUp supports contact lists, unread conversations, replies, text and voice messages, images, gallery selection, emoji insertion, and per-character viewing. Gallery and Camera connect Storybook images, uploads, and the image-generation assistant. Banking shows character accounts, contacts, balances, statements, and transfers. Fotogram and OnlyFriends share a social feed implementation with accounts, posts, comments, likes, direct messages, and app-specific prompts. OnlyFriends additionally supports a wallet, DM tips, paid post unlocks, and creator accounts. Notes provides character-specific editable cards with gentle automatic colors and a manual color picker.
 
 ## Story And Session Data
 

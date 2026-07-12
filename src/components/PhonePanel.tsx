@@ -39,6 +39,7 @@ import { phoneReplyVisibleText } from '../chat/phoneReplies';
 import { PhoneImagePicker } from './PhoneImagePicker';
 import { PhoneGalleryScreen } from './PhoneGalleryScreen';
 import { PhoneBankingScreen } from './PhoneBankingScreen';
+import { PhoneNotesScreen } from './PhoneNotesScreen';
 import { PhoneSocialFeedScreen } from './phone-social/PhoneSocialFeedScreen';
 import { socialApps } from './phone-social/socialApps';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
@@ -83,12 +84,12 @@ type UnreadPhoneConversation = {
 
 type PhoneScreen =
   | 'desktop' | 'whatsup' | 'gallery' | 'chat-gallery' | 'camera' | 'banking'
-  | 'fotogram' | 'onlyfriends';
+  | 'fotogram' | 'onlyfriends' | 'notes';
 
-type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends';
+type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes';
 
 const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
-  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends'];
+  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes'];
 
 const defaultPhoneWallpapers: ChatImageAttachment[] = [
   {
@@ -698,6 +699,19 @@ export function PhonePanel({
     );
   }
 
+  if (screen === 'notes') {
+    return (
+      <PhoneNotesScreen
+        key={selectedCharacter?.id ?? 'no-owner'}
+        owner={selectedCharacter}
+        clockDateTime={clockDateTime}
+        rpDateTimeFormat={rpDateTimeFormat}
+        rpWeekdayLanguage={rpWeekdayLanguage}
+        onBack={() => setScreen('desktop')}
+      />
+    );
+  }
+
   if (screen === 'fotogram' || screen === 'onlyfriends') {
     const socialScreen = screen;
     return (
@@ -992,6 +1006,32 @@ export function PhonePanel({
               </svg>
             </span>
             <span>OnlyFriends</span>
+          </button>
+          <button
+            className="phone-desktop-app"
+            type="button"
+            style={{
+              gridColumn: desktopLayout.apps.notes.column,
+              gridRow: desktopLayout.apps.notes.row,
+            }}
+            onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'app', appId: 'notes' })}
+            onClick={() => {
+              if (suppressAppClickRef.current) {
+                suppressAppClickRef.current = false;
+                return;
+              }
+              setScreen('notes');
+            }}
+            aria-label="Open Notes"
+          >
+            <span className="phone-notes-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 3h11l3 3v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+                <path d="M15 3v4h4" />
+                <path d="M8 11h8M8 15h8M8 19h5" />
+              </svg>
+            </span>
+            <span>Notes</span>
           </button>
         </div>
         <div className="phone-desktop-settings" ref={desktopSettingsRef}>

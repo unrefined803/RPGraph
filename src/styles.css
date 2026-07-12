@@ -6216,7 +6216,8 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-camera-icon,
 .phone-banking-icon,
 .phone-fotogram-icon,
-.phone-onlyfriends-icon {
+.phone-onlyfriends-icon,
+.phone-notes-icon {
   display: grid;
   width: calc(var(--phone-icon, 52px) * 0.85);
   height: calc(var(--phone-icon, 52px) * 0.85);
@@ -6261,12 +6262,18 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgba(244, 114, 182, 0.58);
 }
 
+.phone-notes-icon {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.42), rgba(180, 83, 9, 0.22));
+  border-color: rgba(251, 191, 36, 0.55);
+}
+
 .phone-whatsup-icon svg,
 .phone-gallery-icon svg,
 .phone-camera-icon svg,
 .phone-banking-icon svg,
 .phone-fotogram-icon svg,
-.phone-onlyfriends-icon svg {
+.phone-onlyfriends-icon svg,
+.phone-notes-icon svg {
   width: 54%;
   height: 54%;
 }
@@ -6315,6 +6322,15 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgba(251, 207, 232, 0.86);
   box-shadow:
     0 8px 24px rgba(225, 29, 72, 0.46),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+.phone-desktop-app:hover .phone-notes-icon,
+.phone-desktop-app:focus-visible .phone-notes-icon {
+  transform: translateY(-3px) scale(1.06);
+  border-color: rgba(253, 224, 71, 0.8);
+  box-shadow:
+    0 8px 24px rgba(245, 158, 11, 0.45),
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
 
@@ -7476,6 +7492,281 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-banking-screen .phone-gallery-header {
   justify-content: flex-start;
+}
+
+.phone-notes-screen {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: #151515;
+}
+
+.phone-notes-screen .phone-gallery-header {
+  justify-content: flex-start;
+}
+
+.phone-notes-screen .phone-gallery-header .phone-notes-delete-button {
+  margin-left: auto;
+}
+
+.phone-notes-scroll {
+  min-height: 0;
+  flex: 1;
+  padding: 14px 14px 76px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Masonry columns: cards grow with their content and pack vertically. */
+.phone-notes-masonry {
+  columns: 2 140px;
+  column-gap: 10px;
+}
+
+/* Gentle paper colors shared by note cards, the editor, and its color picker. */
+.phone-notes-card.color-neutral,
+.phone-notes-editor.color-neutral,
+.phone-notes-color-option.color-neutral {
+  --note-tint: 196, 196, 196;
+}
+
+.phone-notes-card.color-sand,
+.phone-notes-editor.color-sand,
+.phone-notes-color-option.color-sand {
+  --note-tint: 224, 193, 139;
+}
+
+.phone-notes-card.color-coral,
+.phone-notes-editor.color-coral,
+.phone-notes-color-option.color-coral {
+  --note-tint: 224, 145, 137;
+}
+
+.phone-notes-card.color-peach,
+.phone-notes-editor.color-peach,
+.phone-notes-color-option.color-peach {
+  --note-tint: 229, 172, 126;
+}
+
+.phone-notes-card.color-mint,
+.phone-notes-editor.color-mint,
+.phone-notes-color-option.color-mint {
+  --note-tint: 135, 201, 171;
+}
+
+.phone-notes-card.color-sky,
+.phone-notes-editor.color-sky,
+.phone-notes-color-option.color-sky {
+  --note-tint: 137, 183, 218;
+}
+
+.phone-notes-card.color-lavender,
+.phone-notes-editor.color-lavender,
+.phone-notes-color-option.color-lavender {
+  --note-tint: 178, 158, 216;
+}
+
+.phone-notes-card.color-rose,
+.phone-notes-editor.color-rose,
+.phone-notes-color-option.color-rose {
+  --note-tint: 218, 154, 180;
+}
+
+.phone-notes-card {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 12px 13px;
+  break-inside: avoid;
+  border: 1px solid rgba(var(--note-tint), 0.24);
+  border-radius: 14px;
+  background: linear-gradient(
+    160deg,
+    rgba(var(--note-tint), 0.13),
+    rgba(var(--note-tint), 0.045)
+  );
+  color: #f2eee6;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.phone-notes-card:hover,
+.phone-notes-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(var(--note-tint), 0.65);
+  box-shadow: 0 6px 16px rgba(var(--note-tint), 0.25);
+}
+
+.phone-notes-card strong {
+  font-size: 13px;
+  line-height: 1.3;
+  color: rgba(var(--note-tint), 0.96);
+  overflow-wrap: anywhere;
+}
+
+.phone-notes-card span {
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.phone-notes-card span.empty {
+  color: rgba(242, 238, 230, 0.45);
+  font-style: italic;
+}
+
+.phone-notes-card small {
+  margin-top: 2px;
+  font-size: 10px;
+  color: rgba(242, 238, 230, 0.5);
+}
+
+.phone-notes-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 42px 8px;
+  color: rgba(242, 238, 230, 0.45);
+  font-size: 13px;
+  text-align: center;
+}
+
+.phone-notes-add-button {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #fff7e6;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.phone-notes-add-button:hover,
+.phone-notes-add-button:focus-visible {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+}
+
+.phone-notes-editor {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 14px 16px;
+  padding: 12px;
+  border: 1px solid rgba(var(--note-tint), 0.24);
+  border-radius: 16px;
+  background: linear-gradient(
+    160deg,
+    rgba(var(--note-tint), 0.1),
+    rgba(var(--note-tint), 0.035)
+  );
+}
+
+.phone-notes-editor-title {
+  flex: none;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid rgba(var(--note-tint), 0.3);
+  border-radius: 0;
+  background: transparent;
+  color: rgba(var(--note-tint), 0.96);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.phone-notes-editor-text {
+  min-height: 0;
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: #f2eee6;
+  font-size: 13px;
+  line-height: 1.55;
+  resize: none;
+}
+
+.phone-notes-editor-title::placeholder,
+.phone-notes-editor-text::placeholder {
+  color: rgba(242, 238, 230, 0.4);
+}
+
+.phone-notes-editor-title:focus,
+.phone-notes-editor-text:focus {
+  outline: none;
+}
+
+.phone-notes-editor-title:focus {
+  border-bottom-color: rgba(var(--note-tint), 0.6);
+}
+
+.phone-notes-color-picker {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 4px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.phone-notes-color-option {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(var(--note-tint), 0.55);
+  border-radius: 50%;
+  background: rgba(var(--note-tint), 0.34);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.phone-notes-color-option:hover,
+.phone-notes-color-option:focus-visible {
+  transform: scale(1.12);
+  border-color: rgba(var(--note-tint), 0.95);
+}
+
+.phone-notes-color-option[aria-pressed="true"] {
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 2px rgba(var(--note-tint), 0.48);
+}
+
+.phone-notes-delete-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  cursor: pointer;
+}
+
+.phone-notes-delete-button:hover,
+.phone-notes-delete-button:focus-visible {
+  border-color: rgba(248, 113, 113, 0.6);
+  background: rgba(239, 68, 68, 0.22);
 }
 
 .phone-banking-scroll {

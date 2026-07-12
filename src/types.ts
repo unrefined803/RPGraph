@@ -905,7 +905,7 @@ export type PhoneDesktopLayout = {
     width: number;
     height: number;
   };
-  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends', {
+  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes', {
     column: number;
     row: number;
   }>;
