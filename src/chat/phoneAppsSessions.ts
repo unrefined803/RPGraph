@@ -25,6 +25,17 @@ export type PhoneNoteRecord = {
 
 export type PhoneNotesByCharacter = Record<string, PhoneNoteRecord[]>;
 
+export type CreatedPhoneNote = {
+  character: string;
+  title: string;
+  text: string;
+};
+
+export type CreatedPhoneNoteCommit = {
+  characterId: string;
+  note: PhoneNoteRecord;
+};
+
 type ChatGpdChatMessage = {
   role: 'user' | 'assistant';
   text: string;
@@ -57,6 +68,36 @@ function recordValue(value: unknown): Record<string, unknown> {
 
 function stringValue(value: unknown) {
   return typeof value === 'string' ? value : '';
+}
+
+export function parseCreatedPhoneNote(value: unknown): CreatedPhoneNote | undefined {
+  const note = recordValue(value);
+  const character = stringValue(note.character).trim();
+  const title = stringValue(note.title).trim();
+  const text = stringValue(note.text).trim();
+  return character && title && text ? { character, title, text } : undefined;
+}
+
+export function createdPhoneNoteIdPrefix(turnId: string) {
+  return `note-command-${turnId}-`;
+}
+
+export function replaceCreatedPhoneNotesForTurn(
+  current: PhoneNotesByCharacter,
+  turnId: string,
+  commits: CreatedPhoneNoteCommit[],
+): PhoneNotesByCharacter {
+  const prefix = createdPhoneNoteIdPrefix(turnId);
+  const next = Object.fromEntries(
+    Object.entries(current).flatMap(([characterId, notes]) => {
+      const retained = notes.filter((note) => !note.id.startsWith(prefix));
+      return retained.length ? [[characterId, retained]] : [];
+    }),
+  );
+  commits.forEach(({ characterId, note }) => {
+    next[characterId] = [note, ...(next[characterId] ?? [])];
+  });
+  return next;
 }
 
 export function parseSimulatedAiChat(value: unknown): SimulatedAiChat | undefined {

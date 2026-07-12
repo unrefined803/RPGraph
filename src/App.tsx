@@ -165,6 +165,7 @@ import {
 } from './storybook/openingHistoryRuntime';
 import {
   mergePhoneAppRecordsByCharacter,
+  replaceCreatedPhoneNotesForTurn,
   replaceSimulatedAiChatsForTurn,
 } from './chat/phoneAppsSessions';
 import {
@@ -4745,6 +4746,11 @@ function App() {
         replaceSimulatedAiChatsForTurn(current, turnId, chats)
       );
     },
+    commitCreatedPhoneNotes: (turnId, notes) => {
+      setPhoneNotesByCharacter((current) =>
+        replaceCreatedPhoneNotesForTurn(current, turnId, notes)
+      );
+    },
     workflowSettingsValuesForGraph,
     settingsValueDefinitionsRef,
     promptActionSettings,
@@ -5033,6 +5039,9 @@ function App() {
     removeTurnTracesForTurn(turn.id);
     setChatGpdChatsByCharacter((current) =>
       replaceSimulatedAiChatsForTurn(current, turn.id, [])
+    );
+    setPhoneNotesByCharacter((current) =>
+      replaceCreatedPhoneNotesForTurn(current, turn.id, [])
     );
     cancelEditMessage();
   }

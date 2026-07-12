@@ -84,6 +84,7 @@ import {
   mergePhoneAppRecordsByCharacter,
   normalizeChatGpdChatsByCharacter,
   normalizePhoneNotesByCharacter,
+  replaceCreatedPhoneNotesForTurn,
   replaceSimulatedAiChatsForTurn,
 } from '../chat/phoneAppsSessions';
 import {
@@ -2365,8 +2366,70 @@ export function verifyWorkflowValidationFixtures() {
       formatPromptCommandTokens('@command:bank_transfer\n@COMMAND:simulate_chatgpd') ===
         '@command: Bank_transfer\n@command: Simulate_ChatGPD' &&
       replacePromptCommandTokensWithHints('@command: Simulate_ChatGPD') ===
-        '[commands: simulate_ai_chat]',
-    'prompt commands must accept flexible casing and spacing while preserving the internal simulate_ai_chat request',
+        '[commands: simulate_ai_chat]' &&
+      formatPromptCommandTokens('@command:create_note') === '@command: Create_Note' &&
+      replacePromptCommandTokensWithHints('@command: Create_Note') === '[commands: create_note]',
+    'prompt commands must accept flexible casing and spacing while preserving their internal command requests',
+  );
+  const createdPhoneNoteOutput = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Sarah saves the plan in her Notes app.',
+    JSON.stringify({
+      phoneNote: {
+        character: 'Sarah Miller',
+        title: 'Moving checklist',
+        text: '- Pack books\n- Call the moving company\n- Keep the blue folder nearby',
+      },
+    }),
+  ].join('\n'));
+  assertFixture(
+    createdPhoneNoteOutput.text === 'Sarah saves the plan in her Notes app.' &&
+      createdPhoneNoteOutput.createdPhoneNotes[0]?.character === 'Sarah Miller' &&
+      createdPhoneNoteOutput.createdPhoneNotes[0]?.title === 'Moving checklist' &&
+      createdPhoneNoteOutput.createdPhoneNotes[0]?.text.includes('- Call the moving company') &&
+      createdPhoneNoteOutput.invalidCreatedPhoneNoteCount === 0,
+    'embedded output must extract a complete character note from visible RP text',
+  );
+  const invalidCreatedPhoneNoteOutput = parseEmbeddedPhoneMessagesFromRpOutput(JSON.stringify({
+    phoneNote: {
+      character: 'Sarah Miller',
+      title: '',
+      text: 'Missing title.',
+    },
+  }));
+  assertFixture(
+    invalidCreatedPhoneNoteOutput.text === '' &&
+      invalidCreatedPhoneNoteOutput.createdPhoneNotes.length === 0 &&
+      invalidCreatedPhoneNoteOutput.invalidCreatedPhoneNoteCount === 1,
+    'invalid phone notes must be removed and reported instead of being stored',
+  );
+  const createdNoteState = replaceCreatedPhoneNotesForTurn(
+    {
+      sarah: [{
+        id: 'manual-note',
+        title: 'Manual',
+        text: 'Keep me',
+        dayLabel: 'Sun 12 July',
+        color: 'mint',
+      }],
+    },
+    'turn-8',
+    [{
+      characterId: 'sarah',
+      note: {
+        id: 'note-command-turn-8-1',
+        title: 'Moving checklist',
+        text: createdPhoneNoteOutput.createdPhoneNotes[0]!.text,
+        dayLabel: 'Sun 12 July',
+        color: 'neutral',
+      },
+    }],
+  );
+  const undoneCreatedNoteState = replaceCreatedPhoneNotesForTurn(createdNoteState, 'turn-8', []);
+  assertFixture(
+    createdNoteState.sarah?.length === 2 &&
+      undoneCreatedNoteState.sarah?.length === 1 &&
+      undoneCreatedNoteState.sarah[0]?.id === 'manual-note',
+    'turn replacement and undo must remove only notes created by that turn',
   );
   const simulatedAiChatOutput = parseEmbeddedPhoneMessagesFromRpOutput([
     'Sarah opens the AI assistant app.',
