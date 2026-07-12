@@ -129,7 +129,8 @@ declare global {
           kind: 'character';
           name: string;
           characterCard: RpCharacterCard;
-          protection: 'plain';
+          protection: 'plain' | 'encrypted';
+          password: string;
         }
       ) => Promise<{
         canceled: boolean;
@@ -394,6 +395,13 @@ declare global {
       saveStorybook: (
         name: string,
         storybook: RpStorybookV1,
+        protection: 'plain' | 'encrypted',
+        password: string,
+        overwrite?: boolean,
+      ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
+      saveCharacter: (
+        name: string,
+        characterCard: RpCharacterCard,
         protection: 'plain' | 'encrypted',
         password: string,
         overwrite?: boolean,

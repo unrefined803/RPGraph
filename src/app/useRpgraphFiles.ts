@@ -15,6 +15,7 @@ import {
 } from '../workflow/version';
 import storybookFormatVersions from '../storybook/formatVersions.json';
 import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
+import type { RpCharacterCard } from '../storybook/characterCard';
 
 export type WorkflowSaveScope = 'workflow' | 'workflow-storybook';
 
@@ -89,6 +90,7 @@ export function useRpgraphFiles({
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [workflowNameDraft, setWorkflowNameDraft] = useState('');
   const [storybookNameDraft, setStorybookNameDraft] = useState('');
+  const [characterNameDraft, setCharacterNameDraft] = useState('');
   const [fileStorageStatus, setFileStorageStatus] = useState('');
   const [workflowOverwritePending, setWorkflowOverwritePending] = useState(false);
   const [activeSessionFileName, setActiveSessionFileName] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export function useRpgraphFiles({
   const [sessionName, setSessionName] = useState('');
   const [sessionPassword, setSessionPassword] = useState('');
   const [sessionPasswordAction, setSessionPasswordAction] =
-    useState<'save-workflow' | 'save-session' | 'save-storybook' | 'load' | 'open-file' | 'load-storybook' | null>(null);
+    useState<'save-workflow' | 'save-session' | 'save-storybook' | 'save-character' | 'load' | 'open-file' | 'load-storybook' | 'load-character' | null>(null);
   const [fileProtection, setFileProtection] = useState<FileProtection>('plain');
   const [workflowSaveScope, setWorkflowSaveScope] = useState<WorkflowSaveScope>('workflow-storybook');
   const [sessionOverwritePending, setSessionOverwritePending] = useState(false);
@@ -110,6 +112,10 @@ export function useRpgraphFiles({
     nodeId: string;
     filePath: string;
     fileName: string;
+  } | null>(null);
+  const [pendingCharacterSave, setPendingCharacterSave] = useState<{
+    nodeId: string;
+    characterCard: RpCharacterCard;
   } | null>(null);
   const [activeWorkflowPath, setActiveWorkflowPath] = useState<string | null>(null);
   const activeWorkflowPathRef = useRef<string | null>(null);
@@ -300,6 +306,93 @@ export function useRpgraphFiles({
     }
   }
 
+  function requestSaveCharacter(
+    nodeId: string,
+    characterCard: RpCharacterCard,
+    returnToFilesAfterSave = false,
+  ) {
+    const name = characterCard.character.name || characterCard.character.id;
+    setPendingCharacterSave({ nodeId, characterCard });
+    setCharacterNameDraft(name);
+    setShowFiles(false);
+    setSessionPassword('');
+    setFileProtection('plain');
+    setSessionOverwritePending(false);
+    setChooseSaveLocation(false);
+    setFileStorageStatus('');
+    returnToFilesAfterSaveRef.current = returnToFilesAfterSave;
+    setSessionPasswordAction('save-character');
+  }
+
+  async function saveCharacter() {
+    const pending = pendingCharacterSave;
+    if (!pending) {
+      setFileStorageStatus('Character export is no longer available.');
+      return;
+    }
+    const name = characterNameDraft.trim() || pending.characterCard.character.name || pending.characterCard.character.id;
+    if (fileProtection === 'encrypted' && !sessionPassword) {
+      setFileStorageStatus('Enter a password or PIN for the encrypted character card.');
+      return;
+    }
+    setFileStorageStatus(
+      fileProtection === 'encrypted'
+        ? 'Encrypting and saving character card ...'
+        : 'Saving character card as plain JSON ...',
+    );
+    try {
+      const result = chooseSaveLocation
+        ? await window.rpgraph.saveRpgraphFileToPath({
+            kind: 'character',
+            name,
+            characterCard: pending.characterCard,
+            protection: fileProtection,
+            password: sessionPassword,
+          })
+        : await window.rpgraph.saveCharacter(
+            name,
+            pending.characterCard,
+            fileProtection,
+            sessionPassword,
+            sessionOverwritePending,
+          );
+      if ('conflict' in result && result.conflict) {
+        setSessionOverwritePending(true);
+        setFileStorageStatus(
+          `A character card named "${result.name}" already exists. Confirm to overwrite it.`,
+        );
+        return;
+      }
+      if ('canceled' in result && result.canceled) {
+        setFileStorageStatus('');
+        return;
+      }
+      const fileName = result.fileName ?? `${name}.rpgraph-character.json`;
+      updateRuntimeNode(pending.nodeId, {
+        storybookStatus: fileProtection === 'encrypted'
+          ? `Exported encrypted character: ${fileName}`
+          : `Exported character: ${fileName}`,
+      });
+      notifySystem('info', `Exported character ${pending.characterCard.character.name || pending.characterCard.character.id}: ${fileName}`);
+      setCharacterNameDraft(result.name ?? name);
+      setPendingCharacterSave(null);
+      setSessionOverwritePending(false);
+      setSessionPassword('');
+      if (!chooseSaveLocation) {
+        await refreshFiles(fileName);
+      }
+      setFileStorageStatus(`Saved character card: ${result.filePath}`);
+      setSessionPasswordAction(null);
+      setShowFiles(returnToFilesAfterSaveRef.current);
+      returnToFilesAfterSaveRef.current = false;
+    } catch (error) {
+      const message = `Character export failed: ${errorMessage(error)}`;
+      updateRuntimeNode(pending.nodeId, { storybookStatus: message });
+      notifySystem('error', message);
+      setFileStorageStatus(message);
+    }
+  }
+
   async function loadStoredFile(fileName: string, password = '') {
     setFileStorageStatus('Loading file ...');
     try {
@@ -326,6 +419,8 @@ export function useRpgraphFiles({
             ? incompatibleSessionStatus(summary)
             : summary.type === 'storybook'
               ? incompatibleStorybookStatus(summary)
+            : summary.type === 'character-card'
+              ? incompatibleCharacterCardStatus(summary)
             : 'This is not a supported RPGraph file.';
       setFileStorageStatus(message);
       if (summary.type === 'storybook') {
@@ -413,6 +508,8 @@ export function useRpgraphFiles({
           ? incompatibleWorkflowStatus(summary)
           : summary.type === 'storybook'
             ? incompatibleStorybookStatus(summary)
+          : summary.type === 'character-card'
+            ? incompatibleCharacterCardStatus(summary)
             : incompatibleSessionStatus(summary),
       );
       return;
@@ -446,6 +543,8 @@ export function useRpgraphFiles({
               ? incompatibleSessionStatus(file)
               : file.type === 'storybook'
                 ? incompatibleStorybookStatus(file)
+              : file.type === 'character-card'
+                ? incompatibleCharacterCardStatus(file)
               : 'This is not a supported RPGraph file.';
         setFileStorageStatus(message);
         if (file.type === 'storybook') {
@@ -910,6 +1009,8 @@ export function useRpgraphFiles({
     setWorkflowNameDraft,
     storybookNameDraft,
     setStorybookNameDraft,
+    characterNameDraft,
+    setCharacterNameDraft,
     fileStorageStatus,
     setFileStorageStatus,
     workflowOverwritePending,
@@ -953,6 +1054,7 @@ export function useRpgraphFiles({
     saveNamedWorkflow,
     requestExportWorkflow,
     requestSaveStorybook,
+    requestSaveCharacter,
     loadStoredFile,
     openStoredFile,
     deleteStoredFile,
@@ -961,6 +1063,7 @@ export function useRpgraphFiles({
     requestOpenFile,
     saveSession,
     saveStorybook,
+    saveCharacter,
     openFilePath,
     unlockStorybookFile,
     unlockOpenFilePath,
@@ -1003,4 +1106,14 @@ export function incompatibleWorkflowStatus(file: IncompatibleFileMetadata) {
 
 export function incompatibleStorybookStatus(file: IncompatibleFileMetadata) {
   return `Storybook Format ${file.formatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Storybook Format ${storybookFormatVersions.storybook}.`;
+}
+
+export function incompatibleCharacterCardStatus(file: IncompatibleFileMetadata) {
+  if (
+    file.protection === 'encrypted' &&
+    file.envelopeFormatVersion !== storybookFormatVersions.encryptedCharacterCardEnvelope
+  ) {
+    return `Encrypted character card Envelope Format ${file.envelopeFormatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Envelope Format ${storybookFormatVersions.encryptedCharacterCardEnvelope}.`;
+  }
+  return `Character Card Format ${file.formatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Character Card Format ${storybookFormatVersions.characterCard}.`;
 }

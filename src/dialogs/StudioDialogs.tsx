@@ -182,6 +182,7 @@ type StudioDialogsProps = {
   selectedFile: string | null;
   workflowName: string;
   storybookName: string;
+  characterName: string;
   workflowFormatVersion: string;
   rpSaveFormatVersion: string;
   storybookFormatVersion: string;
@@ -197,8 +198,9 @@ type StudioDialogsProps = {
   onRequestSaveStorybook: () => void;
   onWorkflowNameChange: (name: string) => void;
   onStorybookNameChange: (name: string) => void;
+  onCharacterNameChange: (name: string) => void;
   onRequestSaveSession: () => void;
-  sessionPasswordAction: 'save-workflow' | 'save-session' | 'save-storybook' | 'load' | 'open-file' | 'load-storybook' | null;
+  sessionPasswordAction: 'save-workflow' | 'save-session' | 'save-storybook' | 'save-character' | 'load' | 'open-file' | 'load-storybook' | 'load-character' | null;
   sessionOverwritePending: boolean;
   sessionName: string;
   sessionPassword: string;
@@ -806,6 +808,7 @@ export function StudioDialogs({
   selectedFile,
   workflowName,
   storybookName,
+  characterName,
   workflowFormatVersion,
   rpSaveFormatVersion,
   storybookFormatVersion,
@@ -821,6 +824,7 @@ export function StudioDialogs({
   onRequestSaveStorybook,
   onWorkflowNameChange,
   onStorybookNameChange,
+  onCharacterNameChange,
   onRequestSaveSession,
   sessionPasswordAction,
   sessionOverwritePending,
@@ -894,7 +898,7 @@ export function StudioDialogs({
   const [showFileVersionInfo, setShowFileVersionInfo] = useState(false);
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
   const [deleteFileCandidate, setDeleteFileCandidate] = useState<SavedFileSummary | null>(null);
-  const [fileFilter, setFileFilter] = useState<'all' | 'workflow' | 'storybook' | 'session'>('all');
+  const [fileFilter, setFileFilter] = useState<'all' | 'workflow' | 'storybook' | 'session' | 'character-card'>('all');
   const [editingWorkflowVariableKey, setEditingWorkflowVariableKey] = useState<string | null>(null);
   const [workflowVariableNameDraft, setWorkflowVariableNameDraft] = useState('');
   const [workflowVariableStatus, setWorkflowVariableStatus] = useState('');
@@ -913,8 +917,9 @@ export function StudioDialogs({
   const isSavingWorkflow = sessionPasswordAction === 'save-workflow';
   const isSavingSession = sessionPasswordAction === 'save-session';
   const isSavingStorybook = sessionPasswordAction === 'save-storybook';
-  const isSavingFile = isSavingWorkflow || isSavingSession || isSavingStorybook;
-  const savingKindLabel = isSavingWorkflow ? 'Workflow' : isSavingStorybook ? 'Storybook' : 'RP';
+  const isSavingCharacter = sessionPasswordAction === 'save-character';
+  const isSavingFile = isSavingWorkflow || isSavingSession || isSavingStorybook || isSavingCharacter;
+  const savingKindLabel = isSavingWorkflow ? 'Workflow' : isSavingStorybook ? 'Storybook' : isSavingCharacter ? 'Character' : 'RP';
   const hasStoredWorkflow = savedFiles.some((file) => file.type === 'workflow');
   const connectionModelOptions = Array.from(
     new Set(
@@ -2275,7 +2280,7 @@ export function StudioDialogs({
                     Workflow File Format {workflowFormatVersion} · RP Save Format v{rpSaveFormatVersion} · Storybook Format {storybookFormatVersion}
                   </small>
                 </h2>
-                <p>Open workflow templates, storybooks, or complete sessions</p>
+                <p>Open workflows, Storybooks, Character Cards, or complete sessions</p>
               </div>
               <div className="files-header-actions">
                 <button
@@ -2371,7 +2376,9 @@ export function StudioDialogs({
                                 ? 'Workflow'
                                 : file.type === 'storybook'
                                   ? 'Storybook'
-                                  : 'RP Save'}
+                                  : file.type === 'character-card'
+                                    ? 'Character'
+                                    : 'RP Save'}
                             </span>
                             <span className="saved-file-name-text">{file.name}</span>
                             {file.protection === 'encrypted' && (
@@ -2475,6 +2482,7 @@ export function StudioDialogs({
                     { value: 'workflow', label: 'Workflow' },
                     { value: 'storybook', label: 'Storybook' },
                     { value: 'session', label: 'RP Save' },
+                    { value: 'character-card', label: 'Character' },
                   ]}
                 />
               </div>
@@ -2550,12 +2558,12 @@ export function StudioDialogs({
             role="dialog"
             aria-modal={activeDialog === 'session-password'}
             aria-hidden={activeDialog !== 'session-password'}
-            aria-label={isSavingWorkflow ? 'Save Workflow' : isSavingStorybook ? 'Save Storybook' : isSavingSession ? 'Save RP' : 'Unlock File'}
+            aria-label={isSavingWorkflow ? 'Save Workflow' : isSavingStorybook ? 'Save Storybook' : isSavingCharacter ? 'Export Character' : isSavingSession ? 'Save RP' : 'Unlock File'}
             tabIndex={-1}
           >
             <div className="dialog-header">
               <div>
-                <h2>{isSavingWorkflow ? 'Save Workflow' : isSavingStorybook ? 'Save Storybook' : isSavingSession ? 'Save RP' : 'Unlock File'}</h2>
+                <h2>{isSavingWorkflow ? 'Save Workflow' : isSavingStorybook ? 'Save Storybook' : isSavingCharacter ? 'Export Character' : isSavingSession ? 'Save RP' : 'Unlock File'}</h2>
                 <p>
                   {isSavingFile
                     ? 'Choose how the complete file should be stored'
@@ -2577,6 +2585,8 @@ export function StudioDialogs({
                         ? 'saved workflow contents'
                         : isSavingStorybook
                           ? 'standalone Storybook file'
+                          : isSavingCharacter
+                            ? 'Character Card contents, including images, voice sample, and app setup'
                           : 'RP save, including its workflow, Storybook data, chat history, and runtime state'}.
                     </p>
                   </div>
@@ -2585,17 +2595,19 @@ export function StudioDialogs({
                     <input
                       id="save-file-name"
                       ref={saveFileNameInputRef}
-                      value={isSavingWorkflow ? workflowName : isSavingStorybook ? storybookName : sessionName}
+                      value={isSavingWorkflow ? workflowName : isSavingStorybook ? storybookName : isSavingCharacter ? characterName : sessionName}
                       onChange={(event) => {
                         if (isSavingWorkflow) {
                           onWorkflowNameChange(event.target.value);
                         } else if (isSavingStorybook) {
                           onStorybookNameChange(event.target.value);
+                        } else if (isSavingCharacter) {
+                          onCharacterNameChange(event.target.value);
                         } else {
                           onSessionNameChange(event.target.value);
                         }
                       }}
-                      placeholder={isSavingWorkflow ? 'workflow' : isSavingStorybook ? 'storybook' : 'My roleplay'}
+                      placeholder={isSavingWorkflow ? 'workflow' : isSavingStorybook ? 'storybook' : isSavingCharacter ? 'Character name' : 'My roleplay'}
                     />
                   </label>
                   <div className="file-protection-options" role="radiogroup" aria-label="File protection">
@@ -2699,6 +2711,10 @@ export function StudioDialogs({
                       ? sessionOverwritePending
                         ? 'Overwrite Storybook'
                         : 'Save Storybook'
+                    : isSavingCharacter
+                      ? sessionOverwritePending
+                        ? 'Overwrite Character'
+                        : 'Export Character'
                   : 'Unlock and Open'}
               </button>
             </div>

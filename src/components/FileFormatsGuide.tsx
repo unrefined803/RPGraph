@@ -3,7 +3,7 @@ export function FileFormatsGuide() {
     <div className="welcome-page-formats">
       <header className="welcome-header">
         <h2>RPGraph Files & Storage Formats</h2>
-        <p>Understand how complete RP saves, reusable workflow files, and standalone Storybooks are stored and loaded.</p>
+        <p>Understand how complete RP saves, reusable workflow files, standalone Storybooks, and Character Cards are stored and loaded.</p>
       </header>
 
       <div className="format-node rp-save-format">
@@ -61,11 +61,11 @@ export function FileFormatsGuide() {
       <div className="formats-info-row">
         <div className="info-card">
           <h4>Nesting & Load Flexibility</h4>
-          <p>Storybook files can be opened from the global <strong>Files</strong> menu or loaded inside individual <strong>RP Storybook</strong> nodes on the graph canvas.</p>
+          <p>Storybooks and Character Cards can be opened from the global <strong>Files</strong> menu or imported inside individual <strong>RP Storybook</strong> nodes. Managed Character Cards live in their own local <strong>characters</strong> folder.</p>
         </div>
         <div className="info-card">
           <h4>Encryption & Safety</h4>
-          <p>Workflows, RP saves, and Storybooks can be saved as readable <strong>Plain JSON</strong> or encrypted with a password/PIN. Format and node versions guard against incompatible stored structures.</p>
+          <p>Workflows, RP saves, Storybooks, and Character Cards can be saved as readable <strong>Plain JSON</strong> or encrypted with a password/PIN. Encrypted Character Cards reveal only their character name and format version as character metadata.</p>
         </div>
       </div>
     </div>

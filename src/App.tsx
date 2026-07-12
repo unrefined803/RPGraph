@@ -284,6 +284,7 @@ import {
 import {
   incompatibleSessionStatus,
   incompatibleStorybookStatus,
+  incompatibleCharacterCardStatus,
   incompatibleWorkflowStatus,
   useRpgraphFiles,
   workflowName,
@@ -1555,6 +1556,8 @@ function App() {
     setWorkflowNameDraft,
     storybookNameDraft,
     setStorybookNameDraft,
+    characterNameDraft,
+    setCharacterNameDraft,
     fileStorageStatus,
     setFileStorageStatus,
     workflowOverwritePending,
@@ -1594,12 +1597,14 @@ function App() {
     saveNamedWorkflow,
     requestExportWorkflow,
     requestSaveStorybook,
+    requestSaveCharacter,
     openStoredFile,
     deleteStoredFile,
     requestSaveSession,
     requestOpenFile,
     saveSession,
     saveStorybook,
+    saveCharacter,
     unlockStorybookFile,
     unlockOpenFilePath,
     unlockStoredFile,
@@ -1658,6 +1663,8 @@ function App() {
     exportStorybookCharacter,
     deleteStorybookCharacter,
     importCharacterCard,
+    applyCharacterCardToNode,
+    unlockCharacterCard,
     loadStorybookFile,
     pendingStorybookConversion,
     beginPendingStorybookReview,
@@ -1676,6 +1683,7 @@ function App() {
     setPendingStorybookLoad,
     setPendingSessionFilePath,
     setSessionPassword,
+    sessionPassword,
     setFileStorageStatus,
     setSessionPasswordAction,
     setActiveStorybookProtection,
@@ -1685,6 +1693,7 @@ function App() {
     currentPhoneNotesByCharacter: () => phoneNotesByCharacter,
     currentChatGpdChatsByCharacter: () => chatGpdChatsByCharacter,
     clearCurrentSession: () => clearCurrentSession(),
+    requestSaveCharacter,
   });
   async function describeStorybookCharacterImage(
     node: WorkflowNode,
@@ -2823,6 +2832,20 @@ function App() {
       setActiveStorybookProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
       setSelectedFile(result.fileName);
       setFileStorageStatus(`Loaded storybook: ${result.name}`);
+      setSessionPasswordAction(null);
+      setShowFiles(false);
+      return;
+    }
+    if (result.type === 'character-card') {
+      const storybookNode =
+        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook-v1') ??
+        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook-v1');
+      if (!storybookNode) {
+        throw new Error('Add an RP Storybook V2 node before importing a character card.');
+      }
+      applyCharacterCardToNode(storybookNode.id, result.value, result.fileName);
+      setSelectedFile(result.fileName);
+      setFileStorageStatus(`Imported character card: ${result.name}`);
       setSessionPasswordAction(null);
       setShowFiles(false);
       return;
@@ -7225,6 +7248,7 @@ function App() {
         selectedFile={selectedFile}
         workflowName={workflowNameDraft}
         storybookName={storybookNameDraft}
+        characterName={characterNameDraft}
         workflowFormatVersion={currentWorkflowFormatVersion}
         rpSaveFormatVersion={currentSessionFormatVersion}
         storybookFormatVersion={currentStorybookFormatVersion}
@@ -7248,6 +7272,8 @@ function App() {
             setSessionName(file.name);
           } else if (file.type === 'storybook') {
             setStorybookNameDraft(file.name);
+          } else if (file.type === 'character-card') {
+            setCharacterNameDraft(file.name);
           }
           setWorkflowOverwritePending(false);
           setSessionOverwritePending(false);
@@ -7259,6 +7285,8 @@ function App() {
                   ? `RP Save Format v${file.formatVersion} is compatible.`
                   : file.type === 'storybook'
                     ? `Storybook Format ${file.formatVersion} is compatible.`
+                  : file.type === 'character-card'
+                    ? `Character Card Format ${file.formatVersion} is compatible.`
                     : 'This is not a supported RPGraph file.'
               : file.type === 'workflow'
                 ? incompatibleWorkflowStatus(file)
@@ -7266,6 +7294,8 @@ function App() {
                   ? incompatibleSessionStatus(file)
                   : file.type === 'storybook'
                     ? incompatibleStorybookStatus(file)
+                  : file.type === 'character-card'
+                    ? incompatibleCharacterCardStatus(file)
                     : 'This is not a supported RPGraph file.',
           );
         }}
@@ -7283,6 +7313,10 @@ function App() {
           setStorybookNameDraft(name);
           setSessionOverwritePending(false);
         }}
+        onCharacterNameChange={(name) => {
+          setCharacterNameDraft(name);
+          setSessionOverwritePending(false);
+        }}
         onRequestSaveSession={() => requestSaveSession(true)}
         sessionPasswordAction={sessionPasswordAction}
         sessionOverwritePending={sessionOverwritePending}
@@ -7295,7 +7329,8 @@ function App() {
           setShowFiles(
             sessionPasswordAction === 'save-workflow' ||
               sessionPasswordAction === 'save-session' ||
-              sessionPasswordAction === 'save-storybook'
+              sessionPasswordAction === 'save-storybook' ||
+              sessionPasswordAction === 'save-character'
               ? returnToFilesAfterSaveRef.current
               : sessionPasswordAction === 'load-storybook'
                 ? false
@@ -7334,12 +7369,16 @@ function App() {
                 ? saveSession()
                 : sessionPasswordAction === 'save-storybook'
                   ? saveStorybook()
+                : sessionPasswordAction === 'save-character'
+                  ? saveCharacter()
                 : sessionPasswordAction === 'open-file'
                   ? pendingSessionFilePath
                     ? unlockOpenFilePath(pendingSessionFilePath)
                   : requestOpenFile()
               : sessionPasswordAction === 'load-storybook'
                 ? unlockStorybookFile()
+              : sessionPasswordAction === 'load-character'
+                ? unlockCharacterCard()
                 : unlockStoredFile()
           )
         }

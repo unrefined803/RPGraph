@@ -17151,6 +17151,12 @@ button.message-timeline-row.phone:focus-visible {
   color: #f7d291;
 }
 
+.file-type-badge.character-card {
+  color: #f0abfc;
+  background: rgba(192, 38, 211, 0.16);
+  border: 1px solid rgba(217, 70, 239, 0.35);
+}
+
 /* Layout container */
 .options-layout {
   display: flex;

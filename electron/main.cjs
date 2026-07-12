@@ -32,6 +32,8 @@ const {
   characterCardMetadata,
   characterCardVersionStatus,
   currentCharacterCardFormatVersion,
+  currentEncryptedCharacterCardEnvelopeFormatVersion,
+  encryptedCharacterCardMetadata,
 } = require('./characterCardFormat.cjs');
 
 const developmentUrl = 'http://localhost:5173';
@@ -81,6 +83,7 @@ const maxSelectedImagesTotalBytes = 96 * 1024 * 1024;
 const sessionCipherAad = Buffer.from('rpgraph-encrypted-session:v2.1');
 const workflowCipherAad = Buffer.from('rpgraph-encrypted-workflow:v2');
 const storybookCipherAad = Buffer.from('rpgraph-encrypted-storybook:v1');
+const characterCardCipherAad = Buffer.from('rpgraph-encrypted-character:v1');
 const approvedWorkflowPaths = new Set();
 const approvedFilePaths = new Set();
 const approvedComfyWorkflowPaths = new Set(
@@ -309,6 +312,16 @@ function filesDirectory() {
   return path.join(app.getPath('userData'), 'files');
 }
 
+function charactersDirectory() {
+  return path.join(app.getPath('userData'), 'characters');
+}
+
+function storedFileDirectory(fileName) {
+  return fileName.toLowerCase().endsWith(`.rpgraph-character${jsonFileExtension}`)
+    ? charactersDirectory()
+    : filesDirectory();
+}
+
 function isStoredFilePath(filePath) {
   return path.dirname(path.resolve(filePath)) === path.resolve(filesDirectory());
 }
@@ -476,6 +489,9 @@ function storedFileMetadata(value) {
   }
   if (value?.format === 'rpgraph-character') {
     return characterCardMetadata(value);
+  }
+  if (value?.format === 'rpgraph-encrypted-character') {
+    return encryptedCharacterCardMetadata(value);
   }
   if (value?.format === 'rpgraph-workflow') {
     return workflowMetadata(value);
@@ -696,6 +712,18 @@ function unsupportedStorybookFormatError(envelope) {
   return new Error(storybookFormatVersionErrorText(formatVersion));
 }
 
+function unsupportedCharacterCardFormatError(envelope) {
+  const { envelopeFormatVersion, formatVersion } = encryptedCharacterCardMetadata(envelope);
+  if (envelopeFormatVersion !== currentEncryptedCharacterCardEnvelopeFormatVersion) {
+    return new Error(
+      `This encrypted character card uses Envelope Format ${envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedCharacterCardEnvelopeFormatVersion}.`,
+    );
+  }
+  return new Error(
+    `This character card uses Format ${formatVersion ?? 'Unknown'}, which is incompatible with supported Format ${currentCharacterCardFormatVersion}.`,
+  );
+}
+
 function storybookFormatVersionErrorText(formatVersion) {
   if (storybookVersionStatus(formatVersion) === 'newer') {
     return `This storybook uses Storybook Format ${formatVersion}, which is newer than the supported Storybook Format ${currentStorybookFormatVersion}. Update RPGraph to open it.`;
@@ -734,6 +762,17 @@ function unsupportedStoredFileError(value, metadata) {
       );
     }
     return new Error(storybookFormatVersionErrorText(metadata.formatVersion));
+  }
+  if (metadata.type === 'character-card') {
+    if (metadata.protection === 'encrypted' &&
+      metadata.envelopeFormatVersion !== currentEncryptedCharacterCardEnvelopeFormatVersion) {
+      return new Error(
+        `This encrypted character card uses Envelope Format ${metadata.envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedCharacterCardEnvelopeFormatVersion}.`,
+      );
+    }
+    return new Error(
+      `This character card uses Format ${metadata.formatVersion ?? 'Unknown'}, which is incompatible with supported Format ${currentCharacterCardFormatVersion}.`,
+    );
   }
   return new Error('This is not a supported RPGraph file.');
 }
@@ -870,6 +909,45 @@ async function encryptStorybook(storybook, password) {
     envelopeFormatVersion: currentEncryptedStorybookEnvelopeFormatVersion,
     payloadFormat: storybook.format,
     payloadFormatVersion: storybook.version,
+    encryption: 'aes-256-gcm',
+    keyDerivation: 'scrypt',
+    keyDerivationParameters: currentScryptParameters,
+    salt: salt.toString('base64'),
+    iv: iv.toString('base64'),
+    authenticationTag: cipher.getAuthTag().toString('base64'),
+    ciphertext: encrypted.toString('base64'),
+  };
+}
+
+async function encryptCharacterCard(card, password) {
+  if (
+    !card ||
+    card.format !== 'rpgraph-character' ||
+    characterCardVersionStatus(card.version) !== 'current' ||
+    !card.character ||
+    typeof card.character !== 'object'
+  ) {
+    throw new Error(
+      `Only RPGraph Character Card Format ${currentCharacterCardFormatVersion} payloads can be encrypted.`,
+    );
+  }
+  requiredEncryptionPassword(password);
+  const salt = crypto.randomBytes(16);
+  const iv = crypto.randomBytes(12);
+  const key = await deriveFileKey(password, salt, currentScryptParameters);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  cipher.setAAD(characterCardCipherAad);
+  const encrypted = Buffer.concat([
+    cipher.update(JSON.stringify(card), 'utf8'),
+    cipher.final(),
+  ]);
+
+  return {
+    format: 'rpgraph-encrypted-character',
+    envelopeFormatVersion: currentEncryptedCharacterCardEnvelopeFormatVersion,
+    payloadFormat: card.format,
+    payloadFormatVersion: card.version,
+    characterName: typeof card.character.name === 'string' ? card.character.name : '',
     encryption: 'aes-256-gcm',
     keyDerivation: 'scrypt',
     keyDerivationParameters: currentScryptParameters,
@@ -1019,6 +1097,50 @@ async function decryptStorybook(envelope, password) {
   }
 }
 
+async function decryptCharacterCard(envelope, password) {
+  if (!envelope || envelope.format !== 'rpgraph-encrypted-character') {
+    throw new Error('This is not a supported encrypted character card.');
+  }
+  if (!encryptedCharacterCardMetadata(envelope).compatible) {
+    throw unsupportedCharacterCardFormatError(envelope);
+  }
+  requiredEncryptionPassword(password);
+
+  try {
+    const salt = Buffer.from(envelope.salt, 'base64');
+    const iv = Buffer.from(envelope.iv, 'base64');
+    const key = await deriveFileKey(password, salt, envelope.keyDerivationParameters);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAAD(characterCardCipherAad);
+    decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(envelope.ciphertext, 'base64')),
+      decipher.final(),
+    ]);
+    const card = JSON.parse(decrypted.toString('utf8'));
+    if (
+      !card ||
+      card.format !== envelope.payloadFormat ||
+      card.version !== envelope.payloadFormatVersion ||
+      (typeof card.character?.name === 'string' ? card.character.name : '') !== envelope.characterName
+    ) {
+      throw new Error('Encrypted character card metadata does not match its payload.');
+    }
+    return card;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === 'Encrypted character card metadata does not match its payload.'
+    ) {
+      throw error;
+    }
+    throw new Error(
+      'Unable to unlock character card. The password is incorrect or the file is damaged.',
+      { cause: error },
+    );
+  }
+}
+
 async function readRpgraphFile(filePath, password) {
   const value = JSON.parse(await fs.readFile(filePath, 'utf8'));
   const metadata = storedFileMetadata(value);
@@ -1046,6 +1168,14 @@ async function readRpgraphFile(filePath, password) {
       metadata,
       value: metadata.protection === 'encrypted'
         ? await decryptSession(value, password)
+        : value,
+    };
+  }
+  if (metadata.type === 'character-card') {
+    return {
+      metadata,
+      value: metadata.protection === 'encrypted'
+        ? await decryptCharacterCard(value, password)
         : value,
     };
   }
@@ -4157,24 +4287,26 @@ ipcMain.handle('system:resource-stats', async () => ({
 }));
 
 ipcMain.handle('file:list', async () => {
-  const directory = filesDirectory();
-  await fs.mkdir(directory, { recursive: true });
-  const entries = await fs.readdir(directory, { withFileTypes: true });
-  const files = await Promise.all(
-    entries
-      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(jsonFileExtension))
-      .map(async (entry) => {
-        const filePath = path.join(directory, entry.name);
-        const stats = await fs.stat(filePath);
-        const metadata = await readStoredFileMetadata(filePath);
-        return {
-          fileName: entry.name,
-          name: storedJsonName(entry.name),
-          updatedAt: stats.mtime.toISOString(),
-          ...metadata,
-        };
-      }),
-  );
+  const directories = [filesDirectory(), charactersDirectory()];
+  await Promise.all(directories.map((directory) => fs.mkdir(directory, { recursive: true })));
+  const files = (await Promise.all(directories.map(async (directory) => {
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    return Promise.all(
+      entries
+        .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(jsonFileExtension))
+        .map(async (entry) => {
+          const filePath = path.join(directory, entry.name);
+          const stats = await fs.stat(filePath);
+          const metadata = await readStoredFileMetadata(filePath);
+          return {
+            fileName: entry.name,
+            name: metadata.characterName || storedJsonName(entry.name),
+            updatedAt: stats.mtime.toISOString(),
+            ...metadata,
+          };
+        }),
+    );
+  }))).flat();
   return files.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
@@ -4228,6 +4360,47 @@ ipcMain.handle('storybook:save', async (_event, request) => {
       : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
   try {
     const contents = `${JSON.stringify(storybook, null, 2)}\n`;
+    if (request.overwrite) {
+      await writeTextFileAtomically(filePath, contents);
+    } else {
+      await writeNewTextFileAtomically(filePath, contents);
+    }
+  } catch (error) {
+    if (!request.overwrite && error && error.code === 'EEXIST') {
+      return { conflict: true, fileName, name: baseName };
+    }
+    throw error;
+  }
+  approveFilePath(filePath);
+  return { fileName, name: baseName, filePath };
+});
+
+ipcMain.handle('character:save', async (_event, request) => {
+  const directory = charactersDirectory();
+  await fs.mkdir(directory, { recursive: true });
+  const card = request?.characterCard;
+  if (
+    !card ||
+    card.format !== 'rpgraph-character' ||
+    characterCardVersionStatus(card.version) !== 'current'
+  ) {
+    throw new Error(
+      `Only RPGraph Character Card Format ${currentCharacterCardFormatVersion} payloads can be saved.`,
+    );
+  }
+  const baseName = safeCharacterCardBaseName(request?.name ?? card.character?.name);
+  const fileName = `${baseName}.rpgraph-character${jsonFileExtension}`;
+  const filePath = path.join(directory, fileName);
+  if (request.overwrite) {
+    await assertOverwriteType(filePath, 'character-card');
+  }
+  const payload = request.protection === 'encrypted'
+    ? await encryptCharacterCard(card, request.password)
+    : request.protection === 'plain'
+      ? card
+      : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
+  try {
+    const contents = `${JSON.stringify(payload, null, 2)}\n`;
     if (request.overwrite) {
       await writeTextFileAtomically(filePath, contents);
     } else {
@@ -4297,10 +4470,11 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
         `Only RPGraph Character Card Format ${currentCharacterCardFormatVersion} payloads can be exported.`,
       );
     }
-    if (protection !== 'plain') {
-      throw new Error('Character cards are exported as Plain JSON.');
-    }
-    payload = card;
+    payload = protection === 'encrypted'
+      ? await encryptCharacterCard(card, request.password)
+      : protection === 'plain'
+        ? card
+        : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
   } else {
     throw new Error('Choose Workflow, Storybook, RP save, or Character.');
   }
@@ -4651,7 +4825,7 @@ ipcMain.handle('file:select', async () => {
 
 ipcMain.handle('file:load', async (_event, request) => {
   const fileName = validatedStoredFileName(request.fileName);
-  const filePath = approveFilePath(path.join(filesDirectory(), fileName));
+  const filePath = approveFilePath(path.join(storedFileDirectory(fileName), fileName));
   const { metadata, value } = await readRpgraphFile(filePath, request.password);
   if (metadata.type === 'workflow' && metadata.protection === 'plain') {
     approveWorkflowPath(filePath);
@@ -4702,7 +4876,7 @@ ipcMain.handle('file:load-file', async (_event, request) => {
 ipcMain.handle('file:delete', async (_event, fileName) => {
   const validatedFileName = validatedStoredFileName(fileName);
   try {
-    await fs.unlink(path.join(filesDirectory(), validatedFileName));
+    await fs.unlink(path.join(storedFileDirectory(validatedFileName), validatedFileName));
   } catch (error) {
     if (!error || error.code !== 'ENOENT') {
       throw error;

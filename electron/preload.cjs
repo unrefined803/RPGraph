@@ -182,6 +182,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('session:save', { name, session, protection, password, overwrite }),
   saveStorybook: (name, storybook, protection, password, overwrite = false) =>
     ipcRenderer.invoke('storybook:save', { name, storybook, protection, password, overwrite }),
+  saveCharacter: (name, characterCard, protection, password, overwrite = false) =>
+    ipcRenderer.invoke('character:save', { name, characterCard, protection, password, overwrite }),
   saveCurrentSession: (filePath, session, protection, password) =>
     ipcRenderer.invoke('session:save-current', { filePath, session, protection, password }),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),

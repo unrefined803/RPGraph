@@ -850,12 +850,13 @@ export type SavedFileSummary = {
   fileName: string;
   name: string;
   updatedAt: string;
-  type: 'workflow' | 'session' | 'storybook' | 'unknown';
+  type: 'workflow' | 'session' | 'storybook' | 'character-card' | 'unknown';
   protection: 'plain' | 'encrypted' | 'unknown';
   envelopeFormatVersion?: string;
   formatVersion?: string;
   workflowFormatVersion?: string;
   latestTurnNumber?: number;
+  characterName?: string;
   compatible: boolean;
 };
 

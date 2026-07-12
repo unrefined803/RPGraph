@@ -71,6 +71,8 @@ assert.equal(encryptedStorybookMetadata({ ...currentEnvelope, salt: 'invalid' })
 const {
   characterCardMetadata,
   currentCharacterCardFormatVersion,
+  currentEncryptedCharacterCardEnvelopeFormatVersion,
+  encryptedCharacterCardMetadata,
 } = require('./characterCardFormat.cjs');
 
 const currentCard = {
@@ -91,5 +93,46 @@ assert.equal(characterCardMetadata({ ...currentCard, version: '999.0.0' }).compa
 assert.equal(characterCardMetadata({ ...currentCard, version: '0.9.0' }).compatible, true);
 assert.equal(characterCardMetadata({ ...currentCard, version: '0.9.0' }).legacy, true);
 assert.equal(characterCardMetadata({}).compatible, false);
+
+const currentCharacterEnvelope = {
+  format: 'rpgraph-encrypted-character',
+  envelopeFormatVersion: currentEncryptedCharacterCardEnvelopeFormatVersion,
+  payloadFormat: 'rpgraph-character',
+  payloadFormatVersion: currentCharacterCardFormatVersion,
+  characterName: 'Test',
+  encryption: 'aes-256-gcm',
+  keyDerivation: 'scrypt',
+  keyDerivationParameters: currentScryptParameters,
+  salt: Buffer.alloc(16).toString('base64'),
+  iv: Buffer.alloc(12).toString('base64'),
+  authenticationTag: Buffer.alloc(16).toString('base64'),
+  ciphertext: Buffer.from('{}').toString('base64'),
+};
+
+assert.deepEqual(encryptedCharacterCardMetadata(currentCharacterEnvelope), {
+  type: 'character-card',
+  protection: 'encrypted',
+  envelopeFormatVersion: currentEncryptedCharacterCardEnvelopeFormatVersion,
+  formatVersion: currentCharacterCardFormatVersion,
+  characterName: 'Test',
+  legacy: false,
+  compatible: true,
+});
+assert.equal(encryptedCharacterCardMetadata({
+  ...currentCharacterEnvelope,
+  payloadFormatVersion: '0.9.0',
+}).legacy, true);
+assert.equal(encryptedCharacterCardMetadata({
+  ...currentCharacterEnvelope,
+  characterName: undefined,
+}).compatible, false);
+assert.equal(encryptedCharacterCardMetadata({
+  ...currentCharacterEnvelope,
+  envelopeFormatVersion: '2.0',
+}).compatible, false);
+assert.equal(encryptedCharacterCardMetadata({
+  ...currentCharacterEnvelope,
+  ciphertext: 'invalid',
+}).compatible, false);
 
 console.log('storybook and character card format fixtures passed');
