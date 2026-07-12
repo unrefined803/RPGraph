@@ -61,7 +61,7 @@ export function FileFormatsGuide() {
       <div className="formats-info-row">
         <div className="info-card">
           <h4>Nesting & Load Flexibility</h4>
-          <p>Storybooks and Character Cards can be opened from the global <strong>Files</strong> menu or imported inside individual <strong>RP Storybook</strong> nodes. Managed Character Cards live in their own local <strong>characters</strong> folder.</p>
+          <p>Storybooks can be opened from <strong>Files</strong>. Character Cards use their own <strong>Characters</strong> picker backed by the local <strong>characters</strong> folder; its Open File action can browse elsewhere.</p>
         </div>
         <div className="info-card">
           <h4>Encryption & Safety</h4>

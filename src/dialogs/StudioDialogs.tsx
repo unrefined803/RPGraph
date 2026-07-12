@@ -214,6 +214,14 @@ type StudioDialogsProps = {
   onWorkflowSaveScopeChange: (scope: 'workflow' | 'workflow-storybook') => void;
   onChooseSaveLocationChange: (enabled: boolean) => void;
   onSubmitSessionPassword: () => void;
+  showCharacterFiles: boolean;
+  characterFiles: SavedFileSummary[];
+  selectedCharacterFile: string | null;
+  characterFileStatus: string;
+  onCloseCharacterFiles: () => void;
+  onSelectCharacterFile: (file: SavedFileSummary) => void;
+  onImportCharacterFile: (file?: SavedFileSummary) => void;
+  onOpenExternalCharacterFile: () => void;
   showConnections: boolean;
   connections: ConnectionPreset[];
   editingConnection: ConnectionPreset;
@@ -840,6 +848,14 @@ export function StudioDialogs({
   onWorkflowSaveScopeChange,
   onChooseSaveLocationChange,
   onSubmitSessionPassword,
+  showCharacterFiles,
+  characterFiles,
+  selectedCharacterFile,
+  characterFileStatus,
+  onCloseCharacterFiles,
+  onSelectCharacterFile,
+  onImportCharacterFile,
+  onOpenExternalCharacterFile,
   showConnections,
   connections,
   editingConnection,
@@ -1326,6 +1342,8 @@ export function StudioDialogs({
       ? 'connections'
       : sessionPasswordAction
         ? 'session-password'
+        : showCharacterFiles
+          ? 'characters'
         : showFiles
           ? 'files'
             : showOptions
@@ -1411,6 +1429,7 @@ export function StudioDialogs({
       }
       if (activeDialog === 'session-password') { onCloseSessionPassword(); return; }
       if (activeDialog === 'connections') { onCloseConnections(); return; }
+      if (activeDialog === 'characters') { onCloseCharacterFiles(); return; }
       if (activeDialog === 'files') { onCloseFiles(); return; }
       if (activeDialog === 'options') { onCloseOptions(); return; }
       if (activeDialog === 'json') { onCloseJson(); return; }
@@ -1454,7 +1473,7 @@ export function StudioDialogs({
   }, [
     activeDialog,
     showFileVersionInfo,
-    onCloseText, onCloseJson, onCloseOptions, onCloseFiles,
+    onCloseText, onCloseJson, onCloseOptions, onCloseFiles, onCloseCharacterFiles,
     onCloseSessionPassword, onCloseConnections,
   ]);
 
@@ -2251,6 +2270,92 @@ export function StudioDialogs({
                   </div>
                 )}
               </main>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showCharacterFiles && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onPointerDown={trackBackdropPointerDown}
+          onClick={(event) => closeFromBackdropClick(event, 'characters', onCloseCharacterFiles)}
+        >
+          <section
+            ref={activeDialog === 'characters' ? activeDialogRef : undefined}
+            className="chat-files-dialog"
+            role="dialog"
+            aria-modal={activeDialog === 'characters'}
+            aria-hidden={activeDialog !== 'characters'}
+            aria-label="RPGraph Characters"
+            tabIndex={-1}
+          >
+            <div className="dialog-header">
+              <div>
+                <h2 className="workflow-dialog-title">Characters</h2>
+                <p>Select a Character Card from your local characters folder</p>
+              </div>
+              <button type="button" className="close-button" onClick={onCloseCharacterFiles}>
+                Close
+              </button>
+            </div>
+            <div className="chat-files-form">
+              <div className="saved-chat-list" aria-label="Saved RPGraph characters">
+                {characterFiles.length === 0 ? (
+                  <p className="empty-chat-list">No saved characters yet.</p>
+                ) : characterFiles.map((file) => (
+                  <div
+                    className={`saved-chat-row${selectedCharacterFile === file.fileName ? ' selected' : ''}`}
+                    key={file.fileName}
+                    onDoubleClick={() => onImportCharacterFile(file)}
+                  >
+                    <button
+                      className="saved-chat-select"
+                      type="button"
+                      onClick={() => onSelectCharacterFile(file)}
+                    >
+                      <span className="saved-file-summary">
+                        <strong className="saved-file-name-container">
+                          <span className="file-type-badge character-card">Character</span>
+                          <span className="saved-file-name-text">{file.name}</span>
+                          {file.protection === 'encrypted' && (
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-label="Encrypted"
+                            >
+                              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                          )}
+                        </strong>
+                        <small>
+                          {formatFileDate(file.updatedAt)} · v{file.formatVersion ?? 'Unknown'} ·{' '}
+                          {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+                        </small>
+                      </span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {characterFileStatus && (
+                <p className="chat-storage-status">{characterFileStatus}</p>
+              )}
+            </div>
+            <div className="dialog-actions chat-files-actions">
+              <button type="button" className="secondary" onClick={onOpenExternalCharacterFile}>
+                Open File
+              </button>
+              <button type="button" onClick={() => onImportCharacterFile()}>
+                Import Character
+              </button>
             </div>
           </section>
         </div>

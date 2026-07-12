@@ -144,17 +144,20 @@ contextBridge.exposeInMainWorld('rpgraph', {
     }
   },
   listFiles: () => ipcRenderer.invoke('file:list'),
+  listCharacterFiles: () => ipcRenderer.invoke('character:list'),
   saveNamedWorkflow: (name, workflow, protection, password, overwrite = false) =>
     ipcRenderer.invoke('workflow:save-named', { name, workflow, protection, password, overwrite }),
   saveRpgraphFileToPath: (request) =>
     ipcRenderer.invoke('file:save-to-path', request),
-  loadFile: (fileName, password = '') =>
-    ipcRenderer.invoke('file:load', { fileName, password }),
+  loadFile: (fileName, password = '', storage = 'files') =>
+    ipcRenderer.invoke('file:load', { fileName, password, storage }),
   loadFilePath: (filePath, password = '') =>
     ipcRenderer.invoke('file:load-file', { filePath, password }),
   selectFile: () => ipcRenderer.invoke('file:select'),
+  selectCharacterFile: () => ipcRenderer.invoke('character:select'),
   selectImages: (multiple = true) => ipcRenderer.invoke('image:select', { multiple }),
-  deleteFile: (fileName) => ipcRenderer.invoke('file:delete', fileName),
+  deleteFile: (fileName, storage = 'files') =>
+    ipcRenderer.invoke('file:delete', { fileName, storage }),
   loadTextFile: () => ipcRenderer.invoke('text-file:load'),
   loadJsonFile: (options) => ipcRenderer.invoke('json-file:load', options),
   loadDefaultWorkflow: () => ipcRenderer.invoke('workflow:load-default'),

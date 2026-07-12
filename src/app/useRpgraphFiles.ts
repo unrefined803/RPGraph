@@ -393,10 +393,10 @@ export function useRpgraphFiles({
     }
   }
 
-  async function loadStoredFile(fileName: string, password = '') {
+  async function loadStoredFile(fileName: string, password = '', storage?: SavedFileSummary['storage']) {
     setFileStorageStatus('Loading file ...');
     try {
-      const result = await window.rpgraph.loadFile(fileName, password);
+      const result = await window.rpgraph.loadFile(fileName, password, storage);
       applyLoadedRpgraphFile(result, password);
     } catch (error) {
       setFileStorageStatus(
@@ -430,7 +430,7 @@ export function useRpgraphFiles({
     }
     setSelectedFile(summary.fileName);
     if (summary.protection === 'plain') {
-      await loadStoredFile(summary.fileName);
+      await loadStoredFile(summary.fileName, '', summary.storage);
       return;
     }
     requestUnlockStoredFile(summary);
@@ -439,7 +439,7 @@ export function useRpgraphFiles({
   async function deleteStoredFile(file: SavedFileSummary) {
     setFileStorageStatus(`Deleting ${file.type}: ${file.name} ...`);
     try {
-      await window.rpgraph.deleteFile(file.fileName);
+      await window.rpgraph.deleteFile(file.fileName, file.storage);
       if (
         activeWorkflowPathRef.current &&
         workflowName(activeWorkflowPathRef.current) === file.fileName
@@ -820,7 +820,8 @@ export function useRpgraphFiles({
     }
     setFileStorageStatus('Unlocking file ...');
     try {
-      await loadStoredFile(selectedFile, sessionPassword);
+      const summary = savedFiles.find((file) => file.fileName === selectedFile);
+      await loadStoredFile(selectedFile, sessionPassword, summary?.storage);
     } catch (error) {
       setFileStorageStatus(
         `Load failed: ${error instanceof Error ? error.message : String(error)}`,

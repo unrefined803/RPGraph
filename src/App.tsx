@@ -1663,6 +1663,15 @@ function App() {
     exportStorybookCharacter,
     deleteStorybookCharacter,
     importCharacterCard,
+    showCharacterFiles,
+    characterFiles,
+    selectedCharacterFile,
+    characterFileStatus,
+    setSelectedCharacterFile,
+    closeCharacterFiles,
+    cancelCharacterCardUnlock,
+    importSelectedCharacterCard,
+    openExternalCharacterCard,
     applyCharacterCardToNode,
     unlockCharacterCard,
     loadStorybookFile,
@@ -6192,7 +6201,7 @@ function App() {
         <div className="brand">
           <h1>
             <span className="brand-name"><span className="brand-name-rp">RP</span>graph Studio</span>
-            <span className="app-version">v0.4.6 Beta</span>
+            <span className="app-version">v0.4.7 Beta</span>
           </h1>
           <div className="header-brand-actions">
             <button
@@ -7326,6 +7335,9 @@ function App() {
         workflowSaveScope={workflowSaveScope}
         chooseSaveLocation={chooseSaveLocation}
         onCloseSessionPassword={() => {
+          if (sessionPasswordAction === 'load-character') {
+            cancelCharacterCardUnlock();
+          }
           setShowFiles(
             sessionPasswordAction === 'save-workflow' ||
               sessionPasswordAction === 'save-session' ||
@@ -7333,6 +7345,8 @@ function App() {
               sessionPasswordAction === 'save-character'
               ? returnToFilesAfterSaveRef.current
               : sessionPasswordAction === 'load-storybook'
+                ? false
+              : sessionPasswordAction === 'load-character'
                 ? false
               : true,
           );
@@ -7382,6 +7396,14 @@ function App() {
                 : unlockStoredFile()
           )
         }
+        showCharacterFiles={showCharacterFiles}
+        characterFiles={characterFiles}
+        selectedCharacterFile={selectedCharacterFile}
+        characterFileStatus={characterFileStatus}
+        onCloseCharacterFiles={closeCharacterFiles}
+        onSelectCharacterFile={(file) => setSelectedCharacterFile(file.fileName)}
+        onImportCharacterFile={(file) => void importSelectedCharacterCard(file)}
+        onOpenExternalCharacterFile={() => void openExternalCharacterCard()}
         showConnections={showConnections}
         connections={connections}
         editingConnection={editingConnection}

@@ -857,6 +857,7 @@ export type SavedFileSummary = {
   workflowFormatVersion?: string;
   latestTurnNumber?: number;
   characterName?: string;
+  storage?: 'files' | 'characters';
   compatible: boolean;
 };
 

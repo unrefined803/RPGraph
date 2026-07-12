@@ -91,6 +91,7 @@ declare global {
         onAbort?: (cancel: () => void) => void,
       ) => Promise<LlmCompletionResult>;
       listFiles: () => Promise<SavedFileSummary[]>;
+      listCharacterFiles: () => Promise<SavedFileSummary[]>;
       saveNamedWorkflow: (
         name: string,
         workflow: WorkflowFile,
@@ -138,7 +139,7 @@ declare global {
         fileName?: string;
         name?: string;
       }>;
-      loadFile: (fileName: string, password?: string) => Promise<{
+      loadFile: (fileName: string, password?: string, storage?: 'files' | 'characters') => Promise<{
         fileName: string;
         name: string;
         filePath: string;
@@ -167,11 +168,22 @@ declare global {
         latestTurnNumber?: number;
         compatible?: boolean;
       }>;
+      selectCharacterFile: () => Promise<{
+        canceled: boolean;
+        filePath?: string;
+        fileName?: string;
+        name?: string;
+        type?: SavedFileSummary['type'];
+        protection?: SavedFileSummary['protection'];
+        envelopeFormatVersion?: string;
+        formatVersion?: string;
+        compatible?: boolean;
+      }>;
       selectImages: (multiple?: boolean) => Promise<{
         canceled: boolean;
         images: SelectedImageFile[];
       }>;
-      deleteFile: (fileName: string) => Promise<{ fileName: string }>;
+      deleteFile: (fileName: string, storage?: 'files' | 'characters') => Promise<{ fileName: string }>;
       loadTextFile: () => Promise<{
         canceled: boolean;
         fileName?: string;

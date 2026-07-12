@@ -12,7 +12,7 @@ import {
   type RpStorybookV1,
 } from '../nodes/rp-storybook-v1/model';
 import { resetCharacterStatsRuntimeData } from '../nodes/character-stats/runtime';
-import type { TurnRecord, WorkflowNode, WorkflowNodeData } from '../types';
+import type { SavedFileSummary, TurnRecord, WorkflowNode, WorkflowNodeData } from '../types';
 import type { SystemLogLevel } from '../types';
 import {
   appointmentEntitiesFromAppointments,
@@ -128,9 +128,15 @@ export function useStorybookActions({
   const [storybookCreatorSubmitting, setStorybookCreatorSubmitting] = useState(false);
   const [pendingCharacterLoad, setPendingCharacterLoad] = useState<{
     nodeId: string;
-    filePath: string;
+    filePath?: string;
     fileName: string;
+    storage?: SavedFileSummary['storage'];
   } | null>(null);
+  const [showCharacterFiles, setShowCharacterFiles] = useState(false);
+  const [characterFiles, setCharacterFiles] = useState<SavedFileSummary[]>([]);
+  const [selectedCharacterFile, setSelectedCharacterFile] = useState<string | null>(null);
+  const [characterFileStatus, setCharacterFileStatus] = useState('');
+  const [characterImportNodeId, setCharacterImportNodeId] = useState<string | null>(null);
 
   function incompatibleStorybookFileStatus(file: StorybookFileMetadata) {
     if (
@@ -628,34 +634,108 @@ export function useStorybookActions({
       return;
     }
     try {
-      const file = await window.rpgraph.selectFile();
+      setCharacterImportNodeId(nodeId);
+      setSelectedCharacterFile(null);
+      setCharacterFileStatus('');
+      setShowCharacterFiles(true);
+      setCharacterFiles(await window.rpgraph.listCharacterFiles());
+    } catch (error) {
+      const messageText = errorMessage(error);
+      setCharacterFileStatus(`Unable to list characters: ${messageText}`);
+    }
+  }
+
+  function closeCharacterFiles() {
+    setShowCharacterFiles(false);
+    setSelectedCharacterFile(null);
+    setCharacterFileStatus('');
+  }
+
+  function cancelCharacterCardUnlock() {
+    setPendingCharacterLoad(null);
+    setShowCharacterFiles(true);
+  }
+
+  async function beginCharacterCardImport(
+    nodeId: string,
+    file: Pick<SavedFileSummary, 'fileName' | 'type' | 'protection' | 'compatible' | 'formatVersion' | 'storage'> & {
+      filePath?: string;
+    },
+  ) {
+    if (file.type !== 'character-card') {
+      setCharacterFileStatus('The selected file is not an RPGraph Character Card.');
+      return;
+    }
+    if (!file.compatible) {
+      setCharacterFileStatus(
+        `Character Card Format ${file.formatVersion ?? 'Unknown'} is incompatible.`,
+      );
+      return;
+    }
+    if (file.protection === 'encrypted') {
+      setPendingCharacterLoad({
+        nodeId,
+        fileName: file.fileName,
+        ...(file.filePath ? { filePath: file.filePath } : {}),
+        ...(file.storage ? { storage: file.storage } : {}),
+      });
+      setPendingSessionFilePath(file.filePath ?? null);
+      setSessionPassword('');
+      setFileStorageStatus('This character card is password protected. Enter its password or PIN to import it.');
+      setShowCharacterFiles(false);
+      setSessionPasswordAction('load-character');
+      return;
+    }
+    const loaded = file.filePath
+      ? await window.rpgraph.loadFilePath(file.filePath)
+      : await window.rpgraph.loadFile(file.fileName, '', file.storage);
+    applyCharacterCardToNode(nodeId, loaded.value, loaded.fileName);
+    closeCharacterFiles();
+  }
+
+  async function importSelectedCharacterCard(file?: SavedFileSummary) {
+    const nodeId = characterImportNodeId;
+    const selected = file ?? characterFiles.find((entry) => entry.fileName === selectedCharacterFile);
+    if (!nodeId || !selected) {
+      setCharacterFileStatus('Select a character first.');
+      return;
+    }
+    try {
+      setSelectedCharacterFile(selected.fileName);
+      setCharacterFileStatus('Importing character ...');
+      await beginCharacterCardImport(nodeId, selected);
+    } catch (error) {
+      const message = `Character import failed: ${errorMessage(error)}`;
+      setCharacterFileStatus(message);
+      updateRuntimeNode(nodeId, { storybookStatus: message });
+      notifySystem('error', message);
+    }
+  }
+
+  async function openExternalCharacterCard() {
+    const nodeId = characterImportNodeId;
+    if (!nodeId) {
+      setCharacterFileStatus('Open the Character importer again.');
+      return;
+    }
+    try {
+      const file = await window.rpgraph.selectCharacterFile();
       if (file.canceled || !file.filePath || !file.fileName) {
         return;
       }
-      if (file.type !== 'character-card') {
-        updateRuntimeNode(nodeId, { storybookStatus: 'Import failed: selected file is not an RPGraph Character Card.' });
-        return;
-      }
-      if (!file.compatible) {
-        updateRuntimeNode(nodeId, {
-          storybookStatus: `Import failed: Character Card Format ${file.formatVersion ?? 'Unknown'} is incompatible.`,
-        });
-        return;
-      }
-      if (file.protection === 'encrypted') {
-        setPendingCharacterLoad({ nodeId, filePath: file.filePath, fileName: file.fileName });
-        setPendingSessionFilePath(file.filePath);
-        setSessionPassword('');
-        setFileStorageStatus('This character card is password protected. Enter its password or PIN to import it.');
-        setSessionPasswordAction('load-character');
-        return;
-      }
-      const loaded = await window.rpgraph.loadFilePath(file.filePath);
-      applyCharacterCardToNode(nodeId, loaded.value, loaded.fileName);
+      await beginCharacterCardImport(nodeId, {
+        fileName: file.fileName,
+        filePath: file.filePath,
+        type: file.type ?? 'unknown',
+        protection: file.protection ?? 'unknown',
+        compatible: file.compatible === true,
+        formatVersion: file.formatVersion,
+      });
     } catch (error) {
-      const messageText = errorMessage(error);
-      updateRuntimeNode(nodeId, { storybookStatus: `Character import failed: ${messageText}` });
-      notifySystem('error', `Character import failed: ${messageText}`);
+      const message = `Character import failed: ${errorMessage(error)}`;
+      setCharacterFileStatus(message);
+      updateRuntimeNode(nodeId, { storybookStatus: message });
+      notifySystem('error', message);
     }
   }
 
@@ -698,12 +778,15 @@ export function useStorybookActions({
     }
     try {
       setFileStorageStatus('Unlocking character card ...');
-      const result = await window.rpgraph.loadFilePath(pending.filePath, sessionPassword);
+      const result = pending.filePath
+        ? await window.rpgraph.loadFilePath(pending.filePath, sessionPassword)
+        : await window.rpgraph.loadFile(pending.fileName, sessionPassword, pending.storage);
       applyCharacterCardToNode(pending.nodeId, result.value, result.fileName);
       setPendingCharacterLoad(null);
       setPendingSessionFilePath(null);
       setSessionPassword('');
       setSessionPasswordAction(null);
+      setShowCharacterFiles(false);
       setFileStorageStatus(`Imported encrypted character: ${result.name}`);
     } catch (error) {
       const message = `Character import failed: ${errorMessage(error)}`;
@@ -869,6 +952,15 @@ export function useStorybookActions({
     exportStorybookCharacter,
     deleteStorybookCharacter,
     importCharacterCard,
+    showCharacterFiles,
+    characterFiles,
+    selectedCharacterFile,
+    characterFileStatus,
+    setSelectedCharacterFile,
+    closeCharacterFiles,
+    cancelCharacterCardUnlock,
+    importSelectedCharacterCard,
+    openExternalCharacterCard,
     applyCharacterCardToNode,
     unlockCharacterCard,
     loadStorybookFile,

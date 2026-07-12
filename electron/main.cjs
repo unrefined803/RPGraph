@@ -316,10 +316,29 @@ function charactersDirectory() {
   return path.join(app.getPath('userData'), 'characters');
 }
 
-function storedFileDirectory(fileName) {
-  return fileName.toLowerCase().endsWith(`.rpgraph-character${jsonFileExtension}`)
-    ? charactersDirectory()
-    : filesDirectory();
+function storedFileDirectory(storage) {
+  return storage === 'characters' ? charactersDirectory() : filesDirectory();
+}
+
+async function listedFilesInDirectory(directory, storage) {
+  await fs.mkdir(directory, { recursive: true });
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  return Promise.all(
+    entries
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(jsonFileExtension))
+      .map(async (entry) => {
+        const filePath = path.join(directory, entry.name);
+        const stats = await fs.stat(filePath);
+        const metadata = await readStoredFileMetadata(filePath);
+        return {
+          fileName: entry.name,
+          name: metadata.characterName || storedJsonName(entry.name),
+          updatedAt: stats.mtime.toISOString(),
+          storage,
+          ...metadata,
+        };
+      }),
+  );
 }
 
 function isStoredFilePath(filePath) {
@@ -4287,27 +4306,15 @@ ipcMain.handle('system:resource-stats', async () => ({
 }));
 
 ipcMain.handle('file:list', async () => {
-  const directories = [filesDirectory(), charactersDirectory()];
-  await Promise.all(directories.map((directory) => fs.mkdir(directory, { recursive: true })));
-  const files = (await Promise.all(directories.map(async (directory) => {
-    const entries = await fs.readdir(directory, { withFileTypes: true });
-    return Promise.all(
-      entries
-        .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(jsonFileExtension))
-        .map(async (entry) => {
-          const filePath = path.join(directory, entry.name);
-          const stats = await fs.stat(filePath);
-          const metadata = await readStoredFileMetadata(filePath);
-          return {
-            fileName: entry.name,
-            name: metadata.characterName || storedJsonName(entry.name),
-            updatedAt: stats.mtime.toISOString(),
-            ...metadata,
-          };
-        }),
-    );
-  }))).flat();
+  const files = await listedFilesInDirectory(filesDirectory(), 'files');
   return files.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+});
+
+ipcMain.handle('character:list', async () => {
+  const files = await listedFilesInDirectory(charactersDirectory(), 'characters');
+  return files
+    .filter((file) => file.type === 'character-card')
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
 ipcMain.handle('workflow:save-named', async (_event, request) => {
@@ -4823,9 +4830,36 @@ ipcMain.handle('file:select', async () => {
   };
 });
 
+ipcMain.handle('character:select', async () => {
+  await fs.mkdir(charactersDirectory(), { recursive: true });
+  const result = await dialog.showOpenDialog({
+    title: 'Open RPGraph Character Card',
+    defaultPath: charactersDirectory(),
+    properties: ['openFile'],
+    filters: [{ name: 'RPGraph Character Card', extensions: ['json'] }],
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true };
+  }
+
+  const filePath = result.filePaths[0];
+  const fileName = path.basename(filePath);
+  const value = JSON.parse(await fs.readFile(filePath, 'utf8'));
+  const metadata = storedFileMetadata(value);
+  approveFilePath(filePath);
+  return {
+    canceled: false,
+    filePath,
+    fileName,
+    ...metadata,
+    name: metadata.characterName || storedJsonName(fileName),
+  };
+});
+
 ipcMain.handle('file:load', async (_event, request) => {
   const fileName = validatedStoredFileName(request.fileName);
-  const filePath = approveFilePath(path.join(storedFileDirectory(fileName), fileName));
+  const filePath = approveFilePath(path.join(storedFileDirectory(request.storage), fileName));
   const { metadata, value } = await readRpgraphFile(filePath, request.password);
   if (metadata.type === 'workflow' && metadata.protection === 'plain') {
     approveWorkflowPath(filePath);
@@ -4873,10 +4907,10 @@ ipcMain.handle('file:load-file', async (_event, request) => {
   };
 });
 
-ipcMain.handle('file:delete', async (_event, fileName) => {
-  const validatedFileName = validatedStoredFileName(fileName);
+ipcMain.handle('file:delete', async (_event, request) => {
+  const validatedFileName = validatedStoredFileName(request.fileName);
   try {
-    await fs.unlink(path.join(storedFileDirectory(validatedFileName), validatedFileName));
+    await fs.unlink(path.join(storedFileDirectory(request.storage), validatedFileName));
   } catch (error) {
     if (!error || error.code !== 'ENOENT') {
       throw error;
