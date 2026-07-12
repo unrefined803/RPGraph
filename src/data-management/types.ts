@@ -19,6 +19,12 @@ import type {
   WorkflowVariableSetCommand,
 } from '../types';
 import type { SessionFormatVersion, SessionWorkflowFormatVersion } from '../session/version';
+import type {
+  ChatGpdChatsByCharacter,
+  CreatedPhoneNoteCommit,
+  PhoneNotesByCharacter,
+  SimulatedAiChatCommit,
+} from '../chat/phoneAppsSessions';
 
 type AssistantContextEncodingMode = 'toon-default' | 'json-default';
 
@@ -103,6 +109,8 @@ export type TimelineMessageEntry = {
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
+  createdPhoneNote?: CreatedPhoneNoteCommit;
+  simulatedAiChat?: SimulatedAiChatCommit;
 };
 
 export type TimelineEventEntry = {
@@ -223,6 +231,7 @@ type SessionRuntime = {
 type SessionUiState = {
   phoneSeenByConversation: Record<string, number>;
   bankingSeenByCharacter: Record<string, number>;
+  phoneAppSeenByCharacter?: Record<string, number>;
   bankingContactsByCharacter: Record<string, string[]>;
   socialLikesByAccount: Record<string, string[]>;
   onlyFriendsPurchasesByCharacter: Record<string, Record<string, number>>;
@@ -230,6 +239,8 @@ type SessionUiState = {
   selectedEventId?: string;
   openedPhoneConversationKey?: string;
   recentlyUsedEmojis?: string[];
+  phoneNotesByCharacter?: PhoneNotesByCharacter;
+  chatGpdChatsByCharacter?: ChatGpdChatsByCharacter;
 };
 
 export type DebugLlmCall = NodeLlmCallStats & {

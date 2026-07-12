@@ -81,6 +81,13 @@ import { parseOutputActions } from '../chat/outputActions';
 import { parseRpOutput } from '../chat/rpOutput';
 import { formatPhoneInput } from '../chat/phoneReplies';
 import {
+  mergePhoneAppRecordsByCharacter,
+  normalizeChatGpdChatsByCharacter,
+  normalizePhoneNotesByCharacter,
+  replaceCreatedPhoneNotesForTurn,
+  replaceSimulatedAiChatsForTurn,
+} from '../chat/phoneAppsSessions';
+import {
   bankingRecipientNamesForCharacter,
   bankingSeenStateFromMessages,
   latestBankTransferMessageIdForCharacter,
@@ -118,6 +125,12 @@ import {
   unwrapJsonCodeFence,
 } from '../nodes/shared/promptActions';
 import { promptImagePass } from '../nodes/shared/promptImagePass';
+import {
+  defaultPromptCommandInstructionTemplate,
+  formatPromptCommandTokens,
+  knownPromptCommandId,
+  replacePromptCommandTokensWithHints,
+} from '../nodes/shared/promptCommands';
 import { runActionAwarePrompt } from '../nodes/shared/promptRun';
 import { applyTurnCheckpointToNodes } from '../data-management/checkpointStore';
 import { executeGraph } from '../graph/executeGraph';
@@ -167,6 +180,41 @@ function assertThrowsFixture(action: () => void, message: string) {
 }
 
 export function verifyWorkflowValidationFixtures() {
+  const normalizedPhoneNotes = normalizePhoneNotesByCharacter({
+    alex: [
+      { id: 'note-1', title: 'First', text: '', dayLabel: '', color: 'mint' },
+      { id: 'note-1', title: 'Duplicate', text: '', dayLabel: '', color: 'rose' },
+    ],
+  });
+  assertFixture(
+    normalizedPhoneNotes.alex?.length === 1 && normalizedPhoneNotes.alex[0]?.title === 'First',
+    'Phone notes must discard duplicate record ids during normalization',
+  );
+  const normalizedChatGpdChats = normalizeChatGpdChatsByCharacter({
+    alex: [{
+      id: 'chat-1',
+      title: 'Fixture',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      messages: [
+        { role: 'user', text: 'Hello' },
+        { role: 'invalid', text: 'Must not become an assistant message' },
+      ],
+    }],
+  });
+  assertFixture(
+    normalizedChatGpdChats.alex?.[0]?.messages.length === 1 &&
+      normalizedChatGpdChats.alex[0]?.messages[0]?.role === 'user',
+    'ChatGPD normalization must reject invalid message roles',
+  );
+  const mergedPhoneRecords = mergePhoneAppRecordsByCharacter(
+    { alex: [{ id: 'note-1' }] },
+    { alex: [{ id: 'note-2' }, { id: 'note-2' }] },
+  );
+  assertFixture(
+    mergedPhoneRecords.alex?.length === 2,
+    'Opening-history phone records must not introduce duplicate ids',
+  );
+
   const bankingCharacter: StorybookCharacter = {
     id: 'storybook:character:espen',
     storybookNodeId: 'storybook',
@@ -1386,6 +1434,8 @@ export function verifyWorkflowValidationFixtures() {
             sourceTurnNumber: 1,
           }],
           socialLikes: { 'alex/fotogram': ['post-1'] },
+          notes: {},
+          chatGpdChats: {},
         },
       }),
     },
@@ -1446,6 +1496,30 @@ export function verifyWorkflowValidationFixtures() {
             name: 'Current Location',
             value: 'Old Harbor',
           }],
+          createdPhoneNote: {
+            characterId: 'storybook:character:alice',
+            characterName: 'Alice Harper',
+            note: {
+              id: 'note-command-turn-1-1',
+              title: 'Harbor reminder',
+              text: '- Meet Bob at noon\n- Bring the blue folder',
+              dayLabel: 'Mon 1 June',
+              color: 'neutral',
+            },
+          },
+          simulatedAiChat: {
+            characterId: 'storybook:character:alice',
+            characterName: 'Alice Harper',
+            chat: {
+              id: 'chatgpd-simulated-turn-1-1',
+              title: 'Harbor weather',
+              createdAt: '2026-06-01T12:00:00.000Z',
+              messages: [
+                { role: 'user', text: 'Will it rain at the harbor?' },
+                { role: 'assistant', text: 'The forecast suggests light rain after noon.' },
+              ],
+            },
+          },
         }, {
           id: 4,
           role: 'output',
@@ -1699,6 +1773,12 @@ export function verifyWorkflowValidationFixtures() {
     restoredAppState.turns[0]?.output.messages[0]?.workflowVariableSetCommands?.[0]?.value === 'Old Harbor',
     'RP Save Format v2 must restore output workflow variable metadata',
   );
+  assertFixture(
+    restoredAppState.turns[0]?.output.messages[0]?.createdPhoneNote?.note.title === 'Harbor reminder' &&
+      restoredAppState.turns[0]?.output.messages[0]?.simulatedAiChat?.chat.messages[1]?.text ===
+        'The forecast suggests light rain after noon.',
+    'RP Save Format v2 must restore created Notes and simulated ChatGPD message metadata',
+  );
   const embeddedPhoneRoundtripMessage = restoredAppState.turns[0]?.output.messages.find((message) =>
     message.originalText.startsWith('Bob waves from the bus stop.'),
   );
@@ -1759,6 +1839,13 @@ export function verifyWorkflowValidationFixtures() {
       '[Replied to Bob: [bob_image_01: Bob waving from the bus stop.] Ping from Bob]',
     ),
     'restored Chat History must resolve saved phone reply image ids',
+  );
+  assertFixture(
+    restoredReplyHistory.includes('[Notes] Alice Harper created the note "Harbor reminder":') &&
+      restoredReplyHistory.includes('- Bring the blue folder') &&
+      restoredReplyHistory.includes('[ChatGPD] Alice Harper used the AI assistant:') &&
+      restoredReplyHistory.includes('ChatGPD: The forecast suggests light rain after noon.'),
+    'Chat History must include complete created Notes and simulated ChatGPD conversations',
   );
   assertFixture(
     restoredAppState.turnCheckpoints[0]?.nodeSnapshots['history-1']?.before.historyCurrentRpDateTime === '2026-06-01T11:00' &&
@@ -2308,6 +2395,147 @@ export function verifyWorkflowValidationFixtures() {
       fencedEmbeddedPhone.phoneMessages[0]?.from === 'Lara Miller' &&
       fencedEmbeddedPhone.phoneMessages[0]?.message === 'Please get the heavy duty ones.',
     'embedded phone parser must remove markdown fences around phoneMessages JSON',
+  );
+  assertFixture(
+    knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
+      knownPromptCommandId('Simulate_ChatGPD') === 'simulate_ai_chat' &&
+      defaultPromptCommandInstructionTemplate('simulate_ai_chat').includes('2, 4, 6, or 8 messages') &&
+      formatPromptCommandTokens('@command:bank_transfer\n@COMMAND:simulate_chatgpd') ===
+        '@command: Bank_transfer\n@command: Simulate_ChatGPD' &&
+      replacePromptCommandTokensWithHints('@command: Simulate_ChatGPD') ===
+        '[commands: simulate_ai_chat]' &&
+      formatPromptCommandTokens('@command:create_note') === '@command: Create_Note' &&
+      replacePromptCommandTokensWithHints('@command: Create_Note') === '[commands: create_note]',
+    'prompt commands must accept flexible casing and spacing while preserving their internal command requests',
+  );
+  const createdPhoneNoteOutput = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Sarah saves the plan in her Notes app.',
+    JSON.stringify({
+      phoneNote: {
+        character: 'Sarah Miller',
+        title: 'Moving checklist',
+        text: '- Pack books\n- Call the moving company\n- Keep the blue folder nearby',
+      },
+    }),
+  ].join('\n'));
+  assertFixture(
+    createdPhoneNoteOutput.text === 'Sarah saves the plan in her Notes app.' &&
+      createdPhoneNoteOutput.createdPhoneNotes[0]?.character === 'Sarah Miller' &&
+      createdPhoneNoteOutput.createdPhoneNotes[0]?.title === 'Moving checklist' &&
+      createdPhoneNoteOutput.createdPhoneNotes[0]?.text.includes('- Call the moving company') &&
+      createdPhoneNoteOutput.invalidCreatedPhoneNoteCount === 0,
+    'embedded output must extract a complete character note from visible RP text',
+  );
+  const invalidCreatedPhoneNoteOutput = parseEmbeddedPhoneMessagesFromRpOutput(JSON.stringify({
+    phoneNote: {
+      character: 'Sarah Miller',
+      title: '',
+      text: 'Missing title.',
+    },
+  }));
+  assertFixture(
+    invalidCreatedPhoneNoteOutput.text === '' &&
+      invalidCreatedPhoneNoteOutput.createdPhoneNotes.length === 0 &&
+      invalidCreatedPhoneNoteOutput.invalidCreatedPhoneNoteCount === 1,
+    'invalid phone notes must be removed and reported instead of being stored',
+  );
+  const createdNoteState = replaceCreatedPhoneNotesForTurn(
+    {
+      sarah: [{
+        id: 'manual-note',
+        title: 'Manual',
+        text: 'Keep me',
+        dayLabel: 'Sun 12 July',
+        color: 'mint',
+      }],
+    },
+    'turn-8',
+    [{
+      characterId: 'sarah',
+      characterName: 'Sarah Miller',
+      note: {
+        id: 'note-command-turn-8-1',
+        title: 'Moving checklist',
+        text: createdPhoneNoteOutput.createdPhoneNotes[0]!.text,
+        dayLabel: 'Sun 12 July',
+        color: 'neutral',
+      },
+    }],
+  );
+  const undoneCreatedNoteState = replaceCreatedPhoneNotesForTurn(createdNoteState, 'turn-8', []);
+  assertFixture(
+    createdNoteState.sarah?.length === 2 &&
+      undoneCreatedNoteState.sarah?.length === 1 &&
+      undoneCreatedNoteState.sarah[0]?.id === 'manual-note',
+    'turn replacement and undo must remove only notes created by that turn',
+  );
+  const simulatedAiChatOutput = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Sarah opens the AI assistant app.',
+    JSON.stringify({
+      aiAssistantChat: {
+        character: 'Sarah Miller',
+        messages: [
+          { role: 'user', text: 'Are tomatoes fruit?' },
+          { role: 'assistant', text: 'Botanically, yes.' },
+          { role: 'user', text: 'So Alex was right?' },
+          { role: 'assistant', text: 'Botanically, but cooking uses another convention.' },
+        ],
+      },
+    }),
+  ].join('\n'));
+  assertFixture(
+    simulatedAiChatOutput.text === 'Sarah opens the AI assistant app.' &&
+      simulatedAiChatOutput.simulatedAiChats[0]?.character === 'Sarah Miller' &&
+      simulatedAiChatOutput.simulatedAiChats[0]?.messages.length === 4 &&
+      simulatedAiChatOutput.invalidSimulatedAiChatCount === 0,
+    'embedded output must extract a valid simulated AI conversation from visible RP text',
+  );
+  const invalidSimulatedAiChatOutput = parseEmbeddedPhoneMessagesFromRpOutput(JSON.stringify({
+    aiAssistantChat: {
+      character: 'Sarah Miller',
+      messages: [
+        { role: 'assistant', text: 'Wrong first role.' },
+        { role: 'user', text: 'Wrong second role.' },
+      ],
+    },
+  }));
+  assertFixture(
+    invalidSimulatedAiChatOutput.text === '' &&
+      invalidSimulatedAiChatOutput.simulatedAiChats.length === 0 &&
+      invalidSimulatedAiChatOutput.invalidSimulatedAiChatCount === 1,
+    'invalid simulated AI conversations must be removed and reported instead of being stored',
+  );
+  const simulatedChatState = replaceSimulatedAiChatsForTurn(
+    {
+      sarah: [{
+        id: 'manual-chat',
+        title: 'Manual',
+        createdAt: '2026-07-12T00:00:00.000Z',
+        messages: [{ role: 'user', text: 'Keep me' }],
+      }],
+    },
+    'turn-7',
+    [{
+      characterId: 'sarah',
+      characterName: 'Sarah Miller',
+      chat: {
+        id: 'chatgpd-simulated-turn-7-1',
+        title: 'Tomatoes',
+        createdAt: '2026-07-12T01:00:00.000Z',
+        messages: simulatedAiChatOutput.simulatedAiChats[0]!.messages,
+      },
+    }],
+  );
+  const undoneSimulatedChatState = replaceSimulatedAiChatsForTurn(
+    simulatedChatState,
+    'turn-7',
+    [],
+  );
+  assertFixture(
+    simulatedChatState.sarah?.length === 2 &&
+      undoneSimulatedChatState.sarah?.length === 1 &&
+      undoneSimulatedChatState.sarah[0]?.id === 'manual-chat',
+    'turn replacement and undo must remove only chats simulated by that turn',
   );
   const embeddedPhoneWithImageId = parseEmbeddedPhoneMessagesFromRpOutput(
     '{"phoneMessages":[{"from":"Lara Miller","to":"Robert Miller","message":"Look at this.","imageId":"lara_miller_image_01"}]}',
@@ -3158,6 +3386,14 @@ export function verifyWorkflowValidationFixtures() {
       oldStorybookHydrated.nodeDataVersion === '1.12.0' &&
       oldStorybookHydrated.currentNodeVersion === currentCoreNodeVersions['rp-storybook-v1'],
     'an old storybook node must hydrate as an incompatible placeholder before parsing old storybook JSON',
+  );
+
+  const corruptedStorybookNode = structuredClone(oldStorybookNode);
+  corruptedStorybookNode.data.nodeDataVersion = currentCoreNodeVersions['rp-storybook-v1'];
+  corruptedStorybookNode.data.storybookJson = '{invalid json';
+  assertThrowsFixture(
+    () => hydrateNodeData(corruptedStorybookNode.data, versionHydrateContext),
+    'a corrupted current-version storybook must fail hydration instead of silently becoming incompatible',
   );
 
   const longTraceTextInput = [

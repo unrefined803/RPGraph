@@ -59,6 +59,7 @@ import { extractDialogueQuotes } from '../chat/textRendering';
 import {
   extractWorkflowVariableSetCommands,
   formatChatHistory,
+  formatRpDayLabel,
   resolveWorkflowVariables,
   workflowVariablePreviewValues,
   type WorkflowVariableSetCommand,
@@ -96,6 +97,15 @@ import {
   type SocialThreadRunContext,
 } from '../chat/socialMedia';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
+import {
+  chatGpdFallbackTitle,
+  createdPhoneNoteIdPrefix,
+  createdPhoneNoteHistoryText,
+  simulatedAiChatIdPrefix,
+  simulatedAiChatHistoryText,
+  type CreatedPhoneNoteCommit,
+  type SimulatedAiChatCommit,
+} from '../chat/phoneAppsSessions';
 import { withSpeakerPrefix } from '../chat/instructions';
 import { executeGraph } from '../graph/executeGraph';
 import { TextMetricsApi } from '../llm/tokenMetrics';
@@ -188,6 +198,8 @@ type UseGraphRunOptions = Pick<
   updateWorkflowComfyGenerationActive: (active: boolean) => void;
   setOutputActionChoicesHiddenByTurn: (turnId: string, hidden: boolean) => void;
   setWorkflowVariablesFromCommands: (commands: WorkflowVariableSetCommand[]) => void;
+  commitSimulatedAiChats: (turnId: string, chats: SimulatedAiChatCommit[]) => void;
+  commitCreatedPhoneNotes: (turnId: string, notes: CreatedPhoneNoteCommit[]) => void;
   workflowSettingsValuesForGraph: () => NonNullable<ExecuteGraphOptions['settingsValues']>;
   settingsValueDefinitionsRef: Ref<NonNullable<ExecuteGraphOptions['settingsValueDefinitions']>>;
   promptActionSettings: NonNullable<ExecuteGraphOptions['promptActionSettings']>;
@@ -360,6 +372,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
     updateWorkflowComfyGenerationActive,
     setOutputActionChoicesHiddenByTurn,
     setWorkflowVariablesFromCommands,
+    commitSimulatedAiChats,
+    commitCreatedPhoneNotes,
     workflowSettingsValuesForGraph,
     settingsValueDefinitionsRef,
     promptActionSettings,
@@ -1428,6 +1442,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
               bankTransfers: [],
               socialPostComments: [],
               socialDirectMessages: [],
+              simulatedAiChats: [],
+              invalidSimulatedAiChatCount: 0,
+              createdPhoneNotes: [],
+              invalidCreatedPhoneNoteCount: 0,
             };
       // Phone replies may append a bankTransfers object after the reply JSON;
       // split it off so the reply still parses as a single phone message.
@@ -1439,7 +1457,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         phoneOutputBankResult &&
         (phoneOutputBankResult.bankTransfers.length > 0 ||
           phoneOutputBankResult.socialPostComments.length > 0 ||
-          phoneOutputBankResult.socialDirectMessages.length > 0)
+          phoneOutputBankResult.socialDirectMessages.length > 0 ||
+          phoneOutputBankResult.simulatedAiChats.length > 0 ||
+          phoneOutputBankResult.invalidSimulatedAiChatCount > 0 ||
+          phoneOutputBankResult.createdPhoneNotes.length > 0 ||
+          phoneOutputBankResult.invalidCreatedPhoneNoteCount > 0)
       ) {
         phoneMessageOutput = phoneOutputBankResult.text;
       }
@@ -1470,6 +1492,119 @@ export function useGraphRun(options: UseGraphRunOptions) {
           name: 'Social post comments',
           status: 'ok',
           detail: `${parsedSocialPostComments.length} social post comment(s) parsed.`,
+        });
+      }
+      const parsedSimulatedAiChats = [
+        ...embeddedPhoneResult.simulatedAiChats,
+        ...(phoneOutputBankResult?.simulatedAiChats ?? []),
+      ];
+      const invalidSimulatedAiChatCount =
+        embeddedPhoneResult.invalidSimulatedAiChatCount +
+        (phoneOutputBankResult?.invalidSimulatedAiChatCount ?? 0);
+      if (invalidSimulatedAiChatCount > 0) {
+        reportFormatResult({
+          name: 'Simulated AI chat',
+          status: 'error',
+          detail: 'aiAssistantChat needs one Storybook character and 1–4 alternating user/assistant exchanges.',
+        });
+        reportRunWarning(
+          'A simulated AI chat was ignored because it needs one Storybook character and 1–4 complete alternating user/assistant exchanges.',
+          outputNodeTraceInfo,
+        );
+      }
+      const simulatedAiChatCommits = parsedSimulatedAiChats.flatMap(
+        (simulatedChat, index): SimulatedAiChatCommit[] => {
+          const matchingCharacters = phoneCharacters.filter((character) =>
+            phoneNamesMatch(character.name, simulatedChat.character)
+          );
+          if (matchingCharacters.length !== 1) {
+            reportRunWarning(
+              matchingCharacters.length > 1
+                ? `Simulated AI chat character "${simulatedChat.character}" is ambiguous and was ignored.`
+                : `Simulated AI chat character "${simulatedChat.character}" was not found and was ignored.`,
+              outputNodeTraceInfo,
+            );
+            return [];
+          }
+          const character = matchingCharacters[0];
+          const firstQuestion = simulatedChat.messages[0]?.text ?? 'AI conversation';
+          return [{
+            characterId: character.id,
+            characterName: character.name,
+            chat: {
+              id: `${simulatedAiChatIdPrefix(turnId)}${index + 1}`,
+              title: chatGpdFallbackTitle(firstQuestion),
+              createdAt: activeTurnCollectorRef.current?.createdAt ?? new Date().toISOString(),
+              messages: structuredClone(simulatedChat.messages),
+            },
+          }];
+        },
+      );
+      if (simulatedAiChatCommits.length > 0) {
+        reportFormatResult({
+          name: 'Simulated AI chat',
+          status: 'ok',
+          detail: `${simulatedAiChatCommits.length} ChatGPD conversation(s) parsed.`,
+        });
+      }
+      const parsedCreatedPhoneNotes = [
+        ...embeddedPhoneResult.createdPhoneNotes,
+        ...(phoneOutputBankResult?.createdPhoneNotes ?? []),
+      ];
+      const invalidCreatedPhoneNoteCount =
+        embeddedPhoneResult.invalidCreatedPhoneNoteCount +
+        (phoneOutputBankResult?.invalidCreatedPhoneNoteCount ?? 0);
+      if (invalidCreatedPhoneNoteCount > 0) {
+        reportFormatResult({
+          name: 'Created phone note',
+          status: 'error',
+          detail: 'phoneNote needs a Storybook character, title, and text.',
+        });
+        reportRunWarning(
+          'A phone note was ignored because it needs a Storybook character, title, and text.',
+          outputNodeTraceInfo,
+        );
+      }
+      const historyRpDateTime = nodesRef.current.find(
+        (node) => node.data.kind === undefined && node.data.nodeType === 'history',
+      )?.data.historyCurrentRpDateTime;
+      const noteDayLabel = formatRpDayLabel(
+        historyRpDateTime ?? activeTurnCollectorRef.current?.createdAt,
+        rpDateTimeFormat,
+        rpWeekdayLanguage,
+      );
+      const createdPhoneNoteCommits = parsedCreatedPhoneNotes.flatMap(
+        (createdNote, index): CreatedPhoneNoteCommit[] => {
+          const matchingCharacters = phoneCharacters.filter((character) =>
+            phoneNamesMatch(character.name, createdNote.character)
+          );
+          if (matchingCharacters.length !== 1) {
+            reportRunWarning(
+              matchingCharacters.length > 1
+                ? `Phone note character "${createdNote.character}" is ambiguous and was ignored.`
+                : `Phone note character "${createdNote.character}" was not found and was ignored.`,
+              outputNodeTraceInfo,
+            );
+            return [];
+          }
+          return [{
+            characterId: matchingCharacters[0].id,
+            characterName: matchingCharacters[0].name,
+            note: {
+              id: `${createdPhoneNoteIdPrefix(turnId)}${index + 1}`,
+              title: createdNote.title,
+              text: createdNote.text,
+              dayLabel: noteDayLabel,
+              color: 'neutral',
+            },
+          }];
+        },
+      );
+      if (createdPhoneNoteCommits.length > 0) {
+        reportFormatResult({
+          name: 'Created phone note',
+          status: 'ok',
+          detail: `${createdPhoneNoteCommits.length} Notes entry or entries parsed.`,
         });
       }
       const rpOutput = eventDisplayText
@@ -2030,6 +2165,24 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
+        for (const createdPhoneNote of createdPhoneNoteCommits) {
+          appendMessage({
+            role: 'output',
+            originalText: createdPhoneNoteHistoryText(createdPhoneNote),
+            includeInHistory: true,
+            createdPhoneNote,
+          });
+        }
+
+        for (const simulatedAiChat of simulatedAiChatCommits) {
+          appendMessage({
+            role: 'output',
+            originalText: simulatedAiChatHistoryText(simulatedAiChat),
+            includeInHistory: true,
+            simulatedAiChat,
+          });
+        }
+
         // A social post comment command appends one comment to an existing
         // post via the same append-reactions record the comment thread uses.
         for (const postComment of parsedSocialPostComments) {
@@ -2381,6 +2534,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
         }
       }
       onSuccessfulRunBeforeCommit?.();
+      commitSimulatedAiChats(turnId, simulatedAiChatCommits);
+      commitCreatedPhoneNotes(turnId, createdPhoneNoteCommits);
       const committedTurn = commitCollectedTurn(
         storedInputGraphText,
         rpOutput,

@@ -10,6 +10,10 @@ import type {
   PromptCommandConfig,
   PromptCommandStoredConfig,
 } from './nodes/shared/promptCommands';
+import type {
+  CreatedPhoneNoteCommit,
+  SimulatedAiChatCommit,
+} from './chat/phoneAppsSessions';
 import type { PromptRunDebug } from './nodes/shared/promptRun';
 import type { CoreNodeType } from './nodes/coreNodeTypes';
 
@@ -403,6 +407,7 @@ type WorkflowNodeCommonFields = {
   noteText?: string;
   noteFontSize?: number;
   groupTitle?: string;
+  phoneAppsNotesConnectionId?: string;
 };
 
 export type AutoTurnInstructionKey =
@@ -477,6 +482,7 @@ type CombinerNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'combiner' };
 type CharacterStatsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'character-stats' };
 type OutputNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'output' };
 type RpStorybookV1NodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook-v1' };
+type PhoneAppsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'phone-apps' };
 
 type ConcreteCoreWorkflowNodeData =
   | InputNodeData
@@ -504,7 +510,8 @@ type ConcreteCoreWorkflowNodeData =
   | CombinerNodeData
   | CharacterStatsNodeData
   | OutputNodeData
-  | RpStorybookV1NodeData;
+  | RpStorybookV1NodeData
+  | PhoneAppsNodeData;
 
 type MissingNodeWorkflowData = WorkflowNodeCommonFields & {
   nodeType: string;
@@ -767,6 +774,8 @@ export type MessageRecord = {
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
+  createdPhoneNote?: CreatedPhoneNoteCommit;
+  simulatedAiChat?: SimulatedAiChatCommit;
 };
 
 export type RpAppointment = {
@@ -890,6 +899,9 @@ export type AppSettings = {
     dialogueCloneVoiceProviderId?: string;
     phoneDesktopLayout?: PhoneDesktopLayout;
     phoneDesktopIconSize?: PhoneDesktopIconSize;
+    chatGpdSidebarOpen?: boolean;
+    chatGpdSidebarWidth?: number;
+    chatGpdModel?: string;
   };
   layout?: {
     chatPanelWidth: number;
@@ -905,7 +917,7 @@ export type PhoneDesktopLayout = {
     width: number;
     height: number;
   };
-  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends', {
+  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai', {
     column: number;
     row: number;
   }>;

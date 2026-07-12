@@ -119,6 +119,8 @@ export function useTurnRecordState({
     socialThreadAction,
     socialReactions,
     socialDirectMessage,
+    createdPhoneNote,
+    simulatedAiChat,
   }: AppendMessageInput) {
     const id = nextMessageIdRef.current;
     nextMessageIdRef.current += 1;
@@ -170,6 +172,8 @@ export function useTurnRecordState({
       socialThreadAction,
       socialReactions,
       socialDirectMessage,
+      createdPhoneNote,
+      simulatedAiChat,
       turnId: collector?.turnId,
       turnNumber: collector?.turnNumber,
       turnPart: collector?.part,

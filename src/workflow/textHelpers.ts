@@ -14,6 +14,25 @@ import {
 } from './defaults';
 import { TextMetricsApi, validTokenBytesPerToken } from '../llm/tokenMetrics';
 import { formatPhoneReplyInput } from '../chat/phoneReplies';
+import {
+  createdPhoneNoteHistoryText,
+  simulatedAiChatHistoryText,
+} from '../chat/phoneAppsSessions';
+
+function withPhoneAppCommandHistory(text: string, message: MessageRecord) {
+  const trimmedText = text.trim();
+  return [
+    trimmedText,
+    message.createdPhoneNote
+      ? createdPhoneNoteHistoryText(message.createdPhoneNote)
+      : '',
+    message.simulatedAiChat
+      ? simulatedAiChatHistoryText(message.simulatedAiChat)
+      : '',
+  ].filter((entry, index) =>
+    !!entry && (index === 0 || !trimmedText.includes(entry.trim()))
+  ).join('\n\n');
+}
 
 export function validEstimatedTokenBytesPerToken(value?: number) {
   return validTokenBytesPerToken(value);
@@ -151,9 +170,15 @@ function formatMessageRecordForContext(
       ? linkedPhoneMessages.get(message.replyToMessageId)
       : undefined;
     if (replyTo) {
-      return withOptionalRpDateTime(formatPhoneReplyInput(from, replyTo, text, translated));
+      return withPhoneAppCommandHistory(
+        withOptionalRpDateTime(formatPhoneReplyInput(from, replyTo, text, translated)),
+        message,
+      );
     }
-    return withOptionalRpDateTime(`${phoneMessagePrefix(message, from, to)} ${phoneImageContext(message)}${text}`);
+    return withPhoneAppCommandHistory(
+      withOptionalRpDateTime(`${phoneMessagePrefix(message, from, to)} ${phoneImageContext(message)}${text}`),
+      message,
+    );
   }
   if (message.eventInput && message.eventDisplayText) {
     return withOptionalRpDateTime(message.eventDisplayText.replace(/^Event:\s*/i, '').trim());
@@ -196,7 +221,7 @@ function formatMessageRecordForContext(
       ...message.embeddedPhoneMessages.map(phoneMessageText),
       textAfter,
     ].filter((part): part is string => !!part.trim());
-    return parts.join('\n\n');
+    return withPhoneAppCommandHistory(parts.join('\n\n'), message);
   }
   const text = translated
     ? message.translatedText ?? message.originalText
@@ -212,7 +237,7 @@ function formatMessageRecordForContext(
       ? stripRecognizedSpeakerLabels(text, knownOutputSpeakers)
       : text;
   const historyText = includeImageContext(contextText, message.rpImageDescription, message.rpImageName);
-  return withOptionalRpDateTime(historyText);
+  return withPhoneAppCommandHistory(withOptionalRpDateTime(historyText), message);
 }
 
 export function formatLastMessageForContext(
@@ -235,7 +260,7 @@ export function formatLastMessageForContext(
       ? formatMessageRecordForContext(message, translated, rpDateTimeFormat, rpWeekdayLanguage, true)
       : formatMessageRecordForContext(message, translated, undefined, undefined, false);
   }
-  return withOptionalRpDateTime(text);
+  return withPhoneAppCommandHistory(withOptionalRpDateTime(text), message);
 }
 
 function formatTwelveHour(hourText: string) {
@@ -387,6 +412,7 @@ function historyTextWithoutTimestamp(
   message: MessageRecord,
   translated: boolean,
   phoneMessagesById = new Map<number, MessageRecord>(),
+  includePhoneAppCommands = true,
 ) {
   if (message.channel === 'phone') {
     return formatMessageRecordForContext(
@@ -399,7 +425,10 @@ function historyTextWithoutTimestamp(
     );
   }
   if (message.eventInput && message.eventDisplayText) {
-    return message.eventDisplayText.replace(/^Event:\s*/i, '').trim();
+    const eventText = message.eventDisplayText.replace(/^Event:\s*/i, '').trim();
+    return includePhoneAppCommands
+      ? withPhoneAppCommandHistory(eventText, message)
+      : eventText;
   }
   const text = translated
     ? message.translatedText ?? message.originalText
@@ -414,7 +443,10 @@ function historyTextWithoutTimestamp(
     knownOutputSpeakers.length > 0
       ? stripRecognizedSpeakerLabels(text, knownOutputSpeakers)
       : text;
-  return includeImageContext(contextText, message.rpImageDescription, message.rpImageName);
+  const historyText = includeImageContext(contextText, message.rpImageDescription, message.rpImageName);
+  return includePhoneAppCommands
+    ? withPhoneAppCommandHistory(historyText, message)
+    : historyText;
 }
 
 export function formatAppointments(
@@ -571,7 +603,16 @@ export function formatChatHistorySegments(
       isIncludedHistoryMessage(message) &&
       (message.channel !== 'phone' || !linkedPhoneMessageIds.has(message.id)),
   );
-  if (translated && !history.some((message) => message.translatedText || message.channel === 'phone')) {
+  if (
+    translated &&
+    !history.some(
+      (message) =>
+        message.translatedText ||
+        message.channel === 'phone' ||
+        message.createdPhoneNote ||
+        message.simulatedAiChat,
+    )
+  ) {
     return [];
   }
 
@@ -685,6 +726,7 @@ export function formatChatHistorySegments(
               : { ...message, originalText: afterOriginalText, translatedText: undefined },
             translated,
             phoneMessagesById,
+            false,
           ),
           message.rpDateTime,
         ),

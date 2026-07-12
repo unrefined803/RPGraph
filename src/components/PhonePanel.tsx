@@ -39,6 +39,10 @@ import { phoneReplyVisibleText } from '../chat/phoneReplies';
 import { PhoneImagePicker } from './PhoneImagePicker';
 import { PhoneGalleryScreen } from './PhoneGalleryScreen';
 import { PhoneBankingScreen } from './PhoneBankingScreen';
+import { PhoneNotesScreen } from './PhoneNotesScreen';
+import { PhoneChatGpdScreen } from './PhoneChatGpdScreen';
+import type { ChatGpdPhoneApp } from '../chat/useChatGpdPhoneApp';
+import type { ChatGpdChatRecord, PhoneNoteRecord } from '../chat/phoneAppsSessions';
 import { PhoneSocialFeedScreen } from './phone-social/PhoneSocialFeedScreen';
 import { socialApps } from './phone-social/socialApps';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
@@ -83,12 +87,12 @@ type UnreadPhoneConversation = {
 
 type PhoneScreen =
   | 'desktop' | 'whatsup' | 'gallery' | 'chat-gallery' | 'camera' | 'banking'
-  | 'fotogram' | 'onlyfriends';
+  | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
 
-type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends';
+type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
 
 const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
-  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends'];
+  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes', 'ai'];
 
 const defaultPhoneWallpapers: ChatImageAttachment[] = [
   {
@@ -137,6 +141,7 @@ type PhonePanelProps = {
   highlightedPhoneMessagePulseKey: number;
   unreadPhoneConversations: UnreadPhoneConversation[];
   unreadBankingCount: number;
+  phoneAppNotificationCounts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends', number>;
   phoneHomeRequestId: number;
   socialPostOpenRequest?: {
     requestId: number;
@@ -174,6 +179,7 @@ type PhonePanelProps = {
   onOpenPhoneContact: (contact: PhoneContact) => void;
   onMarkSelectedPhoneConversationSeen: () => void;
   onMarkBankingSeen: () => void;
+  onMarkPhoneAppSeen: (app: 'notes' | 'ai' | 'fotogram' | 'onlyfriends') => void;
   onOpenUnreadPhoneConversation: (conversation: UnreadPhoneConversation) => void;
   unreadPhoneSwitchName: (conversation: UnreadPhoneConversation) => string;
   onSwitchToViewedCharacter: () => void;
@@ -265,6 +271,15 @@ type PhonePanelProps = {
   ) => void;
   onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   onUnlockOnlyFriendsPost: (characterId: string, postId: string, price: number) => void;
+  chatGpd: ChatGpdPhoneApp;
+  chatGpdSidebarOpen: boolean;
+  onChatGpdSidebarOpenChange: (open: boolean) => void;
+  chatGpdSidebarWidth: number;
+  onChatGpdSidebarWidthChange: (width: number) => void;
+  phoneNotes: PhoneNoteRecord[];
+  onPhoneNotesChange: (notes: PhoneNoteRecord[]) => void;
+  onPhoneNoteCommit: (note: PhoneNoteRecord) => void;
+  onChatGpdChatCommit: (chat: ChatGpdChatRecord) => void;
   phoneDesktopLayout: PhoneDesktopLayout;
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
@@ -289,6 +304,7 @@ export function PhonePanel({
   highlightedPhoneMessagePulseKey,
   unreadPhoneConversations,
   unreadBankingCount,
+  phoneAppNotificationCounts,
   phoneHomeRequestId,
   socialPostOpenRequest,
   phoneImages,
@@ -322,6 +338,7 @@ export function PhonePanel({
   onOpenPhoneContact,
   onMarkSelectedPhoneConversationSeen,
   onMarkBankingSeen,
+  onMarkPhoneAppSeen,
   onOpenUnreadPhoneConversation,
   unreadPhoneSwitchName,
   onSwitchToViewedCharacter,
@@ -364,6 +381,15 @@ export function PhonePanel({
   onToggleSocialLike,
   onlyFriendsPurchasesByCharacter,
   onUnlockOnlyFriendsPost,
+  chatGpd,
+  chatGpdSidebarOpen,
+  onChatGpdSidebarOpenChange,
+  chatGpdSidebarWidth,
+  onChatGpdSidebarWidthChange,
+  phoneNotes,
+  onPhoneNotesChange,
+  onPhoneNoteCommit,
+  onChatGpdChatCommit,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
@@ -423,6 +449,12 @@ export function PhonePanel({
       onMarkBankingSeen();
     }
   }, [onMarkBankingSeen, screen, unreadBankingCount]);
+
+  useEffect(() => {
+    if (screen === 'notes' || screen === 'ai' || screen === 'fotogram' || screen === 'onlyfriends') {
+      onMarkPhoneAppSeen(screen);
+    }
+  }, [onMarkPhoneAppSeen, screen]);
 
   // Jump straight to the conversation when a chat message links into the
   // phone (each click bumps the highlight pulse key).
@@ -698,6 +730,37 @@ export function PhonePanel({
     );
   }
 
+  if (screen === 'notes') {
+    return (
+      <PhoneNotesScreen
+        key={selectedCharacter?.id ?? 'no-owner'}
+        owner={selectedCharacter}
+        notes={phoneNotes}
+        onNotesChange={onPhoneNotesChange}
+        clockDateTime={clockDateTime}
+        rpDateTimeFormat={rpDateTimeFormat}
+        rpWeekdayLanguage={rpWeekdayLanguage}
+        onCommitNote={onPhoneNoteCommit}
+        onBack={() => setScreen('desktop')}
+      />
+    );
+  }
+
+  if (screen === 'ai') {
+    return (
+      <PhoneChatGpdScreen
+        key={selectedCharacter?.id ?? 'no-owner'}
+        chatGpd={chatGpd}
+        sidebarOpen={chatGpdSidebarOpen}
+        onSidebarOpenChange={onChatGpdSidebarOpenChange}
+        sidebarWidth={chatGpdSidebarWidth}
+        onSidebarWidthChange={onChatGpdSidebarWidthChange}
+        onCommitChat={onChatGpdChatCommit}
+        onBack={() => setScreen('desktop')}
+      />
+    );
+  }
+
   if (screen === 'fotogram' || screen === 'onlyfriends') {
     const socialScreen = screen;
     return (
@@ -958,7 +1021,9 @@ export function PhonePanel({
               }
               setScreen('fotogram');
             }}
-            aria-label="Open Fotogram"
+            aria-label={phoneAppNotificationCounts.fotogram > 0
+              ? `Open Fotogram, ${phoneAppNotificationCounts.fotogram} new`
+              : 'Open Fotogram'}
           >
             <span className="phone-fotogram-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -967,6 +1032,11 @@ export function PhonePanel({
                 <circle cx="17.2" cy="6.8" r="1" />
               </svg>
             </span>
+            {phoneAppNotificationCounts.fotogram > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.fotogram)}
+              </span>
+            )}
             <span>Fotogram</span>
           </button>
           <button
@@ -984,14 +1054,81 @@ export function PhonePanel({
               }
               setScreen('onlyfriends');
             }}
-            aria-label="Open OnlyFriends"
+            aria-label={phoneAppNotificationCounts.onlyfriends > 0
+              ? `Open OnlyFriends, ${phoneAppNotificationCounts.onlyfriends} new`
+              : 'Open OnlyFriends'}
           >
             <span className="phone-onlyfriends-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />
               </svg>
             </span>
+            {phoneAppNotificationCounts.onlyfriends > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.onlyfriends)}
+              </span>
+            )}
             <span>OnlyFriends</span>
+          </button>
+          <button
+            className="phone-desktop-app"
+            type="button"
+            style={{
+              gridColumn: desktopLayout.apps.notes.column,
+              gridRow: desktopLayout.apps.notes.row,
+            }}
+            onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'app', appId: 'notes' })}
+            onClick={() => {
+              if (suppressAppClickRef.current) {
+                suppressAppClickRef.current = false;
+                return;
+              }
+              setScreen('notes');
+            }}
+            aria-label={phoneAppNotificationCounts.notes > 0
+              ? `Open Notes, ${phoneAppNotificationCounts.notes} new`
+              : 'Open Notes'}
+          >
+            <span className="phone-notes-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 3h11l3 3v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+                <path d="M15 3v4h4" />
+                <path d="M8 11h8M8 15h8M8 19h5" />
+              </svg>
+            </span>
+            {phoneAppNotificationCounts.notes > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.notes)}
+              </span>
+            )}
+            <span>Notes</span>
+          </button>
+          <button
+            className="phone-desktop-app"
+            type="button"
+            style={{
+              gridColumn: desktopLayout.apps.ai.column,
+              gridRow: desktopLayout.apps.ai.row,
+            }}
+            onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'app', appId: 'ai' })}
+            onClick={() => {
+              if (suppressAppClickRef.current) {
+                suppressAppClickRef.current = false;
+                return;
+              }
+              setScreen('ai');
+            }}
+            aria-label={phoneAppNotificationCounts.ai > 0
+              ? `Open ChatGPD, ${phoneAppNotificationCounts.ai} new`
+              : 'Open ChatGPD'}
+          >
+            <span className="phone-chatgpd-icon" aria-hidden="true">AI</span>
+            {phoneAppNotificationCounts.ai > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.ai)}
+              </span>
+            )}
+            <span>ChatGPD</span>
           </button>
         </div>
         <div className="phone-desktop-settings" ref={desktopSettingsRef}>

@@ -22,8 +22,8 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'memory-slot': '1.0.0',
   'phone-message-router': '1.1.0',
   'text-selector': '1.1.0',
-  'llm-prompt-switch': '1.2.3',
-  'llm-prompt': '1.1.2',
+  'llm-prompt-switch': '1.2.5',
+  'llm-prompt': '1.1.4',
   combiner: '1.0.0',
   'load-text': '1.0.1',
   'write-text': '1.0.0',
@@ -35,8 +35,9 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'fixed-number': '1.0.1',
   'fixed-bool': '1.0.0',
   'settings-value': '1.0.1',
-  'rp-storybook-v1': '1.13.0',
+  'rp-storybook-v1': '1.14.0',
   output: '1.5.1',
+  'phone-apps': '1.0.0',
 };
 
 export function parseNodeVersion(value: unknown): ParsedNodeVersion | undefined {

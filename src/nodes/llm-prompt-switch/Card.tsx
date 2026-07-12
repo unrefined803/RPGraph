@@ -26,6 +26,7 @@ import { PromptActionModal, PromptCommandModal, PromptPreviewTools } from '../sh
 import {
   configForPromptCommandToken,
   countPromptCommandUses,
+  formatPromptCommandTokens,
   knownPromptCommandId,
   parsePromptCommandTokens,
   promptCommandConfigs,
@@ -489,13 +490,10 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   };
 
   const formatCurrentPrompts = () => {
-    if (!autoFormatJson) {
-      return;
-    }
     const currentBefore = promptBefores[selectedPromptSlot] ?? '';
     const currentAfter = promptAfters[selectedPromptSlot] ?? '';
-    const formattedBefore = maybeFormatJson(currentBefore);
-    const formattedAfter = maybeFormatJson(currentAfter);
+    const formattedBefore = formatPromptCommandTokens(maybeFormatJson(currentBefore));
+    const formattedAfter = formatPromptCommandTokens(maybeFormatJson(currentAfter));
     if (formattedBefore === currentBefore && formattedAfter === currentAfter) {
       return;
     }
@@ -641,6 +639,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
             value={promptBefores[selectedPromptSlot] ?? ''}
             onChange={(value) => updatePromptBefore(value)}
             onFocus={formatCurrentPrompts}
+            onBlur={formatCurrentPrompts}
             workflowVariableDefinitions={view.settingsValueDefinitions}
             workflowVariableValues={view.settingsValues}
             protectedPromptActionTitles={actionConfigs.map((action) => action.title)}
@@ -662,6 +661,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
             value={promptAfters[selectedPromptSlot] ?? ''}
             onChange={(value) => updatePromptAfter(value)}
             onFocus={formatCurrentPrompts}
+            onBlur={formatCurrentPrompts}
             workflowVariableDefinitions={view.settingsValueDefinitions}
             workflowVariableValues={view.settingsValues}
             protectedPromptActionTitles={actionConfigs.map((action) => action.title)}

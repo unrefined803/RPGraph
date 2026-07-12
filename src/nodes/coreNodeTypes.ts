@@ -25,6 +25,7 @@ export const coreNodeTypes = [
   'character-stats',
   'output',
   'rp-storybook-v1',
+  'phone-apps',
 ] as const;
 
 export type CoreNodeType = typeof coreNodeTypes[number];

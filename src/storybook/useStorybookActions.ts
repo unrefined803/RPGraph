@@ -25,6 +25,10 @@ import { withChangedStorybookImageDescriptionsSynchronized } from './imageLibrar
 import { turnsWithStorybookImageRefs } from './openingHistoryRuntime';
 import storybookFormatVersions from './formatVersions.json';
 import type { TurnCheckpoint } from '../data-management/types';
+import type {
+  ChatGpdChatsByCharacter,
+  PhoneNotesByCharacter,
+} from '../chat/phoneAppsSessions';
 
 type FileProtection = 'plain' | 'encrypted';
 
@@ -54,6 +58,8 @@ type UseStorybookActionsOptions = {
   turnsRef: MutableRefObject<TurnRecord[]>;
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
   currentSocialLikesByAccount: () => Record<string, string[]>;
+  currentPhoneNotesByCharacter: () => PhoneNotesByCharacter;
+  currentChatGpdChatsByCharacter: () => ChatGpdChatsByCharacter;
   replaceCurrentChatWithOpeningHistoryRef: MutableRefObject<boolean>;
   nodeLlm: NodeLlmApi;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
@@ -75,6 +81,8 @@ export function useStorybookActions({
   turnsRef,
   turnCheckpointsRef,
   currentSocialLikesByAccount,
+  currentPhoneNotesByCharacter,
+  currentChatGpdChatsByCharacter,
   replaceCurrentChatWithOpeningHistoryRef,
   nodeLlm,
   updateRuntimeNode,
@@ -244,7 +252,7 @@ export function useStorybookActions({
     return commitError === null;
   }
 
-  function importCurrentChatAsOpeningHistory(nodeId: string) {
+  function importCurrentSessionAsOpeningHistory(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (!node || node.data.nodeType !== 'rp-storybook-v1') {
       return;
@@ -285,26 +293,49 @@ export function useStorybookActions({
       .flatMap((entry) => entry.data.eventAppointments ?? [])
       .filter((event) => event.status === 'upcoming');
     const normalizedOpeningEvents = normalizeEventAppointments(openingEvents);
+    // Player likes, notes, and ChatGPD chats are session UI state, not
+    // message records, so they are snapshotted into the opening history
+    // explicitly.
+    const openingSocialLikes = structuredClone(currentSocialLikesByAccount());
+    const openingNotes = structuredClone(currentPhoneNotesByCharacter());
+    const openingChatGpdChats = structuredClone(currentChatGpdChatsByCharacter());
+    const countRecords = (records: Record<string, unknown[]>) =>
+      Object.values(records).reduce((count, entries) => count + entries.length, 0);
+    const openingNoteCount = countRecords(openingNotes);
+    const openingChatGpdChatCount = countRecords(openingChatGpdChats);
+    const openingSocialLikeCount = countRecords(openingSocialLikes);
+    const phoneAppParts = [
+      openingNoteCount ? `${openingNoteCount} phone note${openingNoteCount === 1 ? '' : 's'}` : '',
+      openingChatGpdChatCount
+        ? `${openingChatGpdChatCount} ChatGPD chat${openingChatGpdChatCount === 1 ? '' : 's'}`
+        : '',
+      openingSocialLikeCount
+        ? `${openingSocialLikeCount} social like${openingSocialLikeCount === 1 ? '' : 's'}`
+        : '',
+    ].filter(Boolean);
+    const phoneAppSuffix = phoneAppParts.length ? ` Includes ${phoneAppParts.join(', ')}.` : '';
+    const hasOpeningContent =
+      historyTurns.length > 0 || normalizedOpeningEvents.length > 0 || phoneAppParts.length > 0;
     const nextStorybook = {
       ...storybook,
       openingHistory: {
-        summary: historyTurns.length || normalizedOpeningEvents.length
-          ? `Imported from current RP session: ${historyMessageCount} messages and ${normalizedOpeningEvents.length} events across ${historyTurns.length} turns.`
+        summary: hasOpeningContent
+          ? `Imported from current RP session: ${historyMessageCount} messages and ${normalizedOpeningEvents.length} events across ${historyTurns.length} turns.${phoneAppSuffix}`
           : '',
         turns: historyTurns,
         checkpoints: historyCheckpoints,
         events: normalizedOpeningEvents,
-        // Player likes are session UI state, not message records, so they are
-        // snapshotted into the opening history explicitly.
-        socialLikes: structuredClone(currentSocialLikesByAccount()),
+        socialLikes: openingSocialLikes,
+        notes: openingNotes,
+        chatGpdChats: openingChatGpdChats,
       },
     };
     replaceCurrentChatWithOpeningHistoryRef.current = true;
     updateRuntimeNode(nodeId, {
       storybookJson: rpStorybookJsonText(nextStorybook),
-      storybookStatus: historyTurns.length || normalizedOpeningEvents.length
-        ? `Imported ${historyTurns.length} opening history turns and ${normalizedOpeningEvents.length} events.`
-        : 'No current chat messages or events to import.',
+      storybookStatus: hasOpeningContent
+        ? `Imported ${historyTurns.length} opening history turns and ${normalizedOpeningEvents.length} events.${phoneAppSuffix}`
+        : 'No current chat messages, events, or phone app entries to import.',
     });
   }
 
@@ -525,7 +556,7 @@ export function useStorybookActions({
     submitStorybookCreatorMessage,
     updateStorybook,
     applyStorybookToNode,
-    importCurrentChatAsOpeningHistory,
+    importCurrentSessionAsOpeningHistory,
     clearStorybookOpeningHistory,
     resetStorybook,
     importSillyTavernCharacter,

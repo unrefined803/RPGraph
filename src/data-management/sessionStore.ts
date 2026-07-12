@@ -10,6 +10,12 @@ import type {
   WorkflowNode,
 } from '../types';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
+import {
+  normalizeChatGpdChatsByCharacter,
+  normalizePhoneNotesByCharacter,
+  type ChatGpdChatsByCharacter,
+  type PhoneNotesByCharacter,
+} from '../chat/phoneAppsSessions';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { runtimeSnapshotForNode } from './checkpointStore';
 import { debugStateFromNodes } from './debugContext';
@@ -40,11 +46,14 @@ export type SessionV2AppState = {
   currentRuntime: TurnRuntimeSnapshot;
   phoneSeenByConversation: Record<string, number>;
   bankingSeenByCharacter: Record<string, number>;
+  phoneAppSeenByCharacter: Record<string, number>;
   bankingContactsByCharacter: Record<string, string[]>;
   socialLikesByAccount: Record<string, string[]>;
   onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   phoneDividerAfterByConversation: Record<string, number>;
   recentlyUsedEmojis?: string[];
+  phoneNotesByCharacter: PhoneNotesByCharacter;
+  chatGpdChatsByCharacter: ChatGpdChatsByCharacter;
 };
 
 export type SessionV2CurrentStateInput = {
@@ -56,11 +65,14 @@ export type SessionV2CurrentStateInput = {
   openingMessages: MessageRecord[];
   phoneSeenByConversation?: Record<string, number>;
   bankingSeenByCharacter?: Record<string, number>;
+  phoneAppSeenByCharacter?: Record<string, number>;
   bankingContactsByCharacter?: Record<string, string[]>;
   socialLikesByAccount?: Record<string, string[]>;
   onlyFriendsPurchasesByCharacter?: OnlyFriendsPurchasesByCharacter;
   phoneDividerAfterByConversation?: Record<string, number>;
   recentlyUsedEmojis?: string[];
+  phoneNotesByCharacter?: PhoneNotesByCharacter;
+  chatGpdChatsByCharacter?: ChatGpdChatsByCharacter;
 };
 
 function workflowFileToV2(workflow: WorkflowFile): WorkflowFileV2 {
@@ -146,11 +158,14 @@ export function sessionV2FromCurrentState(
     ui: {
       phoneSeenByConversation: state.phoneSeenByConversation ?? {},
       bankingSeenByCharacter: state.bankingSeenByCharacter ?? {},
+      phoneAppSeenByCharacter: state.phoneAppSeenByCharacter ?? {},
       bankingContactsByCharacter: state.bankingContactsByCharacter ?? {},
       socialLikesByAccount: state.socialLikesByAccount ?? {},
       onlyFriendsPurchasesByCharacter: state.onlyFriendsPurchasesByCharacter ?? {},
       phoneDividerAfterByConversation: state.phoneDividerAfterByConversation ?? {},
       recentlyUsedEmojis: state.recentlyUsedEmojis ?? [],
+      phoneNotesByCharacter: state.phoneNotesByCharacter ?? {},
+      chatGpdChatsByCharacter: state.chatGpdChatsByCharacter ?? {},
     },
     ...(debug ? { debug } : {}),
   };
@@ -239,6 +254,8 @@ function chatMessageFromTimelineEntry(
     socialThreadAction: entry.socialThreadAction,
     socialReactions: entry.socialReactions,
     socialDirectMessage: entry.socialDirectMessage,
+    createdPhoneNote: entry.createdPhoneNote,
+    simulatedAiChat: entry.simulatedAiChat,
   };
 }
 
@@ -313,11 +330,14 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
     currentRuntime: runtimeSnapshotFromSession(session),
     phoneSeenByConversation: session.ui.phoneSeenByConversation,
     bankingSeenByCharacter: session.ui.bankingSeenByCharacter,
+    phoneAppSeenByCharacter: session.ui.phoneAppSeenByCharacter ?? {},
     bankingContactsByCharacter: session.ui.bankingContactsByCharacter,
     socialLikesByAccount: session.ui.socialLikesByAccount,
     onlyFriendsPurchasesByCharacter: session.ui.onlyFriendsPurchasesByCharacter,
     phoneDividerAfterByConversation: session.ui.phoneDividerAfterByConversation,
     recentlyUsedEmojis: session.ui.recentlyUsedEmojis ?? [],
+    phoneNotesByCharacter: normalizePhoneNotesByCharacter(session.ui.phoneNotesByCharacter),
+    chatGpdChatsByCharacter: normalizeChatGpdChatsByCharacter(session.ui.chatGpdChatsByCharacter),
   };
 }
 

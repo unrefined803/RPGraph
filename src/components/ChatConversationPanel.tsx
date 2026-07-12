@@ -56,12 +56,18 @@ import {
 import { PhoneVoiceMessage } from './PhoneVoiceMessage';
 import { BankTransferCard } from './BankTransferCard';
 import { SocialPostCard } from './SocialPostCard';
+import { CreatedPhoneNoteCard } from './CreatedPhoneNoteCard';
+import { SimulatedAiChatCard } from './SimulatedAiChatCard';
 import type { CommandInputCommand } from '../chat/structuredCommands';
 import {
   socialCharacterForPost,
   socialMessageHiddenFromChat,
   socialPostEngagementByPostId,
 } from '../chat/socialMedia';
+import {
+  createdPhoneNoteHistoryText,
+  simulatedAiChatHistoryText,
+} from '../chat/phoneAppsSessions';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
 const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
@@ -585,6 +591,17 @@ export function ChatConversationPanel({
             message.role === 'error'
               ? displayText
               : stripRecognizedSpeakerLabels(displayText, speakerNames);
+          const phoneAppCommandHistoryText = [
+            message.createdPhoneNote
+              ? createdPhoneNoteHistoryText(message.createdPhoneNote)
+              : '',
+            message.simulatedAiChat
+              ? simulatedAiChatHistoryText(message.simulatedAiChat)
+              : '',
+          ].filter(Boolean).join('\n\n');
+          const phoneAppCommandCardOnly =
+            !!phoneAppCommandHistoryText &&
+            visibleText.trim() === phoneAppCommandHistoryText.trim();
           const dialogue = englishProcessingEnabled
             ? message.translatedDialogue ?? []
             : message.originalDialogue ?? [];
@@ -1335,6 +1352,28 @@ export function ChatConversationPanel({
             );
           }
 
+          if (phoneAppCommandCardOnly) {
+            return (
+              <Fragment key={message.id}>
+                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+                <div className="phone-app-command-card-stack">
+                  {message.createdPhoneNote && (
+                    <CreatedPhoneNoteCard
+                      entry={message.createdPhoneNote}
+                      fontSize={chatTextSize || defaultChatTextSize}
+                    />
+                  )}
+                  {message.simulatedAiChat && (
+                    <SimulatedAiChatCard
+                      entry={message.simulatedAiChat}
+                      fontSize={chatTextSize || defaultChatTextSize}
+                    />
+                  )}
+                </div>
+              </Fragment>
+            );
+          }
+
           return (
             <Fragment key={message.id}>
               {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
@@ -1435,6 +1474,22 @@ export function ChatConversationPanel({
                         </p>
                       )}
                     </>
+                  )}
+                  {!isEditingMessage && (message.createdPhoneNote || message.simulatedAiChat) && (
+                    <div className="phone-app-command-card-stack">
+                      {message.createdPhoneNote && (
+                        <CreatedPhoneNoteCard
+                          entry={message.createdPhoneNote}
+                          fontSize={chatTextSize || defaultChatTextSize}
+                        />
+                      )}
+                      {message.simulatedAiChat && (
+                        <SimulatedAiChatCard
+                          entry={message.simulatedAiChat}
+                          fontSize={chatTextSize || defaultChatTextSize}
+                        />
+                      )}
+                    </div>
                   )}
                   {isEditingMessage && (
                     <div className="message-actions user-actions">

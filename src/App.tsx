@@ -26,6 +26,7 @@ import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PhonePanel } from './components/PhonePanel';
+import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { PromptPresetOverview } from './components/PromptPresetOverview';
 import { ResourceMonitor } from './components/ResourceMonitor';
 import {
@@ -122,6 +123,7 @@ import {
 import { hydrateLoadedWorkflow, type HydratedWorkflow } from './app/workflowHydration';
 import {
   lastMessage,
+  createTurnId,
   narratorCharacterId,
   narratorSpeakerName,
 } from './app/runOrchestration';
@@ -130,6 +132,10 @@ import {
   type OutputAttribution,
   type PhoneMessageSound,
 } from './app/useGraphRun';
+import {
+  createTurnCheckpointFromNodesForTurnRecord,
+  trimCheckpoints,
+} from './data-management/checkpointStore';
 import {
   latestHistoryRpDateTime,
   phoneConversationKey,
@@ -155,11 +161,30 @@ import { storybookImageIdsUsedByMessages } from './storybook/imageUsage';
 import storybookFormatVersions from './storybook/formatVersions.json';
 import {
   openingHistoryEventsFromNodes,
+  openingHistoryChatGpdChatsFromNodes,
   openingHistoryCheckpointsFromNodes,
+  openingHistoryNotesFromNodes,
   openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
   remapOpeningTurnMessageIds,
 } from './storybook/openingHistoryRuntime';
+import {
+  createdPhoneNoteHistoryText,
+  simulatedAiChatHistoryText,
+  mergePhoneAppRecordsByCharacter,
+  replaceCreatedPhoneNotesForTurn,
+  replaceSimulatedAiChatsForTurn,
+  type ChatGpdChatRecord,
+  type PhoneNoteRecord,
+} from './chat/phoneAppsSessions';
+import {
+  hasCreatedPhoneNoteHistory,
+  hasSimulatedAiChatHistory,
+  manualCreatedPhoneNoteCommit,
+  manualSimulatedAiChatCommit,
+  revertCreatedPhoneNotesForMessages,
+  revertSimulatedAiChatsForMessages,
+} from './chat/phoneAppHistoryMessages';
 import {
   flattenTurnMessages,
   lastSessionTurn,
@@ -288,6 +313,7 @@ import type {
   RpWeekdayLanguage,
   SettingsValueDefinition,
   SavedFileSummary,
+  TurnRecord,
   WorkflowFile,
   WorkflowNode,
   WorkflowNodeData,
@@ -812,6 +838,12 @@ function App() {
     setPhoneDesktopLayout,
     phoneDesktopIconSize,
     setPhoneDesktopIconSize,
+    chatGpdSidebarOpen,
+    setChatGpdSidebarOpen,
+    chatGpdSidebarWidth,
+    setChatGpdSidebarWidth,
+    chatGpdModel,
+    setChatGpdModel,
     smoothChatAutoScrollEnabled,
     setSmoothChatAutoScrollEnabled,
     smoothChatAutoScrollMinSpeed,
@@ -1180,6 +1212,10 @@ function App() {
     socialImageById,
     socialLikesByAccount,
     setSocialLikesByAccount,
+    phoneNotesByCharacter,
+    setPhoneNotesByCharacter,
+    chatGpdChatsByCharacter,
+    setChatGpdChatsByCharacter,
     toggleSocialLike,
     onlyFriendsPurchasesByCharacter,
     setOnlyFriendsPurchasesByCharacter,
@@ -1188,6 +1224,10 @@ function App() {
     unreadChatCount,
     unreadBankingCount,
     markViewedBankingSeen,
+    phoneAppNotificationCounts,
+    markViewedPhoneAppSeen,
+    phoneAppSeenByCharacter,
+    setPhoneAppSeenByCharacter,
     phoneAuthorBadgesEnabled,
     changePhoneAuthorBadgesEnabled,
     autoTurnDisabled,
@@ -1590,6 +1630,18 @@ function App() {
     resolveConnection,
     recordCall: recordNodeLlmCall,
   });
+  const chatGpd = useChatGpdPhoneApp({
+    nodes,
+    nodesRef,
+    viewedCharacterId: viewedPhoneCharacter?.id,
+    chatsByCharacter: chatGpdChatsByCharacter,
+    setChatsByCharacter: setChatGpdChatsByCharacter,
+    model: chatGpdModel,
+    onModelChange: setChatGpdModel,
+    nodeLlm,
+    updateLlmNodeActive,
+    notifySystem,
+  });
   const {
     storybookCreatorNodeId,
     setStorybookCreatorNodeId,
@@ -1599,7 +1651,7 @@ function App() {
     submitStorybookCreatorMessage,
     updateStorybook,
     applyStorybookToNode,
-    importCurrentChatAsOpeningHistory,
+    importCurrentSessionAsOpeningHistory,
     clearStorybookOpeningHistory,
     resetStorybook,
     importSillyTavernCharacter,
@@ -1622,6 +1674,8 @@ function App() {
     notifySystem,
     usedStorybookImageIds,
     currentSocialLikesByAccount: () => socialLikesByAccount,
+    currentPhoneNotesByCharacter: () => phoneNotesByCharacter,
+    currentChatGpdChatsByCharacter: () => chatGpdChatsByCharacter,
     clearCurrentSession: () => clearCurrentSession(),
   });
   async function describeStorybookCharacterImage(
@@ -2554,6 +2608,19 @@ function App() {
       return merged;
     });
 
+    // Notes and ChatGPD chats follow the likes: replaced on a fresh import,
+    // merged in (existing entries win) when the current chat is kept.
+    const openingNotes = openingHistoryNotesFromNodes(nextNodes);
+    setPhoneNotesByCharacter((current) =>
+      replaceCurrentChat ? openingNotes : mergePhoneAppRecordsByCharacter(current, openingNotes),
+    );
+    const openingChatGpdChats = openingHistoryChatGpdChatsFromNodes(nextNodes);
+    setChatGpdChatsByCharacter((current) =>
+      replaceCurrentChat
+        ? openingChatGpdChats
+        : mergePhoneAppRecordsByCharacter(current, openingChatGpdChats),
+    );
+
     const openingEvents = openingHistoryEventsFromNodes(nextNodes);
     if (openingEvents.length > 0) {
       const nodesWithOpeningEvents = nextNodes.map((node) =>
@@ -2598,11 +2665,14 @@ function App() {
       openingMessages,
       phoneSeenByConversation,
       bankingSeenByCharacter,
+      phoneAppSeenByCharacter,
       bankingContactsByCharacter,
       socialLikesByAccount,
       onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
+      phoneNotesByCharacter,
+      chatGpdChatsByCharacter,
     };
   }
 
@@ -2657,6 +2727,7 @@ function App() {
     setTurnCheckpoints([]);
     setPhoneSeenByConversation({});
     setBankingSeenByCharacter({});
+    setPhoneAppSeenByCharacter({});
     setBankingContactsByCharacter({});
     setSocialLikesByAccount({});
     setOnlyFriendsPurchasesByCharacter({});
@@ -2664,6 +2735,8 @@ function App() {
     setOpenedPhoneConversationKey('');
     setRecentlyUsedEmojis([]);
     setRecentChatCharacterIds([]);
+    setPhoneNotesByCharacter({});
+    setChatGpdChatsByCharacter({});
     resetSystemLog();
     setActiveSessionFileName(null);
     setActiveSessionSavedTurn(null);
@@ -2825,11 +2898,14 @@ function App() {
       ),
     );
     setBankingSeenByCharacter(sessionState.bankingSeenByCharacter);
+    setPhoneAppSeenByCharacter(sessionState.phoneAppSeenByCharacter);
     setBankingContactsByCharacter(sessionState.bankingContactsByCharacter);
     setSocialLikesByAccount(sessionState.socialLikesByAccount);
     setOnlyFriendsPurchasesByCharacter(sessionState.onlyFriendsPurchasesByCharacter);
     setPhoneDividerAfterByConversation(sessionState.phoneDividerAfterByConversation);
     setRecentlyUsedEmojis(sessionState.recentlyUsedEmojis ?? []);
+    setPhoneNotesByCharacter(sessionState.phoneNotesByCharacter);
+    setChatGpdChatsByCharacter(sessionState.chatGpdChatsByCharacter);
     setRecentChatCharacterIds([]);
     setOpenedPhoneConversationKey('');
     resetSystemLog();
@@ -2932,10 +3008,13 @@ function App() {
       setBankingSeenByCharacter(
         bankingSeenStateFromMessages(storyCharactersFromNodes(loadedNodes), openingMessages),
       );
+      setPhoneAppSeenByCharacter({});
       setBankingContactsByCharacter({});
       setSocialLikesByAccount({});
       setOnlyFriendsPurchasesByCharacter({});
       setPhoneDividerAfterByConversation({});
+      setPhoneNotesByCharacter(openingHistoryNotesFromNodes(loadedNodes));
+      setChatGpdChatsByCharacter(openingHistoryChatGpdChatsFromNodes(loadedNodes));
       setOpenedPhoneConversationKey('');
       nextMessageIdRef.current =
         openingMessages.reduce(
@@ -4593,6 +4672,82 @@ function App() {
     return id;
   }
 
+  function appendManualPhoneAppHistoryTurn(
+    originalText: string,
+    metadata: Pick<MessageRecord, 'createdPhoneNote' | 'simulatedAiChat'>,
+  ) {
+    if (activeTurnCollectorRef.current) {
+      notifySystem('warning', 'Finish the current run before adding manual Phone App history.');
+      return;
+    }
+    const turnNumber = (turnsRef.current[turnsRef.current.length - 1]?.number ?? 0) + 1;
+    const turnId = createTurnId(turnNumber);
+    const messageId = nextMessageIdRef.current;
+    nextMessageIdRef.current += 1;
+    const createdAt = new Date().toISOString();
+    const message: MessageRecord = {
+      id: messageId,
+      role: 'output',
+      originalText,
+      includeInHistory: true,
+      channel: 'rp',
+      turnId,
+      turnNumber,
+      turnPart: 'output',
+      ...metadata,
+    };
+    const turn: TurnRecord = {
+      id: turnId,
+      number: turnNumber,
+      createdAt,
+      mode: 'user',
+      input: {
+        graphText: '',
+        messages: [],
+      },
+      output: {
+        graphText: originalText,
+        messages: [message],
+      },
+    };
+    const checkpoint = createTurnCheckpointFromNodesForTurnRecord(
+      turn,
+      nodesRef.current,
+      nodesRef.current,
+      workflowSettingsValuesRef.current,
+      workflowSettingsValuesRef.current,
+    );
+    messagesRef.current = [...messagesRef.current, message];
+    turnsRef.current = [...turnsRef.current, turn];
+    const nextCheckpoints = trimCheckpoints([...turnCheckpointsRef.current, checkpoint]);
+    turnCheckpointsRef.current = nextCheckpoints;
+    setMessages(messagesRef.current);
+    setTurns(turnsRef.current);
+    setTurnCheckpoints(nextCheckpoints);
+  }
+
+  function commitManualCreatedPhoneNote(note: PhoneNoteRecord) {
+    const commit = manualCreatedPhoneNoteCommit(viewedPhoneCharacter, note);
+    if (!commit || hasCreatedPhoneNoteHistory(messagesRef.current, commit)) {
+      return;
+    }
+    appendManualPhoneAppHistoryTurn(
+      createdPhoneNoteHistoryText(commit),
+      { createdPhoneNote: commit },
+    );
+  }
+
+  function commitManualChatGpdChat(chat: ChatGpdChatRecord) {
+    const commit = manualSimulatedAiChatCommit(viewedPhoneCharacter, chat);
+    if (!commit || hasSimulatedAiChatHistory(messagesRef.current, commit)) {
+      return;
+    }
+    appendManualPhoneAppHistoryTurn(
+      simulatedAiChatHistoryText(commit),
+      { simulatedAiChat: commit },
+    );
+  }
+
   function setOutputActionChoicesHiddenByTurn(turnId: string, hidden: boolean) {
     const shouldPatch = (message: MessageRecord) =>
       ((message.outputActionChoices?.length ?? 0) > 0 ||
@@ -4688,6 +4843,16 @@ function App() {
     updateWorkflowComfyGenerationActive,
     setOutputActionChoicesHiddenByTurn,
     setWorkflowVariablesFromCommands,
+    commitSimulatedAiChats: (turnId, chats) => {
+      setChatGpdChatsByCharacter((current) =>
+        replaceSimulatedAiChatsForTurn(current, turnId, chats)
+      );
+    },
+    commitCreatedPhoneNotes: (turnId, notes) => {
+      setPhoneNotesByCharacter((current) =>
+        replaceCreatedPhoneNotesForTurn(current, turnId, notes)
+      );
+    },
     workflowSettingsValuesForGraph,
     settingsValueDefinitionsRef,
     promptActionSettings,
@@ -4974,6 +5139,13 @@ function App() {
     setOutputActionChoicesHiddenByTurn(turn.id, false);
     removeTurnCheckpoint(turn.id);
     removeTurnTracesForTurn(turn.id);
+    const removedTurnMessages = flattenTurnMessages([turn]);
+    setChatGpdChatsByCharacter((current) =>
+      revertSimulatedAiChatsForMessages(current, removedTurnMessages, messagesRef.current)
+    );
+    setPhoneNotesByCharacter((current) =>
+      revertCreatedPhoneNotesForMessages(current, removedTurnMessages, messagesRef.current)
+    );
     cancelEditMessage();
   }
 
@@ -6601,6 +6773,7 @@ function App() {
               highlightedPhoneMessagePulseKey={highlightedPhoneMessage?.pulseKey ?? 0}
               unreadPhoneConversations={unreadPhoneConversations}
               unreadBankingCount={unreadBankingCount}
+              phoneAppNotificationCounts={phoneAppNotificationCounts}
               phoneHomeRequestId={phoneHomeRequestId}
               socialPostOpenRequest={socialPostOpenRequest}
               phoneImages={phoneImages}
@@ -6660,6 +6833,7 @@ function App() {
               onOpenPhoneContact={openPhoneContact}
               onMarkSelectedPhoneConversationSeen={markSelectedPhoneConversationSeen}
               onMarkBankingSeen={markViewedBankingSeen}
+              onMarkPhoneAppSeen={markViewedPhoneAppSeen}
               onOpenUnreadPhoneConversation={openUnreadPhoneConversation}
               unreadPhoneSwitchName={unreadPhoneSwitchName}
               onSwitchToViewedCharacter={() => {
@@ -6797,6 +6971,25 @@ function App() {
                 notifySystem('info', `Saved generated image in ${character.name}'s Phone Gallery.`);
               }}
               onPhoneWallpaperChange={changeStorybookPhoneWallpaper}
+              chatGpd={chatGpd}
+              chatGpdSidebarOpen={chatGpdSidebarOpen}
+              onChatGpdSidebarOpenChange={setChatGpdSidebarOpen}
+              chatGpdSidebarWidth={chatGpdSidebarWidth}
+              onChatGpdSidebarWidthChange={setChatGpdSidebarWidth}
+              phoneNotes={viewedPhoneCharacter
+                ? phoneNotesByCharacter[viewedPhoneCharacter.id] ?? []
+                : []}
+              onPhoneNotesChange={(notes) => {
+                if (viewedPhoneCharacter) {
+                  const characterId = viewedPhoneCharacter.id;
+                  setPhoneNotesByCharacter((current) => ({
+                    ...current,
+                    [characterId]: notes,
+                  }));
+                }
+              }}
+              onPhoneNoteCommit={commitManualCreatedPhoneNote}
+              onChatGpdChatCommit={commitManualChatGpdChat}
               phoneDesktopLayout={phoneDesktopLayout}
               onPhoneDesktopLayoutChange={setPhoneDesktopLayout}
               phoneDesktopIconSize={phoneDesktopIconSize}
@@ -6873,7 +7066,7 @@ function App() {
           onGenerateCharacterComfyPreview={generateCharacterComfyPreview}
           onGenerateCharacterVoicePreview={generateCharacterVoicePreview}
           onUnloadCharacterComfyModels={unloadCharacterComfyModels}
-          onImportOpeningHistory={() => importCurrentChatAsOpeningHistory(storybookCreatorNode.id)}
+          onImportOpeningHistory={() => importCurrentSessionAsOpeningHistory(storybookCreatorNode.id)}
           onClearOpeningHistory={() => clearStorybookOpeningHistory(storybookCreatorNode.id)}
           onResetStorybook={() => resetStorybook(storybookCreatorNode.id)}
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}

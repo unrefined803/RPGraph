@@ -1,5 +1,7 @@
 export type PromptCommandId =
   | 'bank_transfer'
+  | 'create_note'
+  | 'simulate_ai_chat'
   | 'phone_message'
   | 'display_image'
   | 'fotogram_post_comment'
@@ -26,6 +28,8 @@ export type PromptCommandToken = {
 
 export const promptCommandIds: PromptCommandId[] = [
   'bank_transfer',
+  'create_note',
+  'simulate_ai_chat',
   'phone_message',
   'display_image',
   'fotogram_post_comment',
@@ -33,6 +37,18 @@ export const promptCommandIds: PromptCommandId[] = [
   'fotogram_direct_message',
   'onlyfriends_direct_message',
 ];
+
+const promptCommandDisplayNames: Record<PromptCommandId, string> = {
+  bank_transfer: 'Bank_transfer',
+  create_note: 'Create_Note',
+  simulate_ai_chat: 'Simulate_ChatGPD',
+  phone_message: 'Phone_message',
+  display_image: 'Display_image',
+  fotogram_post_comment: 'Fotogram_post_comment',
+  onlyfriends_post_comment: 'OnlyFriends_post_comment',
+  fotogram_direct_message: 'Fotogram_direct_message',
+  onlyfriends_direct_message: 'OnlyFriends_direct_message',
+};
 
 const bankTransferInstruction = [
   'Command bank_transfer — send money with the phone Banking app.',
@@ -50,6 +66,62 @@ const bankTransferInstruction = [
   '}',
   '',
   'Copy the actual sender, recipient, and numeric amount from the transfer described in the context or your reply, even when the story names another currency or one party is an outside contact. Do not invent a transfer when no payment occurs. amount must be a positive number; the Banking app displays ledger amounts in US-dollar format. note is optional. Use full displayed names in from/to. The transfer appears in every involved Storybook character\'s Banking app and changes their balance. Several transfers can share one bankTransfers array.',
+].join('\n');
+
+const createNoteInstruction = [
+  'Command create_note — create and save a new entry in a Storybook character\'s phone Notes app.',
+  '',
+  'Output exactly one JSON object in this format:',
+  '{',
+  '  "phoneNote": {',
+  '    "character": "full Storybook character name",',
+  '    "title": "short note title",',
+  '    "text": "the complete note content"',
+  '  }',
+  '}',
+  '',
+  'The finished reply shown above already established that this character creates or saves a note now. Write the actual note that fits the story context and that finished reply. Do not repeat the surrounding RP narration inside the note.',
+  '',
+  'character must be the full displayed name of the Storybook character whose phone receives the note. title must be a short, useful title. text must contain the complete note in that character\'s natural wording and perspective.',
+  '',
+  'The entry may be a normal note, reminder, to-do item, checklist, plan, private thought, or short diary entry. Match the appropriate form to the scene. For a diary entry or personal thought, write naturally in the character\'s voice. For a reminder or plan, keep it practical and concise.',
+  '',
+  'Use plain text with line breaks. When a list fits, format every item on its own line starting with "- ". Do not use markdown headings, tables, code fences, or JSON inside text.',
+  '',
+  'Use this command only when the story or finished reply shows that the character actually creates or saves the note now. Merely remembering something, thinking about writing it later, or mentioning the Notes app is not enough. The completed entry appears in that character\'s phone Notes app.',
+].join('\n');
+
+const simulateAiChatInstruction = [
+  'Command simulate_ai_chat — simulate and record a Storybook character\'s conversation with the phone AI assistant app.',
+  '',
+  'Output exactly one JSON object in this format:',
+  '{',
+  '  "aiAssistantChat": {',
+  '    "character": "full Storybook character name",',
+  '    "messages": [',
+  '      {',
+  '        "role": "user",',
+  '        "text": "the character\'s question or message"',
+  '      },',
+  '      {',
+  '        "role": "assistant",',
+  '        "text": "the AI assistant\'s response"',
+  '      }',
+  '    ]',
+  '  }',
+  '}',
+  '',
+  'Simulate the complete AI conversation described or initiated in the context and finished reply. Write both the character messages and the assistant responses yourself; do not request another real AI call.',
+  '',
+  'character must be the full displayed name of the Storybook character using the app. messages must contain one to four complete exchanges: 2, 4, 6, or 8 messages. Begin with role "user", alternate strictly between "user" and "assistant", and end with role "assistant".',
+  '',
+  'Continue the discussion naturally when more than one exchange is useful. Follow-up messages may question, clarify, challenge, or refine the previous answer. Keep every message focused on the topic established in the context or finished reply.',
+  '',
+  'ChatGPD is the story world\'s fictional AI assistant app. It works similarly to the real-world ChatGPT service but is a separate product with its own name. If someone loosely calls it ChatGPT, characters may naturally clarify that the app they have is ChatGPD. The assistant responses come from ChatGPD and must not identify the service as ChatGPT.',
+  '',
+  'The assistant is a competent general-purpose AI. Its answers must be useful, natural, and written in the same language as the character. Do not turn every answer into a joke.',
+  '',
+  'Use this command only when a Storybook character actually uses the AI assistant app now. Merely mentioning AI, suggesting that someone could ask it later, or discussing AI is not enough. The completed conversation is saved as a new chat in that character\'s phone AI Assistant app.',
 ].join('\n');
 
 const phoneMessageInstruction = [
@@ -153,6 +225,10 @@ export function defaultPromptCommandInstructionTemplate(commandId: PromptCommand
   switch (commandId) {
     case 'bank_transfer':
       return bankTransferInstruction;
+    case 'create_note':
+      return createNoteInstruction;
+    case 'simulate_ai_chat':
+      return simulateAiChatInstruction;
     case 'phone_message':
       return phoneMessageInstruction;
     case 'display_image':
@@ -182,7 +258,19 @@ export function isDefaultPromptCommandConfig(config: PromptCommandConfig) {
 
 export function knownPromptCommandId(name: string): PromptCommandId | undefined {
   const normalized = name.trim().toLocaleLowerCase();
+  if (normalized === 'simulate_chatgpd') {
+    return 'simulate_ai_chat';
+  }
   return promptCommandIds.find((commandId) => commandId === normalized);
+}
+
+export function promptCommandTokenText(commandId: PromptCommandId) {
+  return `@command: ${promptCommandDisplayNames[commandId]}`;
+}
+
+function formattedUnknownCommandName(name: string) {
+  const trimmed = name.trim();
+  return trimmed ? `${trimmed[0].toLocaleUpperCase()}${trimmed.slice(1)}` : trimmed;
 }
 
 function normalizePromptCommandConfig(value: unknown): PromptCommandConfig | undefined {
@@ -239,7 +327,16 @@ export function configForPromptCommandToken(
     ?? defaultPromptCommandConfig(commandId);
 }
 
-export const promptCommandTokenPattern = /@command:([A-Za-z0-9_]+)/g;
+export const promptCommandTokenPattern = /@command:[ \t]*([A-Za-z0-9_]+)/gi;
+
+export function formatPromptCommandTokens(text: string) {
+  return text.replace(promptCommandTokenPattern, (_raw, name: string) => {
+    const commandId = knownPromptCommandId(name);
+    return commandId
+      ? promptCommandTokenText(commandId)
+      : `@command: ${formattedUnknownCommandName(name)}`;
+  });
+}
 
 export function parsePromptCommandTokens(text: string): PromptCommandToken[] {
   const tokens: PromptCommandToken[] = [];
@@ -251,10 +348,13 @@ export function parsePromptCommandTokens(text: string): PromptCommandToken[] {
 }
 
 export function countPromptCommandUses(values: string[], name: string) {
+  const commandId = knownPromptCommandId(name);
   const normalizedName = name.trim().toLocaleLowerCase();
   return values.reduce(
     (count, value) => count + parsePromptCommandTokens(value).filter(
-      (token) => token.name === normalizedName,
+      (token) => commandId
+        ? knownPromptCommandId(token.name) === commandId
+        : token.name === normalizedName,
     ).length,
     0,
   );

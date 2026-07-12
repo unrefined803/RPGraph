@@ -113,6 +113,8 @@ function messageToTimelineEntry(
     socialThreadAction: message.socialThreadAction,
     socialReactions: message.socialReactions,
     socialDirectMessage: message.socialDirectMessage,
+    createdPhoneNote: message.createdPhoneNote,
+    simulatedAiChat: message.simulatedAiChat,
   };
 }
 

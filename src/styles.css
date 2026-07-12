@@ -6216,7 +6216,9 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-camera-icon,
 .phone-banking-icon,
 .phone-fotogram-icon,
-.phone-onlyfriends-icon {
+.phone-onlyfriends-icon,
+.phone-notes-icon,
+.phone-chatgpd-icon {
   display: grid;
   width: calc(var(--phone-icon, 52px) * 0.85);
   height: calc(var(--phone-icon, 52px) * 0.85);
@@ -6261,12 +6263,26 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgba(244, 114, 182, 0.58);
 }
 
+.phone-notes-icon {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.42), rgba(180, 83, 9, 0.22));
+  border-color: rgba(251, 191, 36, 0.55);
+}
+
+.phone-chatgpd-icon {
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.42), rgba(13, 148, 136, 0.22));
+  border-color: rgba(94, 234, 212, 0.55);
+  font-size: calc(var(--phone-icon, 52px) * 0.34);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
 .phone-whatsup-icon svg,
 .phone-gallery-icon svg,
 .phone-camera-icon svg,
 .phone-banking-icon svg,
 .phone-fotogram-icon svg,
-.phone-onlyfriends-icon svg {
+.phone-onlyfriends-icon svg,
+.phone-notes-icon svg {
   width: 54%;
   height: 54%;
 }
@@ -6315,6 +6331,24 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgba(251, 207, 232, 0.86);
   box-shadow:
     0 8px 24px rgba(225, 29, 72, 0.46),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+.phone-desktop-app:hover .phone-notes-icon,
+.phone-desktop-app:focus-visible .phone-notes-icon {
+  transform: translateY(-3px) scale(1.06);
+  border-color: rgba(253, 224, 71, 0.8);
+  box-shadow:
+    0 8px 24px rgba(245, 158, 11, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+.phone-desktop-app:hover .phone-chatgpd-icon,
+.phone-desktop-app:focus-visible .phone-chatgpd-icon {
+  transform: translateY(-3px) scale(1.06);
+  border-color: rgba(153, 246, 228, 0.85);
+  box-shadow:
+    0 8px 24px rgba(45, 212, 191, 0.45),
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
 
@@ -7478,6 +7512,711 @@ input[type="number"]::-webkit-outer-spin-button {
   justify-content: flex-start;
 }
 
+.phone-notes-screen {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: #151515;
+}
+
+.phone-notes-screen .phone-gallery-header {
+  justify-content: flex-start;
+}
+
+.phone-notes-screen .phone-gallery-header .phone-notes-delete-button {
+  margin-left: auto;
+}
+
+.phone-notes-scroll {
+  min-height: 0;
+  flex: 1;
+  padding: 14px 14px 76px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Masonry columns: cards grow with their content and pack vertically. */
+.phone-notes-masonry {
+  columns: 2 140px;
+  column-gap: 10px;
+}
+
+/* Gentle paper colors shared by note cards, the editor, and its color picker. */
+.phone-notes-card.color-neutral,
+.phone-notes-editor.color-neutral,
+.phone-notes-color-option.color-neutral {
+  --note-tint: 196, 196, 196;
+}
+
+.phone-notes-card.color-sand,
+.phone-notes-editor.color-sand,
+.phone-notes-color-option.color-sand {
+  --note-tint: 224, 193, 139;
+}
+
+.phone-notes-card.color-coral,
+.phone-notes-editor.color-coral,
+.phone-notes-color-option.color-coral {
+  --note-tint: 224, 145, 137;
+}
+
+.phone-notes-card.color-peach,
+.phone-notes-editor.color-peach,
+.phone-notes-color-option.color-peach {
+  --note-tint: 229, 172, 126;
+}
+
+.phone-notes-card.color-mint,
+.phone-notes-editor.color-mint,
+.phone-notes-color-option.color-mint {
+  --note-tint: 135, 201, 171;
+}
+
+.phone-notes-card.color-sky,
+.phone-notes-editor.color-sky,
+.phone-notes-color-option.color-sky {
+  --note-tint: 137, 183, 218;
+}
+
+.phone-notes-card.color-lavender,
+.phone-notes-editor.color-lavender,
+.phone-notes-color-option.color-lavender {
+  --note-tint: 178, 158, 216;
+}
+
+.phone-notes-card.color-rose,
+.phone-notes-editor.color-rose,
+.phone-notes-color-option.color-rose {
+  --note-tint: 218, 154, 180;
+}
+
+.phone-notes-card {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 12px 13px;
+  break-inside: avoid;
+  border: 1px solid rgba(var(--note-tint), 0.24);
+  border-radius: 14px;
+  background: linear-gradient(
+    160deg,
+    rgba(var(--note-tint), 0.13),
+    rgba(var(--note-tint), 0.045)
+  );
+  color: #f2eee6;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.phone-notes-card:hover,
+.phone-notes-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(var(--note-tint), 0.65);
+  box-shadow: 0 6px 16px rgba(var(--note-tint), 0.25);
+}
+
+.phone-notes-card strong {
+  font-size: 13px;
+  line-height: 1.3;
+  color: rgba(var(--note-tint), 0.96);
+  overflow-wrap: anywhere;
+}
+
+.phone-notes-card span {
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.phone-notes-card span.empty {
+  color: rgba(242, 238, 230, 0.45);
+  font-style: italic;
+}
+
+.phone-notes-card small {
+  margin-top: 2px;
+  font-size: 10px;
+  color: rgba(242, 238, 230, 0.5);
+}
+
+.phone-notes-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 42px 8px;
+  color: rgba(242, 238, 230, 0.45);
+  font-size: 13px;
+  text-align: center;
+}
+
+.phone-notes-add-button {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #fff7e6;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.phone-notes-add-button:hover,
+.phone-notes-add-button:focus-visible {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+}
+
+.phone-notes-add-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.phone-notes-editor {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 14px 16px;
+  padding: 12px;
+  border: 1px solid rgba(var(--note-tint), 0.24);
+  border-radius: 16px;
+  background: linear-gradient(
+    160deg,
+    rgba(var(--note-tint), 0.1),
+    rgba(var(--note-tint), 0.035)
+  );
+}
+
+.phone-notes-editor-title {
+  flex: none;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid rgba(var(--note-tint), 0.3);
+  border-radius: 0;
+  background: transparent;
+  color: rgba(var(--note-tint), 0.96);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.phone-notes-editor-text {
+  min-height: 0;
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: #f2eee6;
+  font-size: 13px;
+  line-height: 1.55;
+  resize: none;
+}
+
+.phone-notes-editor-title::placeholder,
+.phone-notes-editor-text::placeholder {
+  color: rgba(242, 238, 230, 0.4);
+}
+
+.phone-notes-editor-title:focus,
+.phone-notes-editor-text:focus {
+  outline: none;
+}
+
+.phone-notes-editor-title:focus {
+  border-bottom-color: rgba(var(--note-tint), 0.6);
+}
+
+.phone-notes-color-picker {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 4px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.phone-notes-color-option {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(var(--note-tint), 0.55);
+  border-radius: 50%;
+  background: rgba(var(--note-tint), 0.34);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.phone-notes-color-option:hover,
+.phone-notes-color-option:focus-visible {
+  transform: scale(1.12);
+  border-color: rgba(var(--note-tint), 0.95);
+}
+
+.phone-notes-color-option[aria-pressed="true"] {
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 2px rgba(var(--note-tint), 0.48);
+}
+
+.phone-notes-delete-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  cursor: pointer;
+}
+
+.phone-notes-delete-button:hover,
+.phone-notes-delete-button:focus-visible {
+  border-color: rgba(248, 113, 113, 0.6);
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.phone-chatgpd-screen {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: #101418;
+}
+
+.phone-chatgpd-screen .phone-gallery-header {
+  justify-content: flex-start;
+}
+
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-clear-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  margin-left: auto;
+  border: 1px solid rgba(94, 234, 212, 0.3);
+  border-radius: 8px;
+  background: rgba(45, 212, 191, 0.1);
+  color: #99f6e4;
+  cursor: pointer;
+}
+
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-clear-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-clear-button:not(:disabled):hover,
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-clear-button:not(:disabled):focus-visible {
+  border-color: rgba(94, 234, 212, 0.6);
+  background: rgba(45, 212, 191, 0.2);
+}
+
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-chats-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-chats-button:hover,
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-chats-button:focus-visible,
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-chats-button[aria-expanded="true"] {
+  border-color: rgba(94, 234, 212, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.phone-chatgpd-body {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+
+.phone-chatgpd-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.phone-chatgpd-sidebar {
+  display: flex;
+  min-height: 0;
+  max-width: 70%;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(13, 18, 24, 0.85);
+}
+
+.phone-chatgpd-resizer {
+  width: 7px;
+  flex: none;
+  margin: 0 -2px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.phone-chatgpd-resizer:hover,
+.phone-chatgpd-resizer:active,
+.phone-chatgpd-resizer:focus-visible {
+  border-left-color: rgba(94, 234, 212, 0.55);
+  outline: none;
+}
+
+.phone-chatgpd-new-chat {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(94, 234, 212, 0.3);
+  border-radius: 10px;
+  background: rgba(45, 212, 191, 0.1);
+  color: #99f6e4;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.phone-chatgpd-new-chat:hover,
+.phone-chatgpd-new-chat:focus-visible {
+  border-color: rgba(94, 234, 212, 0.6);
+  background: rgba(45, 212, 191, 0.2);
+}
+
+.phone-chatgpd-chat-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.phone-chatgpd-chat-item {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  border-radius: 9px;
+}
+
+.phone-chatgpd-chat-item.active {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.phone-chatgpd-chat-title {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  padding: 8px 9px;
+  overflow: hidden;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 13.5px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.phone-chatgpd-chat-item:hover .phone-chatgpd-chat-title {
+  color: #ffffff;
+}
+
+.phone-chatgpd-chat-delete {
+  display: none;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  margin-right: 4px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(252, 165, 165, 0.85);
+  cursor: pointer;
+}
+
+.phone-chatgpd-chat-item:hover .phone-chatgpd-chat-delete,
+.phone-chatgpd-chat-item:focus-within .phone-chatgpd-chat-delete,
+.phone-chatgpd-chat-item.active .phone-chatgpd-chat-delete {
+  display: grid;
+}
+
+.phone-chatgpd-chat-delete:hover,
+.phone-chatgpd-chat-delete:focus-visible {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.phone-chatgpd-chat-delete:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.phone-chatgpd-chat-list-empty {
+  padding: 10px 9px;
+  color: rgba(226, 232, 240, 0.55);
+  font-size: 13px;
+}
+
+.phone-chatgpd-model {
+  position: relative;
+  min-width: 0;
+}
+
+.phone-chatgpd-model-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  cursor: pointer;
+}
+
+.phone-chatgpd-model-button strong {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.phone-chatgpd-model-button:hover,
+.phone-chatgpd-model-button:focus-visible {
+  border-color: rgba(94, 234, 212, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.phone-chatgpd-model-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.phone-chatgpd-model-menu {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  min-width: 168px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(17, 24, 32, 0.97);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+
+.phone-chatgpd-model-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.phone-chatgpd-model-menu button:hover,
+.phone-chatgpd-model-menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.phone-chatgpd-model-menu button.active {
+  color: #99f6e4;
+}
+
+.phone-chatgpd-thread {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.phone-chatgpd-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(226, 232, 240, 0.75);
+  text-align: center;
+}
+
+.phone-chatgpd-empty svg {
+  color: rgba(94, 234, 212, 0.8);
+}
+
+.phone-chatgpd-empty span {
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.phone-chatgpd-empty small {
+  max-width: 240px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgba(226, 232, 240, 0.55);
+}
+
+.phone-chatgpd-bubble {
+  max-width: 86%;
+  padding: 9px 12px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.phone-chatgpd-bubble.user {
+  align-self: flex-end;
+  border-bottom-right-radius: 6px;
+  background: rgba(45, 212, 191, 0.2);
+  color: #ecfeff;
+}
+
+.phone-chatgpd-bubble.assistant {
+  align-self: flex-start;
+  border-bottom-left-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8edf4;
+}
+
+.phone-chatgpd-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0;
+}
+
+.phone-chatgpd-typing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(226, 232, 240, 0.7);
+  animation: phone-chatgpd-typing-bounce 1.2s infinite ease-in-out;
+}
+
+.phone-chatgpd-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.phone-chatgpd-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes phone-chatgpd-typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.phone-chatgpd-composer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.phone-chatgpd-composer input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  font-size: 14.5px;
+}
+
+.phone-chatgpd-composer input:focus {
+  border-color: rgba(94, 234, 212, 0.55);
+  outline: none;
+}
+
+.phone-chatgpd-composer input:disabled {
+  color: rgba(226, 232, 240, 0.48);
+  cursor: not-allowed;
+}
+
+.phone-chatgpd-composer button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: #0d9488;
+  color: #f0fdfa;
+  cursor: pointer;
+}
+
+.phone-chatgpd-composer button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.phone-chatgpd-composer button:not(:disabled):hover,
+.phone-chatgpd-composer button:not(:disabled):focus-visible {
+  background: #14b8a6;
+}
+
 .phone-banking-scroll {
   display: flex;
   min-height: 0;
@@ -8563,6 +9302,156 @@ input[type="number"]::-webkit-outer-spin-button {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.phone-app-command-card-stack {
+  display: flex;
+  width: min(100%, 620px);
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.chat-created-note-card,
+.chat-simulated-ai-card {
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+.chat-created-note-card {
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  background: linear-gradient(145deg, rgba(66, 48, 18, 0.95), rgba(31, 28, 22, 0.98));
+  color: #fef3c7;
+}
+
+.chat-created-note-card > header,
+.chat-simulated-ai-card > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.chat-created-note-card > header > span:nth-child(2),
+.chat-simulated-ai-card > header > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.chat-created-note-card header strong,
+.chat-simulated-ai-card header strong {
+  font-size: 0.95em;
+}
+
+.chat-created-note-card header small,
+.chat-simulated-ai-card header small,
+.chat-created-note-card header time {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.76em;
+}
+
+.chat-created-note-icon,
+.chat-simulated-ai-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: 9px;
+}
+
+.chat-created-note-icon {
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  background: rgba(245, 158, 11, 0.17);
+  color: #fcd34d;
+}
+
+.chat-created-note-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.chat-created-note-paper {
+  margin: 0 10px 10px;
+  padding: 12px 13px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.chat-created-note-paper > strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #fde68a;
+  font-size: 0.95em;
+}
+
+.chat-created-note-paper p {
+  margin: 0;
+  color: #f8f2e5;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-simulated-ai-card {
+  border: 1px solid rgba(94, 234, 212, 0.28);
+  background: linear-gradient(145deg, rgba(16, 36, 38, 0.97), rgba(18, 24, 31, 0.99));
+  color: #ecfeff;
+}
+
+.chat-simulated-ai-icon {
+  border: 1px solid rgba(94, 234, 212, 0.42);
+  background: rgba(45, 212, 191, 0.15);
+  color: #99f6e4;
+  font-size: 0.74em;
+  font-weight: 800;
+}
+
+.chat-simulated-ai-thread {
+  display: flex;
+  max-height: 380px;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 10px 10px;
+  padding: 11px;
+  overflow-y: auto;
+  border: 1px solid rgba(94, 234, 212, 0.13);
+  border-radius: 12px;
+  background: rgba(5, 12, 16, 0.4);
+}
+
+.chat-simulated-ai-message {
+  display: flex;
+  max-width: 88%;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  line-height: 1.42;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-simulated-ai-message.user {
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  background: rgba(45, 212, 191, 0.18);
+}
+
+.chat-simulated-ai-message.assistant {
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.chat-simulated-ai-message small {
+  color: rgba(226, 232, 240, 0.55);
+  font-size: 0.7em;
+  font-weight: 700;
 }
 
 .bank-transfer-card {
