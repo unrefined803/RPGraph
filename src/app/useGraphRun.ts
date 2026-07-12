@@ -100,7 +100,9 @@ import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
   chatGpdFallbackTitle,
   createdPhoneNoteIdPrefix,
+  createdPhoneNoteHistoryText,
   simulatedAiChatIdPrefix,
+  simulatedAiChatHistoryText,
   type CreatedPhoneNoteCommit,
   type SimulatedAiChatCommit,
 } from '../chat/phoneAppsSessions';
@@ -1772,16 +1774,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const earlyOutput = {
             originalText: rpOutput,
             imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
-            includeInHistory:
-              !!rpOutput.trim() ||
-              !!rpDisplayImageAttachment ||
-              createdPhoneNoteCommits.length > 0 ||
-              simulatedAiChatCommits.length > 0,
+            includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
             embeddedPhoneMessages: embeddedPhoneMessages.map((link) => ({ ...link })),
             embeddedPhoneTextBefore: embeddedPhoneResult.textBefore,
             embeddedPhoneTextAfter: embeddedPhoneResult.textAfter,
-            createdPhoneNote: createdPhoneNoteCommits[0],
-            simulatedAiChat: simulatedAiChatCommits[0],
           };
           if (liveOutputMessageId === undefined) {
             liveOutputMessageId = appendMessage({ role: 'output', ...earlyOutput });
@@ -1918,11 +1914,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         originalText: rpOutput,
         translatedText: translatedOutput,
         imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
-        includeInHistory:
-          !!rpOutput.trim() ||
-          !!rpDisplayImageAttachment ||
-          createdPhoneNoteCommits.length > 0 ||
-          simulatedAiChatCommits.length > 0,
+        includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
         speakerName: primarySpeaker,
         speakerNames: attributedNames,
         speakerColors,
@@ -1935,8 +1927,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
         embeddedPhoneTranslatedTextBefore,
         embeddedPhoneTranslatedTextAfter,
         workflowVariableSetCommands: workflowVariableSetCommandsForOutput,
-        createdPhoneNote: createdPhoneNoteCommits[0],
-        simulatedAiChat: simulatedAiChatCommits[0],
       };
       if (!isPhoneMessage && liveOutputMessageId === undefined) {
         appendMessage({
@@ -1944,11 +1934,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           originalText: rpOutput,
           translatedText: translatedOutput,
           imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
-          includeInHistory:
-            !!rpOutput.trim() ||
-            !!rpDisplayImageAttachment ||
-            createdPhoneNoteCommits.length > 0 ||
-            simulatedAiChatCommits.length > 0,
+          includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
           speakerName: primarySpeaker,
           speakerNames: attributedNames,
           speakerColors,
@@ -1960,8 +1946,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
           embeddedPhoneTranslatedTextBefore,
           embeddedPhoneTranslatedTextAfter,
           workflowVariableSetCommands: workflowVariableSetCommandsForOutput,
-          createdPhoneNote: createdPhoneNoteCommits[0],
-          simulatedAiChat: simulatedAiChatCommits[0],
         });
       } else if (!isPhoneMessage && liveOutputMessageId !== undefined) {
         updateMessage(liveOutputMessageId, completedOutput);
@@ -2178,6 +2162,24 @@ export function useGraphRun(options: UseGraphRunOptions) {
             translatedText,
             includeInHistory: true,
             bankTransfer: canonicalTransfer,
+          });
+        }
+
+        for (const createdPhoneNote of createdPhoneNoteCommits) {
+          appendMessage({
+            role: 'output',
+            originalText: createdPhoneNoteHistoryText(createdPhoneNote),
+            includeInHistory: true,
+            createdPhoneNote,
+          });
+        }
+
+        for (const simulatedAiChat of simulatedAiChatCommits) {
+          appendMessage({
+            role: 'output',
+            originalText: simulatedAiChatHistoryText(simulatedAiChat),
+            includeInHistory: true,
+            simulatedAiChat,
           });
         }
 

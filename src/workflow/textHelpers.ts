@@ -20,15 +20,18 @@ import {
 } from '../chat/phoneAppsSessions';
 
 function withPhoneAppCommandHistory(text: string, message: MessageRecord) {
+  const trimmedText = text.trim();
   return [
-    text.trim(),
+    trimmedText,
     message.createdPhoneNote
       ? createdPhoneNoteHistoryText(message.createdPhoneNote)
       : '',
     message.simulatedAiChat
       ? simulatedAiChatHistoryText(message.simulatedAiChat)
       : '',
-  ].filter(Boolean).join('\n\n');
+  ].filter((entry, index) =>
+    !!entry && (index === 0 || !trimmedText.includes(entry.trim()))
+  ).join('\n\n');
 }
 
 export function validEstimatedTokenBytesPerToken(value?: number) {
