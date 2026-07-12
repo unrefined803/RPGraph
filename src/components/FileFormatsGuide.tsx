@@ -31,20 +31,10 @@ export function FileFormatsGuide() {
                   <div className="format-node-body">
                     <p className="format-description">Storybook content is embedded in RP Storybook nodes, or saved separately as a Storybook file.</p>
 
-                    <div className="format-node opening-history-format">
-                      <div className="format-node-header">
-                        <span className="format-node-badge">Storybook Field</span>
-                        <strong>Opening History</strong>
-                      </div>
-                      <div className="format-node-body">
-                        <p className="format-description">Optional starter messages and events that are copied into a new chat when the workflow starts.</p>
-                      </div>
-                    </div>
-
                     <div className="format-node character-cards-format">
                       <div className="format-node-header">
                         <span className="format-node-badge">Importable Files</span>
-                        <strong>Character Cards</strong>
+                        <strong>Character Cards (.json)</strong>
                       </div>
                       <div className="format-node-body">
                         <p className="format-description">Characters can be exported individually and imported into this Storybook.</p>
@@ -58,6 +48,16 @@ export function FileFormatsGuide() {
                             <strong>Character 2</strong>
                           </div>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="format-node opening-history-format">
+                      <div className="format-node-header">
+                        <span className="format-node-badge">Storybook Field</span>
+                        <strong>Opening History</strong>
+                      </div>
+                      <div className="format-node-body">
+                        <p className="format-description">Optional starter messages and events that are copied into a new chat when the workflow starts.</p>
                       </div>
                     </div>
                   </div>
