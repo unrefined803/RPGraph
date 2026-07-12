@@ -63,7 +63,23 @@ export function hydrateNodeData(
       storedData: structuredClone(data as Record<string, unknown>),
     } as WorkflowNodeData;
   }
-  return definition.hydrateData(data as WorkflowNodeData, context);
+  try {
+    return definition.hydrateData(data as WorkflowNodeData, context);
+  } catch {
+    // A node whose stored content cannot be hydrated (for example an
+    // embedded storybook in an older format) must not break the whole
+    // workflow load; it degrades to a disabled incompatible node card.
+    return {
+      nodeType: data.nodeType,
+      nodeDataVersion: data.nodeDataVersion,
+      currentNodeVersion: definition.dataVersion,
+      label: data.label,
+      description: data.description,
+      preview: data.preview,
+      kind: 'incompatible-core-node',
+      storedData: structuredClone(data as Record<string, unknown>),
+    } as WorkflowNodeData;
+  }
 }
 
 export function removeEdgesConnectedToIncompatibleNodes(nodes: WorkflowNode[], edges: Edge[]) {
