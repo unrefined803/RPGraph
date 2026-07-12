@@ -260,7 +260,7 @@
       },
       "data": {
         "nodeType": "rp-storybook-v1",
-        "label": "RP Storybook V1",
+        "label": "RP Storybook V2",
         "description": "Complete roleplay storybook",
         "preview": "No storybook loaded",
         "connectionId": "lm-studio-default",

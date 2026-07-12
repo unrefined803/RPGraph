@@ -28,6 +28,7 @@ import {
   rpStorybookImageDescriptionPromptSettings,
   rpStorybookImageDescriptionPromptText,
   rpStorybookLogicCheckInstruction,
+  estimatedRpStorybookPromptTokens,
   rpStorybookPhoneContactAllowed,
   rpStorybookPhoneContactCharacters,
   storybookCharacterImageOwnerIdBase,
@@ -74,6 +75,8 @@ import type {
   WorkflowNode,
 } from '../types';
 import { storybookImageById } from '../storybook/imageLibrary';
+import { StorybookConversionPanel } from '../storybook/StorybookConversionPanel';
+import type { StorybookConversionResult } from '../storybook/conversion';
 import { formatContextValue } from '../data-management/formatters';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import { sanitizeDataUrls, sanitizeDataUrlsInText } from '../utils/sanitize';
@@ -1088,6 +1091,13 @@ type StorybookCreatorDialogProps = {
   onImportSillyTavernCharacter: () => Promise<void>;
   onImportCharacterCard: () => Promise<void>;
   onExportCharacter: (characterId: string) => Promise<void>;
+  pendingConversion: {
+    fileName?: string;
+    sourceValue: unknown;
+    result: StorybookConversionResult;
+  } | null;
+  onApplyConversion: () => string | null;
+  onCancelConversion: () => void;
   onClose: () => void;
 };
 
@@ -3019,6 +3029,9 @@ export function StorybookCreatorDialog({
   onImportSillyTavernCharacter,
   onImportCharacterCard,
   onExportCharacter,
+  pendingConversion,
+  onApplyConversion,
+  onCancelConversion,
   onClose,
 }: StorybookCreatorDialogProps) {
   const [draft, setDraft] = useState('');
@@ -3049,6 +3062,10 @@ export function StorybookCreatorDialog({
       return emptyRpStorybookV1;
     }
   }, [node.data.storybookJson]);
+  const estimatedPromptTokens = useMemo(
+    () => estimatedRpStorybookPromptTokens(pendingConversion?.result.storybook ?? storybook),
+    [pendingConversion, storybook],
+  );
   const formattedTextSettings = rpStorybookFormattedTextSettings(node.data.storybookFormattedTextSettings);
   const phoneContactCharacters = useMemo(() => rpStorybookPhoneContactCharacters(storybook), [storybook]);
   const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
@@ -3276,7 +3293,12 @@ export function StorybookCreatorDialog({
             {/* Left Column: Document Panel */}
             <div className="storybook-document-panel">
               <div className="storybook-panel-header">
-                <span className="panel-title">Storybook Document</span>
+                <span className="panel-title">
+                  Storybook Document
+                  <span className="storybook-panel-token-estimate">
+                    ~{estimatedPromptTokens.toLocaleString('en-US')} tokens (images excluded)
+                  </span>
+                </span>
                 <div className="storybook-tabs">
                   <button
                     type="button"
@@ -3308,7 +3330,11 @@ export function StorybookCreatorDialog({
                     <JsonSyntaxTextarea
                       id="storybook-json-view"
                       readOnly
-                      value={JSON.stringify(sanitizeDataUrls(storybook), null, 2)}
+                      value={JSON.stringify(
+                        sanitizeDataUrls(pendingConversion ? pendingConversion.sourceValue : storybook),
+                        null,
+                        2,
+                      )}
                     />
                   </div>
                 )}
@@ -3319,12 +3345,23 @@ export function StorybookCreatorDialog({
                       id="storybook-formatted-text-view"
                       readOnly
                       spellCheck={false}
-                      value={rpStorybookFormattedText(storybook, node.data.storybookFormattedTextSettings)}
+                      value={pendingConversion
+                        ? `Storybook Format ${pendingConversion.result.sourceVersion} is not compatible with this build. Convert it in the UI Preview tab first.`
+                        : rpStorybookFormattedText(storybook, node.data.storybookFormattedTextSettings)}
                     />
                   </div>
                 )}
 
-                {viewMode === 'ui' && (
+                {viewMode === 'ui' && pendingConversion && (
+                  <StorybookConversionPanel
+                    fileName={pendingConversion.fileName}
+                    result={pendingConversion.result}
+                    onApply={onApplyConversion}
+                    onCancel={onCancelConversion}
+                  />
+                )}
+
+                {viewMode === 'ui' && !pendingConversion && (
                   <div className="storybook-ui-view">
                     {/* Header: Title and Introduction */}
                     <div className="storybook-ui-header">

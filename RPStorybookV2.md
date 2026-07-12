@@ -223,11 +223,15 @@ event details) still talk about the old cast.
    `rp-storybook-v1` node version 1.14.1 (patch — old workflows keep working);
    default workflow's embedded storybook bumped to 2.0.0.
 2. ✅ **Converter, deterministic stage** — `src/storybook/conversion.ts` +
-   `StorybookConversionDialog`. Loading any older storybook (plain or
-   encrypted after password unlock) automatically enters the conversion
-   checklist (✅ carried over / 🟡 filled with defaults, per section and per
-   character); Apply commits and prompts to save; Cancel loads nothing; the
-   old file is never touched. Verified against the real 1.19.0 export
+   `StorybookConversionPanel`. Loading any older storybook (plain or
+   encrypted after password unlock) automatically opens the storybook editor
+   with the conversion checklist rendered **inside the UI Preview tab** (not a
+   modal, per maintainer decision), so the assistant chat stays usable while
+   converting; the Raw JSON tab shows the old file's data (data URLs
+   sanitized) and Formatted Text shows a "not compatible, convert first"
+   notice. Checklist: ✅ carried over / 🟡 filled with defaults, per section
+   and per character; Apply commits and prompts to save; Cancel loads nothing;
+   the old file is never touched. Verified against the real 1.19.0 export
    (`SaveStorybook_V11.rpgraph-storybook.json`): all sections carry over.
 3. ⬜ **Converter, AI repair stage** — not needed yet: every 1.x → 2.0.0
    mapping is deterministic. Becomes relevant with the first field
@@ -248,9 +252,12 @@ event details) still talk about the old cast.
 6. ✅ Docs — OVERVIEW.md file formats section updated; AGENTS.md check-script
    list updated. Also done in this pass: assistant prompts no longer include
    Opening History turns (summary + counts only; images/voice were already
-   placeholder-redacted), and the storybook node card shows an estimated
-   token count (`~N tokens, images excluded`), also shown in the conversion
-   dialog.
+   placeholder-redacted); the storybook node card and the storybook editor's
+   "Storybook Document" header show an estimated token count
+   (`~N tokens, images excluded`), also shown in the conversion checklist;
+   the node and its editor are labeled **RP Storybook V2** (the internal node
+   type id stays `rp-storybook-v1`; only the user-facing label changed, so
+   stored workflows keep working).
 
 ## 8. Decisions from the maintainer (2026-07-12)
 

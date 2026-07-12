@@ -962,7 +962,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
   {
     type: 'rp-storybook-v1',
     dataVersion: currentCoreNodeVersions['rp-storybook-v1'],
-    label: 'RP Storybook V1',
+    label: 'RP Storybook V2',
     description: 'Complete roleplay storybook',
     menuDescription: 'Load or create complete roleplay story data',
     origin: 'core',
@@ -982,7 +982,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       position,
       style: { width: coreNodeLayout.rpStorybookWidth },
       data: {
-        label: 'RP Storybook V1',
+        label: 'RP Storybook V2',
         description: 'Complete roleplay storybook',
         preview: 'No storybook loaded',
         nodeType: 'rp-storybook-v1',

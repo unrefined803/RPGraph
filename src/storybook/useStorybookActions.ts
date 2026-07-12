@@ -108,6 +108,7 @@ export function useStorybookActions({
     nodeId: string;
     fileName?: string;
     filePath?: string;
+    sourceValue: unknown;
     result: StorybookConversionResult;
   } | null>(null);
   const [storybookCreatorNodeId, setStorybookCreatorNodeId] = useState<string | null>(null);
@@ -257,9 +258,11 @@ export function useStorybookActions({
   ) {
     if (isLegacyRpStorybookValue(storybookValue)) {
       const result = convertLegacyRpStorybook(storybookValue);
-      setPendingStorybookConversion({ nodeId, fileName, filePath, result });
+      setPendingStorybookConversion({ nodeId, fileName, filePath, sourceValue: storybookValue, result });
+      // The conversion checklist lives in the storybook editor's UI Preview.
+      setStorybookCreatorNodeId(nodeId);
       updateRuntimeNode(nodeId, {
-        storybookStatus: `Storybook Format ${result.sourceVersion} is older than ${result.targetVersion}. Review the conversion to load it.`,
+        storybookStatus: `Storybook Format ${result.sourceVersion} is older than ${result.targetVersion}. Review the conversion in the storybook editor.`,
       });
       return true;
     }
@@ -567,7 +570,7 @@ export function useStorybookActions({
       const currentJson = rpStorybookPromptJsonText(currentStorybook);
       const importedJson = JSON.stringify(importedCharacter, null, 2);
       const instruction = [
-        `Import this SillyTavern character JSON from "${file.fileName ?? 'selected JSON file'}" into the RPGraph Storybook V1 format.`,
+        `Import this SillyTavern character JSON from "${file.fileName ?? 'selected JSON file'}" into the RPGraph Storybook format.`,
         'Import it as a Storybook character. There is no playable-character/NPC distinction in the Storybook JSON.',
         'Map names, description, personality/persona, scenario/first message/greeting, example dialogue, creator notes, and tags into the closest useful Storybook fields.',
         'Preserve existing Storybook fields unless the import clearly fills an empty value or updates the same imported character.',

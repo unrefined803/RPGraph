@@ -157,7 +157,6 @@ import {
   normalizeEventAppointments,
 } from './data-management/eventStore';
 import { useStorybookActions } from './storybook/useStorybookActions';
-import { StorybookConversionDialog } from './storybook/StorybookConversionDialog';
 import { storybookImageIdsUsedByMessages } from './storybook/imageUsage';
 import storybookFormatVersions from './storybook/formatVersions.json';
 import {
@@ -2709,7 +2708,7 @@ function App() {
       nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook-v1') ??
       nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook-v1');
     if (!storybookNode || storybookNode.data.nodeType !== 'rp-storybook-v1') {
-      throw new Error('Add an RP Storybook V1 node before saving a storybook file.');
+      throw new Error('Add an RP Storybook V2 node before saving a storybook file.');
     }
     const storybook = storybookNode.data.storybookJson
       ? parseRpStorybookJson(storybookNode.data.storybookJson)
@@ -2804,7 +2803,7 @@ function App() {
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook-v1') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook-v1');
       if (!storybookNode) {
-        throw new Error('Add an RP Storybook V1 node before opening a storybook file.');
+        throw new Error('Add an RP Storybook V2 node before opening a storybook file.');
       }
       const applied = applyStorybookToNode(
         storybookNode.id,
@@ -7078,16 +7077,14 @@ function App() {
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
           onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}
+          pendingConversion={
+            pendingStorybookConversion?.nodeId === storybookCreatorNode.id
+              ? pendingStorybookConversion
+              : null
+          }
+          onApplyConversion={applyPendingStorybookConversion}
+          onCancelConversion={cancelPendingStorybookConversion}
           onClose={() => setStorybookCreatorNodeId(null)}
-        />
-      )}
-
-      {pendingStorybookConversion && (
-        <StorybookConversionDialog
-          fileName={pendingStorybookConversion.fileName}
-          result={pendingStorybookConversion.result}
-          onApply={applyPendingStorybookConversion}
-          onCancel={cancelPendingStorybookConversion}
         />
       )}
 

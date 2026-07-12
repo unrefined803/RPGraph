@@ -274,7 +274,7 @@ export function WelcomeDialog({ onClose }: WelcomeDialogProps) {
                     <h3>Interactive Authoring</h3>
                     <div className="storybook-entry">
                       <strong>AA Storybook Assistent</strong>
-                      <p>Open "Create Storybook" on the <strong>RP Storybook V1</strong> node. Chat in natural language to design settings, player specs, or NPC characters.</p>
+                      <p>Open "Create Storybook" on the <strong>RP Storybook V2</strong> node. Chat in natural language to design settings, player specs, or NPC characters.</p>
                     </div>
                   </div>
 

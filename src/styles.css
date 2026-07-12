@@ -22819,24 +22819,29 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 12px;
 }
 
-.storybook-conversion-dialog {
-  width: min(640px, calc(100vw - 40px));
-  max-height: min(720px, calc(100vh - 40px));
+.storybook-conversion-panel {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #303a4e;
-  border-radius: 18px;
-  background: #111722;
-  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
-  padding-bottom: 16px;
+  gap: 4px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.storybook-conversion-intro h4 {
+  margin: 0 0 6px;
+  color: #e7ecf5;
+}
+
+.storybook-conversion-intro p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #93a1ba;
 }
 
 .storybook-conversion-rows {
   list-style: none;
   margin: 0;
-  padding: 4px 20px;
-  overflow-y: auto;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -22865,13 +22870,13 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-conversion-summary {
-  margin: 10px 20px 0;
+  margin: 10px 0 0;
   font-size: 13px;
   color: #93a1ba;
 }
 
 .storybook-conversion-error {
-  margin: 8px 20px 0;
+  margin: 8px 0 0;
   font-size: 13px;
   color: #ff8f8f;
 }
@@ -22880,7 +22885,14 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin: 12px 20px 0;
+  margin: 12px 0 0;
+}
+
+.storybook-panel-token-estimate {
+  margin-left: 10px;
+  color: #8fa0bd;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .storybook-node-token-estimate {
