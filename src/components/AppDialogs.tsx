@@ -75,7 +75,10 @@ import type {
   WorkflowNode,
 } from '../types';
 import { storybookImageById } from '../storybook/imageLibrary';
-import { StorybookConversionPanel } from '../storybook/StorybookConversionPanel';
+import {
+  StorybookConversionAssistantReport,
+  StorybookConversionPanel,
+} from '../storybook/StorybookConversionPanel';
 import type { StorybookConversionResult } from '../storybook/conversion';
 import { formatContextValue } from '../data-management/formatters';
 import { TextMetricsApi } from '../llm/tokenMetrics';
@@ -1098,8 +1101,7 @@ type StorybookCreatorDialogProps = {
     phase: 'convert' | 'review';
   } | null;
   onBeginConversionReview: () => void;
-  onAcceptConversionRow: (rowId: string) => void;
-  onFixConversionRow: (rowId: string) => Promise<void>;
+  onImproveConversion: () => Promise<void>;
   onApplyConversion: () => string | null;
   onCancelConversion: () => void;
   onClose: () => void;
@@ -3035,8 +3037,7 @@ export function StorybookCreatorDialog({
   onExportCharacter,
   pendingConversion,
   onBeginConversionReview,
-  onAcceptConversionRow,
-  onFixConversionRow,
+  onImproveConversion,
   onApplyConversion,
   onCancelConversion,
   onClose,
@@ -3377,8 +3378,6 @@ export function StorybookCreatorDialog({
                     phase={pendingConversion.phase}
                     isSubmitting={isSubmitting}
                     onBeginReview={onBeginConversionReview}
-                    onAcceptRow={onAcceptConversionRow}
-                    onFixRow={onFixConversionRow}
                     onApply={onApplyConversion}
                     onCancel={onCancelConversion}
                   />
@@ -3722,6 +3721,13 @@ export function StorybookCreatorDialog({
                 <span className="panel-title">AI Storybook Assistant</span>
                 <span className="panel-subtitle">Ask the assistant to draft, expand, or refine any part of your storybook.</span>
               </div>
+              {pendingConversion?.phase === 'review' ? (
+                <StorybookConversionAssistantReport
+                  result={pendingConversion.result}
+                  isSubmitting={isSubmitting}
+                  onImprove={onImproveConversion}
+                />
+              ) : null}
               
               <div className="storybook-chat-log">
                 {messages.length === 0 ? (

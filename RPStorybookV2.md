@@ -235,8 +235,9 @@ event details) still talk about the old cast.
    (`SaveStorybook_V11.rpgraph-storybook.json`): all sections carry over.
 3. ✅ **Converter, AI repair stage** — the two-step review flow keeps a draft
    outside the active node, gives the assistant the draft plus a compact status
-   report, and offers per-row Accept/Fill/Fix actions. Successful scoped patches
-   turn their rows green before the final apply.
+   report, and presents one grouped "Improve with AI" action in a dedicated,
+   scrollable assistant report. Useful AI changes turn affected rows green;
+   technical defaults need no acknowledgement before the final apply.
 4. ✅ **Character card format** — `rpgraph-character` / `1.0.0`
    (`*.rpgraph-character.json`, plain JSON): per-character "Export Character"
    button and "Import Character" (header + ⋯ menu) in the storybook editor;
@@ -288,12 +289,12 @@ Nothing is written to the node before that.
      (Fast path, no second step.)
    - Any 🟡 (defaulted) or 🔵 (AI repair suggested) rows → **stay in
      conversion mode** with the draft; the checklist switches to review state.
-2. **Step 2 — Review.** Work through the non-green rows:
-   - 🟡 rows: buttons **Accept default** (turns ✅) and **Fill with AI**
-     (sends a section-scoped instruction to the assistant; on a successful
-     patch the row turns ✅).
-   - 🔵 rows: button **Fix with AI** (same mechanism, but the row's message
-     explains what could not be mapped deterministically).
+2. **Step 2 — Review.** Inspect the non-green rows:
+   - A compact report above the assistant groups defaulted items by character
+     instead of repeating every checklist sentence in a chat message.
+   - **Improve with AI** asks the assistant to fill every value that can be
+     inferred meaningfully in one coherent pass. Technical defaults such as
+     voice samples, wallpaper ids, and unknown LoRA files remain unchanged.
    - The assistant chat stays fully usable for free-form discussion; its
      patches apply to the **draft**, not to the node.
 3. **Final Apply.** Enabled while no 🔵 rows remain (🟡 rows do not block —
@@ -310,11 +311,8 @@ Nothing is written to the node before that.
 - The storybook JSON in the prompt is the **draft** (redacted as usual:
   image/voice placeholders, Opening History as summary + counts). The status
   block is small; token impact is negligible.
-- On entering review state, an automatic report message is posted into the
-  assistant chat ("Converted from 1.19.0 to 2.0.0. Filled with defaults:
-  banking for Helga, social usernames for Jack, … Say 'fill them' or use the
-  row buttons."), so the conversation has an anchor and the user can simply
-  answer in chat.
+- The grouped conversion report is separate from the chat transcript, has its
+  own scroll area, and keeps its single AI action aligned in the header.
 - Assistant patches during review are validated like normal edits (text
   fields only; never images, voice samples, or Opening History) and re-run
   the row evaluation so repaired rows turn green.

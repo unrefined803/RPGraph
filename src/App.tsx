@@ -1660,8 +1660,7 @@ function App() {
     loadStorybookFile,
     pendingStorybookConversion,
     beginPendingStorybookReview,
-    acceptPendingStorybookConversionRow,
-    fixPendingStorybookConversionRow,
+    improvePendingStorybookConversion,
     applyPendingStorybookConversion,
     cancelPendingStorybookConversion,
   } = useStorybookActions({
@@ -7088,8 +7087,7 @@ function App() {
           onApplyConversion={applyPendingStorybookConversion}
           onCancelConversion={cancelPendingStorybookConversion}
           onBeginConversionReview={beginPendingStorybookReview}
-          onAcceptConversionRow={acceptPendingStorybookConversionRow}
-          onFixConversionRow={fixPendingStorybookConversionRow}
+          onImproveConversion={improvePendingStorybookConversion}
           onClose={() => setStorybookCreatorNodeId(null)}
         />
       )}

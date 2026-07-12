@@ -15,7 +15,6 @@ type StorybookConversionRow = {
   reviewState: StorybookConversionReviewState;
   message: string;
   allowedPatchPaths: string[];
-  aiInstruction?: string;
 };
 
 export type StorybookConversionResult = {
@@ -68,21 +67,25 @@ function characterRows(
   const optionalSections: Array<{
     key: 'banking' | 'social' | 'voiceConfig' | 'phoneSettings' | 'comfyConfig';
     label: string;
-    instruction?: string;
+    aiFillable?: boolean;
   }> = [
     {
       key: 'banking',
       label: 'Banking',
-      instruction: `Choose a plausible starting balance and mobile-plan expense for ${name}, based on the character and story. Change only this character's banking fields.`,
+      aiFillable: true,
     },
     {
       key: 'social',
       label: 'Social Accounts',
-      instruction: `Choose fitting social usernames for ${name} from the character's name, personality, and story. Keep OnlyFriends empty unless the story supports an account. Change only this character's social fields.`,
+      aiFillable: true,
     },
     { key: 'voiceConfig', label: 'Voice Sample' },
     { key: 'phoneSettings', label: 'Phone Settings' },
-    { key: 'comfyConfig', label: 'Image Generation Settings' },
+    {
+      key: 'comfyConfig',
+      label: 'Image Generation Settings',
+      aiFillable: true,
+    },
   ];
   optionalSections.forEach((section) => {
     const wasPresent = section.key in sourceCharacter;
@@ -92,8 +95,7 @@ function characterRows(
       state: wasPresent ? 'mapped' : 'defaulted',
       reviewState: wasPresent ? 'resolved' : 'pending',
       message: wasPresent ? 'Carried over.' : 'Not present in the old format; filled with defaults.',
-      allowedPatchPaths: section.instruction ? [`${basePath}/${section.key}`] : [],
-      ...(section.instruction ? { aiInstruction: section.instruction } : {}),
+      allowedPatchPaths: section.aiFillable ? [`${basePath}/${section.key}`] : [],
     });
   });
   return rows;
@@ -118,7 +120,6 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
       ? 'Carried over unchanged.'
       : 'Not present in the old file; left empty.',
     allowedPatchPaths: ['/title', '/introduction'],
-    aiInstruction: 'Fill the missing title and introduction so they fit the existing characters and scenario. Change only title and introduction.',
   });
 
   const sourceScenario = recordValue(source.scenario);
@@ -133,7 +134,6 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
       ? `Carried over: ${scenarioFields.join(', ')}.`
       : 'Not present in the old file; left empty.',
     allowedPatchPaths: ['/scenario'],
-    aiInstruction: 'Fill the missing scenario text so it fits the existing characters and story. Change only scenario fields.',
   });
 
   const sourceCharacters = arrayValue(source.characters).map(recordValue);
@@ -153,7 +153,6 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
       reviewState: 'pending',
       message: 'No characters found in the old file.',
       allowedPatchPaths: ['/characters'],
-      aiInstruction: 'Create the characters needed for this story from the title, introduction, and scenario. Change only characters.',
     });
   }
 
