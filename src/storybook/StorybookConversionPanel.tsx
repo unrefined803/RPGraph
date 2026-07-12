@@ -8,6 +8,7 @@ type StorybookConversionPanelProps = {
   phase: 'convert' | 'review';
   isSubmitting: boolean;
   onBeginReview: () => void;
+  onImprove: () => Promise<void>;
   /** Returns null when applied, otherwise the blocking error message. */
   onApply: () => string | null;
   onCancel: () => void;
@@ -24,6 +25,7 @@ export function StorybookConversionPanel({
   phase,
   isSubmitting,
   onBeginReview,
+  onImprove,
   onApply,
   onCancel,
 }: StorybookConversionPanelProps) {
@@ -80,18 +82,30 @@ export function StorybookConversionPanel({
             Convert and Review
           </button>
         ) : (
-          <button
-            className="load-text-button storybook-conversion-apply"
-            type="button"
-            disabled={isSubmitting || unresolvedBlueRows.length > 0}
-            title={unresolvedBlueRows.length ? 'Resolve all blue items before applying.' : undefined}
-            onClick={() => {
-              const error = onApply();
-              setApplyError(error);
-            }}
-          >
-            Apply Converted Storybook
-          </button>
+          <>
+            {improvableRows.length ? (
+              <button
+                className="load-text-button"
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => void onImprove()}
+              >
+                {isSubmitting ? 'AI is reviewing ...' : 'Improve with AI'}
+              </button>
+            ) : null}
+            <button
+              className="load-text-button storybook-conversion-apply"
+              type="button"
+              disabled={isSubmitting || unresolvedBlueRows.length > 0}
+              title={unresolvedBlueRows.length ? 'Resolve all blue items before applying.' : undefined}
+              onClick={() => {
+                const error = onApply();
+                setApplyError(error);
+              }}
+            >
+              Apply Converted Storybook
+            </button>
+          </>
         )}
       </div>
     </div>

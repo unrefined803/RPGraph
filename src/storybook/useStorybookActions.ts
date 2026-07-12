@@ -111,6 +111,7 @@ export function useStorybookActions({
     sourceValue: unknown;
     result: StorybookConversionResult;
     phase: 'convert' | 'review';
+    protection: FileProtection;
   } | null>(null);
   const [storybookCreatorNodeId, setStorybookCreatorNodeId] = useState<string | null>(null);
   const [storybookCreatorMessages, setStorybookCreatorMessages] = useState<StorybookCreatorMessage[]>([]);
@@ -139,9 +140,18 @@ export function useStorybookActions({
     nodeId: string,
     storybook: ReturnType<typeof parseRpStorybookJson>,
     patch: Partial<WorkflowNodeData>,
+    options?: { replaceExisting?: boolean },
   ): string | null {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     let committedStorybook = storybook;
+    if (options?.replaceExisting) {
+      clearCurrentSession();
+      updateRuntimeNode(nodeId, {
+        ...patch,
+        storybookJson: rpStorybookJsonText(storybook),
+      });
+      return null;
+    }
     if (node?.data.nodeType === 'rp-storybook-v1') {
       const currentStorybook = node.data.storybookJson
         ? parseRpStorybookJson(node.data.storybookJson)
@@ -284,11 +294,20 @@ export function useStorybookActions({
     fileName?: string,
     filePath?: string,
     status = 'Loaded storybook',
+    protection: FileProtection = 'plain',
   ) {
     if (isLegacyRpStorybookValue(storybookValue)) {
       const result = convertLegacyRpStorybook(storybookValue);
       setStorybookCreatorMessages([]);
-      setPendingStorybookConversion({ nodeId, fileName, filePath, sourceValue: storybookValue, result, phase: 'convert' });
+      setPendingStorybookConversion({
+        nodeId,
+        fileName,
+        filePath,
+        sourceValue: storybookValue,
+        result,
+        phase: 'convert',
+        protection,
+      });
       // The conversion checklist lives in the storybook editor's UI Preview.
       setStorybookCreatorNodeId(nodeId);
       updateRuntimeNode(nodeId, {
@@ -301,7 +320,10 @@ export function useStorybookActions({
       storybookStatus: fileName ? `${status}: ${fileName}` : status,
       storybookFileName: fileName,
       storybookFilePath: filePath,
-    });
+    }, { replaceExisting: true });
+    if (!commitError) {
+      setActiveStorybookProtection(protection);
+    }
     return commitError === null;
   }
 
@@ -338,16 +360,17 @@ export function useStorybookActions({
     if (!pending || pending.phase !== 'review') {
       return null;
     }
-    const { nodeId, fileName, filePath, result } = pending;
+    const { nodeId, fileName, filePath, result, protection } = pending;
     const commitError = commitStorybookToNode(nodeId, result.storybook, {
       storybookStatus: `Converted from Storybook Format ${result.sourceVersion} to ${result.targetVersion}${fileName ? `: ${fileName}` : ''}. Save the storybook to keep the upgrade.`,
       storybookFileName: fileName,
       storybookFilePath: filePath,
-    });
+    }, { replaceExisting: true });
     if (commitError) {
       return commitError;
     }
     setPendingStorybookConversion(null);
+    setActiveStorybookProtection(protection);
     const message = `Storybook converted to Format ${result.targetVersion}. Save it as a new file to keep the upgrade.`;
     setFileStorageStatus(message);
     notifySystem('info', message);

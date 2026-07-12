@@ -2813,6 +2813,7 @@ function App() {
         result.fileName,
         result.filePath,
         result.protection === 'encrypted' ? 'Loaded encrypted storybook' : 'Loaded storybook',
+        result.protection === 'encrypted' ? 'encrypted' : 'plain',
       );
       if (!applied) {
         setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');

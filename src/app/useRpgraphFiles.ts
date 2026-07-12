@@ -51,6 +51,7 @@ type UseRpgraphFilesOptions = {
     fileName?: string,
     filePath?: string,
     status?: string,
+    protection?: FileProtection,
   ) => boolean;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
@@ -684,6 +685,7 @@ export function useRpgraphFiles({
         result.fileName,
         result.filePath,
         'Loaded encrypted storybook',
+        'encrypted',
       );
       if (!applied) {
         setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');

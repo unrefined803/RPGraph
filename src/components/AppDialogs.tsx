@@ -3378,6 +3378,7 @@ export function StorybookCreatorDialog({
                     phase={pendingConversion.phase}
                     isSubmitting={isSubmitting}
                     onBeginReview={onBeginConversionReview}
+                    onImprove={onImproveConversion}
                     onApply={onApplyConversion}
                     onCancel={onCancelConversion}
                   />
@@ -3721,16 +3722,15 @@ export function StorybookCreatorDialog({
                 <span className="panel-title">AI Storybook Assistant</span>
                 <span className="panel-subtitle">Ask the assistant to draft, expand, or refine any part of your storybook.</span>
               </div>
-              {pendingConversion?.phase === 'review' ? (
-                <StorybookConversionAssistantReport
-                  result={pendingConversion.result}
-                  isSubmitting={isSubmitting}
-                  onImprove={onImproveConversion}
-                />
-              ) : null}
-              
               <div className="storybook-chat-log">
-                {messages.length === 0 ? (
+                {pendingConversion?.phase === 'review' ? (
+                  <StorybookConversionAssistantReport
+                    result={pendingConversion.result}
+                    isSubmitting={isSubmitting}
+                    onImprove={onImproveConversion}
+                  />
+                ) : null}
+                {messages.length === 0 && pendingConversion?.phase !== 'review' ? (
                   <div className="chat-empty-state">
                     <div className="assistant-avatar-large">AI</div>
                     <p className="empty-title">Welcome to Storybook Creator</p>

@@ -199,6 +199,8 @@ The app uses four user-facing file shapes:
 
 Saving can produce either readable **Plain JSON** or a password/PIN protected encrypted envelope (character cards are plain only). Compatibility is checked through format versions before loading. Workflow and session files use exact-match versions and are rejected when incompatible. Storybook and character card versions are semver-compared (`electron/storybookFormat.cjs`, `rpStorybookVersionStatus` in the storybook model): files newer than the build are rejected with an update hint, while older files stay loadable — legacy storybooks are routed into the conversion dialog (`src/storybook/conversion.ts`, `src/storybook/StorybookConversionDialog.tsx`), a per-section checklist showing what was carried over or filled with defaults before the converted storybook is applied and re-saved. Encrypted legacy storybooks unlock with their password first and then enter the same conversion flow.
 
+Loading a Storybook file starts a fresh story session: current chat and phone-app runtime state are cleared, and the loaded Storybook fully replaces the previous node content. In-editor changes still retain image-usage and running-story identity protections.
+
 Important file actions:
 
 - `openFiles` lists stored files and opens the file manager.

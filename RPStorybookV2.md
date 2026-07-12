@@ -311,8 +311,9 @@ Nothing is written to the node before that.
 - The storybook JSON in the prompt is the **draft** (redacted as usual:
   image/voice placeholders, Opening History as summary + counts). The status
   block is small; token impact is negligible.
-- The grouped conversion report is separate from the chat transcript, has its
-  own scroll area, and keeps its single AI action aligned in the header.
+- The grouped conversion report is separate from the chat transcript and is
+  shown in full at the top of the scrollable chat area. Its AI action appears
+  both in the report header and beside Cancel/Apply below the checklist.
 - Assistant patches during review are validated like normal edits (text
   fields only; never images, voice samples, or Opening History) and re-run
   the row evaluation so repaired rows turn green.
