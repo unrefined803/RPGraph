@@ -49,6 +49,17 @@ function stringValue(value: unknown) {
   return typeof value === 'string' ? value : '';
 }
 
+function uniqueRecordsById<T extends { id: string }>(records: T[]) {
+  const seenIds = new Set<string>();
+  return records.filter((record) => {
+    if (seenIds.has(record.id)) {
+      return false;
+    }
+    seenIds.add(record.id);
+    return true;
+  });
+}
+
 function normalizePhoneNote(value: unknown): PhoneNoteRecord | undefined {
   const note = recordValue(value);
   const id = stringValue(note.id).trim();
@@ -72,9 +83,11 @@ export function normalizePhoneNotesByCharacter(value: unknown): PhoneNotesByChar
       if (!characterId.trim() || !Array.isArray(notes)) {
         return [];
       }
-      const normalized = notes
-        .map(normalizePhoneNote)
-        .filter((note): note is PhoneNoteRecord => !!note);
+      const normalized = uniqueRecordsById(
+        notes
+          .map(normalizePhoneNote)
+          .filter((note): note is PhoneNoteRecord => !!note),
+      );
       return normalized.length ? [[characterId, normalized]] : [];
     }),
   );
@@ -90,11 +103,11 @@ function normalizeChatGpdChat(value: unknown): ChatGpdChatRecord | undefined {
     .map((message) => {
       const entry = recordValue(message);
       const text = stringValue(entry.text);
-      if (!text) {
+      if (!text || (entry.role !== 'user' && entry.role !== 'assistant')) {
         return undefined;
       }
       return {
-        role: entry.role === 'user' ? 'user' as const : 'assistant' as const,
+        role: entry.role,
         text,
       };
     })
@@ -113,9 +126,11 @@ export function normalizeChatGpdChatsByCharacter(value: unknown): ChatGpdChatsBy
       if (!characterId.trim() || !Array.isArray(chats)) {
         return [];
       }
-      const normalized = chats
-        .map(normalizeChatGpdChat)
-        .filter((chat): chat is ChatGpdChatRecord => !!chat);
+      const normalized = uniqueRecordsById(
+        chats
+          .map(normalizeChatGpdChat)
+          .filter((chat): chat is ChatGpdChatRecord => !!chat),
+      );
       return normalized.length ? [[characterId, normalized]] : [];
     }),
   );
@@ -133,10 +148,14 @@ export function mergePhoneAppRecordsByCharacter<T extends { id: string }>(
   Object.entries(opening).forEach(([characterId, openingRecords]) => {
     const existing = merged[characterId] ?? [];
     const existingIds = new Set(existing.map((record) => record.id));
-    merged[characterId] = [
-      ...existing,
-      ...openingRecords.filter((record) => !existingIds.has(record.id)),
-    ];
+    const newRecords = openingRecords.filter((record) => {
+      if (existingIds.has(record.id)) {
+        return false;
+      }
+      existingIds.add(record.id);
+      return true;
+    });
+    merged[characterId] = [...existing, ...newRecords];
   });
   return merged;
 }

@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import {
@@ -29,7 +30,17 @@ export function PhoneChatGpdScreen({
   onSidebarWidthChange,
   onBack,
 }: PhoneChatGpdScreenProps) {
-  const { chats, activeChat, model, isSending, streaming, nodeAvailable } = chatGpd;
+  const {
+    chats,
+    activeChat,
+    model,
+    isSending,
+    sendingChatId,
+    streaming,
+    nodeAvailable,
+    characterAvailable,
+  } = chatGpd;
+  const canSend = nodeAvailable && characterAvailable;
   const messages = activeChat?.messages ?? [];
   const activeChatStreaming = streaming?.chatId === activeChat?.id ? streaming : undefined;
   const [draft, setDraft] = useState('');
@@ -92,12 +103,26 @@ export function PhoneChatGpdScreen({
     onSidebarWidthChange(dragWidthRef.current);
   }
 
+  function resizeSidebarWithKeyboard(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+      return;
+    }
+    event.preventDefault();
+    const direction = event.key === 'ArrowLeft' ? -1 : 1;
+    const nextWidth = Math.min(
+      maxChatGpdSidebarWidth,
+      Math.max(minChatGpdSidebarWidth, sidebarWidth + direction * 10),
+    );
+    onSidebarWidthChange(nextWidth);
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
     if (!text || isSending) {
       return;
     }
+    setModelMenuOpen(false);
     setDraft('');
     void chatGpd.sendMessage(text);
   }
@@ -129,6 +154,7 @@ export function PhoneChatGpdScreen({
             type="button"
             className="phone-chatgpd-model-button"
             onClick={() => setModelMenuOpen((open) => !open)}
+            disabled={isSending}
             aria-expanded={modelMenuOpen}
             aria-label="Select model"
           >
@@ -142,9 +168,12 @@ export function PhoneChatGpdScreen({
               {chatGpdModels.map((entry) => (
                 <button
                   type="button"
+                  role="menuitemradio"
+                  aria-checked={entry === model}
                   className={entry === model ? 'active' : ''}
                   key={entry}
                   onClick={() => selectModel(entry)}
+                  disabled={isSending}
                 >
                   <span>{entry}</span>
                   {entry === model && (
@@ -161,7 +190,7 @@ export function PhoneChatGpdScreen({
           type="button"
           className="phone-chatgpd-clear-button"
           onClick={() => chatGpd.startNewChat()}
-          disabled={!activeChat || isSending}
+          disabled={!activeChat}
           aria-label="New chat"
           title="New chat"
         >
@@ -207,7 +236,7 @@ export function PhoneChatGpdScreen({
                       type="button"
                       className="phone-chatgpd-chat-delete"
                       onClick={() => chatGpd.deleteChat(chat.id)}
-                      disabled={isSending && chat.id === activeChat?.id}
+                      disabled={chat.id === sendingChatId}
                       aria-label="Delete chat"
                       title="Delete chat"
                     >
@@ -225,12 +254,17 @@ export function PhoneChatGpdScreen({
             <div
               className="phone-chatgpd-resizer"
               role="separator"
+              tabIndex={0}
               aria-orientation="vertical"
               aria-label="Resize chat list"
+              aria-valuemin={minChatGpdSidebarWidth}
+              aria-valuemax={maxChatGpdSidebarWidth}
+              aria-valuenow={draggedWidth ?? sidebarWidth}
               onPointerDown={beginSidebarResize}
               onPointerMove={moveSidebarResize}
               onPointerUp={endSidebarResize}
               onPointerCancel={endSidebarResize}
+              onKeyDown={resizeSidebarWithKeyboard}
             />
           </>
         )}
@@ -245,6 +279,9 @@ export function PhoneChatGpdScreen({
                 <span>How can I help you today?</span>
                 {!nodeAvailable && (
                   <small>Add a Phone Apps node to the workflow to choose the provider.</small>
+                )}
+                {nodeAvailable && !characterAvailable && (
+                  <small>Select a phone character before starting a chat.</small>
                 )}
               </div>
             )}
@@ -272,10 +309,13 @@ export function PhoneChatGpdScreen({
             <input
               type="text"
               value={draft}
-              placeholder={`Message ${model}`}
+              placeholder={canSend ? `Message ${model}` : (
+                nodeAvailable ? 'Select a phone character first' : 'Add a Phone Apps node first'
+              )}
               onChange={(event) => setDraft(event.target.value)}
+              disabled={!canSend}
             />
-            <button type="submit" disabled={!draft.trim() || isSending} aria-label="Send message" title="Send message">
+            <button type="submit" disabled={!canSend || !draft.trim() || isSending} aria-label="Send message" title="Send message">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <line x1="12" y1="19" x2="12" y2="5" />
                 <polyline points="5 12 12 5 19 12" />

@@ -15,9 +15,11 @@ export type ChatGpdPhoneApp = {
   activeChat?: ChatGpdChatRecord;
   model: ChatGpdModel;
   isSending: boolean;
+  sendingChatId?: string;
   /** Partial answer of the chat currently receiving a streamed response. */
   streaming?: { chatId: string; text: string };
   nodeAvailable: boolean;
+  characterAvailable: boolean;
   selectModel: (model: ChatGpdModel) => void;
   selectChat: (chatId: string) => void;
   startNewChat: () => void;
@@ -130,6 +132,7 @@ export function useChatGpdPhoneApp({
   notifySystem,
 }: UseChatGpdPhoneAppOptions): ChatGpdPhoneApp {
   const [isSending, setIsSending] = useState(false);
+  const [sendingChatId, setSendingChatId] = useState<string>();
   const [streaming, setStreaming] = useState<{ chatId: string; text: string }>();
   const [activeChatIdByCharacter, setActiveChatIdByCharacter] =
     useState<Record<string, string | undefined>>({});
@@ -227,6 +230,7 @@ export function useChatGpdPhoneApp({
       messages: [...chat.messages, { role: 'user', text: trimmed }],
     }));
     setIsSending(true);
+    setSendingChatId(chatId);
     setStreaming({ chatId, text: '' });
     updateLlmNodeActive(node.id, true);
     try {
@@ -246,6 +250,9 @@ export function useChatGpdPhoneApp({
         ...chat,
         messages: [...chat.messages, { role: 'assistant', text: answer }],
       }));
+      // The saved answer replaces the temporary streaming bubble. Clear it
+      // before the separate title request so the answer is not shown twice.
+      setStreaming(undefined);
       if (isFirstExchange) {
         await generateChatTitle(node.id, node.data.connectionId, chatId, trimmed, answer);
       }
@@ -257,6 +264,7 @@ export function useChatGpdPhoneApp({
     } finally {
       updateLlmNodeActive(node.id, false);
       setStreaming(undefined);
+      setSendingChatId(undefined);
       setIsSending(false);
     }
   }
@@ -266,10 +274,12 @@ export function useChatGpdPhoneApp({
     activeChat,
     model,
     isSending,
+    sendingChatId,
     streaming,
     nodeAvailable: nodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'phone-apps',
     ),
+    characterAvailable: !!characterId,
     selectModel: onModelChange,
     selectChat,
     startNewChat,

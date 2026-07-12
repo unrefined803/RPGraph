@@ -734,6 +734,7 @@ export function PhonePanel({
   if (screen === 'ai') {
     return (
       <PhoneChatGpdScreen
+        key={selectedCharacter?.id ?? 'no-owner'}
         chatGpd={chatGpd}
         sidebarOpen={chatGpdSidebarOpen}
         onSidebarOpenChange={onChatGpdSidebarOpenChange}

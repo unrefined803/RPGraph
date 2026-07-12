@@ -57,6 +57,9 @@ export function PhoneNotesScreen({
   const [editingNoteId, setEditingNoteId] = useState<string>();
 
   function addNote() {
+    if (!owner) {
+      return;
+    }
     const note: PhoneNoteRecord = {
       id: nextNoteId(),
       title: '',
@@ -211,8 +214,9 @@ export function PhoneNotesScreen({
         type="button"
         className="phone-notes-add-button"
         onClick={addNote}
+        disabled={!owner}
         aria-label="New note"
-        title="New note"
+        title={owner ? 'New note' : 'Select a phone character first'}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <line x1="12" y1="5" x2="12" y2="19" />

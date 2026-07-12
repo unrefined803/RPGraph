@@ -81,6 +81,11 @@ import { parseOutputActions } from '../chat/outputActions';
 import { parseRpOutput } from '../chat/rpOutput';
 import { formatPhoneInput } from '../chat/phoneReplies';
 import {
+  mergePhoneAppRecordsByCharacter,
+  normalizeChatGpdChatsByCharacter,
+  normalizePhoneNotesByCharacter,
+} from '../chat/phoneAppsSessions';
+import {
   bankingRecipientNamesForCharacter,
   bankingSeenStateFromMessages,
   latestBankTransferMessageIdForCharacter,
@@ -167,6 +172,41 @@ function assertThrowsFixture(action: () => void, message: string) {
 }
 
 export function verifyWorkflowValidationFixtures() {
+  const normalizedPhoneNotes = normalizePhoneNotesByCharacter({
+    alex: [
+      { id: 'note-1', title: 'First', text: '', dayLabel: '', color: 'mint' },
+      { id: 'note-1', title: 'Duplicate', text: '', dayLabel: '', color: 'rose' },
+    ],
+  });
+  assertFixture(
+    normalizedPhoneNotes.alex?.length === 1 && normalizedPhoneNotes.alex[0]?.title === 'First',
+    'Phone notes must discard duplicate record ids during normalization',
+  );
+  const normalizedChatGpdChats = normalizeChatGpdChatsByCharacter({
+    alex: [{
+      id: 'chat-1',
+      title: 'Fixture',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      messages: [
+        { role: 'user', text: 'Hello' },
+        { role: 'invalid', text: 'Must not become an assistant message' },
+      ],
+    }],
+  });
+  assertFixture(
+    normalizedChatGpdChats.alex?.[0]?.messages.length === 1 &&
+      normalizedChatGpdChats.alex[0]?.messages[0]?.role === 'user',
+    'ChatGPD normalization must reject invalid message roles',
+  );
+  const mergedPhoneRecords = mergePhoneAppRecordsByCharacter(
+    { alex: [{ id: 'note-1' }] },
+    { alex: [{ id: 'note-2' }, { id: 'note-2' }] },
+  );
+  assertFixture(
+    mergedPhoneRecords.alex?.length === 2,
+    'Opening-history phone records must not introduce duplicate ids',
+  );
+
   const bankingCharacter: StorybookCharacter = {
     id: 'storybook:character:espen',
     storybookNodeId: 'storybook',
@@ -3160,6 +3200,14 @@ export function verifyWorkflowValidationFixtures() {
       oldStorybookHydrated.nodeDataVersion === '1.12.0' &&
       oldStorybookHydrated.currentNodeVersion === currentCoreNodeVersions['rp-storybook-v1'],
     'an old storybook node must hydrate as an incompatible placeholder before parsing old storybook JSON',
+  );
+
+  const corruptedStorybookNode = structuredClone(oldStorybookNode);
+  corruptedStorybookNode.data.nodeDataVersion = currentCoreNodeVersions['rp-storybook-v1'];
+  corruptedStorybookNode.data.storybookJson = '{invalid json';
+  assertThrowsFixture(
+    () => hydrateNodeData(corruptedStorybookNode.data, versionHydrateContext),
+    'a corrupted current-version storybook must fail hydration instead of silently becoming incompatible',
   );
 
   const longTraceTextInput = [
