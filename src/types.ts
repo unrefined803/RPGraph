@@ -893,6 +893,9 @@ export type AppSettings = {
     dialogueCloneVoiceProviderId?: string;
     phoneDesktopLayout?: PhoneDesktopLayout;
     phoneDesktopIconSize?: PhoneDesktopIconSize;
+    chatGpdSidebarOpen?: boolean;
+    chatGpdSidebarWidth?: number;
+    chatGpdModel?: string;
   };
   layout?: {
     chatPanelWidth: number;

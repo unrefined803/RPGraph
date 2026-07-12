@@ -1,27 +1,49 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import {
   chatGpdModels,
   type ChatGpdModel,
   type ChatGpdPhoneApp,
 } from '../chat/useChatGpdPhoneApp';
+import { maxChatGpdSidebarWidth, minChatGpdSidebarWidth } from '../settings';
 
 type PhoneChatGpdScreenProps = {
   chatGpd: ChatGpdPhoneApp;
+  sidebarOpen: boolean;
+  onSidebarOpenChange: (open: boolean) => void;
+  sidebarWidth: number;
+  onSidebarWidthChange: (width: number) => void;
   onBack: () => void;
 };
 
-export function PhoneChatGpdScreen({ chatGpd, onBack }: PhoneChatGpdScreenProps) {
-  const { chats, activeChat, model, isSending, nodeAvailable } = chatGpd;
+export function PhoneChatGpdScreen({
+  chatGpd,
+  sidebarOpen,
+  onSidebarOpenChange,
+  sidebarWidth,
+  onSidebarWidthChange,
+  onBack,
+}: PhoneChatGpdScreenProps) {
+  const { chats, activeChat, model, isSending, streaming, nodeAvailable } = chatGpd;
   const messages = activeChat?.messages ?? [];
+  const activeChatStreaming = streaming?.chatId === activeChat?.id ? streaming : undefined;
   const [draft, setDraft] = useState('');
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [chatListOpen, setChatListOpen] = useState(false);
+  // Live width during a resize drag; committed to the settings on release.
+  const [draggedWidth, setDraggedWidth] = useState<number>();
   const threadRef = useRef<HTMLDivElement | null>(null);
   const modelMenuRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const dragWidthRef = useRef(sidebarWidth);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
-  }, [activeChat?.id, messages.length, isSending]);
+  }, [activeChat?.id, messages.length, activeChatStreaming?.text, isSending]);
 
   useEffect(() => {
     if (!modelMenuOpen) {
@@ -39,6 +61,35 @@ export function PhoneChatGpdScreen({ chatGpd, onBack }: PhoneChatGpdScreenProps)
   function selectModel(nextModel: ChatGpdModel) {
     chatGpd.selectModel(nextModel);
     setModelMenuOpen(false);
+  }
+
+  function clampedSidebarWidth(clientX: number) {
+    const bounds = bodyRef.current?.getBoundingClientRect();
+    const width = bounds ? clientX - bounds.left : sidebarWidth;
+    return Math.min(maxChatGpdSidebarWidth, Math.max(minChatGpdSidebarWidth, Math.round(width)));
+  }
+
+  function beginSidebarResize(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragWidthRef.current = clampedSidebarWidth(event.clientX);
+    setDraggedWidth(dragWidthRef.current);
+  }
+
+  function moveSidebarResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (draggedWidth === undefined) {
+      return;
+    }
+    dragWidthRef.current = clampedSidebarWidth(event.clientX);
+    setDraggedWidth(dragWidthRef.current);
+  }
+
+  function endSidebarResize() {
+    if (draggedWidth === undefined) {
+      return;
+    }
+    setDraggedWidth(undefined);
+    onSidebarWidthChange(dragWidthRef.current);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -62,10 +113,10 @@ export function PhoneChatGpdScreen({ chatGpd, onBack }: PhoneChatGpdScreenProps)
         <button
           type="button"
           className="phone-chatgpd-chats-button"
-          onClick={() => setChatListOpen((open) => !open)}
-          aria-expanded={chatListOpen}
-          aria-label="Chat list"
-          title="Chats"
+          onClick={() => onSidebarOpenChange(!sidebarOpen)}
+          aria-expanded={sidebarOpen}
+          aria-label={sidebarOpen ? 'Collapse chat list' : 'Expand chat list'}
+          title={sidebarOpen ? 'Collapse chat list' : 'Expand chat list'}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="4" y1="6" x2="20" y2="6" />
@@ -109,10 +160,7 @@ export function PhoneChatGpdScreen({ chatGpd, onBack }: PhoneChatGpdScreenProps)
         <button
           type="button"
           className="phone-chatgpd-clear-button"
-          onClick={() => {
-            chatGpd.startNewChat();
-            setChatListOpen(false);
-          }}
+          onClick={() => chatGpd.startNewChat()}
           disabled={!activeChat || isSending}
           aria-label="New chat"
           title="New chat"
@@ -123,62 +171,72 @@ export function PhoneChatGpdScreen({ chatGpd, onBack }: PhoneChatGpdScreenProps)
           </svg>
         </button>
       </header>
-      <div className="phone-chatgpd-body">
-        {chatListOpen && (
-          <aside className="phone-chatgpd-sidebar" aria-label="ChatGPD chats">
-            <button
-              type="button"
-              className="phone-chatgpd-new-chat"
-              onClick={() => {
-                chatGpd.startNewChat();
-                setChatListOpen(false);
-              }}
+      <div className="phone-chatgpd-body" ref={bodyRef}>
+        {sidebarOpen && (
+          <>
+            <aside
+              className="phone-chatgpd-sidebar"
+              style={{ width: draggedWidth ?? sidebarWidth }}
+              aria-label="ChatGPD chats"
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              <span>New chat</span>
-            </button>
-            <div className="phone-chatgpd-chat-list">
-              {chats.map((chat) => (
-                <div
-                  className={`phone-chatgpd-chat-item${chat.id === activeChat?.id ? ' active' : ''}`}
-                  key={chat.id}
-                >
-                  <button
-                    type="button"
-                    className="phone-chatgpd-chat-title"
-                    onClick={() => {
-                      chatGpd.selectChat(chat.id);
-                      setChatListOpen(false);
-                    }}
+              <button
+                type="button"
+                className="phone-chatgpd-new-chat"
+                onClick={() => chatGpd.startNewChat()}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span>New chat</span>
+              </button>
+              <div className="phone-chatgpd-chat-list">
+                {chats.map((chat) => (
+                  <div
+                    className={`phone-chatgpd-chat-item${chat.id === activeChat?.id ? ' active' : ''}`}
+                    key={chat.id}
                   >
-                    {chat.title.trim() || chat.messages[0]?.text || 'New chat'}
-                  </button>
-                  <button
-                    type="button"
-                    className="phone-chatgpd-chat-delete"
-                    onClick={() => chatGpd.deleteChat(chat.id)}
-                    disabled={isSending && chat.id === activeChat?.id}
-                    aria-label="Delete chat"
-                    title="Delete chat"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-              {chats.length === 0 && (
-                <div className="phone-chatgpd-chat-list-empty">No chats yet.</div>
-              )}
-            </div>
-          </aside>
+                    <button
+                      type="button"
+                      className="phone-chatgpd-chat-title"
+                      onClick={() => chatGpd.selectChat(chat.id)}
+                    >
+                      {chat.title.trim() || chat.messages[0]?.text || 'New chat'}
+                    </button>
+                    <button
+                      type="button"
+                      className="phone-chatgpd-chat-delete"
+                      onClick={() => chatGpd.deleteChat(chat.id)}
+                      disabled={isSending && chat.id === activeChat?.id}
+                      aria-label="Delete chat"
+                      title="Delete chat"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                {chats.length === 0 && (
+                  <div className="phone-chatgpd-chat-list-empty">No chats yet.</div>
+                )}
+              </div>
+            </aside>
+            <div
+              className="phone-chatgpd-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize chat list"
+              onPointerDown={beginSidebarResize}
+              onPointerMove={moveSidebarResize}
+              onPointerUp={endSidebarResize}
+              onPointerCancel={endSidebarResize}
+            />
+          </>
         )}
         <div className="phone-chatgpd-main">
           <div className="phone-chatgpd-thread" ref={threadRef}>
-            {messages.length === 0 && (
+            {messages.length === 0 && !activeChatStreaming && (
               <div className="phone-chatgpd-empty">
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 3l1.7 4.3L18 9l-4.3 1.7L12 15l-1.7-4.3L6 9l4.3-1.7Z" />
@@ -198,11 +256,15 @@ export function PhoneChatGpdScreen({ chatGpd, onBack }: PhoneChatGpdScreenProps)
                 {message.text}
               </div>
             ))}
-            {isSending && (
+            {activeChatStreaming && (
               <div className="phone-chatgpd-bubble assistant pending">
-                <span className="phone-chatgpd-typing" aria-label="ChatGPD is answering">
-                  <i /><i /><i />
-                </span>
+                {activeChatStreaming.text ? (
+                  activeChatStreaming.text
+                ) : (
+                  <span className="phone-chatgpd-typing" aria-label="ChatGPD is answering">
+                    <i /><i /><i />
+                  </span>
+                )}
               </div>
             )}
           </div>

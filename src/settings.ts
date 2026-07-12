@@ -20,6 +20,7 @@ import {
   type PromptActionRuntimeSettings,
 } from './nodes/shared/promptActions';
 import { inferredProviderKind, validLlmProviderKind } from './llm/providerKind';
+import { chatGpdModels, type ChatGpdModel } from './chat/useChatGpdPhoneApp';
 
 const defaultDisplayLanguage = 'German';
 const defaultTokenEstimateBytesPerToken = 3;
@@ -46,6 +47,23 @@ const defaultPhoneDesktopIconSize: PhoneDesktopIconSize = 'large';
 
 function validPhoneDesktopIconSize(value: unknown): PhoneDesktopIconSize {
   return value === 'medium' || value === 'large' ? value : defaultPhoneDesktopIconSize;
+}
+const defaultChatGpdSidebarOpen = true;
+const defaultChatGpdSidebarWidth = 190;
+export const minChatGpdSidebarWidth = 140;
+export const maxChatGpdSidebarWidth = 320;
+const defaultChatGpdModel: ChatGpdModel = 'ChatGPD 6';
+
+function validChatGpdSidebarWidth(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(maxChatGpdSidebarWidth, Math.max(minChatGpdSidebarWidth, Math.round(value)))
+    : defaultChatGpdSidebarWidth;
+}
+
+function validChatGpdModel(value: unknown): ChatGpdModel {
+  return chatGpdModels.includes(value as ChatGpdModel)
+    ? (value as ChatGpdModel)
+    : defaultChatGpdModel;
 }
 const defaultSmoothChatAutoScrollEnabled = true;
 const defaultSmoothChatAutoScrollMinSpeed = 42;
@@ -816,6 +834,12 @@ type AppSettingsState = {
   setPhoneDesktopLayout: Dispatch<SetStateAction<PhoneDesktopLayout>>;
   phoneDesktopIconSize: PhoneDesktopIconSize;
   setPhoneDesktopIconSize: Dispatch<SetStateAction<PhoneDesktopIconSize>>;
+  chatGpdSidebarOpen: boolean;
+  setChatGpdSidebarOpen: Dispatch<SetStateAction<boolean>>;
+  chatGpdSidebarWidth: number;
+  setChatGpdSidebarWidth: Dispatch<SetStateAction<number>>;
+  chatGpdModel: ChatGpdModel;
+  setChatGpdModel: Dispatch<SetStateAction<ChatGpdModel>>;
   smoothChatAutoScrollEnabled: boolean;
   setSmoothChatAutoScrollEnabled: Dispatch<SetStateAction<boolean>>;
   smoothChatAutoScrollMinSpeed: number;
@@ -877,6 +901,9 @@ export function useAppSettings(): AppSettingsState {
   const [phoneDesktopIconSize, setPhoneDesktopIconSize] = useState<PhoneDesktopIconSize>(
     defaultPhoneDesktopIconSize,
   );
+  const [chatGpdSidebarOpen, setChatGpdSidebarOpen] = useState(defaultChatGpdSidebarOpen);
+  const [chatGpdSidebarWidth, setChatGpdSidebarWidth] = useState(defaultChatGpdSidebarWidth);
+  const [chatGpdModel, setChatGpdModel] = useState<ChatGpdModel>(defaultChatGpdModel);
   const [smoothChatAutoScrollEnabled, setSmoothChatAutoScrollEnabled] = useState(
     defaultSmoothChatAutoScrollEnabled,
   );
@@ -969,6 +996,9 @@ export function useAppSettings(): AppSettingsState {
         setPhoneChatTextSize(validPhoneChatTextSize(result.settings.options.phoneChatTextSize));
         setPhoneDesktopLayout(validPhoneDesktopLayout(result.settings.options.phoneDesktopLayout));
         setPhoneDesktopIconSize(validPhoneDesktopIconSize(result.settings.options.phoneDesktopIconSize));
+        setChatGpdSidebarOpen(result.settings.options.chatGpdSidebarOpen ?? defaultChatGpdSidebarOpen);
+        setChatGpdSidebarWidth(validChatGpdSidebarWidth(result.settings.options.chatGpdSidebarWidth));
+        setChatGpdModel(validChatGpdModel(result.settings.options.chatGpdModel));
         setSmoothChatAutoScrollEnabled(
           result.settings.options.smoothChatAutoScrollEnabled ??
             defaultSmoothChatAutoScrollEnabled,
@@ -1049,6 +1079,9 @@ export function useAppSettings(): AppSettingsState {
         phoneChatTextSize: validPhoneChatTextSize(phoneChatTextSize),
         phoneDesktopLayout: validPhoneDesktopLayout(phoneDesktopLayout),
         phoneDesktopIconSize: validPhoneDesktopIconSize(phoneDesktopIconSize),
+        chatGpdSidebarOpen,
+        chatGpdSidebarWidth: validChatGpdSidebarWidth(chatGpdSidebarWidth),
+        chatGpdModel: validChatGpdModel(chatGpdModel),
         smoothChatAutoScrollEnabled,
         smoothChatAutoScrollMinSpeed: validSmoothChatAutoScrollMinSpeed(
           smoothChatAutoScrollMinSpeed,
@@ -1105,6 +1138,9 @@ export function useAppSettings(): AppSettingsState {
     phoneChatTextSize,
     phoneDesktopLayout,
     phoneDesktopIconSize,
+    chatGpdSidebarOpen,
+    chatGpdSidebarWidth,
+    chatGpdModel,
     smoothChatAutoScrollEnabled,
     smoothChatAutoScrollMinSpeed,
     thoughtTextStyle,
@@ -1159,6 +1195,12 @@ export function useAppSettings(): AppSettingsState {
     setPhoneDesktopLayout,
     phoneDesktopIconSize,
     setPhoneDesktopIconSize,
+    chatGpdSidebarOpen,
+    setChatGpdSidebarOpen,
+    chatGpdSidebarWidth,
+    setChatGpdSidebarWidth,
+    chatGpdModel,
+    setChatGpdModel,
     smoothChatAutoScrollEnabled,
     setSmoothChatAutoScrollEnabled,
     smoothChatAutoScrollMinSpeed,

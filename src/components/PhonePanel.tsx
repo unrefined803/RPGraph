@@ -270,6 +270,10 @@ type PhonePanelProps = {
   onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   onUnlockOnlyFriendsPost: (characterId: string, postId: string, price: number) => void;
   chatGpd: ChatGpdPhoneApp;
+  chatGpdSidebarOpen: boolean;
+  onChatGpdSidebarOpenChange: (open: boolean) => void;
+  chatGpdSidebarWidth: number;
+  onChatGpdSidebarWidthChange: (width: number) => void;
   phoneNotes: PhoneNoteRecord[];
   onPhoneNotesChange: (notes: PhoneNoteRecord[]) => void;
   phoneDesktopLayout: PhoneDesktopLayout;
@@ -372,6 +376,10 @@ export function PhonePanel({
   onlyFriendsPurchasesByCharacter,
   onUnlockOnlyFriendsPost,
   chatGpd,
+  chatGpdSidebarOpen,
+  onChatGpdSidebarOpenChange,
+  chatGpdSidebarWidth,
+  onChatGpdSidebarWidthChange,
   phoneNotes,
   onPhoneNotesChange,
   phoneDesktopLayout,
@@ -727,6 +735,10 @@ export function PhonePanel({
     return (
       <PhoneChatGpdScreen
         chatGpd={chatGpd}
+        sidebarOpen={chatGpdSidebarOpen}
+        onSidebarOpenChange={onChatGpdSidebarOpenChange}
+        sidebarWidth={chatGpdSidebarWidth}
+        onSidebarWidthChange={onChatGpdSidebarWidthChange}
         onBack={() => setScreen('desktop')}
       />
     );

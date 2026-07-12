@@ -7862,19 +7862,28 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-chatgpd-sidebar {
-  position: absolute;
-  z-index: 5;
-  top: 0;
-  bottom: 0;
-  left: 0;
   display: flex;
-  width: min(220px, 78%);
+  min-height: 0;
+  max-width: 70%;
+  flex: none;
   flex-direction: column;
   gap: 8px;
   padding: 10px;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(13, 18, 24, 0.97);
-  box-shadow: 12px 0 30px rgba(0, 0, 0, 0.45);
+  background: rgba(13, 18, 24, 0.85);
+}
+
+.phone-chatgpd-resizer {
+  width: 7px;
+  flex: none;
+  margin: 0 -2px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.phone-chatgpd-resizer:hover,
+.phone-chatgpd-resizer:active {
+  border-left-color: rgba(94, 234, 212, 0.55);
 }
 
 .phone-chatgpd-new-chat {
@@ -7887,7 +7896,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 10px;
   background: rgba(45, 212, 191, 0.1);
   color: #99f6e4;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -7930,7 +7939,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 9px;
   background: transparent;
   color: #e2e8f0;
-  font-size: 12.5px;
+  font-size: 13.5px;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7973,7 +7982,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-chatgpd-chat-list-empty {
   padding: 10px 9px;
   color: rgba(226, 232, 240, 0.55);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .phone-chatgpd-model {
@@ -7994,7 +8003,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-chatgpd-model-button strong {
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -8030,7 +8039,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 8px;
   background: transparent;
   color: #e2e8f0;
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
   cursor: pointer;
 }
@@ -8071,13 +8080,13 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-chatgpd-empty span {
-  font-size: 14px;
+  font-size: 15.5px;
   font-weight: 600;
 }
 
 .phone-chatgpd-empty small {
   max-width: 240px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.4;
   color: rgba(226, 232, 240, 0.55);
 }
@@ -8086,7 +8095,7 @@ input[type="number"]::-webkit-outer-spin-button {
   max-width: 86%;
   padding: 9px 12px;
   border-radius: 16px;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -8157,7 +8166,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
   color: #f1f5f9;
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .phone-chatgpd-composer input:focus {

@@ -15,6 +15,8 @@ export type ChatGpdPhoneApp = {
   activeChat?: ChatGpdChatRecord;
   model: ChatGpdModel;
   isSending: boolean;
+  /** Partial answer of the chat currently receiving a streamed response. */
+  streaming?: { chatId: string; text: string };
   nodeAvailable: boolean;
   selectModel: (model: ChatGpdModel) => void;
   selectChat: (chatId: string) => void;
@@ -29,6 +31,8 @@ type UseChatGpdPhoneAppOptions = {
   viewedCharacterId?: string;
   chatsByCharacter: ChatGpdChatsByCharacter;
   setChatsByCharacter: Dispatch<SetStateAction<ChatGpdChatsByCharacter>>;
+  model: ChatGpdModel;
+  onModelChange: (model: ChatGpdModel) => void;
   nodeLlm: NodeLlmApi;
   updateLlmNodeActive: (nodeId: string, runActive: boolean) => void;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
@@ -119,12 +123,14 @@ export function useChatGpdPhoneApp({
   viewedCharacterId,
   chatsByCharacter,
   setChatsByCharacter,
+  model,
+  onModelChange,
   nodeLlm,
   updateLlmNodeActive,
   notifySystem,
 }: UseChatGpdPhoneAppOptions): ChatGpdPhoneApp {
-  const [model, setModel] = useState<ChatGpdModel>('ChatGPD 6');
   const [isSending, setIsSending] = useState(false);
+  const [streaming, setStreaming] = useState<{ chatId: string; text: string }>();
   const [activeChatIdByCharacter, setActiveChatIdByCharacter] =
     useState<Record<string, string | undefined>>({});
 
@@ -221,14 +227,17 @@ export function useChatGpdPhoneApp({
       messages: [...chat.messages, { role: 'user', text: trimmed }],
     }));
     setIsSending(true);
+    setStreaming({ chatId, text: '' });
     updateLlmNodeActive(node.id, true);
     try {
+      const streamedChatId = chatId;
       const completion = await nodeLlm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
         label: 'ChatGPD',
         purpose: 'ChatGPD phone app',
         prompt: chatGpdPrompt(model, history, trimmed),
+        onChunk: (text) => setStreaming({ chatId: streamedChatId, text }),
         maxTokens: 1200,
         temperature: 0.7,
       });
@@ -247,6 +256,7 @@ export function useChatGpdPhoneApp({
       );
     } finally {
       updateLlmNodeActive(node.id, false);
+      setStreaming(undefined);
       setIsSending(false);
     }
   }
@@ -256,10 +266,11 @@ export function useChatGpdPhoneApp({
     activeChat,
     model,
     isSending,
+    streaming,
     nodeAvailable: nodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'phone-apps',
     ),
-    selectModel: setModel,
+    selectModel: onModelChange,
     selectChat,
     startNewChat,
     deleteChat,

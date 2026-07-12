@@ -816,6 +816,12 @@ function App() {
     setPhoneDesktopLayout,
     phoneDesktopIconSize,
     setPhoneDesktopIconSize,
+    chatGpdSidebarOpen,
+    setChatGpdSidebarOpen,
+    chatGpdSidebarWidth,
+    setChatGpdSidebarWidth,
+    chatGpdModel,
+    setChatGpdModel,
     smoothChatAutoScrollEnabled,
     setSmoothChatAutoScrollEnabled,
     smoothChatAutoScrollMinSpeed,
@@ -1604,6 +1610,8 @@ function App() {
     viewedCharacterId: viewedPhoneCharacter?.id,
     chatsByCharacter: chatGpdChatsByCharacter,
     setChatsByCharacter: setChatGpdChatsByCharacter,
+    model: chatGpdModel,
+    onModelChange: setChatGpdModel,
     nodeLlm,
     updateLlmNodeActive,
     notifySystem,
@@ -6839,6 +6847,10 @@ function App() {
               }}
               onPhoneWallpaperChange={changeStorybookPhoneWallpaper}
               chatGpd={chatGpd}
+              chatGpdSidebarOpen={chatGpdSidebarOpen}
+              onChatGpdSidebarOpenChange={setChatGpdSidebarOpen}
+              chatGpdSidebarWidth={chatGpdSidebarWidth}
+              onChatGpdSidebarWidthChange={setChatGpdSidebarWidth}
               phoneNotes={viewedPhoneCharacter
                 ? phoneNotesByCharacter[viewedPhoneCharacter.id] ?? []
                 : []}
