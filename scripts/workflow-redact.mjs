@@ -7,15 +7,24 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const dataUrlPattern = /data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,([a-z0-9+/_=-]+)/gi;
 const markerPattern = /__RPGRAPH_DATA_URL_REDACTED__sha256:([a-f0-9]{64});mime:([^;]+);bytes:(\d+)__/g;
 const defaultRedactedPath = '/tmp/rpgraph-workflow.default.redacted.json';
+const defaultStorybookRedactedPath = '/tmp/rpgraph-storybook.redacted.json';
 
-function bundledDefaultWorkflowFile() {
+function highestMatchingFile(pattern, description) {
   const names = readdirSync('.')
-    .filter((name) => /^workflow\.default.*\.json$/i.test(name))
+    .filter((name) => pattern.test(name))
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   if (names.length === 0) {
-    throw new Error('No workflow.default*.json file was found in the current directory.');
+    throw new Error(`No ${description} file was found in the current directory.`);
   }
   return names[names.length - 1];
+}
+
+function bundledDefaultWorkflowFile() {
+  return highestMatchingFile(/^workflow\.default.*\.json$/i, 'workflow.default*.json');
+}
+
+function exportedStorybookFile() {
+  return highestMatchingFile(/\.rpgraph-storybook\.json$/i, '*.rpgraph-storybook.json');
 }
 
 function usage() {
@@ -23,6 +32,8 @@ function usage() {
     'Usage:',
     '  node scripts/workflow-redact.mjs redact [source] [redactedDest]',
     '  node scripts/workflow-redact.mjs merge [redactedSource] [originalSource] [dest]',
+    '  node scripts/workflow-redact.mjs redact-storybook [source] [redactedDest]',
+    '  node scripts/workflow-redact.mjs merge-storybook [redactedSource] [originalSource] [dest]',
     '',
     'Defaults:',
     '  redact source: workflow.default*.json (auto-detected in the current directory)',
@@ -30,6 +41,8 @@ function usage() {
     `  merge redacted:${defaultRedactedPath}`,
     '  merge original:workflow.default*.json (auto-detected)',
     '  merge dest:    workflow.default*.json (auto-detected)',
+    '  storybook variants: *.rpgraph-storybook.json (auto-detected, highest',
+    `  natural-sort name wins) and ${defaultStorybookRedactedPath}`,
   ].join('\n');
 }
 
@@ -195,6 +208,19 @@ async function main() {
       first ?? defaultRedactedPath,
       second ?? bundledFile,
       third ?? bundledFile,
+    );
+    return;
+  }
+  if (command === 'redact-storybook') {
+    await redactWorkflow(first ?? exportedStorybookFile(), second ?? defaultStorybookRedactedPath);
+    return;
+  }
+  if (command === 'merge-storybook') {
+    const storybookFile = first && second && third ? undefined : exportedStorybookFile();
+    await mergeWorkflow(
+      first ?? defaultStorybookRedactedPath,
+      second ?? storybookFile,
+      third ?? storybookFile,
     );
     return;
   }
