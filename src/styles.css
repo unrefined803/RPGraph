@@ -6218,7 +6218,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-fotogram-icon,
 .phone-onlyfriends-icon,
 .phone-notes-icon,
-.phone-chatgbd-icon {
+.phone-chatgpd-icon {
   display: grid;
   width: calc(var(--phone-icon, 52px) * 0.85);
   height: calc(var(--phone-icon, 52px) * 0.85);
@@ -6268,9 +6268,12 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgba(251, 191, 36, 0.55);
 }
 
-.phone-chatgbd-icon {
+.phone-chatgpd-icon {
   background: linear-gradient(135deg, rgba(45, 212, 191, 0.42), rgba(13, 148, 136, 0.22));
   border-color: rgba(94, 234, 212, 0.55);
+  font-size: calc(var(--phone-icon, 52px) * 0.34);
+  font-weight: 800;
+  letter-spacing: 0.5px;
 }
 
 .phone-whatsup-icon svg,
@@ -6279,8 +6282,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-icon svg,
 .phone-fotogram-icon svg,
 .phone-onlyfriends-icon svg,
-.phone-notes-icon svg,
-.phone-chatgbd-icon svg {
+.phone-notes-icon svg {
   width: 54%;
   height: 54%;
 }
@@ -6341,8 +6343,8 @@ input[type="number"]::-webkit-outer-spin-button {
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
 
-.phone-desktop-app:hover .phone-chatgbd-icon,
-.phone-desktop-app:focus-visible .phone-chatgbd-icon {
+.phone-desktop-app:hover .phone-chatgpd-icon,
+.phone-desktop-app:focus-visible .phone-chatgpd-icon {
   transform: translateY(-3px) scale(1.06);
   border-color: rgba(153, 246, 228, 0.85);
   box-shadow:
@@ -7785,7 +7787,7 @@ input[type="number"]::-webkit-outer-spin-button {
   background: rgba(239, 68, 68, 0.22);
 }
 
-.phone-chatgbd-screen {
+.phone-chatgpd-screen {
   position: relative;
   display: flex;
   min-height: 0;
@@ -7795,11 +7797,11 @@ input[type="number"]::-webkit-outer-spin-button {
   background: #101418;
 }
 
-.phone-chatgbd-screen .phone-gallery-header {
+.phone-chatgpd-screen .phone-gallery-header {
   justify-content: flex-start;
 }
 
-.phone-chatgbd-screen .phone-gallery-header .phone-chatgbd-clear-button {
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-clear-button {
   display: grid;
   width: 28px;
   height: 28px;
@@ -7813,23 +7815,23 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: pointer;
 }
 
-.phone-chatgbd-screen .phone-gallery-header .phone-chatgbd-clear-button:disabled {
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-clear-button:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.phone-chatgbd-screen .phone-gallery-header .phone-chatgbd-clear-button:not(:disabled):hover,
-.phone-chatgbd-screen .phone-gallery-header .phone-chatgbd-clear-button:not(:disabled):focus-visible {
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-clear-button:not(:disabled):hover,
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-clear-button:not(:disabled):focus-visible {
   border-color: rgba(94, 234, 212, 0.6);
   background: rgba(45, 212, 191, 0.2);
 }
 
-.phone-chatgbd-model {
+.phone-chatgpd-model {
   position: relative;
   min-width: 0;
 }
 
-.phone-chatgbd-model-button {
+.phone-chatgpd-model-button {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -7841,18 +7843,18 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: pointer;
 }
 
-.phone-chatgbd-model-button strong {
+.phone-chatgpd-model-button strong {
   font-size: 13px;
   white-space: nowrap;
 }
 
-.phone-chatgbd-model-button:hover,
-.phone-chatgbd-model-button:focus-visible {
+.phone-chatgpd-model-button:hover,
+.phone-chatgpd-model-button:focus-visible {
   border-color: rgba(94, 234, 212, 0.5);
   background: rgba(255, 255, 255, 0.1);
 }
 
-.phone-chatgbd-model-menu {
+.phone-chatgpd-model-menu {
   position: absolute;
   z-index: 6;
   top: calc(100% + 6px);
@@ -7868,7 +7870,7 @@ input[type="number"]::-webkit-outer-spin-button {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
-.phone-chatgbd-model-menu button {
+.phone-chatgpd-model-menu button {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7883,16 +7885,16 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: pointer;
 }
 
-.phone-chatgbd-model-menu button:hover,
-.phone-chatgbd-model-menu button:focus-visible {
+.phone-chatgpd-model-menu button:hover,
+.phone-chatgpd-model-menu button:focus-visible {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.phone-chatgbd-model-menu button.active {
+.phone-chatgpd-model-menu button.active {
   color: #99f6e4;
 }
 
-.phone-chatgbd-thread {
+.phone-chatgpd-thread {
   display: flex;
   min-height: 0;
   flex: 1;
@@ -7903,7 +7905,7 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow-x: hidden;
 }
 
-.phone-chatgbd-empty {
+.phone-chatgpd-empty {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -7914,23 +7916,23 @@ input[type="number"]::-webkit-outer-spin-button {
   text-align: center;
 }
 
-.phone-chatgbd-empty svg {
+.phone-chatgpd-empty svg {
   color: rgba(94, 234, 212, 0.8);
 }
 
-.phone-chatgbd-empty span {
+.phone-chatgpd-empty span {
   font-size: 14px;
   font-weight: 600;
 }
 
-.phone-chatgbd-empty small {
+.phone-chatgpd-empty small {
   max-width: 240px;
   font-size: 11.5px;
   line-height: 1.4;
   color: rgba(226, 232, 240, 0.55);
 }
 
-.phone-chatgbd-bubble {
+.phone-chatgpd-bubble {
   max-width: 86%;
   padding: 9px 12px;
   border-radius: 16px;
@@ -7940,44 +7942,44 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow-wrap: anywhere;
 }
 
-.phone-chatgbd-bubble.user {
+.phone-chatgpd-bubble.user {
   align-self: flex-end;
   border-bottom-right-radius: 6px;
   background: rgba(45, 212, 191, 0.2);
   color: #ecfeff;
 }
 
-.phone-chatgbd-bubble.assistant {
+.phone-chatgpd-bubble.assistant {
   align-self: flex-start;
   border-bottom-left-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   color: #e8edf4;
 }
 
-.phone-chatgbd-typing {
+.phone-chatgpd-typing {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 0;
 }
 
-.phone-chatgbd-typing i {
+.phone-chatgpd-typing i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: rgba(226, 232, 240, 0.7);
-  animation: phone-chatgbd-typing-bounce 1.2s infinite ease-in-out;
+  animation: phone-chatgpd-typing-bounce 1.2s infinite ease-in-out;
 }
 
-.phone-chatgbd-typing i:nth-child(2) {
+.phone-chatgpd-typing i:nth-child(2) {
   animation-delay: 0.15s;
 }
 
-.phone-chatgbd-typing i:nth-child(3) {
+.phone-chatgpd-typing i:nth-child(3) {
   animation-delay: 0.3s;
 }
 
-@keyframes phone-chatgbd-typing-bounce {
+@keyframes phone-chatgpd-typing-bounce {
   0%, 60%, 100% {
     transform: translateY(0);
     opacity: 0.5;
@@ -7988,7 +7990,7 @@ input[type="number"]::-webkit-outer-spin-button {
   }
 }
 
-.phone-chatgbd-composer {
+.phone-chatgpd-composer {
   display: flex;
   flex: none;
   align-items: center;
@@ -7997,7 +7999,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.phone-chatgbd-composer input {
+.phone-chatgpd-composer input {
   min-width: 0;
   flex: 1;
   padding: 10px 14px;
@@ -8008,12 +8010,12 @@ input[type="number"]::-webkit-outer-spin-button {
   font-size: 13px;
 }
 
-.phone-chatgbd-composer input:focus {
+.phone-chatgpd-composer input:focus {
   border-color: rgba(94, 234, 212, 0.55);
   outline: none;
 }
 
-.phone-chatgbd-composer button {
+.phone-chatgpd-composer button {
   display: grid;
   width: 36px;
   height: 36px;
@@ -8026,13 +8028,13 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: pointer;
 }
 
-.phone-chatgbd-composer button:disabled {
+.phone-chatgpd-composer button:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.phone-chatgbd-composer button:not(:disabled):hover,
-.phone-chatgbd-composer button:not(:disabled):focus-visible {
+.phone-chatgpd-composer button:not(:disabled):hover,
+.phone-chatgpd-composer button:not(:disabled):focus-visible {
   background: #14b8a6;
 }
 

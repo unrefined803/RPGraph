@@ -26,7 +26,7 @@ import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PhonePanel } from './components/PhonePanel';
-import { useChatGbdPhoneApp } from './chat/useChatGbdPhoneApp';
+import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { PromptPresetOverview } from './components/PromptPresetOverview';
 import { ResourceMonitor } from './components/ResourceMonitor';
 import {
@@ -1591,7 +1591,7 @@ function App() {
     resolveConnection,
     recordCall: recordNodeLlmCall,
   });
-  const chatGbd = useChatGbdPhoneApp({
+  const chatGpd = useChatGpdPhoneApp({
     nodes,
     nodesRef,
     nodeLlm,
@@ -6805,7 +6805,7 @@ function App() {
                 notifySystem('info', `Saved generated image in ${character.name}'s Phone Gallery.`);
               }}
               onPhoneWallpaperChange={changeStorybookPhoneWallpaper}
-              chatGbd={chatGbd}
+              chatGpd={chatGpd}
               phoneDesktopLayout={phoneDesktopLayout}
               onPhoneDesktopLayoutChange={setPhoneDesktopLayout}
               phoneDesktopIconSize={phoneDesktopIconSize}

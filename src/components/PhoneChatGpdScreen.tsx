@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
-  chatGbdModels,
-  type ChatGbdModel,
-  type ChatGbdPhoneApp,
-} from '../chat/useChatGbdPhoneApp';
+  chatGpdModels,
+  type ChatGpdModel,
+  type ChatGpdPhoneApp,
+} from '../chat/useChatGpdPhoneApp';
 
-type PhoneChatGbdScreenProps = {
-  chatGbd: ChatGbdPhoneApp;
+type PhoneChatGpdScreenProps = {
+  chatGpd: ChatGpdPhoneApp;
   onBack: () => void;
 };
 
-export function PhoneChatGbdScreen({ chatGbd, onBack }: PhoneChatGbdScreenProps) {
-  const { messages, model, isSending, nodeAvailable } = chatGbd;
+export function PhoneChatGpdScreen({ chatGpd, onBack }: PhoneChatGpdScreenProps) {
+  const { messages, model, isSending, nodeAvailable } = chatGpd;
   const [draft, setDraft] = useState('');
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
@@ -34,8 +34,8 @@ export function PhoneChatGbdScreen({ chatGbd, onBack }: PhoneChatGbdScreenProps)
     return () => document.removeEventListener('pointerdown', closeMenu);
   }, [modelMenuOpen]);
 
-  function selectModel(nextModel: ChatGbdModel) {
-    chatGbd.selectModel(nextModel);
+  function selectModel(nextModel: ChatGpdModel) {
+    chatGpd.selectModel(nextModel);
     setModelMenuOpen(false);
   }
 
@@ -46,21 +46,21 @@ export function PhoneChatGbdScreen({ chatGbd, onBack }: PhoneChatGbdScreenProps)
       return;
     }
     setDraft('');
-    void chatGbd.sendMessage(text);
+    void chatGpd.sendMessage(text);
   }
 
   return (
-    <div className="phone-chatgbd-screen" aria-label="ChatGBD">
+    <div className="phone-chatgpd-screen" aria-label="ChatGPD">
       <header className="phone-gallery-header">
         <button type="button" onClick={onBack} aria-label="Back" title="Back">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <div className="phone-chatgbd-model" ref={modelMenuRef}>
+        <div className="phone-chatgpd-model" ref={modelMenuRef}>
           <button
             type="button"
-            className="phone-chatgbd-model-button"
+            className="phone-chatgpd-model-button"
             onClick={() => setModelMenuOpen((open) => !open)}
             aria-expanded={modelMenuOpen}
             aria-label="Select model"
@@ -71,8 +71,8 @@ export function PhoneChatGbdScreen({ chatGbd, onBack }: PhoneChatGbdScreenProps)
             </svg>
           </button>
           {modelMenuOpen && (
-            <div className="phone-chatgbd-model-menu" role="menu" aria-label="Models">
-              {chatGbdModels.map((entry) => (
+            <div className="phone-chatgpd-model-menu" role="menu" aria-label="Models">
+              {chatGpdModels.map((entry) => (
                 <button
                   type="button"
                   className={entry === model ? 'active' : ''}
@@ -92,8 +92,8 @@ export function PhoneChatGbdScreen({ chatGbd, onBack }: PhoneChatGbdScreenProps)
         </div>
         <button
           type="button"
-          className="phone-chatgbd-clear-button"
-          onClick={chatGbd.clearConversation}
+          className="phone-chatgpd-clear-button"
+          onClick={chatGpd.clearConversation}
           disabled={messages.length === 0 || isSending}
           aria-label="New chat"
           title="New chat"
@@ -104,9 +104,9 @@ export function PhoneChatGbdScreen({ chatGbd, onBack }: PhoneChatGbdScreenProps)
           </svg>
         </button>
       </header>
-      <div className="phone-chatgbd-thread" ref={threadRef}>
+      <div className="phone-chatgpd-thread" ref={threadRef}>
         {messages.length === 0 && (
-          <div className="phone-chatgbd-empty">
+          <div className="phone-chatgpd-empty">
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 3l1.7 4.3L18 9l-4.3 1.7L12 15l-1.7-4.3L6 9l4.3-1.7Z" />
               <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9Z" />
@@ -119,21 +119,21 @@ export function PhoneChatGbdScreen({ chatGbd, onBack }: PhoneChatGbdScreenProps)
         )}
         {messages.map((message) => (
           <div
-            className={`phone-chatgbd-bubble ${message.role}`}
+            className={`phone-chatgpd-bubble ${message.role}`}
             key={message.id}
           >
             {message.text}
           </div>
         ))}
         {isSending && (
-          <div className="phone-chatgbd-bubble assistant pending">
-            <span className="phone-chatgbd-typing" aria-label="ChatGBD is answering">
+          <div className="phone-chatgpd-bubble assistant pending">
+            <span className="phone-chatgpd-typing" aria-label="ChatGPD is answering">
               <i /><i /><i />
             </span>
           </div>
         )}
       </div>
-      <form className="phone-chatgbd-composer" onSubmit={submit}>
+      <form className="phone-chatgpd-composer" onSubmit={submit}>
         <input
           type="text"
           value={draft}

@@ -23,7 +23,7 @@ export function PhoneAppsNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         <strong>{data.label}</strong>
       </div>
       <span className="node-description">{data.description}</span>
-      <ConnectionSelect id={id} label="CHATGBD LLM" connectionId={data.connectionId} />
+      <ConnectionSelect id={id} label="CHATGPD LLM" connectionId={data.connectionId} />
       <label className="node-field-label" htmlFor={`${id}-notes-connection`}>
         NOTES LLM
       </label>

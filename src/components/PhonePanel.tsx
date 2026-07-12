@@ -40,8 +40,8 @@ import { PhoneImagePicker } from './PhoneImagePicker';
 import { PhoneGalleryScreen } from './PhoneGalleryScreen';
 import { PhoneBankingScreen } from './PhoneBankingScreen';
 import { PhoneNotesScreen } from './PhoneNotesScreen';
-import { PhoneChatGbdScreen } from './PhoneChatGbdScreen';
-import type { ChatGbdPhoneApp } from '../chat/useChatGbdPhoneApp';
+import { PhoneChatGpdScreen } from './PhoneChatGpdScreen';
+import type { ChatGpdPhoneApp } from '../chat/useChatGpdPhoneApp';
 import { PhoneSocialFeedScreen } from './phone-social/PhoneSocialFeedScreen';
 import { socialApps } from './phone-social/socialApps';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
@@ -268,7 +268,7 @@ type PhonePanelProps = {
   ) => void;
   onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   onUnlockOnlyFriendsPost: (characterId: string, postId: string, price: number) => void;
-  chatGbd: ChatGbdPhoneApp;
+  chatGpd: ChatGpdPhoneApp;
   phoneDesktopLayout: PhoneDesktopLayout;
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
@@ -368,7 +368,7 @@ export function PhonePanel({
   onToggleSocialLike,
   onlyFriendsPurchasesByCharacter,
   onUnlockOnlyFriendsPost,
-  chatGbd,
+  chatGpd,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
@@ -718,8 +718,8 @@ export function PhonePanel({
 
   if (screen === 'ai') {
     return (
-      <PhoneChatGbdScreen
-        chatGbd={chatGbd}
+      <PhoneChatGpdScreen
+        chatGpd={chatGpd}
         onBack={() => setScreen('desktop')}
       />
     );
@@ -1061,15 +1061,10 @@ export function PhonePanel({
               }
               setScreen('ai');
             }}
-            aria-label="Open AI"
+            aria-label="Open ChatGPD"
           >
-            <span className="phone-chatgbd-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3l1.7 4.3L18 9l-4.3 1.7L12 15l-1.7-4.3L6 9l4.3-1.7Z" />
-                <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9Z" />
-              </svg>
-            </span>
-            <span>AI</span>
+            <span className="phone-chatgpd-icon" aria-hidden="true">AI</span>
+            <span>ChatGPD</span>
           </button>
         </div>
         <div className="phone-desktop-settings" ref={desktopSettingsRef}>

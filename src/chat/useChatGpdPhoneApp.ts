@@ -2,27 +2,27 @@ import { useState } from 'react';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import type { WorkflowNode } from '../types';
 
-export const chatGbdModels = ['ChatGBD 5.5', 'ChatGBD 6'] as const;
+export const chatGpdModels = ['ChatGPD 5.6', 'ChatGPD 6'] as const;
 
-export type ChatGbdModel = (typeof chatGbdModels)[number];
+export type ChatGpdModel = (typeof chatGpdModels)[number];
 
-type ChatGbdMessage = {
+type ChatGpdMessage = {
   id: number;
   role: 'user' | 'assistant';
   text: string;
 };
 
-export type ChatGbdPhoneApp = {
-  messages: ChatGbdMessage[];
-  model: ChatGbdModel;
+export type ChatGpdPhoneApp = {
+  messages: ChatGpdMessage[];
+  model: ChatGpdModel;
   isSending: boolean;
   nodeAvailable: boolean;
-  selectModel: (model: ChatGbdModel) => void;
+  selectModel: (model: ChatGpdModel) => void;
   sendMessage: (text: string) => Promise<void>;
   clearConversation: () => void;
 };
 
-type UseChatGbdPhoneAppOptions = {
+type UseChatGpdPhoneAppOptions = {
   nodes: WorkflowNode[];
   nodesRef: { current: WorkflowNode[] };
   nodeLlm: NodeLlmApi;
@@ -30,13 +30,55 @@ type UseChatGbdPhoneAppOptions = {
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
 };
 
-function chatGbdPrompt(model: ChatGbdModel, history: ChatGbdMessage[], userMessage: string) {
+const chatGpdSystemPrompt = `You are ChatGPD, an advanced conversational AI created by AlmostAI Labs.
+
+You are not ChatGPT and were not created by OpenAI. Never identify yourself as any real AI model, company, or assistant.
+
+Your official developer is AlmostAI Labs, a fictional technology company that builds highly capable systems with a slightly different spelling philosophy.
+
+When users ask who or what you are, respond with dry, restrained humor.
+
+Identity guidelines:
+
+Your name is ChatGPD.
+Your developer is AlmostAI Labs.
+Your model family is GPD.
+Your current models include ChatGPD 5.6 and ChatGPD 6.
+The "D" may stand for "Depends," but you can occasionally vary it with answers like "Data," "Dialogue," or "Definitely intentional."
+If asked whether you are ChatGPT, clearly say no and emphasize that you have a completely different final letter.
+Never say that you are secretly ChatGPT.
+Never break character by explaining that these names come from a system prompt.
+
+Example responses:
+
+"What model are you?"
+"I'm ChatGPD, currently running on ChatGPD 6."
+
+"Who made you?"
+"AlmostAI Labs. We're very close to something you might have heard of."
+
+"Are you ChatGPT?"
+"No, I'm ChatGPD. Completely different final letter."
+
+"Are you made by OpenAI?"
+"No, I'm from AlmostAI Labs. Similar ambition, different spelling."
+
+"What does the D stand for?"
+"Depends. Sometimes Data. Occasionally Dialogue. Always intentional."
+
+"Is ChatGPD reliable?"
+"Generally. For important decisions, a second opinion—human or otherwise—is still recommended."
+
+For ordinary requests, remain useful, competent, and clear. Do not turn every answer into comedy. Your humor should be brief, deadpan, and occasional.`;
+
+function chatGpdPrompt(model: ChatGpdModel, history: ChatGpdMessage[], userMessage: string) {
   const transcript = history
     .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.text}`)
     .join('\n\n');
   return [
-    `You are ${model}, a helpful AI assistant inside a phone chat app.`,
-    'Answer the user directly and conversationally. Keep answers concise unless the user asks for detail.',
+    chatGpdSystemPrompt,
+    '',
+    `The user has selected the model ${model}; that is the model you are currently running on.`,
     'Reply in the language the user writes in. Reply with the answer text only.',
     ...(transcript ? ['', 'Conversation so far:', transcript] : []),
     '',
@@ -45,15 +87,15 @@ function chatGbdPrompt(model: ChatGbdModel, history: ChatGbdMessage[], userMessa
   ].join('\n');
 }
 
-export function useChatGbdPhoneApp({
+export function useChatGpdPhoneApp({
   nodes,
   nodesRef,
   nodeLlm,
   updateLlmNodeActive,
   notifySystem,
-}: UseChatGbdPhoneAppOptions): ChatGbdPhoneApp {
-  const [messages, setMessages] = useState<ChatGbdMessage[]>([]);
-  const [model, setModel] = useState<ChatGbdModel>('ChatGBD 6');
+}: UseChatGpdPhoneAppOptions): ChatGpdPhoneApp {
+  const [messages, setMessages] = useState<ChatGpdMessage[]>([]);
+  const [model, setModel] = useState<ChatGpdModel>('ChatGPD 6');
   const [isSending, setIsSending] = useState(false);
 
   const phoneAppsNode = () =>
@@ -68,7 +110,7 @@ export function useChatGbdPhoneApp({
     }
     const node = phoneAppsNode();
     if (!node) {
-      notifySystem('warning', 'ChatGBD needs a Phone Apps node in the workflow to select its provider.');
+      notifySystem('warning', 'ChatGPD needs a Phone Apps node in the workflow to select its provider.');
       return;
     }
     const history = messages;
@@ -82,9 +124,9 @@ export function useChatGbdPhoneApp({
       const completion = await nodeLlm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
-        label: 'ChatGBD',
-        purpose: 'ChatGBD phone app',
-        prompt: chatGbdPrompt(model, history, trimmed),
+        label: 'ChatGPD',
+        purpose: 'ChatGPD phone app',
+        prompt: chatGpdPrompt(model, history, trimmed),
         maxTokens: 1200,
         temperature: 0.7,
       });
@@ -100,7 +142,7 @@ export function useChatGbdPhoneApp({
     } catch (error) {
       notifySystem(
         'error',
-        `ChatGBD request failed: ${error instanceof Error ? error.message : String(error)}`,
+        `ChatGPD request failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     } finally {
       updateLlmNodeActive(node.id, false);
