@@ -40,6 +40,26 @@ export function FileFormatsGuide() {
                         <p className="format-description">Optional starter messages and events that are copied into a new chat when the workflow starts.</p>
                       </div>
                     </div>
+
+                    <div className="format-node character-cards-format">
+                      <div className="format-node-header">
+                        <span className="format-node-badge">Importable Files</span>
+                        <strong>Character Cards</strong>
+                      </div>
+                      <div className="format-node-body">
+                        <p className="format-description">Characters can be exported individually and imported into this Storybook.</p>
+                        <div className="character-card-examples">
+                          <div className="format-node character-card-format">
+                            <span className="format-node-badge">Character Card</span>
+                            <strong>Character 1</strong>
+                          </div>
+                          <div className="format-node character-card-format">
+                            <span className="format-node-badge">Character Card</span>
+                            <strong>Character 2</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -61,7 +81,7 @@ export function FileFormatsGuide() {
       <div className="formats-info-row">
         <div className="info-card">
           <h4>Nesting & Load Flexibility</h4>
-          <p>Storybooks can be opened from <strong>Files</strong>. Character Cards use their own <strong>Characters</strong> picker backed by the local <strong>characters</strong> folder; its Open File action can browse elsewhere.</p>
+          <p>Storybooks can be opened from <strong>Files</strong>. Exported Character Cards can be imported into any Storybook through the <strong>Characters</strong> picker or its <strong>Open File</strong> action.</p>
         </div>
         <div className="info-card">
           <h4>Encryption & Safety</h4>

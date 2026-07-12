@@ -20019,9 +20019,9 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .welcome-dialog {
-  width: min(700px, calc(100vw - 40px));
-  height: min(792px, calc(100vh - 40px));
-  min-height: min(660px, calc(100vh - 40px));
+  width: min(820px, calc(100vw - 32px));
+  height: min(880px, calc(100vh - 24px));
+  min-height: min(700px, calc(100vh - 24px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -20059,6 +20059,8 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .welcome-header {
@@ -20581,6 +20583,7 @@ button.message-timeline-row.phone:focus-visible {
 
 /* Footer Control Bar */
 .welcome-footer {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -20797,14 +20800,18 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-format .format-node-badge,
-.opening-history-format .format-node-badge {
+.opening-history-format .format-node-badge,
+.character-cards-format .format-node-badge,
+.character-card-format .format-node-badge {
   background: rgba(45, 185, 172, 0.15);
   border-color: rgba(45, 185, 172, 0.35);
   color: #8ce1d8;
 }
 
 .storybook-format .format-node-header strong,
-.opening-history-format .format-node-header strong {
+.opening-history-format .format-node-header strong,
+.character-cards-format .format-node-header strong,
+.character-card-format strong {
   color: #8ce1d8;
 }
 
@@ -20826,6 +20833,40 @@ button.message-timeline-row.phone:focus-visible {
   border: none !important;
   padding: 6px 4px !important;
   margin-top: 4px;
+}
+
+.character-cards-format {
+  padding: 8px !important;
+  border-color: rgba(45, 185, 172, 0.18) !important;
+  background: rgba(45, 185, 172, 0.04) !important;
+}
+
+.character-cards-format > .format-node-body {
+  display: grid;
+  gap: 7px;
+}
+
+.character-card-examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.character-card-format {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 7px 8px !important;
+  border-color: rgba(45, 185, 172, 0.2) !important;
+  background: rgba(8, 18, 27, 0.46) !important;
+}
+
+.character-card-format strong {
+  overflow: hidden;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .formats-info-row {

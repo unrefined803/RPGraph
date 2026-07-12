@@ -38,9 +38,9 @@ const defaultPhoneDesktopLayout: PhoneDesktopLayout = {
     camera: { column: 3, row: 1 },
     banking: { column: 4, row: 1 },
     fotogram: { column: 1, row: 2 },
-    onlyfriends: { column: 2, row: 2 },
+    onlyfriends: { column: 4, row: 2 },
     notes: { column: 3, row: 2 },
-    ai: { column: 4, row: 2 },
+    ai: { column: 2, row: 2 },
   },
 };
 const defaultPhoneDesktopIconSize: PhoneDesktopIconSize = 'large';
