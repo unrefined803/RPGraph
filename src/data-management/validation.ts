@@ -444,6 +444,7 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     isRecord(value.ui) &&
     isNumberRecord(value.ui.phoneSeenByConversation) &&
     isNumberRecord(value.ui.bankingSeenByCharacter) &&
+    (value.ui.phoneAppSeenByCharacter === undefined || isNumberRecord(value.ui.phoneAppSeenByCharacter)) &&
     isStringArrayRecord(value.ui.bankingContactsByCharacter) &&
     isStringArrayRecord(value.ui.socialLikesByAccount) &&
     isNestedNonNegativeNumberRecord(value.ui.onlyFriendsPurchasesByCharacter) &&

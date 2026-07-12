@@ -46,6 +46,7 @@ export type SessionV2AppState = {
   currentRuntime: TurnRuntimeSnapshot;
   phoneSeenByConversation: Record<string, number>;
   bankingSeenByCharacter: Record<string, number>;
+  phoneAppSeenByCharacter: Record<string, number>;
   bankingContactsByCharacter: Record<string, string[]>;
   socialLikesByAccount: Record<string, string[]>;
   onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
@@ -64,6 +65,7 @@ export type SessionV2CurrentStateInput = {
   openingMessages: MessageRecord[];
   phoneSeenByConversation?: Record<string, number>;
   bankingSeenByCharacter?: Record<string, number>;
+  phoneAppSeenByCharacter?: Record<string, number>;
   bankingContactsByCharacter?: Record<string, string[]>;
   socialLikesByAccount?: Record<string, string[]>;
   onlyFriendsPurchasesByCharacter?: OnlyFriendsPurchasesByCharacter;
@@ -156,6 +158,7 @@ export function sessionV2FromCurrentState(
     ui: {
       phoneSeenByConversation: state.phoneSeenByConversation ?? {},
       bankingSeenByCharacter: state.bankingSeenByCharacter ?? {},
+      phoneAppSeenByCharacter: state.phoneAppSeenByCharacter ?? {},
       bankingContactsByCharacter: state.bankingContactsByCharacter ?? {},
       socialLikesByAccount: state.socialLikesByAccount ?? {},
       onlyFriendsPurchasesByCharacter: state.onlyFriendsPurchasesByCharacter ?? {},
@@ -327,6 +330,7 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
     currentRuntime: runtimeSnapshotFromSession(session),
     phoneSeenByConversation: session.ui.phoneSeenByConversation,
     bankingSeenByCharacter: session.ui.bankingSeenByCharacter,
+    phoneAppSeenByCharacter: session.ui.phoneAppSeenByCharacter ?? {},
     bankingContactsByCharacter: session.ui.bankingContactsByCharacter,
     socialLikesByAccount: session.ui.socialLikesByAccount,
     onlyFriendsPurchasesByCharacter: session.ui.onlyFriendsPurchasesByCharacter,

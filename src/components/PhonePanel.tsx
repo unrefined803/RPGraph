@@ -141,6 +141,7 @@ type PhonePanelProps = {
   highlightedPhoneMessagePulseKey: number;
   unreadPhoneConversations: UnreadPhoneConversation[];
   unreadBankingCount: number;
+  phoneAppNotificationCounts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends', number>;
   phoneHomeRequestId: number;
   socialPostOpenRequest?: {
     requestId: number;
@@ -178,6 +179,7 @@ type PhonePanelProps = {
   onOpenPhoneContact: (contact: PhoneContact) => void;
   onMarkSelectedPhoneConversationSeen: () => void;
   onMarkBankingSeen: () => void;
+  onMarkPhoneAppSeen: (app: 'notes' | 'ai' | 'fotogram' | 'onlyfriends') => void;
   onOpenUnreadPhoneConversation: (conversation: UnreadPhoneConversation) => void;
   unreadPhoneSwitchName: (conversation: UnreadPhoneConversation) => string;
   onSwitchToViewedCharacter: () => void;
@@ -302,6 +304,7 @@ export function PhonePanel({
   highlightedPhoneMessagePulseKey,
   unreadPhoneConversations,
   unreadBankingCount,
+  phoneAppNotificationCounts,
   phoneHomeRequestId,
   socialPostOpenRequest,
   phoneImages,
@@ -335,6 +338,7 @@ export function PhonePanel({
   onOpenPhoneContact,
   onMarkSelectedPhoneConversationSeen,
   onMarkBankingSeen,
+  onMarkPhoneAppSeen,
   onOpenUnreadPhoneConversation,
   unreadPhoneSwitchName,
   onSwitchToViewedCharacter,
@@ -445,6 +449,12 @@ export function PhonePanel({
       onMarkBankingSeen();
     }
   }, [onMarkBankingSeen, screen, unreadBankingCount]);
+
+  useEffect(() => {
+    if (screen === 'notes' || screen === 'ai' || screen === 'fotogram' || screen === 'onlyfriends') {
+      onMarkPhoneAppSeen(screen);
+    }
+  }, [onMarkPhoneAppSeen, screen]);
 
   // Jump straight to the conversation when a chat message links into the
   // phone (each click bumps the highlight pulse key).
@@ -1011,7 +1021,9 @@ export function PhonePanel({
               }
               setScreen('fotogram');
             }}
-            aria-label="Open Fotogram"
+            aria-label={phoneAppNotificationCounts.fotogram > 0
+              ? `Open Fotogram, ${phoneAppNotificationCounts.fotogram} new`
+              : 'Open Fotogram'}
           >
             <span className="phone-fotogram-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -1020,6 +1032,11 @@ export function PhonePanel({
                 <circle cx="17.2" cy="6.8" r="1" />
               </svg>
             </span>
+            {phoneAppNotificationCounts.fotogram > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.fotogram)}
+              </span>
+            )}
             <span>Fotogram</span>
           </button>
           <button
@@ -1037,13 +1054,20 @@ export function PhonePanel({
               }
               setScreen('onlyfriends');
             }}
-            aria-label="Open OnlyFriends"
+            aria-label={phoneAppNotificationCounts.onlyfriends > 0
+              ? `Open OnlyFriends, ${phoneAppNotificationCounts.onlyfriends} new`
+              : 'Open OnlyFriends'}
           >
             <span className="phone-onlyfriends-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />
               </svg>
             </span>
+            {phoneAppNotificationCounts.onlyfriends > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.onlyfriends)}
+              </span>
+            )}
             <span>OnlyFriends</span>
           </button>
           <button
@@ -1061,7 +1085,9 @@ export function PhonePanel({
               }
               setScreen('notes');
             }}
-            aria-label="Open Notes"
+            aria-label={phoneAppNotificationCounts.notes > 0
+              ? `Open Notes, ${phoneAppNotificationCounts.notes} new`
+              : 'Open Notes'}
           >
             <span className="phone-notes-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -1070,6 +1096,11 @@ export function PhonePanel({
                 <path d="M8 11h8M8 15h8M8 19h5" />
               </svg>
             </span>
+            {phoneAppNotificationCounts.notes > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.notes)}
+              </span>
+            )}
             <span>Notes</span>
           </button>
           <button
@@ -1087,9 +1118,16 @@ export function PhonePanel({
               }
               setScreen('ai');
             }}
-            aria-label="Open ChatGPD"
+            aria-label={phoneAppNotificationCounts.ai > 0
+              ? `Open ChatGPD, ${phoneAppNotificationCounts.ai} new`
+              : 'Open ChatGPD'}
           >
             <span className="phone-chatgpd-icon" aria-hidden="true">AI</span>
+            {phoneAppNotificationCounts.ai > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.ai)}
+              </span>
+            )}
             <span>ChatGPD</span>
           </button>
         </div>

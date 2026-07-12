@@ -231,6 +231,7 @@ type SessionRuntime = {
 type SessionUiState = {
   phoneSeenByConversation: Record<string, number>;
   bankingSeenByCharacter: Record<string, number>;
+  phoneAppSeenByCharacter?: Record<string, number>;
   bankingContactsByCharacter: Record<string, string[]>;
   socialLikesByAccount: Record<string, string[]>;
   onlyFriendsPurchasesByCharacter: Record<string, Record<string, number>>;

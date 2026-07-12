@@ -119,6 +119,7 @@ export function useRoleplayPanelRuntime({
   const [selectedEventId, setSelectedEventId] = useState('');
   const [phoneSeenByConversation, setPhoneSeenByConversation] = useState<Record<string, number>>({});
   const [bankingSeenByCharacter, setBankingSeenByCharacter] = useState<Record<string, number>>({});
+  const [phoneAppSeenByCharacter, setPhoneAppSeenByCharacter] = useState<Record<string, number>>({});
   const [bankingContactsByCharacter, setBankingContactsByCharacter] = useState<Record<string, string[]>>({});
   // Liked post ids per "characterId/app" account key; part of the RP save.
   const [socialLikesByAccount, setSocialLikesByAccount] = useState<Record<string, string[]>>({});
@@ -219,6 +220,50 @@ export function useRoleplayPanelRuntime({
         bankingSeenByCharacter[viewedBankingCharacter.id] ?? 0,
       )
     : 0;
+
+  const phoneAppNotifications = useMemo(() => {
+    const byCharacter = new Map<string, Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends', number>>();
+    storyCharacters.forEach((character) => {
+      const seen = (app: string) => phoneAppSeenByCharacter[`${character.id}:${app}`] ?? 0;
+      const count = (app: string, matches: (message: MessageRecord) => boolean) =>
+        messages.filter((message) => !message.isOpening && message.id > seen(app) && matches(message)).length;
+      const ownedPostIds = new Set(messages.flatMap((message) =>
+        message.socialPost?.author === character.name ? [message.socialPost.postId] : []
+      ));
+      byCharacter.set(character.id, {
+        notes: count('notes', (message) => message.createdPhoneNote?.characterId === character.id),
+        ai: count('ai', (message) => message.simulatedAiChat?.characterId === character.id),
+        fotogram: count('fotogram', (message) => (
+          message.socialReactions?.app === 'fotogram' && ownedPostIds.has(message.socialReactions.postId)
+        ) || (
+          message.socialDirectMessage?.app === 'fotogram' && message.socialDirectMessage.to === character.name
+        )),
+        onlyfriends: count('onlyfriends', (message) => (
+          message.socialReactions?.app === 'onlyfriends' && ownedPostIds.has(message.socialReactions.postId)
+        ) || (
+          message.socialDirectMessage?.app === 'onlyfriends' && message.socialDirectMessage.to === character.name
+        )),
+      });
+    });
+    return byCharacter;
+  }, [messages, phoneAppSeenByCharacter, storyCharacters]);
+  const phoneAppNotificationCounts = phoneAppNotifications.get(viewedPhoneCharacter?.id ?? '') ?? {
+    notes: 0,
+    ai: 0,
+    fotogram: 0,
+    onlyfriends: 0,
+  };
+
+  const markViewedPhoneAppSeen = useCallback((app: 'notes' | 'ai' | 'fotogram' | 'onlyfriends') => {
+    if (!viewedPhoneCharacter) {
+      return;
+    }
+    const latestId = messages.reduce((highest, message) => Math.max(highest, message.id), 0);
+    const key = `${viewedPhoneCharacter.id}:${app}`;
+    setPhoneAppSeenByCharacter((current) =>
+      latestId > (current[key] ?? 0) ? { ...current, [key]: latestId } : current
+    );
+  }, [messages, viewedPhoneCharacter]);
 
   const markViewedBankingSeen = useCallback(() => {
     if (!viewedBankingCharacter) {
@@ -527,7 +572,11 @@ export function useRoleplayPanelRuntime({
     (count, entry) => count + entry.transfers.length,
     0,
   );
-  const unreadPhoneNotificationCount = unreadPhoneCount + unreadBankingTotalCount;
+  const unreadPhoneAppCount = Array.from(phoneAppNotifications.values()).reduce(
+    (total, counts) => total + Object.values(counts).reduce((sum, count) => sum + count, 0),
+    0,
+  );
+  const unreadPhoneNotificationCount = unreadPhoneCount + unreadBankingTotalCount + unreadPhoneAppCount;
   const phoneNotificationOwners = useMemo(
     () => storyCharacters.flatMap((character) => {
       const phoneEntry = unreadPhoneConversations.find(
@@ -1125,6 +1174,10 @@ export function useRoleplayPanelRuntime({
     unreadChatCount,
     unreadBankingCount,
     markViewedBankingSeen,
+    phoneAppNotificationCounts,
+    markViewedPhoneAppSeen,
+    phoneAppSeenByCharacter,
+    setPhoneAppSeenByCharacter,
     phoneAuthorBadgesEnabled,
     changePhoneAuthorBadgesEnabled,
     autoTurnDisabled,

@@ -1224,6 +1224,10 @@ function App() {
     unreadChatCount,
     unreadBankingCount,
     markViewedBankingSeen,
+    phoneAppNotificationCounts,
+    markViewedPhoneAppSeen,
+    phoneAppSeenByCharacter,
+    setPhoneAppSeenByCharacter,
     phoneAuthorBadgesEnabled,
     changePhoneAuthorBadgesEnabled,
     autoTurnDisabled,
@@ -2661,6 +2665,7 @@ function App() {
       openingMessages,
       phoneSeenByConversation,
       bankingSeenByCharacter,
+      phoneAppSeenByCharacter,
       bankingContactsByCharacter,
       socialLikesByAccount,
       onlyFriendsPurchasesByCharacter,
@@ -2722,6 +2727,7 @@ function App() {
     setTurnCheckpoints([]);
     setPhoneSeenByConversation({});
     setBankingSeenByCharacter({});
+    setPhoneAppSeenByCharacter({});
     setBankingContactsByCharacter({});
     setSocialLikesByAccount({});
     setOnlyFriendsPurchasesByCharacter({});
@@ -2892,6 +2898,7 @@ function App() {
       ),
     );
     setBankingSeenByCharacter(sessionState.bankingSeenByCharacter);
+    setPhoneAppSeenByCharacter(sessionState.phoneAppSeenByCharacter);
     setBankingContactsByCharacter(sessionState.bankingContactsByCharacter);
     setSocialLikesByAccount(sessionState.socialLikesByAccount);
     setOnlyFriendsPurchasesByCharacter(sessionState.onlyFriendsPurchasesByCharacter);
@@ -3001,6 +3008,7 @@ function App() {
       setBankingSeenByCharacter(
         bankingSeenStateFromMessages(storyCharactersFromNodes(loadedNodes), openingMessages),
       );
+      setPhoneAppSeenByCharacter({});
       setBankingContactsByCharacter({});
       setSocialLikesByAccount({});
       setOnlyFriendsPurchasesByCharacter({});
@@ -6765,6 +6773,7 @@ function App() {
               highlightedPhoneMessagePulseKey={highlightedPhoneMessage?.pulseKey ?? 0}
               unreadPhoneConversations={unreadPhoneConversations}
               unreadBankingCount={unreadBankingCount}
+              phoneAppNotificationCounts={phoneAppNotificationCounts}
               phoneHomeRequestId={phoneHomeRequestId}
               socialPostOpenRequest={socialPostOpenRequest}
               phoneImages={phoneImages}
@@ -6824,6 +6833,7 @@ function App() {
               onOpenPhoneContact={openPhoneContact}
               onMarkSelectedPhoneConversationSeen={markSelectedPhoneConversationSeen}
               onMarkBankingSeen={markViewedBankingSeen}
+              onMarkPhoneAppSeen={markViewedPhoneAppSeen}
               onOpenUnreadPhoneConversation={openUnreadPhoneConversation}
               unreadPhoneSwitchName={unreadPhoneSwitchName}
               onSwitchToViewedCharacter={() => {
