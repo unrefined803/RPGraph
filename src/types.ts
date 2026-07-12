@@ -10,6 +10,10 @@ import type {
   PromptCommandConfig,
   PromptCommandStoredConfig,
 } from './nodes/shared/promptCommands';
+import type {
+  CreatedPhoneNoteCommit,
+  SimulatedAiChatCommit,
+} from './chat/phoneAppsSessions';
 import type { PromptRunDebug } from './nodes/shared/promptRun';
 import type { CoreNodeType } from './nodes/coreNodeTypes';
 
@@ -770,6 +774,8 @@ export type MessageRecord = {
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
+  createdPhoneNote?: CreatedPhoneNoteCommit;
+  simulatedAiChat?: SimulatedAiChatCommit;
 };
 
 export type RpAppointment = {

@@ -21,7 +21,9 @@ import type {
 import type { SessionFormatVersion, SessionWorkflowFormatVersion } from '../session/version';
 import type {
   ChatGpdChatsByCharacter,
+  CreatedPhoneNoteCommit,
   PhoneNotesByCharacter,
+  SimulatedAiChatCommit,
 } from '../chat/phoneAppsSessions';
 
 type AssistantContextEncodingMode = 'toon-default' | 'json-default';
@@ -107,6 +109,8 @@ export type TimelineMessageEntry = {
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
+  createdPhoneNote?: CreatedPhoneNoteCommit;
+  simulatedAiChat?: SimulatedAiChatCommit;
 };
 
 export type TimelineEventEntry = {

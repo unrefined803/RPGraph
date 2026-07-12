@@ -1496,6 +1496,30 @@ export function verifyWorkflowValidationFixtures() {
             name: 'Current Location',
             value: 'Old Harbor',
           }],
+          createdPhoneNote: {
+            characterId: 'storybook:character:alice',
+            characterName: 'Alice Harper',
+            note: {
+              id: 'note-command-turn-1-1',
+              title: 'Harbor reminder',
+              text: '- Meet Bob at noon\n- Bring the blue folder',
+              dayLabel: 'Mon 1 June',
+              color: 'neutral',
+            },
+          },
+          simulatedAiChat: {
+            characterId: 'storybook:character:alice',
+            characterName: 'Alice Harper',
+            chat: {
+              id: 'chatgpd-simulated-turn-1-1',
+              title: 'Harbor weather',
+              createdAt: '2026-06-01T12:00:00.000Z',
+              messages: [
+                { role: 'user', text: 'Will it rain at the harbor?' },
+                { role: 'assistant', text: 'The forecast suggests light rain after noon.' },
+              ],
+            },
+          },
         }, {
           id: 4,
           role: 'output',
@@ -1749,6 +1773,12 @@ export function verifyWorkflowValidationFixtures() {
     restoredAppState.turns[0]?.output.messages[0]?.workflowVariableSetCommands?.[0]?.value === 'Old Harbor',
     'RP Save Format v2 must restore output workflow variable metadata',
   );
+  assertFixture(
+    restoredAppState.turns[0]?.output.messages[0]?.createdPhoneNote?.note.title === 'Harbor reminder' &&
+      restoredAppState.turns[0]?.output.messages[0]?.simulatedAiChat?.chat.messages[1]?.text ===
+        'The forecast suggests light rain after noon.',
+    'RP Save Format v2 must restore created Notes and simulated ChatGPD message metadata',
+  );
   const embeddedPhoneRoundtripMessage = restoredAppState.turns[0]?.output.messages.find((message) =>
     message.originalText.startsWith('Bob waves from the bus stop.'),
   );
@@ -1809,6 +1839,13 @@ export function verifyWorkflowValidationFixtures() {
       '[Replied to Bob: [bob_image_01: Bob waving from the bus stop.] Ping from Bob]',
     ),
     'restored Chat History must resolve saved phone reply image ids',
+  );
+  assertFixture(
+    restoredReplyHistory.includes('[Notes] Alice Harper created the note "Harbor reminder":') &&
+      restoredReplyHistory.includes('- Bring the blue folder') &&
+      restoredReplyHistory.includes('[ChatGPD] Alice Harper used the AI assistant:') &&
+      restoredReplyHistory.includes('ChatGPD: The forecast suggests light rain after noon.'),
+    'Chat History must include complete created Notes and simulated ChatGPD conversations',
   );
   assertFixture(
     restoredAppState.turnCheckpoints[0]?.nodeSnapshots['history-1']?.before.historyCurrentRpDateTime === '2026-06-01T11:00' &&
@@ -2415,6 +2452,7 @@ export function verifyWorkflowValidationFixtures() {
     'turn-8',
     [{
       characterId: 'sarah',
+      characterName: 'Sarah Miller',
       note: {
         id: 'note-command-turn-8-1',
         title: 'Moving checklist',
@@ -2479,6 +2517,7 @@ export function verifyWorkflowValidationFixtures() {
     'turn-7',
     [{
       characterId: 'sarah',
+      characterName: 'Sarah Miller',
       chat: {
         id: 'chatgpd-simulated-turn-7-1',
         title: 'Tomatoes',

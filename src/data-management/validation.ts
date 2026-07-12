@@ -1,4 +1,5 @@
 import type { RpgraphSessionV2, TimelineEntry } from './types';
+import { phoneNoteColors } from '../chat/phoneAppsSessions';
 import {
   currentSessionFormatVersion,
   currentSessionWorkflowFormatVersion,
@@ -197,6 +198,36 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         )
       )
     );
+    const validCreatedPhoneNote = value.createdPhoneNote === undefined || (
+      isRecord(value.createdPhoneNote) &&
+      typeof value.createdPhoneNote.characterId === 'string' &&
+      typeof value.createdPhoneNote.characterName === 'string' &&
+      isRecord(value.createdPhoneNote.note) &&
+      typeof value.createdPhoneNote.note.id === 'string' &&
+      typeof value.createdPhoneNote.note.title === 'string' &&
+      typeof value.createdPhoneNote.note.text === 'string' &&
+      typeof value.createdPhoneNote.note.dayLabel === 'string' &&
+      phoneNoteColors.includes(value.createdPhoneNote.note.color as (typeof phoneNoteColors)[number])
+    );
+    const validSimulatedAiChat = value.simulatedAiChat === undefined || (
+      isRecord(value.simulatedAiChat) &&
+      typeof value.simulatedAiChat.characterId === 'string' &&
+      typeof value.simulatedAiChat.characterName === 'string' &&
+      isRecord(value.simulatedAiChat.chat) &&
+      typeof value.simulatedAiChat.chat.id === 'string' &&
+      typeof value.simulatedAiChat.chat.title === 'string' &&
+      typeof value.simulatedAiChat.chat.createdAt === 'string' &&
+      Array.isArray(value.simulatedAiChat.chat.messages) &&
+      value.simulatedAiChat.chat.messages.length >= 2 &&
+      value.simulatedAiChat.chat.messages.length <= 8 &&
+      value.simulatedAiChat.chat.messages.length % 2 === 0 &&
+      value.simulatedAiChat.chat.messages.every((message, index) =>
+        isRecord(message) &&
+        message.role === (index % 2 === 0 ? 'user' : 'assistant') &&
+        typeof message.text === 'string' &&
+        !!message.text.trim()
+      )
+    );
     return (
       typeof value.turnId === 'string' &&
       typeof value.turnNumber === 'number' &&
@@ -216,7 +247,9 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validSocialPost &&
       validSocialThreadAction &&
       validSocialReactions &&
-      validSocialDirectMessage
+      validSocialDirectMessage &&
+      validCreatedPhoneNote &&
+      validSimulatedAiChat
     );
   }
   if (value.kind === 'event-change') {

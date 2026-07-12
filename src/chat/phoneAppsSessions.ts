@@ -33,6 +33,7 @@ export type CreatedPhoneNote = {
 
 export type CreatedPhoneNoteCommit = {
   characterId: string;
+  characterName: string;
   note: PhoneNoteRecord;
 };
 
@@ -48,6 +49,7 @@ export type SimulatedAiChat = {
 
 export type SimulatedAiChatCommit = {
   characterId: string;
+  characterName: string;
   chat: ChatGpdChatRecord;
 };
 
@@ -100,6 +102,13 @@ export function replaceCreatedPhoneNotesForTurn(
   return next;
 }
 
+export function createdPhoneNoteHistoryText(entry: CreatedPhoneNoteCommit) {
+  return [
+    `[Notes] ${entry.characterName} created the note "${entry.note.title}":`,
+    entry.note.text,
+  ].join('\n');
+}
+
 export function parseSimulatedAiChat(value: unknown): SimulatedAiChat | undefined {
   const chat = recordValue(value);
   const character = stringValue(chat.character).trim();
@@ -144,6 +153,15 @@ export function replaceSimulatedAiChatsForTurn(
     next[characterId] = [chat, ...(next[characterId] ?? [])];
   });
   return next;
+}
+
+export function simulatedAiChatHistoryText(entry: SimulatedAiChatCommit) {
+  return [
+    `[ChatGPD] ${entry.characterName} used the AI assistant:`,
+    ...entry.chat.messages.map((message) =>
+      `${message.role === 'user' ? entry.characterName : 'ChatGPD'}: ${message.text}`
+    ),
+  ].join('\n');
 }
 
 function uniqueRecordsById<T extends { id: string }>(records: T[]) {

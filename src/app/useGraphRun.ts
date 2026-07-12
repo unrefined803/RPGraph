@@ -1528,6 +1528,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const firstQuestion = simulatedChat.messages[0]?.text ?? 'AI conversation';
           return [{
             characterId: character.id,
+            characterName: character.name,
             chat: {
               id: `${simulatedAiChatIdPrefix(turnId)}${index + 1}`,
               title: chatGpdFallbackTitle(firstQuestion),
@@ -1586,6 +1587,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
           return [{
             characterId: matchingCharacters[0].id,
+            characterName: matchingCharacters[0].name,
             note: {
               id: `${createdPhoneNoteIdPrefix(turnId)}${index + 1}`,
               title: createdNote.title,
@@ -1770,10 +1772,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const earlyOutput = {
             originalText: rpOutput,
             imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
-            includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
+            includeInHistory:
+              !!rpOutput.trim() ||
+              !!rpDisplayImageAttachment ||
+              createdPhoneNoteCommits.length > 0 ||
+              simulatedAiChatCommits.length > 0,
             embeddedPhoneMessages: embeddedPhoneMessages.map((link) => ({ ...link })),
             embeddedPhoneTextBefore: embeddedPhoneResult.textBefore,
             embeddedPhoneTextAfter: embeddedPhoneResult.textAfter,
+            createdPhoneNote: createdPhoneNoteCommits[0],
+            simulatedAiChat: simulatedAiChatCommits[0],
           };
           if (liveOutputMessageId === undefined) {
             liveOutputMessageId = appendMessage({ role: 'output', ...earlyOutput });
@@ -1910,7 +1918,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         originalText: rpOutput,
         translatedText: translatedOutput,
         imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
-        includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
+        includeInHistory:
+          !!rpOutput.trim() ||
+          !!rpDisplayImageAttachment ||
+          createdPhoneNoteCommits.length > 0 ||
+          simulatedAiChatCommits.length > 0,
         speakerName: primarySpeaker,
         speakerNames: attributedNames,
         speakerColors,
@@ -1923,6 +1935,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
         embeddedPhoneTranslatedTextBefore,
         embeddedPhoneTranslatedTextAfter,
         workflowVariableSetCommands: workflowVariableSetCommandsForOutput,
+        createdPhoneNote: createdPhoneNoteCommits[0],
+        simulatedAiChat: simulatedAiChatCommits[0],
       };
       if (!isPhoneMessage && liveOutputMessageId === undefined) {
         appendMessage({
@@ -1930,7 +1944,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
           originalText: rpOutput,
           translatedText: translatedOutput,
           imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
-          includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
+          includeInHistory:
+            !!rpOutput.trim() ||
+            !!rpDisplayImageAttachment ||
+            createdPhoneNoteCommits.length > 0 ||
+            simulatedAiChatCommits.length > 0,
           speakerName: primarySpeaker,
           speakerNames: attributedNames,
           speakerColors,
@@ -1942,6 +1960,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
           embeddedPhoneTranslatedTextBefore,
           embeddedPhoneTranslatedTextAfter,
           workflowVariableSetCommands: workflowVariableSetCommandsForOutput,
+          createdPhoneNote: createdPhoneNoteCommits[0],
+          simulatedAiChat: simulatedAiChatCommits[0],
         });
       } else if (!isPhoneMessage && liveOutputMessageId !== undefined) {
         updateMessage(liveOutputMessageId, completedOutput);

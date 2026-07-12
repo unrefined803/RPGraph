@@ -56,6 +56,8 @@ import {
 import { PhoneVoiceMessage } from './PhoneVoiceMessage';
 import { BankTransferCard } from './BankTransferCard';
 import { SocialPostCard } from './SocialPostCard';
+import { CreatedPhoneNoteCard } from './CreatedPhoneNoteCard';
+import { SimulatedAiChatCard } from './SimulatedAiChatCard';
 import type { CommandInputCommand } from '../chat/structuredCommands';
 import {
   socialCharacterForPost,
@@ -1435,6 +1437,22 @@ export function ChatConversationPanel({
                         </p>
                       )}
                     </>
+                  )}
+                  {!isEditingMessage && (message.createdPhoneNote || message.simulatedAiChat) && (
+                    <div className="phone-app-command-card-stack">
+                      {message.createdPhoneNote && (
+                        <CreatedPhoneNoteCard
+                          entry={message.createdPhoneNote}
+                          fontSize={chatTextSize || defaultChatTextSize}
+                        />
+                      )}
+                      {message.simulatedAiChat && (
+                        <SimulatedAiChatCard
+                          entry={message.simulatedAiChat}
+                          fontSize={chatTextSize || defaultChatTextSize}
+                        />
+                      )}
+                    </div>
                   )}
                   {isEditingMessage && (
                     <div className="message-actions user-actions">

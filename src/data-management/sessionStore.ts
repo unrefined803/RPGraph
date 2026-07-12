@@ -251,6 +251,8 @@ function chatMessageFromTimelineEntry(
     socialThreadAction: entry.socialThreadAction,
     socialReactions: entry.socialReactions,
     socialDirectMessage: entry.socialDirectMessage,
+    createdPhoneNote: entry.createdPhoneNote,
+    simulatedAiChat: entry.simulatedAiChat,
   };
 }
 
