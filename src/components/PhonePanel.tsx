@@ -42,6 +42,7 @@ import { PhoneBankingScreen } from './PhoneBankingScreen';
 import { PhoneNotesScreen } from './PhoneNotesScreen';
 import { PhoneChatGpdScreen } from './PhoneChatGpdScreen';
 import type { ChatGpdPhoneApp } from '../chat/useChatGpdPhoneApp';
+import type { PhoneNoteRecord } from '../chat/phoneAppsSessions';
 import { PhoneSocialFeedScreen } from './phone-social/PhoneSocialFeedScreen';
 import { socialApps } from './phone-social/socialApps';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
@@ -269,6 +270,8 @@ type PhonePanelProps = {
   onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   onUnlockOnlyFriendsPost: (characterId: string, postId: string, price: number) => void;
   chatGpd: ChatGpdPhoneApp;
+  phoneNotes: PhoneNoteRecord[];
+  onPhoneNotesChange: (notes: PhoneNoteRecord[]) => void;
   phoneDesktopLayout: PhoneDesktopLayout;
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
@@ -369,6 +372,8 @@ export function PhonePanel({
   onlyFriendsPurchasesByCharacter,
   onUnlockOnlyFriendsPost,
   chatGpd,
+  phoneNotes,
+  onPhoneNotesChange,
   phoneDesktopLayout,
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
@@ -708,6 +713,8 @@ export function PhonePanel({
       <PhoneNotesScreen
         key={selectedCharacter?.id ?? 'no-owner'}
         owner={selectedCharacter}
+        notes={phoneNotes}
+        onNotesChange={onPhoneNotesChange}
         clockDateTime={clockDateTime}
         rpDateTimeFormat={rpDateTimeFormat}
         rpWeekdayLanguage={rpWeekdayLanguage}

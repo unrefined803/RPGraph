@@ -10,6 +10,12 @@ import type {
   WorkflowNode,
 } from '../types';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
+import {
+  normalizeChatGpdChatsByCharacter,
+  normalizePhoneNotesByCharacter,
+  type ChatGpdChatsByCharacter,
+  type PhoneNotesByCharacter,
+} from '../chat/phoneAppsSessions';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { runtimeSnapshotForNode } from './checkpointStore';
 import { debugStateFromNodes } from './debugContext';
@@ -45,6 +51,8 @@ export type SessionV2AppState = {
   onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   phoneDividerAfterByConversation: Record<string, number>;
   recentlyUsedEmojis?: string[];
+  phoneNotesByCharacter: PhoneNotesByCharacter;
+  chatGpdChatsByCharacter: ChatGpdChatsByCharacter;
 };
 
 export type SessionV2CurrentStateInput = {
@@ -61,6 +69,8 @@ export type SessionV2CurrentStateInput = {
   onlyFriendsPurchasesByCharacter?: OnlyFriendsPurchasesByCharacter;
   phoneDividerAfterByConversation?: Record<string, number>;
   recentlyUsedEmojis?: string[];
+  phoneNotesByCharacter?: PhoneNotesByCharacter;
+  chatGpdChatsByCharacter?: ChatGpdChatsByCharacter;
 };
 
 function workflowFileToV2(workflow: WorkflowFile): WorkflowFileV2 {
@@ -151,6 +161,8 @@ export function sessionV2FromCurrentState(
       onlyFriendsPurchasesByCharacter: state.onlyFriendsPurchasesByCharacter ?? {},
       phoneDividerAfterByConversation: state.phoneDividerAfterByConversation ?? {},
       recentlyUsedEmojis: state.recentlyUsedEmojis ?? [],
+      phoneNotesByCharacter: state.phoneNotesByCharacter ?? {},
+      chatGpdChatsByCharacter: state.chatGpdChatsByCharacter ?? {},
     },
     ...(debug ? { debug } : {}),
   };
@@ -318,6 +330,8 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
     onlyFriendsPurchasesByCharacter: session.ui.onlyFriendsPurchasesByCharacter,
     phoneDividerAfterByConversation: session.ui.phoneDividerAfterByConversation,
     recentlyUsedEmojis: session.ui.recentlyUsedEmojis ?? [],
+    phoneNotesByCharacter: normalizePhoneNotesByCharacter(session.ui.phoneNotesByCharacter),
+    chatGpdChatsByCharacter: normalizeChatGpdChatsByCharacter(session.ui.chatGpdChatsByCharacter),
   };
 }
 

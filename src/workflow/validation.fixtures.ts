@@ -1386,6 +1386,8 @@ export function verifyWorkflowValidationFixtures() {
             sourceTurnNumber: 1,
           }],
           socialLikes: { 'alex/fotogram': ['post-1'] },
+          notes: {},
+          chatGpdChats: {},
         },
       }),
     },

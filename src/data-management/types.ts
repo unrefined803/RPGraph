@@ -19,6 +19,10 @@ import type {
   WorkflowVariableSetCommand,
 } from '../types';
 import type { SessionFormatVersion, SessionWorkflowFormatVersion } from '../session/version';
+import type {
+  ChatGpdChatsByCharacter,
+  PhoneNotesByCharacter,
+} from '../chat/phoneAppsSessions';
 
 type AssistantContextEncodingMode = 'toon-default' | 'json-default';
 
@@ -230,6 +234,8 @@ type SessionUiState = {
   selectedEventId?: string;
   openedPhoneConversationKey?: string;
   recentlyUsedEmojis?: string[];
+  phoneNotesByCharacter?: PhoneNotesByCharacter;
+  chatGpdChatsByCharacter?: ChatGpdChatsByCharacter;
 };
 
 export type DebugLlmCall = NodeLlmCallStats & {

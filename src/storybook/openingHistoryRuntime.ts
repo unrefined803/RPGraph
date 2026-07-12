@@ -3,6 +3,11 @@ import { chatAttachmentFromStorybookImage } from './runtime';
 import { storybookImageSourceById } from './imageLibrary';
 import type { MessageRecord, TurnRecord, RpAppointment, WorkflowNode } from '../types';
 import type { TurnCheckpoint } from '../data-management/types';
+import {
+  mergePhoneAppRecordsByCharacter,
+  type ChatGpdChatsByCharacter,
+  type PhoneNotesByCharacter,
+} from '../chat/phoneAppsSessions';
 
 function storybooksFromNodes(nodes: WorkflowNode[]): RpStorybookV1[] {
   return nodes.flatMap((node) => {
@@ -205,4 +210,42 @@ export function openingHistorySocialLikesFromNodes(nodes: WorkflowNode[]) {
     });
   });
   return likesByAccount;
+}
+
+/** Union of the imported Notes cards from every storybook's opening history. */
+export function openingHistoryNotesFromNodes(nodes: WorkflowNode[]): PhoneNotesByCharacter {
+  let notes: PhoneNotesByCharacter = {};
+  nodes.forEach((node) => {
+    if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+      return;
+    }
+    try {
+      notes = mergePhoneAppRecordsByCharacter(
+        notes,
+        parseRpStorybookJson(node.data.storybookJson).openingHistory.notes,
+      );
+    } catch {
+      return;
+    }
+  });
+  return structuredClone(notes);
+}
+
+/** Union of the imported ChatGPD chats from every storybook's opening history. */
+export function openingHistoryChatGpdChatsFromNodes(nodes: WorkflowNode[]): ChatGpdChatsByCharacter {
+  let chats: ChatGpdChatsByCharacter = {};
+  nodes.forEach((node) => {
+    if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+      return;
+    }
+    try {
+      chats = mergePhoneAppRecordsByCharacter(
+        chats,
+        parseRpStorybookJson(node.data.storybookJson).openingHistory.chatGpdChats,
+      );
+    } catch {
+      return;
+    }
+  });
+  return structuredClone(chats);
 }

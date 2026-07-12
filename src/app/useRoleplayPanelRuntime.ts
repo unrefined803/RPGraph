@@ -21,6 +21,10 @@ import {
   unreadBankTransfersForCharacter,
 } from '../chat/bankTransfers';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
+import type {
+  ChatGpdChatsByCharacter,
+  PhoneNotesByCharacter,
+} from '../chat/phoneAppsSessions';
 import { normalizePhoneName } from '../chat/phoneMessages';
 import {
   socialCharacterForPost,
@@ -118,6 +122,9 @@ export function useRoleplayPanelRuntime({
   const [bankingContactsByCharacter, setBankingContactsByCharacter] = useState<Record<string, string[]>>({});
   // Liked post ids per "characterId/app" account key; part of the RP save.
   const [socialLikesByAccount, setSocialLikesByAccount] = useState<Record<string, string[]>>({});
+  // Notes and ChatGPD chats per character id; part of the RP save.
+  const [phoneNotesByCharacter, setPhoneNotesByCharacter] = useState<PhoneNotesByCharacter>({});
+  const [chatGpdChatsByCharacter, setChatGpdChatsByCharacter] = useState<ChatGpdChatsByCharacter>({});
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = useState(0);
@@ -1106,6 +1113,10 @@ export function useRoleplayPanelRuntime({
     socialImageById,
     socialLikesByAccount,
     setSocialLikesByAccount,
+    phoneNotesByCharacter,
+    setPhoneNotesByCharacter,
+    chatGpdChatsByCharacter,
+    setChatGpdChatsByCharacter,
     toggleSocialLike,
     onlyFriendsPurchasesByCharacter,
     setOnlyFriendsPurchasesByCharacter,

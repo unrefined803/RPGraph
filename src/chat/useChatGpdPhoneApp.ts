@@ -1,30 +1,34 @@
-import { useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import type { WorkflowNode } from '../types';
+import type {
+  ChatGpdChatRecord,
+  ChatGpdChatsByCharacter,
+} from './phoneAppsSessions';
 
 export const chatGpdModels = ['ChatGPD 5.6', 'ChatGPD 6'] as const;
 
 export type ChatGpdModel = (typeof chatGpdModels)[number];
 
-type ChatGpdMessage = {
-  id: number;
-  role: 'user' | 'assistant';
-  text: string;
-};
-
 export type ChatGpdPhoneApp = {
-  messages: ChatGpdMessage[];
+  chats: ChatGpdChatRecord[];
+  activeChat?: ChatGpdChatRecord;
   model: ChatGpdModel;
   isSending: boolean;
   nodeAvailable: boolean;
   selectModel: (model: ChatGpdModel) => void;
+  selectChat: (chatId: string) => void;
+  startNewChat: () => void;
+  deleteChat: (chatId: string) => void;
   sendMessage: (text: string) => Promise<void>;
-  clearConversation: () => void;
 };
 
 type UseChatGpdPhoneAppOptions = {
   nodes: WorkflowNode[];
   nodesRef: { current: WorkflowNode[] };
+  viewedCharacterId?: string;
+  chatsByCharacter: ChatGpdChatsByCharacter;
+  setChatsByCharacter: Dispatch<SetStateAction<ChatGpdChatsByCharacter>>;
   nodeLlm: NodeLlmApi;
   updateLlmNodeActive: (nodeId: string, runActive: boolean) => void;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
@@ -71,7 +75,7 @@ Example responses:
 
 For ordinary requests, remain useful, competent, and clear. Do not turn every answer into comedy. Your humor should be brief, deadpan, and occasional.`;
 
-function chatGpdPrompt(model: ChatGpdModel, history: ChatGpdMessage[], userMessage: string) {
+function chatGpdPrompt(model: ChatGpdModel, history: ChatGpdChatRecord['messages'], userMessage: string) {
   const transcript = history
     .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.text}`)
     .join('\n\n');
@@ -87,37 +91,135 @@ function chatGpdPrompt(model: ChatGpdModel, history: ChatGpdMessage[], userMessa
   ].join('\n');
 }
 
+function chatGpdTitlePrompt(question: string, answer: string) {
+  return [
+    'Write a very short chat title (3 to 5 words) describing the topic of this conversation.',
+    'Use the language of the user message. Reply with the title only: no quotes, no punctuation at the end.',
+    '',
+    `User: ${question}`,
+    `Assistant: ${answer}`,
+    '',
+    'Title:',
+  ].join('\n');
+}
+
+function fallbackChatTitle(question: string) {
+  const words = question.trim().split(/\s+/);
+  const title = words.slice(0, 6).join(' ');
+  return words.length > 6 ? `${title} ...` : title;
+}
+
+function nextChatId() {
+  return `chatgpd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function useChatGpdPhoneApp({
   nodes,
   nodesRef,
+  viewedCharacterId,
+  chatsByCharacter,
+  setChatsByCharacter,
   nodeLlm,
   updateLlmNodeActive,
   notifySystem,
 }: UseChatGpdPhoneAppOptions): ChatGpdPhoneApp {
-  const [messages, setMessages] = useState<ChatGpdMessage[]>([]);
   const [model, setModel] = useState<ChatGpdModel>('ChatGPD 6');
   const [isSending, setIsSending] = useState(false);
+  const [activeChatIdByCharacter, setActiveChatIdByCharacter] =
+    useState<Record<string, string | undefined>>({});
 
-  const phoneAppsNode = () =>
-    nodesRef.current.find(
-      (node) => node.data.kind === undefined && node.data.nodeType === 'phone-apps',
+  const characterId = viewedCharacterId ?? '';
+  const chats = chatsByCharacter[characterId] ?? [];
+  const activeChatId = activeChatIdByCharacter[characterId];
+  const activeChat = chats.find((chat) => chat.id === activeChatId);
+
+  function selectChat(chatId: string) {
+    setActiveChatIdByCharacter((current) => ({ ...current, [characterId]: chatId }));
+  }
+
+  function startNewChat() {
+    setActiveChatIdByCharacter((current) => ({ ...current, [characterId]: undefined }));
+  }
+
+  function deleteChat(chatId: string) {
+    setChatsByCharacter((current) => ({
+      ...current,
+      [characterId]: (current[characterId] ?? []).filter((chat) => chat.id !== chatId),
+    }));
+    setActiveChatIdByCharacter((current) =>
+      current[characterId] === chatId ? { ...current, [characterId]: undefined } : current,
     );
+  }
+
+  function patchChat(chatId: string, patch: (chat: ChatGpdChatRecord) => ChatGpdChatRecord) {
+    setChatsByCharacter((current) => ({
+      ...current,
+      [characterId]: (current[characterId] ?? []).map((chat) =>
+        chat.id === chatId ? patch(chat) : chat,
+      ),
+    }));
+  }
+
+  async function generateChatTitle(nodeId: string, connectionId: string | undefined, chatId: string, question: string, answer: string) {
+    let title = fallbackChatTitle(question);
+    try {
+      const completion = await nodeLlm.complete({
+        connectionId,
+        nodeId,
+        label: 'ChatGPD Title',
+        purpose: 'ChatGPD chat title',
+        prompt: chatGpdTitlePrompt(question, answer),
+        maxTokens: 40,
+        temperature: 0.3,
+      });
+      const generated = completion.text.trim().split('\n')[0]?.replace(/^["']|["'.]$/g, '').trim();
+      if (generated) {
+        title = generated;
+      }
+    } catch {
+      // The fallback title is already set; a failed title call should not
+      // disturb the finished chat answer.
+    }
+    patchChat(chatId, (chat) => ({ ...chat, title }));
+  }
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
     if (!trimmed || isSending) {
       return;
     }
-    const node = phoneAppsNode();
+    if (!characterId) {
+      notifySystem('warning', 'ChatGPD needs a selected phone character.');
+      return;
+    }
+    const node = nodesRef.current.find(
+      (entry) => entry.data.kind === undefined && entry.data.nodeType === 'phone-apps',
+    );
     if (!node) {
       notifySystem('warning', 'ChatGPD needs a Phone Apps node in the workflow to select its provider.');
       return;
     }
-    const history = messages;
-    setMessages((current) => [
-      ...current,
-      { id: current.length + 1, role: 'user', text: trimmed },
-    ]);
+    let chatId = activeChat?.id;
+    const history = activeChat?.messages ?? [];
+    const isFirstExchange = history.length === 0;
+    if (!chatId) {
+      chatId = nextChatId();
+      const newChat: ChatGpdChatRecord = {
+        id: chatId,
+        title: '',
+        createdAt: new Date().toISOString(),
+        messages: [],
+      };
+      setChatsByCharacter((current) => ({
+        ...current,
+        [characterId]: [newChat, ...(current[characterId] ?? [])],
+      }));
+      setActiveChatIdByCharacter((current) => ({ ...current, [characterId]: chatId }));
+    }
+    patchChat(chatId, (chat) => ({
+      ...chat,
+      messages: [...chat.messages, { role: 'user', text: trimmed }],
+    }));
     setIsSending(true);
     updateLlmNodeActive(node.id, true);
     try {
@@ -130,15 +232,14 @@ export function useChatGpdPhoneApp({
         maxTokens: 1200,
         temperature: 0.7,
       });
-      const answer = completion.text.trim();
-      setMessages((current) => [
-        ...current,
-        {
-          id: current.length + 1,
-          role: 'assistant',
-          text: answer || '...',
-        },
-      ]);
+      const answer = completion.text.trim() || '...';
+      patchChat(chatId, (chat) => ({
+        ...chat,
+        messages: [...chat.messages, { role: 'assistant', text: answer }],
+      }));
+      if (isFirstExchange) {
+        await generateChatTitle(node.id, node.data.connectionId, chatId, trimmed, answer);
+      }
     } catch (error) {
       notifySystem(
         'error',
@@ -151,14 +252,17 @@ export function useChatGpdPhoneApp({
   }
 
   return {
-    messages,
+    chats,
+    activeChat,
     model,
     isSending,
     nodeAvailable: nodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'phone-apps',
     ),
     selectModel: setModel,
+    selectChat,
+    startNewChat,
+    deleteChat,
     sendMessage,
-    clearConversation: () => setMessages([]),
   };
 }

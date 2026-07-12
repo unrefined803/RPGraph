@@ -2,36 +2,21 @@ import { useEffect, useState } from 'react';
 import type { RpDateTimeFormat, RpWeekdayLanguage } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { formatRpDayLabel } from '../workflow';
-
-type PhoneNote = {
-  id: string;
-  title: string;
-  text: string;
-  dayLabel: string;
-  color: PhoneNoteColor;
-};
-
-type PhoneNoteColor =
-  | 'neutral'
-  | 'sand'
-  | 'coral'
-  | 'peach'
-  | 'mint'
-  | 'sky'
-  | 'lavender'
-  | 'rose';
+import {
+  phoneNoteColors,
+  type PhoneNoteColor,
+  type PhoneNoteRecord,
+} from '../chat/phoneAppsSessions';
 
 type PhoneNotesScreenProps = {
   owner?: StorybookCharacter;
+  notes: PhoneNoteRecord[];
+  onNotesChange: (notes: PhoneNoteRecord[]) => void;
   clockDateTime: string;
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
   onBack: () => void;
 };
-
-// UI-only draft storage: notes survive leaving the app screen, but are not
-// yet part of the saved session. The LLM integration will replace this.
-const notesByCharacter = new Map<string, PhoneNote[]>();
 
 const noteColors: readonly { id: PhoneNoteColor; label: string }[] = [
   { id: 'neutral', label: 'Neutral' },
@@ -49,13 +34,7 @@ const randomNoteColors: readonly PhoneNoteColor[] = [
   'neutral',
   'neutral',
   'neutral',
-  'sand',
-  'coral',
-  'peach',
-  'mint',
-  'sky',
-  'lavender',
-  'rose',
+  ...phoneNoteColors.filter((color) => color !== 'neutral'),
 ];
 
 function nextNoteId() {
@@ -68,40 +47,33 @@ function randomNoteColor() {
 
 export function PhoneNotesScreen({
   owner,
+  notes,
+  onNotesChange,
   clockDateTime,
   rpDateTimeFormat,
   rpWeekdayLanguage,
   onBack,
 }: PhoneNotesScreenProps) {
-  const ownerKey = owner?.id ?? 'no-owner';
-  const [notes, setNotes] = useState<PhoneNote[]>(
-    () => notesByCharacter.get(ownerKey) ?? [],
-  );
   const [editingNoteId, setEditingNoteId] = useState<string>();
 
-  function updateNotes(next: PhoneNote[]) {
-    notesByCharacter.set(ownerKey, next);
-    setNotes(next);
-  }
-
   function addNote() {
-    const note: PhoneNote = {
+    const note: PhoneNoteRecord = {
       id: nextNoteId(),
       title: '',
       text: '',
       dayLabel: formatRpDayLabel(clockDateTime, rpDateTimeFormat, rpWeekdayLanguage) || '',
       color: randomNoteColor(),
     };
-    updateNotes([note, ...notes]);
+    onNotesChange([note, ...notes]);
     setEditingNoteId(note.id);
   }
 
-  function changeNote(id: string, change: Partial<Pick<PhoneNote, 'title' | 'text' | 'color'>>) {
-    updateNotes(notes.map((note) => (note.id === id ? { ...note, ...change } : note)));
+  function changeNote(id: string, change: Partial<Pick<PhoneNoteRecord, 'title' | 'text' | 'color'>>) {
+    onNotesChange(notes.map((note) => (note.id === id ? { ...note, ...change } : note)));
   }
 
   function removeNote(id: string) {
-    updateNotes(notes.filter((note) => note.id !== id));
+    onNotesChange(notes.filter((note) => note.id !== id));
     if (editingNoteId === id) {
       setEditingNoteId(undefined);
     }
@@ -126,15 +98,13 @@ export function PhoneNotesScreen({
       }
       const note = notes.find((entry) => entry.id === editingNoteId);
       if (note && !note.title.trim() && !note.text.trim()) {
-        const next = notes.filter((entry) => entry.id !== note.id);
-        notesByCharacter.set(ownerKey, next);
-        setNotes(next);
+        onNotesChange(notes.filter((entry) => entry.id !== note.id));
       }
       setEditingNoteId(undefined);
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [editingNoteId, notes, onBack, ownerKey]);
+  }, [editingNoteId, notes, onBack, onNotesChange]);
 
   const editingNote = notes.find((note) => note.id === editingNoteId);
 

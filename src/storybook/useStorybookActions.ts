@@ -25,6 +25,10 @@ import { withChangedStorybookImageDescriptionsSynchronized } from './imageLibrar
 import { turnsWithStorybookImageRefs } from './openingHistoryRuntime';
 import storybookFormatVersions from './formatVersions.json';
 import type { TurnCheckpoint } from '../data-management/types';
+import type {
+  ChatGpdChatsByCharacter,
+  PhoneNotesByCharacter,
+} from '../chat/phoneAppsSessions';
 
 type FileProtection = 'plain' | 'encrypted';
 
@@ -54,6 +58,8 @@ type UseStorybookActionsOptions = {
   turnsRef: MutableRefObject<TurnRecord[]>;
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
   currentSocialLikesByAccount: () => Record<string, string[]>;
+  currentPhoneNotesByCharacter: () => PhoneNotesByCharacter;
+  currentChatGpdChatsByCharacter: () => ChatGpdChatsByCharacter;
   replaceCurrentChatWithOpeningHistoryRef: MutableRefObject<boolean>;
   nodeLlm: NodeLlmApi;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
@@ -75,6 +81,8 @@ export function useStorybookActions({
   turnsRef,
   turnCheckpointsRef,
   currentSocialLikesByAccount,
+  currentPhoneNotesByCharacter,
+  currentChatGpdChatsByCharacter,
   replaceCurrentChatWithOpeningHistoryRef,
   nodeLlm,
   updateRuntimeNode,
@@ -244,7 +252,7 @@ export function useStorybookActions({
     return commitError === null;
   }
 
-  function importCurrentChatAsOpeningHistory(nodeId: string) {
+  function importCurrentSessionAsOpeningHistory(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (!node || node.data.nodeType !== 'rp-storybook-v1') {
       return;
@@ -294,9 +302,12 @@ export function useStorybookActions({
         turns: historyTurns,
         checkpoints: historyCheckpoints,
         events: normalizedOpeningEvents,
-        // Player likes are session UI state, not message records, so they are
-        // snapshotted into the opening history explicitly.
+        // Player likes, notes, and ChatGPD chats are session UI state, not
+        // message records, so they are snapshotted into the opening history
+        // explicitly.
         socialLikes: structuredClone(currentSocialLikesByAccount()),
+        notes: structuredClone(currentPhoneNotesByCharacter()),
+        chatGpdChats: structuredClone(currentChatGpdChatsByCharacter()),
       },
     };
     replaceCurrentChatWithOpeningHistoryRef.current = true;
@@ -525,7 +536,7 @@ export function useStorybookActions({
     submitStorybookCreatorMessage,
     updateStorybook,
     applyStorybookToNode,
-    importCurrentChatAsOpeningHistory,
+    importCurrentSessionAsOpeningHistory,
     clearStorybookOpeningHistory,
     resetStorybook,
     importSillyTavernCharacter,

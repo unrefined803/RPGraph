@@ -421,6 +421,10 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
         Array.isArray(value.ui.recentlyUsedEmojis) &&
         value.ui.recentlyUsedEmojis.every((emoji) => typeof emoji === 'string')
       )
-    )
+    ) &&
+    // Notes and ChatGPD chats are normalized element-wise on load; only the
+    // container shape is validated here.
+    (value.ui.phoneNotesByCharacter === undefined || isRecord(value.ui.phoneNotesByCharacter)) &&
+    (value.ui.chatGpdChatsByCharacter === undefined || isRecord(value.ui.chatGpdChatsByCharacter))
   );
 }

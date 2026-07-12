@@ -156,11 +156,14 @@ import { storybookImageIdsUsedByMessages } from './storybook/imageUsage';
 import storybookFormatVersions from './storybook/formatVersions.json';
 import {
   openingHistoryEventsFromNodes,
+  openingHistoryChatGpdChatsFromNodes,
   openingHistoryCheckpointsFromNodes,
+  openingHistoryNotesFromNodes,
   openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
   remapOpeningTurnMessageIds,
 } from './storybook/openingHistoryRuntime';
+import { mergePhoneAppRecordsByCharacter } from './chat/phoneAppsSessions';
 import {
   flattenTurnMessages,
   lastSessionTurn,
@@ -1181,6 +1184,10 @@ function App() {
     socialImageById,
     socialLikesByAccount,
     setSocialLikesByAccount,
+    phoneNotesByCharacter,
+    setPhoneNotesByCharacter,
+    chatGpdChatsByCharacter,
+    setChatGpdChatsByCharacter,
     toggleSocialLike,
     onlyFriendsPurchasesByCharacter,
     setOnlyFriendsPurchasesByCharacter,
@@ -1594,6 +1601,9 @@ function App() {
   const chatGpd = useChatGpdPhoneApp({
     nodes,
     nodesRef,
+    viewedCharacterId: viewedPhoneCharacter?.id,
+    chatsByCharacter: chatGpdChatsByCharacter,
+    setChatsByCharacter: setChatGpdChatsByCharacter,
     nodeLlm,
     updateLlmNodeActive,
     notifySystem,
@@ -1607,7 +1617,7 @@ function App() {
     submitStorybookCreatorMessage,
     updateStorybook,
     applyStorybookToNode,
-    importCurrentChatAsOpeningHistory,
+    importCurrentSessionAsOpeningHistory,
     clearStorybookOpeningHistory,
     resetStorybook,
     importSillyTavernCharacter,
@@ -1630,6 +1640,8 @@ function App() {
     notifySystem,
     usedStorybookImageIds,
     currentSocialLikesByAccount: () => socialLikesByAccount,
+    currentPhoneNotesByCharacter: () => phoneNotesByCharacter,
+    currentChatGpdChatsByCharacter: () => chatGpdChatsByCharacter,
     clearCurrentSession: () => clearCurrentSession(),
   });
   async function describeStorybookCharacterImage(
@@ -2562,6 +2574,19 @@ function App() {
       return merged;
     });
 
+    // Notes and ChatGPD chats follow the likes: replaced on a fresh import,
+    // merged in (existing entries win) when the current chat is kept.
+    const openingNotes = openingHistoryNotesFromNodes(nextNodes);
+    setPhoneNotesByCharacter((current) =>
+      replaceCurrentChat ? openingNotes : mergePhoneAppRecordsByCharacter(current, openingNotes),
+    );
+    const openingChatGpdChats = openingHistoryChatGpdChatsFromNodes(nextNodes);
+    setChatGpdChatsByCharacter((current) =>
+      replaceCurrentChat
+        ? openingChatGpdChats
+        : mergePhoneAppRecordsByCharacter(current, openingChatGpdChats),
+    );
+
     const openingEvents = openingHistoryEventsFromNodes(nextNodes);
     if (openingEvents.length > 0) {
       const nodesWithOpeningEvents = nextNodes.map((node) =>
@@ -2611,6 +2636,8 @@ function App() {
       onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
+      phoneNotesByCharacter,
+      chatGpdChatsByCharacter,
     };
   }
 
@@ -2672,6 +2699,8 @@ function App() {
     setOpenedPhoneConversationKey('');
     setRecentlyUsedEmojis([]);
     setRecentChatCharacterIds([]);
+    setPhoneNotesByCharacter({});
+    setChatGpdChatsByCharacter({});
     resetSystemLog();
     setActiveSessionFileName(null);
     setActiveSessionSavedTurn(null);
@@ -2838,6 +2867,8 @@ function App() {
     setOnlyFriendsPurchasesByCharacter(sessionState.onlyFriendsPurchasesByCharacter);
     setPhoneDividerAfterByConversation(sessionState.phoneDividerAfterByConversation);
     setRecentlyUsedEmojis(sessionState.recentlyUsedEmojis ?? []);
+    setPhoneNotesByCharacter(sessionState.phoneNotesByCharacter);
+    setChatGpdChatsByCharacter(sessionState.chatGpdChatsByCharacter);
     setRecentChatCharacterIds([]);
     setOpenedPhoneConversationKey('');
     resetSystemLog();
@@ -2944,6 +2975,8 @@ function App() {
       setSocialLikesByAccount({});
       setOnlyFriendsPurchasesByCharacter({});
       setPhoneDividerAfterByConversation({});
+      setPhoneNotesByCharacter(openingHistoryNotesFromNodes(loadedNodes));
+      setChatGpdChatsByCharacter(openingHistoryChatGpdChatsFromNodes(loadedNodes));
       setOpenedPhoneConversationKey('');
       nextMessageIdRef.current =
         openingMessages.reduce(
@@ -6806,6 +6839,18 @@ function App() {
               }}
               onPhoneWallpaperChange={changeStorybookPhoneWallpaper}
               chatGpd={chatGpd}
+              phoneNotes={viewedPhoneCharacter
+                ? phoneNotesByCharacter[viewedPhoneCharacter.id] ?? []
+                : []}
+              onPhoneNotesChange={(notes) => {
+                if (viewedPhoneCharacter) {
+                  const characterId = viewedPhoneCharacter.id;
+                  setPhoneNotesByCharacter((current) => ({
+                    ...current,
+                    [characterId]: notes,
+                  }));
+                }
+              }}
               phoneDesktopLayout={phoneDesktopLayout}
               onPhoneDesktopLayoutChange={setPhoneDesktopLayout}
               phoneDesktopIconSize={phoneDesktopIconSize}
@@ -6882,7 +6927,7 @@ function App() {
           onGenerateCharacterComfyPreview={generateCharacterComfyPreview}
           onGenerateCharacterVoicePreview={generateCharacterVoicePreview}
           onUnloadCharacterComfyModels={unloadCharacterComfyModels}
-          onImportOpeningHistory={() => importCurrentChatAsOpeningHistory(storybookCreatorNode.id)}
+          onImportOpeningHistory={() => importCurrentSessionAsOpeningHistory(storybookCreatorNode.id)}
           onClearOpeningHistory={() => clearStorybookOpeningHistory(storybookCreatorNode.id)}
           onResetStorybook={() => resetStorybook(storybookCreatorNode.id)}
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}

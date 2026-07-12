@@ -7826,6 +7826,156 @@ input[type="number"]::-webkit-outer-spin-button {
   background: rgba(45, 212, 191, 0.2);
 }
 
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-chats-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-chats-button:hover,
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-chats-button:focus-visible,
+.phone-chatgpd-screen .phone-gallery-header .phone-chatgpd-chats-button[aria-expanded="true"] {
+  border-color: rgba(94, 234, 212, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.phone-chatgpd-body {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+
+.phone-chatgpd-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.phone-chatgpd-sidebar {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  width: min(220px, 78%);
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(13, 18, 24, 0.97);
+  box-shadow: 12px 0 30px rgba(0, 0, 0, 0.45);
+}
+
+.phone-chatgpd-new-chat {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(94, 234, 212, 0.3);
+  border-radius: 10px;
+  background: rgba(45, 212, 191, 0.1);
+  color: #99f6e4;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.phone-chatgpd-new-chat:hover,
+.phone-chatgpd-new-chat:focus-visible {
+  border-color: rgba(94, 234, 212, 0.6);
+  background: rgba(45, 212, 191, 0.2);
+}
+
+.phone-chatgpd-chat-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.phone-chatgpd-chat-item {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  border-radius: 9px;
+}
+
+.phone-chatgpd-chat-item.active {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.phone-chatgpd-chat-title {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  padding: 8px 9px;
+  overflow: hidden;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 12.5px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.phone-chatgpd-chat-item:hover .phone-chatgpd-chat-title {
+  color: #ffffff;
+}
+
+.phone-chatgpd-chat-delete {
+  display: none;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  margin-right: 4px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(252, 165, 165, 0.85);
+  cursor: pointer;
+}
+
+.phone-chatgpd-chat-item:hover .phone-chatgpd-chat-delete,
+.phone-chatgpd-chat-item.active .phone-chatgpd-chat-delete {
+  display: grid;
+}
+
+.phone-chatgpd-chat-delete:hover,
+.phone-chatgpd-chat-delete:focus-visible {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.phone-chatgpd-chat-delete:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.phone-chatgpd-chat-list-empty {
+  padding: 10px 9px;
+  color: rgba(226, 232, 240, 0.55);
+  font-size: 12px;
+}
+
 .phone-chatgpd-model {
   position: relative;
   min-width: 0;

@@ -1,5 +1,11 @@
 import type { MessageRecord, RpAppointment, TurnRecord } from '../../types';
 import type { TurnCheckpoint } from '../../data-management/types';
+import {
+  normalizeChatGpdChatsByCharacter,
+  normalizePhoneNotesByCharacter,
+  type ChatGpdChatsByCharacter,
+  type PhoneNotesByCharacter,
+} from '../../chat/phoneAppsSessions';
 
 export type RpStorybookCharacterImage = {
   id: string;
@@ -86,7 +92,7 @@ export type RpStorybookImageDescriptionPromptSettings = {
   customText?: string;
 };
 
-export const currentRpStorybookVersion = '1.18.0' as const;
+export const currentRpStorybookVersion = '1.19.0' as const;
 
 export type RpStorybookV1 = {
   format: 'rpgraph-storybook';
@@ -110,6 +116,10 @@ export type RpStorybookV1 = {
     events: RpAppointment[];
     /** Liked post ids per "characterId/app" account key, imported with the session. */
     socialLikes: Record<string, string[]>;
+    /** Notes-app cards per character id, imported with the session. */
+    notes: PhoneNotesByCharacter;
+    /** ChatGPD chats per character id, imported with the session. */
+    chatGpdChats: ChatGpdChatsByCharacter;
   };
 };
 
@@ -218,6 +228,8 @@ export const emptyRpStorybookV1: RpStorybookV1 = {
     checkpoints: [],
     events: [],
     socialLikes: {},
+    notes: {},
+    chatGpdChats: {},
   },
 };
 
@@ -688,6 +700,8 @@ export function normalizeRpStorybookV1(value: unknown): RpStorybookV1 {
         .map(normalizeOpeningHistoryEvent)
         .filter((event): event is RpAppointment => !!event),
       socialLikes: normalizeOpeningHistorySocialLikes(openingHistory.socialLikes),
+      notes: normalizePhoneNotesByCharacter(openingHistory.notes),
+      chatGpdChats: normalizeChatGpdChatsByCharacter(openingHistory.chatGpdChats),
     },
   };
 }

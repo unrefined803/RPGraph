@@ -3214,7 +3214,7 @@ export function StorybookCreatorDialog({
               {moreOpen && (
                 <div className="storybook-more-popover" role="menu">
                   <button type="button" role="menuitem" onClick={() => runMoreAction(onImportOpeningHistory)}>
-                    Import Current Chat as Opening History
+                    Import Current Session as Opening History
                   </button>
                   <button
                     type="button"
@@ -3542,9 +3542,9 @@ export function StorybookCreatorDialog({
                             type="button"
                             className="contextual-action-button nodrag"
                             onClick={onImportOpeningHistory}
-                            title="Import Current Conversation Messages as Opening History"
+                            title="Import the current session (chat, phone, social media, notes, ChatGPD chats) as Opening History"
                           >
-                            Import Current Chat
+                            Import Current Session
                           </button>
                           {storybook.openingHistory.turns.length > 0 && (
                             <button
