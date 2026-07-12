@@ -38,6 +38,7 @@ type JsonSyntaxTextareaProps = {
   value: string;
   onChange?: (value: string) => void;
   onFocus?: (event: FocusEvent<HTMLTextAreaElement>) => void;
+  onBlur?: (event: FocusEvent<HTMLTextAreaElement>) => void;
   placeholder?: string;
   readOnly?: boolean;
   disabled?: boolean;
@@ -557,6 +558,7 @@ export function JsonSyntaxTextarea({
   value,
   onChange,
   onFocus,
+  onBlur,
   placeholder,
   readOnly,
   disabled,
@@ -619,7 +621,10 @@ export function JsonSyntaxTextarea({
       .flatMap((token) => splitTemplateVariables(token, templateVariableStatuses));
   }, [segments, jsonHighlightActive, value, workflowVariableDefinitions, workflowVariableValues, templateVariableStatuses]);
 
-  const promptActionHighlightActive = useMemo(() => /@action(?::[^\n\r]+)?/.test(value) || /@command:[A-Za-z0-9_]+/.test(value), [value]);
+  const promptActionHighlightActive = useMemo(
+    () => /@action(?::[^\n\r]+)?/.test(value) || /@command:[ \t]*[A-Za-z0-9_]+/i.test(value),
+    [value],
+  );
   const templateVariableHighlightActive = useMemo(() => !!templateVariableStatuses && /\{\{\s*[A-Za-z][A-Za-z0-9_]*\s*\}\}/.test(value), [templateVariableStatuses, value]);
   const highlightActive = jsonHighlightActive || workflowVariableHighlightActive || promptActionHighlightActive || templateVariableHighlightActive;
 
@@ -898,6 +903,7 @@ export function JsonSyntaxTextarea({
         onBeforeInput={handleBeforeInput}
         onChange={handleChange}
         onFocus={onFocus}
+        onBlur={onBlur}
         onClick={handleClick}
         onPaste={handlePaste}
         onCut={handleCut}

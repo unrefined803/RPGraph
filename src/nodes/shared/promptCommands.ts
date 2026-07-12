@@ -36,6 +36,17 @@ export const promptCommandIds: PromptCommandId[] = [
   'onlyfriends_direct_message',
 ];
 
+const promptCommandDisplayNames: Record<PromptCommandId, string> = {
+  bank_transfer: 'Bank_transfer',
+  simulate_ai_chat: 'Simulate_ChatGPD',
+  phone_message: 'Phone_message',
+  display_image: 'Display_image',
+  fotogram_post_comment: 'Fotogram_post_comment',
+  onlyfriends_post_comment: 'OnlyFriends_post_comment',
+  fotogram_direct_message: 'Fotogram_direct_message',
+  onlyfriends_direct_message: 'OnlyFriends_direct_message',
+};
+
 const bankTransferInstruction = [
   'Command bank_transfer — send money with the phone Banking app.',
   '',
@@ -80,7 +91,9 @@ const simulateAiChatInstruction = [
   '',
   'Continue the discussion naturally when more than one exchange is useful. Follow-up messages may question, clarify, challenge, or refine the previous answer. Keep every message focused on the topic established in the context or finished reply.',
   '',
-  'The assistant is the competent general-purpose AI inside the fictional ChatGPD phone app. Its answers must be useful, natural, and written in the same language as the character. Do not turn every answer into a joke.',
+  'ChatGPD is the story world\'s fictional AI assistant app. It works similarly to the real-world ChatGPT service but is a separate product with its own name. If someone loosely calls it ChatGPT, characters may naturally clarify that the app they have is ChatGPD. The assistant responses come from ChatGPD and must not identify the service as ChatGPT.',
+  '',
+  'The assistant is a competent general-purpose AI. Its answers must be useful, natural, and written in the same language as the character. Do not turn every answer into a joke.',
   '',
   'Use this command only when a Storybook character actually uses the AI assistant app now. Merely mentioning AI, suggesting that someone could ask it later, or discussing AI is not enough. The completed conversation is saved as a new chat in that character\'s phone AI Assistant app.',
 ].join('\n');
@@ -217,7 +230,19 @@ export function isDefaultPromptCommandConfig(config: PromptCommandConfig) {
 
 export function knownPromptCommandId(name: string): PromptCommandId | undefined {
   const normalized = name.trim().toLocaleLowerCase();
+  if (normalized === 'simulate_chatgpd') {
+    return 'simulate_ai_chat';
+  }
   return promptCommandIds.find((commandId) => commandId === normalized);
+}
+
+export function promptCommandTokenText(commandId: PromptCommandId) {
+  return `@command: ${promptCommandDisplayNames[commandId]}`;
+}
+
+function formattedUnknownCommandName(name: string) {
+  const trimmed = name.trim();
+  return trimmed ? `${trimmed[0].toLocaleUpperCase()}${trimmed.slice(1)}` : trimmed;
 }
 
 function normalizePromptCommandConfig(value: unknown): PromptCommandConfig | undefined {
@@ -274,7 +299,16 @@ export function configForPromptCommandToken(
     ?? defaultPromptCommandConfig(commandId);
 }
 
-export const promptCommandTokenPattern = /@command:([A-Za-z0-9_]+)/g;
+export const promptCommandTokenPattern = /@command:[ \t]*([A-Za-z0-9_]+)/gi;
+
+export function formatPromptCommandTokens(text: string) {
+  return text.replace(promptCommandTokenPattern, (_raw, name: string) => {
+    const commandId = knownPromptCommandId(name);
+    return commandId
+      ? promptCommandTokenText(commandId)
+      : `@command: ${formattedUnknownCommandName(name)}`;
+  });
+}
 
 export function parsePromptCommandTokens(text: string): PromptCommandToken[] {
   const tokens: PromptCommandToken[] = [];
@@ -286,10 +320,13 @@ export function parsePromptCommandTokens(text: string): PromptCommandToken[] {
 }
 
 export function countPromptCommandUses(values: string[], name: string) {
+  const commandId = knownPromptCommandId(name);
   const normalizedName = name.trim().toLocaleLowerCase();
   return values.reduce(
     (count, value) => count + parsePromptCommandTokens(value).filter(
-      (token) => token.name === normalizedName,
+      (token) => commandId
+        ? knownPromptCommandId(token.name) === commandId
+        : token.name === normalizedName,
     ).length,
     0,
   );

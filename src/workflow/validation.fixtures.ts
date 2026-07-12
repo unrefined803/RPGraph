@@ -126,7 +126,9 @@ import {
 import { promptImagePass } from '../nodes/shared/promptImagePass';
 import {
   defaultPromptCommandInstructionTemplate,
+  formatPromptCommandTokens,
   knownPromptCommandId,
+  replacePromptCommandTokensWithHints,
 } from '../nodes/shared/promptCommands';
 import { runActionAwarePrompt } from '../nodes/shared/promptRun';
 import { applyTurnCheckpointToNodes } from '../data-management/checkpointStore';
@@ -2358,8 +2360,13 @@ export function verifyWorkflowValidationFixtures() {
   );
   assertFixture(
     knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
-      defaultPromptCommandInstructionTemplate('simulate_ai_chat').includes('2, 4, 6, or 8 messages'),
-    'simulate_ai_chat must be a known command with the complete exchange-count instructions',
+      knownPromptCommandId('Simulate_ChatGPD') === 'simulate_ai_chat' &&
+      defaultPromptCommandInstructionTemplate('simulate_ai_chat').includes('2, 4, 6, or 8 messages') &&
+      formatPromptCommandTokens('@command:bank_transfer\n@COMMAND:simulate_chatgpd') ===
+        '@command: Bank_transfer\n@command: Simulate_ChatGPD' &&
+      replacePromptCommandTokensWithHints('@command: Simulate_ChatGPD') ===
+        '[commands: simulate_ai_chat]',
+    'prompt commands must accept flexible casing and spacing while preserving the internal simulate_ai_chat request',
   );
   const simulatedAiChatOutput = parseEmbeddedPhoneMessagesFromRpOutput([
     'Sarah opens the AI assistant app.',

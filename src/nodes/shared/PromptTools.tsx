@@ -22,6 +22,7 @@ import {
   isDefaultPromptCommandConfig,
   promptCommandHintText,
   promptCommandIds,
+  promptCommandTokenText,
   type PromptCommandConfig,
 } from './promptCommands';
 import type { ConnectionPreset, ProviderConnectionHealth, WorkflowNode } from '../../types';
@@ -836,7 +837,9 @@ export function PromptCommandModal({
             <div className="prompt-action-field">
               <label className="node-field-label">COMMAND NAME</label>
               <span className="prompt-action-usage-info">
-                {draft ? `@command:${draft.commandId}` : `@command:${initialName} (unknown command)`}
+                {draft
+                  ? promptCommandTokenText(draft.commandId)
+                  : `@command: ${initialName} (unknown command)`}
               </span>
               <span className="prompt-action-usage-info">
                 Globally linked in this node: {usageCount} {usageCount === 1 ? 'use' : 'uses'}.
@@ -846,7 +849,7 @@ export function PromptCommandModal({
               <div className="prompt-action-field">
                 <label className="node-field-label">AVAILABLE COMMANDS</label>
                 <span className="prompt-action-usage-info">
-                  {promptCommandIds.map((commandId) => `@command:${commandId}`).join('\n')}
+                  {promptCommandIds.map(promptCommandTokenText).join('\n')}
                 </span>
               </div>
             ) : null}
