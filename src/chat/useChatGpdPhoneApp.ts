@@ -5,6 +5,7 @@ import type {
   ChatGpdChatRecord,
   ChatGpdChatsByCharacter,
 } from './phoneAppsSessions';
+import { chatGpdFallbackTitle } from './phoneAppsSessions';
 
 export const chatGpdModels = ['ChatGPD 5.6', 'ChatGPD 6'] as const;
 
@@ -109,12 +110,6 @@ function chatGpdTitlePrompt(question: string, answer: string) {
   ].join('\n');
 }
 
-function fallbackChatTitle(question: string) {
-  const words = question.trim().split(/\s+/);
-  const title = words.slice(0, 6).join(' ');
-  return words.length > 6 ? `${title} ...` : title;
-}
-
 function nextChatId() {
   return `chatgpd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -170,7 +165,7 @@ export function useChatGpdPhoneApp({
   }
 
   async function generateChatTitle(nodeId: string, connectionId: string | undefined, chatId: string, question: string, answer: string) {
-    let title = fallbackChatTitle(question);
+    let title = chatGpdFallbackTitle(question);
     try {
       const completion = await nodeLlm.complete({
         connectionId,

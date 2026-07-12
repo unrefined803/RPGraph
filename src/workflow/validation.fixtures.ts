@@ -84,6 +84,7 @@ import {
   mergePhoneAppRecordsByCharacter,
   normalizeChatGpdChatsByCharacter,
   normalizePhoneNotesByCharacter,
+  replaceSimulatedAiChatsForTurn,
 } from '../chat/phoneAppsSessions';
 import {
   bankingRecipientNamesForCharacter,
@@ -123,6 +124,10 @@ import {
   unwrapJsonCodeFence,
 } from '../nodes/shared/promptActions';
 import { promptImagePass } from '../nodes/shared/promptImagePass';
+import {
+  defaultPromptCommandInstructionTemplate,
+  knownPromptCommandId,
+} from '../nodes/shared/promptCommands';
 import { runActionAwarePrompt } from '../nodes/shared/promptRun';
 import { applyTurnCheckpointToNodes } from '../data-management/checkpointStore';
 import { executeGraph } from '../graph/executeGraph';
@@ -2350,6 +2355,78 @@ export function verifyWorkflowValidationFixtures() {
       fencedEmbeddedPhone.phoneMessages[0]?.from === 'Lara Miller' &&
       fencedEmbeddedPhone.phoneMessages[0]?.message === 'Please get the heavy duty ones.',
     'embedded phone parser must remove markdown fences around phoneMessages JSON',
+  );
+  assertFixture(
+    knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
+      defaultPromptCommandInstructionTemplate('simulate_ai_chat').includes('2, 4, 6, or 8 messages'),
+    'simulate_ai_chat must be a known command with the complete exchange-count instructions',
+  );
+  const simulatedAiChatOutput = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Sarah opens the AI assistant app.',
+    JSON.stringify({
+      aiAssistantChat: {
+        character: 'Sarah Miller',
+        messages: [
+          { role: 'user', text: 'Are tomatoes fruit?' },
+          { role: 'assistant', text: 'Botanically, yes.' },
+          { role: 'user', text: 'So Alex was right?' },
+          { role: 'assistant', text: 'Botanically, but cooking uses another convention.' },
+        ],
+      },
+    }),
+  ].join('\n'));
+  assertFixture(
+    simulatedAiChatOutput.text === 'Sarah opens the AI assistant app.' &&
+      simulatedAiChatOutput.simulatedAiChats[0]?.character === 'Sarah Miller' &&
+      simulatedAiChatOutput.simulatedAiChats[0]?.messages.length === 4 &&
+      simulatedAiChatOutput.invalidSimulatedAiChatCount === 0,
+    'embedded output must extract a valid simulated AI conversation from visible RP text',
+  );
+  const invalidSimulatedAiChatOutput = parseEmbeddedPhoneMessagesFromRpOutput(JSON.stringify({
+    aiAssistantChat: {
+      character: 'Sarah Miller',
+      messages: [
+        { role: 'assistant', text: 'Wrong first role.' },
+        { role: 'user', text: 'Wrong second role.' },
+      ],
+    },
+  }));
+  assertFixture(
+    invalidSimulatedAiChatOutput.text === '' &&
+      invalidSimulatedAiChatOutput.simulatedAiChats.length === 0 &&
+      invalidSimulatedAiChatOutput.invalidSimulatedAiChatCount === 1,
+    'invalid simulated AI conversations must be removed and reported instead of being stored',
+  );
+  const simulatedChatState = replaceSimulatedAiChatsForTurn(
+    {
+      sarah: [{
+        id: 'manual-chat',
+        title: 'Manual',
+        createdAt: '2026-07-12T00:00:00.000Z',
+        messages: [{ role: 'user', text: 'Keep me' }],
+      }],
+    },
+    'turn-7',
+    [{
+      characterId: 'sarah',
+      chat: {
+        id: 'chatgpd-simulated-turn-7-1',
+        title: 'Tomatoes',
+        createdAt: '2026-07-12T01:00:00.000Z',
+        messages: simulatedAiChatOutput.simulatedAiChats[0]!.messages,
+      },
+    }],
+  );
+  const undoneSimulatedChatState = replaceSimulatedAiChatsForTurn(
+    simulatedChatState,
+    'turn-7',
+    [],
+  );
+  assertFixture(
+    simulatedChatState.sarah?.length === 2 &&
+      undoneSimulatedChatState.sarah?.length === 1 &&
+      undoneSimulatedChatState.sarah[0]?.id === 'manual-chat',
+    'turn replacement and undo must remove only chats simulated by that turn',
   );
   const embeddedPhoneWithImageId = parseEmbeddedPhoneMessagesFromRpOutput(
     '{"phoneMessages":[{"from":"Lara Miller","to":"Robert Miller","message":"Look at this.","imageId":"lara_miller_image_01"}]}',

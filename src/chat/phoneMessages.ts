@@ -7,6 +7,10 @@ import type {
   TurnContext,
 } from '../types';
 import { isRecord } from '../utils/records';
+import {
+  parseSimulatedAiChat,
+  type SimulatedAiChat,
+} from './phoneAppsSessions';
 
 export type ParsedPhoneMessage = {
   from: string;
@@ -81,6 +85,8 @@ export type EmbeddedPhoneMessagesResult = {
   bankTransfers: BankTransferRecord[];
   socialPostComments: ParsedSocialPostComment[];
   socialDirectMessages: ParsedIncomingSocialDirectMessage[];
+  simulatedAiChats: SimulatedAiChat[];
+  invalidSimulatedAiChatCount: number;
 };
 
 export function parsePhoneGraphInput(text: string) {
@@ -565,6 +571,8 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     bankTransfers: BankTransferRecord[];
     socialPostComments: ParsedSocialPostComment[];
     socialDirectMessages: ParsedIncomingSocialDirectMessage[];
+    simulatedAiChats: SimulatedAiChat[];
+    invalidSimulatedAiChatCount: number;
   }> = [];
   for (const range of ranges) {
     const candidate = value.slice(range.start, range.end);
@@ -574,11 +582,17 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       const bankTransfers = parseEmbeddedBankTransfersObject(parsed);
       const socialPostComments = parseEmbeddedSocialPostCommentsObject(parsed);
       const socialDirectMessages = parseIncomingSocialDirectMessagesObject(parsed);
+      const claimsSimulatedAiChat = isRecord(parsed) && parsed.aiAssistantChat !== undefined;
+      const simulatedAiChat = claimsSimulatedAiChat
+        ? parseSimulatedAiChat(parsed.aiAssistantChat)
+        : undefined;
+      const simulatedAiChats = simulatedAiChat ? [simulatedAiChat] : [];
       if (
         phoneMessages.length > 0 ||
         bankTransfers.length > 0 ||
         socialPostComments.length > 0 ||
-        socialDirectMessages.length > 0
+        socialDirectMessages.length > 0 ||
+        claimsSimulatedAiChat
       ) {
         parsedRanges.push({
           ...expandJsonFenceRange(value, range),
@@ -586,6 +600,8 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
           bankTransfers,
           socialPostComments,
           socialDirectMessages,
+          simulatedAiChats,
+          invalidSimulatedAiChatCount: claimsSimulatedAiChat && !simulatedAiChat ? 1 : 0,
         });
       }
     } catch {
@@ -606,6 +622,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     const bankTransfers = parsedRanges.flatMap((range) => range.bankTransfers);
     const socialPostComments = parsedRanges.flatMap((range) => range.socialPostComments);
     const socialDirectMessages = parsedRanges.flatMap((range) => range.socialDirectMessages);
+    const simulatedAiChats = parsedRanges.flatMap((range) => range.simulatedAiChats);
     return {
       text,
       textBefore,
@@ -614,6 +631,11 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       bankTransfers,
       socialPostComments,
       socialDirectMessages,
+      simulatedAiChats,
+      invalidSimulatedAiChatCount: parsedRanges.reduce(
+        (count, range) => count + range.invalidSimulatedAiChatCount,
+        0,
+      ),
     };
   }
   return {
@@ -624,6 +646,8 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     bankTransfers: [],
     socialPostComments: [],
     socialDirectMessages: [],
+    simulatedAiChats: [],
+    invalidSimulatedAiChatCount: 0,
   };
 }
 
@@ -639,7 +663,8 @@ function stripIncompleteEmbeddedJsonTail(value: string) {
       tail.includes('"fotogramPostComment"') ||
       tail.includes('"onlyFriendsPostComment"') ||
       tail.includes('"fotogramDirectMessages"') ||
-      tail.includes('"onlyFriendsDirectMessages"')
+      tail.includes('"onlyFriendsDirectMessages"') ||
+      tail.includes('"aiAssistantChat"')
     ) {
       const start = expandJsonFenceRange(value, {
         start: openObjectStart,

@@ -1,5 +1,6 @@
 export type PromptCommandId =
   | 'bank_transfer'
+  | 'simulate_ai_chat'
   | 'phone_message'
   | 'display_image'
   | 'fotogram_post_comment'
@@ -26,6 +27,7 @@ export type PromptCommandToken = {
 
 export const promptCommandIds: PromptCommandId[] = [
   'bank_transfer',
+  'simulate_ai_chat',
   'phone_message',
   'display_image',
   'fotogram_post_comment',
@@ -50,6 +52,37 @@ const bankTransferInstruction = [
   '}',
   '',
   'Copy the actual sender, recipient, and numeric amount from the transfer described in the context or your reply, even when the story names another currency or one party is an outside contact. Do not invent a transfer when no payment occurs. amount must be a positive number; the Banking app displays ledger amounts in US-dollar format. note is optional. Use full displayed names in from/to. The transfer appears in every involved Storybook character\'s Banking app and changes their balance. Several transfers can share one bankTransfers array.',
+].join('\n');
+
+const simulateAiChatInstruction = [
+  'Command simulate_ai_chat — simulate and record a Storybook character\'s conversation with the phone AI assistant app.',
+  '',
+  'Output exactly one JSON object in this format:',
+  '{',
+  '  "aiAssistantChat": {',
+  '    "character": "full Storybook character name",',
+  '    "messages": [',
+  '      {',
+  '        "role": "user",',
+  '        "text": "the character\'s question or message"',
+  '      },',
+  '      {',
+  '        "role": "assistant",',
+  '        "text": "the AI assistant\'s response"',
+  '      }',
+  '    ]',
+  '  }',
+  '}',
+  '',
+  'Simulate the complete AI conversation described or initiated in the context and finished reply. Write both the character messages and the assistant responses yourself; do not request another real AI call.',
+  '',
+  'character must be the full displayed name of the Storybook character using the app. messages must contain one to four complete exchanges: 2, 4, 6, or 8 messages. Begin with role "user", alternate strictly between "user" and "assistant", and end with role "assistant".',
+  '',
+  'Continue the discussion naturally when more than one exchange is useful. Follow-up messages may question, clarify, challenge, or refine the previous answer. Keep every message focused on the topic established in the context or finished reply.',
+  '',
+  'The assistant is the competent general-purpose AI inside the fictional ChatGPD phone app. Its answers must be useful, natural, and written in the same language as the character. Do not turn every answer into a joke.',
+  '',
+  'Use this command only when a Storybook character actually uses the AI assistant app now. Merely mentioning AI, suggesting that someone could ask it later, or discussing AI is not enough. The completed conversation is saved as a new chat in that character\'s phone AI Assistant app.',
 ].join('\n');
 
 const phoneMessageInstruction = [
@@ -153,6 +186,8 @@ export function defaultPromptCommandInstructionTemplate(commandId: PromptCommand
   switch (commandId) {
     case 'bank_transfer':
       return bankTransferInstruction;
+    case 'simulate_ai_chat':
+      return simulateAiChatInstruction;
     case 'phone_message':
       return phoneMessageInstruction;
     case 'display_image':

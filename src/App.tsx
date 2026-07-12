@@ -163,7 +163,10 @@ import {
   openingHistoryTurnsFromNodes,
   remapOpeningTurnMessageIds,
 } from './storybook/openingHistoryRuntime';
-import { mergePhoneAppRecordsByCharacter } from './chat/phoneAppsSessions';
+import {
+  mergePhoneAppRecordsByCharacter,
+  replaceSimulatedAiChatsForTurn,
+} from './chat/phoneAppsSessions';
 import {
   flattenTurnMessages,
   lastSessionTurn,
@@ -4737,6 +4740,11 @@ function App() {
     updateWorkflowComfyGenerationActive,
     setOutputActionChoicesHiddenByTurn,
     setWorkflowVariablesFromCommands,
+    commitSimulatedAiChats: (turnId, chats) => {
+      setChatGpdChatsByCharacter((current) =>
+        replaceSimulatedAiChatsForTurn(current, turnId, chats)
+      );
+    },
     workflowSettingsValuesForGraph,
     settingsValueDefinitionsRef,
     promptActionSettings,
@@ -5023,6 +5031,9 @@ function App() {
     setOutputActionChoicesHiddenByTurn(turn.id, false);
     removeTurnCheckpoint(turn.id);
     removeTurnTracesForTurn(turn.id);
+    setChatGpdChatsByCharacter((current) =>
+      replaceSimulatedAiChatsForTurn(current, turn.id, [])
+    );
     cancelEditMessage();
   }
 

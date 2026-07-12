@@ -96,6 +96,11 @@ import {
   type SocialThreadRunContext,
 } from '../chat/socialMedia';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
+import {
+  chatGpdFallbackTitle,
+  simulatedAiChatIdPrefix,
+  type SimulatedAiChatCommit,
+} from '../chat/phoneAppsSessions';
 import { withSpeakerPrefix } from '../chat/instructions';
 import { executeGraph } from '../graph/executeGraph';
 import { TextMetricsApi } from '../llm/tokenMetrics';
@@ -188,6 +193,7 @@ type UseGraphRunOptions = Pick<
   updateWorkflowComfyGenerationActive: (active: boolean) => void;
   setOutputActionChoicesHiddenByTurn: (turnId: string, hidden: boolean) => void;
   setWorkflowVariablesFromCommands: (commands: WorkflowVariableSetCommand[]) => void;
+  commitSimulatedAiChats: (turnId: string, chats: SimulatedAiChatCommit[]) => void;
   workflowSettingsValuesForGraph: () => NonNullable<ExecuteGraphOptions['settingsValues']>;
   settingsValueDefinitionsRef: Ref<NonNullable<ExecuteGraphOptions['settingsValueDefinitions']>>;
   promptActionSettings: NonNullable<ExecuteGraphOptions['promptActionSettings']>;
@@ -360,6 +366,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     updateWorkflowComfyGenerationActive,
     setOutputActionChoicesHiddenByTurn,
     setWorkflowVariablesFromCommands,
+    commitSimulatedAiChats,
     workflowSettingsValuesForGraph,
     settingsValueDefinitionsRef,
     promptActionSettings,
@@ -1428,6 +1435,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
               bankTransfers: [],
               socialPostComments: [],
               socialDirectMessages: [],
+              simulatedAiChats: [],
+              invalidSimulatedAiChatCount: 0,
             };
       // Phone replies may append a bankTransfers object after the reply JSON;
       // split it off so the reply still parses as a single phone message.
@@ -1439,7 +1448,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
         phoneOutputBankResult &&
         (phoneOutputBankResult.bankTransfers.length > 0 ||
           phoneOutputBankResult.socialPostComments.length > 0 ||
-          phoneOutputBankResult.socialDirectMessages.length > 0)
+          phoneOutputBankResult.socialDirectMessages.length > 0 ||
+          phoneOutputBankResult.simulatedAiChats.length > 0 ||
+          phoneOutputBankResult.invalidSimulatedAiChatCount > 0)
       ) {
         phoneMessageOutput = phoneOutputBankResult.text;
       }
@@ -1470,6 +1481,58 @@ export function useGraphRun(options: UseGraphRunOptions) {
           name: 'Social post comments',
           status: 'ok',
           detail: `${parsedSocialPostComments.length} social post comment(s) parsed.`,
+        });
+      }
+      const parsedSimulatedAiChats = [
+        ...embeddedPhoneResult.simulatedAiChats,
+        ...(phoneOutputBankResult?.simulatedAiChats ?? []),
+      ];
+      const invalidSimulatedAiChatCount =
+        embeddedPhoneResult.invalidSimulatedAiChatCount +
+        (phoneOutputBankResult?.invalidSimulatedAiChatCount ?? 0);
+      if (invalidSimulatedAiChatCount > 0) {
+        reportFormatResult({
+          name: 'Simulated AI chat',
+          status: 'error',
+          detail: 'aiAssistantChat needs one Storybook character and 1–4 alternating user/assistant exchanges.',
+        });
+        reportRunWarning(
+          'A simulated AI chat was ignored because it needs one Storybook character and 1–4 complete alternating user/assistant exchanges.',
+          outputNodeTraceInfo,
+        );
+      }
+      const simulatedAiChatCommits = parsedSimulatedAiChats.flatMap(
+        (simulatedChat, index): SimulatedAiChatCommit[] => {
+          const matchingCharacters = phoneCharacters.filter((character) =>
+            phoneNamesMatch(character.name, simulatedChat.character)
+          );
+          if (matchingCharacters.length !== 1) {
+            reportRunWarning(
+              matchingCharacters.length > 1
+                ? `Simulated AI chat character "${simulatedChat.character}" is ambiguous and was ignored.`
+                : `Simulated AI chat character "${simulatedChat.character}" was not found and was ignored.`,
+              outputNodeTraceInfo,
+            );
+            return [];
+          }
+          const character = matchingCharacters[0];
+          const firstQuestion = simulatedChat.messages[0]?.text ?? 'AI conversation';
+          return [{
+            characterId: character.id,
+            chat: {
+              id: `${simulatedAiChatIdPrefix(turnId)}${index + 1}`,
+              title: chatGpdFallbackTitle(firstQuestion),
+              createdAt: activeTurnCollectorRef.current?.createdAt ?? new Date().toISOString(),
+              messages: structuredClone(simulatedChat.messages),
+            },
+          }];
+        },
+      );
+      if (simulatedAiChatCommits.length > 0) {
+        reportFormatResult({
+          name: 'Simulated AI chat',
+          status: 'ok',
+          detail: `${simulatedAiChatCommits.length} ChatGPD conversation(s) parsed.`,
         });
       }
       const rpOutput = eventDisplayText
@@ -2381,6 +2444,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         }
       }
       onSuccessfulRunBeforeCommit?.();
+      commitSimulatedAiChats(turnId, simulatedAiChatCommits);
       const committedTurn = commitCollectedTurn(
         storedInputGraphText,
         rpOutput,

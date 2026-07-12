@@ -30,6 +30,16 @@ type ChatGpdChatMessage = {
   text: string;
 };
 
+export type SimulatedAiChat = {
+  character: string;
+  messages: ChatGpdChatMessage[];
+};
+
+export type SimulatedAiChatCommit = {
+  characterId: string;
+  chat: ChatGpdChatRecord;
+};
+
 export type ChatGpdChatRecord = {
   id: string;
   title: string;
@@ -47,6 +57,52 @@ function recordValue(value: unknown): Record<string, unknown> {
 
 function stringValue(value: unknown) {
   return typeof value === 'string' ? value : '';
+}
+
+export function parseSimulatedAiChat(value: unknown): SimulatedAiChat | undefined {
+  const chat = recordValue(value);
+  const character = stringValue(chat.character).trim();
+  if (!character || !Array.isArray(chat.messages)) {
+    return undefined;
+  }
+  if (chat.messages.length < 2 || chat.messages.length > 8 || chat.messages.length % 2 !== 0) {
+    return undefined;
+  }
+  const messages = chat.messages.flatMap((value, index): ChatGpdChatMessage[] => {
+    const message = recordValue(value);
+    const expectedRole = index % 2 === 0 ? 'user' : 'assistant';
+    const text = stringValue(message.text).trim();
+    return message.role === expectedRole && text ? [{ role: expectedRole, text }] : [];
+  });
+  return messages.length === chat.messages.length ? { character, messages } : undefined;
+}
+
+export function chatGpdFallbackTitle(question: string) {
+  const words = question.trim().split(/\s+/);
+  const title = words.slice(0, 6).join(' ');
+  return words.length > 6 ? `${title} ...` : title;
+}
+
+export function simulatedAiChatIdPrefix(turnId: string) {
+  return `chatgpd-simulated-${turnId}-`;
+}
+
+export function replaceSimulatedAiChatsForTurn(
+  current: ChatGpdChatsByCharacter,
+  turnId: string,
+  commits: SimulatedAiChatCommit[],
+): ChatGpdChatsByCharacter {
+  const prefix = simulatedAiChatIdPrefix(turnId);
+  const next = Object.fromEntries(
+    Object.entries(current).flatMap(([characterId, chats]) => {
+      const retained = chats.filter((chat) => !chat.id.startsWith(prefix));
+      return retained.length ? [[characterId, retained]] : [];
+    }),
+  );
+  commits.forEach(({ characterId, chat }) => {
+    next[characterId] = [chat, ...(next[characterId] ?? [])];
+  });
+  return next;
 }
 
 function uniqueRecordsById<T extends { id: string }>(records: T[]) {
