@@ -19,7 +19,8 @@ Message Format
 Selects the broad LLM Prompt Switch route for normal graph runs:
 0 = Normal RP
 1 = Phone Message
-3 = Social Media
+2 = Social Media
+3 = Autoplay
 
 Direct Actions does not use Message Format and does not select a Prompt Switch channel.
 
@@ -33,6 +34,8 @@ Selects the prompt slot inside the chosen normal output channel:
 5 = Narrator AutoTurn
 
 Social Media uses its own slots: 0 = Fotogram post, 1 = OnlyFriends post, 2 = Fotogram comment thread, 3 = OnlyFriends comment thread, 4 = Fotogram DM, 5 = OnlyFriends DM.
+
+Autoplay uses its own slots: 0 = Chain Reactions, 1 = Director Mode. Director Mode is reserved for a later implementation.
 
 Direct Actions
 Carries already-complete app-action JSON. A direct-only run evaluates only this output and the matching RP Output input. Text, Image, Message Format, Turn Mode, and the LLM Prompt Switch are not evaluated, so no LLM is called.
@@ -177,7 +180,7 @@ Do not wrap the JSON in markdown.`;
 
 export const socialMediaOutputPrompt = `Social Media is the channel for reactions inside the phone social apps (Fotogram, OnlyFriends).
 
-It is used by Message Format 3 runs. Post slots are Turn Mode 0 = Fotogram and 1 = OnlyFriends. Comment-thread slots are Turn Mode 2 = Fotogram and 3 = OnlyFriends. Direct-message slots are Turn Mode 4 = Fotogram and 5 = OnlyFriends.
+It is used by Message Format 2 runs. Post slots are Turn Mode 0 = Fotogram and 1 = OnlyFriends. Comment-thread slots are Turn Mode 2 = Fotogram and 3 = OnlyFriends. Direct-message slots are Turn Mode 4 = Fotogram and 5 = OnlyFriends.
 
 A [SOCIAL MEDIA POST] input creates initial reactions:
 {"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}

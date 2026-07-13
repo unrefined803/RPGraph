@@ -941,7 +941,7 @@ export function PhoneSocialFeedScreen({
       postAppearTimersRef.current.delete(record.postId);
     }, randomDelay(POST_APPEAR_DELAY_MIN_MS, POST_APPEAR_DELAY_MAX_MS));
     postAppearTimersRef.current.set(record.postId, appearTimer);
-    // Publishing runs the workflow (Message Format 3, prompt slot per app):
+    // Publishing runs the workflow (Message Format 2, prompt slot per app):
     // the post is recorded in the chat history and the AI generates the
     // reactions. The image travels along so vision models can see it.
     const succeeded = await onSubmitSocialPost({

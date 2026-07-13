@@ -3402,29 +3402,29 @@ export function verifyWorkflowValidationFixtures() {
     throw new Error('Workflow validation fixture failed: default workflow has no input');
   }
   const identicalVersion = hydrateNodeData(
-    { ...inputData, nodeDataVersion: '1.7.0' },
-    versionHydrateContext,
-  );
-  assertFixture(
-    identicalVersion.kind === undefined && identicalVersion.nodeDataVersion === '1.7.0',
-    'an identical core node version must hydrate normally',
-  );
-  const patchVersion = hydrateNodeData(
-    { ...inputData, nodeDataVersion: '1.7.1' },
-    versionHydrateContext,
-  );
-  assertFixture(
-    patchVersion.kind === undefined && patchVersion.nodeDataVersion === '1.7.0',
-    'a patch-only core node difference must hydrate normally',
-  );
-  const minorVersion = hydrateNodeData(
     { ...inputData, nodeDataVersion: '1.8.0' },
     versionHydrateContext,
   );
   assertFixture(
+    identicalVersion.kind === undefined && identicalVersion.nodeDataVersion === '1.8.0',
+    'an identical core node version must hydrate normally',
+  );
+  const patchVersion = hydrateNodeData(
+    { ...inputData, nodeDataVersion: '1.8.1' },
+    versionHydrateContext,
+  );
+  assertFixture(
+    patchVersion.kind === undefined && patchVersion.nodeDataVersion === '1.8.0',
+    'a patch-only core node difference must hydrate normally',
+  );
+  const minorVersion = hydrateNodeData(
+    { ...inputData, nodeDataVersion: '1.9.0' },
+    versionHydrateContext,
+  );
+  assertFixture(
     minorVersion.kind === 'incompatible-core-node' &&
-      minorVersion.nodeDataVersion === '1.8.0' &&
-      minorVersion.currentNodeVersion === '1.7.0',
+      minorVersion.nodeDataVersion === '1.9.0' &&
+      minorVersion.currentNodeVersion === '1.8.0',
     'a minor core node difference must hydrate as an incompatible placeholder',
   );
   const majorVersion = hydrateNodeData(
@@ -3434,7 +3434,7 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     majorVersion.kind === 'incompatible-core-node' &&
       majorVersion.nodeDataVersion === '2.0.0' &&
-      majorVersion.currentNodeVersion === '1.7.0',
+      majorVersion.currentNodeVersion === '1.8.0',
     'a major core node difference must hydrate as an incompatible placeholder',
   );
 
@@ -3447,7 +3447,7 @@ export function verifyWorkflowValidationFixtures() {
   );
 
   const workflowWithIncompatibleNode = structuredClone(currentWorkflow);
-  workflowWithIncompatibleNode.nodes[0]!.data.nodeDataVersion = '1.8.0';
+  workflowWithIncompatibleNode.nodes[0]!.data.nodeDataVersion = '1.9.0';
   assertFixture(
     isWorkflowFile(workflowWithIncompatibleNode),
     'a workflow with an incompatible core node version must remain loadable',

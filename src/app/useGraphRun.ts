@@ -107,6 +107,10 @@ import {
   type SimulatedAiChatCommit,
 } from '../chat/phoneAppsSessions';
 import { withSpeakerPrefix } from '../chat/instructions';
+import {
+  autoplayMessageFormat,
+  socialMediaMessageFormat,
+} from '../chat/messageFormats';
 import { executeGraph } from '../graph/executeGraph';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
@@ -193,6 +197,8 @@ type UseGraphRunOptions = Pick<
   ) => Promise<Record<string, ProviderConnectionHealth>>;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
   onRpOutputReady?: (text: string) => void;
+  onRunStarting?: () => void;
+  onRunCommitted?: (run: { messageFormat: number; playerCharacterName: string }) => void;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   clearAllRunActiveTimers: () => void;
   updateWorkflowComfyGenerationActive: (active: boolean) => void;
@@ -367,6 +373,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
     checkProviderConnections,
     notifySystem,
     onRpOutputReady,
+    onRunStarting,
+    onRunCommitted,
     updateRuntimeNode,
     clearAllRunActiveTimers,
     updateWorkflowComfyGenerationActive,
@@ -456,10 +464,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
     directActionOnly = false,
     socialDirectMessage?: SocialDirectMessageRecord,
   ) {
+    onRunStarting?.();
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
     const shouldRestoreCancelledInput =
-      !isAutoTurn && !narratorAutoTurn && messageFormatOverride !== 3;
+      !isAutoTurn &&
+      !narratorAutoTurn &&
+      messageFormatOverride !== socialMediaMessageFormat &&
+      messageFormatOverride !== autoplayMessageFormat;
     const runtimeNodes = nodesRef.current;
     const { inputNode, outputNode } = findChatEndpoints(runtimeNodes);
     if (!outputNode || !inputNode) {
@@ -484,11 +496,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const inputCharacter = existingInputMessage?.speakerName
       ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.speakerName ?? ''))
       : inputCharacterOverride ?? selectedCharacter;
-    const isOutputActionsRun = messageFormatOverride === 2;
+    const isAutoplayRun = messageFormatOverride === autoplayMessageFormat;
     const runPromptSwitchVisionFeaturesEnabled = runtimeNodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'llm-prompt-switch' && nodeHasVision(node),
     );
-    if (!existingInputMessage && !isNarratorTurn && !isAutoTurn && !isOutputActionsRun && !inputCharacter) {
+    if (!existingInputMessage && !isNarratorTurn && !isAutoTurn && !isAutoplayRun && !inputCharacter) {
       notifySystem('warning', 'Select a Storybook character to play as.');
       return false;
     }
@@ -992,7 +1004,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     }
 
     const inputCharacterName = existingInputMessage?.speakerName ??
-      (messageFormat === 2 || isNarratorTurn || (isAutoTurn && !inputCharacter)
+      (isAutoplayRun || isNarratorTurn || (isAutoTurn && !inputCharacter)
         ? narratorSpeakerName
         : inputCharacter!.name);
     const phoneRecipientName =
@@ -1097,7 +1109,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       : (existingInputMessage && isPhoneMessage && phoneRecipientName
         ? formatCurrentPhoneInput(inputText)
         : existingInputMessage?.originalText) ??
-      (messageFormat === 2
+      (isAutoplayRun
         ? inputText
         : undefined) ??
       (isNarratorTurn
@@ -1112,7 +1124,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const storedInputGraphText = replacement && !replacement.replaceInput
       ? replacement.turn.input.graphText
       : (existingInputMessage && isPhoneMessage ? originalInput : existingInputMessage?.originalText) ??
-      (messageFormat === 2
+      (isAutoplayRun
         ? originalInput
         : undefined) ??
       (isNarratorTurn
@@ -1187,9 +1199,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
         turnContext,
       });
     }
-    // Output-actions (2) and social-media (3) runs do not append the raw input
-    // text; their results are recorded as dedicated history messages instead.
-    if (shouldAppendInputMessage && !isAutoTurn && !isPhoneMessage && messageFormat !== 2 && messageFormat !== 3) {
+    // Social Media and Autoplay runs do not append their raw control input.
+    // Their actual results are recorded as dedicated history messages instead.
+    if (
+      shouldAppendInputMessage &&
+      !isAutoTurn &&
+      !isPhoneMessage &&
+      messageFormat !== socialMediaMessageFormat &&
+      messageFormat !== autoplayMessageFormat
+    ) {
       appendMessage({
         role: 'user',
         originalText: narratorAutoTurn ? 'Narrator AutoTurn' : originalInput,
@@ -1342,7 +1360,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         originalHistory,
         translatedHistory,
         historyMessages,
-        userControlledCharacterId: (messageFormat === 2 || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
+        userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
         llm: nodeLlm.withAbortSignal(runSignal),
         textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
         updateRuntimeNode,
@@ -1388,7 +1406,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
         },
         streamOutput:
-          messageFormat !== 2 &&
+          messageFormat !== socialMediaMessageFormat &&
+          messageFormat !== autoplayMessageFormat &&
           !isPhoneMessage &&
           outputNode.data.streamOutputEnabled &&
           !runEnglishProcessing
@@ -2503,7 +2522,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           recentTurns,
           currentTurnId: collectedTurn?.turnId,
           updateHistoryMessageTimes,
-          userControlledCharacterId: (messageFormat === 2 || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
+          userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
           llm: nodeLlm.withAbortSignal(runSignal),
           textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
           updateRuntimeNode,
@@ -2545,6 +2564,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
         turnMode,
         { messageFormat, promptSlot, directAction: directActionOnly },
       );
+      if (committedTurn) {
+        onRunCommitted?.({
+          messageFormat,
+          playerCharacterName: inputCharacter?.name ?? narratorSpeakerName,
+        });
+      }
       const completedRunReport = activeRunLlmReport.current;
       if (committedTurn && completedRunReport) {
         recordTurnTrace({

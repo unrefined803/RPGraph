@@ -165,7 +165,7 @@ export function socialDirectMessageHistoryText(message: SocialDirectMessageRecor
   return `[${socialAppNames[message.app]} DM] ${message.from} (@${message.fromHandle}) to ${message.to} (@${message.toHandle}): "${message.text}"`;
 }
 
-/** LLM-facing input text for a "user posted something" turn (Message Format 3). */
+/** LLM-facing input text for a "user posted something" turn (Message Format 2). */
 export function socialPostInputText(post: SocialPostRecord) {
   return [
     '[SOCIAL MEDIA POST]',

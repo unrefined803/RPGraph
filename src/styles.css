@@ -11742,6 +11742,184 @@ button.message-timeline-row.phone:focus-visible {
   cursor: default;
 }
 
+.composer-run-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.autoplay-control {
+  position: relative;
+}
+
+.autoplay-split-button {
+  display: flex;
+  height: 35px;
+  overflow: hidden;
+  border: 1px solid #3b4d68;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #243149, #172235);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 5px rgba(0, 0, 0, 0.22);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.autoplay-split-button.enabled {
+  border-color: rgba(74, 222, 128, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 10px rgba(34, 197, 94, 0.12);
+}
+
+.composer .autoplay-toggle,
+.composer .autoplay-settings {
+  position: relative;
+  display: grid;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #cad5e8;
+  background: transparent;
+  cursor: pointer;
+}
+
+.composer .autoplay-toggle {
+  min-width: 70px;
+  overflow: hidden;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.composer .autoplay-settings {
+  width: 32px;
+  border-left: 1px solid rgba(91, 110, 139, 0.55);
+}
+
+.composer .autoplay-toggle:hover,
+.composer .autoplay-settings:hover,
+.composer .autoplay-settings[aria-expanded="true"] {
+  color: #ffffff;
+  background: rgba(91, 110, 139, 0.2);
+}
+
+.autoplay-split-button.enabled .autoplay-toggle {
+  color: #dcfce7;
+  background: rgba(22, 101, 52, 0.2);
+}
+
+.autoplay-progress {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.42), rgba(74, 222, 128, 0.68));
+  animation-name: autoplay-progress-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.autoplay-label {
+  position: relative;
+  z-index: 1;
+}
+
+.autoplay-settings svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.autoplay-menu {
+  position: absolute;
+  z-index: 24;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  width: 205px;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid #303a4e;
+  border-radius: 8px;
+  background: #111722;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+}
+
+.autoplay-menu-heading {
+  padding: 4px 8px 5px;
+  color: #7d8ba6;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.composer .autoplay-menu button {
+  display: grid;
+  grid-template-columns: 15px 1fr;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  color: #dbe4f7;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.composer .autoplay-menu button:hover,
+.composer .autoplay-menu button:focus-visible,
+.composer .autoplay-menu button.active {
+  outline: none;
+  color: #ffffff;
+  background: #1a2536;
+}
+
+.autoplay-menu-check {
+  display: grid;
+  width: 15px;
+  height: 15px;
+  place-items: center;
+  border: 1px solid #39455a;
+  border-radius: 4px;
+  color: #4ade80;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.autoplay-menu button.active .autoplay-menu-check {
+  border-color: rgba(74, 222, 128, 0.62);
+  background: rgba(34, 197, 94, 0.13);
+}
+
+.autoplay-menu-label {
+  display: grid;
+  gap: 2px;
+}
+
+.autoplay-menu-label small {
+  color: #7d8ba6;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+@keyframes autoplay-progress-fill {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
 .composer button[type="submit"] {
   color: #ffffff;
   border: 1px solid rgba(178, 156, 227, 0.44);

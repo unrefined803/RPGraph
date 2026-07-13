@@ -68,6 +68,7 @@ import {
   createdPhoneNoteHistoryText,
   simulatedAiChatHistoryText,
 } from '../chat/phoneAppsSessions';
+import { AutoplayControl } from '../chat/AutoplayControl';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
 const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
@@ -143,6 +144,14 @@ type ChatConversationPanelProps = {
   contextualReferenceImageIds: ReadonlySet<string>;
   selectedReferenceImageIds: ReadonlySet<string>;
   canRunChat: boolean;
+  autoplayEnabled: boolean;
+  autoplayChainReactionsEnabled: boolean;
+  autoplayDirectorModeEnabled: boolean;
+  autoplayCountdownActive: boolean;
+  autoplayCountdownId: number;
+  onAutoplayEnabledChange: (enabled: boolean) => void;
+  onAutoplayChainReactionsEnabledChange: (enabled: boolean) => void;
+  onAutoplayDirectorModeEnabledChange: (enabled: boolean) => void;
   imageUploadEnabled?: boolean;
   imageUploadDisabledReason?: string;
   referenceImageContextEnabled?: boolean;
@@ -216,6 +225,14 @@ export function ChatConversationPanel({
   contextualReferenceImageIds,
   selectedReferenceImageIds,
   canRunChat,
+  autoplayEnabled,
+  autoplayChainReactionsEnabled,
+  autoplayDirectorModeEnabled,
+  autoplayCountdownActive,
+  autoplayCountdownId,
+  onAutoplayEnabledChange,
+  onAutoplayChainReactionsEnabledChange,
+  onAutoplayDirectorModeEnabledChange,
   imageUploadEnabled = true,
   imageUploadDisabledReason,
   referenceImageContextEnabled = true,
@@ -1767,17 +1784,29 @@ export function ChatConversationPanel({
               onRequestMessageFocus={() => commandComposerRef.current?.focusMessage()}
             />
           )}
-          <button
-            type="submit"
-            disabled={!canRunChat}
-            title={
-              canRunChat || isRunning
-                ? undefined
-                : 'Add a Storybook with one player and at least one actor to run the chat.'
-            }
-          >
-            {isRunning ? 'Cancel' : 'Run Chat'}
-          </button>
+          <div className="composer-run-actions">
+            <AutoplayControl
+              enabled={autoplayEnabled}
+              chainReactionsEnabled={autoplayChainReactionsEnabled}
+              directorModeEnabled={autoplayDirectorModeEnabled}
+              countdownActive={autoplayCountdownActive}
+              countdownId={autoplayCountdownId}
+              onEnabledChange={onAutoplayEnabledChange}
+              onChainReactionsEnabledChange={onAutoplayChainReactionsEnabledChange}
+              onDirectorModeEnabledChange={onAutoplayDirectorModeEnabledChange}
+            />
+            <button
+              type="submit"
+              disabled={!canRunChat}
+              title={
+                canRunChat || isRunning
+                  ? undefined
+                  : 'Add a Storybook with one player and at least one actor to run the chat.'
+              }
+            >
+              {isRunning ? 'Cancel' : 'Run Chat'}
+            </button>
+          </div>
         </div>
       </form>
       {voicePlaybackDialogOpen && (

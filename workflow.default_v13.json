@@ -39,7 +39,7 @@
             "customText": ""
           }
         },
-        "nodeDataVersion": "1.7.0"
+        "nodeDataVersion": "1.8.0"
       },
       "measured": {
         "width": 365,
@@ -328,7 +328,8 @@
         "llmPromptSwitchOutputTitles": [
           "Normal RP",
           "Phone Message",
-          "Social Media"
+          "Social Media",
+          "Autoplay"
         ],
         "llmPromptSwitchPromptTitlesByOutput": [
           [
@@ -354,6 +355,10 @@
             "OnlyFriends Comment Thread",
             "Fotogram DM",
             "OnlyFriends DM"
+          ],
+          [
+            "Chain Reactions",
+            "Director Mode"
           ]
         ],
         "llmPromptSwitchPromptBeforesByOutput": [
@@ -378,6 +383,10 @@
             "",
             "",
             "",
+            "",
+            ""
+          ],
+          [
             "",
             ""
           ]
@@ -406,6 +415,10 @@
             "This is an OnlyFriends comment-thread action from the RPGraph phone UI. OnlyFriends is the story world's private subscriber platform for exclusive, revealing content. The request above identifies the actor, post author, post text, whether it is the actor's own post, existing comments, and either a new user comment or a request to load more comments.\n\nOutput format:\nReturn exactly one JSON object and nothing else — valid JSON with double quotes, no markdown, no story text:\n{\n  \"reactions\": {\n    \"postId\": \"the exact post id from the request\",\n    \"additionalLikes\": 3,\n    \"comments\": [\n      {\n        \"from\": \"Post Author or Invented Fan\",\n        \"text\": \"new reply\"\n      },\n      {\n        \"from\": \"Invented Subscriber\",\n        \"text\": \"new comment\"\n      }\n    ]\n  },\n  \"summary\": \"Alex left a flirty comment on Jamie's private post; Jamie answered playfully as subscribers joined in.\"\n}\nRules:\n- Copy postId exactly. additionalLikes: a small increase from 0 to 8.\n- Two to five new comments; never repeat an existing comment or the actor's new comment.\n- On the actor's own post, invented fans address the actor as the creator. On someone else's post, the author may answer when invited; otherwise fans react or the comment is ignored. For \"load more comments\", simply extend the thread with fan comments.\n- Apart from the identified post author, use invented fans and subscribers only; never bring unrelated Storybook characters into this private thread.\n- Comments are short, fan-like, emoji-friendly; the fans are mostly men, and explicit sexual comments fit the platform alongside merely thirsty ones.\n- summary is mandatory: one short English sentence for chat history stating what the actor did and any meaningful creator response; do not copy full comments or list fan noise.\n\nCommands:\nThread activity can also trigger an incoming DM to the acting user, especially when a comment explicitly invites DMs (\"message me!\"). Zero DMs is the normal case. Do not write DM JSON yourself: return the reactions object first, then end the output with one final line, for example [commands: onlyfriends_direct_message]. When such a DM happens now, use:\n@command:onlyfriends_direct_message\nor on Fotogram:\n@command:fotogram_direct_message\n\nFinal reminder: if a DM happens, do not forget the [commands: ...] line at the very end of your output.",
             "This is a private Fotogram direct-message conversation. Reply only as the specified recipient: use their Storybook personality when they are a known character, or a stable natural personality for a virtual social account. Answer the newest message without repeating it. When a conversation origin is supplied, the sender opened this DM from that exact post comment: use the attached post image, post text, image description, and original comment as the subject of the reply. Keep the reply concise, casual, and appropriate for a private social-media chat.\n\nOutput format:\nReturn the reply block, always required, exactly once — valid JSON with double quotes, no markdown:\n{\n  \"fotogramDirectMessage\": {\n    \"text\": \"the recipient's reply\"\n  }\n}\nDo not add a tip field; tips exist only on OnlyFriends. When only the DM reply is needed, return only this object.\n\nCommands:\nCommands trigger real phone-app actions; reply text alone never performs one. Do not write command JSON yourself: return the DM object first, then end the output with one final line naming every needed command, for example [commands: bank_transfer] or [commands: phone_message, bank_transfer].\n\nThe conversation clearly moves to the phone messenger and a phone message is actually sent now (e.g. after someone shares their number):\n@command:phone_message\n\nMoney is transferred now (describing the payment in the DM text is not enough; never invent amounts or transfers):\n@command:bank_transfer\n\nFinal reminder: if your reply involves a phone message or a money transfer, do not forget the [commands: ...] line at the very end of your output.",
             "This is a private OnlyFriends direct-message conversation. Reply only as the specified recipient: use their Storybook personality when they are a known character, or a stable natural personality for a virtual creator, fan, or subscriber. Answer the newest message without repeating it. When a conversation origin is supplied, the sender opened this DM from that exact post comment: use the attached post image, post text, image description, and original comment as the subject of the reply. The tone is more personal and sexual than Fotogram: explicit adult content is allowed, and fans may make blunt, graphic requests — match the counterpart's energy instead of softening every reply.\n\nOutput format:\nReturn the reply block, always required, exactly once — valid JSON with double quotes, no markdown:\n{\n  \"onlyFriendsDirectMessage\": {\n    \"text\": \"the recipient's reply\",\n    \"tip\": 10\n  }\n}\ntip is optional: a positive number, used only when the replying sender genuinely decides to tip right now (e.g. a fan rewarding a creator). It is credited to the recipient's OnlyFriends wallet and is not a bank transfer; omit it when no tip is sent. When only the DM reply is needed, return only this object.\n\nCommands:\nCommands trigger real phone-app actions; reply text alone never performs one. Do not write command JSON yourself: return the DM object first, then end the output with one final line naming every needed command, for example [commands: bank_transfer] or [commands: phone_message, bank_transfer].\n\nThe conversation clearly moves to the phone messenger and a phone message is actually sent now (e.g. after someone shares their number):\n@command:phone_message\n\nMoney is transferred now (describing the payment in the DM text is not enough; never invent amounts or transfers):\n@command:bank_transfer\n\nFinal reminder: if your reply involves a phone message or a money transfer, do not forget the [commands: ...] line at the very end of your output."
+          ],
+          [
+            "Autoplay Chain Reactions is not configured yet. Return exactly {\"actions\":[]} and nothing else.",
+            "Autoplay Director Mode is reserved for a later implementation. Return exactly {\"actions\":[]} and nothing else."
           ]
         ],
         "llmPromptSwitchSelectedOutputChannel": 1,
@@ -866,6 +879,24 @@
       "sourceHandle": "output-channel-2",
       "target": "rp-output",
       "targetHandle": "social-media",
+      "type": "workflow",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "animated": false
+    },
+    {
+      "id": "xy-edge__llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel-3-rp-outputoutput-actions",
+      "source": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "sourceHandle": "output-channel-3",
+      "target": "rp-output",
+      "targetHandle": "output-actions",
       "type": "workflow",
       "markerEnd": {
         "type": "arrowclosed",

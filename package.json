@@ -19,6 +19,8 @@
     "check:workflow-fixtures": "vite build --ssr src/workflow/validation.fixtures.ts --outDir node_modules/.tmp/workflow-fixtures --emptyOutDir && node node_modules/.tmp/workflow-fixtures/validation.fixtures.mjs",
     "workflow:redact": "node scripts/workflow-redact.mjs redact",
     "workflow:merge": "node scripts/workflow-redact.mjs merge",
+    "workflow:prompts:extract": "node scripts/workflow-prompts.mjs extract",
+    "workflow:prompts:merge": "node scripts/workflow-prompts.mjs merge",
     "storybook:redact": "node scripts/workflow-redact.mjs redact-storybook",
     "storybook:merge": "node scripts/workflow-redact.mjs merge-storybook",
     "preview": "vite preview",

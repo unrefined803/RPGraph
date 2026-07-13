@@ -1,6 +1,10 @@
 import type { MessageRecord, TurnRecord, WorkflowNode } from '../types';
 import type { FormattedChatHistorySegment } from '../workflow';
 import { sanitizeDataUrlsInText } from '../utils/sanitize';
+import {
+  autoplayMessageFormat,
+  socialMediaMessageFormat,
+} from '../chat/messageFormats';
 
 const textPreviewCharacters = 320;
 const textInputExcerptTargetWords = 240;
@@ -110,7 +114,7 @@ export type TurnTrace = {
   completedAt: string;
   status: 'completed' | 'error';
   mode: TurnRecord['mode'];
-  channel: 'rp' | 'phone' | 'narrator' | 'event' | 'output-actions' | 'social-media';
+  channel: 'rp' | 'phone' | 'narrator' | 'event' | 'output-actions' | 'social-media' | 'autoplay';
   input: {
     messages: TurnTraceMessage[];
     graphText?: string;
@@ -332,11 +336,14 @@ function traceChannel(turn: TurnRecord) {
   if (messages.some((message) => message.eventInput)) {
     return 'event' as const;
   }
-  if (turn.messageFormat === 2) {
+  if (turn.directAction) {
     return 'output-actions' as const;
   }
-  if (turn.messageFormat === 3) {
+  if (turn.messageFormat === socialMediaMessageFormat) {
     return 'social-media' as const;
+  }
+  if (turn.messageFormat === autoplayMessageFormat) {
+    return 'autoplay' as const;
   }
   if (turn.mode === 'narrator') {
     return 'narrator' as const;
