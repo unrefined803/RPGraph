@@ -74,6 +74,37 @@ import type { AutoplayMode } from '../chat/useAutoplay';
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
 const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
 
+function isStandaloneEmbeddedPhoneOutput(message: MessageRecord) {
+  const hasNonPhoneText = [
+    message.originalText,
+    message.translatedText,
+    message.embeddedPhoneTextBefore,
+    message.embeddedPhoneTextAfter,
+    message.embeddedPhoneTranslatedTextBefore,
+    message.embeddedPhoneTranslatedTextAfter,
+  ].some((text) => text?.trim());
+  const hasOtherVisibleContent =
+    !!message.imageAttachments?.length ||
+    !!message.outputActionChoices?.length ||
+    !!message.outputActionInfoBoxes?.length ||
+    !!message.outputActionProgressBars?.length ||
+    !!message.outputActionContextCapacityBars?.length ||
+    !!message.bankTransfer ||
+    !!message.socialPost ||
+    !!message.socialThreadAction ||
+    !!message.socialReactions ||
+    !!message.socialDirectMessage ||
+    !!message.createdPhoneNote ||
+    !!message.simulatedAiChat;
+
+  return (
+    message.role === 'output' &&
+    !!message.embeddedPhoneMessages?.length &&
+    !hasNonPhoneText &&
+    !hasOtherVisibleContent
+  );
+}
+
 function phoneReplySizeClass(text: string) {
   if (text.length > 120) {
     return ' long';
@@ -492,6 +523,18 @@ export function ChatConversationPanel({
           : `direct-phone ${message.role}`,
         ariaLabel: 'Open phone message',
       }]);
+      return;
+    }
+    if (isStandaloneEmbeddedPhoneOutput(message)) {
+      outsidePhoneEntriesByMessageId.set(
+        message.id,
+        message.embeddedPhoneMessages!.map((phoneMessage) => ({
+          phoneMessage,
+          badges: ['AI', 'PHONE'],
+          className: 'embedded-phone output',
+          ariaLabel: 'Open phone message',
+        })),
+      );
       return;
     }
     if (
