@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   autoplayMessageFormat,
+  escalationPromptSlot,
   localActivityPromptSlot,
   remoteActivityPromptSlot,
+  storyFlowPromptSlot,
 } from './messageFormats';
 
 const autoplayEnabledStorageKey = 'rpgraph-autoplay-enabled';
 const autoplayModeStorageKey = 'rpgraph-autoplay-mode';
 
-export type AutoplayMode = 'local-activity' | 'remote-activity';
+export type AutoplayMode = 'local-activity' | 'remote-activity' | 'story-flow' | 'escalation';
 
 export type AutoplayRunRequest = {
   playerCharacterName: string;
@@ -29,6 +31,8 @@ type UseAutoplayOptions = {
 const runnableModeSlots: Record<AutoplayMode, number> = {
   'local-activity': localActivityPromptSlot,
   'remote-activity': remoteActivityPromptSlot,
+  'story-flow': storyFlowPromptSlot,
+  'escalation': escalationPromptSlot,
 };
 
 function storedBoolean(key: string, fallback: boolean) {
@@ -51,9 +55,7 @@ function storeBoolean(key: string, value: boolean) {
 function storedMode(fallback: AutoplayMode): AutoplayMode {
   try {
     const stored = window.localStorage.getItem(autoplayModeStorageKey);
-    return stored === 'local-activity' || stored === 'remote-activity'
-      ? stored
-      : fallback;
+    return stored && stored in runnableModeSlots ? (stored as AutoplayMode) : fallback;
   } catch {
     return fallback;
   }
@@ -61,7 +63,7 @@ function storedMode(fallback: AutoplayMode): AutoplayMode {
 
 export function useAutoplay({ isRunning, runAutoplay, cancelAutoplayRun }: UseAutoplayOptions) {
   const [enabled, setEnabledState] = useState(() => storedBoolean(autoplayEnabledStorageKey, false));
-  const [mode, setModeState] = useState<AutoplayMode>(() => storedMode('local-activity'));
+  const [mode, setModeState] = useState<AutoplayMode>(() => storedMode('story-flow'));
   const enabledRef = useRef(enabled);
   const modeRef = useRef(mode);
   const pendingAutoplayRef = useRef<number | null>(null);

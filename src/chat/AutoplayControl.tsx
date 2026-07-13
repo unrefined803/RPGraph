@@ -125,6 +125,8 @@ export function AutoplayControl({
           </span>
           {modeOption('local-activity', 'Local Activity')}
           {modeOption('remote-activity', 'Remote Activity')}
+          {modeOption('story-flow', 'Story Flow')}
+          {modeOption('escalation', 'Escalation')}
         </div>
       )}
     </div>
