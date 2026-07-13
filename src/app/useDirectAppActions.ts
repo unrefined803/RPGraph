@@ -10,6 +10,7 @@ import {
   hasCreatedPhoneNoteHistory,
   hasCreatedPhoneNoteRecordHistory,
   hasSimulatedAiChatHistory,
+  lastCreatedPhoneNoteTurn,
   lastDirectCreatedPhoneNoteTurn,
   lastDirectSimulatedAiChatTurn,
   manualCreatedPhoneNoteCommit,
@@ -17,6 +18,7 @@ import {
 } from '../chat/phoneAppHistoryMessages';
 import type {
   ChatGpdChatRecord,
+  CreatedPhoneNoteCommit,
   PhoneNoteRecord,
   PhoneNotesByCharacter,
 } from '../chat/phoneAppsSessions';
@@ -35,6 +37,8 @@ type UseDirectAppActionsOptions = {
   turnsRef: { current: TurnRecord[] };
   applyTurnCheckpointRuntime: (turn: TurnRecord, target: 'before' | 'after') => void;
   undoLastTurn: () => void;
+  replaceLastTurnCreatedPhoneNote: (commit: CreatedPhoneNoteCommit) => boolean;
+  removeLastTurnCreatedPhoneNote: (characterId: string, noteId: string) => boolean;
   viewedPhoneCharacter: StorybookCharacter | undefined;
   phoneNotesByCharacter: PhoneNotesByCharacter;
   setPhoneNotesByCharacter: (
@@ -50,6 +54,8 @@ export function useDirectAppActions({
   turnsRef,
   applyTurnCheckpointRuntime,
   undoLastTurn,
+  replaceLastTurnCreatedPhoneNote,
+  removeLastTurnCreatedPhoneNote,
   viewedPhoneCharacter,
   phoneNotesByCharacter,
   setPhoneNotesByCharacter,
@@ -151,6 +157,23 @@ export function useDirectAppActions({
     }
     const existingNotes = phoneNotesByCharacter[character.id] ?? [];
     const operation = existingNotes.some((entry) => entry.id === note.id) ? 'update' : 'create';
+    const lastCommitTurn = lastCreatedPhoneNoteTurn(turnsRef.current, character.id, note.id);
+    if (lastCommitTurn && !lastCommitTurn.directAction) {
+      if (isRunning) {
+        notifySystem('warning', 'Wait for the current run to finish before updating this note.');
+        return false;
+      }
+      if (!replaceLastTurnCreatedPhoneNote(commit)) {
+        return false;
+      }
+      setPhoneNotesByCharacter((current) => ({
+        ...current,
+        [character.id]: (current[character.id] ?? []).map((entry) =>
+          entry.id === commit.note.id ? structuredClone(commit.note) : entry,
+        ),
+      }));
+      return true;
+    }
     const replacementTurn = lastDirectCreatedPhoneNoteTurn(
       turnsRef.current,
       character.id,
@@ -183,17 +206,33 @@ export function useDirectAppActions({
     if (!character || !note) {
       return true;
     }
-    const replacementTurn = lastDirectCreatedPhoneNoteTurn(
+    const lastCommitTurn = lastCreatedPhoneNoteTurn(
       turnsRef.current,
       character.id,
       noteId,
     );
-    if (replacementTurn) {
+    if (lastCommitTurn) {
       if (isRunning) {
         notifySystem('warning', 'Wait for the current run to finish before deleting this note.');
         return false;
       }
-      undoLastTurn();
+      if (lastCommitTurn.directAction) {
+        undoLastTurn();
+      } else {
+        if (!removeLastTurnCreatedPhoneNote(character.id, noteId)) {
+          return false;
+        }
+        setPhoneNotesByCharacter((current) => {
+          const retained = (current[character.id] ?? []).filter((entry) => entry.id !== noteId);
+          const next = { ...current };
+          if (retained.length) {
+            next[character.id] = retained;
+          } else {
+            delete next[character.id];
+          }
+          return next;
+        });
+      }
       return true;
     }
     if (hasCreatedPhoneNoteRecordHistory(messagesRef.current, character.id, noteId)) {

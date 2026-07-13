@@ -15,6 +15,11 @@ import type {
   WorkflowNode,
 } from '../types';
 import { withStorybookImageDescriptions } from '../storybook/imageUsage';
+import type { CreatedPhoneNoteCommit } from './phoneAppsSessions';
+import {
+  removeCreatedPhoneNoteFromLastTurn,
+  replaceCreatedPhoneNoteInLastTurn,
+} from './phoneAppHistoryMessages';
 
 type ActiveTurnCollector = {
   turnId: string;
@@ -120,6 +125,7 @@ export function useTurnRecordState({
     socialReactions,
     socialDirectMessage,
     createdPhoneNote,
+    deletedPhoneNote,
     simulatedAiChat,
   }: AppendMessageInput) {
     const id = nextMessageIdRef.current;
@@ -173,6 +179,7 @@ export function useTurnRecordState({
       socialReactions,
       socialDirectMessage,
       createdPhoneNote,
+      deletedPhoneNote,
       simulatedAiChat,
       turnId: collector?.turnId,
       turnNumber: collector?.turnNumber,
@@ -259,6 +266,35 @@ export function useTurnRecordState({
   function removeMessage(messageId: number) {
     messagesRef.current = messagesRef.current.filter((message) => message.id !== messageId);
     setMessages(messagesRef.current);
+  }
+
+  function replaceLastTurnCreatedPhoneNote(commit: CreatedPhoneNoteCommit) {
+    const next = replaceCreatedPhoneNoteInLastTurn(
+      turnsRef.current,
+      messagesRef.current,
+      commit,
+    );
+    if (!next) {
+      return false;
+    }
+    setTurns(next.turns);
+    setMessages(next.messages);
+    return true;
+  }
+
+  function removeLastTurnCreatedPhoneNote(characterId: string, noteId: string) {
+    const next = removeCreatedPhoneNoteFromLastTurn(
+      turnsRef.current,
+      messagesRef.current,
+      characterId,
+      noteId,
+    );
+    if (!next) {
+      return false;
+    }
+    setTurns(next.turns);
+    setMessages(next.messages);
+    return true;
   }
 
   function applyTurnRuntime(snapshot: TurnRuntimeSnapshot) {
@@ -370,6 +406,8 @@ export function useTurnRecordState({
     updateHistoryMessageTimes,
     updatePhoneImageDescriptions,
     removeMessage,
+    replaceLastTurnCreatedPhoneNote,
+    removeLastTurnCreatedPhoneNote,
     applyTurnRuntime,
     applyTurnCheckpointRuntime,
     removeTurnCheckpoint,

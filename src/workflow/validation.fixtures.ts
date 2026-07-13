@@ -99,6 +99,8 @@ import {
 import {
   archivedSimulatedAiChatIds,
   lastDirectCreatedPhoneNoteTurn,
+  removeCreatedPhoneNoteFromLastTurn,
+  replaceCreatedPhoneNoteInLastTurn,
   revertCreatedPhoneNotesForMessages,
   revertSimulatedAiChatsForMessages,
 } from '../chat/phoneAppHistoryMessages';
@@ -4230,6 +4232,43 @@ function verifyDirectAppActionPayloadFixtures() {
         false,
       ) === replacementNoteJson,
     'replacing the latest direct app turn must use new JSON and keep one stored record',
+  );
+  const rpResponseMessage: MessageRecord = {
+    id: 900,
+    role: 'output',
+    originalText: 'I wrote that down for you.',
+  };
+  const mixedRpNoteTurn: TurnRecord = {
+    ...directNoteTurn,
+    directAction: undefined,
+    output: {
+      graphText: rpResponseMessage.originalText,
+      messages: [rpResponseMessage, createdMessage],
+    },
+  };
+  const patchedMixedTurn = replaceCreatedPhoneNoteInLastTurn(
+    [mixedRpNoteTurn],
+    [rpResponseMessage, createdMessage],
+    {
+      ...noteCommit,
+      note: { ...noteCommit.note, text: 'Updated inside the current RP turn' },
+    },
+  );
+  const removedMixedNote = removeCreatedPhoneNoteFromLastTurn(
+    patchedMixedTurn?.turns ?? [],
+    patchedMixedTurn?.messages ?? [],
+    'sarah',
+    'note-manual-1',
+  );
+  assertFixture(
+    patchedMixedTurn?.turns.length === 1 &&
+      patchedMixedTurn.turns[0]?.output.messages.length === 2 &&
+      patchedMixedTurn.turns[0].output.messages[0]?.originalText === rpResponseMessage.originalText &&
+      patchedMixedTurn.turns[0].output.messages[1]?.createdPhoneNote?.note.text ===
+        'Updated inside the current RP turn' &&
+      removedMixedNote?.turns[0]?.output.messages.length === 1 &&
+      removedMixedNote.turns[0].output.messages[0]?.originalText === rpResponseMessage.originalText,
+    'editing or removing a note in the latest mixed RP turn must preserve its RP response',
   );
 
   const stateBeforeDelete = { sarah: [structuredClone(noteCommit.note)] };

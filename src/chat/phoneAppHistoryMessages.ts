@@ -8,7 +8,7 @@ import type {
   PhoneNotesByCharacter,
   SimulatedAiChatCommit,
 } from './phoneAppsSessions';
-import { phoneNoteContentMatches } from './phoneAppsSessions';
+import { createdPhoneNoteHistoryText, phoneNoteContentMatches } from './phoneAppsSessions';
 
 export function manualCreatedPhoneNoteCommit(
   character: StorybookCharacter | undefined,
@@ -119,6 +119,18 @@ function turnHasPhoneAppRecord(
   });
 }
 
+export function lastCreatedPhoneNoteTurn(
+  turns: TurnRecord[],
+  characterId: string,
+  noteId: string,
+) {
+  const turn = turns[turns.length - 1];
+  return turn?.output.messages.some((message) =>
+    message.createdPhoneNote?.characterId === characterId &&
+    message.createdPhoneNote.note.id === noteId
+  ) ? turn : undefined;
+}
+
 export function lastDirectCreatedPhoneNoteTurn(
   turns: TurnRecord[],
   characterId: string,
@@ -126,6 +138,74 @@ export function lastDirectCreatedPhoneNoteTurn(
 ) {
   const turn = turns[turns.length - 1];
   return turnHasPhoneAppRecord(turn, characterId, noteId, 'createdPhoneNote') ? turn : undefined;
+}
+
+export function replaceCreatedPhoneNoteInLastTurn(
+  turns: TurnRecord[],
+  messages: MessageRecord[],
+  commit: CreatedPhoneNoteCommit,
+) {
+  const turn = lastCreatedPhoneNoteTurn(turns, commit.characterId, commit.note.id);
+  if (!turn) {
+    return undefined;
+  }
+  const patchedMessages = new Map<number, MessageRecord>();
+  const outputMessages = turn.output.messages.map((message) => {
+    if (
+      message.createdPhoneNote?.characterId !== commit.characterId ||
+      message.createdPhoneNote.note.id !== commit.note.id
+    ) {
+      return message;
+    }
+    const nextCommit = {
+      ...commit,
+      operation: message.createdPhoneNote.operation,
+    };
+    const patched = {
+      ...message,
+      originalText: createdPhoneNoteHistoryText(nextCommit),
+      translatedText: undefined,
+      createdPhoneNote: nextCommit,
+    };
+    patchedMessages.set(message.id, patched);
+    return patched;
+  });
+  const nextTurn = { ...turn, output: { ...turn.output, messages: outputMessages } };
+  return {
+    turns: turns.map((entry) => (entry.id === turn.id ? nextTurn : entry)),
+    messages: messages.map((message) => patchedMessages.get(message.id) ?? message),
+  };
+}
+
+export function removeCreatedPhoneNoteFromLastTurn(
+  turns: TurnRecord[],
+  messages: MessageRecord[],
+  characterId: string,
+  noteId: string,
+) {
+  const turn = lastCreatedPhoneNoteTurn(turns, characterId, noteId);
+  if (!turn) {
+    return undefined;
+  }
+  const removedIds = new Set(
+    turn.output.messages.flatMap((message) =>
+      message.createdPhoneNote?.characterId === characterId &&
+      message.createdPhoneNote.note.id === noteId
+        ? [message.id]
+        : [],
+    ),
+  );
+  const nextTurn = {
+    ...turn,
+    output: {
+      ...turn.output,
+      messages: turn.output.messages.filter((message) => !removedIds.has(message.id)),
+    },
+  };
+  return {
+    turns: turns.map((entry) => (entry.id === turn.id ? nextTurn : entry)),
+    messages: messages.filter((message) => !removedIds.has(message.id)),
+  };
 }
 
 export function lastDirectSimulatedAiChatTurn(
