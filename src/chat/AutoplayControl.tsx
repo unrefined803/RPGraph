@@ -1,30 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
 import { autoplayDelayMs } from './useAutoplay';
+import type { AutoplayMode } from './useAutoplay';
 
 type AutoplayControlProps = {
   enabled: boolean;
-  chainReactionsEnabled: boolean;
-  directorModeEnabled: boolean;
+  mode: AutoplayMode;
   countdownActive: boolean;
   countdownId: number;
-  chainReactionsReplayDisabled: boolean;
+  replayDisabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
-  onChainReactionsEnabledChange: (enabled: boolean) => void;
-  onChainReactionsReplay: () => void;
-  onDirectorModeEnabledChange: (enabled: boolean) => void;
+  onModeChange: (mode: AutoplayMode) => void;
+  onRunModeNow: (mode: AutoplayMode) => void;
 };
+
+const playIcon = (
+  <svg aria-hidden="true" viewBox="0 0 24 24">
+    <path d="M8 5v14l11-7L8 5Z" />
+  </svg>
+);
 
 export function AutoplayControl({
   enabled,
-  chainReactionsEnabled,
-  directorModeEnabled,
+  mode,
   countdownActive,
   countdownId,
-  chainReactionsReplayDisabled,
+  replayDisabled,
   onEnabledChange,
-  onChainReactionsEnabledChange,
-  onChainReactionsReplay,
-  onDirectorModeEnabledChange,
+  onModeChange,
+  onRunModeNow,
 }: AutoplayControlProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement | null>(null);
@@ -41,6 +44,54 @@ export function AutoplayControl({
     document.addEventListener('pointerdown', closeMenu);
     return () => document.removeEventListener('pointerdown', closeMenu);
   }, [menuOpen]);
+
+  const modeOption = (
+    optionMode: AutoplayMode,
+    label: string,
+    options?: { note?: string; runnable?: boolean },
+  ) => {
+    const selected = mode === optionMode;
+    const optionButton = (
+      <button
+        className={`autoplay-menu-option${selected ? ' active' : ''}`}
+        type="button"
+        role="menuitemradio"
+        aria-checked={selected}
+        onClick={() => onModeChange(optionMode)}
+      >
+        <span className="autoplay-menu-check" aria-hidden="true">
+          {selected ? '✓' : ''}
+        </span>
+        {options?.note ? (
+          <span className="autoplay-menu-label">
+            {label}
+            <small>{options.note}</small>
+          </span>
+        ) : (
+          <span>{label}</span>
+        )}
+      </button>
+    );
+    if (!options?.runnable) {
+      return optionButton;
+    }
+    return (
+      <div className="autoplay-menu-row" role="none">
+        {optionButton}
+        <button
+          className="autoplay-menu-play"
+          type="button"
+          role="menuitem"
+          aria-label={`Run ${label} now`}
+          title={`Run ${label} now`}
+          disabled={replayDisabled}
+          onClick={() => onRunModeNow(optionMode)}
+        >
+          {playIcon}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="autoplay-control" ref={controlRef}>
@@ -79,48 +130,9 @@ export function AutoplayControl({
       {menuOpen && (
         <div className="autoplay-menu" role="menu" aria-label="Autoplay modes">
           <span className="autoplay-menu-heading">Autoplay Modes</span>
-          <div className="autoplay-menu-row" role="none">
-            <button
-              className={`autoplay-menu-option${chainReactionsEnabled ? ' active' : ''}`}
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={chainReactionsEnabled}
-              onClick={() => onChainReactionsEnabledChange(!chainReactionsEnabled)}
-            >
-              <span className="autoplay-menu-check" aria-hidden="true">
-                {chainReactionsEnabled ? '✓' : ''}
-              </span>
-              <span>Chain Reactions</span>
-            </button>
-            <button
-              className="autoplay-menu-play"
-              type="button"
-              role="menuitem"
-              aria-label="Run Chain Reactions now"
-              title="Run Chain Reactions now"
-              disabled={chainReactionsReplayDisabled}
-              onClick={onChainReactionsReplay}
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7L8 5Z" />
-              </svg>
-            </button>
-          </div>
-          <button
-            className={`autoplay-menu-option${directorModeEnabled ? ' active' : ''}`}
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={directorModeEnabled}
-            onClick={() => onDirectorModeEnabledChange(!directorModeEnabled)}
-          >
-            <span className="autoplay-menu-check" aria-hidden="true">
-              {directorModeEnabled ? '✓' : ''}
-            </span>
-            <span className="autoplay-menu-label">
-              Director Mode
-              <small>Coming later</small>
-            </span>
-          </button>
+          {modeOption('local-activity', 'Local Activity', { runnable: true })}
+          {modeOption('remote-activity', 'Remote Activity', { runnable: true })}
+          {modeOption('director-mode', 'Director Mode', { note: 'Coming later' })}
         </div>
       )}
     </div>

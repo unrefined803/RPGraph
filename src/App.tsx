@@ -30,7 +30,7 @@ import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import {
   autoplayMessageFormat,
-  chainReactionsPromptSlot,
+  localActivityPromptSlot,
   normalRpMessageFormat,
   socialMediaMessageFormat,
 } from './chat/messageFormats';
@@ -4985,7 +4985,7 @@ function App() {
       undefined,
       false,
       autoplayMessageFormat,
-      chainReactionsPromptSlot,
+      request.promptSlot,
     );
     return () => {
       autoplayGraphRunRef.current = null;
@@ -5152,7 +5152,7 @@ function App() {
         undefined,
         false,
         autoplayMessageFormat,
-        turn.promptSlot ?? chainReactionsPromptSlot,
+        turn.promptSlot ?? localActivityPromptSlot,
       );
       return;
     }
@@ -6830,23 +6830,18 @@ function App() {
                 )
               }
               autoplayEnabled={autoplay.enabled}
-              autoplayChainReactionsEnabled={autoplay.chainReactionsEnabled}
-              autoplayDirectorModeEnabled={autoplay.directorModeEnabled}
+              autoplayMode={autoplay.mode}
               autoplayCountdownActive={autoplay.countdownActive}
               autoplayCountdownId={autoplay.countdownId}
-              autoplayChainReactionsReplayDisabled={
-                isRunning ||
-                !autoplay.chainReactionsEnabled ||
-                (!narratorSelected && !selectedCharacter)
-              }
+              autoplayReplayDisabled={isRunning || (!narratorSelected && !selectedCharacter)}
               onAutoplayEnabledChange={autoplay.setEnabled}
-              onAutoplayChainReactionsEnabledChange={autoplay.setChainReactionsEnabled}
-              onAutoplayChainReactionsReplay={() => autoplay.runChainReactionsNow(
+              onAutoplayModeChange={autoplay.setMode}
+              onAutoplayRunModeNow={(mode) => autoplay.runModeNow(
+                mode,
                 narratorSelected
                   ? narratorSpeakerName
                   : selectedCharacter?.name ?? '',
               )}
-              onAutoplayDirectorModeEnabledChange={autoplay.setDirectorModeEnabled}
               imageInputRef={imageInputRef}
               chatThreadRef={chatThreadRef}
               onBeginEditMessage={beginEditMessage}

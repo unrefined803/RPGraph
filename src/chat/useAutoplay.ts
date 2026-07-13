@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { autoplayMessageFormat } from './messageFormats';
+import {
+  autoplayMessageFormat,
+  localActivityPromptSlot,
+  remoteActivityPromptSlot,
+} from './messageFormats';
 
 const autoplayEnabledStorageKey = 'rpgraph-autoplay-enabled';
-const chainReactionsEnabledStorageKey = 'rpgraph-autoplay-chain-reactions-enabled';
-const directorModeEnabledStorageKey = 'rpgraph-autoplay-director-mode-enabled';
+const autoplayModeStorageKey = 'rpgraph-autoplay-mode';
 
 export const autoplayDelayMs = 3000;
 
+export type AutoplayMode = 'local-activity' | 'remote-activity' | 'director-mode';
+
 export type AutoplayRunRequest = {
   playerCharacterName: string;
+  promptSlot: number;
 };
 
 type AutoplayCommittedRun = {
@@ -19,6 +25,11 @@ type AutoplayCommittedRun = {
 type UseAutoplayOptions = {
   isRunning: boolean;
   runAutoplay: (request: AutoplayRunRequest) => Promise<boolean>;
+};
+
+const runnableModeSlots: Partial<Record<AutoplayMode, number>> = {
+  'local-activity': localActivityPromptSlot,
+  'remote-activity': remoteActivityPromptSlot,
 };
 
 function storedBoolean(key: string, fallback: boolean) {
@@ -38,14 +49,20 @@ function storeBoolean(key: string, value: boolean) {
   }
 }
 
+function storedMode(fallback: AutoplayMode): AutoplayMode {
+  try {
+    const stored = window.localStorage.getItem(autoplayModeStorageKey);
+    return stored === 'local-activity' || stored === 'remote-activity' || stored === 'director-mode'
+      ? stored
+      : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function useAutoplay({ isRunning, runAutoplay }: UseAutoplayOptions) {
   const [enabled, setEnabledState] = useState(() => storedBoolean(autoplayEnabledStorageKey, false));
-  const [chainReactionsEnabled, setChainReactionsEnabledState] = useState(() =>
-    storedBoolean(chainReactionsEnabledStorageKey, true),
-  );
-  const [directorModeEnabled, setDirectorModeEnabledState] = useState(() =>
-    storedBoolean(directorModeEnabledStorageKey, false),
-  );
+  const [mode, setModeState] = useState<AutoplayMode>(() => storedMode('local-activity'));
   const [countdownId, setCountdownId] = useState(0);
   const [countdownActive, setCountdownActive] = useState(false);
   const countdownTimerRef = useRef<number | null>(null);
@@ -61,7 +78,8 @@ export function useAutoplay({ isRunning, runAutoplay }: UseAutoplayOptions) {
 
   const scheduleAutoplay = useCallback((playerCharacterName: string) => {
     cancelCountdown();
-    if (!enabled || !chainReactionsEnabled) {
+    const promptSlot = runnableModeSlots[mode];
+    if (!enabled || promptSlot === undefined) {
       return;
     }
     setCountdownId((current) => current + 1);
@@ -69,9 +87,9 @@ export function useAutoplay({ isRunning, runAutoplay }: UseAutoplayOptions) {
     countdownTimerRef.current = window.setTimeout(() => {
       countdownTimerRef.current = null;
       setCountdownActive(false);
-      void runAutoplay({ playerCharacterName });
+      void runAutoplay({ playerCharacterName, promptSlot });
     }, autoplayDelayMs);
-  }, [cancelCountdown, chainReactionsEnabled, enabled, runAutoplay]);
+  }, [cancelCountdown, enabled, mode, runAutoplay]);
 
   const onRunCommitted = useCallback(({ messageFormat, playerCharacterName }: AutoplayCommittedRun) => {
     if (messageFormat === autoplayMessageFormat) {
@@ -80,13 +98,14 @@ export function useAutoplay({ isRunning, runAutoplay }: UseAutoplayOptions) {
     scheduleAutoplay(playerCharacterName);
   }, [scheduleAutoplay]);
 
-  const runChainReactionsNow = useCallback((playerCharacterName: string) => {
-    if (isRunning || !chainReactionsEnabled || !playerCharacterName.trim()) {
+  const runModeNow = useCallback((runMode: AutoplayMode, playerCharacterName: string) => {
+    const promptSlot = runnableModeSlots[runMode];
+    if (isRunning || promptSlot === undefined || !playerCharacterName.trim()) {
       return;
     }
     cancelCountdown();
-    void runAutoplay({ playerCharacterName });
-  }, [cancelCountdown, chainReactionsEnabled, isRunning, runAutoplay]);
+    void runAutoplay({ playerCharacterName, promptSlot });
+  }, [cancelCountdown, isRunning, runAutoplay]);
 
   const setEnabled = useCallback((value: boolean) => {
     setEnabledState(value);
@@ -96,18 +115,16 @@ export function useAutoplay({ isRunning, runAutoplay }: UseAutoplayOptions) {
     }
   }, [cancelCountdown]);
 
-  const setChainReactionsEnabled = useCallback((value: boolean) => {
-    setChainReactionsEnabledState(value);
-    storeBoolean(chainReactionsEnabledStorageKey, value);
-    if (!value) {
-      cancelCountdown();
+  const setMode = useCallback((value: AutoplayMode) => {
+    setModeState(value);
+    try {
+      window.localStorage.setItem(autoplayModeStorageKey, value);
+    } catch {
+      // Non-critical UI preference.
     }
+    // A pending countdown would still fire the previous mode's prompt slot.
+    cancelCountdown();
   }, [cancelCountdown]);
-
-  const setDirectorModeEnabled = useCallback((value: boolean) => {
-    setDirectorModeEnabledState(value);
-    storeBoolean(directorModeEnabledStorageKey, value);
-  }, []);
 
   useEffect(() => {
     if (isRunning && !previousIsRunningRef.current) {
@@ -121,14 +138,12 @@ export function useAutoplay({ isRunning, runAutoplay }: UseAutoplayOptions) {
   return {
     enabled,
     setEnabled,
-    chainReactionsEnabled,
-    setChainReactionsEnabled,
-    directorModeEnabled,
-    setDirectorModeEnabled,
+    mode,
+    setMode,
     countdownActive,
     countdownId,
     cancelCountdown,
     onRunCommitted,
-    runChainReactionsNow,
+    runModeNow,
   };
 }

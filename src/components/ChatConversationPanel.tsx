@@ -69,6 +69,7 @@ import {
   simulatedAiChatHistoryText,
 } from '../chat/phoneAppsSessions';
 import { AutoplayControl } from '../chat/AutoplayControl';
+import type { AutoplayMode } from '../chat/useAutoplay';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
 const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
@@ -145,15 +146,13 @@ type ChatConversationPanelProps = {
   selectedReferenceImageIds: ReadonlySet<string>;
   canRunChat: boolean;
   autoplayEnabled: boolean;
-  autoplayChainReactionsEnabled: boolean;
-  autoplayDirectorModeEnabled: boolean;
+  autoplayMode: AutoplayMode;
   autoplayCountdownActive: boolean;
   autoplayCountdownId: number;
-  autoplayChainReactionsReplayDisabled: boolean;
+  autoplayReplayDisabled: boolean;
   onAutoplayEnabledChange: (enabled: boolean) => void;
-  onAutoplayChainReactionsEnabledChange: (enabled: boolean) => void;
-  onAutoplayChainReactionsReplay: () => void;
-  onAutoplayDirectorModeEnabledChange: (enabled: boolean) => void;
+  onAutoplayModeChange: (mode: AutoplayMode) => void;
+  onAutoplayRunModeNow: (mode: AutoplayMode) => void;
   imageUploadEnabled?: boolean;
   imageUploadDisabledReason?: string;
   referenceImageContextEnabled?: boolean;
@@ -228,15 +227,13 @@ export function ChatConversationPanel({
   selectedReferenceImageIds,
   canRunChat,
   autoplayEnabled,
-  autoplayChainReactionsEnabled,
-  autoplayDirectorModeEnabled,
+  autoplayMode,
   autoplayCountdownActive,
   autoplayCountdownId,
-  autoplayChainReactionsReplayDisabled,
+  autoplayReplayDisabled,
   onAutoplayEnabledChange,
-  onAutoplayChainReactionsEnabledChange,
-  onAutoplayChainReactionsReplay,
-  onAutoplayDirectorModeEnabledChange,
+  onAutoplayModeChange,
+  onAutoplayRunModeNow,
   imageUploadEnabled = true,
   imageUploadDisabledReason,
   referenceImageContextEnabled = true,
@@ -1791,15 +1788,13 @@ export function ChatConversationPanel({
           <div className="composer-run-actions">
             <AutoplayControl
               enabled={autoplayEnabled}
-              chainReactionsEnabled={autoplayChainReactionsEnabled}
-              directorModeEnabled={autoplayDirectorModeEnabled}
+              mode={autoplayMode}
               countdownActive={autoplayCountdownActive}
               countdownId={autoplayCountdownId}
-              chainReactionsReplayDisabled={autoplayChainReactionsReplayDisabled}
+              replayDisabled={autoplayReplayDisabled}
               onEnabledChange={onAutoplayEnabledChange}
-              onChainReactionsEnabledChange={onAutoplayChainReactionsEnabledChange}
-              onChainReactionsReplay={onAutoplayChainReactionsReplay}
-              onDirectorModeEnabledChange={onAutoplayDirectorModeEnabledChange}
+              onModeChange={onAutoplayModeChange}
+              onRunModeNow={onAutoplayRunModeNow}
             />
             <button
               type="submit"
