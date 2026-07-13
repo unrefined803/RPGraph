@@ -11,7 +11,7 @@ export type ParsedNodeVersion = {
 const nodeVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
-  input: '1.8.0',
+  input: '1.8.1',
   note: '1.0.0',
   group: '1.0.0',
   custom: '1.0.9',
