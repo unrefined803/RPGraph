@@ -20,6 +20,7 @@ type PhoneChatGpdScreenProps = {
   onSidebarOpenChange: (open: boolean) => void;
   sidebarWidth: number;
   onSidebarWidthChange: (width: number) => void;
+  archivedChatIds: ReadonlySet<string>;
   onCommitChat: (chat: ChatGpdChatRecord) => void;
   onBack: () => void;
 };
@@ -30,6 +31,7 @@ export function PhoneChatGpdScreen({
   onSidebarOpenChange,
   sidebarWidth,
   onSidebarWidthChange,
+  archivedChatIds,
   onCommitChat,
   onBack,
 }: PhoneChatGpdScreenProps) {
@@ -43,7 +45,8 @@ export function PhoneChatGpdScreen({
     nodeAvailable,
     characterAvailable,
   } = chatGpd;
-  const canSend = nodeAvailable && characterAvailable;
+  const activeChatArchived = !!activeChat && archivedChatIds.has(activeChat.id);
+  const canSend = nodeAvailable && characterAvailable && !activeChatArchived;
   const messages = activeChat?.messages ?? [];
   const activeChatStreaming = streaming?.chatId === activeChat?.id ? streaming : undefined;
   const [draft, setDraft] = useState('');
@@ -122,7 +125,7 @@ export function PhoneChatGpdScreen({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || isSending) {
+    if (!text || isSending || activeChatArchived) {
       return;
     }
     setModelMenuOpen(false);
@@ -131,7 +134,7 @@ export function PhoneChatGpdScreen({
   }
 
   function leaveChatGpd() {
-    if (activeChat && !isSending) {
+    if (activeChat && !isSending && !activeChatArchived) {
       onCommitChat(activeChat);
     }
     onBack();
@@ -315,23 +318,27 @@ export function PhoneChatGpdScreen({
               </div>
             )}
           </div>
-          <form className="phone-chatgpd-composer" onSubmit={submit}>
-            <input
-              type="text"
-              value={draft}
-              placeholder={canSend ? `Message ${model}` : (
-                nodeAvailable ? 'Select a phone character first' : 'Add a Phone Apps node first'
-              )}
-              onChange={(event) => setDraft(event.target.value)}
-              disabled={!canSend}
-            />
-            <button type="submit" disabled={!canSend || !draft.trim() || isSending} aria-label="Send message" title="Send message">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="12" y1="19" x2="12" y2="5" />
-                <polyline points="5 12 12 5 19 12" />
-              </svg>
-            </button>
-          </form>
+          {activeChatArchived ? (
+            <div className="phone-chatgpd-archived-notice">Archived chat — read only</div>
+          ) : (
+            <form className="phone-chatgpd-composer" onSubmit={submit}>
+              <input
+                type="text"
+                value={draft}
+                placeholder={canSend ? `Message ${model}` : (
+                  nodeAvailable ? 'Select a phone character first' : 'Add a Phone Apps node first'
+                )}
+                onChange={(event) => setDraft(event.target.value)}
+                disabled={!canSend}
+              />
+              <button type="submit" disabled={!canSend || !draft.trim() || isSending} aria-label="Send message" title="Send message">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="12" y1="19" x2="12" y2="5" />
+                  <polyline points="5 12 12 5 19 12" />
+                </svg>
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>

@@ -170,11 +170,13 @@ import {
   remapOpeningTurnMessageIds,
 } from './storybook/openingHistoryRuntime';
 import {
+  deletePhoneNotesForTurn,
   mergePhoneAppRecordsByCharacter,
   replaceCreatedPhoneNotesForTurn,
   replaceSimulatedAiChatsForTurn,
 } from './chat/phoneAppsSessions';
 import {
+  archivedSimulatedAiChatIds,
   revertCreatedPhoneNotesForMessages,
   revertSimulatedAiChatsForMessages,
 } from './chat/phoneAppHistoryMessages';
@@ -4826,6 +4828,9 @@ function App() {
         replaceCreatedPhoneNotesForTurn(current, turnId, notes)
       );
     },
+    commitDeletedPhoneNotes: (notes) => {
+      setPhoneNotesByCharacter((current) => deletePhoneNotesForTurn(current, notes));
+    },
     workflowSettingsValuesForGraph,
     settingsValueDefinitionsRef,
     promptActionSettings,
@@ -5358,13 +5363,19 @@ function App() {
     submitBankTransfer,
     submitOnlyFriendsWalletTransfer,
     commitCreatedPhoneNote,
+    updatePhoneNoteColor,
+    deletePhoneNote,
     commitChatGpdChat,
   } = useDirectAppActions({
     runGraph,
     isRunning,
     messagesRef,
+    turnsRef,
+    applyTurnCheckpointRuntime,
+    undoLastTurn,
     viewedPhoneCharacter,
     phoneNotesByCharacter,
+    setPhoneNotesByCharacter,
     notifySystem,
   });
 
@@ -6944,18 +6955,14 @@ function App() {
               onChatGpdSidebarOpenChange={setChatGpdSidebarOpen}
               chatGpdSidebarWidth={chatGpdSidebarWidth}
               onChatGpdSidebarWidthChange={setChatGpdSidebarWidth}
+              archivedChatGpdChatIds={viewedPhoneCharacter
+                ? archivedSimulatedAiChatIds(turns, viewedPhoneCharacter.id)
+                : new Set()}
               phoneNotes={viewedPhoneCharacter
                 ? phoneNotesByCharacter[viewedPhoneCharacter.id] ?? []
                 : []}
-              onPhoneNoteDelete={(noteId) => {
-                if (viewedPhoneCharacter) {
-                  const characterId = viewedPhoneCharacter.id;
-                  setPhoneNotesByCharacter((current) => ({
-                    ...current,
-                    [characterId]: (current[characterId] ?? []).filter((note) => note.id !== noteId),
-                  }));
-                }
-              }}
+              onPhoneNoteDelete={deletePhoneNote}
+              onPhoneNoteColorChange={updatePhoneNoteColor}
               onPhoneNoteCommit={commitCreatedPhoneNote}
               onChatGpdChatCommit={commitChatGpdChat}
               phoneDesktopLayout={phoneDesktopLayout}

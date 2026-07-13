@@ -9,6 +9,7 @@ import { phoneVoiceMessageFlag } from './phoneMessages';
 import {
   phoneNoteColors,
   type CreatedPhoneNoteCommit,
+  type DeletedPhoneNoteCommit,
   type PhoneNoteColor,
   type SimulatedAiChatCommit,
 } from './phoneAppsSessions';
@@ -59,15 +60,16 @@ export type ParsedOutputActions = {
   uiItems: OutputActionUiItem[];
   controls: OutputActionControl[];
   createdPhoneNoteCommits: CreatedPhoneNoteCommit[];
+  deletedPhoneNoteCommits: DeletedPhoneNoteCommit[];
   simulatedAiChatCommits: SimulatedAiChatCommit[];
   warnings: string[];
 };
 
 export type ParseOutputActionsOptions = {
   /**
-   * Allows the fully specified createdPhoneNote / simulatedAiChat commit
-   * payloads that only direct app action runs may carry. LLM-driven Output
-   * Actions must not create these records.
+   * Allows the fully specified createdPhoneNote, deletedPhoneNote, and
+   * simulatedAiChat payloads that only direct app action runs may carry.
+   * LLM-driven Output Actions must not change these records.
    */
   phoneAppCommits?: boolean;
 };
@@ -83,6 +85,7 @@ const emptyOutputActions = (): ParsedOutputActions => ({
   uiItems: [],
   controls: [],
   createdPhoneNoteCommits: [],
+  deletedPhoneNoteCommits: [],
   simulatedAiChatCommits: [],
   warnings: [],
 });
@@ -297,6 +300,20 @@ function parseSimulatedAiChatCommit(entry: unknown): SimulatedAiChatCommit | und
   return { characterId, characterName, chat: { id, title, createdAt, messages } };
 }
 
+function parseDeletedPhoneNoteCommit(entry: unknown): DeletedPhoneNoteCommit | undefined {
+  const parsed = parseCreatedPhoneNoteCommit({
+    ...(isRecord(entry) ? entry : {}),
+    operation: 'update',
+  });
+  return parsed
+    ? {
+        characterId: parsed.characterId,
+        characterName: parsed.characterName,
+        note: parsed.note,
+      }
+    : undefined;
+}
+
 function pushCreatedPhoneNoteCommit(
   entry: unknown,
   result: ParsedOutputActions,
@@ -335,6 +352,25 @@ function pushSimulatedAiChatCommit(
   }
 }
 
+function pushDeletedPhoneNoteCommit(
+  entry: unknown,
+  result: ParsedOutputActions,
+  options: ParseOutputActionsOptions,
+) {
+  if (!options.phoneAppCommits) {
+    result.warnings.push('deletedPhoneNote commits are only accepted on direct app action runs.');
+    return;
+  }
+  const commit = parseDeletedPhoneNoteCommit(entry);
+  if (commit) {
+    result.deletedPhoneNoteCommits.push(commit);
+  } else {
+    result.warnings.push(
+      'Direct Actions deletedPhoneNote needs characterId, characterName, and a full note snapshot (id, title, text, dayLabel, valid color).',
+    );
+  }
+}
+
 function parseAction(entry: unknown, result: ParsedOutputActions, options: ParseOutputActionsOptions) {
   if (!isRecord(entry)) {
     result.warnings.push('Output Actions entry is not a JSON object.');
@@ -350,6 +386,10 @@ function parseAction(entry: unknown, result: ParsedOutputActions, options: Parse
 
   if (type === 'simulatedaichat') {
     pushSimulatedAiChatCommit(entry, result, options);
+    return;
+  }
+  if (type === 'deletedphonenote') {
+    pushDeletedPhoneNoteCommit(entry, result, options);
     return;
   }
   const typelessBankTransfer =
@@ -591,6 +631,7 @@ function parseOutputActionsRoot(
     Array.isArray(parsed.progressBars) ||
     Array.isArray(parsed.contextCapacityBars) ||
     Array.isArray(parsed.createdPhoneNotes) ||
+    Array.isArray(parsed.deletedPhoneNotes) ||
     Array.isArray(parsed.simulatedAiChats);
 
   if (Array.isArray(parsed.actions)) {
@@ -640,6 +681,10 @@ function parseOutputActionsRoot(
 
   if (Array.isArray(parsed.createdPhoneNotes)) {
     parsed.createdPhoneNotes.forEach((entry) => pushCreatedPhoneNoteCommit(entry, result, options));
+  }
+
+  if (Array.isArray(parsed.deletedPhoneNotes)) {
+    parsed.deletedPhoneNotes.forEach((entry) => pushDeletedPhoneNoteCommit(entry, result, options));
   }
 
   if (Array.isArray(parsed.simulatedAiChats)) {

@@ -255,6 +255,7 @@ function chatMessageFromTimelineEntry(
     socialReactions: entry.socialReactions,
     socialDirectMessage: entry.socialDirectMessage,
     createdPhoneNote: entry.createdPhoneNote,
+    deletedPhoneNote: entry.deletedPhoneNote,
     simulatedAiChat: entry.simulatedAiChat,
   };
 }

@@ -4,11 +4,14 @@
 // regeneration instead of a silent app-state write.
 
 import type { StorybookCharacter } from '../storybook/runtime';
-import type { MessageRecord } from '../types';
+import type { MessageRecord, TurnRecord } from '../types';
 import { directAppActionJson, type DirectAppActionPayload } from '../chat/directAppActions';
 import {
   hasCreatedPhoneNoteHistory,
+  hasCreatedPhoneNoteRecordHistory,
   hasSimulatedAiChatHistory,
+  lastDirectCreatedPhoneNoteTurn,
+  lastDirectSimulatedAiChatTurn,
   manualCreatedPhoneNoteCommit,
   manualSimulatedAiChatCommit,
 } from '../chat/phoneAppHistoryMessages';
@@ -17,8 +20,10 @@ import type {
   PhoneNoteRecord,
   PhoneNotesByCharacter,
 } from '../chat/phoneAppsSessions';
+import type { PhoneNoteColor } from '../chat/phoneAppsSessions';
 import { onlyFriendsWalletName } from '../chat/onlyFriendsWallet';
 import { normalRpMessageFormat } from '../chat/messageFormats';
+import { turnMessageIds } from '../chat/turns';
 import type { useGraphRun } from './useGraphRun';
 
 type RunGraph = ReturnType<typeof useGraphRun>['runGraph'];
@@ -27,8 +32,14 @@ type UseDirectAppActionsOptions = {
   runGraph: RunGraph;
   isRunning: boolean;
   messagesRef: { current: MessageRecord[] };
+  turnsRef: { current: TurnRecord[] };
+  applyTurnCheckpointRuntime: (turn: TurnRecord, target: 'before' | 'after') => void;
+  undoLastTurn: () => void;
   viewedPhoneCharacter: StorybookCharacter | undefined;
   phoneNotesByCharacter: PhoneNotesByCharacter;
+  setPhoneNotesByCharacter: (
+    updater: (current: PhoneNotesByCharacter) => PhoneNotesByCharacter,
+  ) => void;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
 };
 
@@ -36,25 +47,42 @@ export function useDirectAppActions({
   runGraph,
   isRunning,
   messagesRef,
+  turnsRef,
+  applyTurnCheckpointRuntime,
+  undoLastTurn,
   viewedPhoneCharacter,
   phoneNotesByCharacter,
+  setPhoneNotesByCharacter,
   notifySystem,
 }: UseDirectAppActionsOptions) {
-  function runDirectAppAction(actor: StorybookCharacter, payload: DirectAppActionPayload) {
+  function runDirectAppAction(
+    actor: StorybookCharacter,
+    payload: DirectAppActionPayload,
+    replacementTurn?: TurnRecord,
+  ) {
     if (isRunning) {
       notifySystem('warning', 'Wait for the current run to finish before starting an app action.');
       return false;
+    }
+    const replacedMessageIds = replacementTurn
+      ? new Set(replacementTurn.output.messages.map((message) => message.id))
+      : undefined;
+    const historyMessages = replacementTurn
+      ? messagesRef.current.filter((message) => !turnMessageIds(replacementTurn).has(message.id))
+      : messagesRef.current;
+    if (replacementTurn) {
+      applyTurnCheckpointRuntime(replacementTurn, 'before');
     }
     void runGraph(
       directAppActionJson(payload),
       [],
       undefined,
-      messagesRef.current,
-      undefined,
+      historyMessages,
+      replacedMessageIds,
       actor,
       false,
       undefined,
-      undefined,
+      replacementTurn ? { turn: replacementTurn, replaceInput: false } : undefined,
       'user',
       undefined,
       undefined,
@@ -113,14 +141,82 @@ export function useDirectAppActions({
       return false;
     }
     if (hasCreatedPhoneNoteHistory(messagesRef.current, commit)) {
+      const storedNote = (phoneNotesByCharacter[character.id] ?? []).find(
+        (entry) => entry.id === note.id,
+      );
+      if (storedNote && storedNote.color !== note.color) {
+        updatePhoneNoteColor(note.id, note.color);
+      }
       return true;
     }
     const existingNotes = phoneNotesByCharacter[character.id] ?? [];
     const operation = existingNotes.some((entry) => entry.id === note.id) ? 'update' : 'create';
+    const replacementTurn = lastDirectCreatedPhoneNoteTurn(
+      turnsRef.current,
+      character.id,
+      note.id,
+    );
     return runDirectAppAction(character, {
       kind: 'createdPhoneNote',
       commit: { ...commit, operation },
+    }, replacementTurn);
+  }
+
+  function updatePhoneNoteColor(noteId: string, color: PhoneNoteColor) {
+    const character = viewedPhoneCharacter;
+    if (!character) {
+      return;
+    }
+    setPhoneNotesByCharacter((current) => ({
+      ...current,
+      [character.id]: (current[character.id] ?? []).map((note) =>
+        note.id === noteId ? { ...note, color } : note,
+      ),
+    }));
+  }
+
+  function deletePhoneNote(noteId: string) {
+    const character = viewedPhoneCharacter;
+    const note = character
+      ? (phoneNotesByCharacter[character.id] ?? []).find((entry) => entry.id === noteId)
+      : undefined;
+    if (!character || !note) {
+      return true;
+    }
+    const replacementTurn = lastDirectCreatedPhoneNoteTurn(
+      turnsRef.current,
+      character.id,
+      noteId,
+    );
+    if (replacementTurn) {
+      if (isRunning) {
+        notifySystem('warning', 'Wait for the current run to finish before deleting this note.');
+        return false;
+      }
+      undoLastTurn();
+      return true;
+    }
+    if (hasCreatedPhoneNoteRecordHistory(messagesRef.current, character.id, noteId)) {
+      return runDirectAppAction(character, {
+        kind: 'deletedPhoneNote',
+        commit: {
+          characterId: character.id,
+          characterName: character.name,
+          note: structuredClone(note),
+        },
+      });
+    }
+    setPhoneNotesByCharacter((current) => {
+      const retained = (current[character.id] ?? []).filter((entry) => entry.id !== noteId);
+      const next = { ...current };
+      if (retained.length) {
+        next[character.id] = retained;
+      } else {
+        delete next[character.id];
+      }
+      return next;
     });
+    return true;
   }
 
   function commitChatGpdChat(chat: ChatGpdChatRecord) {
@@ -132,13 +228,24 @@ export function useDirectAppActions({
     if (hasSimulatedAiChatHistory(messagesRef.current, commit)) {
       return true;
     }
-    return runDirectAppAction(character, { kind: 'simulatedAiChat', commit });
+    const replacementTurn = lastDirectSimulatedAiChatTurn(
+      turnsRef.current,
+      character.id,
+      chat.id,
+    );
+    return runDirectAppAction(
+      character,
+      { kind: 'simulatedAiChat', commit },
+      replacementTurn,
+    );
   }
 
   return {
     submitBankTransfer,
     submitOnlyFriendsWalletTransfer,
     commitCreatedPhoneNote,
+    updatePhoneNoteColor,
+    deletePhoneNote,
     commitChatGpdChat,
   };
 }

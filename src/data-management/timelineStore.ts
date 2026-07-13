@@ -114,6 +114,7 @@ function messageToTimelineEntry(
     socialReactions: message.socialReactions,
     socialDirectMessage: message.socialDirectMessage,
     createdPhoneNote: message.createdPhoneNote,
+    deletedPhoneNote: message.deletedPhoneNote,
     simulatedAiChat: message.simulatedAiChat,
   };
 }

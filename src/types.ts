@@ -12,6 +12,7 @@ import type {
 } from './nodes/shared/promptCommands';
 import type {
   CreatedPhoneNoteCommit,
+  DeletedPhoneNoteCommit,
   SimulatedAiChatCommit,
 } from './chat/phoneAppsSessions';
 import type { PromptRunDebug } from './nodes/shared/promptRun';
@@ -775,6 +776,7 @@ export type MessageRecord = {
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
   createdPhoneNote?: CreatedPhoneNoteCommit;
+  deletedPhoneNote?: DeletedPhoneNoteCommit;
   simulatedAiChat?: SimulatedAiChatCommit;
 };
 

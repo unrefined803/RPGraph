@@ -6,6 +6,7 @@
 
 import type {
   CreatedPhoneNoteCommit,
+  DeletedPhoneNoteCommit,
   SimulatedAiChatCommit,
 } from './phoneAppsSessions';
 
@@ -15,6 +16,7 @@ export type DirectAppActionPayload =
       transfer: { from: string; to: string; amount: number; note: string };
     }
   | { kind: 'createdPhoneNote'; commit: CreatedPhoneNoteCommit }
+  | { kind: 'deletedPhoneNote'; commit: DeletedPhoneNoteCommit }
   | { kind: 'simulatedAiChat'; commit: SimulatedAiChatCommit };
 
 export function directAppActionJson(payload: DirectAppActionPayload): string {
@@ -36,6 +38,16 @@ export function directAppActionJson(payload: DirectAppActionPayload): string {
         characterId: commit.characterId,
         characterName: commit.characterName,
         operation: commit.operation ?? 'create',
+        note: commit.note,
+      }],
+    });
+  }
+  if (payload.kind === 'deletedPhoneNote') {
+    const { commit } = payload;
+    return JSON.stringify({
+      deletedPhoneNotes: [{
+        characterId: commit.characterId,
+        characterName: commit.characterName,
         note: commit.note,
       }],
     });

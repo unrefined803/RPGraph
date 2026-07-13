@@ -90,9 +90,17 @@ import {
   mergePhoneAppRecordsByCharacter,
   normalizeChatGpdChatsByCharacter,
   normalizePhoneNotesByCharacter,
+  deletePhoneNotesForTurn,
+  phoneNoteContentMatches,
   replaceCreatedPhoneNotesForTurn,
   replaceSimulatedAiChatsForTurn,
 } from '../chat/phoneAppsSessions';
+import {
+  archivedSimulatedAiChatIds,
+  lastDirectCreatedPhoneNoteTurn,
+  revertCreatedPhoneNotesForMessages,
+  revertSimulatedAiChatsForMessages,
+} from '../chat/phoneAppHistoryMessages';
 import {
   bankingRecipientNamesForCharacter,
   bankingSeenStateFromMessages,
@@ -1627,6 +1635,25 @@ export function verifyWorkflowValidationFixtures() {
             },
           },
         }, {
+          id: 7,
+          role: 'output',
+          originalText: '[Notes] Alice Harper deleted the note "Old reminder".',
+          channel: 'rp',
+          turnId: 'turn-1',
+          turnNumber: 1,
+          turnPart: 'output',
+          deletedPhoneNote: {
+            characterId: 'storybook:character:alice',
+            characterName: 'Alice Harper',
+            note: {
+              id: 'manual-old-reminder',
+              title: 'Old reminder',
+              text: 'Outdated details',
+              dayLabel: 'Sun 31 May',
+              color: 'sand',
+            },
+          },
+        }, {
           id: 4,
           role: 'output',
           originalText: 'Ping from Bob',
@@ -1882,8 +1909,10 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     restoredAppState.turns[0]?.output.messages[0]?.createdPhoneNote?.note.title === 'Harbor reminder' &&
       restoredAppState.turns[0]?.output.messages[0]?.simulatedAiChat?.chat.messages[1]?.text ===
-        'The forecast suggests light rain after noon.',
-    'RP Save Format v2 must restore created Notes and simulated ChatGPD message metadata',
+        'The forecast suggests light rain after noon.' &&
+      restoredAppState.turns[0]?.output.messages.find((message) => message.deletedPhoneNote)
+        ?.deletedPhoneNote?.note.title === 'Old reminder',
+    'RP Save Format v2 must restore Notes and simulated ChatGPD message metadata',
   );
   const embeddedPhoneRoundtripMessage = restoredAppState.turns[0]?.output.messages.find((message) =>
     message.originalText.startsWith('Bob waves from the bus stop.'),
@@ -1931,9 +1960,12 @@ export function verifyWorkflowValidationFixtures() {
   const timelinePhoneReply = sessionV2.timeline.find(
     (entry): entry is TimelineMessageEntry => entry.kind === 'message' && !!entry.replyToMessageId,
   );
+  const restoredPhoneReply = restoredAppState.turns[0]?.output.messages.find(
+    (message) => message.replyToMessageId !== undefined,
+  );
   assertFixture(
     timelinePhoneReply?.replyToMessageId === timelinePhoneImage?.id &&
-      restoredAppState.turns[0]?.output.messages.find((message) => message.id === 5)?.replyToMessageId === 4,
+      restoredPhoneReply?.replyToMessageId === embeddedPhoneRoundtripLinkedPhone?.id,
     'RP Save Format v2 must retain phone reply message links',
   );
   const restoredReplyHistory = formatChatHistory(
@@ -4052,6 +4084,48 @@ function verifyDirectAppActionPayloadFixtures() {
       parsedInvalidNote.warnings.length === 1,
     'an invalid phone note payload must be rejected with a warning and produce no commit',
   );
+  assertFixture(
+    phoneNoteContentMatches(
+      noteCommit.note,
+      { ...noteCommit.note, color: 'rose', dayLabel: 'Mon 13 July' },
+    ),
+    'note content comparison must ignore color and day-label presentation changes',
+  );
+
+  const deletedNoteCommit = {
+    characterId: noteCommit.characterId,
+    characterName: noteCommit.characterName,
+    note: noteCommit.note,
+  };
+  const deletedNoteJson = directAppActionJson({
+    kind: 'deletedPhoneNote',
+    commit: deletedNoteCommit,
+  });
+  const parsedDeletedNote = parseOutputActions(deletedNoteJson, { phoneAppCommits: true });
+  assertFixture(
+    parsedDeletedNote.warnings.length === 0 &&
+      parsedDeletedNote.deletedPhoneNoteCommits.length === 1 &&
+      parsedDeletedNote.deletedPhoneNoteCommits[0]?.note.id === noteCommit.note.id,
+    'a deleted phone note payload must round-trip through the Direct Actions parser',
+  );
+  const parsedDeletedNoteWithoutOption = parseOutputActions(deletedNoteJson);
+  assertFixture(
+    parsedDeletedNoteWithoutOption.deletedPhoneNoteCommits.length === 0 &&
+      parsedDeletedNoteWithoutOption.warnings.length === 1,
+    'deleted phone notes must be rejected outside direct app action runs',
+  );
+  const invalidDeletedNote = parseOutputActions(JSON.stringify({
+    deletedPhoneNotes: [{
+      characterId: 'sarah',
+      characterName: 'Sarah Miller',
+      note: { id: 'note-manual-1' },
+    }],
+  }), { phoneAppCommits: true });
+  assertFixture(
+    invalidDeletedNote.deletedPhoneNoteCommits.length === 0 &&
+      invalidDeletedNote.warnings.length === 1,
+    'an incomplete deleted phone note payload must not produce a state commit',
+  );
 
   const chatCommit = {
     characterId: 'sarah',
@@ -4119,6 +4193,110 @@ function verifyDirectAppActionPayloadFixtures() {
   assertFixture(
     chatAppliedOnce.sarah?.length === 1 && chatAppliedTwice.sarah?.length === 1,
     'reapplying a ChatGPD chat commit must stay a single stored chat',
+  );
+
+  const createdMessage: MessageRecord = {
+    id: 901,
+    role: 'output',
+    originalText: 'Created note',
+    createdPhoneNote: noteCommit,
+  };
+  const directNoteTurn: TurnRecord = {
+    id: 'turn-9',
+    number: 9,
+    createdAt: '2026-07-12T10:00:00.000Z',
+    directAction: true,
+    input: { graphText: noteJson, messages: [] },
+    output: { graphText: '', messages: [createdMessage] },
+  };
+  assertFixture(
+    lastDirectCreatedPhoneNoteTurn([directNoteTurn], 'sarah', 'note-manual-1')?.id === 'turn-9' &&
+      replaceCreatedPhoneNotesForTurn(appliedOnce, 'turn-9', [{
+        ...noteCommit,
+        note: { ...noteCommit.note, text: 'Replacement text' },
+      }]).sarah?.length === 1,
+    'replacing the latest direct note turn must keep one history turn and one stored note',
+  );
+
+  const stateBeforeDelete = { sarah: [structuredClone(noteCommit.note)] };
+  const stateAfterDelete = deletePhoneNotesForTurn(stateBeforeDelete, [deletedNoteCommit]);
+  const deletedMessage: MessageRecord = {
+    id: 902,
+    role: 'output',
+    originalText: 'Deleted note',
+    deletedPhoneNote: deletedNoteCommit,
+  };
+  const stateAfterDeleteUndo = revertCreatedPhoneNotesForMessages(
+    stateAfterDelete,
+    [deletedMessage],
+    [{
+      ...createdMessage,
+      createdPhoneNote: {
+        ...noteCommit,
+        note: { ...noteCommit.note, text: 'Older text', color: 'neutral' },
+      },
+    }],
+  );
+  assertFixture(
+    !stateAfterDelete.sarah &&
+      stateAfterDeleteUndo.sarah?.length === 1 &&
+      stateAfterDeleteUndo.sarah[0]?.text === 'Milk, bread' &&
+      stateAfterDeleteUndo.sarah[0]?.color === 'mint',
+    'deleting a committed note must remove it and undo must restore its full snapshot',
+  );
+  const colorPreservingUndo = revertCreatedPhoneNotesForMessages(
+    {
+      sarah: [{ ...noteCommit.note, text: 'Updated text', color: 'rose' }],
+    },
+    [{
+      ...createdMessage,
+      createdPhoneNote: {
+        ...noteCommit,
+        note: { ...noteCommit.note, text: 'Updated text', color: 'rose' },
+      },
+    }],
+    [createdMessage],
+  );
+  assertFixture(
+    colorPreservingUndo.sarah?.[0]?.text === 'Milk, bread' &&
+      colorPreservingUndo.sarah[0].color === 'rose',
+    'undoing note content must preserve the current presentation-only color',
+  );
+
+  const chatMessage: MessageRecord = {
+    id: 903,
+    role: 'output',
+    originalText: 'Committed chat',
+    simulatedAiChat: chatCommit,
+  };
+  const chatTurn: TurnRecord = {
+    id: 'turn-10',
+    number: 10,
+    createdAt: '2026-07-12T10:01:00.000Z',
+    directAction: true,
+    input: { graphText: chatJson, messages: [] },
+    output: { graphText: '', messages: [chatMessage] },
+  };
+  const laterTurn: TurnRecord = {
+    id: 'turn-11',
+    number: 11,
+    createdAt: '2026-07-12T10:02:00.000Z',
+    input: { graphText: 'Later turn', messages: [] },
+    output: { graphText: 'Later output', messages: [] },
+  };
+  assertFixture(
+    archivedSimulatedAiChatIds([chatTurn], 'sarah').size === 0 &&
+      archivedSimulatedAiChatIds([chatTurn, laterTurn], 'sarah').has(chatCommit.chat.id),
+    'a committed ChatGPD chat must become archived as soon as a later turn exists',
+  );
+  const intentionallyDeletedChatState = revertSimulatedAiChatsForMessages(
+    {},
+    [{ id: 904, role: 'output', originalText: 'Unrelated later output' }],
+    [chatMessage],
+  );
+  assertFixture(
+    Object.keys(intentionallyDeletedChatState).length === 0,
+    'undoing an unrelated turn must not resurrect an intentionally deleted archived chat',
   );
 
   // Undo semantics: removing the only committing message reverts the record.

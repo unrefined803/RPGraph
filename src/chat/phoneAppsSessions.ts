@@ -39,6 +39,13 @@ export type CreatedPhoneNoteCommit = {
   note: PhoneNoteRecord;
 };
 
+export type DeletedPhoneNoteCommit = {
+  characterId: string;
+  characterName: string;
+  /** Full snapshot kept so undo can restore the deleted note exactly. */
+  note: PhoneNoteRecord;
+};
+
 type ChatGpdChatMessage = {
   role: 'user' | 'assistant';
   text: string;
@@ -63,6 +70,11 @@ export type ChatGpdChatRecord = {
 };
 
 export type ChatGpdChatsByCharacter = Record<string, ChatGpdChatRecord[]>;
+
+/** Note color and date label are presentation metadata, not note content. */
+export function phoneNoteContentMatches(left: PhoneNoteRecord, right: PhoneNoteRecord) {
+  return left.title === right.title && left.text === right.text;
+}
 
 function recordValue(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -120,6 +132,32 @@ export function createdPhoneNoteHistoryText(entry: CreatedPhoneNoteCommit) {
     `[Notes] ${entry.characterName} ${verb} the note "${entry.note.title}":`,
     entry.note.text,
   ].join('\n');
+}
+
+export function deletedPhoneNoteHistoryText(entry: DeletedPhoneNoteCommit) {
+  return `[Notes] ${entry.characterName} deleted the note "${entry.note.title}".`;
+}
+
+export function deletePhoneNotesForTurn(
+  current: PhoneNotesByCharacter,
+  commits: DeletedPhoneNoteCommit[],
+): PhoneNotesByCharacter {
+  if (!commits.length) {
+    return current;
+  }
+  const deletedIdsByCharacter = new Map<string, Set<string>>();
+  commits.forEach(({ characterId, note }) => {
+    const ids = deletedIdsByCharacter.get(characterId) ?? new Set<string>();
+    ids.add(note.id);
+    deletedIdsByCharacter.set(characterId, ids);
+  });
+  return Object.fromEntries(
+    Object.entries(current).flatMap(([characterId, notes]) => {
+      const deletedIds = deletedIdsByCharacter.get(characterId);
+      const retained = deletedIds ? notes.filter((note) => !deletedIds.has(note.id)) : notes;
+      return retained.length ? [[characterId, retained]] : [];
+    }),
+  );
 }
 
 export function parseSimulatedAiChat(value: unknown): SimulatedAiChat | undefined {

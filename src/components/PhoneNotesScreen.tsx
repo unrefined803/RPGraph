@@ -3,6 +3,7 @@ import type { RpDateTimeFormat, RpWeekdayLanguage } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { formatRpDayLabel } from '../workflow';
 import {
+  phoneNoteContentMatches,
   phoneNoteColors,
   type PhoneNoteColor,
   type PhoneNoteRecord,
@@ -17,7 +18,8 @@ type PhoneNotesScreenProps = {
    * run is active); the editor then stays open so the draft is not lost.
    */
   onCommitNote: (note: PhoneNoteRecord) => boolean;
-  onDeleteNote: (noteId: string) => void;
+  onDeleteNote: (noteId: string) => boolean;
+  onChangeNoteColor: (noteId: string, color: PhoneNoteColor) => void;
   clockDateTime: string;
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
@@ -51,27 +53,19 @@ function randomNoteColor() {
   return randomNoteColors[Math.floor(Math.random() * randomNoteColors.length)];
 }
 
-function noteMatches(left: PhoneNoteRecord, right: PhoneNoteRecord) {
-  return (
-    left.title === right.title &&
-    left.text === right.text &&
-    left.color === right.color &&
-    left.dayLabel === right.dayLabel
-  );
-}
-
 export function PhoneNotesScreen({
   owner,
   notes,
   onCommitNote,
   onDeleteNote,
+  onChangeNoteColor,
   clockDateTime,
   rpDateTimeFormat,
   rpWeekdayLanguage,
   onBack,
 }: PhoneNotesScreenProps) {
-  // The open editor works on a local draft only. The persisted note changes
-  // exactly once, through the direct-action commit on close.
+  // The open editor works on a local draft. Content is committed on close;
+  // a color-only change is persisted locally because it is presentation data.
   const [draftNote, setDraftNote] = useState<PhoneNoteRecord>();
 
   function addNote() {
@@ -96,7 +90,9 @@ export function PhoneNotesScreen({
       return;
     }
     if (notes.some((note) => note.id === draftNote.id)) {
-      onDeleteNote(draftNote.id);
+      if (!onDeleteNote(draftNote.id)) {
+        return;
+      }
     }
     setDraftNote(undefined);
   }
@@ -109,12 +105,17 @@ export function PhoneNotesScreen({
     if (!draftNote.title.trim() && !draftNote.text.trim()) {
       // An emptied note disappears like a deleted one.
       if (storedNote) {
-        onDeleteNote(draftNote.id);
+        if (!onDeleteNote(draftNote.id)) {
+          return;
+        }
       }
       setDraftNote(undefined);
       return;
     }
-    if (storedNote && noteMatches(storedNote, draftNote)) {
+    if (storedNote && phoneNoteContentMatches(storedNote, draftNote)) {
+      if (storedNote.color !== draftNote.color) {
+        onChangeNoteColor(draftNote.id, draftNote.color);
+      }
       setDraftNote(undefined);
       return;
     }

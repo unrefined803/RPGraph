@@ -66,6 +66,7 @@ import {
 } from '../chat/socialMedia';
 import {
   createdPhoneNoteHistoryText,
+  deletedPhoneNoteHistoryText,
   simulatedAiChatHistoryText,
 } from '../chat/phoneAppsSessions';
 import { AutoplayControl } from '../chat/AutoplayControl';
@@ -96,6 +97,7 @@ function isStandaloneEmbeddedPhoneOutput(message: MessageRecord) {
     !!message.socialReactions ||
     !!message.socialDirectMessage ||
     !!message.createdPhoneNote ||
+    !!message.deletedPhoneNote ||
     !!message.simulatedAiChat;
 
   return (
@@ -656,7 +658,8 @@ export function ChatConversationPanel({
             !!message.outputActionInfoBoxes?.length ||
             !!message.outputActionProgressBars?.length ||
             !!message.outputActionContextCapacityBars?.length;
-          const reserveSpeakerLabels = message.role === 'output' && !hasOutputActionUi;
+          const reserveSpeakerLabels =
+            message.role === 'output' && !hasOutputActionUi && !message.deletedPhoneNote;
           const speakerLabelNames = speakerNames.length > 0
             ? speakerNames
             : reserveSpeakerLabels
@@ -670,6 +673,9 @@ export function ChatConversationPanel({
           const phoneAppCommandHistoryText = [
             message.createdPhoneNote
               ? createdPhoneNoteHistoryText(message.createdPhoneNote)
+              : '',
+            message.deletedPhoneNote
+              ? deletedPhoneNoteHistoryText(message.deletedPhoneNote)
               : '',
             message.simulatedAiChat
               ? simulatedAiChatHistoryText(message.simulatedAiChat)

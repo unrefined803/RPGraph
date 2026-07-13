@@ -8264,6 +8264,15 @@ input[type="number"]::-webkit-outer-spin-button {
   background: #14b8a6;
 }
 
+.phone-chatgpd-archived-notice {
+  flex: none;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(226, 232, 240, 0.62);
+  font-size: 13px;
+  text-align: center;
+}
+
 .phone-banking-scroll {
   display: flex;
   min-height: 0;

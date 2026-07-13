@@ -238,6 +238,17 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         isRecord(message) && message.role === 'assistant'
       )
     );
+    const validDeletedPhoneNote = value.deletedPhoneNote === undefined || (
+      isRecord(value.deletedPhoneNote) &&
+      typeof value.deletedPhoneNote.characterId === 'string' &&
+      typeof value.deletedPhoneNote.characterName === 'string' &&
+      isRecord(value.deletedPhoneNote.note) &&
+      typeof value.deletedPhoneNote.note.id === 'string' &&
+      typeof value.deletedPhoneNote.note.title === 'string' &&
+      typeof value.deletedPhoneNote.note.text === 'string' &&
+      typeof value.deletedPhoneNote.note.dayLabel === 'string' &&
+      phoneNoteColors.includes(value.deletedPhoneNote.note.color as (typeof phoneNoteColors)[number])
+    );
     return (
       typeof value.turnId === 'string' &&
       typeof value.turnNumber === 'number' &&
@@ -259,6 +270,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validSocialReactions &&
       validSocialDirectMessage &&
       validCreatedPhoneNote &&
+      validDeletedPhoneNote &&
       validSimulatedAiChat
     );
   }

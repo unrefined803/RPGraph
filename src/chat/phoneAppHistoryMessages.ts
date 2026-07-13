@@ -1,5 +1,5 @@
 import type { StorybookCharacter } from '../storybook/runtime';
-import type { MessageRecord } from '../types';
+import type { MessageRecord, TurnRecord } from '../types';
 import type {
   ChatGpdChatRecord,
   ChatGpdChatsByCharacter,
@@ -8,6 +8,7 @@ import type {
   PhoneNotesByCharacter,
   SimulatedAiChatCommit,
 } from './phoneAppsSessions';
+import { phoneNoteContentMatches } from './phoneAppsSessions';
 
 export function manualCreatedPhoneNoteCommit(
   character: StorybookCharacter | undefined,
@@ -55,10 +56,7 @@ function createdPhoneNoteMatches(left: CreatedPhoneNoteCommit, right: CreatedPho
   return (
     left.characterId === right.characterId &&
     left.note.id === right.note.id &&
-    left.note.title === right.note.title &&
-    left.note.text === right.note.text &&
-    left.note.dayLabel === right.note.dayLabel &&
-    left.note.color === right.note.color
+    phoneNoteContentMatches(left.note, right.note)
   );
 }
 
@@ -76,15 +74,84 @@ function simulatedAiChatMatches(left: SimulatedAiChatCommit, right: SimulatedAiC
 }
 
 export function hasCreatedPhoneNoteHistory(messages: MessageRecord[], commit: CreatedPhoneNoteCommit) {
+  const latest = [...messages].reverse().find((message) =>
+    message.createdPhoneNote?.characterId === commit.characterId &&
+    message.createdPhoneNote.note.id === commit.note.id
+  )?.createdPhoneNote;
+  return !!latest && createdPhoneNoteMatches(latest, commit);
+}
+
+export function hasCreatedPhoneNoteRecordHistory(
+  messages: MessageRecord[],
+  characterId: string,
+  noteId: string,
+) {
   return messages.some((message) =>
-    message.createdPhoneNote && createdPhoneNoteMatches(message.createdPhoneNote, commit)
+    message.createdPhoneNote?.characterId === characterId &&
+    message.createdPhoneNote.note.id === noteId
   );
 }
 
 export function hasSimulatedAiChatHistory(messages: MessageRecord[], commit: SimulatedAiChatCommit) {
-  return messages.some((message) =>
-    message.simulatedAiChat && simulatedAiChatMatches(message.simulatedAiChat, commit)
+  const latest = [...messages].reverse().find((message) =>
+    message.simulatedAiChat?.characterId === commit.characterId &&
+    message.simulatedAiChat.chat.id === commit.chat.id
+  )?.simulatedAiChat;
+  return !!latest && simulatedAiChatMatches(latest, commit);
+}
+
+function turnHasPhoneAppRecord(
+  turn: TurnRecord | undefined,
+  characterId: string,
+  recordId: string,
+  field: 'createdPhoneNote' | 'simulatedAiChat',
+) {
+  if (!turn?.directAction) {
+    return false;
+  }
+  return turn.output.messages.some((message) => {
+    if (field === 'createdPhoneNote') {
+      return message.createdPhoneNote?.characterId === characterId &&
+        message.createdPhoneNote.note.id === recordId;
+    }
+    return message.simulatedAiChat?.characterId === characterId &&
+      message.simulatedAiChat.chat.id === recordId;
+  });
+}
+
+export function lastDirectCreatedPhoneNoteTurn(
+  turns: TurnRecord[],
+  characterId: string,
+  noteId: string,
+) {
+  const turn = turns[turns.length - 1];
+  return turnHasPhoneAppRecord(turn, characterId, noteId, 'createdPhoneNote') ? turn : undefined;
+}
+
+export function lastDirectSimulatedAiChatTurn(
+  turns: TurnRecord[],
+  characterId: string,
+  chatId: string,
+) {
+  const turn = turns[turns.length - 1];
+  return turnHasPhoneAppRecord(turn, characterId, chatId, 'simulatedAiChat') ? turn : undefined;
+}
+
+export function archivedSimulatedAiChatIds(turns: TurnRecord[], characterId: string) {
+  const committedIds = new Set(
+    turns.flatMap((turn) => turn.output.messages.flatMap((message) =>
+      message.simulatedAiChat?.characterId === characterId
+        ? [message.simulatedAiChat.chat.id]
+        : [],
+    )),
   );
+  const lastTurn = turns[turns.length - 1];
+  lastTurn?.output.messages.forEach((message) => {
+    if (message.simulatedAiChat?.characterId === characterId && lastTurn.directAction) {
+      committedIds.delete(message.simulatedAiChat.chat.id);
+    }
+  });
+  return committedIds;
 }
 
 // The commit snapshots stored on history messages are the source of truth for
@@ -116,12 +183,31 @@ function revertCommittedRecords<T extends { id: string }>(
   return next;
 }
 
-function createdPhoneNoteCommits(messages: MessageRecord[]) {
-  return messages.flatMap((message) =>
-    message.createdPhoneNote
-      ? [{ characterId: message.createdPhoneNote.characterId, record: message.createdPhoneNote.note }]
-      : [],
-  );
+type PhoneNoteHistoryOperation = {
+  characterId: string;
+  record: PhoneNoteRecord;
+  operation: 'upsert' | 'delete';
+};
+
+function phoneNoteHistoryOperations(messages: MessageRecord[]): PhoneNoteHistoryOperation[] {
+  return messages.flatMap((message) => {
+    const operations: PhoneNoteHistoryOperation[] = [];
+    if (message.createdPhoneNote) {
+      operations.push({
+        characterId: message.createdPhoneNote.characterId,
+        record: message.createdPhoneNote.note,
+        operation: 'upsert',
+      });
+    }
+    if (message.deletedPhoneNote) {
+      operations.push({
+        characterId: message.deletedPhoneNote.characterId,
+        record: message.deletedPhoneNote.note,
+        operation: 'delete',
+      });
+    }
+    return operations;
+  });
 }
 
 function simulatedAiChatCommits(messages: MessageRecord[]) {
@@ -137,11 +223,43 @@ export function revertCreatedPhoneNotesForMessages(
   removedMessages: MessageRecord[],
   remainingMessages: MessageRecord[],
 ): PhoneNotesByCharacter {
-  return revertCommittedRecords(
-    current,
-    createdPhoneNoteCommits(removedMessages),
-    createdPhoneNoteCommits(remainingMessages),
-  );
+  const removedOperations = phoneNoteHistoryOperations(removedMessages);
+  if (!removedOperations.length) {
+    return current;
+  }
+  const remainingOperations = phoneNoteHistoryOperations(remainingMessages);
+  const next = { ...current };
+  removedOperations.forEach(({ characterId, record, operation }) => {
+    const notes = next[characterId] ?? [];
+    if (operation === 'delete') {
+      const restored = structuredClone(record);
+      next[characterId] = notes.some((note) => note.id === restored.id)
+        ? notes.map((note) => (note.id === restored.id ? restored : note))
+        : [restored, ...notes];
+      return;
+    }
+    const snapshot = [...remainingOperations].reverse().find((entry) =>
+      entry.characterId === characterId && entry.record.id === record.id
+    );
+    if (snapshot?.operation === 'upsert') {
+      const currentColor = notes.find((note) => note.id === record.id)?.color;
+      const restored = {
+        ...structuredClone(snapshot.record),
+        color: currentColor ?? snapshot.record.color,
+      };
+      next[characterId] = notes.some((note) => note.id === restored.id)
+        ? notes.map((note) => (note.id === restored.id ? restored : note))
+        : [restored, ...notes];
+      return;
+    }
+    const retained = notes.filter((note) => note.id !== record.id);
+    if (retained.length) {
+      next[characterId] = retained;
+    } else {
+      delete next[characterId];
+    }
+  });
+  return next;
 }
 
 export function revertSimulatedAiChatsForMessages(
@@ -149,6 +267,8 @@ export function revertSimulatedAiChatsForMessages(
   removedMessages: MessageRecord[],
   remainingMessages: MessageRecord[],
 ): ChatGpdChatsByCharacter {
+  // Deleting an archived chat is intentionally local. This reverter never
+  // inserts a missing chat, so undoing later turns cannot resurrect it.
   return revertCommittedRecords(
     current,
     simulatedAiChatCommits(removedMessages),

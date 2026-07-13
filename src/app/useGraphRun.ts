@@ -101,9 +101,11 @@ import {
   chatGpdFallbackTitle,
   createdPhoneNoteIdPrefix,
   createdPhoneNoteHistoryText,
+  deletedPhoneNoteHistoryText,
   simulatedAiChatIdPrefix,
   simulatedAiChatHistoryText,
   type CreatedPhoneNoteCommit,
+  type DeletedPhoneNoteCommit,
   type SimulatedAiChatCommit,
 } from '../chat/phoneAppsSessions';
 import { withSpeakerPrefix } from '../chat/instructions';
@@ -160,6 +162,7 @@ function mergeOutputActions(
     uiItems: [...primary.uiItems, ...direct.uiItems],
     controls: [...primary.controls, ...direct.controls],
     createdPhoneNoteCommits: [...primary.createdPhoneNoteCommits, ...direct.createdPhoneNoteCommits],
+    deletedPhoneNoteCommits: [...primary.deletedPhoneNoteCommits, ...direct.deletedPhoneNoteCommits],
     simulatedAiChatCommits: [...primary.simulatedAiChatCommits, ...direct.simulatedAiChatCommits],
     warnings: [...primary.warnings, ...direct.warnings],
   };
@@ -208,6 +211,7 @@ type UseGraphRunOptions = Pick<
   setWorkflowVariablesFromCommands: (commands: WorkflowVariableSetCommand[]) => void;
   commitSimulatedAiChats: (turnId: string, chats: SimulatedAiChatCommit[]) => void;
   commitCreatedPhoneNotes: (turnId: string, notes: CreatedPhoneNoteCommit[]) => void;
+  commitDeletedPhoneNotes: (notes: DeletedPhoneNoteCommit[]) => void;
   workflowSettingsValuesForGraph: () => NonNullable<ExecuteGraphOptions['settingsValues']>;
   settingsValueDefinitionsRef: Ref<NonNullable<ExecuteGraphOptions['settingsValueDefinitions']>>;
   promptActionSettings: NonNullable<ExecuteGraphOptions['promptActionSettings']>;
@@ -384,6 +388,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     setWorkflowVariablesFromCommands,
     commitSimulatedAiChats,
     commitCreatedPhoneNotes,
+    commitDeletedPhoneNotes,
     workflowSettingsValuesForGraph,
     settingsValueDefinitionsRef,
     promptActionSettings,
@@ -1802,6 +1807,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
           return character ? [{ ...commit, characterName: character.name }] : [];
         },
       );
+      const directDeletedPhoneNoteCommits = directActions.deletedPhoneNoteCommits.flatMap(
+        (commit): DeletedPhoneNoteCommit[] => {
+          const character = resolveDirectCommitCharacter(commit, 'deleted phone note');
+          return character ? [{ ...commit, characterName: character.name }] : [];
+        },
+      );
       if (directCreatedPhoneNoteCommits.length > 0) {
         reportFormatResult({
           name: 'Created phone note',
@@ -1816,6 +1827,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
           name: 'Simulated AI chat',
           status: 'ok',
           detail: `${directSimulatedAiChatCommits.length} manual ChatGPD conversation(s) parsed.`,
+        });
+      }
+      if (directDeletedPhoneNoteCommits.length > 0) {
+        reportFormatResult({
+          name: 'Deleted phone note',
+          status: 'ok',
+          detail: `${directDeletedPhoneNoteCommits.length} Notes deletion(s) parsed.`,
         });
       }
       const allCreatedPhoneNoteCommits = [...createdPhoneNoteCommits, ...directCreatedPhoneNoteCommits];
@@ -2253,6 +2271,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
+        for (const deletedPhoneNote of directDeletedPhoneNoteCommits) {
+          appendMessage({
+            role: 'output',
+            originalText: deletedPhoneNoteHistoryText(deletedPhoneNote),
+            includeInHistory: true,
+            deletedPhoneNote,
+          });
+        }
+
         for (const simulatedAiChat of allSimulatedAiChatCommits) {
           appendMessage({
             role: 'output',
@@ -2615,6 +2642,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       onSuccessfulRunBeforeCommit?.();
       commitSimulatedAiChats(turnId, allSimulatedAiChatCommits);
       commitCreatedPhoneNotes(turnId, allCreatedPhoneNoteCommits);
+      commitDeletedPhoneNotes(directDeletedPhoneNoteCommits);
       const committedTurn = commitCollectedTurn(
         storedInputGraphText,
         rpOutput,

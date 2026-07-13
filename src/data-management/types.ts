@@ -22,6 +22,7 @@ import type { SessionFormatVersion, SessionWorkflowFormatVersion } from '../sess
 import type {
   ChatGpdChatsByCharacter,
   CreatedPhoneNoteCommit,
+  DeletedPhoneNoteCommit,
   PhoneNotesByCharacter,
   SimulatedAiChatCommit,
 } from '../chat/phoneAppsSessions';
@@ -110,6 +111,7 @@ export type TimelineMessageEntry = {
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
   createdPhoneNote?: CreatedPhoneNoteCommit;
+  deletedPhoneNote?: DeletedPhoneNoteCommit;
   simulatedAiChat?: SimulatedAiChatCommit;
 };
 
