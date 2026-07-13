@@ -123,6 +123,7 @@ import {
   lastMessageText,
   narratorCharacterId,
   narratorSpeakerName,
+  replacementGraphInputText,
   runClockNow,
   stripEventOutputHeader,
   withoutMessageRpDateTime,
@@ -1113,16 +1114,18 @@ export function useGraphRun(options: UseGraphRunOptions) {
       activeInputImages.length > 0
         ? createRpImageOutputStream(showLiveWorkflowOutput)
         : showLiveWorkflowOutput;
-    const originalInput = replacement && !replacement.replaceInput
-      ? (isAutoTurn ? inputText.trim() : replacement.turn.input.graphText)
-      : (existingInputMessage && isPhoneMessage && phoneRecipientName
+    // Direct app replacements must execute their newly submitted raw JSON;
+    // replaying the stored turn JSON would silently restore the old record.
+    const replacementInputText = replacementGraphInputText(
+      inputText,
+      replacement,
+      directActionOnly,
+      isAutoTurn,
+    );
+    const originalInput = replacementInputText ??
+      ((existingInputMessage && isPhoneMessage && phoneRecipientName
         ? formatCurrentPhoneInput(inputText)
         : existingInputMessage?.originalText) ??
-      // Direct app actions carry raw JSON; a speaker prefix would break the
-      // Direct Actions parser at RP Output.
-      (directActionOnly
-        ? inputText.trim()
-        : undefined) ??
       (isAutoplayRun
         ? inputText
         : undefined) ??
@@ -1134,10 +1137,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : undefined) ??
       (isPhoneMessage && phoneRecipientName
         ? formatCurrentPhoneInput(inputText)
-        : withSpeakerPrefix(inputCharacterName, inputText));
-    const storedInputGraphText = replacement && !replacement.replaceInput
-      ? replacement.turn.input.graphText
-      : (existingInputMessage && isPhoneMessage ? originalInput : existingInputMessage?.originalText) ??
+        : withSpeakerPrefix(inputCharacterName, inputText)));
+    const storedInputGraphText = directActionOnly
+      ? originalInput
+      : replacement && !replacement.replaceInput
+        ? replacement.turn.input.graphText
+        : (existingInputMessage && isPhoneMessage ? originalInput : existingInputMessage?.originalText) ??
       (isAutoplayRun
         ? originalInput
         : undefined) ??

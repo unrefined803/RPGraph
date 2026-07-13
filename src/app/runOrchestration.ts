@@ -8,6 +8,26 @@ import { formatLastMessageForContext } from '../workflow';
 export const narratorSpeakerName = 'Narrator';
 export const narratorCharacterId = '__rpgraph-narrator__';
 
+type GraphInputReplacement = {
+  replaceInput: boolean;
+  turn: { input: { graphText: string } };
+};
+
+export function replacementGraphInputText(
+  inputText: string,
+  replacement: GraphInputReplacement | undefined,
+  directActionOnly: boolean,
+  isAutoTurn: boolean,
+) {
+  if (directActionOnly) {
+    return inputText.trim();
+  }
+  if (replacement && !replacement.replaceInput) {
+    return isAutoTurn ? inputText.trim() : replacement.turn.input.graphText;
+  }
+  return undefined;
+}
+
 export function stripEventOutputHeader(text: string, eventDisplayText: string) {
   const eventTitle = eventDisplayText.replace(/^Event:\s*/i, '').trim();
   const lines = text.trim().split(/\r?\n/);

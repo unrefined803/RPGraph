@@ -56,6 +56,7 @@ import {
 } from '../data-management/historyStore';
 import { debugTurnSummaryFromTurnRecord } from '../data-management/debugContext';
 import { createTurnTrace, turnTraceCopyPayload } from '../app/turnTrace';
+import { replacementGraphInputText } from '../app/runOrchestration';
 import {
   directPhoneTimelineEntries,
   embeddedPhoneMessageCharacters,
@@ -4209,13 +4210,26 @@ function verifyDirectAppActionPayloadFixtures() {
     input: { graphText: noteJson, messages: [] },
     output: { graphText: '', messages: [createdMessage] },
   };
+  const replacementNoteJson = directAppActionJson({
+    kind: 'createdPhoneNote',
+    commit: {
+      ...noteCommit,
+      note: { ...noteCommit.note, text: 'Replacement text' },
+    },
+  });
   assertFixture(
     lastDirectCreatedPhoneNoteTurn([directNoteTurn], 'sarah', 'note-manual-1')?.id === 'turn-9' &&
       replaceCreatedPhoneNotesForTurn(appliedOnce, 'turn-9', [{
         ...noteCommit,
         note: { ...noteCommit.note, text: 'Replacement text' },
-      }]).sarah?.length === 1,
-    'replacing the latest direct note turn must keep one history turn and one stored note',
+      }]).sarah?.length === 1 &&
+      replacementGraphInputText(
+        replacementNoteJson,
+        { turn: directNoteTurn, replaceInput: false },
+        true,
+        false,
+      ) === replacementNoteJson,
+    'replacing the latest direct app turn must use new JSON and keep one stored record',
   );
 
   const stateBeforeDelete = { sarah: [structuredClone(noteCommit.note)] };
@@ -4277,6 +4291,20 @@ function verifyDirectAppActionPayloadFixtures() {
     input: { graphText: chatJson, messages: [] },
     output: { graphText: '', messages: [chatMessage] },
   };
+  const replacementChatJson = directAppActionJson({
+    kind: 'simulatedAiChat',
+    commit: {
+      ...chatCommit,
+      chat: {
+        ...chatCommit.chat,
+        messages: [
+          ...chatCommit.chat.messages,
+          { role: 'user' as const, text: 'What about cooking?' },
+          { role: 'assistant' as const, text: 'Cooking usually treats them as vegetables.' },
+        ],
+      },
+    },
+  });
   const laterTurn: TurnRecord = {
     id: 'turn-11',
     number: 11,
@@ -4285,9 +4313,15 @@ function verifyDirectAppActionPayloadFixtures() {
     output: { graphText: 'Later output', messages: [] },
   };
   assertFixture(
-    archivedSimulatedAiChatIds([chatTurn], 'sarah').size === 0 &&
+    replacementGraphInputText(
+      replacementChatJson,
+      { turn: chatTurn, replaceInput: false },
+      true,
+      false,
+    ) === replacementChatJson &&
+      archivedSimulatedAiChatIds([chatTurn], 'sarah').size === 0 &&
       archivedSimulatedAiChatIds([chatTurn, laterTurn], 'sarah').has(chatCommit.chat.id),
-    'a committed ChatGPD chat must become archived as soon as a later turn exists',
+    'ChatGPD replacement must use its new transcript before later turns archive it',
   );
   const intentionallyDeletedChatState = revertSimulatedAiChatsForMessages(
     {},
