@@ -904,6 +904,7 @@ export type AppSettings = {
     chatGpdSidebarOpen?: boolean;
     chatGpdSidebarWidth?: number;
     chatGpdModel?: string;
+    phoneNotificationSwitchHintSeen?: boolean;
   };
   layout?: {
     chatPanelWidth: number;

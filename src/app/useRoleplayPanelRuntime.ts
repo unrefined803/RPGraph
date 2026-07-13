@@ -809,8 +809,9 @@ export function useRoleplayPanelRuntime({
 
   function cyclePhoneNotificationOwner() {
     if (chatPanelView !== 'phone') {
-      return;
+      return false;
     }
+    let switchedOwner = false;
     if (phoneNotificationOwners.length > 0) {
       const currentOwnerIndex = phoneNotificationOwners.findIndex(
         (entry) => entry.character.id === viewedPhoneCharacter?.id,
@@ -819,6 +820,7 @@ export function useRoleplayPanelRuntime({
         ? phoneNotificationOwners[(currentOwnerIndex + 1) % phoneNotificationOwners.length]
         : phoneNotificationOwners[0];
       if (nextOwner) {
+        switchedOwner = nextOwner.character.id !== viewedPhoneCharacter?.id;
         if (narratorSelected) {
           setViewedPhoneCharacterId(nextOwner.character.id);
         } else {
@@ -831,6 +833,7 @@ export function useRoleplayPanelRuntime({
 
     setSocialPostOpenRequest(undefined);
     setPhoneHomeRequestId((current) => current + 1);
+    return switchedOwner;
   }
 
   const autoTurnTargetName = selectedCharacter?.name;

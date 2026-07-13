@@ -5711,6 +5711,53 @@ input[type="number"]::-webkit-outer-spin-button {
     0 2px 6px rgba(0, 0, 0, 0.28);
 }
 
+.phone-notification-switch-hint {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 50%;
+  z-index: 20;
+  display: block;
+  width: 250px;
+  padding: 10px 12px;
+  border: 1px solid #8ba4c6;
+  border-radius: 9px;
+  color: #18253a;
+  background: #edf4ff;
+  box-shadow: 0 8px 24px rgba(5, 12, 25, 0.34);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  transform: translateX(-25%);
+  animation: phone-notification-switch-hint-in 180ms ease-out;
+}
+
+.phone-notification-switch-hint::before {
+  position: absolute;
+  bottom: 100%;
+  left: 25%;
+  width: 0;
+  height: 0;
+  border: 7px solid transparent;
+  border-bottom-color: #edf4ff;
+  content: '';
+  transform: translateX(-50%);
+}
+
+@keyframes phone-notification-switch-hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-25%, -4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-25%, 0);
+  }
+}
+
 .speaker-picker-menu {
   position: relative;
   display: flex;

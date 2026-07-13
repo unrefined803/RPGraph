@@ -28,6 +28,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { PhonePanel } from './components/PhonePanel';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
+import { PhoneTab } from './chat/PhoneTab';
 import {
   autoplayMessageFormat,
   localActivityPromptSlot,
@@ -888,6 +889,8 @@ function App() {
     setDialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
     setDialogueCloneVoiceProviderId,
+    phoneNotificationSwitchHintSeen,
+    setPhoneNotificationSwitchHintSeen,
   } = useAppSettings();
   const {
     appliedUiScale,
@@ -6615,21 +6618,16 @@ function App() {
 	                    <span className="tab-badge">{unreadChatCount}</span>
 	                  )}
 	                </button>
-                <button
-                  className={chatPanelView === 'phone' ? 'active' : ''}
-                  type="button"
-                  role="tab"
-                  aria-selected={chatPanelView === 'phone'}
-                  onClick={selectPhonePanelView}
-                  onDoubleClick={cyclePhoneNotificationOwner}
-                >
-                  Phone
-                  {unreadPhoneNotificationCount > 0 && (
-                    <span className={`tab-badge${viewedPhoneHasNotifications ? '' : ' muted'}`}>
-                      {unreadPhoneNotificationCount}
-                    </span>
-                  )}
-                </button>
+                <PhoneTab
+                  active={chatPanelView === 'phone'}
+                  notificationCount={unreadPhoneNotificationCount}
+                  viewedPhoneHasNotifications={viewedPhoneHasNotifications}
+                  settingsLoadComplete={settingsLoadComplete}
+                  switchHintSeen={phoneNotificationSwitchHintSeen}
+                  onSelect={selectPhonePanelView}
+                  onCycleNotificationOwner={cyclePhoneNotificationOwner}
+                  onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
+                />
                 <button
                   className={chatPanelView === 'events' ? 'active' : ''}
                   type="button"

@@ -797,6 +797,8 @@ function isAppSettings(value: unknown): value is AppSettings {
       typeof settings.options.dialogueNarratorProviderId === 'string') &&
     (settings.options.dialogueCloneVoiceProviderId === undefined ||
       typeof settings.options.dialogueCloneVoiceProviderId === 'string') &&
+    (settings.options.phoneNotificationSwitchHintSeen === undefined ||
+      typeof settings.options.phoneNotificationSwitchHintSeen === 'boolean') &&
     (!settings.layout || validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined)
   );
 }
@@ -876,6 +878,8 @@ type AppSettingsState = {
   setDialogueNarratorProviderId: Dispatch<SetStateAction<string>>;
   dialogueCloneVoiceProviderId: string;
   setDialogueCloneVoiceProviderId: Dispatch<SetStateAction<string>>;
+  phoneNotificationSwitchHintSeen: boolean;
+  setPhoneNotificationSwitchHintSeen: Dispatch<SetStateAction<boolean>>;
 };
 
 export function useAppSettings(): AppSettingsState {
@@ -939,6 +943,7 @@ export function useAppSettings(): AppSettingsState {
   );
   const [dialogueNarratorProviderId, setDialogueNarratorProviderId] = useState('');
   const [dialogueCloneVoiceProviderId, setDialogueCloneVoiceProviderId] = useState('');
+  const [phoneNotificationSwitchHintSeen, setPhoneNotificationSwitchHintSeen] = useState(false);
   const [settingsLoadComplete, setSettingsLoadComplete] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState('');
@@ -1032,6 +1037,9 @@ export function useAppSettings(): AppSettingsState {
         setDialogueVoiceMode(validDialogueVoiceMode(result.settings.options.dialogueVoiceMode));
         setDialogueNarratorProviderId(result.settings.options.dialogueNarratorProviderId ?? '');
         setDialogueCloneVoiceProviderId(result.settings.options.dialogueCloneVoiceProviderId ?? '');
+        setPhoneNotificationSwitchHintSeen(
+          result.settings.options.phoneNotificationSwitchHintSeen ?? false,
+        );
         setChatPanelWidth(
           validChatPanelWidth(result.settings.layout?.chatPanelWidth) ?? defaultChatPanelWidth,
         );
@@ -1100,6 +1108,7 @@ export function useAppSettings(): AppSettingsState {
         dialogueVoiceMode,
         dialogueNarratorProviderId,
         dialogueCloneVoiceProviderId,
+        phoneNotificationSwitchHintSeen,
       },
       layout: {
         chatPanelWidth,
@@ -1157,6 +1166,7 @@ export function useAppSettings(): AppSettingsState {
     dialogueVoiceMode,
     dialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
+    phoneNotificationSwitchHintSeen,
     settingsLoaded,
     settingsRecoveryNotice,
     apiKeyStorageNotice,
@@ -1237,5 +1247,7 @@ export function useAppSettings(): AppSettingsState {
     setDialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
     setDialogueCloneVoiceProviderId,
+    phoneNotificationSwitchHintSeen,
+    setPhoneNotificationSwitchHintSeen,
   };
 }
