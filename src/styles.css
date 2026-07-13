@@ -11773,8 +11773,8 @@ button.message-timeline-row.phone:focus-visible {
     0 0 10px rgba(34, 197, 94, 0.12);
 }
 
-.composer .autoplay-toggle,
-.composer .autoplay-settings {
+.composer .autoplay-menu-trigger,
+.composer .autoplay-state-toggle {
   position: relative;
   display: grid;
   height: 100%;
@@ -11787,55 +11787,39 @@ button.message-timeline-row.phone:focus-visible {
   cursor: pointer;
 }
 
-.composer .autoplay-toggle {
+.composer .autoplay-menu-trigger {
   min-width: 70px;
-  overflow: hidden;
   padding: 0 10px;
   font-size: 11px;
   font-weight: 800;
 }
 
-.composer .autoplay-settings {
+.composer .autoplay-state-toggle {
   width: 32px;
   border-left: 1px solid rgba(91, 110, 139, 0.55);
 }
 
-.composer .autoplay-toggle:hover,
-.composer .autoplay-settings:hover,
-.composer .autoplay-settings[aria-expanded="true"] {
+.composer .autoplay-menu-trigger:hover,
+.composer .autoplay-menu-trigger[aria-expanded="true"],
+.composer .autoplay-state-toggle:hover {
   color: #ffffff;
   background: rgba(91, 110, 139, 0.2);
 }
 
-.autoplay-split-button.enabled .autoplay-toggle {
+.autoplay-split-button.enabled .autoplay-menu-trigger,
+.autoplay-split-button.enabled .autoplay-state-toggle {
   color: #dcfce7;
   background: rgba(22, 101, 52, 0.2);
 }
 
-.autoplay-progress {
-  position: absolute;
-  z-index: 0;
-  inset: 0 auto 0 0;
-  width: 0;
-  background: linear-gradient(90deg, rgba(22, 163, 74, 0.42), rgba(74, 222, 128, 0.68));
-  animation-name: autoplay-progress-fill;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-
 .autoplay-label {
-  position: relative;
-  z-index: 1;
+  line-height: 1;
 }
 
-.autoplay-settings svg {
+.autoplay-state-toggle svg {
   width: 15px;
   height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
+  fill: currentColor;
 }
 
 .autoplay-menu {
@@ -11892,27 +11876,13 @@ button.message-timeline-row.phone:focus-visible {
   width: 15px;
   height: 15px;
   place-items: center;
-  border: 1px solid #39455a;
-  border-radius: 4px;
   color: #4ade80;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 900;
 }
 
 .autoplay-menu-option.active .autoplay-menu-check {
-  border-color: rgba(74, 222, 128, 0.62);
-  background: rgba(34, 197, 94, 0.13);
-}
-
-.autoplay-menu-label {
-  display: grid;
-  gap: 2px;
-}
-
-.autoplay-menu-label small {
-  color: #7d8ba6;
-  font-size: 9px;
-  font-weight: 650;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.45);
 }
 
 .autoplay-menu-row {
@@ -11950,11 +11920,6 @@ button.message-timeline-row.phone:focus-visible {
   width: 14px;
   height: 14px;
   fill: currentColor;
-}
-
-@keyframes autoplay-progress-fill {
-  from { width: 0; }
-  to { width: 100%; }
 }
 
 .composer button[type="submit"] {

@@ -35,7 +35,7 @@ Selects the prompt slot inside the chosen normal output channel:
 
 Social Media uses its own slots: 0 = Fotogram post, 1 = OnlyFriends post, 2 = Fotogram comment thread, 3 = OnlyFriends comment thread, 4 = Fotogram DM, 5 = OnlyFriends DM.
 
-Autoplay uses its own slots: 0 = Local Activity, 1 = Remote Activity, 2 = Director Mode. Director Mode is reserved for a later implementation.
+Autoplay uses its own slots: 0 = Local Activity, 1 = Remote Activity.
 
 Direct Actions
 Carries already-complete app-action JSON. A direct-only run evaluates only this output and the matching RP Output input. Text, Image, Message Format, Turn Mode, and the LLM Prompt Switch are not evaluated, so no LLM is called.

@@ -67,7 +67,7 @@ The central workflow router is usually the `LLM Prompt Switch`. Chat buttons and
 - **Message Format**: `0` = Normal RP, `1` = Phone Message, `2` = Social Media, `3` = Autoplay.
 - **Turn Mode / Prompt Slot**: `0` = with image, `1` = no image, `2` = AutoTurn, `3` = event, `4` = narrator, `5` = narrator AutoTurn.
 
-Social Media reuses the prompt-slot number for app-specific actions: `0` = Fotogram post, `1` = OnlyFriends post, `2` = Fotogram comment thread, `3` = OnlyFriends comment thread, `4` = Fotogram DM, and `5` = OnlyFriends DM. Autoplay uses slot `0` for Local Activity, slot `1` for Remote Activity, and slot `2` for the reserved Director Mode.
+Social Media reuses the prompt-slot number for app-specific actions: `0` = Fotogram post, `1` = OnlyFriends post, `2` = Fotogram comment thread, `3` = OnlyFriends comment thread, `4` = Fotogram DM, and `5` = OnlyFriends DM. Autoplay uses slot `0` for Local Activity and slot `1` for Remote Activity.
 
 The bundled Autoplay prompts create exactly one optional background beat after a completed non-Autoplay run: Local Activity keeps the beat in or immediately around the player's current scene, Remote Activity sets it entirely elsewhere. The chat UI selects exactly one mode for automatic runs, and each mode can also be triggered manually. Its private English control input identifies the player-controlled character, bypasses input translation, and is not appended to visible chat history. The dedicated RP Output Autoplay input uses the same plain RP and embedded phone/app parsers as Normal RP without sharing its graph port. Autoplay turns never schedule another Autoplay turn.
 

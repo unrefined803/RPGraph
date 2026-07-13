@@ -1080,6 +1080,9 @@ function App() {
   const autoplay = useAutoplay({
     isRunning,
     runAutoplay: requestAutoplayRun,
+    cancelAutoplayRun: () => {
+      cancelCurrentRun('cancel');
+    },
   });
   const [characterDropdownOpen, setCharacterDropdownOpen] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
@@ -4891,7 +4894,7 @@ function App() {
     nodeHasVision,
     checkProviderConnections,
     notifySystem,
-    onRunStarting: autoplay.cancelCountdown,
+    onRunStarting: autoplay.cancelPendingAutoplay,
     onRunCommitted: autoplay.onRunCommitted,
     onRpOutputReady:
       dialogueVoiceMode === 'narrator-only' && !englishProcessingEnabled
@@ -6831,8 +6834,6 @@ function App() {
               }
               autoplayEnabled={autoplay.enabled}
               autoplayMode={autoplay.mode}
-              autoplayCountdownActive={autoplay.countdownActive}
-              autoplayCountdownId={autoplay.countdownId}
               autoplayReplayDisabled={isRunning || (!narratorSelected && !selectedCharacter)}
               onAutoplayEnabledChange={autoplay.setEnabled}
               onAutoplayModeChange={autoplay.setMode}

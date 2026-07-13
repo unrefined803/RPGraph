@@ -178,8 +178,6 @@ type ChatConversationPanelProps = {
   canRunChat: boolean;
   autoplayEnabled: boolean;
   autoplayMode: AutoplayMode;
-  autoplayCountdownActive: boolean;
-  autoplayCountdownId: number;
   autoplayReplayDisabled: boolean;
   onAutoplayEnabledChange: (enabled: boolean) => void;
   onAutoplayModeChange: (mode: AutoplayMode) => void;
@@ -259,8 +257,6 @@ export function ChatConversationPanel({
   canRunChat,
   autoplayEnabled,
   autoplayMode,
-  autoplayCountdownActive,
-  autoplayCountdownId,
   autoplayReplayDisabled,
   onAutoplayEnabledChange,
   onAutoplayModeChange,
@@ -1836,8 +1832,6 @@ export function ChatConversationPanel({
             <AutoplayControl
               enabled={autoplayEnabled}
               mode={autoplayMode}
-              countdownActive={autoplayCountdownActive}
-              countdownId={autoplayCountdownId}
               replayDisabled={autoplayReplayDisabled}
               onEnabledChange={onAutoplayEnabledChange}
               onModeChange={onAutoplayModeChange}

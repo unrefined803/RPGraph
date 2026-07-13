@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { autoplayDelayMs } from './useAutoplay';
 import type { AutoplayMode } from './useAutoplay';
 
 type AutoplayControlProps = {
   enabled: boolean;
   mode: AutoplayMode;
-  countdownActive: boolean;
-  countdownId: number;
   replayDisabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
   onModeChange: (mode: AutoplayMode) => void;
@@ -19,11 +16,15 @@ const playIcon = (
   </svg>
 );
 
+const pauseIcon = (
+  <svg aria-hidden="true" viewBox="0 0 24 24">
+    <path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z" />
+  </svg>
+);
+
 export function AutoplayControl({
   enabled,
   mode,
-  countdownActive,
-  countdownId,
   replayDisabled,
   onEnabledChange,
   onModeChange,
@@ -48,7 +49,6 @@ export function AutoplayControl({
   const modeOption = (
     optionMode: AutoplayMode,
     label: string,
-    options?: { note?: string; runnable?: boolean },
   ) => {
     const selected = mode === optionMode;
     const optionButton = (
@@ -62,19 +62,9 @@ export function AutoplayControl({
         <span className="autoplay-menu-check" aria-hidden="true">
           {selected ? '✓' : ''}
         </span>
-        {options?.note ? (
-          <span className="autoplay-menu-label">
-            {label}
-            <small>{options.note}</small>
-          </span>
-        ) : (
-          <span>{label}</span>
-        )}
+        <span>{label}</span>
       </button>
     );
-    if (!options?.runnable) {
-      return optionButton;
-    }
     return (
       <div className="autoplay-menu-row" role="none">
         {optionButton}
@@ -85,7 +75,10 @@ export function AutoplayControl({
           aria-label={`Run ${label} now`}
           title={`Run ${label} now`}
           disabled={replayDisabled}
-          onClick={() => onRunModeNow(optionMode)}
+          onClick={() => {
+            onRunModeNow(optionMode);
+            setMenuOpen(false);
+          }}
         >
           {playIcon}
         </button>
@@ -95,44 +88,33 @@ export function AutoplayControl({
 
   return (
     <div className="autoplay-control" ref={controlRef}>
-      <div className={`autoplay-split-button${enabled ? ' enabled' : ''}${countdownActive ? ' counting' : ''}`}>
+      <div className={`autoplay-split-button${enabled ? ' enabled' : ''}`}>
         <button
-          className="autoplay-toggle"
+          className="autoplay-menu-trigger"
           type="button"
-          aria-pressed={enabled}
-          title={enabled ? 'Turn Autoplay off' : 'Turn Autoplay on'}
-          onClick={() => onEnabledChange(!enabled)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          title="Choose or run an Autoplay mode"
+          onClick={() => setMenuOpen((current) => !current)}
         >
-          {countdownActive && (
-            <span
-              className="autoplay-progress"
-              key={countdownId}
-              style={{ animationDuration: `${autoplayDelayMs}ms` }}
-              aria-hidden="true"
-            />
-          )}
           <span className="autoplay-label">Autoplay</span>
         </button>
         <button
-          className="autoplay-settings"
+          className="autoplay-state-toggle"
           type="button"
-          aria-label="Autoplay settings"
-          aria-expanded={menuOpen}
-          title="Autoplay settings"
-          onClick={() => setMenuOpen((current) => !current)}
+          aria-label={enabled ? 'Autoplay is playing. Pause Autoplay' : 'Autoplay is paused. Start Autoplay'}
+          aria-pressed={enabled}
+          title={enabled ? 'Autoplay is playing. Click to pause' : 'Autoplay is paused. Click to play'}
+          onClick={() => onEnabledChange(!enabled)}
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24">
-            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 1 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.13.65.77 1.08 1.51 1.08H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51.92Z" />
-          </svg>
+          {enabled ? playIcon : pauseIcon}
         </button>
       </div>
       {menuOpen && (
         <div className="autoplay-menu" role="menu" aria-label="Autoplay modes">
-          <span className="autoplay-menu-heading">Autoplay Modes</span>
-          {modeOption('local-activity', 'Local Activity', { runnable: true })}
-          {modeOption('remote-activity', 'Remote Activity', { runnable: true })}
-          {modeOption('director-mode', 'Director Mode', { note: 'Coming later' })}
+          <span className="autoplay-menu-heading">Autoplay Mode</span>
+          {modeOption('local-activity', 'Local Activity')}
+          {modeOption('remote-activity', 'Remote Activity')}
         </div>
       )}
     </div>
