@@ -2541,11 +2541,19 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
       knownPromptCommandId('Simulate_ChatGPD') === 'simulate_ai_chat' &&
+      knownPromptCommandId('PHONE_CONVERSATION') === 'phone_conversation' &&
       defaultPromptCommandInstructionTemplate('simulate_ai_chat').includes('2, 4, 6, or 8 messages') &&
+      defaultPromptCommandInstructionTemplate('phone_conversation').includes('exactly two, three, or four messages') &&
+      defaultPromptCommandInstructionTemplate('phone_conversation').includes(
+        'the first person writes a follow-up, and the other person sends the final reply',
+      ) &&
       formatPromptCommandTokens('@command:bank_transfer\n@COMMAND:simulate_chatgpd') ===
         '@command: Bank_transfer\n@command: Simulate_ChatGPD' &&
       replacePromptCommandTokensWithHints('@command: Simulate_ChatGPD') ===
         '[commands: simulate_ai_chat]' &&
+      formatPromptCommandTokens('@command:phone_conversation') === '@command: Phone_conversation' &&
+      replacePromptCommandTokensWithHints('@command: Phone_conversation') ===
+        '[commands: phone_conversation]' &&
       formatPromptCommandTokens('@command:create_note') === '@command: Create_Note' &&
       replacePromptCommandTokensWithHints('@command: Create_Note') === '[commands: create_note]',
     'prompt commands must accept flexible casing and spacing while preserving their internal command requests',

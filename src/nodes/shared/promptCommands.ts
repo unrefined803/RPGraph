@@ -3,6 +3,7 @@ export type PromptCommandId =
   | 'create_note'
   | 'simulate_ai_chat'
   | 'phone_message'
+  | 'phone_conversation'
   | 'display_image'
   | 'fotogram_post_comment'
   | 'onlyfriends_post_comment'
@@ -31,6 +32,7 @@ export const promptCommandIds: PromptCommandId[] = [
   'create_note',
   'simulate_ai_chat',
   'phone_message',
+  'phone_conversation',
   'display_image',
   'fotogram_post_comment',
   'onlyfriends_post_comment',
@@ -43,6 +45,7 @@ const promptCommandDisplayNames: Record<PromptCommandId, string> = {
   create_note: 'Create_Note',
   simulate_ai_chat: 'Simulate_ChatGPD',
   phone_message: 'Phone_message',
+  phone_conversation: 'Phone_conversation',
   display_image: 'Display_image',
   fotogram_post_comment: 'Fotogram_post_comment',
   onlyfriends_post_comment: 'OnlyFriends_post_comment',
@@ -143,6 +146,47 @@ const phoneMessageInstruction = [
   'isVoiceMessage is optional: omit it for normal typed messages; set it to true only for a spoken TTS voice message. sendImageId is optional: use only an exact imageId from an action result or recent phone/photo history; omit it when none fits. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits. The message appears in the involved characters\' phone messenger.',
 ].join('\n');
 
+const phoneConversationInstruction = [
+  'Command phone_conversation — simulate a short phone messenger conversation between two people.',
+  '',
+  'Output exactly one JSON object in this format:',
+  '{',
+  '  "phoneMessages": [',
+  '    {',
+  '      "from": "first person name",',
+  '      "to": "second person name",',
+  '      "message": "opening message"',
+  '    },',
+  '    {',
+  '      "from": "second person name",',
+  '      "to": "first person name",',
+  '      "message": "reply"',
+  '    },',
+  '    {',
+  '      "from": "first person name",',
+  '      "to": "second person name",',
+  '      "message": "follow-up message"',
+  '    },',
+  '    {',
+  '      "from": "second person name",',
+  '      "to": "first person name",',
+  '      "message": "final reply"',
+  '    }',
+  '  ]',
+  '}',
+  '',
+  'Simulate one complete exchange with exactly two, three, or four messages. Keep the messages in chronological order and alternate strictly between the same two people. Either person may write the opening message.',
+  '',
+  'Choose the shortest pattern that completely represents the conversation described in the context or finished reply:',
+  '- Two messages: one person writes, and the other person replies.',
+  '- Three messages: one person writes, the other person replies, and the first person adds a final comment.',
+  '- Four messages: one person writes, the other person replies, the first person writes a follow-up, and the other person sends the final reply.',
+  '',
+  'Write both sides of the conversation yourself. Do not invent extra messages only to reach a longer pattern. Use phone_message instead when only one message is sent.',
+  '',
+  'Each message may optionally use isVoiceMessage or sendImageId with the same meaning as phone_message. Omit isVoiceMessage for normal typed messages. Use sendImageId only with an exact imageId from an action result or recent phone/photo history. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits. Every message appears in the involved characters\' phone messenger.',
+].join('\n');
+
 const displayImageInstruction = [
   'Command display_image — display exactly one stored image in the Chat tab, without sending a phone message.',
   '',
@@ -231,6 +275,8 @@ export function defaultPromptCommandInstructionTemplate(commandId: PromptCommand
       return simulateAiChatInstruction;
     case 'phone_message':
       return phoneMessageInstruction;
+    case 'phone_conversation':
+      return phoneConversationInstruction;
     case 'display_image':
       return displayImageInstruction;
     case 'fotogram_post_comment':

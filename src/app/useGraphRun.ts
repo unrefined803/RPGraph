@@ -112,6 +112,7 @@ import { withSpeakerPrefix } from '../chat/instructions';
 import {
   autoplayMessageFormat,
   socialMediaMessageFormat,
+  stripAutoplayPlanBlocks,
 } from '../chat/messageFormats';
 import { executeGraph } from '../graph/executeGraph';
 import { TextMetricsApi } from '../llm/tokenMetrics';
@@ -1442,7 +1443,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const graphOutput = directActionOnly
         ? ''
         : isAutoplayRun
-          ? autoplayOutputText
+          ? stripAutoplayPlanBlocks(autoplayOutputText)
           : executedOutput;
       if (socialDirectMessage && !socialDirectMessageOutputPromise && socialMediaOutputText) {
         socialDirectMessageOutputPromise = processSocialDirectMessageOutput(socialMediaOutputText);
