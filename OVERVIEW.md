@@ -69,6 +69,8 @@ The central workflow router is usually the `LLM Prompt Switch`. Chat buttons and
 
 Social Media reuses the prompt-slot number for app-specific actions: `0` = Fotogram post, `1` = OnlyFriends post, `2` = Fotogram comment thread, `3` = OnlyFriends comment thread, `4` = Fotogram DM, and `5` = OnlyFriends DM. Autoplay reserves slot `0` for Chain Reactions and slot `1` for Director Mode.
 
+The bundled Chain Reactions prompt creates exactly one optional background beat after a completed non-Autoplay run. Its private control input identifies the player-controlled character but is not appended to visible chat history. The Prompt Switch routes Autoplay through the Normal RP input so one plain RP bubble or one supported embedded phone/app action can use the existing output parsers. Autoplay turns never schedule another Autoplay turn.
+
 The `User Input` node exposes these as `Message Format` and `Turn Mode` outputs. When those outputs are connected to an `LLM Prompt Switch`, they select the switch's output channel and prompt slot. The switch then combines the selected prompt-before text, the incoming graph text, and the selected prompt-after text, calls the configured LLM provider, and emits only on the selected output channel.
 
 That means UI actions such as normal chat send, phone send, AutoTurn, narrator mode, event run, social post, comment, DM, or output-action button all enter the graph with explicit routing values and can land on different prompt variants and output ports.
