@@ -11992,7 +11992,8 @@ button.message-timeline-row.phone:focus-visible {
 
 .autoplay-menu-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 30px;
+  grid-template-columns: minmax(0, 1fr) 17px 30px;
+  align-items: center;
   gap: 3px;
 }
 
