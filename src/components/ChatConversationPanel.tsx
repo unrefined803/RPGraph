@@ -328,9 +328,9 @@ export function ChatConversationPanel({
   const [expandedPhoneGroups, setExpandedPhoneGroups] = useState<Record<string, boolean>>({});
   const [phoneBubbleHeadersEnabled, setPhoneBubbleHeadersEnabled] = useState(() => {
     try {
-      return window.localStorage.getItem(phoneBubbleHeadersStorageKey) !== 'false';
+      return window.localStorage.getItem(phoneBubbleHeadersStorageKey) === 'true';
     } catch {
-      return true;
+      return false;
     }
   });
   const phoneMessagesById = selectPhoneMessagesById(messages);
@@ -1092,7 +1092,9 @@ export function ChatConversationPanel({
               const anchorSender = phoneMessages[0]?.from.trim().toLocaleLowerCase() ?? '';
               return (
                 <section className="chat-phone-bubble-stack embedded" aria-label="Phone messages">
-                  {phoneMessages.map((phoneMessage) => renderPhoneBubble(phoneMessage, anchorSender, true))}
+                  {phoneMessages.map((phoneMessage, messageIndex) =>
+                    renderPhoneBubble(phoneMessage, anchorSender, messageIndex === 0)
+                  )}
                 </section>
               );
             }
@@ -1109,7 +1111,9 @@ export function ChatConversationPanel({
                     >
                       {phoneBubbleHeadersEnabled && segment[0] && phoneConversationCardTitle(segment[0])}
                       <div className="chat-phone-card-messages">
-                        {segment.map((phoneMessage) => renderPhoneBubble(phoneMessage, anchorSender))}
+                        {segment.map((phoneMessage, messageIndex) =>
+                          renderPhoneBubble(phoneMessage, anchorSender, messageIndex === 0)
+                        )}
                       </div>
                     </section>
                   );
