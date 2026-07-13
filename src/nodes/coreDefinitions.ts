@@ -1033,6 +1033,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       input('default', 'text', 'Normal RP'),
       input('phone-message', 'text', 'Phone Message'),
       input('social-media', 'mixed', 'Social Media'),
+      input('autoplay', 'text', 'Autoplay'),
       input('output-actions', 'mixed', 'Output Actions'),
       input('highlighting-context', 'text', 'Highlighting Context'),
       input('direct-actions', 'mixed', 'Direct Actions'),

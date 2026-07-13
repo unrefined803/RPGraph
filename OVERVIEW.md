@@ -56,7 +56,7 @@ At a high level, the app works like this:
 6. The runtime resolves connected nodes, calls LLM or utility nodes as needed, and updates runtime node state.
 7. The output is appended back into the chat/session timeline and shown in the UI.
 
-The bundled default workflow is a ready-to-use roleplay graph rather than a minimal three-node example. It currently combines `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, `RP Storybook V2`, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Phone Message, Social Media, and Autoplay runs into the matching `RP Output` inputs. The bundled file is the single project-root file matching `workflow.default*.json`; the app imports a newly named default into its managed workflow storage on startup.
+The bundled default workflow is a ready-to-use roleplay graph rather than a minimal three-node example. It currently combines `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, `RP Storybook V2`, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Phone Message, and Social Media runs into the matching `RP Output` inputs. It also provides an Autoplay output that can be connected to the dedicated RP Output Autoplay input. The bundled file is the single project-root file matching `workflow.default*.json`; the app imports a newly named default into its managed workflow storage on startup.
 
 ## Prompt Routing
 
@@ -69,7 +69,7 @@ The central workflow router is usually the `LLM Prompt Switch`. Chat buttons and
 
 Social Media reuses the prompt-slot number for app-specific actions: `0` = Fotogram post, `1` = OnlyFriends post, `2` = Fotogram comment thread, `3` = OnlyFriends comment thread, `4` = Fotogram DM, and `5` = OnlyFriends DM. Autoplay reserves slot `0` for Chain Reactions and slot `1` for Director Mode.
 
-The bundled Chain Reactions prompt creates exactly one optional background beat after a completed non-Autoplay run. Its private control input identifies the player-controlled character but is not appended to visible chat history. The Prompt Switch routes Autoplay through the Normal RP input so one plain RP bubble or one supported embedded phone/app action can use the existing output parsers. Autoplay turns never schedule another Autoplay turn.
+The bundled Chain Reactions prompt creates exactly one optional background beat after a completed non-Autoplay run. Its private English control input identifies the player-controlled character, bypasses input translation, and is not appended to visible chat history. The dedicated RP Output Autoplay input uses the same plain RP and embedded phone/app parsers as Normal RP without sharing its graph port. Autoplay turns never schedule another Autoplay turn.
 
 The `User Input` node exposes these as `Message Format` and `Turn Mode` outputs. When those outputs are connected to an `LLM Prompt Switch`, they select the switch's output channel and prompt slot. The switch then combines the selected prompt-before text, the incoming graph text, and the selected prompt-after text, calls the configured LLM provider, and emits only on the selected output channel.
 

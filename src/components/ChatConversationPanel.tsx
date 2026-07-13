@@ -149,8 +149,10 @@ type ChatConversationPanelProps = {
   autoplayDirectorModeEnabled: boolean;
   autoplayCountdownActive: boolean;
   autoplayCountdownId: number;
+  autoplayChainReactionsReplayDisabled: boolean;
   onAutoplayEnabledChange: (enabled: boolean) => void;
   onAutoplayChainReactionsEnabledChange: (enabled: boolean) => void;
+  onAutoplayChainReactionsReplay: () => void;
   onAutoplayDirectorModeEnabledChange: (enabled: boolean) => void;
   imageUploadEnabled?: boolean;
   imageUploadDisabledReason?: string;
@@ -230,8 +232,10 @@ export function ChatConversationPanel({
   autoplayDirectorModeEnabled,
   autoplayCountdownActive,
   autoplayCountdownId,
+  autoplayChainReactionsReplayDisabled,
   onAutoplayEnabledChange,
   onAutoplayChainReactionsEnabledChange,
+  onAutoplayChainReactionsReplay,
   onAutoplayDirectorModeEnabledChange,
   imageUploadEnabled = true,
   imageUploadDisabledReason,
@@ -1791,8 +1795,10 @@ export function ChatConversationPanel({
               directorModeEnabled={autoplayDirectorModeEnabled}
               countdownActive={autoplayCountdownActive}
               countdownId={autoplayCountdownId}
+              chainReactionsReplayDisabled={autoplayChainReactionsReplayDisabled}
               onEnabledChange={onAutoplayEnabledChange}
               onChainReactionsEnabledChange={onAutoplayChainReactionsEnabledChange}
+              onChainReactionsReplay={onAutoplayChainReactionsReplay}
               onDirectorModeEnabledChange={onAutoplayDirectorModeEnabledChange}
             />
             <button

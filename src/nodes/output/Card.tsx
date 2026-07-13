@@ -229,6 +229,18 @@ export function OutputNodeCard({ id, data }: NodeProps<WorkflowNode>) {
           </button>
         </div>
         <div className="workflow-port workflow-port-input output-format-port">
+          <Handle id="autoplay" type="target" position={Position.Left} />
+          <PortLabel data={data} direction="input" handle="autoplay" label="Autoplay" valueType="text" />
+          <button
+            className="node-info-button output-phone-info output-format-help-button nodrag"
+            type="button"
+            aria-label="Show Autoplay input format"
+            onClick={() => showOutputFormatHelp('rp-output')}
+          >
+            ?
+          </button>
+        </div>
+        <div className="workflow-port workflow-port-input output-format-port">
           <Handle id="output-actions" type="target" position={Position.Left} />
           <PortLabel data={data} direction="input" handle="output-actions" label="Output Actions" valueType="mixed" />
           <button

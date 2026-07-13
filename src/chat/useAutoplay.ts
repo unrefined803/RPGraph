@@ -80,6 +80,14 @@ export function useAutoplay({ isRunning, runAutoplay }: UseAutoplayOptions) {
     scheduleAutoplay(playerCharacterName);
   }, [scheduleAutoplay]);
 
+  const runChainReactionsNow = useCallback((playerCharacterName: string) => {
+    if (isRunning || !chainReactionsEnabled || !playerCharacterName.trim()) {
+      return;
+    }
+    cancelCountdown();
+    void runAutoplay({ playerCharacterName });
+  }, [cancelCountdown, chainReactionsEnabled, isRunning, runAutoplay]);
+
   const setEnabled = useCallback((value: boolean) => {
     setEnabledState(value);
     storeBoolean(autoplayEnabledStorageKey, value);
@@ -121,5 +129,6 @@ export function useAutoplay({ isRunning, runAutoplay }: UseAutoplayOptions) {
     countdownId,
     cancelCountdown,
     onRunCommitted,
+    runChainReactionsNow,
   };
 }

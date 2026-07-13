@@ -7,8 +7,10 @@ type AutoplayControlProps = {
   directorModeEnabled: boolean;
   countdownActive: boolean;
   countdownId: number;
+  chainReactionsReplayDisabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
   onChainReactionsEnabledChange: (enabled: boolean) => void;
+  onChainReactionsReplay: () => void;
   onDirectorModeEnabledChange: (enabled: boolean) => void;
 };
 
@@ -18,8 +20,10 @@ export function AutoplayControl({
   directorModeEnabled,
   countdownActive,
   countdownId,
+  chainReactionsReplayDisabled,
   onEnabledChange,
   onChainReactionsEnabledChange,
+  onChainReactionsReplay,
   onDirectorModeEnabledChange,
 }: AutoplayControlProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -75,20 +79,35 @@ export function AutoplayControl({
       {menuOpen && (
         <div className="autoplay-menu" role="menu" aria-label="Autoplay modes">
           <span className="autoplay-menu-heading">Autoplay Modes</span>
+          <div className="autoplay-menu-row" role="none">
+            <button
+              className={`autoplay-menu-option${chainReactionsEnabled ? ' active' : ''}`}
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={chainReactionsEnabled}
+              onClick={() => onChainReactionsEnabledChange(!chainReactionsEnabled)}
+            >
+              <span className="autoplay-menu-check" aria-hidden="true">
+                {chainReactionsEnabled ? '✓' : ''}
+              </span>
+              <span>Chain Reactions</span>
+            </button>
+            <button
+              className="autoplay-menu-play"
+              type="button"
+              role="menuitem"
+              aria-label="Run Chain Reactions now"
+              title="Run Chain Reactions now"
+              disabled={chainReactionsReplayDisabled}
+              onClick={onChainReactionsReplay}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7L8 5Z" />
+              </svg>
+            </button>
+          </div>
           <button
-            className={chainReactionsEnabled ? 'active' : undefined}
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={chainReactionsEnabled}
-            onClick={() => onChainReactionsEnabledChange(!chainReactionsEnabled)}
-          >
-            <span className="autoplay-menu-check" aria-hidden="true">
-              {chainReactionsEnabled ? '✓' : ''}
-            </span>
-            <span>Chain Reactions</span>
-          </button>
-          <button
-            className={directorModeEnabled ? 'active' : undefined}
+            className={`autoplay-menu-option${directorModeEnabled ? ' active' : ''}`}
             type="button"
             role="menuitemcheckbox"
             aria-checked={directorModeEnabled}

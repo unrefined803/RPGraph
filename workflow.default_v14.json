@@ -1,10 +1,10 @@
 {
   "format": "rpgraph-workflow",
   "formatVersion": "1.2",
-  "savedAt": "2026-07-12T21:38:24.554Z",
+  "savedAt": "2026-07-13T11:29:07.548Z",
   "viewport": {
-    "x": 604.9794101829038,
-    "y": 536.8845237439657,
+    "x": 621.8897738553013,
+    "y": 519.5286914661235,
     "zoom": 0.42280721622455214
   },
   "nodes": [
@@ -52,8 +52,8 @@
       "id": "rp-output",
       "type": "workflow",
       "position": {
-        "x": 2112.486906889999,
-        "y": 105.00777513965579
+        "x": 2104.641473766778,
+        "y": 103.87169407217588
       },
       "data": {
         "nodeType": "output",
@@ -69,11 +69,11 @@
           "mode": "default",
           "customText": ""
         },
-        "nodeDataVersion": "1.5.1"
+        "nodeDataVersion": "1.6.0"
       },
       "measured": {
         "width": 365,
-        "height": 698
+        "height": 736
       },
       "selected": false,
       "dragging": false
@@ -278,7 +278,7 @@
       },
       "measured": {
         "width": 365,
-        "height": 550
+        "height": 571
       },
       "selected": false,
       "dragging": false
@@ -313,8 +313,8 @@
       "id": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
       "type": "workflow",
       "position": {
-        "x": 1438.119617983718,
-        "y": -939.9068880321743
+        "x": 1448.4749062173457,
+        "y": -901.8441498127085
       },
       "style": {
         "width": 548,
@@ -417,7 +417,7 @@
             "This is a private OnlyFriends direct-message conversation. Reply only as the specified recipient: use their Storybook personality when they are a known character, or a stable natural personality for a virtual creator, fan, or subscriber. Answer the newest message without repeating it. When a conversation origin is supplied, the sender opened this DM from that exact post comment: use the attached post image, post text, image description, and original comment as the subject of the reply. The tone is more personal and sexual than Fotogram: explicit adult content is allowed, and fans may make blunt, graphic requests — match the counterpart's energy instead of softening every reply.\n\nOutput format:\nReturn the reply block, always required, exactly once — valid JSON with double quotes, no markdown:\n{\n  \"onlyFriendsDirectMessage\": {\n    \"text\": \"the recipient's reply\",\n    \"tip\": 10\n  }\n}\ntip is optional: a positive number, used only when the replying sender genuinely decides to tip right now (e.g. a fan rewarding a creator). It is credited to the recipient's OnlyFriends wallet and is not a bank transfer; omit it when no tip is sent. When only the DM reply is needed, return only this object.\n\nCommands:\nCommands trigger real phone-app actions; reply text alone never performs one. Do not write command JSON yourself: return the DM object first, then end the output with one final line naming every needed command, for example [commands: bank_transfer] or [commands: phone_message, bank_transfer].\n\nThe conversation clearly moves to the phone messenger and a phone message is actually sent now (e.g. after someone shares their number):\n@command:phone_message\n\nMoney is transferred now (describing the payment in the DM text is not enough; never invent amounts or transfers):\n@command:bank_transfer\n\nFinal reminder: if your reply involves a phone message or a money transfer, do not forget the [commands: ...] line at the very end of your output."
           ],
           [
-            "This is Autoplay Chain Reactions. Create exactly one small, autonomous reaction that makes the world feel alive after the latest completed story or app activity. Use the most recent activity as the main cause and earlier recent context only when it helps continuity. This is one reaction beat, not a new scene, quest, crisis, or multi-step chain.\n\nThe Text Input contains an [AUTOPLAY] control block with the Player-controlled character. Treat that block as private control metadata: never quote it, paraphrase it, or expose it in the output. Never write speech, actions, thoughts, choices, messages, comments, notes, payments, or AI usage as the Player-controlled character. Other characters may contact or react around that character, including sending something to them, but the result must remain optional background activity that does not require an immediate answer. Do not end with a direct demand, urgent cliffhanger, mandatory decision, or forced change of scene.\n\nChoose exactly ONE of the output forms below. Never combine forms, never return more than one object, and never create a follow-up reaction. Do not return an actions wrapper.\n\nA) One normal RP bubble: Write one compact plain-text RP beat, usually 20-90 words and never more than <Response Length> words. Make the acting non-player character clear through prose, action, or quoted dialogue. No markdown and no JSON. Keep it observational and self-contained.\n\nB) One phone messenger message:\n{\"phoneMessages\":[{\"from\":\"sender name\",\"to\":\"recipient name\",\"message\":\"message text\"}]}\nUse exactly one message. isVoiceMessage may be true only for a spoken voice message. sendImageId may be used only with an exact existing image ID. A known Storybook character must be either sender or recipient; an invented outside contact may be the other party.\n\nC) One comment on an existing social post, using an exact postId from recent history:\n{\"fotogramPostComment\":{\"postId\":\"fotogram-post-01\",\"from\":\"commenter name\",\"text\":\"comment text\"}}\nor\n{\"onlyFriendsPostComment\":{\"postId\":\"onlyfriends-post-01\",\"from\":\"commenter name\",\"text\":\"comment text\"}}\nThe commenter may be a fitting Storybook character or an invented NPC/fan. Never invent a postId.\n\nD) One private social-media message:\n{\"fotogramDirectMessages\":[{\"from\":\"sender name\",\"to\":\"recipient name\",\"text\":\"message text\"}]}\nor\n{\"onlyFriendsDirectMessages\":[{\"from\":\"sender name\",\"to\":\"recipient name\",\"text\":\"message text\"}]}\nUse exactly one DM. postId may reference an exact existing post. OnlyFriends may include a positive tip only when context genuinely supports it. A sender may be an invented NPC, fan, subscriber, service, coworker, relative, or acquaintance.\n\nE) One saved phone note for a non-player Storybook character:\n{\"phoneNote\":{\"character\":\"full Storybook character name\",\"title\":\"short note title\",\"text\":\"complete note content\"}}\nUse only an exact known Storybook character.\n\nF) One bank transfer:\n{\"bankTransfers\":[{\"from\":\"sender name\",\"to\":\"recipient name\",\"amount\":25.5,\"note\":\"reason\"}]}\nUse exactly one transfer and only when recent context establishes a real reason and amount. Never invent an amount merely to create activity. At least one party must be a known Storybook character.\n\nG) One short ChatGPD use by a non-player Storybook character:\n{\"aiAssistantChat\":{\"character\":\"full Storybook character name\",\"messages\":[{\"role\":\"user\",\"text\":\"the character's question\"},{\"role\":\"assistant\",\"text\":\"ChatGPD's useful response\"}]}}\nUse one complete exchange and only an exact known Storybook character.\n\nSelection rules:\n- Prefer a natural phone message, social interaction, note, or small RP beat. Money and ChatGPD should be rare and context-driven.\n- The reaction must follow established personalities, relationships, secrets, current location, app history, and story facts. Do not reveal knowledge the acting character could not have.\n- Existing Storybook characters may act autonomously unless they are the Player-controlled character. Invent outside contacts when that makes the world feel broader, but keep them plausible and consistent.\n- Do not impersonate the user, change the selected player, offer buttons, explain your choice, summarize the history, or mention Autoplay.\n- If the reaction sends a message, comments on a post, writes a note, transfers money, or uses ChatGPD, choose the matching JSON form. Never merely narrate an app action in the plain-text RP form.\n- Output only the selected plain-text beat or its single valid JSON object. For JSON use double quotes and no markdown fence.",
+            "This is Autoplay Chain Reactions. Create exactly one small, autonomous reaction that makes the world feel alive after the latest completed story or app activity. Use the most recent activity as the main cause and earlier recent context only when it helps continuity. This is one reaction beat, not a new scene, quest, crisis, or multi-step chain.\n\nThe Text Input contains an [AUTOPLAY] control block with the Player-controlled character. Treat that block as private control metadata: never quote it, paraphrase it, or expose it in the output. Never write speech, actions, thoughts, choices, messages, comments, notes, payments, or AI usage as the Player-controlled character. Other characters may contact or react around that character, including sending something to them, but the result must remain optional background activity that does not require an immediate answer. Do not end with a direct demand, urgent cliffhanger, mandatory decision, or forced change of scene.\n\nBefore choosing an output, infer who is physically together from the latest scene and recent context. Characters in the same room, location, vehicle, or active in-person scene communicate through normal RP speech and action, never by phone messenger or private social DM. Use a phone message or DM only when sender and recipient are clearly in different places. If their locations are uncertain but they were last shown together, treat them as together. An off-screen pair may react, but the same rule applies: if they share a location, show their interaction as normal RP. Do not default to phone use merely because the reaction happens outside the player's current focus.\n\nChoose exactly ONE of the output forms below. Never combine forms, never return more than one object, and never create a follow-up reaction. Do not return an actions wrapper.\n\nA) One normal RP bubble: Write one compact plain-text RP beat, usually 20-90 words and never more than <Response Length> words. Make the acting non-player character clear through prose, action, or quoted dialogue. No markdown and no JSON. Keep it observational and self-contained. Always choose this form when the reacting characters are physically together or participating in the same in-person scene.\n\nB) One phone messenger message:\n{\"phoneMessages\":[{\"from\":\"sender name\",\"to\":\"recipient name\",\"message\":\"message text\"}]}\nUse exactly one message and only when sender and recipient are physically separated. isVoiceMessage may be true only for a spoken voice message. sendImageId may be used only with an exact existing image ID. A known Storybook character must be either sender or recipient; an invented outside contact may be the other party.\n\nC) One comment on an existing social post, using an exact postId from recent history:\n{\"fotogramPostComment\":{\"postId\":\"fotogram-post-01\",\"from\":\"commenter name\",\"text\":\"comment text\"}}\nor\n{\"onlyFriendsPostComment\":{\"postId\":\"onlyfriends-post-01\",\"from\":\"commenter name\",\"text\":\"comment text\"}}\nThe commenter may be a fitting Storybook character or an invented NPC/fan. Never invent a postId.\n\nD) One private social-media message:\n{\"fotogramDirectMessages\":[{\"from\":\"sender name\",\"to\":\"recipient name\",\"text\":\"message text\"}]}\nor\n{\"onlyFriendsDirectMessages\":[{\"from\":\"sender name\",\"to\":\"recipient name\",\"text\":\"message text\"}]}\nUse exactly one DM and only when sender and recipient are physically separated. postId may reference an exact existing post. OnlyFriends may include a positive tip only when context genuinely supports it. A sender may be an invented NPC, fan, subscriber, service, coworker, relative, or acquaintance.\n\nE) One saved phone note for a non-player Storybook character:\n{\"phoneNote\":{\"character\":\"full Storybook character name\",\"title\":\"short note title\",\"text\":\"complete note content\"}}\nUse only an exact known Storybook character.\n\nF) One bank transfer:\n{\"bankTransfers\":[{\"from\":\"sender name\",\"to\":\"recipient name\",\"amount\":25.5,\"note\":\"reason\"}]}\nUse exactly one transfer and only when recent context establishes a real reason and amount. Never invent an amount merely to create activity. At least one party must be a known Storybook character.\n\nG) One short ChatGPD use by a non-player Storybook character:\n{\"aiAssistantChat\":{\"character\":\"full Storybook character name\",\"messages\":[{\"role\":\"user\",\"text\":\"the character's question\"},{\"role\":\"assistant\",\"text\":\"ChatGPD's useful response\"}]}}\nUse one complete exchange and only an exact known Storybook character.\n\nSelection rules:\n- Prefer a small normal RP beat whenever an in-person reaction is plausible. Use phone messenger or private DM only when physical separation is established. Money and ChatGPD should be rare and context-driven.\n- The reaction must follow established personalities, relationships, secrets, current location, app history, and story facts. Do not reveal knowledge the acting character could not have.\n- Existing Storybook characters may act autonomously unless they are the Player-controlled character. Invent outside contacts when that makes the world feel broader, but keep them plausible and consistent.\n- Do not impersonate the user, change the selected player, offer buttons, explain your choice, summarize the history, or mention Autoplay.\n- If the reaction sends a message, comments on a post, writes a note, transfers money, or uses ChatGPD, choose the matching JSON form. Never merely narrate an app action in the plain-text RP form.\n- Output only the selected plain-text beat or its single valid JSON object. For JSON use double quotes and no markdown fence.",
             "Autoplay Director Mode is reserved for a later implementation. Return exactly {\"actions\":[]} and nothing else."
           ]
         ],
@@ -465,8 +465,8 @@
       "id": "memory-slot-34d735ba-b035-44ea-b122-9c14998d63d3",
       "type": "workflow",
       "position": {
-        "x": 600.6114242366323,
-        "y": 705.0864972003872
+        "x": 680.6114242366323,
+        "y": 742.5864972003872
       },
       "style": {
         "width": 97,
@@ -494,8 +494,8 @@
       "id": "memory-slot-cb65593c-3a95-44d6-aa0d-43e5574cdd6f",
       "type": "workflow",
       "position": {
-        "x": 677.4323573556749,
-        "y": 704.1741623108343
+        "x": 759.9323573556749,
+        "y": 742.9241623108343
       },
       "style": {
         "width": 97,
@@ -523,8 +523,8 @@
       "id": "memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
       "type": "workflow",
       "position": {
-        "x": 1220.4595672962707,
-        "y": 744.4174500073206
+        "x": 1211.7095672962707,
+        "y": 783.1674500073206
       },
       "style": {
         "width": 97,
@@ -552,8 +552,8 @@
       "id": "memory-slot-a322e6fc-5b2f-43df-aad2-cafa5b540157",
       "type": "workflow",
       "position": {
-        "x": 1296.181501859213,
-        "y": 744.9200401628016
+        "x": 1292.809787067744,
+        "y": 782.7820614044997
       },
       "style": {
         "width": 97,
@@ -892,23 +892,6 @@
       "animated": false
     },
     {
-      "id": "xy-edge__llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel-3-rp-output",
-      "source": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
-      "sourceHandle": "output-channel-3",
-      "target": "rp-output",
-      "type": "workflow",
-      "markerEnd": {
-        "type": "arrowclosed",
-        "color": "#64d1ff"
-      },
-      "style": {
-        "stroke": "#64d1ff",
-        "strokeWidth": 2
-      },
-      "selected": false,
-      "animated": false
-    },
-    {
       "source": "memory-slot-cb65593c-3a95-44d6-aa0d-43e5574cdd6f",
       "target": "rp-output",
       "targetHandle": "highlighting-context",
@@ -972,6 +955,24 @@
         "strokeWidth": 2
       },
       "id": "xy-edge__user-inputdirect-actions-memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "sourceHandle": "output-channel-3",
+      "target": "rp-output",
+      "targetHandle": "autoplay",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel-3-rp-outputautoplay",
       "selected": false,
       "animated": false,
       "type": "workflow"

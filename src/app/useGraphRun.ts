@@ -922,6 +922,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     }
     if (
       (runEnglishProcessing || translateInputOnly) &&
+      !isAutoplayRun &&
       !directInput &&
       !isAutoTurn &&
       !narratorAutoTurn &&
@@ -1280,6 +1281,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       let phoneMessageOutput = '';
       let outputActionsText = '';
       let socialMediaOutputText = '';
+      let autoplayOutputText = '';
       let socialDirectMessageOutputPromise: Promise<void> | undefined;
       let directActionsText = '';
       const socialDirectExtras: {
@@ -1384,7 +1386,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         trackRunCompletion: true,
         auxiliaryOutputHandles: directActionOnly
           ? []
-          : ['output-actions', 'highlighting-context', 'phone-message', 'social-media', 'direct-actions'],
+          : ['output-actions', 'highlighting-context', 'phone-message', 'social-media', 'autoplay', 'direct-actions'],
         onAuxiliaryOutput: (handle, text) => {
           if (handle === 'highlighting-context') {
             outputHighlightingContext = text;
@@ -1401,6 +1403,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
               socialDirectMessageOutputPromise = processSocialDirectMessageOutput(text);
             }
           }
+          if (handle === 'autoplay') {
+            autoplayOutputText = text;
+          }
           if (handle === 'direct-actions') {
             directActionsText = text;
           }
@@ -1415,7 +1420,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
             : undefined,
         signal: runSignal,
       });
-      const graphOutput = directActionOnly ? '' : executedOutput;
+      const graphOutput = directActionOnly
+        ? ''
+        : isAutoplayRun
+          ? autoplayOutputText
+          : executedOutput;
       if (socialDirectMessage && !socialDirectMessageOutputPromise && socialMediaOutputText) {
         socialDirectMessageOutputPromise = processSocialDirectMessageOutput(socialMediaOutputText);
       }

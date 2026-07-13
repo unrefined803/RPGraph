@@ -11862,7 +11862,7 @@ button.message-timeline-row.phone:focus-visible {
   text-transform: uppercase;
 }
 
-.composer .autoplay-menu button {
+.composer .autoplay-menu-option {
   display: grid;
   grid-template-columns: 15px 1fr;
   align-items: center;
@@ -11879,9 +11879,9 @@ button.message-timeline-row.phone:focus-visible {
   cursor: pointer;
 }
 
-.composer .autoplay-menu button:hover,
-.composer .autoplay-menu button:focus-visible,
-.composer .autoplay-menu button.active {
+.composer .autoplay-menu-option:hover,
+.composer .autoplay-menu-option:focus-visible,
+.composer .autoplay-menu-option.active {
   outline: none;
   color: #ffffff;
   background: #1a2536;
@@ -11899,7 +11899,7 @@ button.message-timeline-row.phone:focus-visible {
   font-weight: 900;
 }
 
-.autoplay-menu button.active .autoplay-menu-check {
+.autoplay-menu-option.active .autoplay-menu-check {
   border-color: rgba(74, 222, 128, 0.62);
   background: rgba(34, 197, 94, 0.13);
 }
@@ -11913,6 +11913,43 @@ button.message-timeline-row.phone:focus-visible {
   color: #7d8ba6;
   font-size: 9px;
   font-weight: 650;
+}
+
+.autoplay-menu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 3px;
+}
+
+.composer .autoplay-menu-play {
+  display: grid;
+  width: 30px;
+  min-height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: #9fb0ca;
+  background: transparent;
+  cursor: pointer;
+}
+
+.composer .autoplay-menu-play:hover:not(:disabled),
+.composer .autoplay-menu-play:focus-visible {
+  outline: none;
+  color: #dcfce7;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.composer .autoplay-menu-play:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.autoplay-menu-play svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 @keyframes autoplay-progress-fill {

@@ -6834,8 +6834,18 @@ function App() {
               autoplayDirectorModeEnabled={autoplay.directorModeEnabled}
               autoplayCountdownActive={autoplay.countdownActive}
               autoplayCountdownId={autoplay.countdownId}
+              autoplayChainReactionsReplayDisabled={
+                isRunning ||
+                !autoplay.chainReactionsEnabled ||
+                (!narratorSelected && !selectedCharacter)
+              }
               onAutoplayEnabledChange={autoplay.setEnabled}
               onAutoplayChainReactionsEnabledChange={autoplay.setChainReactionsEnabled}
+              onAutoplayChainReactionsReplay={() => autoplay.runChainReactionsNow(
+                narratorSelected
+                  ? narratorSpeakerName
+                  : selectedCharacter?.name ?? '',
+              )}
               onAutoplayDirectorModeEnabledChange={autoplay.setDirectorModeEnabled}
               imageInputRef={imageInputRef}
               chatThreadRef={chatThreadRef}

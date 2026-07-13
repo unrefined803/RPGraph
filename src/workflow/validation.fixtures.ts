@@ -3711,6 +3711,13 @@ export function verifyWorkflowValidationFixtures() {
   if (!inputDefinition) {
     throw new Error('Workflow validation fixture failed: input definition is not registered');
   }
+  const outputDefinition = getRegisteredCoreNode('output');
+  assertFixture(
+    outputDefinition?.ports?.({} as WorkflowNode['data']).some((port) =>
+      port.direction === 'input' && port.id === 'autoplay' && port.valueType === 'text'
+    ) === true,
+    'the RP Output definition must expose a dedicated Autoplay text input',
+  );
   assertThrowsFixture(
     () => registerNode(inputDefinition),
     'the registry must reject duplicate node type ids',
@@ -3889,6 +3896,33 @@ async function verifyDirectActionsGraphFixture() {
   assertFixture(
     result === directJson && llmCalls === 0,
     'a direct action must cross the graph without calling an LLM',
+  );
+
+  const autoplayText = 'Ryan glances toward the kitchen. "They are still talking in there."';
+  const autoplayResult = await executeGraph({
+    outputNodeId: outputNode.id,
+    outputSourceHandle: 'autoplay',
+    nodes: [inputNode, outputNode],
+    edges: [{
+      id: 'autoplay-output-fixture',
+      source: inputNode.id,
+      target: outputNode.id,
+      targetHandle: 'autoplay',
+    }],
+    originalInput: autoplayText,
+    originalHistory: '',
+    translatedHistory: '',
+    llm: new NodeLlmApi({
+      resolveConnection: async () => {
+        throw new Error('The Autoplay output fixture must not call an LLM.');
+      },
+    }),
+    textMetrics: new TextMetricsApi(4),
+    updateRuntimeNode: () => undefined,
+  });
+  assertFixture(
+    autoplayResult === autoplayText,
+    'the dedicated Autoplay input must preserve plain RP text like Normal RP',
   );
 }
 

@@ -59,6 +59,9 @@ One generated phone reply as JSON with from, to, message, and optional isVoiceMe
 Social Media
 Generated reactions for Fotogram and OnlyFriends posts or comment threads. The app applies the returned likes and comments and records the relevant history.
 
+Autoplay
+One autonomous background reaction. It accepts the same plain RP text and embedded phone/app JSON as Normal RP, while remaining a separate graph input.
+
 Output Actions
 LLM-generated or graph-generated app commands that accompany a normal run. Supported commands include phone messages, chat messages, choice buttons, info boxes, progress bars, context-capacity bars, bank transfers, setTab, and setPlayer.
 
