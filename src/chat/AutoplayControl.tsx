@@ -112,7 +112,17 @@ export function AutoplayControl({
       </div>
       {menuOpen && (
         <div className="autoplay-menu" role="menu" aria-label="Autoplay modes">
-          <span className="autoplay-menu-heading">Autoplay Mode</span>
+          <span className="autoplay-menu-heading">
+            <span>Autoplay Mode</span>
+            <button
+              className="autoplay-menu-help"
+              type="button"
+              aria-label="About Autoplay"
+              data-tooltip="After a user turn finishes, Autoplay adds one optional background action to make the world feel more alive."
+            >
+              ?
+            </button>
+          </span>
           {modeOption('local-activity', 'Local Activity')}
           {modeOption('remote-activity', 'Remote Activity')}
         </div>

@@ -73,6 +73,7 @@ import type { AutoplayMode } from '../chat/useAutoplay';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
 const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
+const composerAutoCollapseStorageKey = 'rpgraph-chat-composer-auto-collapse-enabled';
 
 function isStandaloneEmbeddedPhoneOutput(message: MessageRecord) {
   const hasNonPhoneText = [
@@ -334,6 +335,13 @@ export function ChatConversationPanel({
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [isComposerHovered, setIsComposerHovered] = useState(false);
   const [scrollCollapsed, setScrollCollapsed] = useState(false);
+  const [composerAutoCollapseEnabled, setComposerAutoCollapseEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem(composerAutoCollapseStorageKey) !== 'false';
+    } catch {
+      return true;
+    }
+  });
   const composerRef = useRef<HTMLFormElement | null>(null);
   const wheelScrollCollapsePendingRef = useRef(false);
   const wheelScrollCollapseTimerRef = useRef<number | null>(null);
@@ -368,7 +376,7 @@ export function ChatConversationPanel({
 
   useEffect(() => {
     const thread = chatThreadRef.current;
-    if (!thread) return;
+    if (!thread || !composerAutoCollapseEnabled) return;
     const handleWheel = () => {
       wheelScrollCollapsePendingRef.current = true;
       if (wheelScrollCollapseTimerRef.current !== null) {
@@ -397,6 +405,7 @@ export function ChatConversationPanel({
     thread.addEventListener('wheel', handleWheel, { passive: true });
     thread.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
+      wheelScrollCollapsePendingRef.current = false;
       if (wheelScrollCollapseTimerRef.current !== null) {
         window.clearTimeout(wheelScrollCollapseTimerRef.current);
         wheelScrollCollapseTimerRef.current = null;
@@ -404,7 +413,7 @@ export function ChatConversationPanel({
       thread.removeEventListener('wheel', handleWheel);
       thread.removeEventListener('scroll', handleScroll);
     };
-  }, [chatThreadRef]);
+  }, [chatThreadRef, composerAutoCollapseEnabled]);
 
   useEffect(() => {
     const focusFromEnter = (event: KeyboardEvent) => {
@@ -429,6 +438,7 @@ export function ChatConversationPanel({
   }, [chatThreadRef, editingMessageId, focusComposerInput]);
 
   const isExpanded =
+    !composerAutoCollapseEnabled ||
     isComposerFocused ||
     (!scrollCollapsed && draftImages.length > 0);
   const composerModeClass = isExpanded
@@ -469,6 +479,15 @@ export function ChatConversationPanel({
     setPhoneBubbleHeadersEnabled(enabled);
     try {
       window.localStorage.setItem(phoneBubbleHeadersStorageKey, String(enabled));
+    } catch {
+      // Non-critical UI preference.
+    }
+  }
+
+  function changeComposerAutoCollapseEnabled(enabled: boolean) {
+    setComposerAutoCollapseEnabled(enabled);
+    try {
+      window.localStorage.setItem(composerAutoCollapseStorageKey, String(enabled));
     } catch {
       // Non-critical UI preference.
     }
@@ -1709,8 +1728,8 @@ export function ChatConversationPanel({
                 className="composer-icon-button"
                 type="button"
                 onClick={() => setOutsidePhoneMenuOpen((open) => !open)}
-                title="Phone message display"
-                aria-label="Phone message display"
+                title="Chat tab settings"
+                aria-label="Chat tab settings"
                 aria-expanded={outsidePhoneMenuOpen}
               >
                 <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -1721,7 +1740,22 @@ export function ChatConversationPanel({
               {outsidePhoneMenuOpen && (
                 <div className="phone-display-popover" role="menu">
                   <div className="phone-display-popover-section">
-                    <span className="phone-display-popover-heading">Phone Message Display</span>
+                    <span className="phone-display-popover-heading">Chat Tab Settings</span>
+                    <button
+                      className={`phone-display-checkbox${composerAutoCollapseEnabled ? ' active' : ''}`}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={composerAutoCollapseEnabled}
+                      onClick={() => changeComposerAutoCollapseEnabled(!composerAutoCollapseEnabled)}
+                    >
+                      <span className="phone-display-check" aria-hidden="true">
+                        {composerAutoCollapseEnabled ? '✓' : ''}
+                      </span>
+                      <span>Auto-collapse input</span>
+                    </button>
+                  </div>
+                  <div className="phone-display-popover-section">
+                    <span className="phone-display-popover-heading">Phone Messages</span>
                     {([
                       ['bubbles', 'Show Phone Messages'],
                       ['hide', 'Hide Phone Messages'],

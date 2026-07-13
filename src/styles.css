@@ -11757,20 +11757,10 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   height: 35px;
   overflow: hidden;
-  border: 1px solid #3b4d68;
+  border: 0;
   border-radius: 8px;
   background: linear-gradient(180deg, #243149, #172235);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 2px 5px rgba(0, 0, 0, 0.22);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.autoplay-split-button.enabled {
-  border-color: rgba(74, 222, 128, 0.52);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 10px rgba(34, 197, 94, 0.12);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
 }
 
 .composer .autoplay-menu-trigger,
@@ -11838,12 +11828,71 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .autoplay-menu-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 4px 8px 5px;
   color: #7d8ba6;
   font-size: 10px;
   font-weight: 850;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.composer .autoplay-menu-help {
+  position: relative;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #42506a;
+  border-radius: 50%;
+  color: #9fb0ca;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: help;
+}
+
+.composer .autoplay-menu-help::after {
+  position: absolute;
+  z-index: 2;
+  top: -8px;
+  right: calc(100% + 9px);
+  width: 220px;
+  padding: 8px 10px;
+  border: 1px solid #36445c;
+  border-radius: 7px;
+  background: #0c121c;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+  color: #dbe4f7;
+  content: attr(data-tooltip);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-align: left;
+  text-transform: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(4px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.composer .autoplay-menu-help:hover,
+.composer .autoplay-menu-help:focus-visible {
+  outline: none;
+  border-color: rgba(74, 222, 128, 0.55);
+  color: #dcfce7;
+}
+
+.composer .autoplay-menu-help:hover::after,
+.composer .autoplay-menu-help:focus-visible::after {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .composer .autoplay-menu-option {
