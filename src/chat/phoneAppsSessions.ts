@@ -126,8 +126,12 @@ export function replaceCreatedPhoneNotesForTurn(
   return next;
 }
 
+export function createdPhoneNoteActionVerb(entry: CreatedPhoneNoteCommit) {
+  return entry.operation === 'update' ? 'updated' : 'created';
+}
+
 export function createdPhoneNoteHistoryText(entry: CreatedPhoneNoteCommit) {
-  const verb = entry.operation === 'update' ? 'updated' : 'created';
+  const verb = createdPhoneNoteActionVerb(entry);
   return [
     `[Notes] ${entry.characterName} ${verb} the note "${entry.note.title}":`,
     entry.note.text,

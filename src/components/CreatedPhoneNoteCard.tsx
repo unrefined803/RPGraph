@@ -1,4 +1,7 @@
-import type { CreatedPhoneNoteCommit } from '../chat/phoneAppsSessions';
+import {
+  createdPhoneNoteActionVerb,
+  type CreatedPhoneNoteCommit,
+} from '../chat/phoneAppsSessions';
 
 type CreatedPhoneNoteCardProps = {
   entry: CreatedPhoneNoteCommit;
@@ -6,11 +9,12 @@ type CreatedPhoneNoteCardProps = {
 };
 
 export function CreatedPhoneNoteCard({ entry, fontSize }: CreatedPhoneNoteCardProps) {
+  const actionVerb = createdPhoneNoteActionVerb(entry);
   return (
     <section
       className="chat-created-note-card"
       style={fontSize ? { fontSize } : undefined}
-      aria-label={`${entry.characterName} created the note ${entry.note.title}`}
+      aria-label={`${entry.characterName} ${actionVerb} the note ${entry.note.title}`}
     >
       <header>
         <span className="chat-created-note-icon" aria-hidden="true">
@@ -22,7 +26,7 @@ export function CreatedPhoneNoteCard({ entry, fontSize }: CreatedPhoneNoteCardPr
         </span>
         <span>
           <strong>Notes</strong>
-          <small>{entry.characterName} created a note</small>
+          <small>{entry.characterName} {actionVerb} a note</small>
         </span>
         {entry.note.dayLabel && <time>{entry.note.dayLabel}</time>}
       </header>

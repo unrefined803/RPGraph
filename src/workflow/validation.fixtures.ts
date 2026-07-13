@@ -92,6 +92,7 @@ import {
   normalizeChatGpdChatsByCharacter,
   normalizePhoneNotesByCharacter,
   deletePhoneNotesForTurn,
+  createdPhoneNoteActionVerb,
   phoneNoteContentMatches,
   replaceCreatedPhoneNotesForTurn,
   replaceSimulatedAiChatsForTurn,
@@ -4068,6 +4069,11 @@ function verifyDirectAppActionPayloadFixtures() {
       parsedNote.createdPhoneNoteCommits[0].note.id === 'note-manual-1' &&
       parsedNote.createdPhoneNoteCommits[0].note.color === 'mint',
     'a manual phone note payload must round-trip through the Direct Actions parser',
+  );
+  assertFixture(
+    createdPhoneNoteActionVerb(noteCommit) === 'updated' &&
+      createdPhoneNoteActionVerb({ ...noteCommit, operation: 'create' }) === 'created',
+    'phone note cards and history must distinguish update and create operations',
   );
   const parsedNoteWithoutOption = parseOutputActions(noteJson);
   assertFixture(
