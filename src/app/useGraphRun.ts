@@ -159,6 +159,8 @@ function mergeOutputActions(
     contextCapacityBars: [...primary.contextCapacityBars, ...direct.contextCapacityBars],
     uiItems: [...primary.uiItems, ...direct.uiItems],
     controls: [...primary.controls, ...direct.controls],
+    createdPhoneNoteCommits: [...primary.createdPhoneNoteCommits, ...direct.createdPhoneNoteCommits],
+    simulatedAiChatCommits: [...primary.simulatedAiChatCommits, ...direct.simulatedAiChatCommits],
     warnings: [...primary.warnings, ...direct.warnings],
   };
 }
@@ -468,6 +470,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
     const shouldRestoreCancelledInput =
+      !directActionOnly &&
       !isAutoTurn &&
       !narratorAutoTurn &&
       messageFormatOverride !== socialMediaMessageFormat &&
@@ -1110,6 +1113,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
       : (existingInputMessage && isPhoneMessage && phoneRecipientName
         ? formatCurrentPhoneInput(inputText)
         : existingInputMessage?.originalText) ??
+      // Direct app actions carry raw JSON; a speaker prefix would break the
+      // Direct Actions parser at RP Output.
+      (directActionOnly
+        ? inputText.trim()
+        : undefined) ??
       (isAutoplayRun
         ? inputText
         : undefined) ??
@@ -1200,10 +1208,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
         turnContext,
       });
     }
-    // Social Media and Autoplay runs do not append their raw control input.
-    // Their actual results are recorded as dedicated history messages instead.
+    // Social Media, Autoplay, and direct app actions do not append their raw
+    // control/JSON input. Their actual results are recorded as dedicated
+    // history messages instead.
     if (
       shouldAppendInputMessage &&
+      !directActionOnly &&
       !isAutoTurn &&
       !isPhoneMessage &&
       messageFormat !== socialMediaMessageFormat &&
@@ -1384,9 +1394,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
           runTraceEvents.push({ kind: 'format', ...result });
         },
         trackRunCompletion: true,
+        // Direct Actions is intentionally absent here: normal, phone, social,
+        // autoplay, and auto-turn runs must never evaluate that path.
         auxiliaryOutputHandles: directActionOnly
           ? []
-          : ['output-actions', 'highlighting-context', 'phone-message', 'social-media', 'autoplay', 'direct-actions'],
+          : ['output-actions', 'highlighting-context', 'phone-message', 'social-media', 'autoplay'],
         onAuxiliaryOutput: (handle, text) => {
           if (handle === 'highlighting-context') {
             outputHighlightingContext = text;
@@ -1405,9 +1417,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
           if (handle === 'autoplay') {
             autoplayOutputText = text;
-          }
-          if (handle === 'direct-actions') {
-            directActionsText = text;
           }
         },
         streamOutput:
@@ -1757,7 +1766,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         });
       }
       outputActions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
-      const directActions = parseOutputActions(directActionsText);
+      const directActions = parseOutputActions(directActionsText, { phoneAppCommits: true });
       if (directActionsText.trim()) {
         reportFormatResult({
           name: 'Direct Actions JSON',
@@ -1769,6 +1778,48 @@ export function useGraphRun(options: UseGraphRunOptions) {
         });
       }
       directActions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+      // Direct app commits arrive as complete, validated records. Only the
+      // character is re-checked against the current Storybook cast.
+      const resolveDirectCommitCharacter = (commit: { characterId: string; characterName: string }, label: string) => {
+        const character = phoneCharacters.find((entry) => entry.id === commit.characterId);
+        if (!character) {
+          reportRunWarning(
+            `Direct Actions ${label} for unknown Storybook character "${commit.characterName}" was ignored.`,
+            outputNodeTraceInfo,
+          );
+        }
+        return character;
+      };
+      const directCreatedPhoneNoteCommits = directActions.createdPhoneNoteCommits.flatMap(
+        (commit): CreatedPhoneNoteCommit[] => {
+          const character = resolveDirectCommitCharacter(commit, 'phone note');
+          return character ? [{ ...commit, characterName: character.name }] : [];
+        },
+      );
+      const directSimulatedAiChatCommits = directActions.simulatedAiChatCommits.flatMap(
+        (commit): SimulatedAiChatCommit[] => {
+          const character = resolveDirectCommitCharacter(commit, 'AI chat');
+          return character ? [{ ...commit, characterName: character.name }] : [];
+        },
+      );
+      if (directCreatedPhoneNoteCommits.length > 0) {
+        reportFormatResult({
+          name: 'Created phone note',
+          status: 'ok',
+          detail: directCreatedPhoneNoteCommits
+            .map((commit) => `Notes ${commit.operation ?? 'create'} for ${commit.characterName} parsed.`)
+            .join(' '),
+        });
+      }
+      if (directSimulatedAiChatCommits.length > 0) {
+        reportFormatResult({
+          name: 'Simulated AI chat',
+          status: 'ok',
+          detail: `${directSimulatedAiChatCommits.length} manual ChatGPD conversation(s) parsed.`,
+        });
+      }
+      const allCreatedPhoneNoteCommits = [...createdPhoneNoteCommits, ...directCreatedPhoneNoteCommits];
+      const allSimulatedAiChatCommits = [...simulatedAiChatCommits, ...directSimulatedAiChatCommits];
       const appliedActions = mergeOutputActions(outputActions, directActions);
       const embeddedPhoneMessages: EmbeddedPhoneMessageLink[] = [];
       if (embeddedPhoneResult.phoneMessages.length > 0) {
@@ -2193,7 +2244,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
-        for (const createdPhoneNote of createdPhoneNoteCommits) {
+        for (const createdPhoneNote of allCreatedPhoneNoteCommits) {
           appendMessage({
             role: 'output',
             originalText: createdPhoneNoteHistoryText(createdPhoneNote),
@@ -2202,7 +2253,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
-        for (const simulatedAiChat of simulatedAiChatCommits) {
+        for (const simulatedAiChat of allSimulatedAiChatCommits) {
           appendMessage({
             role: 'output',
             originalText: simulatedAiChatHistoryText(simulatedAiChat),
@@ -2562,8 +2613,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
         }
       }
       onSuccessfulRunBeforeCommit?.();
-      commitSimulatedAiChats(turnId, simulatedAiChatCommits);
-      commitCreatedPhoneNotes(turnId, createdPhoneNoteCommits);
+      commitSimulatedAiChats(turnId, allSimulatedAiChatCommits);
+      commitCreatedPhoneNotes(turnId, allCreatedPhoneNoteCommits);
       const committedTurn = commitCollectedTurn(
         storedInputGraphText,
         rpOutput,

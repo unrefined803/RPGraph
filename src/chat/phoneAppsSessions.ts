@@ -34,6 +34,8 @@ export type CreatedPhoneNote = {
 export type CreatedPhoneNoteCommit = {
   characterId: string;
   characterName: string;
+  /** Manual Notes-app commits distinguish create and update; LLM notes are always creates. */
+  operation?: 'create' | 'update';
   note: PhoneNoteRecord;
 };
 
@@ -84,6 +86,16 @@ export function createdPhoneNoteIdPrefix(turnId: string) {
   return `note-command-${turnId}-`;
 }
 
+// Applying a commit is an upsert: a record whose id already exists (for
+// example a manual note update or a replayed direct action) replaces the
+// stored record in place instead of adding a duplicate.
+function upsertRecord<T extends { id: string }>(records: T[] | undefined, record: T): T[] {
+  const existing = records ?? [];
+  return existing.some((entry) => entry.id === record.id)
+    ? existing.map((entry) => (entry.id === record.id ? record : entry))
+    : [record, ...existing];
+}
+
 export function replaceCreatedPhoneNotesForTurn(
   current: PhoneNotesByCharacter,
   turnId: string,
@@ -97,14 +109,15 @@ export function replaceCreatedPhoneNotesForTurn(
     }),
   );
   commits.forEach(({ characterId, note }) => {
-    next[characterId] = [note, ...(next[characterId] ?? [])];
+    next[characterId] = upsertRecord(next[characterId], note);
   });
   return next;
 }
 
 export function createdPhoneNoteHistoryText(entry: CreatedPhoneNoteCommit) {
+  const verb = entry.operation === 'update' ? 'updated' : 'created';
   return [
-    `[Notes] ${entry.characterName} created the note "${entry.note.title}":`,
+    `[Notes] ${entry.characterName} ${verb} the note "${entry.note.title}":`,
     entry.note.text,
   ].join('\n');
 }
@@ -150,7 +163,7 @@ export function replaceSimulatedAiChatsForTurn(
     }),
   );
   commits.forEach(({ characterId, chat }) => {
-    next[characterId] = [chat, ...(next[characterId] ?? [])];
+    next[characterId] = upsertRecord(next[characterId], chat);
   });
   return next;
 }

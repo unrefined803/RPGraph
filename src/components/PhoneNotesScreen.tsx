@@ -11,11 +11,16 @@ import {
 type PhoneNotesScreenProps = {
   owner?: StorybookCharacter;
   notes: PhoneNoteRecord[];
-  onNotesChange: (notes: PhoneNoteRecord[]) => void;
+  /**
+   * Persists the edited note through the workflow as a direct app action.
+   * Returns false when the commit could not start (for example while a graph
+   * run is active); the editor then stays open so the draft is not lost.
+   */
+  onCommitNote: (note: PhoneNoteRecord) => boolean;
+  onDeleteNote: (noteId: string) => void;
   clockDateTime: string;
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
-  onCommitNote: (note: PhoneNoteRecord) => void;
   onBack: () => void;
 };
 
@@ -46,52 +51,76 @@ function randomNoteColor() {
   return randomNoteColors[Math.floor(Math.random() * randomNoteColors.length)];
 }
 
+function noteMatches(left: PhoneNoteRecord, right: PhoneNoteRecord) {
+  return (
+    left.title === right.title &&
+    left.text === right.text &&
+    left.color === right.color &&
+    left.dayLabel === right.dayLabel
+  );
+}
+
 export function PhoneNotesScreen({
   owner,
   notes,
-  onNotesChange,
+  onCommitNote,
+  onDeleteNote,
   clockDateTime,
   rpDateTimeFormat,
   rpWeekdayLanguage,
-  onCommitNote,
   onBack,
 }: PhoneNotesScreenProps) {
-  const [editingNoteId, setEditingNoteId] = useState<string>();
+  // The open editor works on a local draft only. The persisted note changes
+  // exactly once, through the direct-action commit on close.
+  const [draftNote, setDraftNote] = useState<PhoneNoteRecord>();
 
   function addNote() {
     if (!owner) {
       return;
     }
-    const note: PhoneNoteRecord = {
+    setDraftNote({
       id: nextNoteId(),
       title: '',
       text: '',
       dayLabel: formatRpDayLabel(clockDateTime, rpDateTimeFormat, rpWeekdayLanguage) || '',
       color: randomNoteColor(),
-    };
-    onNotesChange([note, ...notes]);
-    setEditingNoteId(note.id);
+    });
   }
 
-  function changeNote(id: string, change: Partial<Pick<PhoneNoteRecord, 'title' | 'text' | 'color'>>) {
-    onNotesChange(notes.map((note) => (note.id === id ? { ...note, ...change } : note)));
+  function changeDraft(change: Partial<Pick<PhoneNoteRecord, 'title' | 'text' | 'color'>>) {
+    setDraftNote((current) => (current ? { ...current, ...change } : current));
   }
 
-  function removeNote(id: string) {
-    onNotesChange(notes.filter((note) => note.id !== id));
-    if (editingNoteId === id) {
-      setEditingNoteId(undefined);
+  function deleteDraftNote() {
+    if (!draftNote) {
+      return;
     }
+    if (notes.some((note) => note.id === draftNote.id)) {
+      onDeleteNote(draftNote.id);
+    }
+    setDraftNote(undefined);
   }
 
   function closeEditor() {
-    const note = notes.find((entry) => entry.id === editingNoteId);
-    if (note && !note.title.trim() && !note.text.trim()) {
-      removeNote(note.id);
-    } else if (note) {
-      onCommitNote(note);
+    if (!draftNote) {
+      return;
     }
-    setEditingNoteId(undefined);
+    const storedNote = notes.find((note) => note.id === draftNote.id);
+    if (!draftNote.title.trim() && !draftNote.text.trim()) {
+      // An emptied note disappears like a deleted one.
+      if (storedNote) {
+        onDeleteNote(draftNote.id);
+      }
+      setDraftNote(undefined);
+      return;
+    }
+    if (storedNote && noteMatches(storedNote, draftNote)) {
+      setDraftNote(undefined);
+      return;
+    }
+    if (onCommitNote(draftNote)) {
+      setDraftNote(undefined);
+    }
   }
 
   useEffect(() => {
@@ -99,25 +128,17 @@ export function PhoneNotesScreen({
       if (event.key !== 'Escape') {
         return;
       }
-      if (!editingNoteId) {
+      if (!draftNote) {
         onBack();
         return;
       }
-      const note = notes.find((entry) => entry.id === editingNoteId);
-      if (note && !note.title.trim() && !note.text.trim()) {
-        onNotesChange(notes.filter((entry) => entry.id !== note.id));
-      } else if (note) {
-        onCommitNote(note);
-      }
-      setEditingNoteId(undefined);
+      closeEditor();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [editingNoteId, notes, onBack, onCommitNote, onNotesChange]);
+  });
 
-  const editingNote = notes.find((note) => note.id === editingNoteId);
-
-  if (editingNote) {
+  if (draftNote) {
     return (
       <div className="phone-notes-screen" aria-label="Notes">
         <header className="phone-gallery-header">
@@ -128,12 +149,12 @@ export function PhoneNotesScreen({
           </button>
           <div>
             <span>Notes</span>
-            <strong>{editingNote.dayLabel || 'New note'}</strong>
+            <strong>{draftNote.dayLabel || 'New note'}</strong>
           </div>
           <button
             type="button"
             className="phone-notes-delete-button"
-            onClick={() => removeNote(editingNote.id)}
+            onClick={deleteDraftNote}
             aria-label="Delete note"
             title="Delete note"
           >
@@ -142,19 +163,19 @@ export function PhoneNotesScreen({
             </svg>
           </button>
         </header>
-        <div className={`phone-notes-editor color-${editingNote.color}`}>
+        <div className={`phone-notes-editor color-${draftNote.color}`}>
           <input
             type="text"
             className="phone-notes-editor-title"
             placeholder="Title"
-            value={editingNote.title}
-            onChange={(event) => changeNote(editingNote.id, { title: event.target.value })}
+            value={draftNote.title}
+            onChange={(event) => changeDraft({ title: event.target.value })}
           />
           <textarea
             className="phone-notes-editor-text"
             placeholder="Write a note..."
-            value={editingNote.text}
-            onChange={(event) => changeNote(editingNote.id, { text: event.target.value })}
+            value={draftNote.text}
+            onChange={(event) => changeDraft({ text: event.target.value })}
             autoFocus
           />
           <div className="phone-notes-color-picker" aria-label="Note color">
@@ -163,9 +184,9 @@ export function PhoneNotesScreen({
                 type="button"
                 className={`phone-notes-color-option color-${color.id}`}
                 key={color.id}
-                onClick={() => changeNote(editingNote.id, { color: color.id })}
+                onClick={() => changeDraft({ color: color.id })}
                 aria-label={color.label}
-                aria-pressed={editingNote.color === color.id}
+                aria-pressed={draftNote.color === color.id}
                 title={color.label}
               />
             ))}
@@ -196,7 +217,7 @@ export function PhoneNotesScreen({
                 type="button"
                 className={`phone-notes-card color-${note.color}`}
                 key={note.id}
-                onClick={() => setEditingNoteId(note.id)}
+                onClick={() => setDraftNote(structuredClone(note))}
               >
                 {note.title.trim() && <strong>{note.title}</strong>}
                 {note.text.trim() && <span>{note.text}</span>}

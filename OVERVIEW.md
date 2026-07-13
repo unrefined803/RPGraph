@@ -75,7 +75,7 @@ The `User Input` node exposes these as `Message Format` and `Turn Mode` outputs.
 
 That means UI actions such as normal chat send, phone send, AutoTurn, narrator mode, event run, social post, comment, DM, or output-action button all enter the graph with explicit routing values and can land on different prompt variants and output ports.
 
-Direct app actions can bypass prompt routing. The `User Input` node exposes a `Direct Actions` output, and `RP Output` has a matching input. A direct-only run starts at that RP Output input, so Text, Image, Message Format, Turn Mode, and the LLM Prompt Switch are not evaluated. Direct Actions accepts the same JSON commands as Output Actions and is processed after the normal output channels when both paths are connected in one turn.
+Direct app actions bypass prompt routing. The `User Input` node exposes a `Direct Actions` output, and `RP Output` has a matching input. A direct-only run starts at that RP Output input, so Text, Image, Message Format, Turn Mode, translation, and the LLM Prompt Switch are not evaluated. Direct Actions accepts the same JSON commands as Output Actions plus the manual phone-app commit payloads, and it is exclusive to direct-only runs: normal, phone, social, autoplay, and auto-turn runs never evaluate the Direct Actions path, even when the typed chat text is valid action JSON.
 
 ## Prompt Actions
 
@@ -100,7 +100,7 @@ Normal RP output is mostly prose for the Chat tab, but it can also embed a `phon
 
 `Output Actions` is a separate RP Output input for extra app commands. It can create phone messages, chat messages, choice buttons, info boxes, progress bars, context-capacity bars, or controls such as `setTab` and `setPlayer`. Choice buttons can also feed routing values such as `messageFormat` / output channel and `turnMode` / prompt slot back into the next graph run.
 
-`Direct Actions` accepts the same command shapes without requiring an LLM result. The Banking UI uses this route to send its already-structured transfer JSON through the visible workflow while preserving normal turn undo and regeneration behavior.
+`Direct Actions` accepts the same command shapes without requiring an LLM result, plus strictly validated `createdPhoneNotes` and `simulatedAiChats` commit payloads. Banking transfers, manually written Notes, and finished ChatGPD chats all run through this route (via `useDirectAppActions` / `runDirectAppAction`), so each persistent phone-app action becomes a real turn with history, turn trace, undo, and regeneration instead of a silent app-state write.
 
 `Social Media` handles generated Fotogram and OnlyFriends reactions. It applies likes and comments to posts, records thread activity, and can add incoming social DMs. Social DMs use app-specific reply blocks and preserve conversation and optional post/comment origin context.
 

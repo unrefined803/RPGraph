@@ -69,18 +69,18 @@ Highlighting Context
 Optional extra context used only by RP Output speaker and dialogue highlighting analysis. It is not displayed as story text.
 
 Direct Actions
-Already-complete app-action JSON that does not need an LLM. It accepts the same command shapes as Output Actions. In a direct-only run, RPGraph starts here and does not evaluate the normal RP, phone, social, routing, translation, speaker-analysis, or preparation paths.
+Already-complete app-action JSON that does not need an LLM. It accepts the same command shapes as Output Actions plus the phone-app commit payloads createdPhoneNotes and simulatedAiChats. This input is only evaluated on an explicit direct-only run started by the app (Banking transfer, manual Notes commit, ChatGPD chat commit); normal, phone, social, autoplay, and auto-turn runs never touch it. In a direct-only run, RPGraph starts here and does not evaluate the normal RP, phone, social, routing, translation, speaker-analysis, or preparation paths.
 
 Bank transfer example:
 {"bankTransfers":[{"from":"Mia","to":"Alex","amount":20,"note":"Dinner"}]}
 
-Phone message example:
-{"phoneMessages":[{"from":"Mia","to":"Alex","message":"I sent it."}]}
+Manual phone note example:
+{"createdPhoneNotes":[{"characterId":"c1","characterName":"Mia","operation":"create","note":{"id":"note-1","title":"Groceries","text":"Milk, bread","dayLabel":"Sun 12 July","color":"mint"}}]}
 
-Info box example:
-{"infoBoxes":[{"title":"Purchase complete","text":"The item was added to the account.","tone":"success"}]}
+ChatGPD chat commit example:
+{"simulatedAiChats":[{"characterId":"c1","characterName":"Mia","chat":{"id":"chatgpd-1","title":"Tomatoes","createdAt":"2026-07-12T10:00:00.000Z","messages":[{"role":"user","text":"Are tomatoes fruit?"},{"role":"assistant","text":"Botanically, yes."}]}}]}
 
-When normal outputs and Direct Actions are both connected for one turn, the normal graph outputs are evaluated first and Direct Actions is evaluated last. Direct-only app actions remain full turns with normal validation, history, undo, and regeneration.`;
+Direct-only app actions remain full turns with normal validation, history, undo, and regeneration.`;
 
 export const rpOutputPrompt = `Normal RP is the main story output for the Chat tab.
 
@@ -252,7 +252,7 @@ export const outputFormatHelp = {
   'direct-actions': {
     title: 'Direct Actions Format',
     description:
-      'Direct Actions accepts the same app-action JSON as Output Actions, but runs after the normal outputs and can be used without calling an LLM.',
+      'Direct Actions accepts the same app-action JSON as Output Actions plus phone-app commit payloads. It is only evaluated on explicit direct-only runs and never calls an LLM.',
     prompt: outputActionsPrompt,
   },
   'user-input': {

@@ -1,17 +1,5 @@
 import type { ExecuteContext } from '../types';
 
-function isDirectActionsJson(value: string) {
-  const trimmed = value.trim();
-  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  const candidate = fenced ? fenced[1].trim() : trimmed;
-  try {
-    const parsed = JSON.parse(candidate) as unknown;
-    return parsed !== null && typeof parsed === 'object';
-  } catch {
-    return false;
-  }
-}
-
 export async function executeInputNode(_node: unknown, context: ExecuteContext) {
   if (context.sourceHandle === 'message-format') {
     return String(context.messageFormat ?? (context.phoneMessage ? 1 : 0));
@@ -25,12 +13,10 @@ export async function executeInputNode(_node: unknown, context: ExecuteContext) 
       : '';
   }
   if (context.sourceHandle === 'direct-actions') {
-    if (context.directActionOnly) {
-      return context.originalInput;
-    }
-    return isDirectActionsJson(context.originalInput)
-      ? context.originalInput
-      : '';
+    // Direct Actions only carries data on explicit direct-only runs. Normal,
+    // phone, social, autoplay, and auto-turn runs must never see input here,
+    // even when the typed chat text happens to be valid action JSON.
+    return context.directActionOnly ? context.originalInput : '';
   }
   return context.originalInput;
 }

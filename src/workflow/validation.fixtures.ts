@@ -83,6 +83,7 @@ import {
   phoneImageActionMatchesMessage,
 } from '../chat/phoneMessages';
 import { parseOutputActions } from '../chat/outputActions';
+import { directAppActionJson } from '../chat/directAppActions';
 import { parseRpOutput } from '../chat/rpOutput';
 import { formatPhoneInput } from '../chat/phoneReplies';
 import {
@@ -3939,6 +3940,49 @@ async function verifyDirectActionsGraphFixture() {
     'an Autoplay control block must not be mistaken for Direct Actions JSON',
   );
 
+  // Even valid action JSON typed into the normal chat must not reach the
+  // Direct Actions path: the User Input output only carries data on explicit
+  // direct-only runs.
+  auxiliaryDirectActions = 'not evaluated';
+  const normalJsonResult = await executeGraph({
+    outputNodeId: outputNode.id,
+    nodes: [inputNode, outputNode],
+    edges: [
+      {
+        id: 'normal-json-input-fixture',
+        source: inputNode.id,
+        target: outputNode.id,
+      },
+      {
+        id: 'auxiliary-json-direct-actions-fixture',
+        source: inputNode.id,
+        sourceHandle: 'direct-actions',
+        target: outputNode.id,
+        targetHandle: 'direct-actions',
+      },
+    ],
+    originalInput: directJson,
+    originalHistory: '',
+    translatedHistory: '',
+    auxiliaryOutputHandles: ['direct-actions'],
+    onAuxiliaryOutput: (handle, text) => {
+      if (handle === 'direct-actions') {
+        auxiliaryDirectActions = text;
+      }
+    },
+    llm: new NodeLlmApi({
+      resolveConnection: async () => {
+        throw new Error('The valid-JSON Direct Actions filter fixture must not call an LLM.');
+      },
+    }),
+    textMetrics: new TextMetricsApi(4),
+    updateRuntimeNode: () => undefined,
+  });
+  assertFixture(
+    normalJsonResult === directJson && auxiliaryDirectActions === '',
+    'valid action JSON in a normal run must not trigger the Direct Actions path',
+  );
+
   const autoplayText = 'Ryan glances toward the kitchen. "They are still talking in there."';
   const autoplayResult = await executeGraph({
     outputNodeId: outputNode.id,
@@ -3967,6 +4011,125 @@ async function verifyDirectActionsGraphFixture() {
   );
 }
 
+function verifyDirectAppActionPayloadFixtures() {
+  const noteCommit = {
+    characterId: 'sarah',
+    characterName: 'Sarah Miller',
+    operation: 'update' as const,
+    note: {
+      id: 'note-manual-1',
+      title: 'Groceries',
+      text: 'Milk, bread',
+      dayLabel: 'Sun 12 July',
+      color: 'mint' as const,
+    },
+  };
+  const noteJson = directAppActionJson({ kind: 'createdPhoneNote', commit: noteCommit });
+  const parsedNote = parseOutputActions(noteJson, { phoneAppCommits: true });
+  assertFixture(
+    parsedNote.warnings.length === 0 &&
+      parsedNote.createdPhoneNoteCommits.length === 1 &&
+      parsedNote.createdPhoneNoteCommits[0]?.operation === 'update' &&
+      parsedNote.createdPhoneNoteCommits[0].note.id === 'note-manual-1' &&
+      parsedNote.createdPhoneNoteCommits[0].note.color === 'mint',
+    'a manual phone note payload must round-trip through the Direct Actions parser',
+  );
+  const parsedNoteWithoutOption = parseOutputActions(noteJson);
+  assertFixture(
+    parsedNoteWithoutOption.createdPhoneNoteCommits.length === 0 &&
+      parsedNoteWithoutOption.warnings.length === 1,
+    'phone note commits must be rejected outside direct app action runs',
+  );
+  const invalidNoteJson = JSON.stringify({
+    createdPhoneNotes: [{
+      ...noteCommit,
+      note: { ...noteCommit.note, color: 'ultraviolet' },
+    }],
+  });
+  const parsedInvalidNote = parseOutputActions(invalidNoteJson, { phoneAppCommits: true });
+  assertFixture(
+    parsedInvalidNote.createdPhoneNoteCommits.length === 0 &&
+      parsedInvalidNote.warnings.length === 1,
+    'an invalid phone note payload must be rejected with a warning and produce no commit',
+  );
+
+  const chatCommit = {
+    characterId: 'sarah',
+    characterName: 'Sarah Miller',
+    chat: {
+      id: 'chatgpd-manual-1',
+      title: 'Tomatoes',
+      createdAt: '2026-07-12T10:00:00.000Z',
+      messages: [
+        { role: 'user' as const, text: 'Are tomatoes fruit?' },
+        { role: 'assistant' as const, text: 'Botanically, yes.' },
+      ],
+    },
+  };
+  const chatJson = directAppActionJson({ kind: 'simulatedAiChat', commit: chatCommit });
+  const parsedChat = parseOutputActions(chatJson, { phoneAppCommits: true });
+  assertFixture(
+    parsedChat.warnings.length === 0 &&
+      parsedChat.simulatedAiChatCommits.length === 1 &&
+      parsedChat.simulatedAiChatCommits[0]?.chat.id === 'chatgpd-manual-1' &&
+      parsedChat.simulatedAiChatCommits[0].chat.messages.length === 2,
+    'a ChatGPD chat commit payload must round-trip through the Direct Actions parser',
+  );
+  const invalidChatJson = JSON.stringify({
+    simulatedAiChats: [{
+      ...chatCommit,
+      chat: { ...chatCommit.chat, messages: [{ role: 'user', text: 'No assistant reply.' }] },
+    }],
+  });
+  const parsedInvalidChat = parseOutputActions(invalidChatJson, { phoneAppCommits: true });
+  assertFixture(
+    parsedInvalidChat.simulatedAiChatCommits.length === 0 &&
+      parsedInvalidChat.warnings.length === 1,
+    'a ChatGPD chat payload without an assistant reply must be rejected and produce no commit',
+  );
+
+  const bankJson = directAppActionJson({
+    kind: 'bankTransfer',
+    transfer: { from: 'Espen Harper', to: 'Ryan Parker', amount: 20, note: '' },
+  });
+  const parsedBank = parseOutputActions(bankJson, { phoneAppCommits: true });
+  assertFixture(
+    parsedBank.warnings.length === 0 &&
+      parsedBank.bankTransfers.length === 1 &&
+      parsedBank.bankTransfers[0]?.amount === 20 &&
+      parsedBank.bankTransfers[0].note === undefined,
+    'a banking transfer payload must round-trip through the Direct Actions parser',
+  );
+
+  // Applying a commit is an upsert: replaying the same record (regenerate) or
+  // updating an existing note must replace it in place instead of duplicating.
+  const appliedOnce = replaceCreatedPhoneNotesForTurn({}, 'turn-9', [noteCommit]);
+  const appliedTwice = replaceCreatedPhoneNotesForTurn(appliedOnce, 'turn-10', [{
+    ...noteCommit,
+    note: { ...noteCommit.note, text: 'Milk, bread, cheese' },
+  }]);
+  assertFixture(
+    appliedOnce.sarah?.length === 1 &&
+      appliedTwice.sarah?.length === 1 &&
+      appliedTwice.sarah[0]?.text === 'Milk, bread, cheese',
+    'reapplying a manual note commit must update the stored note instead of duplicating it',
+  );
+  const chatAppliedOnce = replaceSimulatedAiChatsForTurn({}, 'turn-9', [chatCommit]);
+  const chatAppliedTwice = replaceSimulatedAiChatsForTurn(chatAppliedOnce, 'turn-10', [chatCommit]);
+  assertFixture(
+    chatAppliedOnce.sarah?.length === 1 && chatAppliedTwice.sarah?.length === 1,
+    'reapplying a ChatGPD chat commit must stay a single stored chat',
+  );
+
+  // Undo semantics: removing the only committing message reverts the record.
+  const undone = replaceCreatedPhoneNotesForTurn(appliedTwice, 'turn-10', []);
+  assertFixture(
+    undone.sarah?.length === 1 && undone.sarah[0]?.text === 'Milk, bread, cheese',
+    'undoing a turn must only revert notes committed by that turn',
+  );
+}
+
 verifyWorkflowValidationFixtures();
+verifyDirectAppActionPayloadFixtures();
 void verifyPromptRunFixtures();
 void verifyDirectActionsGraphFixture();

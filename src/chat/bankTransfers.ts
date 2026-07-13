@@ -16,22 +16,6 @@ export function bankTransferHistoryText(transfer: BankTransferRecord) {
   return transfer.note?.trim() ? `${base} Note: "${transfer.note.trim()}"` : base;
 }
 
-export function bankTransferActionJson(request: {
-  from: string;
-  to: string;
-  amount: number;
-  note: string;
-}) {
-  return JSON.stringify({
-    bankTransfers: [{
-      from: request.from,
-      to: request.to,
-      amount: request.amount,
-      ...(request.note.trim() ? { note: request.note.trim() } : {}),
-    }],
-  });
-}
-
 export function bankTransferMessages(messages: MessageRecord[]) {
   return messages.filter((message): message is MessageRecord & { bankTransfer: BankTransferRecord } =>
     !!message.bankTransfer,

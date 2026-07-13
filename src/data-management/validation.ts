@@ -207,7 +207,12 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       typeof value.createdPhoneNote.note.title === 'string' &&
       typeof value.createdPhoneNote.note.text === 'string' &&
       typeof value.createdPhoneNote.note.dayLabel === 'string' &&
-      phoneNoteColors.includes(value.createdPhoneNote.note.color as (typeof phoneNoteColors)[number])
+      phoneNoteColors.includes(value.createdPhoneNote.note.color as (typeof phoneNoteColors)[number]) &&
+      (
+        value.createdPhoneNote.operation === undefined ||
+        value.createdPhoneNote.operation === 'create' ||
+        value.createdPhoneNote.operation === 'update'
+      )
     );
     const validSimulatedAiChat = value.simulatedAiChat === undefined || (
       isRecord(value.simulatedAiChat) &&
@@ -219,13 +224,18 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       typeof value.simulatedAiChat.chat.createdAt === 'string' &&
       Array.isArray(value.simulatedAiChat.chat.messages) &&
       value.simulatedAiChat.chat.messages.length >= 2 &&
-      value.simulatedAiChat.chat.messages.length <= 8 &&
-      value.simulatedAiChat.chat.messages.length % 2 === 0 &&
-      value.simulatedAiChat.chat.messages.every((message, index) =>
+      // Manual ChatGPD commits can be longer than LLM-simulated chats and may
+      // contain consecutive user messages after a failed send, so only the
+      // message shape is validated here. The strict 2-8 alternating rule for
+      // LLM output lives in parseSimulatedAiChat.
+      value.simulatedAiChat.chat.messages.every((message) =>
         isRecord(message) &&
-        message.role === (index % 2 === 0 ? 'user' : 'assistant') &&
+        (message.role === 'user' || message.role === 'assistant') &&
         typeof message.text === 'string' &&
         !!message.text.trim()
+      ) &&
+      value.simulatedAiChat.chat.messages.some((message) =>
+        isRecord(message) && message.role === 'assistant'
       )
     );
     return (
