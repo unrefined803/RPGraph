@@ -32,7 +32,10 @@ import {
 } from '../llm/providerKind';
 import { isComfyImageConnection } from '../comfy/connectionRole';
 import { withImagesEnsuredForStorybookCharacter } from '../storybook/imageLibrary';
-import { storybookCreateImageCharactersFromNodes } from '../storybook/runtime';
+import {
+  storybookCreateImageCharactersFromNodes,
+  type StorybookCreateImageCharacter,
+} from '../storybook/runtime';
 import type {
   ChatImageAttachment,
   ConnectionPreset,
@@ -129,6 +132,44 @@ function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw new Error('The graph run was cancelled.');
   }
+}
+
+export type CreateImageCharacterNameResolution =
+  | { status: 'found'; character: StorybookCreateImageCharacter }
+  | { status: 'not-found' }
+  | { status: 'ambiguous' };
+
+function normalizedCreateImageCharacterName(value: string) {
+  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
+export function resolveCreateImageCharacterByName(
+  characters: StorybookCreateImageCharacter[],
+  requestedName: string,
+): CreateImageCharacterNameResolution {
+  const normalizedRequestedName = normalizedCreateImageCharacterName(requestedName);
+  if (!normalizedRequestedName) {
+    return { status: 'not-found' };
+  }
+  const exactMatches = characters.filter(
+    (character) => normalizedCreateImageCharacterName(character.name) === normalizedRequestedName,
+  );
+  if (exactMatches.length === 1) {
+    return { status: 'found', character: exactMatches[0] };
+  }
+  if (exactMatches.length > 1) {
+    return { status: 'ambiguous' };
+  }
+  const requestedParts = normalizedRequestedName.split(' ');
+  if (requestedParts.length !== 1) {
+    return { status: 'not-found' };
+  }
+  const firstNameMatches = characters.filter(
+    (character) => normalizedCreateImageCharacterName(character.name).split(' ')[0] === requestedParts[0],
+  );
+  return firstNameMatches.length === 1
+    ? { status: 'found', character: firstNameMatches[0] }
+    : { status: firstNameMatches.length > 1 ? 'ambiguous' : 'not-found' };
 }
 
 function withoutPromptPreviewFields(patch: Partial<WorkflowNodeData>) {
@@ -345,22 +386,34 @@ export async function executeGraph({
   };
 
   const createComfyImageForCharacter: CreateComfyImageForCharacterRunner = async (request, warn) => {
-    const characterName = request.characterName.trim();
+    const phoneOwnerName = request.phoneOwnerName.trim();
+    const loraCharacterName = request.loraCharacterName?.trim() ?? '';
     const prompt = request.prompt.trim();
-    if (!characterName || !prompt) {
-      throw new Error('Create character phone image action requires a character and prompt.');
+    if (!phoneOwnerName || !prompt) {
+      throw new Error('Create character phone image action requires a phone owner and prompt.');
     }
 
-    const character = storybookCreateImageCharactersFromNodes(nodes).find((entry) => {
-      const left = entry.name.trim().toLocaleLowerCase();
-      const right = characterName.toLocaleLowerCase();
-      return left === right || left.split(/\s+/)[0] === right.split(/\s+/)[0];
-    });
-    if (!character) {
-      throw new Error(`Create character phone image action could not find character "${characterName}".`);
+    const createImageCharacters = storybookCreateImageCharactersFromNodes(nodes);
+    const phoneOwnerResolution = resolveCreateImageCharacterByName(createImageCharacters, phoneOwnerName);
+    if (phoneOwnerResolution.status === 'ambiguous') {
+      throw new Error(`Create character phone image action found multiple phone owners matching "${phoneOwnerName}". Use the exact full name.`);
     }
-    if (!character.createImage.available) {
-      throw new Error(`Create character phone image action requires Character Appearance or LoRA for ${character.name}.`);
+    if (phoneOwnerResolution.status === 'not-found') {
+      throw new Error(`Create character phone image action could not find phone owner "${phoneOwnerName}".`);
+    }
+    const phoneOwner = phoneOwnerResolution.character;
+    const loraCharacter = loraCharacterName
+      ? resolveCreateImageCharacterByName(createImageCharacters, loraCharacterName)
+      : undefined;
+    if (loraCharacter?.status === 'ambiguous') {
+      throw new Error(`Create character phone image action found multiple LoRA characters matching "${loraCharacterName}". Use the exact full name.`);
+    }
+    if (loraCharacter?.status === 'not-found') {
+      throw new Error(`Create character phone image action could not find LoRA character "${loraCharacterName}".`);
+    }
+    const resolvedLoraCharacter = loraCharacter?.character;
+    if (resolvedLoraCharacter && !resolvedLoraCharacter.createImage.hasLora) {
+      throw new Error(`Create character phone image action requires a configured LoRA for ${resolvedLoraCharacter.name}.`);
     }
 
     const comfyProviderId = request.comfyProviderId?.trim();
@@ -392,14 +445,8 @@ export async function executeGraph({
       await unloadLocalLlmModelsBeforeComfy(warn, request.llmConnectionId);
     }
 
-    const characterAppearance = character.createImage.appearance;
-    const characterLoraName = character.createImage.loraName;
-    const generationPrompt = [
-      characterAppearance
-        ? `Character appearance for ${character.name}: ${characterAppearance}`
-        : '',
-      prompt,
-    ].filter(Boolean).join('\n\n');
+    const generationPrompt = prompt;
+    const characterLoraName = resolvedLoraCharacter?.createImage.loraName ?? '';
 
     let result: Awaited<ReturnType<typeof window.rpgraph.runComfyWorkflowPath>>;
     try {
@@ -440,7 +487,7 @@ export async function executeGraph({
       ),
     );
 
-    const storybookNodeCandidate = nodeById.get(character.storybookNodeId);
+    const storybookNodeCandidate = nodeById.get(phoneOwner.storybookNodeId);
     const storybookNode = storybookNodeCandidate?.data.nodeType === 'rp-storybook-v1'
       ? storybookNodeCandidate
       : undefined;
@@ -448,12 +495,12 @@ export async function executeGraph({
       ? runStorybookJsonByNodeId.get(storybookNode.id) ?? storybookNode.data.storybookJson
       : undefined;
     if (!storybookNode || !storybookJson) {
-      throw new Error(`Create character phone image action could not update ${character.name}'s Storybook.`);
+      throw new Error(`Create character phone image action could not update ${phoneOwner.name}'s Storybook.`);
     }
     const storybook = parseRpStorybookJson(storybookJson);
     const ensureResult = withImagesEnsuredForStorybookCharacter(
       storybook,
-      character.sourceId,
+      phoneOwner.sourceId,
       normalizedImages,
       generationPrompt,
     );
@@ -462,13 +509,14 @@ export async function executeGraph({
       runStorybookJsonByNodeId.set(storybookNode.id, nextStorybookJson);
       updateRuntimeNode(storybookNode.id, {
         storybookJson: nextStorybookJson,
-        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} for ${character.name}.`,
+        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} for ${phoneOwner.name}${resolvedLoraCharacter ? ` using ${resolvedLoraCharacter.name}'s LoRA` : ''}.`,
       });
     }
 
     const imagesById = new Map(ensureResult.images.map((image) => [image.id, image]));
     return {
-      characterName: character.name,
+      phoneOwnerName: phoneOwner.name,
+      ...(resolvedLoraCharacter ? { loraCharacterName: resolvedLoraCharacter.name } : {}),
       imageIds: ensureResult.imageIds,
       images: ensureResult.imageIds.flatMap((imageId) => {
         const image = imagesById.get(imageId);

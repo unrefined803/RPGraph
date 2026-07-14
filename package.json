@@ -1,7 +1,7 @@
 {
   "name": "rpgraph-studio",
   "private": true,
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "Local-first node graph studio for roleplay workflows.",
   "license": "AGPL-3.0-or-later",
   "main": "electron/main.cjs",
