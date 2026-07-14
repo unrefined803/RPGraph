@@ -1497,15 +1497,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
               createdPhoneNotes: [],
               invalidCreatedPhoneNoteCount: 0,
             };
-      // Phone replies may append a bankTransfers object after the reply JSON;
-      // split it off so the reply still parses as a single phone message.
+      // Phone replies may append caption metadata and phone-app action objects
+      // after the reply JSON. Split them off so the reply still parses as one
+      // phone message, then apply the extracted caption below.
       const phoneOutputBankResult =
         isPhoneMessage && phoneMessageOutput
           ? parseEmbeddedPhoneMessagesFromRpOutput(phoneMessageOutput)
           : undefined;
       if (
         phoneOutputBankResult &&
-        (phoneOutputBankResult.bankTransfers.length > 0 ||
+        (phoneOutputBankResult.phoneImageActions.length > 0 ||
+          phoneOutputBankResult.bankTransfers.length > 0 ||
           phoneOutputBankResult.socialPostComments.length > 0 ||
           phoneOutputBankResult.socialDirectMessages.length > 0 ||
           phoneOutputBankResult.simulatedAiChats.length > 0 ||
@@ -1692,9 +1694,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
           detail: `${parsedPhoneMessage.from} → ${parsedPhoneMessage.to}`,
         });
         let phoneImageCaptionChange: ImageCaptionChange | undefined;
-        if (parsedPhoneMessage.incomingImageAction) {
+        const phoneImageAction = runPromptSwitchVisionFeaturesEnabled
+          ? parsedPhoneMessage.incomingImageAction ?? phoneOutputBankResult?.phoneImageActions[0]
+          : undefined;
+        if (phoneImageAction) {
           phoneImageCaptionChange = applyPhoneImageActionFromLlm(
-            parsedPhoneMessage.incomingImageAction,
+            phoneImageAction,
             phoneReplyTo,
             parsedPhoneMessage.imageId,
           );

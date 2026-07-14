@@ -1273,10 +1273,10 @@ function parsePromptActionRecord(parsed: unknown): ParsedPromptActionCall | unde
   if (record.action === 'get_image_id' || record.action === 'getImageId' || record.action === 'getImages') {
     const characters = typeof record.characters === 'string' ? record.characters.trim() : '';
     const tags = typeof record.tags === 'string' ? record.tags.trim() : '';
-    // A plan-only request echo without characters and tags is not an executable
-    // search call; rejecting it here surfaces a warning instead of silently
-    // returning an unfiltered image dump.
-    if (!characters && !tags) {
+    // Tags are required for an executable search. Rejecting character-only or
+    // plan-only calls prevents an unfiltered image dump when the follow-up
+    // model omits the visual search terms.
+    if (!tags) {
       return undefined;
     }
     return {

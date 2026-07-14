@@ -2875,14 +2875,22 @@ export function verifyWorkflowValidationFixtures() {
   const createImageWithoutLora = parsePromptActionCall(
     '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":0,"prompt":"A small dog lies on a sofa."}',
   );
+  const characterOnlyImageSearch = parsePromptActionCall(
+    '{"action":"get_image_id","characters":"Robert Miller"}',
+  );
+  const taggedImageSearch = parsePromptActionCall(
+    '{"action":"get_image_id","characters":"Robert Miller","tags":"mirror, selfie"}',
+  );
   assertFixture(
     createImageAction?.action === 'createImage' &&
       createImageAction.phoneOwner === 'Robert Miller' &&
       createImageAction.loraCharacter === 'Lara Miller' &&
       createImageAction.prompt === 'A 28-year-old woman stands beside stacked moving boxes.' &&
       createImageWithoutLora?.action === 'createImage' &&
-      createImageWithoutLora.loraCharacter === '',
-    'create-image actions must separate optional character LoRA selection from phone ownership',
+      createImageWithoutLora.loraCharacter === '' &&
+      characterOnlyImageSearch === undefined &&
+      taggedImageSearch?.action === 'getImageId',
+    'image actions must separate optional LoRA selection from phone ownership and reject searches without tags',
   );
   const duplicateFirstNameCharacters = [
     { name: 'Alex Smith' },
@@ -2921,6 +2929,19 @@ export function verifyWorkflowValidationFixtures() {
       outgoingGeneratedImageCaption.incomingImageAction?.imageId === 'helga_harper_image_06' &&
       outgoingGeneratedImageCaption.incomingImageAction.imageAction === 'update',
     'phone output must preserve a caption update for the generated outgoing image attachment',
+  );
+  const combinedPhoneOutput = parseEmbeddedPhoneMessagesFromRpOutput([
+    '{"from":"Helga Harper","to":"Jack Carter","message":"Caught her off guard.","sendImageId":"helga_harper_image_06"}',
+    '{"imageId":"helga_harper_image_06","imageAction":"update","caption":"Espen Harper concentrates on applying makeup at the bathroom mirror."}',
+    '{"bankTransfers":[{"from":"Helga Harper","to":"Jack Carter","amount":20}]}',
+  ].join('\n'));
+  const combinedPhoneMessage = parsePhoneMessageOutput(combinedPhoneOutput.text);
+  assertFixture(
+    combinedPhoneMessage?.imageId === 'helga_harper_image_06' &&
+      combinedPhoneOutput.phoneImageActions[0]?.imageId === 'helga_harper_image_06' &&
+      combinedPhoneOutput.phoneImageActions[0]?.imageAction === 'update' &&
+      combinedPhoneOutput.bankTransfers.length === 1,
+    'phone output splitting must preserve generated image captions alongside phone-app actions',
   );
   const createImageFollowUp = promptActionInstructionText(
     defaultPromptActionConfig('Create character phone image', 'createImage'),

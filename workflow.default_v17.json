@@ -456,7 +456,7 @@
         "llmPromptCommands": [],
         "connectionId": "lm-studio-default",
         "runAfterRpOutput": false,
-        "nodeDataVersion": "1.2.7"
+        "nodeDataVersion": "1.3.0"
       },
       "measured": {
         "width": 548,
