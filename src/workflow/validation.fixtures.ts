@@ -140,6 +140,7 @@ import {
   parsePromptActionCall,
   parsePromptActionRequest,
   promptActionConfigs,
+  promptActionInstructionText,
   replacePromptActionTitle,
   unwrapJsonCodeFence,
 } from '../nodes/shared/promptActions';
@@ -2832,6 +2833,20 @@ export function verifyWorkflowValidationFixtures() {
     plannedImageAction?.action === 'createImage' &&
       plannedImageAction.plan === 'Generate Lara taking a mirror selfie in her current outfit.',
     'pre-reply image actions must carry a first-pass plan into their follow-up pass',
+  );
+  const createImageFollowUp = promptActionInstructionText(
+    defaultPromptActionConfig('Create character phone image', 'createImage'),
+    { createImageCharacters: [] },
+    'Generate Lara taking a mirror selfie in her current outfit.',
+  );
+  assertFixture(
+    createImageFollowUp.includes('Generate Lara taking a mirror selfie in her current outfit.') &&
+      createImageFollowUp.includes('roughly 80 to 120 words') &&
+      createImageFollowUp.includes('one frozen visual snapshot') &&
+      createImageFollowUp.includes('latest established state of every person, garment, object, and location') &&
+      createImageFollowUp.includes('Do not use Storybook-only character names') &&
+      !createImageFollowUp.includes('{{plan}}'),
+    'create-image follow-up prompts must turn the first-pass plan into a detailed visual snapshot',
   );
   const captionDefaults = defaultPromptActionConfig(
     'Update phone image caption',

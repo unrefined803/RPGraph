@@ -395,8 +395,8 @@ export async function executeGraph({
     const characterAppearance = character.createImage.appearance;
     const characterLoraName = character.createImage.loraName;
     const generationPrompt = [
-      characterAppearance
-        ? `Character appearance for ${character.name}: ${characterAppearance}`
+      characterAppearance && !characterLoraName
+        ? `Primary subject appearance: ${characterAppearance}`
         : '',
       prompt,
     ].filter(Boolean).join('\n\n');
