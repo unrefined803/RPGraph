@@ -345,22 +345,32 @@ export async function executeGraph({
   };
 
   const createComfyImageForCharacter: CreateComfyImageForCharacterRunner = async (request, warn) => {
-    const characterName = request.characterName.trim();
+    const phoneOwnerName = request.phoneOwnerName.trim();
+    const subjectCharacterName = request.subjectCharacterName.trim();
     const prompt = request.prompt.trim();
-    if (!characterName || !prompt) {
-      throw new Error('Create character phone image action requires a character and prompt.');
+    if (!phoneOwnerName || !subjectCharacterName || !prompt) {
+      throw new Error('Create character phone image action requires a phone owner, subject character, and prompt.');
     }
 
-    const character = storybookCreateImageCharactersFromNodes(nodes).find((entry) => {
+    const createImageCharacters = storybookCreateImageCharactersFromNodes(nodes);
+    const subjectCharacter = createImageCharacters.find((entry) => {
       const left = entry.name.trim().toLocaleLowerCase();
-      const right = characterName.toLocaleLowerCase();
+      const right = subjectCharacterName.toLocaleLowerCase();
       return left === right || left.split(/\s+/)[0] === right.split(/\s+/)[0];
     });
-    if (!character) {
-      throw new Error(`Create character phone image action could not find character "${characterName}".`);
+    if (!subjectCharacter) {
+      throw new Error(`Create character phone image action could not find subject character "${subjectCharacterName}".`);
     }
-    if (!character.createImage.available) {
-      throw new Error(`Create character phone image action requires Character Appearance or LoRA for ${character.name}.`);
+    if (!subjectCharacter.createImage.available) {
+      throw new Error(`Create character phone image action requires Character Appearance or LoRA for ${subjectCharacter.name}.`);
+    }
+    const phoneOwner = createImageCharacters.find((entry) => {
+      const left = entry.name.trim().toLocaleLowerCase();
+      const right = phoneOwnerName.toLocaleLowerCase();
+      return left === right || left.split(/\s+/)[0] === right.split(/\s+/)[0];
+    });
+    if (!phoneOwner) {
+      throw new Error(`Create character phone image action could not find phone owner "${phoneOwnerName}".`);
     }
 
     const comfyProviderId = request.comfyProviderId?.trim();
@@ -392,8 +402,8 @@ export async function executeGraph({
       await unloadLocalLlmModelsBeforeComfy(warn, request.llmConnectionId);
     }
 
-    const characterAppearance = character.createImage.appearance;
-    const characterLoraName = character.createImage.loraName;
+    const characterAppearance = subjectCharacter.createImage.appearance;
+    const characterLoraName = subjectCharacter.createImage.loraName;
     const generationPrompt = [
       characterAppearance && !characterLoraName
         ? `Primary subject appearance: ${characterAppearance}`
@@ -440,7 +450,7 @@ export async function executeGraph({
       ),
     );
 
-    const storybookNodeCandidate = nodeById.get(character.storybookNodeId);
+    const storybookNodeCandidate = nodeById.get(phoneOwner.storybookNodeId);
     const storybookNode = storybookNodeCandidate?.data.nodeType === 'rp-storybook-v1'
       ? storybookNodeCandidate
       : undefined;
@@ -448,12 +458,12 @@ export async function executeGraph({
       ? runStorybookJsonByNodeId.get(storybookNode.id) ?? storybookNode.data.storybookJson
       : undefined;
     if (!storybookNode || !storybookJson) {
-      throw new Error(`Create character phone image action could not update ${character.name}'s Storybook.`);
+      throw new Error(`Create character phone image action could not update ${phoneOwner.name}'s Storybook.`);
     }
     const storybook = parseRpStorybookJson(storybookJson);
     const ensureResult = withImagesEnsuredForStorybookCharacter(
       storybook,
-      character.sourceId,
+      phoneOwner.sourceId,
       normalizedImages,
       generationPrompt,
     );
@@ -462,13 +472,14 @@ export async function executeGraph({
       runStorybookJsonByNodeId.set(storybookNode.id, nextStorybookJson);
       updateRuntimeNode(storybookNode.id, {
         storybookJson: nextStorybookJson,
-        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} for ${character.name}.`,
+        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} of ${subjectCharacter.name} for ${phoneOwner.name}.`,
       });
     }
 
     const imagesById = new Map(ensureResult.images.map((image) => [image.id, image]));
     return {
-      characterName: character.name,
+      phoneOwnerName: phoneOwner.name,
+      subjectCharacterName: subjectCharacter.name,
       imageIds: ensureResult.imageIds,
       images: ensureResult.imageIds.flatMap((imageId) => {
         const image = imagesById.get(imageId);

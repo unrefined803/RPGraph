@@ -42,7 +42,8 @@ export type PromptActionToken = {
 export type ParsedPromptActionCall = {
   action: PromptActionId;
   characters?: string;
-  character?: string;
+  phoneOwner?: string;
+  subjectCharacter?: string;
   tags?: string;
   prompt?: string;
   imageId?: string;
@@ -101,7 +102,7 @@ export function promptActionHintText(actionId: PromptActionId) {
     case 'createImage':
       return [
         'Character image generation is available. To request it, output exactly one JSON object and nothing else:',
-        '{"action":"create_image","plan":"brief plan naming the character owner and describing the visible image moment needed"}',
+        '{"action":"create_image","plan":"briefly state who takes and owns the photo, who is photographed, and what is visibly photographed"}',
       ].join('\n');
     default:
       return '';
@@ -249,7 +250,7 @@ export const updatePhoneImageCaptionAfterReplyInstruction = [
   'For create/update, write one concise 20 to 30 word caption. Combine visible image details with reliable recent phone/chat/story context and the visible phone reply. Avoid metadata, filenames, image-generation wording, and uncertainty about identity.',
 ].join('\n');
 
-export const createImageInstruction = [
+const previousCreateImageInstruction = [
   'Action follow-up: generate a character phone image',
   '',
   'The first pass requested this action with the following plan:',
@@ -288,7 +289,50 @@ export const createImageInstruction = [
   '}',
 ].join('\n');
 
+export const createImageInstruction = [
+  'Action follow-up: generate a character phone image',
+  '',
+  'The first pass requested this action with the following plan:',
+  '{{plan}}',
+  '',
+  'Use the Text Input and this plan to choose the exact phone owner, the exact photographed subject character, and the complete image-generation prompt. This pass performs only image generation; do not write or continue the visible reply.',
+  '',
+  'Available subject characters:',
+  '{{availableCharacters}}',
+  '',
+  'Phone owner and subject selection:',
+  '- phoneOwner is the known Storybook character who takes or owns the photo. It controls only which Phone Gallery stores the generated image; every known Storybook character may be used, even without Character Appearance or LoRA.',
+  '- subjectCharacter is the primary photographed person. It must exactly match one name from Available subject characters. RPGraph uses only this character\'s Appearance and LoRA for image generation.',
+  '- phoneOwner and subjectCharacter may be the same for a selfie, or different when one character photographs another.',
+  '- Both values are internal routing data. Keep Storybook-only names out of the prompt unless they are widely recognized real or fictional subjects explicitly requested by the user.',
+  '- When the subject character has LoRA, RPGraph applies it automatically. Describe that character only through their current visible pose, expression, clothing, position, and action; do not repeat permanent face, hair, or body details.',
+  '- When the subject character has Description but no LoRA, RPGraph automatically prepends the saved visual appearance. Do not repeat or contradict that permanent appearance in the prompt.',
+  '- Other visible people do not receive the subject character setup. Describe every other person with the complete visible appearance needed to generate them consistently from the Text Input.',
+  '',
+  'Image prompt guidelines:',
+  '- Write one complete natural English paragraph of roughly 80 to 120 words.',
+  '- Describe one frozen visual snapshot of the current moment. Do not advance the story, describe what happens next, or combine earlier and later scene states.',
+  '- Use direct, factual visual language and standard ASCII characters with normal punctuation. Do not use Markdown, decorative symbols, poetic narration, metaphors, generic quality tags, or image-generation terminology.',
+  '- Include only details visible in a single still image. Exclude thoughts, dialogue, sounds, smells, tastes, memories, intentions, relationships, backstory, and explanations. Express mood through visible posture, facial expression, lighting, composition, and environment.',
+  '- Use the latest established state of every person, garment, object, and location. Track clothing that was put on, removed, opened, closed, raised, lowered, loosened, or covered. Mention only clothing and accessories that are currently visible.',
+  '- Describe objects only in their current visible state. Omit anything fully concealed, behind another object, or outside the frame. Do not explain previous states or describe absent elements with negative phrases such as "no visible" or "no other".',
+  '- Do not use Storybook-only character names, private fictional place names, or other story-specific proper nouns in the prompt. Replace them with unambiguous visual identifiers such as "the young woman", "the seated man", or "the woman on the left".',
+  '- For multiple people, describe each person separately and distinguish them through position, appearance, clothing, hairstyle, pose, and visible action. Avoid ambiguous pronouns. When one visual feature is important for identification, give the corresponding visible feature for the others when useful.',
+  '- Order the paragraph clearly: visible subjects and clothing first; then positions, poses, expressions, actions, and interaction; then setting and background objects; then camera angle, framing, composition, lighting, time of day, and visible atmosphere.',
+  '- Preserve all reliable visual continuity from the Text Input and plan, but never invent details that conflict with the current scene or character setup.',
+  '',
+  'Now output exactly one JSON object and nothing else:',
+  '',
+  '{',
+  '"action": "create_image",',
+  '"phoneOwner": "Phone Owner Name",',
+  '"subjectCharacter": "Subject Character Name",',
+  '"prompt": "complete image generation prompt"',
+  '}',
+].join('\n');
+
 const previousCreateImageInstructions = new Set([
+  previousCreateImageInstruction,
   [
     'Available action: create character phone image',
     '',
@@ -443,15 +487,23 @@ export const defaultDescribeInputImageResultTemplate = [
 ].join('\n');
 
 export const defaultCreateImageResultTemplate = [
-  'Action executed: create character phone image for {{character}}.',
+  'Action executed: create a phone image of {{subjectCharacter}} for {{phoneOwner}}.',
   '',
   '* imageId: {{imageId}}',
   '* description: {{description}}',
   '',
-  'The image was generated from your prompt and saved to the character phone image library.',
+  'The image was generated using the subject character setup and saved to {{phoneOwner}}\'s Phone Gallery.',
 ].join('\n');
 
 const previousCreateImageResultTemplates = new Set([
+  [
+    'Action executed: create character phone image for {{character}}.',
+    '',
+    '* imageId: {{imageId}}',
+    '* description: {{description}}',
+    '',
+    'The image was generated from your prompt and saved to the character phone image library.',
+  ].join('\n'),
   [
     'Generated phone image for {{character}}:',
     '',
@@ -1095,22 +1147,22 @@ function parsePromptActionRecord(parsed: unknown): ParsedPromptActionCall | unde
     };
   }
   if (record.action === 'create_image' || record.action === 'createImage') {
-    const character = typeof record.character === 'string'
-      ? record.character.trim()
-      : typeof record.characters === 'string'
-        ? record.characters.trim()
-        : '';
+    const phoneOwner = typeof record.phoneOwner === 'string' ? record.phoneOwner.trim() : '';
+    const subjectCharacter = typeof record.subjectCharacter === 'string'
+      ? record.subjectCharacter.trim()
+      : '';
     const prompt = typeof record.prompt === 'string'
       ? record.prompt.trim()
       : typeof record.description === 'string'
         ? record.description.trim()
         : '';
-    if (!character || !prompt) {
+    if (!phoneOwner || !subjectCharacter || !prompt) {
       return undefined;
     }
     return {
       action: 'createImage',
-      character,
+      phoneOwner,
+      subjectCharacter,
       prompt,
     };
   }
@@ -1545,15 +1597,18 @@ function createImageResultTemplateText(
   config: PromptActionConfig,
   call: ParsedPromptActionCall,
   result: {
-    character: string;
+    phoneOwner: string;
+    subjectCharacter: string;
     imageId: string;
     description: string;
   },
 ) {
   return config.resultTemplate
     .split('{{actionId}}').join(config.actionId)
-    .split('{{character}}').join(result.character)
-    .split('{{characters}}').join(result.character)
+    .split('{{phoneOwner}}').join(result.phoneOwner)
+    .split('{{subjectCharacter}}').join(result.subjectCharacter)
+    .split('{{character}}').join(result.subjectCharacter)
+    .split('{{characters}}').join(result.subjectCharacter)
     .split('{{imageId}}').join(result.imageId)
     .split('{{description}}').join(result.description)
     .split('{{prompt}}').join(call.prompt ?? '')
@@ -1600,7 +1655,8 @@ export async function executePromptAction(
       return { text: '', images: [] };
     }
     const generatedImages = await createComfyImageForCharacter(context, {
-      characterName: call.character ?? '',
+      phoneOwnerName: call.phoneOwner ?? '',
+      subjectCharacterName: call.subjectCharacter ?? '',
       prompt: call.prompt ?? '',
       llmConnectionId: options.llmConnectionId,
       comfyProviderId: config.comfyProviderId,
@@ -1610,7 +1666,8 @@ export async function executePromptAction(
     const imageId = generatedImage?.id ?? generatedImages.imageIds[0] ?? '';
     return {
       text: createImageResultTemplateText(config, call, {
-        character: generatedImages.characterName,
+        phoneOwner: generatedImages.phoneOwnerName,
+        subjectCharacter: generatedImages.subjectCharacterName,
         imageId,
         description: call.prompt ?? '',
       }),

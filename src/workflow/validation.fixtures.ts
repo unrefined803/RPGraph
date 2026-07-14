@@ -2827,20 +2827,33 @@ export function verifyWorkflowValidationFixtures() {
     'fence unwrapping and known action ids must classify LLM action names',
   );
   const plannedImageAction = parsePromptActionRequest(
-    '{"action":"create_image","plan":"Generate Lara taking a mirror selfie in her current outfit."}',
+    '{"action":"create_image","plan":"Lara takes and owns a mirror selfie of herself in her current outfit."}',
   );
   assertFixture(
     plannedImageAction?.action === 'createImage' &&
-      plannedImageAction.plan === 'Generate Lara taking a mirror selfie in her current outfit.',
+      plannedImageAction.plan === 'Lara takes and owns a mirror selfie of herself in her current outfit.',
     'pre-reply image actions must carry a first-pass plan into their follow-up pass',
+  );
+  const createImageAction = parsePromptActionCall(
+    '{"action":"create_image","phoneOwner":"Robert Miller","subjectCharacter":"Lara Miller","prompt":"A woman stands beside stacked moving boxes."}',
+  );
+  assertFixture(
+    createImageAction?.action === 'createImage' &&
+      createImageAction.phoneOwner === 'Robert Miller' &&
+      createImageAction.subjectCharacter === 'Lara Miller' &&
+      createImageAction.prompt === 'A woman stands beside stacked moving boxes.',
+    'create-image actions must separate the phone owner from the photographed subject',
   );
   const createImageFollowUp = promptActionInstructionText(
     defaultPromptActionConfig('Create character phone image', 'createImage'),
     { createImageCharacters: [] },
-    'Generate Lara taking a mirror selfie in her current outfit.',
+    'Lara takes and owns a mirror selfie of herself in her current outfit.',
   );
   assertFixture(
-    createImageFollowUp.includes('Generate Lara taking a mirror selfie in her current outfit.') &&
+    createImageFollowUp.includes('Lara takes and owns a mirror selfie of herself in her current outfit.') &&
+      createImageFollowUp.includes('"phoneOwner": "Phone Owner Name"') &&
+      createImageFollowUp.includes('"subjectCharacter": "Subject Character Name"') &&
+      createImageFollowUp.includes('which Phone Gallery stores the generated image') &&
       createImageFollowUp.includes('roughly 80 to 120 words') &&
       createImageFollowUp.includes('one frozen visual snapshot') &&
       createImageFollowUp.includes('latest established state of every person, garment, object, and location') &&
