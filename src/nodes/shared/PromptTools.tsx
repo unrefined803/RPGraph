@@ -6,6 +6,7 @@ import {
   isDefaultPromptActionConfig,
   promptActionConditions,
   promptActionConfigsEqual,
+  promptActionHintText,
   promptActionPromptTitle,
   promptActionTitle,
   promptActionRuntimeConfigFromConfig,
@@ -119,6 +120,9 @@ function promptActionInstructionVariableStatuses(
   config: PromptActionConfig,
 ): Record<string, TemplateVariableStatus> | undefined {
   const statuses: Record<string, TemplateVariableStatus> = {};
+  if (!config.runAfterReply && (config.actionId === 'getImageId' || config.actionId === 'createImage')) {
+    statuses.plan = 'active';
+  }
   if (config.actionId === 'createImage') {
     statuses.availableCharacters = 'active';
   }
@@ -461,7 +465,7 @@ export function PromptActionModal({
         <div className="dialog-header">
           <div>
             <h2 id={`${id}-action-dialog-title`}>Prompt Action</h2>
-            <p>Configure the editor block and the LLM-visible action instructions.</p>
+            <p>Configure the first-pass request, follow-up instructions, and inserted action result.</p>
           </div>
           <div className="prompt-action-header-actions">
             <button className="close-button" type="button" onClick={onClose}>Close</button>
@@ -734,9 +738,20 @@ export function PromptActionModal({
             </div>
             ) : (
             <>
+            <div className="prompt-action-template-panel hint-panel">
+              <div className="prompt-action-template-header">
+                <label htmlFor={`${id}-action-hint`}>PROMPT HINT (FIRST PASS, READ-ONLY)</label>
+              </div>
+              <JsonSyntaxTextarea
+                id={`${id}-action-hint`}
+                className="node-textarea nodrag nowheel"
+                value={promptActionHintText(draft.actionId)}
+                readOnly
+              />
+            </div>
             <div className="prompt-action-template-panel instruction-panel">
               <div className="prompt-action-template-header">
-                <label htmlFor={`${id}-action-instruction-template`}>LLM-VISIBLE ACTION TEMPLATE</label>
+                <label htmlFor={`${id}-action-instruction-template`}>LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)</label>
               </div>
               <JsonSyntaxTextarea
                 id={`${id}-action-instruction-template`}

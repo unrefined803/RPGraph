@@ -5043,6 +5043,11 @@ input[type="number"]::-webkit-outer-spin-button {
   flex: 1 1 0;
 }
 
+.prompt-action-template-panel.hint-panel {
+  flex: 0 0 128px;
+  min-height: 110px;
+}
+
 .prompt-action-template-panel.result-panel {
   flex: 0 0 var(--prompt-action-result-basis, 100px);
   min-height: 100px;

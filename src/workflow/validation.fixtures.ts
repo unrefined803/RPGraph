@@ -138,6 +138,7 @@ import {
   countPromptActionUses,
   knownPromptActionId,
   parsePromptActionCall,
+  parsePromptActionRequest,
   promptActionConfigs,
   replacePromptActionTitle,
   unwrapJsonCodeFence,
@@ -2824,6 +2825,14 @@ export function verifyWorkflowValidationFixtures() {
       knownPromptActionId('make_coffee') === undefined,
     'fence unwrapping and known action ids must classify LLM action names',
   );
+  const plannedImageAction = parsePromptActionRequest(
+    '{"action":"create_image","plan":"Generate Lara taking a mirror selfie in her current outfit."}',
+  );
+  assertFixture(
+    plannedImageAction?.action === 'createImage' &&
+      plannedImageAction.plan === 'Generate Lara taking a mirror selfie in her current outfit.',
+    'pre-reply image actions must carry a first-pass plan into their follow-up pass',
+  );
   const captionDefaults = defaultPromptActionConfig(
     'Update phone image caption',
     'updatePhoneImageCaption',
@@ -3575,11 +3584,29 @@ export function verifyWorkflowValidationFixtures() {
               },
               {
                 label: 'Prompt After Input',
-                text: `${'A'.repeat(500)}\n\nAvailable action: get image ID list`,
+                text: `${'A'.repeat(500)}\n\nStored character image search is available`,
                 parts: [
                   { text: 'A'.repeat(500) },
-                  { text: 'Available action: get image ID list', actionInserted: true },
+                  { text: 'Stored character image search is available', actionInserted: true },
                 ],
+              },
+            ],
+          },
+          {
+            label: 'Action follow-up: Get character phone image list',
+            sections: [
+              {
+                label: 'Text Input',
+                text: longTraceTextInput,
+                parts: [{ text: longTraceTextInput }],
+              },
+              {
+                label: 'Prompt After Input (Action Follow-Up)',
+                text: 'Action follow-up: search stored character phone images\n\nFirst-pass plan:\nFind Sarah mirror selfies.',
+                parts: [{
+                  text: 'Action follow-up: search stored character phone images\n\nFirst-pass plan:\nFind Sarah mirror selfies.',
+                  actionInserted: true,
+                }],
               },
             ],
           },
@@ -3603,7 +3630,8 @@ export function verifyWorkflowValidationFixtures() {
           },
         ],
         outputPasses: [
-          { label: 'Initial action output', text: '{"action":"get_image_id","characters":"Sarah","tags":"mirror,selfie"}' },
+          { label: 'Initial action output', text: '{"action":"get_image_id","plan":"Find Sarah mirror selfies."}' },
+          { label: 'Action follow-up output: Get character phone image list', text: '{"action":"get_image_id","characters":"Sarah","tags":"mirror,selfie"}' },
           { label: 'Action replay 1 output', text: '{"from":"Sarah","to":"Emily","message":"I found one.","sendImageId":"img-1"}' },
         ],
         actionResults: ['Image ID list:\n- img-1: Sarah mirror selfie'],
@@ -3672,6 +3700,12 @@ export function verifyWorkflowValidationFixtures() {
           order: 2,
           nodeId: turnTraceNode.id,
           nodeLabel: turnTraceNode.data.label,
+          label: 'Phone / Reply / Action follow-up: Get character phone image list',
+        },
+        {
+          order: 3,
+          nodeId: turnTraceNode.id,
+          nodeLabel: turnTraceNode.data.label,
           label: 'Phone / Reply / Action replay 1',
         },
       ],
@@ -3724,7 +3758,8 @@ export function verifyWorkflowValidationFixtures() {
       turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[0]?.text.includes('Older context sentence 1 about party planning.') === false &&
       turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[1]?.parts?.[1]?.actionInserted === true &&
       turnTrace.steps[1]?.promptAfter === undefined &&
-      turnTrace.steps[1]?.promptPasses?.[0]?.prompt.includes('img-1: Sarah mirror selfie') === true,
+      turnTrace.steps[1]?.promptPasses?.[0]?.prompt.includes('First-pass plan:') === true &&
+      turnTrace.steps[2]?.promptPasses?.[0]?.prompt.includes('img-1: Sarah mirror selfie') === true,
     'turn traces must identify the Prompt Switch route, include full action prompt passes, and excerpt long text input',
   );
   assertFixture(
@@ -3744,7 +3779,8 @@ export function verifyWorkflowValidationFixtures() {
       turnTraceCopyPayload([turnTrace]).privacy === 'memory-only' &&
       JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Text Input excerpt: showing the last') &&
       !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Older context sentence 1 about party planning.') &&
-      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Available action: get image ID list') &&
+      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Stored character image search is available') &&
+      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('First-pass plan:') &&
       JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('img-1: Sarah mirror selfie') &&
       !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('inputTokens') &&
       !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('totalTokens') &&
@@ -3839,7 +3875,7 @@ async function verifyPromptRunFixtures() {
 
   const runStreamingScenario = async (llmTexts: string[]) => {
     const streamedChunks: string[] = [];
-    let promptForCall = '';
+    const promptsForCalls: string[] = [];
     const streamContext = {
       nodes: [],
       edges: [],
@@ -3849,7 +3885,7 @@ async function verifyPromptRunFixtures() {
       llm: {
         supportsVision: async () => true,
         complete: async (request: { prompt: string; onChunk?: (text: string) => void }) => {
-          promptForCall = promptForCall || request.prompt;
+          promptsForCalls.push(request.prompt);
           const llmText = llmTexts.shift() ?? '';
           for (let end = 4; end <= llmText.length; end += Math.max(8, llmText.length >> 2)) {
             request.onChunk?.(llmText.slice(0, end));
@@ -3880,7 +3916,7 @@ async function verifyPromptRunFixtures() {
       contributesToTokenCalibration: false,
       callLabel: () => 'Fixture call',
     });
-    return { streamedChunks, promptForCall, streamResult };
+    return { streamedChunks, promptsForCalls, streamResult };
   };
   const proseScenario = await runStreamingScenario([
     'Espen laughs and pockets her phone before anyone notices.',
@@ -3893,17 +3929,29 @@ async function verifyPromptRunFixtures() {
     'a prose reply must stream live even while a pre-reply action is still pending',
   );
   assertFixture(
-    proseScenario.promptForCall.includes('Available action: get character phone image list'),
-    'pending pre-reply action instructions must be visible in the prompt',
+    proseScenario.promptsForCalls[0]?.includes('Stored character image search is available') &&
+      !proseScenario.promptsForCalls[0]?.includes('Action follow-up: search stored character phone images'),
+    'pending pre-reply actions must show only their compact first-pass hint',
   );
   const actionCallScenario = await runStreamingScenario([
-    '{"action":"get_image_id","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone"}',
+    '{"action":"get_image_id","plan":"Find a stored Espen party selfie that shows her outfit."}',
+    '{"action":"get_image_id","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone, smiling, evening, indoor, portrait"}',
     'Espen scrolls to the party photo and smirks.',
   ]);
   assertFixture(
     actionCallScenario.streamedChunks.every((chunk) => !chunk.includes('{')) &&
       actionCallScenario.streamResult.generatedText === 'Espen scrolls to the party photo and smirks.',
     'an action call must never be streamed into the visible chat while the replay reply still streams',
+  );
+  assertFixture(
+    actionCallScenario.promptsForCalls.length === 3 &&
+      actionCallScenario.promptsForCalls[0]?.includes('Stored character image search is available') &&
+      actionCallScenario.promptsForCalls[1]?.includes('Action follow-up: search stored character phone images') &&
+      actionCallScenario.promptsForCalls[1]?.includes('Find a stored Espen party selfie that shows her outfit.') &&
+      !actionCallScenario.promptsForCalls[1]?.includes('Write the story.') &&
+      actionCallScenario.promptsForCalls[2]?.includes('Action executed: get character phone image list.') &&
+      !actionCallScenario.promptsForCalls[2]?.includes('Stored character image search is available'),
+    'pre-reply image actions must run as compact request, focused follow-up, and result replay passes',
   );
 }
 

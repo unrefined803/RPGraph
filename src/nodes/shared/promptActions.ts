@@ -50,6 +50,11 @@ export type ParsedPromptActionCall = {
   caption?: string;
 };
 
+export type ParsedPromptActionRequest = {
+  action: 'getImageId' | 'createImage';
+  plan: string;
+};
+
 type ActionImageResult = {
   imageId: string;
   caption: string;
@@ -86,6 +91,23 @@ export function promptActionPromptTitle(actionId: PromptActionId) {
     : title;
 }
 
+export function promptActionHintText(actionId: PromptActionId) {
+  switch (actionId) {
+    case 'getImageId':
+      return [
+        'Stored character image search is available. To request it, output exactly one JSON object and nothing else:',
+        '{"action":"get_image_id","plan":"brief plan describing whose image is needed and what it should show"}',
+      ].join('\n');
+    case 'createImage':
+      return [
+        'Character image generation is available. To request it, output exactly one JSON object and nothing else:',
+        '{"action":"create_image","plan":"brief plan naming the character owner and describing the visible image moment needed"}',
+      ].join('\n');
+    default:
+      return '';
+  }
+}
+
 const legacyPromptActionTitleKeys = new Map<string, string>([
   ['get character image list', 'get character phone image list'],
   ['update incoming image caption', 'update phone image caption'],
@@ -116,11 +138,14 @@ export function promptActionConditions(actionId: PromptActionId): PromptActionCo
 }
 
 export const getImagesLlmInstruction = [
-  'Available action: get character phone image list',
+  'Action follow-up: search stored character phone images',
   '',
-  'Returns a list of stored phone images for the requested characters.',
+  'The first pass requested this action with the following plan:',
+  '{{plan}}',
   '',
-  'To call it, output exactly one JSON object and nothing else. Do not write a normal message together with this action:',
+  'Use the Text Input and this plan to choose the Storybook characters and visual search tags. This pass performs only the image search; do not write or continue the visible reply.',
+  '',
+  'Now output exactly one JSON object and nothing else:',
   '',
   '{',
   '"action": "get_image_id",',
@@ -225,14 +250,17 @@ export const updatePhoneImageCaptionAfterReplyInstruction = [
 ].join('\n');
 
 export const createImageInstruction = [
-  'Available action: create character phone image',
+  'Action follow-up: generate a character phone image',
   '',
-  'Generates a new phone image for a character and saves it to that character phone image library.',
+  'The first pass requested this action with the following plan:',
+  '{{plan}}',
+  '',
+  'Use the Text Input and this plan to choose the exact character owner and write the complete image-generation prompt. This pass performs only image generation; do not write or continue the visible reply.',
   '',
   'Available characters:',
   '{{availableCharacters}}',
   '',
-  'To call it, output exactly one JSON object and nothing else. Do not write a normal message together with this action:',
+  'Now output exactly one JSON object and nothing else:',
   '',
   '{',
   '"action": "create_image",',
@@ -959,7 +987,7 @@ export function promptActionTokenText(
   if (config.runAfterReply) {
     return '';
   }
-  return promptActionInstructionText(config, options);
+  return promptActionHintText(config.actionId);
 }
 
 export function replacePromptActionTokensWithInstructions(
@@ -995,19 +1023,24 @@ function createImageAvailableCharactersText(options: PromptActionAvailabilityOpt
 export function promptActionInstructionText(
   config: PromptActionConfig,
   options: PromptActionAvailabilityOptions,
+  plan = '',
 ) {
   const template = config.instructionTemplate;
+  const planText = plan.trim() || '(no plan provided)';
+  const withPlan = template.includes('{{plan}}')
+    ? template.split('{{plan}}').join(planText)
+    : `${template.trim()}\n\nFirst-pass plan:\n${planText}`;
   if (config.actionId !== 'createImage') {
-    return template;
+    return withPlan;
   }
   const availableCharacters = createImageAvailableCharactersText(options);
-  const rendered = template
+  const rendered = withPlan
     .split('{{availableCharacters}}').join(availableCharacters)
     .split('<Available Characters>').join(availableCharacters)
     .split('<availableCharacters>').join(availableCharacters)
     .split('<available characters>').join(availableCharacters);
-  return rendered === template
-    ? `${template.trim()}\n\nAvailable characters:\n${availableCharacters}`
+  return rendered === withPlan
+    ? `${withPlan.trim()}\n\nAvailable characters:\n${availableCharacters}`
     : rendered;
 }
 
@@ -1181,6 +1214,47 @@ export function knownPromptActionId(actionName: string): PromptActionId | undefi
     default:
       return undefined;
   }
+}
+
+function parsePromptActionRequestRecord(parsed: unknown): ParsedPromptActionRequest | undefined {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return undefined;
+  }
+  const record = parsed as Record<string, unknown>;
+  const actionName = typeof record.action === 'string' ? record.action : '';
+  const action = knownPromptActionId(actionName);
+  const plan = typeof record.plan === 'string' ? record.plan.trim() : '';
+  if ((action !== 'getImageId' && action !== 'createImage') || !plan) {
+    return undefined;
+  }
+  return { action, plan };
+}
+
+export function parsePromptActionRequest(text: string): ParsedPromptActionRequest | undefined {
+  const parseText = unwrapJsonCodeFence(text);
+  try {
+    const request = parsePromptActionRequestRecord(JSON.parse(parseText) as unknown);
+    if (request) {
+      return request;
+    }
+  } catch {
+    // Fall through to the embedded-object scan below.
+  }
+  const ranges = jsonObjectRanges(parseText);
+  for (let index = ranges.length - 1; index >= 0; index -= 1) {
+    const range = ranges[index];
+    try {
+      const request = parsePromptActionRequestRecord(
+        JSON.parse(parseText.slice(range.start, range.end)) as unknown,
+      );
+      if (request) {
+        return request;
+      }
+    } catch {
+      // Not a usable request object; try the previous range.
+    }
+  }
+  return undefined;
 }
 
 export function parsePromptActionCall(text: string): ParsedPromptActionCall | undefined {
