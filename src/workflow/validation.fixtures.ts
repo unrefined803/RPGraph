@@ -127,7 +127,7 @@ import {
   socialThreadCommentTextFromInput,
   socialThreadRunContextFromInput,
 } from '../chat/socialMedia';
-import type { StorybookCharacter } from '../storybook/runtime';
+import type { StorybookCharacter, StorybookCreateImageCharacter } from '../storybook/runtime';
 import {
   collectRecentReferenceImages,
   promptWithImageAttachmentMarkers,
@@ -156,7 +156,7 @@ import {
 } from '../nodes/shared/promptCommands';
 import { runActionAwarePrompt } from '../nodes/shared/promptRun';
 import { applyTurnCheckpointToNodes } from '../data-management/checkpointStore';
-import { executeGraph } from '../graph/executeGraph';
+import { executeGraph, resolveCreateImageCharacterByName } from '../graph/executeGraph';
 import { NodeLlmApi } from '../llm/NodeLlmApi';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import {
@@ -2883,6 +2883,34 @@ export function verifyWorkflowValidationFixtures() {
       createImageWithoutLora?.action === 'createImage' &&
       createImageWithoutLora.loraCharacter === '',
     'create-image actions must separate optional character LoRA selection from phone ownership',
+  );
+  const duplicateFirstNameCharacters = [
+    { name: 'Alex Smith' },
+    { name: 'Alex Jones' },
+    { name: 'Taylor Reed' },
+  ] as StorybookCreateImageCharacter[];
+  const exactAlexJones = resolveCreateImageCharacterByName(
+    duplicateFirstNameCharacters,
+    'Alex Jones',
+  );
+  const ambiguousAlex = resolveCreateImageCharacterByName(
+    duplicateFirstNameCharacters,
+    'Alex',
+  );
+  const uniqueTaylor = resolveCreateImageCharacterByName(
+    duplicateFirstNameCharacters,
+    'Taylor',
+  );
+  const incorrectAlexSurname = resolveCreateImageCharacterByName(
+    duplicateFirstNameCharacters,
+    'Alex Unknown',
+  );
+  assertFixture(
+    exactAlexJones.status === 'found' && exactAlexJones.character.name === 'Alex Jones' &&
+      ambiguousAlex.status === 'ambiguous' &&
+      uniqueTaylor.status === 'found' && uniqueTaylor.character.name === 'Taylor Reed' &&
+      incorrectAlexSurname.status === 'not-found',
+    'create-image character matching must prefer exact full names and accept only unique first-name fallbacks',
   );
   const outgoingGeneratedImageCaption = parsePhoneMessageOutput([
     '{"from":"Helga Harper","to":"Jack Carter","message":"Caught her off guard.","sendImageId":"helga_harper_image_06"}',
