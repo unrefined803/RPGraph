@@ -1290,6 +1290,19 @@ export function verifyWorkflowValidationFixtures() {
       getImageIdDefaults.resultTemplate.includes('Image shown to: {{imageShownTo}}'),
     'get image id prompt action defaults must send three hidden-text images and report prior recipients',
   );
+  const updatePhoneImageCaptionDefaults = defaultPromptActionConfig(
+    'Update phone image caption',
+    'updatePhoneImageCaption',
+  );
+  assertFixture(
+    updatePhoneImageCaptionDefaults.runAfterReply &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('imageAction "no_change" is the default') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('The visible phone reply is not new evidence by itself') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('Forwarding or resending the existing image to another person must not trigger an update') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('If there is no clear new fact') &&
+      !updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('the latest messages or the visible phone reply establish story-relevant new information'),
+    'after-reply phone image captions must default to no change unless explicit new facts materially change the image meaning',
+  );
   assertFixture(
     countPromptActionUses([
       '@action:Shared action\nPrompt text',

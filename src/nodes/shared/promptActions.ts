@@ -226,6 +226,25 @@ export const describeInputImageAfterReplyInstruction = [
   'The caption is hidden scene metadata for the chat history, not a phone image, not a gallery entry, and not an outgoing attachment. Do not write story text, explanations, or any other JSON.',
 ].join('\n');
 
+const previousUpdatePhoneImageCaptionAfterReplyDecisionRules = [
+  'Use imageAction "update" with the exact existing imageId only when the latest messages or the visible phone reply establish story-relevant new information that changes the meaning of the existing caption: a confirmed event, changed situation, identity, relationship, location, or intent. Do not update just to reword the caption or add minor visible details the caption already implies.',
+  'Use imageAction "no_change" with the exact existing imageId in every other case. When in doubt, choose "no_change".',
+].join('\n');
+
+const updatePhoneImageCaptionAfterReplyDecisionRules = [
+  'For an image that already has a caption, imageAction "no_change" is the default.',
+  'Use imageAction "update" with the exact existing imageId only when the phone/chat/story context explicitly establishes a new fact about the pictured moment that was not known when the current caption was written and materially changes its meaning. Valid examples are a previously unknown person being explicitly identified, or a confirmed event, relationship, location, situation, or intent that changes what the image represents.',
+  'The visible phone reply is not new evidence by itself. A reaction, compliment, guess, inference, paraphrase, or more detailed description of already visible content must not trigger an update. Forwarding or resending the existing image to another person must not trigger an update.',
+  'Do not update for minor visible details, improved wording, extra atmosphere, inferred emotions, or information already stated or implied by the current caption.',
+  'Before choosing "update", compare the exact new fact with the current caption. If there is no clear new fact, or the existing caption remains accurate and useful without it, use "no_change".',
+].join('\n');
+
+const previousUpdatePhoneImageCaptionAfterReplyWritingRule =
+  'For create/update, write one concise 20 to 30 word caption. Combine visible image details with reliable recent phone/chat/story context and the visible phone reply. Avoid metadata, filenames, image-generation wording, and uncertainty about identity.';
+
+const updatePhoneImageCaptionAfterReplyWritingRule =
+  'For create/update, write one concise 20 to 30 word caption. Combine visible image details with reliable facts explicitly established by recent phone/chat/story context. Avoid metadata, filenames, image-generation wording, guesses, and uncertainty about identity.';
+
 export const updatePhoneImageCaptionAfterReplyInstruction = [
   'Internal caption task: update phone image caption',
   '',
@@ -246,9 +265,8 @@ export const updatePhoneImageCaptionAfterReplyInstruction = [
   'Caption only the latest incoming phone input image. When image labels are present, this is normally Attached input image Nr1. Do not caption older attached/reference images such as Attached input image Nr2, Nr3, or images sent by the other character earlier.',
   'Use imageAction "create" only when the incoming image has no imageId and no caption yet; set imageId to "new_image". If the image label already shows an imageId and caption, never use "create".',
   'If the image label shows an imageId but no caption yet, always use imageAction "update" with that exact imageId and write its first caption.',
-  'Use imageAction "update" with the exact existing imageId only when the latest messages or the visible phone reply establish story-relevant new information that changes the meaning of the existing caption: a confirmed event, changed situation, identity, relationship, location, or intent. Do not update just to reword the caption or add minor visible details the caption already implies.',
-  'Use imageAction "no_change" with the exact existing imageId in every other case. When in doubt, choose "no_change".',
-  'For create/update, write one concise 20 to 30 word caption. Combine visible image details with reliable recent phone/chat/story context and the visible phone reply. Avoid metadata, filenames, image-generation wording, and uncertainty about identity.',
+  updatePhoneImageCaptionAfterReplyDecisionRules,
+  updatePhoneImageCaptionAfterReplyWritingRule,
 ].join('\n');
 
 const previousCreateImageInstruction = [
@@ -441,6 +459,23 @@ const previousUpdatePhoneImageCaptionInstructions = new Set([
 
 const previousUpdatePhoneImageCaptionAfterReplyInstructions = new Set([
   updatePhoneImageCaptionAfterReplyInstruction.replace(`\n${updatePhoneImageCaptionMissingCaptionRule}`, ''),
+  updatePhoneImageCaptionAfterReplyInstruction.replace(
+    updatePhoneImageCaptionAfterReplyDecisionRules,
+    previousUpdatePhoneImageCaptionAfterReplyDecisionRules,
+  ).replace(
+    updatePhoneImageCaptionAfterReplyWritingRule,
+    previousUpdatePhoneImageCaptionAfterReplyWritingRule,
+  ),
+  updatePhoneImageCaptionAfterReplyInstruction
+    .replace(
+      updatePhoneImageCaptionAfterReplyDecisionRules,
+      previousUpdatePhoneImageCaptionAfterReplyDecisionRules,
+    )
+    .replace(
+      updatePhoneImageCaptionAfterReplyWritingRule,
+      previousUpdatePhoneImageCaptionAfterReplyWritingRule,
+    )
+    .replace(`\n${updatePhoneImageCaptionMissingCaptionRule}`, ''),
 ]);
 
 const previousGetImagesLlmInstructions = new Set([
