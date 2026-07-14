@@ -572,8 +572,8 @@ export const defaultGetImagesResultTemplate = [
   defaultGetImagesResultLineTemplate,
   '',
   'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
-  'If no returned image fits and the Create character phone image action is shown elsewhere in the current prompt, call that action before writing the final reply. The action is available only when it is shown.',
-  'If that action is not shown, continue naturally without an image. Do not mention the missing image, force an unrelated photo into the reply, or steer the roleplay away from its current topic.',
+  'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
+  'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
 ].join('\n');
 
 export const defaultUpdatePhoneImageCaptionResultTemplate = [
@@ -661,6 +661,15 @@ const previousCreateImageResultTemplates = new Set([
 ]);
 
 const previousGetImagesResultTemplates = new Set([
+  [
+    'Action executed: get character phone image list.',
+    'Found images for tags: {{tags}}',
+    '* {{imageReference}}: {{imageId}} : {{imageText}} : Image shown to: {{imageShownTo}}',
+    '',
+    'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
+    'If no returned image fits and the Create character phone image action is shown elsewhere in the current prompt, call that action before writing the final reply. The action is available only when it is shown.',
+    'If that action is not shown, continue naturally without an image. Do not mention the missing image, force an unrelated photo into the reply, or steer the roleplay away from its current topic.',
+  ].join('\n'),
   [
     'Action executed: get character phone image list.',
     'Found images for tags: {{tags}}',
@@ -1262,10 +1271,18 @@ function parsePromptActionRecord(parsed: unknown): ParsedPromptActionCall | unde
   }
   const record = parsed as Record<string, unknown>;
   if (record.action === 'get_image_id' || record.action === 'getImageId' || record.action === 'getImages') {
+    const characters = typeof record.characters === 'string' ? record.characters.trim() : '';
+    const tags = typeof record.tags === 'string' ? record.tags.trim() : '';
+    // A plan-only request echo without characters and tags is not an executable
+    // search call; rejecting it here surfaces a warning instead of silently
+    // returning an unfiltered image dump.
+    if (!characters && !tags) {
+      return undefined;
+    }
     return {
       action: 'getImageId',
-      characters: typeof record.characters === 'string' ? record.characters : '',
-      tags: typeof record.tags === 'string' ? record.tags : '',
+      characters,
+      tags,
     };
   }
   if (record.action === 'describe_input_image' || record.action === 'describeInputImage') {
@@ -1284,11 +1301,16 @@ function parsePromptActionRecord(parsed: unknown): ParsedPromptActionCall | unde
   }
   if (record.action === 'create_image' || record.action === 'createImage') {
     const phoneOwner = typeof record.phoneOwner === 'string' ? record.phoneOwner.trim() : '';
-    const loraCharacter = typeof record.loraCharacter === 'string'
+    const loraCharacterValue = typeof record.loraCharacter === 'string'
       ? record.loraCharacter.trim()
-      : record.loraCharacter === 0
+      : record.loraCharacter === 0 || record.loraCharacter === null
         ? ''
         : undefined;
+    // The instruction asks for the number 0 when no LoRA is selected; models
+    // frequently quote it or write "none" instead, so treat those as no LoRA.
+    const loraCharacter = loraCharacterValue !== undefined && /^(0|none)$/i.test(loraCharacterValue)
+      ? ''
+      : loraCharacterValue;
     const prompt = typeof record.prompt === 'string'
       ? record.prompt.trim()
       : typeof record.description === 'string'

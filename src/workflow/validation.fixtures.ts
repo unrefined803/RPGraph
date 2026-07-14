@@ -1302,9 +1302,9 @@ export function verifyWorkflowValidationFixtures() {
       getImageIdRuntimeDefaults?.sendImagesToLlm === true &&
       getImageIdRuntimeDefaults.hideImageTextWhenSendingToLlm === false &&
       getImageIdDefaults.resultTemplate.includes('Image shown to: {{imageShownTo}}') &&
-      getImageIdDefaults.resultTemplate.includes('Create character phone image action is shown elsewhere') &&
-      getImageIdDefaults.resultTemplate.includes('continue naturally without an image') &&
-      getImageIdDefaults.resultTemplate.includes('steer the roleplay away from its current topic'),
+      getImageIdDefaults.resultTemplate.includes('use the Create character phone image action when it is offered') &&
+      getImageIdDefaults.resultTemplate.includes('write the reply without an image') &&
+      getImageIdDefaults.resultTemplate.includes('steer the conversation naturally away from sending a photo'),
     'get image id prompt action defaults must send three captioned images, report recipients, offer available image generation, and preserve the current roleplay topic',
   );
   const updatePhoneImageCaptionDefaults = defaultPromptActionConfig(
