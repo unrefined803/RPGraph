@@ -23403,3 +23403,83 @@ button.message-timeline-row.phone:focus-visible {
   color: #8fa0bd;
   font-size: 11px;
 }
+
+/* RP Storybook Editor node dialog */
+.storybook-editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+}
+
+.storybook-editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.storybook-editor-hint {
+  color: #8fa0bd;
+  font-size: 12px;
+  margin-right: auto;
+}
+
+.storybook-editor-validity {
+  font-size: 12px;
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storybook-editor-validity.valid {
+  color: #5fd08a;
+}
+
+.storybook-editor-validity.invalid {
+  color: #e79aa2;
+}
+
+.storybook-editor-textarea {
+  flex: 1;
+  min-height: 320px;
+  width: 100%;
+  resize: none;
+  font-family: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.storybook-editor-panel .json-syntax-textarea {
+  flex: 1;
+  min-height: 320px;
+}
+
+.storybook-editor-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.storybook-editor-actor-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.storybook-editor-thumbnails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.storybook-editor-thumbnails img {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+}

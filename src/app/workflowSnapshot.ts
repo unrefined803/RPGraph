@@ -10,7 +10,10 @@ function workflowNodeDataForSave(
   includeStorybook: boolean,
 ): WorkflowNodeData {
   const savedData = persistentNodeData(data);
-  if (includeStorybook || savedData.nodeType !== 'rp-storybook-v1') {
+  if (
+    includeStorybook ||
+    (savedData.nodeType !== 'rp-storybook-v1' && savedData.nodeType !== 'rp-storybook-editor')
+  ) {
     return savedData;
   }
   return {

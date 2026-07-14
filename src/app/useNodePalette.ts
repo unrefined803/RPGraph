@@ -92,7 +92,7 @@ const nodePaletteGroups: Array<{
   },
   {
     title: 'Story Context',
-    types: ['rp-storybook-v1', 'context-builder'],
+    types: ['rp-storybook-v1', 'rp-storybook-editor', 'context-builder'],
   },
 ];
 

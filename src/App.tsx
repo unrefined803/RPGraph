@@ -17,6 +17,7 @@ import {
   type CustomNodeAssistantDiagnostic,
   type CustomNodeAssistantMessage,
 } from './components/AppDialogs';
+import { StorybookEditorDialog } from './components/StorybookEditorDialog';
 import {
   AssistantDialog,
   type AssistantMessage as AssistantChatMessage,
@@ -1090,6 +1091,7 @@ function App() {
       | 'event-manager-appointments'
     >('text');
   const [jsonDialogNodeId, setJsonDialogNodeId] = useState<string | null>(null);
+  const [storybookEditorNodeId, setStorybookEditorNodeId] = useState<string | null>(null);
   const [customNodeAssistantNodeId, setCustomNodeAssistantNodeId] = useState<string | null>(null);
   const [customNodeAssistantHistories, setCustomNodeAssistantHistories] = useState<Record<string, CustomNodeAssistantMessage[]>>({});
   const [customNodeAssistantDiagnostics, setCustomNodeAssistantDiagnostics] = useState<Record<string, CustomNodeAssistantDiagnostic[]>>({});
@@ -3595,6 +3597,7 @@ function App() {
     setJsonDialogNodeId,
     setOutputFormatHelpKind,
     openStorybookCreator,
+    openStorybookEditor: setStorybookEditorNodeId,
     openCustomNodeAssistant,
     runCustomNodeButton,
     loadStorybookFile,
@@ -5838,6 +5841,7 @@ function App() {
   const textDialogNode = textDialogSourceNode;
   const jsonDialogNode = nodes.find((node) => node.id === jsonDialogNodeId);
   const storybookCreatorNode = nodeViewNodes.find((node) => node.id === storybookCreatorNodeId);
+  const storybookEditorNode = nodeViewNodes.find((node) => node.id === storybookEditorNodeId);
   const customNodeAssistantNode = nodeViewNodes.find((node) => node.id === customNodeAssistantNodeId);
   const customNodeAssistantMessages = customNodeAssistantNodeId
     ? (customNodeAssistantHistories[customNodeAssistantNodeId] || [])
@@ -7126,6 +7130,19 @@ function App() {
           onBeginConversionReview={beginPendingStorybookReview}
           onImproveConversion={improvePendingStorybookConversion}
           onClose={() => setStorybookCreatorNodeId(null)}
+        />
+      )}
+
+      {storybookEditorNode && storybookEditorNode.data.nodeType === 'rp-storybook-editor' && (
+        <StorybookEditorDialog
+          node={storybookEditorNode}
+          onCommit={(storybook, status) =>
+            updateRuntimeNode(storybookEditorNode.id, {
+              storybookJson: rpStorybookJsonText(storybook),
+              storybookStatus: status,
+            })
+          }
+          onClose={() => setStorybookEditorNodeId(null)}
         />
       )}
 

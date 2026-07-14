@@ -241,6 +241,7 @@ export type NodeActions = {
   showOutputHighlighting: (nodeId: string) => void;
   showOutputFormatHelp: (kind: OutputFormatHelpKind) => void;
   openStorybookCreator: (nodeId: string) => void;
+  openStorybookEditor: (nodeId: string) => void;
   openCustomNodeAssistant: (nodeId: string) => void;
   runCustomNodeButton: (nodeId: string, label: string) => Promise<void>;
   loadStorybookFile: (nodeId: string) => Promise<boolean>;

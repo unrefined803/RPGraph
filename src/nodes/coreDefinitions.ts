@@ -92,6 +92,8 @@ import { LlmPromptNodeCard } from './llm-prompt/Card';
 import { runLlmPromptNode } from './llm-prompt/run';
 import { RpStorybookV1NodeCard } from './rp-storybook-v1/Card';
 import { executeRpStorybookV1Node } from './rp-storybook-v1/execute';
+import { RpStorybookEditorNodeCard } from './rp-storybook-editor/Card';
+import { executeRpStorybookEditorNode } from './rp-storybook-editor/execute';
 import {
   defaultRpStorybookFormattedTextSettings,
   emptyRpStorybookV1,
@@ -987,6 +989,38 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         preview: 'No storybook loaded',
         nodeType: 'rp-storybook-v1',
         connectionId: defaultConnectionId,
+        storybookJson: rpStorybookJsonText(emptyRpStorybookV1),
+        storybookStatus: 'Ready',
+        storybookFormattedTextSettings: defaultRpStorybookFormattedTextSettings,
+      },
+    }),
+  },
+  {
+    type: 'rp-storybook-editor',
+    dataVersion: currentCoreNodeVersions['rp-storybook-editor'],
+    label: 'RP Storybook Editor',
+    description: 'Edit storybook text and JSON',
+    menuDescription: 'Freely edit storybook formatted text and raw JSON',
+    origin: 'core',
+    singleton: false,
+    requiresPreparedInputEdge: true,
+    ports: () => [
+      output('json', 'json', 'JSON'),
+      output('formatted-text', 'text', 'Formatted Text'),
+      output('character-info', 'text', 'Character Info'),
+    ],
+    Component: RpStorybookEditorNodeCard,
+    execute: executeRpStorybookEditorNode,
+    create: ({ position, createId }) => ({
+      id: createId('rp-storybook-editor'),
+      type: 'workflow',
+      position,
+      style: { width: coreNodeLayout.rpStorybookWidth },
+      data: {
+        label: 'RP Storybook Editor',
+        description: 'Edit storybook text and JSON',
+        preview: 'No storybook loaded',
+        nodeType: 'rp-storybook-editor',
         storybookJson: rpStorybookJsonText(emptyRpStorybookV1),
         storybookStatus: 'Ready',
         storybookFormattedTextSettings: defaultRpStorybookFormattedTextSettings,

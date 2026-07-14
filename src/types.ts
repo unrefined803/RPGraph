@@ -483,6 +483,7 @@ type CombinerNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'combiner' };
 type CharacterStatsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'character-stats' };
 type OutputNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'output' };
 type RpStorybookV1NodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook-v1' };
+type RpStorybookEditorNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook-editor' };
 type PhoneAppsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'phone-apps' };
 
 type ConcreteCoreWorkflowNodeData =
@@ -512,6 +513,7 @@ type ConcreteCoreWorkflowNodeData =
   | CharacterStatsNodeData
   | OutputNodeData
   | RpStorybookV1NodeData
+  | RpStorybookEditorNodeData
   | PhoneAppsNodeData;
 
 type MissingNodeWorkflowData = WorkflowNodeCommonFields & {

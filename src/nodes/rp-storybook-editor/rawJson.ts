@@ -1,0 +1,147 @@
+import { sanitizeDataUrls } from '../../utils/sanitize';
+import {
+  parseRpStorybookJson,
+  type RpStorybookV1,
+} from '../rp-storybook-v1/model';
+
+// sanitizeDataUrls replaces every dataUrl with this placeholder prefix.
+const REDACTED_PREFIX = '[Data URL redacted:';
+
+function isRedacted(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith(REDACTED_PREFIX);
+}
+
+/**
+ * The editable Raw JSON string: Opening History is pruned to its summary (it
+ * holds imported runtime memory and binaries the human cannot author) and all
+ * image/voice data URLs are redacted so the text stays small and readable.
+ */
+export function rpStorybookEditorJsonView(storybook: RpStorybookV1): string {
+  const pruned = {
+    ...storybook,
+    openingHistory: {
+      summary: storybook.openingHistory.summary,
+      turns: [],
+      checkpoints: [],
+      events: [],
+      socialLikes: {},
+      notes: {},
+      chatGpdChats: {},
+    },
+  };
+  return JSON.stringify(sanitizeDataUrls(pruned), null, 2);
+}
+
+export type RpStorybookEditorJsonApplyResult =
+  | { storybook: RpStorybookV1; warnings: string[] }
+  | { error: string };
+
+function rehydrateCharacterBinaries(draftValue: Record<string, unknown>, current: RpStorybookV1) {
+  const currentById = new Map(current.characters.map((character) => [character.id, character]));
+  const draftCharacters = Array.isArray(draftValue.characters) ? draftValue.characters : [];
+  for (const entry of draftCharacters) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const character = entry as Record<string, unknown>;
+    const source = typeof character.id === 'string' ? currentById.get(character.id) : undefined;
+    if (!source) {
+      continue;
+    }
+    if (Array.isArray(character.images)) {
+      const sourceImageById = new Map(source.images.map((image) => [image.id, image]));
+      for (const imageEntry of character.images) {
+        if (!imageEntry || typeof imageEntry !== 'object') {
+          continue;
+        }
+        const image = imageEntry as Record<string, unknown>;
+        if (isRedacted(image.dataUrl) && typeof image.id === 'string') {
+          const sourceImage = sourceImageById.get(image.id);
+          if (sourceImage) {
+            image.dataUrl = sourceImage.dataUrl;
+          }
+        }
+      }
+    }
+    if (character.voiceConfig && typeof character.voiceConfig === 'object') {
+      const voice = character.voiceConfig as Record<string, unknown>;
+      if (isRedacted(voice.sampleDataUrl) && source.voiceConfig?.sampleDataUrl) {
+        voice.sampleDataUrl = source.voiceConfig.sampleDataUrl;
+      }
+    }
+    if (character.profileImage && typeof character.profileImage === 'object') {
+      const profile = character.profileImage as Record<string, unknown>;
+      if (isRedacted(profile.dataUrl) && source.profileImage?.dataUrl) {
+        profile.dataUrl = source.profileImage.dataUrl;
+      }
+    }
+  }
+}
+
+/**
+ * Image ids are derived from the character name at normalization time, so
+ * renaming a character reassigns its image ids and drops the name-linked
+ * profile image. When the images are otherwise unchanged we best-effort restore
+ * the profile-image link (pointing at the new id) and warn; when the images were
+ * genuinely edited we only warn. Image content is never lost (it was rehydrated
+ * before normalization).
+ */
+function relinkRenamedCharacters(normalized: RpStorybookV1, current: RpStorybookV1, warnings: string[]) {
+  const currentById = new Map(current.characters.map((character) => [character.id, character]));
+  normalized.characters = normalized.characters.map((character) => {
+    const source = currentById.get(character.id);
+    if (!source || source.name === character.name || source.images.length === 0) {
+      return character;
+    }
+    const sameImages =
+      character.images.length === source.images.length &&
+      character.images.every((image, index) => image.dataUrl === source.images[index].dataUrl);
+    if (!sameImages) {
+      warnings.push(`Renamed "${character.name || character.id}" with edited images; its image ids were reassigned.`);
+      return character;
+    }
+    let profileImage = character.profileImage;
+    if (!profileImage && source.profileImage) {
+      const oldIndex = source.images.findIndex((image) => image.id === source.profileImage!.imageId);
+      if (oldIndex >= 0 && character.images[oldIndex]) {
+        profileImage = { ...source.profileImage, imageId: character.images[oldIndex].id };
+      }
+    }
+    warnings.push(`Renamed "${character.name || character.id}"; its image ids were updated to match the new name.`);
+    return profileImage ? { ...character, profileImage } : character;
+  });
+}
+
+/**
+ * Applies the edited Raw JSON draft to the current storybook: restore Opening
+ * History wholesale, rehydrate redacted binaries by id, then strictly
+ * validate/normalize. Returns the normalized storybook or a validation error
+ * (in which case the node must be left unchanged).
+ */
+export function applyRpStorybookEditorJson(current: RpStorybookV1, draft: string): RpStorybookEditorJsonApplyResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(draft);
+  } catch (error) {
+    return { error: `Invalid JSON: ${error instanceof Error ? error.message : String(error)}` };
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { error: 'The storybook JSON must be an object.' };
+  }
+  const draftValue = parsed as Record<string, unknown>;
+
+  // Opening History is never hand-edited; restore it exactly from the node.
+  draftValue.openingHistory = structuredClone(current.openingHistory);
+  rehydrateCharacterBinaries(draftValue, current);
+
+  let normalized: RpStorybookV1;
+  try {
+    normalized = parseRpStorybookJson(JSON.stringify(draftValue));
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+
+  const warnings: string[] = [];
+  relinkRenamedCharacters(normalized, current, warnings);
+  return { storybook: normalized, warnings };
+}

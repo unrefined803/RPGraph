@@ -19,6 +19,11 @@ import {
   rpStorybookEditPrompt,
   rpStorybookJsonText,
 } from '../nodes/rp-storybook-v1/model';
+import { parseRpStorybookFormattedText } from '../nodes/rp-storybook-editor/formattedText';
+import {
+  applyRpStorybookEditorJson,
+  rpStorybookEditorJsonView,
+} from '../nodes/rp-storybook-editor/rawJson';
 import {
   storybookImageById,
   storybookImageDescriptions,
@@ -4451,8 +4456,179 @@ export function verifyCharacterStatDefinitionFixtures() {
   );
 }
 
+function editorTestStorybook() {
+  const base0 = parseRpStorybookJson(JSON.stringify({
+    format: 'rpgraph-storybook',
+    version: '2.0.0',
+    title: 'Test Book',
+    introduction: 'An intro.',
+    scenario: { summary: 'A summary.', openingSituation: 'Opening.', currentSituation: 'Current.' },
+    characters: [{
+      id: 'nova',
+      name: 'Nova',
+      description: 'Desc line one.\nDesc line two.',
+      personality: 'Kind.',
+      speechStyle: 'Formal.',
+      role: 'Lead',
+      comfyConfig: { loraName: 'nova.safetensors', loraUrl: '', appearance: 'tall' },
+      voiceConfig: { sampleName: 's', sampleMimeType: 'audio/mpeg', sampleDataUrl: 'data:audio/mpeg;base64,CCCC' },
+      images: [
+        { id: 'nova_image_01', name: 'i1', mimeType: 'image/jpeg', size: 4, dataUrl: 'data:image/jpeg;base64,AAAA', description: 'a' },
+        { id: 'nova_image_02', name: 'i2', mimeType: 'image/jpeg', size: 4, dataUrl: 'data:image/jpeg;base64,BBBB', description: 'b' },
+      ],
+      banking: { startBalance: 2000, fixedExpenses: [{ label: 'Rent', amount: 900 }] },
+      social: { fotogramUsername: 'nova.r', onlyfriendsUsername: '' },
+    }],
+    phoneContacts: { blocked: [] },
+    openingHistory: { summary: '', turns: [], checkpoints: [], events: [] },
+  }));
+  const imageId = base0.characters[0].images[0].id;
+  return parseRpStorybookJson(JSON.stringify({
+    ...base0,
+    characters: base0.characters.map((character) => ({
+      ...character,
+      profileImage: { imageId, dataUrl: 'data:image/jpeg;base64,AAAA', crop: { x: 10, y: 10, size: 50 } },
+    })),
+    openingHistory: {
+      summary: 'Imported memory.',
+      turns: [{
+        id: 'opening-turn-1',
+        number: 1,
+        createdAt: new Date(0).toISOString(),
+        input: { graphText: '', messages: [{ id: 1, role: 'user', originalText: 'hi' }] },
+        output: { graphText: '', messages: [{ id: 2, role: 'output', originalText: 'hey' }] },
+      }],
+      checkpoints: [],
+      events: [],
+    },
+  }));
+}
+
+export function verifyRpStorybookEditorFixtures() {
+  const editorSettings = {
+    title: true,
+    introduction: true,
+    scenario: true,
+    characters: true,
+    openingHistory: false,
+    characterImages: false,
+  };
+  const base = editorTestStorybook();
+
+  // --- Formatted-text merge ---
+  const text = rpStorybookFormattedText(base, editorSettings);
+
+  // An unedited draft is a no-op: placeholders map to empty and multi-line prose
+  // (the character description) round-trips exactly.
+  const roundTrip = parseRpStorybookFormattedText(base, text);
+  assertFixture(
+    JSON.stringify(roundTrip.storybook) === JSON.stringify(base),
+    'applying an unedited Formatted Text draft must be a no-op',
+  );
+
+  // Narrative edits update those fields; unshown data is preserved.
+  const edited = parseRpStorybookFormattedText(
+    base,
+    text.replace('# Test Book', '# Edited Title').replace('An intro.', 'Edited intro.'),
+  );
+  assertFixture(
+    edited.storybook.title === 'Edited Title' && edited.storybook.introduction === 'Edited intro.',
+    'Formatted Text edits must update the narrative fields',
+  );
+  assertFixture(
+    edited.storybook.characters[0].images.length === 2 &&
+      JSON.stringify(edited.storybook.openingHistory) === JSON.stringify(base.openingHistory),
+    'Formatted Text edits must preserve images and Opening History',
+  );
+
+  // A missing labeled line preserves the field rather than clearing it.
+  const withoutRole = parseRpStorybookFormattedText(
+    base,
+    text.split('\n').filter((line) => !line.startsWith('Role:')).join('\n'),
+  );
+  assertFixture(
+    withoutRole.storybook.characters[0].role === base.characters[0].role,
+    'a missing labeled line must preserve the current field value',
+  );
+
+  // Character structure is never changed: extra blocks are not added, and a
+  // renamed block does not rename the character.
+  const withGhost = parseRpStorybookFormattedText(base, `${text}\n\nCharakter: Ghost\nRole: Phantom`);
+  assertFixture(
+    withGhost.storybook.characters.length === 1 && withGhost.warnings.length >= 1,
+    'Formatted Text must not add characters (unmatched blocks warn)',
+  );
+  const renamed = parseRpStorybookFormattedText(base, text.replace('Charakter: Nova', 'Charakter: Renamed'));
+  assertFixture(
+    renamed.storybook.characters[0].name === base.characters[0].name,
+    'Formatted Text must never rename a character',
+  );
+
+  // --- Raw JSON apply ---
+  const view = rpStorybookEditorJsonView(base);
+  assertFixture(
+    view.includes('[Data URL redacted:') && !view.includes('base64,AAAA'),
+    'the editable JSON view must redact binaries',
+  );
+
+  const applied = applyRpStorybookEditorJson(base, view);
+  assertFixture(!('error' in applied), 'applying the unedited JSON view must succeed');
+  if ('error' in applied) {
+    return;
+  }
+  assertFixture(
+    JSON.stringify(applied.storybook.openingHistory) === JSON.stringify(base.openingHistory),
+    'Raw JSON apply must restore Opening History wholesale',
+  );
+  assertFixture(
+    applied.storybook.characters[0].images[0].dataUrl === base.characters[0].images[0].dataUrl &&
+      applied.storybook.characters[0].voiceConfig?.sampleDataUrl === base.characters[0].voiceConfig?.sampleDataUrl &&
+      applied.storybook.characters[0].profileImage?.dataUrl === base.characters[0].profileImage?.dataUrl,
+    'Raw JSON apply must rehydrate redacted binaries by id',
+  );
+
+  // A redacted image whose id no longer matches the current storybook is dropped.
+  const droppedValue = JSON.parse(view) as { characters: Array<{ images: Array<{ id: string }> }> };
+  droppedValue.characters[0].images[0].id = 'ghost_image_99';
+  const withDropped = applyRpStorybookEditorJson(base, JSON.stringify(droppedValue));
+  assertFixture(
+    !('error' in withDropped) && withDropped.storybook.characters[0].images.length === 1,
+    'a redacted image whose id no longer matches must be dropped',
+  );
+
+  // Editing a non-binary value passes through.
+  const editValue = JSON.parse(view) as { characters: Array<{ description: string }> };
+  editValue.characters[0].description = 'Rewritten description.';
+  const withEdit = applyRpStorybookEditorJson(base, JSON.stringify(editValue));
+  assertFixture(
+    !('error' in withEdit) && withEdit.storybook.characters[0].description === 'Rewritten description.',
+    'edited non-binary JSON values must pass through',
+  );
+
+  // Renaming a character preserves its image content and profile image, with a warning.
+  const renameValue = JSON.parse(view) as { characters: Array<{ name: string }> };
+  renameValue.characters[0].name = 'Nova Reyes';
+  const withRename = applyRpStorybookEditorJson(base, JSON.stringify(renameValue));
+  assertFixture(
+    !('error' in withRename) &&
+      JSON.stringify(withRename.storybook.characters[0].images.map((image) => image.dataUrl)) ===
+        JSON.stringify(base.characters[0].images.map((image) => image.dataUrl)) &&
+      !!withRename.storybook.characters[0].profileImage &&
+      withRename.warnings.length >= 1,
+    'renaming a character must preserve image content and profile image (with a warning)',
+  );
+
+  // Invalid JSON / incompatible documents are rejected.
+  assertFixture('error' in applyRpStorybookEditorJson(base, '{not json'), 'invalid JSON must be rejected');
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify({ title: 'x' })),
+    'an incompatible document must be rejected',
+  );
+}
+
 verifyWorkflowValidationFixtures();
 verifyDirectAppActionPayloadFixtures();
 verifyCharacterStatDefinitionFixtures();
+verifyRpStorybookEditorFixtures();
 void verifyPromptRunFixtures();
 void verifyDirectActionsGraphFixture();
