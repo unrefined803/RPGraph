@@ -65,6 +65,7 @@ import {
   type WorkflowVariableSetCommand,
 } from '../workflow';
 import { formatPhoneInput, formatPhoneReplyInput } from '../chat/phoneReplies';
+import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import { nodesPreparedAfterOutput } from '../graph/edges';
 import {
   parseOutputActions,
@@ -312,21 +313,6 @@ type UseGraphRunOptions = Pick<
   setRunLlmReport: (report: RunLlmReport | null) => void;
   activeRunCancelReason: Ref<CancelReason>;
 };
-
-const rpPictureNamePattern = /^RP Picture (\d+)$/;
-
-function formatRpPictureName(index: number) {
-  return `RP Picture ${String(Math.max(1, index)).padStart(2, '0')}`;
-}
-
-function nextRpPictureName(messages: readonly MessageRecord[]) {
-  const existingNumbers = messages
-    .map((message) => message.rpImageName?.trim().match(rpPictureNamePattern)?.[1])
-    .filter((value): value is string => !!value)
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value));
-  return formatRpPictureName((existingNumbers.length ? Math.max(...existingNumbers) : 0) + 1);
-}
 
 function storybookImageAttachmentById(
   storybooksByNodeId: Map<string, RpStorybookV1>,
@@ -1472,7 +1458,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
       }
       const rpDisplayImageAttachment =
         !isPhoneMessage
-          ? storybookImageAttachmentById(storybooksByNodeId, parsedRpOutput.displayImageId)
+          ? storybookImageAttachmentById(storybooksByNodeId, parsedRpOutput.displayImageId) ??
+            rpPicturePhoneAttachment(
+              [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
+              parsedRpOutput.displayImageId,
+            )
           : undefined;
       if (!isPhoneMessage && parsedRpOutput.displayImageId && !rpDisplayImageAttachment) {
         reportRunWarning(
@@ -1731,10 +1721,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
           from: canonicalPhoneName(phoneCharacters, parsedPhoneMessage.from),
           to: canonicalPhoneName(phoneCharacters, parsedPhoneMessage.to),
         };
+        const outgoingRpPicture = rpPicturePhoneAttachment(
+          [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
+          canonicalParsedPhoneMessage.imageId,
+        );
         const phoneMessageId = appendPhoneMessage(
           {
             ...canonicalParsedPhoneMessage,
-            imageDescription: undefined,
+            imageId: outgoingRpPicture?.id ?? canonicalParsedPhoneMessage.imageId,
+            imageDescription: outgoingRpPicture?.description,
+            imageAttachments: outgoingRpPicture ? [outgoingRpPicture] : undefined,
             phoneImageCaptionChange,
           },
           phoneOutputSoundOverride ?? (isAutoTurn ? 'sent' : 'received'),
@@ -1879,9 +1875,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
             from: canonicalPhoneName(phoneCharacters, embeddedPhoneMessage.from),
             to: canonicalPhoneName(phoneCharacters, embeddedPhoneMessage.to),
           };
+          const outgoingRpPicture = rpPicturePhoneAttachment(
+            [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
+            canonicalEmbeddedPhoneMessage.imageId,
+          );
           const phoneMessageId = appendPhoneMessage(
             {
               ...canonicalEmbeddedPhoneMessage,
+              imageId: outgoingRpPicture?.id ?? canonicalEmbeddedPhoneMessage.imageId,
+              imageDescription: outgoingRpPicture?.description,
+              imageAttachments: outgoingRpPicture ? [outgoingRpPicture] : undefined,
               turnContext,
             },
             index === 0 ? 'received' : undefined,

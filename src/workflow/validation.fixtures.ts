@@ -87,6 +87,7 @@ import { parseOutputActions } from '../chat/outputActions';
 import { directAppActionJson } from '../chat/directAppActions';
 import { parseRpOutput } from '../chat/rpOutput';
 import { formatPhoneInput } from '../chat/phoneReplies';
+import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import {
   mergePhoneAppRecordsByCharacter,
   normalizeChatGpdChatsByCharacter,
@@ -969,6 +970,16 @@ export function verifyWorkflowValidationFixtures() {
       markedInputAndReferencePrompt.includes('[Attached input image Nr2: new_image_01 - Newest image.]') &&
       !markedInputAndReferencePrompt.includes('[emily_miller_image_15] Or'),
     'input image markers must be inserted before reference image markers and follow LLM image order',
+  );
+  assertFixture(
+    promptWithImageAttachmentMarkers('Helga takes a picture.', [{
+      id: 'temporary-upload-id',
+      name: 'RP_Picture_01',
+      mimeType: 'image/jpeg',
+      size: 1,
+      dataUrl: 'data:image/jpeg;base64,rp-picture',
+    }]).includes('[Attached input image Nr1: RP_Picture_01]'),
+    'RP picture prompt markers must expose the stable underscored name instead of the temporary upload id',
   );
   const actionImage = {
     id: 'action_image_01',
@@ -2308,6 +2319,16 @@ export function verifyWorkflowValidationFixtures() {
     'current phone input must distinguish text, uploaded images, and referenced Storybook images',
   );
   assertFixture(
+    nextRpPictureName([]) === 'RP_Picture_01' &&
+      nextRpPictureName([{
+        id: 0,
+        role: 'user',
+        originalText: '',
+        rpImageName: 'RP Picture 01',
+      }]) === 'RP_Picture_02',
+    'new RP uploads must receive stable underscored picture names',
+  );
+  assertFixture(
     formatChatHistory([{
       id: 1,
       role: 'user',
@@ -2330,8 +2351,31 @@ export function verifyWorkflowValidationFixtures() {
       }],
       rpImageDescription: 'Ryan and Espen stand close at the party, caught in obvious romantic tension while Helga teases them.',
       rpImageName: 'RP Picture 01',
-    }], false) === '[RP Picture 01: Ryan and Espen stand close at the party, caught in obvious romantic tension while Helga teases them.] Helga looks at the picture she took last week.',
+    }], false) === '[RP_Picture_01: Ryan and Espen stand close at the party, caught in obvious romantic tension while Helga teases them.] Helga looks at the picture she took last week.',
     'chat history must render described RP input images with stable RP picture names',
+  );
+  const rpPictureAttachment = rpPicturePhoneAttachment([{
+    id: 2,
+    role: 'user',
+    originalText: 'Helga takes a better picture.',
+    channel: 'rp',
+    imageAttachments: [{
+      id: 'image-temporary-456',
+      name: 'RP_Picture_02',
+      mimeType: 'image/jpeg',
+      size: 1,
+      dataUrl: 'data:image/jpeg;base64,BB==',
+    }],
+    rpImageName: 'RP_Picture_02',
+    rpImageDescription: 'Espen poses in the living room while Helga takes a polished photo for Jack.',
+  }], 'RP_Picture_2');
+  assertFixture(
+    rpPictureAttachment?.id === 'RP_Picture_02' &&
+      rpPictureAttachment.name === 'RP_Picture_02' &&
+      rpPictureAttachment.description ===
+        'Espen poses in the living room while Helga takes a polished photo for Jack.' &&
+      rpPicturePhoneAttachment([], 'RP_Picture_02') === undefined,
+    'normal RP picture references must resolve to stable phone Gallery attachments',
   );
   assertFixture(
     formatChatHistory([{
@@ -3087,6 +3131,52 @@ export function verifyWorkflowValidationFixtures() {
     width: 100,
     height: 80,
   };
+  const rpPictureSourceResult = withImagesEnsuredForStorybookCharacter(
+    imageTransferStorybook,
+    'lara_miller',
+    [{ ...sharedAttachment, id: 'RP_Picture_01', name: 'RP_Picture_01' }],
+    'Lara takes a new picture during the scene.',
+  );
+  const rpPictureRecipientResult = withImagesEnsuredForStorybookCharacter(
+    rpPictureSourceResult.storybook,
+    'robert_miller',
+    rpPictureSourceResult.images.map((image) => ({
+      id: image.id,
+      name: image.name,
+      mimeType: image.mimeType,
+      size: image.size,
+      dataUrl: image.dataUrl,
+      width: image.width,
+      height: image.height,
+    })),
+    'Lara takes a new picture during the scene.',
+    { receivedFrom: 'Lara Miller' },
+  );
+  const repeatedRpPictureRecipientResult = withImagesEnsuredForStorybookCharacter(
+    rpPictureRecipientResult.storybook,
+    'robert_miller',
+    rpPictureSourceResult.images.map((image) => ({
+      id: image.id,
+      name: image.name,
+      mimeType: image.mimeType,
+      size: image.size,
+      dataUrl: image.dataUrl,
+    })),
+    'Lara takes a new picture during the scene.',
+    { receivedFrom: 'Lara Miller' },
+  );
+  const storedRpPictureSource = rpPictureRecipientResult.storybook.characters[0]?.images[0];
+  const storedRpPictureRecipient = rpPictureRecipientResult.storybook.characters[1]?.images[0];
+  assertFixture(
+    storedRpPictureSource?.id === 'RP_Picture_01' &&
+      storedRpPictureSource.name === 'RP_Picture_01' &&
+      !storedRpPictureSource.receivedFrom &&
+      storedRpPictureRecipient?.id === 'RP_Picture_01' &&
+      storedRpPictureRecipient.receivedFrom === 'Lara Miller' &&
+      repeatedRpPictureRecipientResult.addedCount === 0 &&
+      repeatedRpPictureRecipientResult.storybook.characters[1]?.images.length === 1,
+    'sent RP pictures must keep their identity, receivedFrom link, and deduplication',
+  );
   const senderImageResult = withImagesEnsuredForStorybookCharacter(
     imageTransferStorybook,
     'lara_miller',
@@ -4117,7 +4207,7 @@ async function verifyPromptRunFixtures() {
     inputValue: 'Helga shows the picture.',
     images: [{
       id: 'img-1',
-      name: 'RP Picture 01',
+      name: 'RP_Picture_01',
       mimeType: 'image/png',
       size: 1,
       dataUrl: 'data:image/png;base64,a',

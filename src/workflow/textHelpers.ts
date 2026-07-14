@@ -18,6 +18,7 @@ import {
   createdPhoneNoteHistoryText,
   simulatedAiChatHistoryText,
 } from '../chat/phoneAppsSessions';
+import { rpPictureGalleryId } from '../chat/rpPictures';
 
 function withPhoneAppCommandHistory(text: string, message: MessageRecord) {
   const trimmedText = text.trim();
@@ -67,7 +68,7 @@ function includeImageContext(text: string, imageDescription?: string, imageName?
   if (!imageDescription) {
     return text;
   }
-  const imageLabel = imageName?.trim() || 'Image';
+  const imageLabel = rpPictureGalleryId(imageName) ?? (imageName?.trim() || 'Image');
   const imageContext = `[${imageLabel}: ${imageDescription}]`;
   const speakerPrefix = text.match(/^([^:\n]+:\s*)([\s\S]*)$/);
   return speakerPrefix

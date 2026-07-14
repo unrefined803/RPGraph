@@ -49,7 +49,7 @@ function rpOutputMetadata(metadata: unknown) {
   };
 }
 
-function trailingRpImageMetadata(value: string) {
+function trailingRpImageMetadataObject(value: string) {
   const text = value.trimEnd();
   if (!text.endsWith('}')) {
     return undefined;
@@ -74,6 +74,24 @@ function trailingRpImageMetadata(value: string) {
     }
   }
   return undefined;
+}
+
+function trailingRpImageMetadata(value: string) {
+  // The command pass and the after-reply caption action can each append their
+  // own metadata object, so the reply may end with several standalone JSON
+  // objects. Strip them one by one; the object closest to the end wins when
+  // the same field appears twice.
+  let merged: { imageDescription?: string; displayImageId?: string; story: string } | undefined;
+  let remaining = value;
+  for (
+    let trailing = trailingRpImageMetadataObject(remaining);
+    trailing;
+    trailing = trailingRpImageMetadataObject(remaining)
+  ) {
+    merged = { ...trailing, ...merged, story: trailing.story };
+    remaining = trailing.story;
+  }
+  return merged;
 }
 
 export function parseRpOutput(value: string): ParsedRpOutput {

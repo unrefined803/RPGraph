@@ -1,5 +1,6 @@
 import { parseNodeStorybookJson } from '../nodes/rp-storybook-v1/model';
 import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
+import { rpPictureGalleryId } from './rpPictures';
 
 export type ReferenceImageOptions = {
   enabled: boolean;
@@ -208,9 +209,9 @@ function escapeRegExp(text: string) {
 
 function referenceImageMarker(reference: ReferenceImage, imageNumber = reference.index) {
   const friendlyName = reference.attachment.name.trim();
-  const imageId = friendlyName.startsWith('RP Picture ')
-    ? friendlyName
-    : reference.imageId || reference.attachment.id || friendlyName;
+  const imageId = rpPictureGalleryId(friendlyName) ?? (
+    reference.imageId || reference.attachment.id || friendlyName
+  );
   const caption = reference.caption?.trim();
   return `[Attached input image Nr${imageNumber}: ${imageId}${caption ? ` - ${caption}` : ''}]`;
 }

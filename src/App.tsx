@@ -4663,7 +4663,9 @@ function App() {
       from: canonicalPhoneName(phoneCharacters, message.from),
       to: canonicalPhoneName(phoneCharacters, message.to),
     };
-    const storybookImage = storybookPhoneImageAttachment(canonicalMessage);
+    const storybookImage = canonicalMessage.imageAttachments?.length
+      ? undefined
+      : storybookPhoneImageAttachment(canonicalMessage);
     const sourceImageAttachments = canonicalMessage.imageAttachments?.length
       ? canonicalMessage.imageAttachments
       : storybookImage

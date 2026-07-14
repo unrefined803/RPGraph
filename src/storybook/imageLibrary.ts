@@ -1,4 +1,5 @@
 import type { ChatImageAttachment, MessageRecord } from '../types';
+import { isRpPictureGalleryId } from '../chat/rpPictures';
 import {
   nextStorybookCharacterImageId,
   storybookCharacterImageOwnerIdBase,
@@ -262,6 +263,7 @@ export function withImagesEnsuredForStorybookCharacter(
   const usedImageIds = new Set(storybook.characters.flatMap((entry) => entry.images.map((image) => image.id)));
   const ownerBase = storybookCharacterImageOwnerIdBase(character.name, character.id);
   const nextImages = [...character.images];
+  const allImages = storybook.characters.flatMap((entry) => entry.images);
   const trimmedDescription = description.trim();
   const receivedFrom = options.receivedFrom?.trim();
   const imageAccess = options.imageAccess === true;
@@ -308,7 +310,10 @@ export function withImagesEnsuredForStorybookCharacter(
       return;
     }
 
-    const receivedIdentity = receivedFrom || imageAccess
+    const rpPictureIdentityAvailable = isRpPictureGalleryId(image.id) && !allImages.some(
+      (entry) => entry.id === image.id.trim() && entry.dataUrl !== image.dataUrl,
+    );
+    const receivedIdentity = receivedFrom || imageAccess || rpPictureIdentityAvailable
       ? receivedImageIdentity(image, nextImages)
       : undefined;
     const id = receivedIdentity?.id ?? nextStorybookCharacterImageId(ownerBase, nextImages, usedImageIds);

@@ -224,6 +224,7 @@ export const describeInputImageAfterReplyInstruction = [
   'Describe who is likely shown, pose, expression, clothing, setting, action, mood, and why the moment matters in the scene. Combine visible image details with the chat history and the RP reply.',
   'If nudity, exposed genitals, breasts, nipples, ass, sexual body parts, revealing or tight clothing, partial or complete undress, or erotic atmosphere is visible, name it directly and neutrally.',
   'The caption is hidden scene metadata for the chat history, not a phone image, not a gallery entry, and not an outgoing attachment. Do not write story text, explanations, or any other JSON.',
+  'Never wrap the JSON in ``` code fences (markdown code blocks) — output the raw JSON object directly.',
 ].join('\n');
 
 const previousUpdatePhoneImageCaptionAfterReplyDecisionRules = [
@@ -283,6 +284,7 @@ export const updatePhoneImageCaptionAfterReplyInstruction = [
   'If the image label shows an imageId but no caption yet, always use imageAction "update" with that exact imageId and write its first caption.',
   updatePhoneImageCaptionAfterReplyDecisionRules,
   updatePhoneImageCaptionAfterReplyWritingRule,
+  'Never wrap the JSON in ``` code fences (markdown code blocks) — output the raw JSON object directly.',
 ].join('\n');
 
 const previousCreateImageInstruction = [
