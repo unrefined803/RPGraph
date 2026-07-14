@@ -435,7 +435,32 @@ export async function runActionAwarePrompt({
       label: actionReplay ? `Action replay ${actionReplayCount} output` : 'Initial action output',
       text: output.text,
     });
-    const actionRequest = parsePromptActionRequest(output.text);
+    let actionRequest = parsePromptActionRequest(output.text);
+    if (!actionRequest) {
+      // Models sometimes request an image action through the command syntax
+      // ("[commands: create_image]") instead of the action JSON. Recover by
+      // treating it as an action request; the drafted reply becomes the plan
+      // and is rewritten in the replay pass with the action result available.
+      const commandStyleRequest = parsePromptCommandRequest(output.text);
+      const requestedActionId = commandStyleRequest?.names
+        .map((name) => knownPromptActionId(name))
+        .find((actionId): actionId is 'getImageId' | 'createImage' =>
+          (actionId === 'getImageId' || actionId === 'createImage') &&
+          preReplyActionConfigs.some(
+            (candidate) =>
+              candidate.actionId === actionId &&
+              !actionResults.has(promptActionKey(candidate.title)),
+          ),
+        );
+      if (commandStyleRequest && requestedActionId) {
+        actionRequest = {
+          action: requestedActionId,
+          plan: commandStyleRequest.reply
+            ? `Draft reply from the first pass (it is discarded and rewritten once the action result is available):\n${commandStyleRequest.reply}`
+            : '',
+        };
+      }
+    }
     let actionCall: ReturnType<typeof parsePromptActionCall>;
     let actionConfig: PromptActionConfig | undefined;
     if (actionRequest) {

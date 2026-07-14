@@ -89,6 +89,7 @@ export type EmbeddedPhoneMessagesResult = {
   textBefore: string;
   textAfter: string;
   phoneMessages: ParsedPhoneMessage[];
+  phoneImageActions: ParsedPhoneImageAction[];
   bankTransfers: BankTransferRecord[];
   socialPostComments: ParsedSocialPostComment[];
   socialDirectMessages: ParsedIncomingSocialDirectMessage[];
@@ -577,6 +578,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     start: number;
     end: number;
     phoneMessages: ParsedPhoneMessage[];
+    phoneImageActions: ParsedPhoneImageAction[];
     bankTransfers: BankTransferRecord[];
     socialPostComments: ParsedSocialPostComment[];
     socialDirectMessages: ParsedIncomingSocialDirectMessage[];
@@ -590,6 +592,12 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     try {
       const parsed = JSON.parse(candidate) as unknown;
       const phoneMessages = parseEmbeddedPhoneMessagesObject(parsed);
+      // A standalone caption action object emitted after an embedded phone
+      // message (e.g. from the create image action's second JSON object).
+      const phoneImageAction = isRecord(parsed) && parsed.imageAction !== undefined
+        ? parsePhoneImageActionRecord(parsed)
+        : undefined;
+      const phoneImageActions = phoneImageAction ? [phoneImageAction] : [];
       const bankTransfers = parseEmbeddedBankTransfersObject(parsed);
       const socialPostComments = parseEmbeddedSocialPostCommentsObject(parsed);
       const socialDirectMessages = parseIncomingSocialDirectMessagesObject(parsed);
@@ -605,6 +613,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       const createdPhoneNotes = createdPhoneNote ? [createdPhoneNote] : [];
       if (
         phoneMessages.length > 0 ||
+        phoneImageActions.length > 0 ||
         bankTransfers.length > 0 ||
         socialPostComments.length > 0 ||
         socialDirectMessages.length > 0 ||
@@ -614,6 +623,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
         parsedRanges.push({
           ...expandJsonFenceRange(value, range),
           phoneMessages,
+          phoneImageActions,
           bankTransfers,
           socialPostComments,
           socialDirectMessages,
@@ -638,6 +648,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       .join('\n\n');
     const text = [textBefore, textAfter].filter(Boolean).join('\n\n');
     const phoneMessages = parsedRanges.flatMap((range) => range.phoneMessages);
+    const phoneImageActions = parsedRanges.flatMap((range) => range.phoneImageActions);
     const bankTransfers = parsedRanges.flatMap((range) => range.bankTransfers);
     const socialPostComments = parsedRanges.flatMap((range) => range.socialPostComments);
     const socialDirectMessages = parsedRanges.flatMap((range) => range.socialDirectMessages);
@@ -648,6 +659,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       textBefore,
       textAfter,
       phoneMessages,
+      phoneImageActions,
       bankTransfers,
       socialPostComments,
       socialDirectMessages,
@@ -668,6 +680,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     textBefore: value.trim(),
     textAfter: '',
     phoneMessages: [],
+    phoneImageActions: [],
     bankTransfers: [],
     socialPostComments: [],
     socialDirectMessages: [],
@@ -692,7 +705,8 @@ function stripIncompleteEmbeddedJsonTail(value: string) {
       tail.includes('"fotogramDirectMessages"') ||
       tail.includes('"onlyFriendsDirectMessages"') ||
       tail.includes('"aiAssistantChat"') ||
-      tail.includes('"phoneNote"')
+      tail.includes('"phoneNote"') ||
+      tail.includes('"imageAction"')
     ) {
       const start = expandJsonFenceRange(value, {
         start: openObjectStart,

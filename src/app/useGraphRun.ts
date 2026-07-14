@@ -1488,6 +1488,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               textBefore: parsedRpOutput.story,
               textAfter: '',
               phoneMessages: [],
+              phoneImageActions: [],
               bankTransfers: [],
               socialPostComments: [],
               socialDirectMessages: [],
@@ -1850,6 +1851,21 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const allCreatedPhoneNoteCommits = [...createdPhoneNoteCommits, ...directCreatedPhoneNoteCommits];
       const allSimulatedAiChatCommits = [...simulatedAiChatCommits, ...directSimulatedAiChatCommits];
       const appliedActions = mergeOutputActions(outputActions, directActions);
+      if (!isPhoneMessage) {
+        for (const embeddedImageAction of embeddedPhoneResult.phoneImageActions) {
+          const targetPhoneMessage = embeddedPhoneResult.phoneMessages.find(
+            (message) => message.imageId?.trim() === embeddedImageAction.imageId.trim(),
+          );
+          const embeddedCaptionChange = applyPhoneImageActionFromLlm(
+            embeddedImageAction,
+            phoneReplyTo,
+            targetPhoneMessage?.imageId,
+          );
+          if (targetPhoneMessage && embeddedCaptionChange) {
+            targetPhoneMessage.phoneImageCaptionChange = embeddedCaptionChange;
+          }
+        }
+      }
       const embeddedPhoneMessages: EmbeddedPhoneMessageLink[] = [];
       if (embeddedPhoneResult.phoneMessages.length > 0) {
         for (const [index, embeddedPhoneMessage] of embeddedPhoneResult.phoneMessages.entries()) {
