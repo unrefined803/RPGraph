@@ -31,7 +31,7 @@ The project describes itself in `package.json` as:
 
 > Local-first node graph studio for roleplay workflows.
 
-The current UI labels the product as `RPgraph Studio v0.4.7 Beta`.
+The current UI labels the product as `RPgraph Studio v0.4.8 Beta`.
 
 ## Main Interface
 
