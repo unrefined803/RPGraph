@@ -572,6 +572,8 @@ export const defaultGetImagesResultTemplate = [
   defaultGetImagesResultLineTemplate,
   '',
   'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
+  'If no returned image fits and the Create character phone image action is shown elsewhere in the current prompt, call that action before writing the final reply. The action is available only when it is shown.',
+  'If that action is not shown, continue naturally without an image. Do not mention the missing image, force an unrelated photo into the reply, or steer the roleplay away from its current topic.',
 ].join('\n');
 
 export const defaultUpdatePhoneImageCaptionResultTemplate = [
@@ -659,6 +661,13 @@ const previousCreateImageResultTemplates = new Set([
 ]);
 
 const previousGetImagesResultTemplates = new Set([
+  [
+    'Action executed: get character phone image list.',
+    'Found images for tags: {{tags}}',
+    '* {{imageReference}}: {{imageId}} : {{imageText}} : Image shown to: {{imageShownTo}}',
+    '',
+    'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
+  ].join('\n'),
   [
     'Action executed: get character phone image list.',
     'Found images for tags: {{tags}}',
@@ -750,7 +759,7 @@ export function defaultPromptActionConfig(
     actionId,
     maxReturnedImages: actionId === 'getImageId' ? 3 : 5,
     sendImagesToLlm: sendsImagesByDefault,
-    hideImageTextWhenSendingToLlm: sendsImagesByDefault,
+    hideImageTextWhenSendingToLlm: false,
     manageModelMemoryForComfy: true,
     runAfterReply: defaultPromptActionRunAfterReply(actionId),
     comfyProviderId: '',
@@ -776,7 +785,7 @@ function normalizedPromptActionRuntimeConfig(
     hideImageTextWhenSendingToLlm: sendImagesToLlm && (
       typeof value?.hideImageTextWhenSendingToLlm === 'boolean'
         ? value.hideImageTextWhenSendingToLlm
-        : actionId === 'getImageId'
+        : false
     ),
     manageModelMemoryForComfy: actionId === 'createImage' && typeof value?.manageModelMemoryForComfy === 'boolean'
       ? value.manageModelMemoryForComfy
@@ -896,7 +905,7 @@ export function normalizePromptActionConfig(
     hideImageTextWhenSendingToLlm: sendImagesToLlm && (
       typeof record.hideImageTextWhenSendingToLlm === 'boolean'
         ? record.hideImageTextWhenSendingToLlm
-        : actionId === 'getImageId'
+        : false
     ),
     manageModelMemoryForComfy: typeof record.manageModelMemoryForComfy === 'boolean'
       ? record.manageModelMemoryForComfy

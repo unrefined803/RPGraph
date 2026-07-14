@@ -143,6 +143,7 @@ import {
   parsePromptActionRequest,
   promptActionConfigs,
   promptActionInstructionText,
+  promptActionRuntimeSettings,
   replacePromptActionTitle,
   unwrapJsonCodeFence,
 } from '../nodes/shared/promptActions';
@@ -1283,12 +1284,28 @@ export function verifyWorkflowValidationFixtures() {
     'prompt action image limits must clamp to the supported 1 through 20 range',
   );
   const getImageIdDefaults = defaultPromptActionConfig('Get character phone image list', 'getImageId');
+  const normalizedGetImageIdDefaults = promptActionConfigs([{
+    title: 'Get character phone image list',
+    actionId: 'getImageId',
+    preset: 'default',
+  }])[0];
+  const getImageIdRuntimeDefaults = promptActionRuntimeSettings({
+    getImageId: { sendImagesToLlm: true },
+  }).getImageId;
   assertFixture(
     getImageIdDefaults.maxReturnedImages === 3 &&
       getImageIdDefaults.sendImagesToLlm &&
-      getImageIdDefaults.hideImageTextWhenSendingToLlm &&
-      getImageIdDefaults.resultTemplate.includes('Image shown to: {{imageShownTo}}'),
-    'get image id prompt action defaults must send three hidden-text images and report prior recipients',
+      !getImageIdDefaults.hideImageTextWhenSendingToLlm &&
+      normalizedGetImageIdDefaults?.maxReturnedImages === 3 &&
+      normalizedGetImageIdDefaults.sendImagesToLlm &&
+      !normalizedGetImageIdDefaults.hideImageTextWhenSendingToLlm &&
+      getImageIdRuntimeDefaults?.sendImagesToLlm === true &&
+      getImageIdRuntimeDefaults.hideImageTextWhenSendingToLlm === false &&
+      getImageIdDefaults.resultTemplate.includes('Image shown to: {{imageShownTo}}') &&
+      getImageIdDefaults.resultTemplate.includes('Create character phone image action is shown elsewhere') &&
+      getImageIdDefaults.resultTemplate.includes('continue naturally without an image') &&
+      getImageIdDefaults.resultTemplate.includes('steer the roleplay away from its current topic'),
+    'get image id prompt action defaults must send three captioned images, report recipients, offer available image generation, and preserve the current roleplay topic',
   );
   const updatePhoneImageCaptionDefaults = defaultPromptActionConfig(
     'Update phone image caption',
@@ -3985,10 +4002,7 @@ async function verifyPromptRunFixtures() {
   } as unknown as ExecuteContext;
   const imageListResult = await executePromptAction(
     imageListContext,
-    {
-      ...defaultPromptActionConfig('Get character phone image list', 'getImageId'),
-      hideImageTextWhenSendingToLlm: false,
-    },
+    defaultPromptActionConfig('Get character phone image list', 'getImageId'),
     {
       action: 'getImageId',
       characters: 'Sarah Miller',
@@ -3998,7 +4012,10 @@ async function verifyPromptRunFixtures() {
   );
   const hiddenImageTextResult = await executePromptAction(
     imageListContext,
-    defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+    {
+      ...defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+      hideImageTextWhenSendingToLlm: true,
+    },
     {
       action: 'getImageId',
       characters: 'Sarah Miller',
