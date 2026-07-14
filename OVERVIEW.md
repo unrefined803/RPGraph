@@ -88,7 +88,7 @@ Prompt Actions are internal helper calls that can be inserted into an LLM prompt
 
 After-reply caption actions remain separate focused passes because their instructions depend on the already completed visible reply.
 
-This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries, caption actions return a compact JSON record for the latest incoming phone image, and Create character phone image actions generate and store a new outgoing character phone image through ComfyUI before replaying the prompt.
+This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries and identify earlier recipients of each match so the model does not resend the same photo to them. Caption actions return a compact JSON record for the latest incoming phone image, and Create character phone image actions generate and store a new outgoing character phone image through ComfyUI before replaying the prompt.
 
 ## Phone And JSON Outputs
 

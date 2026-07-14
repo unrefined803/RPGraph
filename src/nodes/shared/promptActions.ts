@@ -1,4 +1,4 @@
-import type { ChatImageAttachment, ProviderConnectionHealth, WorkflowNode } from '../../types';
+import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { createComfyImageForCharacter } from '../runScratch';
 import { storybookImageListsFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
@@ -60,6 +60,7 @@ type ActionImageResult = {
   imageId: string;
   caption: string;
   characterName: string;
+  shownTo: string[];
   score: number;
   attachment: ChatImageAttachment;
 };
@@ -512,12 +513,14 @@ const previousGetImagesLlmInstructions = new Set([
   ].join('\n'),
 ]);
 
-const defaultGetImagesResultLineTemplate = '* {{imageReference}}: {{imageId}} : {{imageText}}';
+const defaultGetImagesResultLineTemplate = '* {{imageReference}}: {{imageId}} : {{imageText}} : Image shown to: {{imageShownTo}}';
 
 export const defaultGetImagesResultTemplate = [
   'Action executed: get character phone image list.',
   'Found images for tags: {{tags}}',
   defaultGetImagesResultLineTemplate,
+  '',
+  'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
 ].join('\n');
 
 export const defaultUpdatePhoneImageCaptionResultTemplate = [
@@ -606,8 +609,13 @@ const previousCreateImageResultTemplates = new Set([
 
 const previousGetImagesResultTemplates = new Set([
   [
+    'Action executed: get character phone image list.',
+    'Found images for tags: {{tags}}',
+    '* {{imageReference}}: {{imageId}} : {{imageText}}',
+  ].join('\n'),
+  [
     'Found Images: {{tags}}',
-    defaultGetImagesResultLineTemplate,
+    '* {{imageReference}}: {{imageId}} : {{imageText}}',
     '',
     'Use a returned imageId as sendImageId only if that image fits the replying/sending character and would feel natural in-character as an outgoing stored phone attachment.',
     'For Normal RP, you may instead display exactly one returned image in the Chat tab without sending a phone message. Add one hidden metadata object to the final RP output: {"displayImageId":"returned_image_id"}',
@@ -617,7 +625,7 @@ const previousGetImagesResultTemplates = new Set([
   ].join('\n'),
   [
     'Found Images: {{tags}}',
-    defaultGetImagesResultLineTemplate,
+    '* {{imageReference}}: {{imageId}} : {{imageText}}',
     '',
     'Use a returned imageId as sendImageId only if that image fits the replying/sending character and would feel natural in-character as an outgoing stored phone attachment.',
     'Prefer images that belong to the sender, or image IDs established in recent phone/photo history. Only use another character\'s image ID if recent context clearly makes it available, such as forwarded, shared, saved, or plausibly obtained.',
@@ -1500,15 +1508,67 @@ function tagScore(caption: string, words: string[]) {
   );
 }
 
+function addImageRecipient(
+  recipientsByImageId: Map<string, Map<string, string>>,
+  imageId: string,
+  recipientName: string,
+) {
+  const normalizedImageId = imageId.trim();
+  const normalizedRecipientName = recipientName.trim();
+  if (!normalizedImageId || !normalizedRecipientName) {
+    return;
+  }
+  const recipients = recipientsByImageId.get(normalizedImageId) ?? new Map<string, string>();
+  const recipientKey = normalizedSearchText(normalizedRecipientName);
+  if (recipientKey && !recipients.has(recipientKey)) {
+    recipients.set(recipientKey, normalizedRecipientName);
+  }
+  recipientsByImageId.set(normalizedImageId, recipients);
+}
+
+function imageRecipientsById(
+  imageLists: ReturnType<typeof storybookImageListsFromNodes>,
+  historyMessages: MessageRecord[],
+) {
+  const recipientsByImageId = new Map<string, Map<string, string>>();
+  imageLists.forEach((imageList) => {
+    imageList.images.forEach((image) => {
+      if (image.receivedFrom) {
+        addImageRecipient(recipientsByImageId, image.id, imageList.name);
+      }
+    });
+  });
+  historyMessages.forEach((message) => {
+    const recipientName = message.phoneTo?.trim();
+    if (!recipientName || (message.channel !== 'phone' && !message.phoneMessage)) {
+      return;
+    }
+    const imageIds = [
+      ...(message.phoneImageIds ?? []),
+      ...(message.imageAttachments?.map((image) => image.id) ?? []),
+    ];
+    imageIds.forEach((imageId) => addImageRecipient(recipientsByImageId, imageId, recipientName));
+  });
+  return new Map(
+    [...recipientsByImageId].map(([imageId, recipients]) => [
+      imageId,
+      [...recipients.values()].sort((left, right) => left.localeCompare(right)),
+    ]),
+  );
+}
+
 function findGetImagesResults(
   nodes: WorkflowNode[],
+  historyMessages: MessageRecord[],
   call: ParsedPromptActionCall,
   maxReturnedImages: number,
 ): ActionImageResult[] {
   const requestedCharacters = splitCommaList(call.characters ?? '');
   const requestedTags = splitCommaList(call.tags ?? '');
   const words = searchWords(requestedTags);
-  const lists = storybookImageListsFromNodes(nodes).filter((imageList) =>
+  const imageLists = storybookImageListsFromNodes(nodes);
+  const recipientsByImageId = imageRecipientsById(imageLists, historyMessages);
+  const lists = imageLists.filter((imageList) =>
     requestedCharacters.length === 0 ||
     requestedCharacters.some((characterName) => namesMatch(imageList.name, characterName)),
   );
@@ -1518,6 +1578,7 @@ function findGetImagesResults(
         imageId: image.id,
         caption: image.description,
         characterName: imageList.name,
+        shownTo: recipientsByImageId.get(image.id) ?? [],
         score: tagScore(image.description, words),
         attachment: {
           id: image.id,
@@ -1543,9 +1604,9 @@ function findGetImagesResults(
 }
 
 const imageTemplateTokenPattern =
-  /\{\{(imageReference|imageReferences|imageId|imageIdTag|imageId_tag|imageTag|imageTags|caption|imageText)\}\}/g;
+  /\{\{(imageReference|imageReferences|imageId|imageIdTag|imageId_tag|imageTag|imageTags|caption|imageText|imageShownTo)\}\}/g;
 const imageTemplateLinePattern =
-  /\{\{(?:imageReference|imageReferences|imageId|imageIdTag|imageId_tag|imageTag|imageTags|caption|imageText)\}\}/;
+  /\{\{(?:imageReference|imageReferences|imageId|imageIdTag|imageId_tag|imageTag|imageTags|caption|imageText|imageShownTo)\}\}/;
 
 function noMatchingImagesLine() {
   return '* No matching stored Storybook character images were found for the requested characters and tags.';
@@ -1560,10 +1621,14 @@ function imageTextValue(result: ActionImageResult, hideImageText: boolean) {
   return !hideImageText ? imageText : '';
 }
 
+function imageShownToValue(result: ActionImageResult) {
+  return result.shownTo.length ? result.shownTo.join(', ') : 'No one yet';
+}
+
 function formatImageLine(result: ActionImageResult, index: number, includeImageOrderLabels: boolean, hideImageText: boolean) {
   const imageReference = imageReferenceLabel(index, includeImageOrderLabels);
   const imageText = imageTextValue(result, hideImageText);
-  return `* ${imageReference}: ${result.imageId}${imageText ? ` : ${imageText}` : ''}`;
+  return `* ${imageReference}: ${result.imageId}${imageText ? ` : ${imageText}` : ''} : Image shown to: ${imageShownToValue(result)}`;
 }
 
 function imageTemplateValue(
@@ -1581,6 +1646,8 @@ function imageTemplateValue(
       return result.imageId;
     case 'imageText':
       return imageTextValue(result, hideImageText);
+    case 'imageShownTo':
+      return imageShownToValue(result);
     case 'imageIdTag':
     case 'imageId_tag':
     case 'imageTag':
@@ -1599,7 +1666,10 @@ function renderImageTemplateLine(
   includeImageOrderLabels: boolean,
   hideImageText: boolean,
 ) {
-  const rendered = line.replace(imageTemplateTokenPattern, (_match, tokenName: string) =>
+  const preparedLine = hideImageText
+    ? line.replace(/[ \t]*:[ \t]*\{\{(?:imageText|imageIdTag|imageId_tag|imageTag|imageTags|caption)\}\}/g, '')
+    : line;
+  const rendered = preparedLine.replace(imageTemplateTokenPattern, (_match, tokenName: string) =>
     imageTemplateValue(tokenName, result, index, includeImageOrderLabels, hideImageText),
   );
   return rendered.replace(/[ \t:=-]+$/g, '').trimEnd();
@@ -1746,7 +1816,7 @@ export async function executePromptAction(
       images: options.visionEnabled !== false && generatedImage ? [generatedImage] : [],
     };
   }
-  const results = findGetImagesResults(context.nodes, call, config.maxReturnedImages);
+  const results = findGetImagesResults(context.nodes, context.historyMessages, call, config.maxReturnedImages);
   const sendImagesToLlm = options.visionEnabled !== false && config.sendImagesToLlm;
   const resultConfig = sendImagesToLlm === config.sendImagesToLlm
     ? config

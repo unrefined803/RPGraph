@@ -108,6 +108,7 @@ function promptActionTemplateVariableStatuses(
     imageReference: imageReferenceStatus,
     imageReferences: imageReferenceStatus,
     imageText: imageTextStatus,
+    imageShownTo: 'active',
     imageIdTag: imageTextStatus,
     imageId_tag: imageTextStatus,
     imageTag: imageTextStatus,

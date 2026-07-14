@@ -137,6 +137,7 @@ import {
   defaultCreateImageResultTemplate,
   defaultPromptActionConfig,
   countPromptActionUses,
+  executePromptAction,
   knownPromptActionId,
   parsePromptActionCall,
   parsePromptActionRequest,
@@ -1285,8 +1286,9 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     getImageIdDefaults.maxReturnedImages === 3 &&
       getImageIdDefaults.sendImagesToLlm &&
-      getImageIdDefaults.hideImageTextWhenSendingToLlm,
-    'get image id prompt action defaults must send three hidden-text images to the LLM',
+      getImageIdDefaults.hideImageTextWhenSendingToLlm &&
+      getImageIdDefaults.resultTemplate.includes('Image shown to: {{imageShownTo}}'),
+    'get image id prompt action defaults must send three hidden-text images and report prior recipients',
   );
   assertFixture(
     countPromptActionUses([
@@ -3873,6 +3875,101 @@ export function verifyWorkflowValidationFixtures() {
 }
 
 async function verifyPromptRunFixtures() {
+  const sentImageId = 'sarah_miller_image_01';
+  const sentImageDataUrl = 'data:image/jpeg;base64,a';
+  const imageListContext = {
+    nodes: [{
+      id: 'fixture-storybook-images',
+      type: 'workflow',
+      position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'rp-storybook-v1',
+        storybookJson: JSON.stringify({
+          ...emptyRpStorybookV1,
+          characters: [{
+            id: 'sarah-miller',
+            name: 'Sarah Miller',
+            description: '',
+            personality: '',
+            speechStyle: '',
+            role: '',
+            images: [{
+              id: sentImageId,
+              name: sentImageId,
+              mimeType: 'image/jpeg',
+              size: 1,
+              dataUrl: sentImageDataUrl,
+              description: 'Sarah takes a smiling mirror selfie in her party outfit.',
+            }],
+          }],
+        }),
+      },
+    } as WorkflowNode],
+    historyMessages: [
+      {
+        id: 1,
+        role: 'output',
+        originalText: 'Look at this.',
+        channel: 'phone',
+        phoneMessage: true,
+        phoneFrom: 'Sarah Miller',
+        phoneTo: 'Emily Miller',
+        phoneImageIds: [sentImageId],
+      },
+      {
+        id: 2,
+        role: 'output',
+        originalText: 'This was yesterday.',
+        channel: 'phone',
+        phoneMessage: true,
+        phoneFrom: 'Sarah Miller',
+        phoneTo: 'Ryan Parker',
+        imageAttachments: [{
+          id: sentImageId,
+          name: sentImageId,
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: sentImageDataUrl,
+        }],
+      },
+    ] as MessageRecord[],
+  } as unknown as ExecuteContext;
+  const imageListResult = await executePromptAction(
+    imageListContext,
+    {
+      ...defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+      hideImageTextWhenSendingToLlm: false,
+    },
+    {
+      action: 'getImageId',
+      characters: 'Sarah Miller',
+      tags: 'mirror, selfie, party, outfit',
+    },
+    { visionEnabled: true },
+  );
+  const hiddenImageTextResult = await executePromptAction(
+    imageListContext,
+    defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+    {
+      action: 'getImageId',
+      characters: 'Sarah Miller',
+      tags: 'mirror, selfie, party, outfit',
+    },
+    { visionEnabled: true },
+  );
+  assertFixture(
+    imageListResult.images.length === 1 &&
+      imageListResult.text.includes(
+        `* Image 1: ${sentImageId} : Sarah takes a smiling mirror selfie in her party outfit. : Image shown to: Emily Miller, Ryan Parker`,
+      ) &&
+      imageListResult.text.includes('Do not send a returned image again') &&
+      hiddenImageTextResult.text.includes(
+        `* Image 1: ${sentImageId} : Image shown to: Emily Miller, Ryan Parker`,
+      ) &&
+      !hiddenImageTextResult.text.includes('Sarah takes a smiling mirror selfie'),
+    'image list action results must identify prior phone recipients with visible or hidden image text and warn against resending',
+  );
+
   const warnings: string[] = [];
   const llmOutputs = [
     '{"action":"describe_input_image","caption":"Ryan and Espen share a look at the party."}',
