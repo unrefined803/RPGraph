@@ -1295,7 +1295,9 @@ export function verifyWorkflowValidationFixtures() {
     'updatePhoneImageCaption',
   );
   assertFixture(
-    updatePhoneImageCaptionDefaults.runAfterReply &&
+      updatePhoneImageCaptionDefaults.runAfterReply &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('"imageAction": "no_change"') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('"imageId": "exact existing imageId"') &&
       updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('imageAction "no_change" is the default') &&
       updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('The visible phone reply is not new evidence by itself') &&
       updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('Forwarding or resending the existing image to another person must not trigger an update') &&
@@ -2938,6 +2940,7 @@ export function verifyWorkflowValidationFixtures() {
     originalText: 'Incoming phone image',
     channel: 'phone',
     phoneImageIds: ['current_phone_image_01'],
+    phoneImageDescription: 'The current image already has a useful caption.',
     imageAttachments: [{
       id: 'current_phone_image_01',
       name: 'Current phone image',
@@ -2956,8 +2959,13 @@ export function verifyWorkflowValidationFixtures() {
         imageId: 'older_storybook_image_01',
         imageAction: 'update',
         caption: 'Wrong target.',
+      }) &&
+      !phoneImageActionMatchesMessage(currentIncomingPhoneImage, {
+        imageId: 'new_image',
+        imageAction: 'create',
+        caption: 'Unwanted replacement caption.',
       }),
-    'incoming phone image actions must only match the current message image id',
+    'incoming phone image actions must only match the current image id and must not recreate an already captioned image',
   );
   const phoneMessageWithNoChangeImageAction = parsePhoneMessageOutput([
     '{"from":"Robert Miller","to":"Lara Miller","message":"The tilted lamp in the corner is doing heroic work there. I get why you sent this; the room looks like it is halfway through giving up."}',
@@ -3888,6 +3896,34 @@ export function verifyWorkflowValidationFixtures() {
 }
 
 async function verifyPromptRunFixtures() {
+  const tracedExistingImageId = 'helga_harper_image_06';
+  const tracedCreateCall = parsePromptActionCall(
+    `{"action":"update_phone_image_caption","imageId":"${tracedExistingImageId}","imageAction":"create","caption":"Rewritten caption that should not be stored."}`,
+  );
+  const tracedCaptionResult = tracedCreateCall
+    ? await executePromptAction(
+        {
+          inputImages: [{
+            id: tracedExistingImageId,
+            name: tracedExistingImageId,
+            mimeType: 'image/jpeg',
+            size: 1,
+            dataUrl: 'data:image/jpeg;base64,trace',
+            description: 'Espen Harper stands in a doorway carrying grocery bags filled with drinks and snacks.',
+          }],
+        } as unknown as ExecuteContext,
+        defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption'),
+        tracedCreateCall,
+      )
+    : undefined;
+  const tracedCaptionRecord = JSON.parse(tracedCaptionResult?.finalOutputText ?? '{}') as Record<string, unknown>;
+  assertFixture(
+    tracedCaptionRecord.imageId === tracedExistingImageId &&
+      tracedCaptionRecord.imageAction === 'no_change' &&
+      tracedCaptionRecord.caption === undefined,
+    'after-reply caption actions must turn an invalid create decision for an already captioned input image into no_change',
+  );
+
   const sentImageId = 'sarah_miller_image_01';
   const sentImageDataUrl = 'data:image/jpeg;base64,a';
   const imageListContext = {

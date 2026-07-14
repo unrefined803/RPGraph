@@ -46,13 +46,18 @@ export function phoneImageActionMatchesMessage(
     message.phoneImageDescription?.trim() ||
     message.imageAttachments?.some((image) => image.description?.trim())
   );
-  if (requestedImageId === 'new_image' || (action.imageAction === 'create' && !hasImageCaption)) {
-    return true;
-  }
   const messageImageIds = [
     ...(message.phoneImageIds ?? []),
     ...(message.imageAttachments?.map((image) => image.id) ?? []),
   ].map((imageId) => imageId.trim()).filter(Boolean);
+  if (action.imageAction === 'create') {
+    return !hasImageCaption && (
+      requestedImageId === 'new_image' || messageImageIds.includes(requestedImageId)
+    );
+  }
+  if (requestedImageId === 'new_image') {
+    return true;
+  }
   return messageImageIds.includes(requestedImageId);
 }
 

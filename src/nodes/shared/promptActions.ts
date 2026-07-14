@@ -245,6 +245,27 @@ const previousUpdatePhoneImageCaptionAfterReplyWritingRule =
 const updatePhoneImageCaptionAfterReplyWritingRule =
   'For create/update, write one concise 20 to 30 word caption. Combine visible image details with reliable facts explicitly established by recent phone/chat/story context. Avoid metadata, filenames, image-generation wording, guesses, and uncertainty about identity.';
 
+const previousUpdatePhoneImageCaptionAfterReplyExample = [
+  '{',
+  '"action": "update_phone_image_caption",',
+  '"imageId": "new_image",',
+  '"imageAction": "create",',
+  '"caption": "complete contextual caption"',
+  '}',
+].join('\n');
+
+const updatePhoneImageCaptionAfterReplyExample = [
+  'For the common case where the image label already contains both an imageId and a caption, output this no-change shape:',
+  '',
+  '{',
+  '"action": "update_phone_image_caption",',
+  '"imageId": "exact existing imageId",',
+  '"imageAction": "no_change"',
+  '}',
+  '',
+  'Use the create or update shapes only when the strict rules below require them.',
+].join('\n');
+
 export const updatePhoneImageCaptionAfterReplyInstruction = [
   'Internal caption task: update phone image caption',
   '',
@@ -255,12 +276,7 @@ export const updatePhoneImageCaptionAfterReplyInstruction = [
   '',
   'Now record the internal caption/create/update/no-change decision for that incoming image. Output exactly one JSON object and nothing else:',
   '',
-  '{',
-  '"action": "update_phone_image_caption",',
-  '"imageId": "new_image",',
-  '"imageAction": "create",',
-  '"caption": "complete contextual caption"',
-  '}',
+  updatePhoneImageCaptionAfterReplyExample,
   '',
   'Caption only the latest incoming phone input image. When image labels are present, this is normally Attached input image Nr1. Do not caption older attached/reference images such as Attached input image Nr2, Nr3, or images sent by the other character earlier.',
   'Use imageAction "create" only when the incoming image has no imageId and no caption yet; set imageId to "new_image". If the image label already shows an imageId and caption, never use "create".',
@@ -457,24 +473,24 @@ const previousUpdatePhoneImageCaptionInstructions = new Set([
   updatePhoneImageCaptionInstruction.replace(`\n${updatePhoneImageCaptionMissingCaptionRule}`, ''),
 ]);
 
-const previousUpdatePhoneImageCaptionAfterReplyInstructions = new Set([
-  updatePhoneImageCaptionAfterReplyInstruction.replace(`\n${updatePhoneImageCaptionMissingCaptionRule}`, ''),
-  updatePhoneImageCaptionAfterReplyInstruction.replace(
+const previousUpdatePhoneImageCaptionAfterReplyInstruction = updatePhoneImageCaptionAfterReplyInstruction
+  .replace(
+    updatePhoneImageCaptionAfterReplyExample,
+    previousUpdatePhoneImageCaptionAfterReplyExample,
+  )
+  .replace(
     updatePhoneImageCaptionAfterReplyDecisionRules,
     previousUpdatePhoneImageCaptionAfterReplyDecisionRules,
-  ).replace(
+  )
+  .replace(
     updatePhoneImageCaptionAfterReplyWritingRule,
     previousUpdatePhoneImageCaptionAfterReplyWritingRule,
-  ),
-  updatePhoneImageCaptionAfterReplyInstruction
-    .replace(
-      updatePhoneImageCaptionAfterReplyDecisionRules,
-      previousUpdatePhoneImageCaptionAfterReplyDecisionRules,
-    )
-    .replace(
-      updatePhoneImageCaptionAfterReplyWritingRule,
-      previousUpdatePhoneImageCaptionAfterReplyWritingRule,
-    )
+  );
+
+const previousUpdatePhoneImageCaptionAfterReplyInstructions = new Set([
+  updatePhoneImageCaptionAfterReplyInstruction.replace(`\n${updatePhoneImageCaptionMissingCaptionRule}`, ''),
+  previousUpdatePhoneImageCaptionAfterReplyInstruction,
+  previousUpdatePhoneImageCaptionAfterReplyInstruction
     .replace(`\n${updatePhoneImageCaptionMissingCaptionRule}`, ''),
 ]);
 
@@ -1768,6 +1784,27 @@ function imageCaptionActionJson(call: ParsedPromptActionCall) {
   );
 }
 
+function phoneImageCaptionCallForContext(
+  context: ExecuteContext,
+  call: ParsedPromptActionCall,
+): ParsedPromptActionCall {
+  if (call.imageAction !== 'create') {
+    return call;
+  }
+  const incomingImage = context.inputImages[0];
+  const existingImageId = incomingImage?.id.trim();
+  const existingCaption = incomingImage?.description?.trim();
+  if (!existingImageId || !existingCaption) {
+    return call;
+  }
+  return {
+    ...call,
+    imageId: existingImageId,
+    imageAction: 'no_change',
+    caption: undefined,
+  };
+}
+
 function createImageResultTemplateText(
   config: PromptActionConfig,
   call: ParsedPromptActionCall,
@@ -1814,14 +1851,15 @@ export async function executePromptAction(
     };
   }
   if (call.action === 'updatePhoneImageCaption') {
-    const imageActionJson = imageCaptionActionJson(call);
+    const effectiveCall = phoneImageCaptionCallForContext(context, call);
+    const imageActionJson = imageCaptionActionJson(effectiveCall);
     return {
       text: config.resultTemplate
         .split('{{actionId}}').join(config.actionId)
         .split('{{imageActionJson}}').join(imageActionJson)
-        .split('{{imageId}}').join(call.imageId ?? '')
-        .split('{{imageAction}}').join(call.imageAction ?? '')
-        .split('{{caption}}').join(call.caption ?? '')
+        .split('{{imageId}}').join(effectiveCall.imageId ?? '')
+        .split('{{imageAction}}').join(effectiveCall.imageAction ?? '')
+        .split('{{caption}}').join(effectiveCall.caption ?? '')
         .trim(),
       images: [],
       finalOutputText: imageActionJson,
