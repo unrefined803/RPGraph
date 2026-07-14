@@ -22,7 +22,7 @@ export type LlmPromptSwitchRunResult = {
 
 export type CreateComfyImageForCharacterRequest = {
   phoneOwnerName: string;
-  subjectCharacterName: string;
+  loraCharacterName?: string;
   prompt: string;
   llmConnectionId?: string;
   comfyProviderId?: string;
@@ -31,7 +31,7 @@ export type CreateComfyImageForCharacterRequest = {
 
 export type CreateComfyImageForCharacterResult = {
   phoneOwnerName: string;
-  subjectCharacterName: string;
+  loraCharacterName?: string;
   imageIds: string[];
   images: ChatImageAttachment[];
 };

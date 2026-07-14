@@ -155,7 +155,7 @@ function promptActionConditionMet(
           && options.providerHealthById[options.selectedComfyProviderId]?.status === 'online'
         : false;
     case 'createImageCharacters':
-      return options.createImageCharacters.some((character) => character.createImage.available);
+      return options.createImageCharacters.length > 0;
     default:
       return false;
   }
@@ -184,18 +184,18 @@ function CreateImageCharacterList({
     <div className="prompt-action-character-list">
       <div className="prompt-action-character-list-header">
         <span>AVAILABLE CHARACTERS</span>
-        <span>{characters.filter((character) => character.createImage.available).length}/{characters.length}</span>
+        <span>{characters.length}</span>
       </div>
       {characters.length ? (
         <div className="prompt-action-character-rows">
           {characters.map((character) => (
             <div
-              className={`prompt-action-character-row${character.createImage.available ? '' : ' unavailable'}`}
+              className="prompt-action-character-row"
               key={character.id}
             >
               <span className="prompt-action-character-name">{character.name}</span>
               <span className="prompt-action-character-badges">
-                <CreateImageCharacterBadge label="Description" active={character.createImage.hasAppearance} />
+                <CreateImageCharacterBadge label="Appearance" active={character.createImage.hasAppearance} />
                 <CreateImageCharacterBadge label="LoRA" active={character.createImage.hasLora} />
               </span>
             </div>

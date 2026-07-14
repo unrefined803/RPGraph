@@ -346,24 +346,13 @@ export async function executeGraph({
 
   const createComfyImageForCharacter: CreateComfyImageForCharacterRunner = async (request, warn) => {
     const phoneOwnerName = request.phoneOwnerName.trim();
-    const subjectCharacterName = request.subjectCharacterName.trim();
+    const loraCharacterName = request.loraCharacterName?.trim() ?? '';
     const prompt = request.prompt.trim();
-    if (!phoneOwnerName || !subjectCharacterName || !prompt) {
-      throw new Error('Create character phone image action requires a phone owner, subject character, and prompt.');
+    if (!phoneOwnerName || !prompt) {
+      throw new Error('Create character phone image action requires a phone owner and prompt.');
     }
 
     const createImageCharacters = storybookCreateImageCharactersFromNodes(nodes);
-    const subjectCharacter = createImageCharacters.find((entry) => {
-      const left = entry.name.trim().toLocaleLowerCase();
-      const right = subjectCharacterName.toLocaleLowerCase();
-      return left === right || left.split(/\s+/)[0] === right.split(/\s+/)[0];
-    });
-    if (!subjectCharacter) {
-      throw new Error(`Create character phone image action could not find subject character "${subjectCharacterName}".`);
-    }
-    if (!subjectCharacter.createImage.available) {
-      throw new Error(`Create character phone image action requires Character Appearance or LoRA for ${subjectCharacter.name}.`);
-    }
     const phoneOwner = createImageCharacters.find((entry) => {
       const left = entry.name.trim().toLocaleLowerCase();
       const right = phoneOwnerName.toLocaleLowerCase();
@@ -371,6 +360,19 @@ export async function executeGraph({
     });
     if (!phoneOwner) {
       throw new Error(`Create character phone image action could not find phone owner "${phoneOwnerName}".`);
+    }
+    const loraCharacter = loraCharacterName
+      ? createImageCharacters.find((entry) => {
+          const left = entry.name.trim().toLocaleLowerCase();
+          const right = loraCharacterName.toLocaleLowerCase();
+          return left === right || left.split(/\s+/)[0] === right.split(/\s+/)[0];
+        })
+      : undefined;
+    if (loraCharacterName && !loraCharacter) {
+      throw new Error(`Create character phone image action could not find LoRA character "${loraCharacterName}".`);
+    }
+    if (loraCharacter && !loraCharacter.createImage.hasLora) {
+      throw new Error(`Create character phone image action requires a configured LoRA for ${loraCharacter.name}.`);
     }
 
     const comfyProviderId = request.comfyProviderId?.trim();
@@ -402,14 +404,8 @@ export async function executeGraph({
       await unloadLocalLlmModelsBeforeComfy(warn, request.llmConnectionId);
     }
 
-    const characterAppearance = subjectCharacter.createImage.appearance;
-    const characterLoraName = subjectCharacter.createImage.loraName;
-    const generationPrompt = [
-      characterAppearance && !characterLoraName
-        ? `Primary subject appearance: ${characterAppearance}`
-        : '',
-      prompt,
-    ].filter(Boolean).join('\n\n');
+    const generationPrompt = prompt;
+    const characterLoraName = loraCharacter?.createImage.loraName ?? '';
 
     let result: Awaited<ReturnType<typeof window.rpgraph.runComfyWorkflowPath>>;
     try {
@@ -472,14 +468,14 @@ export async function executeGraph({
       runStorybookJsonByNodeId.set(storybookNode.id, nextStorybookJson);
       updateRuntimeNode(storybookNode.id, {
         storybookJson: nextStorybookJson,
-        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} of ${subjectCharacter.name} for ${phoneOwner.name}.`,
+        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} for ${phoneOwner.name}${loraCharacter ? ` using ${loraCharacter.name}'s LoRA` : ''}.`,
       });
     }
 
     const imagesById = new Map(ensureResult.images.map((image) => [image.id, image]));
     return {
       phoneOwnerName: phoneOwner.name,
-      subjectCharacterName: subjectCharacter.name,
+      ...(loraCharacter ? { loraCharacterName: loraCharacter.name } : {}),
       imageIds: ensureResult.imageIds,
       images: ensureResult.imageIds.flatMap((imageId) => {
         const image = imagesById.get(imageId);

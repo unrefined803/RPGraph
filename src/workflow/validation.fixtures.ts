@@ -2835,14 +2835,19 @@ export function verifyWorkflowValidationFixtures() {
     'pre-reply image actions must carry a first-pass plan into their follow-up pass',
   );
   const createImageAction = parsePromptActionCall(
-    '{"action":"create_image","phoneOwner":"Robert Miller","subjectCharacter":"Lara Miller","prompt":"A woman stands beside stacked moving boxes."}',
+    '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":"Lara Miller","prompt":"A 28-year-old woman stands beside stacked moving boxes."}',
+  );
+  const createImageWithoutLora = parsePromptActionCall(
+    '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":0,"prompt":"A small dog lies on a sofa."}',
   );
   assertFixture(
     createImageAction?.action === 'createImage' &&
       createImageAction.phoneOwner === 'Robert Miller' &&
-      createImageAction.subjectCharacter === 'Lara Miller' &&
-      createImageAction.prompt === 'A woman stands beside stacked moving boxes.',
-    'create-image actions must separate the phone owner from the photographed subject',
+      createImageAction.loraCharacter === 'Lara Miller' &&
+      createImageAction.prompt === 'A 28-year-old woman stands beside stacked moving boxes.' &&
+      createImageWithoutLora?.action === 'createImage' &&
+      createImageWithoutLora.loraCharacter === '',
+    'create-image actions must separate optional character LoRA selection from phone ownership',
   );
   const createImageFollowUp = promptActionInstructionText(
     defaultPromptActionConfig('Create character phone image', 'createImage'),
@@ -2852,8 +2857,11 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     createImageFollowUp.includes('Lara takes and owns a mirror selfie of herself in her current outfit.') &&
       createImageFollowUp.includes('"phoneOwner": "Phone Owner Name"') &&
-      createImageFollowUp.includes('"subjectCharacter": "Subject Character Name"') &&
+      createImageFollowUp.includes('"loraCharacter": 0') &&
       createImageFollowUp.includes('which Phone Gallery stores the generated image') &&
+      createImageFollowUp.includes('RPGraph does not prepend it automatically') &&
+      createImageFollowUp.includes('Only one character LoRA can be used per image') &&
+      createImageFollowUp.includes('State every visible person\'s age in the prompt whenever their age is known') &&
       createImageFollowUp.includes('roughly 80 to 120 words') &&
       createImageFollowUp.includes('one frozen visual snapshot') &&
       createImageFollowUp.includes('latest established state of every person, garment, object, and location') &&
