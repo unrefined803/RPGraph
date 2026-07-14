@@ -4598,9 +4598,19 @@ function App() {
   function applyPhoneImageActionFromLlm(
     action: ParsedPhoneImageAction,
     phoneReplyTo?: MessageRecord,
+    outgoingImageId?: string,
   ): ImageCaptionChange | undefined {
     if (action.imageAction === 'no_change') {
       return undefined;
+    }
+    const normalizedOutgoingImageId = outgoingImageId?.trim();
+    if (
+      normalizedOutgoingImageId &&
+      action.imageAction === 'update' &&
+      action.imageId.trim() === normalizedOutgoingImageId &&
+      action.caption
+    ) {
+      return updateStorybookImageDescriptionById(normalizedOutgoingImageId, action.caption);
     }
     const describedMessage = latestIncomingPhoneImageMessage(phoneReplyTo);
     if (describedMessage && phoneImageActionMatchesMessage(describedMessage, action)) {

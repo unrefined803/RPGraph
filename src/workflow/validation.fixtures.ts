@@ -134,6 +134,7 @@ import {
   promptWithReferenceImageMarkers,
 } from '../chat/referenceImages';
 import {
+  defaultCreateImageResultTemplate,
   defaultPromptActionConfig,
   countPromptActionUses,
   knownPromptActionId,
@@ -2849,6 +2850,16 @@ export function verifyWorkflowValidationFixtures() {
       createImageWithoutLora.loraCharacter === '',
     'create-image actions must separate optional character LoRA selection from phone ownership',
   );
+  const outgoingGeneratedImageCaption = parsePhoneMessageOutput([
+    '{"from":"Helga Harper","to":"Jack Carter","message":"Caught her off guard.","sendImageId":"helga_harper_image_06"}',
+    '{"imageId":"helga_harper_image_06","imageAction":"update","caption":"Espen Harper concentrates on applying makeup at the bathroom mirror, her softly waved hair framing her face as she studies her reflection."}',
+  ].join('\n'));
+  assertFixture(
+    outgoingGeneratedImageCaption?.imageId === 'helga_harper_image_06' &&
+      outgoingGeneratedImageCaption.incomingImageAction?.imageId === 'helga_harper_image_06' &&
+      outgoingGeneratedImageCaption.incomingImageAction.imageAction === 'update',
+    'phone output must preserve a caption update for the generated outgoing image attachment',
+  );
   const createImageFollowUp = promptActionInstructionText(
     defaultPromptActionConfig('Create character phone image', 'createImage'),
     { createImageCharacters: [] },
@@ -2862,12 +2873,20 @@ export function verifyWorkflowValidationFixtures() {
       createImageFollowUp.includes('RPGraph does not prepend it automatically') &&
       createImageFollowUp.includes('Only one character LoRA can be used per image') &&
       createImageFollowUp.includes('State every visible person\'s age in the prompt whenever their age is known') &&
+      createImageFollowUp.includes('Write the prompt from the finished image\'s point of view') &&
+      createImageFollowUp.includes('The photographer is invisible unless their body or reflection must actually appear') &&
       createImageFollowUp.includes('roughly 80 to 120 words') &&
       createImageFollowUp.includes('one frozen visual snapshot') &&
       createImageFollowUp.includes('latest established state of every person, garment, object, and location') &&
       createImageFollowUp.includes('Do not use Storybook-only character names') &&
       !createImageFollowUp.includes('{{plan}}'),
     'create-image follow-up prompts must turn the first-pass plan into a detailed visual snapshot',
+  );
+  assertFixture(
+    defaultCreateImageResultTemplate.includes('* imagePrompt: {{imagePrompt}}') &&
+      defaultCreateImageResultTemplate.includes('"imageAction":"update"') &&
+      defaultCreateImageResultTemplate.includes('inspect the attached generated image'),
+    'create-image results must distinguish the generation prompt and request a caption for an attached outgoing image',
   );
   const captionDefaults = defaultPromptActionConfig(
     'Update phone image caption',

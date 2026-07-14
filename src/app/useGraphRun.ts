@@ -282,6 +282,7 @@ type UseGraphRunOptions = Pick<
   applyPhoneImageActionFromLlm: (
     action: ParsedPhoneImageAction,
     phoneReplyTo?: MessageRecord,
+    outgoingImageId?: string,
   ) => ImageCaptionChange | undefined;
   resolveOutputActionContextCapacityBars: (
     requests: OutputActionContextCapacityRequest[],
@@ -1691,7 +1692,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         });
         let phoneImageCaptionChange: ImageCaptionChange | undefined;
         if (parsedPhoneMessage.incomingImageAction) {
-          phoneImageCaptionChange = applyPhoneImageActionFromLlm(parsedPhoneMessage.incomingImageAction, phoneReplyTo);
+          phoneImageCaptionChange = applyPhoneImageActionFromLlm(
+            parsedPhoneMessage.incomingImageAction,
+            phoneReplyTo,
+            parsedPhoneMessage.imageId,
+          );
         }
         if (runEnglishProcessing) {
           try {

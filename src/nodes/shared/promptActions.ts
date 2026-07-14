@@ -331,6 +331,9 @@ const previousPhoneOwnerSubjectCreateImageInstruction = [
   '}',
 ].join('\n');
 
+const finishedImageViewRule =
+  '- Write the prompt from the finished image\'s point of view. Describe only what the camera captures. Do not narrate who takes the photo, how they approach, why the photo is discreet, or what happens outside the frame. The photographer is invisible unless their body or reflection must actually appear in the final image.';
+
 export const createImageInstruction = [
   'Action follow-up: generate a character phone image',
   '',
@@ -354,6 +357,7 @@ export const createImageInstruction = [
   '- phoneOwner and loraCharacter are internal routing data. Keep Storybook-only names out of the image prompt unless they are widely recognized real or fictional subjects explicitly requested by the user.',
   '',
   'Image prompt guidelines:',
+  finishedImageViewRule,
   '- Write one complete natural English paragraph of roughly 80 to 120 words.',
   '- Describe one frozen visual snapshot of the current moment. Do not advance the story, describe what happens next, or combine earlier and later scene states.',
   '- Use direct, factual visual language and standard ASCII characters with normal punctuation. Do not use Markdown, decorative symbols, poetic narration, metaphors, generic quality tags, or image-generation terminology.',
@@ -376,6 +380,7 @@ export const createImageInstruction = [
 ].join('\n');
 
 const previousCreateImageInstructions = new Set([
+  createImageInstruction.replace(`\n${finishedImageViewRule}`, ''),
   previousCreateImageInstruction,
   previousPhoneOwnerSubjectCreateImageInstruction,
   [
@@ -536,12 +541,24 @@ export const defaultCreateImageResultTemplate = [
   '',
   '* LoRA character: {{loraCharacter}}',
   '* imageId: {{imageId}}',
-  '* description: {{description}}',
+  '* imagePrompt: {{imagePrompt}}',
   '',
   'The image was generated from the complete prompt and saved to {{phoneOwner}}\'s Phone Gallery.',
+  'If the final Phone Message attaches this image with sendImageId, inspect the attached generated image and output one second JSON object immediately after the phone-message object:',
+  '{"imageId":"{{imageId}}","imageAction":"update","caption":"complete contextual caption"}',
+  'The caption must naturally describe who and what is visibly shown in 20 to 35 words. Use the generated image as visual authority and reliable story context for identities. Do not mention the image prompt, generation, LoRA, how or why the photo was taken, hidden intent, or anything outside the captured frame. If the image is not attached, omit this second object.',
 ].join('\n');
 
 const previousCreateImageResultTemplates = new Set([
+  [
+    'Action executed: create a phone image for {{phoneOwner}}.',
+    '',
+    '* LoRA character: {{loraCharacter}}',
+    '* imageId: {{imageId}}',
+    '* description: {{description}}',
+    '',
+    'The image was generated from the complete prompt and saved to {{phoneOwner}}\'s Phone Gallery.',
+  ].join('\n'),
   [
     'Action executed: create a phone image of {{subjectCharacter}} for {{phoneOwner}}.',
     '',
@@ -1653,7 +1670,7 @@ function createImageResultTemplateText(
     phoneOwner: string;
     loraCharacter: string;
     imageId: string;
-    description: string;
+    imagePrompt: string;
   },
 ) {
   return config.resultTemplate
@@ -1664,7 +1681,8 @@ function createImageResultTemplateText(
     .split('{{character}}').join(result.loraCharacter)
     .split('{{characters}}').join(result.loraCharacter)
     .split('{{imageId}}').join(result.imageId)
-    .split('{{description}}').join(result.description)
+    .split('{{imagePrompt}}').join(result.imagePrompt)
+    .split('{{description}}').join(result.imagePrompt)
     .split('{{prompt}}').join(call.prompt ?? '')
     .trim();
 }
@@ -1723,7 +1741,7 @@ export async function executePromptAction(
         phoneOwner: generatedImages.phoneOwnerName,
         loraCharacter: generatedImages.loraCharacterName ?? 'none',
         imageId,
-        description: call.prompt ?? '',
+        imagePrompt: call.prompt ?? '',
       }),
       images: options.visionEnabled !== false && generatedImage ? [generatedImage] : [],
     };
