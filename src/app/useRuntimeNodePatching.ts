@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { RunLlmReport } from '../components/AppDialogs';
 import { getRegisteredNode } from '../nodes/registry';
+import { isStorybookSourceNode } from '../storybook/runtime';
 import type { LlmCallStats, WorkflowNode, WorkflowNodeData } from '../types';
 import type { ActiveRun } from './useGraphRun';
 
@@ -42,8 +43,7 @@ export function useRuntimeNodePatching({
       : undefined;
     const shouldRefreshOpeningHistory =
       previousNode !== undefined &&
-      previousNode.data.kind === undefined &&
-      previousNode.data.nodeType === 'rp-storybook-v1' &&
+      isStorybookSourceNode(previousNode) &&
       nextStorybookJson !== undefined &&
       openingHistorySignature(previousNode.data.storybookJson) !==
         openingHistorySignature(nextStorybookJson);

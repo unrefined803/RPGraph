@@ -8,7 +8,9 @@ import {
 const REDACTED_PREFIX = '[Data URL redacted:';
 
 function isRedacted(value: unknown): value is string {
-  return typeof value === 'string' && value.startsWith(REDACTED_PREFIX);
+  // `includes`, not `startsWith`: sanitizeDataUrls replaces data-URL substrings
+  // even inside larger strings, so a placeholder need not be at position 0.
+  return typeof value === 'string' && value.includes(REDACTED_PREFIX);
 }
 
 /**
@@ -17,19 +19,48 @@ function isRedacted(value: unknown): value is string {
  * image/voice data URLs are redacted so the text stays small and readable.
  */
 export function rpStorybookEditorJsonView(storybook: RpStorybookV1): string {
-  const pruned = {
-    ...storybook,
-    openingHistory: {
-      summary: storybook.openingHistory.summary,
-      turns: [],
-      checkpoints: [],
-      events: [],
-      socialLikes: {},
-      notes: {},
-      chatGpdChats: {},
-    },
-  };
-  return JSON.stringify(sanitizeDataUrls(pruned), null, 2);
+  // Opening History is imported runtime memory the user cannot author, so it is
+  // omitted from the editable view entirely and restored wholesale on apply.
+  const { openingHistory: _openingHistory, ...editable } = storybook;
+  return JSON.stringify(sanitizeDataUrls(editable), null, 2);
+}
+
+/**
+ * Characters whose image/voice/profile still hold a redaction placeholder after
+ * rehydration — their binary could not be matched back (e.g. an edited id). The
+ * apply must abort rather than let the normalizer silently drop the data.
+ */
+function unresolvedRedactedBinaries(draftValue: Record<string, unknown>): string[] {
+  const affected: string[] = [];
+  const characters = Array.isArray(draftValue.characters) ? draftValue.characters : [];
+  for (const entry of characters) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const character = entry as Record<string, unknown>;
+    const id = typeof character.id === 'string' && character.id ? character.id : '(unknown)';
+    const parts: string[] = [];
+    if (
+      Array.isArray(character.images) &&
+      character.images.some(
+        (image) => image && typeof image === 'object' && isRedacted((image as Record<string, unknown>).dataUrl),
+      )
+    ) {
+      parts.push('image');
+    }
+    const voice = character.voiceConfig as Record<string, unknown> | undefined;
+    if (voice && typeof voice === 'object' && isRedacted(voice.sampleDataUrl)) {
+      parts.push('voice');
+    }
+    const profile = character.profileImage as Record<string, unknown> | undefined;
+    if (profile && typeof profile === 'object' && isRedacted(profile.dataUrl)) {
+      parts.push('profile image');
+    }
+    if (parts.length) {
+      affected.push(`${id} (${parts.join(', ')})`);
+    }
+  }
+  return affected;
 }
 
 export type RpStorybookEditorJsonApplyResult =
@@ -134,9 +165,20 @@ export function applyRpStorybookEditorJson(current: RpStorybookV1, draft: string
   draftValue.openingHistory = structuredClone(current.openingHistory);
   rehydrateCharacterBinaries(draftValue, current);
 
+  // A surviving redaction placeholder means a binary could not be resolved (e.g.
+  // an id was edited). Abort rather than let the normalizer silently drop it.
+  const unresolved = unresolvedRedactedBinaries(draftValue);
+  if (unresolved.length > 0) {
+    return {
+      error: `Could not resolve image/voice data for ${unresolved.join(', ')}. An id may have changed — fix the id(s) or Revert.`,
+    };
+  }
+
   let normalized: RpStorybookV1;
   try {
-    normalized = parseRpStorybookJson(JSON.stringify(draftValue));
+    // parseRpStorybookJson may return a cached object; clone before relinking
+    // mutates it, so the parse cache stays consistent with its key text.
+    normalized = structuredClone(parseRpStorybookJson(JSON.stringify(draftValue)));
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }

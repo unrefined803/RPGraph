@@ -19,11 +19,11 @@ import {
   rpStorybookEditPrompt,
   rpStorybookJsonText,
 } from '../nodes/rp-storybook-v1/model';
-import { parseRpStorybookFormattedText } from '../nodes/rp-storybook-editor/formattedText';
 import {
   applyRpStorybookEditorJson,
   rpStorybookEditorJsonView,
 } from '../nodes/rp-storybook-editor/rawJson';
+import { isStorybookSourceNode } from '../storybook/runtime';
 import {
   storybookImageById,
   storybookImageDescriptions,
@@ -4505,64 +4505,7 @@ function editorTestStorybook() {
 }
 
 export function verifyRpStorybookEditorFixtures() {
-  const editorSettings = {
-    title: true,
-    introduction: true,
-    scenario: true,
-    characters: true,
-    openingHistory: false,
-    characterImages: false,
-  };
   const base = editorTestStorybook();
-
-  // --- Formatted-text merge ---
-  const text = rpStorybookFormattedText(base, editorSettings);
-
-  // An unedited draft is a no-op: placeholders map to empty and multi-line prose
-  // (the character description) round-trips exactly.
-  const roundTrip = parseRpStorybookFormattedText(base, text);
-  assertFixture(
-    JSON.stringify(roundTrip.storybook) === JSON.stringify(base),
-    'applying an unedited Formatted Text draft must be a no-op',
-  );
-
-  // Narrative edits update those fields; unshown data is preserved.
-  const edited = parseRpStorybookFormattedText(
-    base,
-    text.replace('# Test Book', '# Edited Title').replace('An intro.', 'Edited intro.'),
-  );
-  assertFixture(
-    edited.storybook.title === 'Edited Title' && edited.storybook.introduction === 'Edited intro.',
-    'Formatted Text edits must update the narrative fields',
-  );
-  assertFixture(
-    edited.storybook.characters[0].images.length === 2 &&
-      JSON.stringify(edited.storybook.openingHistory) === JSON.stringify(base.openingHistory),
-    'Formatted Text edits must preserve images and Opening History',
-  );
-
-  // A missing labeled line preserves the field rather than clearing it.
-  const withoutRole = parseRpStorybookFormattedText(
-    base,
-    text.split('\n').filter((line) => !line.startsWith('Role:')).join('\n'),
-  );
-  assertFixture(
-    withoutRole.storybook.characters[0].role === base.characters[0].role,
-    'a missing labeled line must preserve the current field value',
-  );
-
-  // Character structure is never changed: extra blocks are not added, and a
-  // renamed block does not rename the character.
-  const withGhost = parseRpStorybookFormattedText(base, `${text}\n\nCharakter: Ghost\nRole: Phantom`);
-  assertFixture(
-    withGhost.storybook.characters.length === 1 && withGhost.warnings.length >= 1,
-    'Formatted Text must not add characters (unmatched blocks warn)',
-  );
-  const renamed = parseRpStorybookFormattedText(base, text.replace('Charakter: Nova', 'Charakter: Renamed'));
-  assertFixture(
-    renamed.storybook.characters[0].name === base.characters[0].name,
-    'Formatted Text must never rename a character',
-  );
 
   // --- Raw JSON apply ---
   const view = rpStorybookEditorJsonView(base);
@@ -4587,13 +4530,22 @@ export function verifyRpStorybookEditorFixtures() {
     'Raw JSON apply must rehydrate redacted binaries by id',
   );
 
-  // A redacted image whose id no longer matches the current storybook is dropped.
-  const droppedValue = JSON.parse(view) as { characters: Array<{ images: Array<{ id: string }> }> };
-  droppedValue.characters[0].images[0].id = 'ghost_image_99';
-  const withDropped = applyRpStorybookEditorJson(base, JSON.stringify(droppedValue));
+  // Deleting an image entry (the legitimate removal path) removes it cleanly.
+  const deletedValue = JSON.parse(view) as { characters: Array<{ images: unknown[] }> };
+  deletedValue.characters[0].images = deletedValue.characters[0].images.slice(1);
+  const withDeleted = applyRpStorybookEditorJson(base, JSON.stringify(deletedValue));
   assertFixture(
-    !('error' in withDropped) && withDropped.storybook.characters[0].images.length === 1,
-    'a redacted image whose id no longer matches must be dropped',
+    !('error' in withDeleted) && withDeleted.storybook.characters[0].images.length === 1,
+    'deleting an image entry removes it',
+  );
+
+  // Editing an image id so its redacted binary can no longer resolve aborts
+  // (F3: no silent drop).
+  const orphanImageValue = JSON.parse(view) as { characters: Array<{ images: Array<{ id: string }> }> };
+  orphanImageValue.characters[0].images[0].id = 'ghost_image_99';
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify(orphanImageValue)),
+    'an unresolvable redacted image (edited image id) must abort the apply',
   );
 
   // Editing a non-binary value passes through.
@@ -4623,6 +4575,31 @@ export function verifyRpStorybookEditorFixtures() {
   assertFixture(
     'error' in applyRpStorybookEditorJson(base, JSON.stringify({ title: 'x' })),
     'an incompatible document must be rejected',
+  );
+
+  // F3: editing a character id so its redacted binaries can no longer resolve aborts.
+  const idEditValue = JSON.parse(view) as { characters: Array<{ id: string }> };
+  idEditValue.characters[0].id = 'renamed-id';
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify(idEditValue)),
+    'an unresolvable redacted binary (edited character id) must abort the apply',
+  );
+
+  // F10: the editable JSON view omits Opening History.
+  assertFixture(
+    !rpStorybookEditorJsonView(base).includes('openingHistory'),
+    'the editable Raw JSON view must omit Opening History',
+  );
+
+  // Source recognition: both storybook node types are peers; others / incompatible are not.
+  const asNode = (nodeType: string, kind?: string) =>
+    ({ data: { nodeType, ...(kind ? { kind } : {}) } }) as unknown as WorkflowNode;
+  assertFixture(isStorybookSourceNode(asNode('rp-storybook-v1')), 'rp-storybook-v1 is a storybook source');
+  assertFixture(isStorybookSourceNode(asNode('rp-storybook-editor')), 'rp-storybook-editor is a storybook source');
+  assertFixture(!isStorybookSourceNode(asNode('llm-prompt')), 'a non-storybook node is not a source');
+  assertFixture(
+    !isStorybookSourceNode(asNode('rp-storybook-editor', 'incompatible-core-node')),
+    'an incompatible-core-node is not a storybook source',
   );
 }
 

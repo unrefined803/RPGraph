@@ -21,6 +21,7 @@ import { removeCompetingInputEdges } from '../graph/edges';
 import { validatePortConnection } from '../graph/portCompatibility';
 import { wireLinkLayout, wireLinkMode, wireLinkStyle } from '../nodes/memory-slot/model';
 import { getRegisteredCoreNode, getRegisteredCoreNodes } from '../nodes/registry';
+import { isStorybookSourceNode } from '../storybook/runtime';
 import type {
   AddNodeType,
   MessageRecord,
@@ -278,6 +279,11 @@ export function useNodePalette({
 
   function nodeTypeUnavailable(nodeType: AddNodeType) {
     const definition = getRegisteredCoreNode(nodeType);
+    // Storybook sources are mutually exclusive: a graph holds at most one, be it
+    // `rp-storybook-v1` or `rp-storybook-editor` (never both, never two).
+    if (nodeType === 'rp-storybook-v1' || nodeType === 'rp-storybook-editor') {
+      return nodes.some(isStorybookSourceNode);
+    }
     return (
       definition?.singleton === true &&
       nodes.some(

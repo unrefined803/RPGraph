@@ -93,7 +93,6 @@ import { runLlmPromptNode } from './llm-prompt/run';
 import { RpStorybookV1NodeCard } from './rp-storybook-v1/Card';
 import { executeRpStorybookV1Node } from './rp-storybook-v1/execute';
 import { RpStorybookEditorNodeCard } from './rp-storybook-editor/Card';
-import { executeRpStorybookEditorNode } from './rp-storybook-editor/execute';
 import {
   defaultRpStorybookFormattedTextSettings,
   emptyRpStorybookV1,
@@ -1010,7 +1009,8 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       output('character-info', 'text', 'Character Info'),
     ],
     Component: RpStorybookEditorNodeCard,
-    execute: executeRpStorybookEditorNode,
+    // Reuses the RP Storybook node's execute — identical output resolution.
+    execute: executeRpStorybookV1Node,
     create: ({ position, createId }) => ({
       id: createId('rp-storybook-editor'),
       type: 'workflow',

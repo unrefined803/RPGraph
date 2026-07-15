@@ -10,10 +10,11 @@ function workflowNodeDataForSave(
   includeStorybook: boolean,
 ): WorkflowNodeData {
   const savedData = persistentNodeData(data);
-  if (
-    includeStorybook ||
-    (savedData.nodeType !== 'rp-storybook-v1' && savedData.nodeType !== 'rp-storybook-editor')
-  ) {
+  // The editor is a MANUAL storybook source with no separate `.rpgraph-storybook`
+  // file copy, so a "workflow-only" save must NOT strip its document (that would
+  // lose the only copy). Only the AI `rp-storybook-v1` node — which has the
+  // storybook-file ecosystem — is stripped.
+  if (includeStorybook || savedData.nodeType !== 'rp-storybook-v1') {
     return savedData;
   }
   return {

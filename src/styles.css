@@ -23483,3 +23483,44 @@ button.message-timeline-row.phone:focus-visible {
   border-radius: 6px;
   object-fit: cover;
 }
+
+/* RP Storybook Editor — Fields (per-field) editor */
+.storybook-editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 6px;
+}
+
+.storybook-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.storybook-editor-field input,
+.storybook-editor-field textarea {
+  width: 100%;
+  font: inherit;
+}
+
+.storybook-editor-field textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.storybook-editor-fieldset {
+  border: 1px solid rgba(143, 160, 189, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.storybook-editor-fieldset legend {
+  padding: 0 6px;
+  font-weight: 600;
+}

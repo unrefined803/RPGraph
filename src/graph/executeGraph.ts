@@ -32,7 +32,7 @@ import {
 } from '../llm/providerKind';
 import { isComfyImageConnection } from '../comfy/connectionRole';
 import { withImagesEnsuredForStorybookCharacter } from '../storybook/imageLibrary';
-import { storybookCreateImageCharactersFromNodes } from '../storybook/runtime';
+import { isStorybookSourceNode, storybookCreateImageCharactersFromNodes } from '../storybook/runtime';
 import type {
   ChatImageAttachment,
   ConnectionPreset,
@@ -441,7 +441,7 @@ export async function executeGraph({
     );
 
     const storybookNodeCandidate = nodeById.get(character.storybookNodeId);
-    const storybookNode = storybookNodeCandidate?.data.nodeType === 'rp-storybook-v1'
+    const storybookNode = storybookNodeCandidate && isStorybookSourceNode(storybookNodeCandidate)
       ? storybookNodeCandidate
       : undefined;
     const storybookJson = storybookNode

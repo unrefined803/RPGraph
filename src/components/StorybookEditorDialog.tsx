@@ -1,37 +1,25 @@
 import { useMemo, useState } from 'react';
 import type { WorkflowNode } from '../types';
 import {
+  defaultRpStorybookCharacterComfyConfig,
   emptyRpStorybookV1,
   parseRpStorybookJson,
-  rpStorybookFormattedText,
-  type RpStorybookFormattedTextSettings,
   type RpStorybookV1,
 } from '../nodes/rp-storybook-v1/model';
 import {
   applyRpStorybookEditorJson,
   rpStorybookEditorJsonView,
 } from '../nodes/rp-storybook-editor/rawJson';
-import { parseRpStorybookFormattedText } from '../nodes/rp-storybook-editor/formattedText';
 import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
 import { useBackdropDismiss } from './useBackdropDismiss';
 
-// The Formatted Text surface edits prose only. Opening History and image
-// captions are read-only context (shown in the UI Preview tab), so they are
-// excluded from the editable text to keep the round-trip clean.
-const editorFormattedTextSettings: RpStorybookFormattedTextSettings = {
-  title: true,
-  introduction: true,
-  scenario: true,
-  characters: true,
-  openingHistory: false,
-  characterImages: false,
-};
-
-type ViewMode = 'ui' | 'text' | 'json';
+type ViewMode = 'ui' | 'fields' | 'json';
 
 type StorybookEditorDialogProps = {
   node: WorkflowNode;
-  onCommit: (storybook: RpStorybookV1, status: string) => void;
+  // Returns a blocking error message (e.g. a running-story guard violation), or
+  // null when the commit succeeded.
+  onCommit: (storybook: RpStorybookV1, status: string) => string | null;
   onClose: () => void;
 };
 
@@ -124,31 +112,166 @@ function StorybookReadonlyPreview({ storybook }: { storybook: RpStorybookV1 }) {
   );
 }
 
+type FieldsEditorProps = {
+  draft: RpStorybookV1;
+  onChange: (next: RpStorybookV1) => void;
+};
+
+/**
+ * Per-field editing surface. Each editor writes directly to its storybook field
+ * (no free-form-text parsing), so a value can never be mis-attributed to another
+ * field. Character names/ids/images/structure are read-only here — those are
+ * Raw-JSON operations.
+ */
+function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
+  const setCharacter = (index: number, patch: Partial<RpStorybookV1['characters'][number]>) => {
+    onChange({
+      ...draft,
+      characters: draft.characters.map((character, i) =>
+        i === index ? { ...character, ...patch } : character,
+      ),
+    });
+  };
+
+  return (
+    <div className="storybook-editor-fields">
+      <label className="storybook-editor-field">
+        <span className="field-label">Title</span>
+        <input
+          type="text"
+          value={draft.title}
+          onChange={(event) => onChange({ ...draft, title: event.currentTarget.value })}
+        />
+      </label>
+      <label className="storybook-editor-field">
+        <span className="field-label">Introduction</span>
+        <textarea
+          value={draft.introduction}
+          spellCheck={false}
+          onChange={(event) => onChange({ ...draft, introduction: event.currentTarget.value })}
+        />
+      </label>
+
+      <fieldset className="storybook-editor-fieldset">
+        <legend>Scenario</legend>
+        <label className="storybook-editor-field">
+          <span className="field-label">Summary</span>
+          <textarea
+            value={draft.scenario.summary}
+            spellCheck={false}
+            onChange={(event) =>
+              onChange({ ...draft, scenario: { ...draft.scenario, summary: event.currentTarget.value } })
+            }
+          />
+        </label>
+        <label className="storybook-editor-field">
+          <span className="field-label">Opening Situation</span>
+          <textarea
+            value={draft.scenario.openingSituation}
+            spellCheck={false}
+            onChange={(event) =>
+              onChange({ ...draft, scenario: { ...draft.scenario, openingSituation: event.currentTarget.value } })
+            }
+          />
+        </label>
+        <label className="storybook-editor-field">
+          <span className="field-label">Current Situation</span>
+          <textarea
+            value={draft.scenario.currentSituation}
+            spellCheck={false}
+            onChange={(event) =>
+              onChange({ ...draft, scenario: { ...draft.scenario, currentSituation: event.currentTarget.value } })
+            }
+          />
+        </label>
+      </fieldset>
+
+      {draft.characters.map((character, index) => (
+        <fieldset className="storybook-editor-fieldset" key={character.id}>
+          <legend>{character.name || character.id}</legend>
+          <label className="storybook-editor-field">
+            <span className="field-label">Role</span>
+            <input
+              type="text"
+              value={character.role}
+              onChange={(event) => setCharacter(index, { role: event.currentTarget.value })}
+            />
+          </label>
+          <label className="storybook-editor-field">
+            <span className="field-label">Description</span>
+            <textarea
+              value={character.description}
+              spellCheck={false}
+              onChange={(event) => setCharacter(index, { description: event.currentTarget.value })}
+            />
+          </label>
+          <label className="storybook-editor-field">
+            <span className="field-label">Personality</span>
+            <textarea
+              value={character.personality}
+              spellCheck={false}
+              onChange={(event) => setCharacter(index, { personality: event.currentTarget.value })}
+            />
+          </label>
+          <label className="storybook-editor-field">
+            <span className="field-label">Speech Style</span>
+            <textarea
+              value={character.speechStyle}
+              spellCheck={false}
+              onChange={(event) => setCharacter(index, { speechStyle: event.currentTarget.value })}
+            />
+          </label>
+          <label className="storybook-editor-field">
+            <span className="field-label">Appearance</span>
+            <textarea
+              value={character.comfyConfig?.appearance ?? ''}
+              spellCheck={false}
+              onChange={(event) =>
+                setCharacter(index, {
+                  comfyConfig: {
+                    ...(character.comfyConfig ?? defaultRpStorybookCharacterComfyConfig()),
+                    appearance: event.currentTarget.value,
+                  },
+                })
+              }
+            />
+          </label>
+        </fieldset>
+      ))}
+      {draft.characters.length === 0 && (
+        <p className="storybook-empty-note">No characters. Add them in Raw JSON.</p>
+      )}
+    </div>
+  );
+}
+
 export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEditorDialogProps) {
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
-  const storybook = useMemo(() => {
+  // Track parse validity so an Apply can't overwrite unparseable stored JSON
+  // with empty/edited content (the fallback would otherwise be silent).
+  const parsed = useMemo(() => {
+    if (!node.data.storybookJson) {
+      return { storybook: emptyRpStorybookV1, ok: true };
+    }
     try {
-      return node.data.storybookJson ? parseRpStorybookJson(node.data.storybookJson) : emptyRpStorybookV1;
+      return { storybook: parseRpStorybookJson(node.data.storybookJson), ok: true };
     } catch {
-      return emptyRpStorybookV1;
+      return { storybook: emptyRpStorybookV1, ok: false };
     }
   }, [node.data.storybookJson]);
+  const storybook = parsed.storybook;
 
   const [viewMode, setViewMode] = useState<ViewMode>('ui');
   const [jsonDraft, setJsonDraft] = useState(() => rpStorybookEditorJsonView(storybook));
-  const [textDraft, setTextDraft] = useState(() =>
-    rpStorybookFormattedText(storybook, editorFormattedTextSettings),
-  );
+  const [fieldsDraft, setFieldsDraft] = useState<RpStorybookV1>(() => structuredClone(storybook));
   const [status, setStatus] = useState('');
   const [seededFromJson, setSeededFromJson] = useState(node.data.storybookJson);
 
-  // Reseed both drafts when the node's stored storybook changes (e.g. after an
-  // Apply commits new content), using React's render-time "reset state on a prop
-  // change" pattern. Unapplied edits are intentionally discarded.
+  // Reseed drafts when the node's stored storybook changes (render-time reset).
   if (node.data.storybookJson !== seededFromJson) {
     setSeededFromJson(node.data.storybookJson);
     setJsonDraft(rpStorybookEditorJsonView(storybook));
-    setTextDraft(rpStorybookFormattedText(storybook, editorFormattedTextSettings));
+    setFieldsDraft(structuredClone(storybook));
   }
 
   const jsonValidity = useMemo(() => {
@@ -159,6 +282,11 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
       return { valid: false as const, message: error instanceof Error ? error.message : String(error) };
     }
   }, [jsonDraft]);
+
+  function commit(next: RpStorybookV1, successStatus: string) {
+    const error = onCommit(next, successStatus);
+    setStatus(error ? `Not applied: ${error}` : successStatus);
+  }
 
   function beautifyJson() {
     try {
@@ -183,16 +311,6 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
     setStatus('Copied to clipboard.');
   }
 
-  function revertJson() {
-    setJsonDraft(rpStorybookEditorJsonView(storybook));
-    setStatus('Reverted to the last applied JSON.');
-  }
-
-  function revertText() {
-    setTextDraft(rpStorybookFormattedText(storybook, editorFormattedTextSettings));
-    setStatus('Reverted to the last applied text.');
-  }
-
   function applyJson() {
     const result = applyRpStorybookEditorJson(storybook, jsonDraft);
     if ('error' in result) {
@@ -200,15 +318,7 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
       return;
     }
     const suffix = result.warnings.length ? ` ${result.warnings.join(' ')}` : '';
-    onCommit(result.storybook, `Applied JSON edits.${suffix}`);
-    setStatus(`Applied JSON edits.${suffix}`);
-  }
-
-  function applyText() {
-    const result = parseRpStorybookFormattedText(storybook, textDraft);
-    const suffix = result.warnings.length ? ` ${result.warnings.join(' ')}` : '';
-    onCommit(result.storybook, `Applied text edits.${suffix}`);
-    setStatus(`Applied text edits.${suffix}`);
+    commit(result.storybook, `Applied JSON edits.${suffix}`);
   }
 
   return (
@@ -232,6 +342,11 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
         </div>
 
         <div className="storybook-creator-body">
+          {!parsed.ok && (
+            <span className="run-note storybook-file-status">
+              This node&rsquo;s stored JSON is invalid; editing is disabled to avoid overwriting it.
+            </span>
+          )}
           <div className="storybook-main-workspace">
             <div className="storybook-document-panel">
               <div className="storybook-panel-header">
@@ -246,10 +361,10 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
                   </button>
                   <button
                     type="button"
-                    className={`tab-button ${viewMode === 'text' ? 'active' : ''}`}
-                    onClick={() => setViewMode('text')}
+                    className={`tab-button ${viewMode === 'fields' ? 'active' : ''}`}
+                    onClick={() => setViewMode('fields')}
                   >
-                    Formatted Text
+                    Fields
                   </button>
                   <button
                     type="button"
@@ -264,26 +379,27 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
               <div className="storybook-panel-content">
                 {viewMode === 'ui' && <StorybookReadonlyPreview storybook={storybook} />}
 
-                {viewMode === 'text' && (
-                  <div className="storybook-text-panel storybook-editor-panel">
+                {viewMode === 'fields' && (
+                  <div className="storybook-editor-panel">
                     <div className="storybook-editor-tools">
-                      <span className="storybook-editor-hint">Prose edits merge into the current storybook.</span>
-                      <button type="button" className="inspect-button nodrag" onClick={() => copyDraft(textDraft)}>
-                        Copy
-                      </button>
-                      <button type="button" className="inspect-button nodrag" onClick={revertText}>
+                      <span className="storybook-editor-hint">Each field is edited directly — no parsing.</span>
+                      <button
+                        type="button"
+                        className="inspect-button nodrag"
+                        onClick={() => setFieldsDraft(structuredClone(storybook))}
+                      >
                         Revert
                       </button>
-                      <button type="button" className="inspect-button nodrag" onClick={applyText}>
+                      <button
+                        type="button"
+                        className="inspect-button nodrag"
+                        disabled={!parsed.ok}
+                        onClick={() => commit(fieldsDraft, 'Applied field edits.')}
+                      >
                         Apply
                       </button>
                     </div>
-                    <textarea
-                      className="storybook-editor-textarea"
-                      spellCheck={false}
-                      value={textDraft}
-                      onChange={(event) => setTextDraft(event.currentTarget.value)}
-                    />
+                    <StorybookFieldsEditor draft={fieldsDraft} onChange={setFieldsDraft} />
                   </div>
                 )}
 
@@ -304,10 +420,19 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
                       </button>
                       {/* Beautify/Minify/Revert replace the draft, which resets the
                           editor's own undo history; Revert is the escape hatch. */}
-                      <button type="button" className="inspect-button nodrag" onClick={revertJson}>
+                      <button
+                        type="button"
+                        className="inspect-button nodrag"
+                        onClick={() => setJsonDraft(rpStorybookEditorJsonView(storybook))}
+                      >
                         Revert
                       </button>
-                      <button type="button" className="inspect-button nodrag" onClick={applyJson}>
+                      <button
+                        type="button"
+                        className="inspect-button nodrag"
+                        disabled={!parsed.ok}
+                        onClick={applyJson}
+                      >
                         Apply
                       </button>
                     </div>
