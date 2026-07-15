@@ -19,9 +19,11 @@ import {
   executePromptAction,
   knownPromptActionId,
   parsePromptActionCall,
+  parsePromptActionRequest,
   parsePromptActionTokens,
   promptActionAfterReplyText,
   promptActionAvailable,
+  promptActionInstructionText,
   promptActionKey,
   promptActionTokenText,
   replacePromptActionTokensWithInstructions,
@@ -433,7 +435,128 @@ export async function runActionAwarePrompt({
       label: actionReplay ? `Action replay ${actionReplayCount} output` : 'Initial action output',
       text: output.text,
     });
-    const actionCall = parsePromptActionCall(output.text);
+    let actionRequest = parsePromptActionRequest(output.text);
+    if (!actionRequest) {
+      // Models sometimes request an image action through the command syntax
+      // ("[commands: create_image]") instead of the action JSON. Recover by
+      // treating it as an action request; the drafted reply becomes the plan
+      // and is rewritten in the replay pass with the action result available.
+      const commandStyleRequest = parsePromptCommandRequest(output.text);
+      const requestedActionId = commandStyleRequest?.names
+        .map((name) => knownPromptActionId(name))
+        .find((actionId): actionId is 'getImageId' | 'createImage' =>
+          (actionId === 'getImageId' || actionId === 'createImage') &&
+          preReplyActionConfigs.some(
+            (candidate) =>
+              candidate.actionId === actionId &&
+              !actionResults.has(promptActionKey(candidate.title)),
+          ),
+        );
+      if (commandStyleRequest && requestedActionId) {
+        actionRequest = {
+          action: requestedActionId,
+          plan: commandStyleRequest.reply
+            ? `Draft reply from the first pass (it is discarded and rewritten once the action result is available):\n${commandStyleRequest.reply}`
+            : '',
+        };
+      }
+    }
+    let actionCall: ReturnType<typeof parsePromptActionCall>;
+    let actionConfig: PromptActionConfig | undefined;
+    if (actionRequest) {
+      actionConfig = preReplyActionConfigs.find(
+        (candidate) =>
+          candidate.actionId === actionRequest.action &&
+          !actionResults.has(promptActionKey(candidate.title)),
+      );
+      if (!actionConfig) {
+        context.reportWarning(
+          `${node.data.label}: LLM requested unavailable or already-consumed action ${actionRequest.action}.`,
+        );
+        generatedText = '';
+        break;
+      }
+
+      const followUpInstruction = promptActionInstructionText(
+        actionConfig,
+        actionAvailabilityOptions,
+        actionRequest.plan,
+      );
+      const followUpImagePass = promptImagePass({
+        actionReplay: false,
+        actionImages: [],
+        inputImages: inputImagesForPass,
+        referenceImages: referenceImageValues,
+      });
+      const followUpTextWithInputImageMarkers = promptWithImageAttachmentMarkers(
+        inputValue,
+        inputImagesForPass,
+        followUpImagePass.inputImageOffset,
+      );
+      const followUpTextInput = promptWithReferenceImageMarkers(
+        followUpTextWithInputImageMarkers,
+        usableReferenceImages,
+        followUpImagePass.referenceImageOffset,
+      );
+      const promptBeforeForFollowUp = promptSectionValue(promptBefore);
+      const followUpHistorySegments = historySegmentsForInputValue(context, followUpTextInput);
+      promptPasses.push({
+        label: `Action follow-up: ${actionConfig.title}`,
+        images: imagePreviewItems([
+          ...followUpImagePass.inputImages.map((image) => ({ image, source: 'input' as const })),
+          ...followUpImagePass.referenceImages.map((image) => ({ image, source: 'reference' as const })),
+        ]),
+        sections: [
+          {
+            label: 'Prompt Before Input',
+            text: promptBeforeForFollowUp,
+            parts: promptSectionParts(promptBefore, promptBeforeForFollowUp),
+          },
+          {
+            label: 'Text Input',
+            text: followUpTextInput,
+            parts: [{
+              text: followUpTextInput,
+              historySegments: followUpHistorySegments,
+            }],
+            historySegments: followUpHistorySegments,
+          },
+          {
+            label: 'Prompt After Input (Action Follow-Up)',
+            text: followUpInstruction,
+            parts: [{ text: followUpInstruction, actionInserted: true }],
+          },
+        ],
+      });
+      context.updateRuntimeData(node.id, {
+        preview: `Action ${actionRequest.action} requested; preparing it from the plan ...`,
+      });
+      const followUpOutput = await context.llm.complete({
+        connectionId: node.data.connectionId,
+        nodeId: node.id,
+        label: `${callLabel(actionReplayCount)} / Action follow-up: ${actionConfig.title}`,
+        prompt: [promptBeforeForFollowUp, followUpTextInput, followUpInstruction]
+          .filter(Boolean)
+          .join('\n\n'),
+        images: followUpImagePass.images,
+        contributesToTokenCalibration,
+        useConnectionSampling: true,
+      });
+      outputPasses.push({
+        label: `Action follow-up output: ${actionConfig.title}`,
+        text: followUpOutput.text,
+      });
+      actionCall = parsePromptActionCall(followUpOutput.text);
+      if (!actionCall || actionCall.action !== actionConfig.actionId) {
+        context.reportWarning(
+          `${node.data.label}: Action follow-up for ${actionConfig.title} returned no valid action call.`,
+        );
+        generatedText = '';
+        break;
+      }
+    } else {
+      actionCall = parsePromptActionCall(output.text);
+    }
     if (!actionCall) {
       const unknownAction = unknownPromptActionName(output.text);
       if (unknownAction) {
@@ -447,11 +570,12 @@ export async function runActionAwarePrompt({
     const matchesPendingCall = (candidate: PromptActionConfig) =>
       candidate.actionId === actionCall.action &&
       !actionResults.has(promptActionKey(candidate.title));
-    const actionConfig =
-      preReplyActionConfigs.find(matchesPendingCall) ??
-      afterReplyActionConfigs.find(matchesPendingCall);
+    actionConfig ??= afterReplyActionConfigs.find(matchesPendingCall);
     if (!actionConfig) {
-      context.reportWarning(`${node.data.label}: LLM requested unavailable or already-consumed action ${actionCall.action}.`);
+      const pendingPreReplyConfig = preReplyActionConfigs.find(matchesPendingCall);
+      context.reportWarning(pendingPreReplyConfig
+        ? `${node.data.label}: LLM must request action ${actionCall.action} with a first-pass plan before executing it.`
+        : `${node.data.label}: LLM requested unavailable or already-consumed action ${actionCall.action}.`);
       generatedText = '';
       break;
     }

@@ -282,6 +282,7 @@ type UseGraphRunOptions = Pick<
   applyPhoneImageActionFromLlm: (
     action: ParsedPhoneImageAction,
     phoneReplyTo?: MessageRecord,
+    outgoingImageId?: string,
   ) => ImageCaptionChange | undefined;
   resolveOutputActionContextCapacityBars: (
     requests: OutputActionContextCapacityRequest[],
@@ -1487,6 +1488,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               textBefore: parsedRpOutput.story,
               textAfter: '',
               phoneMessages: [],
+              phoneImageActions: [],
               bankTransfers: [],
               socialPostComments: [],
               socialDirectMessages: [],
@@ -1495,15 +1497,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
               createdPhoneNotes: [],
               invalidCreatedPhoneNoteCount: 0,
             };
-      // Phone replies may append a bankTransfers object after the reply JSON;
-      // split it off so the reply still parses as a single phone message.
+      // Phone replies may append caption metadata and phone-app action objects
+      // after the reply JSON. Split them off so the reply still parses as one
+      // phone message, then apply the extracted caption below.
       const phoneOutputBankResult =
         isPhoneMessage && phoneMessageOutput
           ? parseEmbeddedPhoneMessagesFromRpOutput(phoneMessageOutput)
           : undefined;
       if (
         phoneOutputBankResult &&
-        (phoneOutputBankResult.bankTransfers.length > 0 ||
+        (phoneOutputBankResult.phoneImageActions.length > 0 ||
+          phoneOutputBankResult.bankTransfers.length > 0 ||
           phoneOutputBankResult.socialPostComments.length > 0 ||
           phoneOutputBankResult.socialDirectMessages.length > 0 ||
           phoneOutputBankResult.simulatedAiChats.length > 0 ||
@@ -1690,8 +1694,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
           detail: `${parsedPhoneMessage.from} → ${parsedPhoneMessage.to}`,
         });
         let phoneImageCaptionChange: ImageCaptionChange | undefined;
-        if (parsedPhoneMessage.incomingImageAction) {
-          phoneImageCaptionChange = applyPhoneImageActionFromLlm(parsedPhoneMessage.incomingImageAction, phoneReplyTo);
+        const phoneImageAction = runPromptSwitchVisionFeaturesEnabled
+          ? parsedPhoneMessage.incomingImageAction ?? phoneOutputBankResult?.phoneImageActions[0]
+          : undefined;
+        if (phoneImageAction) {
+          phoneImageCaptionChange = applyPhoneImageActionFromLlm(
+            phoneImageAction,
+            phoneReplyTo,
+            parsedPhoneMessage.imageId,
+          );
         }
         if (runEnglishProcessing) {
           try {
@@ -1845,6 +1856,21 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const allCreatedPhoneNoteCommits = [...createdPhoneNoteCommits, ...directCreatedPhoneNoteCommits];
       const allSimulatedAiChatCommits = [...simulatedAiChatCommits, ...directSimulatedAiChatCommits];
       const appliedActions = mergeOutputActions(outputActions, directActions);
+      if (!isPhoneMessage) {
+        for (const embeddedImageAction of embeddedPhoneResult.phoneImageActions) {
+          const targetPhoneMessage = embeddedPhoneResult.phoneMessages.find(
+            (message) => message.imageId?.trim() === embeddedImageAction.imageId.trim(),
+          );
+          const embeddedCaptionChange = applyPhoneImageActionFromLlm(
+            embeddedImageAction,
+            phoneReplyTo,
+            targetPhoneMessage?.imageId,
+          );
+          if (targetPhoneMessage && embeddedCaptionChange) {
+            targetPhoneMessage.phoneImageCaptionChange = embeddedCaptionChange;
+          }
+        }
+      }
       const embeddedPhoneMessages: EmbeddedPhoneMessageLink[] = [];
       if (embeddedPhoneResult.phoneMessages.length > 0) {
         for (const [index, embeddedPhoneMessage] of embeddedPhoneResult.phoneMessages.entries()) {

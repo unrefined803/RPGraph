@@ -31,7 +31,7 @@ The project describes itself in `package.json` as:
 
 > Local-first node graph studio for roleplay workflows.
 
-The current UI labels the product as `RPgraph Studio v0.4.7 Beta`.
+The current UI labels the product as `RPgraph Studio v0.4.8 Beta`.
 
 ## Main Interface
 
@@ -79,16 +79,16 @@ Direct app actions bypass prompt routing. The `User Input` node exposes a `Direc
 
 ## Prompt Actions
 
-Prompt Actions are internal helper calls that can be inserted into an LLM prompt with `@action` tokens. At runtime, `runActionAwarePrompt` replaces those tokens with the configured action instructions before the first LLM call.
+Prompt Actions are internal helper calls that can be inserted into an LLM prompt with `@action` tokens. Pre-reply image actions use a focused three-LLM-pass flow so their full instructions do not permanently consume context:
 
-The action flow is two-pass:
+1. In the normal prompt, each available pre-reply action expands only to a compact request hint. The model requests one by returning its action name and a short plan.
+2. RPGraph keeps the same text input but replaces the normal prompt-after text with that action's full follow-up template. The plan is inserted into this focused pass, and the model returns the complete action parameters.
+3. RPGraph executes the action internally, then replays the original prompt with the same `@action` location replaced by the result, such as found image IDs or a generated ComfyUI image ID.
+4. The final model pass writes the visible roleplay or phone response using those returned results. Unused actions remain compact hints, so the model can request another action when necessary.
 
-1. The first prompt pass shows the model an available action, such as `get_image_id`, `update_phone_image_caption`, or `create_image`.
-2. If the model returns only the expected JSON action object, RPGraph executes the action internally.
-3. The prompt is replayed with the same `@action` location replaced by the action result, such as found image IDs, a recorded incoming-image caption decision, or a generated ComfyUI image ID.
-4. The final model pass writes the visible roleplay or phone response using those returned results.
+After-reply caption actions remain separate focused passes because their instructions depend on the already completed visible reply.
 
-This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries, caption actions return a compact JSON record for the latest incoming phone image, and Create character phone image actions generate and store a new outgoing character phone image through ComfyUI before replaying the prompt.
+This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries and identify earlier recipients of each match so the model does not resend the same photo to them. Caption actions return a compact JSON record for the latest incoming phone image, and Create character phone image actions generate and store a new outgoing character phone image through ComfyUI before replaying the prompt.
 
 ## Phone And JSON Outputs
 
