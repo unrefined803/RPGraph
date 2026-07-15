@@ -17,6 +17,7 @@ import {
   type CustomNodeAssistantDiagnostic,
   type CustomNodeAssistantMessage,
 } from './components/AppDialogs';
+import { StorybookEditorDialog } from './components/StorybookEditorDialog';
 import {
   AssistantDialog,
   type AssistantMessage as AssistantChatMessage,
@@ -88,6 +89,7 @@ import { lastTurnMessages } from './data-management/historyStore';
 import {
   chatAttachmentFromStorybookImage,
   findChatEndpoints,
+  isStorybookSourceNode,
   storybookOpeningSituation,
   storyCharactersFromNodes,
   type StorybookCharacter,
@@ -1090,6 +1092,7 @@ function App() {
       | 'event-manager-appointments'
     >('text');
   const [jsonDialogNodeId, setJsonDialogNodeId] = useState<string | null>(null);
+  const [storybookEditorNodeId, setStorybookEditorNodeId] = useState<string | null>(null);
   const [customNodeAssistantNodeId, setCustomNodeAssistantNodeId] = useState<string | null>(null);
   const [customNodeAssistantHistories, setCustomNodeAssistantHistories] = useState<Record<string, CustomNodeAssistantMessage[]>>({});
   const [customNodeAssistantDiagnostics, setCustomNodeAssistantDiagnostics] = useState<Record<string, CustomNodeAssistantDiagnostic[]>>({});
@@ -1170,7 +1173,7 @@ function App() {
   const storybooksByNodeId = useMemo(() => {
     return new Map(
       nodeViewNodes.flatMap((node) => {
-        if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+        if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
           return [];
         }
         try {
@@ -1666,6 +1669,7 @@ function App() {
     openStorybookCreator,
     submitStorybookCreatorMessage,
     updateStorybook,
+    commitStorybookToNode,
     applyStorybookToNode,
     importCurrentSessionAsOpeningHistory,
     clearStorybookOpeningHistory,
@@ -2247,9 +2251,20 @@ function App() {
           .filter((node) => node.data.kind === undefined && getRegisteredCoreNode(node.data.nodeType)?.singleton)
           .map((node) => node.data.nodeType),
       );
+      // Storybook sources are mutually exclusive (v1 XOR editor): keep at most one
+      // across existing + restored nodes.
+      const storybookSourceExists = nodesRef.current.some(isStorybookSourceNode);
+      let storybookSourceRestored = false;
       const restoredNodes = deletedAction.nodes.filter((node) => {
         if (existingNodeIds.has(node.id)) {
           return false;
+        }
+        if (isStorybookSourceNode(node)) {
+          if (storybookSourceExists || storybookSourceRestored) {
+            return false;
+          }
+          storybookSourceRestored = true;
+          return true;
         }
         return !getRegisteredCoreNode(node.data.nodeType)?.singleton ||
           !existingSingletonTypes.has(node.data.nodeType);
@@ -2348,11 +2363,23 @@ function App() {
           .filter((node) => getRegisteredCoreNode(node.data.nodeType)?.singleton)
           .map((node) => node.data.nodeType),
       );
-      const pasteableNodes = copied.nodes.filter(
-        (node) =>
+      // Storybook sources are mutually exclusive (v1 XOR editor): keep at most one
+      // across existing + pasted nodes.
+      const storybookSourceExists = nodesRef.current.some(isStorybookSourceNode);
+      let storybookSourcePasted = false;
+      const pasteableNodes = copied.nodes.filter((node) => {
+        if (isStorybookSourceNode(node)) {
+          if (storybookSourceExists || storybookSourcePasted) {
+            return false;
+          }
+          storybookSourcePasted = true;
+          return true;
+        }
+        return (
           !getRegisteredCoreNode(node.data.nodeType)?.singleton ||
-          !existingSingletons.has(node.data.nodeType),
-      );
+          !existingSingletons.has(node.data.nodeType)
+        );
+      });
       if (pasteableNodes.length === 0) {
         event.preventDefault();
         return;
@@ -3595,6 +3622,7 @@ function App() {
     setJsonDialogNodeId,
     setOutputFormatHelpKind,
     openStorybookCreator,
+    openStorybookEditor: setStorybookEditorNodeId,
     openCustomNodeAssistant,
     runCustomNodeButton,
     loadStorybookFile,
@@ -3921,7 +3949,7 @@ function App() {
       return undefined;
     }
     for (const node of nodesRef.current) {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         continue;
       }
       try {
@@ -4225,7 +4253,7 @@ function App() {
       return;
     }
     const storybookNode = nodesRef.current.find(
-      (node) => node.id === fromCharacter.storybookNodeId && node.data.nodeType === 'rp-storybook-v1',
+      (node) => node.id === fromCharacter.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
       return;
@@ -4248,7 +4276,7 @@ function App() {
 
   function changeStorybookPhoneWallpaper(character: StorybookCharacter, wallpaperId: string) {
     const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook-v1',
+      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
       return;
@@ -4275,7 +4303,7 @@ function App() {
     username: string,
   ) {
     const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook-v1',
+      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
       return;
@@ -4340,7 +4368,7 @@ function App() {
       return undefined;
     }
     const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook-v1',
+      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
       return undefined;
@@ -4371,7 +4399,7 @@ function App() {
       return;
     }
     nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         return;
       }
       const storybook = parseRpStorybookJson(node.data.storybookJson);
@@ -4403,7 +4431,7 @@ function App() {
     const beforeCaption = storybookImageDescriptionById.get(normalizedImageId)?.trim() || undefined;
     let updated = false;
     nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         return;
       }
       const storybook = parseRpStorybookJson(node.data.storybookJson);
@@ -4476,7 +4504,7 @@ function App() {
 
   function pruneStorybookExternalImagesForMessages(activeMessages = messagesRef.current) {
     nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1' || !node.data.storybookJson) {
+      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         return;
       }
       const storybook = parseRpStorybookJson(node.data.storybookJson);
@@ -5789,7 +5817,7 @@ function App() {
       ? `Turn ${activeSessionSavedTurn} Saved`
       : null;
   const headerStorybookNode = nodeViewNodes.find(
-    (node) => node.data.kind === undefined && node.data.nodeType === 'rp-storybook-v1',
+    isStorybookSourceNode,
   );
   const headerStorybookFileName = headerStorybookNode?.data.storybookFileName;
   const headerStorybookJson = headerStorybookNode?.data.storybookJson;
@@ -5848,6 +5876,7 @@ function App() {
   const textDialogNode = textDialogSourceNode;
   const jsonDialogNode = nodes.find((node) => node.id === jsonDialogNodeId);
   const storybookCreatorNode = nodeViewNodes.find((node) => node.id === storybookCreatorNodeId);
+  const storybookEditorNode = nodeViewNodes.find((node) => node.id === storybookEditorNodeId);
   const customNodeAssistantNode = nodeViewNodes.find((node) => node.id === customNodeAssistantNodeId);
   const customNodeAssistantMessages = customNodeAssistantNodeId
     ? (customNodeAssistantHistories[customNodeAssistantNodeId] || [])
@@ -7136,6 +7165,16 @@ function App() {
           onBeginConversionReview={beginPendingStorybookReview}
           onImproveConversion={improvePendingStorybookConversion}
           onClose={() => setStorybookCreatorNodeId(null)}
+        />
+      )}
+
+      {storybookEditorNode && storybookEditorNode.data.nodeType === 'rp-storybook-editor' && (
+        <StorybookEditorDialog
+          node={storybookEditorNode}
+          onCommit={(storybook, status) =>
+            commitStorybookToNode(storybookEditorNode.id, storybook, { storybookStatus: status })
+          }
+          onClose={() => setStorybookEditorNodeId(null)}
         />
       )}
 

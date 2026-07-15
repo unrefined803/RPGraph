@@ -11,6 +11,7 @@ import {
   openingHistoryCheckpointsFromNodes,
   openingHistoryTurnsFromNodes,
 } from '../storybook/openingHistoryRuntime';
+import { isStorybookSourceNode } from '../storybook/runtime';
 import type { TurnCheckpoint } from '../data-management/types';
 import type { MessageRecord, TurnRecord, WorkflowFile, WorkflowNode, WorkflowNodeData } from '../types';
 import { hydrateNodeData, removeEdgesConnectedToIncompatibleNodes } from '../workflow/persistence';
@@ -63,6 +64,14 @@ export function hydrateLoadedWorkflow({
       data,
     };
   });
+  // Storybook sources are mutually exclusive (v1 XOR editor). Reject a file with
+  // more than one before any live state is committed (validate-then-commit).
+  if (loadedNodes.filter(isStorybookSourceNode).length > 1) {
+    throw new Error(
+      'This workflow has more than one storybook source. A graph may contain only one RP Storybook or RP Storybook Editor node.',
+    );
+  }
+
   const loadedEdges = keepLatestInputEdges(
     removeEdgesConnectedToIncompatibleNodes(loadedNodes, migratedWorkflow.edges)
       .map((edge) => withWorkflowConnectionColor({ ...edge, selected: false })),

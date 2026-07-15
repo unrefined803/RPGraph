@@ -389,6 +389,28 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
       });
     },
   },
+  'rp-storybook-editor': {
+    saveData: (data) => {
+      const storybook = data.storybookJson
+        ? parseRpStorybookJson(data.storybookJson)
+        : emptyRpStorybookV1;
+      return preservedData(data, 'No storybook loaded', {
+        storybookJson: rpStorybookJsonText(storybook),
+        storybookStatus: storybook.title ? 'Embedded storybook' : 'Ready',
+        storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),
+      });
+    },
+    hydrateData: (data) => {
+      const storybook = data.storybookJson
+        ? parseRpStorybookJson(data.storybookJson)
+        : emptyRpStorybookV1;
+      return preservedData(data, 'No storybook loaded', {
+        storybookJson: rpStorybookJsonText(storybook),
+        storybookStatus: storybook.title ? 'Loaded embedded storybook' : 'Ready',
+        storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),
+      });
+    },
+  },
   output: {
     saveData: (data) => preservedData(data, 'No output yet', {
       connectionId: data.connectionId,

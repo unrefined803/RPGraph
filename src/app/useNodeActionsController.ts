@@ -98,6 +98,7 @@ type UseNodeActionsControllerOptions = {
   setJsonDialogNodeId: Dispatch<SetStateAction<string | null>>;
   setOutputFormatHelpKind: Dispatch<SetStateAction<OutputFormatHelpKind | null>>;
   openStorybookCreator: (nodeId: string) => void;
+  openStorybookEditor: (nodeId: string) => void;
   openCustomNodeAssistant: (nodeId: string) => void;
   runCustomNodeButton: (nodeId: string, label: string) => Promise<void>;
   loadStorybookFile: (nodeId: string) => Promise<boolean>;
@@ -137,6 +138,7 @@ export function useNodeActionsController({
   setJsonDialogNodeId,
   setOutputFormatHelpKind,
   openStorybookCreator,
+  openStorybookEditor,
   openCustomNodeAssistant,
   runCustomNodeButton,
   loadStorybookFile,
@@ -868,6 +870,7 @@ export function useNodeActionsController({
     showOutputHighlighting: (nodeId) => openTextDialog('output-highlighting', nodeId),
     showOutputFormatHelp: setOutputFormatHelpKind,
     openStorybookCreator,
+    openStorybookEditor,
     openCustomNodeAssistant,
     runCustomNodeButton,
     loadStorybookFile,

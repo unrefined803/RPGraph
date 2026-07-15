@@ -20,6 +20,11 @@ import {
   rpStorybookJsonText,
 } from '../nodes/rp-storybook-v1/model';
 import {
+  applyRpStorybookEditorJson,
+  rpStorybookEditorJsonView,
+} from '../nodes/rp-storybook-editor/rawJson';
+import { isStorybookSourceNode } from '../storybook/runtime';
+import {
   storybookImageById,
   storybookImageDescriptions,
   storybookImageSourceById,
@@ -4766,8 +4771,156 @@ export function verifyCharacterStatDefinitionFixtures() {
   );
 }
 
+function editorTestStorybook() {
+  const base0 = parseRpStorybookJson(JSON.stringify({
+    format: 'rpgraph-storybook',
+    version: '2.0.0',
+    title: 'Test Book',
+    introduction: 'An intro.',
+    scenario: { summary: 'A summary.', openingSituation: 'Opening.', currentSituation: 'Current.' },
+    characters: [{
+      id: 'nova',
+      name: 'Nova',
+      description: 'Desc line one.\nDesc line two.',
+      personality: 'Kind.',
+      speechStyle: 'Formal.',
+      role: 'Lead',
+      comfyConfig: { loraName: 'nova.safetensors', loraUrl: '', appearance: 'tall' },
+      voiceConfig: { sampleName: 's', sampleMimeType: 'audio/mpeg', sampleDataUrl: 'data:audio/mpeg;base64,CCCC' },
+      images: [
+        { id: 'nova_image_01', name: 'i1', mimeType: 'image/jpeg', size: 4, dataUrl: 'data:image/jpeg;base64,AAAA', description: 'a' },
+        { id: 'nova_image_02', name: 'i2', mimeType: 'image/jpeg', size: 4, dataUrl: 'data:image/jpeg;base64,BBBB', description: 'b' },
+      ],
+      banking: { startBalance: 2000, fixedExpenses: [{ label: 'Rent', amount: 900 }] },
+      social: { fotogramUsername: 'nova.r', onlyfriendsUsername: '' },
+    }],
+    phoneContacts: { blocked: [] },
+    openingHistory: { summary: '', turns: [], checkpoints: [], events: [] },
+  }));
+  const imageId = base0.characters[0].images[0].id;
+  return parseRpStorybookJson(JSON.stringify({
+    ...base0,
+    characters: base0.characters.map((character) => ({
+      ...character,
+      profileImage: { imageId, dataUrl: 'data:image/jpeg;base64,AAAA', crop: { x: 10, y: 10, size: 50 } },
+    })),
+    openingHistory: {
+      summary: 'Imported memory.',
+      turns: [{
+        id: 'opening-turn-1',
+        number: 1,
+        createdAt: new Date(0).toISOString(),
+        input: { graphText: '', messages: [{ id: 1, role: 'user', originalText: 'hi' }] },
+        output: { graphText: '', messages: [{ id: 2, role: 'output', originalText: 'hey' }] },
+      }],
+      checkpoints: [],
+      events: [],
+    },
+  }));
+}
+
+export function verifyRpStorybookEditorFixtures() {
+  const base = editorTestStorybook();
+
+  // --- Raw JSON apply ---
+  const view = rpStorybookEditorJsonView(base);
+  assertFixture(
+    view.includes('[Data URL redacted:') && !view.includes('base64,AAAA'),
+    'the editable JSON view must redact binaries',
+  );
+
+  const applied = applyRpStorybookEditorJson(base, view);
+  assertFixture(!('error' in applied), 'applying the unedited JSON view must succeed');
+  if ('error' in applied) {
+    return;
+  }
+  assertFixture(
+    JSON.stringify(applied.storybook.openingHistory) === JSON.stringify(base.openingHistory),
+    'Raw JSON apply must restore Opening History wholesale',
+  );
+  assertFixture(
+    applied.storybook.characters[0].images[0].dataUrl === base.characters[0].images[0].dataUrl &&
+      applied.storybook.characters[0].voiceConfig?.sampleDataUrl === base.characters[0].voiceConfig?.sampleDataUrl &&
+      applied.storybook.characters[0].profileImage?.dataUrl === base.characters[0].profileImage?.dataUrl,
+    'Raw JSON apply must rehydrate redacted binaries by id',
+  );
+
+  // Deleting an image entry (the legitimate removal path) removes it cleanly.
+  const deletedValue = JSON.parse(view) as { characters: Array<{ images: unknown[] }> };
+  deletedValue.characters[0].images = deletedValue.characters[0].images.slice(1);
+  const withDeleted = applyRpStorybookEditorJson(base, JSON.stringify(deletedValue));
+  assertFixture(
+    !('error' in withDeleted) && withDeleted.storybook.characters[0].images.length === 1,
+    'deleting an image entry removes it',
+  );
+
+  // Editing an image id so its redacted binary can no longer resolve aborts
+  // (F3: no silent drop).
+  const orphanImageValue = JSON.parse(view) as { characters: Array<{ images: Array<{ id: string }> }> };
+  orphanImageValue.characters[0].images[0].id = 'ghost_image_99';
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify(orphanImageValue)),
+    'an unresolvable redacted image (edited image id) must abort the apply',
+  );
+
+  // Editing a non-binary value passes through.
+  const editValue = JSON.parse(view) as { characters: Array<{ description: string }> };
+  editValue.characters[0].description = 'Rewritten description.';
+  const withEdit = applyRpStorybookEditorJson(base, JSON.stringify(editValue));
+  assertFixture(
+    !('error' in withEdit) && withEdit.storybook.characters[0].description === 'Rewritten description.',
+    'edited non-binary JSON values must pass through',
+  );
+
+  // Renaming a character preserves its image content and profile image, with a warning.
+  const renameValue = JSON.parse(view) as { characters: Array<{ name: string }> };
+  renameValue.characters[0].name = 'Nova Reyes';
+  const withRename = applyRpStorybookEditorJson(base, JSON.stringify(renameValue));
+  assertFixture(
+    !('error' in withRename) &&
+      JSON.stringify(withRename.storybook.characters[0].images.map((image) => image.dataUrl)) ===
+        JSON.stringify(base.characters[0].images.map((image) => image.dataUrl)) &&
+      !!withRename.storybook.characters[0].profileImage &&
+      withRename.warnings.length >= 1,
+    'renaming a character must preserve image content and profile image (with a warning)',
+  );
+
+  // Invalid JSON / incompatible documents are rejected.
+  assertFixture('error' in applyRpStorybookEditorJson(base, '{not json'), 'invalid JSON must be rejected');
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify({ title: 'x' })),
+    'an incompatible document must be rejected',
+  );
+
+  // F3: editing a character id so its redacted binaries can no longer resolve aborts.
+  const idEditValue = JSON.parse(view) as { characters: Array<{ id: string }> };
+  idEditValue.characters[0].id = 'renamed-id';
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify(idEditValue)),
+    'an unresolvable redacted binary (edited character id) must abort the apply',
+  );
+
+  // F10: the editable JSON view omits Opening History.
+  assertFixture(
+    !rpStorybookEditorJsonView(base).includes('openingHistory'),
+    'the editable Raw JSON view must omit Opening History',
+  );
+
+  // Source recognition: both storybook node types are peers; others / incompatible are not.
+  const asNode = (nodeType: string, kind?: string) =>
+    ({ data: { nodeType, ...(kind ? { kind } : {}) } }) as unknown as WorkflowNode;
+  assertFixture(isStorybookSourceNode(asNode('rp-storybook-v1')), 'rp-storybook-v1 is a storybook source');
+  assertFixture(isStorybookSourceNode(asNode('rp-storybook-editor')), 'rp-storybook-editor is a storybook source');
+  assertFixture(!isStorybookSourceNode(asNode('llm-prompt')), 'a non-storybook node is not a source');
+  assertFixture(
+    !isStorybookSourceNode(asNode('rp-storybook-editor', 'incompatible-core-node')),
+    'an incompatible-core-node is not a storybook source',
+  );
+}
+
 verifyWorkflowValidationFixtures();
 verifyDirectAppActionPayloadFixtures();
 verifyCharacterStatDefinitionFixtures();
+verifyRpStorybookEditorFixtures();
 void verifyPromptRunFixtures();
 void verifyDirectActionsGraphFixture();

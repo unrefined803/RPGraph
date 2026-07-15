@@ -33,6 +33,7 @@ import {
 import { isComfyImageConnection } from '../comfy/connectionRole';
 import { withImagesEnsuredForStorybookCharacter } from '../storybook/imageLibrary';
 import {
+  isStorybookSourceNode,
   storybookCreateImageCharactersFromNodes,
   type StorybookCreateImageCharacter,
 } from '../storybook/runtime';
@@ -488,7 +489,7 @@ export async function executeGraph({
     );
 
     const storybookNodeCandidate = nodeById.get(phoneOwner.storybookNodeId);
-    const storybookNode = storybookNodeCandidate?.data.nodeType === 'rp-storybook-v1'
+    const storybookNode = storybookNodeCandidate && isStorybookSourceNode(storybookNodeCandidate)
       ? storybookNodeCandidate
       : undefined;
     const storybookJson = storybookNode

@@ -21,6 +21,7 @@ import {
   removeEventEntities,
 } from '../data-management/eventStore';
 import { usedStorybookImageIdsRemoved } from './imageUsage';
+import { isStorybookSourceNode } from './runtime';
 import { withChangedStorybookImageDescriptionsSynchronized } from './imageLibrary';
 import { turnsWithStorybookImageRefs } from './openingHistoryRuntime';
 import storybookFormatVersions from './formatVersions.json';
@@ -179,7 +180,7 @@ export function useStorybookActions({
       });
       return null;
     }
-    if (node?.data.nodeType === 'rp-storybook-v1') {
+    if (node && isStorybookSourceNode(node)) {
       const currentStorybook = node.data.storybookJson
         ? parseRpStorybookJson(node.data.storybookJson)
         : emptyRpStorybookV1;
@@ -947,6 +948,7 @@ export function useStorybookActions({
     openStorybookCreator,
     submitStorybookCreatorMessage,
     updateStorybook,
+    commitStorybookToNode,
     applyStorybookToNode,
     pendingStorybookConversion,
     beginPendingStorybookReview,
