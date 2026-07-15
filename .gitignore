@@ -7,6 +7,11 @@ dist-electron/
 release/
 out/
 
+# Playwright e2e output
+test-results/
+playwright-report/
+.playwright/
+
 # Local app/runtime files
 *.log
 *.tmp
@@ -43,3 +48,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# local user data sources
+user_data/
+
+# spec driven dev docs and tooling
+openspec/

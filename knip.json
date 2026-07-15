@@ -6,8 +6,11 @@
     "src/**/*.test.ts",
     "electron/**/*.test.ts",
     "vitest.config.ts",
+    "playwright.config.ts",
+    "e2e/**/*.spec.ts",
+    "e2e/**/*.ts",
     "scripts/*.mjs"
   ],
-  "project": ["src/**/*.{ts,tsx}", "electron/**/*.cjs", "electron/**/*.test.ts", "scripts/**/*.mjs"],
+  "project": ["src/**/*.{ts,tsx}", "electron/**/*.cjs", "electron/**/*.test.ts", "e2e/**/*.ts", "scripts/**/*.mjs"],
   "ignore": ["src/electron.d.ts"]
 }

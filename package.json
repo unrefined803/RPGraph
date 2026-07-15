@@ -16,6 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
     "prepare": "node scripts/setup-git-hooks.mjs",
     "workflow:redact": "node scripts/workflow-redact.mjs redact",
     "workflow:merge": "node scripts/workflow-redact.mjs merge",
@@ -37,6 +39,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.1.2",
