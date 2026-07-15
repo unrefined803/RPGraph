@@ -1,0 +1,7 @@
+#!/bin/sh
+# Local verification gate. Runs on `git push`; bypass with `git push --no-verify`.
+set -e
+npm run build
+npm run lint
+npm run check:unused
+npm run test

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { captureTurnRuntime } from '../chat/turns';
 import { currentSessionFormatVersion } from '../session/version';
 import type {
@@ -197,18 +198,14 @@ const currentWorkflow = bundledDefaultWorkflows[bundledDefaultWorkflowPath]
   .default as WorkflowFile;
 
 function assertFixture(condition: boolean, message: string) {
-  if (!condition) {
-    throw new Error(`Workflow validation fixture failed: ${message}`);
-  }
+  // Route through vitest's expect so a failure reports the message (and, where
+  // the caller passes a comparison, a value diff) instead of an opaque throw.
+  expect(condition, message).toBe(true);
 }
 
 function assertThrowsFixture(action: () => void, message: string) {
-  try {
-    action();
-  } catch {
-    return;
-  }
-  throw new Error(`Workflow validation fixture failed: ${message}`);
+  expect(action, message).toThrow();
+  return;
 }
 
 export function verifyWorkflowValidationFixtures() {
@@ -4603,9 +4600,23 @@ export function verifyRpStorybookEditorFixtures() {
   );
 }
 
-verifyWorkflowValidationFixtures();
-verifyDirectAppActionPayloadFixtures();
-verifyCharacterStatDefinitionFixtures();
-verifyRpStorybookEditorFixtures();
-void verifyPromptRunFixtures();
-void verifyDirectActionsGraphFixture();
+describe('workflow validation fixtures', () => {
+  it('validates workflows (format/version, load-then-commit, media)', () => {
+    verifyWorkflowValidationFixtures();
+  });
+  it('validates Direct App Action payloads', () => {
+    verifyDirectAppActionPayloadFixtures();
+  });
+  it('validates character stat definitions', () => {
+    verifyCharacterStatDefinitionFixtures();
+  });
+  it('validates the RP Storybook Editor Raw JSON pipeline and source recognition', () => {
+    verifyRpStorybookEditorFixtures();
+  });
+  it('runs prompt-run fixtures', async () => {
+    await verifyPromptRunFixtures();
+  });
+  it('runs the Direct Actions graph fixture', async () => {
+    await verifyDirectActionsGraphFixture();
+  });
+});
