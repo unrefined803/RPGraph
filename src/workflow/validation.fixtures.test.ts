@@ -140,18 +140,23 @@ import {
   socialThreadCommentTextFromInput,
   socialThreadRunContextFromInput,
 } from '../chat/socialMedia';
-import type { StorybookCharacter } from '../storybook/runtime';
+import type { StorybookCharacter, StorybookCreateImageCharacter } from '../storybook/runtime';
 import {
   collectRecentReferenceImages,
   promptWithImageAttachmentMarkers,
   promptWithReferenceImageMarkers,
 } from '../chat/referenceImages';
 import {
+  defaultCreateImageResultTemplate,
   defaultPromptActionConfig,
   countPromptActionUses,
+  executePromptAction,
   knownPromptActionId,
   parsePromptActionCall,
+  parsePromptActionRequest,
   promptActionConfigs,
+  promptActionInstructionText,
+  promptActionRuntimeSettings,
   replacePromptActionTitle,
   unwrapJsonCodeFence,
 } from '../nodes/shared/promptActions';
@@ -164,7 +169,7 @@ import {
 } from '../nodes/shared/promptCommands';
 import { runActionAwarePrompt } from '../nodes/shared/promptRun';
 import { applyTurnCheckpointToNodes } from '../data-management/checkpointStore';
-import { executeGraph } from '../graph/executeGraph';
+import { executeGraph, resolveCreateImageCharacterByName } from '../graph/executeGraph';
 import { NodeLlmApi } from '../llm/NodeLlmApi';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import {
@@ -1290,11 +1295,43 @@ export function verifyWorkflowValidationFixtures() {
     'prompt action image limits must clamp to the supported 1 through 20 range',
   );
   const getImageIdDefaults = defaultPromptActionConfig('Get character phone image list', 'getImageId');
+  const normalizedGetImageIdDefaults = promptActionConfigs([{
+    title: 'Get character phone image list',
+    actionId: 'getImageId',
+    preset: 'default',
+  }])[0];
+  const getImageIdRuntimeDefaults = promptActionRuntimeSettings({
+    getImageId: { sendImagesToLlm: true },
+  }).getImageId;
   assertFixture(
     getImageIdDefaults.maxReturnedImages === 3 &&
       getImageIdDefaults.sendImagesToLlm &&
-      getImageIdDefaults.hideImageTextWhenSendingToLlm,
-    'get image id prompt action defaults must send three hidden-text images to the LLM',
+      !getImageIdDefaults.hideImageTextWhenSendingToLlm &&
+      normalizedGetImageIdDefaults?.maxReturnedImages === 3 &&
+      normalizedGetImageIdDefaults.sendImagesToLlm &&
+      !normalizedGetImageIdDefaults.hideImageTextWhenSendingToLlm &&
+      getImageIdRuntimeDefaults?.sendImagesToLlm === true &&
+      getImageIdRuntimeDefaults.hideImageTextWhenSendingToLlm === false &&
+      getImageIdDefaults.resultTemplate.includes('Image shown to: {{imageShownTo}}') &&
+      getImageIdDefaults.resultTemplate.includes('use the Create character phone image action when it is offered') &&
+      getImageIdDefaults.resultTemplate.includes('write the reply without an image') &&
+      getImageIdDefaults.resultTemplate.includes('steer the conversation naturally away from sending a photo'),
+    'get image id prompt action defaults must send three captioned images, report recipients, offer available image generation, and preserve the current roleplay topic',
+  );
+  const updatePhoneImageCaptionDefaults = defaultPromptActionConfig(
+    'Update phone image caption',
+    'updatePhoneImageCaption',
+  );
+  assertFixture(
+      updatePhoneImageCaptionDefaults.runAfterReply &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('"imageAction": "no_change"') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('"imageId": "exact existing imageId"') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('imageAction "no_change" is the default') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('The visible phone reply is not new evidence by itself') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('Forwarding or resending the existing image to another person must not trigger an update') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('If there is no clear new fact') &&
+      !updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('the latest messages or the visible phone reply establish story-relevant new information'),
+    'after-reply phone image captions must default to no change unless explicit new facts materially change the image meaning',
   );
   assertFixture(
     countPromptActionUses([
@@ -2835,6 +2872,116 @@ export function verifyWorkflowValidationFixtures() {
       knownPromptActionId('make_coffee') === undefined,
     'fence unwrapping and known action ids must classify LLM action names',
   );
+  const plannedImageAction = parsePromptActionRequest(
+    '{"action":"create_image","plan":"Lara takes and owns a mirror selfie of herself in her current outfit."}',
+  );
+  assertFixture(
+    plannedImageAction?.action === 'createImage' &&
+      plannedImageAction.plan === 'Lara takes and owns a mirror selfie of herself in her current outfit.',
+    'pre-reply image actions must carry a first-pass plan into their follow-up pass',
+  );
+  const createImageAction = parsePromptActionCall(
+    '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":"Lara Miller","prompt":"A 28-year-old woman stands beside stacked moving boxes."}',
+  );
+  const createImageWithoutLora = parsePromptActionCall(
+    '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":0,"prompt":"A small dog lies on a sofa."}',
+  );
+  const characterOnlyImageSearch = parsePromptActionCall(
+    '{"action":"get_image_id","characters":"Robert Miller"}',
+  );
+  const taggedImageSearch = parsePromptActionCall(
+    '{"action":"get_image_id","characters":"Robert Miller","tags":"mirror, selfie"}',
+  );
+  assertFixture(
+    createImageAction?.action === 'createImage' &&
+      createImageAction.phoneOwner === 'Robert Miller' &&
+      createImageAction.loraCharacter === 'Lara Miller' &&
+      createImageAction.prompt === 'A 28-year-old woman stands beside stacked moving boxes.' &&
+      createImageWithoutLora?.action === 'createImage' &&
+      createImageWithoutLora.loraCharacter === '' &&
+      characterOnlyImageSearch === undefined &&
+      taggedImageSearch?.action === 'getImageId',
+    'image actions must separate optional LoRA selection from phone ownership and reject searches without tags',
+  );
+  const duplicateFirstNameCharacters = [
+    { name: 'Alex Smith' },
+    { name: 'Alex Jones' },
+    { name: 'Taylor Reed' },
+  ] as StorybookCreateImageCharacter[];
+  const exactAlexJones = resolveCreateImageCharacterByName(
+    duplicateFirstNameCharacters,
+    'Alex Jones',
+  );
+  const ambiguousAlex = resolveCreateImageCharacterByName(
+    duplicateFirstNameCharacters,
+    'Alex',
+  );
+  const uniqueTaylor = resolveCreateImageCharacterByName(
+    duplicateFirstNameCharacters,
+    'Taylor',
+  );
+  const incorrectAlexSurname = resolveCreateImageCharacterByName(
+    duplicateFirstNameCharacters,
+    'Alex Unknown',
+  );
+  assertFixture(
+    exactAlexJones.status === 'found' && exactAlexJones.character.name === 'Alex Jones' &&
+      ambiguousAlex.status === 'ambiguous' &&
+      uniqueTaylor.status === 'found' && uniqueTaylor.character.name === 'Taylor Reed' &&
+      incorrectAlexSurname.status === 'not-found',
+    'create-image character matching must prefer exact full names and accept only unique first-name fallbacks',
+  );
+  const outgoingGeneratedImageCaption = parsePhoneMessageOutput([
+    '{"from":"Helga Harper","to":"Jack Carter","message":"Caught her off guard.","sendImageId":"helga_harper_image_06"}',
+    '{"imageId":"helga_harper_image_06","imageAction":"update","caption":"Espen Harper concentrates on applying makeup at the bathroom mirror, her softly waved hair framing her face as she studies her reflection."}',
+  ].join('\n'));
+  assertFixture(
+    outgoingGeneratedImageCaption?.imageId === 'helga_harper_image_06' &&
+      outgoingGeneratedImageCaption.incomingImageAction?.imageId === 'helga_harper_image_06' &&
+      outgoingGeneratedImageCaption.incomingImageAction.imageAction === 'update',
+    'phone output must preserve a caption update for the generated outgoing image attachment',
+  );
+  const combinedPhoneOutput = parseEmbeddedPhoneMessagesFromRpOutput([
+    '{"from":"Helga Harper","to":"Jack Carter","message":"Caught her off guard.","sendImageId":"helga_harper_image_06"}',
+    '{"imageId":"helga_harper_image_06","imageAction":"update","caption":"Espen Harper concentrates on applying makeup at the bathroom mirror."}',
+    '{"bankTransfers":[{"from":"Helga Harper","to":"Jack Carter","amount":20}]}',
+  ].join('\n'));
+  const combinedPhoneMessage = parsePhoneMessageOutput(combinedPhoneOutput.text);
+  assertFixture(
+    combinedPhoneMessage?.imageId === 'helga_harper_image_06' &&
+      combinedPhoneOutput.phoneImageActions[0]?.imageId === 'helga_harper_image_06' &&
+      combinedPhoneOutput.phoneImageActions[0]?.imageAction === 'update' &&
+      combinedPhoneOutput.bankTransfers.length === 1,
+    'phone output splitting must preserve generated image captions alongside phone-app actions',
+  );
+  const createImageFollowUp = promptActionInstructionText(
+    defaultPromptActionConfig('Create character phone image', 'createImage'),
+    { createImageCharacters: [] },
+    'Lara takes and owns a mirror selfie of herself in her current outfit.',
+  );
+  assertFixture(
+    createImageFollowUp.includes('Lara takes and owns a mirror selfie of herself in her current outfit.') &&
+      createImageFollowUp.includes('"phoneOwner": "Phone Owner Name"') &&
+      createImageFollowUp.includes('"loraCharacter": 0') &&
+      createImageFollowUp.includes('which Phone Gallery stores the generated image') &&
+      createImageFollowUp.includes('RPGraph does not prepend it automatically') &&
+      createImageFollowUp.includes('Only one character LoRA can be used per image') &&
+      createImageFollowUp.includes('State every visible person\'s age in the prompt whenever their age is known') &&
+      createImageFollowUp.includes('Write the prompt from the finished image\'s point of view') &&
+      createImageFollowUp.includes('The photographer is invisible unless their body or reflection must actually appear') &&
+      createImageFollowUp.includes('roughly 80 to 120 words') &&
+      createImageFollowUp.includes('one frozen visual snapshot') &&
+      createImageFollowUp.includes('latest established state of every person, garment, object, and location') &&
+      createImageFollowUp.includes('Do not use Storybook-only character names') &&
+      !createImageFollowUp.includes('{{plan}}'),
+    'create-image follow-up prompts must turn the first-pass plan into a detailed visual snapshot',
+  );
+  assertFixture(
+    defaultCreateImageResultTemplate.includes('* imagePrompt: {{imagePrompt}}') &&
+      defaultCreateImageResultTemplate.includes('"imageAction":"update"') &&
+      defaultCreateImageResultTemplate.includes('inspect the attached generated image'),
+    'create-image results must distinguish the generation prompt and request a caption for an attached outgoing image',
+  );
   const captionDefaults = defaultPromptActionConfig(
     'Update phone image caption',
     'updatePhoneImageCaption',
@@ -2870,6 +3017,7 @@ export function verifyWorkflowValidationFixtures() {
     originalText: 'Incoming phone image',
     channel: 'phone',
     phoneImageIds: ['current_phone_image_01'],
+    phoneImageDescription: 'The current image already has a useful caption.',
     imageAttachments: [{
       id: 'current_phone_image_01',
       name: 'Current phone image',
@@ -2888,8 +3036,13 @@ export function verifyWorkflowValidationFixtures() {
         imageId: 'older_storybook_image_01',
         imageAction: 'update',
         caption: 'Wrong target.',
+      }) &&
+      !phoneImageActionMatchesMessage(currentIncomingPhoneImage, {
+        imageId: 'new_image',
+        imageAction: 'create',
+        caption: 'Unwanted replacement caption.',
       }),
-    'incoming phone image actions must only match the current message image id',
+    'incoming phone image actions must only match the current image id and must not recreate an already captioned image',
   );
   const phoneMessageWithNoChangeImageAction = parsePhoneMessageOutput([
     '{"from":"Robert Miller","to":"Lara Miller","message":"The tilted lamp in the corner is doing heroic work there. I get why you sent this; the room looks like it is halfway through giving up."}',
@@ -3586,11 +3739,29 @@ export function verifyWorkflowValidationFixtures() {
               },
               {
                 label: 'Prompt After Input',
-                text: `${'A'.repeat(500)}\n\nAvailable action: get image ID list`,
+                text: `${'A'.repeat(500)}\n\nStored character image search is available`,
                 parts: [
                   { text: 'A'.repeat(500) },
-                  { text: 'Available action: get image ID list', actionInserted: true },
+                  { text: 'Stored character image search is available', actionInserted: true },
                 ],
+              },
+            ],
+          },
+          {
+            label: 'Action follow-up: Get character phone image list',
+            sections: [
+              {
+                label: 'Text Input',
+                text: longTraceTextInput,
+                parts: [{ text: longTraceTextInput }],
+              },
+              {
+                label: 'Prompt After Input (Action Follow-Up)',
+                text: 'Action follow-up: search stored character phone images\n\nFirst-pass plan:\nFind Sarah mirror selfies.',
+                parts: [{
+                  text: 'Action follow-up: search stored character phone images\n\nFirst-pass plan:\nFind Sarah mirror selfies.',
+                  actionInserted: true,
+                }],
               },
             ],
           },
@@ -3614,7 +3785,8 @@ export function verifyWorkflowValidationFixtures() {
           },
         ],
         outputPasses: [
-          { label: 'Initial action output', text: '{"action":"get_image_id","characters":"Sarah","tags":"mirror,selfie"}' },
+          { label: 'Initial action output', text: '{"action":"get_image_id","plan":"Find Sarah mirror selfies."}' },
+          { label: 'Action follow-up output: Get character phone image list', text: '{"action":"get_image_id","characters":"Sarah","tags":"mirror,selfie"}' },
           { label: 'Action replay 1 output', text: '{"from":"Sarah","to":"Emily","message":"I found one.","sendImageId":"img-1"}' },
         ],
         actionResults: ['Image ID list:\n- img-1: Sarah mirror selfie'],
@@ -3683,6 +3855,12 @@ export function verifyWorkflowValidationFixtures() {
           order: 2,
           nodeId: turnTraceNode.id,
           nodeLabel: turnTraceNode.data.label,
+          label: 'Phone / Reply / Action follow-up: Get character phone image list',
+        },
+        {
+          order: 3,
+          nodeId: turnTraceNode.id,
+          nodeLabel: turnTraceNode.data.label,
           label: 'Phone / Reply / Action replay 1',
         },
       ],
@@ -3735,7 +3913,8 @@ export function verifyWorkflowValidationFixtures() {
       turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[0]?.text.includes('Older context sentence 1 about party planning.') === false &&
       turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[1]?.parts?.[1]?.actionInserted === true &&
       turnTrace.steps[1]?.promptAfter === undefined &&
-      turnTrace.steps[1]?.promptPasses?.[0]?.prompt.includes('img-1: Sarah mirror selfie') === true,
+      turnTrace.steps[1]?.promptPasses?.[0]?.prompt.includes('First-pass plan:') === true &&
+      turnTrace.steps[2]?.promptPasses?.[0]?.prompt.includes('img-1: Sarah mirror selfie') === true,
     'turn traces must identify the Prompt Switch route, include full action prompt passes, and excerpt long text input',
   );
   assertFixture(
@@ -3755,7 +3934,8 @@ export function verifyWorkflowValidationFixtures() {
       turnTraceCopyPayload([turnTrace]).privacy === 'memory-only' &&
       JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Text Input excerpt: showing the last') &&
       !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Older context sentence 1 about party planning.') &&
-      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Available action: get image ID list') &&
+      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Stored character image search is available') &&
+      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('First-pass plan:') &&
       JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('img-1: Sarah mirror selfie') &&
       !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('inputTokens') &&
       !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('totalTokens') &&
@@ -3793,6 +3973,129 @@ export function verifyWorkflowValidationFixtures() {
 }
 
 async function verifyPromptRunFixtures() {
+  const tracedExistingImageId = 'helga_harper_image_06';
+  const tracedCreateCall = parsePromptActionCall(
+    `{"action":"update_phone_image_caption","imageId":"${tracedExistingImageId}","imageAction":"create","caption":"Rewritten caption that should not be stored."}`,
+  );
+  const tracedCaptionResult = tracedCreateCall
+    ? await executePromptAction(
+        {
+          inputImages: [{
+            id: tracedExistingImageId,
+            name: tracedExistingImageId,
+            mimeType: 'image/jpeg',
+            size: 1,
+            dataUrl: 'data:image/jpeg;base64,trace',
+            description: 'Espen Harper stands in a doorway carrying grocery bags filled with drinks and snacks.',
+          }],
+        } as unknown as ExecuteContext,
+        defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption'),
+        tracedCreateCall,
+      )
+    : undefined;
+  const tracedCaptionRecord = JSON.parse(tracedCaptionResult?.finalOutputText ?? '{}') as Record<string, unknown>;
+  assertFixture(
+    tracedCaptionRecord.imageId === tracedExistingImageId &&
+      tracedCaptionRecord.imageAction === 'no_change' &&
+      tracedCaptionRecord.caption === undefined,
+    'after-reply caption actions must turn an invalid create decision for an already captioned input image into no_change',
+  );
+
+  const sentImageId = 'sarah_miller_image_01';
+  const sentImageDataUrl = 'data:image/jpeg;base64,a';
+  const imageListContext = {
+    nodes: [{
+      id: 'fixture-storybook-images',
+      type: 'workflow',
+      position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'rp-storybook-v1',
+        storybookJson: JSON.stringify({
+          ...emptyRpStorybookV1,
+          characters: [{
+            id: 'sarah-miller',
+            name: 'Sarah Miller',
+            description: '',
+            personality: '',
+            speechStyle: '',
+            role: '',
+            images: [{
+              id: sentImageId,
+              name: sentImageId,
+              mimeType: 'image/jpeg',
+              size: 1,
+              dataUrl: sentImageDataUrl,
+              description: 'Sarah takes a smiling mirror selfie in her party outfit.',
+            }],
+          }],
+        }),
+      },
+    } as WorkflowNode],
+    historyMessages: [
+      {
+        id: 1,
+        role: 'output',
+        originalText: 'Look at this.',
+        channel: 'phone',
+        phoneMessage: true,
+        phoneFrom: 'Sarah Miller',
+        phoneTo: 'Emily Miller',
+        phoneImageIds: [sentImageId],
+      },
+      {
+        id: 2,
+        role: 'output',
+        originalText: 'This was yesterday.',
+        channel: 'phone',
+        phoneMessage: true,
+        phoneFrom: 'Sarah Miller',
+        phoneTo: 'Ryan Parker',
+        imageAttachments: [{
+          id: sentImageId,
+          name: sentImageId,
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: sentImageDataUrl,
+        }],
+      },
+    ] as MessageRecord[],
+  } as unknown as ExecuteContext;
+  const imageListResult = await executePromptAction(
+    imageListContext,
+    defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+    {
+      action: 'getImageId',
+      characters: 'Sarah Miller',
+      tags: 'mirror, selfie, party, outfit',
+    },
+    { visionEnabled: true },
+  );
+  const hiddenImageTextResult = await executePromptAction(
+    imageListContext,
+    {
+      ...defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+      hideImageTextWhenSendingToLlm: true,
+    },
+    {
+      action: 'getImageId',
+      characters: 'Sarah Miller',
+      tags: 'mirror, selfie, party, outfit',
+    },
+    { visionEnabled: true },
+  );
+  assertFixture(
+    imageListResult.images.length === 1 &&
+      imageListResult.text.includes(
+        `* Image 1: ${sentImageId} : Sarah takes a smiling mirror selfie in her party outfit. : Image shown to: Emily Miller, Ryan Parker`,
+      ) &&
+      imageListResult.text.includes('Do not send a returned image again') &&
+      hiddenImageTextResult.text.includes(
+        `* Image 1: ${sentImageId} : Image shown to: Emily Miller, Ryan Parker`,
+      ) &&
+      !hiddenImageTextResult.text.includes('Sarah takes a smiling mirror selfie'),
+    'image list action results must identify prior phone recipients with visible or hidden image text and warn against resending',
+  );
+
   const warnings: string[] = [];
   const llmOutputs = [
     '{"action":"describe_input_image","caption":"Ryan and Espen share a look at the party."}',
@@ -3850,7 +4153,7 @@ async function verifyPromptRunFixtures() {
 
   const runStreamingScenario = async (llmTexts: string[]) => {
     const streamedChunks: string[] = [];
-    let promptForCall = '';
+    const promptsForCalls: string[] = [];
     const streamContext = {
       nodes: [],
       edges: [],
@@ -3860,7 +4163,7 @@ async function verifyPromptRunFixtures() {
       llm: {
         supportsVision: async () => true,
         complete: async (request: { prompt: string; onChunk?: (text: string) => void }) => {
-          promptForCall = promptForCall || request.prompt;
+          promptsForCalls.push(request.prompt);
           const llmText = llmTexts.shift() ?? '';
           for (let end = 4; end <= llmText.length; end += Math.max(8, llmText.length >> 2)) {
             request.onChunk?.(llmText.slice(0, end));
@@ -3891,7 +4194,7 @@ async function verifyPromptRunFixtures() {
       contributesToTokenCalibration: false,
       callLabel: () => 'Fixture call',
     });
-    return { streamedChunks, promptForCall, streamResult };
+    return { streamedChunks, promptsForCalls, streamResult };
   };
   const proseScenario = await runStreamingScenario([
     'Espen laughs and pockets her phone before anyone notices.',
@@ -3904,17 +4207,29 @@ async function verifyPromptRunFixtures() {
     'a prose reply must stream live even while a pre-reply action is still pending',
   );
   assertFixture(
-    proseScenario.promptForCall.includes('Available action: get character phone image list'),
-    'pending pre-reply action instructions must be visible in the prompt',
+    proseScenario.promptsForCalls[0]?.includes('Stored character image search is available') &&
+      !proseScenario.promptsForCalls[0]?.includes('Action follow-up: search stored character phone images'),
+    'pending pre-reply actions must show only their compact first-pass hint',
   );
   const actionCallScenario = await runStreamingScenario([
-    '{"action":"get_image_id","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone"}',
+    '{"action":"get_image_id","plan":"Find a stored Espen party selfie that shows her outfit."}',
+    '{"action":"get_image_id","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone, smiling, evening, indoor, portrait"}',
     'Espen scrolls to the party photo and smirks.',
   ]);
   assertFixture(
     actionCallScenario.streamedChunks.every((chunk) => !chunk.includes('{')) &&
       actionCallScenario.streamResult.generatedText === 'Espen scrolls to the party photo and smirks.',
     'an action call must never be streamed into the visible chat while the replay reply still streams',
+  );
+  assertFixture(
+    actionCallScenario.promptsForCalls.length === 3 &&
+      actionCallScenario.promptsForCalls[0]?.includes('Stored character image search is available') &&
+      actionCallScenario.promptsForCalls[1]?.includes('Action follow-up: search stored character phone images') &&
+      actionCallScenario.promptsForCalls[1]?.includes('Find a stored Espen party selfie that shows her outfit.') &&
+      !actionCallScenario.promptsForCalls[1]?.includes('Write the story.') &&
+      actionCallScenario.promptsForCalls[2]?.includes('Action executed: get character phone image list.') &&
+      !actionCallScenario.promptsForCalls[2]?.includes('Stored character image search is available'),
+    'pre-reply image actions must run as compact request, focused follow-up, and result replay passes',
   );
 }
 
