@@ -27,6 +27,12 @@ import type {
 } from '../chat/phoneAppsSessions';
 import { normalizePhoneName } from '../chat/phoneMessages';
 import {
+  buildSocialDirectory,
+  withSocialDirectoryConnectionAdded,
+  type DynamicSocialUsers,
+  type SocialConnectionsByCharacter,
+} from '../chat/socialDirectory';
+import {
   socialCharacterForPost,
   socialLikeAccountKey,
   socialMessageHiddenFromChat,
@@ -123,6 +129,9 @@ export function useRoleplayPanelRuntime({
   const [bankingContactsByCharacter, setBankingContactsByCharacter] = useState<Record<string, string[]>>({});
   // Liked post ids per "characterId/app" account key; part of the RP save.
   const [socialLikesByAccount, setSocialLikesByAccount] = useState<Record<string, string[]>>({});
+  const [savedDynamicSocialUsers, setDynamicSocialUsers] = useState<DynamicSocialUsers>({});
+  const [socialConnectionsByCharacter, setSocialConnectionsByCharacter] =
+    useState<SocialConnectionsByCharacter>({});
   // Notes and ChatGPD chats per character id; part of the RP save.
   const [phoneNotesByCharacter, setPhoneNotesByCharacter] = useState<PhoneNotesByCharacter>({});
   const [chatGpdChatsByCharacter, setChatGpdChatsByCharacter] = useState<ChatGpdChatsByCharacter>({});
@@ -198,6 +207,47 @@ export function useRoleplayPanelRuntime({
       ),
     [phoneCharacters],
   );
+  const socialDirectory = useMemo(
+    () => buildSocialDirectory({
+      storyCharacters,
+      messages,
+      savedDynamicUsers: savedDynamicSocialUsers,
+    }),
+    [messages, savedDynamicSocialUsers, storyCharacters],
+  );
+  const fotogramContactsByCharacter = useMemo(
+    () => Object.fromEntries(storyCharacters.map((viewer) => [
+      viewer.id,
+      storyCharacters.flatMap((contact) => {
+        if (viewer.id === contact.id) {
+          return [];
+        }
+        if (viewer.storybookNodeId !== contact.storybookNodeId) {
+          return [contact.id];
+        }
+        const storybook = storybooksByNodeId.get(viewer.storybookNodeId);
+        return storybook && rpStorybookPhoneContactAllowed(
+          storybook,
+          viewer.sourceId,
+          contact.sourceId,
+        )
+          ? [contact.id]
+          : [];
+      }),
+    ])),
+    [storyCharacters, storybooksByNodeId],
+  );
+  function addSocialConnection(characterId: string, app: SocialAppKind, socialUserId: string) {
+    setSocialConnectionsByCharacter((current) =>
+      withSocialDirectoryConnectionAdded(
+        current,
+        socialDirectory.users,
+        characterId,
+        app,
+        socialUserId,
+      )
+    );
+  }
   const selectedCharacter =
     selectedCharacterId === narratorCharacterId
       ? undefined
@@ -1175,6 +1225,13 @@ export function useRoleplayPanelRuntime({
     socialImageById,
     socialLikesByAccount,
     setSocialLikesByAccount,
+    socialDirectoryUsers: socialDirectory.users,
+    fotogramContactsByCharacter,
+    dynamicSocialUsers: socialDirectory.dynamicUsers,
+    setDynamicSocialUsers,
+    socialConnectionsByCharacter,
+    setSocialConnectionsByCharacter,
+    addSocialConnection,
     phoneNotesByCharacter,
     setPhoneNotesByCharacter,
     chatGpdChatsByCharacter,

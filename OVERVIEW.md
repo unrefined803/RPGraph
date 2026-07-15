@@ -140,15 +140,15 @@ The right-side chat drawer has three user-facing modes:
 
 These UI panels are backed by chat parsing, phone message parsing, timeline selectors, event entities, and session runtime state.
 
-WhatsUp supports contact lists, unread conversations, replies, text and voice messages, images, gallery selection, emoji insertion, and per-character viewing. Gallery and Camera connect Storybook images, uploads, and the image-generation assistant. Banking shows character accounts, contacts, balances, statements, and transfers. Fotogram and OnlyFriends share a social feed implementation with accounts, posts, comments, likes, direct messages, and app-specific prompts. OnlyFriends additionally supports a wallet, DM tips, paid post unlocks, and creator accounts. Notes provides character-specific editable cards with gentle automatic colors and a manual color picker.
+WhatsUp supports contact lists, unread conversations, replies, text and voice messages, images, gallery selection, emoji insertion, and per-character viewing. Gallery and Camera connect Storybook images, uploads, and the image-generation assistant. Banking shows character accounts, contacts, balances, statements, and transfers. Fotogram and OnlyFriends share a private social feed implementation with accounts, posts, comments, likes, direct messages, and app-specific prompts. Each app has its own bundled 100-user directory, and generated background comments reuse exact identities from the corresponding catalog. Storybook pairs are mutual Phone + Fotogram contacts by default; hiding a pair removes that default display without blocking messages. A real Fotogram conversation establishes the mutual visible contact again, including feed access, and manually adding a Storybook account adds the reverse contact too. OnlyFriends and non-default Fotogram accounts remain hidden until added. Searches begin after three characters and include matching Storybook accounts plus NPC identities discovered in phone or social history. OnlyFriends additionally supports a wallet, DM tips, paid post unlocks, and creator accounts. Notes provides character-specific editable cards with gentle automatic colors and a manual color picker.
 
 ## Story And Session Data
 
 The app separates the workflow graph from roleplay session data.
 
 - **Workflow**: graph nodes, graph edges, viewport, defaults, and optional bundled storybook data.
-- **Session / RP save**: timeline, messages, entities, runtime state, undo checkpoints, selected UI state, debug state, phone read state, banking contacts, social likes, OnlyFriends purchases, and recent emoji state. Phone, banking, social-post, comment, and DM records are stored on the canonical timeline.
-- **Storybook**: structured roleplay story data, characters, opening history, images, and formatted context output.
+- **Session / RP save**: timeline, messages, entities, runtime state, undo checkpoints, selected UI state, debug state, phone read state, banking contacts, social likes, per-character social connections, discovered NPC social identities, OnlyFriends purchases, and recent emoji state. Phone, banking, social-post, comment, and DM records are stored on the canonical timeline. Bundled social catalogs remain application data and are not duplicated into saves.
+- **Storybook**: structured roleplay story data, characters, opening history, images, and formatted context output. Opening History explicitly carries added social connections and dynamic NPC identities so a new session restores the same private social graph.
 
 Current session data uses a `rpgraph-session` format. Workflow data uses a `rpgraph-workflow` format. Storybook has its own version file.
 

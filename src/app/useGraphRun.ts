@@ -97,6 +97,7 @@ import {
   socialThreadHistoryText,
   type SocialThreadRunContext,
 } from '../chat/socialMedia';
+import { withBundledSocialIdentityContext } from '../chat/socialCatalogs';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
   chatGpdFallbackTitle,
@@ -1126,6 +1127,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
       (isPhoneMessage && phoneRecipientName
         ? formatCurrentPhoneInput(inputText)
         : withSpeakerPrefix(inputCharacterName, inputText)));
+    const socialCatalogApp = socialPost?.app ?? socialThreadAction?.app;
+    const executionOriginalInput = socialCatalogApp
+      ? withBundledSocialIdentityContext(originalInput, socialCatalogApp)
+      : originalInput;
     const storedInputGraphText = directActionOnly
       ? originalInput
       : replacement && !replacement.replaceInput
@@ -1360,7 +1365,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         outputSourceHandle: directActionOnly ? 'direct-actions' : undefined,
         nodes: executionNodes,
         edges,
-        originalInput,
+        originalInput: executionOriginalInput,
         visibleInput,
         lastRpOutput,
         inputImages: activeInputImages,

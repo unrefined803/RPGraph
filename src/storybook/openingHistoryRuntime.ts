@@ -8,6 +8,12 @@ import {
   type ChatGpdChatsByCharacter,
   type PhoneNotesByCharacter,
 } from '../chat/phoneAppsSessions';
+import {
+  normalizeDynamicSocialUsers,
+  normalizeSocialConnectionsByCharacter,
+  type DynamicSocialUsers,
+  type SocialConnectionsByCharacter,
+} from '../chat/socialDirectory';
 
 function storybooksFromNodes(nodes: WorkflowNode[]): RpStorybookV1[] {
   return nodes.flatMap((node) => {
@@ -210,6 +216,41 @@ export function openingHistorySocialLikesFromNodes(nodes: WorkflowNode[]) {
     });
   });
   return likesByAccount;
+}
+
+/** Dynamic social identities imported with Opening History. */
+export function openingHistoryDynamicSocialUsersFromNodes(
+  nodes: WorkflowNode[],
+): DynamicSocialUsers {
+  return Object.assign({}, ...storybooksFromNodes(nodes).map((storybook) =>
+    normalizeDynamicSocialUsers(storybook.openingHistory.dynamicSocialUsers)
+  ));
+}
+
+/** Added social users imported with Opening History. */
+export function openingHistorySocialConnectionsFromNodes(
+  nodes: WorkflowNode[],
+): SocialConnectionsByCharacter {
+  const merged: SocialConnectionsByCharacter = {};
+  storybooksFromNodes(nodes).forEach((storybook) => {
+    const connections = normalizeSocialConnectionsByCharacter(
+      storybook.openingHistory.socialConnections,
+    );
+    Object.entries(connections).forEach(([characterId, apps]) => {
+      const mergeApp = (app: 'fotogram' | 'onlyfriends') => {
+        const current = merged[characterId]?.[app] ?? [];
+        const incoming = apps[app] ?? [];
+        return [...current, ...incoming.filter((id) => !current.includes(id))];
+      };
+      const fotogram = mergeApp('fotogram');
+      const onlyfriends = mergeApp('onlyfriends');
+      merged[characterId] = {
+        ...(fotogram.length ? { fotogram } : {}),
+        ...(onlyfriends.length ? { onlyfriends } : {}),
+      };
+    });
+  });
+  return merged;
 }
 
 /** Union of the imported Notes cards from every storybook's opening history. */

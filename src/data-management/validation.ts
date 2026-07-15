@@ -308,6 +308,30 @@ function isNestedNonNegativeNumberRecord(value: unknown) {
   );
 }
 
+function isSocialConnectionsRecord(value: unknown) {
+  return isRecord(value) && Object.values(value).every((apps) =>
+    isRecord(apps) &&
+    (apps.fotogram === undefined || (
+      Array.isArray(apps.fotogram) && apps.fotogram.every((entry) => typeof entry === 'string')
+    )) &&
+    (apps.onlyfriends === undefined || (
+      Array.isArray(apps.onlyfriends) && apps.onlyfriends.every((entry) => typeof entry === 'string')
+    ))
+  );
+}
+
+function isDynamicSocialUsersRecord(value: unknown) {
+  return isRecord(value) && Object.entries(value).every(([id, user]) =>
+    isRecord(user) &&
+    user.id === id &&
+    typeof user.name === 'string' &&
+    user.source === 'dynamic' &&
+    isRecord(user.handles) &&
+    (user.handles.fotogram === undefined || typeof user.handles.fotogram === 'string') &&
+    (user.handles.onlyfriends === undefined || typeof user.handles.onlyfriends === 'string')
+  );
+}
+
 function hasValidReplyReferences(timeline: unknown[]) {
   const phoneMessagesById = new Map<string, Record<string, unknown>>();
   timeline.forEach((entry) => {
@@ -469,6 +493,8 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     (value.ui.phoneAppSeenByCharacter === undefined || isNumberRecord(value.ui.phoneAppSeenByCharacter)) &&
     isStringArrayRecord(value.ui.bankingContactsByCharacter) &&
     isStringArrayRecord(value.ui.socialLikesByAccount) &&
+    isDynamicSocialUsersRecord(value.ui.dynamicSocialUsers) &&
+    isSocialConnectionsRecord(value.ui.socialConnectionsByCharacter) &&
     isNestedNonNegativeNumberRecord(value.ui.onlyFriendsPurchasesByCharacter) &&
     isNumberRecord(value.ui.phoneDividerAfterByConversation) &&
     (

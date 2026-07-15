@@ -208,10 +208,10 @@ A DM reply may be followed by extra standalone JSON objects, each on its own, no
 
 Rules:
 - Initial-post likes is a plausible total for the app and audience. Thread additionalLikes is a small increase, usually zero to five.
-- Fotogram post reactions use zero to two fitting story characters plus two to three invented NPC friends. Thread reactions may include the post author, fitting story characters, or NPC commenters.
+- Fotogram post reactions use zero to two fitting story characters plus two to three virtual friends from the exact available-user list in the input. Thread reactions may include the post author, fitting story characters, established commenters, or listed virtual users.
 - On someone else's Fotogram post, decide naturally whether the author replies, other commenters react, or the user's comment is ignored while unrelated comments appear.
 - On the actor's own Fotogram post, replies usually address the actor directly when that fits the new comment.
-- OnlyFriends post and thread reactions use invented fans/subscribers only; story characters never appear in those public reactions. Keep the tone suggestive rather than explicit.
+- OnlyFriends post and thread reactions use fans/subscribers from the exact available-user list in the input; story characters never appear in those public reactions. Keep the tone suggestive rather than explicit.
 - For direct messages, write only as the specified recipient. Respect their established personality and the existing conversation. Never invent a reply from the sender.
 - The DM reply must use the app-specific key: fotogramDirectMessage for Fotogram, onlyFriendsDirectMessage for OnlyFriends. A generic directMessage block is rejected.
 - tip is only allowed in onlyFriendsDirectMessage, must be a positive number, and is used only when the sender of the reply genuinely decides to tip the conversation partner. It credits the recipient's OnlyFriends wallet and is not a bank transfer.

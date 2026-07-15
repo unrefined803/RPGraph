@@ -46,6 +46,10 @@ import type { ChatGpdChatRecord, PhoneNoteRecord } from '../chat/phoneAppsSessio
 import { PhoneSocialFeedScreen } from './phone-social/PhoneSocialFeedScreen';
 import { socialApps } from './phone-social/socialApps';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
+import type {
+  SocialConnectionsByCharacter,
+  SocialDirectoryUser,
+} from '../chat/socialDirectory';
 import { PhoneVoiceMessage } from './PhoneVoiceMessage';
 import { CharacterAvatar } from './CharacterAvatar';
 import { ImageContextControl } from './ImageContextControl';
@@ -264,6 +268,14 @@ type PhonePanelProps = {
   }) => Promise<ChatImageAttachment | undefined>;
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   socialLikesByAccount: Record<string, string[]>;
+  socialDirectoryUsers: SocialDirectoryUser[];
+  fotogramContactsByCharacter: Record<string, string[]>;
+  socialConnectionsByCharacter: SocialConnectionsByCharacter;
+  onAddSocialConnection: (
+    characterId: string,
+    app: 'fotogram' | 'onlyfriends',
+    socialUserId: string,
+  ) => void;
   onToggleSocialLike: (
     characterId: string,
     app: 'fotogram' | 'onlyfriends',
@@ -380,6 +392,10 @@ export function PhonePanel({
   onImportSocialPostImage,
   socialImageById,
   socialLikesByAccount,
+  socialDirectoryUsers,
+  fotogramContactsByCharacter,
+  socialConnectionsByCharacter,
+  onAddSocialConnection,
   onToggleSocialLike,
   onlyFriendsPurchasesByCharacter,
   onUnlockOnlyFriendsPost,
@@ -800,6 +816,10 @@ export function PhonePanel({
         onImportPostImage={onImportSocialPostImage}
         socialImageById={socialImageById}
         socialLikesByAccount={socialLikesByAccount}
+        socialDirectoryUsers={socialDirectoryUsers}
+        fotogramContactsByCharacter={fotogramContactsByCharacter}
+        socialConnectionsByCharacter={socialConnectionsByCharacter}
+        onAddSocialConnection={onAddSocialConnection}
         onlyFriendsPurchasesByCharacter={onlyFriendsPurchasesByCharacter}
         onUnlockOnlyFriendsPost={onUnlockOnlyFriendsPost}
         onToggleLike={(postId) => {

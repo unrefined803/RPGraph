@@ -41,6 +41,10 @@ import type {
   ChatGpdChatsByCharacter,
   PhoneNotesByCharacter,
 } from '../chat/phoneAppsSessions';
+import type {
+  DynamicSocialUsers,
+  SocialConnectionsByCharacter,
+} from '../chat/socialDirectory';
 
 type FileProtection = 'plain' | 'encrypted';
 
@@ -72,6 +76,8 @@ type UseStorybookActionsOptions = {
   turnsRef: MutableRefObject<TurnRecord[]>;
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
   currentSocialLikesByAccount: () => Record<string, string[]>;
+  currentDynamicSocialUsers: () => DynamicSocialUsers;
+  currentSocialConnectionsByCharacter: () => SocialConnectionsByCharacter;
   currentPhoneNotesByCharacter: () => PhoneNotesByCharacter;
   currentChatGpdChatsByCharacter: () => ChatGpdChatsByCharacter;
   replaceCurrentChatWithOpeningHistoryRef: MutableRefObject<boolean>;
@@ -100,6 +106,8 @@ export function useStorybookActions({
   turnsRef,
   turnCheckpointsRef,
   currentSocialLikesByAccount,
+  currentDynamicSocialUsers,
+  currentSocialConnectionsByCharacter,
   currentPhoneNotesByCharacter,
   currentChatGpdChatsByCharacter,
   replaceCurrentChatWithOpeningHistoryRef,
@@ -498,10 +506,12 @@ export function useStorybookActions({
       .flatMap((entry) => entry.data.eventAppointments ?? [])
       .filter((event) => event.status === 'upcoming');
     const normalizedOpeningEvents = normalizeEventAppointments(openingEvents);
-    // Player likes, notes, and ChatGPD chats are session UI state, not
-    // message records, so they are snapshotted into the opening history
+    // Player likes, social-directory state, notes, and ChatGPD chats are
+    // session UI state, not message records, so Opening History snapshots them
     // explicitly.
     const openingSocialLikes = structuredClone(currentSocialLikesByAccount());
+    const openingDynamicSocialUsers = structuredClone(currentDynamicSocialUsers());
+    const openingSocialConnections = structuredClone(currentSocialConnectionsByCharacter());
     const openingNotes = structuredClone(currentPhoneNotesByCharacter());
     const openingChatGpdChats = structuredClone(currentChatGpdChatsByCharacter());
     const countRecords = (records: Record<string, unknown[]>) =>
@@ -509,6 +519,10 @@ export function useStorybookActions({
     const openingNoteCount = countRecords(openingNotes);
     const openingChatGpdChatCount = countRecords(openingChatGpdChats);
     const openingSocialLikeCount = countRecords(openingSocialLikes);
+    const openingSocialConnectionCount = Object.values(openingSocialConnections).reduce(
+      (count, apps) => count + (apps.fotogram?.length ?? 0) + (apps.onlyfriends?.length ?? 0),
+      0,
+    );
     const phoneAppParts = [
       openingNoteCount ? `${openingNoteCount} phone note${openingNoteCount === 1 ? '' : 's'}` : '',
       openingChatGpdChatCount
@@ -516,6 +530,9 @@ export function useStorybookActions({
         : '',
       openingSocialLikeCount
         ? `${openingSocialLikeCount} social like${openingSocialLikeCount === 1 ? '' : 's'}`
+        : '',
+      openingSocialConnectionCount
+        ? `${openingSocialConnectionCount} added social user${openingSocialConnectionCount === 1 ? '' : 's'}`
         : '',
     ].filter(Boolean);
     const phoneAppSuffix = phoneAppParts.length ? ` Includes ${phoneAppParts.join(', ')}.` : '';
@@ -531,6 +548,8 @@ export function useStorybookActions({
         checkpoints: historyCheckpoints,
         events: normalizedOpeningEvents,
         socialLikes: openingSocialLikes,
+        dynamicSocialUsers: openingDynamicSocialUsers,
+        socialConnections: openingSocialConnections,
         notes: openingNotes,
         chatGpdChats: openingChatGpdChats,
       },

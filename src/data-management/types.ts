@@ -26,6 +26,10 @@ import type {
   PhoneNotesByCharacter,
   SimulatedAiChatCommit,
 } from '../chat/phoneAppsSessions';
+import type {
+  DynamicSocialUsers,
+  SocialConnectionsByCharacter,
+} from '../chat/socialDirectory';
 
 type AssistantContextEncodingMode = 'toon-default' | 'json-default';
 
@@ -236,6 +240,8 @@ type SessionUiState = {
   phoneAppSeenByCharacter?: Record<string, number>;
   bankingContactsByCharacter: Record<string, string[]>;
   socialLikesByAccount: Record<string, string[]>;
+  dynamicSocialUsers: DynamicSocialUsers;
+  socialConnectionsByCharacter: SocialConnectionsByCharacter;
   onlyFriendsPurchasesByCharacter: Record<string, Record<string, number>>;
   phoneDividerAfterByConversation: Record<string, number>;
   selectedEventId?: string;

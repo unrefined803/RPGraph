@@ -22147,6 +22147,92 @@ button.message-timeline-row.phone:focus-visible {
   cursor: default;
 }
 
+.phone-social-add-user {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phone-social-add-user > input {
+  min-width: 0;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  background: rgba(13, 18, 28, 0.8);
+  font-size: 11px;
+}
+
+.phone-social-add-user > input:focus-visible {
+  outline: none;
+  border-color: var(--social-accent);
+}
+
+.phone-social-user-results {
+  display: flex;
+  max-height: 180px;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+}
+
+.phone-social-user-result {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.phone-social-user-result > span {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.phone-social-user-result strong,
+.phone-social-user-result small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-social-user-result strong {
+  color: #ffffff;
+  font-size: 10px;
+}
+
+.phone-social-user-result small,
+.phone-social-user-hint,
+.phone-social-user-not-found {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 9px;
+}
+
+.phone-social-user-result > button {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 1px solid var(--social-accent);
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--social-accent-soft);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.phone-social-user-result > button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.phone-social-user-not-found {
+  color: #fca5a5;
+}
+
 .phone-social-post-menu-anchor {
   position: relative;
   display: flex;

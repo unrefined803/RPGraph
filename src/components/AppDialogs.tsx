@@ -3573,12 +3573,12 @@ export function StorybookCreatorDialog({
                     <section className="storybook-section phone-contacts-section">
                       <div className="section-header">
                         <div className="section-title-with-help">
-                          <h4>Phone Contacts</h4>
+                          <h4>Phone + Fotogram Contacts</h4>
                           <button
                             type="button"
                             className="node-info-button storybook-section-help"
-                            aria-label="Phone Contacts visibility help"
-                            data-tooltip="Only controls Phone UI visibility, so each character does not have to see every Storybook contact. If roleplay creates a message to a hidden contact, that conversation automatically appears for both characters again."
+                            aria-label="Phone and Fotogram contacts visibility help"
+                            data-tooltip="Controls the default contact display in Phone and Fotogram. Everyone is connected by default. A real message can still make a hidden conversation appear; this does not block messages."
                           >
                             ?
                           </button>
@@ -3629,8 +3629,8 @@ export function StorybookCreatorDialog({
                                                   allowed,
                                                 ),
                                                 allowed
-                                                  ? `Blocked ${owner.name} <-> ${contact.name}.`
-                                                  : `Allowed ${owner.name} <-> ${contact.name}.`,
+                                                  ? `Hid Phone + Fotogram contact ${owner.name} <-> ${contact.name}.`
+                                                  : `Added Phone + Fotogram contact ${owner.name} <-> ${contact.name}.`,
                                               );
                                             }}
                                           >
@@ -3646,7 +3646,7 @@ export function StorybookCreatorDialog({
                           </table>
                         </div>
                       ) : (
-                        <p className="no-data-msg">Add at least two characters to configure phone contacts.</p>
+                        <p className="no-data-msg">Add at least two characters to configure Phone + Fotogram contacts.</p>
                       )}
                     </section>
 

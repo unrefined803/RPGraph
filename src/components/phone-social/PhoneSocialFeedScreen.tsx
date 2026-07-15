@@ -39,8 +39,15 @@ import {
   socialIdentityMatches,
   socialLikeAccountKey,
   socialPostMessages,
+  socialPostVisibleToViewer,
   socialReactionsByPostId,
 } from '../../chat/socialMedia';
+import {
+  searchSocialDirectory,
+  socialConnectionIds,
+  type SocialConnectionsByCharacter,
+  type SocialDirectoryUser,
+} from '../../chat/socialDirectory';
 import type {
   SocialPostRecord,
   SocialDirectMessageRecord,
@@ -61,6 +68,7 @@ import {
 
 type SocialAccount = {
   key: string;
+  socialUserId?: string;
   name: string;
   handle: string;
   character?: StorybookCharacter;
@@ -106,6 +114,14 @@ type PhoneSocialFeedScreenProps = {
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   /** Liked post ids per "characterId/app" account (persisted in the RP save). */
   socialLikesByAccount: Record<string, string[]>;
+  socialDirectoryUsers: SocialDirectoryUser[];
+  fotogramContactsByCharacter: Record<string, string[]>;
+  socialConnectionsByCharacter: SocialConnectionsByCharacter;
+  onAddSocialConnection: (
+    characterId: string,
+    app: 'fotogram' | 'onlyfriends',
+    socialUserId: string,
+  ) => void;
   onlyFriendsPurchasesByCharacter: OnlyFriendsPurchasesByCharacter;
   onToggleLike: (postId: string) => void;
   /** Saves an uploaded file into the owner's Gallery and returns the stored image. */
@@ -185,7 +201,8 @@ type PhoneSocialFeedScreenProps = {
  *
  * Published posts, user thread actions, and generated reactions are persisted
  * on chat messages. Player likes and OnlyFriends purchases live in the RP save
- * per character; manually added accounts remain local until a later phase.
+ * per character. Added accounts and discovered NPC identities are persisted in
+ * the RP save and can also be carried through Storybook Opening History.
  */
 export function PhoneSocialFeedScreen({
   app,
@@ -201,6 +218,10 @@ export function PhoneSocialFeedScreen({
   onSendDirectMessage,
   socialImageById,
   socialLikesByAccount,
+  socialDirectoryUsers,
+  fotogramContactsByCharacter,
+  socialConnectionsByCharacter,
+  onAddSocialConnection,
   onlyFriendsPurchasesByCharacter,
   onToggleLike,
   onImportPostImage,
@@ -232,7 +253,6 @@ export function PhoneSocialFeedScreen({
   const storedUsername =
     app.id === 'fotogram' ? owner?.social.fotogramUsername : owner?.social.onlyfriendsUsername;
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
-  const [addedAccounts, setAddedAccounts] = useState<SocialAccount[]>([]);
   const [directMessagesOpen, setDirectMessagesOpen] = useState(false);
   const [directMessageParticipant, setDirectMessageParticipant] = useState<SocialDirectMessageParticipant>();
   // Post currently showing the OnlyFriends balance confirmation.
@@ -267,8 +287,6 @@ export function PhoneSocialFeedScreen({
   const postElementsRef = useRef(new Map<string, HTMLElement>());
   const scrolledOpenPostRequestIdRef = useRef<number | undefined>(undefined);
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
-  const knownDirectMessageIdsRef = useRef<Set<string> | undefined>(undefined);
-  const dmRevealAccountRef = useRef<string | undefined>(undefined);
   const dmScheduledRevealIdsRef = useRef<Set<string>>(new Set());
   const dmRevealTimersRef = useRef<number[]>([]);
   const noticeTimerRef = useRef<number | undefined>(undefined);
@@ -297,6 +315,33 @@ export function PhoneSocialFeedScreen({
   const walletAmount = Math.round(Number(walletAmountText) * 100) / 100;
   const walletAmountValid = Number.isFinite(walletAmount) && walletAmount > 0;
   const ownerFirstName = owner?.name.trim().split(/\s+/)[0];
+  const savedSocialUserIds = socialConnectionIds(
+    socialConnectionsByCharacter,
+    owner?.id,
+    app.id,
+  );
+  const defaultFotogramUserIds = app.id === 'fotogram' && owner
+    ? (fotogramContactsByCharacter[owner.id] ?? []).flatMap((characterId) => {
+        const user = socialDirectoryUsers.find((entry) =>
+          entry.characterId === characterId && !!entry.handles.fotogram
+        );
+        return user ? [user.id] : [];
+      })
+    : [];
+  const connectedSocialUserIds = [...new Set([
+    ...defaultFotogramUserIds,
+    ...savedSocialUserIds,
+  ])];
+  const connectedSocialUsers = connectedSocialUserIds.flatMap((socialUserId) => {
+    const user = socialDirectoryUsers.find((entry) => entry.id === socialUserId);
+    return user?.handles[app.id] ? [user] : [];
+  });
+  const directorySearchResults = searchSocialDirectory(
+    socialDirectoryUsers,
+    app.id,
+    newPersonName,
+    owner?.id,
+  );
 
   function showNotice(nextNotice: SocialNotice, duration = 1_800) {
     if (noticeTimerRef.current !== undefined) {
@@ -345,17 +390,18 @@ export function PhoneSocialFeedScreen({
     return () => document.removeEventListener('pointerdown', closeMenu);
   }, [postStage]);
 
-  // On public apps every character with a phone shares the platform: the
-  // phone contacts double as the followed accounts, plus manually added
-  // people. Private apps (OnlyFriends) start with an empty sidebar.
-  const characterAccounts: SocialAccount[] = (app.showCharacterAccounts ? storyCharacters : [])
-    .filter((character) => character.id !== owner?.id)
-    .map((character) => ({
-      key: `character-${character.id}`,
-      name: character.name,
-      handle: socialHandleForCharacter(character, app.id),
-      character,
-    }));
+  // Fotogram inherits the Storybook's Phone + Fotogram contacts. OnlyFriends
+  // stays private until accounts are added explicitly. Real DM partners are
+  // surfaced separately below in both apps.
+  const connectedAccounts: SocialAccount[] = connectedSocialUsers.map((user) => ({
+    key: `connected-${user.id}`,
+    socialUserId: user.id,
+    name: user.name,
+    handle: user.handles[app.id]!,
+    character: user.characterId
+      ? storyCharacters.find((character) => character.id === user.characterId)
+      : undefined,
+  }));
   // DM conversations of the viewing account: recency per partner handle (in
   // message order) plus quick-access sidebar entries for partners who are not
   // story characters, e.g. virtual users or comment authors that were messaged.
@@ -379,15 +425,17 @@ export function PhoneSocialFeedScreen({
       !socialIdentityMatches(directMessage.fromHandle, account),
     )
     .map((directMessage) => directMessage.messageId);
-  // The known-ids baseline is (re)built synchronously during render, so a
-  // brand-new incoming DM is already hidden on its very first paint instead
-  // of flashing once before the reveal timer runs.
-  if (dmRevealAccountRef.current !== account || !knownDirectMessageIdsRef.current) {
-    dmRevealAccountRef.current = account;
-    knownDirectMessageIdsRef.current = new Set(incomingDirectMessageIds);
+  // Keep the ids that already existed when this account opened as a stable
+  // baseline. Later ids can then be hidden synchronously on their first paint.
+  const knownDirectMessageIds = useMemo(
+    () => new Set(incomingDirectMessageIds),
+    // A changed id list is precisely what must not rebuild the baseline.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [account],
+  );
+  useEffect(() => {
     dmScheduledRevealIdsRef.current = new Set();
-  }
-  const knownDirectMessageIds = knownDirectMessageIdsRef.current;
+  }, [account]);
   const hiddenDirectMessageIds = new Set(
     incomingDirectMessageIds.filter(
       (messageId) =>
@@ -397,7 +445,7 @@ export function PhoneSocialFeedScreen({
   useEffect(() => {
     const freshIds = incomingDirectMessageIds.filter(
       (messageId) =>
-        !knownDirectMessageIdsRef.current?.has(messageId) &&
+        !knownDirectMessageIds.has(messageId) &&
         !revealedDirectMessageIds.has(messageId) &&
         !dmScheduledRevealIdsRef.current.has(messageId),
     );
@@ -408,7 +456,7 @@ export function PhoneSocialFeedScreen({
       }, 1_500 + index * 2_200 + Math.round(Math.random() * 900)));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incomingDirectMessageIds.join('|'), account]);
+  }, [incomingDirectMessageIds.join('|'), account, knownDirectMessageIds]);
   useEffect(() => () => {
     dmRevealTimersRef.current.forEach((timer) => window.clearTimeout(timer));
   }, []);
@@ -435,23 +483,34 @@ export function PhoneSocialFeedScreen({
   const dmRecency = (handle: string) => dmRecencyByHandle.get(handleKey(handle)) ?? -1;
   const dmPartnerAccounts: SocialAccount[] = [...dmPartnerNamesByHandle.entries()]
     .filter(([partnerHandleKey]) =>
-      !characterAccounts.some((entry) => handleKey(entry.handle) === partnerHandleKey) &&
-      !addedAccounts.some((entry) => handleKey(entry.handle) === partnerHandleKey),
+      !connectedAccounts.some((entry) => handleKey(entry.handle) === partnerHandleKey),
     )
-    .map(([partnerHandleKey, name]) => ({
-      key: `dm-partner-${app.id}-${partnerHandleKey}`,
-      name,
-      handle: partnerHandleKey,
-      character: storyCharacters.find((character) =>
-        socialIdentityMatches(socialHandleForCharacter(character, app.id), partnerHandleKey) ||
-        socialIdentityMatches(character.name, name),
-      ),
-    }));
-  // Story characters keep their fixed order; added people and DM partners
-  // follow below, most recent conversation first.
-  const extraAccounts = [...addedAccounts, ...dmPartnerAccounts]
+    .map(([partnerHandleKey, name]) => {
+      const directoryUser = socialDirectoryUsers.find((user) =>
+        socialIdentityMatches(user.handles[app.id] ?? '', partnerHandleKey) ||
+        socialIdentityMatches(user.name, name)
+      );
+      return {
+        key: `dm-partner-${app.id}-${partnerHandleKey}`,
+        socialUserId: directoryUser?.id,
+        name,
+        handle: partnerHandleKey,
+        character: storyCharacters.find((character) =>
+          socialIdentityMatches(socialHandleForCharacter(character, app.id), partnerHandleKey) ||
+          socialIdentityMatches(character.name, name),
+        ),
+      };
+    });
+  // Added people and real DM partners are ordered by conversation recency.
+  const extraAccounts = [...connectedAccounts, ...dmPartnerAccounts]
     .sort((left, right) => dmRecency(right.handle) - dmRecency(left.handle));
-  const followedAccounts = [...characterAccounts, ...extraAccounts];
+  const followedAccounts = extraAccounts;
+  const knownSocialUserIds = new Set([
+    ...connectedSocialUserIds,
+    ...(app.id === 'fotogram'
+      ? dmPartnerAccounts.flatMap((account) => account.socialUserId ? [account.socialUserId] : [])
+      : []),
+  ]);
 
   // Posts published through the workflow live on chat messages (and therefore
   // in the RP save); the AI reactions to them are matched by post id.
@@ -508,8 +567,19 @@ export function PhoneSocialFeedScreen({
     });
     return commentsByPostId;
   }, [app.id, socialMediaMessages]);
+  const discoveredIdentities = [
+    ...connectedAccounts,
+    ...(app.id === 'fotogram' ? dmPartnerAccounts : []),
+  ]
+    .flatMap((entry) => [entry.name, entry.handle]);
   const persistedPosts: SocialPost[] = socialPostMessages(app.id, socialMediaMessages)
     .reverse()
+    .filter((message) => socialPostVisibleToViewer(
+      message.socialPost,
+      owner?.name ?? '',
+      account ?? '',
+      discoveredIdentities,
+    ))
     .map((message) => ({
       id: message.socialPost.postId,
       authorName: message.socialPost.author,
@@ -534,9 +604,15 @@ export function PhoneSocialFeedScreen({
     ...optimisticPosts.filter((post) => !persistedPostIds.has(post.id)),
     ...persistedPosts,
   ].filter((post) => !delayedPostIds.has(post.id));
+  const visibleDummyPosts = dummySocialPosts(app, owner?.id ?? 'no-account').filter((post) =>
+    discoveredIdentities.some((identity) =>
+      socialIdentityMatches(post.authorName, identity) ||
+      socialIdentityMatches(post.authorHandle, identity)
+    )
+  );
   const feedPosts = [
     ...availablePosts,
-    ...dummySocialPosts(app, owner?.id ?? 'no-account'),
+    ...visibleDummyPosts,
   ];
   // The heart state belongs to the owner; the visible count adds one like
   // per player character that liked the post (persisted in the RP save).
@@ -1021,26 +1097,20 @@ export function PhoneSocialFeedScreen({
     setNickname('');
   }
 
-  function addPerson(event: FormEvent<HTMLFormElement>) {
+  function submitUserSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const name = newPersonName.trim().replace(/\s+/g, ' ');
-    if (!name) {
+  }
+
+  function addSocialUser(user: SocialDirectoryUser) {
+    if (!owner || !user.handles[app.id]) {
       return;
     }
-    const personAccount: SocialAccount = {
-      key: `added-${socialHandleForName(name)}`,
-      name,
-      handle: socialHandleForName(name),
-    };
-    const existingAccount = followedAccounts.find((entry) =>
-      socialIdentityMatches(entry.handle, personAccount.handle),
-    );
-    if (!existingAccount) {
-      setAddedAccounts((current) => [...current, personAccount]);
-    }
-    openDirectMessages(existingAccount ?? personAccount);
+    onAddSocialConnection(owner.id, app.id, user.id);
+    setDirectMessageParticipant(undefined);
+    setDirectMessagesOpen(false);
     setNewPersonName('');
     setAddingPerson(false);
+    showNotice({ kind: 'success', text: `${user.name} added` });
   }
 
   function addUploadedImage(files: FileList | null) {
@@ -1139,17 +1209,6 @@ export function PhoneSocialFeedScreen({
     );
   }
 
-  const directMessageCharacterAccounts: SocialDirectMessageParticipant[] = storyCharacters
-    .filter((character) =>
-      character.id !== owner?.id &&
-      (app.id === 'fotogram' || !!character.social.onlyfriendsUsername.trim()),
-    )
-    .map((character) => ({
-      key: `character-${character.id}`,
-      name: character.name,
-      handle: socialHandleForCharacter(character, app.id),
-      character,
-    }));
   const directMessageCommentAccounts: SocialDirectMessageParticipant[] = posts.flatMap((post) => [
     ...(post.comments ?? []),
     ...(persistedCommentsByPostId[post.id] ?? []),
@@ -1178,11 +1237,10 @@ export function PhoneSocialFeedScreen({
     };
   }));
   const participantCandidates: SocialDirectMessageParticipant[] = [
-    ...directMessageCharacterAccounts,
-    ...addedAccounts,
+    ...connectedAccounts,
     ...directMessageCommentAccounts,
     ...dmPartnerAccounts,
-    ...dummySocialPosts(app, owner?.id ?? 'no-account').map((post) => ({
+    ...visibleDummyPosts.map((post) => ({
       key: `virtual-${app.id}-${post.authorHandle}`,
       name: post.authorName,
       handle: post.authorHandle,
@@ -1363,17 +1421,42 @@ export function PhoneSocialFeedScreen({
           </div>
           <div className="phone-social-sidebar-actions">
             {addingPerson && (
-              <form className="phone-social-add-person" onSubmit={addPerson}>
+              <form className="phone-social-add-user" onSubmit={submitUserSearch}>
                 <input
                   type="text"
-                  placeholder="Person's name"
+                  placeholder="Name or @nickname"
                   value={newPersonName}
                   onChange={(event) => setNewPersonName(event.target.value)}
                   autoFocus
                 />
-                <button type="submit" disabled={!newPersonName.trim()}>
-                  Add
-                </button>
+                {directorySearchResults.length > 0 ? (
+                  <div className="phone-social-user-results" role="listbox" aria-label="Matching users">
+                    {directorySearchResults.map((user) => {
+                      const alreadyAdded = knownSocialUserIds.has(user.id);
+                      return (
+                        <div className="phone-social-user-result" key={user.id} role="option">
+                          <span>
+                            <strong>{user.name}</strong>
+                            <small>@{user.handles[app.id]}</small>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => addSocialUser(user)}
+                            disabled={alreadyAdded}
+                            aria-label={alreadyAdded ? `${user.name} already added` : `Add ${user.name}`}
+                            title={alreadyAdded ? 'Already added' : 'Add user'}
+                          >
+                            {alreadyAdded ? '✓' : '+'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : newPersonName.trim().replace(/^@/, '').length >= 3 ? (
+                  <span className="phone-social-user-not-found">Not found</span>
+                ) : (
+                  <span className="phone-social-user-hint">Type at least 3 characters</span>
+                )}
               </form>
             )}
             <button
@@ -1382,7 +1465,9 @@ export function PhoneSocialFeedScreen({
               onClick={() => setAddingPerson((open) => !open)}
               aria-expanded={addingPerson}
             >
-              {addingPerson ? 'Cancel' : '+ Add Person'}
+              {addingPerson
+                ? 'Cancel'
+                : '+ Add User'}
             </button>
             <div className="phone-social-post-menu-anchor" ref={postMenuRef}>
               {postStage === 'menu' && (

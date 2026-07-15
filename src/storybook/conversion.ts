@@ -160,14 +160,14 @@ export function convertLegacyRpStorybook(value: unknown): StorybookConversionRes
   const droppedBlocked = sourceBlocked.length - storybook.phoneContacts.blocked.length;
   rows.push({
     id: 'phone-contacts',
-    label: 'Phone Contacts',
+    label: 'Phone + Fotogram Contacts',
     state: droppedBlocked > 0 ? 'defaulted' : 'mapped',
     reviewState: droppedBlocked > 0 ? 'pending' : 'resolved',
     message: droppedBlocked > 0
-      ? `${storybook.phoneContacts.blocked.length} blocked pairs kept, ${droppedBlocked} dropped (unknown characters).`
+      ? `${storybook.phoneContacts.blocked.length} hidden pairs kept, ${droppedBlocked} dropped (unknown characters).`
       : storybook.phoneContacts.blocked.length
-        ? `${storybook.phoneContacts.blocked.length} blocked contact pairs carried over.`
-        : 'No blocked contact pairs.',
+        ? `${storybook.phoneContacts.blocked.length} hidden contact pairs carried over.`
+        : 'No hidden contact pairs.',
     allowedPatchPaths: [],
   });
 

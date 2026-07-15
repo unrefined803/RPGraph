@@ -75,6 +75,49 @@ export function socialHandleForCharacter(
   return storedHandle || socialHandleForName(character.name);
 }
 
+function normalizedSocialName(value: string) {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+export function findSocialAccountByExactIdentity(
+  characters: StorybookCharacter[],
+  app: SocialAppKind,
+  query: string,
+  excludedCharacterId?: string,
+) {
+  const normalizedQueryName = normalizedSocialName(query);
+  const normalizedQueryHandle = query.trim().replace(/^@/, '').toLowerCase();
+  if (!normalizedQueryName || !normalizedQueryHandle) {
+    return undefined;
+  }
+  return characters.find((character) => {
+    if (character.id === excludedCharacterId) {
+      return false;
+    }
+    const storedHandle = app === 'fotogram'
+      ? character.social.fotogramUsername.trim()
+      : character.social.onlyfriendsUsername.trim();
+    return !!storedHandle && (
+      normalizedSocialName(character.name) === normalizedQueryName ||
+      storedHandle.replace(/^@/, '').toLowerCase() === normalizedQueryHandle
+    );
+  });
+}
+
+export function socialPostVisibleToViewer(
+  post: SocialPostRecord,
+  viewerName: string,
+  viewerHandle: string,
+  discoveredIdentities: string[],
+) {
+  return socialIdentityMatches(post.author, viewerName) ||
+    socialIdentityMatches(post.authorHandle, viewerHandle) ||
+    discoveredIdentities.some((identity) =>
+      socialIdentityMatches(post.author, identity) ||
+      socialIdentityMatches(post.authorHandle, identity)
+    );
+}
+
 export function socialCharacterForPost(
   post: SocialPostRecord,
   storyCharacters: StorybookCharacter[],
@@ -525,9 +568,9 @@ export function parseSocialReactionsOutput(
       const from = embeddedHandle?.[1]?.trim() || rawFrom;
       const handle =
         typeof entry.handle === 'string' && entry.handle.trim()
-          ? socialHandleForName(entry.handle)
+          ? entry.handle.trim().replace(/^@/, '').toLowerCase()
           : embeddedHandle?.[2]
-            ? socialHandleForName(embeddedHandle[2])
+            ? embeddedHandle[2].trim().replace(/^@/, '').toLowerCase()
           : socialHandleForName(from);
       comments.push({ from, handle, text: entry.text.trim() });
     });

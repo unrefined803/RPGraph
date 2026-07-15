@@ -165,7 +165,9 @@ import {
   openingHistoryEventsFromNodes,
   openingHistoryChatGpdChatsFromNodes,
   openingHistoryCheckpointsFromNodes,
+  openingHistoryDynamicSocialUsersFromNodes,
   openingHistoryNotesFromNodes,
+  openingHistorySocialConnectionsFromNodes,
   openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
   remapOpeningTurnMessageIds,
@@ -1224,6 +1226,13 @@ function App() {
     socialImageById,
     socialLikesByAccount,
     setSocialLikesByAccount,
+    socialDirectoryUsers,
+    fotogramContactsByCharacter,
+    dynamicSocialUsers,
+    setDynamicSocialUsers,
+    socialConnectionsByCharacter,
+    setSocialConnectionsByCharacter,
+    addSocialConnection,
     phoneNotesByCharacter,
     setPhoneNotesByCharacter,
     chatGpdChatsByCharacter,
@@ -1710,6 +1719,8 @@ function App() {
     notifySystem,
     usedStorybookImageIds,
     currentSocialLikesByAccount: () => socialLikesByAccount,
+    currentDynamicSocialUsers: () => dynamicSocialUsers,
+    currentSocialConnectionsByCharacter: () => socialConnectionsByCharacter,
     currentPhoneNotesByCharacter: () => phoneNotesByCharacter,
     currentChatGpdChatsByCharacter: () => chatGpdChatsByCharacter,
     clearCurrentSession: () => clearCurrentSession(),
@@ -2645,6 +2656,29 @@ function App() {
       return merged;
     });
 
+    const openingDynamicSocialUsers = openingHistoryDynamicSocialUsersFromNodes(nextNodes);
+    setDynamicSocialUsers((current) =>
+      replaceCurrentChat
+        ? openingDynamicSocialUsers
+        : { ...current, ...openingDynamicSocialUsers }
+    );
+    const openingSocialConnections = openingHistorySocialConnectionsFromNodes(nextNodes);
+    setSocialConnectionsByCharacter((current) => {
+      const merged = replaceCurrentChat ? {} : structuredClone(current);
+      Object.entries(openingSocialConnections).forEach(([characterId, apps]) => {
+        const existing = merged[characterId] ?? {};
+        const mergeApp = (app: 'fotogram' | 'onlyfriends') => {
+          const ids = existing[app] ?? [];
+          return [...ids, ...(apps[app] ?? []).filter((id) => !ids.includes(id))];
+        };
+        merged[characterId] = {
+          fotogram: mergeApp('fotogram'),
+          onlyfriends: mergeApp('onlyfriends'),
+        };
+      });
+      return merged;
+    });
+
     // Notes and ChatGPD chats follow the likes: replaced on a fresh import,
     // merged in (existing entries win) when the current chat is kept.
     const openingNotes = openingHistoryNotesFromNodes(nextNodes);
@@ -2705,6 +2739,8 @@ function App() {
       phoneAppSeenByCharacter,
       bankingContactsByCharacter,
       socialLikesByAccount,
+      dynamicSocialUsers,
+      socialConnectionsByCharacter,
       onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
@@ -2767,6 +2803,8 @@ function App() {
     setPhoneAppSeenByCharacter({});
     setBankingContactsByCharacter({});
     setSocialLikesByAccount({});
+    setDynamicSocialUsers({});
+    setSocialConnectionsByCharacter({});
     setOnlyFriendsPurchasesByCharacter({});
     setPhoneDividerAfterByConversation({});
     setOpenedPhoneConversationKey('');
@@ -2953,6 +2991,8 @@ function App() {
     setPhoneAppSeenByCharacter(sessionState.phoneAppSeenByCharacter);
     setBankingContactsByCharacter(sessionState.bankingContactsByCharacter);
     setSocialLikesByAccount(sessionState.socialLikesByAccount);
+    setDynamicSocialUsers(sessionState.dynamicSocialUsers);
+    setSocialConnectionsByCharacter(sessionState.socialConnectionsByCharacter);
     setOnlyFriendsPurchasesByCharacter(sessionState.onlyFriendsPurchasesByCharacter);
     setPhoneDividerAfterByConversation(sessionState.phoneDividerAfterByConversation);
     setRecentlyUsedEmojis(sessionState.recentlyUsedEmojis ?? []);
@@ -4227,7 +4267,7 @@ function App() {
     }
     updateRuntimeNode(storybookNode.id, {
       storybookJson: nextJson,
-      storybookStatus: `Phone contact added: ${fromCharacter.name} <-> ${toCharacter.name}`,
+      storybookStatus: `Phone + Fotogram contact added: ${fromCharacter.name} <-> ${toCharacter.name}`,
     });
   }
 
@@ -6871,6 +6911,10 @@ function App() {
               onImportSocialPostImage={importSocialPostImage}
               socialImageById={socialImageById}
               socialLikesByAccount={socialLikesByAccount}
+              socialDirectoryUsers={socialDirectoryUsers}
+              fotogramContactsByCharacter={fotogramContactsByCharacter}
+              socialConnectionsByCharacter={socialConnectionsByCharacter}
+              onAddSocialConnection={addSocialConnection}
               onToggleSocialLike={toggleSocialLike}
               onlyFriendsPurchasesByCharacter={onlyFriendsPurchasesByCharacter}
               onUnlockOnlyFriendsPost={unlockOnlyFriendsPost}

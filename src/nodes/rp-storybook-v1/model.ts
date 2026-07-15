@@ -6,6 +6,12 @@ import {
   type ChatGpdChatsByCharacter,
   type PhoneNotesByCharacter,
 } from '../../chat/phoneAppsSessions';
+import {
+  normalizeDynamicSocialUsers,
+  normalizeSocialConnectionsByCharacter,
+  type DynamicSocialUsers,
+  type SocialConnectionsByCharacter,
+} from '../../chat/socialDirectory';
 
 export type RpStorybookCharacterImage = {
   id: string;
@@ -92,7 +98,7 @@ export type RpStorybookImageDescriptionPromptSettings = {
   customText?: string;
 };
 
-export const currentRpStorybookVersion = '2.0.0' as const;
+export const currentRpStorybookVersion = '2.1.0' as const;
 
 const rpStorybookVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
@@ -146,6 +152,7 @@ export type RpStorybookV1 = {
     currentSituation: string;
   };
   characters: RpStorybookV1Character[];
+  /** Bidirectional pairs hidden from the default Phone + Fotogram contact display. */
   phoneContacts: {
     blocked: RpStorybookPhoneContactBlock[];
   };
@@ -156,6 +163,10 @@ export type RpStorybookV1 = {
     events: RpAppointment[];
     /** Liked post ids per "characterId/app" account key, imported with the session. */
     socialLikes: Record<string, string[]>;
+    /** Dynamic social identities imported from an RP session. */
+    dynamicSocialUsers: DynamicSocialUsers;
+    /** Added social users per player character and app. */
+    socialConnections: SocialConnectionsByCharacter;
     /** Notes-app cards per character id, imported with the session. */
     notes: PhoneNotesByCharacter;
     /** ChatGPD chats per character id, imported with the session. */
@@ -269,6 +280,8 @@ export const emptyRpStorybookV1: RpStorybookV1 = {
     checkpoints: [],
     events: [],
     socialLikes: {},
+    dynamicSocialUsers: {},
+    socialConnections: {},
     notes: {},
     chatGpdChats: {},
   },
@@ -753,6 +766,8 @@ export function normalizeRpStorybookV1(value: unknown): RpStorybookV1 {
         .map(normalizeOpeningHistoryEvent)
         .filter((event): event is RpAppointment => !!event),
       socialLikes: normalizeOpeningHistorySocialLikes(openingHistory.socialLikes),
+      dynamicSocialUsers: normalizeDynamicSocialUsers(openingHistory.dynamicSocialUsers),
+      socialConnections: normalizeSocialConnectionsByCharacter(openingHistory.socialConnections),
       notes: normalizePhoneNotesByCharacter(openingHistory.notes),
       chatGpdChats: normalizeChatGpdChatsByCharacter(openingHistory.chatGpdChats),
     },
@@ -1296,7 +1311,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
     'Keep the exact storybook shape below:',
     `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
-    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[]}}',
+    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
     'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, characters[].phoneSettings, and characters[].images dataUrl values, unless the user explicitly changes them.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
@@ -1310,7 +1325,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'characters[].voiceConfig stores a binary voice sample managed by the app. Never create, edit, or remove it.',
     'For edits, changedFields must list compact field paths that changed, for example "title", "scenario", "characters".',
     'Every playable person, npc, or roleplay participant belongs in characters. Do not create any other character container fields.',
-    'phoneContacts.blocked stores bidirectional hidden phone contact pairs for the Phone UI only. It is not story context. Default is everyone can see everyone, so keep blocked empty unless the user explicitly says two characters should not appear as phone contacts.',
+    'phoneContacts.blocked stores bidirectional hidden contact pairs for the Phone and Fotogram UIs. It is not story context and never blocks messages. Default is everyone can see everyone, so keep blocked empty unless the user explicitly says two characters should not appear as Phone + Fotogram contacts.',
     'characters[].phoneSettings is app-only Phone UI state. It is intentionally omitted from the current JSON and must never be created or patched by the assistant.',
     'Use character ids for owner and contact. Store each hidden pair once only. If you add or rename characters, keep character ids stable and update phoneContacts.blocked only when needed.',
     'Use concise but useful roleplay authoring text. Answer in the same language as the user when practical.',
