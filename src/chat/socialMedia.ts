@@ -390,12 +390,18 @@ export function parseSocialDirectMessageOutput(
       continue;
     }
     if (Array.isArray(parsed[expectedKey])) {
-      const messages = parseMessengerAppMessagesObject(parsed).socialDirectMessages;
-      const payload = messages.find((message) => message.app === userMessage.app);
+      const expectedEntries = parsed[expectedKey];
       if (result.message) {
         result.warnings.push(`Only one ${expectedKey} block is applied; an extra one was skipped.`);
         continue;
       }
+      if (expectedEntries.length !== 1) {
+        result.warnings.push(
+          `${expectedKey} must contain exactly one message; received ${expectedEntries.length}.`,
+        );
+      }
+      const messages = parseMessengerAppMessagesObject(parsed).socialDirectMessages;
+      const payload = messages.find((message) => message.app === userMessage.app);
       if (!payload) {
         result.warnings.push(`The ${expectedKey} block is missing a message text.`);
         continue;

@@ -722,8 +722,10 @@ export function useRoleplayPanelRuntime({
         const accountHandle = directMessage.app === 'fotogram'
           ? character.social.fotogramUsername
           : character.social.onlyfriendsUsername;
-        return socialIdentityMatches(character.name, name) ||
-          (!!accountHandle && socialIdentityMatches(accountHandle, handle));
+        return !!accountHandle.trim() && (
+          socialIdentityMatches(character.name, name) ||
+          socialIdentityMatches(accountHandle, handle)
+        );
       });
     const senderCharacter = characterForIdentity(directMessage.from, directMessage.fromHandle);
     const recipientCharacter = characterForIdentity(directMessage.to, directMessage.toHandle);

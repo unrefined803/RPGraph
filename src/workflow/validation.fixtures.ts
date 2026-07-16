@@ -439,6 +439,11 @@ export function verifyWorkflowValidationFixtures() {
     socialDirectMessage,
     '2026-06-01T12:31:00.000Z',
   );
+  const excessiveSocialDirectReply = parseSocialDirectMessageOutput(
+    '{"fotogramApp":[{"from":"Jamie","to":"Alex","message":"First."},{"from":"Jamie","to":"Alex","message":"Second."}]}',
+    socialDirectMessage,
+    '2026-06-01T12:31:00.000Z',
+  );
   const parsedOnlyFriendsReply = parseSocialDirectMessageOutput(
     '{"onlyFriendsApp":[{"from":"Jamie","to":"Alex","message":"You are the best!","isVoiceMessage":true,"sendImageId":"ignored"}]}',
     { ...socialDirectMessage, app: 'onlyfriends' as const },
@@ -460,6 +465,10 @@ export function verifyWorkflowValidationFixtures() {
       rejectedSocialDirectReply.message === undefined &&
       rejectedSocialDirectReply.warnings.some((warning) =>
         warning.includes('fotogramApp'),
+      ) &&
+      excessiveSocialDirectReply.message?.text === 'First.' &&
+      excessiveSocialDirectReply.warnings.some((warning) =>
+        warning.includes('exactly one message'),
       ) &&
       parsedOnlyFriendsReply.message?.text === 'You are the best!' &&
       socialMessageHiddenFromChat({
