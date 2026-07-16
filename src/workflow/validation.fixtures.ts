@@ -622,6 +622,17 @@ export function verifyWorkflowValidationFixtures() {
     app: 'onlyfriends',
     identity: 'janam98',
   });
+  const unknownAtHandle = resolveSocialMessageIdentity({
+    characters: privateFotogramCharacters,
+    messages: [],
+    app: 'fotogram',
+    identity: '@haterboy647',
+  });
+  const inventedHandleConversation = validateSocialMessengerAccounts({
+    characters: privateFotogramCharacters,
+    messages: [],
+    text: '{"fotogramApp":[{"from":"haterboy647","to":"Espen Harper","message":"Nice filter.","postId":"fotogram-post-private-01"},{"from":"Espen Harper","to":"haterboy647","message":"Try harder."}]}',
+  });
   const invalidSocialOutput = validateSocialMessengerAccounts({
     characters: privateFotogramCharacters,
     messages: [],
@@ -641,14 +652,20 @@ export function verifyWorkflowValidationFixtures() {
       unknownNpcName.source === 'new-npc' &&
       bundledHandle.available &&
       bundledHandle.handle === 'violetlane' &&
-      !unknownHandle.available &&
-      unknownHandle.source === 'unknown-handle' &&
+      unknownHandle.available &&
+      unknownHandle.source === 'new-npc' &&
+      unknownHandle.handle === 'janam98' &&
+      unknownAtHandle.available &&
+      unknownAtHandle.name === 'haterboy647' &&
+      unknownAtHandle.handle === 'haterboy647' &&
+      inventedHandleConversation.issues.length === 0 &&
+      inventedHandleConversation.sanitizedText.includes('fotogram-post-private-01') &&
       invalidSocialOutput.issues.length === 1 &&
       invalidSocialOutput.sanitizedText === 'The scene continues.' &&
       socialMessageCorrectionContext(invalidSocialOutput.issues).includes(
         'Leo Parker has no OnlyFriends account.',
       ),
-    'social messages must accept names and handles but block missing Storybook app accounts',
+    'social messages must create unknown NPC usernames but block missing Storybook app accounts',
   );
   assertFixture(
     findSocialAccountByExactIdentity(

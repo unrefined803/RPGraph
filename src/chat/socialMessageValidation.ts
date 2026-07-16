@@ -92,7 +92,7 @@ export type ResolvedSocialMessageIdentity = {
   available: boolean;
   name: string;
   handle?: string;
-  source: 'storybook' | 'directory' | 'new-npc' | 'unknown-handle';
+  source: 'storybook' | 'directory' | 'new-npc';
   character?: StorybookCharacter;
   reason?: string;
 };
@@ -172,10 +172,10 @@ export function resolveSocialMessageIdentity(options: {
 
   if (identityLooksLikeHandle(identity)) {
     return {
-      available: false,
-      name: identity,
-      source: 'unknown-handle',
-      reason: `${identity} is not a known ${options.app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account.`,
+      available: true,
+      name: cleanHandle(identity),
+      handle: cleanHandle(identity),
+      source: 'new-npc',
     };
   }
   return {
@@ -286,7 +286,7 @@ export function socialMessageCorrectionContext(issues: SocialMessageValidationIs
       `- ${socialAppName(issue.app)} ${issue.role} "${issue.identity}": ${issue.resolved.reason}`
     ),
     'Rewrite the complete response. A known Storybook character may send or receive in an app only when that exact app account exists.',
-    'Names and exact app handles are both accepted. Use a full display name for a new NPC; never invent a handle for a known character.',
+    'New NPC display names and usernames are accepted. Never invent an app account for a known Storybook character.',
     'Do not mention this validation or the discarded response.',
     '[/SOCIAL MESSAGE VALIDATION]',
   ].join('\n');
