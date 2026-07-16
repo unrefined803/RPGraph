@@ -1685,69 +1685,89 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const parsedPhoneMessage = parsePhoneMessageOutput(phoneMessageOutput, {
         allowIncomingImageAction: runPromptSwitchVisionFeaturesEnabled,
       });
-      if (parsedPhoneMessage) {
+      // Autonomous phone prompts may answer with one {"phoneMessages": [...]}
+      // conversation object instead of the single bare reply object; every entry
+      // becomes its own phone message in order.
+      const parsedPhoneMessages = parsedPhoneMessage
+        ? [parsedPhoneMessage]
+        : phoneOutputBankResult?.phoneMessages ?? [];
+      if (parsedPhoneMessages.length) {
         reportFormatResult({
           name: 'Phone Message JSON',
           status: 'ok',
-          detail: `${parsedPhoneMessage.from} → ${parsedPhoneMessage.to}`,
+          detail: parsedPhoneMessages
+            .map((entry) => `${entry.from} → ${entry.to}`)
+            .join(', '),
         });
-        let phoneImageCaptionChange: ImageCaptionChange | undefined;
-        const phoneImageAction = runPromptSwitchVisionFeaturesEnabled
-          ? parsedPhoneMessage.incomingImageAction ?? phoneOutputBankResult?.phoneImageActions[0]
-          : undefined;
-        if (phoneImageAction) {
-          phoneImageCaptionChange = applyPhoneImageActionFromLlm(
-            phoneImageAction,
-            phoneReplyTo,
-            parsedPhoneMessage.imageId,
-          );
-        }
-        if (runEnglishProcessing) {
-          try {
-            parsedPhoneMessage.translatedMessage = await translateText(
-              parsedPhoneMessage.message,
-              'to-display',
-              outputNode.data.connectionId ?? defaultConnectionId,
-              outputNode.id,
-              undefined,
-              turnContext.displayLanguage,
-              runSignal,
-              inputHistoryContext,
-            );
-          } catch (error) {
-            if (isRunCancelledError(error)) {
-              throw error;
-            }
-            notifySystem(
-              'error',
-              `Phone message translation failed: ${error instanceof Error ? error.message : String(error)}`,
+        const appendedPhoneMessageLinks: EmbeddedPhoneMessageLink[] = [];
+        for (const [messageIndex, phoneReply] of parsedPhoneMessages.entries()) {
+          let phoneImageCaptionChange: ImageCaptionChange | undefined;
+          const phoneImageAction = runPromptSwitchVisionFeaturesEnabled && messageIndex === 0
+            ? phoneReply.incomingImageAction ?? phoneOutputBankResult?.phoneImageActions[0]
+            : undefined;
+          if (phoneImageAction) {
+            phoneImageCaptionChange = applyPhoneImageActionFromLlm(
+              phoneImageAction,
+              phoneReplyTo,
+              phoneReply.imageId,
             );
           }
+          if (runEnglishProcessing) {
+            try {
+              phoneReply.translatedMessage = await translateText(
+                phoneReply.message,
+                'to-display',
+                outputNode.data.connectionId ?? defaultConnectionId,
+                outputNode.id,
+                undefined,
+                turnContext.displayLanguage,
+                runSignal,
+                inputHistoryContext,
+              );
+            } catch (error) {
+              if (isRunCancelledError(error)) {
+                throw error;
+              }
+              notifySystem(
+                'error',
+                `Phone message translation failed: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+          }
+          const canonicalParsedPhoneMessage = {
+            ...phoneReply,
+            from: canonicalPhoneName(phoneCharacters, phoneReply.from),
+            to: canonicalPhoneName(phoneCharacters, phoneReply.to),
+          };
+          const outgoingRpPicture = rpPicturePhoneAttachment(
+            [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
+            canonicalParsedPhoneMessage.imageId,
+          );
+          const phoneMessageId = appendPhoneMessage(
+            {
+              ...canonicalParsedPhoneMessage,
+              imageId: outgoingRpPicture?.id ?? canonicalParsedPhoneMessage.imageId,
+              imageDescription: outgoingRpPicture?.description,
+              imageAttachments: outgoingRpPicture ? [outgoingRpPicture] : undefined,
+              phoneImageCaptionChange,
+            },
+            messageIndex === 0
+              ? phoneOutputSoundOverride ?? (isAutoTurn ? 'sent' : 'received')
+              : undefined,
+            'output',
+            isNarratorPhoneAutoTurn ? 'narrator' : undefined,
+            messageIndex === 0 && responseWorkflowVariableSetCommands.length > 0
+              ? structuredClone(responseWorkflowVariableSetCommands)
+              : undefined,
+          );
+          appendedPhoneMessageLinks.push({
+            phoneMessageId,
+            from: canonicalParsedPhoneMessage.from,
+            to: canonicalParsedPhoneMessage.to,
+            message: canonicalParsedPhoneMessage.message,
+            translatedMessage: canonicalParsedPhoneMessage.translatedMessage,
+          });
         }
-        const canonicalParsedPhoneMessage = {
-          ...parsedPhoneMessage,
-          from: canonicalPhoneName(phoneCharacters, parsedPhoneMessage.from),
-          to: canonicalPhoneName(phoneCharacters, parsedPhoneMessage.to),
-        };
-        const outgoingRpPicture = rpPicturePhoneAttachment(
-          [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
-          canonicalParsedPhoneMessage.imageId,
-        );
-        const phoneMessageId = appendPhoneMessage(
-          {
-            ...canonicalParsedPhoneMessage,
-            imageId: outgoingRpPicture?.id ?? canonicalParsedPhoneMessage.imageId,
-            imageDescription: outgoingRpPicture?.description,
-            imageAttachments: outgoingRpPicture ? [outgoingRpPicture] : undefined,
-            phoneImageCaptionChange,
-          },
-          phoneOutputSoundOverride ?? (isAutoTurn ? 'sent' : 'received'),
-          'output',
-          isNarratorPhoneAutoTurn ? 'narrator' : undefined,
-          responseWorkflowVariableSetCommands.length > 0
-            ? structuredClone(responseWorkflowVariableSetCommands)
-            : undefined,
-        );
         if (isAutoTurn && isPhoneMessage) {
           const autoTurnInput = autoTurnInputMessageId
             ? activeTurnCollectorRef.current?.inputMessages.find((message) => message.id === autoTurnInputMessageId)
@@ -1759,13 +1779,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               );
           if (autoTurnInput) {
             updateMessage(autoTurnInput.id, {
-              embeddedPhoneMessages: [{
-                phoneMessageId,
-                from: canonicalParsedPhoneMessage.from,
-                to: canonicalParsedPhoneMessage.to,
-                message: canonicalParsedPhoneMessage.message,
-                translatedMessage: canonicalParsedPhoneMessage.translatedMessage,
-              }],
+              embeddedPhoneMessages: appendedPhoneMessageLinks,
               embeddedPhoneTextBefore: autoTurnInput.originalText,
               embeddedPhoneTextAfter: '',
             });

@@ -2992,6 +2992,19 @@ export function verifyWorkflowValidationFixtures() {
       fencedEmbeddedPhone.phoneMessages[0]?.message === 'Please get the heavy duty ones.',
     'embedded phone parser must remove markdown fences around phoneMessages JSON',
   );
+  const embeddedPhoneConversation = parseEmbeddedPhoneMessagesFromRpOutput(
+    '{"phoneMessages":[' +
+      '{"from":"Lara Miller","to":"Robert Miller","message":"Did you get them?"},' +
+      '{"from":"Robert Miller","to":"Lara Miller","message":"Yes, on my way home."}' +
+    ']}',
+  );
+  assertFixture(
+    embeddedPhoneConversation.text === '' &&
+      embeddedPhoneConversation.phoneMessages.length === 2 &&
+      embeddedPhoneConversation.phoneMessages[0]?.message === 'Did you get them?' &&
+      embeddedPhoneConversation.phoneMessages[1]?.message === 'Yes, on my way home.',
+    'embedded phone parser must preserve multi-message conversations in order',
+  );
   assertFixture(
     knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
       knownPromptCommandId('Simulate_ChatGPD') === 'simulate_ai_chat' &&
