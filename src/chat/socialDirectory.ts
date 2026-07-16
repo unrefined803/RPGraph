@@ -22,6 +22,92 @@ function normalizedIdentity(value: string) {
   return value.trim().replace(/^@/, '').replace(/\s+/g, ' ').toLowerCase();
 }
 
+function matchingRecordedHandle(
+  expectedName: string,
+  recordedName: string | undefined,
+  recordedHandle: string | undefined,
+) {
+  if (
+    !recordedName ||
+    !recordedHandle ||
+    normalizedIdentity(recordedName) !== expectedName
+  ) {
+    return undefined;
+  }
+  return recordedHandle.trim().replace(/^@/, '') || undefined;
+}
+
+/** Recover the most recently recorded app handle for one display name. */
+export function establishedSocialHandle(
+  messages: MessageRecord[],
+  app: SocialAppKind,
+  name: string,
+) {
+  const normalizedName = normalizedIdentity(name);
+  if (!normalizedName) {
+    return undefined;
+  }
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    const directMessage = message.socialDirectMessage;
+    if (directMessage?.app === app) {
+      const directHandle = matchingRecordedHandle(
+        normalizedName,
+        directMessage.from,
+        directMessage.fromHandle,
+      ) ?? matchingRecordedHandle(
+        normalizedName,
+        directMessage.to,
+        directMessage.toHandle,
+      );
+      if (directHandle) {
+        return directHandle;
+      }
+    }
+    const post = message.socialPost;
+    if (post?.app === app) {
+      const postHandle = matchingRecordedHandle(normalizedName, post.author, post.authorHandle);
+      if (postHandle) {
+        return postHandle;
+      }
+    }
+    const threadAction = message.socialThreadAction;
+    if (threadAction?.app === app) {
+      const threadHandle = matchingRecordedHandle(
+        normalizedName,
+        threadAction.actor,
+        threadAction.actorHandle,
+      ) ?? matchingRecordedHandle(
+        normalizedName,
+        threadAction.postAuthor,
+        threadAction.postAuthorHandle,
+      );
+      if (threadHandle) {
+        return threadHandle;
+      }
+    }
+    const reactions = message.socialReactions;
+    if (reactions?.app === app) {
+      for (
+        let commentIndex = reactions.comments.length - 1;
+        commentIndex >= 0;
+        commentIndex -= 1
+      ) {
+        const comment = reactions.comments[commentIndex];
+        const commentHandle = matchingRecordedHandle(
+          normalizedName,
+          comment.from,
+          comment.handle,
+        );
+        if (commentHandle) {
+          return commentHandle;
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
 function socialUserSlug(value: string) {
   return normalizedIdentity(value).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'user';
 }

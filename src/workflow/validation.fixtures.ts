@@ -142,6 +142,7 @@ import {
 import {
   buildSocialDirectory,
   bundledSocialUsers,
+  establishedSocialHandle,
   searchSocialDirectory,
   socialConnectionIds,
   withSocialDirectoryConnectionAdded,
@@ -149,6 +150,7 @@ import {
 } from '../chat/socialDirectory';
 import {
   bundledSocialIdentityContext,
+  isBundledSocialHandle,
   socialHandleFromCatalogIdentity,
   withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
@@ -641,6 +643,93 @@ export function verifyWorkflowValidationFixtures() {
       },
     }],
   });
+  const establishedHandleMessages: MessageRecord[] = [
+    {
+      id: 21,
+      role: 'output',
+      originalText: 'A social post established an account.',
+      socialPost: {
+        app: 'fotogram',
+        postId: 'fotogram-post-established-handle',
+        author: 'Post Person',
+        authorHandle: 'post.person',
+        caption: 'Hello.',
+      },
+    },
+    {
+      id: 22,
+      role: 'output',
+      originalText: 'A thread established two accounts.',
+      socialThreadAction: {
+        actionId: 'fotogram-thread-established-handles',
+        action: 'comment',
+        app: 'fotogram',
+        postId: 'fotogram-post-established-handle',
+        postAuthor: 'Thread Author',
+        postAuthorHandle: 'thread.author',
+        postCaption: 'Hello.',
+        actor: 'Thread Actor',
+        actorHandle: 'thread.actor',
+        commentText: 'Hi.',
+      },
+    },
+    {
+      id: 23,
+      role: 'output',
+      originalText: 'Comments established their latest account handle.',
+      socialReactions: {
+        app: 'fotogram',
+        postId: 'fotogram-post-established-handle',
+        likes: 0,
+        comments: [
+          { from: 'Reaction Person', handle: 'reaction.old', text: 'First.' },
+          { from: 'Reaction Person', handle: 'reaction.latest', text: 'Second.' },
+        ],
+      },
+    },
+    {
+      id: 24,
+      role: 'output',
+      originalText: 'Jana sent a direct message.',
+      socialDirectMessage: {
+        app: 'fotogram',
+        messageId: 'fotogram-dm-established-handle-1',
+        from: 'Jana Müller',
+        fromHandle: 'jana_m98',
+        to: 'Espen',
+        toHandle: 'espen',
+        text: 'Hello.',
+        sentAt: '2026-07-16T10:00:00.000Z',
+      },
+    },
+    {
+      id: 25,
+      role: 'output',
+      originalText: 'Jana received a direct reply.',
+      socialDirectMessage: {
+        app: 'fotogram',
+        messageId: 'fotogram-dm-established-handle-2',
+        from: 'Espen',
+        fromHandle: 'espen',
+        to: 'Jana Müller',
+        toHandle: 'jana.latest',
+        text: 'Hi.',
+        sentAt: '2026-07-16T10:01:00.000Z',
+      },
+    },
+    {
+      id: 26,
+      role: 'output',
+      originalText: 'Jana uses a separate OnlyFriends account.',
+      socialPost: {
+        app: 'onlyfriends',
+        postId: 'onlyfriends-post-established-handle',
+        author: 'Jana Müller',
+        authorHandle: 'jana.only',
+        caption: 'Hello.',
+      },
+    },
+  ];
   const espenSocialUser = socialDirectory.users.find((user) =>
     user.characterId === 'storybook:character:espen-private'
   );
@@ -667,6 +756,43 @@ export function verifyWorkflowValidationFixtures() {
         'Max Power',
         '@maxpower_official',
       ) === 'maxpower_official' &&
+      isBundledSocialHandle('fotogram', '@LUNA.SKY') &&
+      !isBundledSocialHandle('fotogram', 'not.in.catalog') &&
+      establishedSocialHandle(
+        establishedHandleMessages,
+        'fotogram',
+        ' @JANA   MÜLLER ',
+      ) === 'jana.latest' &&
+      establishedSocialHandle(
+        establishedHandleMessages,
+        'onlyfriends',
+        'Jana Müller',
+      ) === 'jana.only' &&
+      establishedSocialHandle(
+        establishedHandleMessages,
+        'fotogram',
+        'Post Person',
+      ) === 'post.person' &&
+      establishedSocialHandle(
+        establishedHandleMessages,
+        'fotogram',
+        'Thread Actor',
+      ) === 'thread.actor' &&
+      establishedSocialHandle(
+        establishedHandleMessages,
+        'fotogram',
+        'Thread Author',
+      ) === 'thread.author' &&
+      establishedSocialHandle(
+        establishedHandleMessages,
+        'fotogram',
+        'Reaction Person',
+      ) === 'reaction.latest' &&
+      establishedSocialHandle(
+        establishedHandleMessages,
+        'fotogram',
+        'Unknown Person',
+      ) === undefined &&
       bundledSocialUsers
         .filter((user) => user.handles.onlyfriends)
         .every((user) => !bundledFotogramNames.has(user.name.toLowerCase())) &&

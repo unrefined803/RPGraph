@@ -99,6 +99,10 @@ import {
   type SocialThreadRunContext,
 } from '../chat/socialMedia';
 import {
+  establishedSocialHandle,
+} from '../chat/socialDirectory';
+import {
+  isBundledSocialHandle,
   socialHandleFromCatalogIdentity,
   withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
@@ -2412,18 +2416,24 @@ export function useGraphRun(options: UseGraphRunOptions) {
             ? defaultRecipient.handle
             : recipientCharacter
               ? socialHandleForCharacter(recipientCharacter, incoming.app)
-              : socialHandleForName(to);
+              : establishedSocialHandle(messagesRef.current, incoming.app, to) ??
+                socialHandleForName(to);
           const from = canonicalPhoneName(phoneCharacters, incoming.from);
           const senderCharacter = phoneCharacters.find((character) =>
             phoneNamesMatch(character.name, from),
           );
-          const fromHandle = socialHandleFromCatalogIdentity(
+          const explicitOrCatalogHandle = socialHandleFromCatalogIdentity(
             incoming.app,
             incoming.from,
             incoming.handle,
-          ) ?? (senderCharacter
-              ? socialHandleForCharacter(senderCharacter, incoming.app)
-              : socialHandleForName(from));
+          );
+          const knownFromHandle = senderCharacter
+            ? socialHandleForCharacter(senderCharacter, incoming.app)
+            : establishedSocialHandle(messagesRef.current, incoming.app, from);
+          const fromHandle = explicitOrCatalogHandle &&
+              (!knownFromHandle || isBundledSocialHandle(incoming.app, explicitOrCatalogHandle))
+            ? explicitOrCatalogHandle
+            : knownFromHandle ?? socialHandleForName(from);
           if (socialIdentityMatches(fromHandle, toHandle)) {
             reportRunWarning(
               `A ${socialAppNames[incoming.app]} direct message from "${from}" to themselves was ignored.`,

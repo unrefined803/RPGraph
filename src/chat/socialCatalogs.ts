@@ -30,6 +30,14 @@ export const bundledSocialIdentities: Record<SocialAppKind, BundledSocialIdentit
   onlyfriends: socialIdentities(onlyFriendsCatalogValue),
 };
 
+/** Whether a handle exactly belongs to the bundled catalog for this app. */
+export function isBundledSocialHandle(app: SocialAppKind, handle: string) {
+  const normalizedHandle = handle.trim().replace(/^@/, '').toLowerCase();
+  return !!normalizedHandle && bundledSocialIdentities[app].some(
+    (identity) => identity.handle.toLowerCase() === normalizedHandle,
+  );
+}
+
 function normalizedSocialName(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }
