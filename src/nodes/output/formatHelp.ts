@@ -18,7 +18,7 @@ The current normalized input images. This output is empty when the turn has no a
 Message Format
 Selects the broad LLM Prompt Switch route for normal graph runs:
 0 = Normal RP
-1 = Phone Message
+1 = Messenger Apps
 2 = Social Media
 3 = Autoplay
 
@@ -51,10 +51,10 @@ Direct actions are still recorded as a normal turn, so their changes can be undo
 export const rpOutputOverview = `RP OUTPUT INPUTS
 
 Normal RP
-Visible story prose and dialogue for the Chat tab. It can also contain embedded phoneMessages, bankTransfers, or one displayImageId when the generated story requires them.
+Visible story prose and dialogue for the Chat tab. It can also contain embedded WhatsUp, Fotogram, or OnlyFriends messenger objects, bankTransfers, or one displayImageId when the generated story requires them.
 
-Phone Message
-One generated phone reply as JSON with from, to, message, and optional isVoiceMessage or sendImageId. This channel can also carry a separate incoming-image caption action.
+Messenger Apps
+Generated private messages for WhatsUp, Fotogram, or OnlyFriends. All three use the same from, to, and message fields. WhatsUp additionally supports isVoiceMessage and sendImageId.
 
 Social Media
 Generated reactions for Fotogram and OnlyFriends posts or comment threads. The app applies the returned likes and comments and records the relevant history.
@@ -88,48 +88,42 @@ Use it for visible prose, dialogue, narration, and the normal RP response. This 
 
 If the RP response includes a final image description metadata object, RPGraph stores that image description in history and hides the metadata from the visible chat bubble.
 
-Normal RP can also contain a phoneMessages JSON object when the story beat truly includes a phone message. Those messages are added to the Phone tab and shown as linked phone activity inside the chat bubble.
+Normal RP can also contain a messenger-app JSON object when the story beat truly includes private messages. Use whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Those messages are added to the selected app and recorded in history.
 
-Use embedded phoneMessages only when it clearly belongs in the scene, such as a character sending a text, receiving a reply, ordering something, or getting a confirmation. Ordinary dialogue and narration should stay as normal RP prose.
+Use embedded messenger messages only when they clearly belong in the scene, such as a character sending a text, receiving a reply, ordering something, or getting a confirmation. Ordinary dialogue and narration should stay as normal RP prose.
 
 Normal RP can display exactly one stored Storybook/phone-gallery image in the Chat tab without sending a phone message. Add one hidden metadata object at the end of the RP output:
 {"displayImageId":"stored_image_id"}
 
 Use displayImageId only for a fitting image ID returned by an image-list/create-image action or clearly established in recent phone/photo history. It displays the image in Chat and does not add a Phone message.
 
-Embedded phone messages use this shape. sendImageId is optional and attaches an outgoing stored Storybook/phone-history image. isVoiceMessage is optional; set it to true only when the sender records the message as a spoken voice message instead of typing it (omitting it means a normal text message):
-{"phoneMessages":[{"from":"sender name","to":"recipient name","message":"message text","isVoiceMessage":true,"sendImageId":"name_image_01"}]}
+All three messenger apps use the same array shape:
+{"whatsUpApp":[{"from":"sender name","to":"recipient name","message":"message text","isVoiceMessage":true,"sendImageId":"name_image_01"}]}
+{"fotogramApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
+{"onlyFriendsApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
 
-Use sendImageId only for outgoing stored image attachments in Phone messages. Use displayImageId only for showing one stored image in Normal RP. Do not use imageId for outgoing attachments; imageId is reserved for image action commands in the dedicated Phone Message channel.
+from, to, and message are required. isVoiceMessage and sendImageId currently work only in whatsUpApp and are ignored by Fotogram and OnlyFriends. Use displayImageId only for showing one stored image in Normal RP. Do not use imageId for outgoing attachments; imageId is reserved for image action commands in the Messenger Apps channel.
 
 Normal RP can also comment on an existing social post. Add one standalone JSON object with the post id from the chat history:
 {"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
 {"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
 The comment appears under that post in the social app. Use it only when the story clearly has someone comment on a specific existing post.
 
-Normal RP can also send a social direct message when the story has someone message a character privately in a social app:
-{"fotogramDirectMessages":[{"from":"sender name","to":"recipient name","text":"message text"}]}
-{"onlyFriendsDirectMessages":[{"from":"sender name","to":"recipient name","text":"message text","postId":"onlyfriends-post-01","tip":5}]}
-from and to are required here. postId optionally links the DM to an existing post from the chat history. tip is optional, OnlyFriends-only, and credits the recipient's wallet.
-
 Output Actions UI commands such as buttons, info boxes, progress bars, context capacity bars, setTab, and setPlayer only work through the Output Actions input, not through Normal RP.`;
 
-export const phoneOutputPrompt = `Phone Message is the dedicated phone channel.
+export const phoneOutputPrompt = `Messenger Apps is the dedicated private-message channel.
 
-Use it when the graph is generating one phone reply or one phone event instead of a normal RP scene.
+Use it when the graph generates private messages instead of a normal RP scene. Select exactly one app key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends.
 
-The first JSON object should be one small phone message object with from, to, and message fields. It may also include sendImageId when the replying character sends a stored Storybook/phone-history image as an outgoing attachment, and the optional isVoiceMessage set to true when the character records the reply as a spoken voice message instead of typing it.
+Every app uses the same message-array shape with required from, to, and message fields:
+{"whatsUpApp":[{"from":"Mia","to":"Alex","message":"I am outside. Want me to come up?"}]}
+{"fotogramApp":[{"from":"Mia","to":"Alex","message":"I saw your post."}]}
+{"onlyFriendsApp":[{"from":"Mia","to":"Alex","message":"Thanks for subscribing."}]}
 
-Example without outgoing image:
-{"from":"Mia","to":"Alex","message":"I am outside. Want me to come up?"}
+An array may contain one message or a short chronological conversation. isVoiceMessage and sendImageId currently work only for WhatsUp; Fotogram and OnlyFriends ignore them:
+{"whatsUpApp":[{"from":"Mia","to":"Alex","message":"Spoken message text.","isVoiceMessage":true,"sendImageId":"mia_image_01"}]}
 
-Example voice message:
-{"from":"Mia","to":"Alex","message":"Spoken message text.","isVoiceMessage":true}
-
-Example with outgoing stored image:
-{"from":"Mia","to":"Alex","message":"I brought proof. Open the door?","sendImageId":"mia_image_01"}
-
-When the latest incoming phone message includes an attached image, the Phone Message output can include a second JSON object after the reply. That second object is an internal image action for the incoming image:
+When the latest incoming WhatsUp message includes an attached image, the output can include a second JSON object after the reply. That second object is an internal image action for the incoming image:
 {"imageId":"new_image","imageAction":"create","caption":"20 to 30 word RP image caption"}
 {"imageId":"existing_image_id","imageAction":"update","caption":"full replacement 20 to 30 word RP image caption"}
 {"imageId":"existing_image_id","imageAction":"no_change"}
@@ -137,21 +131,16 @@ When the latest incoming phone message includes an attached image, the Phone Mes
 When no incoming image is present, the second object is optional and should only be used for updating an existing stored image when recent phone/chat context clearly establishes a new fact about it:
 {"imageId":"existing_image_id","imageAction":"update","caption":"full replacement 20 to 30 word RP image caption"}
 
-Keep these concepts separate: sendImageId is an outgoing attachment in the phone message object. imageId belongs only to image action objects. imageAction objects update/create/no-change captions and are not visible phone messages.
+Keep these concepts separate: sendImageId is an outgoing WhatsUp attachment. imageId belongs only to image action objects. imageAction objects update/create/no-change captions and are not visible messages.
 
-The from field is the sender of the generated phone message. The to field is the recipient. Use exact Storybook or phone contact names when they exist. For event-like messages, an outside contact can also be used when sensible, such as a delivery service, ticket office, pizza place, hotel reception, or other named service.
+The from field is the sender and the to field is the recipient. Use exact Storybook or known contact names when they exist. For event-like messages, an outside contact can also be used when sensible.
 
-A phone reply can also comment on an existing social post, for example when someone asks for a comment on their post in the chat. Add one extra standalone JSON object after the reply, with the post id from the chat history:
+A messenger reply can also comment on an existing social post. Add one extra standalone JSON object after the reply, with the post id from the chat history:
 {"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
 {"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
 The comment appears under that post in the social app.
 
-A phone reply can also send a social direct message as an extra standalone JSON object, when the conversation clearly moves into a social app DM:
-{"fotogramDirectMessages":[{"from":"sender name","to":"recipient name","text":"message text"}]}
-{"onlyFriendsDirectMessages":[{"from":"sender name","to":"recipient name","text":"message text","postId":"onlyfriends-post-01","tip":5}]}
-from and to are required here. postId optionally links the DM to an existing post; tip is optional and OnlyFriends-only.
-
-Phone Message is not for prose narration. It should produce the message payload that appears in the Phone tab.`;
+Messenger Apps is not for prose narration. It should produce the message payload that appears in the selected messenger app.`;
 
 export const outputActionsPrompt = `Return Output Actions JSON only when the app should show extra UI or timeline actions.
 
@@ -175,7 +164,7 @@ Buttons start the next immediate run when clicked.
 Options may set text, player, messageFormat, and turnMode to control the next immediate run.
 For player, use "Narrator", "Current", or a character name/id. Unknown players fall back to Narrator.
 Phone messages created by Output Actions use the same outgoing image attachment field as other phone messages: sendImageId. It attaches an existing stored Storybook/phone-history image to the generated phone message. Do not use imageId for new prompts; imageId is kept only as an accepted legacy alias here.
-Output Actions can create phone messages, but they do not process imageAction caption update commands. Use imageAction only in the dedicated Phone Message output.
+Output Actions can create phone messages, but they do not process imageAction caption update commands. Use imageAction only in the dedicated Messenger Apps output.
 Info boxes, progress bars, and context capacity bars are display-only for now; their values are reserved for later.
 For contextCapacity, source.index selects the first, second, etc. Context Compression node in the workflow.
 Always use valid JSON with double quotes.
@@ -188,22 +177,22 @@ It is used by Message Format 2 runs. Post slots are Turn Mode 0 = Fotogram and 1
 A [SOCIAL MEDIA POST] input creates initial reactions:
 {"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
 
-Post and thread runs may additionally send incoming direct messages to the post author (or thread actor) as one extra standalone JSON object after the reactions:
-{"fotogramDirectMessages":[{"from":"Sender Name","handle":"sender_handle","text":"message text","postId":"fotogram-post-01"}]}
-{"onlyFriendsDirectMessages":[{"from":"Fan Name","handle":"fan_handle","text":"message text","postId":"onlyfriends-post-01","tip":5}]}
-handle is required for a sender selected from the available virtual-user list and must match that listed identity exactly. postId is optional and links the DM to that post as conversation context; omit it for a general DM. tip is optional, OnlyFriends-only, a positive number credited to the recipient's wallet. On Fotogram incoming DMs are rare (zero or one, only when it fits naturally). On OnlyFriends one to two fan DMs per post are expected.
+Post and thread runs may additionally send private messages to the post author or thread actor as one extra standalone messenger object after the reactions:
+{"fotogramApp":[{"from":"Sender Name","to":"Post Author Name","message":"message text"}]}
+{"onlyFriendsApp":[{"from":"Fan Name","to":"Creator Name","message":"message text"}]}
+The app derives handles from exact known or listed names. On Fotogram incoming messages are rare. On OnlyFriends one to two fan messages per post are expected.
 
 A [SOCIAL MEDIA THREAD ACTION] input either adds a user comment or loads more comments. Return new reactions to append plus a very short English history summary:
 {"reactions":{"postId":"the post id from the input","additionalLikes":2,"comments":[{"from":"Name","text":"new reply"}]},"summary":"Alex complimented Jamie's photo; Jamie thanked Alex while other people joined the thread."}
 
-A [FOTOGRAM DIRECT MESSAGE] input asks the recipient to answer one private Fotogram message. Return the app-specific reply block:
-{"fotogramDirectMessage":{"text":"Hey! Yes, I would love to."}}
+A [FOTOGRAM DIRECT MESSAGE] input asks the recipient to answer one private Fotogram message. Return the shared messenger-array shape with one reply:
+{"fotogramApp":[{"from":"recipient name","to":"sender name","message":"Hey! Yes, I would love to."}]}
 
-An [ONLYFRIENDS DIRECT MESSAGE] input asks the recipient to answer one private OnlyFriends message. Return the app-specific reply block; tip is optional:
-{"onlyFriendsDirectMessage":{"text":"You look amazing!","tip":10}}
+An [ONLYFRIENDS DIRECT MESSAGE] input asks the recipient to answer one private OnlyFriends message:
+{"onlyFriendsApp":[{"from":"recipient name","to":"sender name","message":"You look amazing!"}]}
 
 A DM reply may be followed by extra standalone JSON objects, each on its own, not nested inside the DM block:
-{"phoneMessages":[{"from":"sender name","to":"recipient name","message":"message text"}]}
+{"whatsUpApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
 {"bankTransfers":[{"from":"sender name","to":"recipient name","amount":20,"note":"reason"}]}
 
 Rules:
@@ -213,9 +202,8 @@ Rules:
 - On the actor's own Fotogram post, replies usually address the actor directly when that fits the new comment.
 - OnlyFriends post and thread reactions use fans/subscribers from the exact available-user list in the input; story characters never appear in those public reactions. Keep the tone suggestive rather than explicit.
 - For direct messages, write only as the specified recipient. Respect their established personality and the existing conversation. Never invent a reply from the sender.
-- The DM reply must use the app-specific key: fotogramDirectMessage for Fotogram, onlyFriendsDirectMessage for OnlyFriends. A generic directMessage block is rejected.
-- tip is only allowed in onlyFriendsDirectMessage, must be a positive number, and is used only when the sender of the reply genuinely decides to tip the conversation partner. It credits the recipient's OnlyFriends wallet and is not a bank transfer.
-- Add a standalone phoneMessages object only when the conversation clearly moves to the phone messenger and the reply actually sends a phone message now.
+- The DM reply must use fotogramApp for Fotogram or onlyFriendsApp for OnlyFriends and contain exactly one message. A generic messengerApp placeholder is rejected.
+- Add a standalone whatsUpApp object only when the conversation clearly moves to WhatsUp and a message is actually sent there now.
 - Add a standalone bankTransfers object only when money is genuinely transferred now. Mentioning money is not a transfer; never invent amounts. When the reply states that money is sent, the bankTransfers object is required in addition to the DM text.
 - When the DM input includes a conversation origin, the sender opened the chat from that exact post comment. Use the supplied post caption, image description, attached post image, and original comment as the subject of the conversation.
 - Fotogram and OnlyFriends direct-message conversations are separate. OnlyFriends DMs may be more personal, but must remain non-explicit.
@@ -232,9 +220,9 @@ export const outputFormatHelp = {
     prompt: rpOutputPrompt,
   },
   phone: {
-    title: 'Phone Message Format',
+    title: 'Messenger Apps Format',
     description:
-      'Overview of what the dedicated Phone Message input accepts and how it is shown in the Phone tab.',
+      'Overview of what the dedicated Messenger Apps input accepts and how messages are routed to WhatsUp, Fotogram, or OnlyFriends.',
     prompt: phoneOutputPrompt,
   },
   'output-actions': {

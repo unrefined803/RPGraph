@@ -69,7 +69,7 @@ type ParsedSocialPostComment = {
   text: string;
 };
 
-/** An LLM-sent social DM ("fotogramDirectMessages"/"onlyFriendsDirectMessages" blocks). */
+/** An LLM-sent message for the Fotogram or OnlyFriends messenger. */
 export type ParsedIncomingSocialDirectMessage = {
   app: SocialAppKind;
   from: string;
@@ -421,7 +421,7 @@ export function jsonObjectRanges(text: string) {
   return scanJsonObjects(text).ranges;
 }
 
-export function parseEmbeddedPhoneMessagesObject(value: unknown): ParsedPhoneMessage[] {
+function parseEmbeddedPhoneMessagesObject(value: unknown): ParsedPhoneMessage[] {
   if (!isRecord(value) || !Array.isArray(value.phoneMessages)) {
     return [];
   }
@@ -502,58 +502,75 @@ function parseEmbeddedSocialPostCommentsObject(value: unknown): ParsedSocialPost
   });
 }
 
-const incomingSocialDirectMessagesKeysByApp: Record<SocialAppKind, string> = {
-  fotogram: 'fotogramDirectMessages',
-  onlyfriends: 'onlyFriendsDirectMessages',
+type MessengerAppKind = 'whatsup' | SocialAppKind;
+
+export const messengerAppMessageKeys: Record<MessengerAppKind, string> = {
+  whatsup: 'whatsUpApp',
+  fotogram: 'fotogramApp',
+  onlyfriends: 'onlyFriendsApp',
 };
 
-/** True when the object claims one of the DM-send keys, even with invalid entries. */
+type ParsedMessengerAppMessages = {
+  phoneMessages: ParsedPhoneMessage[];
+  socialDirectMessages: ParsedIncomingSocialDirectMessage[];
+};
+
+/** Parse the shared message-array format used by WhatsUp, Fotogram, and OnlyFriends. */
+export function parseMessengerAppMessagesObject(value: unknown): ParsedMessengerAppMessages {
+  const result: ParsedMessengerAppMessages = { phoneMessages: [], socialDirectMessages: [] };
+  if (!isRecord(value)) {
+    return result;
+  }
+  for (const app of Object.keys(messengerAppMessageKeys) as MessengerAppKind[]) {
+    const entries = value[messengerAppMessageKeys[app]];
+    if (!Array.isArray(entries)) {
+      continue;
+    }
+    for (const entry of entries) {
+      if (
+        !isRecord(entry) ||
+        typeof entry.from !== 'string' ||
+        typeof entry.to !== 'string' ||
+        typeof entry.message !== 'string'
+      ) {
+        continue;
+      }
+      const from = entry.from.trim();
+      const to = entry.to.trim();
+      const message = entry.message.trim();
+      if (!from || !to || !message) {
+        continue;
+      }
+      if (app === 'whatsup') {
+        result.phoneMessages.push({
+          from,
+          to,
+          message,
+          isVoiceMessage: phoneVoiceMessageFlagFromRecord(entry) || undefined,
+          imageId: outgoingPhoneImageIdFromRecord(entry) ?? phoneImageIdFromRecord(entry),
+          imageDescription: phoneImageDescriptionFromRecord(entry),
+        });
+      } else {
+        // Voice and image fields are intentionally ignored for social DMs until
+        // those apps gain matching playback and attachment support.
+        result.socialDirectMessages.push({ app, from, to, text: message });
+      }
+    }
+  }
+  return result;
+}
+
+/** True when the object claims a Fotogram or OnlyFriends message array. */
 export function hasIncomingSocialDirectMessagesKey(value: unknown) {
   return isRecord(value) &&
-    Object.values(incomingSocialDirectMessagesKeysByApp).some((key) => value[key] !== undefined);
+    ([messengerAppMessageKeys.fotogram, messengerAppMessageKeys.onlyfriends] as const)
+      .some((key) => value[key] !== undefined);
 }
 
 export function parseIncomingSocialDirectMessagesObject(
   value: unknown,
 ): ParsedIncomingSocialDirectMessage[] {
-  if (!isRecord(value)) {
-    return [];
-  }
-  return (Object.keys(incomingSocialDirectMessagesKeysByApp) as SocialAppKind[]).flatMap((app) => {
-    const entries = value[incomingSocialDirectMessagesKeysByApp[app]];
-    if (!Array.isArray(entries)) {
-      return [];
-    }
-    return entries.flatMap((entry) => {
-      if (!isRecord(entry) || typeof entry.from !== 'string' || typeof entry.text !== 'string') {
-        return [];
-      }
-      const from = entry.from.trim();
-      const text = entry.text.trim();
-      if (!from || !text) {
-        return [];
-      }
-      const tipValue = typeof entry.tip === 'number'
-        ? entry.tip
-        : typeof entry.tip === 'string' && entry.tip.trim()
-          ? Number(entry.tip)
-          : Number.NaN;
-      const tip = app === 'onlyfriends' && Number.isFinite(tipValue) && tipValue > 0
-        ? Math.round(tipValue * 100) / 100
-        : undefined;
-      const stringField = (field: unknown) =>
-        typeof field === 'string' && field.trim() ? field.trim() : undefined;
-      return [{
-        app,
-        from,
-        text,
-        handle: stringField(entry.handle),
-        to: stringField(entry.to),
-        postId: stringField(entry.postId),
-        ...(tip !== undefined ? { tip } : {}),
-      }];
-    });
-  });
+  return parseMessengerAppMessagesObject(value).socialDirectMessages;
 }
 
 function expandJsonFenceRange(text: string, range: { start: number; end: number }) {
@@ -591,7 +608,11 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     const candidate = value.slice(range.start, range.end);
     try {
       const parsed = JSON.parse(candidate) as unknown;
-      const phoneMessages = parseEmbeddedPhoneMessagesObject(parsed);
+      const messengerMessages = parseMessengerAppMessagesObject(parsed);
+      const phoneMessages = [
+        ...parseEmbeddedPhoneMessagesObject(parsed),
+        ...messengerMessages.phoneMessages,
+      ];
       // A standalone caption action object emitted after an embedded phone
       // message (e.g. from the create image action's second JSON object).
       const phoneImageAction = isRecord(parsed) && parsed.imageAction !== undefined
@@ -600,7 +621,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       const phoneImageActions = phoneImageAction ? [phoneImageAction] : [];
       const bankTransfers = parseEmbeddedBankTransfersObject(parsed);
       const socialPostComments = parseEmbeddedSocialPostCommentsObject(parsed);
-      const socialDirectMessages = parseIncomingSocialDirectMessagesObject(parsed);
+      const socialDirectMessages = messengerMessages.socialDirectMessages;
       const claimsSimulatedAiChat = isRecord(parsed) && parsed.aiAssistantChat !== undefined;
       const simulatedAiChat = claimsSimulatedAiChat
         ? parseSimulatedAiChat(parsed.aiAssistantChat)
@@ -699,11 +720,12 @@ function stripIncompleteEmbeddedJsonTail(value: string) {
     if (
       startsOwnLine ||
       tail.includes('"phoneMessages"') ||
+      tail.includes('"whatsUpApp"') ||
+      tail.includes('"fotogramApp"') ||
+      tail.includes('"onlyFriendsApp"') ||
       tail.includes('"bankTransfers"') ||
       tail.includes('"fotogramPostComment"') ||
       tail.includes('"onlyFriendsPostComment"') ||
-      tail.includes('"fotogramDirectMessages"') ||
-      tail.includes('"onlyFriendsDirectMessages"') ||
       tail.includes('"aiAssistantChat"') ||
       tail.includes('"phoneNote"') ||
       tail.includes('"imageAction"')

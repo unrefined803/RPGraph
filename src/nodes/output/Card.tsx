@@ -206,7 +206,7 @@ export function OutputNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         </div>
         <div className="workflow-port workflow-port-input output-format-port">
           <Handle id="phone-message" type="target" position={Position.Left} />
-          <PortLabel data={data} direction="input" handle="phone-message" label="Phone Message" valueType="text" />
+          <PortLabel data={data} direction="input" handle="phone-message" label="Messenger Apps" valueType="text" />
           <button
             className="node-info-button output-phone-info output-format-help-button nodrag"
             type="button"

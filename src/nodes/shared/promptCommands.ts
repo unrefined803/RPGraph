@@ -2,13 +2,11 @@ export type PromptCommandId =
   | 'bank_transfer'
   | 'create_note'
   | 'simulate_ai_chat'
-  | 'phone_message'
-  | 'phone_conversation'
+  | 'messenger_message'
+  | 'messenger_conversation'
   | 'display_image'
   | 'fotogram_post_comment'
-  | 'onlyfriends_post_comment'
-  | 'fotogram_direct_message'
-  | 'onlyfriends_direct_message';
+  | 'onlyfriends_post_comment';
 
 export type PromptCommandConfig = {
   commandId: PromptCommandId;
@@ -31,26 +29,22 @@ export const promptCommandIds: PromptCommandId[] = [
   'bank_transfer',
   'create_note',
   'simulate_ai_chat',
-  'phone_message',
-  'phone_conversation',
+  'messenger_message',
+  'messenger_conversation',
   'display_image',
   'fotogram_post_comment',
   'onlyfriends_post_comment',
-  'fotogram_direct_message',
-  'onlyfriends_direct_message',
 ];
 
 const promptCommandDisplayNames: Record<PromptCommandId, string> = {
   bank_transfer: 'Bank_transfer',
   create_note: 'Create_Note',
   simulate_ai_chat: 'Simulate_ChatGPD',
-  phone_message: 'Phone_message',
-  phone_conversation: 'Phone_conversation',
+  messenger_message: 'Messenger_message',
+  messenger_conversation: 'Messenger_conversation',
   display_image: 'Display_image',
   fotogram_post_comment: 'Fotogram_post_comment',
   onlyfriends_post_comment: 'OnlyFriends_post_comment',
-  fotogram_direct_message: 'Fotogram_direct_message',
-  onlyfriends_direct_message: 'OnlyFriends_direct_message',
 };
 
 const bankTransferInstruction = [
@@ -127,12 +121,14 @@ const simulateAiChatInstruction = [
   'Use this command only when a Storybook character actually uses the AI assistant app now. Merely mentioning AI, suggesting that someone could ask it later, or discussing AI is not enough. The completed conversation is saved as a new chat in that character\'s phone AI Assistant app.',
 ].join('\n');
 
-const phoneMessageInstruction = [
-  'Command phone_message — send a phone message in the phone messenger app.',
+const messengerMessageInstruction = [
+  'Command messenger_message — send one private message through a supported messenger app.',
+  '',
+  'Choose the app required by the context: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Replace messengerApp in the example with exactly one of those keys.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
-  '  "phoneMessages": [',
+  '  "messengerApp": [',
   '    {',
   '      "from": "sender name",',
   '      "to": "recipient name",',
@@ -143,15 +139,17 @@ const phoneMessageInstruction = [
   '  ]',
   '}',
   '',
-  'isVoiceMessage is optional: omit it for normal typed messages; set it to true only for a spoken TTS voice message. sendImageId is optional: use only an exact imageId from an action result or recent phone/photo history; omit it when none fits. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits. The message appears in the involved characters\' phone messenger.',
+  'from, to, and message are required. isVoiceMessage and sendImageId are optional. They currently work only with whatsUpApp and are safely ignored by Fotogram and OnlyFriends. For WhatsUp, set isVoiceMessage to true only for a spoken TTS voice message and use sendImageId only with an exact known imageId. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits.',
 ].join('\n');
 
-const phoneConversationInstruction = [
-  'Command phone_conversation — simulate a short phone messenger conversation between two people.',
+const messengerConversationInstruction = [
+  'Command messenger_conversation — simulate a short private conversation through a supported messenger app.',
+  '',
+  'Choose the app required by the context: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Replace messengerApp in the example with exactly one of those keys.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
-  '  "phoneMessages": [',
+  '  "messengerApp": [',
   '    {',
   '      "from": "first person name",',
   '      "to": "second person name",',
@@ -182,9 +180,9 @@ const phoneConversationInstruction = [
   '- Three messages: one person writes, the other person replies, and the first person adds a final comment.',
   '- Four messages: one person writes, the other person replies, the first person writes a follow-up, and the other person sends the final reply.',
   '',
-  'Write both sides of the conversation yourself. Do not invent extra messages only to reach a longer pattern. Use phone_message instead when only one message is sent.',
+  'Write both sides of the conversation yourself. Do not invent extra messages only to reach a longer pattern. Use messenger_message instead when only one message is sent.',
   '',
-  'Each message may optionally use isVoiceMessage or sendImageId with the same meaning as phone_message. Omit isVoiceMessage for normal typed messages. Use sendImageId only with an exact imageId from an action result or recent phone/photo history. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits. Every message appears in the involved characters\' phone messenger.',
+  'Each entry requires from, to, and message. isVoiceMessage and sendImageId currently work only with whatsUpApp and are safely ignored by Fotogram and OnlyFriends. For WhatsUp, omit isVoiceMessage for typed messages and use sendImageId only with an exact known imageId. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits.',
 ].join('\n');
 
 const displayImageInstruction = [
@@ -228,45 +226,6 @@ const onlyFriendsPostCommentInstruction = [
   'Copy postId exactly from the chat history. The comment appears under that post in the social app.',
 ].join('\n');
 
-const fotogramDirectMessageInstruction = [
-  'Command fotogram_direct_message — send a private Fotogram direct message.',
-  '',
-  'Output exactly one JSON object in this format:',
-  '{',
-  '  "fotogramDirectMessages": [',
-  '    {',
-  '      "from": "sender name",',
-  '      "handle": "sender_handle",',
-  '      "to": "recipient name",',
-  '      "text": "message text",',
-  '      "postId": "fotogram-post-01"',
-  '    }',
-  '  ]',
-  '}',
-  '',
-  'from and to are required. handle is required when the sender comes from an available virtual-user list and must exactly match that listed identity; otherwise it is optional. postId optionally references an existing post from the chat history as the conversation topic; omit it when the DM is unrelated to a post. Do not add a tip field on Fotogram.',
-].join('\n');
-
-const onlyFriendsDirectMessageInstruction = [
-  'Command onlyfriends_direct_message — send a private OnlyFriends direct message.',
-  '',
-  'Output exactly one JSON object in this format:',
-  '{',
-  '  "onlyFriendsDirectMessages": [',
-  '    {',
-  '      "from": "sender name",',
-  '      "handle": "sender_handle",',
-  '      "to": "recipient name",',
-  '      "text": "message text",',
-  '      "postId": "onlyfriends-post-01",',
-  '      "tip": 5',
-  '    }',
-  '  ]',
-  '}',
-  '',
-  'from and to are required. handle is required when the sender comes from an available virtual-user list and must exactly match that listed identity; otherwise it is optional. postId optionally references an existing post from the chat history as the conversation topic. tip is optional: a positive number credited to the recipient\'s OnlyFriends wallet (not a bank transfer); omit it when no tip is sent.',
-].join('\n');
-
 export function defaultPromptCommandInstructionTemplate(commandId: PromptCommandId) {
   switch (commandId) {
     case 'bank_transfer':
@@ -275,20 +234,16 @@ export function defaultPromptCommandInstructionTemplate(commandId: PromptCommand
       return createNoteInstruction;
     case 'simulate_ai_chat':
       return simulateAiChatInstruction;
-    case 'phone_message':
-      return phoneMessageInstruction;
-    case 'phone_conversation':
-      return phoneConversationInstruction;
+    case 'messenger_message':
+      return messengerMessageInstruction;
+    case 'messenger_conversation':
+      return messengerConversationInstruction;
     case 'display_image':
       return displayImageInstruction;
     case 'fotogram_post_comment':
       return fotogramPostCommentInstruction;
-    case 'onlyfriends_post_comment':
-      return onlyFriendsPostCommentInstruction;
-    case 'fotogram_direct_message':
-      return fotogramDirectMessageInstruction;
     default:
-      return onlyFriendsDirectMessageInstruction;
+      return onlyFriendsPostCommentInstruction;
   }
 }
 

@@ -425,20 +425,20 @@ export function verifyWorkflowValidationFixtures() {
   }]);
   const parsedSocialDirectReply = parseSocialDirectMessageOutput(
     [
-      '{"fotogramDirectMessage":{"text":"Yes, message me when you are done!"}}',
-      '{"phoneMessages":[{"from":"Jamie","to":"Alex","message":"Here is my number."}]}',
+      '{"fotogramApp":[{"from":"Jamie","to":"Alex","message":"Yes, message me when you are done!"}]}',
+      '{"whatsUpApp":[{"from":"Jamie","to":"Alex","message":"Here is my number."}]}',
       '{"bankTransfers":[{"from":"Jamie","to":"Alex","amount":20,"note":"For the dress"}]}',
     ].join('\n'),
     socialDirectMessage,
     '2026-06-01T12:31:00.000Z',
   );
   const rejectedSocialDirectReply = parseSocialDirectMessageOutput(
-    '{"onlyFriendsDirectMessage":{"text":"Wrong app key"}}',
+    '{"onlyFriendsApp":[{"from":"Jamie","to":"Alex","message":"Wrong app key"}]}',
     socialDirectMessage,
     '2026-06-01T12:31:00.000Z',
   );
-  const parsedOnlyFriendsTipReply = parseSocialDirectMessageOutput(
-    '{"onlyFriendsDirectMessage":{"text":"You are the best!","tip":10}}',
+  const parsedOnlyFriendsReply = parseSocialDirectMessageOutput(
+    '{"onlyFriendsApp":[{"from":"Jamie","to":"Alex","message":"You are the best!","isVoiceMessage":true,"sendImageId":"ignored"}]}',
     { ...socialDirectMessage, app: 'onlyfriends' as const },
     '2026-06-01T12:31:00.000Z',
   );
@@ -457,9 +457,9 @@ export function verifyWorkflowValidationFixtures() {
       parsedSocialDirectReply.warnings.length === 0 &&
       rejectedSocialDirectReply.message === undefined &&
       rejectedSocialDirectReply.warnings.some((warning) =>
-        warning.includes('fotogramDirectMessage'),
+        warning.includes('fotogramApp'),
       ) &&
-      parsedOnlyFriendsTipReply.message?.tip === 10 &&
+      parsedOnlyFriendsReply.message?.text === 'You are the best!' &&
       socialMessageHiddenFromChat({
         id: 22,
         role: 'output',
@@ -471,14 +471,14 @@ export function verifyWorkflowValidationFixtures() {
   const parsedReactionsWithDms = parseSocialReactionsOutput(
     [
       '{"reactions":{"postId":"onlyfriends-post-01","likes":30,"comments":[{"from":"Fan","text":"Wow!"}]}}',
-      '{"onlyFriendsDirectMessages":[{"from":"Marcus Vane","text":"Any chance to see more?","postId":"onlyfriends-post-01","tip":5},{"from":"quiet.admirer","text":"You are stunning."}]}',
+      '{"onlyFriendsApp":[{"from":"Marcus Vane","to":"Helga Harper","message":"Any chance to see more?"},{"from":"Quiet Admirer","to":"Helga Harper","message":"You are stunning."}]}',
     ].join('\n'),
     { app: 'onlyfriends', postId: 'onlyfriends-post-01' },
   );
   const parsedFotogramTipIgnored = parseSocialReactionsOutput(
     [
       '{"reactions":{"postId":"fotogram-post-01","likes":10,"comments":[]}}',
-      '{"fotogramDirectMessages":[{"from":"Chloe Whitmore","text":"Long time no see!","tip":5}]}',
+      '{"fotogramApp":[{"from":"Chloe Whitmore","to":"Alex","message":"Long time no see!","isVoiceMessage":true,"sendImageId":"ignored"}]}',
     ].join('\n'),
     { app: 'fotogram', postId: 'fotogram-post-01' },
   );
@@ -490,12 +490,11 @@ export function verifyWorkflowValidationFixtures() {
     parsedReactionsWithDms.reactions?.likes === 30 &&
       parsedReactionsWithDms.warnings.length === 0 &&
       parsedReactionsWithDms.directMessages.length === 2 &&
-      parsedReactionsWithDms.directMessages[0]?.tip === 5 &&
-      parsedReactionsWithDms.directMessages[0]?.postId === 'onlyfriends-post-01' &&
-      parsedReactionsWithDms.directMessages[1]?.tip === undefined &&
+      parsedReactionsWithDms.directMessages[0]?.to === 'Helga Harper' &&
+      parsedReactionsWithDms.directMessages[0]?.text === 'Any chance to see more?' &&
       parsedFotogramTipIgnored.directMessages[0]?.tip === undefined &&
       parsedCatalogHandle.reactions?.comments[0]?.handle === 'maxpower_official',
-    'social reactions must preserve catalog handles, parse standalone incoming DMs, and keep tips OnlyFriends-only',
+    'social reactions must preserve catalog handles and parse shared messenger-app message blocks',
   );
   const socialPostOriginInput = socialDirectMessageInputText({
     app: 'onlyfriends',
@@ -2981,7 +2980,7 @@ export function verifyWorkflowValidationFixtures() {
     'Lara taps out a reminder.',
     '',
     '```json',
-    '{"phoneMessages":[{"from":"Lara Miller","to":"Robert Miller","message":"Please get the heavy duty ones."}]}',
+    '{"whatsUpApp":[{"from":"Lara Miller","to":"Robert Miller","message":"Please get the heavy duty ones."}]}',
     '```',
   ].join('\n'));
   assertFixture(
@@ -2993,7 +2992,7 @@ export function verifyWorkflowValidationFixtures() {
     'embedded phone parser must remove markdown fences around phoneMessages JSON',
   );
   const embeddedPhoneConversation = parseEmbeddedPhoneMessagesFromRpOutput(
-    '{"phoneMessages":[' +
+    '{"whatsUpApp":[' +
       '{"from":"Lara Miller","to":"Robert Miller","message":"Did you get them?"},' +
       '{"from":"Robert Miller","to":"Lara Miller","message":"Yes, on my way home."}' +
     ']}',
@@ -3008,19 +3007,19 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
       knownPromptCommandId('Simulate_ChatGPD') === 'simulate_ai_chat' &&
-      knownPromptCommandId('PHONE_CONVERSATION') === 'phone_conversation' &&
+      knownPromptCommandId('MESSENGER_CONVERSATION') === 'messenger_conversation' &&
       defaultPromptCommandInstructionTemplate('simulate_ai_chat').includes('2, 4, 6, or 8 messages') &&
-      defaultPromptCommandInstructionTemplate('phone_conversation').includes('exactly two, three, or four messages') &&
-      defaultPromptCommandInstructionTemplate('phone_conversation').includes(
+      defaultPromptCommandInstructionTemplate('messenger_conversation').includes('exactly two, three, or four messages') &&
+      defaultPromptCommandInstructionTemplate('messenger_conversation').includes(
         'the first person writes a follow-up, and the other person sends the final reply',
       ) &&
       formatPromptCommandTokens('@command:bank_transfer\n@COMMAND:simulate_chatgpd') ===
         '@command: Bank_transfer\n@command: Simulate_ChatGPD' &&
       replacePromptCommandTokensWithHints('@command: Simulate_ChatGPD') ===
         '[commands: simulate_ai_chat]' &&
-      formatPromptCommandTokens('@command:phone_conversation') === '@command: Phone_conversation' &&
-      replacePromptCommandTokensWithHints('@command: Phone_conversation') ===
-        '[commands: phone_conversation]' &&
+      formatPromptCommandTokens('@command:messenger_conversation') === '@command: Messenger_conversation' &&
+      replacePromptCommandTokensWithHints('@command: Messenger_conversation') ===
+        '[commands: messenger_conversation]' &&
       formatPromptCommandTokens('@command:create_note') === '@command: Create_Note' &&
       replacePromptCommandTokensWithHints('@command: Create_Note') === '[commands: create_note]',
     'prompt commands must accept flexible casing and spacing while preserving their internal command requests',
@@ -3186,15 +3185,15 @@ export function verifyWorkflowValidationFixtures() {
   );
   const embeddedSocialDm = parseEmbeddedPhoneMessagesFromRpOutput([
     'Later that night, her phone buzzes.',
-    '{"onlyFriendsDirectMessages":[{"from":"Marcus Vane","to":"Helga Harper","text":"That set was incredible.","postId":"onlyfriends-post-01","tip":10}]}',
+    '{"onlyFriendsApp":[{"from":"Marcus Vane","to":"Helga Harper","message":"That set was incredible.","isVoiceMessage":true,"sendImageId":"ignored"}]}',
   ].join('\n'));
   assertFixture(
     embeddedSocialDm.text === 'Later that night, her phone buzzes.' &&
       embeddedSocialDm.socialDirectMessages[0]?.app === 'onlyfriends' &&
       embeddedSocialDm.socialDirectMessages[0]?.to === 'Helga Harper' &&
-      embeddedSocialDm.socialDirectMessages[0]?.tip === 10 &&
-      embeddedSocialDm.socialDirectMessages[0]?.postId === 'onlyfriends-post-01',
-    'embedded social DM blocks must parse sender, recipient, post reference, and tip',
+      embeddedSocialDm.socialDirectMessages[0]?.text === 'That set was incredible.' &&
+      embeddedSocialDm.socialDirectMessages[0]?.tip === undefined,
+    'embedded social messenger blocks must parse text and ignore unsupported voice and image fields',
   );
   const rpOutputWithDisplayImage = parseRpOutput([
     'Lara swipes to the cat photo and smiles.',

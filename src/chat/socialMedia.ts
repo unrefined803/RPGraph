@@ -12,8 +12,9 @@ import type { StorybookCharacter } from '../storybook/runtime';
 import {
   hasIncomingSocialDirectMessagesKey,
   jsonObjectRanges,
+  messengerAppMessageKeys,
   parseEmbeddedBankTransfersObject,
-  parseEmbeddedPhoneMessagesObject,
+  parseMessengerAppMessagesObject,
   parseIncomingSocialDirectMessagesObject,
   type ParsedIncomingSocialDirectMessage,
   type ParsedPhoneMessage,
@@ -38,10 +39,10 @@ export type SocialDirectMessageParseResult = {
   warnings: string[];
 };
 
-/** JSON key the DM reply block must use, per social app. */
+/** Shared messenger-app JSON key the DM reply block must use. */
 const socialDirectMessageJsonKeys: Record<SocialAppKind, string> = {
-  fotogram: 'fotogramDirectMessage',
-  onlyfriends: 'onlyFriendsDirectMessage',
+  fotogram: messengerAppMessageKeys.fotogram,
+  onlyfriends: messengerAppMessageKeys.onlyfriends,
 };
 
 /** Structured-input header for a DM turn, per social app. */
@@ -350,33 +351,9 @@ function withoutJsonCodeFences(text: string) {
   return text.replace(/^\s*```(?:json)?\s*$/gim, '');
 }
 
-function socialDirectMessageTip(
-  payload: Record<string, unknown>,
-  app: SocialAppKind,
-  warnings: string[],
-) {
-  if (payload.tip === undefined) {
-    return undefined;
-  }
-  if (app !== 'onlyfriends') {
-    warnings.push('A tip is only allowed in onlyFriendsDirectMessage; it was ignored.');
-    return undefined;
-  }
-  const tip = typeof payload.tip === 'number'
-    ? payload.tip
-    : typeof payload.tip === 'string' && payload.tip.trim()
-      ? Number(payload.tip)
-      : Number.NaN;
-  if (!Number.isFinite(tip) || tip <= 0) {
-    warnings.push('OnlyFriends DM tip must be a positive number; it was ignored.');
-    return undefined;
-  }
-  return Math.round(tip * 100) / 100;
-}
-
 /**
- * Parse one AI DM reply plus optional standalone phoneMessages/bankTransfers
- * blocks. The reply must use the app-specific JSON key; sender and recipient
+ * Parse one AI DM reply plus optional standalone messenger/bank-transfer
+ * blocks. The reply must use the app-specific messenger key; sender and recipient
  * identities always come from the requested conversation.
  */
 export function parseSocialDirectMessageOutput(
@@ -412,17 +389,17 @@ export function parseSocialDirectMessageOutput(
       result.warnings.push('A Social Media DM output block is not a JSON object; it was skipped.');
       continue;
     }
-    if (isRecord(parsed[expectedKey])) {
-      const payload = parsed[expectedKey] as Record<string, unknown>;
+    if (Array.isArray(parsed[expectedKey])) {
+      const messages = parseMessengerAppMessagesObject(parsed).socialDirectMessages;
+      const payload = messages.find((message) => message.app === userMessage.app);
       if (result.message) {
         result.warnings.push(`Only one ${expectedKey} block is applied; an extra one was skipped.`);
         continue;
       }
-      if (typeof payload.text !== 'string' || !payload.text.trim()) {
+      if (!payload) {
         result.warnings.push(`The ${expectedKey} block is missing a message text.`);
         continue;
       }
-      const tip = socialDirectMessageTip(payload, userMessage.app, result.warnings);
       result.message = {
         app: userMessage.app,
         messageId: `${userMessage.app}-dm-reply-${userMessage.messageId}`,
@@ -430,25 +407,25 @@ export function parseSocialDirectMessageOutput(
         fromHandle: userMessage.toHandle,
         to: userMessage.from,
         toHandle: userMessage.fromHandle,
-        text: payload.text.trim(),
+        text: payload.text,
         sentAt,
         replyToMessageId: userMessage.messageId,
         origin: userMessage.origin,
-        ...(tip !== undefined ? { tip } : {}),
       };
       continue;
     }
-    if (isRecord(parsed[wrongAppKey]) || isRecord(parsed.directMessage)) {
-      const usedKey = isRecord(parsed[wrongAppKey]) ? wrongAppKey : 'directMessage';
+    if (Array.isArray(parsed[wrongAppKey]) || isRecord(parsed.directMessage)) {
+      const usedKey = Array.isArray(parsed[wrongAppKey]) ? wrongAppKey : 'directMessage';
       result.warnings.push(
         `Social Media DM output used "${usedKey}" but this ${socialAppNames[userMessage.app]} conversation requires "${expectedKey}".`,
       );
       continue;
     }
-    if (Array.isArray(parsed.phoneMessages)) {
-      const phoneMessages = parseEmbeddedPhoneMessagesObject(parsed);
-      if (phoneMessages.length !== parsed.phoneMessages.length) {
-        result.warnings.push('A phoneMessages entry is missing from, to, or message; it was skipped.');
+    const whatsUpEntries = parsed[messengerAppMessageKeys.whatsup];
+    if (Array.isArray(whatsUpEntries)) {
+      const phoneMessages = parseMessengerAppMessagesObject(parsed).phoneMessages;
+      if (phoneMessages.length !== whatsUpEntries.length) {
+        result.warnings.push('A whatsUpApp entry is missing from, to, or message; it was skipped.');
       }
       result.phoneMessages.push(...phoneMessages);
       continue;
@@ -522,7 +499,7 @@ export function parseSocialReactionsOutput(
     if (hasIncomingSocialDirectMessagesKey(block)) {
       const blockDirectMessages = parseIncomingSocialDirectMessagesObject(block);
       if (blockDirectMessages.length === 0) {
-        warnings.push('A social direct-message block has no valid entries (each needs from and text).');
+        warnings.push('A social messenger block has no valid entries (each needs from, to, and message).');
       }
       directMessages.push(...blockDirectMessages);
       continue;

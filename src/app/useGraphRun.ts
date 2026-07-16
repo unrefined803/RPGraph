@@ -1532,7 +1532,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       ];
       if (embeddedSocialDirectMessages.length > 0) {
         reportFormatResult({
-          name: 'Social direct messages',
+          name: 'Social messenger messages',
           status: 'ok',
           detail: `${embeddedSocialDirectMessages.length} social direct message(s) parsed.`,
         });
@@ -1693,7 +1693,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : phoneOutputBankResult?.phoneMessages ?? [];
       if (parsedPhoneMessages.length) {
         reportFormatResult({
-          name: 'Phone Message JSON',
+          name: 'Messenger Apps JSON',
           status: 'ok',
           detail: parsedPhoneMessages
             .map((entry) => `${entry.from} → ${entry.to}`)
@@ -1787,12 +1787,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
         }
       } else if (phoneMessageOutput.trim()) {
         reportFormatResult({
-          name: 'Phone Message JSON',
+          name: 'Messenger Apps JSON',
           status: 'error',
-          detail: 'RP Output Phone Message could not be parsed.',
+          detail: 'RP Output Messenger Apps could not be parsed.',
           preview: phoneMessageOutput,
         });
-        reportRunWarning('RP Output Phone Message could not be parsed.', outputNodeTraceInfo);
+        reportRunWarning('RP Output Messenger Apps could not be parsed.', outputNodeTraceInfo);
       }
       const outputActions = parseOutputActions(outputActionsText);
       if (outputActionsText.trim()) {
