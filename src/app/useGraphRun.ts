@@ -106,6 +106,7 @@ import {
   socialHandleFromCatalogIdentity,
   withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
+import { resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
   chatGpdFallbackTitle,
@@ -2408,32 +2409,58 @@ export function useGraphRun(options: UseGraphRunOptions) {
             );
             return undefined;
           }
-          const to = canonicalPhoneName(phoneCharacters, recipientName);
-          const recipientCharacter = phoneCharacters.find((character) =>
-            phoneNamesMatch(character.name, to),
-          );
+          const resolvedRecipient = resolveSocialMessageIdentity({
+            characters: storyCharacters,
+            messages: messagesRef.current,
+            app: incoming.app,
+            identity: recipientName,
+          });
+          if (!resolvedRecipient.available) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message was ignored. ${resolvedRecipient.reason}`,
+              outputNodeTraceInfo,
+            );
+            return undefined;
+          }
+          const to = resolvedRecipient.name;
+          const recipientCharacter = resolvedRecipient.character;
           const toHandle = !incoming.to && defaultRecipient
             ? defaultRecipient.handle
-            : recipientCharacter
-              ? socialHandleForCharacter(recipientCharacter, incoming.app)
-              : establishedSocialHandle(messagesRef.current, incoming.app, to) ??
-                socialHandleForName(to);
-          const from = canonicalPhoneName(phoneCharacters, incoming.from);
-          const senderCharacter = phoneCharacters.find((character) =>
-            phoneNamesMatch(character.name, from),
-          );
+            : resolvedRecipient.handle ??
+              (recipientCharacter
+                ? socialHandleForCharacter(recipientCharacter, incoming.app)
+                : establishedSocialHandle(messagesRef.current, incoming.app, to) ??
+                  socialHandleForName(to));
+          const resolvedSender = resolveSocialMessageIdentity({
+            characters: storyCharacters,
+            messages: messagesRef.current,
+            app: incoming.app,
+            identity: incoming.from,
+          });
+          if (!resolvedSender.available) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message was ignored. ${resolvedSender.reason}`,
+              outputNodeTraceInfo,
+            );
+            return undefined;
+          }
+          const from = resolvedSender.name;
+          const senderCharacter = resolvedSender.character;
           const explicitOrCatalogHandle = socialHandleFromCatalogIdentity(
             incoming.app,
             incoming.from,
             incoming.handle,
           );
-          const knownFromHandle = senderCharacter
-            ? socialHandleForCharacter(senderCharacter, incoming.app)
-            : establishedSocialHandle(messagesRef.current, incoming.app, from);
-          const fromHandle = explicitOrCatalogHandle &&
-              (!knownFromHandle || isBundledSocialHandle(incoming.app, explicitOrCatalogHandle))
-            ? explicitOrCatalogHandle
-            : knownFromHandle ?? socialHandleForName(from);
+          const knownFromHandle = resolvedSender.handle ??
+            (senderCharacter
+              ? socialHandleForCharacter(senderCharacter, incoming.app)
+              : establishedSocialHandle(messagesRef.current, incoming.app, from));
+          const fromHandle = senderCharacter
+            ? knownFromHandle ?? socialHandleForName(from)
+            : explicitOrCatalogHandle &&
+                (!knownFromHandle || isBundledSocialHandle(incoming.app, explicitOrCatalogHandle))
+              ? explicitOrCatalogHandle
+              : knownFromHandle ?? socialHandleForName(from);
           if (socialIdentityMatches(fromHandle, toHandle)) {
             reportRunWarning(
               `A ${socialAppNames[incoming.app]} direct message from "${from}" to themselves was ignored.`,

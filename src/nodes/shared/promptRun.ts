@@ -41,7 +41,14 @@ import {
   type PromptCommandId,
 } from './promptCommands';
 import { promptImagePass } from './promptImagePass';
-import { storybookCreateImageCharactersFromNodes } from '../../storybook/runtime';
+import {
+  storybookCreateImageCharactersFromNodes,
+  storyCharactersFromNodes,
+} from '../../storybook/runtime';
+import {
+  socialMessageCorrectionContext,
+  validateSocialMessengerAccounts,
+} from '../../chat/socialMessageValidation';
 
 export type PromptPreviewPart = {
   text: string;
@@ -265,6 +272,9 @@ export async function runActionAwarePrompt({
   const finalOutputActionTexts: string[] = [];
   const outputPasses: Array<{ label: string; text: string }> = [];
   const promptPasses: PromptPreviewPass[] = [];
+  const socialCharacters = storyCharactersFromNodes(context.nodes);
+  let socialAccountCorrectionText = '';
+  let socialAccountReplayUsed = false;
   const promptSectionValue = (value: string) =>
     replacePromptCommandTokensWithHints(
       replacePromptActionTokensWithInstructions(
@@ -320,6 +330,13 @@ export async function runActionAwarePrompt({
         parts: [{ text: textInput, historySegments }],
         historySegments,
       },
+      ...(socialAccountCorrectionText
+        ? [{
+            label: 'Social Message Validation',
+            text: socialAccountCorrectionText,
+            parts: [{ text: socialAccountCorrectionText, actionInserted: true }],
+          }]
+        : []),
       {
         label: 'Prompt After Input',
         text: after,
@@ -330,6 +347,7 @@ export async function runActionAwarePrompt({
   const buildCombinedPrompt = (textInput = inputValue) => [
     promptSectionValue(promptBefore),
     textInput,
+    socialAccountCorrectionText,
     promptSectionValue(promptAfter),
   ]
     .filter(Boolean)
@@ -417,7 +435,7 @@ export async function runActionAwarePrompt({
       ]),
       sections: buildPromptSections(textInputForPass),
     });
-    const output = await context.llm.complete({
+    let output = await context.llm.complete({
       connectionId: node.data.connectionId,
       nodeId: node.id,
       label: callLabel(actionReplayCount),
@@ -429,12 +447,82 @@ export async function runActionAwarePrompt({
       contributesToTokenCalibration,
       useConnectionSampling: true,
     });
-    generatedText = output.text;
-    connectionLabel = output.connection.label;
     outputPasses.push({
       label: actionReplay ? `Action replay ${actionReplayCount} output` : 'Initial action output',
       text: output.text,
     });
+    let socialAccountValidation = validateSocialMessengerAccounts({
+      text: output.text,
+      characters: socialCharacters,
+      messages: context.historyMessages,
+    });
+    if (
+      socialAccountValidation.issues.length > 0 &&
+      context.retryFormatErrorsEnabled &&
+      !socialAccountReplayUsed
+    ) {
+      socialAccountReplayUsed = true;
+      socialAccountCorrectionText = socialMessageCorrectionContext(
+        socialAccountValidation.issues,
+      );
+      const correctedPrompt = buildCombinedPrompt(textInputForPass);
+      promptPasses.push({
+        label: 'Social account correction replay',
+        images: imagePreviewItems([
+          ...imagePass.actionImages.map((image) => ({ image, source: 'action' as const })),
+          ...imagePass.inputImages.map((image) => ({ image, source: 'input' as const })),
+          ...imagePass.referenceImages.map((image) => ({ image, source: 'reference' as const })),
+        ]),
+        sections: buildPromptSections(textInputForPass),
+      });
+      context.updateRuntimeData(node.id, {
+        preview: 'Invalid social account blocked; replaying prompt with account context ...',
+      });
+      context.streamOutput?.('');
+      output = await context.llm.complete({
+        connectionId: node.data.connectionId,
+        nodeId: node.id,
+        label: `${callLabel(actionReplayCount)} / Social account correction`,
+        prompt: correctedPrompt,
+        images: imagePass.images,
+        onChunk: streamsVisibleOutput
+          ? (pendingPreReplyAction ? streamUnlessActionCall : streamVisible)
+          : undefined,
+        contributesToTokenCalibration,
+        useConnectionSampling: true,
+      });
+      outputPasses.push({ label: 'Social account correction output', text: output.text });
+      socialAccountValidation = validateSocialMessengerAccounts({
+        text: output.text,
+        characters: socialCharacters,
+        messages: context.historyMessages,
+      });
+      if (socialAccountValidation.issues.length === 0) {
+        context.reportFormatResult({
+          name: 'Social messenger accounts',
+          status: 'ok',
+          detail: 'Invalid social account was corrected before delivery.',
+        });
+      }
+    }
+    if (socialAccountValidation.issues.length > 0) {
+      const reasons = socialAccountValidation.issues
+        .map((issue) => issue.resolved.reason)
+        .filter((reason): reason is string => !!reason);
+      const detail = Array.from(new Set(reasons)).join(' ');
+      context.reportWarning(
+        `${node.data.label}: Blocked generated social message. ${detail}`,
+      );
+      context.reportFormatResult({
+        name: 'Social messenger accounts',
+        status: 'error',
+        detail,
+        preview: output.text,
+      });
+      output = { ...output, text: socialAccountValidation.sanitizedText };
+    }
+    generatedText = output.text;
+    connectionLabel = output.connection.label;
     let actionRequest = parsePromptActionRequest(output.text);
     if (!actionRequest) {
       // Models sometimes request an image action through the command syntax
@@ -641,7 +729,7 @@ export async function runActionAwarePrompt({
       context.updateRuntimeData(node.id, {
         preview: `Running commands ${commandNames} ...`,
       });
-      const output = await context.llm.complete({
+      let output = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
         label: `${callLabel(0)} / Command pass`,
@@ -650,6 +738,78 @@ export async function runActionAwarePrompt({
         useConnectionSampling: true,
       });
       outputPasses.push({ label: `Command pass output`, text: output.text });
+      let commandSocialValidation = validateSocialMessengerAccounts({
+        text: output.text,
+        characters: socialCharacters,
+        messages: context.historyMessages,
+      });
+      if (commandSocialValidation.issues.length > 0 && context.retryFormatErrorsEnabled) {
+        const correction = socialMessageCorrectionContext(commandSocialValidation.issues);
+        promptPasses.push({
+          label: 'Command social account correction replay',
+          sections: [
+            {
+              label: 'Text Input',
+              text: inputValue,
+              parts: [{ text: inputValue, historySegments }],
+              historySegments,
+            },
+            {
+              label: 'Social Message Validation',
+              text: correction,
+              parts: [{ text: correction, actionInserted: true }],
+            },
+            {
+              label: 'Command Pass Prompt',
+              text: instruction,
+              parts: [{ text: instruction, actionInserted: true }],
+            },
+          ],
+        });
+        context.updateRuntimeData(node.id, {
+          preview: 'Invalid command social account blocked; replaying command pass ...',
+        });
+        output = await context.llm.complete({
+          connectionId: node.data.connectionId,
+          nodeId: node.id,
+          label: `${callLabel(0)} / Command social account correction`,
+          prompt: [inputValue, correction, instruction].filter(Boolean).join('\n\n'),
+          contributesToTokenCalibration,
+          useConnectionSampling: true,
+        });
+        outputPasses.push({
+          label: 'Command social account correction output',
+          text: output.text,
+        });
+        commandSocialValidation = validateSocialMessengerAccounts({
+          text: output.text,
+          characters: socialCharacters,
+          messages: context.historyMessages,
+        });
+        if (commandSocialValidation.issues.length === 0) {
+          context.reportFormatResult({
+            name: 'Social messenger accounts',
+            status: 'ok',
+            detail: 'Invalid command social account was corrected before delivery.',
+          });
+        }
+      }
+      if (commandSocialValidation.issues.length > 0) {
+        const reasons = commandSocialValidation.issues
+          .map((issue) => issue.resolved.reason)
+          .filter((reason): reason is string => !!reason);
+        const detail = Array.from(new Set(reasons)).join(' ');
+        context.reportWarning(
+          `${node.data.label}: Blocked generated command social message. ${detail}`,
+        );
+        context.reportFormatResult({
+          name: 'Social messenger accounts',
+          status: 'error',
+          detail,
+          preview: output.text,
+        });
+        output = { ...output, text: commandSocialValidation.sanitizedText };
+      }
       const commandJson = unwrapJsonCodeFence(output.text).trim();
       if (commandJson.startsWith('{') || commandJson.startsWith('[')) {
         commandOutputText = commandJson;

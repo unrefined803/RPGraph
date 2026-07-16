@@ -154,6 +154,11 @@ import {
   socialHandleFromCatalogIdentity,
   withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
+import {
+  resolveSocialMessageIdentity,
+  socialMessageCorrectionContext,
+  validateSocialMessengerAccounts,
+} from '../chat/socialMessageValidation';
 import type { StorybookCharacter, StorybookCreateImageCharacter } from '../storybook/runtime';
 import {
   collectRecentReferenceImages,
@@ -583,6 +588,64 @@ export function verifyWorkflowValidationFixtures() {
     postId: 'fotogram-post-private-01',
     authorHandle: 'espen.afterdark',
   };
+  const missingOnlyFriendsAccount = resolveSocialMessageIdentity({
+    characters: privateFotogramCharacters,
+    messages: [],
+    app: 'onlyfriends',
+    identity: '@leo.parker',
+  });
+  const validFotogramName = resolveSocialMessageIdentity({
+    characters: privateFotogramCharacters,
+    messages: [],
+    app: 'fotogram',
+    identity: 'Espen Harper',
+  });
+  const unknownNpcName = resolveSocialMessageIdentity({
+    characters: privateFotogramCharacters,
+    messages: [],
+    app: 'onlyfriends',
+    identity: 'Jana Müller',
+  });
+  const bundledHandle = resolveSocialMessageIdentity({
+    characters: privateFotogramCharacters,
+    messages: [],
+    app: 'onlyfriends',
+    identity: '@violetlane',
+  });
+  const unknownHandle = resolveSocialMessageIdentity({
+    characters: privateFotogramCharacters,
+    messages: [],
+    app: 'onlyfriends',
+    identity: 'janam98',
+  });
+  const invalidSocialOutput = validateSocialMessengerAccounts({
+    characters: privateFotogramCharacters,
+    messages: [],
+    text: [
+      'The scene continues.',
+      '```json',
+      '{"onlyFriendsApp":[{"from":"Espen Harper","to":"@leo.parker","message":"Hello"}]}',
+      '```',
+    ].join('\n'),
+  });
+  assertFixture(
+    !missingOnlyFriendsAccount.available &&
+      missingOnlyFriendsAccount.character?.name === 'Leo Parker' &&
+      validFotogramName.available &&
+      validFotogramName.handle === 'espen.afterdark' &&
+      unknownNpcName.available &&
+      unknownNpcName.source === 'new-npc' &&
+      bundledHandle.available &&
+      bundledHandle.handle === 'violetlane' &&
+      !unknownHandle.available &&
+      unknownHandle.source === 'unknown-handle' &&
+      invalidSocialOutput.issues.length === 1 &&
+      invalidSocialOutput.sanitizedText === 'The scene continues.' &&
+      socialMessageCorrectionContext(invalidSocialOutput.issues).includes(
+        'Leo Parker has no OnlyFriends account.',
+      ),
+    'social messages must accept names and handles but block missing Storybook app accounts',
+  );
   assertFixture(
     findSocialAccountByExactIdentity(
       privateFotogramCharacters,
@@ -4815,6 +4878,87 @@ async function verifyPromptRunFixtures() {
     result.generatedText.startsWith('Espen grins and grabs the phone.') &&
       result.generatedText.includes('"image": "Ryan and Espen share a look at the party."'),
     'a premature after-reply caption call must keep the visible reply and append the image metadata',
+  );
+
+  const socialReplayPrompts: string[] = [];
+  const socialReplayOutputs = [
+    '{"onlyFriendsApp":[{"from":"Espen Harper","to":"@leo.parker","message":"Hello"}]}',
+    'Espen realizes that Leo is not on OnlyFriends and puts the phone away.',
+  ];
+  const socialReplayContext = {
+    nodes: [{
+      id: 'fixture-social-storybook',
+      type: 'workflow',
+      position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'rp-storybook-v1',
+        storybookJson: JSON.stringify({
+          ...emptyRpStorybookV1,
+          characters: [
+            {
+              id: 'espen-harper',
+              name: 'Espen Harper',
+              description: '',
+              personality: '',
+              speechStyle: '',
+              role: '',
+              social: {
+                fotogramUsername: 'espen.afterdark',
+                onlyfriendsUsername: 'espen.private',
+              },
+            },
+            {
+              id: 'leo-parker',
+              name: 'Leo Parker',
+              description: '',
+              personality: '',
+              speechStyle: '',
+              role: '',
+              social: { fotogramUsername: '', onlyfriendsUsername: '' },
+            },
+          ],
+        }),
+      },
+    } as WorkflowNode],
+    edges: [],
+    historyMessages: [],
+    comfyProviderIds: [],
+    providerHealthById: {},
+    retryFormatErrorsEnabled: true,
+    llm: {
+      supportsVision: async () => false,
+      complete: async (request: { prompt: string }) => {
+        socialReplayPrompts.push(request.prompt);
+        return {
+          text: socialReplayOutputs.shift() ?? '',
+          connection: { label: 'Fixture LLM' },
+        };
+      },
+    },
+    reportWarning: (message: string) => warnings.push(message),
+    reportFormatResult: () => {},
+    updateRuntimeData: () => {},
+  } as unknown as ExecuteContext;
+  const socialReplayResult = await runActionAwarePrompt({
+    node,
+    context: socialReplayContext,
+    inputValue: 'Espen wants to contact Leo on OnlyFriends.',
+    images: [],
+    referenceImages: [],
+    promptBefore: '',
+    promptAfter: 'Write the scene and any social message.',
+    actionConfigs: [],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Fixture call',
+  });
+  assertFixture(
+    socialReplayPrompts.length === 2 &&
+      !socialReplayPrompts[0]?.includes('[SOCIAL MESSAGE VALIDATION]') &&
+      socialReplayPrompts[1]?.includes('Leo Parker has no OnlyFriends account.') === true &&
+      socialReplayResult.generatedText ===
+        'Espen realizes that Leo is not on OnlyFriends and puts the phone away.',
+    'invalid social accounts must discard the first output and replay the same prompt once with targeted context',
   );
 
   const runStreamingScenario = async (llmTexts: string[]) => {
