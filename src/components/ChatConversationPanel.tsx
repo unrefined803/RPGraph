@@ -201,6 +201,7 @@ type ChatConversationPanelProps = {
   onPreviewImageCaptionChange: (change: ImageCaptionChange) => void;
   onRemoveDraftImage: (imageId: string) => void;
   onOpenEmbeddedPhoneMessage: (message: EmbeddedPhoneMessageLink) => void;
+  onOpenEmbeddedSocialMessage: (message: EmbeddedSocialMessageLink) => void;
   onOpenSocialPost: (post: SocialPostRecord) => void;
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   socialLikesByAccount: Record<string, string[]>;
@@ -280,6 +281,7 @@ export function ChatConversationPanel({
   onPreviewImageCaptionChange,
   onRemoveDraftImage,
   onOpenEmbeddedPhoneMessage,
+  onOpenEmbeddedSocialMessage,
   onOpenSocialPost,
   socialImageById,
   socialLikesByAccount,
@@ -1116,12 +1118,32 @@ export function ChatConversationPanel({
             };
 
             if (embedded) {
-              const anchorSender = phoneMessages[0]?.from.trim().toLocaleLowerCase() ?? '';
+              const segments = phoneConversationSegments(phoneMessages);
               return (
-                <section className="chat-phone-bubble-stack embedded" aria-label="Phone messages">
-                  {phoneMessages.map((phoneMessage, messageIndex) =>
-                    renderPhoneBubble(phoneMessage, anchorSender, messageIndex === 0)
-                  )}
+                <section className="chat-social-message-stack" aria-label="WhatsUp messages">
+                  {segments.map((segment, segmentIndex) => {
+                    const first = segment[0];
+                    if (!first) {
+                      return null;
+                    }
+                    const anchorSender = first.from.trim().toLocaleLowerCase();
+                    return (
+                      <section
+                        className="chat-social-message-card whatsup"
+                        key={`${first.phoneMessageId}-${segmentIndex}`}
+                      >
+                        <header className="chat-social-message-header">
+                          <strong>WhatsUp</strong>
+                          <span>{first.from} and {first.to}</span>
+                        </header>
+                        <div className="chat-phone-card-messages">
+                          {segment.map((phoneMessage) =>
+                            renderPhoneBubble(phoneMessage, anchorSender)
+                          )}
+                        </div>
+                      </section>
+                    );
+                  })}
                 </section>
               );
             }
@@ -1196,6 +1218,15 @@ export function ChatConversationPanel({
                             >
                               <div
                                 className="chat-social-message-bubble"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => onOpenEmbeddedSocialMessage(socialMessage)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    onOpenEmbeddedSocialMessage(socialMessage);
+                                  }
+                                }}
                                 style={{ fontSize: chatTextSize || defaultChatTextSize }}
                               >
                                 <strong style={fromColor ? { color: fromColor } : undefined}>

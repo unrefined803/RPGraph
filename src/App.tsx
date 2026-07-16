@@ -1221,8 +1221,10 @@ function App() {
     unreadPhoneSwitchName,
     openUnreadPhoneConversation,
     openEmbeddedPhoneMessage,
+    openEmbeddedSocialMessage,
     openSocialPost,
     socialPostOpenRequest,
+    socialDirectMessageOpenRequest,
     socialImageById,
     socialLikesByAccount,
     setSocialLikesByAccount,
@@ -6771,6 +6773,7 @@ function App() {
                 setDraftImages((current) => current.filter((entry) => entry.id !== imageId))
               }
               onOpenEmbeddedPhoneMessage={openEmbeddedPhoneMessage}
+              onOpenEmbeddedSocialMessage={openEmbeddedSocialMessage}
               onOpenSocialPost={openSocialPost}
               socialImageById={socialImageById}
               socialLikesByAccount={socialLikesByAccount}
@@ -6810,6 +6813,7 @@ function App() {
               phoneAppNotificationCounts={phoneAppNotificationCounts}
               phoneHomeRequestId={phoneHomeRequestId}
               socialPostOpenRequest={socialPostOpenRequest}
+              socialDirectMessageOpenRequest={socialDirectMessageOpenRequest}
               phoneImages={phoneImages}
               phoneGalleryImages={phoneGalleryImages}
               phoneDraft={phoneDraft}

@@ -553,6 +553,14 @@ export type EmbeddedSocialMessageLink = {
   translatedMessage?: string;
 };
 
+export type SocialDirectMessageOpenRequest = {
+  requestId: number;
+  app: SocialAppKind;
+  messageId: string;
+  participantName: string;
+  participantHandle: string;
+};
+
 type OutputActionChoiceOption = {
   id?: string;
   label: string;

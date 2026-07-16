@@ -96,7 +96,7 @@ The `RP Output` node has separate inputs for `Normal RP`, `Messenger Apps`, `Soc
 
 Private messages share one LLM-facing array shape with `from`, `to`, and `message`. The enclosing key selects the app: `whatsUpApp`, `fotogramApp`, or `onlyFriendsApp`. WhatsUp additionally applies optional `isVoiceMessage` and `sendImageId`; the social apps currently ignore those two fields. Each parsed message becomes a real entry in that app's conversation history.
 
-Normal RP output is mostly prose for the Chat tab, but it can also embed one of the three messenger-app objects when a story beat includes private messages. WhatsUp, Fotogram, and OnlyFriends conversations are shown as app-specific message cards inside the originating chat bubble while the same messages also appear in their app histories.
+Normal RP output is mostly prose for the Chat tab, but it can also embed one of the three messenger-app objects when a story beat includes private messages. WhatsUp, Fotogram, and OnlyFriends conversations are shown as app-specific message cards inside the originating chat bubble while the same messages also appear in their app histories. Selecting an embedded message opens its app conversation under the available participant's character view and highlights the linked message.
 
 `Output Actions` is a separate RP Output input for extra app commands. It can create phone messages, chat messages, choice buttons, info boxes, progress bars, context-capacity bars, or controls such as `setTab` and `setPlayer`. Choice buttons can also feed routing values such as `messageFormat` / output channel and `turnMode` / prompt slot back into the next graph run.
 

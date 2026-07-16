@@ -35,6 +35,8 @@ type PhoneSocialDirectMessagesProps = {
   rpWeekdayLanguage: RpWeekdayLanguage;
   emojiOptions: string[];
   recentlyUsedEmojis: string[];
+  highlightedMessageId?: string;
+  highlightedMessagePulseKey: number;
   disabled?: boolean;
   onSelectParticipant: (participant: SocialDirectMessageParticipant) => void;
   onCloseConversation: () => void;
@@ -57,6 +59,8 @@ export function PhoneSocialDirectMessages({
   rpWeekdayLanguage,
   emojiOptions,
   recentlyUsedEmojis,
+  highlightedMessageId,
+  highlightedMessagePulseKey,
   disabled = false,
   onSelectParticipant,
   onCloseConversation,
@@ -78,6 +82,7 @@ export function PhoneSocialDirectMessages({
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
   const emojiMenuRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const conversation = useMemo(() => {
     if (!selectedParticipant) {
       return [];
@@ -104,6 +109,19 @@ export function PhoneSocialDirectMessages({
     document.addEventListener('pointerdown', closePicker);
     return () => document.removeEventListener('pointerdown', closePicker);
   }, [emojiPickerOpen]);
+
+  useEffect(() => {
+    if (!highlightedMessageId) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const highlightedRow = Array.from(
+        threadRef.current?.querySelectorAll<HTMLElement>('[data-social-message-id]') ?? [],
+      ).find((row) => row.dataset.socialMessageId === highlightedMessageId);
+      highlightedRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [highlightedMessageId, highlightedMessagePulseKey, selectedParticipant]);
 
   function selectEmoji(emoji: string) {
     setDraft(`${draft}${emoji}`);
@@ -262,7 +280,7 @@ export function PhoneSocialDirectMessages({
           <span aria-hidden="true">{originExpanded ? '⌃' : '⌄'}</span>
         </button>
       )}
-      <div className="phone-social-dm-thread">
+      <div className="phone-social-dm-thread" ref={threadRef}>
         {conversation.length === 0 && !origin && (
           <div className="phone-social-dm-empty conversation-empty">
             <CharacterAvatar
@@ -294,8 +312,15 @@ export function PhoneSocialDirectMessages({
           const timeLabel = rpTimeTrackingEnabled
             ? rpTimeParts?.time
             : new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const highlighted = message.messageId === highlightedMessageId;
           return (
-            <div className={`phone-social-dm-message-row ${outgoing ? 'outgoing' : 'incoming'}`} key={message.messageId}>
+            <div
+              className={`phone-social-dm-message-row ${outgoing ? 'outgoing' : 'incoming'}${
+                highlighted ? ' social-message-focus-highlight' : ''
+              }`}
+              data-social-message-id={message.messageId}
+              key={`${message.messageId}-${highlighted ? highlightedMessagePulseKey : 'idle'}`}
+            >
               <div className="phone-social-dm-bubble">
                 <span>{message.displayText ?? message.text}</span>
                 {message.app === 'onlyfriends' && message.tip !== undefined && (

@@ -6725,6 +6725,26 @@ input[type="number"]::-webkit-outer-spin-button {
   animation: phone-focus-pulse 0.85s ease-in-out 3;
 }
 
+.phone-social-dm-message-row.social-message-focus-highlight .phone-social-dm-bubble {
+  outline: 0 solid color-mix(in srgb, var(--social-accent) 0%, transparent);
+  outline-offset: 2px;
+  animation: social-message-focus-pulse 0.85s ease-in-out 3;
+}
+
+@keyframes social-message-focus-pulse {
+  0%,
+  100% {
+    outline-color: color-mix(in srgb, var(--social-accent) 0%, transparent);
+    outline-width: 0;
+  }
+
+  45% {
+    outline-color: var(--social-accent);
+    outline-width: 2px;
+    box-shadow: 0 0 0 4px var(--social-accent-soft), 0 4px 16px rgba(0, 0, 0, 0.24);
+  }
+}
+
 @keyframes phone-focus-pulse {
   0%,
   100% {
@@ -10634,6 +10654,14 @@ button.message-timeline-row.phone:focus-visible {
   --chat-social-outgoing: linear-gradient(135deg, rgba(236, 72, 153, 0.34), rgba(225, 29, 72, 0.26));
 }
 
+.chat-social-message-card.whatsup {
+  --chat-social-accent: #25d366;
+  --chat-social-accent-soft: rgba(37, 211, 102, 0.24);
+  background:
+    linear-gradient(rgba(13, 24, 31, 0.9), rgba(13, 24, 31, 0.92)),
+    url('./assets/phoneWalpaper.png') center / cover;
+}
+
 .chat-social-message-header {
   display: flex;
   min-width: 0;
@@ -10687,6 +10715,13 @@ button.message-timeline-row.phone:focus-visible {
   line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  cursor: pointer;
+  outline: none;
+}
+
+.chat-social-message-bubble:focus-visible {
+  outline: 2px solid var(--chat-social-accent);
+  outline-offset: 2px;
 }
 
 .chat-social-message-row.outgoing .chat-social-message-bubble {

@@ -14,6 +14,7 @@ import type {
   ProviderConnectionHealth,
   RpDateTimeFormat,
   RpWeekdayLanguage,
+  SocialDirectMessageOpenRequest,
 } from '../../types';
 import { formatRpDateTimeParts } from '../../workflow';
 import { bankingBalanceForCharacter, formatBankingAmount } from '../../chat/bankTransfers';
@@ -133,6 +134,7 @@ type PhoneSocialFeedScreenProps = {
     requestId: number;
     postId: string;
   };
+  openDirectMessageRequest?: SocialDirectMessageOpenRequest;
   isRunning: boolean;
   onTransferOnlyFriendsWallet: (request: {
     owner: StorybookCharacter;
@@ -226,6 +228,7 @@ export function PhoneSocialFeedScreen({
   onToggleLike,
   onImportPostImage,
   openPostRequest,
+  openDirectMessageRequest,
   isRunning,
   onTransferOnlyFriendsWallet,
   onUnlockOnlyFriendsPost,
@@ -253,8 +256,19 @@ export function PhoneSocialFeedScreen({
   const storedUsername =
     app.id === 'fotogram' ? owner?.social.fotogramUsername : owner?.social.onlyfriendsUsername;
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
-  const [directMessagesOpen, setDirectMessagesOpen] = useState(false);
-  const [directMessageParticipant, setDirectMessageParticipant] = useState<SocialDirectMessageParticipant>();
+  const [directMessagesOpen, setDirectMessagesOpen] = useState(!!openDirectMessageRequest);
+  const [directMessageParticipant, setDirectMessageParticipant] = useState<SocialDirectMessageParticipant | undefined>(
+    openDirectMessageRequest
+      ? {
+          key: `open-${openDirectMessageRequest.app}-${openDirectMessageRequest.participantHandle}`,
+          name: openDirectMessageRequest.participantName,
+          handle: openDirectMessageRequest.participantHandle,
+        }
+      : undefined,
+  );
+  const [seenOpenDirectMessageRequestId, setSeenOpenDirectMessageRequestId] = useState(
+    openDirectMessageRequest?.requestId ?? 0,
+  );
   // Post currently showing the OnlyFriends balance confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
   const [walletOpen, setWalletOpen] = useState(false);
@@ -788,6 +802,20 @@ export function PhoneSocialFeedScreen({
     setDirectMessagesOpen(false);
     setOpenCommentsPostId(openPostRequest.postId);
     setCommentDraft('');
+  }
+  if (
+    openDirectMessageRequest &&
+    seenOpenDirectMessageRequestId !== openDirectMessageRequest.requestId
+  ) {
+    setSeenOpenDirectMessageRequestId(openDirectMessageRequest.requestId);
+    setPostStage(undefined);
+    setDirectMessageParticipant({
+      key: `open-${openDirectMessageRequest.app}-${openDirectMessageRequest.participantHandle}`,
+      name: openDirectMessageRequest.participantName,
+      handle: openDirectMessageRequest.participantHandle,
+    });
+    setDirectMessagesOpen(true);
+    setOpenCommentsPostId(undefined);
   }
 
   const openPostRequestId = openPostRequest?.requestId;
@@ -1588,6 +1616,8 @@ export function PhoneSocialFeedScreen({
             rpWeekdayLanguage={rpWeekdayLanguage}
             emojiOptions={phoneEmojiOptions}
             recentlyUsedEmojis={recentlyUsedEmojis}
+            highlightedMessageId={openDirectMessageRequest?.messageId}
+            highlightedMessagePulseKey={openDirectMessageRequest?.requestId ?? 0}
             disabled={isRunning}
             onSelectParticipant={setDirectMessageParticipant}
             onCloseConversation={() => setDirectMessageParticipant(undefined)}

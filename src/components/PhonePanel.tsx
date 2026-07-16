@@ -22,6 +22,7 @@ import type {
   ImageCaptionChange,
   MessageRecord,
   SocialPostRecord,
+  SocialDirectMessageOpenRequest,
   SocialDirectMessageRecord,
   SocialReactionComment,
   SocialThreadActionRecord,
@@ -152,6 +153,7 @@ type PhonePanelProps = {
     app: 'fotogram' | 'onlyfriends';
     postId: string;
   };
+  socialDirectMessageOpenRequest?: SocialDirectMessageOpenRequest;
   phoneImages: ChatImageAttachment[];
   phoneGalleryImages: ChatImageAttachment[];
   phoneDraft: string;
@@ -321,6 +323,7 @@ export function PhonePanel({
   phoneAppNotificationCounts,
   phoneHomeRequestId,
   socialPostOpenRequest,
+  socialDirectMessageOpenRequest,
   phoneImages,
   phoneGalleryImages,
   phoneDraft,
@@ -424,6 +427,7 @@ export function PhonePanel({
   // Start on the conversation when the panel opens through a chat message
   // link, or on a requested social post; otherwise start on the desktop.
   const [screen, setScreen] = useState<PhoneScreen>(() =>
+    socialDirectMessageOpenRequest?.app ??
     socialPostOpenRequest?.app ??
     (highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop'));
   const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = useState(phoneHomeRequestId);
@@ -440,6 +444,8 @@ export function PhonePanel({
   // app from the desktop would jump back to the previously requested post.
   const [dismissedSocialPostOpenRequestId, setDismissedSocialPostOpenRequestId] =
     useState<number>();
+  const [dismissedSocialDirectMessageOpenRequestId, setDismissedSocialDirectMessageOpenRequestId] =
+    useState<number>();
   if (
     socialPostOpenRequest &&
     seenSocialPostOpenRequestId !== socialPostOpenRequest.requestId
@@ -447,6 +453,18 @@ export function PhonePanel({
     setSeenSocialPostOpenRequestId(socialPostOpenRequest.requestId);
     if (screen !== socialPostOpenRequest.app) {
       setScreen(socialPostOpenRequest.app);
+    }
+  }
+  const [seenSocialDirectMessageOpenRequestId, setSeenSocialDirectMessageOpenRequestId] = useState(
+    socialDirectMessageOpenRequest?.requestId ?? 0,
+  );
+  if (
+    socialDirectMessageOpenRequest &&
+    seenSocialDirectMessageOpenRequestId !== socialDirectMessageOpenRequest.requestId
+  ) {
+    setSeenSocialDirectMessageOpenRequestId(socialDirectMessageOpenRequest.requestId);
+    if (screen !== socialDirectMessageOpenRequest.app) {
+      setScreen(socialDirectMessageOpenRequest.app);
     }
   }
   const unreadWhatsUpCount = phoneContacts.reduce(
@@ -808,6 +826,12 @@ export function PhonePanel({
               }
             : undefined
         }
+        openDirectMessageRequest={
+          socialDirectMessageOpenRequest?.app === screen &&
+          socialDirectMessageOpenRequest.requestId !== dismissedSocialDirectMessageOpenRequestId
+            ? socialDirectMessageOpenRequest
+            : undefined
+        }
         isRunning={isRunning}
         onTransferOnlyFriendsWallet={onTransferOnlyFriendsWallet}
         onSubmitSocialPost={onSubmitSocialPost}
@@ -829,6 +853,7 @@ export function PhonePanel({
         }}
         onBack={() => {
           setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
+          setDismissedSocialDirectMessageOpenRequestId(socialDirectMessageOpenRequest?.requestId);
           setScreen('desktop');
         }}
         connections={connections}
