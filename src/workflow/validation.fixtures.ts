@@ -3297,6 +3297,9 @@ export function verifyWorkflowValidationFixtures() {
       defaultPromptCommandInstructionTemplate('simulate_ai_chat').includes('2, 4, 6, or 8 messages') &&
       defaultPromptCommandInstructionTemplate('messenger_conversation').includes('exactly two, three, or four messages') &&
       defaultPromptCommandInstructionTemplate('messenger_conversation').includes(
+        'do not skip that opening message',
+      ) &&
+      defaultPromptCommandInstructionTemplate('messenger_conversation').includes(
         'the first person writes a follow-up, and the other person sends the final reply',
       ) &&
       formatPromptCommandTokens('@command:bank_transfer\n@COMMAND:simulate_chatgpd') ===

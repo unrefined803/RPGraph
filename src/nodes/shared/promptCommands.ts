@@ -173,7 +173,7 @@ const messengerConversationInstruction = [
   '  ]',
   '}',
   '',
-  'Simulate one complete exchange with exactly two, three, or four messages. Keep the messages in chronological order and alternate strictly between the same two people. Either person may write the opening message.',
+  'Simulate one complete exchange with exactly two, three, or four messages. Start with the newly occurring message that initiates it; do not skip that opening message even when it is described in the plan or finished reply. Keep the messages in chronological order, alternate strictly between the same two people, and do not start a second conversation with another person.',
   '',
   'Choose the shortest pattern that completely represents the conversation described in the context or finished reply:',
   '- Two messages: one person writes, and the other person replies.',
