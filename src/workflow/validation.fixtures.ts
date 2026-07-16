@@ -450,7 +450,7 @@ export function verifyWorkflowValidationFixtures() {
     '2026-06-01T12:31:00.000Z',
   );
   const parsedOnlyFriendsReply = parseSocialDirectMessageOutput(
-    '{"onlyFriendsApp":[{"from":"Jamie","to":"Alex","message":"You are the best!","isVoiceMessage":true,"sendImageId":"ignored"}]}',
+    '{"onlyFriendsApp":[{"from":"Jamie","to":"Alex","message":"You are the best!","tip":10,"isVoiceMessage":true,"sendImageId":"ignored"}]}',
     { ...socialDirectMessage, app: 'onlyfriends' as const },
     '2026-06-01T12:31:00.000Z',
   );
@@ -476,6 +476,7 @@ export function verifyWorkflowValidationFixtures() {
         warning.includes('exactly one message'),
       ) &&
       parsedOnlyFriendsReply.message?.text === 'You are the best!' &&
+      parsedOnlyFriendsReply.message.tip === 10 &&
       socialMessageHiddenFromChat({
         id: 22,
         role: 'output',
@@ -487,14 +488,14 @@ export function verifyWorkflowValidationFixtures() {
   const parsedReactionsWithDms = parseSocialReactionsOutput(
     [
       '{"reactions":{"postId":"onlyfriends-post-01","likes":30,"comments":[{"from":"Fan","text":"Wow!"}]}}',
-      '{"onlyFriendsApp":[{"from":"Marcus Vane","to":"Helga Harper","message":"Any chance to see more?"},{"from":"Quiet Admirer","to":"Helga Harper","message":"You are stunning."}]}',
+      '{"onlyFriendsApp":[{"from":"Marcus Vane","to":"Helga Harper","message":"Any chance to see more?","postId":"onlyfriends-post-01","tip":5.5},{"from":"Quiet Admirer","to":"Helga Harper","message":"You are stunning."}]}',
     ].join('\n'),
     { app: 'onlyfriends', postId: 'onlyfriends-post-01' },
   );
   const parsedFotogramTipIgnored = parseSocialReactionsOutput(
     [
       '{"reactions":{"postId":"fotogram-post-01","likes":10,"comments":[]}}',
-      '{"fotogramApp":[{"from":"Chloe Whitmore","to":"Alex","message":"Long time no see!","isVoiceMessage":true,"sendImageId":"ignored"}]}',
+      '{"fotogramApp":[{"from":"Chloe Whitmore","to":"Alex","message":"Long time no see!","postId":"fotogram-post-01","tip":10,"isVoiceMessage":true,"sendImageId":"ignored"}]}',
     ].join('\n'),
     { app: 'fotogram', postId: 'fotogram-post-01' },
   );
@@ -508,6 +509,9 @@ export function verifyWorkflowValidationFixtures() {
       parsedReactionsWithDms.directMessages.length === 2 &&
       parsedReactionsWithDms.directMessages[0]?.to === 'Helga Harper' &&
       parsedReactionsWithDms.directMessages[0]?.text === 'Any chance to see more?' &&
+      parsedReactionsWithDms.directMessages[0]?.postId === 'onlyfriends-post-01' &&
+      parsedReactionsWithDms.directMessages[0]?.tip === 5.5 &&
+      parsedFotogramTipIgnored.directMessages[0]?.postId === 'fotogram-post-01' &&
       parsedFotogramTipIgnored.directMessages[0]?.tip === undefined &&
       parsedCatalogHandle.reactions?.comments[0]?.handle === 'maxpower_official',
     'social reactions must preserve catalog handles and parse shared messenger-app message blocks',
@@ -3450,15 +3454,16 @@ export function verifyWorkflowValidationFixtures() {
   );
   const embeddedSocialDm = parseEmbeddedPhoneMessagesFromRpOutput([
     'Later that night, her phone buzzes.',
-    '{"onlyFriendsApp":[{"from":"Marcus Vane","to":"Helga Harper","message":"That set was incredible.","isVoiceMessage":true,"sendImageId":"ignored"}]}',
+    '{"onlyFriendsApp":[{"from":"Marcus Vane","to":"Helga Harper","message":"That set was incredible.","postId":"onlyfriends-post-02","tip":7.5,"isVoiceMessage":true,"sendImageId":"ignored"}]}',
   ].join('\n'));
   assertFixture(
     embeddedSocialDm.text === 'Later that night, her phone buzzes.' &&
       embeddedSocialDm.socialDirectMessages[0]?.app === 'onlyfriends' &&
       embeddedSocialDm.socialDirectMessages[0]?.to === 'Helga Harper' &&
       embeddedSocialDm.socialDirectMessages[0]?.text === 'That set was incredible.' &&
-      embeddedSocialDm.socialDirectMessages[0]?.tip === undefined,
-    'embedded social messenger blocks must parse text and ignore unsupported voice and image fields',
+      embeddedSocialDm.socialDirectMessages[0]?.postId === 'onlyfriends-post-02' &&
+      embeddedSocialDm.socialDirectMessages[0]?.tip === 7.5,
+    'embedded social messenger blocks must preserve post context and OnlyFriends tips while ignoring unsupported media fields',
   );
   const rpOutputWithDisplayImage = parseRpOutput([
     'Lara swipes to the cat photo and smiles.',

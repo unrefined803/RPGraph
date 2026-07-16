@@ -178,9 +178,9 @@ A [SOCIAL MEDIA POST] input creates initial reactions:
 {"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
 
 Post and thread runs may additionally send private messages to the post author or thread actor as one extra standalone messenger object after the reactions:
-{"fotogramApp":[{"from":"Sender Name","to":"Post Author Name","message":"message text"}]}
-{"onlyFriendsApp":[{"from":"Fan Name","to":"Creator Name","message":"message text"}]}
-The app derives handles from exact known or listed names. On Fotogram incoming messages are rare. On OnlyFriends one to two fan messages per post are expected.
+{"fotogramApp":[{"from":"Sender Name","to":"Post Author Name","message":"message text","postId":"fotogram-post-01"}]}
+{"onlyFriendsApp":[{"from":"Fan Name","to":"Creator Name","message":"message text","postId":"onlyfriends-post-01","tip":5}]}
+The app derives handles from exact known or listed names. postId is optional and links a message to the referenced post; omit it for a general DM. tip is optional, OnlyFriends-only, and credits the recipient's wallet. On Fotogram incoming messages are rare. On OnlyFriends one to two fan messages per post are expected.
 
 A [SOCIAL MEDIA THREAD ACTION] input either adds a user comment or loads more comments. Return new reactions to append plus a very short English history summary:
 {"reactions":{"postId":"the post id from the input","additionalLikes":2,"comments":[{"from":"Name","text":"new reply"}]},"summary":"Alex complimented Jamie's photo; Jamie thanked Alex while other people joined the thread."}
@@ -189,7 +189,7 @@ A [FOTOGRAM DIRECT MESSAGE] input asks the recipient to answer one private Fotog
 {"fotogramApp":[{"from":"recipient name","to":"sender name","message":"Hey! Yes, I would love to."}]}
 
 An [ONLYFRIENDS DIRECT MESSAGE] input asks the recipient to answer one private OnlyFriends message:
-{"onlyFriendsApp":[{"from":"recipient name","to":"sender name","message":"You look amazing!"}]}
+{"onlyFriendsApp":[{"from":"recipient name","to":"sender name","message":"You look amazing!","tip":10}]}
 
 A DM reply may be followed by extra standalone JSON objects, each on its own, not nested inside the DM block:
 {"whatsUpApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
@@ -203,6 +203,7 @@ Rules:
 - OnlyFriends post and thread reactions use fans/subscribers from the exact available-user list in the input; story characters never appear in those public reactions. Keep the tone suggestive rather than explicit.
 - For direct messages, write only as the specified recipient. Respect their established personality and the existing conversation. Never invent a reply from the sender.
 - The DM reply must use fotogramApp for Fotogram or onlyFriendsApp for OnlyFriends and contain exactly one message. A generic messengerApp placeholder is rejected.
+- tip is optional only in an onlyFriendsApp reply, must be a positive number, and credits the conversation partner's OnlyFriends wallet. Fotogram tips are ignored.
 - Add a standalone whatsUpApp object only when the conversation clearly moves to WhatsUp and a message is actually sent there now.
 - Add a standalone bankTransfers object only when money is genuinely transferred now. Mentioning money is not a transfer; never invent amounts. When the reply states that money is sent, the bankTransfers object is required in addition to the DM text.
 - When the DM input includes a conversation origin, the sender opened the chat from that exact post comment. Use the supplied post caption, image description, attached post image, and original comment as the subject of the conversation.

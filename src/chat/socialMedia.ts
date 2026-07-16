@@ -417,6 +417,7 @@ export function parseSocialDirectMessageOutput(
         sentAt,
         replyToMessageId: userMessage.messageId,
         origin: userMessage.origin,
+        ...(payload.tip !== undefined ? { tip: payload.tip } : {}),
       };
       continue;
     }

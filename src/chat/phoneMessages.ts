@@ -553,7 +553,25 @@ export function parseMessengerAppMessagesObject(value: unknown): ParsedMessenger
       } else {
         // Voice and image fields are intentionally ignored for social DMs until
         // those apps gain matching playback and attachment support.
-        result.socialDirectMessages.push({ app, from, to, text: message });
+        const stringField = (field: unknown) =>
+          typeof field === 'string' && field.trim() ? field.trim() : undefined;
+        const tipValue = typeof entry.tip === 'number'
+          ? entry.tip
+          : typeof entry.tip === 'string' && entry.tip.trim()
+            ? Number(entry.tip)
+            : Number.NaN;
+        const tip = app === 'onlyfriends' && Number.isFinite(tipValue) && tipValue > 0
+          ? Math.round(tipValue * 100) / 100
+          : undefined;
+        result.socialDirectMessages.push({
+          app,
+          from,
+          to,
+          text: message,
+          handle: stringField(entry.handle),
+          postId: stringField(entry.postId),
+          ...(tip !== undefined ? { tip } : {}),
+        });
       }
     }
   }
