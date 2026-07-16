@@ -545,7 +545,11 @@ export function visibleMessageRecords(
   const linkedIds = linkedPhoneMessageIds(messages);
   return messages.filter((message) =>
     message.role !== 'error' &&
-    !(options.hideMessage?.(message) && !message.embeddedPhoneMessages?.length) &&
+    !(
+      options.hideMessage?.(message) &&
+      !message.embeddedPhoneMessages?.length &&
+      !message.embeddedSocialMessages?.length
+    ) &&
     (message.channel !== 'phone' || !linkedIds.has(message.id))
   );
 }

@@ -43,6 +43,12 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       Array.isArray(value.images) &&
       value.images.every((image) => isRecord(image) && typeof image.imageId === 'string')
     );
+    const validEmbeddedMessageIds = [
+      value.embeddedPhoneMessageIds,
+      value.embeddedSocialMessageIds,
+    ].every((ids) => ids === undefined || (
+      Array.isArray(ids) && ids.every((id) => typeof id === 'string')
+    ));
     const validEmbeddedPhoneText = value.embeddedPhoneText === undefined || (
       isRecord(value.embeddedPhoneText) &&
       (
@@ -262,6 +268,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         (value.channel === 'phone' && typeof value.replyToMessageId === 'string')
       ) &&
       validImages &&
+      validEmbeddedMessageIds &&
       validVoiceClips &&
       validEmbeddedPhoneText &&
       validPhone &&

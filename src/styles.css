@@ -10604,6 +10604,101 @@ button.message-timeline-row.phone:focus-visible {
   max-width: min(88%, 420px);
 }
 
+.chat-social-message-stack {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-social-message-card {
+  --chat-social-accent: #a855f7;
+  --chat-social-accent-soft: rgba(168, 85, 247, 0.22);
+  --chat-social-incoming: rgba(34, 38, 58, 0.96);
+  --chat-social-outgoing: linear-gradient(135deg, rgba(168, 85, 247, 0.36), rgba(99, 102, 241, 0.25));
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--chat-social-accent-soft);
+  border-radius: 14px;
+  background: rgba(13, 18, 31, 0.88);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+}
+
+.chat-social-message-card.onlyfriends {
+  --chat-social-accent: #f43f5e;
+  --chat-social-accent-soft: rgba(244, 63, 94, 0.22);
+  --chat-social-incoming: rgba(49, 31, 47, 0.97);
+  --chat-social-outgoing: linear-gradient(135deg, rgba(236, 72, 153, 0.34), rgba(225, 29, 72, 0.26));
+}
+
+.chat-social-message-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #b8c7da;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chat-social-message-header strong {
+  color: var(--chat-social-accent);
+}
+
+.chat-social-message-header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-social-message-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-social-message-row {
+  display: flex;
+  padding-right: 10%;
+}
+
+.chat-social-message-row.outgoing {
+  justify-content: flex-end;
+  padding-right: 0;
+  padding-left: 10%;
+}
+
+.chat-social-message-bubble {
+  display: flex;
+  max-width: min(88%, 420px);
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px 18px 18px 6px;
+  background: var(--chat-social-incoming);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.chat-social-message-row.outgoing .chat-social-message-bubble {
+  border-color: color-mix(in srgb, var(--chat-social-accent) 55%, transparent);
+  border-radius: 18px 18px 6px 18px;
+  background: var(--chat-social-outgoing);
+}
+
+.chat-social-message-bubble strong {
+  font-size: 11px;
+}
+
 .chat-phone-bubble {
   cursor: pointer;
   outline: none;

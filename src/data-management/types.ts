@@ -85,6 +85,7 @@ export type TimelineMessageEntry = {
   phone?: PhoneMetadata;
   images?: ImageRef[];
   embeddedPhoneMessageIds?: string[];
+  embeddedSocialMessageIds?: string[];
   embeddedPhoneText?: {
     before?: string;
     after?: string;

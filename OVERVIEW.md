@@ -96,7 +96,7 @@ The `RP Output` node has separate inputs for `Normal RP`, `Messenger Apps`, `Soc
 
 Private messages share one LLM-facing array shape with `from`, `to`, and `message`. The enclosing key selects the app: `whatsUpApp`, `fotogramApp`, or `onlyFriendsApp`. WhatsUp additionally applies optional `isVoiceMessage` and `sendImageId`; the social apps currently ignore those two fields. Each parsed message becomes a real entry in that app's conversation history.
 
-Normal RP output is mostly prose for the Chat tab, but it can also embed one of the three messenger-app objects when a story beat includes private messages. WhatsUp messages are shown as linked phone activity inside the chat bubble; Fotogram and OnlyFriends messages appear in their private-message histories.
+Normal RP output is mostly prose for the Chat tab, but it can also embed one of the three messenger-app objects when a story beat includes private messages. WhatsUp, Fotogram, and OnlyFriends conversations are shown as app-specific message cards inside the originating chat bubble while the same messages also appear in their app histories.
 
 `Output Actions` is a separate RP Output input for extra app commands. It can create phone messages, chat messages, choice buttons, info boxes, progress bars, context-capacity bars, or controls such as `setTab` and `setPlayer`. Choice buttons can also feed routing values such as `messageFormat` / output channel and `turnMode` / prompt slot back into the next graph run.
 
@@ -147,7 +147,7 @@ WhatsUp supports contact lists, unread conversations, replies, text and voice me
 The app separates the workflow graph from roleplay session data.
 
 - **Workflow**: graph nodes, graph edges, viewport, defaults, and optional bundled storybook data.
-- **Session / RP save**: timeline, messages, entities, runtime state, undo checkpoints, selected UI state, debug state, phone read state, banking contacts, social likes, per-character social connections, discovered NPC social identities, OnlyFriends purchases, and recent emoji state. Phone, banking, social-post, comment, and DM records are stored on the canonical timeline. Bundled social catalogs remain application data and are not duplicated into saves.
+- **Session / RP save**: timeline, messages, entities, runtime state, undo checkpoints, selected UI state, debug state, phone read state, banking contacts, social likes, per-character social connections, discovered NPC social identities, OnlyFriends purchases, and recent emoji state. Phone, banking, social-post, comment, and DM records are stored on the canonical timeline. Chat bubbles retain links to their embedded WhatsUp, Fotogram, and OnlyFriends messages across save and reload. Bundled social catalogs remain application data and are not duplicated into saves.
 - **Storybook**: structured roleplay story data, characters, opening history, images, and formatted context output. Opening History explicitly carries added social connections and dynamic NPC identities so a new session restores the same private social graph.
 
 Current session data uses a `rpgraph-session` format. Workflow data uses a `rpgraph-workflow` format. Storybook has its own version file.

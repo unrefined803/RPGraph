@@ -220,6 +220,27 @@ function chatMessageFromTimelineEntry(
       };
     })
     .filter((message): message is NonNullable<typeof message> => !!message);
+  const embeddedSocialMessages = entry.embeddedSocialMessageIds
+    ?.map((timelineId) => {
+      const linkedEntry = session.timeline.find(
+        (candidate): candidate is TimelineMessageEntry =>
+          candidate.kind === 'message' && candidate.id === timelineId,
+      );
+      const socialMessageId = messageIdsByTimelineId.get(timelineId);
+      const directMessage = linkedEntry?.socialDirectMessage;
+      if (!directMessage || socialMessageId === undefined) {
+        return undefined;
+      }
+      return {
+        socialMessageId,
+        app: directMessage.app,
+        from: directMessage.from,
+        to: directMessage.to,
+        message: directMessage.text,
+        translatedMessage: directMessage.displayText,
+      };
+    })
+    .filter((message): message is NonNullable<typeof message> => !!message);
   return {
     id: numericId,
     role: chatRoleFromTimeline(entry.role),
@@ -235,6 +256,7 @@ function chatMessageFromTimelineEntry(
     phoneTo: entry.phone?.to,
     phoneVoiceMessage: entry.phone?.voiceMessage,
     embeddedPhoneMessages: embeddedPhoneMessages?.length ? embeddedPhoneMessages : undefined,
+    embeddedSocialMessages: embeddedSocialMessages?.length ? embeddedSocialMessages : undefined,
     embeddedPhoneTextBefore: entry.embeddedPhoneText?.before,
     embeddedPhoneTextAfter: entry.embeddedPhoneText?.after,
     embeddedPhoneTranslatedTextBefore: entry.embeddedPhoneText?.translatedBefore,

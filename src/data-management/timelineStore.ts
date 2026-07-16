@@ -56,6 +56,7 @@ function messageToTimelineEntry(
   phase: TimelineMessageEntry['phase'],
   message: MessageRecord,
   embeddedPhoneMessageIds: Map<number, string>,
+  embeddedSocialMessageIds: Map<number, string>,
 ): TimelineMessageEntry {
   const id = messageEntryId(turn, message);
   const channel = message.channel === 'phone' || message.phoneMessage ? 'phone' : 'rp';
@@ -94,6 +95,9 @@ function messageToTimelineEntry(
     embeddedPhoneMessageIds: message.embeddedPhoneMessages
       ?.map((link) => embeddedPhoneMessageIds.get(link.phoneMessageId))
       .filter((linkId): linkId is string => !!linkId),
+    embeddedSocialMessageIds: message.embeddedSocialMessages
+      ?.map((link) => embeddedSocialMessageIds.get(link.socialMessageId))
+      .filter((linkId): linkId is string => !!linkId),
     embeddedPhoneText: embeddedPhoneText(message),
     replyToMessageId: message.replyToMessageId !== undefined
       ? embeddedPhoneMessageIds.get(message.replyToMessageId)
@@ -121,19 +125,23 @@ function messageToTimelineEntry(
 
 export function timelineFromTurnRecords(turns: TurnRecord[]): TimelineEntry[] {
   const embeddedPhoneMessageIds = new Map<number, string>();
+  const embeddedSocialMessageIds = new Map<number, string>();
   turns.forEach((turn) => {
     [...turn.input.messages, ...turn.output.messages].forEach((message) => {
       if (message.channel === 'phone' || message.phoneMessage) {
         embeddedPhoneMessageIds.set(message.id, messageEntryId(turn, message));
       }
+      if (message.socialDirectMessage) {
+        embeddedSocialMessageIds.set(message.id, messageEntryId(turn, message));
+      }
     });
   });
   return turns.flatMap((turn) => [
     ...turn.input.messages.map((message) =>
-      messageToTimelineEntry(turn, 'input', message, embeddedPhoneMessageIds),
+      messageToTimelineEntry(turn, 'input', message, embeddedPhoneMessageIds, embeddedSocialMessageIds),
     ),
     ...turn.output.messages.map((message) =>
-      messageToTimelineEntry(turn, 'output', message, embeddedPhoneMessageIds),
+      messageToTimelineEntry(turn, 'output', message, embeddedPhoneMessageIds, embeddedSocialMessageIds),
     ),
   ]);
 }

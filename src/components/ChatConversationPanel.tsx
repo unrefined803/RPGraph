@@ -25,6 +25,7 @@ import type {
   InputActionSelection,
   MessageRecord,
   EmbeddedPhoneMessageLink,
+  EmbeddedSocialMessageLink,
   RpDateTimeFormat,
   RpWeekdayLanguage,
   SocialPostRecord,
@@ -333,6 +334,11 @@ export function ChatConversationPanel({
     }
   });
   const phoneMessagesById = selectPhoneMessagesById(messages);
+  const socialMessagesById = new Map(
+    messages.flatMap((message) =>
+      message.socialDirectMessage ? [[message.id, message.socialDirectMessage] as const] : []
+    ),
+  );
 
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [isComposerHovered, setIsComposerHovered] = useState(false);
@@ -1142,6 +1148,71 @@ export function ChatConversationPanel({
               </section>
             );
           };
+          const renderEmbeddedSocialMessages = (socialMessages: EmbeddedSocialMessageLink[]) => {
+            const segments = socialMessages.reduce<EmbeddedSocialMessageLink[][]>((groups, socialMessage) => {
+              const current = groups[groups.length - 1];
+              const first = current?.[0];
+              const sameConversation = first &&
+                first.app === socialMessage.app &&
+                [first.from, first.to].map((name) => name.toLocaleLowerCase()).sort().join('::') ===
+                  [socialMessage.from, socialMessage.to].map((name) => name.toLocaleLowerCase()).sort().join('::');
+              if (!current || !sameConversation) {
+                groups.push([socialMessage]);
+              } else {
+                current.push(socialMessage);
+              }
+              return groups;
+            }, []);
+            return (
+              <section className="chat-social-message-stack" aria-label="Social messenger messages">
+                {segments.map((segment, segmentIndex) => {
+                  const first = segment[0];
+                  if (!first) {
+                    return null;
+                  }
+                  const anchorSender = first.from.trim().toLocaleLowerCase();
+                  const appName = first.app === 'fotogram' ? 'Fotogram' : 'OnlyFriends';
+                  return (
+                    <section
+                      className={`chat-social-message-card ${first.app}`}
+                      key={`${first.socialMessageId}-${segmentIndex}`}
+                    >
+                      <header className="chat-social-message-header">
+                        <strong>{appName}</strong>
+                        <span>{first.from} and {first.to}</span>
+                      </header>
+                      <div className="chat-social-message-thread">
+                        {segment.map((socialMessage) => {
+                          const linkedMessage = socialMessagesById.get(socialMessage.socialMessageId);
+                          const text = englishProcessingEnabled
+                            ? linkedMessage?.displayText ?? socialMessage.translatedMessage ?? socialMessage.message
+                            : socialMessage.message;
+                          const outgoing = socialMessage.from.trim().toLocaleLowerCase() === anchorSender;
+                          const fromColor = characterColors.get(socialMessage.from);
+                          return (
+                            <div
+                              className={`chat-social-message-row ${outgoing ? 'outgoing' : 'incoming'}`}
+                              key={socialMessage.socialMessageId}
+                            >
+                              <div
+                                className="chat-social-message-bubble"
+                                style={{ fontSize: chatTextSize || defaultChatTextSize }}
+                              >
+                                <strong style={fromColor ? { color: fromColor } : undefined}>
+                                  {socialMessage.from}
+                                </strong>
+                                <span>{text}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </section>
+            );
+          };
           const renderOutputActionChoices = () => {
             const choiceGroups = message.outputActionChoices ?? [];
             if (choiceGroups.length === 0) {
@@ -1523,7 +1594,10 @@ export function ChatConversationPanel({
                         renderOutputActionDisplays()
                       ) : (message.outputActionChoices?.length ?? 0) > 0 ? (
                         renderOutputActionChoices()
-                      ) : (message.embeddedPhoneMessages?.length ?? 0) > 0 ? (
+                      ) : (
+                        (message.embeddedPhoneMessages?.length ?? 0) > 0 ||
+                        (message.embeddedSocialMessages?.length ?? 0) > 0
+                      ) ? (
                         <div
                           className="message-composite-bubble"
                           style={{ fontSize: chatTextSize || defaultChatTextSize }}
@@ -1533,15 +1607,19 @@ export function ChatConversationPanel({
                               {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextBefore, speakerNames), 'before')}
                             </span>
                           )}
-                          {outsidePhoneDisplayMode === 'bubbles' ? (
-                            renderPhoneBubbleStack(message.embeddedPhoneMessages ?? [], true)
-                          ) : (
-                            <span className="embedded-phone-links inline" aria-label="Sent phone messages">
-                              {(message.embeddedPhoneMessages ?? []).map((phoneMessage) => (
-                                renderPhoneActionButton(phoneMessage)
-                              ))}
-                            </span>
+                          {(message.embeddedPhoneMessages?.length ?? 0) > 0 && (
+                            outsidePhoneDisplayMode === 'bubbles' ? (
+                              renderPhoneBubbleStack(message.embeddedPhoneMessages ?? [], true)
+                            ) : (
+                              <span className="embedded-phone-links inline" aria-label="Sent phone messages">
+                                {(message.embeddedPhoneMessages ?? []).map((phoneMessage) => (
+                                  renderPhoneActionButton(phoneMessage)
+                                ))}
+                              </span>
+                            )
                           )}
+                          {(message.embeddedSocialMessages?.length ?? 0) > 0 &&
+                            renderEmbeddedSocialMessages(message.embeddedSocialMessages ?? [])}
                           {compositeTextAfter && (
                             <span className="message-composite-text">
                               {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextAfter, speakerNames), 'after')}

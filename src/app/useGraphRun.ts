@@ -8,6 +8,7 @@ import type {
   ChatImageAttachment,
   ConnectionPreset,
   EmbeddedPhoneMessageLink,
+  EmbeddedSocialMessageLink,
   ImageCaptionChange,
   MessageRecord,
   SocialDirectMessageRecord,
@@ -1530,6 +1531,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         ...embeddedPhoneResult.socialDirectMessages,
         ...(phoneOutputBankResult?.socialDirectMessages ?? []),
       ];
+      const embeddedSocialMessageLinks: EmbeddedSocialMessageLink[] = [];
       if (embeddedSocialDirectMessages.length > 0) {
         reportFormatResult({
           name: 'Social messenger messages',
@@ -2083,7 +2085,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         workflowVariableSetCommands: workflowVariableSetCommandsForOutput,
       };
       if (!isPhoneMessage && liveOutputMessageId === undefined) {
-        appendMessage({
+        liveOutputMessageId = appendMessage({
           role: 'output',
           originalText: rpOutput,
           translatedText: translatedOutput,
@@ -2393,14 +2395,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
           incoming: ParsedIncomingSocialDirectMessage,
           defaultRecipient?: { name: string; handle: string },
           runPost?: SocialPostRecord,
-        ) => {
+        ): Promise<EmbeddedSocialMessageLink | undefined> => {
           const recipientName = incoming.to ?? defaultRecipient?.name;
           if (!recipientName) {
             reportRunWarning(
               `A ${socialAppNames[incoming.app]} direct message from "${incoming.from}" was ignored because it has no recipient.`,
               outputNodeTraceInfo,
             );
-            return;
+            return undefined;
           }
           const to = canonicalPhoneName(phoneCharacters, recipientName);
           const recipientCharacter = phoneCharacters.find((character) =>
@@ -2427,7 +2429,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               `A ${socialAppNames[incoming.app]} direct message from "${from}" to themselves was ignored.`,
               outputNodeTraceInfo,
             );
-            return;
+            return undefined;
           }
           let originPost = runPost && runPost.postId === incoming.postId ? runPost : undefined;
           if (!originPost && incoming.postId) {
@@ -2473,7 +2475,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const persistedRecord = translatedDmText
             ? { ...record, displayText: translatedDmText }
             : record;
-          appendMessage({
+          const socialMessageId = appendMessage({
             role: 'output',
             originalText: socialDirectMessageHistoryText(record),
             translatedText: translatedDmText
@@ -2482,9 +2484,25 @@ export function useGraphRun(options: UseGraphRunOptions) {
             includeInHistory: true,
             socialDirectMessage: persistedRecord,
           });
+          return {
+            socialMessageId,
+            app: record.app,
+            from: record.from,
+            to: record.to,
+            message: record.text,
+            translatedMessage: translatedDmText,
+          };
         };
         for (const incomingSocialDm of embeddedSocialDirectMessages) {
-          await appendIncomingSocialDirectMessage(incomingSocialDm);
+          const link = await appendIncomingSocialDirectMessage(incomingSocialDm);
+          if (link) {
+            embeddedSocialMessageLinks.push(link);
+          }
+        }
+        if (!isPhoneMessage && liveOutputMessageId !== undefined && embeddedSocialMessageLinks.length > 0) {
+          updateMessage(liveOutputMessageId, {
+            embeddedSocialMessages: embeddedSocialMessageLinks.map((link) => ({ ...link })),
+          });
         }
 
         // Social-media runs record the post itself plus the generated

@@ -544,6 +544,15 @@ export type EmbeddedPhoneMessageLink = {
   translatedMessage?: string;
 };
 
+export type EmbeddedSocialMessageLink = {
+  socialMessageId: number;
+  app: SocialAppKind;
+  from: string;
+  to: string;
+  message: string;
+  translatedMessage?: string;
+};
+
 type OutputActionChoiceOption = {
   id?: string;
   label: string;
@@ -739,6 +748,7 @@ export type MessageRecord = {
   phoneVoiceMessage?: boolean;
   phoneAutoTurnSource?: 'narrator';
   embeddedPhoneMessages?: EmbeddedPhoneMessageLink[];
+  embeddedSocialMessages?: EmbeddedSocialMessageLink[];
   embeddedPhoneTextBefore?: string;
   embeddedPhoneTextAfter?: string;
   embeddedPhoneTranslatedTextBefore?: string;

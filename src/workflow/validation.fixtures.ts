@@ -2051,6 +2051,14 @@ export function verifyWorkflowValidationFixtures() {
             to: 'Alice',
             message: 'Ping from Bob',
           }],
+          embeddedSocialMessages: [{
+            socialMessageId: 8,
+            app: 'fotogram',
+            from: 'Bob',
+            to: 'Alice',
+            message: 'I also sent the address on Fotogram.',
+            translatedMessage: 'Ich habe die Adresse auch auf Fotogram geschickt.',
+          }],
           embeddedPhoneTextBefore: 'Bob waves from the bus stop.',
           embeddedPhoneTextAfter: 'Alice pockets her phone.',
           embeddedPhoneTranslatedTextBefore: 'Bob winkt von der Bushaltestelle.',
@@ -2066,6 +2074,25 @@ export function verifyWorkflowValidationFixtures() {
             source: 'dialogue',
             createdAt: '2026-06-01T00:00:00.000Z',
           }],
+        }, {
+          id: 8,
+          role: 'output',
+          originalText: '[Fotogram DM] Bob (@bob) to Alice (@alice): "I also sent the address on Fotogram."',
+          channel: 'rp',
+          socialDirectMessage: {
+            app: 'fotogram',
+            messageId: 'fotogram-dm-incoming-1',
+            from: 'Bob',
+            fromHandle: 'bob',
+            to: 'Alice',
+            toHandle: 'alice',
+            text: 'I also sent the address on Fotogram.',
+            displayText: 'Ich habe die Adresse auch auf Fotogram geschickt.',
+            sentAt: '2026-06-01T12:00:00.000Z',
+          },
+          turnId: 'turn-1',
+          turnNumber: 1,
+          turnPart: 'output',
         }],
       },
   } satisfies TurnRecord;
@@ -2301,13 +2328,20 @@ export function verifyWorkflowValidationFixtures() {
   const embeddedPhoneRoundtripLinkedPhone = restoredAppState.turns[0]?.output.messages.find((message) =>
     message.originalText === 'Ping from Bob',
   );
+  const embeddedSocialRoundtripLinkedMessage = restoredAppState.turns[0]?.output.messages.find((message) =>
+    message.socialDirectMessage?.messageId === 'fotogram-dm-incoming-1',
+  );
   assertFixture(
     embeddedPhoneRoundtripMessage?.embeddedPhoneTextBefore === 'Bob waves from the bus stop.' &&
       embeddedPhoneRoundtripMessage.embeddedPhoneTextAfter === 'Alice pockets her phone.' &&
       embeddedPhoneRoundtripMessage.embeddedPhoneTranslatedTextBefore === 'Bob winkt von der Bushaltestelle.' &&
       embeddedPhoneRoundtripMessage.embeddedPhoneTranslatedTextAfter === 'Alice steckt ihr Handy ein.' &&
-      embeddedPhoneRoundtripMessage.embeddedPhoneMessages?.[0]?.phoneMessageId === embeddedPhoneRoundtripLinkedPhone?.id,
-    'RP Save Format v2 must restore embedded phone composite text and relinked phone ids',
+      embeddedPhoneRoundtripMessage.embeddedPhoneMessages?.[0]?.phoneMessageId === embeddedPhoneRoundtripLinkedPhone?.id &&
+      embeddedPhoneRoundtripMessage.embeddedSocialMessages?.[0]?.socialMessageId ===
+        embeddedSocialRoundtripLinkedMessage?.id &&
+      embeddedPhoneRoundtripMessage.embeddedSocialMessages?.[0]?.translatedMessage ===
+        'Ich habe die Adresse auch auf Fotogram geschickt.',
+    'RP Save Format v2 must restore embedded messenger text and relink phone and social message ids',
   );
   assertFixture(
     embeddedPhoneRoundtripMessage?.voiceClips?.[0]?.dataUrl === 'data:audio/mpeg;base64,QUJD' &&
@@ -2533,6 +2567,39 @@ export function verifyWorkflowValidationFixtures() {
       { id: 12, role: 'error', originalText: 'Hidden error' },
     ]).map((message) => message.id).join(',') === '10',
     'phone selectors must hide linked phone messages and errors from the visible chat timeline',
+  );
+  const embeddedSocialParent = {
+    id: 13,
+    role: 'output',
+    originalText: '',
+    embeddedSocialMessages: [{
+      socialMessageId: 14,
+      app: 'fotogram',
+      from: 'Bob',
+      to: 'Alice',
+      message: 'Sent through Fotogram.',
+    }],
+  } satisfies MessageRecord;
+  const embeddedSocialRecord = {
+    id: 14,
+    role: 'output',
+    originalText: '[Fotogram DM] Bob to Alice: Sent through Fotogram.',
+    socialDirectMessage: {
+      app: 'fotogram',
+      messageId: 'fotogram-dm-fixture',
+      from: 'Bob',
+      fromHandle: 'bob',
+      to: 'Alice',
+      toHandle: 'alice',
+      text: 'Sent through Fotogram.',
+      sentAt: '2026-06-01T12:30:00.000Z',
+    },
+  } satisfies MessageRecord;
+  assertFixture(
+    visibleMessageRecords([embeddedSocialParent, embeddedSocialRecord], {
+      hideMessage: socialMessageHiddenFromChat,
+    }).map((message) => message.id).join(',') === '13',
+    'visible message selectors must retain an otherwise empty RP bubble with embedded social messages',
   );
   const phoneMessagesWithTime = [
     phoneMessages[0]!,
