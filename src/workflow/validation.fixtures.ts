@@ -504,6 +504,10 @@ export function verifyWorkflowValidationFixtures() {
     ].join('\n'),
     { app: 'fotogram', postId: 'fotogram-post-01' },
   );
+  const parsedCombinedReactionsWithDm = parseSocialReactionsOutput(
+    '{"reactions":{"postId":"fotogram-post-01","likes":38,"comments":[{"from":"Luna Sky","text":"Stunning!"}]},"fotogramApp":[{"from":"Jack Carter","to":"Helga Harper","message":"See you tonight!","postId":"fotogram-post-01"}]}',
+    { app: 'fotogram', postId: 'fotogram-post-01' },
+  );
   const parsedCatalogHandle = parseSocialReactionsOutput(
     '{"reactions":{"postId":"fotogram-post-01","likes":1,"comments":[{"from":"Max Power","handle":"maxpower_official","text":"Great shot!"}]}}',
     { app: 'fotogram', postId: 'fotogram-post-01' },
@@ -518,8 +522,11 @@ export function verifyWorkflowValidationFixtures() {
       parsedReactionsWithDms.directMessages[0]?.tip === 5.5 &&
       parsedFotogramTipIgnored.directMessages[0]?.postId === 'fotogram-post-01' &&
       parsedFotogramTipIgnored.directMessages[0]?.tip === undefined &&
+      parsedCombinedReactionsWithDm.reactions?.likes === 38 &&
+      parsedCombinedReactionsWithDm.directMessages[0]?.text === 'See you tonight!' &&
+      parsedCombinedReactionsWithDm.warnings.length === 0 &&
       parsedCatalogHandle.reactions?.comments[0]?.handle === 'maxpower_official',
-    'social reactions must preserve catalog handles and parse shared messenger-app message blocks',
+    'social reactions must parse combined or standalone messenger-app message blocks and preserve catalog handles',
   );
   const socialPostOriginInput = socialDirectMessageInputText({
     app: 'onlyfriends',
@@ -4100,6 +4107,16 @@ export function verifyWorkflowValidationFixtures() {
     incompleteLivePreview.text === 'Lara types.' &&
       incompleteLivePreview.phoneMessages[0]?.message === 'Please get',
     'embedded phone live preview must stream a message before its JSON object closes',
+  );
+  const incompleteSocialLivePreview = embeddedPhoneMessagesLivePreview(
+    'Lara checks Fotogram.\n\n{"fotogramApp":[{"from":"Mia","to":"Lara","message":"Love this pho',
+  );
+  assertFixture(
+    incompleteSocialLivePreview.text === 'Lara checks Fotogram.' &&
+      incompleteSocialLivePreview.socialDirectMessages.length === 1 &&
+      incompleteSocialLivePreview.socialDirectMessages[0]?.app === 'fotogram' &&
+      incompleteSocialLivePreview.socialDirectMessages[0]?.text === 'Love this pho',
+    'embedded social messenger live preview must stream Fotogram messages before the JSON object closes',
   );
   const fencedLivePreview = embeddedPhoneMessagesLivePreview(
     'Lara types.\n\n```json\n{"phoneMessages":[{"from":"Lara","to":"Robert","message":"Please get',

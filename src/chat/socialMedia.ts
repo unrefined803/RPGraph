@@ -488,8 +488,8 @@ export function parseSocialReactionsOutput(
       warnings: ['Social Media output was empty; no reactions were generated.'],
     };
   }
-  // The output may hold several standalone top-level JSON objects: the
-  // reactions block plus optional incoming direct-message blocks.
+  // Reactions and direct messages may share one outer object or arrive as
+  // separate standalone top-level JSON objects.
   const cleaned = withoutJsonCodeFences(text);
   let parsed: Record<string, unknown> | undefined;
   for (const range of jsonObjectRanges(cleaned)) {
@@ -503,12 +503,19 @@ export function parseSocialReactionsOutput(
       warnings.push('A Social Media output block is not a JSON object; it was skipped.');
       continue;
     }
-    if (hasIncomingSocialDirectMessagesKey(block)) {
+    const hasDirectMessages = hasIncomingSocialDirectMessagesKey(block);
+    if (hasDirectMessages) {
       const blockDirectMessages = parseIncomingSocialDirectMessagesObject(block);
       if (blockDirectMessages.length === 0) {
         warnings.push('A social messenger block has no valid entries (each needs from, to, and message).');
       }
       directMessages.push(...blockDirectMessages);
+    }
+    const hasReactions = isRecord(block.reactions) ||
+      block.likes !== undefined ||
+      block.additionalLikes !== undefined ||
+      block.comments !== undefined;
+    if (hasDirectMessages && !hasReactions) {
       continue;
     }
     if (!parsed) {
