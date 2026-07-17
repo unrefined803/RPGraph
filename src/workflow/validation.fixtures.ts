@@ -4109,6 +4109,16 @@ export function verifyWorkflowValidationFixtures() {
       fencedLivePreview.phoneMessages[0]?.message === 'Please get',
     'embedded phone live preview must stream messages inside an incomplete JSON fence',
   );
+  const crossArrayLivePreview = embeddedPhoneMessagesLivePreview(
+    '{"whatsUpApp":[{"from":"Lara","to":"Robert","message":"On my way."}],' +
+      '"fotogramApp":[{"from":"Mia","to":"Robert","message":"Nice shot',
+  );
+  assertFixture(
+    crossArrayLivePreview.phoneMessages.length === 1 &&
+      crossArrayLivePreview.phoneMessages[0].from === 'Lara' &&
+      !crossArrayLivePreview.phoneMessages.some((entry) => entry.from === 'Mia'),
+    'embedded messenger live preview must not attribute a later app array to the first key',
+  );
   assertFixture(
     formatAppointments([{
       id: 'appointment-1',

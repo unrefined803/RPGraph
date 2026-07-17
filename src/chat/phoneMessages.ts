@@ -820,6 +820,12 @@ function completedArrayEntryRanges(value: string) {
         ranges.push({ start: entryStart, end: index + 1 });
         entryStart = -1;
       }
+      continue;
+    }
+    // The closing bracket ends the scanned array; anything after it belongs
+    // to a different key and must not be previewed under this one.
+    if (char === ']' && depth === 0) {
+      break;
     }
   }
   return { ranges, openEntryStart: depth > 0 && entryStart >= 0 ? entryStart : undefined };

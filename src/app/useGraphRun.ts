@@ -2556,11 +2556,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
             embeddedSocialMessageLinks.push(link);
           }
         }
-        if (
-          !isPhoneMessage &&
-          liveOutputMessageId !== undefined &&
-          embeddedSocialDirectMessages.length > 0
-        ) {
+        // Always replace the streamed placeholder previews (negative ids):
+        // with real links when messages were stored, or with nothing when the
+        // final output kept no social messages (e.g. blocked by validation).
+        if (!isPhoneMessage && liveOutputMessageId !== undefined) {
           updateMessage(liveOutputMessageId, {
             embeddedSocialMessages: embeddedSocialMessageLinks.length > 0
               ? embeddedSocialMessageLinks.map((link) => ({ ...link }))
