@@ -98,10 +98,6 @@ function unknownPromptActionName(text: string) {
   return typeof action === 'string' && action.trim() ? action.trim() : undefined;
 }
 
-function segmentText(segments: FormattedChatHistorySegment[]) {
-  return segments.map((segment) => segment.text).join('\n\n');
-}
-
 function normalizedSegmentText(text: string) {
   return text.trim().replace(/\r\n/g, '\n');
 }
@@ -114,27 +110,41 @@ function matchingHistorySegments(
   if (!segments.length || !normalizedInput) {
     return undefined;
   }
-  const fullText = normalizedSegmentText(segmentText(segments));
+  // Line endings are normalized once per segment; trimming stays on the
+  // joined window so edge whitespace behaves exactly like normalizing the
+  // window as a whole.
+  const normalizedTexts = segments.map((segment) => segment.text.replace(/\r\n/g, '\n'));
+  const fullText = normalizedTexts.join('\n\n').trim();
   if (fullText === normalizedInput) {
     return segments;
   }
 
+  // cumulativeLengths[i] sums the trimmed lengths of the first i segments — a
+  // lower bound for any window's final text length. Windows already longer
+  // than the input can neither equal nor be contained in it, so they are
+  // skipped without building their strings.
+  const cumulativeLengths = [0];
+  for (const text of normalizedTexts) {
+    cumulativeLengths.push(cumulativeLengths[cumulativeLengths.length - 1] + text.trim().length);
+  }
   let bestContainedMatch:
     | { segments: FormattedChatHistorySegment[]; textLength: number }
     | undefined;
   for (let start = 0; start < segments.length; start += 1) {
     for (let end = segments.length; end > start; end -= 1) {
-      const candidate = segments.slice(start, end);
-      const candidateText = normalizedSegmentText(segmentText(candidate));
+      if (cumulativeLengths[end] - cumulativeLengths[start] > normalizedInput.length) {
+        continue;
+      }
+      const candidateText = normalizedTexts.slice(start, end).join('\n\n').trim();
       if (candidateText === normalizedInput) {
-        return candidate;
+        return segments.slice(start, end);
       }
       if (
         candidateText &&
         normalizedInput.includes(candidateText) &&
         (!bestContainedMatch || candidateText.length > bestContainedMatch.textLength)
       ) {
-        bestContainedMatch = { segments: candidate, textLength: candidateText.length };
+        bestContainedMatch = { segments: segments.slice(start, end), textLength: candidateText.length };
         break;
       }
     }
@@ -399,7 +409,6 @@ export async function runActionAwarePrompt({
 
   let generatedText = '';
   let connectionLabel = '';
-  let combinedPrompt = buildCombinedPrompt();
   const maxActionPasses = Math.max(3, preReplyActionConfigs.length + 1);
   for (let passIndex = 0; passIndex <= maxActionPasses; passIndex += 1) {
     const pendingPreReplyAction = preReplyActionConfigs.some(
@@ -678,7 +687,6 @@ export async function runActionAwarePrompt({
     if (actionResult.finalOutputText) {
       finalOutputActionTexts.push(actionResult.finalOutputText);
     }
-    combinedPrompt = buildCombinedPrompt();
     context.updateRuntimeData(node.id, {
       preview: `Action ${actionCall.action} resolved; replaying prompt ...`,
     });
@@ -930,7 +938,9 @@ export async function runActionAwarePrompt({
       inputValue,
       promptBefore,
       promptAfter,
-      combinedPrompt: promptPasses.length ? '' : combinedPrompt,
+      // The pass loop always records at least one prompt pass, so the
+      // flat combined prompt is never needed as a fallback here.
+      combinedPrompt: '',
       promptPasses,
       outputPasses,
       actionResults: actionResultTexts,

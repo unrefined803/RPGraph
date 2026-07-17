@@ -1532,12 +1532,25 @@ function lmStudioCliName() {
   return process.platform === 'win32' ? 'lms.cmd' : 'lms';
 }
 
+// With a shell, cmd.exe would expand %VAR% inside quotes and an embedded
+// quote would break out of the argument, so those characters are rejected.
+function quotedWindowsCliArgument(value) {
+  if (/["%\r\n]/.test(value)) {
+    throw new Error(`Unsupported character in LM Studio CLI argument: ${value}`);
+  }
+  return `"${value}"`;
+}
+
 function runLmStudioCli(args) {
+  // Node refuses to spawn .cmd files without a shell (CVE-2024-27980
+  // hardening), so Windows runs the CLI through a shell with each argument
+  // quoted; other platforms execute the binary directly.
+  const useShell = process.platform === 'win32';
   return new Promise((resolve, reject) => {
     execFile(
       lmStudioCliName(),
-      args,
-      { timeout: 60 * 1000, windowsHide: true },
+      useShell ? args.map(quotedWindowsCliArgument) : args,
+      { timeout: 60 * 1000, windowsHide: true, shell: useShell },
       (error, stdout, stderr) => {
         if (error) {
           const message = stderr || stdout || error.message;

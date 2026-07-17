@@ -512,31 +512,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
       notifySystem('warning', 'Select a Storybook character to play as.');
       return false;
     }
-    const providerHealthForRun = directActionOnly
-      ? {}
-      : await checkProviderConnections(connections);
-    const usedLlmConnectionIds = new Set(
-      runtimeNodes.flatMap((node) => {
-        if (node.data.kind !== undefined || !Object.prototype.hasOwnProperty.call(node.data, 'connectionId')) {
-          return [];
-        }
-        const connectionId = node.data.connectionId ?? defaultConnectionId;
-        const connection = connections.find((entry) => entry.id === connectionId);
-        return connection && isLlmConnection(connection) ? [connection.id] : [];
-      }),
-    );
-    const offlineLlmConnection = connections.find((connection) =>
-      usedLlmConnectionIds.has(connection.id) &&
-      providerHealthForRun[connection.id]?.status === 'offline',
-    );
-    if (offlineLlmConnection) {
-      const detail = providerHealthForRun[offlineLlmConnection.id]?.detail;
-      notifySystem(
-        'error',
-        `Provider ${offlineLlmConnection.label} is offline${detail ? `: ${detail}` : '.'}`,
-      );
-      return false;
-    }
     const runId = createRunId();
     const runController = new AbortController();
     const runSignal = runController.signal;
@@ -603,6 +578,37 @@ export function useGraphRun(options: UseGraphRunOptions) {
     activeRunLlmReport.current = initialRunLlmReport;
     setRunLlmReport(initialRunLlmReport);
     activeRunCancelReason.current = 'cancel';
+    // The health check runs after the run is registered as active, so a
+    // second trigger during this await cannot slip in as a parallel run.
+    const providerHealthForRun = directActionOnly
+      ? {}
+      : await checkProviderConnections(connections);
+    const usedLlmConnectionIds = new Set(
+      runtimeNodes.flatMap((node) => {
+        if (node.data.kind !== undefined || !Object.prototype.hasOwnProperty.call(node.data, 'connectionId')) {
+          return [];
+        }
+        const connectionId = node.data.connectionId ?? defaultConnectionId;
+        const connection = connections.find((entry) => entry.id === connectionId);
+        return connection && isLlmConnection(connection) ? [connection.id] : [];
+      }),
+    );
+    const offlineLlmConnection = connections.find((connection) =>
+      usedLlmConnectionIds.has(connection.id) &&
+      providerHealthForRun[connection.id]?.status === 'offline',
+    );
+    if (offlineLlmConnection) {
+      const detail = providerHealthForRun[offlineLlmConnection.id]?.detail;
+      notifySystem(
+        'error',
+        `Provider ${offlineLlmConnection.label} is offline${detail ? `: ${detail}` : '.'}`,
+      );
+      activeRun.current = null;
+      setActiveRunId(null);
+      activeRunLlmReport.current = null;
+      setRunLlmReport(null);
+      return false;
+    }
     const turnContext: TurnContext = existingInputMessage?.turnContext ?? {
       englishProcessingEnabled: existingInputMessage
         ? !!existingInputMessage.translatedText
@@ -2388,13 +2394,28 @@ export function useGraphRun(options: UseGraphRunOptions) {
             );
             continue;
           }
-          const from = canonicalPhoneName(phoneCharacters, postComment.from);
-          const commentCharacter = phoneCharacters.find((character) =>
-            phoneNamesMatch(character.name, from),
-          );
-          const handle = commentCharacter
-            ? socialHandleForCharacter(commentCharacter, postComment.app)
-            : socialHandleForName(from);
+          // Commenters go through the same identity resolution as social DMs,
+          // so known Storybook characters without an account in the app are
+          // blocked here too instead of silently gaining one.
+          const resolvedCommenter = resolveSocialMessageIdentity({
+            characters: storyCharacters,
+            messages: messagesRef.current,
+            app: postComment.app,
+            identity: postComment.from,
+          });
+          if (!resolvedCommenter.available) {
+            reportRunWarning(
+              `${socialAppNames[postComment.app]} post comment was ignored. ${resolvedCommenter.reason}`,
+              outputNodeTraceInfo,
+            );
+            continue;
+          }
+          const from = resolvedCommenter.name;
+          const handle = resolvedCommenter.handle ??
+            (resolvedCommenter.character
+              ? socialHandleForCharacter(resolvedCommenter.character, postComment.app)
+              : establishedSocialHandle(messagesRef.current, postComment.app, from) ??
+                socialHandleForName(from));
           const historyText = `[${socialAppNames[postComment.app]}] ${from} (@${handle}) commented on ${postComment.postId}: "${postComment.text}"`;
           const translatedText = await translateOutputActionText(historyText, { text: historyText });
           appendMessage({
@@ -2771,11 +2792,18 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         } catch (error) {
           if (isRunCancelledError(error)) {
-            throw error;
+            // The visible reply is already delivered at this point. Only a
+            // restart may roll the turn back for its re-run; a plain cancel
+            // keeps the turn and just skips the remaining preparation.
+            if ((activeRunCancelReason.current as CancelReason) === 'restart') {
+              throw error;
+            }
+            notifySystem('info', 'Next-turn preparation cancelled; the delivered reply was kept.');
+          } else {
+            reportRunWarning(
+              `Next-turn preparation failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
           }
-          reportRunWarning(
-            `Next-turn preparation failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
         }
       }
       onSuccessfulRunBeforeCommit?.();
