@@ -759,6 +759,43 @@ export function normalizeRpStorybookV1(value: unknown): RpStorybookV1 {
   };
 }
 
+/**
+ * A tiny, ready-to-run starter story used when a fresh Storybook node is added,
+ * so the chat works out of the box (one player + one actor) — enough to try a
+ * turn and test a provider connection before writing your own story. Normalized
+ * so every character field carries its defaults.
+ */
+export const starterRpStorybookV1: RpStorybookV1 = normalizeRpStorybookV1({
+  format: 'rpgraph-storybook',
+  version: currentRpStorybookVersion,
+  title: 'Starter Story',
+  introduction:
+    'A tiny ready-to-run scene so you can try the chat and test your provider connection right away. Replace it with your own story whenever you like.',
+  scenario: {
+    summary: 'Two friends share a quiet evening at a roadside inn as the rain sets in.',
+    openingSituation: 'You have just settled in by the fire, glad for a warm place to rest.',
+    currentSituation: 'The common room is warm and nearly empty.',
+  },
+  characters: [
+    {
+      id: 'you',
+      name: 'You',
+      description: 'A traveler passing through, curious about the little inn and its people.',
+      personality: 'Easygoing and curious.',
+      speechStyle: 'Natural and relaxed.',
+      role: 'Player',
+    },
+    {
+      id: 'mira',
+      name: 'Mira',
+      description: "The innkeeper's daughter, quick-witted and full of local stories.",
+      personality: 'Warm, playful, and endlessly curious about newcomers.',
+      speechStyle: 'Friendly and animated; asks lots of questions.',
+      role: 'Companion',
+    },
+  ],
+});
+
 const storybookParseCacheMaxEntries = 1;
 const storybookParseCache: Array<{ text: string; storybook: RpStorybookV1 }> = [];
 

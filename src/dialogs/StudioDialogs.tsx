@@ -1301,6 +1301,7 @@ export function StudioDialogs({
       : isHistoryDialog
       ? [rawHistoryDisplayText, formattedHistoryText].join('\n\n')
       : textDialogNode?.data.nodeType === 'combiner' ||
+          textDialogNode?.data.nodeType === 'text-replace' ||
           textDialogNode?.data.nodeType === 'last-user-input' ||
           textDialogNode?.data.nodeType === 'last-rp-output' ||
           textDialogNode?.data.nodeType === 'load-text' ||

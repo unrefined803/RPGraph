@@ -2268,11 +2268,15 @@ input[type="radio"]:focus-visible {
   color: #f2d9de;
 }
 
+.incompatible-core-node .load-text-button {
+  margin-top: 16px;
+}
+
 .incompatible-core-node-hint {
   color: #c49da5;
   font-size: var(--node-secondary-text-size);
   line-height: 1.45;
-  margin: 14px 0 0;
+  margin: 10px 0 0;
 }
 
 .missing-node-ports {
@@ -3566,6 +3570,42 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .combiner-total {
   margin-bottom: 0;
+}
+
+.workflow-node.text-replace-node {
+  width: 430px;
+}
+
+.text-replace-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.text-replace-empty {
+  opacity: 0.7;
+}
+
+.text-replace-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.text-replace-field {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.text-replace-arrow {
+  flex: none;
+  opacity: 0.7;
+}
+
+.text-replace-remove {
+  flex: none;
 }
 
 .llm-decision-input {

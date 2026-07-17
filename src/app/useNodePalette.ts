@@ -89,7 +89,7 @@ const nodePaletteGroups: Array<{
   },
   {
     title: 'Text & Values',
-    types: ['note', 'group', 'combiner', 'memory-slot', 'phone-message-router', 'text-selector', 'write-text', 'fixed-number', 'fixed-bool', 'settings-value'],
+    types: ['note', 'group', 'combiner', 'text-replace', 'memory-slot', 'phone-message-router', 'text-selector', 'write-text', 'fixed-number', 'fixed-bool', 'settings-value'],
   },
   {
     title: 'Story Context',

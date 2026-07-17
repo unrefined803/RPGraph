@@ -19,9 +19,7 @@ import { isWorkflowFile } from '../workflow/validation';
 import { migrateStoredWorkflow } from '../workflow/migrations';
 
 function hydratedNodeStyle(node: WorkflowNode, data: WorkflowNodeData) {
-  if (data.kind !== undefined) {
-    return node.style;
-  }
+  // Only compatible nodes reach here (placeholder nodes are handled inline below).
   const hydratedNode = { ...node, data };
   return getRegisteredNode(data.nodeType)?.hydrateStyle?.(hydratedNode) ?? node.style;
 }
@@ -55,8 +53,23 @@ export function hydrateLoadedWorkflow({
     defaultConnectionId,
     connectionIds,
   };
-  let loadedNodes = migratedWorkflow.nodes.map((node) => {
+  let loadedNodes: WorkflowNode[] = migratedWorkflow.nodes.map((node): WorkflowNode => {
     const data = hydrateNodeData(node.data, hydrateContext);
+    if (data.kind !== undefined) {
+      // Placeholder nodes (incompatible core / missing plugin) render a small card.
+      // Drop the saved dimensions so React Flow re-measures to the card instead of
+      // leaving a large, empty-but-draggable wrapper at the old saved size.
+      const { width: _width, height: _height, ...restStyle } = node.style ?? {};
+      return {
+        ...node,
+        width: undefined,
+        height: undefined,
+        measured: undefined,
+        style: restStyle,
+        selected: false,
+        data,
+      };
+    }
     return {
       ...node,
       style: hydratedNodeStyle(node, data),

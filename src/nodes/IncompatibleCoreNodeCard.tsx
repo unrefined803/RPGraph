@@ -1,7 +1,9 @@
 import type { NodeProps } from '@xyflow/react';
 import type { WorkflowNode } from '../types';
+import { useNodeActions } from './NodeActionsContext';
 
-export function IncompatibleCoreNodeCard({ data }: NodeProps<WorkflowNode>) {
+export function IncompatibleCoreNodeCard({ id, data }: NodeProps<WorkflowNode>) {
+  const { upgradeNode } = useNodeActions();
   return (
     <div className="workflow-node incompatible-core-node">
       <div className="node-title-row">
@@ -26,8 +28,16 @@ export function IncompatibleCoreNodeCard({ data }: NodeProps<WorkflowNode>) {
           <dd>{data.currentNodeVersion}</dd>
         </div>
       </dl>
+      <button
+        type="button"
+        className="load-text-button nodrag"
+        onClick={() => upgradeNode(id)}
+      >
+        Upgrade Node
+      </button>
       <p className="incompatible-core-node-hint">
-        Add the current node from the node menu and reconnect it manually.
+        Recreates the current version and copies matching settings. Some settings may
+        reset, and you will need to reconnect its wires.
       </p>
     </div>
   );

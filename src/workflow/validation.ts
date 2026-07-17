@@ -299,6 +299,15 @@ function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
     !isOptionalFiniteNumber(value.combinerInputCount) ||
     (value.combinerPrefixes !== undefined && !isStringArray(value.combinerPrefixes)) ||
     (value.combinerInputPreviews !== undefined && !isStringArray(value.combinerInputPreviews)) ||
+    (value.textReplaceEntries !== undefined &&
+      (!Array.isArray(value.textReplaceEntries) ||
+        !value.textReplaceEntries.every(
+          (entry) =>
+            isRecord(entry) &&
+            typeof entry.id === 'string' &&
+            typeof entry.source === 'string' &&
+            typeof entry.replacement === 'string',
+        ))) ||
     (value.llmDecisionQuestions !== undefined && !isStringArray(value.llmDecisionQuestions)) ||
     (value.llmDecisionOutputToggles !== undefined &&
       !isLlmDecisionOutputTogglesArray(value.llmDecisionOutputToggles)) ||

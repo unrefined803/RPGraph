@@ -13,6 +13,7 @@ import {
   llmPromptSwitchSelectedOutputChannel,
   llmPromptSwitchSelectedPromptSlot,
   settingsValueEntries,
+  textReplaceEntries,
   textSelectorInputCount,
   textSelectorMode,
   textRouterMode,
@@ -241,6 +242,14 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
         combinerPrefixes: combinerPrefixes(data),
       });
     },
+  },
+  'text-replace': {
+    saveData: (data) => preservedData(data, data.preview, {
+      textReplaceEntries: textReplaceEntries(data),
+    }),
+    hydrateData: (data) => preservedData(data, data.preview, {
+      textReplaceEntries: textReplaceEntries(data),
+    }),
   },
   'load-text': {
     saveData: (data) => preservedData(data, data.preview, {

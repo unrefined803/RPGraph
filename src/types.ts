@@ -227,6 +227,12 @@ export type SettingsValueEntry = {
   label: string;
 };
 
+export type TextReplaceEntry = {
+  id: string;
+  source: string;
+  replacement: string;
+};
+
 export type LlmDecisionOutputToggles = {
   bool: boolean;
   text: boolean;
@@ -335,6 +341,7 @@ type WorkflowNodeCommonFields = {
   combinerInputCount?: number;
   combinerPrefixes?: string[];
   combinerInputPreviews?: string[];
+  textReplaceEntries?: TextReplaceEntry[];
   characterStatDefinitions?: CharacterStatDefinition[];
   characterStatsState?: CharacterStatsState;
   characterStatsBaselineState?: CharacterStatsState;
@@ -480,6 +487,7 @@ type ContextBuilderNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'contex
 type LlmDecisionNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'llm-decision' };
 type LlmPromptNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'llm-prompt' };
 type CombinerNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'combiner' };
+type TextReplaceNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'text-replace' };
 type CharacterStatsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'character-stats' };
 type OutputNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'output' };
 type RpStorybookV1NodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook-v1' };
@@ -510,6 +518,7 @@ type ConcreteCoreWorkflowNodeData =
   | LlmDecisionNodeData
   | LlmPromptNodeData
   | CombinerNodeData
+  | TextReplaceNodeData
   | CharacterStatsNodeData
   | OutputNodeData
   | RpStorybookV1NodeData

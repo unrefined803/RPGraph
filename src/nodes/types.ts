@@ -242,6 +242,7 @@ export type NodeActions = {
   showOutputFormatHelp: (kind: OutputFormatHelpKind) => void;
   openStorybookCreator: (nodeId: string) => void;
   openStorybookEditor: (nodeId: string) => void;
+  upgradeNode: (nodeId: string) => void;
   openCustomNodeAssistant: (nodeId: string) => void;
   runCustomNodeButton: (nodeId: string, label: string) => Promise<void>;
   loadStorybookFile: (nodeId: string) => Promise<boolean>;
@@ -257,6 +258,14 @@ export type NodeActions = {
   ) => void;
   changeCombinerPrefix: (nodeId: string, index: number, value: string) => void;
   changeCombinerInputCount: (nodeId: string, change: number) => void;
+  addTextReplaceEntry: (nodeId: string) => void;
+  removeTextReplaceEntry: (nodeId: string, entryId: string) => void;
+  changeTextReplaceEntry: (
+    nodeId: string,
+    entryId: string,
+    field: 'source' | 'replacement',
+    value: string,
+  ) => void;
   changeLlmDecisionQuestionCount: (nodeId: string, change: number) => void;
   changeLlmDecisionQuestion: (nodeId: string, index: number, value: string) => void;
   changeLlmDecisionOutput: (

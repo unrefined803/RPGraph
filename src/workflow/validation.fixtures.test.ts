@@ -3548,6 +3548,63 @@ export function verifyWorkflowValidationFixtures() {
     'hydration must replace a missing connection with the active default',
   );
 
+  const textReplaceEntriesFixture = [
+    { id: 'r1', source: 'Hero', replacement: 'Aria' },
+    { id: 'r2', source: 'city', replacement: 'Old Harbor' },
+  ];
+  const persistedTextReplace = persistentNodeData({
+    nodeType: 'text-replace',
+    label: 'Text Replace',
+    description: 'Swap source text for replacements',
+    preview: 'No replacements configured',
+    textReplaceEntries: textReplaceEntriesFixture,
+  } as WorkflowNodeData);
+  const hydratedTextReplace = hydrateNodeData(persistedTextReplace, {
+    defaultConnectionId: 'active-default',
+    connectionIds: new Set(['active-default']),
+  });
+  assertFixture(
+    JSON.stringify(hydratedTextReplace.textReplaceEntries) ===
+      JSON.stringify(textReplaceEntriesFixture),
+    'text replace rows must survive a save and hydrate round-trip with order and fields intact',
+  );
+
+  const textReplaceWorkflow = (entries: unknown): unknown => ({
+    format: 'rpgraph-workflow',
+    formatVersion: currentWorkflowFormatVersion,
+    savedAt: '2026-06-01T00:00:00.000Z',
+    nodes: [{
+      id: 'text-replace-1',
+      type: 'workflow',
+      position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'text-replace',
+        nodeDataVersion: '1.0.0',
+        label: 'Text Replace',
+        description: 'Swap source text for replacements',
+        preview: 'No replacements configured',
+        textReplaceEntries: entries,
+      },
+    }],
+    edges: [],
+  });
+  assertFixture(
+    isWorkflowFile(textReplaceWorkflow([{ id: 'r1', source: 'a', replacement: 'b' }])),
+    'a text replace node with well-formed rows must validate',
+  );
+  assertFixture(
+    !isWorkflowFile(textReplaceWorkflow('not-an-array')),
+    'a text replace node whose rows are not an array must be rejected',
+  );
+  assertFixture(
+    !isWorkflowFile(textReplaceWorkflow([{ id: 'r1', source: 'a' }])),
+    'a text replace row missing the replacement field must be rejected',
+  );
+  assertFixture(
+    !isWorkflowFile(textReplaceWorkflow([{ id: 1, source: 'a', replacement: 'b' }])),
+    'a text replace row with a non-string field must be rejected',
+  );
+
   const missingPluginData: Record<string, unknown> & {
     pluginConfiguration: { collection: string; topK: number };
   } = {

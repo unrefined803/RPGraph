@@ -4,9 +4,12 @@ import type {
   ContextBuilderItem,
   LlmDecisionOutputToggles,
   SettingsValueEntry,
+  TextReplaceEntry,
   WorkflowNode,
   WorkflowNodeData,
 } from '../types';
+
+export type { TextReplaceEntry } from '../types';
 import {
   contextLengthMaxOptionKey,
   defaultCharacterStatDefinitions,
@@ -69,6 +72,30 @@ export function combineTextInputs(prefixes: string[], inputs: string[]) {
     .flatMap((prefix, index) => [prefix, inputs[index] ?? ''])
     .filter(Boolean)
     .join('\n\n');
+}
+
+export function textReplaceEntries(data: WorkflowNodeData): TextReplaceEntry[] {
+  const entries = data.textReplaceEntries ?? [];
+  return entries.map((entry, index) => ({
+    id: entry?.id || `text-replace-${index}`,
+    source: entry?.source ?? '',
+    replacement: entry?.replacement ?? '',
+  }));
+}
+
+function escapeRegExpLiteral(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function applyTextReplacements(entries: TextReplaceEntry[], input: string): string {
+  return entries.reduce((text, entry) => {
+    if (!entry.source) {
+      return text;
+    }
+    const pattern = new RegExp(escapeRegExpLiteral(entry.source), 'gi');
+    // Function replacer keeps the replacement literal ($&, $1, ... are not interpreted).
+    return text.replace(pattern, () => entry.replacement);
+  }, input);
 }
 
 export function textRouterMode(data: WorkflowNodeData) {

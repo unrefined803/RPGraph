@@ -231,6 +231,7 @@ import { NodeActionsContext } from './nodes/NodeActionsContext';
 import type { OutputFormatHelpKind } from './nodes/output/formatHelp';
 import type { ExecuteTraceFormatResult } from './nodes/types';
 import { getRegisteredCoreNode } from './nodes/registry';
+import { buildUpgradedNode, storybookOrSingletonUpgradeConflict } from './nodes/nodeUpgrade';
 import type { NodeViewValues } from './nodes/types';
 import { NodeViewContext } from './nodes/NodeViewContext';
 import { WorkflowNodeRenderer } from './nodes/WorkflowNodeRenderer';
@@ -3589,6 +3590,44 @@ function App() {
     }));
   }
 
+  function handleUpgradeNode(nodeId: string) {
+    const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
+    if (!node || node.data.kind !== 'incompatible-core-node') {
+      return;
+    }
+    if (storybookOrSingletonUpgradeConflict(node, nodesRef.current)) {
+      notifySystem(
+        'warning',
+        `Cannot upgrade: a ${node.data.nodeType} node already exists in this workflow. Remove it first.`,
+      );
+      return;
+    }
+    const upgraded = buildUpgradedNode(node, {
+      createContext: {
+        defaultConnectionId,
+        position: node.position,
+        createId: (prefix) => `${prefix}-${uniqueId()}`,
+        readNodes: () => nodesRef.current,
+        originalHistory: formatChatHistory(messages, false, rpDateTimeFormat, rpWeekdayLanguage),
+        translatedHistory: formatChatHistory(messages, true, rpDateTimeFormat, rpWeekdayLanguage),
+      },
+      hydrateContext: {
+        defaultConnectionId,
+        connectionIds: new Set(connections.map((connection) => connection.id)),
+      },
+    });
+    if (!upgraded) {
+      return;
+    }
+    commitNodes(
+      nodesRef.current.map((candidate) => (candidate.id === nodeId ? upgraded : candidate)),
+    );
+    notifySystem(
+      'info',
+      `Upgraded ${node.data.nodeType} to v${upgraded.data.nodeDataVersion}. Reconnect its wires — edges to incompatible nodes were removed on load.`,
+    );
+  }
+
   const { nodeActions } = useNodeActionsController({
     nodesRef,
     edges,
@@ -3623,6 +3662,7 @@ function App() {
     setOutputFormatHelpKind,
     openStorybookCreator,
     openStorybookEditor: setStorybookEditorNodeId,
+    upgradeNode: handleUpgradeNode,
     openCustomNodeAssistant,
     runCustomNodeButton,
     loadStorybookFile,
@@ -6798,6 +6838,15 @@ function App() {
                   characterStorybookNodes.length > 0 &&
                   (narratorSelected || !!selectedCharacter)
                 )
+              }
+              runChatDisabledReason={
+                characterStorybookNodes.length === 0
+                  ? 'Add or load a Storybook with at least one named character to run the chat.'
+                  : !narratorSelected && !selectedCharacter
+                    ? 'Choose who you are playing as (or enable Narrator) to run the chat.'
+                    : !draft.trim() && draftImages.length === 0
+                      ? 'Type a message or attach an image to run the chat.'
+                      : undefined
               }
               autoplayEnabled={autoplay.enabled}
               autoplayMode={autoplay.mode}
