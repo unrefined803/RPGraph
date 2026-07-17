@@ -1221,7 +1221,7 @@ export function useProviderConnections({
       if (openRouterModels) {
         updateOpenRouterModelCache(editingConnection.id, openRouterModels);
       }
-      const geminiModels = !lmStudioModels && !ollamaModels && !openRouterModels && isGeminiConnection(editingConnection)
+      const geminiModels = !lmStudioModels && !ollamaModels && !llamaCppModels && !openRouterModels && isGeminiConnection(editingConnection)
         ? await window.rpgraph.listGeminiModels(editingConnection)
         : null;
       if (geminiModels) {

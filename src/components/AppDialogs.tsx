@@ -1883,7 +1883,8 @@ function CharacterImagesDialog({
     const captionChange = lastItem(imageCaptionChangesById.get(imageId) ?? []);
     if (
       !currentImage ||
-      (currentImage.description === nextDescription && captionChange?.afterCaption === nextDescription)
+      (currentImage.description === nextDescription &&
+        (!captionChange || captionChange.afterCaption === nextDescription))
     ) {
       return;
     }
