@@ -1,17 +1,17 @@
-// Prompt-step markers split one prompt text into a Step 1 planning prompt and
-// the Step 2 main prompt. A marker is a standalone line like
-// "--- Step 1: Planning" (case-insensitive, at least three dashes, free title
-// after the colon). Text under a "Step 1" marker becomes the planning pass;
-// text before the first marker or under "Step 2" (or any higher number) stays
-// the main prompt. Prompts without a Step 1 marker keep the classic
-// single-pass behavior.
+// Prompt-step markers split one prompt text into a planning prompt and the
+// main prompt. A marker is a standalone line reading "@step:planning" or
+// "@step:main" (case-insensitive). Text under "@step:planning" becomes the
+// planning pass; text before the first marker or under "@step:main" stays the
+// main prompt. Prompts without a "@step:planning" marker keep the classic
+// single-pass behavior. Everything the planning LLM sees comes from the prompt
+// text itself; the code only splits sections, dices the plan's percentages,
+// and injects the rolled plan at the "@output:planning" token.
 
-const promptStepMarkerPattern =
-  /^[ \t]*-{3,}[ \t]*step[ \t]*([0-9]+)[ \t]*(?::[ \t]*([^\n\r]*?))?[ \t]*-*[ \t]*$/gim;
+const promptStepMarkerPattern = /^[ \t]*@step:[ \t]*(planning|main)[ \t]*$/gim;
 
-// Marks where the rolled Step 1 plan is injected into the Step 2 text. Without
-// this token the plan block is prepended to the top of the main prompt.
-export const planOutputTokenPattern = /@plan:output\b/gi;
+// Marks where the rolled plan is injected into the main prompt. Without this
+// token the plan is prepended to the top of the main prompt.
+export const planOutputTokenPattern = /@output:planning\b/gi;
 
 type PromptStepSections = {
   plan: string;
@@ -20,9 +20,13 @@ type PromptStepSections = {
 };
 
 export function splitPromptStepSections(text: string): PromptStepSections {
-  const markers: Array<{ step: number; start: number; end: number }> = [];
-  text.replace(promptStepMarkerPattern, (raw, step: string, _title: string | undefined, index: number) => {
-    markers.push({ step: Number(step), start: index, end: index + raw.length });
+  const markers: Array<{ section: 'planning' | 'main'; start: number; end: number }> = [];
+  text.replace(promptStepMarkerPattern, (raw, section: string, index: number) => {
+    markers.push({
+      section: section.toLocaleLowerCase() as 'planning' | 'main',
+      start: index,
+      end: index + raw.length,
+    });
     return raw;
   });
   if (!markers.length) {
@@ -40,26 +44,14 @@ export function splitPromptStepSections(text: string): PromptStepSections {
     if (!section) {
       return;
     }
-    (marker.step <= 1 ? planParts : mainParts).push(section);
+    (marker.section === 'planning' ? planParts : mainParts).push(section);
   });
   return {
     plan: planParts.join('\n\n'),
     main: mainParts.join('\n\n'),
-    hasPlanStep: markers.some((marker) => marker.step <= 1),
+    hasPlanStep: markers.some((marker) => marker.section === 'planning'),
   };
 }
-
-// Fixed output instruction for the Step 1 planning pass. It is appended in
-// code so every prompt slot shares the exact same plan format.
-export const planPassInstructionText = [
-  'This is a planning pass only. The full prompt runs in the next step; do not write the story, dialogue, JSON, or any commands here.',
-  'Plan what can plausibly happen next in this turn. Output nothing but a short bullet list:',
-  '- Each bullet states one possible event, outcome of an attempted action, or development, in a single line.',
-  '- End every bullet with its probability as (NN%), where NN is a number from 1 to 100.',
-  '- 100% is practically certain, 50% is an even chance, low numbers are long shots.',
-  '- Never list impossible options: anything with a 0% chance is simply left out. The minimum listed chance is 1%.',
-  '- Cover the meaningful options, risks, and complications in roughly 3 to 6 bullets.',
-].join('\n');
 
 type PlanRollOutcome = 'great success' | 'success' | 'failure' | 'epic fail';
 
@@ -111,23 +103,11 @@ export function rollPlanOutcomes(planText: string, random: () => number = Math.r
   return { text, rolls };
 }
 
-// Wraps the rolled plan into the block that gets injected into the Step 2
-// prompt (at every @plan:output token, or at the very top without one).
-export function planContextBlock(rolledPlanText: string) {
-  return [
-    '[Step 1 planning result]',
-    'A planning pass outlined what can happen in this turn and every point was diced automatically. The noted outcome of each point (success, failure, ...) is binding: write the scene so it plays out accordingly. Treat the outline as guidance for events, not as text to quote.',
-    '',
-    rolledPlanText.trim(),
-    '[End of Step 1 planning result]',
-  ].join('\n');
-}
-
-export function injectPlanOutput(text: string, block: string) {
+export function injectPlanOutput(text: string, planText: string) {
   let injected = false;
   const result = text.replace(planOutputTokenPattern, () => {
     injected = true;
-    return block;
+    return planText;
   });
   return { text: result, injected };
 }

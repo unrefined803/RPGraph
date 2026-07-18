@@ -489,10 +489,10 @@ function splitPromptCommands(token: HighlightToken): HighlightToken[] {
   return tokens;
 }
 
-const stepMarkerLinePattern = /^[ \t]*-{3,}[ \t]*step[ \t]*[0-9]+[ \t]*(?::[ \t]*[^\n\r]*?)?[ \t]*-*[ \t]*$/gim;
+const stepMarkerLinePattern = /^[ \t]*@step:[ \t]*(?:planning|main)[ \t]*$/gim;
 
 function splitStepMarkers(token: HighlightToken): HighlightToken[] {
-  if (token.kind !== 'plain' || !/step/i.test(token.text)) {
+  if (token.kind !== 'plain' || !token.text.includes('@step')) {
     return [token];
   }
 
@@ -514,7 +514,7 @@ function splitStepMarkers(token: HighlightToken): HighlightToken[] {
 }
 
 function splitPlanOutputs(token: HighlightToken): HighlightToken[] {
-  if (token.kind !== 'plain' || !token.text.includes('@plan')) {
+  if (token.kind !== 'plain' || !token.text.includes('@output')) {
     return [token];
   }
 
@@ -677,7 +677,7 @@ export function JsonSyntaxTextarea({
   );
   const templateVariableHighlightActive = useMemo(() => !!templateVariableStatuses && /\{\{\s*[A-Za-z][A-Za-z0-9_]*\s*\}\}/.test(value), [templateVariableStatuses, value]);
   const stepHighlightActive = useMemo(
-    () => /^[ \t]*-{3,}[ \t]*step[ \t]*[0-9]+/im.test(value) || /@plan:output\b/i.test(value),
+    () => /@step:[ \t]*(?:planning|main)\b/i.test(value) || /@output:planning\b/i.test(value),
     [value],
   );
   const highlightActive = jsonHighlightActive || workflowVariableHighlightActive || promptActionHighlightActive || templateVariableHighlightActive || stepHighlightActive;

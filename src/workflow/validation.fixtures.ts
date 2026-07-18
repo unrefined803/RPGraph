@@ -5082,11 +5082,13 @@ async function verifyPromptRunFixtures() {
     referenceImages: [],
     promptBefore: '',
     promptAfter: [
-      '--- Step 1: Planning',
+      '@step:planning',
       'Plan the possible outcomes of the scene.',
-      '--- Step 2: Main Prompt',
+      'End every bullet with its probability as (NN%).',
+      '@step:main',
       'Write the scene as RP story text.',
-      '@plan:output',
+      'Here is the diced plan for this turn:',
+      '@output:planning',
       'Keep the reply short.',
     ].join('\n'),
     actionConfigs: [],
@@ -5098,26 +5100,29 @@ async function verifyPromptRunFixtures() {
   assertFixture(
     planStepPrompts.length === 2 &&
       planStepPrompts[0]?.includes('Plan the possible outcomes of the scene.') === true &&
-      planStepPrompts[0]?.includes('This is a planning pass only.') === true &&
+      planStepPrompts[0]?.includes('End every bullet with its probability as (NN%).') === true &&
       !planStepPrompts[0]?.includes('Write the scene as RP story text.'),
-    'a Step 1 section must run a separate planning pass without the Step 2 main prompt',
+    'a @step:planning section must run a separate planning pass without the main prompt',
   );
   const planStepMainPrompt = planStepPrompts[1] ?? '';
   assertFixture(
     planStepMainPrompt.includes('(80% chance, rolled 100: great success)') &&
       planStepMainPrompt.includes('(20% chance, rolled 1: epic fail)') &&
       planStepMainPrompt.indexOf('Write the scene as RP story text.') <
-        planStepMainPrompt.indexOf('[Step 1 planning result]') &&
-      planStepMainPrompt.indexOf('[End of Step 1 planning result]') <
+        planStepMainPrompt.indexOf('Here is the diced plan for this turn:') &&
+      planStepMainPrompt.indexOf('Here is the diced plan for this turn:') <
+        planStepMainPrompt.indexOf('(80% chance, rolled 100: great success)') &&
+      planStepMainPrompt.indexOf('(20% chance, rolled 1: epic fail)') <
         planStepMainPrompt.indexOf('Keep the reply short.') &&
-      !planStepMainPrompt.includes('@plan:output') &&
-      !planStepMainPrompt.includes('--- Step'),
-    'the diced Step 1 plan must replace the @plan:output token inside the Step 2 main prompt',
+      !planStepMainPrompt.includes('@output:planning') &&
+      !planStepMainPrompt.includes('@step:') &&
+      !planStepMainPrompt.includes('Plan the possible outcomes of the scene.'),
+    'the diced plan must replace the @output:planning token inside the main prompt',
   );
   assertFixture(
     planStepWarnings.length === 0 &&
       planStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.',
-    'a two-step prompt must return the Step 2 reply as the generated text',
+    'a two-step prompt must return the main-step reply as the generated text',
   );
 
   const runStreamingScenario = async (llmTexts: string[]) => {
