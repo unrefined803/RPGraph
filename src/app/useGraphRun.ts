@@ -707,6 +707,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
         data: {
           ...node.data,
           runActive: false,
+          runActiveStartedAtMs: undefined,
+          llmActiveCallLabel: undefined,
+          llmActiveCallStartedAtMs: undefined,
           runCompleted: !!node.data.runPrepared,
           runPrepared: false,
           runError: undefined,

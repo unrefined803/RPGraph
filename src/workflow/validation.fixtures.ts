@@ -197,6 +197,7 @@ import { applyTurnCheckpointToNodes } from '../data-management/checkpointStore';
 import { executeGraph, resolveCreateImageCharacterByName } from '../graph/executeGraph';
 import { NodeLlmApi } from '../llm/NodeLlmApi';
 import { TextMetricsApi } from '../llm/tokenMetrics';
+import { llmCallStageLabel, promptSwitchRouteLabel } from '../llm/callDisplay';
 import {
   hydrateNodeData,
   persistentNodeData,
@@ -5158,6 +5159,33 @@ async function verifyPromptRunFixtures() {
       planStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
         'Planning step output,Initial action output',
     'a two-step prompt must return the main reply and keep trace prompt/output passes aligned',
+  );
+  const promptSwitchCallDisplayData = {
+    nodeType: 'llm-prompt-switch',
+    label: 'LLM Prompt Switch',
+    description: '',
+    preview: '',
+    llmPromptSwitchOutputTitles: ['Messenger Apps'],
+    llmPromptSwitchPromptTitlesByOutput: [['WhatsUp Prompt No Image']],
+    llmPromptSwitchSelectedOutputChannel: 0,
+    llmPromptSwitchSelectedPromptSlot: 0,
+  } as WorkflowNodeData;
+  assertFixture(
+    promptSwitchRouteLabel(promptSwitchCallDisplayData) ===
+      'Messenger Apps / WhatsUp Prompt No Image' &&
+      llmCallStageLabel(
+        promptSwitchCallDisplayData,
+        'Messenger Apps / WhatsUp Prompt No Image / Planning step',
+      ) === 'Step: Planning' &&
+      llmCallStageLabel(
+        promptSwitchCallDisplayData,
+        'Messenger Apps / WhatsUp Prompt No Image',
+      ) === 'Step: Main' &&
+      llmCallStageLabel(
+        promptSwitchCallDisplayData,
+        'Messenger Apps / WhatsUp Prompt No Image / Command: Bank transfer',
+      ) === 'Command: Bank transfer',
+    'prompt switch call display labels must keep one route heading and concise stage names',
   );
 
   const runStreamingScenario = async (llmTexts: string[]) => {

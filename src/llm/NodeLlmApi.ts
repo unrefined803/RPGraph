@@ -9,7 +9,10 @@ type NodeLlmApiOptions = {
   ) => Promise<ConnectionPreset>;
   recordCall?: (nodeId: string, label: string, stats: LlmCallStats, metadata?: { startedAtMs: number }) => void;
   recordCalibrationSample?: (sample: CalibrationSample) => void;
-  onCallStart?: (nodeId: string, metadata: { hasImages: boolean }) => void;
+  onCallStart?: (
+    nodeId: string,
+    metadata: { hasImages: boolean; label: string; startedAtMs: number },
+  ) => void;
   onCallEnd?: (nodeId: string) => void;
   signal?: AbortSignal;
 };
@@ -37,7 +40,10 @@ export class NodeLlmApi {
   }
 
   withCallLifecycle(
-    onCallStart: (nodeId: string, metadata: { hasImages: boolean }) => void,
+    onCallStart: (
+      nodeId: string,
+      metadata: { hasImages: boolean; label: string; startedAtMs: number },
+    ) => void,
     onCallEnd: (nodeId: string) => void,
   ) {
     return new NodeLlmApi({
@@ -78,7 +84,11 @@ export class NodeLlmApi {
       );
       const images = connection.vision ? request.images : undefined;
       if (request.nodeId) {
-        this.options.onCallStart?.(request.nodeId, { hasImages: (images?.length ?? 0) > 0 });
+        this.options.onCallStart?.(request.nodeId, {
+          hasImages: (images?.length ?? 0) > 0,
+          label: request.label,
+          startedAtMs,
+        });
       }
       // Connection sampling settings are opt-in: only the story prompt
       // (LLM Prompt / LLM Prompt Switch) follows them. Every other call keeps

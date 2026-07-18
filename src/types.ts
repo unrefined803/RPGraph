@@ -291,7 +291,10 @@ type WorkflowNodeCommonFields = {
   currentNodeVersion?: NodeVersion;
   portsSnapshot?: PortSnapshot[];
   runActive?: boolean;
+  runActiveStartedAtMs?: number;
   runVisionActive?: boolean;
+  llmActiveCallLabel?: string;
+  llmActiveCallStartedAtMs?: number;
   runCompleted?: boolean;
   runPrepared?: boolean;
   runError?: string;

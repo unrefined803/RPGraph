@@ -134,6 +134,8 @@ Node header colors and outgoing wire colors show the current execution state:
 
 During execution, `executeGraph` sets `runActive`, `runCompleted`, `runPrepared`, and `runError` on node data. Card rendering converts those flags into CSS classes, and edge rendering colors outgoing wires from the source node state.
 
+LLM-capable node cards show a compact route heading followed by aligned call rows for input tokens, output tokens, reasoning tokens, and duration. Prompt Switch calls use short stage labels such as `Step: Planning`, `Step: Main`, `Action: Create character phone image`, and `Command: Bank transfer` instead of repeating the selected output and prompt titles on every row. While a roleplay run is active, the Chat tab also shows one temporary progress card above the composer. It follows the currently active node or LLM sub-step, runs its own elapsed-time clock, and disappears when the run finishes so the resulting story, phone, banking, or information cards take its place.
+
 ## Chat, Phone, And Events
 
 The right-side chat drawer has three user-facing modes:

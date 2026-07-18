@@ -59,6 +59,7 @@ import {
   validateSocialMessengerAccounts,
 } from '../../chat/socialMessageValidation';
 import { stripPlanBlocks, stripPlanBlocksFromStream } from '../../chat/messageFormats';
+import { readableRuntimeName } from '../../llm/callDisplay';
 
 export type PromptPreviewPart = {
   text: string;
@@ -913,7 +914,9 @@ export async function runActionAwarePrompt({
       }, new Map<PromptCommandId, PromptCommandPassRequest>()).values(),
     );
     if (uniqueRequests.length && visibleReply) {
-      const commandNames = uniqueRequests.map((request) => request.config.commandId).join(', ');
+      const commandNames = uniqueRequests
+        .map((request) => readableRuntimeName(request.config.commandId))
+        .join(', ');
       const instruction = promptCommandPassInstruction(visibleReply, uniqueRequests, actionResultTexts);
       const commandImagePass = currentImagePass();
       const commandTextInput = textInputForImagePass(inputValue, commandImagePass);
@@ -935,7 +938,7 @@ export async function runActionAwarePrompt({
         : undefined;
       const historySegments = historySegmentsForInputValue(context, commandTextInput);
       promptPasses.push({
-        label: `Command pass: ${commandNames}`,
+        label: `Command: ${commandNames}`,
         images: previewImagesForPass(commandImagePass),
         sections: [
           {
@@ -957,14 +960,14 @@ export async function runActionAwarePrompt({
       let output = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
-        label: `${callLabel(0)} / Command pass`,
+        label: `${callLabel(0)} / Command: ${commandNames}`,
         prompt: [commandTextInput, instruction].filter(Boolean).join('\n\n'),
         images: commandImagePass.images,
         onChunk: streamCommandOutput,
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
-      outputPasses.push({ label: `Command pass output`, text: output.text });
+      outputPasses.push({ label: `Command output: ${commandNames}`, text: output.text });
       let commandSocialValidation = validateSocialMessengerAccounts({
         text: output.text,
         characters: socialCharacters,
@@ -973,7 +976,7 @@ export async function runActionAwarePrompt({
       if (commandSocialValidation.issues.length > 0 && context.retryFormatErrorsEnabled) {
         const correction = socialMessageCorrectionContext(commandSocialValidation.issues);
         promptPasses.push({
-          label: 'Command social account correction replay',
+          label: `Command correction: ${commandNames}`,
           images: previewImagesForPass(commandImagePass),
           sections: [
             {
@@ -1003,7 +1006,7 @@ export async function runActionAwarePrompt({
         output = await context.llm.complete({
           connectionId: node.data.connectionId,
           nodeId: node.id,
-          label: `${callLabel(0)} / Command social account correction`,
+          label: `${callLabel(0)} / Command: ${commandNames} / Correction`,
           prompt: [commandTextInput, correction, instruction].filter(Boolean).join('\n\n'),
           images: commandImagePass.images,
           onChunk: streamCommandOutput,
@@ -1011,7 +1014,7 @@ export async function runActionAwarePrompt({
           useConnectionSampling: true,
         });
         outputPasses.push({
-          label: 'Command social account correction output',
+          label: `Command correction output: ${commandNames}`,
           text: output.text,
         });
         commandSocialValidation = validateSocialMessengerAccounts({
@@ -1101,7 +1104,7 @@ export async function runActionAwarePrompt({
     const output = await context.llm.complete({
       connectionId: node.data.connectionId,
       nodeId: node.id,
-      label: `${callLabel(0)} / After-reply action`,
+      label: `${callLabel(0)} / After-reply action: ${actionConfig.title}`,
       prompt: [promptBeforeForPass, textInputForPass, instruction].filter(Boolean).join('\n\n'),
       images: afterReplyImagePass.images,
       contributesToTokenCalibration,

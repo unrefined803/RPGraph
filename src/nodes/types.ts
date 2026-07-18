@@ -34,7 +34,10 @@ export type SharedNodeData<TType extends NodeTypeId = NodeTypeId> = {
   description: string;
   preview: string;
   runActive?: boolean;
+  runActiveStartedAtMs?: number;
   runVisionActive?: boolean;
+  llmActiveCallLabel?: string;
+  llmActiveCallStartedAtMs?: number;
   runCompleted?: boolean;
   runPrepared?: boolean;
   runError?: string;

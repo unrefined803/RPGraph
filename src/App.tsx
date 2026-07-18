@@ -6669,6 +6669,7 @@ function App() {
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
             <ChatConversationPanel
+              runtimeNodes={nodes}
               messages={messages}
               storyCharacters={storyCharacters}
               characterColors={characterColors}

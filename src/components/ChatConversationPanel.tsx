@@ -29,6 +29,7 @@ import type {
   RpDateTimeFormat,
   RpWeekdayLanguage,
   SocialPostRecord,
+  WorkflowNode,
 } from '../types';
 import {
   defaultChatTextSize,
@@ -72,6 +73,7 @@ import {
 } from '../chat/phoneAppsSessions';
 import { AutoplayControl } from '../chat/AutoplayControl';
 import type { AutoplayMode } from '../chat/useAutoplay';
+import { RunProgressCard } from '../chat/RunProgressCard';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
 const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
@@ -127,6 +129,7 @@ function rpTimePlaceholderParts(format: RpDateTimeFormat) {
 }
 
 type ChatConversationPanelProps = {
+  runtimeNodes: WorkflowNode[];
   messages: MessageRecord[];
   storyCharacters: StorybookCharacter[];
   characterColors: Map<string, string>;
@@ -217,6 +220,7 @@ type ChatConversationPanelProps = {
 };
 
 export function ChatConversationPanel({
+  runtimeNodes,
   messages,
   storyCharacters,
   characterColors,
@@ -1744,6 +1748,7 @@ export function ChatConversationPanel({
           );
         })}
       </div>
+      <RunProgressCard isRunning={isRunning} nodes={runtimeNodes} />
       <form
         ref={composerRef}
         className={`composer ${composerModeClass}`}
