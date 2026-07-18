@@ -5051,12 +5051,29 @@ async function verifyPromptRunFixtures() {
     'invalid social accounts must discard the first output and replay the same prompt once with targeted context',
   );
 
-  const planStepPrompts: string[] = [];
+  const planStepRequests: Array<{
+    prompt: string;
+    images?: Array<{ id: string }>;
+  }> = [];
   const planStepWarnings: string[] = [];
   const planStepOutputs = [
     '- Helga convinces Espen to lend her money (80%)\n- Espen storms off angrily (20%)',
     'Helga grins as Espen finally hands over the bill.',
   ];
+  const planInputImage = {
+    id: 'input_image_01',
+    name: 'Input image',
+    mimeType: 'image/jpeg' as const,
+    size: 1,
+    dataUrl: 'data:image/jpeg;base64,input',
+  };
+  const planReferenceImage = {
+    id: 'reference_image_01',
+    name: 'Reference image',
+    mimeType: 'image/jpeg' as const,
+    size: 1,
+    dataUrl: 'data:image/jpeg;base64,reference',
+  };
   const planStepRandomValues = [0.99, 0];
   const planStepContext = {
     nodes: [],
@@ -5065,9 +5082,9 @@ async function verifyPromptRunFixtures() {
     comfyProviderIds: [],
     providerHealthById: {},
     llm: {
-      supportsVision: async () => false,
-      complete: async (request: { prompt: string }) => {
-        planStepPrompts.push(request.prompt);
+      supportsVision: async () => true,
+      complete: async (request: { prompt: string; images?: Array<{ id: string }> }) => {
+        planStepRequests.push(request);
         return { text: planStepOutputs.shift() ?? '', connection: { label: 'Fixture LLM' } };
       },
     },
@@ -5078,8 +5095,13 @@ async function verifyPromptRunFixtures() {
     node,
     context: planStepContext,
     inputValue: 'Helga tries to convince Espen.',
-    images: [],
-    referenceImages: [],
+    images: [planInputImage],
+    referenceImages: [{
+      index: 1,
+      imageId: planReferenceImage.id,
+      attachment: planReferenceImage,
+      messageId: 1,
+    }],
     promptBefore: '',
     promptAfter: [
       '@step:planning',
@@ -5097,12 +5119,22 @@ async function verifyPromptRunFixtures() {
     callLabel: () => 'Fixture call',
     random: () => planStepRandomValues.shift() ?? 0.5,
   });
+  const planStepPrompts = planStepRequests.map((request) => request.prompt);
   assertFixture(
     planStepPrompts.length === 2 &&
       planStepPrompts[0]?.includes('Plan the possible outcomes of the scene.') === true &&
       planStepPrompts[0]?.includes('End every bullet with its probability as (NN%).') === true &&
       !planStepPrompts[0]?.includes('Write the scene as RP story text.'),
     'a @step:planning section must run a separate planning pass without the main prompt',
+  );
+  assertFixture(
+    planStepRequests.every((request) =>
+      request.images?.map((image) => image.id).join(',') ===
+        'input_image_01,reference_image_01' &&
+      request.prompt.includes('[Attached input image Nr1: input_image_01]') &&
+      request.prompt.includes('[Attached input image Nr2: reference_image_01]')
+    ),
+    'planning and main passes must both receive vision-enabled input and reference images in prompt order',
   );
   const planStepMainPrompt = planStepPrompts[1] ?? '';
   assertFixture(
@@ -5121,8 +5153,11 @@ async function verifyPromptRunFixtures() {
   );
   assertFixture(
     planStepWarnings.length === 0 &&
-      planStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.',
-    'a two-step prompt must return the main-step reply as the generated text',
+      planStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.' &&
+      planStepResult.debug.promptPasses?.length === 2 &&
+      planStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
+        'Planning step output,Initial action output',
+    'a two-step prompt must return the main reply and keep trace prompt/output passes aligned',
   );
 
   const runStreamingScenario = async (llmTexts: string[]) => {

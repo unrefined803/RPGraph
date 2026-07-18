@@ -392,6 +392,26 @@ export async function runActionAwarePrompt({
       name: image.name,
       source,
     }));
+  const currentImagePass = () => promptImagePass({
+    actionReplay: actionImages.length > 0,
+    actionImages,
+    inputImages: visionEnabled ? images : [],
+    referenceImages: referenceImageValues,
+  });
+  const textInputForImagePass = (
+    text: string,
+    imagePass: ReturnType<typeof promptImagePass>,
+  ) => promptWithReferenceImageMarkers(
+    promptWithImageAttachmentMarkers(text, imagePass.inputImages, imagePass.inputImageOffset),
+    usableReferenceImages,
+    imagePass.referenceImageOffset,
+  );
+  const previewImagesForPass = (imagePass: ReturnType<typeof promptImagePass>) =>
+    imagePreviewItems([
+      ...imagePass.actionImages.map((image) => ({ image, source: 'action' as const })),
+      ...imagePass.inputImages.map((image) => ({ image, source: 'input' as const })),
+      ...imagePass.referenceImages.map((image) => ({ image, source: 'reference' as const })),
+    ]);
 
   // While a pre-reply action is still pending, the LLM may answer with either an
   // action call or the visible reply. Hold streamed chunks back until the output
@@ -449,11 +469,14 @@ export async function runActionAwarePrompt({
     for (let planPassIndex = 0; planPassIndex <= maxPlanPasses; planPassIndex += 1) {
       const planBefore = promptSectionValue(beforeSteps.plan);
       const planAfter = promptSectionValue(afterSteps.plan);
-      const planHistorySegments = historySegmentsForInputValue(context, inputValue);
+      const planImagePass = currentImagePass();
+      const planTextInput = textInputForImagePass(inputValue, planImagePass);
+      const planHistorySegments = historySegmentsForInputValue(context, planTextInput);
       const planReplayCount = actionResultTexts.length;
       const passLabel = planReplayCount ? `Planning replay ${planReplayCount}` : 'Planning step';
       promptPasses.push({
         label: passLabel,
+        images: previewImagesForPass(planImagePass),
         sections: [
           ...(planBefore
             ? [{
@@ -464,8 +487,8 @@ export async function runActionAwarePrompt({
             : []),
           {
             label: 'Text Input',
-            text: inputValue,
-            parts: [{ text: inputValue, historySegments: planHistorySegments }],
+            text: planTextInput,
+            parts: [{ text: planTextInput, historySegments: planHistorySegments }],
             historySegments: planHistorySegments,
           },
           ...(planAfter
@@ -484,7 +507,8 @@ export async function runActionAwarePrompt({
         connectionId: node.data.connectionId,
         nodeId: node.id,
         label: `${callLabel(0)} / ${passLabel}`,
-        prompt: [planBefore, inputValue, planAfter].filter(Boolean).join('\n\n'),
+        prompt: [planBefore, planTextInput, planAfter].filter(Boolean).join('\n\n'),
+        images: planImagePass.images,
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
@@ -516,6 +540,7 @@ export async function runActionAwarePrompt({
       );
       promptPasses.push({
         label: `Planning action follow-up: ${actionConfig.title}`,
+        images: previewImagesForPass(planImagePass),
         sections: [
           ...(planBefore
             ? [{
@@ -526,8 +551,8 @@ export async function runActionAwarePrompt({
             : []),
           {
             label: 'Text Input',
-            text: inputValue,
-            parts: [{ text: inputValue, historySegments: planHistorySegments }],
+            text: planTextInput,
+            parts: [{ text: planTextInput, historySegments: planHistorySegments }],
             historySegments: planHistorySegments,
           },
           {
@@ -544,7 +569,8 @@ export async function runActionAwarePrompt({
         connectionId: node.data.connectionId,
         nodeId: node.id,
         label: `${callLabel(0)} / Planning action follow-up: ${actionConfig.title}`,
-        prompt: [planBefore, inputValue, followUpInstruction].filter(Boolean).join('\n\n'),
+        prompt: [planBefore, planTextInput, followUpInstruction].filter(Boolean).join('\n\n'),
+        images: planImagePass.images,
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
@@ -575,9 +601,7 @@ export async function runActionAwarePrompt({
     }
     const rolledPlan = rollPlanOutcomes(planText, random);
     if (rolledPlan.text.trim()) {
-      if (rolledPlan.rolls.length) {
-        outputPasses.push({ label: 'Plan after dice rolls', text: rolledPlan.text });
-      } else {
+      if (!rolledPlan.rolls.length) {
         context.reportWarning(
           `${node.data.label}: The plan contains no percentages; it is passed on without dice rolls.`,
         );
@@ -615,31 +639,12 @@ export async function runActionAwarePrompt({
     const actionReplayCount = actionResultTexts.length;
     const actionReplay = actionReplayCount > 0;
     const passLabel = actionReplay ? `Action replay ${actionReplayCount}` : 'Initial action prompt';
-    const inputImagesForPass = visionEnabled ? images : [];
-    const imagePass = promptImagePass({
-      actionReplay,
-      actionImages,
-      inputImages: inputImagesForPass,
-      referenceImages: referenceImageValues,
-    });
-    const textInputWithInputImageMarkers = promptWithImageAttachmentMarkers(
-      inputValue,
-      inputImagesForPass,
-      imagePass.inputImageOffset,
-    );
-    const textInputForPass = promptWithReferenceImageMarkers(
-      textInputWithInputImageMarkers,
-      usableReferenceImages,
-      imagePass.referenceImageOffset,
-    );
+    const imagePass = currentImagePass();
+    const textInputForPass = textInputForImagePass(inputValue, imagePass);
     const promptForPass = buildCombinedPrompt(textInputForPass);
     promptPasses.push({
       label: passLabel,
-      images: imagePreviewItems([
-        ...imagePass.actionImages.map((image) => ({ image, source: 'action' as const })),
-        ...imagePass.inputImages.map((image) => ({ image, source: 'input' as const })),
-        ...imagePass.referenceImages.map((image) => ({ image, source: 'reference' as const })),
-      ]),
+      images: previewImagesForPass(imagePass),
       sections: buildPromptSections(textInputForPass),
     });
     let output = await context.llm.complete({
@@ -783,30 +788,13 @@ export async function runActionAwarePrompt({
         actionAvailabilityOptions,
         actionRequest.plan,
       );
-      const followUpImagePass = promptImagePass({
-        actionReplay: false,
-        actionImages: [],
-        inputImages: inputImagesForPass,
-        referenceImages: referenceImageValues,
-      });
-      const followUpTextWithInputImageMarkers = promptWithImageAttachmentMarkers(
-        inputValue,
-        inputImagesForPass,
-        followUpImagePass.inputImageOffset,
-      );
-      const followUpTextInput = promptWithReferenceImageMarkers(
-        followUpTextWithInputImageMarkers,
-        usableReferenceImages,
-        followUpImagePass.referenceImageOffset,
-      );
+      const followUpImagePass = currentImagePass();
+      const followUpTextInput = textInputForImagePass(inputValue, followUpImagePass);
       const promptBeforeForFollowUp = promptSectionValue(promptBefore);
       const followUpHistorySegments = historySegmentsForInputValue(context, followUpTextInput);
       promptPasses.push({
         label: `Action follow-up: ${actionConfig.title}`,
-        images: imagePreviewItems([
-          ...followUpImagePass.inputImages.map((image) => ({ image, source: 'input' as const })),
-          ...followUpImagePass.referenceImages.map((image) => ({ image, source: 'reference' as const })),
-        ]),
+        images: previewImagesForPass(followUpImagePass),
         sections: [
           {
             label: 'Prompt Before Input',
@@ -927,6 +915,8 @@ export async function runActionAwarePrompt({
     if (uniqueRequests.length && visibleReply) {
       const commandNames = uniqueRequests.map((request) => request.config.commandId).join(', ');
       const instruction = promptCommandPassInstruction(visibleReply, uniqueRequests, actionResultTexts);
+      const commandImagePass = currentImagePass();
+      const commandTextInput = textInputForImagePass(inputValue, commandImagePass);
       // The command pass prompts still see the full reply including [[plan]]
       // blocks; everything streamed to the chat hides them.
       const streamedVisibleReply = stripPlanBlocks(visibleReply);
@@ -943,14 +933,15 @@ export async function runActionAwarePrompt({
             }
           }
         : undefined;
-      const historySegments = historySegmentsForInputValue(context, inputValue);
+      const historySegments = historySegmentsForInputValue(context, commandTextInput);
       promptPasses.push({
         label: `Command pass: ${commandNames}`,
+        images: previewImagesForPass(commandImagePass),
         sections: [
           {
             label: 'Text Input',
-            text: inputValue,
-            parts: [{ text: inputValue, historySegments }],
+            text: commandTextInput,
+            parts: [{ text: commandTextInput, historySegments }],
             historySegments,
           },
           {
@@ -967,7 +958,8 @@ export async function runActionAwarePrompt({
         connectionId: node.data.connectionId,
         nodeId: node.id,
         label: `${callLabel(0)} / Command pass`,
-        prompt: [inputValue, instruction].filter(Boolean).join('\n\n'),
+        prompt: [commandTextInput, instruction].filter(Boolean).join('\n\n'),
+        images: commandImagePass.images,
         onChunk: streamCommandOutput,
         contributesToTokenCalibration,
         useConnectionSampling: true,
@@ -982,11 +974,12 @@ export async function runActionAwarePrompt({
         const correction = socialMessageCorrectionContext(commandSocialValidation.issues);
         promptPasses.push({
           label: 'Command social account correction replay',
+          images: previewImagesForPass(commandImagePass),
           sections: [
             {
               label: 'Text Input',
-              text: inputValue,
-              parts: [{ text: inputValue, historySegments }],
+              text: commandTextInput,
+              parts: [{ text: commandTextInput, historySegments }],
               historySegments,
             },
             {
@@ -1011,7 +1004,8 @@ export async function runActionAwarePrompt({
           connectionId: node.data.connectionId,
           nodeId: node.id,
           label: `${callLabel(0)} / Command social account correction`,
-          prompt: [inputValue, correction, instruction].filter(Boolean).join('\n\n'),
+          prompt: [commandTextInput, correction, instruction].filter(Boolean).join('\n\n'),
+          images: commandImagePass.images,
           onChunk: streamCommandOutput,
           contributesToTokenCalibration,
           useConnectionSampling: true,
@@ -1073,15 +1067,15 @@ export async function runActionAwarePrompt({
     if (actionResults.has(actionKey)) {
       continue;
     }
-    const inputImagesForPass = visionEnabled ? images : [];
+    const afterReplyImagePass = currentImagePass();
     const instruction = promptActionAfterReplyText(actionConfig, visibleReply);
     const promptBeforeForPass = promptSectionValue(promptBefore);
-    const textInputForPass = promptWithImageAttachmentMarkers(inputValue, inputImagesForPass, 0);
+    const textInputForPass = textInputForImagePass(inputValue, afterReplyImagePass);
     const passLabel = `After-reply action: ${actionConfig.title}`;
     const historySegments = historySegmentsForInputValue(context, textInputForPass);
     promptPasses.push({
       label: passLabel,
-      images: imagePreviewItems(inputImagesForPass.map((image) => ({ image, source: 'input' as const }))),
+      images: previewImagesForPass(afterReplyImagePass),
       sections: [
         {
           label: 'Prompt Before Input',
@@ -1109,7 +1103,7 @@ export async function runActionAwarePrompt({
       nodeId: node.id,
       label: `${callLabel(0)} / After-reply action`,
       prompt: [promptBeforeForPass, textInputForPass, instruction].filter(Boolean).join('\n\n'),
-      images: inputImagesForPass,
+      images: afterReplyImagePass.images,
       contributesToTokenCalibration,
       useConnectionSampling: true,
     });
