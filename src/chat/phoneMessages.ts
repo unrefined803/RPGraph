@@ -901,6 +901,18 @@ export function embeddedPhoneMessagesLivePreview(value: string): EmbeddedPhoneMe
   if (!partial) {
     return complete;
   }
+  // The open object streams after every completed one, so its entries continue
+  // the source numbering. Without it the still-streaming bubble would lack a
+  // sourceOrder and briefly jump into the legacy phone-before-social order.
+  let nextSourceOrder = complete.phoneMessages.length + complete.socialDirectMessages.length;
+  for (const phoneMessage of partial.phoneMessages) {
+    phoneMessage.sourceOrder = nextSourceOrder;
+    nextSourceOrder += 1;
+  }
+  for (const socialMessage of partial.socialDirectMessages) {
+    socialMessage.sourceOrder = nextSourceOrder;
+    nextSourceOrder += 1;
+  }
   return {
     ...complete,
     phoneMessages: [...complete.phoneMessages, ...partial.phoneMessages],

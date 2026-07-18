@@ -19,7 +19,7 @@ No cloud account. No subscription. Your stories stay on **your** computer. 🔒
 - 📱 **A phone full of apps.** Characters text, post, and bank on an in-world phone whose messages appear inline in the story.
 - 📖 **Story memory.** Storybooks hold characters, world context, and images — including **SillyTavern character imports** — with a built-in assistant to create and edit them.
 - 🎛️ **Mix and match models.** Every LLM node can use its **own connection**: a small local model for simple jobs, a bigger model for the actual roleplay.
-- 🏠 **Local & private.** Works with local LLMs (LM Studio, Ollama, any OpenAI-compatible API) and saves everything as files on your disk — optionally **encrypted**.
+- 🏠 **Local & private.** Connects to LM Studio, Ollama, llama.cpp (router mode), OpenRouter, or Google Gemini. Optional ComfyUI connections add image and voice generation. Everything is saved as files on your disk — optionally **encrypted**.
 
 ---
 
@@ -93,4 +93,4 @@ RPGraph Studio is free software, licensed under the **GNU AGPL v3.0 or later**. 
 
 ## 🧪 Beta Notice
 
-RPGraph Studio (v0.4.8 Beta) is a hobby project built with AI assistance. I am not a professional developer — bugs are expected, feedback is welcome! 💙
+RPGraph Studio (v0.4.9 Beta) is a hobby project built with AI assistance. I am not a professional developer — bugs are expected, feedback is welcome! 💙

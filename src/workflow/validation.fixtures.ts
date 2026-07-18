@@ -3344,6 +3344,17 @@ export function verifyWorkflowValidationFixtures() {
       interleavedMessengerOutput.phoneMessages[0]?.sourceOrder === 1,
     'messenger entries must record their source order across phone and social apps',
   );
+  const streamingMessengerPreview = embeddedPhoneMessagesLivePreview([
+    'Helga fires off a parting shot.',
+    '{"fotogramApp":[{"from":"Helga Harper","to":"Troll872","message":"Stay mad!"}]}',
+    'Then she chases up her sister.',
+    '{"whatsUpApp":[{"from":"Helga Harper","to":"Espen Harper","message":"Hurry u',
+  ].join('\n\n'));
+  assertFixture(
+    streamingMessengerPreview.socialDirectMessages[0]?.sourceOrder === 0 &&
+      streamingMessengerPreview.phoneMessages[0]?.sourceOrder === 1,
+    'the streaming preview must number the open messenger object after every completed one',
+  );
   assertFixture(
     knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
       knownPromptCommandId('Simulate_ChatGPD') === 'simulate_ai_chat' &&
