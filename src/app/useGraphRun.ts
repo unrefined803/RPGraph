@@ -1098,6 +1098,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               from: phoneMessage.from,
               to: phoneMessage.to,
               message: phoneMessage.message,
+              sourceOrder: phoneMessage.sourceOrder,
             }))
           : undefined,
         embeddedSocialMessages: preview.socialDirectMessages.length > 0
@@ -1109,6 +1110,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
                     from: socialMessage.from,
                     to: socialMessage.to,
                     message: socialMessage.text,
+                    sourceOrder: socialMessage.sourceOrder,
                   }]
                 : [],
             )
@@ -1953,6 +1955,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             from: canonicalEmbeddedPhoneMessage.from,
             to: canonicalEmbeddedPhoneMessage.to,
             message: canonicalEmbeddedPhoneMessage.message,
+            sourceOrder: canonicalEmbeddedPhoneMessage.sourceOrder,
           });
         }
         // Link the phone records to the output message before the slow
@@ -2572,6 +2575,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             to: record.to,
             message: record.text,
             translatedMessage: translatedDmText,
+            sourceOrder: incoming.sourceOrder,
           };
         };
         for (const incomingSocialDm of embeddedSocialDirectMessages) {

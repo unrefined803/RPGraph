@@ -3333,6 +3333,17 @@ export function verifyWorkflowValidationFixtures() {
       embeddedPhoneConversation.phoneMessages[1]?.message === 'Yes, on my way home.',
     'embedded phone parser must preserve multi-message conversations in order',
   );
+  const interleavedMessengerOutput = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Helga fires off a parting shot.',
+    '{"fotogramApp":[{"from":"Helga Harper","to":"Troll872","message":"Stay mad!"}]}',
+    'Then she chases up her sister.',
+    '{"whatsUpApp":[{"from":"Helga Harper","to":"Espen Harper","message":"Hurry up!"}]}',
+  ].join('\n\n'));
+  assertFixture(
+    interleavedMessengerOutput.socialDirectMessages[0]?.sourceOrder === 0 &&
+      interleavedMessengerOutput.phoneMessages[0]?.sourceOrder === 1,
+    'messenger entries must record their source order across phone and social apps',
+  );
   assertFixture(
     knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
       knownPromptCommandId('Simulate_ChatGPD') === 'simulate_ai_chat' &&

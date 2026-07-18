@@ -111,6 +111,47 @@ function isStandaloneEmbeddedPhoneOutput(message: MessageRecord) {
   );
 }
 
+type EmbeddedMessengerGroup =
+  | { kind: 'phone'; phoneMessages: EmbeddedPhoneMessageLink[] }
+  | { kind: 'social'; socialMessages: EmbeddedSocialMessageLink[] };
+
+// Interleaves the phone and social bubble stacks back into the order the
+// messenger objects appeared in the RP output. Messages without a stored
+// sourceOrder (older sessions) keep the legacy phone-then-social order.
+function embeddedMessengerGroups(message: MessageRecord): EmbeddedMessengerGroup[] {
+  const entries = [
+    ...(message.embeddedPhoneMessages ?? []).map((link) => ({
+      kind: 'phone' as const,
+      order: link.sourceOrder,
+      link,
+    })),
+    ...(message.embeddedSocialMessages ?? []).map((link) => ({
+      kind: 'social' as const,
+      order: link.sourceOrder,
+      link,
+    })),
+  ];
+  if (entries.every((entry) => entry.order !== undefined)) {
+    entries.sort((a, b) => a.order! - b.order!);
+  }
+  const groups: EmbeddedMessengerGroup[] = [];
+  for (const entry of entries) {
+    const current = groups[groups.length - 1];
+    if (entry.kind === 'phone') {
+      if (current?.kind === 'phone') {
+        current.phoneMessages.push(entry.link);
+      } else {
+        groups.push({ kind: 'phone', phoneMessages: [entry.link] });
+      }
+    } else if (current?.kind === 'social') {
+      current.socialMessages.push(entry.link);
+    } else {
+      groups.push({ kind: 'social', socialMessages: [entry.link] });
+    }
+  }
+  return groups;
+}
+
 function phoneReplySizeClass(text: string) {
   if (text.length > 120) {
     return ' long';
@@ -1657,19 +1698,23 @@ export function ChatConversationPanel({
                               {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextBefore, speakerNames), 'before')}
                             </span>
                           )}
-                          {(message.embeddedPhoneMessages?.length ?? 0) > 0 && (
-                            outsidePhoneDisplayMode === 'bubbles' ? (
-                              renderPhoneBubbleStack(message.embeddedPhoneMessages ?? [], true)
-                            ) : (
-                              <span className="embedded-phone-links inline" aria-label="Sent phone messages">
-                                {(message.embeddedPhoneMessages ?? []).map((phoneMessage) => (
-                                  renderPhoneActionButton(phoneMessage)
-                                ))}
-                              </span>
-                            )
-                          )}
-                          {(message.embeddedSocialMessages?.length ?? 0) > 0 &&
-                            renderEmbeddedSocialMessages(message.embeddedSocialMessages ?? [])}
+                          {embeddedMessengerGroups(message).map((group, groupIndex) => (
+                            <Fragment key={`embedded-messenger-group-${groupIndex}`}>
+                              {group.kind === 'phone' ? (
+                                outsidePhoneDisplayMode === 'bubbles' ? (
+                                  renderPhoneBubbleStack(group.phoneMessages, true)
+                                ) : (
+                                  <span className="embedded-phone-links inline" aria-label="Sent phone messages">
+                                    {group.phoneMessages.map((phoneMessage) => (
+                                      renderPhoneActionButton(phoneMessage)
+                                    ))}
+                                  </span>
+                                )
+                              ) : (
+                                renderEmbeddedSocialMessages(group.socialMessages)
+                              )}
+                            </Fragment>
+                          ))}
                           {compositeTextAfter && (
                             <span className="message-composite-text">
                               {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextAfter, speakerNames), 'after')}

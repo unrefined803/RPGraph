@@ -26,6 +26,8 @@ export type ParsedPhoneMessage = {
   translatedMessage?: string;
   imageAttachments?: ChatImageAttachment[];
   turnContext?: TurnContext;
+  /** Position among all messenger entries of one RP output, in source order. */
+  sourceOrder?: number;
 };
 
 export type ParsedPhoneImageAction = {
@@ -82,6 +84,8 @@ export type ParsedIncomingSocialDirectMessage = {
   postId?: string;
   /** OnlyFriends-only optional tip credited to the recipient's wallet. */
   tip?: number;
+  /** Position among all messenger entries of one RP output, in source order. */
+  sourceOrder?: number;
 };
 
 export type EmbeddedPhoneMessagesResult = {
@@ -677,6 +681,19 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     }
   }
   if (parsedRanges.length > 0) {
+    // Number every messenger entry across the whole output so display can keep
+    // the source order even though phone and social messages are stored apart.
+    let messengerSourceOrder = 0;
+    for (const range of parsedRanges) {
+      for (const phoneMessage of range.phoneMessages) {
+        phoneMessage.sourceOrder = messengerSourceOrder;
+        messengerSourceOrder += 1;
+      }
+      for (const socialMessage of range.socialDirectMessages) {
+        socialMessage.sourceOrder = messengerSourceOrder;
+        messengerSourceOrder += 1;
+      }
+    }
     const textBefore = value.slice(0, parsedRanges[0].start).replace(/\n{3,}$/g, '\n\n').trim();
     const textAfter = parsedRanges
       .map((range, index) => {
