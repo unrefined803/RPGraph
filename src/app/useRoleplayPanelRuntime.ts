@@ -187,7 +187,6 @@ export function useRoleplayPanelRuntime({
   const chatAutoFollowAnimatingRef = useRef(false);
   const chatAutoFollowProgrammaticScrollRef = useRef(false);
   const chatAutoFollowProgrammaticClearFrameRef = useRef(0);
-  const chatAutoFollowUserScrollRef = useRef(false);
   const isRunningRef = useRef(isRunning);
 
   useEffect(() => {
@@ -1227,9 +1226,11 @@ export function useRoleplayPanelRuntime({
   ]);
 
   function chatThreadIsNearBottom(thread: HTMLDivElement) {
+    // Re-engage auto-follow anywhere in the lower stretch of the viewport, not
+    // only within a few pixels of the bottom, so "almost at the bottom" counts.
+    const followMargin = Math.max(chatAutoFollowBottomMargin, thread.clientHeight * 0.1);
     return (
-      thread.scrollHeight - thread.scrollTop - thread.clientHeight <=
-      chatAutoFollowBottomMargin
+      thread.scrollHeight - thread.scrollTop - thread.clientHeight <= followMargin
     );
   }
 
@@ -1247,23 +1248,22 @@ export function useRoleplayPanelRuntime({
     if (!thread) {
       return undefined;
     }
+    // Pause the follow animation while the user interacts (wheel, touch,
+    // scrollbar drag, keys) so it never fights their input. Whether follow
+    // stays engaged is decided purely by where actual scrolling ends up: a
+    // click that scrolls nothing leaves auto-follow untouched.
     const markUserScrollIntent = () => {
-      chatAutoFollowUserScrollRef.current = true;
       cancelChatAutoFollowAnimation();
     };
     const updateAutoFollow = () => {
-      const nearBottom = chatThreadIsNearBottom(thread);
       if (
-        (chatAutoFollowProgrammaticScrollRef.current || chatAutoFollowAnimatingRef.current) &&
-        !chatAutoFollowUserScrollRef.current
+        chatAutoFollowProgrammaticScrollRef.current ||
+        chatAutoFollowAnimatingRef.current
       ) {
         chatAutoFollowBottomRef.current = true;
         return;
       }
-      chatAutoFollowBottomRef.current = nearBottom;
-      if (nearBottom) {
-        chatAutoFollowUserScrollRef.current = false;
-      }
+      chatAutoFollowBottomRef.current = chatThreadIsNearBottom(thread);
     };
     thread.addEventListener('wheel', markUserScrollIntent, { passive: true });
     thread.addEventListener('touchstart', markUserScrollIntent, { passive: true });
