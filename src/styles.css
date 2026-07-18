@@ -4658,6 +4658,34 @@ input[type="number"]::-webkit-outer-spin-button {
   background: #0f1725;
 }
 
+.prompt-preview-section.prompt {
+  border-color: rgba(91, 139, 214, 0.56);
+  background: rgba(35, 68, 119, 0.16);
+}
+
+.prompt-preview-section.prompt .prompt-preview-section-label {
+  color: #b9d1fa;
+  background: rgba(66, 112, 183, 0.12);
+}
+
+.prompt-preview-section.output {
+  border-color: rgba(65, 181, 147, 0.58);
+  background: rgba(25, 105, 83, 0.14);
+  box-shadow: inset 3px 0 0 rgba(76, 205, 166, 0.34);
+}
+
+.prompt-preview-section.output .prompt-preview-section-label {
+  padding-block: 9px;
+  color: #a9efd7;
+  background: rgba(47, 151, 121, 0.14);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.prompt-preview-section.output .prompt-preview-section-text {
+  padding: 12px;
+}
+
 .prompt-preview-section-label {
   display: block;
   padding: 7px 10px;
@@ -4785,6 +4813,25 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 8px;
   background: rgba(218, 133, 54, 0.08);
   color: #f4c58c;
+}
+
+.prompt-preview-step-output {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid rgba(218, 133, 54, 0.58);
+  border-left-width: 3px;
+  border-radius: 8px;
+  color: #f4c58c;
+  background: rgba(218, 133, 54, 0.1);
+}
+
+.prompt-preview-step-output > strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #ffd19a;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .prompt-preview-empty {
@@ -17220,6 +17267,11 @@ button.message-timeline-row.phone:focus-visible {
   border-top: 1px solid rgba(43, 56, 80, 0.72);
 }
 
+.turn-trace-prompt-section.prompt {
+  background: rgba(35, 68, 119, 0.14);
+  box-shadow: inset 3px 0 0 rgba(91, 139, 214, 0.28);
+}
+
 .turn-trace-prompt-pass header + .turn-trace-prompt-section {
   border-top: 0;
 }
@@ -17309,10 +17361,36 @@ button.message-timeline-row.phone:focus-visible {
 
 .turn-trace-output-pass {
   margin-top: 8px;
-  padding: 9px 10px;
-  border: 1px solid rgba(82, 105, 148, 0.42);
+  padding: 11px 12px;
+  border: 1px solid rgba(65, 181, 147, 0.52);
+  border-left-width: 3px;
   border-radius: 8px;
-  background: rgba(7, 12, 20, 0.42);
+  background: rgba(25, 105, 83, 0.13);
+}
+
+.turn-trace-output-pass > strong {
+  color: #a9efd7;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.turn-trace-step-output-insertion {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid rgba(218, 133, 54, 0.58);
+  border-left-width: 3px;
+  border-radius: 8px;
+  color: #f4c58c;
+  background: rgba(218, 133, 54, 0.1);
+}
+
+.turn-trace-step-output-insertion > strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #ffd19a;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .turn-trace-format-result {

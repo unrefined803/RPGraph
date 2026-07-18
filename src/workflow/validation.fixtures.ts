@@ -5170,9 +5170,15 @@ async function verifyPromptRunFixtures() {
     'the diced plan must replace the @output:planning token inside the main prompt',
   );
   assertFixture(
-    planStepWarnings.length === 0 &&
+      planStepWarnings.length === 0 &&
       planStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.' &&
       planStepResult.debug.promptPasses?.length === 2 &&
+      planStepResult.debug.promptPasses[1]?.sections?.some((section) =>
+        section.parts?.some((part) =>
+          part.stepOutputInserted === 'planning' &&
+          part.text.includes('(chance: 80%: CLEAR SUCCESS'),
+        ),
+      ) === true &&
       planStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
         'Step planning output,Initial action output',
     'a two-step prompt must return the main reply and keep trace prompt/output passes aligned',

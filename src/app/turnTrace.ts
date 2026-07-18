@@ -13,6 +13,7 @@ const textInputExcerptMaxWords = 300;
 type TurnTracePromptPart = {
   text: string;
   actionInserted?: boolean;
+  stepOutputInserted?: string;
   historySegments?: FormattedChatHistorySegment[];
 };
 
@@ -206,12 +207,17 @@ function shouldExcerptTextInput(label: string) {
   return label.trim().toLocaleLowerCase() === 'text input';
 }
 
-function tracePromptPart(part: { text: string; actionInserted?: boolean }) {
+function tracePromptPart(part: {
+  text: string;
+  actionInserted?: boolean;
+  stepOutputInserted?: string;
+}) {
   const text = traceText(part.text);
   return text
     ? {
         text,
         actionInserted: part.actionInserted || undefined,
+        stepOutputInserted: traceText(part.stepOutputInserted ?? '') || undefined,
         historySegments: 'historySegments' in part && Array.isArray(part.historySegments)
           ? part.historySegments
           : undefined,
@@ -223,7 +229,12 @@ function tracePromptSections(
   sections: Array<{
     label: string;
     text: string;
-    parts?: Array<{ text: string; actionInserted?: boolean; historySegments?: FormattedChatHistorySegment[] }>;
+    parts?: Array<{
+      text: string;
+      actionInserted?: boolean;
+      stepOutputInserted?: string;
+      historySegments?: FormattedChatHistorySegment[];
+    }>;
     historySegments?: FormattedChatHistorySegment[];
   }> | undefined,
 ) {
@@ -266,7 +277,12 @@ function tracePromptPasses(
     sections?: Array<{
       label: string;
       text: string;
-      parts?: Array<{ text: string; actionInserted?: boolean; historySegments?: FormattedChatHistorySegment[] }>;
+      parts?: Array<{
+        text: string;
+        actionInserted?: boolean;
+        stepOutputInserted?: string;
+        historySegments?: FormattedChatHistorySegment[];
+      }>;
       historySegments?: FormattedChatHistorySegment[];
     }>;
   }> | undefined,

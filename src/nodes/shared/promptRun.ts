@@ -64,6 +64,7 @@ import { readableRuntimeName } from '../../llm/callDisplay';
 export type PromptPreviewPart = {
   text: string;
   actionInserted?: boolean;
+  stepOutputInserted?: string;
   historySegments?: FormattedChatHistorySegment[];
 };
 
@@ -323,6 +324,20 @@ export async function runActionAwarePrompt({
   const finalOutputActionTexts: string[] = [];
   const outputPasses: Array<{ label: string; text: string }> = [];
   const promptPasses: PromptPreviewPass[] = [];
+  const stepOutputInsertions = new Map<
+    (typeof steps)[number],
+    { before: Array<{ name: string; text: string }>; after: Array<{ name: string; text: string }> }
+  >();
+  const rememberStepOutputInsertion = (
+    step: (typeof steps)[number],
+    field: 'before' | 'after',
+    name: string,
+    text: string,
+  ) => {
+    const insertions = stepOutputInsertions.get(step) ?? { before: [], after: [] };
+    insertions[field].push({ name, text });
+    stepOutputInsertions.set(step, insertions);
+  };
   const socialCharacters = storyCharactersFromNodes(context.nodes);
   let socialAccountCorrectionText = '';
   let socialAccountReplayUsed = false;
@@ -365,6 +380,34 @@ export async function runActionAwarePrompt({
     }
     return resolvedParts.length ? resolvedParts : [{ text: resolved }];
   };
+  const markStepOutputParts = (
+    parts: PromptPreviewPart[],
+    insertions: Array<{ name: string; text: string }> | undefined,
+  ) => (insertions ?? []).reduce((currentParts, insertion) => {
+    let marked = false;
+    return currentParts.flatMap((part): PromptPreviewPart[] => {
+      if (marked || part.stepOutputInserted) return [part];
+      const insertionIndex = part.text.indexOf(insertion.text);
+      if (insertionIndex < 0) return [part];
+      marked = true;
+      const before = part.text.slice(0, insertionIndex);
+      const after = part.text.slice(insertionIndex + insertion.text.length);
+      return [
+        ...(before ? [{ ...part, text: before }] : []),
+        { text: insertion.text, stepOutputInserted: insertion.name },
+        ...(after ? [{ ...part, text: after }] : []),
+      ];
+    });
+  }, parts);
+  const stepPromptSectionParts = (
+    step: (typeof steps)[number],
+    field: 'before' | 'after',
+    original: string,
+    resolved: string,
+  ) => markStepOutputParts(
+    promptSectionParts(original, resolved),
+    stepOutputInsertions.get(step)?.[field],
+  );
   // Matching the text input against the formatted chat history is quadratic
   // in the history length and the input repeats across passes, so each
   // distinct input text is resolved only once per run.
@@ -383,7 +426,7 @@ export async function runActionAwarePrompt({
       {
         label: 'Prompt Before Input',
         text: before,
-        parts: promptSectionParts(promptBefore, before),
+        parts: stepPromptSectionParts(outputStep, 'before', promptBefore, before),
       },
       {
         label: 'Text Input',
@@ -401,7 +444,7 @@ export async function runActionAwarePrompt({
       {
         label: 'Prompt After Input',
         text: after,
-        parts: promptSectionParts(promptAfter, after),
+        parts: stepPromptSectionParts(outputStep, 'after', promptAfter, after),
       },
     ];
   };
@@ -515,7 +558,7 @@ export async function runActionAwarePrompt({
             ? [{
                 label: 'Step Prompt Before Input',
                 text: stepBefore,
-                parts: promptSectionParts(step.before, stepBefore),
+                parts: stepPromptSectionParts(step, 'before', step.before, stepBefore),
               }]
             : []),
           {
@@ -528,7 +571,7 @@ export async function runActionAwarePrompt({
             ? [{
                 label: 'Step Prompt After Input',
                 text: stepAfter,
-                parts: promptSectionParts(step.after, stepAfter),
+                parts: stepPromptSectionParts(step, 'after', step.after, stepAfter),
               }]
             : []),
         ],
@@ -581,7 +624,7 @@ export async function runActionAwarePrompt({
             ? [{
                 label: 'Step Prompt Before Input',
                 text: stepBefore,
-                parts: promptSectionParts(step.before, stepBefore),
+                parts: stepPromptSectionParts(step, 'before', step.before, stepBefore),
               }]
             : []),
           {
@@ -652,11 +695,18 @@ export async function runActionAwarePrompt({
         const afterInjection = injectStepOutput(laterStep.after, step.name, stepOutputText);
         laterStep.before = beforeInjection.text;
         laterStep.after = afterInjection.text;
+        if (beforeInjection.injected) {
+          rememberStepOutputInsertion(laterStep, 'before', step.name, stepOutputText);
+        }
+        if (afterInjection.injected) {
+          rememberStepOutputInsertion(laterStep, 'after', step.name, stepOutputText);
+        }
         injected = injected || beforeInjection.injected || afterInjection.injected;
       }
       if (!injected) {
         const nextStep = laterSteps[0];
         nextStep.before = [stepOutputText, nextStep.before].filter(Boolean).join('\n\n');
+        rememberStepOutputInsertion(nextStep, 'before', step.name, stepOutputText);
       }
     } else {
       context.reportWarning(
@@ -845,7 +895,12 @@ export async function runActionAwarePrompt({
           {
             label: 'Prompt Before Input',
             text: promptBeforeForFollowUp,
-            parts: promptSectionParts(promptBefore, promptBeforeForFollowUp),
+            parts: stepPromptSectionParts(
+              outputStep,
+              'before',
+              promptBefore,
+              promptBeforeForFollowUp,
+            ),
           },
           {
             label: 'Text Input',
@@ -1128,7 +1183,12 @@ export async function runActionAwarePrompt({
         {
           label: 'Prompt Before Input',
           text: promptBeforeForPass,
-          parts: promptSectionParts(promptBefore, promptBeforeForPass),
+          parts: stepPromptSectionParts(
+            outputStep,
+            'before',
+            promptBefore,
+            promptBeforeForPass,
+          ),
         },
         {
           label: 'Text Input',

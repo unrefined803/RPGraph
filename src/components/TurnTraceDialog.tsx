@@ -96,9 +96,17 @@ function isTextInputSection(label: string) {
   return label.trim().toLocaleLowerCase() === 'text input';
 }
 
+function readableStepName(name: string) {
+  return name
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toLocaleUpperCase()}${part.slice(1)}`)
+    .join(' ');
+}
+
 function TracePromptSection({ section }: { section: TurnTracePromptSection }) {
   return (
-    <div className="turn-trace-prompt-section">
+    <div className={`turn-trace-prompt-section${isTextInputSection(section.label) ? '' : ' prompt'}`}>
       <strong>{section.label}</strong>
       {section.excerpt && (
         <em>
@@ -106,15 +114,20 @@ function TracePromptSection({ section }: { section: TurnTracePromptSection }) {
         </em>
       )}
       {section.parts?.length ? (
-        section.parts.map((part, partIndex) => (
-          <HighlightedPreviewText
-            chatHistory={isTextInputSection(section.label) ? 'auto' : 'none'}
-            className={part.actionInserted ? 'action-inserted' : ''}
-            historySegments={part.historySegments ?? section.historySegments}
-            key={`${section.label}-${partIndex}`}
-            text={part.text}
-          />
-        ))
+        section.parts.map((part, partIndex) => part.stepOutputInserted ? (
+          <div className="turn-trace-step-output-insertion" key={`${section.label}-${partIndex}`}>
+            <strong>Add Output {readableStepName(part.stepOutputInserted)}:</strong>
+            <HighlightedPreviewText text={part.text} />
+          </div>
+        ) : (
+            <HighlightedPreviewText
+              chatHistory={isTextInputSection(section.label) ? 'auto' : 'none'}
+              className={part.actionInserted ? 'action-inserted' : ''}
+              historySegments={part.historySegments ?? section.historySegments}
+              key={`${section.label}-${partIndex}`}
+              text={part.text}
+            />
+          ))
       ) : (
         <HighlightedPreviewText
           chatHistory={isTextInputSection(section.label) ? 'auto' : 'none'}
@@ -148,7 +161,7 @@ function TracePromptPasses({ passes }: { passes: TurnTracePromptPass[] }) {
             <span>Full prompt sent to LLM</span>
           </header>
           {pass.images !== undefined && (
-            <div className="turn-trace-prompt-section">
+            <div className="turn-trace-prompt-section images">
               <strong>Images Sent To LLM</strong>
               <pre>{tracePromptImagesText(pass.images)}</pre>
             </div>
@@ -160,7 +173,7 @@ function TracePromptPasses({ passes }: { passes: TurnTracePromptPass[] }) {
                 <TracePromptSection key={`${pass.label}-${section.label}`} section={section} />
               ))
           ) : (
-            <div className="turn-trace-prompt-section">
+            <div className="turn-trace-prompt-section prompt">
               <strong>Prompt</strong>
               <HighlightedPreviewText chatHistory="auto" text={pass.prompt ?? ''} />
             </div>

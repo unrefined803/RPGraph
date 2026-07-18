@@ -935,25 +935,42 @@ function previewBlock(
   label: string,
   text: string,
   parts: PromptPreviewPart[] = [{ text }],
+  tone: 'text-input' | 'prompt' | 'output' | 'images' = 'prompt',
 ) {
   return (
-    <details className="prompt-preview-section" key={label} open>
+    <details className={`prompt-preview-section ${tone}`} key={label} open>
       <summary className="prompt-preview-section-label">{label}</summary>
       <div className="prompt-preview-section-text">
         {text
-          ? parts.map((part, index) => (
-            <HighlightedPreviewText
-              chatHistory={label === 'Text Input' ? 'auto' : 'none'}
-              className={`prompt-preview-text-part${part.actionInserted ? ' action-inserted' : ''}`}
-              historySegments={part.historySegments}
-              key={index}
-              text={part.text}
-            />
-          ))
+          ? parts.map((part, index) => part.stepOutputInserted ? (
+            <div className="prompt-preview-step-output" key={index}>
+              <strong>Add Output {readableStepName(part.stepOutputInserted)}:</strong>
+              <HighlightedPreviewText
+                className="prompt-preview-text-part"
+                text={part.text}
+              />
+            </div>
+          ) : (
+              <HighlightedPreviewText
+                chatHistory={label === 'Text Input' ? 'auto' : 'none'}
+                className={`prompt-preview-text-part${part.actionInserted ? ' action-inserted' : ''}`}
+                historySegments={part.historySegments}
+                key={index}
+                text={part.text}
+              />
+            ))
           : <span className="prompt-preview-empty">Empty</span>}
       </div>
     </details>
   );
+}
+
+function readableStepName(name: string) {
+  return name
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toLocaleUpperCase()}${part.slice(1)}`)
+    .join(' ');
 }
 
 function previewImagesText(images: Array<{ index: number; id: string; name: string }> | undefined) {
@@ -1037,7 +1054,7 @@ export function PromptPreviewTools({
             </div>
             <div className="prompt-preview-blocks" ref={promptRouteScrollRef}>
               {textInputSection
-                ? previewBlock('Text Input', textInputSection.text, textInputSection.parts)
+                ? previewBlock('Text Input', textInputSection.text, textInputSection.parts, 'text-input')
                 : null}
               {Array.from({ length: routePassCount }, (_entry, index) => {
                 const promptPass = promptPasses[index];
@@ -1052,12 +1069,12 @@ export function PromptPreviewTools({
                       {outputPass?.label ? <span>{outputPass.label}</span> : null}
                     </header>
                     {promptPass?.images !== undefined
-                      ? previewBlock('Images Sent To LLM', previewImagesText(promptPass.images))
+                      ? previewBlock('Images Sent To LLM', previewImagesText(promptPass.images), undefined, 'images')
                       : null}
                     {promptPass?.sections
                       ? changingSections?.map((section) => previewBlock(section.label, section.text, section.parts))
                       : previewBlock('Prompt', promptPass?.prompt ?? '')}
-                    {previewBlock(outputPass?.label ?? 'Output', outputPass?.text ?? '')}
+                    {previewBlock(outputPass?.label ?? 'Output', outputPass?.text ?? '', undefined, 'output')}
                   </article>
                 );
               })}
