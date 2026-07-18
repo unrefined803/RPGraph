@@ -20,7 +20,18 @@ function highestMatchingFile(pattern, description) {
 }
 
 function bundledDefaultWorkflowFile() {
-  return highestMatchingFile(/^workflow\.default.*\.json$/i, 'workflow.default*.json');
+  const names = readdirSync('.')
+    .filter((name) => /^workflow\.default.*\.json$/i.test(name))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  if (names.length === 0) {
+    throw new Error('No workflow.default*.json file was found in the current directory.');
+  }
+  if (names.length > 1) {
+    throw new Error(
+      `Multiple bundled workflows were found (${names.join(', ')}). Pass the intended workflow path explicitly.`,
+    );
+  }
+  return names[0];
 }
 
 function exportedStorybookFile() {
@@ -36,11 +47,11 @@ function usage() {
     '  node scripts/workflow-redact.mjs merge-storybook [redactedSource] [originalSource] [dest]',
     '',
     'Defaults:',
-    '  redact source: workflow.default*.json (auto-detected in the current directory)',
+    '  redact source: explicit path required when multiple workflow.default*.json files exist',
     `  redact dest:   ${defaultRedactedPath}`,
     `  merge redacted:${defaultRedactedPath}`,
-    '  merge original:workflow.default*.json (auto-detected)',
-    '  merge dest:    workflow.default*.json (auto-detected)',
+    '  merge original:explicit path required when multiple bundled workflows exist',
+    '  merge dest:    explicit path required when multiple bundled workflows exist',
     '  storybook variants: *.rpgraph-storybook.json (auto-detected, highest',
     `  natural-sort name wins) and ${defaultStorybookRedactedPath}`,
   ].join('\n');

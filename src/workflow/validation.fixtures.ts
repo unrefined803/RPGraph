@@ -218,13 +218,21 @@ const bundledDefaultWorkflows = import.meta.glob<{ default: unknown }>(
 );
 const bundledDefaultWorkflowPaths = Object.keys(bundledDefaultWorkflows)
   .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
-const bundledDefaultWorkflowPath =
-  bundledDefaultWorkflowPaths[bundledDefaultWorkflowPaths.length - 1];
-if (!bundledDefaultWorkflowPath) {
+if (bundledDefaultWorkflowPaths.length === 0) {
   throw new Error('No workflow.default*.json file was found in the project root.');
 }
-const currentWorkflow = bundledDefaultWorkflows[bundledDefaultWorkflowPath]
+const planningDefaultWorkflowPath = [...bundledDefaultWorkflowPaths]
+  .reverse()
+  .find((filePath) => /planning/i.test(filePath));
+if (!planningDefaultWorkflowPath) {
+  throw new Error('No planning bundled workflow was found in the project root.');
+}
+const currentWorkflow = bundledDefaultWorkflows[planningDefaultWorkflowPath]
   .default as WorkflowFile;
+const allBundledDefaultWorkflows = bundledDefaultWorkflowPaths.map((filePath) => ({
+  filePath,
+  workflow: bundledDefaultWorkflows[filePath].default as WorkflowFile,
+}));
 
 function assertFixture(condition: boolean, message: string) {
   if (!condition) {
@@ -1785,10 +1793,16 @@ export function verifyWorkflowValidationFixtures() {
     'Opening History must carry social post ids, player likes, dynamic identities, and added users',
   );
 
-  assertFixture(isWorkflowFile(currentWorkflow), 'workflow.default.json must load');
   assertFixture(
-    currentWorkflow.formatVersion === currentWorkflowFormatVersion,
-    'workflow.default.json must declare its format version',
+    allBundledDefaultWorkflows.length === 2 &&
+      allBundledDefaultWorkflows.every(({ workflow }) => isWorkflowFile(workflow)),
+    'both bundled default workflows must load',
+  );
+  assertFixture(
+    allBundledDefaultWorkflows.every(
+      ({ workflow }) => workflow.formatVersion === currentWorkflowFormatVersion,
+    ),
+    'both bundled default workflows must declare the current format version',
   );
   const currentPromptSwitch = currentWorkflow.nodes.find(
     (node) => node.data.nodeType === 'llm-prompt-switch',

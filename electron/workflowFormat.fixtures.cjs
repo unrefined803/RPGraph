@@ -6,6 +6,35 @@ const {
   encryptedWorkflowMetadata,
   workflowMetadata,
 } = require('./workflowFormat.cjs');
+const {
+  bundledDefaultWorkflowFileNames,
+  importedDefaultFileNamesFromState,
+  restoreBundledDefaultWorkflows,
+} = require('./workflowDefaults.cjs');
+
+assert.deepEqual(
+  bundledDefaultWorkflowFileNames([
+    'README.md',
+    'workflow.default_planning_v1.json',
+    'workflow.default_v23.json',
+    'workflow.default_v9.json',
+  ]),
+  [
+    'workflow.default_v9.json',
+    'workflow.default_v23.json',
+    'workflow.default_planning_v1.json',
+  ],
+);
+assert.deepEqual(
+  importedDefaultFileNamesFromState({
+    importedDefaultFileNames: [
+      '/old/path/workflow.default_v23.json',
+      'workflow.default_planning_v1.json',
+    ],
+    importedDefaultFileName: '/legacy/path/workflow.default_v23.json',
+  }),
+  ['workflow.default_v23.json', 'workflow.default_planning_v1.json'],
+);
 
 const currentWorkflow = {
   format: 'rpgraph-workflow',
@@ -52,3 +81,30 @@ assert.equal(encryptedWorkflowMetadata({
 }).compatible, false);
 assert.equal(encryptedWorkflowMetadata({ ...currentEnvelope, envelopeFormatVersion: '3.0' }).compatible, false);
 assert.equal(encryptedWorkflowMetadata({ ...currentEnvelope, payloadFormatVersion: '2.0' }).compatible, false);
+
+void (async () => {
+  const restoredPaths = [];
+  let activatedFileName = '';
+  const primary = await restoreBundledDefaultWorkflows(
+    [
+      '/app/workflow.default_v23.json',
+      '/app/workflow.default_planning_v1.json',
+    ],
+    async (bundledPath) => {
+      restoredPaths.push(bundledPath);
+      return { fileName: bundledPath.split('/').pop() };
+    },
+    async (restored) => {
+      activatedFileName = restored.fileName;
+    },
+  );
+  assert.deepEqual(restoredPaths, [
+    '/app/workflow.default_v23.json',
+    '/app/workflow.default_planning_v1.json',
+  ]);
+  assert.equal(primary.fileName, 'workflow.default_planning_v1.json');
+  assert.equal(activatedFileName, 'workflow.default_planning_v1.json');
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
