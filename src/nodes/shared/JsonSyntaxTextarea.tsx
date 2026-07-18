@@ -17,7 +17,7 @@ import type { SettingsValueDefinition } from '../../types';
 import { defaultWorkflowVariableValue, variableAliases } from '../../workflow';
 import { defaultPromptActionTitle, promptActionKey } from './promptActions';
 import { promptCommandTokenPattern } from './promptCommands';
-import { planOutputTokenPattern } from './promptSteps';
+import { stepOutputTokenPattern } from './promptSteps';
 import { usePreservedTextSelection } from './usePreservedTextSelection';
 
 type JsonToken =
@@ -489,7 +489,7 @@ function splitPromptCommands(token: HighlightToken): HighlightToken[] {
   return tokens;
 }
 
-const stepMarkerLinePattern = /^[ \t]*@step:[ \t]*(?:planning|main)[ \t]*$/gim;
+const stepMarkerLinePattern = /^[ \t]*@step:[ \t]*[A-Za-z0-9_-]+[ \t]*$/gim;
 
 function splitStepMarkers(token: HighlightToken): HighlightToken[] {
   if (token.kind !== 'plain' || !token.text.includes('@step')) {
@@ -520,7 +520,7 @@ function splitPlanOutputs(token: HighlightToken): HighlightToken[] {
 
   const tokens: HighlightToken[] = [];
   let lastIndex = 0;
-  token.text.replace(planOutputTokenPattern, (match, offset: number) => {
+  token.text.replace(stepOutputTokenPattern, (match, _name: string, offset: number) => {
     if (offset > lastIndex) {
       tokens.push({ ...token, text: token.text.slice(lastIndex, offset) });
     }
@@ -677,7 +677,7 @@ export function JsonSyntaxTextarea({
   );
   const templateVariableHighlightActive = useMemo(() => !!templateVariableStatuses && /\{\{\s*[A-Za-z][A-Za-z0-9_]*\s*\}\}/.test(value), [templateVariableStatuses, value]);
   const stepHighlightActive = useMemo(
-    () => /@step:[ \t]*(?:planning|main)\b/i.test(value) || /@output:planning\b/i.test(value),
+    () => /@step:[ \t]*[A-Za-z0-9_-]+\b/i.test(value) || /@output:[A-Za-z0-9_-]+\b/i.test(value),
     [value],
   );
   const highlightActive = jsonHighlightActive || workflowVariableHighlightActive || promptActionHighlightActive || templateVariableHighlightActive || stepHighlightActive;

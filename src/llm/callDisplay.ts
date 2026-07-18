@@ -48,15 +48,16 @@ export function llmCallStageLabel(data: WorkflowNodeData, label: string) {
   if (!stage || /^Initial action prompt$/i.test(stage) || /^Action replay \d+$/i.test(stage)) {
     return 'Step: Main';
   }
-  if (/^Planning step$/i.test(stage)) {
-    return 'Step: Planning';
+  const stepStage = stage.match(/^Step ([A-Za-z0-9_-]+)$/i);
+  if (stepStage) {
+    return `Step: ${readableRuntimeName(stepStage[1])}`;
   }
-  const planningReplay = stage.match(/^Planning replay (\d+)$/i);
-  if (planningReplay) {
-    return `Step: Planning · Replay ${planningReplay[1]}`;
+  const stepReplay = stage.match(/^Step ([A-Za-z0-9_-]+) replay (\d+)$/i);
+  if (stepReplay) {
+    return `Step: ${readableRuntimeName(stepReplay[1])} · Replay ${stepReplay[2]}`;
   }
   const detailStage = stage.replace(/^Action replay \d+\s*\/\s*/i, '');
-  const action = detailStage.match(/^(?:Planning action follow-up|Action follow-up|After-reply action):\s*(.+)$/i);
+  const action = detailStage.match(/^(?:Step [A-Za-z0-9_-]+ action follow-up|Action follow-up|After-reply action):\s*(.+)$/i);
   if (action) {
     return `Action: ${readableRuntimeName(action[1])}`;
   }
@@ -85,8 +86,9 @@ export function nodeFallbackStageLabel(data: WorkflowNodeData) {
     if (action) {
       return `Action: ${readableRuntimeName(action[1])}`;
     }
-    if (/planning/i.test(data.preview)) {
-      return 'Step: Planning';
+    const step = data.preview.match(/\bstep\s+([A-Za-z0-9_-]+)/i);
+    if (step) {
+      return `Step: ${readableRuntimeName(step[1])}`;
     }
     return 'Step: Main';
   }

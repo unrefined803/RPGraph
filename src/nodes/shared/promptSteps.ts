@@ -1,56 +1,84 @@
-// Prompt-step markers split one prompt text into a planning prompt and the
-// main prompt. A marker is a standalone line reading "@step:planning" or
-// "@step:main" (case-insensitive). Text under "@step:planning" becomes the
-// planning pass; text before the first marker or under "@step:main" stays the
-// main prompt. Prompts without a "@step:planning" marker keep the classic
-// single-pass behavior. Everything the planning LLM sees comes from the prompt
-// text itself; the code only splits sections, dices the plan's percentages,
-// and injects the rolled plan at the "@output:planning" token.
+// Prompt-step markers split one prompt text into a chain of named passes. A
+// marker is a standalone line reading "@step:<name>" (case-insensitive,
+// letters/digits/_/- in the name). Steps run in the order their names first
+// appear; the last step is the output step whose reply becomes the visible
+// result, every earlier step is an intermediate pass. Text before the first
+// marker belongs to the output step, so prompts without markers keep the
+// classic single-pass behavior. Everything an intermediate LLM pass sees comes
+// from the prompt text itself; the code only splits sections, dices plan
+// percentages in intermediate outputs, and injects each step's output into
+// later steps at its "@output:<name>" token.
 
-const promptStepMarkerPattern = /^[ \t]*@step:[ \t]*(planning|main)[ \t]*$/gim;
+const promptStepMarkerPattern = /^[ \t]*@step:[ \t]*([A-Za-z0-9_-]+)[ \t]*$/gim;
 
-// Marks where the rolled plan is injected into the main prompt. Without this
-// token the plan is prepended to the top of the main prompt.
-export const planOutputTokenPattern = /@output:planning\b/gi;
+// Marks where an earlier step's output is injected into a later step. A step
+// output that no later step references is prepended to the next step instead.
+export const stepOutputTokenPattern = /@output:([A-Za-z0-9_-]+)\b/gi;
 
-type PromptStepSections = {
-  plan: string;
-  main: string;
-  hasPlanStep: boolean;
+type PromptTextSections = {
+  leading: string;
+  sections: Array<{ name: string; text: string }>;
 };
 
-export function splitPromptStepSections(text: string): PromptStepSections {
-  const markers: Array<{ section: 'planning' | 'main'; start: number; end: number }> = [];
-  text.replace(promptStepMarkerPattern, (raw, section: string, index: number) => {
+function splitPromptTextSections(text: string): PromptTextSections {
+  const markers: Array<{ name: string; start: number; end: number }> = [];
+  text.replace(promptStepMarkerPattern, (raw, name: string, index: number) => {
     markers.push({
-      section: section.toLocaleLowerCase() as 'planning' | 'main',
+      name: name.toLocaleLowerCase(),
       start: index,
       end: index + raw.length,
     });
     return raw;
   });
   if (!markers.length) {
-    return { plan: '', main: text, hasPlanStep: false };
+    return { leading: text.trim(), sections: [] };
   }
-  const planParts: string[] = [];
-  const mainParts: string[] = [];
-  const leading = text.slice(0, markers[0].start).trim();
-  if (leading) {
-    mainParts.push(leading);
-  }
+  const sections: Array<{ name: string; text: string }> = [];
   markers.forEach((marker, index) => {
     const sectionEnd = markers[index + 1]?.start ?? text.length;
     const section = text.slice(marker.end, sectionEnd).trim();
-    if (!section) {
-      return;
+    if (section) {
+      sections.push({ name: marker.name, text: section });
     }
-    (marker.section === 'planning' ? planParts : mainParts).push(section);
   });
-  return {
-    plan: planParts.join('\n\n'),
-    main: mainParts.join('\n\n'),
-    hasPlanStep: markers.some((marker) => marker.section === 'planning'),
-  };
+  return { leading: text.slice(0, markers[0].start).trim(), sections };
+}
+
+export type PromptStep = {
+  name: string;
+  before: string;
+  after: string;
+};
+
+// Builds the ordered step chain from the two prompt fields. Same-named
+// sections concatenate; leading text of either field stays with the output
+// (last) step, matching the classic behavior of text without markers.
+export function buildPromptStepChain(beforeText: string, afterText: string): PromptStep[] {
+  const before = splitPromptTextSections(beforeText);
+  const after = splitPromptTextSections(afterText);
+  const names: string[] = [];
+  for (const section of [...before.sections, ...after.sections]) {
+    if (!names.includes(section.name)) {
+      names.push(section.name);
+    }
+  }
+  const sectionText = (sections: PromptTextSections['sections'], name: string) =>
+    sections
+      .filter((section) => section.name === name)
+      .map((section) => section.text)
+      .join('\n\n');
+  const steps = names.map((name) => ({
+    name,
+    before: sectionText(before.sections, name),
+    after: sectionText(after.sections, name),
+  }));
+  if (!steps.length) {
+    return [{ name: '', before: before.leading, after: after.leading }];
+  }
+  const outputStep = steps[steps.length - 1];
+  outputStep.before = [before.leading, outputStep.before].filter(Boolean).join('\n\n');
+  outputStep.after = [after.leading, outputStep.after].filter(Boolean).join('\n\n');
+  return steps;
 }
 
 type PlanRollOutcome = 'great success' | 'success' | 'failure' | 'epic fail';
@@ -80,7 +108,7 @@ function planRollOutcome(chance: number, roll: number): PlanRollOutcome {
 }
 
 // Plan bullets are either/or rolls: they state what happens on success and an
-// "otherwise: ..." part for failure. The replacement tells the main pass which
+// "otherwise: ..." part for failure. The replacement tells the next pass which
 // branch happened; the raw roll number stays internal.
 const planRollOutcomeTexts: Record<PlanRollOutcome, string> = {
   'great success': 'CLEAR SUCCESS — this happens decisively; skip any otherwise-part',
@@ -114,11 +142,24 @@ export function rollPlanOutcomes(planText: string, random: () => number = Math.r
   return { text, rolls };
 }
 
-export function injectPlanOutput(text: string, planText: string) {
+export function stepOutputTokenNames(text: string) {
+  const names: string[] = [];
+  text.replace(stepOutputTokenPattern, (raw, name: string) => {
+    const normalized = name.toLocaleLowerCase();
+    if (!names.includes(normalized)) {
+      names.push(normalized);
+    }
+    return raw;
+  });
+  return names;
+}
+
+export function injectStepOutput(text: string, stepName: string, outputText: string) {
   let injected = false;
-  const result = text.replace(planOutputTokenPattern, () => {
+  const tokenPattern = new RegExp(`@output:${stepName}\\b`, 'gi');
+  const result = text.replace(tokenPattern, () => {
     injected = true;
-    return planText;
+    return outputText;
   });
   return { text: result, injected };
 }

@@ -44,10 +44,10 @@ import {
   type PromptCommandPassRequest,
 } from './promptCommands';
 import {
-  injectPlanOutput,
-  planOutputTokenPattern,
+  buildPromptStepChain,
+  injectStepOutput,
   rollPlanOutcomes,
-  splitPromptStepSections,
+  stepOutputTokenNames,
 } from './promptSteps';
 import { promptImagePass } from './promptImagePass';
 import {
@@ -250,15 +250,34 @@ export async function runActionAwarePrompt({
   callLabel: (actionReplayCount: number) => string;
   random?: () => number;
 }) {
-  // @step: markers split a prompt into a planning prompt and the main prompt.
-  // With a @step:planning section present, a planning pass runs first, its
-  // bullet probabilities are diced, and the rolled plan is injected into the
-  // main prompt (at @output:planning tokens, or prepended without one).
-  const beforeSteps = splitPromptStepSections(promptBeforeInput);
-  const afterSteps = splitPromptStepSections(promptAfterInput);
-  const planMode = beforeSteps.hasPlanStep || afterSteps.hasPlanStep;
-  let promptBefore = beforeSteps.main;
-  let promptAfter = afterSteps.main;
+  // @step: markers split a prompt into an ordered chain of named passes. Every
+  // step before the last runs as an intermediate pass whose diced output is
+  // injected into later steps at @output:<name> tokens (or prepended to the
+  // next step without one); the last step produces the visible reply.
+  const steps = buildPromptStepChain(promptBeforeInput, promptAfterInput);
+  // @output tokens may only reference an earlier step; every other token is
+  // removed here so unresolved markers never reach the LLM.
+  steps.forEach((step, stepIndex) => {
+    const earlierNames = steps.slice(0, stepIndex).map((earlier) => earlier.name);
+    for (const field of ['before', 'after'] as const) {
+      for (const name of stepOutputTokenNames(step[field])) {
+        if (!earlierNames.includes(name)) {
+          context.reportWarning(
+            `${node.data.label}: @output:${name} has no earlier @step:${name} section; the marker was removed.`,
+          );
+          step[field] = injectStepOutput(step[field], name, '').text;
+        }
+      }
+    }
+  });
+  const outputStep = steps[steps.length - 1];
+  const intermediateSteps = steps.slice(0, -1);
+  // Snapshot the authored prompt texts before earlier steps inject their
+  // outputs; the missing-percentages warning must not trigger on percentages
+  // that arrive via an injected plan.
+  const authoredStepTexts = steps.map((step) => [step.before, step.after].join('\n'));
+  let promptBefore = outputStep.before;
+  let promptAfter = outputStep.after;
   const visionEnabled = await context.llm.supportsVision(
     node.data.connectionId,
     `${node.data.label} vision features`,
@@ -459,64 +478,69 @@ export async function runActionAwarePrompt({
       }
     : undefined;
 
-  if (planMode) {
-    // The planning pass can consume pre-reply actions itself (e.g. fetching or
-    // creating a phone image the plan already knows it needs): an action
-    // request in the planning output runs the follow-up and the action, then
-    // the planning pass reruns with the action result inserted at its @action
-    // tokens. The main pass later sees the same consumed results.
-    let planText = '';
-    const maxPlanPasses = Math.max(2, preReplyActionConfigs.length + 1);
-    for (let planPassIndex = 0; planPassIndex <= maxPlanPasses; planPassIndex += 1) {
-      const planBefore = promptSectionValue(beforeSteps.plan);
-      const planAfter = promptSectionValue(afterSteps.plan);
-      const planImagePass = currentImagePass();
-      const planTextInput = textInputForImagePass(inputValue, planImagePass);
-      const planHistorySegments = historySegmentsForInputValue(context, planTextInput);
-      const planReplayCount = actionResultTexts.length;
-      const passLabel = planReplayCount ? `Planning replay ${planReplayCount}` : 'Planning step';
+  for (const [stepIndex, step] of intermediateSteps.entries()) {
+    // An intermediate step can consume pre-reply actions itself (e.g. fetching
+    // or creating a phone image the plan already knows it needs): an action
+    // request in the step output runs the follow-up and the action, then the
+    // step reruns with the action result inserted at its @action tokens. Later
+    // passes see the same consumed results.
+    let stepText = '';
+    const actionCountAtStepStart = actionResultTexts.length;
+    const maxStepPasses = Math.max(2, preReplyActionConfigs.length + 1);
+    for (let stepPassIndex = 0; stepPassIndex <= maxStepPasses; stepPassIndex += 1) {
+      const stepBefore = promptSectionValue(step.before);
+      const stepAfter = promptSectionValue(step.after);
+      const stepImagePass = currentImagePass();
+      const stepTextInput = textInputForImagePass(inputValue, stepImagePass);
+      const stepHistorySegments = historySegmentsForInputValue(context, stepTextInput);
+      const stepReplayCount = actionResultTexts.length - actionCountAtStepStart;
+      const passLabel = stepReplayCount
+        ? `Step ${step.name} replay ${stepReplayCount}`
+        : `Step ${step.name}`;
       promptPasses.push({
         label: passLabel,
-        images: previewImagesForPass(planImagePass),
+        images: previewImagesForPass(stepImagePass),
         sections: [
-          ...(planBefore
+          ...(stepBefore
             ? [{
-                label: 'Planning Prompt Before Input',
-                text: planBefore,
-                parts: promptSectionParts(beforeSteps.plan, planBefore),
+                label: 'Step Prompt Before Input',
+                text: stepBefore,
+                parts: promptSectionParts(step.before, stepBefore),
               }]
             : []),
           {
             label: 'Text Input',
-            text: planTextInput,
-            parts: [{ text: planTextInput, historySegments: planHistorySegments }],
-            historySegments: planHistorySegments,
+            text: stepTextInput,
+            parts: [{ text: stepTextInput, historySegments: stepHistorySegments }],
+            historySegments: stepHistorySegments,
           },
-          ...(planAfter
+          ...(stepAfter
             ? [{
-                label: 'Planning Prompt After Input',
-                text: planAfter,
-                parts: promptSectionParts(afterSteps.plan, planAfter),
+                label: 'Step Prompt After Input',
+                text: stepAfter,
+                parts: promptSectionParts(step.after, stepAfter),
               }]
             : []),
         ],
       });
       context.updateRuntimeData(node.id, {
-        preview: planReplayCount ? 'Planning with action result ...' : 'Planning the turn ...',
+        preview: stepReplayCount
+          ? `Step ${step.name} with action result ...`
+          : `Running step ${step.name} ...`,
       });
-      const planOutput = await context.llm.complete({
+      const stepOutput = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
         label: `${callLabel(0)} / ${passLabel}`,
-        prompt: [planBefore, planTextInput, planAfter].filter(Boolean).join('\n\n'),
-        images: planImagePass.images,
+        prompt: [stepBefore, stepTextInput, stepAfter].filter(Boolean).join('\n\n'),
+        images: stepImagePass.images,
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
-      outputPasses.push({ label: `${passLabel} output`, text: planOutput.text });
-      const actionRequest = parsePromptActionRequest(planOutput.text);
+      outputPasses.push({ label: `${passLabel} output`, text: stepOutput.text });
+      const actionRequest = parsePromptActionRequest(stepOutput.text);
       if (!actionRequest) {
-        planText = planOutput.text;
+        stepText = stepOutput.text;
         break;
       }
       const actionConfig = preReplyActionConfigs.find(
@@ -526,12 +550,12 @@ export async function runActionAwarePrompt({
       );
       if (!actionConfig) {
         context.reportWarning(
-          `${node.data.label}: Planning requested unavailable or already-consumed action ${actionRequest.action}.`,
+          `${node.data.label}: Step ${step.name} requested unavailable or already-consumed action ${actionRequest.action}.`,
         );
         break;
       }
-      if (planPassIndex === maxPlanPasses) {
-        context.reportWarning(`${node.data.label}: Planning action replay limit reached.`);
+      if (stepPassIndex === maxStepPasses) {
+        context.reportWarning(`${node.data.label}: Step ${step.name} action replay limit reached.`);
         break;
       }
       const followUpInstruction = promptActionInstructionText(
@@ -540,49 +564,49 @@ export async function runActionAwarePrompt({
         actionRequest.plan,
       );
       promptPasses.push({
-        label: `Planning action follow-up: ${actionConfig.title}`,
-        images: previewImagesForPass(planImagePass),
+        label: `Step ${step.name} action follow-up: ${actionConfig.title}`,
+        images: previewImagesForPass(stepImagePass),
         sections: [
-          ...(planBefore
+          ...(stepBefore
             ? [{
-                label: 'Planning Prompt Before Input',
-                text: planBefore,
-                parts: promptSectionParts(beforeSteps.plan, planBefore),
+                label: 'Step Prompt Before Input',
+                text: stepBefore,
+                parts: promptSectionParts(step.before, stepBefore),
               }]
             : []),
           {
             label: 'Text Input',
-            text: planTextInput,
-            parts: [{ text: planTextInput, historySegments: planHistorySegments }],
-            historySegments: planHistorySegments,
+            text: stepTextInput,
+            parts: [{ text: stepTextInput, historySegments: stepHistorySegments }],
+            historySegments: stepHistorySegments,
           },
           {
-            label: 'Planning Action Follow-Up',
+            label: 'Step Action Follow-Up',
             text: followUpInstruction,
             parts: [{ text: followUpInstruction, actionInserted: true }],
           },
         ],
       });
       context.updateRuntimeData(node.id, {
-        preview: `Action ${actionRequest.action} requested in planning; preparing it from the plan ...`,
+        preview: `Action ${actionRequest.action} requested in step ${step.name}; preparing it from the plan ...`,
       });
       const followUpOutput = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
-        label: `${callLabel(0)} / Planning action follow-up: ${actionConfig.title}`,
-        prompt: [planBefore, planTextInput, followUpInstruction].filter(Boolean).join('\n\n'),
-        images: planImagePass.images,
+        label: `${callLabel(0)} / Step ${step.name} action follow-up: ${actionConfig.title}`,
+        prompt: [stepBefore, stepTextInput, followUpInstruction].filter(Boolean).join('\n\n'),
+        images: stepImagePass.images,
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
       outputPasses.push({
-        label: `Planning action follow-up output: ${actionConfig.title}`,
+        label: `Step ${step.name} action follow-up output: ${actionConfig.title}`,
         text: followUpOutput.text,
       });
       const actionCall = parsePromptActionCall(followUpOutput.text);
       if (!actionCall || actionCall.action !== actionConfig.actionId) {
         context.reportWarning(
-          `${node.data.label}: Planning action follow-up for ${actionConfig.title} returned no valid action call.`,
+          `${node.data.label}: Step ${step.name} action follow-up for ${actionConfig.title} returned no valid action call.`,
         );
         break;
       }
@@ -597,38 +621,44 @@ export async function runActionAwarePrompt({
         finalOutputActionTexts.push(actionResult.finalOutputText);
       }
       context.updateRuntimeData(node.id, {
-        preview: `Action ${actionCall.action} resolved; replanning ...`,
+        preview: `Action ${actionCall.action} resolved; rerunning step ${step.name} ...`,
       });
     }
-    const rolledPlan = rollPlanOutcomes(planText, random);
-    if (rolledPlan.text.trim()) {
-      if (!rolledPlan.rolls.length) {
+    const rolledOutput = rollPlanOutcomes(stepText, random);
+    const stepOutputText = rolledOutput.text.trim();
+    const laterSteps = steps.slice(stepIndex + 1);
+    if (stepOutputText) {
+      // A missing-percentages warning only makes sense for plan-style steps;
+      // a prompt that never mentions "%" gets its output passed on verbatim.
+      if (!rolledOutput.rolls.length && /%/.test(authoredStepTexts[stepIndex])) {
         context.reportWarning(
-          `${node.data.label}: The plan contains no percentages; it is passed on without dice rolls.`,
+          `${node.data.label}: Step ${step.name} output contains no percentages; it is passed on without dice rolls.`,
         );
       }
-      const planText = rolledPlan.text.trim();
-      const beforeInjection = injectPlanOutput(promptBefore, planText);
-      const afterInjection = injectPlanOutput(promptAfter, planText);
-      promptBefore = beforeInjection.text;
-      promptAfter = afterInjection.text;
-      if (!beforeInjection.injected && !afterInjection.injected) {
-        promptBefore = [planText, promptBefore].filter(Boolean).join('\n\n');
+      let injected = false;
+      for (const laterStep of laterSteps) {
+        const beforeInjection = injectStepOutput(laterStep.before, step.name, stepOutputText);
+        const afterInjection = injectStepOutput(laterStep.after, step.name, stepOutputText);
+        laterStep.before = beforeInjection.text;
+        laterStep.after = afterInjection.text;
+        injected = injected || beforeInjection.injected || afterInjection.injected;
+      }
+      if (!injected) {
+        const nextStep = laterSteps[0];
+        nextStep.before = [stepOutputText, nextStep.before].filter(Boolean).join('\n\n');
       }
     } else {
       context.reportWarning(
-        `${node.data.label}: The planning step returned no plan; continuing without it.`,
+        `${node.data.label}: Step ${step.name} returned no output; continuing without it.`,
       );
-      promptBefore = injectPlanOutput(promptBefore, '').text;
-      promptAfter = injectPlanOutput(promptAfter, '').text;
+      for (const laterStep of laterSteps) {
+        laterStep.before = injectStepOutput(laterStep.before, step.name, '').text;
+        laterStep.after = injectStepOutput(laterStep.after, step.name, '').text;
+      }
     }
-  } else if ([promptBefore, promptAfter].join('\n').match(planOutputTokenPattern)) {
-    context.reportWarning(
-      `${node.data.label}: @output:planning has no @step:planning section; the marker was removed.`,
-    );
-    promptBefore = injectPlanOutput(promptBefore, '').text;
-    promptAfter = injectPlanOutput(promptAfter, '').text;
   }
+  promptBefore = outputStep.before;
+  promptAfter = outputStep.after;
 
   let generatedText = '';
   let connectionLabel = '';
@@ -651,7 +681,11 @@ export async function runActionAwarePrompt({
     let output = await context.llm.complete({
       connectionId: node.data.connectionId,
       nodeId: node.id,
-      label: callLabel(actionReplayCount),
+      // A named output step carries its name into the call label so the run
+      // progress shows e.g. "Step: Translation" instead of the generic main.
+      label: outputStep.name
+        ? `${callLabel(actionReplayCount)} / Step ${outputStep.name}`
+        : callLabel(actionReplayCount),
       prompt: promptForPass,
       images: imagePass.images,
       onChunk: streamsVisibleOutput

@@ -5171,8 +5171,69 @@ async function verifyPromptRunFixtures() {
       planStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.' &&
       planStepResult.debug.promptPasses?.length === 2 &&
       planStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
-        'Planning step output,Initial action output',
+        'Step planning output,Initial action output',
     'a two-step prompt must return the main reply and keep trace prompt/output passes aligned',
+  );
+
+  const multiStepRequests: string[] = [];
+  const multiStepWarnings: string[] = [];
+  const multiStepOutputs = [
+    '- Helga convinces Espen to lend her money (80%)',
+    'Helga grinst, als Espen ihr endlich den Schein reicht.',
+    'Helga grins as Espen finally hands over the bill.',
+  ];
+  const multiStepContext = {
+    nodes: [],
+    edges: [],
+    historyMessages: [],
+    comfyProviderIds: [],
+    providerHealthById: {},
+    llm: {
+      supportsVision: async () => false,
+      complete: async (request: { prompt: string }) => {
+        multiStepRequests.push(request.prompt);
+        return { text: multiStepOutputs.shift() ?? '', connection: { label: 'Fixture LLM' } };
+      },
+    },
+    reportWarning: (message: string) => multiStepWarnings.push(message),
+    updateRuntimeData: () => {},
+  } as unknown as ExecuteContext;
+  const multiStepResult = await runActionAwarePrompt({
+    node,
+    context: multiStepContext,
+    inputValue: 'Helga tries to convince Espen.',
+    images: [],
+    referenceImages: [],
+    promptBefore: '',
+    promptAfter: [
+      '@step:planning',
+      'Plan the outcome with a probability as (NN%).',
+      '@step:draft',
+      'Write the scene in German based on this plan:',
+      '@output:planning',
+      '@step:translation',
+      'Translate the following scene to English:',
+      '@output:draft',
+    ].join('\n'),
+    actionConfigs: [],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Fixture call',
+    random: () => 0.99,
+  });
+  assertFixture(
+    multiStepRequests.length === 3 &&
+      multiStepRequests[1]?.includes('Write the scene in German based on this plan:') === true &&
+      multiStepRequests[1]?.includes('(80%: CLEAR SUCCESS') === true &&
+      !multiStepRequests[1]?.includes('Translate the following scene to English:') &&
+      multiStepRequests[2]?.includes('Translate the following scene to English:') === true &&
+      multiStepRequests[2]?.includes('Helga grinst, als Espen ihr endlich den Schein reicht.') === true &&
+      !multiStepRequests[2]?.includes('@output:draft') &&
+      multiStepWarnings.length === 0 &&
+      multiStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.' &&
+      multiStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
+        'Step planning output,Step draft output,Initial action output',
+    'custom @step names must chain intermediate outputs into later steps and stream only the last step',
   );
   const promptSwitchCallDisplayData = {
     nodeType: 'llm-prompt-switch',
@@ -5189,7 +5250,7 @@ async function verifyPromptRunFixtures() {
       'Messenger Apps / WhatsUp Prompt No Image' &&
       llmCallStageLabel(
         promptSwitchCallDisplayData,
-        'Messenger Apps / WhatsUp Prompt No Image / Planning step',
+        'Messenger Apps / WhatsUp Prompt No Image / Step planning',
       ) === 'Step: Planning' &&
       llmCallStageLabel(
         promptSwitchCallDisplayData,
