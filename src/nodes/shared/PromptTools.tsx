@@ -997,6 +997,9 @@ export function PromptPreviewTools({
 }) {
   const [promptRouteOpen, setPromptRouteOpen] = useState(false);
   const promptRouteScrollRef = useRef<HTMLDivElement>(null);
+  const promptRouteBackdropDismiss = useBackdropDismiss<HTMLDivElement>(
+    () => setPromptRouteOpen(false),
+  );
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -1043,14 +1046,24 @@ export function PromptPreviewTools({
         </button>
       </div>
       {promptRouteOpen && typeof document !== 'undefined' ? createPortal(
-        <div className="prompt-preview-modal-backdrop nodrag nowheel" role="dialog" aria-modal="true" aria-labelledby={`${id}-prompt-route-title`}>
-          <section className="prompt-preview-modal">
-            <div className="prompt-preview-modal-header">
+        <div
+          className="prompt-preview-modal-backdrop nodrag nowheel"
+          role="presentation"
+          {...promptRouteBackdropDismiss}
+        >
+          <section
+            className="prompt-preview-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${id}-prompt-route-title`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="dialog-header">
               <div>
-                <strong id={`${id}-prompt-route-title`}>Prompt Route</strong>
-                <span>Text input once, changing LLM prompts, images, and raw output for each {runLabel} pass.</span>
+                <h2 id={`${id}-prompt-route-title`}>Prompt Route</h2>
+                <p>Text input once, changing LLM prompts, images, and raw output for each {runLabel} pass.</p>
               </div>
-              <button className="inspect-button prompt-action-icon-button" type="button" onClick={() => setPromptRouteOpen(false)}>x</button>
+              <button className="close-button" type="button" onClick={() => setPromptRouteOpen(false)}>Close</button>
             </div>
             <div className="prompt-preview-blocks" ref={promptRouteScrollRef}>
               {textInputSection

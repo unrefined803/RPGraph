@@ -730,7 +730,12 @@ export async function runActionAwarePrompt({
     );
     const actionReplayCount = actionResultTexts.length;
     const actionReplay = actionReplayCount > 0;
-    const passLabel = actionReplay ? `Action replay ${actionReplayCount}` : 'Initial action prompt';
+    const outputStepLabel = outputStep.name ? `Step ${outputStep.name}` : '';
+    const passLabel = outputStepLabel
+      ? `${outputStepLabel}${actionReplay ? ` replay ${actionReplayCount}` : ''}`
+      : actionReplay
+        ? `Action replay ${actionReplayCount}`
+        : 'Initial action prompt';
     const imagePass = currentImagePass();
     const textInputForPass = textInputForImagePass(inputValue, imagePass);
     const promptForPass = buildCombinedPrompt(textInputForPass);
@@ -756,7 +761,11 @@ export async function runActionAwarePrompt({
       useConnectionSampling: true,
     });
     outputPasses.push({
-      label: actionReplay ? `Action replay ${actionReplayCount} output` : 'Initial action output',
+      label: outputStepLabel
+        ? `${passLabel} output`
+        : actionReplay
+          ? `Action replay ${actionReplayCount} output`
+          : 'Initial action output',
       text: output.text,
     });
     let socialAccountValidation = validateSocialMessengerAccounts({

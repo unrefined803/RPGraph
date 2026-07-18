@@ -4553,37 +4553,24 @@ input[type="number"]::-webkit-outer-spin-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: rgba(7, 10, 18, 0.68);
+  padding: 8px;
+  background: rgba(4, 7, 12, 0.7);
+  backdrop-filter: blur(4px);
 }
 
 .prompt-preview-modal {
   display: flex;
-  width: min(980px, 96vw);
-  height: min(760px, 92vh);
+  width: min(1360px, calc(100vw - 16px));
+  height: calc(100vh - 16px);
   min-height: 0;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px;
-  border: 1px solid rgba(118, 173, 255, 0.3);
-  border-radius: 8px;
-  background: #111827;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.46);
-}
-
-.prompt-preview-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.prompt-preview-modal-header span {
-  display: block;
-  margin-top: 3px;
-  color: #aeb9d0;
-  font-size: 12px;
-  font-weight: 500;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #303a4e;
+  border-radius: 18px;
+  background: #111722;
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
 }
 
 .prompt-preview-tabs {
@@ -4617,7 +4604,7 @@ input[type="number"]::-webkit-outer-spin-button {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-right: 4px;
+  padding: 18px 23px 23px;
 }
 
 .prompt-preview-route-pass {

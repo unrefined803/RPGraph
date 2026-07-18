@@ -5170,9 +5170,10 @@ async function verifyPromptRunFixtures() {
     'the diced plan must replace the @output:planning token inside the main prompt',
   );
   assertFixture(
-      planStepWarnings.length === 0 &&
+    planStepWarnings.length === 0 &&
       planStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.' &&
       planStepResult.debug.promptPasses?.length === 2 &&
+      planStepResult.debug.promptPasses[1]?.label === 'Step main' &&
       planStepResult.debug.promptPasses[1]?.sections?.some((section) =>
         section.parts?.some((part) =>
           part.stepOutputInserted === 'planning' &&
@@ -5180,7 +5181,7 @@ async function verifyPromptRunFixtures() {
         ),
       ) === true &&
       planStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
-        'Step planning output,Initial action output',
+        'Step planning output,Step main output',
     'a two-step prompt must return the main reply and keep trace prompt/output passes aligned',
   );
 
@@ -5243,7 +5244,7 @@ async function verifyPromptRunFixtures() {
       multiStepWarnings.length === 0 &&
       multiStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.' &&
       multiStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
-        'Step planning output,Step draft output,Initial action output',
+        'Step planning output,Step draft output,Step translation output',
     'custom @step names must chain intermediate outputs into later steps and stream only the last step',
   );
   const promptSwitchCallDisplayData = {
