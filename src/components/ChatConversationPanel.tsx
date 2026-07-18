@@ -142,6 +142,8 @@ type ChatConversationPanelProps = {
   editingDraft: string;
   editableUserMessageId?: number;
   isRunning: boolean;
+  runStartTimeMs: number | null;
+  onCancelRun: () => void;
   englishProcessingEnabled: boolean;
   dialogueHighlightEnabled: boolean;
   dialogueVoiceSpeakerNames: ReadonlySet<string>;
@@ -233,6 +235,8 @@ export function ChatConversationPanel({
   editingDraft,
   editableUserMessageId,
   isRunning,
+  runStartTimeMs,
+  onCancelRun,
   englishProcessingEnabled,
   dialogueHighlightEnabled,
   dialogueVoiceSpeakerNames,
@@ -464,6 +468,13 @@ export function ChatConversationPanel({
     : isComposerHovered
       ? 'collapsed hover-ready'
       : 'collapsed';
+
+  const submitMessage = (event: FormEvent<HTMLFormElement>) => {
+    setIsComposerFocused(false);
+    setIsComposerHovered(false);
+    setScrollCollapsed(true);
+    onSubmitMessage(event);
+  };
 
   const changeChatTextSize = (change: number) => {
     onChatTextSizeChange(Math.min(22, Math.max(11, chatTextSize + change)));
@@ -1748,11 +1759,18 @@ export function ChatConversationPanel({
           );
         })}
       </div>
-      <RunProgressCard isRunning={isRunning} nodes={runtimeNodes} />
+      {isRunning ? (
+        <RunProgressCard
+          isRunning
+          nodes={runtimeNodes}
+          runStartTimeMs={runStartTimeMs}
+          onCancel={onCancelRun}
+        />
+      ) : (
       <form
         ref={composerRef}
         className={`composer ${composerModeClass}`}
-        onSubmit={onSubmitMessage}
+        onSubmit={submitMessage}
         onPointerDownCapture={(event) => {
           if (isTextEntryTarget(event.target)) {
             return;
@@ -1797,7 +1815,7 @@ export function ChatConversationPanel({
           disabled={false}
           onValueChange={onDraftChange}
           onCommandsChange={onDraftCommandsChange}
-          onSubmit={onSubmitMessage}
+          onSubmit={submitMessage}
           placeholder="Click here or press Enter to write. Type /cmd for commands"
           rows={3}
         />
@@ -2022,6 +2040,7 @@ export function ChatConversationPanel({
           </div>
         </div>
       </form>
+      )}
       {voicePlaybackDialogOpen && (
         <VoicePlaybackDialog
           mode={dialogueVoiceMode}

@@ -25,37 +25,45 @@ function currentRuntimeNode(nodes: WorkflowNode[]) {
 export function RunProgressCard({
   isRunning,
   nodes,
+  runStartTimeMs,
+  onCancel,
 }: {
   isRunning: boolean;
   nodes: WorkflowNode[];
+  runStartTimeMs: number | null;
+  onCancel: () => void;
 }) {
   if (!isRunning) {
     return null;
   }
   const node = currentRuntimeNode(nodes);
-  if (!node || node.data.kind !== undefined) {
-    return null;
-  }
-  const route = promptSwitchRouteLabel(node.data);
-  const stage = node.data.llmActiveCallLabel
-    ? llmCallStageLabel(node.data, node.data.llmActiveCallLabel)
-    : nodeFallbackStageLabel(node.data);
-  const startTimeMs = node.data.llmActiveCallStartedAtMs ?? node.data.runActiveStartedAtMs ?? null;
+  const runtimeData = node?.data.kind === undefined ? node.data : undefined;
+  const route = runtimeData ? promptSwitchRouteLabel(runtimeData) : undefined;
+  const stage = runtimeData
+    ? runtimeData.llmActiveCallLabel
+      ? llmCallStageLabel(runtimeData, runtimeData.llmActiveCallLabel)
+      : nodeFallbackStageLabel(runtimeData)
+    : 'Preparing workflow';
+  const startTimeMs = runtimeData?.llmActiveCallStartedAtMs ??
+    runtimeData?.runActiveStartedAtMs ?? runStartTimeMs;
+  const activity = `${route ?? runtimeData?.label ?? 'RPGraph'}: ${stage}`;
 
   return (
     <aside className="chat-run-progress" aria-live="polite" aria-label="Current workflow step">
-      <div className="chat-run-progress-heading">
+      <div className="chat-run-progress-copy">
         <span className="chat-run-progress-pulse" aria-hidden="true" />
-        <strong>{route ?? node.data.label}</strong>
+        <strong title={activity}>{activity}</strong>
+      </div>
+      <div className="chat-run-progress-controls">
         {startTimeMs !== null && (
           <span className="chat-run-progress-time">
             <LiveRunClock isRunning startTimeMs={startTimeMs} finalMs={0} /> s
           </span>
         )}
-      </div>
-      <div className="chat-run-progress-stage">
-        <span>{stage}</span>
-        <span className="chat-run-progress-dots" aria-hidden="true"><i /><i /><i /></span>
+        <span className="chat-run-progress-bars" aria-hidden="true">
+          <i /><i /><i /><i /><i />
+        </span>
+        <button type="button" onClick={onCancel}>Cancel</button>
       </div>
     </aside>
   );

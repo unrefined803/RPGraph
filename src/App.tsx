@@ -6682,6 +6682,8 @@ function App() {
               editingDraft={editingDraft}
               editableUserMessageId={editableUserMessageId}
               isRunning={isRunning}
+              runStartTimeMs={runStartTimeMs}
+              onCancelRun={cancelRunOrUndoLastTurn}
               englishProcessingEnabled={englishProcessingEnabled}
               dialogueHighlightEnabled={dialogueColorsEnabled}
               dialogueVoiceSpeakerNames={dialogueVoiceSpeakerNames}
