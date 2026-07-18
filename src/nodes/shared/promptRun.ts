@@ -439,47 +439,141 @@ export async function runActionAwarePrompt({
     : undefined;
 
   if (planMode) {
-    const planBefore = promptSectionValue(beforeSteps.plan);
-    const planAfter = promptSectionValue(afterSteps.plan);
-    const planHistorySegments = historySegmentsForInputValue(context, inputValue);
-    promptPasses.push({
-      label: 'Planning step',
-      sections: [
-        ...(planBefore
-          ? [{
-              label: 'Planning Prompt Before Input',
-              text: planBefore,
-              parts: promptSectionParts(beforeSteps.plan, planBefore),
-            }]
-          : []),
-        {
-          label: 'Text Input',
-          text: inputValue,
-          parts: [{ text: inputValue, historySegments: planHistorySegments }],
-          historySegments: planHistorySegments,
-        },
-        ...(planAfter
-          ? [{
-              label: 'Planning Prompt After Input',
-              text: planAfter,
-              parts: promptSectionParts(afterSteps.plan, planAfter),
-            }]
-          : []),
-      ],
-    });
-    context.updateRuntimeData(node.id, {
-      preview: 'Planning the turn ...',
-    });
-    const planOutput = await context.llm.complete({
-      connectionId: node.data.connectionId,
-      nodeId: node.id,
-      label: `${callLabel(0)} / Planning step`,
-      prompt: [planBefore, inputValue, planAfter].filter(Boolean).join('\n\n'),
-      contributesToTokenCalibration,
-      useConnectionSampling: true,
-    });
-    outputPasses.push({ label: 'Planning output', text: planOutput.text });
-    const rolledPlan = rollPlanOutcomes(planOutput.text, random);
+    // The planning pass can consume pre-reply actions itself (e.g. fetching or
+    // creating a phone image the plan already knows it needs): an action
+    // request in the planning output runs the follow-up and the action, then
+    // the planning pass reruns with the action result inserted at its @action
+    // tokens. The main pass later sees the same consumed results.
+    let planText = '';
+    const maxPlanPasses = Math.max(2, preReplyActionConfigs.length + 1);
+    for (let planPassIndex = 0; planPassIndex <= maxPlanPasses; planPassIndex += 1) {
+      const planBefore = promptSectionValue(beforeSteps.plan);
+      const planAfter = promptSectionValue(afterSteps.plan);
+      const planHistorySegments = historySegmentsForInputValue(context, inputValue);
+      const planReplayCount = actionResultTexts.length;
+      const passLabel = planReplayCount ? `Planning replay ${planReplayCount}` : 'Planning step';
+      promptPasses.push({
+        label: passLabel,
+        sections: [
+          ...(planBefore
+            ? [{
+                label: 'Planning Prompt Before Input',
+                text: planBefore,
+                parts: promptSectionParts(beforeSteps.plan, planBefore),
+              }]
+            : []),
+          {
+            label: 'Text Input',
+            text: inputValue,
+            parts: [{ text: inputValue, historySegments: planHistorySegments }],
+            historySegments: planHistorySegments,
+          },
+          ...(planAfter
+            ? [{
+                label: 'Planning Prompt After Input',
+                text: planAfter,
+                parts: promptSectionParts(afterSteps.plan, planAfter),
+              }]
+            : []),
+        ],
+      });
+      context.updateRuntimeData(node.id, {
+        preview: planReplayCount ? 'Planning with action result ...' : 'Planning the turn ...',
+      });
+      const planOutput = await context.llm.complete({
+        connectionId: node.data.connectionId,
+        nodeId: node.id,
+        label: `${callLabel(0)} / ${passLabel}`,
+        prompt: [planBefore, inputValue, planAfter].filter(Boolean).join('\n\n'),
+        contributesToTokenCalibration,
+        useConnectionSampling: true,
+      });
+      outputPasses.push({ label: `${passLabel} output`, text: planOutput.text });
+      const actionRequest = parsePromptActionRequest(planOutput.text);
+      if (!actionRequest) {
+        planText = planOutput.text;
+        break;
+      }
+      const actionConfig = preReplyActionConfigs.find(
+        (candidate) =>
+          candidate.actionId === actionRequest.action &&
+          !actionResults.has(promptActionKey(candidate.title)),
+      );
+      if (!actionConfig) {
+        context.reportWarning(
+          `${node.data.label}: Planning requested unavailable or already-consumed action ${actionRequest.action}.`,
+        );
+        break;
+      }
+      if (planPassIndex === maxPlanPasses) {
+        context.reportWarning(`${node.data.label}: Planning action replay limit reached.`);
+        break;
+      }
+      const followUpInstruction = promptActionInstructionText(
+        actionConfig,
+        actionAvailabilityOptions,
+        actionRequest.plan,
+      );
+      promptPasses.push({
+        label: `Planning action follow-up: ${actionConfig.title}`,
+        sections: [
+          ...(planBefore
+            ? [{
+                label: 'Planning Prompt Before Input',
+                text: planBefore,
+                parts: promptSectionParts(beforeSteps.plan, planBefore),
+              }]
+            : []),
+          {
+            label: 'Text Input',
+            text: inputValue,
+            parts: [{ text: inputValue, historySegments: planHistorySegments }],
+            historySegments: planHistorySegments,
+          },
+          {
+            label: 'Planning Action Follow-Up',
+            text: followUpInstruction,
+            parts: [{ text: followUpInstruction, actionInserted: true }],
+          },
+        ],
+      });
+      context.updateRuntimeData(node.id, {
+        preview: `Action ${actionRequest.action} requested in planning; preparing it from the plan ...`,
+      });
+      const followUpOutput = await context.llm.complete({
+        connectionId: node.data.connectionId,
+        nodeId: node.id,
+        label: `${callLabel(0)} / Planning action follow-up: ${actionConfig.title}`,
+        prompt: [planBefore, inputValue, followUpInstruction].filter(Boolean).join('\n\n'),
+        contributesToTokenCalibration,
+        useConnectionSampling: true,
+      });
+      outputPasses.push({
+        label: `Planning action follow-up output: ${actionConfig.title}`,
+        text: followUpOutput.text,
+      });
+      const actionCall = parsePromptActionCall(followUpOutput.text);
+      if (!actionCall || actionCall.action !== actionConfig.actionId) {
+        context.reportWarning(
+          `${node.data.label}: Planning action follow-up for ${actionConfig.title} returned no valid action call.`,
+        );
+        break;
+      }
+      const actionResult = await executePromptAction(context, actionConfig, actionCall, {
+        ...actionAvailabilityOptions,
+        llmConnectionId: node.data.connectionId,
+      });
+      actionResults.set(promptActionKey(actionConfig.title), actionResult.text);
+      actionResultTexts.push(actionResult.text);
+      actionImages.push(...actionResult.images);
+      if (actionResult.finalOutputText) {
+        finalOutputActionTexts.push(actionResult.finalOutputText);
+      }
+      context.updateRuntimeData(node.id, {
+        preview: `Action ${actionCall.action} resolved; replanning ...`,
+      });
+    }
+    const rolledPlan = rollPlanOutcomes(planText, random);
     if (rolledPlan.text.trim()) {
       if (rolledPlan.rolls.length) {
         outputPasses.push({ label: 'Plan after dice rolls', text: rolledPlan.text });

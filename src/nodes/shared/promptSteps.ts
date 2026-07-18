@@ -79,8 +79,19 @@ function planRollOutcome(chance: number, roll: number): PlanRollOutcome {
   return 'epic fail';
 }
 
-// Replaces the trailing percentage of every plan bullet with an automatically
-// diced outcome, e.g. "(80%)" -> "(80% chance, rolled 92: great success)".
+// Plan bullets are either/or rolls: they state what happens on success and an
+// "otherwise: ..." part for failure. The replacement tells the main pass which
+// branch happened; the raw roll number stays internal.
+const planRollOutcomeTexts: Record<PlanRollOutcome, string> = {
+  'great success': 'CLEAR SUCCESS — this happens decisively; skip any otherwise-part',
+  success: 'SUCCESS — this happens; skip any otherwise-part',
+  failure: 'FAILED — this does not happen; the otherwise-part happens instead',
+  'epic fail': 'BADLY FAILED — this goes thoroughly wrong; the otherwise-part happens emphatically',
+};
+
+// Replaces the percentage of every uncertain plan bullet with an automatically
+// diced outcome, e.g. "(80%)" -> "(80%: SUCCESS — this happens; ...)". Lines
+// without a percentage are certain and stay untouched.
 export function rollPlanOutcomes(planText: string, random: () => number = Math.random) {
   const rolls: PlanRoll[] = [];
   const text = planText
@@ -96,7 +107,7 @@ export function rollPlanOutcomes(planText: string, random: () => number = Math.r
       rolls.push({ chance, roll, outcome });
       return line.replace(
         planPercentPattern,
-        `(${chance}% chance, rolled ${roll}: ${outcome})`,
+        `(${chance}%: ${planRollOutcomeTexts[outcome]})`,
       );
     })
     .join('\n');

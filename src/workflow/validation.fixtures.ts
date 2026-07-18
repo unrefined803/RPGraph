@@ -5106,13 +5106,13 @@ async function verifyPromptRunFixtures() {
   );
   const planStepMainPrompt = planStepPrompts[1] ?? '';
   assertFixture(
-    planStepMainPrompt.includes('(80% chance, rolled 100: great success)') &&
-      planStepMainPrompt.includes('(20% chance, rolled 1: epic fail)') &&
+    planStepMainPrompt.includes('(80%: CLEAR SUCCESS — this happens decisively; skip any otherwise-part)') &&
+      planStepMainPrompt.includes('(20%: BADLY FAILED — this goes thoroughly wrong; the otherwise-part happens emphatically)') &&
       planStepMainPrompt.indexOf('Write the scene as RP story text.') <
         planStepMainPrompt.indexOf('Here is the diced plan for this turn:') &&
       planStepMainPrompt.indexOf('Here is the diced plan for this turn:') <
-        planStepMainPrompt.indexOf('(80% chance, rolled 100: great success)') &&
-      planStepMainPrompt.indexOf('(20% chance, rolled 1: epic fail)') <
+        planStepMainPrompt.indexOf('(80%: CLEAR SUCCESS') &&
+      planStepMainPrompt.indexOf('(20%: BADLY FAILED') <
         planStepMainPrompt.indexOf('Keep the reply short.') &&
       !planStepMainPrompt.includes('@output:planning') &&
       !planStepMainPrompt.includes('@step:') &&
