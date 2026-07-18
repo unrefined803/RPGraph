@@ -43,6 +43,14 @@ import {
   type PromptCommandId,
   type PromptCommandPassRequest,
 } from './promptCommands';
+import {
+  injectPlanOutput,
+  planContextBlock,
+  planOutputTokenPattern,
+  planPassInstructionText,
+  rollPlanOutcomes,
+  splitPromptStepSections,
+} from './promptSteps';
 import { promptImagePass } from './promptImagePass';
 import {
   storybookCreateImageCharactersFromNodes,
@@ -220,13 +228,14 @@ export async function runActionAwarePrompt({
   inputValue,
   images,
   referenceImages,
-  promptBefore,
-  promptAfter,
+  promptBefore: promptBeforeInput,
+  promptAfter: promptAfterInput,
   actionConfigs,
   commandConfigs = [],
   streamsVisibleOutput,
   contributesToTokenCalibration,
   callLabel,
+  random = Math.random,
 }: {
   node: WorkflowNode;
   context: ExecuteContext;
@@ -240,7 +249,17 @@ export async function runActionAwarePrompt({
   streamsVisibleOutput: boolean;
   contributesToTokenCalibration: boolean;
   callLabel: (actionReplayCount: number) => string;
+  random?: () => number;
 }) {
+  // Step markers split a prompt into a Step 1 planning prompt and the Step 2
+  // main prompt. With a Step 1 section present, a planning pass runs first,
+  // its bullet probabilities are diced, and the rolled plan is injected into
+  // the main prompt (at @plan:output tokens, or prepended without one).
+  const beforeSteps = splitPromptStepSections(promptBeforeInput);
+  const afterSteps = splitPromptStepSections(promptAfterInput);
+  const planMode = beforeSteps.hasPlanStep || afterSteps.hasPlanStep;
+  let promptBefore = beforeSteps.main;
+  let promptAfter = afterSteps.main;
   const visionEnabled = await context.llm.supportsVision(
     node.data.connectionId,
     `${node.data.label} vision features`,
@@ -265,11 +284,11 @@ export async function runActionAwarePrompt({
     }
   };
   const availableCommandIds = Array.from(new Set(
-    parsePromptCommandTokens([promptBefore, promptAfter].join('\n'))
+    parsePromptCommandTokens([promptBeforeInput, promptAfterInput].join('\n'))
       .map((token) => knownPromptCommandId(token.name))
       .filter((commandId): commandId is PromptCommandId => !!commandId),
   ));
-  const availableActionConfigs = parsePromptActionTokens([promptBefore, promptAfter].join('\n'))
+  const availableActionConfigs = parsePromptActionTokens([promptBeforeInput, promptAfterInput].join('\n'))
     .map((token) => configForPromptActionToken(actionConfigs, token.title));
   const uniqueAvailableActionConfigs = Array.from(
     new Map(
@@ -420,6 +439,86 @@ export async function runActionAwarePrompt({
         streamVisible?.(value);
       }
     : undefined;
+
+  if (planMode) {
+    const planBefore = promptSectionValue(beforeSteps.plan);
+    const planAfter = promptSectionValue(afterSteps.plan);
+    const planHistorySegments = historySegmentsForInputValue(context, inputValue);
+    promptPasses.push({
+      label: 'Step 1: Planning',
+      sections: [
+        ...(planBefore
+          ? [{
+              label: 'Plan Prompt Before Input',
+              text: planBefore,
+              parts: promptSectionParts(beforeSteps.plan, planBefore),
+            }]
+          : []),
+        {
+          label: 'Text Input',
+          text: inputValue,
+          parts: [{ text: inputValue, historySegments: planHistorySegments }],
+          historySegments: planHistorySegments,
+        },
+        ...(planAfter
+          ? [{
+              label: 'Plan Prompt After Input',
+              text: planAfter,
+              parts: promptSectionParts(afterSteps.plan, planAfter),
+            }]
+          : []),
+        {
+          label: 'Plan Output Instruction',
+          text: planPassInstructionText,
+          parts: [{ text: planPassInstructionText, actionInserted: true }],
+        },
+      ],
+    });
+    context.updateRuntimeData(node.id, {
+      preview: 'Step 1: planning the turn ...',
+    });
+    const planOutput = await context.llm.complete({
+      connectionId: node.data.connectionId,
+      nodeId: node.id,
+      label: `${callLabel(0)} / Step 1 planning`,
+      prompt: [planBefore, inputValue, planAfter, planPassInstructionText]
+        .filter(Boolean)
+        .join('\n\n'),
+      contributesToTokenCalibration,
+      useConnectionSampling: true,
+    });
+    outputPasses.push({ label: 'Step 1 planning output', text: planOutput.text });
+    const rolledPlan = rollPlanOutcomes(planOutput.text, random);
+    if (rolledPlan.text.trim()) {
+      if (rolledPlan.rolls.length) {
+        outputPasses.push({ label: 'Step 1 plan after dice rolls', text: rolledPlan.text });
+      } else {
+        context.reportWarning(
+          `${node.data.label}: Step 1 plan contains no percentages; it is passed on without dice rolls.`,
+        );
+      }
+      const planBlock = planContextBlock(rolledPlan.text);
+      const beforeInjection = injectPlanOutput(promptBefore, planBlock);
+      const afterInjection = injectPlanOutput(promptAfter, planBlock);
+      promptBefore = beforeInjection.text;
+      promptAfter = afterInjection.text;
+      if (!beforeInjection.injected && !afterInjection.injected) {
+        promptBefore = [planBlock, promptBefore].filter(Boolean).join('\n\n');
+      }
+    } else {
+      context.reportWarning(
+        `${node.data.label}: Step 1 planning returned no plan; continuing without it.`,
+      );
+      promptBefore = injectPlanOutput(promptBefore, '').text;
+      promptAfter = injectPlanOutput(promptAfter, '').text;
+    }
+  } else if ([promptBefore, promptAfter].join('\n').match(planOutputTokenPattern)) {
+    context.reportWarning(
+      `${node.data.label}: @plan:output has no Step 1 planning section; the marker was removed.`,
+    );
+    promptBefore = injectPlanOutput(promptBefore, '').text;
+    promptAfter = injectPlanOutput(promptAfter, '').text;
+  }
 
   let generatedText = '';
   let connectionLabel = '';

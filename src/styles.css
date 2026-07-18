@@ -1709,6 +1709,20 @@ input[type="radio"]:focus-visible {
   text-decoration-color: rgba(64, 189, 166, 0.72);
 }
 
+.prompt-step-marker {
+  color: #c9a6ff;
+  background: rgba(151, 96, 255, 0.16);
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.prompt-plan-output {
+  color: #9fc6ff;
+  background: rgba(89, 148, 255, 0.16);
+  border-radius: 4px;
+  font-weight: 700;
+}
+
 .prompt-action-status-warning {
   color: #f5b96b;
   text-decoration-color: rgba(245, 185, 107, 0.7);
