@@ -3348,13 +3348,13 @@ export function verifyWorkflowValidationFixtures() {
       formatPromptCommandTokens('@command:bank_transfer\n@COMMAND:simulate_chatgpd') ===
         '@command: Bank_transfer\n@command: Simulate_ChatGPD' &&
       replacePromptCommandTokensWithHints('@command: Simulate_ChatGPD') ===
-        '[simulate_ai_chat: rough plan — who chats with ChatGPD and about what]' &&
+        '[simulate_ai_chat: rough plan (who chats with ChatGPD and about what)]' &&
       formatPromptCommandTokens('@command:messenger_conversation') === '@command: Messenger_conversation' &&
       replacePromptCommandTokensWithHints('@command: Messenger_conversation') ===
-        '[messenger_conversation: rough plan — app, both people, and what the exchange covers]' &&
+        '[messenger_conversation: rough plan (app, both people, and what the exchange covers)]' &&
       formatPromptCommandTokens('@command:create_note') === '@command: Create_Note' &&
       replacePromptCommandTokensWithHints('@command: Create_Note') ===
-        '[create_note: rough plan — whose note and what it will contain]',
+        '[create_note: rough plan (whose note and what it will contain)]',
     'prompt commands must accept flexible casing and spacing while preserving their internal command requests',
   );
   const inlineCommandRequest = parsePromptCommandRequest(
@@ -5156,8 +5156,8 @@ async function verifyPromptRunFixtures() {
   );
   const planStepMainPrompt = planStepPrompts[1] ?? '';
   assertFixture(
-    planStepMainPrompt.includes('(chance: 80%: CLEAR SUCCESS — this happens decisively; skip any otherwise-part)') &&
-      planStepMainPrompt.includes('(chance: 20%: BADLY FAILED — this goes thoroughly wrong; the otherwise-part happens emphatically)') &&
+    planStepMainPrompt.includes('(chance: 80%: CLEAR SUCCESS, this happens decisively; skip any otherwise-part)') &&
+      planStepMainPrompt.includes('(chance: 20%: BADLY FAILED, this goes thoroughly wrong; the otherwise-part happens emphatically)') &&
       planStepMainPrompt.indexOf('Write the scene as RP story text.') <
         planStepMainPrompt.indexOf('Here is the diced plan for this turn:') &&
       planStepMainPrompt.indexOf('Here is the diced plan for this turn:') <

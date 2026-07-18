@@ -111,14 +111,14 @@ function planRollOutcome(chance: number, roll: number): PlanRollOutcome {
 // "otherwise: ..." part for failure. The replacement tells the next pass which
 // branch happened; the raw roll number stays internal.
 const planRollOutcomeTexts: Record<PlanRollOutcome, string> = {
-  'great success': 'CLEAR SUCCESS — this happens decisively; skip any otherwise-part',
-  success: 'SUCCESS — this happens; skip any otherwise-part',
-  failure: 'FAILED — this does not happen; the otherwise-part happens instead',
-  'epic fail': 'BADLY FAILED — this goes thoroughly wrong; the otherwise-part happens emphatically',
+  'great success': 'CLEAR SUCCESS, this happens decisively; skip any otherwise-part',
+  success: 'SUCCESS, this happens; skip any otherwise-part',
+  failure: 'FAILED, this does not happen; the otherwise-part happens instead',
+  'epic fail': 'BADLY FAILED, this goes thoroughly wrong; the otherwise-part happens emphatically',
 };
 
 // Replaces the chance marker of every uncertain plan bullet with an
-// automatically diced outcome, e.g. "(chance: 80%)" -> "(chance: 80%: SUCCESS —
+// automatically diced outcome, e.g. "(chance: 80%)" -> "(chance: 80%: SUCCESS,
 // this happens; ...)". Only the explicit "chance:" keyword triggers a roll;
 // bare percentages (dates, prices, battery levels) stay untouched, as do lines
 // without a marker.

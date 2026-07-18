@@ -48,7 +48,7 @@ const promptCommandDisplayNames: Record<PromptCommandId, string> = {
 };
 
 const bankTransferInstruction = [
-  'Command bank_transfer — send money with the phone Banking app.',
+  'Command bank_transfer: send money with the phone Banking app.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -66,7 +66,7 @@ const bankTransferInstruction = [
 ].join('\n');
 
 const createNoteInstruction = [
-  'Command create_note — create and save a new entry in a Storybook character\'s phone Notes app.',
+  'Command create_note: create and save a new entry in a Storybook character\'s phone Notes app.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -77,7 +77,7 @@ const createNoteInstruction = [
   '  }',
   '}',
   '',
-  'The finished reply shown above already established that this character creates or saves a note now. When a plan is noted with the request, it sketches roughly what the note should contain — expand it into the finished note. Write the actual note that fits the story context and that finished reply. Do not repeat the surrounding RP narration inside the note.',
+  'The finished reply shown above already established that this character creates or saves a note now. When a plan is noted with the request, it sketches roughly what the note should contain; expand it into the finished note. Write the actual note that fits the story context and that finished reply. Do not repeat the surrounding RP narration inside the note.',
   '',
   'character must be the full displayed name of the Storybook character whose phone receives the note. title must be a short, useful title. text must contain the complete note in that character\'s natural wording and perspective.',
   '',
@@ -89,7 +89,7 @@ const createNoteInstruction = [
 ].join('\n');
 
 const simulateAiChatInstruction = [
-  'Command simulate_ai_chat — simulate and record a Storybook character\'s conversation with the phone AI assistant app.',
+  'Command simulate_ai_chat: simulate and record a Storybook character\'s conversation with the phone AI assistant app.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -108,7 +108,7 @@ const simulateAiChatInstruction = [
   '  }',
   '}',
   '',
-  'Simulate the complete AI conversation described or initiated in the context and finished reply. When a plan is noted with the request, it names who chats and the topic — build the conversation around it. Write both the character messages and the assistant responses yourself; do not request another real AI call.',
+  'Simulate the complete AI conversation described or initiated in the context and finished reply. When a plan is noted with the request, it names who chats and the topic; build the conversation around it. Write both the character messages and the assistant responses yourself; do not request another real AI call.',
   '',
   'character must be the full displayed name of the Storybook character using the app. messages must contain one to four complete exchanges: 2, 4, 6, or 8 messages. Begin with role "user", alternate strictly between "user" and "assistant", and end with role "assistant".',
   '',
@@ -122,7 +122,7 @@ const simulateAiChatInstruction = [
 ].join('\n');
 
 const messengerMessageInstruction = [
-  'Command messenger_message — send one private message through a supported messenger app.',
+  'Command messenger_message: send one private message through a supported messenger app.',
   '',
   'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Never output MessengerAppName itself or a generic messengerApp key. When a plan is noted with the request, take the app, sender, recipient, and message gist from it.',
   '',
@@ -143,7 +143,7 @@ const messengerMessageInstruction = [
 ].join('\n');
 
 const messengerConversationInstruction = [
-  'Command messenger_conversation — simulate a short private conversation through a supported messenger app.',
+  'Command messenger_conversation: simulate a short private conversation through a supported messenger app.',
   '',
   'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Never output MessengerAppName itself or a generic messengerApp key.',
   '',
@@ -186,7 +186,7 @@ const messengerConversationInstruction = [
 ].join('\n');
 
 const displayImageInstruction = [
-  'Command display_image — display exactly one stored image in the Chat tab, without sending a phone message.',
+  'Command display_image: display exactly one stored image in the Chat tab, without sending a phone message.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -197,7 +197,7 @@ const displayImageInstruction = [
 ].join('\n');
 
 const fotogramPostCommentInstruction = [
-  'Command fotogram_post_comment — write a comment under an existing Fotogram post.',
+  'Command fotogram_post_comment: write a comment under an existing Fotogram post.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -212,7 +212,7 @@ const fotogramPostCommentInstruction = [
 ].join('\n');
 
 const onlyFriendsPostCommentInstruction = [
-  'Command onlyfriends_post_comment — write a comment under an existing OnlyFriends post.',
+  'Command onlyfriends_post_comment: write a comment under an existing OnlyFriends post.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -368,14 +368,14 @@ export function countPromptCommandUses(values: string[], name: string) {
 // author; the token itself only expands to the marker template for this
 // command, with a placeholder sketching what the plan should cover.
 const promptCommandPlanPlaceholders: Record<PromptCommandId, string> = {
-  bank_transfer: 'rough plan — who sends how much to whom and why',
-  create_note: 'rough plan — whose note and what it will contain',
-  simulate_ai_chat: 'rough plan — who chats with ChatGPD and about what',
-  messenger_message: 'rough plan — app, sender, recipient, and message gist',
-  messenger_conversation: 'rough plan — app, both people, and what the exchange covers',
+  bank_transfer: 'rough plan (who sends how much to whom and why)',
+  create_note: 'rough plan (whose note and what it will contain)',
+  simulate_ai_chat: 'rough plan (who chats with ChatGPD and about what)',
+  messenger_message: 'rough plan (app, sender, recipient, and message gist)',
+  messenger_conversation: 'rough plan (app, both people, and what the exchange covers)',
   display_image: 'stored_image_id',
-  fotogram_post_comment: 'rough plan — which post, who comments, and the comment gist',
-  onlyfriends_post_comment: 'rough plan — which post, who comments, and the comment gist',
+  fotogram_post_comment: 'rough plan (which post, who comments, and the comment gist)',
+  onlyfriends_post_comment: 'rough plan (which post, who comments, and the comment gist)',
 };
 
 export function promptCommandHintText(commandId: PromptCommandId) {
