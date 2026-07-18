@@ -273,7 +273,7 @@ export async function runActionAwarePrompt({
   const outputStep = steps[steps.length - 1];
   const intermediateSteps = steps.slice(0, -1);
   // Snapshot the authored prompt texts before earlier steps inject their
-  // outputs; the missing-percentages warning must not trigger on percentages
+  // outputs; the missing-rolls warning must not trigger on "chance:" markers
   // that arrive via an injected plan.
   const authoredStepTexts = steps.map((step) => [step.before, step.after].join('\n'));
   let promptBefore = outputStep.before;
@@ -638,11 +638,12 @@ export async function runActionAwarePrompt({
     const stepOutputText = rolledOutput.text.trim();
     const laterSteps = steps.slice(stepIndex + 1);
     if (stepOutputText) {
-      // A missing-percentages warning only makes sense for plan-style steps;
-      // a prompt that never mentions "%" gets its output passed on verbatim.
-      if (!rolledOutput.rolls.length && /%/.test(authoredStepTexts[stepIndex])) {
+      // A missing-rolls warning only makes sense for plan-style steps; a
+      // prompt that never mentions "chance:" gets its output passed on
+      // verbatim.
+      if (!rolledOutput.rolls.length && /chance:/i.test(authoredStepTexts[stepIndex])) {
         context.reportWarning(
-          `${node.data.label}: Step ${step.name} output contains no percentages; it is passed on without dice rolls.`,
+          `${node.data.label}: Step ${step.name} output contains no (chance: NN%) markers; it is passed on without dice rolls.`,
         );
       }
       let injected = false;

@@ -5072,7 +5072,7 @@ async function verifyPromptRunFixtures() {
   }> = [];
   const planStepWarnings: string[] = [];
   const planStepOutputs = [
-    '- Helga convinces Espen to lend her money (80%)\n- Espen storms off angrily (20%)',
+    '- Helga convinces Espen to lend her money (chance: 80%)\n- Espen storms off angrily (chance: 20%)',
     'Helga grins as Espen finally hands over the bill.',
   ];
   const planInputImage = {
@@ -5121,7 +5121,7 @@ async function verifyPromptRunFixtures() {
     promptAfter: [
       '@step:planning',
       'Plan the possible outcomes of the scene.',
-      'End every bullet with its probability as (NN%).',
+      'End every bullet with its probability as (chance: NN%).',
       '@step:main',
       'Write the scene as RP story text.',
       'Here is the diced plan for this turn:',
@@ -5138,7 +5138,7 @@ async function verifyPromptRunFixtures() {
   assertFixture(
     planStepPrompts.length === 2 &&
       planStepPrompts[0]?.includes('Plan the possible outcomes of the scene.') === true &&
-      planStepPrompts[0]?.includes('End every bullet with its probability as (NN%).') === true &&
+      planStepPrompts[0]?.includes('End every bullet with its probability as (chance: NN%).') === true &&
       !planStepPrompts[0]?.includes('Write the scene as RP story text.'),
     'a @step:planning section must run a separate planning pass without the main prompt',
   );
@@ -5153,13 +5153,13 @@ async function verifyPromptRunFixtures() {
   );
   const planStepMainPrompt = planStepPrompts[1] ?? '';
   assertFixture(
-    planStepMainPrompt.includes('(80%: CLEAR SUCCESS — this happens decisively; skip any otherwise-part)') &&
-      planStepMainPrompt.includes('(20%: BADLY FAILED — this goes thoroughly wrong; the otherwise-part happens emphatically)') &&
+    planStepMainPrompt.includes('(chance: 80%: CLEAR SUCCESS — this happens decisively; skip any otherwise-part)') &&
+      planStepMainPrompt.includes('(chance: 20%: BADLY FAILED — this goes thoroughly wrong; the otherwise-part happens emphatically)') &&
       planStepMainPrompt.indexOf('Write the scene as RP story text.') <
         planStepMainPrompt.indexOf('Here is the diced plan for this turn:') &&
       planStepMainPrompt.indexOf('Here is the diced plan for this turn:') <
-        planStepMainPrompt.indexOf('(80%: CLEAR SUCCESS') &&
-      planStepMainPrompt.indexOf('(20%: BADLY FAILED') <
+        planStepMainPrompt.indexOf('(chance: 80%: CLEAR SUCCESS') &&
+      planStepMainPrompt.indexOf('(chance: 20%: BADLY FAILED') <
         planStepMainPrompt.indexOf('Keep the reply short.') &&
       !planStepMainPrompt.includes('@output:planning') &&
       !planStepMainPrompt.includes('@step:') &&
@@ -5178,7 +5178,7 @@ async function verifyPromptRunFixtures() {
   const multiStepRequests: string[] = [];
   const multiStepWarnings: string[] = [];
   const multiStepOutputs = [
-    '- Helga convinces Espen to lend her money (80%)',
+    '- Helga convinces Espen to lend her money (chance: 80%)\n- Her phone battery is at 20%',
     'Helga grinst, als Espen ihr endlich den Schein reicht.',
     'Helga grins as Espen finally hands over the bill.',
   ];
@@ -5207,7 +5207,7 @@ async function verifyPromptRunFixtures() {
     promptBefore: '',
     promptAfter: [
       '@step:planning',
-      'Plan the outcome with a probability as (NN%).',
+      'Plan the outcome with a probability as (chance: NN%).',
       '@step:draft',
       'Write the scene in German based on this plan:',
       '@output:planning',
@@ -5224,7 +5224,9 @@ async function verifyPromptRunFixtures() {
   assertFixture(
     multiStepRequests.length === 3 &&
       multiStepRequests[1]?.includes('Write the scene in German based on this plan:') === true &&
-      multiStepRequests[1]?.includes('(80%: CLEAR SUCCESS') === true &&
+      multiStepRequests[1]?.includes('(chance: 80%: CLEAR SUCCESS') === true &&
+      multiStepRequests[1]?.includes('- Her phone battery is at 20%') === true &&
+      !multiStepRequests[1]?.includes('20%:') &&
       !multiStepRequests[1]?.includes('Translate the following scene to English:') &&
       multiStepRequests[2]?.includes('Translate the following scene to English:') === true &&
       multiStepRequests[2]?.includes('Helga grinst, als Espen ihr endlich den Schein reicht.') === true &&

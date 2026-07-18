@@ -5,9 +5,9 @@
 // result, every earlier step is an intermediate pass. Text before the first
 // marker belongs to the output step, so prompts without markers keep the
 // classic single-pass behavior. Everything an intermediate LLM pass sees comes
-// from the prompt text itself; the code only splits sections, dices plan
-// percentages in intermediate outputs, and injects each step's output into
-// later steps at its "@output:<name>" token.
+// from the prompt text itself; the code only splits sections, dices
+// "(chance: NN%)" markers in intermediate outputs, and injects each step's
+// output into later steps at its "@output:<name>" token.
 
 export const promptStepMarkerPattern = /^[ \t]*@step:[ \t]*([A-Za-z0-9_-]+)[ \t]*$/gim;
 
@@ -89,7 +89,7 @@ type PlanRoll = {
   outcome: PlanRollOutcome;
 };
 
-const planPercentPattern = /\(?[ \t]*([0-9]{1,3})[ \t]*%[ \t]*\)?/;
+const planPercentPattern = /\(?[ \t]*chance:[ \t]*([0-9]{1,3})[ \t]*%[ \t]*\)?/i;
 
 function planRollOutcome(chance: number, roll: number): PlanRollOutcome {
   // High rolls are good: the roll must beat (100 - chance). The distance to
@@ -117,9 +117,11 @@ const planRollOutcomeTexts: Record<PlanRollOutcome, string> = {
   'epic fail': 'BADLY FAILED — this goes thoroughly wrong; the otherwise-part happens emphatically',
 };
 
-// Replaces the percentage of every uncertain plan bullet with an automatically
-// diced outcome, e.g. "(80%)" -> "(80%: SUCCESS — this happens; ...)". Lines
-// without a percentage are certain and stay untouched.
+// Replaces the chance marker of every uncertain plan bullet with an
+// automatically diced outcome, e.g. "(chance: 80%)" -> "(chance: 80%: SUCCESS —
+// this happens; ...)". Only the explicit "chance:" keyword triggers a roll;
+// bare percentages (dates, prices, battery levels) stay untouched, as do lines
+// without a marker.
 export function rollPlanOutcomes(planText: string, random: () => number = Math.random) {
   const rolls: PlanRoll[] = [];
   const text = planText
@@ -135,7 +137,7 @@ export function rollPlanOutcomes(planText: string, random: () => number = Math.r
       rolls.push({ chance, roll, outcome });
       return line.replace(
         planPercentPattern,
-        `(${chance}%: ${planRollOutcomeTexts[outcome]})`,
+        `(chance: ${chance}%: ${planRollOutcomeTexts[outcome]})`,
       );
     })
     .join('\n');
