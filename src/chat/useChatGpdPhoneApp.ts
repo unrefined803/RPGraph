@@ -37,7 +37,7 @@ type UseChatGpdPhoneAppOptions = {
   model: ChatGpdModel;
   onModelChange: (model: ChatGpdModel) => void;
   nodeLlm: NodeLlmApi;
-  updateLlmNodeActive: (nodeId: string, runActive: boolean) => void;
+  updateLlmNodeActive: (nodeId: string, runActive: boolean, label?: string) => void;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
 };
 
@@ -227,7 +227,7 @@ export function useChatGpdPhoneApp({
     setIsSending(true);
     setSendingChatId(chatId);
     setStreaming({ chatId, text: '' });
-    updateLlmNodeActive(node.id, true);
+    updateLlmNodeActive(node.id, true, 'ChatGPD');
     try {
       const streamedChatId = chatId;
       const completion = await nodeLlm.complete({

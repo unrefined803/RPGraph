@@ -74,6 +74,12 @@ export function llmCallStageLabel(data: WorkflowNodeData, label: string) {
 }
 
 export function nodeFallbackStageLabel(data: WorkflowNodeData) {
+  if (data.nodeType === 'input') {
+    return 'Translate';
+  }
+  if (data.nodeType === 'output') {
+    return data.speakerAnalysisEnabled ? 'Speakers' : 'Translate';
+  }
   if (data.nodeType === 'llm-prompt-switch') {
     const action = data.preview.match(/Action\s+([A-Za-z0-9_]+)\s+(?:requested|resolved)/i);
     if (action) {

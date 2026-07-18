@@ -109,7 +109,7 @@ export function useRuntimeNodePatching({
     applyRuntimeNodePatch(nodeId, patch);
   }
 
-  function updateLlmNodeActive(nodeId: string, runActive: boolean) {
+  function updateLlmNodeActive(nodeId: string, runActive: boolean, label?: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     const definition = node?.data.kind !== undefined
       ? undefined
@@ -117,7 +117,11 @@ export function useRuntimeNodePatching({
         ? getRegisteredNode(node.data.nodeType)
         : undefined;
     if (definition?.usesLlm) {
-      updateRuntimeNode(nodeId, { runActive });
+      updateRuntimeNode(nodeId, {
+        runActive,
+        llmActiveCallLabel: runActive ? label : undefined,
+        llmActiveCallStartedAtMs: runActive && label ? performance.now() : undefined,
+      });
     }
   }
 

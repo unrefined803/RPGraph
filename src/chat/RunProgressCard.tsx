@@ -44,20 +44,17 @@ export function RunProgressCard({
       ? llmCallStageLabel(runtimeData, runtimeData.llmActiveCallLabel)
       : nodeFallbackStageLabel(runtimeData)
     : 'Preparing workflow';
-  const startTimeMs = runtimeData?.llmActiveCallStartedAtMs ??
-    runtimeData?.runActiveStartedAtMs ?? runStartTimeMs;
   const activity = `${route ?? runtimeData?.label ?? 'RPGraph'}: ${stage}`;
 
   return (
     <aside className="chat-run-progress" aria-live="polite" aria-label="Current workflow step">
       <div className="chat-run-progress-copy">
-        <span className="chat-run-progress-pulse" aria-hidden="true" />
         <strong title={activity}>{activity}</strong>
       </div>
       <div className="chat-run-progress-controls">
-        {startTimeMs !== null && (
-          <span className="chat-run-progress-time">
-            <LiveRunClock isRunning startTimeMs={startTimeMs} finalMs={0} /> s
+        {runStartTimeMs !== null && (
+          <span className="chat-run-progress-total-time" title="Total workflow time">
+            <LiveRunClock isRunning startTimeMs={runStartTimeMs} finalMs={0} /> s
           </span>
         )}
         <span className="chat-run-progress-bars" aria-hidden="true">

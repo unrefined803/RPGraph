@@ -53,7 +53,7 @@ function formatCallDuration(durationMs: number) {
 function getExpectedCallLabels(data: WorkflowNode['data']): string[] {
   switch (data.nodeType) {
     case 'input':
-      return [];
+      return ['Translate'];
     case 'custom':
       return ['Custom Node LLM'];
     case 'llm-prompt':
@@ -94,13 +94,19 @@ function getExpectedCallLabels(data: WorkflowNode['data']): string[] {
 export function LlmCallMetrics({ data }: { data: WorkflowNode['data'] }) {
   const expectedLabels = getExpectedCallLabels(data);
   const actualStats = data.llmCallStats ?? [];
-  const activeLabel = data.llmActiveCallLabel;
+  const displayStats = data.nodeType === 'input' && actualStats.length > 0
+    ? [{ ...actualStats[actualStats.length - 1], label: 'Translate' }]
+    : actualStats;
+  const hasReasoning = displayStats.some((stats) => (stats.reasoningTokens ?? 0) > 0);
+  const activeLabel = data.nodeType === 'input' && data.llmActiveCallLabel
+    ? 'Translate'
+    : data.llmActiveCallLabel;
   const routeLabel = promptSwitchRouteLabel(data);
   const effectiveExpectedLabels = data.nodeType === 'llm-prompt-switch' ? [] : expectedLabels;
   const labels = [
     ...effectiveExpectedLabels,
-    ...actualStats.flatMap((stats) => effectiveExpectedLabels.includes(stats.label) ? [] : [stats.label]),
-    ...(activeLabel && !actualStats.some((stats) => stats.label === activeLabel) ? [activeLabel] : []),
+    ...displayStats.flatMap((stats) => effectiveExpectedLabels.includes(stats.label) ? [] : [stats.label]),
+    ...(activeLabel && !displayStats.some((stats) => stats.label === activeLabel) ? [activeLabel] : []),
   ];
   if (labels.length === 0 && !routeLabel) {
     return null;
@@ -110,18 +116,24 @@ export function LlmCallMetrics({ data }: { data: WorkflowNode['data'] }) {
     <div className="llm-call-metrics">
       {routeLabel && <strong className="llm-call-route">{routeLabel}</strong>}
       {labels.map((label) => {
-        const actual = actualStats.find((stats) => stats.label === label);
+        const actual = displayStats.find((stats) => stats.label === label);
         const displayLabel = llmCallStageLabel(data, label);
         return (
-          <div className="llm-call-metric" key={label} title={label}>
+          <div
+            className={`llm-call-metric${hasReasoning ? ' llm-call-metric-with-reasoning' : ''}`}
+            key={label}
+            title={label}
+          >
             <strong>{displayLabel}</strong>
             <span className="llm-metric-in">IN {actual?.inputTokens !== undefined ? actual.inputTokens : '?'}</span>
             <span className="llm-metric-out">OUT {actual?.outputTokens !== undefined ? actual.outputTokens : '?'}</span>
-            <span className="llm-metric-reasoning">
-              {actual?.reasoningTokens !== undefined && actual.reasoningTokens > 0
-                ? `RSN ${actual.reasoningTokens}`
-                : ''}
-            </span>
+            {hasReasoning && (
+              <span className="llm-metric-reasoning">
+                {actual?.reasoningTokens !== undefined && actual.reasoningTokens > 0
+                  ? `RSN ${actual.reasoningTokens}`
+                  : ''}
+              </span>
+            )}
             <span className="llm-metric-duration">
               {actual?.durationMs !== undefined ? formatCallDuration(actual.durationMs) : '? s'}
             </span>
