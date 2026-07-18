@@ -16891,9 +16891,13 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .turn-trace-turn-list {
+  flex: 1;
   display: grid;
+  align-content: start;
   gap: 6px;
   padding-top: 4px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .turn-trace-turn-list button {
@@ -17174,6 +17178,14 @@ button.message-timeline-row.phone:focus-visible {
   display: grid;
   gap: 9px;
   margin-top: 8px;
+}
+
+.turn-trace-shared-input {
+  overflow: hidden;
+  margin: 0 0 9px;
+  border: 1px solid rgba(64, 80, 108, 0.78);
+  border-radius: 8px;
+  background: #0f1725;
 }
 
 .turn-trace-prompt-pass {

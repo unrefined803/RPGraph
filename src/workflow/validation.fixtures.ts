@@ -4747,9 +4747,12 @@ export function verifyWorkflowValidationFixtures() {
       turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[0]?.text.includes('Older context sentence 1 about party planning.') === false &&
       turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[1]?.parts?.[1]?.actionInserted === true &&
       turnTrace.steps[1]?.promptAfter === undefined &&
-      turnTrace.steps[1]?.promptPasses?.[0]?.prompt.includes('First-pass plan:') === true &&
-      turnTrace.steps[2]?.promptPasses?.[0]?.prompt.includes('img-1: Sarah mirror selfie') === true,
-    'turn traces must identify the Prompt Switch route, include full action prompt passes, and excerpt long text input',
+      turnTrace.steps[1]?.promptPasses?.[0]?.sections?.some((section) => section.label === 'Text Input') === false &&
+      turnTrace.steps[1]?.promptPasses?.[0]?.sections?.some((section) => section.text.includes('First-pass plan:')) === true &&
+      turnTrace.steps[2]?.promptPasses?.[0]?.sections?.some((section) => section.label === 'Text Input') === false &&
+      turnTrace.steps[2]?.promptPasses?.[0]?.sections?.some((section) => section.text.includes('img-1: Sarah mirror selfie')) === true &&
+      (JSON.stringify(turnTrace).match(/"label":"Text Input"/g)?.length ?? 0) === 1,
+    'turn traces must identify the Prompt Switch route, include each action pass, and retain text input only once',
   );
   assertFixture(
     !!turnTrace.steps[0]?.warnings?.includes('Prompt slot fallback used.') &&
@@ -4764,7 +4767,7 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     turnTrace.warnings?.length === 1 &&
       turnTraceCopyPayload([turnTrace]).range.fromTurn === 40 &&
-      turnTraceCopyPayload([turnTrace]).version === 4 &&
+      turnTraceCopyPayload([turnTrace]).version === 5 &&
       turnTraceCopyPayload([turnTrace]).privacy === 'memory-only' &&
       JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Text Input excerpt: showing the last') &&
       !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Older context sentence 1 about party planning.') &&

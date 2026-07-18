@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import {
   defaultPromptActionConfig,
@@ -963,6 +963,10 @@ function previewImagesText(images: Array<{ index: number; id: string; name: stri
     .join('\n');
 }
 
+function isTextInputSection(label: string) {
+  return label.trim().toLocaleLowerCase() === 'text input';
+}
+
 export function PromptPreviewTools({
   id,
   debug,
@@ -975,6 +979,7 @@ export function PromptPreviewTools({
   runLabel: string;
 }) {
   const [promptRouteOpen, setPromptRouteOpen] = useState(false);
+  const promptRouteScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -996,6 +1001,17 @@ export function PromptPreviewTools({
       ? [{ label: 'Output', text: generatedText }]
       : [];
   const routePassCount = Math.max(promptPasses.length, outputPasses.length);
+  const textInputSection = promptPasses
+    .flatMap((pass) => pass.sections ?? [])
+    .find((section) => isTextInputSection(section.label));
+
+  useLayoutEffect(() => {
+    if (!promptRouteOpen) return;
+    const scrollContainer = promptRouteScrollRef.current;
+    if (scrollContainer) {
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    }
+  }, [promptRouteOpen, routePassCount]);
 
   return (
     <>
@@ -1015,14 +1031,20 @@ export function PromptPreviewTools({
             <div className="prompt-preview-modal-header">
               <div>
                 <strong id={`${id}-prompt-route-title`}>Prompt Route</strong>
-                <span>Exact LLM input and raw output for each {runLabel} pass.</span>
+                <span>Text input once, changing LLM prompts, images, and raw output for each {runLabel} pass.</span>
               </div>
               <button className="inspect-button prompt-action-icon-button" type="button" onClick={() => setPromptRouteOpen(false)}>x</button>
             </div>
-            <div className="prompt-preview-blocks">
+            <div className="prompt-preview-blocks" ref={promptRouteScrollRef}>
+              {textInputSection
+                ? previewBlock('Text Input', textInputSection.text, textInputSection.parts)
+                : null}
               {Array.from({ length: routePassCount }, (_entry, index) => {
                 const promptPass = promptPasses[index];
                 const outputPass = outputPasses[index];
+                const changingSections = promptPass?.sections?.filter(
+                  (section) => !isTextInputSection(section.label),
+                );
                 return (
                   <article className="prompt-preview-route-pass" key={`${index}-${promptPass?.label ?? outputPass?.label ?? 'pass'}`}>
                     <header>
@@ -1032,8 +1054,8 @@ export function PromptPreviewTools({
                     {promptPass?.images !== undefined
                       ? previewBlock('Images Sent To LLM', previewImagesText(promptPass.images))
                       : null}
-                    {promptPass?.sections?.length
-                      ? promptPass.sections.map((section) => previewBlock(section.label, section.text, section.parts))
+                    {promptPass?.sections
+                      ? changingSections?.map((section) => previewBlock(section.label, section.text, section.parts))
                       : previewBlock('Prompt', promptPass?.prompt ?? '')}
                     {previewBlock(outputPass?.label ?? 'Output', outputPass?.text ?? '')}
                   </article>
