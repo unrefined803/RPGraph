@@ -9,7 +9,7 @@
 // percentages in intermediate outputs, and injects each step's output into
 // later steps at its "@output:<name>" token.
 
-const promptStepMarkerPattern = /^[ \t]*@step:[ \t]*([A-Za-z0-9_-]+)[ \t]*$/gim;
+export const promptStepMarkerPattern = /^[ \t]*@step:[ \t]*([A-Za-z0-9_-]+)[ \t]*$/gim;
 
 // Marks where an earlier step's output is injected into a later step. A step
 // output that no later step references is prepended to the next step instead.
@@ -156,7 +156,9 @@ export function stepOutputTokenNames(text: string) {
 
 export function injectStepOutput(text: string, stepName: string, outputText: string) {
   let injected = false;
-  const tokenPattern = new RegExp(`@output:${stepName}\\b`, 'gi');
+  // A word boundary is not enough here: step names may contain "-", so
+  // "@output:draft" must not match inside "@output:draft-2".
+  const tokenPattern = new RegExp(`@output:${stepName}(?![A-Za-z0-9_-])`, 'gi');
   const result = text.replace(tokenPattern, () => {
     injected = true;
     return outputText;

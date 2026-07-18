@@ -5254,6 +5254,14 @@ async function verifyPromptRunFixtures() {
       ) === 'Step: Planning' &&
       llmCallStageLabel(
         promptSwitchCallDisplayData,
+        'Messenger Apps / WhatsUp Prompt No Image / Action replay 1 / Step main',
+      ) === 'Step: Main' &&
+      llmCallStageLabel(
+        promptSwitchCallDisplayData,
+        'Messenger Apps / WhatsUp Prompt No Image / Step translation replay 2',
+      ) === 'Step: Translation · Replay 2' &&
+      llmCallStageLabel(
+        promptSwitchCallDisplayData,
         'Messenger Apps / WhatsUp Prompt No Image',
       ) === 'Step: Main' &&
       llmCallStageLabel(

@@ -17,7 +17,7 @@ import type { SettingsValueDefinition } from '../../types';
 import { defaultWorkflowVariableValue, variableAliases } from '../../workflow';
 import { defaultPromptActionTitle, promptActionKey } from './promptActions';
 import { promptCommandTokenPattern } from './promptCommands';
-import { stepOutputTokenPattern } from './promptSteps';
+import { promptStepMarkerPattern, stepOutputTokenPattern } from './promptSteps';
 import { usePreservedTextSelection } from './usePreservedTextSelection';
 
 type JsonToken =
@@ -489,8 +489,6 @@ function splitPromptCommands(token: HighlightToken): HighlightToken[] {
   return tokens;
 }
 
-const stepMarkerLinePattern = /^[ \t]*@step:[ \t]*[A-Za-z0-9_-]+[ \t]*$/gim;
-
 function splitStepMarkers(token: HighlightToken): HighlightToken[] {
   if (token.kind !== 'plain' || !token.text.includes('@step')) {
     return [token];
@@ -498,7 +496,7 @@ function splitStepMarkers(token: HighlightToken): HighlightToken[] {
 
   const tokens: HighlightToken[] = [];
   let lastIndex = 0;
-  token.text.replace(stepMarkerLinePattern, (match, offset: number) => {
+  token.text.replace(promptStepMarkerPattern, (match, _name: string, offset: number) => {
     if (offset > lastIndex) {
       tokens.push({ ...token, text: token.text.slice(lastIndex, offset) });
     }

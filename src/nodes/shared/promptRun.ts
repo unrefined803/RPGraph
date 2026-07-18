@@ -365,10 +365,20 @@ export async function runActionAwarePrompt({
     }
     return resolvedParts.length ? resolvedParts : [{ text: resolved }];
   };
+  // Matching the text input against the formatted chat history is quadratic
+  // in the history length and the input repeats across passes, so each
+  // distinct input text is resolved only once per run.
+  const historySegmentsCache = new Map<string, FormattedChatHistorySegment[] | undefined>();
+  const cachedHistorySegments = (textInput: string) => {
+    if (!historySegmentsCache.has(textInput)) {
+      historySegmentsCache.set(textInput, historySegmentsForInputValue(context, textInput));
+    }
+    return historySegmentsCache.get(textInput);
+  };
   const buildPromptSections = (textInput = inputValue) => {
     const before = promptSectionValue(promptBefore);
     const after = promptSectionValue(promptAfter);
-    const historySegments = historySegmentsForInputValue(context, textInput);
+    const historySegments = cachedHistorySegments(textInput);
     return [
       {
         label: 'Prompt Before Input',
@@ -492,7 +502,7 @@ export async function runActionAwarePrompt({
       const stepAfter = promptSectionValue(step.after);
       const stepImagePass = currentImagePass();
       const stepTextInput = textInputForImagePass(inputValue, stepImagePass);
-      const stepHistorySegments = historySegmentsForInputValue(context, stepTextInput);
+      const stepHistorySegments = cachedHistorySegments(stepTextInput);
       const stepReplayCount = actionResultTexts.length - actionCountAtStepStart;
       const passLabel = stepReplayCount
         ? `Step ${step.name} replay ${stepReplayCount}`
@@ -826,7 +836,7 @@ export async function runActionAwarePrompt({
       const followUpImagePass = currentImagePass();
       const followUpTextInput = textInputForImagePass(inputValue, followUpImagePass);
       const promptBeforeForFollowUp = promptSectionValue(promptBefore);
-      const followUpHistorySegments = historySegmentsForInputValue(context, followUpTextInput);
+      const followUpHistorySegments = cachedHistorySegments(followUpTextInput);
       promptPasses.push({
         label: `Action follow-up: ${actionConfig.title}`,
         images: previewImagesForPass(followUpImagePass),
@@ -970,7 +980,7 @@ export async function runActionAwarePrompt({
             }
           }
         : undefined;
-      const historySegments = historySegmentsForInputValue(context, commandTextInput);
+      const historySegments = cachedHistorySegments(commandTextInput);
       promptPasses.push({
         label: `Command: ${commandNames}`,
         images: previewImagesForPass(commandImagePass),
@@ -1109,7 +1119,7 @@ export async function runActionAwarePrompt({
     const promptBeforeForPass = promptSectionValue(promptBefore);
     const textInputForPass = textInputForImagePass(inputValue, afterReplyImagePass);
     const passLabel = `After-reply action: ${actionConfig.title}`;
-    const historySegments = historySegmentsForInputValue(context, textInputForPass);
+    const historySegments = cachedHistorySegments(textInputForPass);
     promptPasses.push({
       label: passLabel,
       images: previewImagesForPass(afterReplyImagePass),

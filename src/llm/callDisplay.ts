@@ -48,15 +48,15 @@ export function llmCallStageLabel(data: WorkflowNodeData, label: string) {
   if (!stage || /^Initial action prompt$/i.test(stage) || /^Action replay \d+$/i.test(stage)) {
     return 'Step: Main';
   }
-  const stepStage = stage.match(/^Step ([A-Za-z0-9_-]+)$/i);
+  const detailStage = stage.replace(/^Action replay \d+\s*\/\s*/i, '');
+  const stepStage = detailStage.match(/^Step ([A-Za-z0-9_-]+)$/i);
   if (stepStage) {
     return `Step: ${readableRuntimeName(stepStage[1])}`;
   }
-  const stepReplay = stage.match(/^Step ([A-Za-z0-9_-]+) replay (\d+)$/i);
+  const stepReplay = detailStage.match(/^Step ([A-Za-z0-9_-]+) replay (\d+)$/i);
   if (stepReplay) {
     return `Step: ${readableRuntimeName(stepReplay[1])} · Replay ${stepReplay[2]}`;
   }
-  const detailStage = stage.replace(/^Action replay \d+\s*\/\s*/i, '');
   const action = detailStage.match(/^(?:Step [A-Za-z0-9_-]+ action follow-up|Action follow-up|After-reply action):\s*(.+)$/i);
   if (action) {
     return `Action: ${readableRuntimeName(action[1])}`;
