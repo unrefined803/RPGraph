@@ -881,7 +881,15 @@ function incompleteMessengerPreview(value: string): PartialMessengerPreview | un
     const to = partialStringField(openEntry, 'to');
     const message = partialStringField(openEntry, 'message', true);
     if (from && to && message) {
-      entries.push({ from, to, message });
+      const sendImageId =
+        partialStringField(openEntry, 'sendImageId', true) ??
+        partialStringField(openEntry, 'send_image_id', true);
+      entries.push({
+        from,
+        to,
+        message,
+        ...(sendImageId ? { sendImageId } : {}),
+      });
     }
   }
 

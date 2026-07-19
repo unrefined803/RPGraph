@@ -1101,15 +1101,25 @@ export function useGraphRun(options: UseGraphRunOptions) {
     ): Partial<MessageRecord> => {
       const hasMessengerPreview =
         preview.phoneMessages.length > 0 || preview.socialDirectMessages.length > 0;
+      const messagesForRpPictureLookup = [
+        ...messagesRef.current,
+        ...(activeTurnCollectorRef.current?.inputMessages ?? []),
+      ];
       return {
         embeddedPhoneMessages: preview.phoneMessages.length > 0
-          ? preview.phoneMessages.map((phoneMessage, index) => ({
-              phoneMessageId: -(index + 1),
-              from: phoneMessage.from,
-              to: phoneMessage.to,
-              message: phoneMessage.message,
-              sourceOrder: phoneMessage.sourceOrder,
-            }))
+          ? preview.phoneMessages.map((phoneMessage, index) => {
+              const previewImage =
+                rpPicturePhoneAttachment(messagesForRpPictureLookup, phoneMessage.imageId) ??
+                storybookImageAttachmentById(storybooksByNodeId, phoneMessage.imageId);
+              return {
+                phoneMessageId: -(index + 1),
+                from: phoneMessage.from,
+                to: phoneMessage.to,
+                message: phoneMessage.message,
+                previewImageAttachments: previewImage ? [previewImage] : undefined,
+                sourceOrder: phoneMessage.sourceOrder,
+              };
+            })
           : undefined,
         embeddedSocialMessages: preview.socialDirectMessages.length > 0
           ? preview.socialDirectMessages.flatMap((socialMessage, index) =>

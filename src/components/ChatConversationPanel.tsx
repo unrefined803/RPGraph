@@ -1055,6 +1055,8 @@ export function ChatConversationPanel({
                   {authorRole === 'user' ? 'USER' : 'AI'}
                 </span>
               ) : null;
+              const imageAttachments =
+                linkedMessage?.imageAttachments ?? phoneMessage.previewImageAttachments;
 
               return (
                 <div className="phone-message-row chat-phone-message-row" key={phoneMessage.phoneMessageId}>
@@ -1105,9 +1107,9 @@ export function ChatConversationPanel({
                           </div>
                         </div>
                       )}
-                      {!!linkedMessage?.imageAttachments?.length && (
+                      {!!imageAttachments?.length && (
                         <div className="phone-bubble-images">
-                          {linkedMessage.imageAttachments.map((image) => (
+                          {imageAttachments.map((image) => (
                             <div className="phone-bubble-image" key={image.id}>
                               <button
                                 className="phone-bubble-image-preview"

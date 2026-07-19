@@ -545,6 +545,8 @@ export type EmbeddedPhoneMessageLink = {
   to: string;
   message: string;
   translatedMessage?: string;
+  /** Temporary attachments shown before a streamed phone record is persisted. */
+  previewImageAttachments?: ChatImageAttachment[];
   /** Position among all messenger entries of the RP output, in source order. */
   sourceOrder?: number;
 };
