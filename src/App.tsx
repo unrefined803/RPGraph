@@ -121,7 +121,7 @@ import {
   sanitizeDebugSnapshotValue,
 } from './app/debugSnapshot';
 import { useTurnTraceState } from './app/useTurnTraceState';
-import { sanitizeDataUrlsInText } from './utils/sanitize';
+import { createWorkflowAssistantSnapshotJson } from './assistant/workflowSnapshot';
 import {
   suggestedSessionNameFromCharacters,
   suggestedWorkflowNameFromPath,
@@ -601,18 +601,6 @@ function textMentionsCharacter(text: string, character: StorybookCharacter) {
   });
 }
 
-const workflowAssistantExcludedDataKeys = new Set([
-  'rawHistory',
-  'originalHistory',
-  'translatedHistory',
-  'storybookJson',
-  'storybookFileName',
-  'storybookFilePath',
-]);
-
-const workflowAssistantMaxStringLength = 3000;
-const workflowAssistantMaxArrayItems = 50;
-
 function sameNodeViewNodes(left: WorkflowNode[], right: WorkflowNode[]) {
   return left.length === right.length && left.every((node, index) => {
     const other = right[index];
@@ -624,60 +612,6 @@ function sameNodeViewNodes(left: WorkflowNode[], right: WorkflowNode[]) {
       node.style === other.style
     );
   });
-}
-
-function limitWorkflowAssistantText(text: string) {
-  if (text.length <= workflowAssistantMaxStringLength) {
-    return text;
-  }
-  return `${text.slice(0, workflowAssistantMaxStringLength)}\n\n[Truncated ${text.length - workflowAssistantMaxStringLength} characters.]`;
-}
-
-function sanitizeWorkflowAssistantValue(value: unknown, depth = 0): unknown {
-  if (typeof value === 'string') {
-    return limitWorkflowAssistantText(sanitizeDataUrlsInText(value));
-  }
-  if (typeof value !== 'object' || value === null) {
-    return value;
-  }
-  if (depth > 5) {
-    return '[Nested value omitted]';
-  }
-  if (Array.isArray(value)) {
-    const items = value
-      .slice(0, workflowAssistantMaxArrayItems)
-      .map((item) => sanitizeWorkflowAssistantValue(item, depth + 1));
-    if (value.length > workflowAssistantMaxArrayItems) {
-      items.push(`[${value.length - workflowAssistantMaxArrayItems} more items omitted]`);
-    }
-    return items;
-  }
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => !workflowAssistantExcludedDataKeys.has(key))
-      .map(([key, entryValue]) => [key, sanitizeWorkflowAssistantValue(entryValue, depth + 1)]),
-  );
-}
-
-function createWorkflowAssistantSnapshot(nodes: WorkflowNode[], edges: Edge[]) {
-  return {
-    nodes: nodes.map((node) => {
-      const persistentData = persistentNodeData(node.data);
-      return {
-        id: node.id,
-        label: persistentData.label,
-        type: persistentData.nodeType,
-        data: sanitizeWorkflowAssistantValue(persistentData),
-      };
-    }),
-    edges: edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      sourceHandle: edge.sourceHandle ?? 'default',
-      target: edge.target,
-      targetHandle: edge.targetHandle ?? 'default',
-    })),
-  };
 }
 
 function eventStoryCharacter(event: RpAppointment, characters: StorybookCharacter[]) {
@@ -5671,7 +5605,7 @@ function App() {
   const nodeAssistantNode = nodeViewNodes.find((node) => node.id === nodeAssistantNodeId);
   const nodeAssistantMessages = nodeAssistantNodeId ? (nodeAssistantHistories[nodeAssistantNodeId] || []) : [];
   const workflowAssistantSnapshotJson = useMemo(
-    () => JSON.stringify(createWorkflowAssistantSnapshot(nodeViewNodes, edges), null, 2),
+    () => createWorkflowAssistantSnapshotJson(nodeViewNodes, edges),
     [edges, nodeViewNodes],
   );
   const [assistantDebugSnapshotSections, setAssistantDebugSnapshotSections] =
