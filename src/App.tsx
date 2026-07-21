@@ -47,9 +47,7 @@ import {
 import {
   canonicalPhoneName,
   parsePhoneGraphInput,
-  phoneImageActionMatchesMessage,
   phoneNamesMatch,
-  type ParsedPhoneImageAction,
   type ParsedPhoneMessage,
 } from './chat/phoneMessages';
 import { useNextTurnReferenceImages } from './chat/useNextTurnReferenceImages';
@@ -91,14 +89,6 @@ import {
   storyCharactersFromNodes,
   type StorybookCharacter,
 } from './storybook/runtime';
-import {
-  storybookImageDescriptions,
-  storybookImageSourceById,
-  withImagesEnsuredForStorybookCharacter,
-  withStorybookExternalImagesPruned,
-  withStorybookImageDescriptionUpdated,
-  type StorybookImageLibraryEnsureOptions,
-} from './storybook/imageLibrary';
 import {
   formatDebugSnapshot as formatDataManagementDebugSnapshot,
   formatEventsContext,
@@ -236,10 +226,6 @@ import {
   defaultRpStorybookImageDescriptionPrompt,
   emptyRpStorybook,
   parseRpStorybookJson,
-  rpStorybookJsonText,
-  withRpStorybookCharacterPhoneWallpaper,
-  withRpStorybookCharacterSocialUsername,
-  withRpStorybookPhoneContactPairAllowed,
   type RpStorybookCharacterImage,
   type RpStorybook,
 } from './nodes/rp-storybook/model';
@@ -274,6 +260,7 @@ import { useRoleplayPanelRuntime } from './app/useRoleplayPanelRuntime';
 import { useWorkflowVariables } from './app/useWorkflowVariables';
 import { useWorkflowCapabilities } from './app/useWorkflowCapabilities';
 import { useCustomNodeAssistant } from './app/useCustomNodeAssistant';
+import { useStorybookPhoneImages } from './storybook/useStorybookPhoneImages';
 import type {
   ChatImageAttachment,
   ImageCaptionChange,
@@ -1399,6 +1386,32 @@ function App() {
     inputImages: [...draftImages, ...phoneImages],
     nodeLlm,
     updateRuntimeNode,
+  });
+  const {
+    imageDescriptionById: storybookImageDescriptionById,
+    imageCaptionChangesById: phoneImageCaptionChangesById,
+    currentImageSourceById: currentStorybookImageSourceById,
+    allowPhoneContactPair: allowStorybookPhoneContactPair,
+    changePhoneWallpaper: changeStorybookPhoneWallpaper,
+    saveSocialUsername: saveStorybookSocialUsername,
+    imageIdsFromAttachments,
+    imageDescriptionFromAttachments,
+    ensureImagesForCharacter: ensureImagesForStorybookCharacter,
+    ensurePhoneImages: ensurePhoneImagesInStorybooks,
+    changeCaptionUpdate: changeImageCaptionUpdate,
+    pruneExternalImagesForMessages: pruneStorybookExternalImagesForMessages,
+    applyPhoneImageAction: applyPhoneImageActionFromLlm,
+  } = useStorybookPhoneImages({
+    storybooksByNodeId,
+    storyCharacters,
+    messages,
+    messagesRef,
+    nodesRef,
+    currentTurnInputMessages: () => activeTurnCollectorRef.current?.inputMessages ?? [],
+    updateRuntimeNode,
+    updateMessage,
+    updatePhoneImageDescriptions,
+    notifySystem,
   });
   const chatGpd = useChatGpdPhoneApp({
     nodes,
@@ -3137,59 +3150,6 @@ function App() {
     }
   }
 
-  const storybookImageDescriptionById = useMemo(
-    () => storybookImageDescriptions(storybooksByNodeId.values()),
-    [storybooksByNodeId],
-  );
-  function currentStorybookImageSourceById(imageId: string) {
-    const normalizedImageId = imageId.trim();
-    if (!normalizedImageId) {
-      return undefined;
-    }
-    for (const node of nodesRef.current) {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
-        continue;
-      }
-      try {
-        const source = storybookImageSourceById(
-          [parseRpStorybookJson(node.data.storybookJson)],
-          normalizedImageId,
-        );
-        if (source) {
-          return source;
-        }
-      } catch {
-        // Ignore invalid storybook JSON here; validation paths surface those errors elsewhere.
-      }
-    }
-    return undefined;
-  }
-  const storybookImageDescriptionSignature = JSON.stringify(
-    [...storybookImageDescriptionById].sort(([left], [right]) => left.localeCompare(right)),
-  );
-  const storybookImageDescriptionByIdRef = useRef(storybookImageDescriptionById);
-  const updatePhoneImageDescriptionsRef = useRef(updatePhoneImageDescriptions);
-  useEffect(() => {
-    storybookImageDescriptionByIdRef.current = storybookImageDescriptionById;
-  }, [storybookImageDescriptionById]);
-  useEffect(() => {
-    updatePhoneImageDescriptionsRef.current = updatePhoneImageDescriptions;
-  }, [updatePhoneImageDescriptions]);
-  const phoneImageCaptionChangesById = useMemo(() => {
-    const changes = new Map<string, ImageCaptionChange[]>();
-    messages.forEach((message) => {
-      const change = message.phoneImageCaptionChange;
-      const imageId = change?.imageId.trim();
-      if (!change || !imageId) {
-        return;
-      }
-      changes.set(imageId, [...(changes.get(imageId) ?? []), change]);
-    });
-    return changes;
-  }, [messages]);
-  useEffect(() => {
-    updatePhoneImageDescriptionsRef.current(storybookImageDescriptionByIdRef.current);
-  }, [storybookImageDescriptionSignature]);
   const rpTimeTrackingEnabled = !!nodeViewNodes.find(
     (node) => node.data.kind === undefined && node.data.nodeType === 'history',
   )?.data.historyTimeTrackingEnabled;
@@ -3435,93 +3395,6 @@ function App() {
       : 'No turn to undo';
   const undoTurnDisabled = !isRunning && !currentSessionTurn;
 
-  function allowStorybookPhoneContactPair(fromName: string, toName: string) {
-    const fromCharacter = storyCharacters.find((character) => phoneNamesMatch(character.name, fromName));
-    const toCharacter = storyCharacters.find((character) => phoneNamesMatch(character.name, toName));
-    if (
-      !fromCharacter ||
-      !toCharacter ||
-      fromCharacter.storybookNodeId !== toCharacter.storybookNodeId
-    ) {
-      return;
-    }
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === fromCharacter.storybookNodeId && node.data.nodeType === 'rp-storybook',
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const nextStorybook = withRpStorybookPhoneContactPairAllowed(
-      storybook,
-      fromCharacter.sourceId,
-      toCharacter.sourceId,
-    );
-    const nextJson = rpStorybookJsonText(nextStorybook);
-    if (nextJson === storybookNode.data.storybookJson) {
-      return;
-    }
-    updateRuntimeNode(storybookNode.id, {
-      storybookJson: nextJson,
-      storybookStatus: `Phone + Fotogram contact added: ${fromCharacter.name} <-> ${toCharacter.name}`,
-    });
-  }
-
-  function changeStorybookPhoneWallpaper(character: StorybookCharacter, wallpaperId: string) {
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook',
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const nextStorybook = withRpStorybookCharacterPhoneWallpaper(
-      storybook,
-      character.sourceId,
-      wallpaperId,
-    );
-    const nextJson = rpStorybookJsonText(nextStorybook);
-    if (nextJson === storybookNode.data.storybookJson) {
-      return;
-    }
-    updateRuntimeNode(storybookNode.id, {
-      storybookJson: nextJson,
-      storybookStatus: `Phone wallpaper updated for ${character.name}.`,
-    });
-  }
-
-  function saveStorybookSocialUsername(
-    character: StorybookCharacter,
-    app: 'fotogram' | 'onlyfriends',
-    username: string,
-  ) {
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook',
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const nextStorybook = withRpStorybookCharacterSocialUsername(
-      storybook,
-      character.sourceId,
-      app,
-      username,
-    );
-    const nextJson = rpStorybookJsonText(nextStorybook);
-    if (nextJson === storybookNode.data.storybookJson) {
-      return;
-    }
-    updateRuntimeNode(storybookNode.id, {
-      storybookJson: nextJson,
-      storybookStatus: `${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account saved for ${character.name}.`,
-    });
-  }
-
-  function storybookCharacterByPhoneName(name: string) {
-    return storyCharacters.find((character) => phoneNamesMatch(character.name, name));
-  }
-
   function openImagePreview(image: ChatImageAttachment) {
     setPreviewImage({ image });
   }
@@ -3535,339 +3408,6 @@ function App() {
     setPreviewImage({
       image: chatAttachmentFromStorybookImage(source.image),
     });
-  }
-
-  function imageIdsFromAttachments(images: ChatImageAttachment[] | undefined) {
-    const imageIds = images
-      ?.map((image) => image.id.trim())
-      .filter(Boolean) ?? [];
-    return imageIds.length ? imageIds : undefined;
-  }
-
-  function imageDescriptionFromAttachments(images: ChatImageAttachment[] | undefined) {
-    return images
-      ?.map((image) => image.description?.trim())
-      .find(Boolean);
-  }
-
-  function ensureImagesForStorybookCharacter(
-    character: StorybookCharacter | undefined,
-    images: ChatImageAttachment[] | undefined,
-    description: string | undefined,
-    status: (addedCount: number, updatedCount: number) => string,
-    options?: StorybookImageLibraryEnsureOptions,
-  ) {
-    if (!character || !images?.length) {
-      return undefined;
-    }
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook',
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return undefined;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const result = withImagesEnsuredForStorybookCharacter(
-      storybook,
-      character.sourceId,
-      images,
-      description ?? '',
-      options,
-    );
-    const changedCount = result.addedCount + result.updatedCount;
-    if (changedCount > 0) {
-      updateRuntimeNode(storybookNode.id, {
-        storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: status(result.addedCount, result.updatedCount),
-      });
-    }
-    return result.images.map(chatAttachmentFromStorybookImage);
-  }
-
-  function updateStorybookImageDescriptionEverywhere(
-    image: ChatImageAttachment | undefined,
-    description: string,
-  ) {
-    if (!image || !description.trim()) {
-      return;
-    }
-    nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
-        return;
-      }
-      const storybook = parseRpStorybookJson(node.data.storybookJson);
-      const result = withStorybookImageDescriptionUpdated(
-        storybook,
-        image.id,
-        image.dataUrl,
-        description.trim(),
-      );
-      if (result.updatedCount === 0) {
-        return;
-      }
-      updateRuntimeNode(node.id, {
-        storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: `Updated ${image.id} description.`,
-      });
-    });
-  }
-
-  function updateStorybookImageDescriptionById(
-    imageId: string,
-    description: string,
-  ): ImageCaptionChange | undefined {
-    const normalizedImageId = imageId.trim();
-    const normalizedDescription = description.trim();
-    if (!normalizedImageId || normalizedImageId === 'new_image' || !normalizedDescription) {
-      return undefined;
-    }
-    const beforeCaption = storybookImageDescriptionById.get(normalizedImageId)?.trim() || undefined;
-    let updated = false;
-    nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
-        return;
-      }
-      const storybook = parseRpStorybookJson(node.data.storybookJson);
-      const result = withStorybookImageDescriptionUpdated(
-        storybook,
-        normalizedImageId,
-        '',
-        normalizedDescription,
-      );
-      if (result.updatedCount === 0) {
-        return;
-      }
-      updated = true;
-      updateRuntimeNode(node.id, {
-        storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: `Updated ${normalizedImageId} description.`,
-      });
-    });
-    if (updated) {
-      const immediateDescriptions = new Map(storybookImageDescriptionById);
-      immediateDescriptions.set(normalizedImageId, normalizedDescription);
-      updatePhoneImageDescriptions(immediateDescriptions);
-    }
-    return updated
-      ? {
-          imageId: normalizedImageId,
-          beforeCaption,
-          afterCaption: normalizedDescription,
-        }
-      : undefined;
-  }
-
-  function changeImageCaptionUpdate(change: ImageCaptionChange, caption: string) {
-    const normalizedCaption = caption.trim();
-    const normalizedImageId = change.imageId.trim();
-    if (!normalizedCaption || !normalizedImageId) {
-      return;
-    }
-    let targetMessage = messagesRef.current.find((message) => message.phoneImageCaptionChange === change);
-    if (!targetMessage) {
-      for (let index = messagesRef.current.length - 1; index >= 0; index -= 1) {
-        const message = messagesRef.current[index];
-        const currentChange = message.phoneImageCaptionChange;
-        if (
-          currentChange?.imageId.trim() === normalizedImageId &&
-          (currentChange.beforeCaption ?? '') === (change.beforeCaption ?? '')
-        ) {
-          targetMessage = message;
-          break;
-        }
-      }
-    }
-    if (!targetMessage?.phoneImageCaptionChange) {
-      notifySystem('warning', `Caption update for ${normalizedImageId} was not found.`);
-      return;
-    }
-    if (targetMessage.phoneImageCaptionChange.afterCaption === normalizedCaption) {
-      updateStorybookImageDescriptionById(normalizedImageId, normalizedCaption);
-      return;
-    }
-    updateStorybookImageDescriptionById(normalizedImageId, normalizedCaption);
-    updateMessage(targetMessage.id, {
-      phoneImageCaptionChange: {
-        ...targetMessage.phoneImageCaptionChange,
-        afterCaption: normalizedCaption,
-      },
-    });
-    notifySystem('info', `Changed caption update for ${normalizedImageId}.`);
-  }
-
-  function pruneStorybookExternalImagesForMessages(activeMessages = messagesRef.current) {
-    nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
-        return;
-      }
-      const storybook = parseRpStorybookJson(node.data.storybookJson);
-      const result = withStorybookExternalImagesPruned(storybook, activeMessages);
-      if (result.removedCount === 0) {
-        return;
-      }
-      updateRuntimeNode(node.id, {
-        storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: `Removed ${result.removedCount} inactive received image${result.removedCount === 1 ? '' : 's'}.`,
-      });
-    });
-  }
-
-  function addPhoneImagesToRecipientStorybook(
-    fromName: string,
-    toName: string,
-    images: ChatImageAttachment[] | undefined,
-    description?: string,
-  ) {
-    const sender = storybookCharacterByPhoneName(fromName);
-    const recipient = storybookCharacterByPhoneName(toName);
-    if (
-      !sender ||
-      !recipient ||
-      sender.id === recipient.id ||
-      sender.storybookNodeId !== recipient.storybookNodeId
-    ) {
-      return;
-    }
-    ensureImagesForStorybookCharacter(
-      recipient,
-      images,
-      description,
-      (addedCount, updatedCount) =>
-        addedCount > 0
-          ? `Added ${addedCount} phone image${addedCount === 1 ? '' : 's'} to ${recipient.name} from ${sender.name}.`
-          : `Updated ${updatedCount} phone image description${updatedCount === 1 ? '' : 's'} for ${recipient.name}.`,
-      { receivedFrom: sender.name },
-    );
-  }
-
-  function ensurePhoneImagesInStorybooks(
-    fromName: string,
-    toName: string,
-    images: ChatImageAttachment[] | undefined,
-    description?: string,
-    sourceOwnerName?: string,
-  ) {
-    if (!images?.length) {
-      return undefined;
-    }
-    const sender = storybookCharacterByPhoneName(fromName);
-    const imagesAlreadyStored = images.every((image) => {
-      const storedImage = currentStorybookImageSourceById(image.id)?.image;
-      return storedImage?.dataUrl === image.dataUrl;
-    });
-    const senderNeedsImageAccess = !!sender && !!sourceOwnerName && !phoneNamesMatch(sender.name, sourceOwnerName);
-    const senderAttachments = imagesAlreadyStored && !senderNeedsImageAccess
-      ? images
-      : ensureImagesForStorybookCharacter(
-          sender,
-          images,
-          description,
-            (addedCount, updatedCount) =>
-              addedCount > 0
-              ? `Added ${addedCount} phone image${addedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}${senderNeedsImageAccess ? ' with Image Access' : ''}.`
-              : `Updated ${updatedCount} phone image description${updatedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}.`,
-          senderNeedsImageAccess ? { imageAccess: true } : undefined,
-        );
-    const ensuredAttachments = senderAttachments?.length ? senderAttachments : images;
-    addPhoneImagesToRecipientStorybook(fromName, toName, ensuredAttachments, description);
-    return ensuredAttachments;
-  }
-
-  function updatePhoneImageDescriptionFromLlm(
-    message: MessageRecord,
-    description: string,
-  ): ImageCaptionChange | undefined {
-    const trimmedDescription = description.trim();
-    if (!trimmedDescription || !message.imageAttachments?.length) {
-      return undefined;
-    }
-    const beforeCaption =
-      message.phoneImageDescription?.trim() ||
-      message.phoneImageIds
-        ?.map((imageId) => storybookImageDescriptionById.get(imageId)?.trim())
-        .find(Boolean) ||
-      undefined;
-    const storybookAttachments = ensurePhoneImagesInStorybooks(
-      message.phoneFrom ?? '',
-      message.phoneTo ?? '',
-      message.imageAttachments,
-      trimmedDescription,
-    );
-    const imageAttachments = storybookAttachments?.length
-      ? storybookAttachments
-      : message.imageAttachments;
-    const phoneImageIds = imageIdsFromAttachments(imageAttachments) ?? message.phoneImageIds;
-    updateStorybookImageDescriptionEverywhere(
-      imageAttachments[0],
-      trimmedDescription,
-    );
-    if (phoneImageIds?.length) {
-      const immediateDescriptions = new Map(storybookImageDescriptionById);
-      phoneImageIds.forEach((imageId) => immediateDescriptions.set(imageId, trimmedDescription));
-      updatePhoneImageDescriptions(immediateDescriptions);
-    }
-    updateMessage(message.id, {
-      phoneImageDescription: trimmedDescription,
-      ...(phoneImageIds?.length ? { phoneImageIds } : {}),
-      ...(storybookAttachments?.length ? { imageAttachments: storybookAttachments } : {}),
-    });
-    const imageId = phoneImageIds?.[0]?.trim() || imageAttachments[0]?.id.trim();
-    return imageId
-      ? {
-          imageId,
-          beforeCaption,
-          afterCaption: trimmedDescription,
-        }
-      : undefined;
-  }
-
-  function latestIncomingPhoneImageMessage(phoneReplyTo?: MessageRecord) {
-    const describedInput = activeTurnCollectorRef.current?.inputMessages.find(
-      (message) =>
-        message.channel === 'phone' &&
-        !!message.imageAttachments?.length,
-    );
-    return describedInput ?? (
-      phoneReplyTo?.imageAttachments?.length ? phoneReplyTo : undefined
-    );
-  }
-
-  function applyPhoneImageActionFromLlm(
-    action: ParsedPhoneImageAction,
-    phoneReplyTo?: MessageRecord,
-    outgoingImageId?: string,
-  ): ImageCaptionChange | undefined {
-    if (action.imageAction === 'no_change') {
-      return undefined;
-    }
-    const normalizedOutgoingImageId = outgoingImageId?.trim();
-    if (
-      normalizedOutgoingImageId &&
-      action.imageAction === 'update' &&
-      action.imageId.trim() === normalizedOutgoingImageId &&
-      action.caption
-    ) {
-      return updateStorybookImageDescriptionById(normalizedOutgoingImageId, action.caption);
-    }
-    const describedMessage = latestIncomingPhoneImageMessage(phoneReplyTo);
-    if (describedMessage && phoneImageActionMatchesMessage(describedMessage, action)) {
-      if (action.caption) {
-        return updatePhoneImageDescriptionFromLlm(describedMessage, action.caption);
-      }
-      return undefined;
-    }
-    if (!describedMessage) {
-      notifySystem(
-        'warning',
-        `RP Output returned a phone image action for ${action.imageId}, but no matching phone image was found.`,
-      );
-      return undefined;
-    }
-    notifySystem(
-      'warning',
-      `RP Output returned a phone image action for ${action.imageId}, but the latest phone input uses a different image.`,
-    );
-    return undefined;
   }
 
   function storybookPhoneImageAttachment(message: Pick<ParsedPhoneMessage, 'from' | 'imageId'>) {

@@ -113,3 +113,4 @@ Each refactoring step should follow these rules:
 | Complete | Workflow assistant snapshot preparation | Snapshot sanitization, truncation, filtering, and serialization moved to `src/assistant/workflowSnapshot.ts`. |
 | Complete | Workflow capability detection | Capability calculation moved to `src/app/useWorkflowCapabilities.ts`, with the visual strip in `src/components/WorkflowCapabilityStrip.tsx`. |
 | Complete | Custom node assistant controller | Assistant state, diagnostics, definition checks, security review, test execution, and dialog control moved to `src/app/useCustomNodeAssistant.ts`. |
+| Complete | Storybook and phone-image pipeline | Contact settings, image-library updates, caption propagation, LLM image actions, and external-image pruning moved to `src/storybook/useStorybookPhoneImages.ts`. |
