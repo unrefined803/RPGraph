@@ -365,7 +365,11 @@ function normalizedStorybookCharacterImageId(
   ) {
     return id;
   }
-  if (pattern.test(id) && !usedIds.has(id) && !ownerImages.some((image) => image.id === id)) {
+  if (
+    pattern.test(id) &&
+    !ownerImages.some((image) => image.id === id) &&
+    (!usedIds.has(id) || usedImageDataUrls.get(id) === dataUrl)
+  ) {
     return id;
   }
   return nextStorybookCharacterImageId(ownerBase, ownerImages, usedIds);

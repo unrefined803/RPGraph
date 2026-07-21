@@ -4254,6 +4254,49 @@ export function verifyWorkflowValidationFixtures() {
       globalSharedImage?.id === globalOwnImage.id,
     'storybook normalization must rename global image-id collisions while preserving deliberate copies of the same image',
   );
+  const normalizedReceiverFirstImageIds = parseRpStorybookJson(JSON.stringify({
+    ...emptyRpStorybook,
+    characters: [
+      {
+        id: 'robert_miller',
+        name: 'Robert Miller',
+        description: '',
+        personality: '',
+        speechStyle: '',
+        role: '',
+        images: [{
+          id: 'lara_miller_image_01',
+          name: 'shared.jpg',
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: 'data:image/jpeg;base64,own',
+          description: 'The same received image.',
+          receivedFrom: 'Lara Miller',
+        }],
+      },
+      {
+        id: 'lara_miller',
+        name: 'Lara Miller',
+        description: '',
+        personality: '',
+        speechStyle: '',
+        role: '',
+        images: [{
+          id: 'lara_miller_image_01',
+          name: 'own.jpg',
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: 'data:image/jpeg;base64,own',
+          description: 'Lara owns this image.',
+        }],
+      },
+    ],
+  }));
+  assertFixture(
+    normalizedReceiverFirstImageIds.characters[0]?.images[0]?.id === 'lara_miller_image_01' &&
+      normalizedReceiverFirstImageIds.characters[1]?.images[0]?.id === 'lara_miller_image_01',
+    'an owner image must keep its id when an identical received copy is normalized first',
+  );
   const currentNodeImageSource = storybookImageSourceByIdFromNodes([{
     id: 'current-storybook-image-fixture',
     type: 'workflow',

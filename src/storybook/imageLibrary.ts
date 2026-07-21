@@ -49,6 +49,10 @@ export function storybookImageById(storybooks: Iterable<RpStorybook>, imageId: s
   return storybookImageSourceById(storybooks, imageId)?.image;
 }
 
+// Streaming previews resolve image ids on every output chunk; cache parsed
+// storybooks per node so multi-megabyte image JSON is not reparsed each time.
+const parsedStorybookCacheByNodeId = new Map<string, { json: string; storybook: RpStorybook }>();
+
 export function storybookImageSourceByIdFromNodes(
   nodes: readonly WorkflowNode[],
   imageId: string | undefined,
@@ -62,9 +66,17 @@ export function storybookImageSourceByIdFromNodes(
     if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
       continue;
     }
+    const cached = parsedStorybookCacheByNodeId.get(node.id);
+    if (cached && cached.json === node.data.storybookJson) {
+      storybooks.push(cached.storybook);
+      continue;
+    }
     try {
-      storybooks.push(parseRpStorybookJson(node.data.storybookJson));
+      const storybook = parseRpStorybookJson(node.data.storybookJson);
+      parsedStorybookCacheByNodeId.set(node.id, { json: node.data.storybookJson, storybook });
+      storybooks.push(storybook);
     } catch {
+      parsedStorybookCacheByNodeId.delete(node.id);
       // Storybook validation reports invalid JSON through its normal UI path.
     }
   }
