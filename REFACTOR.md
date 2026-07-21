@@ -112,3 +112,4 @@ Each refactoring step should follow these rules:
 | Complete | Workflow variable management | Variable discovery, resolution, editing, command updates, and runtime refs moved to `src/app/useWorkflowVariables.ts`. |
 | Complete | Workflow assistant snapshot preparation | Snapshot sanitization, truncation, filtering, and serialization moved to `src/assistant/workflowSnapshot.ts`. |
 | Complete | Workflow capability detection | Capability calculation moved to `src/app/useWorkflowCapabilities.ts`, with the visual strip in `src/components/WorkflowCapabilityStrip.tsx`. |
+| Complete | Custom node assistant controller | Assistant state, diagnostics, definition checks, security review, test execution, and dialog control moved to `src/app/useCustomNodeAssistant.ts`. |
