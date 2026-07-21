@@ -473,13 +473,14 @@ export function useStorybookActions({
     const storybook = node.data.storybookJson
       ? parseRpStorybookJson(node.data.storybookJson)
       : emptyRpStorybook;
-    const historyTurns = turnsForStorybookOpeningHistory(
+    const historyMedia = turnsForStorybookOpeningHistory(
       turnsRef.current.map((turn) => {
         const { openingHistory: _openingHistory, ...storedTurn } = structuredClone(turn);
         return storedTurn;
       }),
       nodesRef.current,
     );
+    const historyTurns = historyMedia.turns;
     const historyMessageCount = historyTurns.reduce(
       (count, turn) => count + turn.input.messages.length + turn.output.messages.length,
       0,
@@ -545,6 +546,7 @@ export function useStorybookActions({
         turns: historyTurns,
         checkpoints: historyCheckpoints,
         events: normalizedOpeningEvents,
+        voiceMedia: historyMedia.voiceMedia,
         socialLikes: openingSocialLikes,
         dynamicSocialUsers: openingDynamicSocialUsers,
         socialConnections: openingSocialConnections,

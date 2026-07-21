@@ -12,6 +12,11 @@ import {
   type DynamicSocialUsers,
   type SocialConnectionsByCharacter,
 } from '../../chat/socialDirectory';
+import {
+  normalizeStorybookVoiceMedia,
+  turnsWithStorybookVoiceRefs,
+  type StorybookVoiceMedia,
+} from '../../storybook/openingHistoryVoiceMedia';
 
 export type RpStorybookCharacterImage = {
   id: string;
@@ -98,7 +103,7 @@ export type RpStorybookImageDescriptionPromptSettings = {
   customText?: string;
 };
 
-export const currentRpStorybookVersion = '2.1.0' as const;
+export const currentRpStorybookVersion = '2.2.0' as const;
 
 const rpStorybookVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
@@ -161,6 +166,8 @@ export type RpStorybook = {
     turns: TurnRecord[];
     checkpoints: TurnCheckpoint[];
     events: RpAppointment[];
+    /** Deduplicated generated voice audio referenced by Opening History messages. */
+    voiceMedia: StorybookVoiceMedia;
     /** Liked post ids per "characterId/app" account key, imported with the session. */
     socialLikes: Record<string, string[]>;
     /** Dynamic social identities imported from an RP session. */
@@ -279,6 +286,7 @@ export const emptyRpStorybook: RpStorybook = {
     turns: [],
     checkpoints: [],
     events: [],
+    voiceMedia: {},
     socialLikes: {},
     dynamicSocialUsers: {},
     socialConnections: {},
@@ -815,6 +823,13 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
   const openingHistoryCheckpoints = Array.isArray(openingHistory.checkpoints)
     ? openingHistory.checkpoints
     : [];
+  const openingHistoryVoiceMedia = normalizeStorybookVoiceMedia(openingHistory.voiceMedia);
+  const normalizedOpeningHistoryMedia = turnsWithStorybookVoiceRefs(
+    openingHistoryTurns
+      .map(normalizeOpeningHistoryTurn)
+      .filter((turn): turn is TurnRecord => !!turn),
+    openingHistoryVoiceMedia,
+  );
 
   return {
     ...emptyRpStorybook,
@@ -831,15 +846,14 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
     phoneContacts: normalizePhoneContacts(storybook.phoneContacts, validPhoneContactRefs),
     openingHistory: {
       summary: stringValue(openingHistory.summary),
-      turns: openingHistoryTurns
-        .map(normalizeOpeningHistoryTurn)
-        .filter((turn): turn is TurnRecord => !!turn),
+      turns: normalizedOpeningHistoryMedia.turns,
       checkpoints: openingHistoryCheckpoints
         .map(normalizeOpeningHistoryCheckpoint)
         .filter((checkpoint): checkpoint is TurnCheckpoint => !!checkpoint),
       events: openingHistoryEvents
         .map(normalizeOpeningHistoryEvent)
         .filter((event): event is RpAppointment => !!event),
+      voiceMedia: normalizedOpeningHistoryMedia.voiceMedia,
       socialLikes: normalizeOpeningHistorySocialLikes(openingHistory.socialLikes),
       dynamicSocialUsers: normalizeDynamicSocialUsers(openingHistory.dynamicSocialUsers),
       socialConnections: normalizeSocialConnectionsByCharacter(openingHistory.socialConnections),
@@ -1130,6 +1144,7 @@ export function rpStorybookPromptJsonText(storybook: RpStorybook) {
       summary: [storybook.openingHistory.summary, omittedNote].filter(Boolean).join(' '),
       checkpoints: [],
       turns: [],
+      voiceMedia: {},
     },
   }, null, 2);
 }
@@ -1386,7 +1401,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
     'Keep the exact storybook shape below:',
     `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
-    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
+    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
     'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, characters[].phoneSettings, and characters[].images dataUrl values, unless the user explicitly changes them.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',

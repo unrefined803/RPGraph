@@ -1722,6 +1722,12 @@ export function verifyWorkflowValidationFixtures() {
         channel: 'rp',
         rpImageDescription: 'Emily at the party.',
         imageAttachments: [openingImageAttachment],
+        voiceClips: [{
+          speakerName: null,
+          text: 'RP image',
+          dataUrl: 'data:audio/mpeg;base64,QUJD',
+          source: 'narration',
+        }],
       }],
     },
     output: {
@@ -1798,12 +1804,14 @@ export function verifyWorkflowValidationFixtures() {
     throw new Error('Workflow validation fixture failed: default Storybook node is missing');
   }
   // Import stores gallery-backed images as id-only references (no base64
-  // copy), keeps unknown attachments, and drops regenerable voice clips.
+  // copy), keeps unknown attachments, and pools generated voice clips.
   openingHistoryNode.data.storybookJson = rpStorybookJsonText(openingHistoryStorybook);
-  openingHistoryStorybook.openingHistory.turns = turnsForStorybookOpeningHistory(
+  const storedOpeningHistoryMedia = turnsForStorybookOpeningHistory(
     openingHistoryStorybook.openingHistory.turns,
     [openingHistoryNode],
   );
+  openingHistoryStorybook.openingHistory.turns = storedOpeningHistoryMedia.turns;
+  openingHistoryStorybook.openingHistory.voiceMedia = storedOpeningHistoryMedia.voiceMedia;
   const storedOpeningAttachment = openingHistoryStorybook.openingHistory.turns[0]
     ?.output.messages[0]?.imageAttachments?.[0];
   assertFixture(
@@ -1811,11 +1819,40 @@ export function verifyWorkflowValidationFixtures() {
       storedOpeningAttachment.dataUrl === '',
     'importing the current chat must strip gallery-backed image copies to id references',
   );
+  const storedOpeningVoiceClips = openingHistoryStorybook.openingHistory.turns.flatMap((turn) =>
+    [...turn.input.messages, ...turn.output.messages].flatMap((message) => message.voiceClips ?? [])
+  );
   assertFixture(
-    openingHistoryStorybook.openingHistory.turns.every((turn) =>
+    storedOpeningVoiceClips.length === 2 &&
+      new Set(storedOpeningVoiceClips.map((clip) =>
+        (clip as typeof clip & { mediaRef?: string }).mediaRef
+      )).size === 1 &&
+      storedOpeningVoiceClips.every((clip) => clip.dataUrl === '') &&
+      Object.values(openingHistoryStorybook.openingHistory.voiceMedia).filter(
+        (dataUrl) => dataUrl === 'data:audio/mpeg;base64,QUJD',
+      ).length === 1,
+    'importing the current chat must pool voice audio once and store message references',
+  );
+  const danglingOpeningVoiceStorybook = structuredClone(openingHistoryStorybook);
+  danglingOpeningVoiceStorybook.openingHistory.voiceMedia = {};
+  const normalizedDanglingOpeningVoiceStorybook = parseRpStorybookJson(
+    JSON.stringify(danglingOpeningVoiceStorybook),
+  );
+  assertFixture(
+    normalizedDanglingOpeningVoiceStorybook.openingHistory.turns.every((turn) =>
       [...turn.input.messages, ...turn.output.messages].every((message) => !message.voiceClips)
-    ),
-    'importing the current chat must discard generated voice clips from Opening History',
+    ) && Object.keys(normalizedDanglingOpeningVoiceStorybook.openingHistory.voiceMedia).length === 0,
+    'Storybook normalization must drop dangling Opening History voice references',
+  );
+  const orphanedOpeningVoiceStorybook = structuredClone(openingHistoryStorybook);
+  orphanedOpeningVoiceStorybook.openingHistory.voiceMedia['voice-999'] =
+    'data:audio/mpeg;base64,REVG';
+  const normalizedOrphanedOpeningVoiceStorybook = parseRpStorybookJson(
+    JSON.stringify(orphanedOpeningVoiceStorybook),
+  );
+  assertFixture(
+    normalizedOrphanedOpeningVoiceStorybook.openingHistory.voiceMedia['voice-999'] === undefined,
+    'Storybook normalization must remove unreferenced Opening History voice media',
   );
   openingHistoryNode.data.storybookJson = rpStorybookJsonText(openingHistoryStorybook);
   const restoredOpeningMessages = openingHistoryTurnsFromNodes([openingHistoryNode])
@@ -1830,8 +1867,10 @@ export function verifyWorkflowValidationFixtures() {
   );
   assertFixture(
     restoredRpImage?.imageAttachments?.[0]?.id === 'emily_miller_image_01' &&
+      restoredPhoneImage?.voiceClips?.[0]?.dataUrl === 'data:audio/mpeg;base64,QUJD' &&
+      restoredRpImage?.voiceClips?.[0]?.dataUrl === 'data:audio/mpeg;base64,QUJD' &&
       openingHistoryTurnsFromNodes([openingHistoryNode]).every((turn) => turn.openingHistory),
-    'RP Opening History turns must preserve image data and carry only turn-level origin metadata',
+    'RP Opening History turns must restore image and voice data and carry turn-level origin metadata',
   );
   const restoredOpeningTurns = openingHistoryTurnsFromNodes([openingHistoryNode]);
   const remappedOpeningTurns = remapOpeningTurnMessageIds(restoredOpeningTurns, 20).remappedTurns;
@@ -2251,6 +2290,7 @@ export function verifyWorkflowValidationFixtures() {
             sourceTurnId: 'turn-1',
             sourceTurnNumber: 1,
           }],
+          voiceMedia: {},
           socialLikes: { 'alex/fotogram': ['post-1'] },
           dynamicSocialUsers: {},
           socialConnections: {},

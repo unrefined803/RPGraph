@@ -14,6 +14,10 @@ import {
   type DynamicSocialUsers,
   type SocialConnectionsByCharacter,
 } from '../chat/socialDirectory';
+import {
+  turnsWithRehydratedStorybookVoices,
+  turnsWithStorybookVoiceRefs,
+} from './openingHistoryVoiceMedia';
 
 function storybooksFromNodes(nodes: WorkflowNode[]): RpStorybook[] {
   return nodes.flatMap((node) => {
@@ -31,32 +35,31 @@ function storybooksFromNodes(nodes: WorkflowNode[]): RpStorybook[] {
 /**
  * Prepare runtime turns for storage in Storybook Opening History.
  * Gallery-backed images become id-only references, while generated voice clips
- * are discarded because they are a regenerable runtime cache with no Storybook
- * media-library reference. Unknown image attachments keep their embedded copy
- * so their content is not lost.
+ * move into one deduplicated Storybook-level media pool. Unknown image
+ * attachments keep their embedded copy so their content is not lost.
  */
 export function turnsForStorybookOpeningHistory(
   turns: TurnRecord[],
   nodes: WorkflowNode[],
-): TurnRecord[] {
+): Pick<RpStorybook['openingHistory'], 'turns' | 'voiceMedia'> {
   const storybooks = storybooksFromNodes(nodes);
   const forOpeningHistory = (message: MessageRecord): MessageRecord => {
-    const { voiceClips: _voiceClips, ...storedMessage } = message;
-    if (!storedMessage.imageAttachments?.length) {
-      return storedMessage;
+    if (!message.imageAttachments?.length) {
+      return message;
     }
     return {
-      ...storedMessage,
-      imageAttachments: storedMessage.imageAttachments.map((image) =>
+      ...message,
+      imageAttachments: message.imageAttachments.map((image) =>
         storybookImageSourceById(storybooks, image.id) ? { ...image, dataUrl: '' } : image,
       ),
     };
   };
-  return turns.map((turn) => ({
+  const turnsWithImageRefs = turns.map((turn) => ({
     ...turn,
     input: { ...turn.input, messages: turn.input.messages.map(forOpeningHistory) },
     output: { ...turn.output, messages: turn.output.messages.map(forOpeningHistory) },
   }));
+  return turnsWithStorybookVoiceRefs(turnsWithImageRefs);
 }
 
 /**
@@ -111,7 +114,11 @@ export function openingHistoryTurnsFromNodes(nodes: WorkflowNode[]) {
     } catch {
       return [];
     }
-    return storybook.openingHistory.turns.map((storedTurn) => {
+    const rehydratedTurns = turnsWithRehydratedStorybookVoices(
+      storybook.openingHistory.turns,
+      storybook.openingHistory.voiceMedia,
+    );
+    return rehydratedTurns.map((storedTurn) => {
       const turnId = `opening-history-${node.id}-${storedTurn.id}`;
       const withRuntimeMetadata = (
         message: MessageRecord,
