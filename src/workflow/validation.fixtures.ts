@@ -2170,6 +2170,31 @@ export function verifyWorkflowValidationFixtures() {
     }),
     'old workflow plus chat session containers must be rejected',
   );
+  const roundtripSharedImageDataUrl = 'data:image/jpeg;base64,c2hhcmVkLXBpeGVscw==';
+  const roundtripDeletedImageDataUrl = 'data:image/jpeg;base64,ZGVsZXRlZC1waXhlbHM=';
+  const roundtripLiteralMediaRefText = 'Literal rpgraph-data-ref:media-1 text must survive.';
+  const roundtripStorybookWithImages = (images: Array<{ id: string; dataUrl: string }>) =>
+    rpStorybookJsonText({
+      ...emptyRpStorybook,
+      title: 'Fixture Storybook',
+      introduction: roundtripLiteralMediaRefText,
+      characters: [{
+        id: 'storybook:character:alice',
+        name: 'Alice Harper',
+        description: 'Lead character',
+        personality: 'Curious',
+        speechStyle: 'Warm',
+        role: 'Main',
+        images: images.map((image) => ({
+          id: image.id,
+          name: image.id,
+          mimeType: 'image/jpeg' as const,
+          size: 16,
+          dataUrl: image.dataUrl,
+          description: `${image.id} description`,
+        })),
+      }],
+    });
   const roundtripRuntimeNodes = [{
     id: 'event-manager-1',
     type: 'workflow',
@@ -2199,7 +2224,9 @@ export function verifyWorkflowValidationFixtures() {
       preview: 'Ready',
       storybookJson: rpStorybookJsonText({
         ...emptyRpStorybook,
-        title: 'Fixture Storybook',
+        ...JSON.parse(roundtripStorybookWithImages([
+          { id: 'alice-1', dataUrl: roundtripSharedImageDataUrl },
+        ])) as typeof emptyRpStorybook,
         openingHistory: {
           summary: 'Opening event fixture',
           turns: [],
@@ -2450,6 +2477,19 @@ export function verifyWorkflowValidationFixtures() {
             eventProcessedTurnIds: ['turn-1'],
           },
         },
+        'storybook-1': {
+          before: {
+            storybookJson: roundtripStorybookWithImages([
+              { id: 'alice-1', dataUrl: roundtripSharedImageDataUrl },
+              { id: 'alice-2', dataUrl: roundtripDeletedImageDataUrl },
+            ]),
+          },
+          after: {
+            storybookJson: roundtripStorybookWithImages([
+              { id: 'alice-1', dataUrl: roundtripSharedImageDataUrl },
+            ]),
+          },
+        },
       },
       workflowVariables: {
         before: {
@@ -2528,6 +2568,34 @@ export function verifyWorkflowValidationFixtures() {
     '2026-06-01T00:00:00.000Z',
   );
   assertFixture(isRpgraphSessionV2(sessionV2), 'RP Save Format v2 roundtrip payload must validate');
+  const serializedSessionV2 = JSON.stringify(sessionV2);
+  assertFixture(
+    // Once in the embedded workflow copy, once in the shared media pool; the
+    // runtime snapshot and both checkpoint copies must only hold references.
+    serializedSessionV2.split(roundtripSharedImageDataUrl).length - 1 === 2 &&
+      serializedSessionV2.split(roundtripDeletedImageDataUrl).length - 1 === 1 &&
+      Object.values(sessionV2.entities.mediaData ?? {}).includes(roundtripSharedImageDataUrl) &&
+      Object.values(sessionV2.entities.mediaData ?? {}).includes(roundtripDeletedImageDataUrl),
+    'RP Save Format v2 must pool checkpoint and runtime storybook media once',
+  );
+  const invalidMediaPoolSession = structuredClone(sessionV2);
+  invalidMediaPoolSession.entities.mediaData = { 'media-1': 'https://tracker.example/pixel.png' };
+  assertFixture(
+    !isRpgraphSessionV2(invalidMediaPoolSession),
+    'RP Save Format v2 must reject non-data media pool entries',
+  );
+  const danglingMediaRefSession = structuredClone(sessionV2);
+  delete danglingMediaRefSession.entities.mediaData;
+  let danglingMediaRefFailed = false;
+  try {
+    appStateFromSessionV2(danglingMediaRefSession);
+  } catch {
+    danglingMediaRefFailed = true;
+  }
+  assertFixture(
+    danglingMediaRefFailed,
+    'RP Save Format v2 must fail loading when a media reference has no pooled data',
+  );
   const missingSocialDirectorySession = structuredClone(sessionV2);
   delete (missingSocialDirectorySession.ui as Partial<typeof missingSocialDirectorySession.ui>)
     .dynamicSocialUsers;
@@ -2657,6 +2725,16 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     restoredAppState.openingMessages[0]?.turnId === undefined,
     'RP Save Format v2 must not attach synthesized turn ids to loose opening messages',
+  );
+  const originalStorybookSnapshot = roundtripChat.turnCheckpoints[0]!.nodeSnapshots['storybook-1']!;
+  const restoredStorybookSnapshot = restoredAppState.turnCheckpoints[0]?.nodeSnapshots['storybook-1'];
+  assertFixture(
+    restoredStorybookSnapshot?.before.storybookJson === originalStorybookSnapshot.before.storybookJson &&
+      restoredStorybookSnapshot.after.storybookJson === originalStorybookSnapshot.after.storybookJson &&
+      restoredAppState.currentRuntime.nodes['storybook-1']?.storybookJson ===
+        roundtripRuntimeNodes[1]!.data.storybookJson &&
+      restoredStorybookSnapshot.before.storybookJson.includes(roundtripLiteralMediaRefText),
+    'RP Save Format v2 must rehydrate pooled media byte-identically without replacing literal reference-like text',
   );
   assertFixture(
     restoredAppState.turns[0]?.output.messages[0]?.workflowVariableSetCommands?.[0]?.value === 'Old Harbor',

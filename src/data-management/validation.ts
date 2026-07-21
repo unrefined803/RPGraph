@@ -287,6 +287,15 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
   return value.kind === 'state' || value.kind === 'system';
 }
 
+// The shared media pool may only hold inline image or audio data URLs; any
+// other scheme could turn a stored reference into an external request.
+function isMediaDataRecord(value: unknown) {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((entry) => isImageDataUrl(entry) || isAudioDataUrl(entry))
+  );
+}
+
 function isNumberRecord(value: unknown) {
   return (
     isRecord(value) &&
@@ -488,6 +497,7 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     isImageEntityRecord(value.entities.images) &&
     isEventEntityRecord(value.entities.events) &&
     isMemoryEntityRecord(value.entities.memory) &&
+    (value.entities.mediaData === undefined || isMediaDataRecord(value.entities.mediaData)) &&
     isRecord(value.runtime) &&
     isRecord(value.runtime.current) &&
     isWorkflowVariableRecord(value.runtime.current.workflowVariables) &&

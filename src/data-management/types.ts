@@ -1,5 +1,4 @@
 import type { Edge } from '@xyflow/react';
-import type { RpStorybook } from '../nodes/rp-storybook/model';
 import type {
   BankTransferRecord,
   SocialDirectMessageRecord,
@@ -184,13 +183,6 @@ export type TimelineEntry =
   | TimelineStateEntry
   | TimelineSystemEntry;
 
-type StorybookEntity = {
-  sourceNodeId: string;
-  value: RpStorybook;
-  fileName?: string;
-  filePath?: string;
-};
-
 export type EventEntity = {
   id: string;
   status: 'upcoming' | 'completed' | 'cancelled';
@@ -234,11 +226,17 @@ type MemoryEntity = {
 };
 
 export type SessionEntities = {
-  storybook?: StorybookEntity;
   events: Record<string, EventEntity>;
   images: Record<string, ImageEntity>;
   characterStats?: CharacterStatsEntity;
   memory: Record<string, MemoryEntity>;
+  /**
+   * Shared pool of embedded media (`data:` URLs) referenced from redacted
+   * `storybookJson` runtime and undo snapshots via `rpgraph-data-ref:<ref>`
+   * sentinels, so checkpoint copies do not repeat every image and voice
+   * sample. The embedded workflow keeps its full storybook copy.
+   */
+  mediaData?: Record<string, string>;
 };
 
 type NodeRuntimeState = Record<string, unknown>;

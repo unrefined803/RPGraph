@@ -23,6 +23,7 @@ import {
   type PhoneNotesByCharacter,
 } from '../chat/phoneAppsSessions';
 import { currentWorkflowFormatVersion } from '../workflow/version';
+import { createMediaPoolReader, createMediaPoolWriter } from './mediaPool';
 import { runtimeSnapshotForNode } from './checkpointStore';
 import { debugStateFromNodes } from './debugContext';
 import { entitiesFromCurrentState } from './entityStore';
@@ -134,6 +135,55 @@ function runtimeStateFromNodes(
   };
 }
 
+/**
+ * Returns `fields` with a redacted or rehydrated `storybookJson`, reusing the
+ * input object when the snapshot holds no storybook or nothing changed.
+ */
+function snapshotFieldsWithConvertedStorybook(
+  fields: Record<string, unknown>,
+  convertStorybookJson: (json: string) => string,
+): Record<string, unknown> {
+  if (typeof fields.storybookJson !== 'string') {
+    return fields;
+  }
+  const converted = convertStorybookJson(fields.storybookJson);
+  return converted === fields.storybookJson ? fields : { ...fields, storybookJson: converted };
+}
+
+function checkpointWithConvertedStorybooks(
+  checkpoint: TurnCheckpoint,
+  convertStorybookJson: (json: string) => string,
+): TurnCheckpoint {
+  let changed = false;
+  const nodeSnapshots = Object.fromEntries(
+    Object.entries(checkpoint.nodeSnapshots).map(([nodeId, snapshot]) => {
+      const before = snapshotFieldsWithConvertedStorybook(snapshot.before, convertStorybookJson);
+      const after = snapshotFieldsWithConvertedStorybook(snapshot.after, convertStorybookJson);
+      if (before === snapshot.before && after === snapshot.after) {
+        return [nodeId, snapshot];
+      }
+      changed = true;
+      return [nodeId, { before, after }];
+    }),
+  );
+  return changed ? { ...checkpoint, nodeSnapshots } : checkpoint;
+}
+
+function runtimeStateWithConvertedStorybooks(
+  runtime: RuntimeState,
+  convertStorybookJson: (json: string) => string,
+): RuntimeState {
+  return {
+    ...runtime,
+    nodes: Object.fromEntries(
+      Object.entries(runtime.nodes).map(([nodeId, fields]) => [
+        nodeId,
+        snapshotFieldsWithConvertedStorybook(fields, convertStorybookJson),
+      ]),
+    ),
+  };
+}
+
 export function sessionV2FromCurrentState(
   state: SessionV2CurrentStateInput,
   workflow: WorkflowFile,
@@ -146,6 +196,16 @@ export function sessionV2FromCurrentState(
     ...eventTimelineEntriesFromEntities(entities.events),
   ];
   const debug = debugStateFromNodes(runtimeNodes, savedAt);
+  // Runtime and undo storybook copies share their media through one pool; the
+  // embedded workflow keeps the only full storybook copy in the save.
+  const mediaWriter = createMediaPoolWriter();
+  const redactedRuntime = runtimeStateWithConvertedStorybooks(
+    runtimeStateFromNodes(runtimeNodes, state.workflowVariables),
+    mediaWriter.redactedStorybookJson,
+  );
+  const redactedCheckpoints = state.turnCheckpoints.map((checkpoint) =>
+    checkpointWithConvertedStorybooks(checkpoint, mediaWriter.redactedStorybookJson),
+  );
   return {
     format: 'rpgraph-session',
     formatVersion: currentSessionFormatVersion,
@@ -160,10 +220,13 @@ export function sessionV2FromCurrentState(
     },
     workflow: workflowFileToV2(workflow),
     timeline,
-    entities,
+    entities: {
+      ...entities,
+      ...(Object.keys(mediaWriter.mediaData).length ? { mediaData: mediaWriter.mediaData } : {}),
+    },
     runtime: {
-      current: runtimeStateFromNodes(runtimeNodes, state.workflowVariables),
-      undo: state.turnCheckpoints,
+      current: redactedRuntime,
+      undo: redactedCheckpoints,
     },
     ui: {
       phoneSeenByConversation: state.phoneSeenByConversation ?? {},
@@ -309,19 +372,23 @@ function chatMessageFromTimelineEntry(
   };
 }
 
-function runtimeSnapshotFromSession(session: RpgraphSessionV2): TurnRuntimeSnapshot {
+function runtimeSnapshotFromSession(
+  session: RpgraphSessionV2,
+  rehydratedStorybookJson: (json: string) => string,
+): TurnRuntimeSnapshot {
   return {
     workflowVariables: workflowVariableRecord(session.runtime.current.workflowVariables),
     nodes: Object.fromEntries(
       Object.entries(session.runtime.current.nodes).map(([nodeId, fields]) => [
         nodeId,
-        structuredClone(fields),
+        snapshotFieldsWithConvertedStorybook(structuredClone(fields), rehydratedStorybookJson),
       ]),
     ),
   };
 }
 
 export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppState {
+  const mediaReader = createMediaPoolReader(session.entities.mediaData);
   const entries = timelineMessages(session.timeline);
   const openingHistoryTurnIds = new Set(
     entries
@@ -385,9 +452,14 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
     },
     workflowVariables: workflowVariableRecord(session.runtime.current.workflowVariables),
     turns,
-    turnCheckpoints: session.runtime.undo,
+    turnCheckpoints: session.runtime.undo.map((checkpoint) =>
+      checkpointWithConvertedStorybooks(
+        structuredClone(checkpoint),
+        mediaReader.rehydratedStorybookJson,
+      ),
+    ),
     openingMessages: messages.filter((message) => message.isOpening),
-    currentRuntime: runtimeSnapshotFromSession(session),
+    currentRuntime: runtimeSnapshotFromSession(session, mediaReader.rehydratedStorybookJson),
     phoneSeenByConversation: session.ui.phoneSeenByConversation,
     bankingSeenByCharacter: session.ui.bankingSeenByCharacter,
     phoneAppSeenByCharacter: session.ui.phoneAppSeenByCharacter ?? {},

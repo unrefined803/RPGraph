@@ -2918,8 +2918,6 @@ function App() {
     if (!isRpgraphSessionV2(result.value)) {
       throw new Error('The selected file does not contain a valid RPGraph file.');
     }
-    setActiveWorkflowProtection('plain');
-    setActiveStorybookProtection('plain');
     applySessionFile(
       result.fileName,
       result.name,
@@ -2969,6 +2967,7 @@ function App() {
     );
     clearTurnTraces();
     setActiveWorkflowProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
+    setActiveStorybookProtection('plain');
     commitHydratedWorkflow(
       hydratedWorkflow,
       null,
