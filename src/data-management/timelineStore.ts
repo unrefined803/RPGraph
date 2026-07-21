@@ -1,5 +1,11 @@
 import type { MessageRecord, TurnRecord } from '../types';
-import type { ImageRef, TimelineEntry, TimelineMessageEntry } from './types';
+import type {
+  ImageRef,
+  TimelineEntry,
+  TimelineMessageEntry,
+  TimelineOutputActions,
+  TimelineTurnMetadata,
+} from './types';
 import { stableEntryId } from './parsing';
 
 function timelineRole(role: MessageRecord['role']): TimelineMessageEntry['role'] {
@@ -26,6 +32,37 @@ function embeddedPhoneText(message: MessageRecord): TimelineMessageEntry['embedd
     translatedAfter: message.embeddedPhoneTranslatedTextAfter,
   };
   return Object.values(text).some((value) => value !== undefined) ? text : undefined;
+}
+
+function turnMetadata(turn: TurnRecord): TimelineTurnMetadata {
+  return {
+    createdAt: turn.createdAt,
+    ...(turn.mode ? { mode: turn.mode } : {}),
+    ...(turn.messageFormat !== undefined ? { messageFormat: turn.messageFormat } : {}),
+    ...(turn.promptSlot !== undefined ? { promptSlot: turn.promptSlot } : {}),
+    ...(turn.directAction ? { directAction: true } : {}),
+    ...(turn.input.graphText ? { inputGraphText: turn.input.graphText } : {}),
+    ...(turn.output.graphText ? { outputGraphText: turn.output.graphText } : {}),
+  };
+}
+
+function messageOutputActions(message: MessageRecord): TimelineOutputActions | undefined {
+  const hasOutputActions =
+    !!message.outputActionChoices?.length ||
+    !!message.outputActionInfoBoxes?.length ||
+    !!message.outputActionProgressBars?.length ||
+    !!message.outputActionContextCapacityBars?.length;
+  if (!hasOutputActions) {
+    return undefined;
+  }
+  return {
+    choices: message.outputActionChoices,
+    hidden: message.outputActionsHidden || undefined,
+    hiddenByTurnId: message.outputActionsHiddenByTurnId,
+    infoBoxes: message.outputActionInfoBoxes,
+    progressBars: message.outputActionProgressBars,
+    contextCapacityBars: message.outputActionContextCapacityBars,
+  };
 }
 
 function messageFlags(message: MessageRecord, turn: TurnRecord): TimelineMessageEntry['flags'] | undefined {
@@ -109,6 +146,9 @@ function messageToTimelineEntry(
     imageCaptionChange: message.phoneImageCaptionChange,
     inputMessageFormat: message.inputMessageFormat,
     inputPromptSlot: message.inputPromptSlot,
+    turnContext: message.turnContext,
+    phoneAutoTurnSource: message.phoneAutoTurnSource,
+    outputActions: messageOutputActions(message),
     rpDateTime: message.rpDateTime,
     workflowVariableSetCommands: message.workflowVariableSetCommands,
     voiceClips: message.voiceClips?.length ? message.voiceClips : undefined,
@@ -136,14 +176,21 @@ export function timelineFromTurnRecords(turns: TurnRecord[]): TimelineEntry[] {
       }
     });
   });
-  return turns.flatMap((turn) => [
-    ...turn.input.messages.map((message) =>
-      messageToTimelineEntry(turn, 'input', message, embeddedPhoneMessageIds, embeddedSocialMessageIds),
-    ),
-    ...turn.output.messages.map((message) =>
-      messageToTimelineEntry(turn, 'output', message, embeddedPhoneMessageIds, embeddedSocialMessageIds),
-    ),
-  ]);
+  return turns.flatMap((turn) => {
+    const entries = [
+      ...turn.input.messages.map((message) =>
+        messageToTimelineEntry(turn, 'input', message, embeddedPhoneMessageIds, embeddedSocialMessageIds),
+      ),
+      ...turn.output.messages.map((message) =>
+        messageToTimelineEntry(turn, 'output', message, embeddedPhoneMessageIds, embeddedSocialMessageIds),
+      ),
+    ];
+    // Turn-level metadata lives once on the turn's first entry.
+    if (entries.length > 0) {
+      entries[0] = { ...entries[0]!, turn: turnMetadata(turn) };
+    }
+    return entries;
+  });
 }
 
 export function timelineFromTurnRecordsWithOpeningMessages(

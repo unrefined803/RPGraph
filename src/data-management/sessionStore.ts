@@ -273,13 +273,26 @@ function chatMessageFromTimelineEntry(
     inputPromptSlot: entry.inputPromptSlot,
     rpImageDescription: entry.channel === 'rp' ? entry.imageDescription : undefined,
     rpImageName: entry.channel === 'rp' ? entry.imageLabel : undefined,
+    outputActionChoices: entry.outputActions?.choices,
+    outputActionsHidden: entry.outputActions?.hidden,
+    outputActionsHiddenByTurnId: entry.outputActions?.hiddenByTurnId,
+    outputActionInfoBoxes: entry.outputActions?.infoBoxes,
+    outputActionProgressBars: entry.outputActions?.progressBars,
+    outputActionContextCapacityBars: entry.outputActions?.contextCapacityBars,
     isOpening: entry.flags?.opening,
     speakerName: entry.speakers?.primary,
     speakerNames: entry.speakers?.names,
     speakerColors: entry.speakers?.colors,
     originalDialogue: entry.speakers?.originalDialogue,
     translatedDialogue: entry.speakers?.translatedDialogue,
-    turnId: entry.turnId,
+    turnContext: entry.turnContext,
+    phoneAutoTurnSource: entry.phoneAutoTurnSource,
+    // Loose opening messages (the "Opening" situation bubble) had no turn id
+    // in RAM; saving wraps them in a synthesized `opening-message-*` turn.
+    // Restoring that id would break the opening-bubble matching in App.tsx.
+    turnId: entry.flags?.opening && entry.turnId.startsWith('opening-message-')
+      ? undefined
+      : entry.turnId,
     turnNumber: entry.turnNumber,
     turnPart: entry.phase,
     rpDateTime: entry.rpDateTime,
@@ -324,6 +337,9 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
       session,
     ),
   );
+  const turnMetadataByTurnId = new Map(
+    entries.flatMap((entry) => (entry.turn ? [[entry.turnId, entry.turn] as const] : [])),
+  );
   const messagesByTurnId = new Map<string, MessageRecord[]>();
   messages
     .filter((message) => !message.isOpening)
@@ -338,17 +354,24 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
       const turnNumber = turnMessages.find((message) => message.turnNumber !== undefined)?.turnNumber ?? 0;
       const inputMessages = turnMessages.filter((message) => message.turnPart !== 'output');
       const outputMessages = turnMessages.filter((message) => message.turnPart === 'output');
+      const turnMeta = turnMetadataByTurnId.get(turnId);
       return {
         id: turnId,
         number: turnNumber,
-        createdAt: session.savedAt,
+        createdAt: turnMeta?.createdAt ?? session.savedAt,
         openingHistory: openingHistoryTurnIds.has(turnId) || undefined,
+        mode: turnMeta?.mode,
+        messageFormat: turnMeta?.messageFormat,
+        promptSlot: turnMeta?.promptSlot,
+        directAction: turnMeta?.directAction || undefined,
         input: {
-          graphText: inputMessages.map((message) => message.originalText).join('\n\n'),
+          graphText: turnMeta?.inputGraphText
+            ?? inputMessages.map((message) => message.originalText).join('\n\n'),
           messages: inputMessages,
         },
         output: {
-          graphText: outputMessages.map((message) => message.originalText).join('\n\n'),
+          graphText: turnMeta?.outputGraphText
+            ?? outputMessages.map((message) => message.originalText).join('\n\n'),
           messages: outputMessages,
         },
       };

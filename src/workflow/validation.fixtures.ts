@@ -2249,10 +2249,13 @@ export function verifyWorkflowValidationFixtures() {
   const roundtripTurn = {
       id: 'turn-1',
       number: 1,
-      createdAt: '2026-06-01T00:00:00.000Z',
+      createdAt: '2026-06-01T11:55:00.000Z',
       openingHistory: true,
+      mode: 'auto-turn',
+      messageFormat: 3,
+      promptSlot: 2,
       input: {
-        graphText: 'Hello',
+        graphText: '[AUTO TURN] Hello',
         messages: [{
           id: 1,
           role: 'user',
@@ -2273,6 +2276,19 @@ export function verifyWorkflowValidationFixtures() {
           turnId: 'turn-1',
           turnNumber: 1,
           turnPart: 'output',
+          outputActionChoices: [{
+            kind: 'buttons',
+            prompt: 'How does Alice react?',
+            options: [
+              { label: 'Wave back', mode: 'submit' },
+              { label: 'Keep walking', mode: 'submit' },
+            ],
+          }],
+          outputActionInfoBoxes: [{
+            title: 'Harbor status',
+            text: 'The ferry arrives in ten minutes.',
+            tone: 'info',
+          }],
           workflowVariableSetCommands: [{
             name: 'Current Location',
             value: 'Old Harbor',
@@ -2623,6 +2639,25 @@ export function verifyWorkflowValidationFixtures() {
     'RP Save Format v2 must preserve Opening History turn origin metadata',
   );
   assertFixture(restoredAppState.turns[0]?.output.messages[0]?.originalText === 'Hi there', 'RP Save Format v2 must restore output text');
+  assertFixture(
+    restoredAppState.turns[0]?.mode === 'auto-turn' &&
+      restoredAppState.turns[0]?.messageFormat === 3 &&
+      restoredAppState.turns[0]?.promptSlot === 2 &&
+      restoredAppState.turns[0]?.createdAt === '2026-06-01T11:55:00.000Z' &&
+      restoredAppState.turns[0]?.input.graphText === '[AUTO TURN] Hello' &&
+      restoredAppState.turns[0]?.output.graphText === 'Hi there',
+    'RP Save Format v2 must restore turn mode, format, prompt slot, and graph text',
+  );
+  assertFixture(
+    restoredAppState.turns[0]?.output.messages[0]?.outputActionChoices?.[0]?.options[1]?.label === 'Keep walking' &&
+      restoredAppState.turns[0]?.output.messages[0]?.outputActionInfoBoxes?.[0]?.text ===
+        'The ferry arrives in ten minutes.',
+    'RP Save Format v2 must restore output action choices and info boxes',
+  );
+  assertFixture(
+    restoredAppState.openingMessages[0]?.turnId === undefined,
+    'RP Save Format v2 must not attach synthesized turn ids to loose opening messages',
+  );
   assertFixture(
     restoredAppState.turns[0]?.output.messages[0]?.workflowVariableSetCommands?.[0]?.value === 'Old Harbor',
     'RP Save Format v2 must restore output workflow variable metadata',

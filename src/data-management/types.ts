@@ -12,7 +12,13 @@ import type {
   ImageCaptionChange,
   MessageVoiceClip,
   NodeLlmCallStats,
+  OutputActionChoiceGroup,
+  OutputActionContextCapacityBar,
+  OutputActionInfoBox,
+  OutputActionProgressBar,
   RpAppointment,
+  TurnContext,
+  TurnRecordMode,
   WorkflowFile,
   WorkflowNode,
   WorkflowNodeType,
@@ -69,6 +75,31 @@ export type ImageRef = {
   imageId: string;
 };
 
+/**
+ * Turn-level runtime metadata, stored once on the first timeline entry of the
+ * turn so a loaded RP save can rebuild the exact TurnRecord (retry format,
+ * direct-action handling, and the original graph input/output text).
+ */
+export type TimelineTurnMetadata = {
+  createdAt: string;
+  mode?: TurnRecordMode;
+  messageFormat?: number;
+  promptSlot?: number;
+  directAction?: boolean;
+  inputGraphText?: string;
+  outputGraphText?: string;
+};
+
+/** Interactive output-action UI records persisted with their chat message. */
+export type TimelineOutputActions = {
+  choices?: OutputActionChoiceGroup[];
+  hidden?: boolean;
+  hiddenByTurnId?: string;
+  infoBoxes?: OutputActionInfoBox[];
+  progressBars?: OutputActionProgressBar[];
+  contextCapacityBars?: OutputActionContextCapacityBar[];
+};
+
 export type TimelineMessageEntry = {
   id: string;
   kind: 'message';
@@ -107,6 +138,10 @@ export type TimelineMessageEntry = {
   imageCaptionChange?: ImageCaptionChange;
   inputMessageFormat?: number;
   inputPromptSlot?: number;
+  turn?: TimelineTurnMetadata;
+  turnContext?: TurnContext;
+  phoneAutoTurnSource?: 'narrator';
+  outputActions?: TimelineOutputActions;
   rpDateTime?: string;
   workflowVariableSetCommands?: WorkflowVariableSetCommand[];
   voiceClips?: MessageVoiceClip[];
