@@ -297,6 +297,7 @@ import { useNodeLlmApi } from './app/useNodeLlmApi';
 import { useRuntimeNodePatching } from './app/useRuntimeNodePatching';
 import { useNodeActionsController } from './app/useNodeActionsController';
 import { useRoleplayPanelRuntime } from './app/useRoleplayPanelRuntime';
+import { useWorkflowVariables } from './app/useWorkflowVariables';
 import type {
   ChatImageAttachment,
   ImageCaptionChange,
@@ -312,7 +313,6 @@ import type {
   RpAppointment,
   RpDateTimeFormat,
   RpWeekdayLanguage,
-  SettingsValueDefinition,
   SavedFileSummary,
   WorkflowFile,
   WorkflowNode,
@@ -322,21 +322,13 @@ import type { WorkflowVariableSetCommand } from './workflow';
 import {
   llmPromptSwitchPromptAftersByOutput,
   llmPromptSwitchPromptBeforesByOutput,
-  contextLengthMaxOptionKey,
-  builtInWorkflowVariables,
   currentWorkflowFormatVersion,
   createInitialEdges,
   createInitialNodes,
-  defaultWorkflowVariableValue,
   formatChatHistory,
   formatLastMessageForContext,
   persistentNodeData,
-  settingsValueEntries,
-  settingsValueHandle,
-  textSetsWorkflowVariable,
-  textReferencesWorkflowVariable,
   validEstimatedTokenBytesPerToken,
-  workflowVariableValueKind,
 } from './workflow';
 
 const currentStorybookFormatVersion = storybookFormatVersions.storybook;
@@ -582,19 +574,6 @@ const phoneEmojiOptions = [
   '🌟',
 ];
 
-function dataContainsWorkflowVariable(value: unknown, definition: SettingsValueDefinition): boolean {
-  if (typeof value === 'string') {
-    return textReferencesWorkflowVariable(value, definition) ||
-      textSetsWorkflowVariable(value, definition);
-  }
-  if (Array.isArray(value)) {
-    return value.some((entry) => dataContainsWorkflowVariable(entry, definition));
-  }
-  if (value && typeof value === 'object') {
-    return Object.values(value).some((entry) => dataContainsWorkflowVariable(entry, definition));
-  }
-  return false;
-}
 const pastePositionOffset = 36;
 const connectionRadius = 66;
 const reconnectRadius = 54;
@@ -931,109 +910,25 @@ function App() {
     }),
     [imageUploadVisionEnabled, showReferenceImagesInContext, referenceImageTurnLookback, maxReferenceImages],
   );
-  const settingsValueDefinitions = useMemo<SettingsValueDefinition[]>(() => {
-    const definitions = new Map<string, SettingsValueDefinition>(
-      builtInWorkflowVariables.map((definition) => [definition.key, definition]),
-    );
-    Object.entries(workflowSettingsValues).forEach(([key]) => {
-      if (!definitions.has(key)) {
-        definitions.set(key, {
-          key,
-          label: key,
-          enabled: true,
-          valueKind: workflowVariableValueKind(workflowSettingsValues[key] ?? ''),
-          used: false,
-          usedAsNumber: false,
-        });
-      }
-    });
-    nodeViewNodes
-      .filter((node) => node.data.kind === undefined && node.data.nodeType === 'settings-value')
-      .flatMap((node) => settingsValueEntries(node.data))
-      .forEach((entry) => {
-        const current = definitions.get(entry.optionKey);
-        definitions.set(entry.optionKey, {
-          key: entry.optionKey,
-          label: current?.builtIn ? current.label : entry.label,
-          enabled: true,
-          builtIn: current?.builtIn,
-          valueKind: workflowVariableValueKind(
-            workflowSettingsValues[entry.optionKey] ?? defaultWorkflowVariableValue(entry.optionKey),
-          ),
-          used: true,
-          usedAsNumber: false,
-        });
-      });
-    const settingsVariableNumberKeys = new Set(
-      edges.flatMap((edge) => {
-        const source = nodeViewNodes.find((node) => node.id === edge.source);
-        const target = nodeViewNodes.find((node) => node.id === edge.target);
-        if (
-          source?.data.nodeType !== 'settings-value' ||
-          target?.data.nodeType !== 'context-compression' ||
-          edge.targetHandle !== 'max-tokens'
-        ) {
-          return [];
-        }
-        const entry = settingsValueEntries(source.data).find(
-          (candidate) => settingsValueHandle(candidate.id) === edge.sourceHandle,
-        );
-        return entry ? [entry.optionKey] : [];
-      }),
-    );
-    return Array.from(definitions.values()).map((definition) => {
-      const usedInText = nodeViewNodes.some((node) => dataContainsWorkflowVariable(node.data, definition));
-      const usedAsNumber = nodeViewNodes.some((node) =>
-        textReferencesWorkflowVariable(String(node.data.contextCompressionMaxTokens ?? ''), definition) ||
-        textReferencesWorkflowVariable(String(node.data.contextCompressionLengthWords ?? ''), definition) ||
-        textReferencesWorkflowVariable(String(node.data.fixedNumberValue ?? ''), definition) ||
-        textReferencesWorkflowVariable(String(node.data.historyLastTurnsCount ?? ''), definition)
-      );
-      return {
-        ...definition,
-        valueKind: workflowVariableValueKind(
-          workflowSettingsValues[definition.key] ?? defaultWorkflowVariableValue(definition.key),
-        ),
-        used: definition.used || usedInText || usedAsNumber,
-        usedAsNumber: definition.usedAsNumber || usedAsNumber || settingsVariableNumberKeys.has(definition.key),
-      };
-    });
-  }, [edges, nodeViewNodes, workflowSettingsValues]);
-  const resolvedWorkflowSettingsValues = useMemo(
-    () =>
-      Object.fromEntries(
-        settingsValueDefinitions.map((definition) => [
-          definition.key,
-          workflowSettingsValues[definition.key] ?? defaultWorkflowVariableValue(definition.key),
-        ]),
-      ),
-    [settingsValueDefinitions, workflowSettingsValues],
-  );
-  const settingsValueDefinitionsRef = useRef(settingsValueDefinitions);
-  const workflowSettingsValuesRef = useRef(workflowSettingsValues);
-
-  useEffect(() => {
-    settingsValueDefinitionsRef.current = settingsValueDefinitions;
-  }, [settingsValueDefinitions]);
-  useEffect(() => {
-    workflowSettingsValuesRef.current = workflowSettingsValues;
-  }, [workflowSettingsValues]);
-
-  function replaceWorkflowSettingsValues(values: Record<string, string>) {
-    const nextValues = structuredClone(values);
-    workflowSettingsValuesRef.current = nextValues;
-    setWorkflowSettingsValues(nextValues);
-  }
-
-  function workflowSettingsValuesForGraph() {
-    const currentValues = workflowSettingsValuesRef.current;
-    return Object.fromEntries(
-      settingsValueDefinitionsRef.current.map((definition) => [
-        definition.key,
-        currentValues[definition.key] ?? defaultWorkflowVariableValue(definition.key),
-      ]),
-    );
-  }
+  const {
+    definitions: settingsValueDefinitions,
+    definitionsRef: settingsValueDefinitionsRef,
+    resolvedValues: resolvedWorkflowSettingsValues,
+    valuesRef: workflowSettingsValuesRef,
+    replaceValues: replaceWorkflowSettingsValues,
+    valuesForGraph: workflowSettingsValuesForGraph,
+    changeValue: changeWorkflowSettingsValue,
+    setValuesFromCommands: setWorkflowVariablesFromCommands,
+    addValue: addWorkflowSettingsValue,
+    renameValue: renameWorkflowSettingsValue,
+    removeValue: removeWorkflowSettingsValue,
+  } = useWorkflowVariables({
+    nodes: nodeViewNodes,
+    edges,
+    values: workflowSettingsValues,
+    setValues: setWorkflowSettingsValues,
+    setNodes,
+  });
   const [draft, setDraft] = useState('');
   const [draftCommands, setDraftCommands] = useState<CommandInputCommand[]>([]);
   const [draftImages, setDraftImages] = useState<ChatImageAttachment[]>([]);
@@ -2451,114 +2346,6 @@ function App() {
   function changeAutoCalibrateTokenEstimate(enabled: boolean) {
     setAutoCalibrateTokenEstimate(enabled);
     setCalibratedTokenBytesPerToken(undefined);
-  }
-
-  function changeWorkflowSettingsValue(optionKey: string, value: string) {
-    setWorkflowSettingsValues((currentValues) => ({
-      ...currentValues,
-      [optionKey]: value,
-    }));
-    workflowSettingsValuesRef.current = {
-      ...workflowSettingsValuesRef.current,
-      [optionKey]: value,
-    };
-  }
-
-  function setWorkflowVariablesFromCommands(commands: WorkflowVariableSetCommand[]) {
-    const nextValues = { ...workflowSettingsValuesRef.current };
-    const definitions = settingsValueDefinitionsRef.current;
-    commands.forEach((command) => {
-      const name = command.name.trim();
-      if (!name) {
-        return;
-      }
-      const normalizedName = name.toLocaleLowerCase();
-      const definition = definitions.find(
-        (entry) =>
-          entry.key.toLocaleLowerCase() === normalizedName ||
-          entry.label.toLocaleLowerCase() === normalizedName,
-      );
-      const existingCustomKey = Object.keys(nextValues).find(
-        (key) => key.toLocaleLowerCase() === normalizedName,
-      );
-      nextValues[definition?.key ?? existingCustomKey ?? name] = command.value;
-    });
-    replaceWorkflowSettingsValues(nextValues);
-  }
-
-  function addWorkflowSettingsValue() {
-    setWorkflowSettingsValues((currentValues) => {
-      let index = 1;
-      let key = `custom-variable-${index}`;
-      while (currentValues[key] !== undefined) {
-        index += 1;
-        key = `custom-variable-${index}`;
-      }
-      const nextValues = { ...currentValues, [key]: '' };
-      workflowSettingsValuesRef.current = nextValues;
-      return nextValues;
-    });
-  }
-
-  function renameWorkflowSettingsValue(optionKey: string, label: string) {
-    const normalizedLabel = label.trim();
-    if (!normalizedLabel || optionKey === contextLengthMaxOptionKey) {
-      return;
-    }
-    const definition = settingsValueDefinitions.find((entry) => entry.key === optionKey);
-    const duplicateDefinition = settingsValueDefinitions.some((entry) =>
-      entry.key !== optionKey &&
-      (entry.key.toLocaleLowerCase() === normalizedLabel.toLocaleLowerCase() ||
-        entry.label.toLocaleLowerCase() === normalizedLabel.toLocaleLowerCase()),
-    );
-    if (duplicateDefinition) {
-      return;
-    }
-    if (!definition?.builtIn && optionKey !== normalizedLabel) {
-      setWorkflowSettingsValues((currentValues) => {
-        if (currentValues[normalizedLabel] !== undefined) {
-          return currentValues;
-        }
-        const nextValues = { ...currentValues, [normalizedLabel]: currentValues[optionKey] ?? '' };
-        delete nextValues[optionKey];
-        workflowSettingsValuesRef.current = nextValues;
-        return nextValues;
-      });
-    }
-    setNodes((currentNodes) =>
-      currentNodes.map((node) =>
-        node.data.nodeType === 'settings-value'
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                settingsValueEntries: settingsValueEntries(node.data).map((entry) =>
-                  entry.optionKey === optionKey
-                    ? {
-                        ...entry,
-                        optionKey: definition?.builtIn ? entry.optionKey : normalizedLabel,
-                        label: normalizedLabel,
-                      }
-                    : entry,
-                ),
-              },
-            }
-          : node,
-      ),
-    );
-  }
-
-  function removeWorkflowSettingsValue(optionKey: string) {
-    const definition = settingsValueDefinitions.find((entry) => entry.key === optionKey);
-    if (definition?.builtIn || definition?.used) {
-      return;
-    }
-    setWorkflowSettingsValues((currentValues) => {
-      const nextValues = { ...currentValues };
-      delete nextValues[optionKey];
-      workflowSettingsValuesRef.current = nextValues;
-      return nextValues;
-    });
   }
 
   function changeEnglishProcessing(enabled: boolean) {
