@@ -94,12 +94,6 @@ import {
   type StorybookCharacter,
 } from './storybook/runtime';
 import {
-  configForPromptActionToken,
-  parsePromptActionTokens,
-  promptActionConfigs,
-  withPromptActionRuntimeSettingsList,
-} from './nodes/shared/promptActions';
-import {
   storybookImageDescriptions,
   storybookImageSourceById,
   withImagesEnsuredForStorybookCharacter,
@@ -208,10 +202,11 @@ import {
 } from '@xyflow/react';
 import { StudioDialogs } from './dialogs/StudioDialogs';
 import { ComfyGeneratedImageDialog } from './comfy/ComfyGeneratedImageDialog';
-import { isComfyImageConnection, isComfyVoiceConnection } from './comfy/connectionRole';
+import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
+import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
   withSourceNodeStatusConnectionColors,
   workflowEdgeType,
@@ -298,6 +293,7 @@ import { useRuntimeNodePatching } from './app/useRuntimeNodePatching';
 import { useNodeActionsController } from './app/useNodeActionsController';
 import { useRoleplayPanelRuntime } from './app/useRoleplayPanelRuntime';
 import { useWorkflowVariables } from './app/useWorkflowVariables';
+import { useWorkflowCapabilities } from './app/useWorkflowCapabilities';
 import type {
   ChatImageAttachment,
   ImageCaptionChange,
@@ -320,8 +316,6 @@ import type {
 } from './types';
 import type { WorkflowVariableSetCommand } from './workflow';
 import {
-  llmPromptSwitchPromptAftersByOutput,
-  llmPromptSwitchPromptBeforesByOutput,
   currentWorkflowFormatVersion,
   createInitialEdges,
   createInitialNodes,
@@ -636,66 +630,6 @@ function eventStoryCharacter(event: RpAppointment, characters: StorybookCharacte
 type PreviewImageState = {
   image: ChatImageAttachment;
 };
-
-type WorkflowCapabilityKind = 'text' | 'vision' | 'image' | 'audio';
-type WorkflowCapabilityTone = 'ready' | 'missing';
-
-type WorkflowCapabilityIndicator = {
-  kind: WorkflowCapabilityKind;
-  tone: WorkflowCapabilityTone;
-  active: boolean;
-  label: string;
-};
-
-function WorkflowCapabilityIcon({ kind }: { kind: WorkflowCapabilityKind }) {
-  if (kind === 'text') {
-    return <span className="workflow-capability-text-mark" aria-hidden="true">TXT</span>;
-  }
-  if (kind === 'vision') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    );
-  }
-  if (kind === 'audio') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <polygon points="4 9 8 9 13 4 13 20 8 15 4 15" />
-        <path d="M17 9.5a4 4 0 0 1 0 5" />
-        <path d="M19.5 7a7.5 7.5 0 0 1 0 10" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <polyline points="21 15 16 10 5 21" />
-    </svg>
-  );
-}
-
-function WorkflowCapabilityStrip({ indicators }: { indicators: WorkflowCapabilityIndicator[] }) {
-  if (indicators.length === 0) {
-    return null;
-  }
-  return (
-    <div className="workflow-capability-strip" aria-label="Workflow capability requirements">
-      {indicators.map((indicator) => (
-        <span
-          key={indicator.kind}
-          className={`workflow-capability-icon ${indicator.tone}${indicator.active ? ' active' : ''}`}
-          title={indicator.label}
-          aria-label={indicator.label}
-        >
-          <WorkflowCapabilityIcon kind={indicator.kind} />
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
@@ -5696,197 +5630,20 @@ function App() {
     () => withSourceNodeStatusConnectionColors(edges, nodeViewNodes),
     [edges, nodeViewNodes],
   );
-  const workflowCapabilityIndicators = useMemo<WorkflowCapabilityIndicator[]>(() => {
-    const llmConnectionIds = new Set<string>();
-    const visionConnectionIds = new Set<string>();
-    const explicitComfyProviderIds = new Set<string>();
-    let usesVision = false;
-    let usesImage = false;
-    const usesAudio =
-      dialogueVoiceMode === 'narrator-only' ||
-      storyCharacters.some((character) => !!character.voiceConfig?.sampleDataUrl);
-
-    const connectionIdForNode = (node: WorkflowNode) => {
-      const connectionId = typeof node.data.connectionId === 'string' && node.data.connectionId.trim()
-        ? node.data.connectionId
-        : defaultConnectionId;
-      const connection = connections.find((entry) => entry.id === connectionId);
-      return connection && isLlmConnection(connection) ? connection.id : connectionId;
-    };
-
-    for (const node of nodeViewNodes) {
-      if (node.data.kind !== undefined) {
-        continue;
-      }
-      if (Object.prototype.hasOwnProperty.call(node.data, 'connectionId')) {
-        llmConnectionIds.add(connectionIdForNode(node));
-      }
-      if (node.data.nodeType !== 'llm-prompt' && node.data.nodeType !== 'llm-prompt-switch') {
-        continue;
-      }
-      const actionConfigs = withPromptActionRuntimeSettingsList(
-        promptActionConfigs(node.data.llmPromptActions),
-        promptActionSettings,
-      );
-      const promptTexts = node.data.nodeType === 'llm-prompt'
-        ? [node.data.llmPromptBefore ?? '', node.data.llmPromptAfter ?? '']
-        : [
-            ...llmPromptSwitchPromptBeforesByOutput(node.data).flat(),
-            ...llmPromptSwitchPromptAftersByOutput(node.data).flat(),
-          ];
-      const usedActionConfigs = promptTexts
-        .flatMap((text) => parsePromptActionTokens(text))
-        .map((token) => configForPromptActionToken(actionConfigs, token.title));
-      if (usedActionConfigs.length === 0) {
-        continue;
-      }
-      const nodeConnectionId = connectionIdForNode(node);
-      for (const action of usedActionConfigs) {
-        if (
-          action.actionId === 'updatePhoneImageCaption' ||
-          action.actionId === 'describeInputImage' ||
-          (action.actionId === 'getImageId' && action.sendImagesToLlm)
-        ) {
-          usesVision = true;
-          visionConnectionIds.add(nodeConnectionId);
-        }
-        if (action.actionId === 'createImage') {
-          usesImage = true;
-          const comfyProviderId = action.comfyProviderId?.trim();
-          if (comfyProviderId) {
-            explicitComfyProviderIds.add(comfyProviderId);
-          }
-        }
-      }
-    }
-
-    const connectionIsOnline = (connectionId: string) =>
-      providerHealthById[connectionId]?.status === 'online';
-    // Detected capabilities may be missing for plain OpenAI-compatible
-    // providers; only an explicit `text: false` (e.g. a speech-only
-    // OpenRouter TTS preset) disqualifies a provider as a text provider.
-    const connectionTextCapable = (connectionId: string) =>
-      providerHealthById[connectionId]?.capabilities?.text !== false;
-    const everyConnectionReady = (connectionIds: Set<string>, predicate: (connection: ConnectionPreset, id: string) => boolean) =>
-      connectionIds.size > 0 &&
-      [...connectionIds].every((connectionId) => {
-        const connection = connections.find((entry) => entry.id === connectionId);
-        return !!connection && predicate(connection, connectionId);
-      });
-    const textReady = everyConnectionReady(
-      llmConnectionIds,
-      (connection, connectionId) =>
-        isLlmConnection(connection) && connectionTextCapable(connectionId) && connectionIsOnline(connectionId),
-    );
-    const anyTextConnected = connections.some((connection) =>
-      isLlmConnection(connection) && connectionTextCapable(connection.id) && connectionIsOnline(connection.id),
-    );
-    const anyVisionConnected = connections.some((connection) =>
-      isLlmConnection(connection) && connection.vision === true && connectionIsOnline(connection.id),
-    );
-    const visionReady = everyConnectionReady(
-      visionConnectionIds,
-      (connection, connectionId) =>
-        isLlmConnection(connection) && connection.vision === true && connectionIsOnline(connectionId),
-    );
-    const imageProviders = connections.filter(isComfyImageConnection);
-    const voiceProviders = connections.filter(isComfyVoiceConnection);
-    const anyImageConnected = imageProviders.some((connection) => connectionIsOnline(connection.id));
-    const anyApiVoiceConnected = connections.some((connection) => {
-      const capabilities = providerHealthById[connection.id]?.capabilities;
-      return (isOpenRouterConnection(connection) || isGeminiConnection(connection)) &&
-        capabilities?.voice === true &&
-        capabilities.text !== true &&
-        connectionIsOnline(connection.id);
-    });
-    const selectedNarratorConnected = resolvedNarratorProviderId
-      ? connectionIsOnline(resolvedNarratorProviderId)
-      : false;
-    const anyVoiceConnected =
-      voiceProviders.some((connection) => connectionIsOnline(connection.id)) ||
-      anyApiVoiceConnected;
-    const imageReady = usesImage && (
-      explicitComfyProviderIds.size > 0
-        ? [...explicitComfyProviderIds].every((providerId) =>
-            imageProviders.some((connection) => connection.id === providerId && connectionIsOnline(connection.id)),
-          )
-        : anyImageConnected
-    );
-    const textActive = nodeViewNodes.some((node) =>
-      node.data.kind === undefined && node.data.runActive === true,
-    );
-    const visionActive = nodeViewNodes.some((node) =>
-      node.data.kind === undefined && node.data.runVisionActive === true,
-    );
-    const imageActive = workflowComfyGenerationActive || comfyProviderActionActive === 'generate';
-    const audioActive = voiceGenerationActive || apiNarratorGenerationActive || readAloudActive;
-    const effectiveTextReady = llmConnectionIds.size > 0 ? textReady : anyTextConnected;
-
-    const indicators: WorkflowCapabilityIndicator[] = [{
-      kind: 'text',
-      tone: (effectiveTextReady || textActive) ? 'ready' : 'missing',
-      active: textActive,
-      label: (effectiveTextReady || textActive)
-        ? 'Text: required and connected'
-        : 'Text: required, but no used LLM provider is connected',
-    }];
-    if (usesVision || anyVisionConnected || visionActive) {
-      const ready = usesVision ? visionReady : anyVisionConnected;
-      indicators.push({
-        kind: 'vision',
-        tone: (ready || visionActive) ? 'ready' : 'missing',
-        active: visionActive,
-        label: ready || visionActive
-          ? usesVision
-            ? 'Vision: required and available'
-            : 'Vision: connected'
-          : 'Vision: required, but the used LLM provider is not connected or has no vision',
-      });
-    }
-    if (usesImage || anyImageConnected || imageActive) {
-      const ready = usesImage ? imageReady : anyImageConnected;
-      indicators.push({
-        kind: 'image',
-        tone: (ready || imageActive) ? 'ready' : 'missing',
-        active: imageActive,
-        label: ready || imageActive
-          ? usesImage
-            ? 'Image generation: required and connected'
-            : 'Image generation: connected'
-          : 'Image generation: required, but the ComfyUI provider is not connected',
-      });
-    }
-    if (usesAudio || anyVoiceConnected || audioActive) {
-      const ready = dialogueVoiceMode === 'narrator-only'
-        ? selectedNarratorConnected
-        : anyVoiceConnected;
-      indicators.push({
-        kind: 'audio',
-        tone: (ready || audioActive) ? 'ready' : 'missing',
-        active: audioActive,
-        label: ready || audioActive
-          ? usesAudio
-            ? 'Audio generation: required and connected'
-            : 'Audio generation: connected'
-          : 'Audio generation: required, but the selected voice provider is not connected',
-      });
-    }
-    return indicators;
-  }, [
-    comfyProviderActionActive,
+  const workflowCapabilityIndicators = useWorkflowCapabilities({
+    nodes: nodeViewNodes,
     connections,
-    defaultConnectionId,
-    dialogueVoiceMode,
-    nodeViewNodes,
-    promptActionSettings,
     providerHealthById,
-    readAloudActive,
-    resolvedNarratorProviderId,
+    defaultConnectionId,
+    promptActionSettings,
+    dialogueVoiceMode,
     storyCharacters,
-    apiNarratorGenerationActive,
-    voiceGenerationActive,
-    workflowComfyGenerationActive,
-  ]);
+    resolvedNarratorProviderId,
+    imageGenerationActive:
+      workflowComfyGenerationActive || comfyProviderActionActive === 'generate',
+    audioGenerationActive:
+      voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
+  });
 
   return (
     <div

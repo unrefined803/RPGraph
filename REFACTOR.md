@@ -8,7 +8,7 @@ high level instead of implementing individual workflows.
 
 Current baseline on `refactor/app-cleanup`:
 
-- `src/App.tsx`: approximately 7,230 lines
+- `src/App.tsx`: approximately 6,990 lines
 - Workflow variable management: extracted to `src/app/useWorkflowVariables.ts`
 - Workflow assistant snapshot preparation: extracted to
   `src/assistant/workflowSnapshot.ts`
@@ -31,9 +31,8 @@ The ranking is ordered from the largest likely reduction to the smallest.
 | 7 | Debug snapshot assembly | 250-320 lines | `src/app/useDebugSnapshots.ts` | Full debug snapshot construction, assistant debug sections, Storybook image-description lookup, and memoized snapshot refresh |
 | 8 | Translation and displayed-output analysis | 230-300 lines | `src/app/useOutputProcessing.ts` | Speaker attribution, output analysis, input/output translation, emoji shielding, recent-history context, and streamed translated text |
 | 9 | Voice provider and playback coordination | 200-270 lines | `src/app/useVoiceRuntime.ts` | Narrator and clone-provider options, provider warnings, voice-mode availability, playback lifecycle, close cleanup, and run-transition cleanup |
-| 10 | Workflow capability detection | 190-230 lines | `src/app/useWorkflowCapabilities.ts` | Detection and status calculation for text, vision, image generation, and audio requirements |
-| 11 | Opening-message and history synchronization | 170-230 lines | `src/chat/useOpeningHistorySync.ts` | Opening-message insertion, replacement, timeline synchronization, node preview updates, and derived history text refresh |
-| 12 | Application-level utility clusters | 100-160 lines | Focused files under `src/app`, `src/chat`, and `src/utils` | Phone notification audio, loaded-message seen state, event character resolution, assistant connection persistence, and other domain-specific helpers |
+| 10 | Opening-message and history synchronization | 170-230 lines | `src/chat/useOpeningHistorySync.ts` | Opening-message insertion, replacement, timeline synchronization, node preview updates, and derived history text refresh |
+| 11 | Application-level utility clusters | 100-160 lines | Focused files under `src/app`, `src/chat`, and `src/utils` | Phone notification audio, loaded-message seen state, event character resolution, assistant connection persistence, and other domain-specific helpers |
 
 ## Important Ranking Note
 
@@ -51,19 +50,18 @@ provide smaller, domain-shaped interfaces.
 1. Extract the custom node assistant controller.
 2. Extract the Storybook and phone-image pipeline.
 3. Extract debug snapshot assembly.
-4. Extract workflow capability detection.
 
 These areas have recognizable boundaries and can be moved without changing file
 formats or the graph execution contract.
 
 ### Phase 2: Separate workspace and user actions
 
-5. Extract workspace persistence and hydration.
-6. Extract roleplay interaction actions.
-7. Extract graph editor interactions.
-8. Extract translation and displayed-output analysis.
-9. Extract voice provider and playback coordination.
-10. Extract opening-message and history synchronization.
+4. Extract workspace persistence and hydration.
+5. Extract roleplay interaction actions.
+6. Extract graph editor interactions.
+7. Extract translation and displayed-output analysis.
+8. Extract voice provider and playback coordination.
+9. Extract opening-message and history synchronization.
 
 These controllers must preserve the current immediate-ref update behavior. Async
 continuations rely on refs such as `nodesRef`, `messagesRef`, and workflow-variable
@@ -71,10 +69,10 @@ refs seeing state changes before the next React render.
 
 ### Phase 3: Split the rendered shell
 
-11. Create `AppWorkspace` for the top bar, graph area, chat drawer, phone panel, and
+10. Create `AppWorkspace` for the top bar, graph area, chat drawer, phone panel, and
     events panel.
-12. Create `AppOverlays` for dialogs, assistants, reports, previews, and onboarding.
-13. Keep only app-wide composition, shared providers, and controller wiring in
+11. Create `AppOverlays` for dialogs, assistants, reports, previews, and onboarding.
+12. Keep only app-wide composition, shared providers, and controller wiring in
     `App.tsx`.
 
 ## Target Shape
@@ -113,3 +111,4 @@ Each refactoring step should follow these rules:
 |---|---|---|
 | Complete | Workflow variable management | Variable discovery, resolution, editing, command updates, and runtime refs moved to `src/app/useWorkflowVariables.ts`. |
 | Complete | Workflow assistant snapshot preparation | Snapshot sanitization, truncation, filtering, and serialization moved to `src/assistant/workflowSnapshot.ts`. |
+| Complete | Workflow capability detection | Capability calculation moved to `src/app/useWorkflowCapabilities.ts`, with the visual strip in `src/components/WorkflowCapabilityStrip.tsx`. |
