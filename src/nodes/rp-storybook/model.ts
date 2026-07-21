@@ -547,6 +547,47 @@ export function rpStorybookCharacterVoiceConfig(value: unknown): RpStorybookChar
   };
 }
 
+function characterIdentityValues(character: Record<string, unknown>, index: number) {
+  const name = stringValue(character.name);
+  const id = stringValue(character.id) ||
+    (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `character-${index + 1}`);
+  return { name, id };
+}
+
+/**
+ * Reserves every character's own-namespaced image ids together with their
+ * pixels before any character is normalized. Without this, a received copy
+ * that precedes its owner in the characters array could claim the owner's id
+ * with different pixels and force the owner's image to be renamed.
+ */
+function reserveOwnerImageIds(
+  characters: unknown[],
+  usedImageIds: Set<string>,
+  usedImageDataUrls: Map<string, string>,
+) {
+  characters.forEach((value, index) => {
+    const character = recordValue(value);
+    const { name, id } = characterIdentityValues(character, index);
+    const pattern = storybookCharacterImageIdPattern(storybookCharacterImageOwnerIdBase(name, id));
+    const images = Array.isArray(character.images) ? character.images : [];
+    images.forEach((entry) => {
+      const image = recordValue(entry);
+      const dataUrl = stringValue(image.dataUrl);
+      const imageId = stringValue(image.id);
+      if (
+        !dataUrl.startsWith('data:image/jpeg;base64,') ||
+        stringValue(image.mimeType) !== 'image/jpeg' ||
+        !pattern.test(imageId) ||
+        usedImageIds.has(imageId)
+      ) {
+        return;
+      }
+      usedImageIds.add(imageId);
+      usedImageDataUrls.set(imageId, dataUrl);
+    });
+  });
+}
+
 function normalizeCharacter(
   value: unknown,
   index: number,
@@ -554,9 +595,7 @@ function normalizeCharacter(
   usedImageDataUrls: Map<string, string>,
 ): RpStorybookCharacter {
   const character = recordValue(value);
-  const name = stringValue(character.name);
-  const id = stringValue(character.id) ||
-    (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `character-${index + 1}`);
+  const { name, id } = characterIdentityValues(character, index);
   const imageOwnerBase = storybookCharacterImageOwnerIdBase(name, id);
   const images = normalizeCharacterImages(
     character.images,
@@ -761,6 +800,7 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
   const characters = Array.isArray(storybook.characters) ? storybook.characters : [];
   const usedImageIds = new Set<string>();
   const usedImageDataUrls = new Map<string, string>();
+  reserveOwnerImageIds(characters, usedImageIds, usedImageDataUrls);
   const normalizedCharacters = characters.map((character, index) =>
     normalizeCharacter(character, index, usedImageIds, usedImageDataUrls)
   );
