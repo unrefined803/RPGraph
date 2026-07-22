@@ -1,5 +1,12 @@
 import type { MessageRecord, TurnRecord } from '../types';
-import type { ImageRef, TimelineEntry, TimelineMessageEntry } from './types';
+import type {
+  ImageRef,
+  TimelineEntry,
+  TimelineMessageEntry,
+  TimelineOutputActions,
+  TimelineTurnMetadata,
+  TimelineVoiceClip,
+} from './types';
 import { stableEntryId } from './parsing';
 
 function timelineRole(role: MessageRecord['role']): TimelineMessageEntry['role'] {
@@ -26,6 +33,37 @@ function embeddedPhoneText(message: MessageRecord): TimelineMessageEntry['embedd
     translatedAfter: message.embeddedPhoneTranslatedTextAfter,
   };
   return Object.values(text).some((value) => value !== undefined) ? text : undefined;
+}
+
+function turnMetadata(turn: TurnRecord): TimelineTurnMetadata {
+  return {
+    createdAt: turn.createdAt,
+    ...(turn.mode ? { mode: turn.mode } : {}),
+    ...(turn.messageFormat !== undefined ? { messageFormat: turn.messageFormat } : {}),
+    ...(turn.promptSlot !== undefined ? { promptSlot: turn.promptSlot } : {}),
+    ...(turn.directAction ? { directAction: true } : {}),
+    ...(turn.input.graphText ? { inputGraphText: turn.input.graphText } : {}),
+    ...(turn.output.graphText ? { outputGraphText: turn.output.graphText } : {}),
+  };
+}
+
+function messageOutputActions(message: MessageRecord): TimelineOutputActions | undefined {
+  const hasOutputActions =
+    !!message.outputActionChoices?.length ||
+    !!message.outputActionInfoBoxes?.length ||
+    !!message.outputActionProgressBars?.length ||
+    !!message.outputActionContextCapacityBars?.length;
+  if (!hasOutputActions) {
+    return undefined;
+  }
+  return {
+    choices: message.outputActionChoices,
+    hidden: message.outputActionsHidden || undefined,
+    hiddenByTurnId: message.outputActionsHiddenByTurnId,
+    infoBoxes: message.outputActionInfoBoxes,
+    progressBars: message.outputActionProgressBars,
+    contextCapacityBars: message.outputActionContextCapacityBars,
+  };
 }
 
 function messageFlags(message: MessageRecord, turn: TurnRecord): TimelineMessageEntry['flags'] | undefined {
@@ -57,6 +95,7 @@ function messageToTimelineEntry(
   message: MessageRecord,
   embeddedPhoneMessageIds: Map<number, string>,
   embeddedSocialMessageIds: Map<number, string>,
+  mediaRefForDataUrl: (dataUrl: string) => string,
 ): TimelineMessageEntry {
   const id = messageEntryId(turn, message);
   const channel = message.channel === 'phone' || message.phoneMessage ? 'phone' : 'rp';
@@ -109,9 +148,17 @@ function messageToTimelineEntry(
     imageCaptionChange: message.phoneImageCaptionChange,
     inputMessageFormat: message.inputMessageFormat,
     inputPromptSlot: message.inputPromptSlot,
+    turnContext: message.turnContext,
+    phoneAutoTurnSource: message.phoneAutoTurnSource,
+    outputActions: messageOutputActions(message),
     rpDateTime: message.rpDateTime,
     workflowVariableSetCommands: message.workflowVariableSetCommands,
-    voiceClips: message.voiceClips?.length ? message.voiceClips : undefined,
+    voiceClips: message.voiceClips?.length
+      ? message.voiceClips.map(({ dataUrl, ...clip }): TimelineVoiceClip => ({
+          ...clip,
+          mediaRef: mediaRefForDataUrl(dataUrl),
+        }))
+      : undefined,
     bankTransfer: message.bankTransfer,
     socialPost: message.socialPost,
     socialThreadAction: message.socialThreadAction,
@@ -123,7 +170,16 @@ function messageToTimelineEntry(
   };
 }
 
-export function timelineFromTurnRecords(turns: TurnRecord[]): TimelineEntry[] {
+export function turnTimelineEntryIds(turn: TurnRecord): string[] {
+  return [...turn.input.messages, ...turn.output.messages].map((message) =>
+    messageEntryId(turn, message)
+  );
+}
+
+function timelineFromTurnRecords(
+  turns: TurnRecord[],
+  mediaRefForDataUrl: (dataUrl: string) => string,
+): TimelineEntry[] {
   const embeddedPhoneMessageIds = new Map<number, string>();
   const embeddedSocialMessageIds = new Map<number, string>();
   turns.forEach((turn) => {
@@ -136,20 +192,42 @@ export function timelineFromTurnRecords(turns: TurnRecord[]): TimelineEntry[] {
       }
     });
   });
-  return turns.flatMap((turn) => [
-    ...turn.input.messages.map((message) =>
-      messageToTimelineEntry(turn, 'input', message, embeddedPhoneMessageIds, embeddedSocialMessageIds),
-    ),
-    ...turn.output.messages.map((message) =>
-      messageToTimelineEntry(turn, 'output', message, embeddedPhoneMessageIds, embeddedSocialMessageIds),
-    ),
-  ]);
+  return turns.flatMap((turn) => {
+    const entries = [
+      ...turn.input.messages.map((message) =>
+        messageToTimelineEntry(
+          turn,
+          'input',
+          message,
+          embeddedPhoneMessageIds,
+          embeddedSocialMessageIds,
+          mediaRefForDataUrl,
+        ),
+      ),
+      ...turn.output.messages.map((message) =>
+        messageToTimelineEntry(
+          turn,
+          'output',
+          message,
+          embeddedPhoneMessageIds,
+          embeddedSocialMessageIds,
+          mediaRefForDataUrl,
+        ),
+      ),
+    ];
+    // Turn-level metadata lives once on the turn's first entry.
+    if (entries.length > 0) {
+      entries[0] = { ...entries[0]!, turn: turnMetadata(turn) };
+    }
+    return entries;
+  });
 }
 
 export function timelineFromTurnRecordsWithOpeningMessages(
   turns: TurnRecord[],
   openingMessages: MessageRecord[],
   savedAt: string,
+  mediaRefForDataUrl: (dataUrl: string) => string,
 ): TimelineEntry[] {
   const openingTurnMessages = new Set(
     turns
@@ -176,7 +254,7 @@ export function timelineFromTurnRecordsWithOpeningMessages(
         },
       } satisfies TurnRecord;
     });
-  return timelineFromTurnRecords([...looseOpeningTurns, ...turns]);
+  return timelineFromTurnRecords([...looseOpeningTurns, ...turns], mediaRefForDataUrl);
 }
 
 export function timelineMessages(timeline: TimelineEntry[]) {

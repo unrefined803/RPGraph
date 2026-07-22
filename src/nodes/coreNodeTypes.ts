@@ -25,7 +25,7 @@ export const coreNodeTypes = [
   'text-replace',
   'character-stats',
   'output',
-  'rp-storybook-v1',
+  'rp-storybook',
   'rp-storybook-editor',
   'phone-apps',
 ] as const;

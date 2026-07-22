@@ -119,6 +119,24 @@ export function useDialogueVoice({
     return `${speakerName ?? narratorSpeakerCacheName}\u0000${speechText}`;
   }
 
+  function storedMessageClip(
+    messageId: number | undefined,
+    speakerName: string | null,
+    speechText: string,
+    source: MessageVoiceClip['source'],
+  ) {
+    return messageId === undefined
+      ? undefined
+      : messagesRef.current
+          .find((message) => message.id === messageId)
+          ?.voiceClips
+          ?.find((clip) =>
+            clip.speakerName === speakerName &&
+            clip.text === speechText &&
+            (!source || clip.source === source)
+          );
+  }
+
   function phoneVoiceMessageSpeechText(message: MessageRecord) {
     const text = englishProcessingEnabled
       ? message.translatedText ?? message.originalText
@@ -134,14 +152,13 @@ export function useDialogueVoice({
 
   useEffect(() => {
     messagesRef.current = messages;
-    for (const message of messages) {
-      for (const clip of message.voiceClips ?? []) {
-        if (clip.dataUrl && clip.text) {
-          cacheClip(clipCacheKey(clip.speakerName, clip.text), clip.dataUrl);
-        }
-      }
-    }
   }, [messages]);
+
+  // Stored clips belong historically to their messages. The shared cache is
+  // only valid for the currently selected provider and reference samples.
+  useEffect(() => {
+    clipCacheRef.current.clear();
+  }, [voiceProviderId, voiceSamplesByName, narratorVoiceSampleDataUrl]);
 
   function stopPlayback() {
     const audio = audioRef.current;
@@ -290,6 +307,15 @@ export function useDialogueVoice({
     speechText: string,
     options: { messageId?: number; source?: MessageVoiceClip['source'] } = {},
   ) {
+    const storedClip = storedMessageClip(
+      options.messageId,
+      speakerName,
+      speechText,
+      options.source,
+    );
+    if (storedClip?.dataUrl) {
+      return storedClip.dataUrl;
+    }
     const sampleDataUrl = sampleForSpeaker(speakerName);
     if (!voiceProviderId || !sampleDataUrl || !speechText) {
       return null;
@@ -299,20 +325,6 @@ export function useDialogueVoice({
     if (cachedClip) {
       storeVoiceClip(options.messageId, speakerName, speechText, cachedClip, undefined, options.source);
       return cachedClip;
-    }
-    const storedClip = options.messageId !== undefined
-      ? messagesRef.current
-          .find((message) => message.id === options.messageId)
-          ?.voiceClips
-          ?.find((clip) =>
-            clip.speakerName === speakerName &&
-            clip.text === speechText &&
-            (!options.source || clip.source === options.source)
-          )
-      : undefined;
-    if (storedClip?.dataUrl) {
-      cacheClip(cacheKey, storedClip.dataUrl);
-      return storedClip.dataUrl;
     }
     const clips = await generateVoiceClip({
       providerId: voiceProviderId,
@@ -638,6 +650,11 @@ export function useDialogueVoice({
       for (const { message, text } of speakableMessages) {
         if (readAloudTokenRef.current !== token) {
           break;
+        }
+        const storedClip = storedMessageClip(message.id, null, text, 'narration');
+        if (storedClip?.dataUrl) {
+          await playClipAndWait(storedClip.dataUrl);
+          continue;
         }
         let clip: { dataUrl: string; filename: string } | undefined;
         if (isComfyVoiceConnection(narratorOnlyConnection)) {

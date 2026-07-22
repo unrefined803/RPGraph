@@ -126,6 +126,21 @@ export function phoneConversationInfoFromMessages(
   phoneSeenByConversation: Record<string, number>,
 ) {
   const conversations = new Map<string, PhoneConversationInfo>();
+  // Sending a reply implies the sender has read everything earlier in that
+  // conversation, so only messages after their latest outgoing one stay unread.
+  const latestOutgoingIdBySender = new Map<string, number>();
+  messages.forEach((message) => {
+    const participants = phoneMessageParticipants(message);
+    if (!participants) {
+      return;
+    }
+    const senderKey =
+      `${phoneConversationKey(participants.from, participants.to)}::${normalizePhoneName(participants.from)}`;
+    latestOutgoingIdBySender.set(
+      senderKey,
+      Math.max(latestOutgoingIdBySender.get(senderKey) ?? 0, message.id),
+    );
+  });
   messages.forEach((message) => {
     const participants = phoneMessageParticipants(message);
     if (!participants) {
@@ -136,10 +151,13 @@ export function phoneConversationInfoFromMessages(
     const existing = conversations.get(key);
     const names: [string, string] = existing?.names ?? [from, to];
     const latestId = Math.max(existing?.latestId ?? 0, message.id);
-    const seenId = phoneSeenByConversation[key] ?? 0;
+    const recipientKey = normalizePhoneName(to);
+    const seenId = Math.max(
+      phoneSeenByConversation[key] ?? 0,
+      latestOutgoingIdBySender.get(`${key}::${recipientKey}`) ?? 0,
+    );
     const unreadByRecipient = { ...(existing?.unreadByRecipient ?? {}) };
     if (message.id > seenId) {
-      const recipientKey = normalizePhoneName(to);
       const existingRecipient = unreadByRecipient[recipientKey];
       unreadByRecipient[recipientKey] = {
         viewerName: to,
@@ -244,7 +262,7 @@ export function phoneContactsForViewer<TCharacter extends PhoneCharacterLike>(
         : undefined;
       const latestText = latestPhoneMessage
         ? phoneMessageVisibleText(latestPhoneMessage, options.englishProcessingEnabled)
-        : 'New';
+        : 'No messages yet';
       return {
         character,
         color: options.characterColors.get(character.name) ?? options.fallbackColor,

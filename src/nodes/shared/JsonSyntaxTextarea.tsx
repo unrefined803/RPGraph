@@ -17,6 +17,7 @@ import type { SettingsValueDefinition } from '../../types';
 import { defaultWorkflowVariableValue, variableAliases } from '../../workflow';
 import { defaultPromptActionTitle, promptActionKey } from './promptActions';
 import { promptCommandTokenPattern } from './promptCommands';
+import { promptStepMarkerPattern, stepOutputTokenPattern } from './promptSteps';
 import { usePreservedTextSelection } from './usePreservedTextSelection';
 
 type JsonToken =
@@ -28,6 +29,7 @@ type HighlightToken =
   | { kind: 'workflow-variable-valid' | 'workflow-variable-invalid'; text: string }
   | { kind: 'prompt-action'; text: string; title: string; index: number; hasTitle: boolean }
   | { kind: 'prompt-command'; text: string; name: string; index: number }
+  | { kind: 'step-marker' | 'plan-output'; text: string }
   | { kind: 'template-variable-active' | 'template-variable-inactive'; text: string };
 
 type JsonSyntaxTextareaProps = {
@@ -43,6 +45,7 @@ type JsonSyntaxTextareaProps = {
   readOnly?: boolean;
   disabled?: boolean;
   wrap?: 'hard' | 'soft' | 'off';
+  highlightPlainText?: boolean;
   workflowVariableDefinitions?: SettingsValueDefinition[];
   workflowVariableValues?: Record<string, string>;
   templateVariableStatuses?: Record<string, 'active' | 'inactive'>;
@@ -487,6 +490,50 @@ function splitPromptCommands(token: HighlightToken): HighlightToken[] {
   return tokens;
 }
 
+function splitStepMarkers(token: HighlightToken): HighlightToken[] {
+  if (token.kind !== 'plain' || !token.text.includes('@step')) {
+    return [token];
+  }
+
+  const tokens: HighlightToken[] = [];
+  let lastIndex = 0;
+  token.text.replace(promptStepMarkerPattern, (match, _name: string, offset: number) => {
+    if (offset > lastIndex) {
+      tokens.push({ ...token, text: token.text.slice(lastIndex, offset) });
+    }
+    tokens.push({ kind: 'step-marker', text: match });
+    lastIndex = offset + match.length;
+    return match;
+  });
+
+  if (lastIndex < token.text.length) {
+    tokens.push({ ...token, text: token.text.slice(lastIndex) });
+  }
+  return tokens.length ? tokens : [token];
+}
+
+function splitPlanOutputs(token: HighlightToken): HighlightToken[] {
+  if (token.kind !== 'plain' || !token.text.includes('@output')) {
+    return [token];
+  }
+
+  const tokens: HighlightToken[] = [];
+  let lastIndex = 0;
+  token.text.replace(stepOutputTokenPattern, (match, _name: string, offset: number) => {
+    if (offset > lastIndex) {
+      tokens.push({ ...token, text: token.text.slice(lastIndex, offset) });
+    }
+    tokens.push({ kind: 'plan-output', text: match });
+    lastIndex = offset + match.length;
+    return match;
+  });
+
+  if (lastIndex < token.text.length) {
+    tokens.push({ ...token, text: token.text.slice(lastIndex) });
+  }
+  return tokens.length ? tokens : [token];
+}
+
 function splitPromptActions(token: HighlightToken): HighlightToken[] {
   if (token.kind === 'prompt-action') {
     return [token];
@@ -563,6 +610,7 @@ export function JsonSyntaxTextarea({
   readOnly,
   disabled,
   wrap,
+  highlightPlainText = false,
   workflowVariableDefinitions = [],
   workflowVariableValues = {},
   templateVariableStatuses,
@@ -616,8 +664,10 @@ export function JsonSyntaxTextarea({
       .flatMap((token) =>
         splitWorkflowVariables(token, workflowVariableDefinitions, workflowVariableValues),
       )
+      .flatMap(splitStepMarkers)
       .flatMap(splitPromptActions)
       .flatMap(splitPromptCommands)
+      .flatMap(splitPlanOutputs)
       .flatMap((token) => splitTemplateVariables(token, templateVariableStatuses));
   }, [segments, jsonHighlightActive, value, workflowVariableDefinitions, workflowVariableValues, templateVariableStatuses]);
 
@@ -626,7 +676,11 @@ export function JsonSyntaxTextarea({
     [value],
   );
   const templateVariableHighlightActive = useMemo(() => !!templateVariableStatuses && /\{\{\s*[A-Za-z][A-Za-z0-9_]*\s*\}\}/.test(value), [templateVariableStatuses, value]);
-  const highlightActive = jsonHighlightActive || workflowVariableHighlightActive || promptActionHighlightActive || templateVariableHighlightActive;
+  const stepHighlightActive = useMemo(
+    () => /@step:[ \t]*[A-Za-z0-9_-]+\b/i.test(value) || /@output:[A-Za-z0-9_-]+\b/i.test(value),
+    [value],
+  );
+  const highlightActive = highlightPlainText || jsonHighlightActive || workflowVariableHighlightActive || promptActionHighlightActive || templateVariableHighlightActive || stepHighlightActive;
 
   const tokenClassName = (token: HighlightToken) => {
     if (
@@ -644,6 +698,12 @@ export function JsonSyntaxTextarea({
         status ? `prompt-action-status-${status.tone}` : '',
         status?.disabled ? 'disabled' : '',
       ].filter(Boolean).join(' ');
+    }
+    if (token.kind === 'step-marker') {
+      return 'prompt-step-marker';
+    }
+    if (token.kind === 'plan-output') {
+      return 'prompt-plan-output';
     }
     if (token.kind === 'prompt-command') {
       const status = promptCommandStatuses[token.name];

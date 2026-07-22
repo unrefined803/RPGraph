@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { RunLlmReport } from '../components/AppDialogs';
 import { getRegisteredNode } from '../nodes/registry';
 import { isStorybookSourceNode } from '../storybook/runtime';
-import type { LlmCallStats, WorkflowNode, WorkflowNodeData } from '../types';
+import type { LlmCallStage, LlmCallStats, WorkflowNode, WorkflowNodeData } from '../types';
 import type { ActiveRun } from './useGraphRun';
 
 const inputTransformCallLabels = new Set(['Translate', 'Act RP', 'Act Phone']);
@@ -109,7 +109,12 @@ export function useRuntimeNodePatching({
     applyRuntimeNodePatch(nodeId, patch);
   }
 
-  function updateLlmNodeActive(nodeId: string, runActive: boolean) {
+  function updateLlmNodeActive(
+    nodeId: string,
+    runActive: boolean,
+    label?: string,
+    stage?: LlmCallStage,
+  ) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     const definition = node?.data.kind !== undefined
       ? undefined
@@ -117,7 +122,12 @@ export function useRuntimeNodePatching({
         ? getRegisteredNode(node.data.nodeType)
         : undefined;
     if (definition?.usesLlm) {
-      updateRuntimeNode(nodeId, { runActive });
+      updateRuntimeNode(nodeId, {
+        runActive,
+        llmActiveCallLabel: runActive ? label : undefined,
+        llmActiveCallStage: runActive ? stage : undefined,
+        llmActiveCallStartedAtMs: runActive && label ? performance.now() : undefined,
+      });
     }
   }
 
@@ -125,7 +135,7 @@ export function useRuntimeNodePatching({
     nodeId: string,
     label: string,
     stats: LlmCallStats,
-    metadata?: { startedAtMs: number },
+    metadata?: { startedAtMs: number; stage?: LlmCallStage },
   ) {
     const report = activeRunLlmReportRef.current;
     const run = activeRunRef.current;
@@ -146,7 +156,14 @@ export function useRuntimeNodePatching({
           durationMs: stats.durationMs,
           startedAtMs: metadata?.startedAtMs,
         },
-      ].sort((left, right) => (left.startedAtMs ?? 0) - (right.startedAtMs ?? 0));
+      ].sort(
+        // Calls without a start time keep their append position at the end; a
+        // 0 fallback would jump them ahead of every timed call and misalign
+        // the per-occurrence prompt passes in the turn trace.
+        (left, right) =>
+          (left.startedAtMs ?? Number.MAX_SAFE_INTEGER) -
+          (right.startedAtMs ?? Number.MAX_SAFE_INTEGER),
+      );
       const nextReport: RunLlmReport = {
         ...report,
         calls: calls.map((call, index) => ({ ...call, order: index + 1 })),
@@ -162,7 +179,7 @@ export function useRuntimeNodePatching({
     const replacedLabels = llmCallStatsLabelsToReplace(label);
     const otherCalls = (node.data.llmCallStats ?? []).filter((call) => !replacedLabels.has(call.label));
     applyRuntimeNodePatch(nodeId, {
-      llmCallStats: [...otherCalls, { label, ...stats }],
+      llmCallStats: [...otherCalls, { label, stage: metadata?.stage, ...stats }],
     });
   }
 

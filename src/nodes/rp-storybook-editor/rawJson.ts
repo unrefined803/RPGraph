@@ -1,8 +1,8 @@
 import { sanitizeDataUrls } from '../../utils/sanitize';
 import {
   parseRpStorybookJson,
-  type RpStorybookV1,
-} from '../rp-storybook-v1/model';
+  type RpStorybook,
+} from '../rp-storybook/model';
 
 // sanitizeDataUrls replaces every dataUrl with this placeholder prefix.
 const REDACTED_PREFIX = '[Data URL redacted:';
@@ -18,7 +18,7 @@ function isRedacted(value: unknown): value is string {
  * holds imported runtime memory and binaries the human cannot author) and all
  * image/voice data URLs are redacted so the text stays small and readable.
  */
-export function rpStorybookEditorJsonView(storybook: RpStorybookV1): string {
+export function rpStorybookEditorJsonView(storybook: RpStorybook): string {
   // Opening History is imported runtime memory the user cannot author, so it is
   // omitted from the editable view entirely and restored wholesale on apply.
   const { openingHistory: _openingHistory, ...editable } = storybook;
@@ -64,10 +64,10 @@ function unresolvedRedactedBinaries(draftValue: Record<string, unknown>): string
 }
 
 export type RpStorybookEditorJsonApplyResult =
-  | { storybook: RpStorybookV1; warnings: string[] }
+  | { storybook: RpStorybook; warnings: string[] }
   | { error: string };
 
-function rehydrateCharacterBinaries(draftValue: Record<string, unknown>, current: RpStorybookV1) {
+function rehydrateCharacterBinaries(draftValue: Record<string, unknown>, current: RpStorybook) {
   const currentById = new Map(current.characters.map((character) => [character.id, character]));
   const draftCharacters = Array.isArray(draftValue.characters) ? draftValue.characters : [];
   for (const entry of draftCharacters) {
@@ -117,7 +117,7 @@ function rehydrateCharacterBinaries(draftValue: Record<string, unknown>, current
  * genuinely edited we only warn. Image content is never lost (it was rehydrated
  * before normalization).
  */
-function relinkRenamedCharacters(normalized: RpStorybookV1, current: RpStorybookV1, warnings: string[]) {
+function relinkRenamedCharacters(normalized: RpStorybook, current: RpStorybook, warnings: string[]) {
   const currentById = new Map(current.characters.map((character) => [character.id, character]));
   normalized.characters = normalized.characters.map((character) => {
     const source = currentById.get(character.id);
@@ -149,7 +149,7 @@ function relinkRenamedCharacters(normalized: RpStorybookV1, current: RpStorybook
  * validate/normalize. Returns the normalized storybook or a validation error
  * (in which case the node must be left unchanged).
  */
-export function applyRpStorybookEditorJson(current: RpStorybookV1, draft: string): RpStorybookEditorJsonApplyResult {
+export function applyRpStorybookEditorJson(current: RpStorybook, draft: string): RpStorybookEditorJsonApplyResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(draft);
@@ -174,7 +174,7 @@ export function applyRpStorybookEditorJson(current: RpStorybookV1, draft: string
     };
   }
 
-  let normalized: RpStorybookV1;
+  let normalized: RpStorybook;
   try {
     // parseRpStorybookJson may return a cached object; clone before relinking
     // mutates it, so the parse cache stays consistent with its key text.

@@ -25,6 +25,7 @@ export type CreateComfyImageForCharacterRequest = {
   loraCharacterName?: string;
   prompt: string;
   llmConnectionId?: string;
+  llmNodeId?: string;
   comfyProviderId?: string;
   manageModelMemory?: boolean;
 };

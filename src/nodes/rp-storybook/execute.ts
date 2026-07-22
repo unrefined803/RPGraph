@@ -1,17 +1,17 @@
 import type { ExecuteContext } from '../types';
 import type { WorkflowNode } from '../../types';
 import {
-  emptyRpStorybookV1,
+  emptyRpStorybook,
   parseRpStorybookJson,
   rpStorybookFormattedText,
   rpStorybookJsonText,
 } from './model';
 import { storybookCharacterInfoText } from '../../storybook/runtime';
 
-export async function executeRpStorybookV1Node(node: WorkflowNode, context: ExecuteContext) {
+export async function executeRpStorybookNode(node: WorkflowNode, context: ExecuteContext) {
   const storybook = node.data.storybookJson
     ? parseRpStorybookJson(node.data.storybookJson)
-    : emptyRpStorybookV1;
+    : emptyRpStorybook;
 
   if (context.sourceHandle === 'formatted-text') {
     return rpStorybookFormattedText(storybook, node.data.storybookFormattedTextSettings);

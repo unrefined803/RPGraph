@@ -1,14 +1,15 @@
-import type { ChatImageAttachment, MessageRecord } from '../types';
+import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
 import { isRpPictureGalleryId } from '../chat/rpPictures';
 import {
   nextStorybookCharacterImageId,
+  parseRpStorybookJson,
   storybookCharacterImageOwnerIdBase,
   type RpStorybookCharacterImage,
-  type RpStorybookV1,
-} from '../nodes/rp-storybook-v1/model';
+  type RpStorybook,
+} from '../nodes/rp-storybook/model';
 
 export type StorybookImageLibraryEnsureResult = {
-  storybook: RpStorybookV1;
+  storybook: RpStorybook;
   addedCount: number;
   updatedCount: number;
   imageIds: string[];
@@ -21,7 +22,7 @@ export type StorybookImageLibraryEnsureOptions = {
 };
 
 export function storybookImageSourceById(
-  storybooks: Iterable<RpStorybookV1>,
+  storybooks: Iterable<RpStorybook>,
   imageId: string,
 ) {
   const normalizedImageId = imageId.trim();
@@ -44,12 +45,46 @@ export function storybookImageSourceById(
   return fallback;
 }
 
-export function storybookImageById(storybooks: Iterable<RpStorybookV1>, imageId: string) {
+export function storybookImageById(storybooks: Iterable<RpStorybook>, imageId: string) {
   return storybookImageSourceById(storybooks, imageId)?.image;
 }
 
+// Streaming previews resolve image ids on every output chunk; cache parsed
+// storybooks per node so multi-megabyte image JSON is not reparsed each time.
+const parsedStorybookCacheByNodeId = new Map<string, { json: string; storybook: RpStorybook }>();
+
+export function storybookImageSourceByIdFromNodes(
+  nodes: readonly WorkflowNode[],
+  imageId: string | undefined,
+) {
+  const normalizedImageId = imageId?.trim();
+  if (!normalizedImageId) {
+    return undefined;
+  }
+  const storybooks: RpStorybook[] = [];
+  for (const node of nodes) {
+    if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
+      continue;
+    }
+    const cached = parsedStorybookCacheByNodeId.get(node.id);
+    if (cached && cached.json === node.data.storybookJson) {
+      storybooks.push(cached.storybook);
+      continue;
+    }
+    try {
+      const storybook = parseRpStorybookJson(node.data.storybookJson);
+      parsedStorybookCacheByNodeId.set(node.id, { json: node.data.storybookJson, storybook });
+      storybooks.push(storybook);
+    } catch {
+      parsedStorybookCacheByNodeId.delete(node.id);
+      // Storybook validation reports invalid JSON through its normal UI path.
+    }
+  }
+  return storybookImageSourceById(storybooks, normalizedImageId);
+}
+
 export function storybookImageForAttachment(
-  storybook: RpStorybookV1 | undefined,
+  storybook: RpStorybook | undefined,
   characterSourceId: string | undefined,
   attachment: ChatImageAttachment | undefined,
 ) {
@@ -63,7 +98,7 @@ export function storybookImageForAttachment(
     );
 }
 
-export function storybookImageDescriptions(storybooks: Iterable<RpStorybookV1>) {
+export function storybookImageDescriptions(storybooks: Iterable<RpStorybook>) {
   const descriptions = new Map<string, { description: string; external: boolean }>();
   for (const storybook of storybooks) {
     storybook.characters.forEach((character) => {
@@ -82,7 +117,7 @@ export function storybookImageDescriptions(storybooks: Iterable<RpStorybookV1>) 
 }
 
 export function withStorybookImageDescriptionUpdated(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   imageId: string,
   dataUrl: string,
   description: string,
@@ -113,8 +148,8 @@ export function withStorybookImageDescriptionUpdated(
 }
 
 export function withChangedStorybookImageDescriptionsSynchronized(
-  currentStorybook: RpStorybookV1,
-  nextStorybook: RpStorybookV1,
+  currentStorybook: RpStorybook,
+  nextStorybook: RpStorybook,
 ) {
   const currentImages = new Map(
     currentStorybook.characters.flatMap((character) =>
@@ -140,7 +175,7 @@ export function withChangedStorybookImageDescriptionsSynchronized(
 }
 
 export function withStorybookExternalImagesPruned(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   messages: readonly MessageRecord[],
 ) {
   const usedImageIds = new Set<string>();
@@ -230,13 +265,15 @@ function storybookImageFromAttachment(
 
 function receivedImageIdentity(
   image: ChatImageAttachment,
-  currentImages: RpStorybookCharacterImage[],
+  allImages: RpStorybookCharacterImage[],
 ) {
   const preferredId = image.id.trim();
   if (!preferredId) {
     return undefined;
   }
-  const conflictingImage = currentImages.find((entry) => entry.id === preferredId && entry.dataUrl !== image.dataUrl);
+  const conflictingImage = allImages.find(
+    (entry) => entry.id === preferredId && entry.dataUrl !== image.dataUrl,
+  );
   if (conflictingImage) {
     return undefined;
   }
@@ -247,7 +284,7 @@ function receivedImageIdentity(
 }
 
 export function withImagesEnsuredForStorybookCharacter(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   characterSourceId: string,
   images: ChatImageAttachment[],
   description: string,
@@ -275,10 +312,11 @@ export function withImagesEnsuredForStorybookCharacter(
     if (!isStorybookCompatibleImage(image)) {
       return;
     }
+    const imageDescription = trimmedDescription || image.description?.trim() || '';
     const existingImage = existingImageByDataUrl.get(image.dataUrl);
     if (existingImage) {
-      const nextDescription = trimmedDescription && !existingImage.description.trim()
-        ? trimmedDescription
+      const nextDescription = imageDescription && !existingImage.description.trim()
+        ? imageDescription
         : existingImage.description;
       const receivedImageAccess = !!receivedFrom && existingImage.imageAccess === true;
       const nextReceivedFrom = existingImage.receivedFrom || receivedImageAccess
@@ -314,16 +352,15 @@ export function withImagesEnsuredForStorybookCharacter(
       (entry) => entry.id === image.id.trim() && entry.dataUrl !== image.dataUrl,
     );
     const receivedIdentity = receivedFrom || imageAccess || rpPictureIdentityAvailable
-      ? receivedImageIdentity(image, nextImages)
+      ? receivedImageIdentity(image, allImages)
       : undefined;
     const id = receivedIdentity?.id ?? nextStorybookCharacterImageId(ownerBase, nextImages, usedImageIds);
     const name = receivedIdentity?.name ?? id;
-    if (!receivedIdentity) {
-      usedImageIds.add(id);
-    }
-    const nextImage = storybookImageFromAttachment(image, id, name, trimmedDescription, options);
+    usedImageIds.add(id);
+    const nextImage = storybookImageFromAttachment(image, id, name, imageDescription, options);
     existingImageByDataUrl.set(image.dataUrl, nextImage);
     nextImages.push(nextImage);
+    allImages.push(nextImage);
     ensuredImages.push(nextImage);
     imageIds.push(id);
   });

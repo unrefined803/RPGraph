@@ -18,7 +18,7 @@ import {
   defaultRpStorybookCharacterVoiceConfig,
   defaultRpStorybookImageDescriptionPrompt,
   defaultRpStorybookImageDescriptionPromptSettings,
-  emptyRpStorybookV1,
+  emptyRpStorybook,
   nextStorybookCharacterImageId,
   parseRpStorybookJson,
   rpStorybookCharacterBanking,
@@ -37,12 +37,12 @@ import {
   type RpStorybookCharacterComfyConfig,
   type RpStorybookCharacterSocial,
   type RpStorybookCharacterVoiceConfig,
-  type RpStorybookV1Character,
+  type RpStorybookCharacter,
   type RpStorybookCharacterImage,
   type RpStorybookCharacterProfileImage,
   type RpStorybookFormattedTextSettings,
-  type RpStorybookV1,
-} from '../nodes/rp-storybook-v1/model';
+  type RpStorybook,
+} from '../nodes/rp-storybook/model';
 import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 import { runStateClassName } from '../nodes/shared/CardView';
 import { providerOption } from '../nodes/shared/providerHealthLabels';
@@ -90,6 +90,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { TurnTraceDialog } from './TurnTraceDialog';
 import { useBackdropDismiss } from './useBackdropDismiss';
 import type { TurnTrace } from '../app/turnTrace';
+import type { DebugSnapshot } from '../app/debugSnapshot';
 import {
   llmPromptSwitchPromptAftersByOutput,
   llmPromptSwitchPromptBeforesByOutput,
@@ -1065,7 +1066,7 @@ type StorybookCreatorDialogProps = {
   setPromptTextCustomPresets: (updater: (current: Record<string, string>) => Record<string, string>) => void;
   usedImageIds: ReadonlySet<string>;
   imageCaptionChangesById: ReadonlyMap<string, ImageCaptionChange[]>;
-  onUpdateStorybook: (storybook: RpStorybookV1, status?: string) => void;
+  onUpdateStorybook: (storybook: RpStorybook, status?: string) => void;
   onChangeImageCaptionUpdate: (change: ImageCaptionChange, caption: string) => void;
   onUpdateFormattedTextSettings: (settings: RpStorybookFormattedTextSettings) => void;
   onDescribeCharacterImage: (
@@ -1128,12 +1129,12 @@ function storybookImageOwnerKey(owner: StorybookImageOwner) {
   return `character:${owner.characterId}`;
 }
 
-function storybookImageOwnerName(storybook: RpStorybookV1, owner: StorybookImageOwner) {
+function storybookImageOwnerName(storybook: RpStorybook, owner: StorybookImageOwner) {
   const character = storybook.characters.find((entry) => entry.id === owner.characterId);
   return character?.name || character?.id || 'Character';
 }
 
-function storybookImageOwnerContext(storybook: RpStorybookV1, owner: StorybookImageOwner) {
+function storybookImageOwnerContext(storybook: RpStorybook, owner: StorybookImageOwner) {
   const character = storybook.characters.find((entry) => entry.id === owner.characterId);
   if (!character) {
     return `Name: ${storybookImageOwnerName(storybook, owner)}`;
@@ -1147,15 +1148,15 @@ function storybookImageOwnerContext(storybook: RpStorybookV1, owner: StorybookIm
   ].filter(Boolean).join('\n') || `Name: ${storybookImageOwnerName(storybook, owner)}`;
 }
 
-function storybookImageOwnerImages(storybook: RpStorybookV1, owner: StorybookImageOwner) {
+function storybookImageOwnerImages(storybook: RpStorybook, owner: StorybookImageOwner) {
   return storybook.characters.find((character) => character.id === owner.characterId)?.images ?? [];
 }
 
 function withStorybookImageOwnerImages(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   owner: StorybookImageOwner,
   images: RpStorybookCharacterImage[],
-): RpStorybookV1 {
+): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
@@ -1173,10 +1174,10 @@ function withStorybookImageOwnerImages(
 }
 
 function withStorybookCharacterProfileImage(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   owner: StorybookImageOwner,
   profileImage: RpStorybookCharacterProfileImage,
-): RpStorybookV1 {
+): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
@@ -1185,11 +1186,11 @@ function withStorybookCharacterProfileImage(
   };
 }
 
-function storybookImageOwnerProfileImage(storybook: RpStorybookV1, owner: StorybookImageOwner) {
+function storybookImageOwnerProfileImage(storybook: RpStorybook, owner: StorybookImageOwner) {
   return storybook.characters.find((character) => character.id === owner.characterId)?.profileImage;
 }
 
-function storybookCharacterComfyConfig(storybook: RpStorybookV1, characterId: string) {
+function storybookCharacterComfyConfig(storybook: RpStorybook, characterId: string) {
   return storybook.characters.find((character) => character.id === characterId)?.comfyConfig ?? {
     loraName: '',
     loraUrl: '',
@@ -1305,10 +1306,10 @@ function storybookCharacterComfyStatus({
 }
 
 function withStorybookCharacterComfyConfig(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   characterId: string,
   comfyConfig: RpStorybookCharacterComfyConfig,
-): RpStorybookV1 {
+): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
@@ -1320,7 +1321,7 @@ function withStorybookCharacterComfyConfig(
 }
 
 function storybookCharacterVoiceConfig(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   characterId: string,
 ): RpStorybookCharacterVoiceConfig {
   return storybook.characters.find((character) => character.id === characterId)?.voiceConfig ??
@@ -1328,10 +1329,10 @@ function storybookCharacterVoiceConfig(
 }
 
 function withStorybookCharacterVoiceConfig(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   characterId: string,
   voiceConfig: RpStorybookCharacterVoiceConfig,
-): RpStorybookV1 {
+): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
@@ -1343,7 +1344,7 @@ function withStorybookCharacterVoiceConfig(
 }
 
 function storybookCharacterBanking(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   characterId: string,
 ): RpStorybookCharacterBanking {
   return storybook.characters.find((character) => character.id === characterId)?.banking ??
@@ -1351,7 +1352,7 @@ function storybookCharacterBanking(
 }
 
 function storybookCharacterSocial(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   characterId: string,
 ): RpStorybookCharacterSocial {
   return storybook.characters.find((character) => character.id === characterId)?.social ??
@@ -1359,11 +1360,11 @@ function storybookCharacterSocial(
 }
 
 function withStorybookCharacterPhoneAccounts(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   characterId: string,
   banking: RpStorybookCharacterBanking,
   social: RpStorybookCharacterSocial,
-): RpStorybookV1 {
+): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
@@ -1374,7 +1375,7 @@ function withStorybookCharacterPhoneAccounts(
   };
 }
 
-function characterPhoneSummaryText(character: RpStorybookV1Character) {
+function characterPhoneSummaryText(character: RpStorybookCharacter) {
   const banking = character.banking ?? defaultRpStorybookCharacterBanking();
   const parts = [`Bank: $${banking.startBalance}`];
   if (character.social?.fotogramUsername) {
@@ -1425,11 +1426,11 @@ function lastItem<T>(items: T[]) {
   return items.length ? items[items.length - 1] : undefined;
 }
 
-function storybookImages(storybook: RpStorybookV1) {
+function storybookImages(storybook: RpStorybook) {
   return storybook.characters.flatMap((character) => character.images);
 }
 
-function storybookImageOwnerBase(storybook: RpStorybookV1, owner: StorybookImageOwner) {
+function storybookImageOwnerBase(storybook: RpStorybook, owner: StorybookImageOwner) {
   const character = storybook.characters.find((entry) => entry.id === owner.characterId);
   return storybookCharacterImageOwnerIdBase(character?.name ?? '', character?.id ?? owner.characterId);
 }
@@ -1678,12 +1679,12 @@ function CharacterImagesDialog({
   onDescribeCharacterImage,
   onClose,
 }: {
-  storybook: RpStorybookV1;
+  storybook: RpStorybook;
   owner: StorybookImageOwner;
   initialMode: CharacterImagesDialogMode;
   usedImageIds: ReadonlySet<string>;
   imageCaptionChangesById: ReadonlyMap<string, ImageCaptionChange[]>;
-  onUpdateStorybook: (storybook: RpStorybookV1, status?: string) => void;
+  onUpdateStorybook: (storybook: RpStorybook, status?: string) => void;
   onChangeImageCaptionUpdate: (change: ImageCaptionChange, caption: string) => void;
   onDescribeCharacterImage: StorybookCreatorDialogProps['onDescribeCharacterImage'];
   promptTextCustomPresets: Record<string, string>;
@@ -1883,7 +1884,8 @@ function CharacterImagesDialog({
     const captionChange = lastItem(imageCaptionChangesById.get(imageId) ?? []);
     if (
       !currentImage ||
-      (currentImage.description === nextDescription && captionChange?.afterCaption === nextDescription)
+      (currentImage.description === nextDescription &&
+        (!captionChange || captionChange.afterCaption === nextDescription))
     ) {
       return;
     }
@@ -2339,12 +2341,12 @@ function CharacterSetupDialog({
   promptActionSettings,
   onClose,
 }: {
-  storybook: RpStorybookV1;
+  storybook: RpStorybook;
   characterId: string;
   workflowNodes: WorkflowNode[];
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
-  onUpdateStorybook: (storybook: RpStorybookV1, status?: string) => void;
+  onUpdateStorybook: (storybook: RpStorybook, status?: string) => void;
   onLoadCharacterComfyLoras: StorybookCreatorDialogProps['onLoadCharacterComfyLoras'];
   onGenerateCharacterComfyPreview: StorybookCreatorDialogProps['onGenerateCharacterComfyPreview'];
   onGenerateCharacterVoicePreview: StorybookCreatorDialogProps['onGenerateCharacterVoicePreview'];
@@ -3067,9 +3069,9 @@ export function StorybookCreatorDialog({
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   const storybook = useMemo(() => {
     try {
-      return node.data.storybookJson ? parseRpStorybookJson(node.data.storybookJson) : emptyRpStorybookV1;
+      return node.data.storybookJson ? parseRpStorybookJson(node.data.storybookJson) : emptyRpStorybook;
     } catch {
-      return emptyRpStorybookV1;
+      return emptyRpStorybook;
     }
   }, [node.data.storybookJson]);
   const estimatedPromptTokens = useMemo(
@@ -3951,42 +3953,40 @@ type SystemLogDialogProps = {
   onCreateDebugSnapshot?: () => DebugSnapshot;
 };
 
-type DebugSnapshot = {
-  schema: 'rpgraph-debug-snapshot';
-  version: number;
-  createdAt: string;
-  compression?: {
-    mode: 'compact-debug-copy';
-    textPreviewCharacters: number;
-  };
-  selectedSections: string[];
-  appState: Record<string, unknown>;
-  lastRun: Record<string, unknown>;
-  recentTurns: unknown[];
-  promptSwitch: Record<string, unknown>;
-  eventManager: Record<string, unknown>;
-  nodes: unknown[];
-  edges: unknown[];
-  systemLog: unknown[];
-};
+type DebugSnapshotSectionKey = keyof Pick<
+  DebugSnapshot,
+  | 'appState'
+  | 'lastRun'
+  | 'recentTurns'
+  | 'promptSwitch'
+  | 'eventManager'
+  | 'nodes'
+  | 'edges'
+  | 'systemLog'
+>;
 
-type DebugSnapshotSection = {
+type DebugSnapshotSectionDef = {
   id: string;
   label: string;
-  snapshotKey: keyof Pick<
-    DebugSnapshot,
-    | 'appState'
-    | 'lastRun'
-    | 'recentTurns'
-    | 'promptSwitch'
-    | 'eventManager'
-    | 'nodes'
-    | 'edges'
-    | 'systemLog'
-  >;
-  tokenEstimate: number;
+  snapshotKey: DebugSnapshotSectionKey;
   defaultSelected: boolean;
 };
+
+type DebugSnapshotSection = DebugSnapshotSectionDef & {
+  copyValue: unknown;
+  tokenEstimate: number;
+};
+
+const debugSnapshotSectionDefs: DebugSnapshotSectionDef[] = [
+  { id: 'app-state', label: 'App State', snapshotKey: 'appState', defaultSelected: true },
+  { id: 'workflow-nodes', label: 'Workflow Nodes (Compact Runtime, includes RP Time prompt/response)', snapshotKey: 'nodes', defaultSelected: false },
+  { id: 'workflow-edges', label: 'Workflow Connections', snapshotKey: 'edges', defaultSelected: false },
+  { id: 'last-run-debug', label: 'Last Run Debug', snapshotKey: 'lastRun', defaultSelected: true },
+  { id: 'recent-turns', label: 'Recent Turns (last two turns)', snapshotKey: 'recentTurns', defaultSelected: true },
+  { id: 'prompt-switch-debug', label: 'Prompt Debug (Switch + Multistep)', snapshotKey: 'promptSwitch', defaultSelected: true },
+  { id: 'event-manager-debug', label: 'Event Manager Debug', snapshotKey: 'eventManager', defaultSelected: true },
+  { id: 'system-log', label: 'System Log', snapshotKey: 'systemLog', defaultSelected: true },
+];
 
 const compactSnapshotTextPreviewCharacters = 360;
 
@@ -4013,7 +4013,6 @@ function compactSnapshotCopyValue(value: unknown, textMetrics: TextMetricsApi, k
       'generatedText',
       'graphText',
       'inputValue',
-      'lastRpOutput',
       'originalHistory',
       'promptAfter',
       'translatedHistory',
@@ -4057,18 +4056,23 @@ export function SystemLogDialog({
     [estimatedTokenBytesPerToken],
   );
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
-  const debugSections = debugSnapshot ? debugSnapshotSections(debugSnapshot, textMetrics) : [];
-  const snapshotSectionCopyValue = (section: DebugSnapshotSection) =>
-    debugSnapshotCompressed && debugSnapshot
-      ? compactSnapshotCopyValue(debugSnapshot[section.snapshotKey], textMetrics)
-      : debugSnapshot?.[section.snapshotKey];
+  const debugSections = useMemo<DebugSnapshotSection[]>(() => {
+    if (!debugSnapshot) {
+      return [];
+    }
+    return debugSnapshotSectionDefs.map((def) => {
+      const copyValue = debugSnapshotCompressed
+        ? compactSnapshotCopyValue(debugSnapshot[def.snapshotKey], textMetrics)
+        : debugSnapshot[def.snapshotKey];
+      return {
+        ...def,
+        copyValue,
+        tokenEstimate: estimateSnapshotTokens(copyValue, debugSnapshotToonEnabled, textMetrics),
+      };
+    });
+  }, [debugSnapshot, debugSnapshotCompressed, debugSnapshotToonEnabled, textMetrics]);
   const selectedTokenTotal = debugSections.reduce(
-    (total, section) =>
-      total + (
-        selectedDebugSections[section.id]
-          ? estimateSnapshotTokens(snapshotSectionCopyValue(section), debugSnapshotToonEnabled, textMetrics)
-          : 0
-      ),
+    (total, section) => total + (selectedDebugSections[section.id] ? section.tokenEstimate : 0),
     0,
   );
   const selectedSnapshotSections = () =>
@@ -4099,31 +4103,35 @@ export function SystemLogDialog({
       systemLog: [],
     };
     selectedSections.forEach((section) => {
-      (payload as Record<string, unknown>)[section.snapshotKey] = snapshotSectionCopyValue(section);
+      (payload as Record<string, unknown>)[section.snapshotKey] = section.copyValue;
     });
     return payload;
   };
-  const selectedSnapshotPreviewSections = () =>
-    selectedSnapshotSections().map((section) => {
-      const value = snapshotSectionCopyValue(section);
-      return {
+  const snapshotPreviewSections = useMemo(() => {
+    if (!debugSnapshotPreviewOpen) {
+      return [];
+    }
+    return debugSections
+      .filter((section) => selectedDebugSections[section.id])
+      .map((section) => ({
         id: section.id,
         label: section.label,
-        tokenEstimate: estimateSnapshotTokens(value, debugSnapshotToonEnabled, textMetrics),
+        tokenEstimate: section.tokenEstimate,
         text: debugSnapshotToonEnabled
-          ? formatContextValue(value, 'toon')
-          : JSON.stringify(value ?? null, null, 2),
-      };
-    });
+          ? formatContextValue(section.copyValue, 'toon')
+          : JSON.stringify(section.copyValue ?? null, null, 2),
+      }));
+  }, [debugSections, debugSnapshotPreviewOpen, debugSnapshotToonEnabled, selectedDebugSections]);
 
   const openDebugSnapshot = () => {
     if (!onCreateDebugSnapshot) {
       return;
     }
     const snapshot = onCreateDebugSnapshot();
-    const sections = debugSnapshotSections(snapshot, textMetrics);
     setDebugSnapshot(snapshot);
-    setSelectedDebugSections(Object.fromEntries(sections.map((section) => [section.id, section.defaultSelected])));
+    setSelectedDebugSections(
+      Object.fromEntries(debugSnapshotSectionDefs.map((def) => [def.id, def.defaultSelected])),
+    );
     setDebugSnapshotPreviewOpen(false);
     setSnapshotCopied(false);
     setSnapshotCopyError('');
@@ -4301,7 +4309,7 @@ export function SystemLogDialog({
                       }}
                     />
                     <span>{section.label}</span>
-                    <em>~{estimateSnapshotTokens(snapshotSectionCopyValue(section), debugSnapshotToonEnabled, textMetrics).toLocaleString()} tokens</em>
+                    <em>~{section.tokenEstimate.toLocaleString()} tokens</em>
                   </label>
                 ))}
               </div>
@@ -4343,10 +4351,10 @@ export function SystemLogDialog({
                   </button>
                 </div>
                 <div className="debug-snapshot-viewer-body">
-                  {selectedSnapshotPreviewSections().length === 0 ? (
+                  {snapshotPreviewSections.length === 0 ? (
                     <p className="debug-snapshot-viewer-empty">No debug sections selected.</p>
                   ) : (
-                    selectedSnapshotPreviewSections().map((section) => (
+                    snapshotPreviewSections.map((section) => (
                       <article className="debug-snapshot-view-section" key={section.id}>
                         <header>
                           <strong>{section.label}</strong>
@@ -4371,19 +4379,6 @@ export function SystemLogDialog({
       </section>
     </div>
   );
-}
-
-function debugSnapshotSections(snapshot: DebugSnapshot, textMetrics: TextMetricsApi): DebugSnapshotSection[] {
-  return [
-    { id: 'app-state', label: 'App State', snapshotKey: 'appState', tokenEstimate: estimateSnapshotTokens(snapshot.appState, false, textMetrics), defaultSelected: true },
-    { id: 'workflow-nodes', label: 'Workflow Nodes (Compact Runtime, includes RP Time prompt/response)', snapshotKey: 'nodes', tokenEstimate: estimateSnapshotTokens(snapshot.nodes, false, textMetrics), defaultSelected: false },
-    { id: 'workflow-edges', label: 'Workflow Connections', snapshotKey: 'edges', tokenEstimate: estimateSnapshotTokens(snapshot.edges, false, textMetrics), defaultSelected: false },
-    { id: 'last-run-debug', label: 'Last Run Debug', snapshotKey: 'lastRun', tokenEstimate: estimateSnapshotTokens(snapshot.lastRun, false, textMetrics), defaultSelected: true },
-    { id: 'recent-turns', label: 'Recent Turns (last two turns)', snapshotKey: 'recentTurns', tokenEstimate: estimateSnapshotTokens(snapshot.recentTurns, false, textMetrics), defaultSelected: true },
-    { id: 'prompt-switch-debug', label: 'Prompt Switch Debug', snapshotKey: 'promptSwitch', tokenEstimate: estimateSnapshotTokens(snapshot.promptSwitch, false, textMetrics), defaultSelected: true },
-    { id: 'event-manager-debug', label: 'Event Manager Debug', snapshotKey: 'eventManager', tokenEstimate: estimateSnapshotTokens(snapshot.eventManager, false, textMetrics), defaultSelected: true },
-    { id: 'system-log', label: 'System Log', snapshotKey: 'systemLog', tokenEstimate: estimateSnapshotTokens(snapshot.systemLog, false, textMetrics), defaultSelected: true },
-  ];
 }
 
 function estimateSnapshotTokens(value: unknown, useToon: boolean, textMetrics: TextMetricsApi) {

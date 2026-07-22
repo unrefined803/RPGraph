@@ -1,4 +1,4 @@
-import { parseRpStorybookJson, type RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
+import { parseRpStorybookJson, type RpStorybook } from '../nodes/rp-storybook/model';
 import { chatAttachmentFromStorybookImage, isStorybookSourceNode } from './runtime';
 import { storybookImageSourceById } from './imageLibrary';
 import type { MessageRecord, TurnRecord, RpAppointment, WorkflowNode } from '../types';
@@ -14,8 +14,12 @@ import {
   type DynamicSocialUsers,
   type SocialConnectionsByCharacter,
 } from '../chat/socialDirectory';
+import {
+  turnsWithRehydratedStorybookVoices,
+  turnsWithStorybookVoiceRefs,
+} from './openingHistoryVoiceMedia';
 
-function storybooksFromNodes(nodes: WorkflowNode[]): RpStorybookV1[] {
+function storybooksFromNodes(nodes: WorkflowNode[]): RpStorybook[] {
   return nodes.flatMap((node) => {
     if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
       return [];
@@ -29,18 +33,17 @@ function storybooksFromNodes(nodes: WorkflowNode[]): RpStorybookV1[] {
 }
 
 /**
- * Replace stored image copies on turn messages with id-only references.
- * Images live once in the Storybook image library; a stored message keeps its
- * attachment metadata but drops the base64 data when the image id resolves in
- * the library. Attachments whose id is unknown keep their embedded copy so
- * nothing is lost.
+ * Prepare runtime turns for storage in Storybook Opening History.
+ * Gallery-backed images become id-only references, while generated voice clips
+ * move into one deduplicated Storybook-level media pool. Unknown image
+ * attachments keep their embedded copy so their content is not lost.
  */
-export function turnsWithStorybookImageRefs(
+export function turnsForStorybookOpeningHistory(
   turns: TurnRecord[],
   nodes: WorkflowNode[],
-): TurnRecord[] {
+): Pick<RpStorybook['openingHistory'], 'turns' | 'voiceMedia'> {
   const storybooks = storybooksFromNodes(nodes);
-  const withImageRefs = (message: MessageRecord): MessageRecord => {
+  const forOpeningHistory = (message: MessageRecord): MessageRecord => {
     if (!message.imageAttachments?.length) {
       return message;
     }
@@ -51,11 +54,12 @@ export function turnsWithStorybookImageRefs(
       ),
     };
   };
-  return turns.map((turn) => ({
+  const turnsWithImageRefs = turns.map((turn) => ({
     ...turn,
-    input: { ...turn.input, messages: turn.input.messages.map(withImageRefs) },
-    output: { ...turn.output, messages: turn.output.messages.map(withImageRefs) },
+    input: { ...turn.input, messages: turn.input.messages.map(forOpeningHistory) },
+    output: { ...turn.output, messages: turn.output.messages.map(forOpeningHistory) },
   }));
+  return turnsWithStorybookVoiceRefs(turnsWithImageRefs);
 }
 
 /**
@@ -65,7 +69,7 @@ export function turnsWithStorybookImageRefs(
  */
 function messageWithRehydratedImages(
   message: MessageRecord,
-  storybooks: RpStorybookV1[],
+  storybooks: RpStorybook[],
 ): MessageRecord {
   if (!message.imageAttachments?.some((image) => !image.dataUrl)) {
     return message;
@@ -110,7 +114,11 @@ export function openingHistoryTurnsFromNodes(nodes: WorkflowNode[]) {
     } catch {
       return [];
     }
-    return storybook.openingHistory.turns.map((storedTurn) => {
+    const rehydratedTurns = turnsWithRehydratedStorybookVoices(
+      storybook.openingHistory.turns,
+      storybook.openingHistory.voiceMedia,
+    );
+    return rehydratedTurns.map((storedTurn) => {
       const turnId = `opening-history-${node.id}-${storedTurn.id}`;
       const withRuntimeMetadata = (
         message: MessageRecord,

@@ -6,6 +6,7 @@ import type {
   RpWeekdayLanguage,
   SocialAppKind,
   SocialDirectMessageRecord,
+  SocialDmUnreadByHandle,
 } from '../../types';
 import { formatBankingAmount } from '../../chat/bankTransfers';
 import { socialIdentityMatches } from '../../chat/socialMedia';
@@ -25,6 +26,7 @@ type PhoneSocialDirectMessagesProps = {
   owner: StorybookCharacter;
   ownerHandle: string;
   participants: SocialDirectMessageParticipant[];
+  unreadByHandle: SocialDmUnreadByHandle;
   selectedParticipant?: SocialDirectMessageParticipant;
   messages: SocialDirectMessageRecord[];
   characterColors: Map<string, string>;
@@ -49,6 +51,7 @@ export function PhoneSocialDirectMessages({
   owner,
   ownerHandle,
   participants,
+  unreadByHandle,
   selectedParticipant,
   messages,
   characterColors,
@@ -177,6 +180,7 @@ export function PhoneSocialDirectMessages({
             const color = participant.character
               ? characterColors.get(participant.character.name)
               : undefined;
+            const unread = unreadByHandle[participant.handle.toLowerCase()];
             const latest = [...messages].reverse().find((message) =>
               message.app === app && (
                 socialIdentityMatches(message.fromHandle, ownerHandle) &&
@@ -203,6 +207,16 @@ export function PhoneSocialDirectMessages({
                   <strong>{participant.name}</strong>
                   <span>{latest?.displayText ?? latest?.text ?? `@${participant.handle}`}</span>
                 </span>
+                {unread && (
+                  <span className="phone-social-dm-badges">
+                    {app === 'onlyfriends' && unread.tipTotal > 0 && (
+                      <span className="phone-social-tip-badge">
+                        +{formatBankingAmount(unread.tipTotal)}
+                      </span>
+                    )}
+                    <span className="phone-contact-badge">{unread.count}</span>
+                  </span>
+                )}
                 <span aria-hidden="true">›</span>
               </button>
             );

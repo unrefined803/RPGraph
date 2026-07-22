@@ -12,19 +12,19 @@ import {
   type RpStorybookCharacterProfileImage,
   type RpStorybookCharacterVoiceConfig,
   type RpStorybookCharacterPhoneSettings,
-} from '../nodes/rp-storybook-v1/model';
+} from '../nodes/rp-storybook/model';
 
 /**
  * A storybook source node — the story data a run reads characters, phone,
  * banking, events, opening history and images from. Both the AI-centric
- * `rp-storybook-v1` and the manual `rp-storybook-editor` are first-class peers;
+ * `rp-storybook` and the manual `rp-storybook-editor` are first-class peers;
  * a graph holds at most one (enforced when adding/loading). This is the single
  * predicate every story-source consumer should use.
  */
 export function isStorybookSourceNode(node: WorkflowNode): boolean {
   return (
     node.data.kind === undefined &&
-    (node.data.nodeType === 'rp-storybook-v1' || node.data.nodeType === 'rp-storybook-editor')
+    (node.data.nodeType === 'rp-storybook' || node.data.nodeType === 'rp-storybook-editor')
   );
 }
 

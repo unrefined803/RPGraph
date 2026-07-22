@@ -23,6 +23,7 @@ import {
   type PhoneNotesByCharacter,
 } from '../chat/phoneAppsSessions';
 import { currentWorkflowFormatVersion } from '../workflow/version';
+import { createMediaPoolReader, createMediaPoolWriter } from './mediaPool';
 import { runtimeSnapshotForNode } from './checkpointStore';
 import { debugStateFromNodes } from './debugContext';
 import { entitiesFromCurrentState } from './entityStore';
@@ -134,6 +135,55 @@ function runtimeStateFromNodes(
   };
 }
 
+/**
+ * Returns `fields` with a redacted or rehydrated `storybookJson`, reusing the
+ * input object when the snapshot holds no storybook or nothing changed.
+ */
+function snapshotFieldsWithConvertedStorybook(
+  fields: Record<string, unknown>,
+  convertStorybookJson: (json: string) => string,
+): Record<string, unknown> {
+  if (typeof fields.storybookJson !== 'string') {
+    return fields;
+  }
+  const converted = convertStorybookJson(fields.storybookJson);
+  return converted === fields.storybookJson ? fields : { ...fields, storybookJson: converted };
+}
+
+function checkpointWithConvertedStorybooks(
+  checkpoint: TurnCheckpoint,
+  convertStorybookJson: (json: string) => string,
+): TurnCheckpoint {
+  let changed = false;
+  const nodeSnapshots = Object.fromEntries(
+    Object.entries(checkpoint.nodeSnapshots).map(([nodeId, snapshot]) => {
+      const before = snapshotFieldsWithConvertedStorybook(snapshot.before, convertStorybookJson);
+      const after = snapshotFieldsWithConvertedStorybook(snapshot.after, convertStorybookJson);
+      if (before === snapshot.before && after === snapshot.after) {
+        return [nodeId, snapshot];
+      }
+      changed = true;
+      return [nodeId, { before, after }];
+    }),
+  );
+  return changed ? { ...checkpoint, nodeSnapshots } : checkpoint;
+}
+
+function runtimeStateWithConvertedStorybooks(
+  runtime: RuntimeState,
+  convertStorybookJson: (json: string) => string,
+): RuntimeState {
+  return {
+    ...runtime,
+    nodes: Object.fromEntries(
+      Object.entries(runtime.nodes).map(([nodeId, fields]) => [
+        nodeId,
+        snapshotFieldsWithConvertedStorybook(fields, convertStorybookJson),
+      ]),
+    ),
+  };
+}
+
 export function sessionV2FromCurrentState(
   state: SessionV2CurrentStateInput,
   workflow: WorkflowFile,
@@ -141,11 +191,26 @@ export function sessionV2FromCurrentState(
   savedAt = new Date().toISOString(),
 ): RpgraphSessionV2 {
   const entities = entitiesFromCurrentState(runtimeNodes, state.turns);
+  const mediaWriter = createMediaPoolWriter();
   const timeline = [
-    ...timelineFromTurnRecordsWithOpeningMessages(state.turns, state.openingMessages, savedAt),
+    ...timelineFromTurnRecordsWithOpeningMessages(
+      state.turns,
+      state.openingMessages,
+      savedAt,
+      mediaWriter.mediaRefForDataUrl,
+    ),
     ...eventTimelineEntriesFromEntities(entities.events),
   ];
   const debug = debugStateFromNodes(runtimeNodes, savedAt);
+  // Timeline voice clips and runtime/undo storybook copies share one media
+  // pool; the embedded workflow keeps the only full storybook copy in the save.
+  const redactedRuntime = runtimeStateWithConvertedStorybooks(
+    runtimeStateFromNodes(runtimeNodes, state.workflowVariables),
+    mediaWriter.redactedStorybookJson,
+  );
+  const redactedCheckpoints = state.turnCheckpoints.map((checkpoint) =>
+    checkpointWithConvertedStorybooks(checkpoint, mediaWriter.redactedStorybookJson),
+  );
   return {
     format: 'rpgraph-session',
     formatVersion: currentSessionFormatVersion,
@@ -160,10 +225,13 @@ export function sessionV2FromCurrentState(
     },
     workflow: workflowFileToV2(workflow),
     timeline,
-    entities,
+    entities: {
+      ...entities,
+      ...(Object.keys(mediaWriter.mediaData).length ? { mediaData: mediaWriter.mediaData } : {}),
+    },
     runtime: {
-      current: runtimeStateFromNodes(runtimeNodes, state.workflowVariables),
-      undo: state.turnCheckpoints,
+      current: redactedRuntime,
+      undo: redactedCheckpoints,
     },
     ui: {
       phoneSeenByConversation: state.phoneSeenByConversation ?? {},
@@ -197,6 +265,7 @@ function chatMessageFromTimelineEntry(
   numericId: number,
   messageIdsByTimelineId: Map<string, number>,
   session: RpgraphSessionV2,
+  dataUrlForMediaRef: (ref: string) => string,
 ): MessageRecord {
   const imageAttachments = entry.images
     ?.map((ref) => session.entities.images[ref.imageId])
@@ -273,18 +342,34 @@ function chatMessageFromTimelineEntry(
     inputPromptSlot: entry.inputPromptSlot,
     rpImageDescription: entry.channel === 'rp' ? entry.imageDescription : undefined,
     rpImageName: entry.channel === 'rp' ? entry.imageLabel : undefined,
+    outputActionChoices: entry.outputActions?.choices,
+    outputActionsHidden: entry.outputActions?.hidden,
+    outputActionsHiddenByTurnId: entry.outputActions?.hiddenByTurnId,
+    outputActionInfoBoxes: entry.outputActions?.infoBoxes,
+    outputActionProgressBars: entry.outputActions?.progressBars,
+    outputActionContextCapacityBars: entry.outputActions?.contextCapacityBars,
     isOpening: entry.flags?.opening,
     speakerName: entry.speakers?.primary,
     speakerNames: entry.speakers?.names,
     speakerColors: entry.speakers?.colors,
     originalDialogue: entry.speakers?.originalDialogue,
     translatedDialogue: entry.speakers?.translatedDialogue,
-    turnId: entry.turnId,
+    turnContext: entry.turnContext,
+    phoneAutoTurnSource: entry.phoneAutoTurnSource,
+    // Loose opening messages (the "Opening" situation bubble) had no turn id
+    // in RAM; saving wraps them in a synthesized `opening-message-*` turn.
+    // Restoring that id would break the opening-bubble matching in App.tsx.
+    turnId: entry.flags?.opening && entry.turnId.startsWith('opening-message-')
+      ? undefined
+      : entry.turnId,
     turnNumber: entry.turnNumber,
     turnPart: entry.phase,
     rpDateTime: entry.rpDateTime,
     workflowVariableSetCommands: entry.workflowVariableSetCommands,
-    voiceClips: entry.voiceClips,
+    voiceClips: entry.voiceClips?.map(({ mediaRef, ...clip }) => ({
+      ...clip,
+      dataUrl: dataUrlForMediaRef(mediaRef),
+    })),
     bankTransfer: entry.bankTransfer,
     socialPost: entry.socialPost,
     socialThreadAction: entry.socialThreadAction,
@@ -296,19 +381,23 @@ function chatMessageFromTimelineEntry(
   };
 }
 
-function runtimeSnapshotFromSession(session: RpgraphSessionV2): TurnRuntimeSnapshot {
+function runtimeSnapshotFromSession(
+  session: RpgraphSessionV2,
+  rehydratedStorybookJson: (json: string) => string,
+): TurnRuntimeSnapshot {
   return {
     workflowVariables: workflowVariableRecord(session.runtime.current.workflowVariables),
     nodes: Object.fromEntries(
       Object.entries(session.runtime.current.nodes).map(([nodeId, fields]) => [
         nodeId,
-        structuredClone(fields),
+        snapshotFieldsWithConvertedStorybook(structuredClone(fields), rehydratedStorybookJson),
       ]),
     ),
   };
 }
 
 export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppState {
+  const mediaReader = createMediaPoolReader(session.entities.mediaData);
   const entries = timelineMessages(session.timeline);
   const openingHistoryTurnIds = new Set(
     entries
@@ -322,7 +411,11 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
       messageIdsByTimelineId.get(entry.id) ?? 0,
       messageIdsByTimelineId,
       session,
+      mediaReader.dataUrlForMediaRef,
     ),
+  );
+  const turnMetadataByTurnId = new Map(
+    entries.flatMap((entry) => (entry.turn ? [[entry.turnId, entry.turn] as const] : [])),
   );
   const messagesByTurnId = new Map<string, MessageRecord[]>();
   messages
@@ -338,17 +431,24 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
       const turnNumber = turnMessages.find((message) => message.turnNumber !== undefined)?.turnNumber ?? 0;
       const inputMessages = turnMessages.filter((message) => message.turnPart !== 'output');
       const outputMessages = turnMessages.filter((message) => message.turnPart === 'output');
+      const turnMeta = turnMetadataByTurnId.get(turnId);
       return {
         id: turnId,
         number: turnNumber,
-        createdAt: session.savedAt,
+        createdAt: turnMeta?.createdAt ?? session.savedAt,
         openingHistory: openingHistoryTurnIds.has(turnId) || undefined,
+        mode: turnMeta?.mode,
+        messageFormat: turnMeta?.messageFormat,
+        promptSlot: turnMeta?.promptSlot,
+        directAction: turnMeta?.directAction || undefined,
         input: {
-          graphText: inputMessages.map((message) => message.originalText).join('\n\n'),
+          graphText: turnMeta?.inputGraphText
+            ?? inputMessages.map((message) => message.originalText).join('\n\n'),
           messages: inputMessages,
         },
         output: {
-          graphText: outputMessages.map((message) => message.originalText).join('\n\n'),
+          graphText: turnMeta?.outputGraphText
+            ?? outputMessages.map((message) => message.originalText).join('\n\n'),
           messages: outputMessages,
         },
       };
@@ -362,9 +462,14 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
     },
     workflowVariables: workflowVariableRecord(session.runtime.current.workflowVariables),
     turns,
-    turnCheckpoints: session.runtime.undo,
+    turnCheckpoints: session.runtime.undo.map((checkpoint) =>
+      checkpointWithConvertedStorybooks(
+        structuredClone(checkpoint),
+        mediaReader.rehydratedStorybookJson,
+      ),
+    ),
     openingMessages: messages.filter((message) => message.isOpening),
-    currentRuntime: runtimeSnapshotFromSession(session),
+    currentRuntime: runtimeSnapshotFromSession(session, mediaReader.rehydratedStorybookJson),
     phoneSeenByConversation: session.ui.phoneSeenByConversation,
     bankingSeenByCharacter: session.ui.bankingSeenByCharacter,
     phoneAppSeenByCharacter: session.ui.phoneAppSeenByCharacter ?? {},

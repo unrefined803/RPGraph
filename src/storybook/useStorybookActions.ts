@@ -2,15 +2,15 @@ import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAc
 import type { StorybookCreatorMessage } from '../components/AppDialogs';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import {
-  emptyRpStorybookV1,
+  emptyRpStorybook,
   parseRpStorybookAssistantResult,
   parseRpStorybookJson,
   rpStorybookEditPrompt,
   rpStorybookIdentityLockViolations,
   rpStorybookJsonText,
   rpStorybookPromptJsonText,
-  type RpStorybookV1,
-} from '../nodes/rp-storybook-v1/model';
+  type RpStorybook,
+} from '../nodes/rp-storybook/model';
 import { resetCharacterStatsRuntimeData } from '../nodes/character-stats/runtime';
 import type { SavedFileSummary, TurnRecord, WorkflowNode, WorkflowNodeData } from '../types';
 import type { SystemLogLevel } from '../types';
@@ -23,7 +23,7 @@ import {
 import { usedStorybookImageIdsRemoved } from './imageUsage';
 import { isStorybookSourceNode } from './runtime';
 import { withChangedStorybookImageDescriptionsSynchronized } from './imageLibrary';
-import { turnsWithStorybookImageRefs } from './openingHistoryRuntime';
+import { turnsForStorybookOpeningHistory } from './openingHistoryRuntime';
 import storybookFormatVersions from './formatVersions.json';
 import {
   convertLegacyRpStorybook,
@@ -163,7 +163,7 @@ export function useStorybookActions({
     return `Storybook Format ${file.formatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Storybook Format ${storybookFormatVersions.storybook}.`;
   }
 
-  function storyHistoryPresent(storybook: RpStorybookV1) {
+  function storyHistoryPresent(storybook: RpStorybook) {
     return (
       turnsRef.current.length > 0 ||
       storybook.openingHistory.turns.length > 0 ||
@@ -191,7 +191,7 @@ export function useStorybookActions({
     if (node && isStorybookSourceNode(node)) {
       const currentStorybook = node.data.storybookJson
         ? parseRpStorybookJson(node.data.storybookJson)
-        : emptyRpStorybookV1;
+        : emptyRpStorybook;
       committedStorybook = withChangedStorybookImageDescriptionsSynchronized(
         currentStorybook,
         storybook,
@@ -254,7 +254,7 @@ export function useStorybookActions({
   async function submitStorybookCreatorMessage(message: string, visibleMessage = message) {
     const nodeId = storybookCreatorNodeId;
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!nodeId || !node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!nodeId || !node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
 
@@ -271,7 +271,7 @@ export function useStorybookActions({
         : null;
       const currentStorybook = conversion?.result.storybook ?? (node.data.storybookJson
         ? parseRpStorybookJson(node.data.storybookJson)
-        : emptyRpStorybookV1);
+        : emptyRpStorybook);
       const conversionStatus = conversion
         ? [
             `Conversion review: Storybook ${conversion.result.sourceVersion} -> ${conversion.result.targetVersion}.`,
@@ -343,12 +343,12 @@ export function useStorybookActions({
 
   function deleteStorybookCharacter(nodeId: string, characterId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
     const storybook = node.data.storybookJson
       ? parseRpStorybookJson(node.data.storybookJson)
-      : emptyRpStorybookV1;
+      : emptyRpStorybook;
     const character = storybook.characters.find((entry) => entry.id === characterId);
     if (!character) {
       return;
@@ -468,21 +468,20 @@ export function useStorybookActions({
 
   function importCurrentSessionAsOpeningHistory(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
     const storybook = node.data.storybookJson
       ? parseRpStorybookJson(node.data.storybookJson)
-      : emptyRpStorybookV1;
-    // Images that live in a Storybook gallery are stored as id-only
-    // references instead of embedded copies; loading resolves them again.
-    const historyTurns = turnsWithStorybookImageRefs(
+      : emptyRpStorybook;
+    const historyMedia = turnsForStorybookOpeningHistory(
       turnsRef.current.map((turn) => {
         const { openingHistory: _openingHistory, ...storedTurn } = structuredClone(turn);
         return storedTurn;
       }),
       nodesRef.current,
     );
+    const historyTurns = historyMedia.turns;
     const historyMessageCount = historyTurns.reduce(
       (count, turn) => count + turn.input.messages.length + turn.output.messages.length,
       0,
@@ -490,7 +489,7 @@ export function useStorybookActions({
     const historyTurnIds = new Set(historyTurns.map((turn) => turn.id));
     const storybookNodeIds = new Set(
       nodesRef.current
-        .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'rp-storybook-v1')
+        .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'rp-storybook')
         .map((entry) => entry.id),
     );
     const historyCheckpoints = turnCheckpointsRef.current
@@ -548,6 +547,7 @@ export function useStorybookActions({
         turns: historyTurns,
         checkpoints: historyCheckpoints,
         events: normalizedOpeningEvents,
+        voiceMedia: historyMedia.voiceMedia,
         socialLikes: openingSocialLikes,
         dynamicSocialUsers: openingDynamicSocialUsers,
         socialConnections: openingSocialConnections,
@@ -566,15 +566,15 @@ export function useStorybookActions({
 
   function clearStorybookOpeningHistory(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
     const storybook = node.data.storybookJson
       ? parseRpStorybookJson(node.data.storybookJson)
-      : emptyRpStorybookV1;
+      : emptyRpStorybook;
     const nextStorybook = {
       ...storybook,
-      openingHistory: emptyRpStorybookV1.openingHistory,
+      openingHistory: emptyRpStorybook.openingHistory,
     };
     const openingEventIds = new Set(storybook.openingHistory.events.map((event) => event.id));
     if (openingEventIds.size > 0) {
@@ -608,7 +608,7 @@ export function useStorybookActions({
   // protect a running story intentionally do not apply here.
   function resetStorybook(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
     clearCurrentSession();
@@ -629,7 +629,7 @@ export function useStorybookActions({
         });
       });
     updateRuntimeNode(nodeId, {
-      storybookJson: rpStorybookJsonText(emptyRpStorybookV1),
+      storybookJson: rpStorybookJsonText(emptyRpStorybook),
       storybookStatus: 'Storybook and current session reset.',
       storybookFileName: undefined,
       storybookFilePath: undefined,
@@ -638,13 +638,13 @@ export function useStorybookActions({
 
   async function exportStorybookCharacter(nodeId: string, characterId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
     try {
       const storybook = node.data.storybookJson
         ? parseRpStorybookJson(node.data.storybookJson)
-        : emptyRpStorybookV1;
+        : emptyRpStorybook;
       const character = storybook.characters.find((entry) => entry.id === characterId);
       if (!character) {
         updateRuntimeNode(nodeId, { storybookStatus: 'Export failed: character not found.' });
@@ -660,7 +660,7 @@ export function useStorybookActions({
 
   async function importCharacterCard(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
     try {
@@ -771,12 +771,12 @@ export function useStorybookActions({
 
   function applyCharacterCardToNode(nodeId: string, cardValue: unknown, fileName: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!node || node.data.nodeType !== 'rp-storybook') {
       throw new Error('Add an RP Storybook V2 node before importing a character card.');
     }
     const currentStorybook = node.data.storybookJson
       ? parseRpStorybookJson(node.data.storybookJson)
-      : emptyRpStorybookV1;
+      : emptyRpStorybook;
     const plan = planCharacterCardImport(cardValue, currentStorybook);
     const label = plan.character.name || plan.character.id;
     const action = plan.replacesIndex !== undefined ? 'Replaced' : 'Added';
@@ -827,7 +827,7 @@ export function useStorybookActions({
 
   async function importSillyTavernCharacter(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook-v1') {
+    if (!node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
 
@@ -847,7 +847,7 @@ export function useStorybookActions({
 
       const currentStorybook = node.data.storybookJson
         ? parseRpStorybookJson(node.data.storybookJson)
-        : emptyRpStorybookV1;
+        : emptyRpStorybook;
       const currentJson = rpStorybookPromptJsonText(currentStorybook);
       const instruction = sillyTavernImportInstruction(
         currentStorybook,

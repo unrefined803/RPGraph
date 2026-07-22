@@ -7,10 +7,10 @@ export const remoteActivityPromptSlot = 1;
 export const storyFlowPromptSlot = 2;
 export const escalationPromptSlot = 3;
 
-// Autoplay prompts stage phone-app beats as a private [[plan]] followed by a
-// [commands: ...] request; the plan is control text and must never reach the
-// chat as story output.
-export function stripAutoplayPlanBlocks(text: string) {
+// Double-bracket [[plan]] blocks are private control text on every LLM prompt
+// output (Autoplay stages phone-app beats with them, but any prompt may plan
+// privately); they must never reach the chat as story output.
+export function stripPlanBlocks(text: string) {
   return text
     .replace(/\[\[[\s\S]*?\]\]/g, '')
     .replace(/[ \t]+$/gm, '')
@@ -18,8 +18,8 @@ export function stripAutoplayPlanBlocks(text: string) {
     .trim();
 }
 
-export function stripAutoplayPlanBlocksFromStream(text: string) {
-  const visible = stripAutoplayPlanBlocks(text)
+export function stripPlanBlocksFromStream(text: string) {
+  const visible = stripPlanBlocks(text)
     .replace(/\[\[[\s\S]*$/, '')
     .trim();
   return visible === '[' ? '' : visible;
@@ -28,7 +28,7 @@ export function stripAutoplayPlanBlocksFromStream(text: string) {
 const autoplayMessengerKeyPattern = /"(?:whatsUpApp|fotogramApp|onlyFriendsApp)"\s*:/;
 
 export function autoplayStreamPreviewText(text: string) {
-  const visible = stripAutoplayPlanBlocksFromStream(text);
+  const visible = stripPlanBlocksFromStream(text);
   if (!visible) {
     return undefined;
   }

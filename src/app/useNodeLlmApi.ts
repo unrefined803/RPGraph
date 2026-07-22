@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import { NodeLlmApi } from '../llm/NodeLlmApi';
-import type { ConnectionPreset, LlmCallStats } from '../types';
+import type { ConnectionPreset, LlmCallStage, LlmCallStats } from '../types';
 
 type RecordNodeLlmCall = (
   nodeId: string,
   label: string,
   stats: LlmCallStats,
-  metadata?: { startedAtMs: number },
+  metadata?: { startedAtMs: number; stage?: LlmCallStage },
 ) => void;
 
 type UseNodeLlmApiOptions = {

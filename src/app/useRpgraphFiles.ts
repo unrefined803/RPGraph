@@ -14,7 +14,7 @@ import {
   currentWorkflowFormatVersion,
 } from '../workflow/version';
 import storybookFormatVersions from '../storybook/formatVersions.json';
-import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
+import type { RpStorybook } from '../nodes/rp-storybook/model';
 import type { RpCharacterCard } from '../storybook/characterCard';
 
 export type WorkflowSaveScope = 'workflow' | 'workflow-storybook';
@@ -33,7 +33,7 @@ type LoadedRpgraphFile = {
 type UseRpgraphFilesOptions = {
   currentWorkflowForSave: (includeStorybook?: boolean) => Promise<WorkflowFile>;
   currentSession: (name: string) => Promise<RpgraphSessionV2>;
-  currentStorybookForSave: () => { storybook: RpStorybookV1; name: string; nodeId: string };
+  currentStorybookForSave: () => { storybook: RpStorybook; name: string; nodeId: string };
   latestSessionTurnNumber: (session: RpgraphSessionV2) => number;
   suggestedWorkflowName: () => string;
   suggestedSessionName: () => string;

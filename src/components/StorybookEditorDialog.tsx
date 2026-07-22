@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import type { WorkflowNode } from '../types';
 import {
   defaultRpStorybookCharacterComfyConfig,
-  emptyRpStorybookV1,
+  emptyRpStorybook,
   parseRpStorybookJson,
-  type RpStorybookV1,
-} from '../nodes/rp-storybook-v1/model';
+  type RpStorybook,
+} from '../nodes/rp-storybook/model';
 import {
   applyRpStorybookEditorJson,
   rpStorybookEditorJsonView,
@@ -19,11 +19,11 @@ type StorybookEditorDialogProps = {
   node: WorkflowNode;
   // Returns a blocking error message (e.g. a running-story guard violation), or
   // null when the commit succeeded.
-  onCommit: (storybook: RpStorybookV1, status: string) => string | null;
+  onCommit: (storybook: RpStorybook, status: string) => string | null;
   onClose: () => void;
 };
 
-function StorybookReadonlyPreview({ storybook }: { storybook: RpStorybookV1 }) {
+function StorybookReadonlyPreview({ storybook }: { storybook: RpStorybook }) {
   return (
     <div className="storybook-ui-view">
       <div className="storybook-ui-header">
@@ -113,8 +113,8 @@ function StorybookReadonlyPreview({ storybook }: { storybook: RpStorybookV1 }) {
 }
 
 type FieldsEditorProps = {
-  draft: RpStorybookV1;
-  onChange: (next: RpStorybookV1) => void;
+  draft: RpStorybook;
+  onChange: (next: RpStorybook) => void;
 };
 
 /**
@@ -124,7 +124,7 @@ type FieldsEditorProps = {
  * Raw-JSON operations.
  */
 function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
-  const setCharacter = (index: number, patch: Partial<RpStorybookV1['characters'][number]>) => {
+  const setCharacter = (index: number, patch: Partial<RpStorybook['characters'][number]>) => {
     onChange({
       ...draft,
       characters: draft.characters.map((character, i) =>
@@ -251,19 +251,19 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
   // with empty/edited content (the fallback would otherwise be silent).
   const parsed = useMemo(() => {
     if (!node.data.storybookJson) {
-      return { storybook: emptyRpStorybookV1, ok: true };
+      return { storybook: emptyRpStorybook, ok: true };
     }
     try {
       return { storybook: parseRpStorybookJson(node.data.storybookJson), ok: true };
     } catch {
-      return { storybook: emptyRpStorybookV1, ok: false };
+      return { storybook: emptyRpStorybook, ok: false };
     }
   }, [node.data.storybookJson]);
   const storybook = parsed.storybook;
 
   const [viewMode, setViewMode] = useState<ViewMode>('ui');
   const [jsonDraft, setJsonDraft] = useState(() => rpStorybookEditorJsonView(storybook));
-  const [fieldsDraft, setFieldsDraft] = useState<RpStorybookV1>(() => structuredClone(storybook));
+  const [fieldsDraft, setFieldsDraft] = useState<RpStorybook>(() => structuredClone(storybook));
   const [status, setStatus] = useState('');
   const [seededFromJson, setSeededFromJson] = useState(node.data.storybookJson);
 
@@ -283,7 +283,7 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
     }
   }, [jsonDraft]);
 
-  function commit(next: RpStorybookV1, successStatus: string) {
+  function commit(next: RpStorybook, successStatus: string) {
     const error = onCommit(next, successStatus);
     setStatus(error ? `Not applied: ${error}` : successStatus);
   }

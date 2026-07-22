@@ -1,10 +1,11 @@
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   turnTraceCopyPayload,
   type TurnTrace,
   type TurnTraceLlmCall,
   type TurnTraceMessage,
   type TurnTracePromptPass,
+  type TurnTracePromptSection,
 } from '../app/turnTrace';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
@@ -71,7 +72,7 @@ function stepHasExpandableText(step: TurnTraceLlmCall) {
     (step.promptBefore?.length ?? 0) > collapsiblePromptCharacters ||
     (step.promptAfter?.length ?? 0) > collapsiblePromptCharacters ||
     (step.promptPasses ?? []).some((pass) =>
-      pass.prompt.length > collapsiblePromptCharacters ||
+      (pass.prompt?.length ?? 0) > collapsiblePromptCharacters ||
       (pass.sections ?? []).some((section) =>
         section.text.length > collapsiblePromptCharacters ||
         (section.parts ?? []).some((part) => part.text.length > collapsiblePromptCharacters),
@@ -91,6 +92,65 @@ function tracePromptImagesText(images: TurnTracePromptPass['images']) {
     .join('\n');
 }
 
+function isTextInputSection(label: string) {
+  return label.trim().toLocaleLowerCase() === 'text input';
+}
+
+function readableStepName(name: string) {
+  return name
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toLocaleUpperCase()}${part.slice(1)}`)
+    .join(' ');
+}
+
+function TracePromptSection({ section }: { section: TurnTracePromptSection }) {
+  return (
+    <div className={`turn-trace-prompt-section${isTextInputSection(section.label) ? '' : ' prompt'}`}>
+      <strong>{section.label}</strong>
+      {section.excerpt && (
+        <em>
+          Showing last {section.excerpt.shownWords.toLocaleString()} of {section.excerpt.totalWords.toLocaleString()} words.
+        </em>
+      )}
+      {section.parts?.length ? (
+        section.parts.map((part, partIndex) => part.stepOutputInserted ? (
+          <div className="turn-trace-step-output-insertion" key={`${section.label}-${partIndex}`}>
+            <strong>Add Output {readableStepName(part.stepOutputInserted)}:</strong>
+            <HighlightedPreviewText text={part.text} />
+          </div>
+        ) : (
+            <HighlightedPreviewText
+              chatHistory={isTextInputSection(section.label) ? 'auto' : 'none'}
+              className={part.actionInserted ? 'action-inserted' : ''}
+              historySegments={part.historySegments ?? section.historySegments}
+              key={`${section.label}-${partIndex}`}
+              text={part.text}
+            />
+          ))
+      ) : (
+        <HighlightedPreviewText
+          chatHistory={isTextInputSection(section.label) ? 'auto' : 'none'}
+          historySegments={section.historySegments}
+          text={section.text || 'Empty'}
+        />
+      )}
+    </div>
+  );
+}
+
+function TraceTextInput({ trace }: { trace: TurnTrace }) {
+  const section = trace.steps
+    .flatMap((step) => step.promptPasses ?? [])
+    .flatMap((pass) => pass.sections ?? [])
+    .find((candidate) => isTextInputSection(candidate.label));
+  return section ? (
+    <div className="turn-trace-shared-input">
+      <TracePromptSection section={section} />
+    </div>
+  ) : null;
+}
+
 function TracePromptPasses({ passes }: { passes: TurnTracePromptPass[] }) {
   return (
     <div className="turn-trace-prompt-passes">
@@ -101,43 +161,21 @@ function TracePromptPasses({ passes }: { passes: TurnTracePromptPass[] }) {
             <span>Full prompt sent to LLM</span>
           </header>
           {pass.images !== undefined && (
-            <div className="turn-trace-prompt-section">
+            <div className="turn-trace-prompt-section images">
               <strong>Images Sent To LLM</strong>
               <pre>{tracePromptImagesText(pass.images)}</pre>
             </div>
           )}
           {pass.sections?.length ? (
-            pass.sections.map((section) => (
-              <div className="turn-trace-prompt-section" key={`${pass.label}-${section.label}`}>
-                <strong>{section.label}</strong>
-                {section.excerpt && (
-                  <em>
-                    Showing last {section.excerpt.shownWords.toLocaleString()} of {section.excerpt.totalWords.toLocaleString()} words.
-                  </em>
-                )}
-                {section.parts?.length ? (
-                  section.parts.map((part, partIndex) => (
-                    <HighlightedPreviewText
-                      chatHistory={section.label === 'Text Input' ? 'auto' : 'none'}
-                      className={part.actionInserted ? 'action-inserted' : ''}
-                      historySegments={part.historySegments ?? section.historySegments}
-                      key={`${section.label}-${partIndex}`}
-                      text={part.text}
-                    />
-                  ))
-                ) : (
-                  <HighlightedPreviewText
-                    chatHistory={section.label === 'Text Input' ? 'auto' : 'none'}
-                    historySegments={section.historySegments}
-                    text={section.text || 'Empty'}
-                  />
-                )}
-              </div>
-            ))
+            pass.sections
+              .filter((section) => !isTextInputSection(section.label))
+              .map((section) => (
+                <TracePromptSection key={`${pass.label}-${section.label}`} section={section} />
+              ))
           ) : (
-            <div className="turn-trace-prompt-section">
+            <div className="turn-trace-prompt-section prompt">
               <strong>Prompt</strong>
-              <HighlightedPreviewText chatHistory="auto" text={pass.prompt} />
+              <HighlightedPreviewText chatHistory="auto" text={pass.prompt ?? ''} />
             </div>
           )}
         </section>
@@ -252,6 +290,8 @@ export function TurnTraceDialog({
   const [copyError, setCopyError] = useState('');
   const [viewMode, setViewMode] = useState<'ui' | 'json'>('ui');
   const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>({});
+  const timelineRef = useRef<HTMLElement>(null);
+  const turnListRef = useRef<HTMLDivElement>(null);
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   const textMetrics = useMemo(
     () => new TextMetricsApi(estimatedTokenBytesPerToken),
@@ -288,6 +328,17 @@ export function TurnTraceDialog({
     value: turnNumber,
     label: `Turn ${turnNumber}`,
   }));
+
+  useLayoutEffect(() => {
+    const timeline = timelineRef.current;
+    if (timeline) {
+      timeline.scrollTop = timeline.scrollHeight;
+    }
+    const turnList = turnListRef.current;
+    if (turnList) {
+      turnList.scrollTop = turnList.scrollHeight;
+    }
+  }, [effectiveFromTurn, effectiveToTurn, viewMode]);
 
   function changeFromTurn(value: number) {
     setCopied(false);
@@ -367,7 +418,7 @@ export function TurnTraceDialog({
                     onChange={(value) => changeToTurn(Number(value))}
                   />
                 </label>
-                <div className="turn-trace-turn-list">
+                <div className="turn-trace-turn-list" ref={turnListRef}>
                   {turnNumbers.map((turnNumber) => {
                     const inRange = turnNumber >= effectiveFromTurn && turnNumber <= effectiveToTurn;
                     const turnTraces = traces.filter((trace) => trace.turnNumber === turnNumber);
@@ -398,7 +449,10 @@ export function TurnTraceDialog({
             )}
           </aside>
 
-          <main className={`turn-trace-timeline${viewMode === 'json' ? ' json-mode' : ''}`}>
+          <main
+            className={`turn-trace-timeline${viewMode === 'json' ? ' json-mode' : ''}`}
+            ref={timelineRef}
+          >
             {viewMode === 'json' ? (
               <div className="turn-trace-json-view">
                 <JsonSyntaxTextarea readOnly value={payloadText} />
@@ -422,6 +476,7 @@ export function TurnTraceDialog({
                   />
                   <section className="turn-trace-route">
                     <h5>2. LLM / Prompt route</h5>
+                    <TraceTextInput trace={trace} />
                     {trace.steps.length === 0 ? (
                       <p className="turn-trace-empty">No completed LLM call was recorded.</p>
                     ) : (

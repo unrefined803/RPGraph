@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { estimatedRpStorybookPromptTokens } from '../nodes/rp-storybook-v1/model';
+import { estimatedRpStorybookPromptTokens } from '../nodes/rp-storybook/model';
 import type { StorybookConversionResult } from './conversion';
 
 type StorybookConversionPanelProps = {

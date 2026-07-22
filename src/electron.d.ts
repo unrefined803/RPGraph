@@ -11,7 +11,7 @@ import type {
   SavedFileSummary,
   WorkflowFile,
 } from './types';
-import type { RpStorybookV1 } from './nodes/rp-storybook-v1/model';
+import type { RpStorybook } from './nodes/rp-storybook/model';
 import type { RpCharacterCard } from './storybook/characterCard';
 import type { RpgraphSessionV2 } from './data-management/types';
 
@@ -115,7 +115,7 @@ declare global {
         | {
           kind: 'storybook';
           name: string;
-          storybook: RpStorybookV1;
+          storybook: RpStorybook;
           protection: 'plain' | 'encrypted';
           password: string;
         }
@@ -406,7 +406,7 @@ declare global {
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
       saveStorybook: (
         name: string,
-        storybook: RpStorybookV1,
+        storybook: RpStorybook,
         protection: 'plain' | 'encrypted',
         password: string,
         overwrite?: boolean,

@@ -29,6 +29,7 @@ import type {
   RpDateTimeFormat,
   RpWeekdayLanguage,
   SocialPostRecord,
+  WorkflowNode,
 } from '../types';
 import {
   defaultChatTextSize,
@@ -72,6 +73,7 @@ import {
 } from '../chat/phoneAppsSessions';
 import { AutoplayControl } from '../chat/AutoplayControl';
 import type { AutoplayMode } from '../chat/useAutoplay';
+import { RunProgressCard } from '../chat/RunProgressCard';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
 const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
@@ -109,6 +111,47 @@ function isStandaloneEmbeddedPhoneOutput(message: MessageRecord) {
   );
 }
 
+type EmbeddedMessengerGroup =
+  | { kind: 'phone'; phoneMessages: EmbeddedPhoneMessageLink[] }
+  | { kind: 'social'; socialMessages: EmbeddedSocialMessageLink[] };
+
+// Interleaves the phone and social bubble stacks back into the order the
+// messenger objects appeared in the RP output. Messages without a stored
+// sourceOrder (older sessions) keep the legacy phone-then-social order.
+function embeddedMessengerGroups(message: MessageRecord): EmbeddedMessengerGroup[] {
+  const entries = [
+    ...(message.embeddedPhoneMessages ?? []).map((link) => ({
+      kind: 'phone' as const,
+      order: link.sourceOrder,
+      link,
+    })),
+    ...(message.embeddedSocialMessages ?? []).map((link) => ({
+      kind: 'social' as const,
+      order: link.sourceOrder,
+      link,
+    })),
+  ];
+  if (entries.every((entry) => entry.order !== undefined)) {
+    entries.sort((a, b) => a.order! - b.order!);
+  }
+  const groups: EmbeddedMessengerGroup[] = [];
+  for (const entry of entries) {
+    const current = groups[groups.length - 1];
+    if (entry.kind === 'phone') {
+      if (current?.kind === 'phone') {
+        current.phoneMessages.push(entry.link);
+      } else {
+        groups.push({ kind: 'phone', phoneMessages: [entry.link] });
+      }
+    } else if (current?.kind === 'social') {
+      current.socialMessages.push(entry.link);
+    } else {
+      groups.push({ kind: 'social', socialMessages: [entry.link] });
+    }
+  }
+  return groups;
+}
+
 function phoneReplySizeClass(text: string) {
   if (text.length > 120) {
     return ' long';
@@ -127,6 +170,7 @@ function rpTimePlaceholderParts(format: RpDateTimeFormat) {
 }
 
 type ChatConversationPanelProps = {
+  runtimeNodes: WorkflowNode[];
   messages: MessageRecord[];
   storyCharacters: StorybookCharacter[];
   characterColors: Map<string, string>;
@@ -139,6 +183,8 @@ type ChatConversationPanelProps = {
   editingDraft: string;
   editableUserMessageId?: number;
   isRunning: boolean;
+  runStartTimeMs: number | null;
+  onCancelRun: () => void;
   englishProcessingEnabled: boolean;
   dialogueHighlightEnabled: boolean;
   dialogueVoiceSpeakerNames: ReadonlySet<string>;
@@ -174,6 +220,8 @@ type ChatConversationPanelProps = {
   onChatTextSizeChange: (value: number) => void;
   phoneAuthorBadgesEnabled: boolean;
   onPhoneAuthorBadgesEnabledChange: (enabled: boolean) => void;
+  chatReadsPhoneAppsEnabled: boolean;
+  onChatReadsPhoneAppsEnabledChange: (enabled: boolean) => void;
   thoughtTextStyle: 'bold' | 'italic' | 'light';
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
@@ -216,6 +264,7 @@ type ChatConversationPanelProps = {
 };
 
 export function ChatConversationPanel({
+  runtimeNodes,
   messages,
   storyCharacters,
   characterColors,
@@ -228,6 +277,8 @@ export function ChatConversationPanel({
   editingDraft,
   editableUserMessageId,
   isRunning,
+  runStartTimeMs,
+  onCancelRun,
   englishProcessingEnabled,
   dialogueHighlightEnabled,
   dialogueVoiceSpeakerNames,
@@ -255,6 +306,8 @@ export function ChatConversationPanel({
   onChatTextSizeChange,
   phoneAuthorBadgesEnabled,
   onPhoneAuthorBadgesEnabledChange,
+  chatReadsPhoneAppsEnabled,
+  onChatReadsPhoneAppsEnabledChange,
   thoughtTextStyle,
   rpDateTimeFormat,
   rpWeekdayLanguage,
@@ -458,6 +511,13 @@ export function ChatConversationPanel({
     : isComposerHovered
       ? 'collapsed hover-ready'
       : 'collapsed';
+
+  const submitMessage = (event: FormEvent<HTMLFormElement>) => {
+    setIsComposerFocused(false);
+    setIsComposerHovered(false);
+    setScrollCollapsed(true);
+    onSubmitMessage(event);
+  };
 
   const changeChatTextSize = (change: number) => {
     onChatTextSizeChange(Math.min(22, Math.max(11, chatTextSize + change)));
@@ -997,6 +1057,8 @@ export function ChatConversationPanel({
                   {authorRole === 'user' ? 'USER' : 'AI'}
                 </span>
               ) : null;
+              const imageAttachments =
+                linkedMessage?.imageAttachments ?? phoneMessage.previewImageAttachments;
 
               return (
                 <div className="phone-message-row chat-phone-message-row" key={phoneMessage.phoneMessageId}>
@@ -1047,9 +1109,9 @@ export function ChatConversationPanel({
                           </div>
                         </div>
                       )}
-                      {!!linkedMessage?.imageAttachments?.length && (
+                      {!!imageAttachments?.length && (
                         <div className="phone-bubble-images">
-                          {linkedMessage.imageAttachments.map((image) => (
+                          {imageAttachments.map((image) => (
                             <div className="phone-bubble-image" key={image.id}>
                               <button
                                 className="phone-bubble-image-preview"
@@ -1636,25 +1698,29 @@ export function ChatConversationPanel({
                           style={{ fontSize: chatTextSize || defaultChatTextSize }}
                         >
                           {compositeTextBefore && (
-                            <span className="message-composite-text">
+                            <span className="message-composite-text chat-reading-stripes">
                               {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextBefore, speakerNames), 'before')}
                             </span>
                           )}
-                          {(message.embeddedPhoneMessages?.length ?? 0) > 0 && (
-                            outsidePhoneDisplayMode === 'bubbles' ? (
-                              renderPhoneBubbleStack(message.embeddedPhoneMessages ?? [], true)
-                            ) : (
-                              <span className="embedded-phone-links inline" aria-label="Sent phone messages">
-                                {(message.embeddedPhoneMessages ?? []).map((phoneMessage) => (
-                                  renderPhoneActionButton(phoneMessage)
-                                ))}
-                              </span>
-                            )
-                          )}
-                          {(message.embeddedSocialMessages?.length ?? 0) > 0 &&
-                            renderEmbeddedSocialMessages(message.embeddedSocialMessages ?? [])}
+                          {embeddedMessengerGroups(message).map((group, groupIndex) => (
+                            <Fragment key={`embedded-messenger-group-${groupIndex}`}>
+                              {group.kind === 'phone' ? (
+                                outsidePhoneDisplayMode === 'bubbles' ? (
+                                  renderPhoneBubbleStack(group.phoneMessages, true)
+                                ) : (
+                                  <span className="embedded-phone-links inline" aria-label="Sent phone messages">
+                                    {group.phoneMessages.map((phoneMessage) => (
+                                      renderPhoneActionButton(phoneMessage)
+                                    ))}
+                                  </span>
+                                )
+                              ) : (
+                                renderEmbeddedSocialMessages(group.socialMessages)
+                              )}
+                            </Fragment>
+                          ))}
                           {compositeTextAfter && (
-                            <span className="message-composite-text">
+                            <span className="message-composite-text chat-reading-stripes">
                               {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextAfter, speakerNames), 'after')}
                             </span>
                           )}
@@ -1664,7 +1730,9 @@ export function ChatConversationPanel({
                         </div>
                       ) : (visibleText || message.rpDateTime) && (
                         <p style={{ fontSize: chatTextSize || defaultChatTextSize }}>
-                          {renderDialoguePartSpans(parts, 'main')}
+                          <span className="chat-reading-stripes">
+                            {renderDialoguePartSpans(parts, 'main')}
+                          </span>
                           {rpTimeTrackingEnabled &&
                             !message.eventInput &&
                             renderRpTime(message.rpDateTime, 'message-rp-time')}
@@ -1742,10 +1810,18 @@ export function ChatConversationPanel({
           );
         })}
       </div>
+      {isRunning ? (
+        <RunProgressCard
+          isRunning
+          nodes={runtimeNodes}
+          runStartTimeMs={runStartTimeMs}
+          onCancel={onCancelRun}
+        />
+      ) : (
       <form
         ref={composerRef}
         className={`composer ${composerModeClass}`}
-        onSubmit={onSubmitMessage}
+        onSubmit={submitMessage}
         onPointerDownCapture={(event) => {
           if (isTextEntryTarget(event.target)) {
             return;
@@ -1790,7 +1866,7 @@ export function ChatConversationPanel({
           disabled={false}
           onValueChange={onDraftChange}
           onCommandsChange={onDraftCommandsChange}
-          onSubmit={onSubmitMessage}
+          onSubmit={submitMessage}
           placeholder="Click here or press Enter to write. Type /cmd for commands"
           rows={3}
         />
@@ -1869,6 +1945,19 @@ export function ChatConversationPanel({
                         {composerAutoCollapseEnabled ? '✓' : ''}
                       </span>
                       <span>Auto-collapse input</span>
+                    </button>
+                    <button
+                      className={`phone-display-checkbox${chatReadsPhoneAppsEnabled ? ' active' : ''}`}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={chatReadsPhoneAppsEnabled}
+                      title="App messages shown inside a chat bubble are marked read and raise no phone notification."
+                      onClick={() => onChatReadsPhoneAppsEnabledChange(!chatReadsPhoneAppsEnabled)}
+                    >
+                      <span className="phone-display-check" aria-hidden="true">
+                        {chatReadsPhoneAppsEnabled ? '✓' : ''}
+                      </span>
+                      <span>Chat marks app messages read</span>
                     </button>
                   </div>
                   <div className="phone-display-popover-section">
@@ -2003,6 +2092,7 @@ export function ChatConversationPanel({
           </div>
         </div>
       </form>
+      )}
       {voicePlaybackDialogOpen && (
         <VoicePlaybackDialog
           mode={dialogueVoiceMode}

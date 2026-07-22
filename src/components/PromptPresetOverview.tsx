@@ -21,8 +21,8 @@ import {
   parseNodeStorybookJson,
   rpStorybookImageDescriptionPromptSettings,
   rpStorybookJsonText,
-  type RpStorybookV1,
-} from '../nodes/rp-storybook-v1/model';
+  type RpStorybook,
+} from '../nodes/rp-storybook/model';
 import {
   configForPromptActionToken,
   countPromptActionUses,
@@ -172,7 +172,7 @@ function storybookPromptEntry(
   node: WorkflowNode,
   updateNodeData: PromptPresetOverviewProps['updateNodeData'],
 ): PromptEntry | undefined {
-  if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook-v1') {
+  if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook') {
     return undefined;
   }
   const storybook = parseNodeStorybookJson(node.data.storybookJson);
@@ -188,7 +188,7 @@ function storybookPromptEntry(
     setting: rpStorybookImageDescriptionPromptSettings(storybook.imageDescriptionPrompt),
     defaultText: defaultRpStorybookImageDescriptionPrompt,
     update: (setting) => {
-      const nextStorybook: RpStorybookV1 = {
+      const nextStorybook: RpStorybook = {
         ...storybook,
         imageDescriptionPrompt: setting,
       };

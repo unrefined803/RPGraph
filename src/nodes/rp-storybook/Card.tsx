@@ -6,13 +6,13 @@ import { ConnectionSelect } from '../shared/ConnectionSelect';
 import { runStateClassName, useNodeLayoutSync } from '../shared/CardView';
 import { PortLabel } from '../shared/PortValue';
 import {
-  emptyRpStorybookV1,
+  emptyRpStorybook,
   estimatedRpStorybookPromptTokens,
   parseRpStorybookJson,
-  type RpStorybookV1,
+  type RpStorybook,
 } from './model';
 
-function hasStorybookContent(storybook: RpStorybookV1) {
+function hasStorybookContent(storybook: RpStorybook) {
   return Boolean(
     storybook.title ||
     storybook.introduction ||
@@ -26,14 +26,14 @@ function hasStorybookContent(storybook: RpStorybookV1) {
   );
 }
 
-export function RpStorybookV1NodeCard({ id, data }: NodeProps<WorkflowNode>) {
+export function RpStorybookNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const nodeBodyRef = useNodeLayoutSync(id);
   const { loadStorybookFile, openStorybookCreator } = useNodeActions();
   const storybook = useMemo(() => {
     try {
-      return data.storybookJson ? parseRpStorybookJson(data.storybookJson) : emptyRpStorybookV1;
+      return data.storybookJson ? parseRpStorybookJson(data.storybookJson) : emptyRpStorybook;
     } catch {
-      return emptyRpStorybookV1;
+      return emptyRpStorybook;
     }
   }, [data.storybookJson]);
   const characterNames = useMemo(

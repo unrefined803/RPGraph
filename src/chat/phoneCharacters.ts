@@ -1,6 +1,6 @@
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
-import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterSocial } from '../nodes/rp-storybook-v1/model';
+import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterSocial } from '../nodes/rp-storybook/model';
 import {
   normalizePhoneName,
   phoneNamesMatch,

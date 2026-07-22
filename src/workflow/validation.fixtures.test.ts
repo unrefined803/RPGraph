@@ -3,6 +3,8 @@ import { captureTurnRuntime } from '../chat/turns';
 import { currentSessionFormatVersion } from '../session/version';
 import type {
   CharacterStatDefinition,
+  ChatImageAttachment,
+  LlmCallStage,
   MessageRecord,
   TurnRecord,
   WorkflowFile,
@@ -13,7 +15,7 @@ import { getRegisteredCoreNode, registerNode } from '../nodes/registry';
 import { currentCoreNodeVersions } from '../nodes/nodeVersion';
 import type { ExecuteContext, NodeCreationDefinition } from '../nodes/types';
 import {
-  emptyRpStorybookV1,
+  emptyRpStorybook,
   parseRpStorybookAssistantResult,
   parseRpStorybookJson,
   rpStorybookFormattedText,
@@ -21,7 +23,7 @@ import {
   rpStorybookEditPrompt,
   rpStorybookJsonText,
   withRpStorybookPhoneContactPairBlocked,
-} from '../nodes/rp-storybook-v1/model';
+} from '../nodes/rp-storybook/model';
 import {
   applyRpStorybookEditorJson,
   rpStorybookEditorJsonView,
@@ -31,6 +33,7 @@ import {
   storybookImageById,
   storybookImageDescriptions,
   storybookImageSourceById,
+  storybookImageSourceByIdFromNodes,
   withChangedStorybookImageDescriptionsSynchronized,
   withImagesEnsuredForStorybookCharacter,
   withStorybookImageDescriptionUpdated,
@@ -51,7 +54,7 @@ import {
   openingHistorySocialConnectionsFromNodes,
   openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
-  turnsWithStorybookImageRefs,
+  turnsForStorybookOpeningHistory,
   remapOpeningTurnMessageIds,
 } from '../storybook/openingHistoryRuntime';
 import {
@@ -109,7 +112,7 @@ import { parseRpOutput } from '../chat/rpOutput';
 import { formatPhoneInput } from '../chat/phoneReplies';
 import {
   autoplayStreamPreviewText,
-  stripAutoplayPlanBlocksFromStream,
+  stripPlanBlocksFromStream,
 } from '../chat/messageFormats';
 import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import {
@@ -193,6 +196,7 @@ import {
   promptActionConfigs,
   promptActionInstructionText,
   promptActionRuntimeSettings,
+  previousPromptActionDefaultsForValidation,
   replacePromptActionTitle,
   unwrapJsonCodeFence,
 } from '../nodes/shared/promptActions';
@@ -202,13 +206,16 @@ import {
   defaultPromptCommandInstructionTemplate,
   formatPromptCommandTokens,
   knownPromptCommandId,
+  parsePromptCommandRequest,
   replacePromptCommandTokensWithHints,
 } from '../nodes/shared/promptCommands';
 import { runActionAwarePrompt } from '../nodes/shared/promptRun';
 import { applyTurnCheckpointToNodes } from '../data-management/checkpointStore';
 import { executeGraph, resolveCreateImageCharacterByName } from '../graph/executeGraph';
+import { withGeneratedImageDescriptions } from '../graph/generatedImageDescriptions';
 import { NodeLlmApi } from '../llm/NodeLlmApi';
 import { TextMetricsApi } from '../llm/tokenMetrics';
+import { llmCallStageLabel, promptSwitchRouteLabel } from '../llm/callDisplay';
 import {
   hydrateNodeData,
   persistentNodeData,
@@ -231,13 +238,21 @@ const bundledDefaultWorkflows = import.meta.glob<{ default: unknown }>(
 );
 const bundledDefaultWorkflowPaths = Object.keys(bundledDefaultWorkflows)
   .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
-const bundledDefaultWorkflowPath =
-  bundledDefaultWorkflowPaths[bundledDefaultWorkflowPaths.length - 1];
-if (!bundledDefaultWorkflowPath) {
+if (bundledDefaultWorkflowPaths.length === 0) {
   throw new Error('No workflow.default*.json file was found in the project root.');
 }
-const currentWorkflow = bundledDefaultWorkflows[bundledDefaultWorkflowPath]
+const planningDefaultWorkflowPath = [...bundledDefaultWorkflowPaths]
+  .reverse()
+  .find((filePath) => /planning/i.test(filePath));
+if (!planningDefaultWorkflowPath) {
+  throw new Error('No planning bundled workflow was found in the project root.');
+}
+const currentWorkflow = bundledDefaultWorkflows[planningDefaultWorkflowPath]
   .default as WorkflowFile;
+const allBundledDefaultWorkflows = bundledDefaultWorkflowPaths.map((filePath) => ({
+  filePath,
+  workflow: bundledDefaultWorkflows[filePath].default as WorkflowFile,
+}));
 
 function assertFixture(condition: boolean, message: string) {
   // Route through vitest's expect so a failure reports the message (and, where
@@ -250,7 +265,56 @@ function assertThrowsFixture(action: () => void, message: string) {
   return;
 }
 
+function fixtureTextSignature(text: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${text.length}:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+const previousPromptActionDefaultSignatures = [
+  'create-image-instruction-1:4493:bcb6b611',
+  'create-image-instruction-2:3697:2586555d',
+  'create-image-instruction-3:4199:797b306a',
+  'create-image-instruction-4:1148:edbb0e3c',
+  'create-image-instruction-5:1092:5935443b',
+  'phone-caption-instruction-1:1997:287ce91d',
+  'phone-caption-after-reply-1:3084:acc80b46',
+  'phone-caption-after-reply-2:2785:2c9d80f6',
+  'phone-caption-after-reply-3:2644:7e36e882',
+  'phone-caption-after-reply-4:3149:5be93360',
+  'phone-caption-after-reply-5:3307:8ff74b0c',
+  'phone-caption-after-reply-6:2254:0e4322a8',
+  'phone-caption-after-reply-7:1955:961d0978',
+  'phone-caption-after-reply-8:2113:f42c352c',
+  'phone-caption-after-reply-9:1814:897ca0bc',
+  'get-images-instruction-1:748:d66ce009',
+  'get-images-instruction-2:735:49788531',
+  'get-images-instruction-3:389:ed7ed76f',
+  'get-images-instruction-4:605:9ce7d20e',
+  'create-image-result-1:243:e4845c8c',
+  'create-image-result-2:240:be37f41b',
+  'create-image-result-3:209:a11ab164',
+  'create-image-result-4:550:495144c5',
+  'create-image-result-5:273:f16ba521',
+  'create-image-result-6:279:99850548',
+  'get-images-result-1:739:93e5a2a0',
+  'get-images-result-2:339:6ee17746',
+  'get-images-result-3:130:1f636f21',
+  'get-images-result-4:921:28b64f33',
+  'get-images-result-5:558:8938fbf8',
+  'get-images-result-6:54:c3c52fe9',
+];
+
 export function verifyWorkflowValidationFixtures() {
+  assertFixture(
+    previousPromptActionDefaultsForValidation()
+      .map(({ id, text }) => `${id}:${fixtureTextSignature(text)}`)
+      .join('\n') === previousPromptActionDefaultSignatures.join('\n'),
+    'every shipped previous prompt-action default must retain its exact migration text',
+  );
   const normalizedPhoneNotes = normalizePhoneNotesByCharacter({
     alex: [
       { id: 'note-1', title: 'First', text: '', dayLabel: '', color: 'mint' },
@@ -515,6 +579,10 @@ export function verifyWorkflowValidationFixtures() {
     ].join('\n'),
     { app: 'fotogram', postId: 'fotogram-post-01' },
   );
+  const parsedCombinedReactionsWithDm = parseSocialReactionsOutput(
+    '{"reactions":{"postId":"fotogram-post-01","likes":38,"comments":[{"from":"Luna Sky","text":"Stunning!"}]},"fotogramApp":[{"from":"Jack Carter","to":"Helga Harper","message":"See you tonight!","postId":"fotogram-post-01"}]}',
+    { app: 'fotogram', postId: 'fotogram-post-01' },
+  );
   const parsedCatalogHandle = parseSocialReactionsOutput(
     '{"reactions":{"postId":"fotogram-post-01","likes":1,"comments":[{"from":"Max Power","handle":"maxpower_official","text":"Great shot!"}]}}',
     { app: 'fotogram', postId: 'fotogram-post-01' },
@@ -529,8 +597,11 @@ export function verifyWorkflowValidationFixtures() {
       parsedReactionsWithDms.directMessages[0]?.tip === 5.5 &&
       parsedFotogramTipIgnored.directMessages[0]?.postId === 'fotogram-post-01' &&
       parsedFotogramTipIgnored.directMessages[0]?.tip === undefined &&
+      parsedCombinedReactionsWithDm.reactions?.likes === 38 &&
+      parsedCombinedReactionsWithDm.directMessages[0]?.text === 'See you tonight!' &&
+      parsedCombinedReactionsWithDm.warnings.length === 0 &&
       parsedCatalogHandle.reactions?.comments[0]?.handle === 'maxpower_official',
-    'social reactions must preserve catalog handles and parse shared messenger-app message blocks',
+    'social reactions must parse combined or standalone messenger-app message blocks and preserve catalog handles',
   );
   const socialPostOriginInput = socialDirectMessageInputText({
     app: 'onlyfriends',
@@ -976,13 +1047,13 @@ export function verifyWorkflowValidationFixtures() {
     'adding a Storybook Fotogram account must connect both characters while OnlyFriends remains one-way',
   );
   const hiddenPhoneAndFotogramPair = withRpStorybookPhoneContactPairBlocked(
-    emptyRpStorybookV1,
+    emptyRpStorybook,
     'espen',
     'ryan',
     true,
   );
   assertFixture(
-    rpStorybookPhoneContactAllowed(emptyRpStorybookV1, 'espen', 'ryan') &&
+    rpStorybookPhoneContactAllowed(emptyRpStorybook, 'espen', 'ryan') &&
       !rpStorybookPhoneContactAllowed(hiddenPhoneAndFotogramPair, 'espen', 'ryan') &&
       !rpStorybookPhoneContactAllowed(hiddenPhoneAndFotogramPair, 'ryan', 'espen'),
     'Phone + Fotogram contact visibility must default to mutual and hide pairs bidirectionally',
@@ -1034,10 +1105,10 @@ export function verifyWorkflowValidationFixtures() {
   );
 
   const assistantStorybook = {
-    ...emptyRpStorybookV1,
+    ...emptyRpStorybook,
     title: 'Old title',
     openingHistory: {
-      ...emptyRpStorybookV1.openingHistory,
+      ...emptyRpStorybook.openingHistory,
       summary: 'Imported opening context',
     },
     characters: [{
@@ -1099,7 +1170,7 @@ export function verifyWorkflowValidationFixtures() {
     () => parseRpStorybookAssistantResult(JSON.stringify({
       reply: 'Rewrite.',
       changedFields: ['storybook'],
-      patch: [{ op: 'replace', path: '', value: emptyRpStorybookV1 }],
+      patch: [{ op: 'replace', path: '', value: emptyRpStorybook }],
     }), assistantStorybook),
     'Storybook assistant must reject root replacement JSON patches',
   );
@@ -1134,7 +1205,7 @@ export function verifyWorkflowValidationFixtures() {
     },
   };
   const sillyTavernInstruction = sillyTavernImportInstruction(
-    emptyRpStorybookV1,
+    emptyRpStorybook,
     sillyTavernCard,
     'mira.json',
   );
@@ -1169,9 +1240,9 @@ export function verifyWorkflowValidationFixtures() {
       },
       { op: 'replace', path: '/scenario/summary', value: 'Mira arrives at a sealed library.' },
     ],
-  }), emptyRpStorybookV1);
+  }), emptyRpStorybook);
   const validatedSillyTavernImport = validateSillyTavernImportResult(
-    emptyRpStorybookV1,
+    emptyRpStorybook,
     importedMira,
     sillyTavernCard,
   );
@@ -1181,7 +1252,7 @@ export function verifyWorkflowValidationFixtures() {
     'SillyTavern imports must confirm that the model actually added the requested character',
   );
   const occupiedScenarioStorybook = {
-    ...emptyRpStorybookV1,
+    ...emptyRpStorybook,
     scenario: {
       summary: 'An established group story.',
       openingSituation: 'The group is already together.',
@@ -1202,10 +1273,10 @@ export function verifyWorkflowValidationFixtures() {
     reply: 'Imported Mira.',
     changedFields: [],
     patch: [],
-  }), emptyRpStorybookV1);
+  }), emptyRpStorybook);
   assertThrowsFixture(
     () => validateSillyTavernImportResult(
-      emptyRpStorybookV1,
+      emptyRpStorybook,
       emptySillyTavernResult,
       sillyTavernCard,
     ),
@@ -1288,7 +1359,7 @@ export function verifyWorkflowValidationFixtures() {
   );
 
   const referenceStorybook = {
-    ...emptyRpStorybookV1,
+    ...emptyRpStorybook,
     characters: [{
       id: 'sarah-miller',
       name: 'Sarah Miller',
@@ -1308,10 +1379,10 @@ export function verifyWorkflowValidationFixtures() {
   };
   const referenceNodes = [{
     id: 'storybook',
-    type: 'rp-storybook-v1',
+    type: 'rp-storybook',
     position: { x: 0, y: 0 },
     data: {
-      nodeType: 'rp-storybook-v1',
+      nodeType: 'rp-storybook',
       label: 'Storybook',
       description: '',
       preview: '',
@@ -1566,7 +1637,7 @@ export function verifyWorkflowValidationFixtures() {
     'a recently selected reference image must receive the same dynamic marker at every history occurrence',
   );
 
-  const storybookWithUsedImage = structuredClone(emptyRpStorybookV1);
+  const storybookWithUsedImage = structuredClone(emptyRpStorybook);
   storybookWithUsedImage.characters = [{
     id: 'emily-miller',
     name: 'Emily Miller',
@@ -1634,6 +1705,12 @@ export function verifyWorkflowValidationFixtures() {
         phoneImageIds: ['emily_miller_image_01'],
         phoneImageDescription: 'Emily at the party.',
         imageAttachments: [openingImageAttachment],
+        voiceClips: [{
+          speakerName: 'Emily Miller',
+          text: 'Phone image',
+          dataUrl: 'data:audio/mpeg;base64,QUJD',
+          source: 'dialogue',
+        }],
       }],
     },
   }, {
@@ -1650,6 +1727,12 @@ export function verifyWorkflowValidationFixtures() {
         channel: 'rp',
         rpImageDescription: 'Emily at the party.',
         imageAttachments: [openingImageAttachment],
+        voiceClips: [{
+          speakerName: null,
+          text: 'RP image',
+          dataUrl: 'data:audio/mpeg;base64,QUJD',
+          source: 'narration',
+        }],
       }],
     },
     output: {
@@ -1720,24 +1803,61 @@ export function verifyWorkflowValidationFixtures() {
     },
   }];
   const openingHistoryNode = structuredClone(
-    currentWorkflow.nodes.find((node) => node.data.nodeType === 'rp-storybook-v1'),
+    currentWorkflow.nodes.find((node) => node.data.nodeType === 'rp-storybook'),
   ) as WorkflowNode | undefined;
-  if (!openingHistoryNode || openingHistoryNode.data.nodeType !== 'rp-storybook-v1') {
+  if (!openingHistoryNode || openingHistoryNode.data.nodeType !== 'rp-storybook') {
     throw new Error('Workflow validation fixture failed: default Storybook node is missing');
   }
   // Import stores gallery-backed images as id-only references (no base64
-  // copy); attachments without a gallery entry keep their embedded data.
+  // copy), keeps unknown attachments, and pools generated voice clips.
   openingHistoryNode.data.storybookJson = rpStorybookJsonText(openingHistoryStorybook);
-  openingHistoryStorybook.openingHistory.turns = turnsWithStorybookImageRefs(
+  const storedOpeningHistoryMedia = turnsForStorybookOpeningHistory(
     openingHistoryStorybook.openingHistory.turns,
     [openingHistoryNode],
   );
+  openingHistoryStorybook.openingHistory.turns = storedOpeningHistoryMedia.turns;
+  openingHistoryStorybook.openingHistory.voiceMedia = storedOpeningHistoryMedia.voiceMedia;
   const storedOpeningAttachment = openingHistoryStorybook.openingHistory.turns[0]
     ?.output.messages[0]?.imageAttachments?.[0];
   assertFixture(
     storedOpeningAttachment?.id === 'emily_miller_image_01' &&
       storedOpeningAttachment.dataUrl === '',
     'importing the current chat must strip gallery-backed image copies to id references',
+  );
+  const storedOpeningVoiceClips = openingHistoryStorybook.openingHistory.turns.flatMap((turn) =>
+    [...turn.input.messages, ...turn.output.messages].flatMap((message) => message.voiceClips ?? [])
+  );
+  assertFixture(
+    storedOpeningVoiceClips.length === 2 &&
+      new Set(storedOpeningVoiceClips.map((clip) =>
+        (clip as typeof clip & { mediaRef?: string }).mediaRef
+      )).size === 1 &&
+      storedOpeningVoiceClips.every((clip) => clip.dataUrl === '') &&
+      Object.values(openingHistoryStorybook.openingHistory.voiceMedia).filter(
+        (dataUrl) => dataUrl === 'data:audio/mpeg;base64,QUJD',
+      ).length === 1,
+    'importing the current chat must pool voice audio once and store message references',
+  );
+  const danglingOpeningVoiceStorybook = structuredClone(openingHistoryStorybook);
+  danglingOpeningVoiceStorybook.openingHistory.voiceMedia = {};
+  const normalizedDanglingOpeningVoiceStorybook = parseRpStorybookJson(
+    JSON.stringify(danglingOpeningVoiceStorybook),
+  );
+  assertFixture(
+    normalizedDanglingOpeningVoiceStorybook.openingHistory.turns.every((turn) =>
+      [...turn.input.messages, ...turn.output.messages].every((message) => !message.voiceClips)
+    ) && Object.keys(normalizedDanglingOpeningVoiceStorybook.openingHistory.voiceMedia).length === 0,
+    'Storybook normalization must drop dangling Opening History voice references',
+  );
+  const orphanedOpeningVoiceStorybook = structuredClone(openingHistoryStorybook);
+  orphanedOpeningVoiceStorybook.openingHistory.voiceMedia['voice-999'] =
+    'data:audio/mpeg;base64,REVG';
+  const normalizedOrphanedOpeningVoiceStorybook = parseRpStorybookJson(
+    JSON.stringify(orphanedOpeningVoiceStorybook),
+  );
+  assertFixture(
+    normalizedOrphanedOpeningVoiceStorybook.openingHistory.voiceMedia['voice-999'] === undefined,
+    'Storybook normalization must remove unreferenced Opening History voice media',
   );
   openingHistoryNode.data.storybookJson = rpStorybookJsonText(openingHistoryStorybook);
   const restoredOpeningMessages = openingHistoryTurnsFromNodes([openingHistoryNode])
@@ -1752,8 +1872,10 @@ export function verifyWorkflowValidationFixtures() {
   );
   assertFixture(
     restoredRpImage?.imageAttachments?.[0]?.id === 'emily_miller_image_01' &&
+      restoredPhoneImage?.voiceClips?.[0]?.dataUrl === 'data:audio/mpeg;base64,QUJD' &&
+      restoredRpImage?.voiceClips?.[0]?.dataUrl === 'data:audio/mpeg;base64,QUJD' &&
       openingHistoryTurnsFromNodes([openingHistoryNode]).every((turn) => turn.openingHistory),
-    'RP Opening History turns must preserve image data and carry only turn-level origin metadata',
+    'RP Opening History turns must restore image and voice data and carry turn-level origin metadata',
   );
   const restoredOpeningTurns = openingHistoryTurnsFromNodes([openingHistoryNode]);
   const remappedOpeningTurns = remapOpeningTurnMessageIds(restoredOpeningTurns, 20).remappedTurns;
@@ -1787,10 +1909,16 @@ export function verifyWorkflowValidationFixtures() {
     'Opening History must carry social post ids, player likes, dynamic identities, and added users',
   );
 
-  assertFixture(isWorkflowFile(currentWorkflow), 'workflow.default.json must load');
   assertFixture(
-    currentWorkflow.formatVersion === currentWorkflowFormatVersion,
-    'workflow.default.json must declare its format version',
+    allBundledDefaultWorkflows.length === 2 &&
+      allBundledDefaultWorkflows.every(({ workflow }) => isWorkflowFile(workflow)),
+    'both bundled default workflows must load',
+  );
+  assertFixture(
+    allBundledDefaultWorkflows.every(
+      ({ workflow }) => workflow.formatVersion === currentWorkflowFormatVersion,
+    ),
+    'both bundled default workflows must declare the current format version',
   );
   const currentPromptSwitch = currentWorkflow.nodes.find(
     (node) => node.data.nodeType === 'llm-prompt-switch',
@@ -1857,14 +1985,20 @@ export function verifyWorkflowValidationFixtures() {
   );
   assertFixture(
       updatePhoneImageCaptionDefaults.runAfterReply &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('Image ID: {{imageId}}') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('Current caption: {{currentCaption}}') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('Caption status: {{captionStatus}}') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('Required imageAction: {{requiredImageAction}}') &&
       updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('"imageAction": "no_change"') &&
       updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('"imageId": "exact existing imageId"') &&
       updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('imageAction "no_change" is the default') &&
-      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('The visible phone reply is not new evidence by itself') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('An explicit factual confirmation in the visible phone reply is reliable new evidence') &&
+      updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('if the current caption says "a young man" and the reply confirms "that was Jack," replace "a young man" with Jack') &&
       updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('Forwarding or resending the existing image to another person must not trigger an update') &&
       updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('If there is no clear new fact') &&
+      !updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('The visible phone reply is not new evidence by itself') &&
       !updatePhoneImageCaptionDefaults.afterReplyTemplate.includes('the latest messages or the visible phone reply establish story-relevant new information'),
-    'after-reply phone image captions must default to no change unless explicit new facts materially change the image meaning',
+    'after-reply phone image captions must use explicit factual confirmations while rejecting guesses and cosmetic rewrites',
   );
   assertFixture(
     countPromptActionUses([
@@ -2092,6 +2226,31 @@ export function verifyWorkflowValidationFixtures() {
     }),
     'old workflow plus chat session containers must be rejected',
   );
+  const roundtripSharedImageDataUrl = 'data:image/jpeg;base64,c2hhcmVkLXBpeGVscw==';
+  const roundtripDeletedImageDataUrl = 'data:image/jpeg;base64,ZGVsZXRlZC1waXhlbHM=';
+  const roundtripLiteralMediaRefText = 'Literal rpgraph-data-ref:media-1 text must survive.';
+  const roundtripStorybookWithImages = (images: Array<{ id: string; dataUrl: string }>) =>
+    rpStorybookJsonText({
+      ...emptyRpStorybook,
+      title: 'Fixture Storybook',
+      introduction: roundtripLiteralMediaRefText,
+      characters: [{
+        id: 'storybook:character:alice',
+        name: 'Alice Harper',
+        description: 'Lead character',
+        personality: 'Curious',
+        speechStyle: 'Warm',
+        role: 'Main',
+        images: images.map((image) => ({
+          id: image.id,
+          name: image.id,
+          mimeType: 'image/jpeg' as const,
+          size: 16,
+          dataUrl: image.dataUrl,
+          description: `${image.id} description`,
+        })),
+      }],
+    });
   const roundtripRuntimeNodes = [{
     id: 'event-manager-1',
     type: 'workflow',
@@ -2115,13 +2274,15 @@ export function verifyWorkflowValidationFixtures() {
     type: 'workflow',
     position: { x: 200, y: 0 },
     data: {
-      nodeType: 'rp-storybook-v1',
+      nodeType: 'rp-storybook',
       label: 'Storybook',
       description: 'Storybook',
       preview: 'Ready',
       storybookJson: rpStorybookJsonText({
-        ...emptyRpStorybookV1,
-        title: 'Fixture Storybook',
+        ...emptyRpStorybook,
+        ...JSON.parse(roundtripStorybookWithImages([
+          { id: 'alice-1', dataUrl: roundtripSharedImageDataUrl },
+        ])) as typeof emptyRpStorybook,
         openingHistory: {
           summary: 'Opening event fixture',
           turns: [],
@@ -2134,6 +2295,7 @@ export function verifyWorkflowValidationFixtures() {
             sourceTurnId: 'turn-1',
             sourceTurnNumber: 1,
           }],
+          voiceMedia: {},
           socialLikes: { 'alex/fotogram': ['post-1'] },
           dynamicSocialUsers: {},
           socialConnections: {},
@@ -2171,10 +2333,13 @@ export function verifyWorkflowValidationFixtures() {
   const roundtripTurn = {
       id: 'turn-1',
       number: 1,
-      createdAt: '2026-06-01T00:00:00.000Z',
+      createdAt: '2026-06-01T11:55:00.000Z',
       openingHistory: true,
+      mode: 'auto-turn',
+      messageFormat: 3,
+      promptSlot: 2,
       input: {
-        graphText: 'Hello',
+        graphText: '[AUTO TURN] Hello',
         messages: [{
           id: 1,
           role: 'user',
@@ -2195,6 +2360,19 @@ export function verifyWorkflowValidationFixtures() {
           turnId: 'turn-1',
           turnNumber: 1,
           turnPart: 'output',
+          outputActionChoices: [{
+            kind: 'buttons',
+            prompt: 'How does Alice react?',
+            options: [
+              { label: 'Wave back', mode: 'submit' },
+              { label: 'Keep walking', mode: 'submit' },
+            ],
+          }],
+          outputActionInfoBoxes: [{
+            title: 'Harbor status',
+            text: 'The ferry arrives in ten minutes.',
+            tone: 'info',
+          }],
           workflowVariableSetCommands: [{
             name: 'Current Location',
             value: 'Old Harbor',
@@ -2259,6 +2437,12 @@ export function verifyWorkflowValidationFixtures() {
           phoneTo: 'Alice',
           phoneImageIds: ['bob_image_01'],
           phoneImageDescription: 'Bob waving from the bus stop.',
+          voiceClips: [{
+            speakerName: 'Bob',
+            text: 'Ping from Bob',
+            dataUrl: 'data:audio/mpeg;base64,QUJD',
+            source: 'phone',
+          }],
           turnId: 'turn-1',
           turnNumber: 1,
           turnPart: 'output',
@@ -2308,6 +2492,12 @@ export function verifyWorkflowValidationFixtures() {
             filename: 'bob-voice.mp3',
             source: 'dialogue',
             createdAt: '2026-06-01T00:00:00.000Z',
+          }, {
+            speakerName: null,
+            text: 'Bob waves from the bus stop. Alice pockets her phone.',
+            dataUrl: 'data:audio/mpeg;base64,QUJD',
+            filename: 'narration.mp3',
+            source: 'narration',
           }],
         }, {
           id: 8,
@@ -2354,6 +2544,19 @@ export function verifyWorkflowValidationFixtures() {
           },
           after: {
             eventProcessedTurnIds: ['turn-1'],
+          },
+        },
+        'storybook-1': {
+          before: {
+            storybookJson: roundtripStorybookWithImages([
+              { id: 'alice-1', dataUrl: roundtripSharedImageDataUrl },
+              { id: 'alice-2', dataUrl: roundtripDeletedImageDataUrl },
+            ]),
+          },
+          after: {
+            storybookJson: roundtripStorybookWithImages([
+              { id: 'alice-1', dataUrl: roundtripSharedImageDataUrl },
+            ]),
           },
         },
       },
@@ -2434,6 +2637,47 @@ export function verifyWorkflowValidationFixtures() {
     '2026-06-01T00:00:00.000Z',
   );
   assertFixture(isRpgraphSessionV2(sessionV2), 'RP Save Format v2 roundtrip payload must validate');
+  const serializedSessionV2 = JSON.stringify(sessionV2);
+  assertFixture(
+    // Once in the embedded workflow copy, once in the shared media pool; the
+    // runtime snapshot and both checkpoint copies must only hold references.
+    serializedSessionV2.split(roundtripSharedImageDataUrl).length - 1 === 2 &&
+      serializedSessionV2.split(roundtripDeletedImageDataUrl).length - 1 === 1 &&
+      Object.values(sessionV2.entities.mediaData ?? {}).includes(roundtripSharedImageDataUrl) &&
+      Object.values(sessionV2.entities.mediaData ?? {}).includes(roundtripDeletedImageDataUrl),
+    'RP Save Format v2 must pool checkpoint and runtime storybook media once',
+  );
+  const storedVoiceClips = sessionV2.timeline.flatMap((entry) =>
+    entry.kind === 'message' ? entry.voiceClips ?? [] : []
+  );
+  assertFixture(
+    storedVoiceClips.length === 3 &&
+      new Set(storedVoiceClips.map((clip) => clip.mediaRef)).size === 1 &&
+      serializedSessionV2.split('data:audio/mpeg;base64,QUJD').length - 1 === 1 &&
+      storedVoiceClips.every((clip) =>
+        !Object.prototype.hasOwnProperty.call(clip, 'dataUrl') &&
+        sessionV2.entities.mediaData?.[clip.mediaRef] === 'data:audio/mpeg;base64,QUJD'
+      ),
+    'RP Save Format v2 must store shared voice audio once and reference it from timeline clips',
+  );
+  const invalidMediaPoolSession = structuredClone(sessionV2);
+  invalidMediaPoolSession.entities.mediaData = { 'media-1': 'https://tracker.example/pixel.png' };
+  assertFixture(
+    !isRpgraphSessionV2(invalidMediaPoolSession),
+    'RP Save Format v2 must reject non-data media pool entries',
+  );
+  const danglingMediaRefSession = structuredClone(sessionV2);
+  delete danglingMediaRefSession.entities.mediaData;
+  let danglingMediaRefFailed = false;
+  try {
+    appStateFromSessionV2(danglingMediaRefSession);
+  } catch {
+    danglingMediaRefFailed = true;
+  }
+  assertFixture(
+    !isRpgraphSessionV2(danglingMediaRefSession) && danglingMediaRefFailed,
+    'RP Save Format v2 must reject and fail loading when a media reference has no pooled data',
+  );
   const missingSocialDirectorySession = structuredClone(sessionV2);
   delete (missingSocialDirectorySession.ui as Partial<typeof missingSocialDirectorySession.ui>)
     .dynamicSocialUsers;
@@ -2486,16 +2730,17 @@ export function verifyWorkflowValidationFixtures() {
     !!externalImageId && !isRpgraphSessionV2(externalImageSession),
     'RP Save Format v2 must reject non-data image URLs',
   );
-  const externalVoiceSession = structuredClone(sessionV2);
-  const externalVoiceEntry = externalVoiceSession.timeline.find(
+  const invalidVoiceMediaSession = structuredClone(sessionV2);
+  const invalidVoiceEntry = invalidVoiceMediaSession.timeline.find(
     (entry): entry is TimelineMessageEntry => entry.kind === 'message' && !!entry.voiceClips?.length,
   );
-  if (externalVoiceEntry?.voiceClips?.[0]) {
-    externalVoiceEntry.voiceClips[0].dataUrl = 'https://tracker.example/clip.mp3';
+  const invalidVoiceRef = invalidVoiceEntry?.voiceClips?.[0]?.mediaRef;
+  if (invalidVoiceRef) {
+    invalidVoiceMediaSession.entities.mediaData![invalidVoiceRef] = 'data:image/jpeg;base64,AA==';
   }
   assertFixture(
-    !!externalVoiceEntry && !isRpgraphSessionV2(externalVoiceSession),
-    'RP Save Format v2 must reject non-data voice clip URLs',
+    !!invalidVoiceRef && !isRpgraphSessionV2(invalidVoiceMediaSession),
+    'RP Save Format v2 must reject voice clip references that resolve to non-audio media',
   );
   const invalidEventSession = structuredClone(sessionV2);
   const invalidEventId = Object.keys(invalidEventSession.entities.events)[0];
@@ -2546,6 +2791,35 @@ export function verifyWorkflowValidationFixtures() {
   );
   assertFixture(restoredAppState.turns[0]?.output.messages[0]?.originalText === 'Hi there', 'RP Save Format v2 must restore output text');
   assertFixture(
+    restoredAppState.turns[0]?.mode === 'auto-turn' &&
+      restoredAppState.turns[0]?.messageFormat === 3 &&
+      restoredAppState.turns[0]?.promptSlot === 2 &&
+      restoredAppState.turns[0]?.createdAt === '2026-06-01T11:55:00.000Z' &&
+      restoredAppState.turns[0]?.input.graphText === '[AUTO TURN] Hello' &&
+      restoredAppState.turns[0]?.output.graphText === 'Hi there',
+    'RP Save Format v2 must restore turn mode, format, prompt slot, and graph text',
+  );
+  assertFixture(
+    restoredAppState.turns[0]?.output.messages[0]?.outputActionChoices?.[0]?.options[1]?.label === 'Keep walking' &&
+      restoredAppState.turns[0]?.output.messages[0]?.outputActionInfoBoxes?.[0]?.text ===
+        'The ferry arrives in ten minutes.',
+    'RP Save Format v2 must restore output action choices and info boxes',
+  );
+  assertFixture(
+    restoredAppState.openingMessages[0]?.turnId === undefined,
+    'RP Save Format v2 must not attach synthesized turn ids to loose opening messages',
+  );
+  const originalStorybookSnapshot = roundtripChat.turnCheckpoints[0]!.nodeSnapshots['storybook-1']!;
+  const restoredStorybookSnapshot = restoredAppState.turnCheckpoints[0]?.nodeSnapshots['storybook-1'];
+  assertFixture(
+    restoredStorybookSnapshot?.before.storybookJson === originalStorybookSnapshot.before.storybookJson &&
+      restoredStorybookSnapshot.after.storybookJson === originalStorybookSnapshot.after.storybookJson &&
+      restoredAppState.currentRuntime.nodes['storybook-1']?.storybookJson ===
+        roundtripRuntimeNodes[1]!.data.storybookJson &&
+      restoredStorybookSnapshot.before.storybookJson.includes(roundtripLiteralMediaRefText),
+    'RP Save Format v2 must rehydrate pooled media byte-identically without replacing literal reference-like text',
+  );
+  assertFixture(
     restoredAppState.turns[0]?.output.messages[0]?.workflowVariableSetCommands?.[0]?.value === 'Old Harbor',
     'RP Save Format v2 must restore output workflow variable metadata',
   );
@@ -2580,10 +2854,13 @@ export function verifyWorkflowValidationFixtures() {
   );
   assertFixture(
     embeddedPhoneRoundtripMessage?.voiceClips?.[0]?.dataUrl === 'data:audio/mpeg;base64,QUJD' &&
+      embeddedPhoneRoundtripMessage.voiceClips[1]?.source === 'narration' &&
+      embeddedPhoneRoundtripLinkedPhone?.voiceClips?.[0]?.source === 'phone' &&
+      embeddedPhoneRoundtripLinkedPhone.voiceClips[0]?.dataUrl === 'data:audio/mpeg;base64,QUJD' &&
       sessionV2.timeline.find(
         (entry): entry is TimelineMessageEntry => entry.kind === 'message' && entry.id === 'turn-1-output-6',
-      )?.voiceClips?.[0]?.source === 'dialogue',
-    'RP Save Format v2 must store and restore generated voice clips',
+      )?.voiceClips?.every((clip) => clip.mediaRef === storedVoiceClips[0]?.mediaRef) === true,
+    'RP Save Format v2 must restore dialogue, narration, and phone voice clips from media references',
   );
   assertFixture(restoredAppState.openingMessages[0]?.originalText === 'Opening line', 'RP Save Format v2 must restore opening messages');
   assertFixture(
@@ -2694,7 +2971,6 @@ export function verifyWorkflowValidationFixtures() {
   );
   const debugTurnSummary = debugTurnSummaryFromTurnRecord(
     roundtripChat.turns[0]!,
-    roundtripRuntimeNodes,
     sessionV2.runtime.undo[0],
   );
   assertFixture(
@@ -2789,6 +3065,21 @@ export function verifyWorkflowValidationFixtures() {
       viewerHasUnreadPhoneMessages(phoneInfo, 'Alice') &&
       !viewerHasUnreadPhoneMessages(phoneInfo, 'Bob'),
     'phone selectors must derive loaded seen state and viewer unread state',
+  );
+  const exchangeMessages = [10, 11, 12, 13].map((id) => ({
+    id,
+    role: 'output',
+    originalText: `Exchange ${id}`,
+    channel: 'phone',
+    phoneFrom: id % 2 === 0 ? 'Alice' : 'Bob',
+    phoneTo: id % 2 === 0 ? 'Bob' : 'Alice',
+  })) satisfies MessageRecord[];
+  const exchangeInfo = phoneConversationInfoFromMessages(exchangeMessages, {});
+  assertFixture(
+    exchangeInfo.get(aliceBobKey)?.unreadCount === 1 &&
+      exchangeInfo.get(aliceBobKey)?.unreadByRecipient.alice?.unreadCount === 1 &&
+      !exchangeInfo.get(aliceBobKey)?.unreadByRecipient.bob,
+    'phone replies must implicitly mark earlier conversation messages as read',
   );
   assertFixture(
     directPhoneTimelineEntries(phoneMessages)[0]?.phoneMessage.from === 'Alice' &&
@@ -3306,6 +3597,28 @@ export function verifyWorkflowValidationFixtures() {
       embeddedPhoneConversation.phoneMessages[1]?.message === 'Yes, on my way home.',
     'embedded phone parser must preserve multi-message conversations in order',
   );
+  const interleavedMessengerOutput = parseEmbeddedPhoneMessagesFromRpOutput([
+    'Helga fires off a parting shot.',
+    '{"fotogramApp":[{"from":"Helga Harper","to":"Troll872","message":"Stay mad!"}]}',
+    'Then she chases up her sister.',
+    '{"whatsUpApp":[{"from":"Helga Harper","to":"Espen Harper","message":"Hurry up!"}]}',
+  ].join('\n\n'));
+  assertFixture(
+    interleavedMessengerOutput.socialDirectMessages[0]?.sourceOrder === 0 &&
+      interleavedMessengerOutput.phoneMessages[0]?.sourceOrder === 1,
+    'messenger entries must record their source order across phone and social apps',
+  );
+  const streamingMessengerPreview = embeddedPhoneMessagesLivePreview([
+    'Helga fires off a parting shot.',
+    '{"fotogramApp":[{"from":"Helga Harper","to":"Troll872","message":"Stay mad!"}]}',
+    'Then she chases up her sister.',
+    '{"whatsUpApp":[{"from":"Helga Harper","to":"Espen Harper","message":"Hurry u',
+  ].join('\n\n'));
+  assertFixture(
+    streamingMessengerPreview.socialDirectMessages[0]?.sourceOrder === 0 &&
+      streamingMessengerPreview.phoneMessages[0]?.sourceOrder === 1,
+    'the streaming preview must number the open messenger object after every completed one',
+  );
   assertFixture(
     knownPromptCommandId('SIMULATE_AI_CHAT') === 'simulate_ai_chat' &&
       knownPromptCommandId('Simulate_ChatGPD') === 'simulate_ai_chat' &&
@@ -3321,13 +3634,29 @@ export function verifyWorkflowValidationFixtures() {
       formatPromptCommandTokens('@command:bank_transfer\n@COMMAND:simulate_chatgpd') ===
         '@command: Bank_transfer\n@command: Simulate_ChatGPD' &&
       replacePromptCommandTokensWithHints('@command: Simulate_ChatGPD') ===
-        '[commands: simulate_ai_chat]' &&
+        '[simulate_ai_chat: rough plan (who chats with ChatGPD and about what)]' &&
       formatPromptCommandTokens('@command:messenger_conversation') === '@command: Messenger_conversation' &&
       replacePromptCommandTokensWithHints('@command: Messenger_conversation') ===
-        '[commands: messenger_conversation]' &&
+        '[messenger_conversation: rough plan (app, both people, and what the exchange covers)]' &&
       formatPromptCommandTokens('@command:create_note') === '@command: Create_Note' &&
-      replacePromptCommandTokensWithHints('@command: Create_Note') === '[commands: create_note]',
+      replacePromptCommandTokensWithHints('@command: Create_Note') ===
+        '[create_note: rough plan (whose note and what it will contain)]',
     'prompt commands must accept flexible casing and spacing while preserving their internal command requests',
+  );
+  const inlineCommandRequest = parsePromptCommandRequest(
+    'Mia nods. [bank_transfer: Mia sends 40 dollars to Ryan] She taps her phone. [sighs]\n[commands: create_note]',
+  );
+  assertFixture(
+    inlineCommandRequest?.reply === 'Mia nods. She taps her phone. [sighs]' &&
+      inlineCommandRequest.requests.length === 2 &&
+      inlineCommandRequest.requests.some((request) =>
+        request.name === 'bank_transfer' && request.plan === 'Mia sends 40 dollars to Ryan',
+      ) &&
+      inlineCommandRequest.requests.some((request) =>
+        request.name === 'create_note' && request.plan === '',
+      ) &&
+      parsePromptCommandRequest('No commands here, only [bracketed: prose].') === undefined,
+    'inline command markers must be stripped with their plans while unknown brackets stay untouched',
   );
   const createdPhoneNoteOutput = parseEmbeddedPhoneMessagesFromRpOutput([
     'Sarah saves the plan in her Notes app.',
@@ -3791,7 +4120,7 @@ export function verifyWorkflowValidationFixtures() {
     'output action parser must preserve Storybook image ids',
   );
   const imageTransferStorybook = {
-    ...emptyRpStorybookV1,
+    ...emptyRpStorybook,
     characters: [
       {
         id: 'lara_miller',
@@ -4031,7 +4360,7 @@ export function verifyWorkflowValidationFixtures() {
     'existing own Storybook images must not be relabeled as received images',
   );
   const normalizedDuplicateIds = parseRpStorybookJson(JSON.stringify({
-    ...emptyRpStorybookV1,
+    ...emptyRpStorybook,
     characters: [{
       id: 'lara_miller',
       name: 'Lara Miller',
@@ -4065,8 +4394,165 @@ export function verifyWorkflowValidationFixtures() {
       (normalizedDuplicateIds.characters[0]?.images.length ?? 0),
     'storybook image normalization must avoid duplicate ids inside one character library',
   );
+  const normalizedGlobalImageIds = parseRpStorybookJson(JSON.stringify({
+    ...emptyRpStorybook,
+    characters: [
+      {
+        id: 'lara_miller',
+        name: 'Lara Miller',
+        description: '',
+        personality: '',
+        speechStyle: '',
+        role: '',
+        images: [{
+          id: 'lara_miller_image_01',
+          name: 'own.jpg',
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: 'data:image/jpeg;base64,own',
+          description: 'Lara owns this image.',
+        }],
+      },
+      {
+        id: 'robert_miller',
+        name: 'Robert Miller',
+        description: '',
+        personality: '',
+        speechStyle: '',
+        role: '',
+        images: [
+          {
+            id: 'lara_miller_image_01',
+            name: 'different.jpg',
+            mimeType: 'image/jpeg',
+            size: 1,
+            dataUrl: 'data:image/jpeg;base64,different',
+            description: 'A different received image.',
+            receivedFrom: 'Lara Miller',
+          },
+          {
+            id: 'lara_miller_image_01',
+            name: 'shared.jpg',
+            mimeType: 'image/jpeg',
+            size: 1,
+            dataUrl: 'data:image/jpeg;base64,own',
+            description: 'The same received image.',
+            receivedFrom: 'Lara Miller',
+          },
+        ],
+      },
+    ],
+  }));
+  const globalOwnImage = normalizedGlobalImageIds.characters[0]?.images[0];
+  const globalDifferentImage = normalizedGlobalImageIds.characters[1]?.images[0];
+  const globalSharedImage = normalizedGlobalImageIds.characters[1]?.images[1];
+  assertFixture(
+    globalOwnImage?.id === 'lara_miller_image_01' &&
+      globalDifferentImage?.id !== globalOwnImage.id &&
+      globalSharedImage?.id === globalOwnImage.id,
+    'storybook normalization must rename global image-id collisions while preserving deliberate copies of the same image',
+  );
+  const normalizedReceiverFirstImageIds = parseRpStorybookJson(JSON.stringify({
+    ...emptyRpStorybook,
+    characters: [
+      {
+        id: 'robert_miller',
+        name: 'Robert Miller',
+        description: '',
+        personality: '',
+        speechStyle: '',
+        role: '',
+        images: [{
+          id: 'lara_miller_image_01',
+          name: 'shared.jpg',
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: 'data:image/jpeg;base64,own',
+          description: 'The same received image.',
+          receivedFrom: 'Lara Miller',
+        }],
+      },
+      {
+        id: 'lara_miller',
+        name: 'Lara Miller',
+        description: '',
+        personality: '',
+        speechStyle: '',
+        role: '',
+        images: [{
+          id: 'lara_miller_image_01',
+          name: 'own.jpg',
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: 'data:image/jpeg;base64,own',
+          description: 'Lara owns this image.',
+        }],
+      },
+    ],
+  }));
+  assertFixture(
+    normalizedReceiverFirstImageIds.characters[0]?.images[0]?.id === 'lara_miller_image_01' &&
+      normalizedReceiverFirstImageIds.characters[1]?.images[0]?.id === 'lara_miller_image_01',
+    'an owner image must keep its id when an identical received copy is normalized first',
+  );
+  const normalizedStaleReceiverFirstImageIds = parseRpStorybookJson(JSON.stringify({
+    ...emptyRpStorybook,
+    characters: [
+      {
+        id: 'robert_miller',
+        name: 'Robert Miller',
+        description: '',
+        personality: '',
+        speechStyle: '',
+        role: '',
+        images: [{
+          id: 'lara_miller_image_01',
+          name: 'stale.jpg',
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: 'data:image/jpeg;base64,stale',
+          description: 'A stale received copy with different pixels.',
+          receivedFrom: 'Lara Miller',
+        }],
+      },
+      {
+        id: 'lara_miller',
+        name: 'Lara Miller',
+        description: '',
+        personality: '',
+        speechStyle: '',
+        role: '',
+        images: [{
+          id: 'lara_miller_image_01',
+          name: 'own.jpg',
+          mimeType: 'image/jpeg',
+          size: 1,
+          dataUrl: 'data:image/jpeg;base64,own',
+          description: 'Lara owns this image.',
+        }],
+      },
+    ],
+  }));
+  assertFixture(
+    normalizedStaleReceiverFirstImageIds.characters[1]?.images[0]?.id === 'lara_miller_image_01' &&
+      normalizedStaleReceiverFirstImageIds.characters[0]?.images[0]?.id === 'robert_miller_image_01',
+    'an owner image must keep its id when a stale received copy with different pixels precedes it',
+  );
+  const currentNodeImageSource = storybookImageSourceByIdFromNodes([{
+    id: 'current-storybook-image-fixture',
+    type: 'workflow',
+    position: { x: 0, y: 0 },
+    data: {
+      nodeType: 'rp-storybook',
+      storybookJson: rpStorybookJsonText(normalizedGlobalImageIds),
+    },
+  } as WorkflowNode], globalDifferentImage?.id);
+  assertFixture(
+    currentNodeImageSource?.image.dataUrl === 'data:image/jpeg;base64,different',
+    'current workflow nodes must resolve newly stored Storybook images without waiting for a render-time Storybook map refresh',
+  );
   const storybookWithFormattedTextImage = {
-    ...emptyRpStorybookV1,
+    ...emptyRpStorybook,
     characters: [{
       id: 'lara_miller',
       name: 'Lara Miller',
@@ -4112,6 +4598,16 @@ export function verifyWorkflowValidationFixtures() {
       incompleteLivePreview.phoneMessages[0]?.message === 'Please get',
     'embedded phone live preview must stream a message before its JSON object closes',
   );
+  const incompleteSocialLivePreview = embeddedPhoneMessagesLivePreview(
+    'Lara checks Fotogram.\n\n{"fotogramApp":[{"from":"Mia","to":"Lara","message":"Love this pho',
+  );
+  assertFixture(
+    incompleteSocialLivePreview.text === 'Lara checks Fotogram.' &&
+      incompleteSocialLivePreview.socialDirectMessages.length === 1 &&
+      incompleteSocialLivePreview.socialDirectMessages[0]?.app === 'fotogram' &&
+      incompleteSocialLivePreview.socialDirectMessages[0]?.text === 'Love this pho',
+    'embedded social messenger live preview must stream Fotogram messages before the JSON object closes',
+  );
   const fencedLivePreview = embeddedPhoneMessagesLivePreview(
     'Lara types.\n\n```json\n{"phoneMessages":[{"from":"Lara","to":"Robert","message":"Please get',
   );
@@ -4119,6 +4615,16 @@ export function verifyWorkflowValidationFixtures() {
     fencedLivePreview.text === 'Lara types.' &&
       fencedLivePreview.phoneMessages[0]?.message === 'Please get',
     'embedded phone live preview must stream messages inside an incomplete JSON fence',
+  );
+  const crossArrayLivePreview = embeddedPhoneMessagesLivePreview(
+    '{"whatsUpApp":[{"from":"Lara","to":"Robert","message":"On my way."}],' +
+      '"fotogramApp":[{"from":"Mia","to":"Robert","message":"Nice shot',
+  );
+  assertFixture(
+    crossArrayLivePreview.phoneMessages.length === 1 &&
+      crossArrayLivePreview.phoneMessages[0].from === 'Lara' &&
+      !crossArrayLivePreview.phoneMessages.some((entry) => entry.from === 'Mia'),
+    'embedded messenger live preview must not attribute a later app array to the first key',
   );
   assertFixture(
     formatAppointments([{
@@ -4215,7 +4721,7 @@ export function verifyWorkflowValidationFixtures() {
     memorySlotText: 'SECRET RP MEMORY',
     fullText: 'SECRET RP MEMORY',
   });
-  const storybook = workflowWithRuntimeData.nodes.find((node) => node.data.nodeType === 'rp-storybook-v1');
+  const storybook = workflowWithRuntimeData.nodes.find((node) => node.data.nodeType === 'rp-storybook');
   if (!storybook) {
     throw new Error('Workflow validation fixture failed: default workflow has no storybook');
   }
@@ -4286,7 +4792,7 @@ export function verifyWorkflowValidationFixtures() {
       !('eventLastResponse' in runtimeSnapshot.nodes[eventManager.id]!),
     'turn runtime snapshots must omit bounded debug prompt and response fields',
   );
-  const persistedStorybook = persistedWorkflow.nodes.find((node) => node.data.nodeType === 'rp-storybook-v1');
+  const persistedStorybook = persistedWorkflow.nodes.find((node) => node.data.nodeType === 'rp-storybook');
   assertFixture(
     !!persistedStorybook &&
       typeof persistedStorybook.data.storybookJson === 'string' &&
@@ -4508,14 +5014,14 @@ export function verifyWorkflowValidationFixtures() {
 
   const workflowWithOldStorybookNode = structuredClone(currentWorkflow);
   const oldStorybookNode = workflowWithOldStorybookNode.nodes.find(
-    (node) => node.data.nodeType === 'rp-storybook-v1',
+    (node) => node.data.nodeType === 'rp-storybook',
   );
   if (!oldStorybookNode) {
     throw new Error('Workflow validation fixture failed: missing storybook node');
   }
   oldStorybookNode.data.nodeDataVersion = '1.12.0';
   oldStorybookNode.data.storybookJson = JSON.stringify({
-    ...emptyRpStorybookV1,
+    ...emptyRpStorybook,
     version: '1.15.0',
   });
   assertFixture(
@@ -4526,12 +5032,12 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     oldStorybookHydrated.kind === 'incompatible-core-node' &&
       oldStorybookHydrated.nodeDataVersion === '1.12.0' &&
-      oldStorybookHydrated.currentNodeVersion === currentCoreNodeVersions['rp-storybook-v1'],
+      oldStorybookHydrated.currentNodeVersion === currentCoreNodeVersions['rp-storybook'],
     'an old storybook node must hydrate as an incompatible placeholder before parsing old storybook JSON',
   );
 
   const corruptedStorybookNode = structuredClone(oldStorybookNode);
-  corruptedStorybookNode.data.nodeDataVersion = currentCoreNodeVersions['rp-storybook-v1'];
+  corruptedStorybookNode.data.nodeDataVersion = currentCoreNodeVersions['rp-storybook'];
   corruptedStorybookNode.data.storybookJson = '{invalid json';
   assertThrowsFixture(
     () => hydrateNodeData(corruptedStorybookNode.data, versionHydrateContext),
@@ -4741,9 +5247,12 @@ export function verifyWorkflowValidationFixtures() {
       turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[0]?.text.includes('Older context sentence 1 about party planning.') === false &&
       turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[1]?.parts?.[1]?.actionInserted === true &&
       turnTrace.steps[1]?.promptAfter === undefined &&
-      turnTrace.steps[1]?.promptPasses?.[0]?.prompt.includes('First-pass plan:') === true &&
-      turnTrace.steps[2]?.promptPasses?.[0]?.prompt.includes('img-1: Sarah mirror selfie') === true,
-    'turn traces must identify the Prompt Switch route, include full action prompt passes, and excerpt long text input',
+      turnTrace.steps[1]?.promptPasses?.[0]?.sections?.some((section) => section.label === 'Text Input') === false &&
+      turnTrace.steps[1]?.promptPasses?.[0]?.sections?.some((section) => section.text.includes('First-pass plan:')) === true &&
+      turnTrace.steps[2]?.promptPasses?.[0]?.sections?.some((section) => section.label === 'Text Input') === false &&
+      turnTrace.steps[2]?.promptPasses?.[0]?.sections?.some((section) => section.text.includes('img-1: Sarah mirror selfie')) === true &&
+      (JSON.stringify(turnTrace).match(/"label":"Text Input"/g)?.length ?? 0) === 1,
+    'turn traces must identify the Prompt Switch route, include each action pass, and retain text input only once',
   );
   assertFixture(
     !!turnTrace.steps[0]?.warnings?.includes('Prompt slot fallback used.') &&
@@ -4758,7 +5267,7 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     turnTrace.warnings?.length === 1 &&
       turnTraceCopyPayload([turnTrace]).range.fromTurn === 40 &&
-      turnTraceCopyPayload([turnTrace]).version === 4 &&
+      turnTraceCopyPayload([turnTrace]).version === 5 &&
       turnTraceCopyPayload([turnTrace]).privacy === 'memory-only' &&
       JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Text Input excerpt: showing the last') &&
       !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Older context sentence 1 about party planning.') &&
@@ -4837,9 +5346,9 @@ async function verifyPromptRunFixtures() {
       type: 'workflow',
       position: { x: 0, y: 0 },
       data: {
-        nodeType: 'rp-storybook-v1',
+        nodeType: 'rp-storybook',
         storybookJson: JSON.stringify({
-          ...emptyRpStorybookV1,
+          ...emptyRpStorybook,
           characters: [{
             id: 'sarah-miller',
             name: 'Sarah Miller',
@@ -4924,6 +5433,162 @@ async function verifyPromptRunFixtures() {
     'image list action results must identify prior phone recipients with visible or hidden image text and warn against resending',
   );
 
+  const combinedCaptionImageId = 'helga_harper_image_06';
+  const combinedCaptionDescription = 'Helga poses in a mirror wearing a black top and grey sweatpants while getting ready for the party.';
+  const combinedCaptionImage = {
+    id: combinedCaptionImageId,
+    name: combinedCaptionImageId,
+    mimeType: 'image/jpeg',
+    size: 1,
+    dataUrl: 'data:image/jpeg;base64,combined-caption-input',
+  } as ChatImageAttachment;
+  const combinedCaptionRequests: Array<{
+    prompt: string;
+    images?: ChatImageAttachment[];
+  }> = [];
+  const combinedCaptionOutputs = [
+    '{"action":"get_image_id","plan":"Find Sarah Miller\'s party selfie before replying."}',
+    '{"action":"get_image_id","characters":"Sarah Miller","tags":"mirror, selfie, party, outfit, smiling, indoor, portrait, evening, phone, bedroom"}',
+    '{"whatsUpApp":[{"from":"Espen Harper","to":"Helga Harper","message":"I found the picture."}]}',
+    `{"action":"update_phone_image_caption","imageId":"${combinedCaptionImageId}","imageAction":"no_change"}`,
+  ];
+  const combinedCaptionWarnings: string[] = [];
+  const combinedCaptionContext = {
+    ...imageListContext,
+    edges: [],
+    comfyProviderIds: [],
+    providerHealthById: {},
+    retryFormatErrorsEnabled: true,
+    llm: {
+      supportsVision: async () => true,
+      complete: async ({ prompt, images }: {
+        prompt: string;
+        images?: ChatImageAttachment[];
+      }) => {
+        combinedCaptionRequests.push({ prompt, images });
+        return {
+          text: combinedCaptionOutputs.shift() ?? '',
+          connection: { label: 'Fixture LLM' },
+        };
+      },
+    },
+    reportWarning: (message: string) => combinedCaptionWarnings.push(message),
+    reportFormatResult: () => {},
+    updateRuntimeData: () => {},
+  } as unknown as ExecuteContext;
+  const combinedCaptionResult = await runActionAwarePrompt({
+    node: {
+      id: 'fixture-combined-image-actions',
+      data: { label: 'Combined image actions', connectionId: 'fixture-connection' },
+    } as WorkflowNode,
+    context: combinedCaptionContext,
+    inputValue: `Helga Harper sends an image to Espen Harper: [${combinedCaptionImageId}: ${combinedCaptionDescription}] Do you still have Sarah's picture?`,
+    images: [combinedCaptionImage],
+    referenceImages: [],
+    promptBefore: '',
+    promptAfter: [
+      'Reply with one phone message.',
+      '@action:Get character phone image list',
+      '@action:Update phone image caption (After Reply Action)',
+    ].join('\n\n'),
+    actionConfigs: [
+      defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+      defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption'),
+    ],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Combined image fixture',
+  });
+  const combinedReplayImages = combinedCaptionRequests[2]?.images ?? [];
+  const combinedAfterReplyImages = combinedCaptionRequests[3]?.images ?? [];
+  assertFixture(
+    combinedCaptionRequests.length === 4 &&
+      combinedReplayImages[0]?.id === sentImageId &&
+      combinedReplayImages[1]?.id === combinedCaptionImageId &&
+      combinedAfterReplyImages[0]?.id === sentImageId &&
+      combinedAfterReplyImages[1]?.id === combinedCaptionImageId &&
+      combinedCaptionRequests[2]?.prompt.includes(`Attached input image Nr2: ${combinedCaptionImageId}`) &&
+      combinedCaptionRequests[3]?.prompt.includes('Caption only the latest incoming phone input image: Attached input image Nr2.') &&
+      !combinedCaptionRequests[3]?.prompt.includes('this is normally Attached input image Nr1') &&
+      combinedCaptionWarnings.length === 0 &&
+      combinedCaptionResult.generatedText.includes('"imageAction": "no_change"'),
+    'combined image lookup and after-reply caption passes must keep action images first while labeling the real input image with its shifted number',
+  );
+
+  const generatedImage = {
+    id: 'generated_comfy_fixture_1',
+    name: 'generated.png',
+    mimeType: 'image/jpeg',
+    size: 1,
+    dataUrl: 'data:image/jpeg;base64,generated',
+  } as ChatImageAttachment;
+  const generatedCaptionRequests: Array<Parameters<NodeLlmApi['complete']>[0]> = [];
+  const generatedCaptionWarnings: string[] = [];
+  const generatedDescription = 'Sarah stands beside a rain-streaked window in a blue coat, looking outside under soft evening light.';
+  const describedGeneratedImages = await withGeneratedImageDescriptions({
+    images: [generatedImage],
+    generationPrompt: 'Sarah at a sunny beach wearing a red dress.',
+    llm: {
+      supportsVision: async () => true,
+      complete: async (request: Parameters<NodeLlmApi['complete']>[0]) => {
+        generatedCaptionRequests.push(request);
+        return {
+          text: generatedDescription,
+          connection: { label: 'Fixture LLM' },
+        };
+      },
+    } as unknown as Pick<NodeLlmApi, 'supportsVision' | 'complete'>,
+    connectionId: 'fixture-connection',
+    nodeId: 'fixture-prompt',
+    warn: (message) => generatedCaptionWarnings.push(message),
+  });
+  assertFixture(
+    describedGeneratedImages[0]?.description === generatedDescription &&
+      generatedCaptionRequests[0]?.images?.[0]?.dataUrl === generatedImage.dataUrl &&
+      generatedCaptionRequests[0]?.prompt.includes('Generation request: Sarah at a sunny beach wearing a red dress.') &&
+      generatedCaptionWarnings.length === 0,
+    'generated images must be described from their actual pixels instead of storing the generation request as their caption',
+  );
+  const generatedStorageStorybook = parseRpStorybookJson(JSON.stringify({
+    ...emptyRpStorybook,
+    characters: [{
+      id: 'lara_miller',
+      name: 'Lara Miller',
+      description: '',
+      personality: '',
+      speechStyle: '',
+      role: '',
+      images: [],
+    }],
+  }));
+  const storedGeneratedImage = withImagesEnsuredForStorybookCharacter(
+    generatedStorageStorybook,
+    'lara_miller',
+    describedGeneratedImages,
+    '',
+  ).images[0];
+  assertFixture(
+    storedGeneratedImage?.description === generatedDescription,
+    'generated image descriptions must survive Storybook storage when no shared fallback description is supplied',
+  );
+  let nonVisionCaptionCalls = 0;
+  const undescribedGeneratedImages = await withGeneratedImageDescriptions({
+    images: [generatedImage],
+    generationPrompt: 'An unverified generation request.',
+    llm: {
+      supportsVision: async () => false,
+      complete: async () => {
+        nonVisionCaptionCalls += 1;
+        throw new Error('A non-vision LLM must not receive image pixels.');
+      },
+    } as unknown as Pick<NodeLlmApi, 'supportsVision' | 'complete'>,
+    warn: () => {},
+  });
+  assertFixture(
+    nonVisionCaptionCalls === 0 && undescribedGeneratedImages[0]?.description === undefined,
+    'generated images must remain undescribed when the selected LLM cannot inspect their pixels',
+  );
+
   const warnings: string[] = [];
   const llmOutputs = [
     '{"action":"describe_input_image","caption":"Ryan and Espen share a look at the party."}',
@@ -4979,6 +5644,218 @@ async function verifyPromptRunFixtures() {
     'a premature after-reply caption call must keep the visible reply and append the image metadata',
   );
 
+  const describeCorrectionWarnings: string[] = [];
+  const describeCorrectionPrompts: string[] = [];
+  const describeCorrectionOutputs = [
+    'Espen laughs and hands the phone back.',
+    'Ryan and Espen share a look at the party.',
+    '{"action":"describe_input_image","caption":"Ryan and Espen share a look at the party."}',
+  ];
+  let describeCorrectionCalls = 0;
+  const describeCorrectionContext = {
+    ...context,
+    llm: {
+      supportsVision: async () => true,
+      complete: async ({ prompt }: { prompt: string }) => {
+        describeCorrectionCalls += 1;
+        describeCorrectionPrompts.push(prompt);
+        return {
+          text: describeCorrectionOutputs.shift() ?? '',
+          connection: { label: 'Fixture LLM' },
+        };
+      },
+    },
+    reportWarning: (message: string) => describeCorrectionWarnings.push(message),
+  } as unknown as ExecuteContext;
+  const describeCorrectionResult = await runActionAwarePrompt({
+    node,
+    context: describeCorrectionContext,
+    inputValue: 'Helga shows the picture.',
+    images: [{
+      id: 'img-1',
+      name: 'RP_Picture_01',
+      mimeType: 'image/png',
+      size: 1,
+      dataUrl: 'data:image/png;base64,a',
+    }],
+    referenceImages: [],
+    promptBefore: '',
+    promptAfter: 'Write the story.\n\n@action:Describe input image (After Reply Action)',
+    actionConfigs: [defaultPromptActionConfig('Describe input image', 'describeInputImage')],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Fixture call',
+  });
+  assertFixture(
+    describeCorrectionCalls === 3 &&
+      describeCorrectionWarnings.length === 0 &&
+      describeCorrectionPrompts[2]?.includes('previous internal image caption JSON was invalid') &&
+      describeCorrectionResult.generatedText.startsWith('Espen laughs and hands the phone back.') &&
+      describeCorrectionResult.generatedText.includes('"image": "Ryan and Espen share a look at the party."'),
+    'an invalid describe-input-image caption must trigger one focused correction pass without warnings',
+  );
+
+  const captionCorrectionWarnings: string[] = [];
+  const captionCorrectionPrompts: string[] = [];
+  const captionCorrectionOutputs = [
+    '{"whatsUpApp":[{"from":"Espen Harper","to":"Helga Harper","message":"You look ready."}]}',
+    '{"action":"update_phone_image_caption","imageId":"helga_harper_image_06","imageAction":"no_change"}',
+    '{"action":"update_phone_image_caption","imageId":"helga_harper_image_06","imageAction":"update","caption":"Helga Harper poses at home after finishing her makeup, ready for the party while Espen Harper is still buying drinks and snacks."}',
+  ];
+  let captionCorrectionCalls = 0;
+  const captionCorrectionContext = {
+    nodes: [],
+    edges: [],
+    historyMessages: [],
+    comfyProviderIds: [],
+    providerHealthById: {},
+    llm: {
+      supportsVision: async () => true,
+      complete: async ({ prompt }: { prompt: string }) => {
+        captionCorrectionCalls += 1;
+        captionCorrectionPrompts.push(prompt);
+        return {
+          text: captionCorrectionOutputs.shift() ?? '',
+          connection: { label: 'Fixture LLM' },
+        };
+      },
+    },
+    reportWarning: (message: string) => captionCorrectionWarnings.push(message),
+    updateRuntimeData: () => {},
+  } as unknown as ExecuteContext;
+  const captionCorrectionResult = await runActionAwarePrompt({
+    node,
+    context: captionCorrectionContext,
+    inputValue: 'Helga Harper sends an image to Espen Harper: [Attached input image Nr1: helga_harper_image_06] I am ready.',
+    images: [{
+      id: 'helga_harper_image_06',
+      name: 'helga_harper_image_06',
+      mimeType: 'image/jpeg',
+      size: 1,
+      dataUrl: 'data:image/jpeg;base64,new-phone-image',
+    }],
+    referenceImages: [],
+    promptBefore: '',
+    promptAfter: 'Reply with one phone message.\n\n@action:Update phone image caption (After Reply Action)',
+    actionConfigs: [defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption')],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Fixture call',
+  });
+  assertFixture(
+    captionCorrectionCalls === 3 &&
+      captionCorrectionWarnings.length === 0 &&
+      captionCorrectionPrompts[1]?.includes('Image ID: helga_harper_image_06') &&
+      captionCorrectionPrompts[1]?.includes('Current caption: (none)') &&
+      captionCorrectionPrompts[1]?.includes('Caption status: missing') &&
+      captionCorrectionPrompts[1]?.includes('Required imageAction: update') &&
+      captionCorrectionPrompts[2]?.includes('previous internal phone image caption JSON was invalid') &&
+      captionCorrectionResult.generatedText.includes('"imageAction": "update"') &&
+      captionCorrectionResult.generatedText.includes('Helga Harper poses at home'),
+    'an uncaptioned phone image must expose its concrete state and reject no_change with one focused correction pass',
+  );
+
+  const existingCaptionPrompts: string[] = [];
+  const existingCaptionOutputs = [
+    '{"whatsUpApp":[{"from":"Espen Harper","to":"Helga Harper","message":"Still looks good."}]}',
+    '{"action":"update_phone_image_caption","imageId":"helga_harper_image_06","imageAction":"no_change"}',
+  ];
+  let existingCaptionCalls = 0;
+  const existingCaptionContext = {
+    ...captionCorrectionContext,
+    llm: {
+      supportsVision: async () => true,
+      complete: async ({ prompt }: { prompt: string }) => {
+        existingCaptionCalls += 1;
+        existingCaptionPrompts.push(prompt);
+        return {
+          text: existingCaptionOutputs.shift() ?? '',
+          connection: { label: 'Fixture LLM' },
+        };
+      },
+    },
+  } as unknown as ExecuteContext;
+  const existingCaption = 'Helga Harper poses in a mirror wearing a black top and grey sweatpants while getting ready for the party.';
+  const existingCaptionResult = await runActionAwarePrompt({
+    node,
+    context: existingCaptionContext,
+    inputValue: `Helga Harper sends an image to Espen Harper: [helga_harper_image_06: ${existingCaption}] Still okay?`,
+    images: [{
+      id: 'helga_harper_image_06',
+      name: 'helga_harper_image_06',
+      mimeType: 'image/jpeg',
+      size: 1,
+      dataUrl: 'data:image/jpeg;base64,existing-phone-image',
+    }],
+    referenceImages: [],
+    promptBefore: '',
+    promptAfter: 'Reply with one phone message.\n\n@action:Update phone image caption (After Reply Action)',
+    actionConfigs: [defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption')],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Fixture call',
+  });
+  assertFixture(
+    existingCaptionCalls === 2 &&
+      existingCaptionPrompts[1]?.includes(`Current caption: ${existingCaption}`) &&
+      existingCaptionPrompts[1]?.includes('Caption status: present') &&
+      existingCaptionPrompts[1]?.includes('Required imageAction: no_change_or_update') &&
+      existingCaptionResult.generatedText.includes('"imageAction": "no_change"'),
+    'an existing phone image caption must be shown explicitly and accept no_change without a correction pass',
+  );
+
+  const wrongImageIdWarnings: string[] = [];
+  const wrongImageIdPrompts: string[] = [];
+  const wrongImageIdOutputs = [
+    '{"whatsUpApp":[{"from":"Espen Harper","to":"Helga Harper","message":"Nice one."}]}',
+    '{"action":"update_phone_image_caption","imageId":"some_other_image_02","imageAction":"no_change"}',
+    '{"action":"update_phone_image_caption","imageId":"helga_harper_image_06","imageAction":"no_change"}',
+  ];
+  let wrongImageIdCalls = 0;
+  const wrongImageIdContext = {
+    ...captionCorrectionContext,
+    llm: {
+      supportsVision: async () => true,
+      complete: async ({ prompt }: { prompt: string }) => {
+        wrongImageIdCalls += 1;
+        wrongImageIdPrompts.push(prompt);
+        return {
+          text: wrongImageIdOutputs.shift() ?? '',
+          connection: { label: 'Fixture LLM' },
+        };
+      },
+    },
+    reportWarning: (message: string) => wrongImageIdWarnings.push(message),
+  } as unknown as ExecuteContext;
+  const wrongImageIdResult = await runActionAwarePrompt({
+    node,
+    context: wrongImageIdContext,
+    inputValue: `Helga Harper sends an image to Espen Harper: [helga_harper_image_06: ${existingCaption}] Look again.`,
+    images: [{
+      id: 'helga_harper_image_06',
+      name: 'helga_harper_image_06',
+      mimeType: 'image/jpeg',
+      size: 1,
+      dataUrl: 'data:image/jpeg;base64,existing-phone-image',
+    }],
+    referenceImages: [],
+    promptBefore: '',
+    promptAfter: 'Reply with one phone message.\n\n@action:Update phone image caption (After Reply Action)',
+    actionConfigs: [defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption')],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Fixture call',
+  });
+  assertFixture(
+    wrongImageIdCalls === 3 &&
+      wrongImageIdWarnings.length === 0 &&
+      wrongImageIdPrompts[2]?.includes('RPGraph requires imageId "helga_harper_image_06"') &&
+      wrongImageIdPrompts[2]?.includes('no_change, or update only when explicit new context materially changes the existing caption') &&
+      wrongImageIdResult.generatedText.includes('"imageId": "helga_harper_image_06"') &&
+      wrongImageIdResult.generatedText.includes('"imageAction": "no_change"'),
+    'a caption call with a wrong imageId must trigger one correction pass that enforces the real imageId',
+  );
+
   const socialReplayPrompts: string[] = [];
   const socialReplayOutputs = [
     '{"onlyFriendsApp":[{"from":"Espen Harper","to":"@leo.parker","message":"Hello"}]}',
@@ -4990,9 +5867,9 @@ async function verifyPromptRunFixtures() {
       type: 'workflow',
       position: { x: 0, y: 0 },
       data: {
-        nodeType: 'rp-storybook-v1',
+        nodeType: 'rp-storybook',
         storybookJson: JSON.stringify({
-          ...emptyRpStorybookV1,
+          ...emptyRpStorybook,
           characters: [
             {
               id: 'espen-harper',
@@ -5058,6 +5935,217 @@ async function verifyPromptRunFixtures() {
       socialReplayResult.generatedText ===
         'Espen realizes that Leo is not on OnlyFriends and puts the phone away.',
     'invalid social accounts must discard the first output and replay the same prompt once with targeted context',
+  );
+
+  const planStepRequests: Array<{
+    prompt: string;
+    images?: Array<{ id: string }>;
+    stage?: LlmCallStage;
+  }> = [];
+  const planStepWarnings: string[] = [];
+  const planStepOutputs = [
+    '- Helga convinces Espen to lend her money (chance: 80%)\n- Espen storms off angrily (chance: 20%)',
+    'Helga grins as Espen finally hands over the bill.',
+  ];
+  const planInputImage = {
+    id: 'input_image_01',
+    name: 'Input image',
+    mimeType: 'image/jpeg' as const,
+    size: 1,
+    dataUrl: 'data:image/jpeg;base64,input',
+  };
+  const planReferenceImage = {
+    id: 'reference_image_01',
+    name: 'Reference image',
+    mimeType: 'image/jpeg' as const,
+    size: 1,
+    dataUrl: 'data:image/jpeg;base64,reference',
+  };
+  const planStepRandomValues = [0.99, 0];
+  const planStepContext = {
+    nodes: [],
+    edges: [],
+    historyMessages: [],
+    comfyProviderIds: [],
+    providerHealthById: {},
+    llm: {
+      supportsVision: async () => true,
+      complete: async (request: {
+        prompt: string;
+        images?: Array<{ id: string }>;
+        stage?: LlmCallStage;
+      }) => {
+        planStepRequests.push(request);
+        return { text: planStepOutputs.shift() ?? '', connection: { label: 'Fixture LLM' } };
+      },
+    },
+    reportWarning: (message: string) => planStepWarnings.push(message),
+    updateRuntimeData: () => {},
+  } as unknown as ExecuteContext;
+  const planStepResult = await runActionAwarePrompt({
+    node,
+    context: planStepContext,
+    inputValue: 'Helga tries to convince Espen.',
+    images: [planInputImage],
+    referenceImages: [{
+      index: 1,
+      imageId: planReferenceImage.id,
+      attachment: planReferenceImage,
+      messageId: 1,
+    }],
+    promptBefore: '',
+    promptAfter: [
+      '@step:planning',
+      'Plan the possible outcomes of the scene.',
+      'End every bullet with its probability as (chance: NN%).',
+      '@step:main',
+      'Write the scene as RP story text.',
+      'Here is the diced plan for this turn:',
+      '@output:planning',
+      'Keep the reply short.',
+    ].join('\n'),
+    actionConfigs: [],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Fixture call',
+    random: () => planStepRandomValues.shift() ?? 0.5,
+  });
+  const planStepPrompts = planStepRequests.map((request) => request.prompt);
+  assertFixture(
+    planStepPrompts.length === 2 &&
+      planStepRequests[0]?.stage?.kind === 'step' &&
+      planStepRequests[0].stage.name === 'planning' &&
+      planStepRequests[1]?.stage?.kind === 'step' &&
+      planStepRequests[1].stage.name === 'main' &&
+      planStepPrompts[0]?.includes('Plan the possible outcomes of the scene.') === true &&
+      planStepPrompts[0]?.includes('End every bullet with its probability as (chance: NN%).') === true &&
+      !planStepPrompts[0]?.includes('Write the scene as RP story text.'),
+    'a @step:planning section must run as a structured separate pass without the main prompt',
+  );
+  assertFixture(
+    planStepRequests.every((request) =>
+      request.images?.map((image) => image.id).join(',') ===
+        'input_image_01,reference_image_01' &&
+      request.prompt.includes('[Attached input image Nr1: input_image_01]') &&
+      request.prompt.includes('[Attached input image Nr2: reference_image_01]')
+    ),
+    'planning and main passes must both receive vision-enabled input and reference images in prompt order',
+  );
+  const planStepMainPrompt = planStepPrompts[1] ?? '';
+  assertFixture(
+    planStepMainPrompt.includes('(chance: 80%: CLEAR SUCCESS, this happens decisively; skip any otherwise-part)') &&
+      planStepMainPrompt.includes('(chance: 20%: BADLY FAILED, this goes thoroughly wrong; the otherwise-part happens emphatically)') &&
+      planStepMainPrompt.indexOf('Write the scene as RP story text.') <
+        planStepMainPrompt.indexOf('Here is the diced plan for this turn:') &&
+      planStepMainPrompt.indexOf('Here is the diced plan for this turn:') <
+        planStepMainPrompt.indexOf('(chance: 80%: CLEAR SUCCESS') &&
+      planStepMainPrompt.indexOf('(chance: 20%: BADLY FAILED') <
+        planStepMainPrompt.indexOf('Keep the reply short.') &&
+      !planStepMainPrompt.includes('@output:planning') &&
+      !planStepMainPrompt.includes('@step:') &&
+      !planStepMainPrompt.includes('Plan the possible outcomes of the scene.'),
+    'the diced plan must replace the @output:planning token inside the main prompt',
+  );
+  assertFixture(
+    planStepWarnings.length === 0 &&
+      planStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.' &&
+      planStepResult.debug.promptPasses?.length === 2 &&
+      planStepResult.debug.promptPasses[1]?.label === 'Step main' &&
+      planStepResult.debug.promptPasses[1]?.sections?.some((section) =>
+        section.parts?.some((part) =>
+          part.stepOutputInserted === 'planning' &&
+          part.text.includes('(chance: 80%: CLEAR SUCCESS'),
+        ),
+      ) === true &&
+      planStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
+        'Step planning output,Step main output',
+    'a two-step prompt must return the main reply and keep trace prompt/output passes aligned',
+  );
+
+  const multiStepRequests: string[] = [];
+  const multiStepWarnings: string[] = [];
+  const multiStepOutputs = [
+    '- Helga convinces Espen to lend her money (chance: 80%)\n- Her phone battery is at 20%',
+    'Helga grinst, als Espen ihr endlich den Schein reicht.',
+    'Helga grins as Espen finally hands over the bill.',
+  ];
+  const multiStepContext = {
+    nodes: [],
+    edges: [],
+    historyMessages: [],
+    comfyProviderIds: [],
+    providerHealthById: {},
+    llm: {
+      supportsVision: async () => false,
+      complete: async (request: { prompt: string }) => {
+        multiStepRequests.push(request.prompt);
+        return { text: multiStepOutputs.shift() ?? '', connection: { label: 'Fixture LLM' } };
+      },
+    },
+    reportWarning: (message: string) => multiStepWarnings.push(message),
+    updateRuntimeData: () => {},
+  } as unknown as ExecuteContext;
+  const multiStepResult = await runActionAwarePrompt({
+    node,
+    context: multiStepContext,
+    inputValue: 'Helga tries to convince Espen.',
+    images: [],
+    referenceImages: [],
+    promptBefore: '',
+    promptAfter: [
+      '@step:planning',
+      'Plan the outcome with a probability as (chance: NN%).',
+      '@step:draft',
+      'Write the scene in German based on this plan:',
+      '@output:planning',
+      '@step:translation',
+      'Translate the following scene to English:',
+      '@output:draft',
+    ].join('\n'),
+    actionConfigs: [],
+    streamsVisibleOutput: false,
+    contributesToTokenCalibration: false,
+    callLabel: () => 'Fixture call',
+    random: () => 0.99,
+  });
+  assertFixture(
+    multiStepRequests.length === 3 &&
+      multiStepRequests[1]?.includes('Write the scene in German based on this plan:') === true &&
+      multiStepRequests[1]?.includes('(chance: 80%: CLEAR SUCCESS') === true &&
+      multiStepRequests[1]?.includes('- Her phone battery is at 20%') === true &&
+      !multiStepRequests[1]?.includes('20%:') &&
+      !multiStepRequests[1]?.includes('Translate the following scene to English:') &&
+      multiStepRequests[2]?.includes('Translate the following scene to English:') === true &&
+      multiStepRequests[2]?.includes('Helga grinst, als Espen ihr endlich den Schein reicht.') === true &&
+      !multiStepRequests[2]?.includes('@output:draft') &&
+      multiStepWarnings.length === 0 &&
+      multiStepResult.generatedText === 'Helga grins as Espen finally hands over the bill.' &&
+      multiStepResult.debug.outputPasses?.map((pass) => pass.label).join(',') ===
+        'Step planning output,Step draft output,Step translation output',
+    'custom @step names must chain intermediate outputs into later steps and stream only the last step',
+  );
+  const promptSwitchCallDisplayData = {
+    nodeType: 'llm-prompt-switch',
+    label: 'LLM Prompt Switch',
+    description: '',
+    preview: '',
+    llmPromptSwitchOutputTitles: ['Messenger Apps'],
+    llmPromptSwitchPromptTitlesByOutput: [['WhatsUp Prompt No Image']],
+    llmPromptSwitchSelectedOutputChannel: 0,
+    llmPromptSwitchSelectedPromptSlot: 0,
+  } as WorkflowNodeData;
+  assertFixture(
+    promptSwitchRouteLabel(promptSwitchCallDisplayData) ===
+      'Messenger Apps / WhatsUp Prompt No Image' &&
+      llmCallStageLabel({ kind: 'step', name: 'planning' }, '') === 'Step: Planning' &&
+      llmCallStageLabel({ kind: 'step', name: 'main' }, '') === 'Step: Main' &&
+      llmCallStageLabel({ kind: 'step', name: 'translation', replay: 2 }, '') ===
+        'Step: Translation · Replay 2' &&
+      llmCallStageLabel({ kind: 'action', name: 'Create character phone image' }, '') ===
+        'Action: Create character phone image' &&
+      llmCallStageLabel({ kind: 'command', name: 'Bank transfer' }, '') ===
+        'Command: Bank transfer',
+    'prompt switch call display labels must keep one route heading and concise stage names',
   );
 
   const runStreamingScenario = async (llmTexts: string[]) => {
@@ -5195,7 +6283,7 @@ async function verifyPromptRunFixtures() {
     embeddedPhoneMessagesLivePreview(chunk)
   );
   assertFixture(
-    stripAutoplayPlanBlocksFromStream('[[Ryan checks whether Espen') === '' &&
+    stripPlanBlocksFromStream('[[Ryan checks whether Espen') === '' &&
       autoplayStreamPreviewText('[[Ryan checks whether Espen') === undefined &&
       autoplayStreamPreviewText('{"bankTransfers":[') === undefined &&
       autoplayStreamPreviewText('Ryan gets dressed and checks the time.') ===
@@ -5203,7 +6291,9 @@ async function verifyPromptRunFixtures() {
       streamableCommandChunks.every((chunk) => !chunk.includes('[[Ryan')) &&
       streamedCommandPreviews.some((preview) => preview.phoneMessages.length === 1) &&
       streamedCommandPreviews.some((preview) => preview.phoneMessages.length === 2) &&
-      commandStreamResult.generatedText.includes('"whatsUpApp"'),
+      commandStreamResult.generatedText.includes('"whatsUpApp"') &&
+      !commandStreamResult.generatedText.includes('[[') &&
+      commandChunks.every((chunk) => !chunk.includes('[[')),
     'a requested messenger command must stream standalone conversation messages one by one',
   );
 }
@@ -5881,7 +6971,7 @@ export function verifyRpStorybookEditorFixtures() {
   // Source recognition: both storybook node types are peers; others / incompatible are not.
   const asNode = (nodeType: string, kind?: string) =>
     ({ data: { nodeType, ...(kind ? { kind } : {}) } }) as unknown as WorkflowNode;
-  assertFixture(isStorybookSourceNode(asNode('rp-storybook-v1')), 'rp-storybook-v1 is a storybook source');
+  assertFixture(isStorybookSourceNode(asNode('rp-storybook')), 'rp-storybook is a storybook source');
   assertFixture(isStorybookSourceNode(asNode('rp-storybook-editor')), 'rp-storybook-editor is a storybook source');
   assertFixture(!isStorybookSourceNode(asNode('llm-prompt')), 'a non-storybook node is not a source');
   assertFixture(

@@ -3,8 +3,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useUpdateNodeInternals } from '@xyflow/react';
 import type { WorkflowNode } from '../../types';
 import { llmPromptSwitchPromptTitles } from '../../workflow';
-
-const inputTransformCallLabels = new Set(['Translate', 'Act RP', 'Act Phone']);
+import { llmCallStageLabel, promptSwitchRouteLabel } from '../../llm/callDisplay';
 
 export function runStateClassName(data: WorkflowNode['data']) {
   if (data.runError) {
@@ -54,7 +53,7 @@ function formatCallDuration(durationMs: number) {
 function getExpectedCallLabels(data: WorkflowNode['data']): string[] {
   switch (data.nodeType) {
     case 'input':
-      return [];
+      return ['Translate'];
     case 'custom':
       return ['Custom Node LLM'];
     case 'llm-prompt':
@@ -95,44 +94,52 @@ function getExpectedCallLabels(data: WorkflowNode['data']): string[] {
 export function LlmCallMetrics({ data }: { data: WorkflowNode['data'] }) {
   const expectedLabels = getExpectedCallLabels(data);
   const actualStats = data.llmCallStats ?? [];
-  if (data.nodeType === 'input') {
-    const actual = actualStats.find((stats) => inputTransformCallLabels.has(stats.label));
-    const label = actual?.label ?? 'Translate';
-    return (
-      <div className="llm-call-metrics">
-        <div className="llm-call-metric input-transform">
-          <strong>{label}</strong>
-          <span>IN {actual?.inputTokens !== undefined ? actual.inputTokens : '?'}</span>
-          <span>OUT {actual?.outputTokens !== undefined ? actual.outputTokens : '?'}</span>
-          {actual?.reasoningTokens !== undefined && actual.reasoningTokens > 0 && (
-            <span>RSN {actual.reasoningTokens}</span>
-          )}
-          <span>{actual?.durationMs !== undefined ? formatCallDuration(actual.durationMs) : '? s'}</span>
-        </div>
-      </div>
-    );
-  }
+  const displayStats = data.nodeType === 'input' && actualStats.length > 0
+    ? [{ ...actualStats[actualStats.length - 1], label: 'Translate' }]
+    : actualStats;
+  const hasReasoning = displayStats.some((stats) => (stats.reasoningTokens ?? 0) > 0);
+  const activeLabel = data.nodeType === 'input' && data.llmActiveCallLabel
+    ? 'Translate'
+    : data.llmActiveCallLabel;
+  const routeLabel = promptSwitchRouteLabel(data);
+  const effectiveExpectedLabels = data.nodeType === 'llm-prompt-switch' ? [] : expectedLabels;
   const labels = [
-    ...expectedLabels,
-    ...actualStats.flatMap((stats) => expectedLabels.includes(stats.label) ? [] : [stats.label]),
+    ...effectiveExpectedLabels,
+    ...displayStats.flatMap((stats) => effectiveExpectedLabels.includes(stats.label) ? [] : [stats.label]),
+    ...(activeLabel && !displayStats.some((stats) => stats.label === activeLabel) ? [activeLabel] : []),
   ];
-  if (labels.length === 0) {
+  if (labels.length === 0 && !routeLabel) {
     return null;
   }
 
   return (
     <div className="llm-call-metrics">
+      {routeLabel && <strong className="llm-call-route">{routeLabel}</strong>}
       {labels.map((label) => {
-        const actual = actualStats.find((stats) => stats.label === label);
+        const actual = displayStats.find((stats) => stats.label === label);
+        const displayLabel = llmCallStageLabel(
+          actual?.stage ?? (label === activeLabel ? data.llmActiveCallStage : undefined),
+          label,
+        );
         return (
-          <div className="llm-call-metric" key={label}>
-            <strong>{label}</strong>
-            <span>IN {actual?.inputTokens !== undefined ? actual.inputTokens : '?'}</span>
-            <span>OUT {actual?.outputTokens !== undefined ? actual.outputTokens : '?'}</span>
-            {actual?.reasoningTokens !== undefined && actual.reasoningTokens > 0 && (
-              <span>RSN {actual.reasoningTokens}</span>
+          <div
+            className={`llm-call-metric${hasReasoning ? ' llm-call-metric-with-reasoning' : ''}`}
+            key={label}
+            title={label}
+          >
+            <strong>{displayLabel}</strong>
+            <span className="llm-metric-in">IN {actual?.inputTokens !== undefined ? actual.inputTokens : '?'}</span>
+            <span className="llm-metric-out">OUT {actual?.outputTokens !== undefined ? actual.outputTokens : '?'}</span>
+            {hasReasoning && (
+              <span className="llm-metric-reasoning">
+                {actual?.reasoningTokens !== undefined && actual.reasoningTokens > 0
+                  ? `RSN ${actual.reasoningTokens}`
+                  : ''}
+              </span>
             )}
-            <span>{actual?.durationMs !== undefined ? formatCallDuration(actual.durationMs) : '? s'}</span>
+            <span className="llm-metric-duration">
+              {actual?.durationMs !== undefined ? formatCallDuration(actual.durationMs) : '? s'}
+            </span>
           </div>
         );
       })}

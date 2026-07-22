@@ -1,4 +1,4 @@
-import { parseNodeStorybookJson } from '../nodes/rp-storybook-v1/model';
+import { parseNodeStorybookJson } from '../nodes/rp-storybook/model';
 import { isStorybookSourceNode } from '../storybook/runtime';
 import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
 import { rpPictureGalleryId } from './rpPictures';

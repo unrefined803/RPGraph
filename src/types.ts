@@ -217,8 +217,15 @@ export type LlmCallStats = {
   durationMs: number;
 };
 
+export type LlmCallStage =
+  | { kind: 'step'; name: string; replay?: number }
+  | { kind: 'action'; name: string; correction?: boolean }
+  | { kind: 'command'; name?: string; correction?: boolean }
+  | { kind: 'correction'; name: string };
+
 export type NodeLlmCallStats = LlmCallStats & {
   label: string;
+  stage?: LlmCallStage;
 };
 
 export type SettingsValueEntry = {
@@ -297,7 +304,11 @@ type WorkflowNodeCommonFields = {
   currentNodeVersion?: NodeVersion;
   portsSnapshot?: PortSnapshot[];
   runActive?: boolean;
+  runActiveStartedAtMs?: number;
   runVisionActive?: boolean;
+  llmActiveCallLabel?: string;
+  llmActiveCallStage?: LlmCallStage;
+  llmActiveCallStartedAtMs?: number;
   runCompleted?: boolean;
   runPrepared?: boolean;
   runError?: string;
@@ -490,7 +501,7 @@ type CombinerNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'combiner' };
 type TextReplaceNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'text-replace' };
 type CharacterStatsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'character-stats' };
 type OutputNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'output' };
-type RpStorybookV1NodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook-v1' };
+type RpStorybookNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook' };
 type RpStorybookEditorNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook-editor' };
 type PhoneAppsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'phone-apps' };
 
@@ -521,7 +532,7 @@ type ConcreteCoreWorkflowNodeData =
   | TextReplaceNodeData
   | CharacterStatsNodeData
   | OutputNodeData
-  | RpStorybookV1NodeData
+  | RpStorybookNodeData
   | RpStorybookEditorNodeData
   | PhoneAppsNodeData;
 
@@ -553,6 +564,10 @@ export type EmbeddedPhoneMessageLink = {
   to: string;
   message: string;
   translatedMessage?: string;
+  /** Temporary attachments shown before a streamed phone record is persisted. */
+  previewImageAttachments?: ChatImageAttachment[];
+  /** Position among all messenger entries of the RP output, in source order. */
+  sourceOrder?: number;
 };
 
 export type EmbeddedSocialMessageLink = {
@@ -562,6 +577,8 @@ export type EmbeddedSocialMessageLink = {
   to: string;
   message: string;
   translatedMessage?: string;
+  /** Position among all messenger entries of the RP output, in source order. */
+  sourceOrder?: number;
 };
 
 export type SocialDirectMessageOpenRequest = {
@@ -661,6 +678,9 @@ export type BankTransferRecord = {
 };
 
 export type SocialAppKind = 'fotogram' | 'onlyfriends';
+
+/** Unread incoming DM count and tip sum per lowercased partner handle. */
+export type SocialDmUnreadByHandle = Record<string, { count: number; tipTotal: number }>;
 
 /** A direct message sent inside one social app; persisted on the timeline message. */
 export type SocialDirectMessageRecord = {

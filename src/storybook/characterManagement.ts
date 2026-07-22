@@ -1,13 +1,13 @@
-import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
+import type { RpStorybook } from '../nodes/rp-storybook/model';
 
 function withoutRecordKey<T>(record: Record<string, T>, removedKey: string) {
   return Object.fromEntries(Object.entries(record).filter(([key]) => key !== removedKey));
 }
 
 export function storybookWithoutCharacter(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   characterId: string,
-): RpStorybookV1 {
+): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.filter((character) => character.id !== characterId),

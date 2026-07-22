@@ -1,4 +1,4 @@
-import type { ConnectionPreset, LlmCallStats } from '../types';
+import type { ConnectionPreset, LlmCallStage, LlmCallStats } from '../types';
 import type { CalibrationSample, NodeLlmRequest, NodeLlmResult } from './types';
 
 type NodeLlmApiOptions = {
@@ -7,9 +7,17 @@ type NodeLlmApiOptions = {
     purpose?: string,
     signal?: AbortSignal,
   ) => Promise<ConnectionPreset>;
-  recordCall?: (nodeId: string, label: string, stats: LlmCallStats, metadata?: { startedAtMs: number }) => void;
+  recordCall?: (
+    nodeId: string,
+    label: string,
+    stats: LlmCallStats,
+    metadata?: { startedAtMs: number; stage?: LlmCallStage },
+  ) => void;
   recordCalibrationSample?: (sample: CalibrationSample) => void;
-  onCallStart?: (nodeId: string, metadata: { hasImages: boolean }) => void;
+  onCallStart?: (
+    nodeId: string,
+    metadata: { hasImages: boolean; label: string; stage?: LlmCallStage; startedAtMs: number },
+  ) => void;
   onCallEnd?: (nodeId: string) => void;
   signal?: AbortSignal;
 };
@@ -37,7 +45,10 @@ export class NodeLlmApi {
   }
 
   withCallLifecycle(
-    onCallStart: (nodeId: string, metadata: { hasImages: boolean }) => void,
+    onCallStart: (
+      nodeId: string,
+      metadata: { hasImages: boolean; label: string; stage?: LlmCallStage; startedAtMs: number },
+    ) => void,
     onCallEnd: (nodeId: string) => void,
   ) {
     return new NodeLlmApi({
@@ -78,7 +89,12 @@ export class NodeLlmApi {
       );
       const images = connection.vision ? request.images : undefined;
       if (request.nodeId) {
-        this.options.onCallStart?.(request.nodeId, { hasImages: (images?.length ?? 0) > 0 });
+        this.options.onCallStart?.(request.nodeId, {
+          hasImages: (images?.length ?? 0) > 0,
+          label: request.label,
+          stage: request.stage,
+          startedAtMs,
+        });
       }
       // Connection sampling settings are opt-in: only the story prompt
       // (LLM Prompt / LLM Prompt Switch) follows them. Every other call keeps
@@ -119,7 +135,10 @@ export class NodeLlmApi {
           );
 
       if (request.nodeId) {
-        this.options.recordCall?.(request.nodeId, request.label, completion.stats, { startedAtMs });
+        this.options.recordCall?.(request.nodeId, request.label, completion.stats, {
+          startedAtMs,
+          stage: request.stage,
+        });
       }
       if (request.contributesToTokenCalibration) {
         this.options.recordCalibrationSample?.({ prompt: request.prompt, stats: completion.stats });

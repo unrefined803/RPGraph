@@ -1,4 +1,4 @@
-import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
+import type { RpStorybook } from '../nodes/rp-storybook/model';
 import type { MessageRecord } from '../types';
 
 export function storybookImageIdsUsedByMessages(messages: MessageRecord[]) {
@@ -53,11 +53,11 @@ export function withStorybookImageDescriptions(
 }
 
 export function usedStorybookImageIdsRemoved(
-  currentStorybook: RpStorybookV1,
-  nextStorybook: RpStorybookV1,
+  currentStorybook: RpStorybook,
+  nextStorybook: RpStorybook,
   usedImageIds: ReadonlySet<string>,
 ) {
-  const imageIdCounts = (storybook: RpStorybookV1) => {
+  const imageIdCounts = (storybook: RpStorybook) => {
     const counts = new Map<string, number>();
     storybook.characters.forEach((character) => {
       character.images.forEach((image) => {

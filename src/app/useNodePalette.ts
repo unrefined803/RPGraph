@@ -93,7 +93,7 @@ const nodePaletteGroups: Array<{
   },
   {
     title: 'Story Context',
-    types: ['rp-storybook-v1', 'rp-storybook-editor', 'context-builder'],
+    types: ['rp-storybook', 'rp-storybook-editor', 'context-builder'],
   },
 ];
 
@@ -280,8 +280,8 @@ export function useNodePalette({
   function nodeTypeUnavailable(nodeType: AddNodeType) {
     const definition = getRegisteredCoreNode(nodeType);
     // Storybook sources are mutually exclusive: a graph holds at most one, be it
-    // `rp-storybook-v1` or `rp-storybook-editor` (never both, never two).
-    if (nodeType === 'rp-storybook-v1' || nodeType === 'rp-storybook-editor') {
+    // `rp-storybook` or `rp-storybook-editor` (never both, never two).
+    if (nodeType === 'rp-storybook' || nodeType === 'rp-storybook-editor') {
       return nodes.some(isStorybookSourceNode);
     }
     return (

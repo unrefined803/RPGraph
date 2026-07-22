@@ -120,14 +120,14 @@ describe('buildUpgradedNode', () => {
   });
 
   it('falls back to fresh defaults when stored data is malformed', () => {
-    const node = incompatibleNode('rp-storybook-v1', { storybookJson: 'not json' });
+    const node = incompatibleNode('rp-storybook', { storybookJson: 'not json' });
     let result: WorkflowNode | null = null;
     expect(() => {
       result = buildUpgradedNode(node, { createContext, hydrateContext });
     }).not.toThrow();
 
     expect(result!.data.kind).toBeUndefined();
-    expect(result!.data.nodeType).toBe('rp-storybook-v1');
+    expect(result!.data.nodeType).toBe('rp-storybook');
   });
 
   it('returns null for an unregistered node type', () => {
@@ -142,13 +142,13 @@ describe('buildUpgradedNode', () => {
 
 describe('storybookOrSingletonUpgradeConflict', () => {
   it('flags upgrading a storybook source when a live source already exists', () => {
-    const incompatible = incompatibleNode('rp-storybook-v1');
+    const incompatible = incompatibleNode('rp-storybook');
     const live = liveNode('rp-storybook-editor');
     expect(storybookOrSingletonUpgradeConflict(incompatible, [incompatible, live])).toBe(true);
   });
 
   it('allows upgrading a storybook source when no live source exists', () => {
-    const incompatible = incompatibleNode('rp-storybook-v1');
+    const incompatible = incompatibleNode('rp-storybook');
     expect(storybookOrSingletonUpgradeConflict(incompatible, [incompatible])).toBe(false);
   });
 

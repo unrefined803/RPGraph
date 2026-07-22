@@ -1,5 +1,5 @@
 import type { RpAppointment, WorkflowNode } from '../types';
-import { parseRpStorybookJson } from '../nodes/rp-storybook-v1/model';
+import { parseRpStorybookJson } from '../nodes/rp-storybook/model';
 import { isStorybookSourceNode } from '../storybook/runtime';
 import {
   appointmentFromEventEntity,

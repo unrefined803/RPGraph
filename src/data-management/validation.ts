@@ -84,7 +84,9 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
         isRecord(clip) &&
         (typeof clip.speakerName === 'string' || clip.speakerName === null) &&
         typeof clip.text === 'string' &&
-        isAudioDataUrl(clip.dataUrl) &&
+        typeof clip.mediaRef === 'string' &&
+        /^media-\d+$/.test(clip.mediaRef) &&
+        clip.dataUrl === undefined &&
         (clip.filename === undefined || typeof clip.filename === 'string') &&
         (
           clip.source === undefined ||
@@ -285,6 +287,26 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
     return Array.isArray(value.eventIds) && value.eventIds.every((id) => typeof id === 'string');
   }
   return value.kind === 'state' || value.kind === 'system';
+}
+
+// The shared media pool may only hold inline image or audio data URLs; any
+// other scheme could turn a stored reference into an external request.
+function isMediaDataRecord(value: unknown) {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((entry) => isImageDataUrl(entry) || isAudioDataUrl(entry))
+  );
+}
+
+function hasValidVoiceClipMediaReferences(
+  timeline: TimelineEntry[],
+  mediaData: unknown,
+) {
+  const pool = isRecord(mediaData) ? mediaData : {};
+  return timeline.every((entry) =>
+    entry.kind !== 'message' ||
+    (entry.voiceClips ?? []).every((clip) => isAudioDataUrl(pool[clip.mediaRef]))
+  );
 }
 
 function isNumberRecord(value: unknown) {
@@ -488,6 +510,8 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     isImageEntityRecord(value.entities.images) &&
     isEventEntityRecord(value.entities.events) &&
     isMemoryEntityRecord(value.entities.memory) &&
+    (value.entities.mediaData === undefined || isMediaDataRecord(value.entities.mediaData)) &&
+    hasValidVoiceClipMediaReferences(value.timeline, value.entities.mediaData) &&
     isRecord(value.runtime) &&
     isRecord(value.runtime.current) &&
     isWorkflowVariableRecord(value.runtime.current.workflowVariables) &&

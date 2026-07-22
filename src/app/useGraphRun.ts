@@ -27,8 +27,11 @@ import type {
 } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { chatAttachmentFromStorybookImage, findChatEndpoints } from '../storybook/runtime';
-import { storybookImageForAttachment } from '../storybook/imageLibrary';
-import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
+import {
+  storybookImageForAttachment,
+  storybookImageSourceByIdFromNodes,
+} from '../storybook/imageLibrary';
+import type { RpStorybook } from '../nodes/rp-storybook/model';
 import type { ExecuteTraceFormatResult, ExecuteTraceNodeInfo } from '../nodes/types';
 import type { RunLlmReport, LlmRunHistoryEntry } from '../components/AppDialogs';
 import type { LastRunDebug } from './debugSnapshot';
@@ -124,7 +127,7 @@ import {
   autoplayStreamPreviewText,
   autoplayMessageFormat,
   socialMediaMessageFormat,
-  stripAutoplayPlanBlocks,
+  stripPlanBlocks,
 } from '../chat/messageFormats';
 import { executeGraph } from '../graph/executeGraph';
 import { TextMetricsApi } from '../llm/tokenMetrics';
@@ -235,7 +238,7 @@ type UseGraphRunOptions = Pick<
   phoneCharacters: StorybookCharacter[];
   selectedCharacter: StorybookCharacter | undefined;
   selectedPhoneContact: { character: StorybookCharacter } | undefined;
-  storybooksByNodeId: Map<string, RpStorybookV1>;
+  storybooksByNodeId: Map<string, RpStorybook>;
   characterColors: Map<string, string>;
   englishProcessingEnabled: boolean;
   inputTranslationOnlyEnabled: boolean;
@@ -326,7 +329,7 @@ type UseGraphRunOptions = Pick<
 };
 
 function storybookImageAttachmentById(
-  storybooksByNodeId: Map<string, RpStorybookV1>,
+  storybooksByNodeId: Map<string, RpStorybook>,
   imageId: string | undefined,
 ) {
   const normalizedImageId = imageId?.trim();
@@ -342,6 +345,14 @@ function storybookImageAttachmentById(
     }
   }
   return undefined;
+}
+
+function currentStorybookImageAttachmentById(
+  nodes: readonly WorkflowNode[],
+  imageId: string | undefined,
+) {
+  const source = storybookImageSourceByIdFromNodes(nodes, imageId);
+  return source ? chatAttachmentFromStorybookImage(source.image) : undefined;
 }
 
 export function useGraphRun(options: UseGraphRunOptions) {
@@ -512,31 +523,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
       notifySystem('warning', 'Select a Storybook character to play as.');
       return false;
     }
-    const providerHealthForRun = directActionOnly
-      ? {}
-      : await checkProviderConnections(connections);
-    const usedLlmConnectionIds = new Set(
-      runtimeNodes.flatMap((node) => {
-        if (node.data.kind !== undefined || !Object.prototype.hasOwnProperty.call(node.data, 'connectionId')) {
-          return [];
-        }
-        const connectionId = node.data.connectionId ?? defaultConnectionId;
-        const connection = connections.find((entry) => entry.id === connectionId);
-        return connection && isLlmConnection(connection) ? [connection.id] : [];
-      }),
-    );
-    const offlineLlmConnection = connections.find((connection) =>
-      usedLlmConnectionIds.has(connection.id) &&
-      providerHealthForRun[connection.id]?.status === 'offline',
-    );
-    if (offlineLlmConnection) {
-      const detail = providerHealthForRun[offlineLlmConnection.id]?.detail;
-      notifySystem(
-        'error',
-        `Provider ${offlineLlmConnection.label} is offline${detail ? `: ${detail}` : '.'}`,
-      );
-      return false;
-    }
     const runId = createRunId();
     const runController = new AbortController();
     const runSignal = runController.signal;
@@ -603,6 +589,37 @@ export function useGraphRun(options: UseGraphRunOptions) {
     activeRunLlmReport.current = initialRunLlmReport;
     setRunLlmReport(initialRunLlmReport);
     activeRunCancelReason.current = 'cancel';
+    // The health check runs after the run is registered as active, so a
+    // second trigger during this await cannot slip in as a parallel run.
+    const providerHealthForRun = directActionOnly
+      ? {}
+      : await checkProviderConnections(connections);
+    const usedLlmConnectionIds = new Set(
+      runtimeNodes.flatMap((node) => {
+        if (node.data.kind !== undefined || !Object.prototype.hasOwnProperty.call(node.data, 'connectionId')) {
+          return [];
+        }
+        const connectionId = node.data.connectionId ?? defaultConnectionId;
+        const connection = connections.find((entry) => entry.id === connectionId);
+        return connection && isLlmConnection(connection) ? [connection.id] : [];
+      }),
+    );
+    const offlineLlmConnection = connections.find((connection) =>
+      usedLlmConnectionIds.has(connection.id) &&
+      providerHealthForRun[connection.id]?.status === 'offline',
+    );
+    if (offlineLlmConnection) {
+      const detail = providerHealthForRun[offlineLlmConnection.id]?.detail;
+      notifySystem(
+        'error',
+        `Provider ${offlineLlmConnection.label} is offline${detail ? `: ${detail}` : '.'}`,
+      );
+      activeRun.current = null;
+      setActiveRunId(null);
+      activeRunLlmReport.current = null;
+      setRunLlmReport(null);
+      return false;
+    }
     const turnContext: TurnContext = existingInputMessage?.turnContext ?? {
       englishProcessingEnabled: existingInputMessage
         ? !!existingInputMessage.translatedText
@@ -701,6 +718,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
         data: {
           ...node.data,
           runActive: false,
+          runActiveStartedAtMs: undefined,
+          llmActiveCallLabel: undefined,
+          llmActiveCallStage: undefined,
+          llmActiveCallStartedAtMs: undefined,
           runCompleted: !!node.data.runPrepared,
           runPrepared: false,
           runError: undefined,
@@ -1012,6 +1033,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
       }
     }
 
+    // Keep image-only submissions empty until input translation has been
+    // skipped. Downstream history and graph formatting still use the existing
+    // marker, without treating it as user-written text.
+    if (!displayText.trim() && inputImages.length > 0) {
+      inputText = 'Attached image.';
+      displayInputText = 'Attached image.';
+    }
+
     const inputCharacterName = existingInputMessage?.speakerName ??
       (isAutoplayRun || isNarratorTurn || (isAutoTurn && !inputCharacter)
         ? narratorSpeakerName
@@ -1020,7 +1049,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       existingInputMessage?.phoneTo ?? phoneRecipientCharacterOverride?.name ?? selectedPhoneContact?.character.name;
     const rawSentPhoneImages = existingInputMessage?.imageAttachments ?? inputImages;
     const sentPhoneImages =
-      !existingInputMessage && isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length
+      isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length
         ? ensurePhoneImagesInStorybooks(
             inputCharacterName,
             phoneRecipientName,
@@ -1028,7 +1057,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
             imageDescriptionFromAttachments(rawSentPhoneImages),
           ) ?? rawSentPhoneImages
         : rawSentPhoneImages;
-    if (sentPhoneImages !== rawSentPhoneImages) {
+    if (isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length) {
+      // Ensuring may have added only a recipient copy while returning the same
+      // attachment array, so refresh from nodesRef whenever the ensure ran.
       executionNodes = nodesRef.current;
     }
     const rpInputImageName =
@@ -1082,14 +1113,26 @@ export function useGraphRun(options: UseGraphRunOptions) {
     ): Partial<MessageRecord> => {
       const hasMessengerPreview =
         preview.phoneMessages.length > 0 || preview.socialDirectMessages.length > 0;
+      const messagesForRpPictureLookup = [
+        ...messagesRef.current,
+        ...(activeTurnCollectorRef.current?.inputMessages ?? []),
+      ];
       return {
         embeddedPhoneMessages: preview.phoneMessages.length > 0
-          ? preview.phoneMessages.map((phoneMessage, index) => ({
-              phoneMessageId: -(index + 1),
-              from: phoneMessage.from,
-              to: phoneMessage.to,
-              message: phoneMessage.message,
-            }))
+          ? preview.phoneMessages.map((phoneMessage, index) => {
+              const previewImage =
+                rpPicturePhoneAttachment(messagesForRpPictureLookup, phoneMessage.imageId) ??
+                currentStorybookImageAttachmentById(nodesRef.current, phoneMessage.imageId) ??
+                storybookImageAttachmentById(storybooksByNodeId, phoneMessage.imageId);
+              return {
+                phoneMessageId: -(index + 1),
+                from: phoneMessage.from,
+                to: phoneMessage.to,
+                message: phoneMessage.message,
+                previewImageAttachments: previewImage ? [previewImage] : undefined,
+                sourceOrder: phoneMessage.sourceOrder,
+              };
+            })
           : undefined,
         embeddedSocialMessages: preview.socialDirectMessages.length > 0
           ? preview.socialDirectMessages.flatMap((socialMessage, index) =>
@@ -1100,6 +1143,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
                     from: socialMessage.from,
                     to: socialMessage.to,
                     message: socialMessage.text,
+                    sourceOrder: socialMessage.sourceOrder,
                   }]
                 : [],
             )
@@ -1302,14 +1346,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
       narratorAutoTurn,
       displayText,
       originalInput,
-      visibleInput,
       promptSlot,
       isAutoTurn,
       isNarratorTurn,
       eventDisplayText,
       phoneMessage: isPhoneMessage,
       messageFormat,
-      lastRpOutput,
       originalHistory,
       translatedHistory,
     };
@@ -1464,7 +1506,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const graphOutput = directActionOnly
         ? ''
         : isAutoplayRun
-          ? stripAutoplayPlanBlocks(autoplayOutputText)
+          ? stripPlanBlocks(autoplayOutputText)
           : executedOutput;
       if (socialDirectMessage && !socialDirectMessageOutputPromise && socialMediaOutputText) {
         socialDirectMessageOutputPromise = processSocialDirectMessageOutput(socialMediaOutputText);
@@ -1492,7 +1534,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       }
       const rpDisplayImageAttachment =
         !isPhoneMessage
-          ? storybookImageAttachmentById(storybooksByNodeId, parsedRpOutput.displayImageId) ??
+          ? currentStorybookImageAttachmentById(nodesRef.current, parsedRpOutput.displayImageId) ??
+            storybookImageAttachmentById(storybooksByNodeId, parsedRpOutput.displayImageId) ??
             rpPicturePhoneAttachment(
               [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
               parsedRpOutput.displayImageId,
@@ -1944,6 +1987,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             from: canonicalEmbeddedPhoneMessage.from,
             to: canonicalEmbeddedPhoneMessage.to,
             message: canonicalEmbeddedPhoneMessage.message,
+            sourceOrder: canonicalEmbeddedPhoneMessage.sourceOrder,
           });
         }
         // Link the phone records to the output message before the slow
@@ -2388,13 +2432,28 @@ export function useGraphRun(options: UseGraphRunOptions) {
             );
             continue;
           }
-          const from = canonicalPhoneName(phoneCharacters, postComment.from);
-          const commentCharacter = phoneCharacters.find((character) =>
-            phoneNamesMatch(character.name, from),
-          );
-          const handle = commentCharacter
-            ? socialHandleForCharacter(commentCharacter, postComment.app)
-            : socialHandleForName(from);
+          // Commenters go through the same identity resolution as social DMs,
+          // so known Storybook characters without an account in the app are
+          // blocked here too instead of silently gaining one.
+          const resolvedCommenter = resolveSocialMessageIdentity({
+            characters: storyCharacters,
+            messages: messagesRef.current,
+            app: postComment.app,
+            identity: postComment.from,
+          });
+          if (!resolvedCommenter.available) {
+            reportRunWarning(
+              `${socialAppNames[postComment.app]} post comment was ignored. ${resolvedCommenter.reason}`,
+              outputNodeTraceInfo,
+            );
+            continue;
+          }
+          const from = resolvedCommenter.name;
+          const handle = resolvedCommenter.handle ??
+            (resolvedCommenter.character
+              ? socialHandleForCharacter(resolvedCommenter.character, postComment.app)
+              : establishedSocialHandle(messagesRef.current, postComment.app, from) ??
+                socialHandleForName(from));
           const historyText = `[${socialAppNames[postComment.app]}] ${from} (@${handle}) commented on ${postComment.postId}: "${postComment.text}"`;
           const translatedText = await translateOutputActionText(historyText, { text: historyText });
           appendMessage({
@@ -2548,6 +2607,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             to: record.to,
             message: record.text,
             translatedMessage: translatedDmText,
+            sourceOrder: incoming.sourceOrder,
           };
         };
         for (const incomingSocialDm of embeddedSocialDirectMessages) {
@@ -2556,11 +2616,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
             embeddedSocialMessageLinks.push(link);
           }
         }
-        if (
-          !isPhoneMessage &&
-          liveOutputMessageId !== undefined &&
-          embeddedSocialDirectMessages.length > 0
-        ) {
+        // Always replace the streamed placeholder previews (negative ids):
+        // with real links when messages were stored, or with nothing when the
+        // final output kept no social messages (e.g. blocked by validation).
+        if (!isPhoneMessage && liveOutputMessageId !== undefined) {
           updateMessage(liveOutputMessageId, {
             embeddedSocialMessages: embeddedSocialMessageLinks.length > 0
               ? embeddedSocialMessageLinks.map((link) => ({ ...link }))
@@ -2772,11 +2831,18 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         } catch (error) {
           if (isRunCancelledError(error)) {
-            throw error;
+            // The visible reply is already delivered at this point. Only a
+            // restart may roll the turn back for its re-run; a plain cancel
+            // keeps the turn and just skips the remaining preparation.
+            if ((activeRunCancelReason.current as CancelReason) === 'restart') {
+              throw error;
+            }
+            notifySystem('info', 'Next-turn preparation cancelled; the delivered reply was kept.');
+          } else {
+            reportRunWarning(
+              `Next-turn preparation failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
           }
-          reportRunWarning(
-            `Next-turn preparation failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
         }
       }
       onSuccessfulRunBeforeCommit?.();

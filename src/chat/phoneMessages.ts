@@ -26,6 +26,8 @@ export type ParsedPhoneMessage = {
   translatedMessage?: string;
   imageAttachments?: ChatImageAttachment[];
   turnContext?: TurnContext;
+  /** Position among all messenger entries of one RP output, in source order. */
+  sourceOrder?: number;
 };
 
 export type ParsedPhoneImageAction = {
@@ -82,6 +84,8 @@ export type ParsedIncomingSocialDirectMessage = {
   postId?: string;
   /** OnlyFriends-only optional tip credited to the recipient's wallet. */
   tip?: number;
+  /** Position among all messenger entries of one RP output, in source order. */
+  sourceOrder?: number;
 };
 
 export type EmbeddedPhoneMessagesResult = {
@@ -677,6 +681,19 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     }
   }
   if (parsedRanges.length > 0) {
+    // Number every messenger entry across the whole output so display can keep
+    // the source order even though phone and social messages are stored apart.
+    let messengerSourceOrder = 0;
+    for (const range of parsedRanges) {
+      for (const phoneMessage of range.phoneMessages) {
+        phoneMessage.sourceOrder = messengerSourceOrder;
+        messengerSourceOrder += 1;
+      }
+      for (const socialMessage of range.socialDirectMessages) {
+        socialMessage.sourceOrder = messengerSourceOrder;
+        messengerSourceOrder += 1;
+      }
+    }
     const textBefore = value.slice(0, parsedRanges[0].start).replace(/\n{3,}$/g, '\n\n').trim();
     const textAfter = parsedRanges
       .map((range, index) => {
@@ -820,6 +837,12 @@ function completedArrayEntryRanges(value: string) {
         ranges.push({ start: entryStart, end: index + 1 });
         entryStart = -1;
       }
+      continue;
+    }
+    // The closing bracket ends the scanned array; anything after it belongs
+    // to a different key and must not be previewed under this one.
+    if (char === ']' && depth === 0) {
+      break;
     }
   }
   return { ranges, openEntryStart: depth > 0 && entryStart >= 0 ? entryStart : undefined };
@@ -858,7 +881,15 @@ function incompleteMessengerPreview(value: string): PartialMessengerPreview | un
     const to = partialStringField(openEntry, 'to');
     const message = partialStringField(openEntry, 'message', true);
     if (from && to && message) {
-      entries.push({ from, to, message });
+      const sendImageId =
+        partialStringField(openEntry, 'sendImageId', true) ??
+        partialStringField(openEntry, 'send_image_id', true);
+      entries.push({
+        from,
+        to,
+        message,
+        ...(sendImageId ? { sendImageId } : {}),
+      });
     }
   }
 
@@ -877,6 +908,18 @@ export function embeddedPhoneMessagesLivePreview(value: string): EmbeddedPhoneMe
   const complete = parseEmbeddedPhoneMessagesFromRpOutput(stripIncompleteEmbeddedJsonTail(value));
   if (!partial) {
     return complete;
+  }
+  // The open object streams after every completed one, so its entries continue
+  // the source numbering. Without it the still-streaming bubble would lack a
+  // sourceOrder and briefly jump into the legacy phone-before-social order.
+  let nextSourceOrder = complete.phoneMessages.length + complete.socialDirectMessages.length;
+  for (const phoneMessage of partial.phoneMessages) {
+    phoneMessage.sourceOrder = nextSourceOrder;
+    nextSourceOrder += 1;
+  }
+  for (const socialMessage of partial.socialDirectMessages) {
+    socialMessage.sourceOrder = nextSourceOrder;
+    nextSourceOrder += 1;
   }
   return {
     ...complete,

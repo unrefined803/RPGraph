@@ -177,9 +177,9 @@ It is used by Message Format 2 runs. Post slots are Turn Mode 0 = Fotogram and 1
 A [SOCIAL MEDIA POST] input creates initial reactions:
 {"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
 
-Post and thread runs may additionally send private messages to the post author or thread actor as one extra standalone messenger object after the reactions:
-{"fotogramApp":[{"from":"Sender Name","to":"Post Author Name","message":"message text","postId":"fotogram-post-01"}]}
-{"onlyFriendsApp":[{"from":"Fan Name","to":"Creator Name","message":"message text","postId":"onlyfriends-post-01","tip":5}]}
+Post and thread runs may additionally send private messages to the post author or thread actor. Add the matching messenger array to the same outer object as reactions:
+{"reactions":{"postId":"fotogram-post-01","likes":14,"comments":[]},"fotogramApp":[{"from":"Sender Name","to":"Post Author Name","message":"message text","postId":"fotogram-post-01"}]}
+{"reactions":{"postId":"onlyfriends-post-01","likes":14,"comments":[]},"onlyFriendsApp":[{"from":"Fan Name","to":"Creator Name","message":"message text","postId":"onlyfriends-post-01","tip":5}]}
 The app derives handles from exact known or listed names. postId is optional and links a message to the referenced post; omit it for a general DM. tip is optional, OnlyFriends-only, and credits the recipient's wallet. On Fotogram incoming messages are rare. On OnlyFriends one to two fan messages per post are expected.
 
 A [SOCIAL MEDIA THREAD ACTION] input either adds a user comment or loads more comments. Return new reactions to append plus a very short English history summary:

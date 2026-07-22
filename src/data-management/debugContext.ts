@@ -128,7 +128,6 @@ function debugCheckpointSummary(checkpoint: TurnCheckpoint) {
 
 export function debugTurnSummaryFromTurnRecord(
   turn: TurnRecord,
-  _workflowNodes: WorkflowNode[],
   checkpointOverride?: TurnCheckpoint,
 ) {
   const checkpoint = checkpointOverride ?? {

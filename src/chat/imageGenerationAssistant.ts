@@ -57,6 +57,9 @@ export const imageGenerationAssistantInstructions = [
   'If none of the requested characters has a defined LoRA, describe all of them from their text-based appearance information and leave characterLora empty.',
   'Use the character database and recent story context as facts. Do not invent conflicting identity or appearance details.',
   'The current image prompt, settings, and image description are editable by the user and are the source of truth.',
+  'Keep prompt editing and selected-image description as two separate tasks.',
+  'If the user asks to describe, identify, analyze, or caption the selected/current image, inspect the attached image in the recent story context. Return prompt and settings as null, and update only imageDescription. Do not interpret this as a request to describe or rewrite the image-generation prompt.',
+  'If the user asks to create an image prompt or change what a future generated image should show, update prompt as needed and leave imageDescription null unless they explicitly ask to correct the selected image description too.',
   'When the user requests an image or a visual change, return a complete updated prompt that preserves all existing details not affected by the request.',
   'Do not merely append contradictory instructions. Integrate the requested change cleanly.',
   'Write the final image prompt as one frozen visual snapshot. Do not advance the story, describe what happens next, or combine earlier and later states of the scene.',
@@ -100,7 +103,7 @@ export function imageGenerationAssistantPrompt(
 ) {
   return [
     imageGenerationAssistantInstructions,
-    ...(describeImage ? ['The Describe Image button was pressed. Describe the selected image now and do not change prompt or settings. Interpret the image in the context of the last four RP turns and name matching characters, places, and events.'] : []),
+    ...(describeImage ? ['The Describe Image button was pressed. This is strictly a selected-image description task, not a prompt-editing task. Inspect the attached image, interpret it in the context of the last four RP turns, and name matching characters, places, and events. Return exactly this update shape: {"reply":"Short confirmation","prompt":null,"settings":null,"imageDescription":"20 to 40 word description"}.'] : []),
     '',
     `Current image prompt:\n${currentPrompt.trim() || '(empty)'}`,
     '',
@@ -120,7 +123,10 @@ export function imageGenerationAssistantPrompt(
   ].join('\n');
 }
 
-export function parseImageGenerationAssistantResult(text: string): ImageGenerationAssistantResult {
+export function parseImageGenerationAssistantResult(
+  text: string,
+  describeImage = false,
+): ImageGenerationAssistantResult {
   const trimmed = text.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)?.[1] ?? trimmed;
   let value: unknown;
@@ -136,11 +142,11 @@ export function parseImageGenerationAssistantResult(text: string): ImageGenerati
   if (typeof record.reply !== 'string' || !record.reply.trim()) {
     throw new Error('The assistant response is missing its chat reply.');
   }
-  if (record.prompt !== null && typeof record.prompt !== 'string') {
+  if (record.prompt !== undefined && record.prompt !== null && typeof record.prompt !== 'string') {
     throw new Error('The assistant returned an invalid image prompt.');
   }
   let settings: ImageGenerationSettings | null = null;
-  if (record.settings !== null) {
+  if (record.settings !== undefined && record.settings !== null) {
     if (!record.settings || typeof record.settings !== 'object' || Array.isArray(record.settings)) {
       throw new Error('The assistant returned invalid image settings.');
     }
@@ -158,13 +164,28 @@ export function parseImageGenerationAssistantResult(text: string): ImageGenerati
       characterLora: candidate.characterLora.trim(),
     };
   }
-  if (record.imageDescription !== null && typeof record.imageDescription !== 'string') {
+  if (
+    record.imageDescription !== undefined &&
+    record.imageDescription !== null &&
+    typeof record.imageDescription !== 'string'
+  ) {
     throw new Error('The assistant returned an invalid image description.');
   }
-  return {
+  const result: ImageGenerationAssistantResult = {
     reply: record.reply.trim(),
     prompt: typeof record.prompt === 'string' ? record.prompt.trim() : null,
     settings,
     imageDescription: typeof record.imageDescription === 'string' ? record.imageDescription.trim() : null,
   };
+  if (describeImage) {
+    if (!result.imageDescription) {
+      throw new Error('The assistant did not return an image description. Please try again.');
+    }
+    return {
+      ...result,
+      prompt: null,
+      settings: null,
+    };
+  }
+  return result;
 }

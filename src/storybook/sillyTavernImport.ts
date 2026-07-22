@@ -1,8 +1,8 @@
 import type {
   RpStorybookAssistantResult,
-  RpStorybookV1,
-  RpStorybookV1Character,
-} from '../nodes/rp-storybook-v1/model';
+  RpStorybook,
+  RpStorybookCharacter,
+} from '../nodes/rp-storybook/model';
 
 export type SillyTavernImportValidation = {
   characterName: string;
@@ -25,7 +25,7 @@ function cardData(value: unknown) {
   return textValue(data.name) ? data : root;
 }
 
-function matchingCharacter(storybook: RpStorybookV1, name: string) {
+function matchingCharacter(storybook: RpStorybook, name: string) {
   return storybook.characters.find(
     (character) => character.name.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0,
   );
@@ -39,7 +39,7 @@ function sillyTavernCardName(value: unknown) {
   return name;
 }
 
-function storybookScenarioIsEmpty(storybook: RpStorybookV1) {
+function storybookScenarioIsEmpty(storybook: RpStorybook) {
   return !storybook.scenario.summary.trim() &&
     !storybook.scenario.openingSituation.trim() &&
     !storybook.scenario.currentSituation.trim();
@@ -47,7 +47,7 @@ function storybookScenarioIsEmpty(storybook: RpStorybookV1) {
 
 /** Builds the field-by-field AI conversion request for SillyTavern V1/V2 cards. */
 export function sillyTavernImportInstruction(
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
   value: unknown,
   fileName: string,
 ) {
@@ -80,15 +80,15 @@ export function sillyTavernImportInstruction(
 }
 
 function characterChanged(
-  before: RpStorybookV1Character | undefined,
-  after: RpStorybookV1Character,
+  before: RpStorybookCharacter | undefined,
+  after: RpStorybookCharacter,
 ) {
   return !before || JSON.stringify(before) !== JSON.stringify(after);
 }
 
 /** Rejects false-positive model replies and patches outside the import's allowed scope. */
 export function validateSillyTavernImportResult(
-  currentStorybook: RpStorybookV1,
+  currentStorybook: RpStorybook,
   result: RpStorybookAssistantResult,
   sourceValue: unknown,
 ): SillyTavernImportValidation {

@@ -92,14 +92,14 @@ import {
 } from './output/speakerPrompt';
 import { LlmPromptNodeCard } from './llm-prompt/Card';
 import { runLlmPromptNode } from './llm-prompt/run';
-import { RpStorybookV1NodeCard } from './rp-storybook-v1/Card';
-import { executeRpStorybookV1Node } from './rp-storybook-v1/execute';
+import { RpStorybookNodeCard } from './rp-storybook/Card';
+import { executeRpStorybookNode } from './rp-storybook/execute';
 import { RpStorybookEditorNodeCard } from './rp-storybook-editor/Card';
 import {
   defaultRpStorybookFormattedTextSettings,
   rpStorybookJsonText,
-  starterRpStorybookV1,
-} from './rp-storybook-v1/model';
+  starterRpStorybook,
+} from './rp-storybook/model';
 import { TextPreviewNodeCard } from './text-preview/Card';
 import { executeTextPreviewNode } from './text-preview/execute';
 import { PhoneAppsNodeCard } from './phone-apps/Card';
@@ -994,8 +994,8 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
     }),
   },
   {
-    type: 'rp-storybook-v1',
-    dataVersion: currentCoreNodeVersions['rp-storybook-v1'],
+    type: 'rp-storybook',
+    dataVersion: currentCoreNodeVersions['rp-storybook'],
     label: 'RP Storybook V2',
     description: 'Complete roleplay storybook',
     menuDescription: 'Load or create complete roleplay story data',
@@ -1008,10 +1008,10 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       output('formatted-text', 'text', 'Formatted Text'),
       output('character-info', 'text', 'Character Info'),
     ],
-    Component: RpStorybookV1NodeCard,
-    execute: executeRpStorybookV1Node,
+    Component: RpStorybookNodeCard,
+    execute: executeRpStorybookNode,
     create: ({ defaultConnectionId, position, createId }) => ({
-      id: createId('rp-storybook-v1'),
+      id: createId('rp-storybook'),
       type: 'workflow',
       position,
       style: { width: coreNodeLayout.rpStorybookWidth },
@@ -1019,9 +1019,9 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         label: 'RP Storybook V2',
         description: 'Complete roleplay storybook',
         preview: 'Starter story',
-        nodeType: 'rp-storybook-v1',
+        nodeType: 'rp-storybook',
         connectionId: defaultConnectionId,
-        storybookJson: rpStorybookJsonText(starterRpStorybookV1),
+        storybookJson: rpStorybookJsonText(starterRpStorybook),
         storybookStatus: 'Ready',
         storybookFormattedTextSettings: defaultRpStorybookFormattedTextSettings,
       },
@@ -1043,7 +1043,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
     ],
     Component: RpStorybookEditorNodeCard,
     // Reuses the RP Storybook node's execute — identical output resolution.
-    execute: executeRpStorybookV1Node,
+    execute: executeRpStorybookNode,
     create: ({ position, createId }) => ({
       id: createId('rp-storybook-editor'),
       type: 'workflow',
@@ -1054,7 +1054,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         description: 'Edit storybook text and JSON',
         preview: 'Starter story',
         nodeType: 'rp-storybook-editor',
-        storybookJson: rpStorybookJsonText(starterRpStorybookV1),
+        storybookJson: rpStorybookJsonText(starterRpStorybook),
         storybookStatus: 'Ready',
         storybookFormattedTextSettings: defaultRpStorybookFormattedTextSettings,
       },

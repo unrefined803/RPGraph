@@ -3,6 +3,7 @@ import type {
   ConnectionPreset,
   LlmCallStats,
   LlmCompletionResult,
+  LlmCallStage,
 } from '../types';
 
 export type NodeLlmRequest = {
@@ -10,6 +11,7 @@ export type NodeLlmRequest = {
   prompt: string;
   images?: ChatImageAttachment[];
   label: string;
+  stage?: LlmCallStage;
   nodeId?: string;
   purpose?: string;
   onChunk?: (text: string) => void;

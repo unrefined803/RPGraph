@@ -6,7 +6,7 @@ import type { WorkflowNode, WorkflowNodeData } from '../types';
 /**
  * True when upgrading `node` (an incompatible-core-node placeholder) would produce
  * a second *live* instance that breaks a uniqueness rule: the storybook-source XOR
- * (a graph holds at most one `rp-storybook-v1` / `rp-storybook-editor`) or a
+ * (a graph holds at most one `rp-storybook` / `rp-storybook-editor`) or a
  * singleton node type.
  *
  * Incompatible placeholders are never counted as live nodes — `isStorybookSourceNode`
@@ -29,7 +29,7 @@ export function storybookOrSingletonUpgradeConflict(
     return false;
   }
   const isStorybookType =
-    nodeType === 'rp-storybook-v1' || nodeType === 'rp-storybook-editor';
+    nodeType === 'rp-storybook' || nodeType === 'rp-storybook-editor';
   if (isStorybookType) {
     return nodes.some((other) => other.id !== node.id && isStorybookSourceNode(other));
   }

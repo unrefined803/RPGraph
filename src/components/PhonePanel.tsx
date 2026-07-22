@@ -22,7 +22,9 @@ import type {
   ImageCaptionChange,
   MessageRecord,
   SocialPostRecord,
+  SocialAppKind,
   SocialDirectMessageOpenRequest,
+  SocialDmUnreadByHandle,
   SocialDirectMessageRecord,
   SocialReactionComment,
   SocialThreadActionRecord,
@@ -186,6 +188,8 @@ type PhonePanelProps = {
   onMarkSelectedPhoneConversationSeen: () => void;
   onMarkBankingSeen: () => void;
   onMarkPhoneAppSeen: (app: 'notes' | 'ai' | 'fotogram' | 'onlyfriends') => void;
+  onMarkSocialDirectMessagesSeen: (app: SocialAppKind, partnerHandle: string) => void;
+  unreadSocialDirectMessages: Record<SocialAppKind, SocialDmUnreadByHandle>;
   onOpenUnreadPhoneConversation: (conversation: UnreadPhoneConversation) => void;
   unreadPhoneSwitchName: (conversation: UnreadPhoneConversation) => string;
   onSwitchToViewedCharacter: () => void;
@@ -356,6 +360,8 @@ export function PhonePanel({
   onMarkSelectedPhoneConversationSeen,
   onMarkBankingSeen,
   onMarkPhoneAppSeen,
+  onMarkSocialDirectMessagesSeen,
+  unreadSocialDirectMessages,
   onOpenUnreadPhoneConversation,
   unreadPhoneSwitchName,
   onSwitchToViewedCharacter,
@@ -817,6 +823,9 @@ export function PhonePanel({
         recentlyUsedEmojis={recentlyUsedEmojis}
         rpTimeTrackingEnabled={rpTimeTrackingEnabled}
         onSendDirectMessage={onSubmitSocialDirectMessage}
+        unreadDirectMessages={unreadSocialDirectMessages[socialScreen]}
+        onMarkDirectMessagesSeen={(partnerHandle) =>
+          onMarkSocialDirectMessagesSeen(socialScreen, partnerHandle)}
         openPostRequest={
           socialPostOpenRequest?.app === screen &&
           socialPostOpenRequest.requestId !== dismissedSocialPostOpenRequestId

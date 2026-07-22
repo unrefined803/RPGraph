@@ -1,5 +1,4 @@
 import type { Edge } from '@xyflow/react';
-import type { RpStorybookV1 } from '../nodes/rp-storybook-v1/model';
 import type {
   BankTransferRecord,
   SocialDirectMessageRecord,
@@ -12,7 +11,13 @@ import type {
   ImageCaptionChange,
   MessageVoiceClip,
   NodeLlmCallStats,
+  OutputActionChoiceGroup,
+  OutputActionContextCapacityBar,
+  OutputActionInfoBox,
+  OutputActionProgressBar,
   RpAppointment,
+  TurnContext,
+  TurnRecordMode,
   WorkflowFile,
   WorkflowNode,
   WorkflowNodeType,
@@ -69,6 +74,31 @@ export type ImageRef = {
   imageId: string;
 };
 
+/**
+ * Turn-level runtime metadata, stored once on the first timeline entry of the
+ * turn so a loaded RP save can rebuild the exact TurnRecord (retry format,
+ * direct-action handling, and the original graph input/output text).
+ */
+export type TimelineTurnMetadata = {
+  createdAt: string;
+  mode?: TurnRecordMode;
+  messageFormat?: number;
+  promptSlot?: number;
+  directAction?: boolean;
+  inputGraphText?: string;
+  outputGraphText?: string;
+};
+
+/** Interactive output-action UI records persisted with their chat message. */
+export type TimelineOutputActions = {
+  choices?: OutputActionChoiceGroup[];
+  hidden?: boolean;
+  hiddenByTurnId?: string;
+  infoBoxes?: OutputActionInfoBox[];
+  progressBars?: OutputActionProgressBar[];
+  contextCapacityBars?: OutputActionContextCapacityBar[];
+};
+
 export type TimelineMessageEntry = {
   id: string;
   kind: 'message';
@@ -107,9 +137,13 @@ export type TimelineMessageEntry = {
   imageCaptionChange?: ImageCaptionChange;
   inputMessageFormat?: number;
   inputPromptSlot?: number;
+  turn?: TimelineTurnMetadata;
+  turnContext?: TurnContext;
+  phoneAutoTurnSource?: 'narrator';
+  outputActions?: TimelineOutputActions;
   rpDateTime?: string;
   workflowVariableSetCommands?: WorkflowVariableSetCommand[];
-  voiceClips?: MessageVoiceClip[];
+  voiceClips?: TimelineVoiceClip[];
   bankTransfer?: BankTransferRecord;
   socialPost?: SocialPostRecord;
   socialThreadAction?: SocialThreadActionRecord;
@@ -118,6 +152,10 @@ export type TimelineMessageEntry = {
   createdPhoneNote?: CreatedPhoneNoteCommit;
   deletedPhoneNote?: DeletedPhoneNoteCommit;
   simulatedAiChat?: SimulatedAiChatCommit;
+};
+
+export type TimelineVoiceClip = Omit<MessageVoiceClip, 'dataUrl'> & {
+  mediaRef: string;
 };
 
 export type TimelineEventEntry = {
@@ -148,13 +186,6 @@ export type TimelineEntry =
   | TimelineEventEntry
   | TimelineStateEntry
   | TimelineSystemEntry;
-
-type StorybookEntity = {
-  sourceNodeId: string;
-  value: RpStorybookV1;
-  fileName?: string;
-  filePath?: string;
-};
 
 export type EventEntity = {
   id: string;
@@ -199,11 +230,17 @@ type MemoryEntity = {
 };
 
 export type SessionEntities = {
-  storybook?: StorybookEntity;
   events: Record<string, EventEntity>;
   images: Record<string, ImageEntity>;
   characterStats?: CharacterStatsEntity;
   memory: Record<string, MemoryEntity>;
+  /**
+   * Shared pool of embedded media (`data:` URLs) referenced by timeline voice
+   * clips and from redacted `storybookJson` runtime/undo snapshots via
+   * `rpgraph-data-ref:<ref>` sentinels. The embedded workflow keeps its full
+   * storybook copy.
+   */
+  mediaData?: Record<string, string>;
 };
 
 type NodeRuntimeState = Record<string, unknown>;

@@ -1,9 +1,9 @@
 import {
   currentRpStorybookVersion,
-  normalizeRpStorybookV1,
+  normalizeRpStorybook,
   rpStorybookVersionStatus,
-  type RpStorybookV1,
-} from '../nodes/rp-storybook-v1/model';
+  type RpStorybook,
+} from '../nodes/rp-storybook/model';
 
 type StorybookConversionRowState = 'mapped' | 'defaulted' | 'suggested';
 type StorybookConversionReviewState = 'pending' | 'accepted' | 'resolved';
@@ -20,7 +20,7 @@ type StorybookConversionRow = {
 export type StorybookConversionResult = {
   sourceVersion: string;
   targetVersion: string;
-  storybook: RpStorybookV1;
+  storybook: RpStorybook;
   rows: StorybookConversionRow[];
 };
 
@@ -108,7 +108,7 @@ function characterRows(
  */
 export function convertLegacyRpStorybook(value: unknown): StorybookConversionResult {
   const source = recordValue(value);
-  const storybook = normalizeRpStorybookV1(source);
+  const storybook = normalizeRpStorybook(source);
   const rows: StorybookConversionRow[] = [];
 
   rows.push({

@@ -13,10 +13,11 @@ const textInputExcerptMaxWords = 300;
 type TurnTracePromptPart = {
   text: string;
   actionInserted?: boolean;
+  stepOutputInserted?: string;
   historySegments?: FormattedChatHistorySegment[];
 };
 
-type TurnTracePromptSection = {
+export type TurnTracePromptSection = {
   label: string;
   text: string;
   parts?: TurnTracePromptPart[];
@@ -31,7 +32,7 @@ type TurnTracePromptSection = {
 
 export type TurnTracePromptPass = {
   label: string;
-  prompt: string;
+  prompt?: string;
   images?: Array<{
     index: number;
     id: string;
@@ -130,7 +131,7 @@ export type TurnTrace = {
 
 export type TurnTraceCopyPayload = {
   schema: 'rpgraph-turn-trace';
-  version: 4;
+  version: 5;
   createdAt: string;
   privacy: 'memory-only';
   range: {
@@ -206,12 +207,17 @@ function shouldExcerptTextInput(label: string) {
   return label.trim().toLocaleLowerCase() === 'text input';
 }
 
-function tracePromptPart(part: { text: string; actionInserted?: boolean }) {
+function tracePromptPart(part: {
+  text: string;
+  actionInserted?: boolean;
+  stepOutputInserted?: string;
+}) {
   const text = traceText(part.text);
   return text
     ? {
         text,
         actionInserted: part.actionInserted || undefined,
+        stepOutputInserted: traceText(part.stepOutputInserted ?? '') || undefined,
         historySegments: 'historySegments' in part && Array.isArray(part.historySegments)
           ? part.historySegments
           : undefined,
@@ -223,7 +229,12 @@ function tracePromptSections(
   sections: Array<{
     label: string;
     text: string;
-    parts?: Array<{ text: string; actionInserted?: boolean; historySegments?: FormattedChatHistorySegment[] }>;
+    parts?: Array<{
+      text: string;
+      actionInserted?: boolean;
+      stepOutputInserted?: string;
+      historySegments?: FormattedChatHistorySegment[];
+    }>;
     historySegments?: FormattedChatHistorySegment[];
   }> | undefined,
 ) {
@@ -266,20 +277,35 @@ function tracePromptPasses(
     sections?: Array<{
       label: string;
       text: string;
-      parts?: Array<{ text: string; actionInserted?: boolean; historySegments?: FormattedChatHistorySegment[] }>;
+      parts?: Array<{
+        text: string;
+        actionInserted?: boolean;
+        stepOutputInserted?: string;
+        historySegments?: FormattedChatHistorySegment[];
+      }>;
       historySegments?: FormattedChatHistorySegment[];
     }>;
   }> | undefined,
 ) {
+  let textInputIncluded = false;
   return passes?.flatMap((pass): TurnTracePromptPass[] => {
-    const sections = tracePromptSections(pass.sections);
+    const sections = tracePromptSections(pass.sections)?.filter((section) => {
+      if (!shouldExcerptTextInput(section.label)) {
+        return true;
+      }
+      if (textInputIncluded) {
+        return false;
+      }
+      textInputIncluded = true;
+      return true;
+    });
     const prompt = sections?.length ? promptFromSections(sections) : traceText(pass.prompt ?? '');
     if (!prompt && !sections?.length) {
       return [];
     }
     return [{
       label: traceText(pass.label) || 'Prompt',
-      prompt,
+      prompt: sections?.length ? undefined : prompt,
       images: pass.images?.map((image) => ({
         index: image.index,
         id: image.id,
@@ -536,7 +562,7 @@ export function turnTraceCopyPayload(traces: TurnTrace[]): TurnTraceCopyPayload 
   );
   return {
     schema: 'rpgraph-turn-trace',
-    version: 4,
+    version: 5,
     createdAt: new Date().toISOString(),
     privacy: 'memory-only',
     range: {

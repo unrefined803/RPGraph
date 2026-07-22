@@ -1,7 +1,7 @@
 import type { Edge } from '@xyflow/react';
 import type { WorkflowFile, WorkflowNode, WorkflowNodeData } from '../types';
 import { withWorkflowConnectionColor } from '../graph/edges';
-import { emptyRpStorybookV1, rpStorybookJsonText } from '../nodes/rp-storybook-v1/model';
+import { emptyRpStorybook, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 import { persistentNodeData } from '../workflow/persistence';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 
@@ -12,15 +12,15 @@ function workflowNodeDataForSave(
   const savedData = persistentNodeData(data);
   // The editor is a MANUAL storybook source with no separate `.rpgraph-storybook`
   // file copy, so a "workflow-only" save must NOT strip its document (that would
-  // lose the only copy). Only the AI `rp-storybook-v1` node — which has the
+  // lose the only copy). Only the AI `rp-storybook` node — which has the
   // storybook-file ecosystem — is stripped.
-  if (includeStorybook || savedData.nodeType !== 'rp-storybook-v1') {
+  if (includeStorybook || savedData.nodeType !== 'rp-storybook') {
     return savedData;
   }
   return {
     ...savedData,
     preview: 'No storybook loaded',
-    storybookJson: rpStorybookJsonText(emptyRpStorybookV1),
+    storybookJson: rpStorybookJsonText(emptyRpStorybook),
     storybookStatus: 'Ready',
     storybookFileName: undefined,
     storybookFilePath: undefined,

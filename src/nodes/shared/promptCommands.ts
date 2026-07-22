@@ -48,7 +48,7 @@ const promptCommandDisplayNames: Record<PromptCommandId, string> = {
 };
 
 const bankTransferInstruction = [
-  'Command bank_transfer — send money with the phone Banking app.',
+  'Command bank_transfer: send money with the phone Banking app.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -62,11 +62,11 @@ const bankTransferInstruction = [
   '  ]',
   '}',
   '',
-  'Copy the actual sender, recipient, and numeric amount from the transfer described in the context or your reply, even when the story names another currency or one party is an outside contact. Do not invent a transfer when no payment occurs. amount must be a positive number; the Banking app displays ledger amounts in US-dollar format. note is optional. Use full displayed names in from/to. The transfer appears in every involved Storybook character\'s Banking app and changes their balance. Several transfers can share one bankTransfers array.',
+  'When a plan is noted with the request, take the sender, recipient, amount, and reason from it. Copy the actual sender, recipient, and numeric amount from the transfer described in the plan, the context, or your reply, even when the story names another currency or one party is an outside contact. Do not invent a transfer when no payment occurs. amount must be a positive number; the Banking app displays ledger amounts in US-dollar format. note is optional. Use full displayed names in from/to. The transfer appears in every involved Storybook character\'s Banking app and changes their balance. Several transfers can share one bankTransfers array.',
 ].join('\n');
 
 const createNoteInstruction = [
-  'Command create_note — create and save a new entry in a Storybook character\'s phone Notes app.',
+  'Command create_note: create and save a new entry in a Storybook character\'s phone Notes app.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -77,7 +77,7 @@ const createNoteInstruction = [
   '  }',
   '}',
   '',
-  'The finished reply shown above already established that this character creates or saves a note now. Write the actual note that fits the story context and that finished reply. Do not repeat the surrounding RP narration inside the note.',
+  'The finished reply shown above already established that this character creates or saves a note now. When a plan is noted with the request, it sketches roughly what the note should contain; expand it into the finished note. Write the actual note that fits the story context and that finished reply. Do not repeat the surrounding RP narration inside the note.',
   '',
   'character must be the full displayed name of the Storybook character whose phone receives the note. title must be a short, useful title. text must contain the complete note in that character\'s natural wording and perspective.',
   '',
@@ -89,7 +89,7 @@ const createNoteInstruction = [
 ].join('\n');
 
 const simulateAiChatInstruction = [
-  'Command simulate_ai_chat — simulate and record a Storybook character\'s conversation with the phone AI assistant app.',
+  'Command simulate_ai_chat: simulate and record a Storybook character\'s conversation with the phone AI assistant app.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -108,7 +108,7 @@ const simulateAiChatInstruction = [
   '  }',
   '}',
   '',
-  'Simulate the complete AI conversation described or initiated in the context and finished reply. Write both the character messages and the assistant responses yourself; do not request another real AI call.',
+  'Simulate the complete AI conversation described or initiated in the context and finished reply. When a plan is noted with the request, it names who chats and the topic; build the conversation around it. Write both the character messages and the assistant responses yourself; do not request another real AI call.',
   '',
   'character must be the full displayed name of the Storybook character using the app. messages must contain one to four complete exchanges: 2, 4, 6, or 8 messages. Begin with role "user", alternate strictly between "user" and "assistant", and end with role "assistant".',
   '',
@@ -122,13 +122,13 @@ const simulateAiChatInstruction = [
 ].join('\n');
 
 const messengerMessageInstruction = [
-  'Command messenger_message — send one private message through a supported messenger app.',
+  'Command messenger_message: send one private message through a supported messenger app.',
   '',
-  'Choose the app required by the context: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. The example uses whatsUpApp; replace only that top-level key when another app is required. Never output a generic messengerApp key.',
+  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Never output MessengerAppName itself or a generic messengerApp key. When a plan is noted with the request, take the app, sender, recipient, and message gist from it.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
-  '  "whatsUpApp": [',
+  '  "MessengerAppName": [',
   '    {',
   '      "from": "sender name",',
   '      "to": "recipient name",',
@@ -143,13 +143,13 @@ const messengerMessageInstruction = [
 ].join('\n');
 
 const messengerConversationInstruction = [
-  'Command messenger_conversation — simulate a short private conversation through a supported messenger app.',
+  'Command messenger_conversation: simulate a short private conversation through a supported messenger app.',
   '',
-  'Choose the app required by the context: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. The example uses whatsUpApp; replace only that top-level key when another app is required. Never output a generic messengerApp key.',
+  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Never output MessengerAppName itself or a generic messengerApp key.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
-  '  "whatsUpApp": [',
+  '  "MessengerAppName": [',
   '    {',
   '      "from": "first person name",',
   '      "to": "second person name",',
@@ -173,7 +173,7 @@ const messengerConversationInstruction = [
   '  ]',
   '}',
   '',
-  'Simulate one complete exchange with exactly two, three, or four messages. Start with the newly occurring message that initiates it; do not skip that opening message even when it is described in the plan or finished reply. Keep the messages in chronological order, alternate strictly between the same two people, and do not start a second conversation with another person.',
+  'When a plan is noted with the request, take the app, the two people, and the topic from it. Simulate one complete exchange with exactly two, three, or four messages. Start with the newly occurring message that initiates it; do not skip that opening message even when it is described in the plan or finished reply. Keep the messages in chronological order, alternate strictly between the same two people, and do not start a second conversation with another person.',
   '',
   'Choose the shortest pattern that completely represents the conversation described in the context or finished reply:',
   '- Two messages: one person writes, and the other person replies.',
@@ -186,18 +186,18 @@ const messengerConversationInstruction = [
 ].join('\n');
 
 const displayImageInstruction = [
-  'Command display_image — display exactly one stored image in the Chat tab, without sending a phone message.',
+  'Command display_image: display exactly one stored image in the Chat tab, without sending a phone message.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
   '  "displayImageId": "stored_image_id"',
   '}',
   '',
-  'Use only an exact imageId from an action result or recent phone/photo history. Do not invent image IDs. Do not display more than one image per reply.',
+  'When an imageId is noted with the request, use it as displayImageId. Use only an exact imageId from an action result or recent phone/photo history. Do not invent image IDs. Do not display more than one image per reply.',
 ].join('\n');
 
 const fotogramPostCommentInstruction = [
-  'Command fotogram_post_comment — write a comment under an existing Fotogram post.',
+  'Command fotogram_post_comment: write a comment under an existing Fotogram post.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -208,11 +208,11 @@ const fotogramPostCommentInstruction = [
   '  }',
   '}',
   '',
-  'Copy postId exactly from the chat history. The comment appears under that post in the social app.',
+  'When a plan is noted with the request, take the post, commenter, and comment gist from it. Copy postId exactly from the chat history. The comment appears under that post in the social app.',
 ].join('\n');
 
 const onlyFriendsPostCommentInstruction = [
-  'Command onlyfriends_post_comment — write a comment under an existing OnlyFriends post.',
+  'Command onlyfriends_post_comment: write a comment under an existing OnlyFriends post.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -223,7 +223,7 @@ const onlyFriendsPostCommentInstruction = [
   '  }',
   '}',
   '',
-  'Copy postId exactly from the chat history. The comment appears under that post in the social app.',
+  'When a plan is noted with the request, take the post, commenter, and comment gist from it. Copy postId exactly from the chat history. The comment appears under that post in the social app.',
 ].join('\n');
 
 export function defaultPromptCommandInstructionTemplate(commandId: PromptCommandId) {
@@ -363,11 +363,23 @@ export function countPromptCommandUses(values: string[], name: string) {
   );
 }
 
-// The general request protocol (finish the reply, then end the output with one
-// final [commands: ...] line) is written once per prompt by the prompt author;
-// the token itself only expands to the literal request line for this command.
+// The general request protocol (write an inline [command_name: rough plan]
+// marker where the action happens) is written once per prompt by the prompt
+// author; the token itself only expands to the marker template for this
+// command, with a placeholder sketching what the plan should cover.
+const promptCommandPlanPlaceholders: Record<PromptCommandId, string> = {
+  bank_transfer: 'rough plan (who sends how much to whom and why)',
+  create_note: 'rough plan (whose note and what it will contain)',
+  simulate_ai_chat: 'rough plan (who chats with ChatGPD and about what)',
+  messenger_message: 'rough plan (app, sender, recipient, and message gist)',
+  messenger_conversation: 'rough plan (app, both people, and what the exchange covers)',
+  display_image: 'stored_image_id',
+  fotogram_post_comment: 'rough plan (which post, who comments, and the comment gist)',
+  onlyfriends_post_comment: 'rough plan (which post, who comments, and the comment gist)',
+};
+
 export function promptCommandHintText(commandId: PromptCommandId) {
-  return `[commands: ${commandId}]`;
+  return `[${commandId}: ${promptCommandPlanPlaceholders[commandId]}]`;
 }
 
 export function replacePromptCommandTokensWithHints(
@@ -384,36 +396,86 @@ export function replacePromptCommandTokensWithHints(
   });
 }
 
-const promptCommandRequestPattern = /\[\s*commands?\s*:\s*([^\]\n\r]+)\]/gi;
+// Legacy list request: a "[commands: name, name]" line without per-command plans.
+// Still parsed so prompts written for the old protocol keep working until they
+// are rewritten for the inline form below.
+const promptCommandListPattern = /\[\s*commands?\s*:\s*([^\]\n\r]+)\]/gi;
+
+// Inline request: "[command_name: plan sketch]" anywhere in the reply. The plan
+// text lets the model outline what the command will contain while writing the
+// story, which keeps the surrounding narration coherent; the marker itself is
+// control text and is stripped from the visible output. Only known command
+// names are treated as markers so bracketed RP prose stays untouched.
+// The optional leading blank keeps mid-sentence text seamless after stripping.
+const inlinePromptCommandPattern = /[ \t]?\[\s*([A-Za-z][A-Za-z0-9_]*)\s*(?::\s*([^\][]*?))?\s*\]/g;
+
+export type PromptCommandRequestEntry = {
+  name: string;
+  plan: string;
+};
 
 export type PromptCommandRequest = {
   reply: string;
-  names: string[];
+  requests: PromptCommandRequestEntry[];
 };
 
-export function parsePromptCommandRequest(reply: string): PromptCommandRequest | undefined {
-  const names: string[] = [];
-  const stripped = reply.replace(promptCommandRequestPattern, (_raw, list: string) => {
+export function stripPromptCommandMarkers(
+  text: string,
+  isKnownCommandName: (name: string) => boolean = (name) => !!knownPromptCommandId(name),
+) {
+  return text
+    .replace(promptCommandListPattern, '')
+    .replace(inlinePromptCommandPattern, (raw, name: string) =>
+      isKnownCommandName(name.toLocaleLowerCase()) ? '' : raw,
+    );
+}
+
+export function parsePromptCommandRequest(
+  reply: string,
+  isKnownCommandName: (name: string) => boolean = (name) => !!knownPromptCommandId(name),
+): PromptCommandRequest | undefined {
+  const plansByName = new Map<string, string[]>();
+  const addRequest = (name: string, plan: string) => {
+    const plans = plansByName.get(name) ?? [];
+    if (plan && !plans.includes(plan)) {
+      plans.push(plan);
+    }
+    plansByName.set(name, plans);
+  };
+  let stripped = reply.replace(promptCommandListPattern, (_raw, list: string) => {
     list.split(',').forEach((entry) => {
       const name = entry.trim().toLocaleLowerCase();
-      if (name && !names.includes(name)) {
-        names.push(name);
+      if (name) {
+        addRequest(name, '');
       }
     });
     return '';
   });
-  if (!names.length) {
+  stripped = stripped.replace(inlinePromptCommandPattern, (raw, name: string, plan?: string) => {
+    const normalized = name.toLocaleLowerCase();
+    if (!isKnownCommandName(normalized)) {
+      return raw;
+    }
+    addRequest(normalized, plan?.trim() ?? '');
+    return '';
+  });
+  if (!plansByName.size) {
     return undefined;
   }
   return {
     reply: stripped.replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim(),
-    names,
+    requests: Array.from(plansByName, ([name, plans]) => ({ name, plan: plans.join('\n') })),
   };
 }
 
+export type PromptCommandPassRequest = {
+  config: PromptCommandConfig;
+  plan: string;
+};
+
 export function promptCommandPassInstruction(
   reply: string,
-  configs: PromptCommandConfig[],
+  requests: PromptCommandPassRequest[],
   actionResultTexts: string[] = [],
 ) {
   return [
@@ -427,8 +489,13 @@ export function promptCommandPassInstruction(
       : [],
     'Requested commands:',
     '',
-    ...configs.map((config) => config.instructionTemplate.trim()),
-    '',
-    'Now output only the JSON objects for the requested commands, each a complete standalone object directly after the previous one. Fill in the actual values from the context and your finished reply. Use valid JSON with double quotes. Do not wrap anything in markdown and do not output any other text.',
+    ...requests.flatMap((request) => [
+      request.config.instructionTemplate.trim(),
+      ...request.plan.trim()
+        ? ['', `Your plan for ${request.config.commandId} from the finished reply: ${request.plan.trim()}`]
+        : [],
+      '',
+    ]),
+    'Now output only the JSON objects for the requested commands, each a complete standalone object directly after the previous one. Fill in the actual values from the context, your finished reply, and the plans noted with the requests. Use valid JSON with double quotes. Do not wrap anything in markdown and do not output any other text.',
   ].join('\n');
 }

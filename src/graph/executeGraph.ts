@@ -10,7 +10,7 @@ import { customNodeDefinition } from '../nodes/custom-node/model';
 import {
   parseRpStorybookJson,
   rpStorybookJsonText,
-} from '../nodes/rp-storybook-v1/model';
+} from '../nodes/rp-storybook/model';
 import {
   defaultComfyCheckpointName,
   defaultComfyDiffusionModelName,
@@ -59,6 +59,7 @@ import {
   type CreateComfyImageForCharacterRunner,
 } from '../nodes/runScratch';
 import { encodedDataUrlBytes, normalizeImageAttachment } from '../utils/imageNormalization';
+import { withGeneratedImageDescriptions } from './generatedImageDescriptions';
 
 type ExecuteGraphOptions = {
   outputNodeId: string;
@@ -279,12 +280,23 @@ export async function executeGraph({
     .withCallLifecycle(
       (nodeId, metadata) => {
         if (isLlmNode(nodeId)) {
-          updateRuntimeNode(nodeId, { runActive: true, runVisionActive: metadata.hasImages });
+          updateRuntimeNode(nodeId, {
+            runActive: true,
+            runVisionActive: metadata.hasImages,
+            llmActiveCallLabel: metadata.label,
+            llmActiveCallStage: metadata.stage,
+            llmActiveCallStartedAtMs: metadata.startedAtMs,
+          });
         }
       },
       (nodeId) => {
         if (isLlmNode(nodeId)) {
-          updateRuntimeNode(nodeId, { runActive: false, runVisionActive: false });
+          updateRuntimeNode(nodeId, {
+            runVisionActive: false,
+            llmActiveCallLabel: undefined,
+            llmActiveCallStage: undefined,
+            llmActiveCallStartedAtMs: undefined,
+          });
         }
       },
     );
@@ -487,6 +499,15 @@ export async function executeGraph({
         }, () => `generated_comfy_${Date.now()}_${index + 1}`),
       ),
     );
+    const describedImages = await withGeneratedImageDescriptions({
+      images: normalizedImages,
+      generationPrompt,
+      llm: graphLlm,
+      connectionId: request.llmConnectionId,
+      nodeId: request.llmNodeId,
+      signal,
+      warn,
+    });
 
     const storybookNodeCandidate = nodeById.get(phoneOwner.storybookNodeId);
     const storybookNode = storybookNodeCandidate && isStorybookSourceNode(storybookNodeCandidate)
@@ -502,8 +523,8 @@ export async function executeGraph({
     const ensureResult = withImagesEnsuredForStorybookCharacter(
       storybook,
       phoneOwner.sourceId,
-      normalizedImages,
-      generationPrompt,
+      describedImages,
+      '',
     );
     if (ensureResult.addedCount + ensureResult.updatedCount > 0) {
       const nextStorybookJson = rpStorybookJsonText(ensureResult.storybook);
@@ -596,6 +617,7 @@ export async function executeGraph({
           if (trackNodeRunState) {
             updateRuntimeNode(nodeId, {
               runActive: true,
+              runActiveStartedAtMs: performance.now(),
               runCompleted: false,
               runPrepared: postOutputRun,
               runError: undefined,
@@ -698,6 +720,10 @@ export async function executeGraph({
             const message = executionErrorMessage(error);
             updateRuntimeNode(traceNodeInfo.nodeId, {
               runActive: false,
+              runActiveStartedAtMs: undefined,
+              llmActiveCallLabel: undefined,
+              llmActiveCallStage: undefined,
+              llmActiveCallStartedAtMs: undefined,
               runCompleted: false,
               runPrepared: false,
               runError: message,
@@ -721,7 +747,13 @@ export async function executeGraph({
       } finally {
         const node = nodeById.get(nodeId);
         if (node && shouldTrackRunState(node)) {
-          updateRuntimeNode(nodeId, { runActive: false });
+          updateRuntimeNode(nodeId, {
+            runActive: false,
+            runActiveStartedAtMs: undefined,
+            llmActiveCallLabel: undefined,
+            llmActiveCallStage: undefined,
+            llmActiveCallStartedAtMs: undefined,
+          });
         }
         resolving.delete(executionKey);
       }

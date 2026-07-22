@@ -15,6 +15,7 @@ import type {
   RpDateTimeFormat,
   RpWeekdayLanguage,
   SocialDirectMessageOpenRequest,
+  SocialDmUnreadByHandle,
 } from '../../types';
 import { formatRpDateTimeParts } from '../../workflow';
 import { bankingBalanceForCharacter, formatBankingAmount } from '../../chat/bankTransfers';
@@ -111,6 +112,8 @@ type PhoneSocialFeedScreenProps = {
   recentlyUsedEmojis: string[];
   rpTimeTrackingEnabled: boolean;
   onSendDirectMessage: (message: SocialDirectMessageRecord) => Promise<boolean>;
+  unreadDirectMessages: SocialDmUnreadByHandle;
+  onMarkDirectMessagesSeen: (partnerHandle: string) => void;
   /** Resolves a Storybook/Gallery image id to the stored image. */
   socialImageById: (imageId: string) => ChatImageAttachment | undefined;
   /** Liked post ids per "characterId/app" account (persisted in the RP save). */
@@ -218,6 +221,8 @@ export function PhoneSocialFeedScreen({
   recentlyUsedEmojis,
   rpTimeTrackingEnabled,
   onSendDirectMessage,
+  unreadDirectMessages,
+  onMarkDirectMessagesSeen,
   socialImageById,
   socialLikesByAccount,
   socialDirectoryUsers,
@@ -269,6 +274,13 @@ export function PhoneSocialFeedScreen({
   const [seenOpenDirectMessageRequestId, setSeenOpenDirectMessageRequestId] = useState(
     openDirectMessageRequest?.requestId ?? 0,
   );
+  // An open DM thread reads its messages, including ones arriving while open.
+  useEffect(() => {
+    const handleKey = directMessageParticipant?.handle.toLowerCase();
+    if (directMessagesOpen && handleKey && (unreadDirectMessages[handleKey]?.count ?? 0) > 0) {
+      onMarkDirectMessagesSeen(handleKey);
+    }
+  }, [directMessagesOpen, directMessageParticipant, onMarkDirectMessagesSeen, unreadDirectMessages]);
   // Post currently showing the OnlyFriends balance confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
   const [walletOpen, setWalletOpen] = useState(false);
@@ -1296,6 +1308,11 @@ export function PhoneSocialFeedScreen({
   const directMessages = visibleDirectMessages;
 
   function openDirectMessages(participant?: SocialDirectMessageParticipant) {
+    // Tapping your own name on posts or comments must never open a DM with
+    // yourself; the AI would end up answering its own account.
+    if (participant && account && socialIdentityMatches(participant.handle, account)) {
+      return;
+    }
     setPostStage(undefined);
     setDirectMessageParticipant(participant);
     setDirectMessagesOpen(true);
@@ -1419,6 +1436,7 @@ export function PhoneSocialFeedScreen({
             </button>
             {followedAccounts.map((entry) => {
               const color = entry.character ? characterColors.get(entry.character.name) : undefined;
+              const unread = unreadDirectMessages[entry.handle.toLowerCase()];
               return (
                 <button
                   type="button"
@@ -1442,6 +1460,16 @@ export function PhoneSocialFeedScreen({
                     <strong style={color ? { color } : undefined}>{entry.name}</strong>
                     <span>@{entry.handle}</span>
                   </span>
+                  {unread && (
+                    <span className="phone-social-dm-badges">
+                      {app.id === 'onlyfriends' && unread.tipTotal > 0 && (
+                        <span className="phone-social-tip-badge">
+                          +{formatBankingAmount(unread.tipTotal)}
+                        </span>
+                      )}
+                      <span className="phone-contact-badge">{unread.count}</span>
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -1606,6 +1634,7 @@ export function PhoneSocialFeedScreen({
             owner={owner}
             ownerHandle={account}
             participants={directMessageParticipants}
+            unreadByHandle={unreadDirectMessages}
             selectedParticipant={directMessageParticipant}
             messages={directMessages}
             characterColors={characterColors}
@@ -1665,6 +1694,7 @@ export function PhoneSocialFeedScreen({
           )}
           {posts.map((post) => {
             const liked = likedPostIds.has(post.id);
+            const isOwnPost = socialIdentityMatches(post.authorHandle, account);
             const lockedNow = post.locked && !unlockedPostIds.has(post.id);
             const price = post.unlockPrice ?? 4.99;
             const allComments = [
@@ -1712,8 +1742,9 @@ export function PhoneSocialFeedScreen({
                       handle: post.authorHandle,
                       character: postAuthorCharacter,
                     })}
-                    aria-label={`Message ${post.authorName}`}
-                    title={`Message ${post.authorName}`}
+                    disabled={isOwnPost}
+                    aria-label={isOwnPost ? 'Your account' : `Message ${post.authorName}`}
+                    title={isOwnPost ? undefined : `Message ${post.authorName}`}
                   >
                     <CharacterAvatar
                       className="phone-avatar"
@@ -1912,46 +1943,54 @@ export function PhoneSocialFeedScreen({
                 )}
                 {commentsOpen && (
                   <div className="phone-social-comments">
-                    {comments.map((comment) => (
-                      <button
-                        type="button"
-                        className="phone-social-comment"
-                        key={comment.id}
-                        onClick={() => {
-                          const character = storyCharacters.find((entry) =>
-                            socialIdentityMatches(
-                              socialHandleForCharacter(entry, app.id),
-                              comment.authorHandle,
-                            )
-                          ) ?? storyCharacters.find((entry) =>
-                            socialIdentityMatches(entry.name, comment.authorName ?? '')
-                          );
-                          openDirectMessages({
-                            key: `comment-author-${app.id}-${comment.authorHandle}`,
-                            name: character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
-                            handle: comment.authorHandle,
-                            character,
-                            origin: {
-                              postId: post.id,
-                              postAuthor: post.authorName,
-                              postAuthorHandle: post.authorHandle,
-                              postCaption: post.caption,
-                              postImageId: post.imageId,
-                              postImageDescription: post.imageDescription,
-                              commentAuthor:
-                                character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
-                              commentAuthorHandle: comment.authorHandle,
-                              commentText: comment.text,
-                            },
-                          });
-                        }}
-                        aria-label={`Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
-                        title={`Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
-                      >
-                        <strong>{comment.authorName ?? `@${comment.authorHandle}`}</strong>
-                        <span>{comment.text}</span>
-                      </button>
-                    ))}
+                    {comments.map((comment) => {
+                      const isOwnComment = socialIdentityMatches(comment.authorHandle, account);
+                      return (
+                        <button
+                          type="button"
+                          className="phone-social-comment"
+                          key={comment.id}
+                          onClick={() => {
+                            const character = storyCharacters.find((entry) =>
+                              socialIdentityMatches(
+                                socialHandleForCharacter(entry, app.id),
+                                comment.authorHandle,
+                              )
+                            ) ?? storyCharacters.find((entry) =>
+                              socialIdentityMatches(entry.name, comment.authorName ?? '')
+                            );
+                            openDirectMessages({
+                              key: `comment-author-${app.id}-${comment.authorHandle}`,
+                              name: character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
+                              handle: comment.authorHandle,
+                              character,
+                              origin: {
+                                postId: post.id,
+                                postAuthor: post.authorName,
+                                postAuthorHandle: post.authorHandle,
+                                postCaption: post.caption,
+                                postImageId: post.imageId,
+                                postImageDescription: post.imageDescription,
+                                commentAuthor:
+                                  character?.name ?? comment.authorName ?? `@${comment.authorHandle}`,
+                                commentAuthorHandle: comment.authorHandle,
+                                commentText: comment.text,
+                              },
+                            });
+                          }}
+                          disabled={isOwnComment}
+                          aria-label={isOwnComment
+                            ? 'Your comment'
+                            : `Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
+                          title={isOwnComment
+                            ? undefined
+                            : `Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
+                        >
+                          <strong>{comment.authorName ?? `@${comment.authorHandle}`}</strong>
+                          <span>{comment.text}</span>
+                        </button>
+                      );
+                    })}
                     {comments.length === 0 && (
                       <span className="phone-social-empty">No comments yet.</span>
                     )}

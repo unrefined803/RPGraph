@@ -15,8 +15,6 @@ import {
   RunLlmReportDialog,
   StorybookCreatorDialog,
   SystemLogDialog,
-  type CustomNodeAssistantDiagnostic,
-  type CustomNodeAssistantMessage,
 } from './components/AppDialogs';
 import { StorybookEditorDialog } from './components/StorybookEditorDialog';
 import {
@@ -50,9 +48,7 @@ import {
 import {
   canonicalPhoneName,
   parsePhoneGraphInput,
-  phoneImageActionMatchesMessage,
   phoneNamesMatch,
-  type ParsedPhoneImageAction,
   type ParsedPhoneMessage,
 } from './chat/phoneMessages';
 import { useNextTurnReferenceImages } from './chat/useNextTurnReferenceImages';
@@ -96,20 +92,6 @@ import {
   type StorybookCharacter,
 } from './storybook/runtime';
 import {
-  configForPromptActionToken,
-  parsePromptActionTokens,
-  promptActionConfigs,
-  withPromptActionRuntimeSettingsList,
-} from './nodes/shared/promptActions';
-import {
-  storybookImageDescriptions,
-  storybookImageSourceById,
-  withImagesEnsuredForStorybookCharacter,
-  withStorybookExternalImagesPruned,
-  withStorybookImageDescriptionUpdated,
-  type StorybookImageLibraryEnsureOptions,
-} from './storybook/imageLibrary';
-import {
   formatDebugSnapshot as formatDataManagementDebugSnapshot,
   formatEventsContext,
   formatPhoneContext,
@@ -117,12 +99,13 @@ import {
 } from './data-management/formatters';
 import {
   compactDebugNode,
+  type DebugSnapshot,
   compactDebugValue,
   recentTurnDebugSummaries,
   sanitizeDebugSnapshotValue,
 } from './app/debugSnapshot';
 import { useTurnTraceState } from './app/useTurnTraceState';
-import { sanitizeDataUrlsInText } from './utils/sanitize';
+import { createWorkflowAssistantSnapshotJson } from './assistant/workflowSnapshot';
 import {
   suggestedSessionNameFromCharacters,
   suggestedWorkflowNameFromPath,
@@ -209,10 +192,11 @@ import {
 } from '@xyflow/react';
 import { StudioDialogs } from './dialogs/StudioDialogs';
 import { ComfyGeneratedImageDialog } from './comfy/ComfyGeneratedImageDialog';
-import { isComfyImageConnection, isComfyVoiceConnection } from './comfy/connectionRole';
+import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
+import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
   withSourceNodeStatusConnectionColors,
   workflowEdgeType,
@@ -242,35 +226,12 @@ import { WorkflowNodeRenderer } from './nodes/WorkflowNodeRenderer';
 import { resetCharacterStatsRuntimeData } from './nodes/character-stats/runtime';
 import { contextCompressionCapacitySegments } from './nodes/context-compression/capacity';
 import {
-  customNodeAssistantPrompt,
-  defaultCustomNodeDefinition,
-  customNodeDefinition,
-  isCustomNodeDefinition,
-  parseCustomNodeAssistantResult,
-} from './nodes/custom-node/model';
-import {
-  assertCompilableCustomNodeCode,
-  assertAllowedCustomNodeCode,
-  inputValuesFromRuntimePorts,
-  outputRuntimePortValues,
-  runCustomNodeDefinition,
-} from './nodes/custom-node/runtime';
-import {
-  customNodeImageInputMetadata,
-  customNodeImageInputsFromGraph,
-  customNodeImagesForRequest,
-} from './nodes/custom-node/images';
-import {
   defaultRpStorybookImageDescriptionPrompt,
-  emptyRpStorybookV1,
+  emptyRpStorybook,
   parseRpStorybookJson,
-  rpStorybookJsonText,
-  withRpStorybookCharacterPhoneWallpaper,
-  withRpStorybookCharacterSocialUsername,
-  withRpStorybookPhoneContactPairAllowed,
   type RpStorybookCharacterImage,
-  type RpStorybookV1,
-} from './nodes/rp-storybook-v1/model';
+  type RpStorybook,
+} from './nodes/rp-storybook/model';
 import {
   buildOutputSpeakerPrompt,
   outputSpeakerFormatInstructions,
@@ -300,6 +261,10 @@ import { useNodeLlmApi } from './app/useNodeLlmApi';
 import { useRuntimeNodePatching } from './app/useRuntimeNodePatching';
 import { useNodeActionsController } from './app/useNodeActionsController';
 import { useRoleplayPanelRuntime } from './app/useRoleplayPanelRuntime';
+import { useWorkflowVariables } from './app/useWorkflowVariables';
+import { useWorkflowCapabilities } from './app/useWorkflowCapabilities';
+import { useCustomNodeAssistant } from './app/useCustomNodeAssistant';
+import { useStorybookPhoneImages } from './storybook/useStorybookPhoneImages';
 import type {
   ChatImageAttachment,
   ImageCaptionChange,
@@ -315,7 +280,6 @@ import type {
   RpAppointment,
   RpDateTimeFormat,
   RpWeekdayLanguage,
-  SettingsValueDefinition,
   SavedFileSummary,
   WorkflowFile,
   WorkflowNode,
@@ -323,23 +287,13 @@ import type {
 } from './types';
 import type { WorkflowVariableSetCommand } from './workflow';
 import {
-  llmPromptSwitchPromptAftersByOutput,
-  llmPromptSwitchPromptBeforesByOutput,
-  contextLengthMaxOptionKey,
-  builtInWorkflowVariables,
   currentWorkflowFormatVersion,
   createInitialEdges,
   createInitialNodes,
-  defaultWorkflowVariableValue,
   formatChatHistory,
   formatLastMessageForContext,
   persistentNodeData,
-  settingsValueEntries,
-  settingsValueHandle,
-  textSetsWorkflowVariable,
-  textReferencesWorkflowVariable,
   validEstimatedTokenBytesPerToken,
-  workflowVariableValueKind,
 } from './workflow';
 
 const currentStorybookFormatVersion = storybookFormatVersions.storybook;
@@ -466,14 +420,6 @@ function errorMessage(error: unknown) {
   );
 }
 
-function customNodeSecurityReviewRole(text: string): CustomNodeAssistantMessage['role'] {
-  const verdictMatch = /^Verdict:\s*(Safe|Needs changes|Unsafe)\s*$/im.exec(text);
-  if (!verdictMatch) {
-    return 'assistant';
-  }
-  return verdictMatch[1].toLowerCase() === 'safe' ? 'assistant' : 'error';
-}
-
 function workflowFileMissing(error: unknown) {
   return errorMessage(error).includes('ENOENT');
 }
@@ -585,19 +531,6 @@ const phoneEmojiOptions = [
   '🌟',
 ];
 
-function dataContainsWorkflowVariable(value: unknown, definition: SettingsValueDefinition): boolean {
-  if (typeof value === 'string') {
-    return textReferencesWorkflowVariable(value, definition) ||
-      textSetsWorkflowVariable(value, definition);
-  }
-  if (Array.isArray(value)) {
-    return value.some((entry) => dataContainsWorkflowVariable(entry, definition));
-  }
-  if (value && typeof value === 'object') {
-    return Object.values(value).some((entry) => dataContainsWorkflowVariable(entry, definition));
-  }
-  return false;
-}
 const pastePositionOffset = 36;
 const connectionRadius = 66;
 const reconnectRadius = 54;
@@ -625,18 +558,6 @@ function textMentionsCharacter(text: string, character: StorybookCharacter) {
   });
 }
 
-const workflowAssistantExcludedDataKeys = new Set([
-  'rawHistory',
-  'originalHistory',
-  'translatedHistory',
-  'storybookJson',
-  'storybookFileName',
-  'storybookFilePath',
-]);
-
-const workflowAssistantMaxStringLength = 3000;
-const workflowAssistantMaxArrayItems = 50;
-
 function sameNodeViewNodes(left: WorkflowNode[], right: WorkflowNode[]) {
   return left.length === right.length && left.every((node, index) => {
     const other = right[index];
@@ -648,60 +569,6 @@ function sameNodeViewNodes(left: WorkflowNode[], right: WorkflowNode[]) {
       node.style === other.style
     );
   });
-}
-
-function limitWorkflowAssistantText(text: string) {
-  if (text.length <= workflowAssistantMaxStringLength) {
-    return text;
-  }
-  return `${text.slice(0, workflowAssistantMaxStringLength)}\n\n[Truncated ${text.length - workflowAssistantMaxStringLength} characters.]`;
-}
-
-function sanitizeWorkflowAssistantValue(value: unknown, depth = 0): unknown {
-  if (typeof value === 'string') {
-    return limitWorkflowAssistantText(sanitizeDataUrlsInText(value));
-  }
-  if (typeof value !== 'object' || value === null) {
-    return value;
-  }
-  if (depth > 5) {
-    return '[Nested value omitted]';
-  }
-  if (Array.isArray(value)) {
-    const items = value
-      .slice(0, workflowAssistantMaxArrayItems)
-      .map((item) => sanitizeWorkflowAssistantValue(item, depth + 1));
-    if (value.length > workflowAssistantMaxArrayItems) {
-      items.push(`[${value.length - workflowAssistantMaxArrayItems} more items omitted]`);
-    }
-    return items;
-  }
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => !workflowAssistantExcludedDataKeys.has(key))
-      .map(([key, entryValue]) => [key, sanitizeWorkflowAssistantValue(entryValue, depth + 1)]),
-  );
-}
-
-function createWorkflowAssistantSnapshot(nodes: WorkflowNode[], edges: Edge[]) {
-  return {
-    nodes: nodes.map((node) => {
-      const persistentData = persistentNodeData(node.data);
-      return {
-        id: node.id,
-        label: persistentData.label,
-        type: persistentData.nodeType,
-        data: sanitizeWorkflowAssistantValue(persistentData),
-      };
-    }),
-    edges: edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      sourceHandle: edge.sourceHandle ?? 'default',
-      target: edge.target,
-      targetHandle: edge.targetHandle ?? 'default',
-    })),
-  };
 }
 
 function eventStoryCharacter(event: RpAppointment, characters: StorybookCharacter[]) {
@@ -726,66 +593,6 @@ function eventStoryCharacter(event: RpAppointment, characters: StorybookCharacte
 type PreviewImageState = {
   image: ChatImageAttachment;
 };
-
-type WorkflowCapabilityKind = 'text' | 'vision' | 'image' | 'audio';
-type WorkflowCapabilityTone = 'ready' | 'missing';
-
-type WorkflowCapabilityIndicator = {
-  kind: WorkflowCapabilityKind;
-  tone: WorkflowCapabilityTone;
-  active: boolean;
-  label: string;
-};
-
-function WorkflowCapabilityIcon({ kind }: { kind: WorkflowCapabilityKind }) {
-  if (kind === 'text') {
-    return <span className="workflow-capability-text-mark" aria-hidden="true">TXT</span>;
-  }
-  if (kind === 'vision') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    );
-  }
-  if (kind === 'audio') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <polygon points="4 9 8 9 13 4 13 20 8 15 4 15" />
-        <path d="M17 9.5a4 4 0 0 1 0 5" />
-        <path d="M19.5 7a7.5 7.5 0 0 1 0 10" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <polyline points="21 15 16 10 5 21" />
-    </svg>
-  );
-}
-
-function WorkflowCapabilityStrip({ indicators }: { indicators: WorkflowCapabilityIndicator[] }) {
-  if (indicators.length === 0) {
-    return null;
-  }
-  return (
-    <div className="workflow-capability-strip" aria-label="Workflow capability requirements">
-      {indicators.map((indicator) => (
-        <span
-          key={indicator.kind}
-          className={`workflow-capability-icon ${indicator.tone}${indicator.active ? ' active' : ''}`}
-          title={indicator.label}
-          aria-label={indicator.label}
-        >
-          <WorkflowCapabilityIcon kind={indicator.kind} />
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
@@ -934,109 +741,25 @@ function App() {
     }),
     [imageUploadVisionEnabled, showReferenceImagesInContext, referenceImageTurnLookback, maxReferenceImages],
   );
-  const settingsValueDefinitions = useMemo<SettingsValueDefinition[]>(() => {
-    const definitions = new Map<string, SettingsValueDefinition>(
-      builtInWorkflowVariables.map((definition) => [definition.key, definition]),
-    );
-    Object.entries(workflowSettingsValues).forEach(([key]) => {
-      if (!definitions.has(key)) {
-        definitions.set(key, {
-          key,
-          label: key,
-          enabled: true,
-          valueKind: workflowVariableValueKind(workflowSettingsValues[key] ?? ''),
-          used: false,
-          usedAsNumber: false,
-        });
-      }
-    });
-    nodeViewNodes
-      .filter((node) => node.data.kind === undefined && node.data.nodeType === 'settings-value')
-      .flatMap((node) => settingsValueEntries(node.data))
-      .forEach((entry) => {
-        const current = definitions.get(entry.optionKey);
-        definitions.set(entry.optionKey, {
-          key: entry.optionKey,
-          label: current?.builtIn ? current.label : entry.label,
-          enabled: true,
-          builtIn: current?.builtIn,
-          valueKind: workflowVariableValueKind(
-            workflowSettingsValues[entry.optionKey] ?? defaultWorkflowVariableValue(entry.optionKey),
-          ),
-          used: true,
-          usedAsNumber: false,
-        });
-      });
-    const settingsVariableNumberKeys = new Set(
-      edges.flatMap((edge) => {
-        const source = nodeViewNodes.find((node) => node.id === edge.source);
-        const target = nodeViewNodes.find((node) => node.id === edge.target);
-        if (
-          source?.data.nodeType !== 'settings-value' ||
-          target?.data.nodeType !== 'context-compression' ||
-          edge.targetHandle !== 'max-tokens'
-        ) {
-          return [];
-        }
-        const entry = settingsValueEntries(source.data).find(
-          (candidate) => settingsValueHandle(candidate.id) === edge.sourceHandle,
-        );
-        return entry ? [entry.optionKey] : [];
-      }),
-    );
-    return Array.from(definitions.values()).map((definition) => {
-      const usedInText = nodeViewNodes.some((node) => dataContainsWorkflowVariable(node.data, definition));
-      const usedAsNumber = nodeViewNodes.some((node) =>
-        textReferencesWorkflowVariable(String(node.data.contextCompressionMaxTokens ?? ''), definition) ||
-        textReferencesWorkflowVariable(String(node.data.contextCompressionLengthWords ?? ''), definition) ||
-        textReferencesWorkflowVariable(String(node.data.fixedNumberValue ?? ''), definition) ||
-        textReferencesWorkflowVariable(String(node.data.historyLastTurnsCount ?? ''), definition)
-      );
-      return {
-        ...definition,
-        valueKind: workflowVariableValueKind(
-          workflowSettingsValues[definition.key] ?? defaultWorkflowVariableValue(definition.key),
-        ),
-        used: definition.used || usedInText || usedAsNumber,
-        usedAsNumber: definition.usedAsNumber || usedAsNumber || settingsVariableNumberKeys.has(definition.key),
-      };
-    });
-  }, [edges, nodeViewNodes, workflowSettingsValues]);
-  const resolvedWorkflowSettingsValues = useMemo(
-    () =>
-      Object.fromEntries(
-        settingsValueDefinitions.map((definition) => [
-          definition.key,
-          workflowSettingsValues[definition.key] ?? defaultWorkflowVariableValue(definition.key),
-        ]),
-      ),
-    [settingsValueDefinitions, workflowSettingsValues],
-  );
-  const settingsValueDefinitionsRef = useRef(settingsValueDefinitions);
-  const workflowSettingsValuesRef = useRef(workflowSettingsValues);
-
-  useEffect(() => {
-    settingsValueDefinitionsRef.current = settingsValueDefinitions;
-  }, [settingsValueDefinitions]);
-  useEffect(() => {
-    workflowSettingsValuesRef.current = workflowSettingsValues;
-  }, [workflowSettingsValues]);
-
-  function replaceWorkflowSettingsValues(values: Record<string, string>) {
-    const nextValues = structuredClone(values);
-    workflowSettingsValuesRef.current = nextValues;
-    setWorkflowSettingsValues(nextValues);
-  }
-
-  function workflowSettingsValuesForGraph() {
-    const currentValues = workflowSettingsValuesRef.current;
-    return Object.fromEntries(
-      settingsValueDefinitionsRef.current.map((definition) => [
-        definition.key,
-        currentValues[definition.key] ?? defaultWorkflowVariableValue(definition.key),
-      ]),
-    );
-  }
+  const {
+    definitions: settingsValueDefinitions,
+    definitionsRef: settingsValueDefinitionsRef,
+    resolvedValues: resolvedWorkflowSettingsValues,
+    valuesRef: workflowSettingsValuesRef,
+    replaceValues: replaceWorkflowSettingsValues,
+    valuesForGraph: workflowSettingsValuesForGraph,
+    changeValue: changeWorkflowSettingsValue,
+    setValuesFromCommands: setWorkflowVariablesFromCommands,
+    addValue: addWorkflowSettingsValue,
+    renameValue: renameWorkflowSettingsValue,
+    removeValue: removeWorkflowSettingsValue,
+  } = useWorkflowVariables({
+    nodes: nodeViewNodes,
+    edges,
+    values: workflowSettingsValues,
+    setValues: setWorkflowSettingsValues,
+    setNodes,
+  });
   const [draft, setDraft] = useState('');
   const [draftCommands, setDraftCommands] = useState<CommandInputCommand[]>([]);
   const [draftImages, setDraftImages] = useState<ChatImageAttachment[]>([]);
@@ -1098,11 +821,6 @@ function App() {
     >('text');
   const [jsonDialogNodeId, setJsonDialogNodeId] = useState<string | null>(null);
   const [storybookEditorNodeId, setStorybookEditorNodeId] = useState<string | null>(null);
-  const [customNodeAssistantNodeId, setCustomNodeAssistantNodeId] = useState<string | null>(null);
-  const [customNodeAssistantHistories, setCustomNodeAssistantHistories] = useState<Record<string, CustomNodeAssistantMessage[]>>({});
-  const [customNodeAssistantDiagnostics, setCustomNodeAssistantDiagnostics] = useState<Record<string, CustomNodeAssistantDiagnostic[]>>({});
-  const customNodeLastRunErrorRef = useRef<Record<string, string>>({});
-  const customNodeDiagnosticCounterRef = useRef(0);
   const [nodeAssistantNodeId, setNodeAssistantNodeId] = useState<string | null>(null);
   const [nodeAssistantHistories, setNodeAssistantHistories] = useState<Record<string, AssistantChatMessage[]>>({});
   const [assistantConnectionId, setAssistantConnectionId] = useState<string | undefined>(
@@ -1195,7 +913,6 @@ function App() {
     selectChatPanelView,
     selectPhonePanelView,
     cyclePhoneNotificationOwner,
-    selectedCharacterId,
     setSelectedCharacterId,
     selectedCharacter,
     narratorSelected,
@@ -1255,10 +972,14 @@ function App() {
     markViewedBankingSeen,
     phoneAppNotificationCounts,
     markViewedPhoneAppSeen,
+    markViewedSocialDmSeen,
+    unreadSocialDirectMessages,
     phoneAppSeenByCharacter,
     setPhoneAppSeenByCharacter,
     phoneAuthorBadgesEnabled,
     changePhoneAuthorBadgesEnabled,
+    chatReadsPhoneAppsEnabled,
+    changeChatReadsPhoneAppsEnabled,
     autoTurnDisabled,
     autoTurnTitle,
     switchPlayerDisabled,
@@ -1663,6 +1384,40 @@ function App() {
     resolveConnection,
     recordCall: recordNodeLlmCall,
   });
+  const customNodeAssistant = useCustomNodeAssistant({
+    nodes: nodeViewNodes,
+    nodesRef,
+    edges,
+    inputImages: [...draftImages, ...phoneImages],
+    nodeLlm,
+    updateRuntimeNode,
+  });
+  const {
+    imageDescriptionById: storybookImageDescriptionById,
+    imageCaptionChangesById: phoneImageCaptionChangesById,
+    currentImageSourceById: currentStorybookImageSourceById,
+    allowPhoneContactPair: allowStorybookPhoneContactPair,
+    changePhoneWallpaper: changeStorybookPhoneWallpaper,
+    saveSocialUsername: saveStorybookSocialUsername,
+    imageIdsFromAttachments,
+    imageDescriptionFromAttachments,
+    ensureImagesForCharacter: ensureImagesForStorybookCharacter,
+    ensurePhoneImages: ensurePhoneImagesInStorybooks,
+    changeCaptionUpdate: changeImageCaptionUpdate,
+    pruneExternalImagesForMessages: pruneStorybookExternalImagesForMessages,
+    applyPhoneImageAction: applyPhoneImageActionFromLlm,
+  } = useStorybookPhoneImages({
+    storybooksByNodeId,
+    storyCharacters,
+    messages,
+    messagesRef,
+    nodesRef,
+    currentTurnInputMessages: () => activeTurnCollectorRef.current?.inputMessages ?? [],
+    updateRuntimeNode,
+    updateMessage,
+    updatePhoneImageDescriptions,
+    notifySystem,
+  });
   const chatGpd = useChatGpdPhoneApp({
     nodes,
     nodesRef,
@@ -1741,7 +1496,7 @@ function App() {
     image: RpStorybookCharacterImage,
     descriptionPrompt: string,
   ) {
-    if (node.data.nodeType !== 'rp-storybook-v1') {
+    if (node.data.nodeType !== 'rp-storybook') {
       throw new Error('Storybook image descriptions require an RP Storybook node.');
     }
     const prompt = [
@@ -1925,7 +1680,7 @@ function App() {
             node.data.nodeType === 'input' ||
             node.data.nodeType === 'history' ||
             node.data.nodeType === 'output' ||
-            node.data.nodeType === 'rp-storybook-v1' ||
+            node.data.nodeType === 'rp-storybook' ||
             node.data.nodeType === 'character-stats' ||
             node.data.nodeType === 'context-compression') &&
           !connections.some((connection) => connection.id === node.data.connectionId && isLlmConnection(connection))
@@ -2491,114 +2246,6 @@ function App() {
     setCalibratedTokenBytesPerToken(undefined);
   }
 
-  function changeWorkflowSettingsValue(optionKey: string, value: string) {
-    setWorkflowSettingsValues((currentValues) => ({
-      ...currentValues,
-      [optionKey]: value,
-    }));
-    workflowSettingsValuesRef.current = {
-      ...workflowSettingsValuesRef.current,
-      [optionKey]: value,
-    };
-  }
-
-  function setWorkflowVariablesFromCommands(commands: WorkflowVariableSetCommand[]) {
-    const nextValues = { ...workflowSettingsValuesRef.current };
-    const definitions = settingsValueDefinitionsRef.current;
-    commands.forEach((command) => {
-      const name = command.name.trim();
-      if (!name) {
-        return;
-      }
-      const normalizedName = name.toLocaleLowerCase();
-      const definition = definitions.find(
-        (entry) =>
-          entry.key.toLocaleLowerCase() === normalizedName ||
-          entry.label.toLocaleLowerCase() === normalizedName,
-      );
-      const existingCustomKey = Object.keys(nextValues).find(
-        (key) => key.toLocaleLowerCase() === normalizedName,
-      );
-      nextValues[definition?.key ?? existingCustomKey ?? name] = command.value;
-    });
-    replaceWorkflowSettingsValues(nextValues);
-  }
-
-  function addWorkflowSettingsValue() {
-    setWorkflowSettingsValues((currentValues) => {
-      let index = 1;
-      let key = `custom-variable-${index}`;
-      while (currentValues[key] !== undefined) {
-        index += 1;
-        key = `custom-variable-${index}`;
-      }
-      const nextValues = { ...currentValues, [key]: '' };
-      workflowSettingsValuesRef.current = nextValues;
-      return nextValues;
-    });
-  }
-
-  function renameWorkflowSettingsValue(optionKey: string, label: string) {
-    const normalizedLabel = label.trim();
-    if (!normalizedLabel || optionKey === contextLengthMaxOptionKey) {
-      return;
-    }
-    const definition = settingsValueDefinitions.find((entry) => entry.key === optionKey);
-    const duplicateDefinition = settingsValueDefinitions.some((entry) =>
-      entry.key !== optionKey &&
-      (entry.key.toLocaleLowerCase() === normalizedLabel.toLocaleLowerCase() ||
-        entry.label.toLocaleLowerCase() === normalizedLabel.toLocaleLowerCase()),
-    );
-    if (duplicateDefinition) {
-      return;
-    }
-    if (!definition?.builtIn && optionKey !== normalizedLabel) {
-      setWorkflowSettingsValues((currentValues) => {
-        if (currentValues[normalizedLabel] !== undefined) {
-          return currentValues;
-        }
-        const nextValues = { ...currentValues, [normalizedLabel]: currentValues[optionKey] ?? '' };
-        delete nextValues[optionKey];
-        workflowSettingsValuesRef.current = nextValues;
-        return nextValues;
-      });
-    }
-    setNodes((currentNodes) =>
-      currentNodes.map((node) =>
-        node.data.nodeType === 'settings-value'
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                settingsValueEntries: settingsValueEntries(node.data).map((entry) =>
-                  entry.optionKey === optionKey
-                    ? {
-                        ...entry,
-                        optionKey: definition?.builtIn ? entry.optionKey : normalizedLabel,
-                        label: normalizedLabel,
-                      }
-                    : entry,
-                ),
-              },
-            }
-          : node,
-      ),
-    );
-  }
-
-  function removeWorkflowSettingsValue(optionKey: string) {
-    const definition = settingsValueDefinitions.find((entry) => entry.key === optionKey);
-    if (definition?.builtIn || definition?.used) {
-      return;
-    }
-    setWorkflowSettingsValues((currentValues) => {
-      const nextValues = { ...currentValues };
-      delete nextValues[optionKey];
-      workflowSettingsValuesRef.current = nextValues;
-      return nextValues;
-    });
-  }
-
   function changeEnglishProcessing(enabled: boolean) {
     setEnglishProcessingEnabled(enabled);
     if (enabled) {
@@ -2818,14 +2465,14 @@ function App() {
 
   function currentStorybookForSave() {
     const storybookNode =
-      nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook-v1') ??
-      nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook-v1');
-    if (!storybookNode || storybookNode.data.nodeType !== 'rp-storybook-v1') {
+      nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
+      nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
+    if (!storybookNode || storybookNode.data.nodeType !== 'rp-storybook') {
       throw new Error('Add an RP Storybook V2 node before saving a storybook file.');
     }
     const storybook = storybookNode.data.storybookJson
       ? parseRpStorybookJson(storybookNode.data.storybookJson)
-      : emptyRpStorybookV1;
+      : emptyRpStorybook;
     return {
       storybook,
       name: storybookNode.data.storybookFileName
@@ -2916,8 +2563,8 @@ function App() {
     }
     if (result.type === 'storybook') {
       const storybookNode =
-        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook-v1') ??
-        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook-v1');
+        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
+        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
       if (!storybookNode) {
         throw new Error('Add an RP Storybook V2 node before opening a storybook file.');
       }
@@ -2942,8 +2589,8 @@ function App() {
     }
     if (result.type === 'character-card') {
       const storybookNode =
-        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook-v1') ??
-        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook-v1');
+        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
+        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
       if (!storybookNode) {
         throw new Error('Add an RP Storybook V2 node before importing a character card.');
       }
@@ -2957,8 +2604,6 @@ function App() {
     if (!isRpgraphSessionV2(result.value)) {
       throw new Error('The selected file does not contain a valid RPGraph file.');
     }
-    setActiveWorkflowProtection('plain');
-    setActiveStorybookProtection('plain');
     applySessionFile(
       result.fileName,
       result.name,
@@ -3008,6 +2653,7 @@ function App() {
     );
     clearTurnTraces();
     setActiveWorkflowProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
+    setActiveStorybookProtection('plain');
     commitHydratedWorkflow(
       hydratedWorkflow,
       null,
@@ -3123,7 +2769,7 @@ function App() {
     resetSnapshotFileName?: string,
     hydrateOpeningHistory = true,
   ) {
-    clearCustomNodeAssistantState();
+    customNodeAssistant.clearState();
     clearTemporaryReferenceImages();
     if (hydrateOpeningHistory) {
       clearTurnTraces();
@@ -3199,441 +2845,6 @@ function App() {
     }
   }
 
-  const appendCustomNodeAssistantDiagnostic = useCallback((
-    nodeId: string,
-    source: string,
-    message: string,
-    expanded = true,
-  ) => {
-    const trimmedMessage = message.trim();
-    if (!trimmedMessage) {
-      return;
-    }
-    customNodeDiagnosticCounterRef.current += 1;
-    const diagnostic: CustomNodeAssistantDiagnostic = {
-      id: `${nodeId}-${Date.now()}-${customNodeDiagnosticCounterRef.current}`,
-      source,
-      message: trimmedMessage,
-      createdAt: Date.now(),
-      expanded,
-    };
-    setCustomNodeAssistantDiagnostics((current) => {
-      const existing = current[nodeId] ?? [];
-      const deduped = existing.filter(
-        (entry) => entry.source !== diagnostic.source || entry.message !== diagnostic.message,
-      );
-      return {
-        ...current,
-        [nodeId]: [...deduped, diagnostic].slice(-8),
-      };
-    });
-  }, []);
-
-  function toggleCustomNodeAssistantDiagnostic(nodeId: string, diagnosticId: string) {
-    setCustomNodeAssistantDiagnostics((current) => ({
-      ...current,
-      [nodeId]: (current[nodeId] ?? []).map((entry) =>
-        entry.id === diagnosticId ? { ...entry, expanded: !entry.expanded } : entry,
-      ),
-    }));
-  }
-
-  function dismissCustomNodeAssistantDiagnostic(nodeId: string, diagnosticId: string) {
-    setCustomNodeAssistantDiagnostics((current) => ({
-      ...current,
-      [nodeId]: (current[nodeId] ?? []).filter((entry) => entry.id !== diagnosticId),
-    }));
-  }
-
-  function clearCustomNodeAssistantChat(nodeId: string) {
-    setCustomNodeAssistantHistories((current) => ({
-      ...current,
-      [nodeId]: [],
-    }));
-    setCustomNodeAssistantDiagnostics((current) => ({
-      ...current,
-      [nodeId]: [],
-    }));
-    delete customNodeLastRunErrorRef.current[nodeId];
-    updateRuntimeNode(nodeId, {
-      runActive: false,
-      runCompleted: false,
-      runPrepared: false,
-      runError: undefined,
-    });
-  }
-
-  function clearCustomNodeAssistantState() {
-    setCustomNodeAssistantHistories({});
-    setCustomNodeAssistantDiagnostics({});
-    customNodeLastRunErrorRef.current = {};
-    setCustomNodeAssistantNodeId(null);
-  }
-
-  function customNodeAssistantDiagnosticContext(nodeId: string) {
-    const diagnostics = customNodeAssistantDiagnostics[nodeId] ?? [];
-    if (!diagnostics.length) {
-      return '';
-    }
-    return diagnostics
-      .map((entry) => `DIAGNOSTIC ${entry.source}: ${entry.message}`)
-      .join('\n\n');
-  }
-
-  useEffect(() => {
-    nodeViewNodes.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'custom') {
-        return;
-      }
-      const runError = node.data.runError?.trim();
-      if (!runError) {
-        delete customNodeLastRunErrorRef.current[node.id];
-        return;
-      }
-      if (customNodeLastRunErrorRef.current[node.id] === runError) {
-        return;
-      }
-      customNodeLastRunErrorRef.current[node.id] = runError;
-      appendCustomNodeAssistantDiagnostic(
-        node.id,
-        'Workflow run error',
-        `${node.data.label}: ${runError}`,
-      );
-    });
-  }, [appendCustomNodeAssistantDiagnostic, nodeViewNodes]);
-
-  async function submitCustomNodeAssistantMessage(message: string, connectionId: string) {
-    const nodeId = customNodeAssistantNodeId;
-    const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
-    if (!nodeId || !node || node.data.nodeType !== 'custom') {
-      return;
-    }
-    const previousAssistantMessages = customNodeAssistantHistories[nodeId] ?? [];
-    const recentChatContext = previousAssistantMessages
-      .slice(-12)
-      .map((entry) => `${entry.role.toUpperCase()}: ${entry.text}`)
-      .join('\n\n');
-    const diagnosticContext = customNodeAssistantDiagnosticContext(nodeId);
-    const assistantContext = [diagnosticContext, recentChatContext].filter(Boolean).join('\n\n');
-
-    setCustomNodeAssistantHistories((current) => ({
-      ...current,
-      [nodeId]: [...(current[nodeId] ?? []), { role: 'user', text: message }],
-    }));
-    updateRuntimeNode(nodeId, { preview: 'Custom Node Assistant thinking ...', llmCallStats: [] });
-
-    try {
-      const currentDefinition = customNodeDefinition(node.data.customNodeDefinition);
-      const completion = await nodeLlm.complete({
-        connectionId,
-        nodeId,
-        label: 'Custom Node Assistant',
-        purpose: 'Custom Node Assistant',
-        prompt: customNodeAssistantPrompt(currentDefinition, message, assistantContext),
-      });
-      const result = parseCustomNodeAssistantResult(completion.text, currentDefinition);
-      if (result.definition) {
-        assertCompilableCustomNodeCode(result.definition.code);
-        updateRuntimeNode(nodeId, {
-          customNodeDefinition: result.definition,
-          connectionId,
-          preview: `Updated via ${completion.connection.label}`,
-        });
-      } else {
-        updateRuntimeNode(nodeId, {
-          connectionId,
-          preview: `Answered via ${completion.connection.label}`,
-        });
-      }
-      const changed = result.changedFields.length
-        ? `Changed: ${result.changedFields.slice(0, 5).join(', ')}. `
-        : '';
-      setCustomNodeAssistantHistories((current) => ({
-        ...current,
-        [nodeId]: [...(current[nodeId] ?? []), {
-          role: 'assistant',
-          text: `${changed}${result.reply}`,
-        }],
-      }));
-    } catch (error) {
-      const messageText = errorMessage(error);
-      updateRuntimeNode(nodeId, { preview: `Custom Node Assistant failed: ${messageText}` });
-      setCustomNodeAssistantHistories((current) => ({
-        ...current,
-        [nodeId]: [...(current[nodeId] ?? []), {
-          role: 'error',
-          text: [
-            'Assistant output could not be applied.',
-            messageText,
-            'Ask me to fix it, and I will use this error plus the current definition as context.',
-          ].join('\n'),
-        }],
-      }));
-    }
-  }
-
-  function appendCustomNodeAssistantMessage(nodeId: string, message: CustomNodeAssistantMessage) {
-    setCustomNodeAssistantHistories((current) => ({
-      ...current,
-      [nodeId]: [
-        ...(current[nodeId] ?? []),
-        message,
-      ],
-    }));
-  }
-
-  function applyCustomNodeDefinitionText(nodeId: string, text: string) {
-    const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
-    if (!node || node.data.nodeType !== 'custom') {
-      return;
-    }
-    try {
-      const currentDefinition = customNodeDefinition(node.data.customNodeDefinition);
-      const parsed = JSON.parse(text) as unknown;
-      const definition = isCustomNodeDefinition(parsed)
-        ? parsed
-        : parseCustomNodeAssistantResult(text, currentDefinition).definition;
-      if (!definition) {
-        throw new Error('Pasted text contains only an assistant reply, not a Custom Node definition or patch.');
-      }
-      assertCompilableCustomNodeCode(definition.code);
-      updateRuntimeNode(nodeId, {
-        customNodeDefinition: definition,
-        preview: 'Custom Node definition pasted',
-      });
-      appendCustomNodeAssistantMessage(nodeId, {
-        role: 'assistant',
-        text: 'Pasted Custom Node definition applied.',
-      });
-    } catch (error) {
-      appendCustomNodeAssistantMessage(nodeId, {
-        role: 'error',
-        text: `Paste failed: ${errorMessage(error)}`,
-      });
-    }
-  }
-
-  function resetCustomNodeDefinition(nodeId: string) {
-    const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
-    if (!node || node.data.nodeType !== 'custom') {
-      return;
-    }
-    updateRuntimeNode(nodeId, {
-      customNodeDefinition: defaultCustomNodeDefinition(),
-      customNodeRuntimeDisplays: {},
-      runtimePortValues: {},
-      preview: 'Custom Node reset',
-    });
-    setCustomNodeAssistantDiagnostics((current) => ({
-      ...current,
-      [nodeId]: [],
-    }));
-    delete customNodeLastRunErrorRef.current[nodeId];
-    appendCustomNodeAssistantMessage(nodeId, {
-      role: 'assistant',
-      text: 'Custom Node reset to the default empty definition.',
-    });
-  }
-
-  function checkCustomNodeStructure(nodeId: string) {
-    const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
-    if (!node || node.data.nodeType !== 'custom') {
-      return;
-    }
-    const definition = customNodeDefinition(node.data.customNodeDefinition);
-    const response = (() => {
-      try {
-        const issues: string[] = [];
-        if (!definition.code.trim()) {
-          issues.push('No runtime code is defined yet.');
-        } else {
-          assertCompilableCustomNodeCode(definition.code);
-        }
-        const duplicateGroups = [
-          ['inputs', definition.inputs.map((port) => port.id)],
-          ['outputs', definition.outputs.map((port) => port.id)],
-          ['controls', definition.controls.map((control) => control.id)],
-          ['displays', definition.displays.map((display) => display.id)],
-        ] as const;
-        duplicateGroups.forEach(([label, ids]) => {
-          const seen = new Set<string>();
-          ids.forEach((entry) => {
-            if (seen.has(entry)) {
-              issues.push(`Duplicate ${label} id: ${entry}`);
-            }
-            seen.add(entry);
-          });
-        });
-        if (definition.inputs.length > 0 && definition.outputs.length === 0) {
-          issues.push(
-            'This Custom Node has inputs but no outputs. It can update displays during a workflow run, but it cannot pass a value to another node.',
-          );
-        }
-        definition.outputs.forEach((port) => {
-          if (!definition.code.includes(port.id)) {
-            issues.push(`Output "${port.id}" is defined, but the code does not visibly reference that id.`);
-          }
-        });
-        definition.displays.forEach((display) => {
-          if (display.id !== 'about' && definition.code.trim() && !definition.code.includes(display.id)) {
-            issues.push(`Display "${display.id}" is defined, but the code does not visibly reference that id.`);
-          }
-        });
-        definition.controls.forEach((control) => {
-          if (control.action && control.action !== 'run-code' && !control.stateKey) {
-            issues.push(`Button "${control.id}" uses ${control.action} but has no stateKey.`);
-          }
-          if ((control.type === 'select' || control.type === 'radio') && (!control.options || control.options.length === 0)) {
-            issues.push(`${control.type} "${control.id}" has no options.`);
-          }
-        });
-        return issues.length
-          ? `Structure check found possible issues:\n${issues.map((issue) => `- ${issue}`).join('\n')}`
-          : 'Structure check passed. The definition shape is valid and the runtime code compiles.';
-      } catch (error) {
-        return `Structure check failed: ${errorMessage(error)}`;
-      }
-    })();
-    appendCustomNodeAssistantMessage(nodeId, { role: response.includes('failed') || response.includes('issues') ? 'error' : 'assistant', text: response });
-  }
-
-  async function checkCustomNodeSecurity(nodeId: string, connectionId: string) {
-    const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
-    if (!node || node.data.nodeType !== 'custom') {
-      return;
-    }
-    const definition = customNodeDefinition(node.data.customNodeDefinition);
-    const localReport = (() => {
-      try {
-        assertAllowedCustomNodeCode(definition.code);
-        return definition.code.trim()
-          ? 'Local blocked-API scan passed.'
-          : 'Local blocked-API scan passed. There is no runtime code yet.';
-      } catch (error) {
-        return `Local blocked-API scan failed: ${errorMessage(error)}`;
-      }
-    })();
-    appendCustomNodeAssistantMessage(nodeId, {
-      role: localReport.includes('failed') ? 'error' : 'assistant',
-      text: `Security review started.\n${localReport}`,
-    });
-    try {
-      const completion = await nodeLlm.complete({
-        connectionId,
-        nodeId,
-        label: 'Custom Node Security Review',
-        purpose: 'Custom Node Security Review',
-        prompt: [
-          'You are reviewing a user-generated RPGraph Custom Node definition for security.',
-          'Return a concise security report for the user.',
-          'Focus on exfiltration, network access, filesystem/browser access, dynamic code execution, prompt injection risks inside LLM prompts, suspicious obfuscation, infinite loops, and unwanted state/output behavior.',
-          'The runtime executes the code in a sandboxed environment without file, network, storage, or Electron access, and additionally blocks imports, require, fetch, window, document, globalThis, self, process, eval, Function, constructor, XMLHttpRequest, WebSocket, and EventSource, but you should still mention any suspicious pattern.',
-          'Do not rewrite the code. Do not execute it.',
-          'Use this shape:',
-          'Verdict: Safe | Needs changes | Unsafe',
-          'Findings:',
-          '- ...',
-          'Suggested fix:',
-          '- ...',
-          '',
-          JSON.stringify(definition, null, 2),
-        ].join('\n'),
-      });
-      appendCustomNodeAssistantMessage(nodeId, {
-        role: customNodeSecurityReviewRole(completion.text),
-        text: completion.text,
-      });
-    } catch (error) {
-      appendCustomNodeAssistantMessage(nodeId, {
-        role: 'error',
-        text: `Security review failed: ${errorMessage(error)}`,
-      });
-    }
-  }
-
-  async function runCustomNodeButton(nodeId: string, label: string) {
-    const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
-    if (!node || node.data.nodeType !== 'custom') {
-      return;
-    }
-    const definition = customNodeDefinition(node.data.customNodeDefinition);
-    updateRuntimeNode(nodeId, {
-      preview: `${label} running ...`,
-      llmCallStats: [],
-      runActive: true,
-      runCompleted: false,
-      runPrepared: false,
-      runError: undefined,
-    });
-    try {
-      const currentInputImages = Array.from(
-        new Map([...draftImages, ...phoneImages].map((image) => [image.id, image])).values(),
-      );
-      const imageInputs = customNodeImageInputsFromGraph(definition, node, {
-        nodes: nodesRef.current,
-        edges,
-        inputImages: currentInputImages,
-      });
-      const result = await runCustomNodeDefinition(
-        definition,
-        {
-          ...inputValuesFromRuntimePorts(definition, node.data.runtimePortValues),
-          ...customNodeImageInputMetadata(imageInputs),
-        },
-        {
-          llm: async (request) => {
-            const prompt = typeof request === 'string' ? request : request.prompt;
-            const requestedImages = typeof request === 'string' ? undefined : request.images;
-            const completion = await nodeLlm.complete({
-              connectionId: node.data.connectionId,
-              nodeId,
-              label: typeof request === 'string' ? label : request.label ?? label,
-              purpose: 'Custom Node LLM',
-              prompt,
-              images: customNodeImagesForRequest(requestedImages, imageInputs),
-              maxTokens: typeof request === 'string' ? undefined : request.maxTokens,
-              temperature: typeof request === 'string' ? undefined : request.temperature,
-              contributesToTokenCalibration: true,
-            });
-            return completion.text;
-          },
-        },
-      );
-      updateRuntimeNode(nodeId, {
-        preview: `${label} ran`,
-        customNodeRuntimeDisplays: result.displays,
-        runtimePortValues: outputRuntimePortValues(result.outputs, node.data.runtimePortValues),
-        customNodeDefinition: {
-          ...definition,
-          state: result.state,
-        },
-        runActive: false,
-        runCompleted: true,
-        runPrepared: false,
-        runError: undefined,
-      });
-    } catch (error) {
-      const messageText = errorMessage(error);
-      updateRuntimeNode(nodeId, {
-        preview: `${label} failed: ${messageText}`,
-        runActive: false,
-        runCompleted: false,
-        runPrepared: false,
-        runError: messageText,
-      });
-      customNodeLastRunErrorRef.current[nodeId] = messageText.trim();
-      appendCustomNodeAssistantDiagnostic(nodeId, `${label} run error`, messageText);
-    }
-  }
-
-  function openCustomNodeAssistant(nodeId: string) {
-    setCustomNodeAssistantNodeId(nodeId);
-    setCustomNodeAssistantHistories((current) => ({
-      ...current,
-      [nodeId]: current[nodeId] ?? [],
-    }));
-  }
-
   function handleUpgradeNode(nodeId: string) {
     const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
     if (!node || node.data.kind !== 'incompatible-core-node') {
@@ -3707,8 +2918,8 @@ function App() {
     openStorybookCreator,
     openStorybookEditor: setStorybookEditorNodeId,
     upgradeNode: handleUpgradeNode,
-    openCustomNodeAssistant,
-    runCustomNodeButton,
+    openCustomNodeAssistant: customNodeAssistant.open,
+    runCustomNodeButton: customNodeAssistant.runButton,
     loadStorybookFile,
     importSillyTavernCharacter,
   });
@@ -3792,7 +3003,7 @@ function App() {
     });
     let lastResponseText = '';
     const attemptSpeakerAnalysis = async () => {
-      updateLlmNodeActive(outputNode.id, true);
+      updateLlmNodeActive(outputNode.id, true, 'Speakers');
       let completion: Awaited<ReturnType<NodeLlmApi['complete']>>;
       try {
         completion = await nodeLlm.withAbortSignal(signal).complete({
@@ -3963,7 +3174,7 @@ function App() {
       displayLanguage: language,
       recentHistoryContext,
     });
-    updateLlmNodeActive(nodeId, true);
+    updateLlmNodeActive(nodeId, true, label);
     try {
       const completion = await nodeLlm.withAbortSignal(signal).complete({
         connectionId,
@@ -4004,7 +3215,7 @@ function App() {
       channel,
       recentHistoryContext,
     });
-    updateLlmNodeActive(nodeId, true);
+    updateLlmNodeActive(nodeId, true, channel === 'phone' ? 'Act Phone' : 'Act RP');
     try {
       const completion = await nodeLlm.withAbortSignal(signal).complete({
         connectionId,
@@ -4023,59 +3234,6 @@ function App() {
     }
   }
 
-  const storybookImageDescriptionById = useMemo(
-    () => storybookImageDescriptions(storybooksByNodeId.values()),
-    [storybooksByNodeId],
-  );
-  function currentStorybookImageSourceById(imageId: string) {
-    const normalizedImageId = imageId.trim();
-    if (!normalizedImageId) {
-      return undefined;
-    }
-    for (const node of nodesRef.current) {
-      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
-        continue;
-      }
-      try {
-        const source = storybookImageSourceById(
-          [parseRpStorybookJson(node.data.storybookJson)],
-          normalizedImageId,
-        );
-        if (source) {
-          return source;
-        }
-      } catch {
-        // Ignore invalid storybook JSON here; validation paths surface those errors elsewhere.
-      }
-    }
-    return undefined;
-  }
-  const storybookImageDescriptionSignature = JSON.stringify(
-    [...storybookImageDescriptionById].sort(([left], [right]) => left.localeCompare(right)),
-  );
-  const storybookImageDescriptionByIdRef = useRef(storybookImageDescriptionById);
-  const updatePhoneImageDescriptionsRef = useRef(updatePhoneImageDescriptions);
-  useEffect(() => {
-    storybookImageDescriptionByIdRef.current = storybookImageDescriptionById;
-  }, [storybookImageDescriptionById]);
-  useEffect(() => {
-    updatePhoneImageDescriptionsRef.current = updatePhoneImageDescriptions;
-  }, [updatePhoneImageDescriptions]);
-  const phoneImageCaptionChangesById = useMemo(() => {
-    const changes = new Map<string, ImageCaptionChange[]>();
-    messages.forEach((message) => {
-      const change = message.phoneImageCaptionChange;
-      const imageId = change?.imageId.trim();
-      if (!change || !imageId) {
-        return;
-      }
-      changes.set(imageId, [...(changes.get(imageId) ?? []), change]);
-    });
-    return changes;
-  }, [messages]);
-  useEffect(() => {
-    updatePhoneImageDescriptionsRef.current(storybookImageDescriptionByIdRef.current);
-  }, [storybookImageDescriptionSignature]);
   const rpTimeTrackingEnabled = !!nodeViewNodes.find(
     (node) => node.data.kind === undefined && node.data.nodeType === 'history',
   )?.data.historyTimeTrackingEnabled;
@@ -4087,16 +3245,20 @@ function App() {
       (node) => node.data.kind === undefined && node.data.nodeType === 'event-manager',
     );
     const currentEventEntities = eventEntitiesFromNodes(currentNodes);
-    const promptSwitchNodes = currentNodes.filter(
-      (node) => node.data.kind === undefined && node.data.nodeType === 'llm-prompt-switch',
+    const promptDebugNodes = currentNodes.filter(
+      (node) =>
+        node.data.kind === undefined &&
+        (node.data.nodeType === 'llm-prompt-switch' || node.data.nodeType === 'llm-prompt'),
     );
     const textMetrics = new TextMetricsApi(activeTokenEstimateBytesPerToken);
-    const promptSwitchDebug = promptSwitchNodes.map((node) => ({
+    const promptSwitchDebug = promptDebugNodes.map((node) => ({
       id: node.id,
+      nodeType: node.data.nodeType,
       label: node.data.label,
       selectedOutputChannel: node.data.llmPromptSwitchSelectedOutputChannel,
       selectedPromptSlot: node.data.llmPromptSwitchSelectedPromptSlot,
-      runtimeDebug: node.data.llmPromptSwitchDebug,
+      runtimeDebug:
+        node.data.nodeType === 'llm-prompt' ? node.data.llmPromptDebug : node.data.llmPromptSwitchDebug,
       preview: node.data.preview,
       fullText: compactDebugValue(node.data.fullText, textMetrics),
       generatedText: node.data.generatedText,
@@ -4110,7 +3272,6 @@ function App() {
           label: currentEventManagerNode.data.label,
           events: appointmentsFromEventEntities(currentEventEntities),
           eventEntities: currentEventEntities,
-          selectedEvent,
           preview: currentEventManagerNode.data.preview,
           fullText: compactDebugValue(currentEventManagerNode.data.fullText, textMetrics),
           status: currentEventManagerNode.data.eventStatus,
@@ -4132,7 +3293,6 @@ function App() {
         selectedCharacter: selectedCharacter
           ? { id: selectedCharacter.id, name: selectedCharacter.name }
           : undefined,
-        selectedCharacterId,
         narratorSelected,
         narratorSelectedName: narratorSelected ? narratorSpeakerName : undefined,
         selectedEvent,
@@ -4167,11 +3327,17 @@ function App() {
         englishProcessingEnabled,
         inputTranslationOnlyEnabled,
         displayLanguage,
+        workflowVariables: workflowSettingsValuesRef.current,
       },
-      lastRun: lastRunDebugRef.current ?? {},
+      lastRun: lastRunDebugRef.current
+        ? {
+            ...lastRunDebugRef.current,
+            originalHistory: compactDebugValue(lastRunDebugRef.current.originalHistory, textMetrics),
+            translatedHistory: compactDebugValue(lastRunDebugRef.current.translatedHistory, textMetrics),
+          }
+        : {},
       recentTurns: recentTurnDebugSummaries(
         turnsRef.current,
-        nodesRef.current,
         turnCheckpointsRef.current,
         textMetrics,
         2,
@@ -4183,20 +3349,7 @@ function App() {
       nodes: currentNodes.map((node) => compactDebugNode(node, textMetrics)),
       edges: currentEdges,
       systemLog,
-    }) as {
-      schema: 'rpgraph-debug-snapshot';
-      version: number;
-      createdAt: string;
-      selectedSections: string[];
-      appState: Record<string, unknown>;
-      lastRun: Record<string, unknown>;
-      recentTurns: unknown[];
-      promptSwitch: Record<string, unknown>;
-      eventManager: Record<string, unknown>;
-      nodes: unknown[];
-      edges: unknown[];
-      systemLog: unknown[];
-    };
+    }) as DebugSnapshot;
   }
 
   function createAssistantDebugSnapshotSections(): DebugSnapshotAssistantSection[] {
@@ -4259,7 +3412,7 @@ function App() {
       {
         id: 'app-state',
         label: 'App State',
-        description: 'Current tab, selected character/event/phone state, running state, settings, and turn number.',
+        description: 'Current tab, selected character/event/phone state, running state, settings, workflow variables, and turn number.',
         value: snapshot.appState,
       },
       {
@@ -4277,7 +3430,7 @@ function App() {
       {
         id: 'last-run-debug',
         label: 'Last Run Debug',
-        description: 'Last run mode, prompt slot, original/visible input, history strings, phone/event flags, and last RP output.',
+        description: 'Last run mode, prompt slot, original input, compact history summaries, and phone/event flags.',
         value: snapshot.lastRun,
       },
       {
@@ -4288,14 +3441,14 @@ function App() {
       },
       {
         id: 'prompt-switch-debug',
-        label: 'Prompt Switch Debug',
-        description: 'LLM Prompt Switch input values, selected output/prompt slot, prompt pieces, combined prompt, and generated text.',
+        label: 'Prompt Debug (Switch + Multistep)',
+        description: 'LLM Prompt Switch and multistep LLM Prompt node input values, selected output/prompt slot, prompt pieces, combined prompt, and generated text.',
         value: snapshot.promptSwitch,
       },
       {
         id: 'event-manager-debug',
         label: 'Event Manager Debug',
-        description: 'Event list, selected event, Event Manager status, compact context, prompt, and response data.',
+        description: 'Event list, Event Manager status, compact context, prompt, and response data; the selected event lives in App State.',
         value: snapshot.eventManager,
       },
       {
@@ -4326,93 +3479,6 @@ function App() {
       : 'No turn to undo';
   const undoTurnDisabled = !isRunning && !currentSessionTurn;
 
-  function allowStorybookPhoneContactPair(fromName: string, toName: string) {
-    const fromCharacter = storyCharacters.find((character) => phoneNamesMatch(character.name, fromName));
-    const toCharacter = storyCharacters.find((character) => phoneNamesMatch(character.name, toName));
-    if (
-      !fromCharacter ||
-      !toCharacter ||
-      fromCharacter.storybookNodeId !== toCharacter.storybookNodeId
-    ) {
-      return;
-    }
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === fromCharacter.storybookNodeId && isStorybookSourceNode(node),
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const nextStorybook = withRpStorybookPhoneContactPairAllowed(
-      storybook,
-      fromCharacter.sourceId,
-      toCharacter.sourceId,
-    );
-    const nextJson = rpStorybookJsonText(nextStorybook);
-    if (nextJson === storybookNode.data.storybookJson) {
-      return;
-    }
-    updateRuntimeNode(storybookNode.id, {
-      storybookJson: nextJson,
-      storybookStatus: `Phone + Fotogram contact added: ${fromCharacter.name} <-> ${toCharacter.name}`,
-    });
-  }
-
-  function changeStorybookPhoneWallpaper(character: StorybookCharacter, wallpaperId: string) {
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const nextStorybook = withRpStorybookCharacterPhoneWallpaper(
-      storybook,
-      character.sourceId,
-      wallpaperId,
-    );
-    const nextJson = rpStorybookJsonText(nextStorybook);
-    if (nextJson === storybookNode.data.storybookJson) {
-      return;
-    }
-    updateRuntimeNode(storybookNode.id, {
-      storybookJson: nextJson,
-      storybookStatus: `Phone wallpaper updated for ${character.name}.`,
-    });
-  }
-
-  function saveStorybookSocialUsername(
-    character: StorybookCharacter,
-    app: 'fotogram' | 'onlyfriends',
-    username: string,
-  ) {
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const nextStorybook = withRpStorybookCharacterSocialUsername(
-      storybook,
-      character.sourceId,
-      app,
-      username,
-    );
-    const nextJson = rpStorybookJsonText(nextStorybook);
-    if (nextJson === storybookNode.data.storybookJson) {
-      return;
-    }
-    updateRuntimeNode(storybookNode.id, {
-      storybookJson: nextJson,
-      storybookStatus: `${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account saved for ${character.name}.`,
-    });
-  }
-
-  function storybookCharacterByPhoneName(name: string) {
-    return storyCharacters.find((character) => phoneNamesMatch(character.name, name));
-  }
-
   function openImagePreview(image: ChatImageAttachment) {
     setPreviewImage({ image });
   }
@@ -4426,339 +3492,6 @@ function App() {
     setPreviewImage({
       image: chatAttachmentFromStorybookImage(source.image),
     });
-  }
-
-  function imageIdsFromAttachments(images: ChatImageAttachment[] | undefined) {
-    const imageIds = images
-      ?.map((image) => image.id.trim())
-      .filter(Boolean) ?? [];
-    return imageIds.length ? imageIds : undefined;
-  }
-
-  function imageDescriptionFromAttachments(images: ChatImageAttachment[] | undefined) {
-    return images
-      ?.map((image) => image.description?.trim())
-      .find(Boolean);
-  }
-
-  function ensureImagesForStorybookCharacter(
-    character: StorybookCharacter | undefined,
-    images: ChatImageAttachment[] | undefined,
-    description: string | undefined,
-    status: (addedCount: number, updatedCount: number) => string,
-    options?: StorybookImageLibraryEnsureOptions,
-  ) {
-    if (!character || !images?.length) {
-      return undefined;
-    }
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return undefined;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const result = withImagesEnsuredForStorybookCharacter(
-      storybook,
-      character.sourceId,
-      images,
-      description ?? '',
-      options,
-    );
-    const changedCount = result.addedCount + result.updatedCount;
-    if (changedCount > 0) {
-      updateRuntimeNode(storybookNode.id, {
-        storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: status(result.addedCount, result.updatedCount),
-      });
-    }
-    return result.images.map(chatAttachmentFromStorybookImage);
-  }
-
-  function updateStorybookImageDescriptionEverywhere(
-    image: ChatImageAttachment | undefined,
-    description: string,
-  ) {
-    if (!image || !description.trim()) {
-      return;
-    }
-    nodesRef.current.forEach((node) => {
-      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
-        return;
-      }
-      const storybook = parseRpStorybookJson(node.data.storybookJson);
-      const result = withStorybookImageDescriptionUpdated(
-        storybook,
-        image.id,
-        image.dataUrl,
-        description.trim(),
-      );
-      if (result.updatedCount === 0) {
-        return;
-      }
-      updateRuntimeNode(node.id, {
-        storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: `Updated ${image.id} description.`,
-      });
-    });
-  }
-
-  function updateStorybookImageDescriptionById(
-    imageId: string,
-    description: string,
-  ): ImageCaptionChange | undefined {
-    const normalizedImageId = imageId.trim();
-    const normalizedDescription = description.trim();
-    if (!normalizedImageId || normalizedImageId === 'new_image' || !normalizedDescription) {
-      return undefined;
-    }
-    const beforeCaption = storybookImageDescriptionById.get(normalizedImageId)?.trim() || undefined;
-    let updated = false;
-    nodesRef.current.forEach((node) => {
-      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
-        return;
-      }
-      const storybook = parseRpStorybookJson(node.data.storybookJson);
-      const result = withStorybookImageDescriptionUpdated(
-        storybook,
-        normalizedImageId,
-        '',
-        normalizedDescription,
-      );
-      if (result.updatedCount === 0) {
-        return;
-      }
-      updated = true;
-      updateRuntimeNode(node.id, {
-        storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: `Updated ${normalizedImageId} description.`,
-      });
-    });
-    if (updated) {
-      const immediateDescriptions = new Map(storybookImageDescriptionById);
-      immediateDescriptions.set(normalizedImageId, normalizedDescription);
-      updatePhoneImageDescriptions(immediateDescriptions);
-    }
-    return updated
-      ? {
-          imageId: normalizedImageId,
-          beforeCaption,
-          afterCaption: normalizedDescription,
-        }
-      : undefined;
-  }
-
-  function changeImageCaptionUpdate(change: ImageCaptionChange, caption: string) {
-    const normalizedCaption = caption.trim();
-    const normalizedImageId = change.imageId.trim();
-    if (!normalizedCaption || !normalizedImageId) {
-      return;
-    }
-    let targetMessage = messagesRef.current.find((message) => message.phoneImageCaptionChange === change);
-    if (!targetMessage) {
-      for (let index = messagesRef.current.length - 1; index >= 0; index -= 1) {
-        const message = messagesRef.current[index];
-        const currentChange = message.phoneImageCaptionChange;
-        if (
-          currentChange?.imageId.trim() === normalizedImageId &&
-          (currentChange.beforeCaption ?? '') === (change.beforeCaption ?? '')
-        ) {
-          targetMessage = message;
-          break;
-        }
-      }
-    }
-    if (!targetMessage?.phoneImageCaptionChange) {
-      notifySystem('warning', `Caption update for ${normalizedImageId} was not found.`);
-      return;
-    }
-    if (targetMessage.phoneImageCaptionChange.afterCaption === normalizedCaption) {
-      updateStorybookImageDescriptionById(normalizedImageId, normalizedCaption);
-      return;
-    }
-    updateStorybookImageDescriptionById(normalizedImageId, normalizedCaption);
-    updateMessage(targetMessage.id, {
-      phoneImageCaptionChange: {
-        ...targetMessage.phoneImageCaptionChange,
-        afterCaption: normalizedCaption,
-      },
-    });
-    notifySystem('info', `Changed caption update for ${normalizedImageId}.`);
-  }
-
-  function pruneStorybookExternalImagesForMessages(activeMessages = messagesRef.current) {
-    nodesRef.current.forEach((node) => {
-      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
-        return;
-      }
-      const storybook = parseRpStorybookJson(node.data.storybookJson);
-      const result = withStorybookExternalImagesPruned(storybook, activeMessages);
-      if (result.removedCount === 0) {
-        return;
-      }
-      updateRuntimeNode(node.id, {
-        storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: `Removed ${result.removedCount} inactive received image${result.removedCount === 1 ? '' : 's'}.`,
-      });
-    });
-  }
-
-  function addPhoneImagesToRecipientStorybook(
-    fromName: string,
-    toName: string,
-    images: ChatImageAttachment[] | undefined,
-    description?: string,
-  ) {
-    const sender = storybookCharacterByPhoneName(fromName);
-    const recipient = storybookCharacterByPhoneName(toName);
-    if (
-      !sender ||
-      !recipient ||
-      sender.id === recipient.id ||
-      sender.storybookNodeId !== recipient.storybookNodeId
-    ) {
-      return;
-    }
-    ensureImagesForStorybookCharacter(
-      recipient,
-      images,
-      description,
-      (addedCount, updatedCount) =>
-        addedCount > 0
-          ? `Added ${addedCount} phone image${addedCount === 1 ? '' : 's'} to ${recipient.name} from ${sender.name}.`
-          : `Updated ${updatedCount} phone image description${updatedCount === 1 ? '' : 's'} for ${recipient.name}.`,
-      { receivedFrom: sender.name },
-    );
-  }
-
-  function ensurePhoneImagesInStorybooks(
-    fromName: string,
-    toName: string,
-    images: ChatImageAttachment[] | undefined,
-    description?: string,
-    sourceOwnerName?: string,
-  ) {
-    if (!images?.length) {
-      return undefined;
-    }
-    const sender = storybookCharacterByPhoneName(fromName);
-    const imagesAlreadyStored = images.every((image) => {
-      const storedImage = currentStorybookImageSourceById(image.id)?.image;
-      return storedImage?.dataUrl === image.dataUrl;
-    });
-    const senderNeedsImageAccess = !!sender && !!sourceOwnerName && !phoneNamesMatch(sender.name, sourceOwnerName);
-    const senderAttachments = imagesAlreadyStored && !senderNeedsImageAccess
-      ? images
-      : ensureImagesForStorybookCharacter(
-          sender,
-          images,
-          description,
-            (addedCount, updatedCount) =>
-              addedCount > 0
-              ? `Added ${addedCount} phone image${addedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}${senderNeedsImageAccess ? ' with Image Access' : ''}.`
-              : `Updated ${updatedCount} phone image description${updatedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}.`,
-          senderNeedsImageAccess ? { imageAccess: true } : undefined,
-        );
-    const ensuredAttachments = senderAttachments?.length ? senderAttachments : images;
-    addPhoneImagesToRecipientStorybook(fromName, toName, ensuredAttachments, description);
-    return ensuredAttachments;
-  }
-
-  function updatePhoneImageDescriptionFromLlm(
-    message: MessageRecord,
-    description: string,
-  ): ImageCaptionChange | undefined {
-    const trimmedDescription = description.trim();
-    if (!trimmedDescription || !message.imageAttachments?.length) {
-      return undefined;
-    }
-    const beforeCaption =
-      message.phoneImageDescription?.trim() ||
-      message.phoneImageIds
-        ?.map((imageId) => storybookImageDescriptionById.get(imageId)?.trim())
-        .find(Boolean) ||
-      undefined;
-    const storybookAttachments = ensurePhoneImagesInStorybooks(
-      message.phoneFrom ?? '',
-      message.phoneTo ?? '',
-      message.imageAttachments,
-      trimmedDescription,
-    );
-    const imageAttachments = storybookAttachments?.length
-      ? storybookAttachments
-      : message.imageAttachments;
-    const phoneImageIds = imageIdsFromAttachments(imageAttachments) ?? message.phoneImageIds;
-    updateStorybookImageDescriptionEverywhere(
-      imageAttachments[0],
-      trimmedDescription,
-    );
-    if (phoneImageIds?.length) {
-      const immediateDescriptions = new Map(storybookImageDescriptionById);
-      phoneImageIds.forEach((imageId) => immediateDescriptions.set(imageId, trimmedDescription));
-      updatePhoneImageDescriptions(immediateDescriptions);
-    }
-    updateMessage(message.id, {
-      phoneImageDescription: trimmedDescription,
-      ...(phoneImageIds?.length ? { phoneImageIds } : {}),
-      ...(storybookAttachments?.length ? { imageAttachments: storybookAttachments } : {}),
-    });
-    const imageId = phoneImageIds?.[0]?.trim() || imageAttachments[0]?.id.trim();
-    return imageId
-      ? {
-          imageId,
-          beforeCaption,
-          afterCaption: trimmedDescription,
-        }
-      : undefined;
-  }
-
-  function latestIncomingPhoneImageMessage(phoneReplyTo?: MessageRecord) {
-    const describedInput = activeTurnCollectorRef.current?.inputMessages.find(
-      (message) =>
-        message.channel === 'phone' &&
-        !!message.imageAttachments?.length,
-    );
-    return describedInput ?? (
-      phoneReplyTo?.imageAttachments?.length ? phoneReplyTo : undefined
-    );
-  }
-
-  function applyPhoneImageActionFromLlm(
-    action: ParsedPhoneImageAction,
-    phoneReplyTo?: MessageRecord,
-    outgoingImageId?: string,
-  ): ImageCaptionChange | undefined {
-    if (action.imageAction === 'no_change') {
-      return undefined;
-    }
-    const normalizedOutgoingImageId = outgoingImageId?.trim();
-    if (
-      normalizedOutgoingImageId &&
-      action.imageAction === 'update' &&
-      action.imageId.trim() === normalizedOutgoingImageId &&
-      action.caption
-    ) {
-      return updateStorybookImageDescriptionById(normalizedOutgoingImageId, action.caption);
-    }
-    const describedMessage = latestIncomingPhoneImageMessage(phoneReplyTo);
-    if (describedMessage && phoneImageActionMatchesMessage(describedMessage, action)) {
-      if (action.caption) {
-        return updatePhoneImageDescriptionFromLlm(describedMessage, action.caption);
-      }
-      return undefined;
-    }
-    if (!describedMessage) {
-      notifySystem(
-        'warning',
-        `RP Output returned a phone image action for ${action.imageId}, but no matching phone image was found.`,
-      );
-      return undefined;
-    }
-    notifySystem(
-      'warning',
-      `RP Output returned a phone image action for ${action.imageId}, but the latest phone input uses a different image.`,
-    );
-    return undefined;
   }
 
   function storybookPhoneImageAttachment(message: Pick<ParsedPhoneMessage, 'from' | 'imageId'>) {
@@ -5422,7 +4155,7 @@ function App() {
       rememberChatCharacter(selectedCharacter.id);
     }
     void runGraph(
-      message || 'Attached image.',
+      message,
       draftImages,
       undefined,
       messagesRef.current,
@@ -5723,7 +4456,7 @@ function App() {
     clearPhoneReply();
     setShowPhoneEmojiPicker(false);
     void runGraph(
-      message || 'Attached image.',
+      message,
       images,
       undefined,
       messagesRef.current,
@@ -5961,17 +4694,11 @@ function App() {
   const jsonDialogNode = nodes.find((node) => node.id === jsonDialogNodeId);
   const storybookCreatorNode = nodeViewNodes.find((node) => node.id === storybookCreatorNodeId);
   const storybookEditorNode = nodeViewNodes.find((node) => node.id === storybookEditorNodeId);
-  const customNodeAssistantNode = nodeViewNodes.find((node) => node.id === customNodeAssistantNodeId);
-  const customNodeAssistantMessages = customNodeAssistantNodeId
-    ? (customNodeAssistantHistories[customNodeAssistantNodeId] || [])
-    : [];
-  const customNodeAssistantActiveDiagnostics = customNodeAssistantNodeId
-    ? (customNodeAssistantDiagnostics[customNodeAssistantNodeId] || [])
-    : [];
+  const customNodeAssistantNode = customNodeAssistant.activeNode;
   const nodeAssistantNode = nodeViewNodes.find((node) => node.id === nodeAssistantNodeId);
   const nodeAssistantMessages = nodeAssistantNodeId ? (nodeAssistantHistories[nodeAssistantNodeId] || []) : [];
   const workflowAssistantSnapshotJson = useMemo(
-    () => JSON.stringify(createWorkflowAssistantSnapshot(nodeViewNodes, edges), null, 2),
+    () => createWorkflowAssistantSnapshotJson(nodeViewNodes, edges),
     [edges, nodeViewNodes],
   );
   const [assistantDebugSnapshotSections, setAssistantDebugSnapshotSections] =
@@ -6062,197 +4789,20 @@ function App() {
     () => withSourceNodeStatusConnectionColors(edges, nodeViewNodes),
     [edges, nodeViewNodes],
   );
-  const workflowCapabilityIndicators = useMemo<WorkflowCapabilityIndicator[]>(() => {
-    const llmConnectionIds = new Set<string>();
-    const visionConnectionIds = new Set<string>();
-    const explicitComfyProviderIds = new Set<string>();
-    let usesVision = false;
-    let usesImage = false;
-    const usesAudio =
-      dialogueVoiceMode === 'narrator-only' ||
-      storyCharacters.some((character) => !!character.voiceConfig?.sampleDataUrl);
-
-    const connectionIdForNode = (node: WorkflowNode) => {
-      const connectionId = typeof node.data.connectionId === 'string' && node.data.connectionId.trim()
-        ? node.data.connectionId
-        : defaultConnectionId;
-      const connection = connections.find((entry) => entry.id === connectionId);
-      return connection && isLlmConnection(connection) ? connection.id : connectionId;
-    };
-
-    for (const node of nodeViewNodes) {
-      if (node.data.kind !== undefined) {
-        continue;
-      }
-      if (Object.prototype.hasOwnProperty.call(node.data, 'connectionId')) {
-        llmConnectionIds.add(connectionIdForNode(node));
-      }
-      if (node.data.nodeType !== 'llm-prompt' && node.data.nodeType !== 'llm-prompt-switch') {
-        continue;
-      }
-      const actionConfigs = withPromptActionRuntimeSettingsList(
-        promptActionConfigs(node.data.llmPromptActions),
-        promptActionSettings,
-      );
-      const promptTexts = node.data.nodeType === 'llm-prompt'
-        ? [node.data.llmPromptBefore ?? '', node.data.llmPromptAfter ?? '']
-        : [
-            ...llmPromptSwitchPromptBeforesByOutput(node.data).flat(),
-            ...llmPromptSwitchPromptAftersByOutput(node.data).flat(),
-          ];
-      const usedActionConfigs = promptTexts
-        .flatMap((text) => parsePromptActionTokens(text))
-        .map((token) => configForPromptActionToken(actionConfigs, token.title));
-      if (usedActionConfigs.length === 0) {
-        continue;
-      }
-      const nodeConnectionId = connectionIdForNode(node);
-      for (const action of usedActionConfigs) {
-        if (
-          action.actionId === 'updatePhoneImageCaption' ||
-          action.actionId === 'describeInputImage' ||
-          (action.actionId === 'getImageId' && action.sendImagesToLlm)
-        ) {
-          usesVision = true;
-          visionConnectionIds.add(nodeConnectionId);
-        }
-        if (action.actionId === 'createImage') {
-          usesImage = true;
-          const comfyProviderId = action.comfyProviderId?.trim();
-          if (comfyProviderId) {
-            explicitComfyProviderIds.add(comfyProviderId);
-          }
-        }
-      }
-    }
-
-    const connectionIsOnline = (connectionId: string) =>
-      providerHealthById[connectionId]?.status === 'online';
-    // Detected capabilities may be missing for plain OpenAI-compatible
-    // providers; only an explicit `text: false` (e.g. a speech-only
-    // OpenRouter TTS preset) disqualifies a provider as a text provider.
-    const connectionTextCapable = (connectionId: string) =>
-      providerHealthById[connectionId]?.capabilities?.text !== false;
-    const everyConnectionReady = (connectionIds: Set<string>, predicate: (connection: ConnectionPreset, id: string) => boolean) =>
-      connectionIds.size > 0 &&
-      [...connectionIds].every((connectionId) => {
-        const connection = connections.find((entry) => entry.id === connectionId);
-        return !!connection && predicate(connection, connectionId);
-      });
-    const textReady = everyConnectionReady(
-      llmConnectionIds,
-      (connection, connectionId) =>
-        isLlmConnection(connection) && connectionTextCapable(connectionId) && connectionIsOnline(connectionId),
-    );
-    const anyTextConnected = connections.some((connection) =>
-      isLlmConnection(connection) && connectionTextCapable(connection.id) && connectionIsOnline(connection.id),
-    );
-    const anyVisionConnected = connections.some((connection) =>
-      isLlmConnection(connection) && connection.vision === true && connectionIsOnline(connection.id),
-    );
-    const visionReady = everyConnectionReady(
-      visionConnectionIds,
-      (connection, connectionId) =>
-        isLlmConnection(connection) && connection.vision === true && connectionIsOnline(connectionId),
-    );
-    const imageProviders = connections.filter(isComfyImageConnection);
-    const voiceProviders = connections.filter(isComfyVoiceConnection);
-    const anyImageConnected = imageProviders.some((connection) => connectionIsOnline(connection.id));
-    const anyApiVoiceConnected = connections.some((connection) => {
-      const capabilities = providerHealthById[connection.id]?.capabilities;
-      return (isOpenRouterConnection(connection) || isGeminiConnection(connection)) &&
-        capabilities?.voice === true &&
-        capabilities.text !== true &&
-        connectionIsOnline(connection.id);
-    });
-    const selectedNarratorConnected = resolvedNarratorProviderId
-      ? connectionIsOnline(resolvedNarratorProviderId)
-      : false;
-    const anyVoiceConnected =
-      voiceProviders.some((connection) => connectionIsOnline(connection.id)) ||
-      anyApiVoiceConnected;
-    const imageReady = usesImage && (
-      explicitComfyProviderIds.size > 0
-        ? [...explicitComfyProviderIds].every((providerId) =>
-            imageProviders.some((connection) => connection.id === providerId && connectionIsOnline(connection.id)),
-          )
-        : anyImageConnected
-    );
-    const textActive = nodeViewNodes.some((node) =>
-      node.data.kind === undefined && node.data.runActive === true,
-    );
-    const visionActive = nodeViewNodes.some((node) =>
-      node.data.kind === undefined && node.data.runVisionActive === true,
-    );
-    const imageActive = workflowComfyGenerationActive || comfyProviderActionActive === 'generate';
-    const audioActive = voiceGenerationActive || apiNarratorGenerationActive || readAloudActive;
-    const effectiveTextReady = llmConnectionIds.size > 0 ? textReady : anyTextConnected;
-
-    const indicators: WorkflowCapabilityIndicator[] = [{
-      kind: 'text',
-      tone: (effectiveTextReady || textActive) ? 'ready' : 'missing',
-      active: textActive,
-      label: (effectiveTextReady || textActive)
-        ? 'Text: required and connected'
-        : 'Text: required, but no used LLM provider is connected',
-    }];
-    if (usesVision || anyVisionConnected || visionActive) {
-      const ready = usesVision ? visionReady : anyVisionConnected;
-      indicators.push({
-        kind: 'vision',
-        tone: (ready || visionActive) ? 'ready' : 'missing',
-        active: visionActive,
-        label: ready || visionActive
-          ? usesVision
-            ? 'Vision: required and available'
-            : 'Vision: connected'
-          : 'Vision: required, but the used LLM provider is not connected or has no vision',
-      });
-    }
-    if (usesImage || anyImageConnected || imageActive) {
-      const ready = usesImage ? imageReady : anyImageConnected;
-      indicators.push({
-        kind: 'image',
-        tone: (ready || imageActive) ? 'ready' : 'missing',
-        active: imageActive,
-        label: ready || imageActive
-          ? usesImage
-            ? 'Image generation: required and connected'
-            : 'Image generation: connected'
-          : 'Image generation: required, but the ComfyUI provider is not connected',
-      });
-    }
-    if (usesAudio || anyVoiceConnected || audioActive) {
-      const ready = dialogueVoiceMode === 'narrator-only'
-        ? selectedNarratorConnected
-        : anyVoiceConnected;
-      indicators.push({
-        kind: 'audio',
-        tone: (ready || audioActive) ? 'ready' : 'missing',
-        active: audioActive,
-        label: ready || audioActive
-          ? usesAudio
-            ? 'Audio generation: required and connected'
-            : 'Audio generation: connected'
-          : 'Audio generation: required, but the selected voice provider is not connected',
-      });
-    }
-    return indicators;
-  }, [
-    comfyProviderActionActive,
+  const workflowCapabilityIndicators = useWorkflowCapabilities({
+    nodes: nodeViewNodes,
     connections,
-    defaultConnectionId,
-    dialogueVoiceMode,
-    nodeViewNodes,
-    promptActionSettings,
     providerHealthById,
-    readAloudActive,
-    resolvedNarratorProviderId,
+    defaultConnectionId,
+    promptActionSettings,
+    dialogueVoiceMode,
     storyCharacters,
-    apiNarratorGenerationActive,
-    voiceGenerationActive,
-    workflowComfyGenerationActive,
-  ]);
+    resolvedNarratorProviderId,
+    imageGenerationActive:
+      workflowComfyGenerationActive || comfyProviderActionActive === 'generate',
+    audioGenerationActive:
+      voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
+  });
 
   return (
     <div
@@ -6410,7 +4960,15 @@ function App() {
                 setPromptTextCustomPresets={setPromptTextCustomPresets}
                 updateNodeData={updateRuntimeNode}
               />
-              <button className="graph-reset" type="button" onClick={() => void resetWorkflow()}>
+              <button
+                className="graph-reset"
+                type="button"
+                onClick={() => void resetWorkflow()}
+                disabled={!!activeSessionFileName}
+                title={activeSessionFileName
+                  ? 'Workflow reset is unavailable while an RP save is active.'
+                  : 'Reset workflow'}
+              >
                 Reset Workflow
               </button>
               <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
@@ -6798,6 +5356,7 @@ function App() {
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
             <ChatConversationPanel
+              runtimeNodes={nodes}
               messages={messages}
               storyCharacters={storyCharacters}
               characterColors={characterColors}
@@ -6810,6 +5369,8 @@ function App() {
               editingDraft={editingDraft}
               editableUserMessageId={editableUserMessageId}
               isRunning={isRunning}
+              runStartTimeMs={runStartTimeMs}
+              onCancelRun={cancelRunOrUndoLastTurn}
               englishProcessingEnabled={englishProcessingEnabled}
               dialogueHighlightEnabled={dialogueColorsEnabled}
               dialogueVoiceSpeakerNames={dialogueVoiceSpeakerNames}
@@ -6865,6 +5426,8 @@ function App() {
               onChatTextSizeChange={setChatTextSize}
               phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}
               onPhoneAuthorBadgesEnabledChange={changePhoneAuthorBadgesEnabled}
+              chatReadsPhoneAppsEnabled={chatReadsPhoneAppsEnabled}
+              onChatReadsPhoneAppsEnabledChange={changeChatReadsPhoneAppsEnabled}
               thoughtTextStyle={thoughtTextStyle}
               rpDateTimeFormat={rpDateTimeFormat}
               rpWeekdayLanguage={rpWeekdayLanguage}
@@ -7015,6 +5578,8 @@ function App() {
               onMarkSelectedPhoneConversationSeen={markSelectedPhoneConversationSeen}
               onMarkBankingSeen={markViewedBankingSeen}
               onMarkPhoneAppSeen={markViewedPhoneAppSeen}
+              onMarkSocialDirectMessagesSeen={markViewedSocialDmSeen}
+              unreadSocialDirectMessages={unreadSocialDirectMessages}
               onOpenUnreadPhoneConversation={openUnreadPhoneConversation}
               unreadPhoneSwitchName={unreadPhoneSwitchName}
               onSwitchToViewedCharacter={() => {
@@ -7124,7 +5689,7 @@ function App() {
                   maxTokens: 1200,
                   temperature: 0.2,
                 });
-                return parseImageGenerationAssistantResult(completion.text);
+                return parseImageGenerationAssistantResult(completion.text, describeImage);
               }}
               onGenerateImageAssistantImages={generateImageAssistantImages}
               onSaveImageAssistantImage={async ({ characterId, dataUrl, description }) => {
@@ -7215,7 +5780,7 @@ function App() {
       )}
 
 
-      {storybookCreatorNode && storybookCreatorNode.data.nodeType === 'rp-storybook-v1' && (
+      {storybookCreatorNode && storybookCreatorNode.data.nodeType === 'rp-storybook' && (
         <StorybookCreatorDialog
           node={storybookCreatorNode}
           workflowNodes={nodeViewNodes}
@@ -7231,7 +5796,7 @@ function App() {
           setPromptTextCustomPresets={setPromptTextCustomPresets}
           usedImageIds={usedStorybookImageIds}
           imageCaptionChangesById={phoneImageCaptionChangesById}
-          onUpdateStorybook={(storybook: RpStorybookV1, status?: string) =>
+          onUpdateStorybook={(storybook: RpStorybook, status?: string) =>
             updateStorybook(storybookCreatorNode.id, storybook, status)
           }
           onChangeImageCaptionUpdate={changeImageCaptionUpdate}
@@ -7282,21 +5847,25 @@ function App() {
           node={customNodeAssistantNode}
           connections={connections}
           defaultConnectionId={defaultConnectionId}
-          messages={customNodeAssistantMessages}
-          diagnostics={customNodeAssistantActiveDiagnostics}
-          onSubmit={submitCustomNodeAssistantMessage}
-          onStructureCheck={() => checkCustomNodeStructure(customNodeAssistantNode.id)}
-          onSecurityCheck={(connectionId) => checkCustomNodeSecurity(customNodeAssistantNode.id, connectionId)}
-          onApplyDefinitionText={(text) => applyCustomNodeDefinitionText(customNodeAssistantNode.id, text)}
+          messages={customNodeAssistant.messages}
+          diagnostics={customNodeAssistant.diagnostics}
+          onSubmit={customNodeAssistant.submitMessage}
+          onStructureCheck={() => customNodeAssistant.checkStructure(customNodeAssistantNode.id)}
+          onSecurityCheck={(connectionId) =>
+            customNodeAssistant.checkSecurity(customNodeAssistantNode.id, connectionId)
+          }
+          onApplyDefinitionText={(text) =>
+            customNodeAssistant.applyDefinitionText(customNodeAssistantNode.id, text)
+          }
           onToggleDiagnostic={(diagnosticId) =>
-            toggleCustomNodeAssistantDiagnostic(customNodeAssistantNode.id, diagnosticId)
+            customNodeAssistant.toggleDiagnostic(customNodeAssistantNode.id, diagnosticId)
           }
           onDismissDiagnostic={(diagnosticId) =>
-            dismissCustomNodeAssistantDiagnostic(customNodeAssistantNode.id, diagnosticId)
+            customNodeAssistant.dismissDiagnostic(customNodeAssistantNode.id, diagnosticId)
           }
-          onClearChat={() => clearCustomNodeAssistantChat(customNodeAssistantNode.id)}
-          onReset={() => resetCustomNodeDefinition(customNodeAssistantNode.id)}
-          onClose={() => setCustomNodeAssistantNodeId(null)}
+          onClearChat={() => customNodeAssistant.clearChat(customNodeAssistantNode.id)}
+          onReset={() => customNodeAssistant.resetDefinition(customNodeAssistantNode.id)}
+          onClose={customNodeAssistant.close}
         />
       )}
 

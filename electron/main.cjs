@@ -22,6 +22,11 @@ const {
   workflowMetadata,
 } = require('./workflowFormat.cjs');
 const {
+  bundledDefaultWorkflowFileNames,
+  importedDefaultFileNamesFromState,
+  restoreBundledDefaultWorkflows,
+} = require('./workflowDefaults.cjs');
+const {
   currentEncryptedStorybookEnvelopeFormatVersion,
   currentStorybookFormatVersion,
   encryptedStorybookMetadata,
@@ -38,8 +43,6 @@ const {
 
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
-const defaultWorkflowFileNamePattern = /^workflow\.default.*\.json$/i;
-
 function sortComfyWorkflowPaths(paths) {
   return [...paths].sort((left, right) => {
     const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Krea2.json');
@@ -102,17 +105,21 @@ function resolveProjectPath(relativePath) {
   return resolved;
 }
 
-function bundledDefaultWorkflowPath() {
-  const names = fsSync
-    .readdirSync(projectRootPath)
-    .filter((name) => defaultWorkflowFileNamePattern.test(name))
-    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+function bundledDefaultWorkflowPaths() {
+  const names = bundledDefaultWorkflowFileNames(fsSync.readdirSync(projectRootPath));
   if (names.length === 0) {
     throw new Error('No workflow.default*.json file was found in the app directory.');
   }
-  const resolved = path.resolve(projectRootPath, names[names.length - 1]);
-  approvedWorkflowPaths.add(resolved);
-  return resolved;
+  return names.map((name) => {
+    const resolved = path.resolve(projectRootPath, name);
+    approvedWorkflowPaths.add(resolved);
+    return resolved;
+  });
+}
+
+function bundledDefaultWorkflowPath() {
+  const paths = bundledDefaultWorkflowPaths();
+  return paths[paths.length - 1];
 }
 const activeLlmRequests = new Map();
 const pendingCancelledLlmRequests = new Set();
@@ -591,13 +598,10 @@ async function loadWorkflowState() {
         typeof state.lastWorkflowFileName === 'string'
           ? path.basename(state.lastWorkflowFileName)
           : '',
-      importedDefaultFileName:
-        typeof state.importedDefaultFileName === 'string'
-          ? path.basename(state.importedDefaultFileName)
-          : '',
+      importedDefaultFileNames: importedDefaultFileNamesFromState(state),
     };
   } catch {
-    return { lastWorkflowFileName: '', importedDefaultFileName: '' };
+    return { lastWorkflowFileName: '', importedDefaultFileNames: [] };
   }
 }
 
@@ -636,15 +640,18 @@ async function workflowFiles() {
 }
 
 async function restoreDefaultWorkflowFile() {
-  return ensureDefaultWorkflowFile(false);
+  return ensureBundledDefaultWorkflowFiles(false);
 }
 
 async function refreshDefaultWorkflowFile() {
-  return ensureDefaultWorkflowFile(true);
+  return ensureBundledDefaultWorkflowFiles(true);
 }
 
-async function ensureDefaultWorkflowFile(overwriteExisting) {
-  const bundledPath = bundledDefaultWorkflowPath();
+async function ensureDefaultWorkflowFile(
+  overwriteExisting,
+  bundledPath = bundledDefaultWorkflowPath(),
+  activate = true,
+) {
   const bundledFileName = path.basename(bundledPath);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
@@ -659,9 +666,13 @@ async function ensureDefaultWorkflowFile(overwriteExisting) {
         await writeTextFileAtomically(filePath, contents);
       }
       approveWorkflowPath(filePath);
+      const state = await loadWorkflowState();
       await saveWorkflowState({
-        lastWorkflowFileName: validatedStoredFileName(fileName),
-        importedDefaultFileName: bundledFileName,
+        ...(activate ? { lastWorkflowFileName: validatedStoredFileName(fileName) } : {}),
+        importedDefaultFileNames: Array.from(new Set([
+          ...state.importedDefaultFileNames,
+          bundledFileName,
+        ])),
       });
       return { fileName, name: storedJsonName(fileName), filePath };
     }
@@ -671,11 +682,41 @@ async function ensureDefaultWorkflowFile(overwriteExisting) {
   const contents = await fs.readFile(bundledPath, 'utf8');
   await writeNewTextFileAtomically(filePath, contents);
   approveWorkflowPath(filePath);
+  const state = await loadWorkflowState();
   await saveWorkflowState({
-    lastWorkflowFileName: validatedStoredFileName(fileName),
-    importedDefaultFileName: bundledFileName,
+    ...(activate ? { lastWorkflowFileName: validatedStoredFileName(fileName) } : {}),
+    importedDefaultFileNames: Array.from(new Set([
+      ...state.importedDefaultFileNames,
+      bundledFileName,
+    ])),
   });
   return { fileName, name: storedJsonName(fileName), filePath };
+}
+
+async function ensureBundledDefaultWorkflowFiles(overwriteExisting) {
+  return restoreBundledDefaultWorkflows(
+    bundledDefaultWorkflowPaths(),
+    (bundledPath) => ensureDefaultWorkflowFile(overwriteExisting, bundledPath, false),
+    (primary) => saveLastWorkflowFileName(primary.fileName),
+  );
+}
+
+async function importMissingBundledDefaultWorkflows() {
+  const bundledPaths = bundledDefaultWorkflowPaths();
+  const initialState = await loadWorkflowState();
+  const importedNames = new Set(initialState.importedDefaultFileNames);
+  const imported = [];
+  for (const bundledPath of bundledPaths) {
+    const bundledFileName = path.basename(bundledPath);
+    if (importedNames.has(bundledFileName)) {
+      continue;
+    }
+    imported.push(await ensureDefaultWorkflowFile(false, bundledPath, false));
+  }
+  if (!initialState.lastWorkflowFileName && imported.length > 0) {
+    await saveLastWorkflowFileName(imported[imported.length - 1].fileName);
+  }
+  return imported;
 }
 
 async function loadStoredWorkflowFile(fileName, password = '') {
@@ -1532,12 +1573,25 @@ function lmStudioCliName() {
   return process.platform === 'win32' ? 'lms.cmd' : 'lms';
 }
 
+// With a shell, cmd.exe would expand %VAR% inside quotes and an embedded
+// quote would break out of the argument, so those characters are rejected.
+function quotedWindowsCliArgument(value) {
+  if (/["%\r\n]/.test(value)) {
+    throw new Error(`Unsupported character in LM Studio CLI argument: ${value}`);
+  }
+  return `"${value}"`;
+}
+
 function runLmStudioCli(args) {
+  // Node refuses to spawn .cmd files without a shell (CVE-2024-27980
+  // hardening), so Windows runs the CLI through a shell with each argument
+  // quoted; other platforms execute the binary directly.
+  const useShell = process.platform === 'win32';
   return new Promise((resolve, reject) => {
     execFile(
       lmStudioCliName(),
-      args,
-      { timeout: 60 * 1000, windowsHide: true },
+      useShell ? args.map(quotedWindowsCliArgument) : args,
+      { timeout: 60 * 1000, windowsHide: true, shell: useShell },
       (error, stdout, stderr) => {
         if (error) {
           const message = stderr || stdout || error.message;
@@ -4583,13 +4637,9 @@ ipcMain.handle('workflow:restore-default', async () => {
 
 ipcMain.handle('workflow:load-startup', async () => {
   try {
-    const bundledFileName = path.basename(bundledDefaultWorkflowPath());
-    const { importedDefaultFileName } = await loadWorkflowState();
-    if (importedDefaultFileName !== bundledFileName) {
-      await restoreDefaultWorkflowFile();
-    }
+    await importMissingBundledDefaultWorkflows();
   } catch (error) {
-    console.error('Unable to import the bundled default workflow:', error);
+    console.error('Unable to import bundled default workflows:', error);
   }
   let files = await workflowFiles();
   if (files.length === 0) {

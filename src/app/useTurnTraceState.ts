@@ -6,6 +6,19 @@ import {
 
 type CreateTurnTraceInput = Parameters<typeof createTurnTrace>[0];
 
+// Traces hold full prompt passes and live only in memory, so long sessions
+// would grow without bound; keep the most recent turns only.
+const maxTracedTurns = 30;
+
+function pruneToRecentTurns(traces: TurnTrace[]) {
+  const recentTurnNumbers = new Set(
+    Array.from(new Set(traces.map((trace) => trace.turnNumber)))
+      .sort((left, right) => right - left)
+      .slice(0, maxTracedTurns),
+  );
+  return traces.filter((trace) => recentTurnNumbers.has(trace.turnNumber));
+}
+
 export function useTurnTraceState() {
   const [turnTraces, setTurnTracesState] = useState<TurnTrace[]>([]);
   const turnTracesRef = useRef(turnTraces);
@@ -23,7 +36,7 @@ export function useTurnTraceState() {
           (entry) => entry.turnId !== trace.turnId || entry.status !== 'completed',
         )
       : turnTracesRef.current;
-    setTurnTraces([...retained, trace]);
+    setTurnTraces(pruneToRecentTurns([...retained, trace]));
     return trace;
   }
 

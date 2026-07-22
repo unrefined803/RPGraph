@@ -15,7 +15,12 @@ function bundledDefaultWorkflowFile() {
   if (names.length === 0) {
     throw new Error('No workflow.default*.json file was found in the current directory.');
   }
-  return names[names.length - 1];
+  if (names.length > 1) {
+    throw new Error(
+      `Multiple bundled workflows were found (${names.join(', ')}). Pass the intended workflow path explicitly.`,
+    );
+  }
+  return names[0];
 }
 
 function usage() {
@@ -25,7 +30,7 @@ function usage() {
     '  node scripts/workflow-prompts.mjs merge [promptSource] [workflowSource] [workflowDest]',
     '',
     'Defaults:',
-    '  workflow source/dest: workflow.default*.json (auto-detected)',
+    '  workflow source/dest: auto-detected only when exactly one workflow.default*.json exists',
     `  prompt file:          ${defaultPromptPath}`,
   ].join('\n');
 }

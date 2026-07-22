@@ -16,16 +16,33 @@ export type LastRunDebug = {
   narratorAutoTurn: boolean;
   displayText: string;
   originalInput: string;
-  visibleInput: string;
   promptSlot: number;
   isAutoTurn: boolean;
   isNarratorTurn: boolean;
   eventDisplayText?: string;
   phoneMessage: boolean;
   messageFormat: number;
-  lastRpOutput: string;
   originalHistory: string;
   translatedHistory: string;
+};
+
+export type DebugSnapshot = {
+  schema: 'rpgraph-debug-snapshot';
+  version: number;
+  createdAt: string;
+  compression?: {
+    mode: 'compact-debug-copy';
+    textPreviewCharacters: number;
+  };
+  selectedSections: string[];
+  appState: Record<string, unknown>;
+  lastRun: Record<string, unknown>;
+  recentTurns: unknown[];
+  promptSwitch: Record<string, unknown>;
+  eventManager: Record<string, unknown>;
+  nodes: unknown[];
+  edges: unknown[];
+  systemLog: unknown[];
 };
 
 export function sanitizeDebugSnapshotValue(value: unknown, seen = new WeakSet<object>()): unknown {
@@ -117,6 +134,7 @@ export function compactDebugNode(node: WorkflowNode, textMetrics: TextMetricsApi
       ...scalarData,
       runtimePortValues: compactDebugValue(data.runtimePortValues, textMetrics),
       llmCallStats: data.llmCallStats,
+      llmPromptDebug: compactDebugValue(data.llmPromptDebug, textMetrics),
       eventAppointments: Array.isArray(data.eventAppointments)
         ? normalizeEventAppointments(data.eventAppointments as WorkflowNodeData['eventAppointments'])
         : data.eventAppointments,
@@ -143,7 +161,6 @@ function compactDebugMessage(message: MessageRecord, textMetrics: TextMetricsApi
 
 export function recentTurnDebugSummaries(
   turns: TurnRecord[],
-  workflowNodes: WorkflowNode[],
   turnCheckpoints: TurnCheckpoint[],
   textMetrics: TextMetricsApi,
   turnsLimit = 2,
@@ -154,7 +171,6 @@ export function recentTurnDebugSummaries(
     .map((turn) => ({
       ...debugTurnSummaryFromTurnRecord(
         turn,
-        workflowNodes,
         checkpointsByTurnId.get(turn.id),
       ),
       inputMessages: turn.input.messages.map((message) => compactDebugMessage(message, textMetrics)),

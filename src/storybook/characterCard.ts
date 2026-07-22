@@ -1,9 +1,9 @@
 import {
   normalizeRpStorybookCharacter,
   rpFormatVersionStatus,
-  type RpStorybookV1,
-  type RpStorybookV1Character,
-} from '../nodes/rp-storybook-v1/model';
+  type RpStorybook,
+  type RpStorybookCharacter,
+} from '../nodes/rp-storybook/model';
 import formatVersions from './formatVersions.json';
 
 const currentRpCharacterCardVersion = formatVersions.characterCard;
@@ -17,10 +17,10 @@ const currentRpCharacterCardVersion = formatVersions.characterCard;
 export type RpCharacterCard = {
   format: 'rpgraph-character';
   version: string;
-  character: RpStorybookV1Character;
+  character: RpStorybookCharacter;
 };
 
-export function rpCharacterCardForCharacter(character: RpStorybookV1Character): RpCharacterCard {
+export function rpCharacterCardForCharacter(character: RpStorybookCharacter): RpCharacterCard {
   return {
     format: 'rpgraph-character',
     version: currentRpCharacterCardVersion,
@@ -29,10 +29,10 @@ export function rpCharacterCardForCharacter(character: RpStorybookV1Character): 
 }
 
 export type CharacterCardImportPlan = {
-  character: RpStorybookV1Character;
+  character: RpStorybookCharacter;
   /** Index of the replaced character, or undefined when the card adds a new one. */
   replacesIndex?: number;
-  storybook: RpStorybookV1;
+  storybook: RpStorybook;
 };
 
 function recordValue(value: unknown): Record<string, unknown> {
@@ -49,7 +49,7 @@ function recordValue(value: unknown): Record<string, unknown> {
  */
 export function planCharacterCardImport(
   cardValue: unknown,
-  storybook: RpStorybookV1,
+  storybook: RpStorybook,
 ): CharacterCardImportPlan {
   const card = recordValue(cardValue);
   if (card.format !== 'rpgraph-character') {
