@@ -52,11 +52,7 @@ pause() {
 lockfile_snapshot="node_modules/.rpgraph-package-lock.json"
 
 run_clean_install() {
-  if ! npm ci; then
-    printf "\nnpm ci could not install from the lock file.\n"
-    printf "package.json and package-lock.json may be out of sync. Recovering with npm install ...\n\n"
-    npm install || return $?
-  fi
+  npm ci || return $?
   cp package-lock.json "$lockfile_snapshot"
 }
 
