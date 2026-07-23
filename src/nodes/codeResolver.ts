@@ -1,7 +1,10 @@
-const nodeFileLoaders = import.meta.glob('./**/*.ts*', { query: '?raw', import: 'default' }) as Record<
-  string,
-  () => Promise<string>
->;
+// Colocated test files are excluded: they are not part of a node's behavior, they would
+// spend the Node Assistant's truncation budget on assertions, and the raw-source glob is
+// what pulls them into the production bundle.
+const nodeFileLoaders = import.meta.glob(['./**/*.ts*', '!./**/*.test.*'], {
+  query: '?raw',
+  import: 'default',
+}) as Record<string, () => Promise<string>>;
 
 // Node types whose source directory name differs from the registered node type.
 const nodeTypeDirectories: Record<string, string> = {

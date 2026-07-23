@@ -49,46 +49,62 @@ export type UpgradeNodeContext = {
   hydrateContext: HydrateContext;
 };
 
+export type UpgradeNodeResult =
+  /** The upgraded, current-version replacement for the placeholder. */
+  | { status: 'upgraded'; node: WorkflowNode }
+  /** Not an incompatible placeholder, or its type is no longer registered. */
+  | { status: 'not-upgradable' }
+  /** `storedData` could not be read; `message` is the loader's own explanation. */
+  | { status: 'invalid-stored-data'; message: string };
+
 /**
  * Replace an incompatible-core-node placeholder with a fresh, current-version node of
  * the same type, carrying over every field the current version still recognizes.
  *
- * The shell comes from the definition's own `create()` — giving it the current default
- * style and, critically, none of the stale saved `width`/`height`/`measured` that make
- * the placeholder's wrapper an oversized invisible drag target. Its data comes from the
- * definition's own `hydrateData(storedData)` — the exact loader compatible nodes run
- * (`workflow/persistence.ts`) — so the copied fields are validated (a dangling
- * `connectionId` falls back to the default), normalized, whitelisted to current fields
- * (removed fields dropped, new fields defaulted) and stamped with the current
- * `nodeDataVersion`. Malformed stored data (e.g. unparseable `storybookJson`, which
- * throws) falls back to the fresh defaults instead of failing the upgrade.
+ * Data comes from the definition's own `hydrateData(storedData)` — the exact loader
+ * compatible nodes run (`workflow/persistence.ts`) — so the copied fields are validated
+ * (a dangling `connectionId` falls back to the default), normalized, whitelisted to
+ * current fields (removed fields dropped, new fields defaulted) and stamped with the
+ * current `nodeDataVersion`.
  *
- * The id and position are preserved so the node doesn't jump; incompatible nodes carry
- * no edges (stripped at load), so reusing the id is safe.
+ * When that loader throws (e.g. unparseable `storybookJson`) the upgrade aborts with
+ * `invalid-stored-data` and the caller must keep the placeholder untouched. Substituting
+ * the fresh defaults would silently discard the whole stored document — a storybook's
+ * characters, opening history and images — and node edits have no undo. Aborting matches
+ * how the rest of the app treats unreadable saved data: `hydrateNodeData` fails the load
+ * rather than inventing values.
  *
- * Returns null when `node` isn't an incompatible placeholder or its type is no longer
- * registered (nothing to upgrade to).
+ * The shell comes from the definition's own `create()` — giving the node the current
+ * default style and, critically, none of the stale saved `width`/`height`/`measured`
+ * that make the placeholder's wrapper an oversized invisible drag target. The id and
+ * position are preserved so the node doesn't jump; incompatible nodes carry no edges
+ * (stripped at load), so reusing the id is safe.
  */
 export function buildUpgradedNode(
   node: WorkflowNode,
   { createContext, hydrateContext }: UpgradeNodeContext,
-): WorkflowNode | null {
+): UpgradeNodeResult {
   if (node.data.kind !== 'incompatible-core-node') {
-    return null;
+    return { status: 'not-upgradable' };
   }
   const definition = getRegisteredCoreNode(node.data.nodeType);
   if (!definition) {
-    return null;
+    return { status: 'not-upgradable' };
   }
-
-  const shell = definition.create(createContext);
 
   let data: WorkflowNodeData;
   try {
     data = definition.hydrateData(node.data.storedData as WorkflowNodeData, hydrateContext);
-  } catch {
-    data = shell.data;
+  } catch (error) {
+    return {
+      status: 'invalid-stored-data',
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
 
-  return { ...shell, id: node.id, position: node.position, data };
+  const shell = definition.create(createContext);
+  return {
+    status: 'upgraded',
+    node: { ...shell, id: node.id, position: node.position, data },
+  };
 }
