@@ -13,6 +13,7 @@ import {
   llmPromptSwitchSelectedOutputChannel,
   llmPromptSwitchSelectedPromptSlot,
   settingsValueEntries,
+  textReplaceEntries,
   textSelectorInputCount,
   textSelectorMode,
   textRouterMode,
@@ -242,6 +243,14 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
       });
     },
   },
+  'text-replace': {
+    saveData: (data) => preservedData(data, data.preview, {
+      textReplaceEntries: textReplaceEntries(data),
+    }),
+    hydrateData: (data) => preservedData(data, data.preview, {
+      textReplaceEntries: textReplaceEntries(data),
+    }),
+  },
   'load-text': {
     saveData: (data) => preservedData(data, data.preview, {
       loadedText: data.loadedText ?? '',
@@ -383,6 +392,28 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
         : emptyRpStorybook;
       return preservedData(data, 'No storybook loaded', {
         connectionId: connectionId(data, context),
+        storybookJson: rpStorybookJsonText(storybook),
+        storybookStatus: storybook.title ? 'Loaded embedded storybook' : 'Ready',
+        storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),
+      });
+    },
+  },
+  'rp-storybook-editor': {
+    saveData: (data) => {
+      const storybook = data.storybookJson
+        ? parseRpStorybookJson(data.storybookJson)
+        : emptyRpStorybook;
+      return preservedData(data, 'No storybook loaded', {
+        storybookJson: rpStorybookJsonText(storybook),
+        storybookStatus: storybook.title ? 'Embedded storybook' : 'Ready',
+        storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),
+      });
+    },
+    hydrateData: (data) => {
+      const storybook = data.storybookJson
+        ? parseRpStorybookJson(data.storybookJson)
+        : emptyRpStorybook;
+      return preservedData(data, 'No storybook loaded', {
         storybookJson: rpStorybookJsonText(storybook),
         storybookStatus: storybook.title ? 'Loaded embedded storybook' : 'Ready',
         storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),

@@ -58,6 +58,11 @@ export const coreNodeDataPolicies: NodeDataPolicyByType = {
     runtime: ['preview', 'storybookStatus'],
     checkpoint: ['storybookJson'],
   },
+  'rp-storybook-editor': {
+    persisted: ['storybookJson'],
+    runtime: ['preview', 'storybookStatus'],
+    checkpoint: ['storybookJson'],
+  },
 };
 
 function pickNodeFields(node: WorkflowNode, fields: readonly string[]) {

@@ -28,6 +28,7 @@ import {
   minimumTextRouterNumberOutputs,
   normalizeCharacterStatsState,
   settingsValueEntries,
+  textReplaceEntries,
   textSelectorInputCount,
   textSelectorTextInputHandle,
   textRouterNumberOutputCount,
@@ -98,6 +99,8 @@ type UseNodeActionsControllerOptions = {
   setJsonDialogNodeId: Dispatch<SetStateAction<string | null>>;
   setOutputFormatHelpKind: Dispatch<SetStateAction<OutputFormatHelpKind | null>>;
   openStorybookCreator: (nodeId: string) => void;
+  openStorybookEditor: (nodeId: string) => void;
+  upgradeNode: (nodeId: string) => void;
   openCustomNodeAssistant: (nodeId: string) => void;
   runCustomNodeButton: (nodeId: string, label: string) => Promise<void>;
   loadStorybookFile: (nodeId: string) => Promise<boolean>;
@@ -137,6 +140,8 @@ export function useNodeActionsController({
   setJsonDialogNodeId,
   setOutputFormatHelpKind,
   openStorybookCreator,
+  openStorybookEditor,
+  upgradeNode,
   openCustomNodeAssistant,
   runCustomNodeButton,
   loadStorybookFile,
@@ -447,6 +452,67 @@ export function useNodeActionsController({
             ...node.data,
             combinerPrefixes: prefixes,
             fullText: combineTextInputs(prefixes, combinerPreviews(node.data)),
+          },
+        };
+      }),
+    );
+  }
+
+  function addTextReplaceEntry(nodeId: string) {
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        if (node.id !== nodeId || node.data.nodeType !== 'text-replace') {
+          return node;
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            textReplaceEntries: [
+              ...textReplaceEntries(node.data),
+              { id: `text-replace-${createId()}`, source: '', replacement: '' },
+            ],
+          },
+        };
+      }),
+    );
+  }
+
+  function removeTextReplaceEntry(nodeId: string, entryId: string) {
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        if (node.id !== nodeId || node.data.nodeType !== 'text-replace') {
+          return node;
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            textReplaceEntries: textReplaceEntries(node.data).filter((entry) => entry.id !== entryId),
+          },
+        };
+      }),
+    );
+  }
+
+  function changeTextReplaceEntry(
+    nodeId: string,
+    entryId: string,
+    field: 'source' | 'replacement',
+    value: string,
+  ) {
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        if (node.id !== nodeId || node.data.nodeType !== 'text-replace') {
+          return node;
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            textReplaceEntries: textReplaceEntries(node.data).map((entry) =>
+              entry.id === entryId ? { ...entry, [field]: value } : entry,
+            ),
           },
         };
       }),
@@ -868,6 +934,8 @@ export function useNodeActionsController({
     showOutputHighlighting: (nodeId) => openTextDialog('output-highlighting', nodeId),
     showOutputFormatHelp: setOutputFormatHelpKind,
     openStorybookCreator,
+    openStorybookEditor,
+    upgradeNode,
     openCustomNodeAssistant,
     runCustomNodeButton,
     loadStorybookFile,
@@ -878,6 +946,9 @@ export function useNodeActionsController({
     reorderContextBuilderItem,
     changeCombinerPrefix,
     changeCombinerInputCount,
+    addTextReplaceEntry,
+    removeTextReplaceEntry,
+    changeTextReplaceEntry,
     changeLlmDecisionQuestionCount,
     changeLlmDecisionQuestion,
     changeLlmDecisionOutput,

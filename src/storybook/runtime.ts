@@ -14,6 +14,20 @@ import {
   type RpStorybookCharacterPhoneSettings,
 } from '../nodes/rp-storybook/model';
 
+/**
+ * A storybook source node — the story data a run reads characters, phone,
+ * banking, events, opening history and images from. Both the AI-centric
+ * `rp-storybook` and the manual `rp-storybook-editor` are first-class peers;
+ * a graph holds at most one (enforced when adding/loading). This is the single
+ * predicate every story-source consumer should use.
+ */
+export function isStorybookSourceNode(node: WorkflowNode): boolean {
+  return (
+    node.data.kind === undefined &&
+    (node.data.nodeType === 'rp-storybook' || node.data.nodeType === 'rp-storybook-editor')
+  );
+}
+
 type StorybookCharacterKind = 'character';
 
 type StorybookCharacterProfile = {
@@ -83,7 +97,7 @@ export type StorybookCharacterRef = {
 
 export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharacter[] {
   return nodes.flatMap((node) => {
-    if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook') {
+    if (!isStorybookSourceNode(node)) {
       return [];
     }
     const storybook = parseNodeStorybookJson(node.data.storybookJson);
@@ -150,7 +164,7 @@ function storybookImageListId(characterId: string) {
 
 export function storybookImageListsFromNodes(nodes: WorkflowNode[]): StorybookImageList[] {
   return nodes.flatMap((node) => {
-    if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook') {
+    if (!isStorybookSourceNode(node)) {
       return [];
     }
     const storybook = parseNodeStorybookJson(node.data.storybookJson);
@@ -190,7 +204,7 @@ export function storybookImageListsFromNodes(nodes: WorkflowNode[]): StorybookIm
 export function storybookOpeningSituation(nodes: WorkflowNode[]) {
   return nodes
     .flatMap((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook') {
+      if (!isStorybookSourceNode(node)) {
         return [];
       }
       const storybook = parseNodeStorybookJson(node.data.storybookJson);
@@ -238,9 +252,7 @@ export function storybookCharacterInfoText(text: string) {
 }
 
 export function findChatEndpoints(nodes: WorkflowNode[]) {
-  const storybookNodes = nodes.filter(
-    (node) => node.data.kind === undefined && node.data.nodeType === 'rp-storybook',
-  );
+  const storybookNodes = nodes.filter(isStorybookSourceNode);
   const storybookHasCharacters = storybookNodes.some((node) => {
     const storybook = parseNodeStorybookJson(node.data.storybookJson);
     return !!storybook?.characters.some((character) => character.name.trim());

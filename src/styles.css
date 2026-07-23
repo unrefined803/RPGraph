@@ -2294,11 +2294,15 @@ input[type="radio"]:focus-visible {
   color: #f2d9de;
 }
 
+.incompatible-core-node .load-text-button {
+  margin-top: 16px;
+}
+
 .incompatible-core-node-hint {
   color: #c49da5;
   font-size: var(--node-secondary-text-size);
   line-height: 1.45;
-  margin: 14px 0 0;
+  margin: 10px 0 0;
 }
 
 .missing-node-ports {
@@ -3618,6 +3622,42 @@ input[type="number"]::-webkit-outer-spin-button {
   margin-bottom: 0;
 }
 
+.workflow-node.text-replace-node {
+  width: 430px;
+}
+
+.text-replace-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.text-replace-empty {
+  opacity: 0.7;
+}
+
+.text-replace-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.text-replace-field {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.text-replace-arrow {
+  flex: none;
+  opacity: 0.7;
+}
+
+.text-replace-remove {
+  flex: none;
+}
+
 .llm-decision-input {
   margin-top: 10px;
 }
@@ -3731,6 +3771,13 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .character-stats-add-button {
   justify-self: end;
+}
+
+.character-stats-definition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .character-stats-help-button {
@@ -4492,6 +4539,26 @@ input[type="number"]::-webkit-outer-spin-button {
 .llm-prompt-field .node-textarea {
   flex: none;
   min-height: 64px;
+}
+
+.llm-prompt-override-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: #0f141f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+/* Field is bypassed by a connected override at run time; dim it but keep it
+   editable so the authored fallback stays visible and changeable. */
+.llm-prompt-field-overridden .json-syntax-textarea {
+  opacity: 0.5;
 }
 
 .llm-prompt-switch-fields .node-select,
@@ -13517,6 +13584,9 @@ button.message-timeline-row.phone:focus-visible {
   border-radius: 18px;
   background: #111722;
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+  /* Native widgets (scrollbars, resize grips) must follow the dark surface,
+     not the OS light scheme. */
+  color-scheme: dark;
 }
 
 .image-generation-assistant-dialog {
@@ -14541,6 +14611,12 @@ button.message-timeline-row.phone:focus-visible {
   border-color: var(--accent);
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(138, 115, 201, 0.13);
+}
+
+/* The card's flex gap owns the rhythm; default paragraph margins on top of it
+   inflate the space between blocks to ~3x the gap. */
+.storybook-actor-card p {
+  margin: 0;
 }
 
 .character-card-header {
@@ -23929,4 +24005,160 @@ button.message-timeline-row.phone:focus-visible {
 .storybook-node-token-estimate {
   color: #8fa0bd;
   font-size: 11px;
+}
+
+/* RP Storybook Editor node dialog */
+.storybook-editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+  padding: 12px 18px 18px;
+}
+
+/* The editor dialog reuses the creator's workspace grid but has no chat
+   column — the document panel owns the full width. */
+.storybook-main-workspace.storybook-editor-workspace {
+  grid-template-columns: 1fr;
+}
+
+.storybook-editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The hint/validity text pushes the buttons right as one cluster;
+   .inspect-button's own margin-left: auto would scatter them across the row. */
+.storybook-editor-tools .inspect-button {
+  margin-left: 0;
+}
+
+.storybook-editor-hint {
+  color: #8fa0bd;
+  font-size: 12px;
+  margin-right: auto;
+}
+
+.storybook-editor-validity {
+  font-size: 12px;
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storybook-editor-validity.valid {
+  color: #5fd08a;
+}
+
+.storybook-editor-validity.invalid {
+  color: #e79aa2;
+}
+
+.storybook-editor-textarea {
+  flex: 1;
+  min-height: 320px;
+  width: 100%;
+  resize: none;
+  font-family: var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.storybook-editor-panel .json-syntax-textarea {
+  flex: 1;
+  min-height: 320px;
+}
+
+.storybook-editor-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.storybook-editor-actor-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.storybook-editor-thumbnails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.storybook-editor-thumbnails img {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+/* RP Storybook Editor — Fields (per-field) editor */
+.storybook-editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 6px;
+}
+
+.storybook-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.storybook-editor-field input,
+.storybook-editor-field textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color-scheme: dark;
+  border: 1px solid #2a3447;
+  border-radius: 8px;
+  color: #edf1ff;
+  background: #070a10;
+  padding: 8px 10px;
+  outline: none;
+}
+
+.storybook-editor-field input:focus,
+.storybook-editor-field textarea:focus {
+  border-color: var(--accent);
+  background: #090d15;
+  box-shadow: 0 0 0 2px rgba(138, 115, 201, 0.18);
+}
+
+.storybook-editor-field textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.storybook-empty-note {
+  margin: 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.storybook-editor-fieldset {
+  border: 1px solid rgba(143, 160, 189, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.storybook-editor-fieldset legend {
+  padding: 0 6px;
+  font-weight: 600;
 }

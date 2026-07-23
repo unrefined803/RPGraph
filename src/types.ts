@@ -234,6 +234,12 @@ export type SettingsValueEntry = {
   label: string;
 };
 
+export type TextReplaceEntry = {
+  id: string;
+  source: string;
+  replacement: string;
+};
+
 export type LlmDecisionOutputToggles = {
   bool: boolean;
   text: boolean;
@@ -346,6 +352,7 @@ type WorkflowNodeCommonFields = {
   combinerInputCount?: number;
   combinerPrefixes?: string[];
   combinerInputPreviews?: string[];
+  textReplaceEntries?: TextReplaceEntry[];
   characterStatDefinitions?: CharacterStatDefinition[];
   characterStatsState?: CharacterStatsState;
   characterStatsBaselineState?: CharacterStatsState;
@@ -491,9 +498,11 @@ type ContextBuilderNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'contex
 type LlmDecisionNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'llm-decision' };
 type LlmPromptNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'llm-prompt' };
 type CombinerNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'combiner' };
+type TextReplaceNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'text-replace' };
 type CharacterStatsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'character-stats' };
 type OutputNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'output' };
 type RpStorybookNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook' };
+type RpStorybookEditorNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook-editor' };
 type PhoneAppsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'phone-apps' };
 
 type ConcreteCoreWorkflowNodeData =
@@ -520,9 +529,11 @@ type ConcreteCoreWorkflowNodeData =
   | LlmDecisionNodeData
   | LlmPromptNodeData
   | CombinerNodeData
+  | TextReplaceNodeData
   | CharacterStatsNodeData
   | OutputNodeData
   | RpStorybookNodeData
+  | RpStorybookEditorNodeData
   | PhoneAppsNodeData;
 
 type MissingNodeWorkflowData = WorkflowNodeCommonFields & {
@@ -971,6 +982,16 @@ export type AddNodeType = WorkflowNodeType;
 export type NodeMenu = {
   screen: XYPosition;
   flow: XYPosition;
+};
+
+export type NodeContextMenu = {
+  nodeId: string;
+  screen: XYPosition;
+  selectedNodeIds: string[];
+};
+
+export type PendingBulkNodeRemoval = {
+  nodeCount: number;
 };
 
 export type WorkflowFile = {

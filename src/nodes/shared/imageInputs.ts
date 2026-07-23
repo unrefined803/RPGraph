@@ -3,6 +3,15 @@ import type { ExecuteContext } from '../types';
 import { wireLinkName } from '../memory-slot/model';
 
 export const imageInputHandle = 'image';
+export const promptBeforeInputHandle = 'prompt-before';
+export const promptAfterInputHandle = 'prompt-after';
+
+// Target handles that must never be mistaken for a node's main Text Input.
+export const nonTextInputHandles = new Set<string>([
+  imageInputHandle,
+  promptBeforeInputHandle,
+  promptAfterInputHandle,
+]);
 
 type ImageDependencyContext = Pick<ExecuteContext, 'edges' | 'nodes'>;
 
@@ -69,7 +78,7 @@ export async function resolveTextAndImageInputs(
   context: ExecuteContext,
 ): Promise<{ inputValue: string; images: ChatImageAttachment[] }> {
   const incomingEdge = context.edges.find(
-    (edge) => edge.target === node.id && edge.targetHandle !== imageInputHandle,
+    (edge) => edge.target === node.id && !nonTextInputHandles.has(edge.targetHandle ?? ''),
   );
   if (!incomingEdge) {
     throw new Error(`${node.data.label} has no incoming connection.`);

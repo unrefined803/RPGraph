@@ -20,7 +20,7 @@ import {
   withStorybookImageDescriptionUpdated,
   type StorybookImageLibraryEnsureOptions,
 } from './imageLibrary';
-import { chatAttachmentFromStorybookImage, type StorybookCharacter } from './runtime';
+import { chatAttachmentFromStorybookImage, isStorybookSourceNode, type StorybookCharacter } from './runtime';
 import type {
   ChatImageAttachment,
   ImageCaptionChange,
@@ -95,7 +95,7 @@ export function useStorybookPhoneImages({
       return undefined;
     }
     for (const node of nodesRef.current) {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
+      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         continue;
       }
       try {
@@ -128,7 +128,7 @@ export function useStorybookPhoneImages({
       return;
     }
     const storybookNode = nodesRef.current.find(
-      (node) => node.id === fromCharacter.storybookNodeId && node.data.nodeType === 'rp-storybook',
+      (node) => node.id === fromCharacter.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
       return;
@@ -151,7 +151,7 @@ export function useStorybookPhoneImages({
 
   function changePhoneWallpaper(character: StorybookCharacter, wallpaperId: string) {
     const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook',
+      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
       return;
@@ -178,7 +178,7 @@ export function useStorybookPhoneImages({
     username: string,
   ) {
     const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook',
+      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
       return;
@@ -220,7 +220,7 @@ export function useStorybookPhoneImages({
       return undefined;
     }
     const storybookNode = nodesRef.current.find(
-      (node) => node.id === character.storybookNodeId && node.data.nodeType === 'rp-storybook',
+      (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
       return undefined;
@@ -251,7 +251,7 @@ export function useStorybookPhoneImages({
       return;
     }
     nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
+      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         return;
       }
       const storybook = parseRpStorybookJson(node.data.storybookJson);
@@ -283,7 +283,7 @@ export function useStorybookPhoneImages({
     const beforeCaption = imageDescriptionById.get(normalizedImageId)?.trim() || undefined;
     let updated = false;
     nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
+      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         return;
       }
       const storybook = parseRpStorybookJson(node.data.storybookJson);
@@ -352,7 +352,7 @@ export function useStorybookPhoneImages({
 
   function pruneExternalImagesForMessages(activeMessages = messagesRef.current) {
     nodesRef.current.forEach((node) => {
-      if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
+      if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         return;
       }
       const storybook = parseRpStorybookJson(node.data.storybookJson);

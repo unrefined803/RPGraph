@@ -58,6 +58,7 @@ Core node map:
 - Custom Node: assistant-built modular node. Its inputs, outputs, and behavior come from a stored definition created with the separate Custom Node assistant, and it runs that definition in a sandboxed runtime, optionally calling an LLM.
 - Phone Apps: singleton settings node that selects which LLM connections the direct phone apps use. It has no graph ports and does not run in the response path.
 - RP Storybook V2: singleton story data node. Stores complete storybook JSON and formatted text, and outputs JSON, formatted storybook text, and character info.
+- RP Storybook Editor: standalone (non-singleton) storybook document editor. Shares the RP Storybook data model and the same three outputs, but its Formatted Text and Raw JSON views are directly editable (no AI), with a JSON beautify/validate tool. It is a document editor, not the live-story container.
 - RP Output: singleton final output node. Receives Normal RP, Phone Message, Social Media, Autoplay, Output Actions, Direct Actions, and optional Highlighting Context. Autoplay is a separate input but uses the same plain RP and embedded phone/app parsing as Normal RP. Direct Actions accepts the same app-action JSON as Output Actions plus manual phone-app commit payloads (createdPhoneNotes, simulatedAiChats) and is only evaluated on explicit direct-only runs; normal runs never touch it. It applies and filters `@set` workflow-variable commands on all RP Output inputs.
 
 Assistant behavior:

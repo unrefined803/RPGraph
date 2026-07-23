@@ -33,12 +33,36 @@ export default tseslint.config(
     },
   },
   {
-    files: ['scripts/**/*.mjs', 'vite.config.ts'],
+    files: ['scripts/**/*.mjs', 'vite.config.ts', 'vitest.config.ts'],
     extends: [js.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: globals.node,
+    },
+  },
+  {
+    files: ['electron/**/*.test.ts'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['test/e2e/**/*.ts'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
 )

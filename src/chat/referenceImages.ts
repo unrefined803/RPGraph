@@ -1,4 +1,5 @@
 import { parseNodeStorybookJson } from '../nodes/rp-storybook/model';
+import { isStorybookSourceNode } from '../storybook/runtime';
 import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
 import { rpPictureGalleryId } from './rpPictures';
 
@@ -68,7 +69,7 @@ function attachmentKey(attachment: ChatImageAttachment) {
 function storybookImagesById(nodes: WorkflowNode[]) {
   const images = new Map<string, ChatImageAttachment>();
   nodes.forEach((node) => {
-    if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook') {
+    if (!isStorybookSourceNode(node)) {
       return;
     }
     const storybook = parseNodeStorybookJson(node.data.storybookJson);

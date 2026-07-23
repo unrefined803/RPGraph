@@ -3,11 +3,11 @@ import { useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type Whe
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { CharacterStatDefinition, CharacterStatsTimelineEntry, WorkflowNode } from '../../types';
 import {
-  characterStatDefinitions,
+  characterStatDefinitionsForEditing,
   characterStatsMaxChange,
-  defaultCharacterStatDefinitions,
   normalizeCharacterStatsState,
 } from '../../workflow';
+import { defaultCharacterStatDefinitions } from '../../workflow/defaults';
 import { storyCharacterRefsFromNodes } from '../../storybook/runtime';
 import { useNodeActions } from '../NodeActionsContext';
 import { useNodeView } from '../NodeViewContext';
@@ -268,7 +268,6 @@ function StatDefinitionRows({
   lastChanges?: ReturnType<typeof normalizeCharacterStatsState>;
 }) {
   const actions = useNodeActions();
-  const defaultStatIds = new Set(defaultCharacterStatDefinitions.map((definition) => definition.id));
 
   function changeDefinition(index: number, patch: Partial<CharacterStatDefinition>) {
     actions.updateData(nodeId, {
@@ -287,6 +286,20 @@ function StatDefinitionRows({
   function removeDefinition(index: number) {
     actions.updateData(nodeId, {
       [field]: definitions.filter((_, definitionIndex) => definitionIndex !== index),
+    });
+  }
+
+  const existingIds = new Set(definitions.map((definition) => definition.id));
+  const missingDefaults = defaultCharacterStatDefinitions.filter(
+    (definition) => !existingIds.has(definition.id),
+  );
+
+  function restoreDefaultDefinitions() {
+    // Re-adds default stats the user removed (restoring each stat's original id,
+    // and therefore its accumulated state and chart history). Also the upgrade
+    // path when a release ships new default stats.
+    actions.updateData(nodeId, {
+      [field]: [...definitions, ...missingDefaults],
     });
   }
 
@@ -314,7 +327,6 @@ function StatDefinitionRows({
       <div className="character-stats-definitions">
         {definitions.map((definition, index) => {
           const primaryValue = valueFor(definition);
-          const isCustomDefinition = !defaultStatIds.has(definition.id);
           return (
             <div className="character-stats-definition" key={definition.id}>
               <input
@@ -331,15 +343,19 @@ function StatDefinitionRows({
                     onChange={(event) => changeDefinition(index, { name: event.target.value })}
                     aria-label={`${definition.name} stat name`}
                   />
-                  {isCustomDefinition && (
-                    <button
-                      className="character-stats-remove-button nodrag"
-                      type="button"
-                      onClick={() => removeDefinition(index)}
-                    >
-                      Remove
-                    </button>
-                  )}
+                  <button
+                    className="character-stats-remove-button nodrag"
+                    type="button"
+                    onClick={() => removeDefinition(index)}
+                    disabled={definitions.length <= 1}
+                    title={
+                      definitions.length <= 1
+                        ? 'At least one attribute is required'
+                        : undefined
+                    }
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
               <div className="character-stats-values" aria-label={`${definition.name} values`}>
@@ -356,9 +372,20 @@ function StatDefinitionRows({
           );
         })}
       </div>
-      <button className="inspect-button character-stats-add-button nodrag" type="button" onClick={addDefinition}>
-        Add Attribute
-      </button>
+      <div className="character-stats-definition-actions">
+        <button className="inspect-button character-stats-add-button nodrag" type="button" onClick={addDefinition}>
+          Add Attribute
+        </button>
+        {missingDefaults.length > 0 && (
+          <button
+            className="inspect-button nodrag"
+            type="button"
+            onClick={restoreDefaultDefinitions}
+          >
+            Restore Default Stats
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -368,7 +395,7 @@ export function CharacterStatsNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const view = useNodeView();
   const nodeBodyRef = useNodeLayoutSync(id);
   const characters = storyCharacterRefsFromNodes(view.nodes);
-  const characterStats = characterStatDefinitions(data);
+  const characterStats = characterStatDefinitionsForEditing(data);
   const characterIds = new Set(characters.map((character) => character.nodeId));
   const selectedPrimaryId =
     data.characterStatsPrimaryId && characterIds.has(data.characterStatsPrimaryId)

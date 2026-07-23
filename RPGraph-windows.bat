@@ -65,9 +65,16 @@ exit /b %errorlevel%
 
 :run_clean_install
 call npm ci
+if not errorlevel 1 goto run_clean_install_ok
+echo.
+echo npm ci could not install from the lock file.
+echo package.json and package-lock.json may be out of sync. Recovering with npm install ...
+echo.
+call npm install
 if errorlevel 1 exit /b %errorlevel%
+:run_clean_install_ok
 copy /y "package-lock.json" "node_modules\.rpgraph-package-lock.json" >nul
-exit /b %errorlevel%
+exit /b 0
 
 :start_normal
 call :ensure_dependencies

@@ -77,6 +77,12 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const promptAfterRef = useRef<HTMLTextAreaElement>(null);
   const view = useNodeView();
   const autoFormatJson = data.llmPromptAutoFormatJson ?? true;
+  const beforeOverridden = view.edges.some(
+    (edge) => edge.target === id && edge.targetHandle === 'prompt-before',
+  );
+  const afterOverridden = view.edges.some(
+    (edge) => edge.target === id && edge.targetHandle === 'prompt-after',
+  );
   const storedActionConfigs = promptActionConfigs(data.llmPromptActions);
   const actionConfigs = withPromptActionRuntimeSettingsList(storedActionConfigs, view.promptActionSettings);
   const [actionDialog, setActionDialog] = useState<{
@@ -179,7 +185,7 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
 
   useLayoutEffect(() => {
     syncPromptTextareaHeights();
-  }, [data.llmPromptAfter, data.llmPromptBefore, syncPromptTextareaHeights]);
+  }, [data.llmPromptAfter, data.llmPromptBefore, beforeOverridden, afterOverridden, syncPromptTextareaHeights]);
 
   const formatJsonValue = (value: string) => {
     try {
@@ -343,9 +349,12 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
       <LlmCallMetrics data={data} />
       <span className="node-description">{data.description}</span>
       <div className="llm-prompt-fields" ref={promptFieldsRef}>
-        <div className="llm-prompt-field">
+        <div className={`llm-prompt-field${beforeOverridden ? ' llm-prompt-field-overridden' : ''}`}>
           <label className="node-field-label" htmlFor={`${id}-before`} ref={promptBeforeLabelRef}>
             PROMPT BEFORE INPUT
+            {beforeOverridden ? (
+              <span className="llm-prompt-override-badge">Overridden by connection</span>
+            ) : null}
           </label>
           <JsonSyntaxTextarea
             className="node-textarea nodrag nowheel"
@@ -365,9 +374,12 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
             onPromptCommandClick={openPromptCommandConfig}
           />
         </div>
-        <div className="llm-prompt-field">
+        <div className={`llm-prompt-field${afterOverridden ? ' llm-prompt-field-overridden' : ''}`}>
           <label className="node-field-label" htmlFor={`${id}-after`} ref={promptAfterLabelRef}>
             PROMPT AFTER INPUT
+            {afterOverridden ? (
+              <span className="llm-prompt-override-badge">Overridden by connection</span>
+            ) : null}
           </label>
           <JsonSyntaxTextarea
             className="node-textarea nodrag nowheel"
@@ -411,6 +423,26 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         <div className="workflow-port workflow-port-input">
           <Handle id="image" type="target" position={Position.Left} />
           <PortLabel data={data} direction="input" handle="image" label="Image Input" valueType="image" />
+        </div>
+        <div className="workflow-port workflow-port-input">
+          <Handle id="prompt-before" type="target" position={Position.Left} />
+          <PortLabel
+            data={data}
+            direction="input"
+            handle="prompt-before"
+            label="Prompt Before Override"
+            valueType="mixed"
+          />
+        </div>
+        <div className="workflow-port workflow-port-input">
+          <Handle id="prompt-after" type="target" position={Position.Left} />
+          <PortLabel
+            data={data}
+            direction="input"
+            handle="prompt-after"
+            label="Prompt After Override"
+            valueType="mixed"
+          />
         </div>
       </div>
       <PromptPreviewTools

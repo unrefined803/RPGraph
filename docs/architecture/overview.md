@@ -35,7 +35,7 @@ The current UI labels the product as `RPgraph Studio v0.4.9 Beta`.
 
 ## Main Interface
 
-The main app shell is built in [`src/App.tsx`](src/App.tsx). It renders a full studio layout with these major areas:
+The main app shell is built in [`src/App.tsx`](../../src/App.tsx). It renders a full studio layout with these major areas:
 
 - **Topbar**: brand/version, onboarding, options, provider management, assistant, system log, file manager, active save/workflow/storybook status, resource monitoring, and desktop window controls.
 - **Graph panel**: the main React Flow canvas where workflow nodes are placed and connected.
@@ -203,6 +203,7 @@ The app uses four user-facing file shapes:
 - **RP Save**: a complete playable session. It stores an embedded workflow snapshot plus timeline messages, entities, undo checkpoints, UI state, debug state, and current runtime state.
 - **Workflow File**: a reusable graph blueprint. It stores graph nodes, edges, viewport, defaults, and persisted node configuration. It can optionally include Storybook node data.
 - **Storybook File**: standalone story data that can be opened globally from `Files` or loaded into an individual `RP Storybook V2` node.
+- **RP Storybook Editor node** (`rp-storybook-editor`): a standalone, non-singleton editor for storybook documents. It reuses the RP Storybook data model and the same three outputs (`JSON`, `Formatted Text`, `Character Info`), but exposes editable Formatted Text and Raw JSON views (writer- and developer-oriented respectively) plus simple tools (JSON beautify/validate, minify, copy, revert). Editing is deterministic (no LLM): Raw JSON prunes/restores Opening History and rehydrates redacted binaries by id on apply; Formatted Text is a non-destructive prose merge. It is a document editor, not the live-story container, so it carries none of the running-story guards.
 - **Character Card** (`*.rpgraph-character.json`, format `rpgraph-character`): one self-contained storybook character with images, voice sample, and phone/banking/social setup. Exported per character from the storybook editor and imported into any storybook (same id or name replaces that character, otherwise it is added; image ids are re-namespaced on collision). Managed cards are stored in the `characters` user-data directory next to `files` and selected through the dedicated Characters dialog. A card placed directly in `files` still appears in the global Files dialog. Logic lives in `src/storybook/characterCard.ts` and `electron/characterCardFormat.cjs`.
 
 Saving can produce either readable **Plain JSON** or a password/PIN protected encrypted envelope for every file type. Encrypted character cards expose only the character name and card format version as character metadata; the full character content stays encrypted. Compatibility is checked through format versions before loading. Workflow and session files use exact-match versions and are rejected when incompatible. Storybook and character card versions are semver-compared (`electron/storybookFormat.cjs`, `rpStorybookVersionStatus` in the storybook model): files newer than the build are rejected with an update hint, while older files stay loadable — legacy storybooks are routed into the conversion panel (`src/storybook/conversion.ts`, `src/storybook/StorybookConversionPanel.tsx`), a per-section checklist showing what was carried over or filled with defaults before the converted storybook is applied and re-saved. Encrypted legacy storybooks unlock with their password first and then enter the same conversion flow.
@@ -229,13 +230,13 @@ Node palette groups in the current UI:
 - **Input & Output**: `input`, `last-user-input`, `last-rp-output`, `history`, `output`, `text-preview`, `load-text`
 - **LLM & Logic**: `custom`, `llm-prompt`, `llm-prompt-switch`, `llm-decision`, `context-compression`, `event-manager`, `character-stats`
 - **Text & Values**: `note`, `group`, `combiner`, `memory-slot`, `phone-message-router`, `text-selector`, `write-text`, `fixed-number`, `fixed-bool`, `settings-value`
-- **Story Context**: `rp-storybook`, `context-builder`
+- **Story Context**: `rp-storybook`, `rp-storybook-editor`, `context-builder`
 
 Singleton nodes are `User Input`, `Chat History`, `Event Manager`, `RP Storybook V2`, and `RP Output`.
 
 ## Execution Runtime
 
-Graph execution is centered in [`src/graph/executeGraph.ts`](src/graph/executeGraph.ts). It receives the current graph, chat/session context, provider APIs, runtime callbacks, settings values, reference images, and cancellation signal.
+Graph execution is centered in [`src/graph/executeGraph.ts`](../../src/graph/executeGraph.ts). It receives the current graph, chat/session context, provider APIs, runtime callbacks, settings values, reference images, and cancellation signal.
 
 The runtime:
 
@@ -253,15 +254,15 @@ The runtime:
 
 ## Important Code Areas
 
-- [`src/App.tsx`](src/App.tsx): main orchestration shell that connects graph state, focused app hooks, panels, and dialogs.
-- [`src/app`](src/app): graph-run orchestration, roleplay-panel state, provider connections, file workflows, runtime patching, lifecycle handling, debug snapshots, and workflow hydration/snapshots.
-- [`src/components`](src/components): reusable UI panels and dialogs, including Chat, Phone, Banking, Gallery, Social Media, voice playback controls, and image generation.
-- [`src/dialogs`](src/dialogs): larger studio dialog surfaces such as options, files, and provider configuration.
-- [`src/nodes`](src/nodes): core node definitions, node UI cards, node execution logic, persistence, custom nodes, and shared node helpers.
-- [`src/graph`](src/graph): graph execution, edges, port compatibility, and edge rendering.
-- [`src/chat`](src/chat): chat input transformation, phone/social parsing, banking and OnlyFriends wallet rules, output parsing, voice handling, structured commands, turn records, reference images, and phone replies.
-- [`src/storybook`](src/storybook): storybook runtime extraction, image library handling, opening history, and storybook actions.
-- [`src/data-management`](src/data-management): session data model, timeline/event/entity stores, selectors, validation, formatting, and debug context.
-- [`src/comfy`](src/comfy): ComfyUI API and workflow compatibility helpers.
-- [`src/llm`](src/llm): LLM API wrapper and token metrics.
-- [`electron`](electron): desktop main process, preload bridge, file formats, encryption, and OS/provider integrations.
+- [`src/App.tsx`](../../src/App.tsx): main orchestration shell that connects graph state, focused app hooks, panels, and dialogs.
+- [`src/app`](../../src/app): graph-run orchestration, roleplay-panel state, provider connections, file workflows, runtime patching, lifecycle handling, debug snapshots, and workflow hydration/snapshots.
+- [`src/components`](../../src/components): reusable UI panels and dialogs, including Chat, Phone, Banking, Gallery, Social Media, voice playback controls, and image generation.
+- [`src/dialogs`](../../src/dialogs): larger studio dialog surfaces such as options, files, and provider configuration.
+- [`src/nodes`](../../src/nodes): core node definitions, node UI cards, node execution logic, persistence, custom nodes, and shared node helpers.
+- [`src/graph`](../../src/graph): graph execution, edges, port compatibility, and edge rendering.
+- [`src/chat`](../../src/chat): chat input transformation, phone/social parsing, banking and OnlyFriends wallet rules, output parsing, voice handling, structured commands, turn records, reference images, and phone replies.
+- [`src/storybook`](../../src/storybook): storybook runtime extraction, image library handling, opening history, and storybook actions.
+- [`src/data-management`](../../src/data-management): session data model, timeline/event/entity stores, selectors, validation, formatting, and debug context.
+- [`src/comfy`](../../src/comfy): ComfyUI API and workflow compatibility helpers.
+- [`src/llm`](../../src/llm): LLM API wrapper and token metrics.
+- [`electron`](../../electron): desktop main process, preload bridge, file formats, encryption, and OS/provider integrations.

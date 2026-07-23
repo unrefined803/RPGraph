@@ -6,6 +6,7 @@ import {
 import type { WorkflowNode } from '../types';
 import { getRegisteredNode } from '../nodes/registry';
 import { wireLinkMode, wireLinkName } from '../nodes/memory-slot/model';
+import { promptAfterInputHandle, promptBeforeInputHandle } from '../nodes/shared/imageInputs';
 import {
   combinerInputCount,
   combinerInputHandle,
@@ -159,7 +160,17 @@ export function nodesPreparedAfterOutput(nodes: WorkflowNode[], edges: Edge[]) {
       return isFullyConnected ? [node.id] : [];
     }
     if (definition?.requiresPreparedInputEdge) {
-      return edges.some((edge) => edge.target === node.id) ? [node.id] : [];
+      // A prompt-override edge is not a Text Input; it must not, on its own,
+      // pull the node into the prepare set (it would then hard-throw for a
+      // missing Text Input and abort the whole preparation pass).
+      return edges.some(
+        (edge) =>
+          edge.target === node.id &&
+          edge.targetHandle !== promptBeforeInputHandle &&
+          edge.targetHandle !== promptAfterInputHandle,
+      )
+        ? [node.id]
+        : [];
     }
     return [node.id];
   });

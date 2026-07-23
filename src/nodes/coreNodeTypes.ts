@@ -22,9 +22,11 @@ export const coreNodeTypes = [
   'llm-decision',
   'llm-prompt',
   'combiner',
+  'text-replace',
   'character-stats',
   'output',
   'rp-storybook',
+  'rp-storybook-editor',
   'phone-apps',
 ] as const;
 

@@ -21,6 +21,7 @@ import { removeCompetingInputEdges } from '../graph/edges';
 import { validatePortConnection } from '../graph/portCompatibility';
 import { wireLinkLayout, wireLinkMode, wireLinkStyle } from '../nodes/memory-slot/model';
 import { getRegisteredCoreNode, getRegisteredCoreNodes } from '../nodes/registry';
+import { isStorybookSourceNode } from '../storybook/runtime';
 import type {
   AddNodeType,
   MessageRecord,
@@ -88,11 +89,11 @@ const nodePaletteGroups: Array<{
   },
   {
     title: 'Text & Values',
-    types: ['note', 'group', 'combiner', 'memory-slot', 'phone-message-router', 'text-selector', 'write-text', 'fixed-number', 'fixed-bool', 'settings-value'],
+    types: ['note', 'group', 'combiner', 'text-replace', 'memory-slot', 'phone-message-router', 'text-selector', 'write-text', 'fixed-number', 'fixed-bool', 'settings-value'],
   },
   {
     title: 'Story Context',
-    types: ['rp-storybook', 'context-builder'],
+    types: ['rp-storybook', 'rp-storybook-editor', 'context-builder'],
   },
 ];
 
@@ -278,6 +279,11 @@ export function useNodePalette({
 
   function nodeTypeUnavailable(nodeType: AddNodeType) {
     const definition = getRegisteredCoreNode(nodeType);
+    // Storybook sources are mutually exclusive: a graph holds at most one, be it
+    // `rp-storybook` or `rp-storybook-editor` (never both, never two).
+    if (nodeType === 'rp-storybook' || nodeType === 'rp-storybook-editor') {
+      return nodes.some(isStorybookSourceNode);
+    }
     return (
       definition?.singleton === true &&
       nodes.some(

@@ -32,6 +32,8 @@ import { CharacterStatsNodeCard } from './character-stats/Card';
 import { runCharacterStatsNode } from './character-stats/run';
 import { CombinerNodeCard } from './combiner/Card';
 import { executeCombinerNode } from './combiner/execute';
+import { TextReplaceNodeCard } from './text-replace/Card';
+import { executeTextReplaceNode } from './text-replace/execute';
 import { ContextCompressionNodeCard } from './context-compression/Card';
 import { runContextCompressionNode } from './context-compression/run';
 import { ContextBuilderNodeCard } from './context-builder/Card';
@@ -92,10 +94,11 @@ import { LlmPromptNodeCard } from './llm-prompt/Card';
 import { runLlmPromptNode } from './llm-prompt/run';
 import { RpStorybookNodeCard } from './rp-storybook/Card';
 import { executeRpStorybookNode } from './rp-storybook/execute';
+import { RpStorybookEditorNodeCard } from './rp-storybook-editor/Card';
 import {
   defaultRpStorybookFormattedTextSettings,
-  emptyRpStorybook,
   rpStorybookJsonText,
+  starterRpStorybook,
 } from './rp-storybook/model';
 import { TextPreviewNodeCard } from './text-preview/Card';
 import { executeTextPreviewNode } from './text-preview/execute';
@@ -111,6 +114,7 @@ export const coreNodeLayout = {
   contextCompressionWidth: 365,
   characterStatsWidth: 430,
   textCombinerWidth: 365,
+  textReplaceWidth: 430,
   llmPromptWidth: 548,
   llmPromptHeight: 1140,
   loadTextWidth: 380,
@@ -548,6 +552,8 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
     ports: () => [
       input('default', 'text', 'Text Input'),
       input('image', 'image', 'Image Input'),
+      input('prompt-before', 'mixed', 'Prompt Before Override'),
+      input('prompt-after', 'mixed', 'Prompt After Override'),
       output('default', 'mixed', 'Text'),
     ],
     Component: LlmPromptNodeCard,
@@ -599,6 +605,34 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         combinerInputCount: minimumCombinerInputs,
         combinerPrefixes: ['', ''],
         combinerInputPreviews: ['', ''],
+      },
+    }),
+  },
+  {
+    type: 'text-replace',
+    dataVersion: currentCoreNodeVersions['text-replace'],
+    label: 'Text Replace',
+    description: 'Swap source text for replacements',
+    menuDescription: 'Find & replace text via a source/replacement map',
+    origin: 'core',
+    ports: () => [
+      input('default', 'mixed', 'Text / JSON Input'),
+      output('text', 'text', 'Text'),
+      output('json', 'json', 'JSON'),
+    ],
+    Component: TextReplaceNodeCard,
+    execute: executeTextReplaceNode,
+    create: ({ position, createId }) => ({
+      id: createId('text-replace'),
+      type: 'workflow',
+      position,
+      style: { width: coreNodeLayout.textReplaceWidth },
+      data: {
+        label: 'Text Replace',
+        description: 'Swap source text for replacements',
+        preview: 'No replacements configured',
+        nodeType: 'text-replace',
+        textReplaceEntries: [{ id: 'text-replace-0', source: '', replacement: '' }],
       },
     }),
   },
@@ -984,10 +1018,43 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       data: {
         label: 'RP Storybook V2',
         description: 'Complete roleplay storybook',
-        preview: 'No storybook loaded',
+        preview: 'Starter story',
         nodeType: 'rp-storybook',
         connectionId: defaultConnectionId,
-        storybookJson: rpStorybookJsonText(emptyRpStorybook),
+        storybookJson: rpStorybookJsonText(starterRpStorybook),
+        storybookStatus: 'Ready',
+        storybookFormattedTextSettings: defaultRpStorybookFormattedTextSettings,
+      },
+    }),
+  },
+  {
+    type: 'rp-storybook-editor',
+    dataVersion: currentCoreNodeVersions['rp-storybook-editor'],
+    label: 'RP Storybook Editor',
+    description: 'Edit storybook text and JSON',
+    menuDescription: 'Freely edit storybook formatted text and raw JSON',
+    origin: 'core',
+    singleton: false,
+    requiresPreparedInputEdge: true,
+    ports: () => [
+      output('json', 'json', 'JSON'),
+      output('formatted-text', 'text', 'Formatted Text'),
+      output('character-info', 'text', 'Character Info'),
+    ],
+    Component: RpStorybookEditorNodeCard,
+    // Reuses the RP Storybook node's execute — identical output resolution.
+    execute: executeRpStorybookNode,
+    create: ({ position, createId }) => ({
+      id: createId('rp-storybook-editor'),
+      type: 'workflow',
+      position,
+      style: { width: coreNodeLayout.rpStorybookWidth },
+      data: {
+        label: 'RP Storybook Editor',
+        description: 'Edit storybook text and JSON',
+        preview: 'Starter story',
+        nodeType: 'rp-storybook-editor',
+        storybookJson: rpStorybookJsonText(starterRpStorybook),
         storybookStatus: 'Ready',
         storybookFormattedTextSettings: defaultRpStorybookFormattedTextSettings,
       },

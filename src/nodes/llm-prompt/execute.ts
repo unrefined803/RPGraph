@@ -1,6 +1,7 @@
 import type { ReferenceImage } from '../../chat/referenceImages';
 import type { ChatImageAttachment, WorkflowNode } from '../../types';
 import { resolveWorkflowVariables } from '../../workflow';
+import { promptAfterInputHandle, promptBeforeInputHandle } from '../shared/imageInputs';
 import { promptActionConfigs, withPromptActionRuntimeSettingsList } from '../shared/promptActions';
 import { promptCommandConfigs } from '../shared/promptCommands';
 import { runActionAwarePrompt } from '../shared/promptRun';
@@ -21,13 +22,29 @@ export async function executeLlmPromptNode({
   context: ExecuteContext;
   streamsVisibleOutput: boolean;
 }) {
+  // A connection on either override handle bypasses (but never clears) the
+  // authored field text: the received string is fed into the same operation.
+  // Presence of the edge activates the override even when it resolves to ''.
+  const promptBeforeEdge = context.edges.find(
+    (edge) => edge.target === node.id && edge.targetHandle === promptBeforeInputHandle,
+  );
+  const promptAfterEdge = context.edges.find(
+    (edge) => edge.target === node.id && edge.targetHandle === promptAfterInputHandle,
+  );
+  const promptBeforeSource = promptBeforeEdge
+    ? await context.executeInput(promptBeforeEdge.source, promptBeforeEdge.sourceHandle)
+    : node.data.llmPromptBefore ?? '';
+  const promptAfterSource = promptAfterEdge
+    ? await context.executeInput(promptAfterEdge.source, promptAfterEdge.sourceHandle)
+    : node.data.llmPromptAfter ?? '';
+
   const promptBefore = resolveWorkflowVariables(
-    node.data.llmPromptBefore ?? '',
+    promptBeforeSource,
     context.settingsValueDefinitions,
     context.settingsValues,
   );
   const promptAfter = resolveWorkflowVariables(
-    node.data.llmPromptAfter ?? '',
+    promptAfterSource,
     context.settingsValueDefinitions,
     context.settingsValues,
   );

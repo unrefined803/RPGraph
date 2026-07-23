@@ -1,6 +1,8 @@
+import { describe, expect, it } from 'vitest';
 import { captureTurnRuntime } from '../chat/turns';
 import { currentSessionFormatVersion } from '../session/version';
 import type {
+  CharacterStatDefinition,
   ChatImageAttachment,
   LlmCallStage,
   MessageRecord,
@@ -22,6 +24,11 @@ import {
   rpStorybookJsonText,
   withRpStorybookPhoneContactPairBlocked,
 } from '../nodes/rp-storybook/model';
+import {
+  applyRpStorybookEditorJson,
+  rpStorybookEditorJsonView,
+} from '../nodes/rp-storybook-editor/rawJson';
+import { isStorybookSourceNode } from '../storybook/runtime';
 import {
   storybookImageById,
   storybookImageDescriptions,
@@ -215,6 +222,8 @@ import {
   removeEdgesConnectedToIncompatibleNodes,
 } from './persistence';
 import { formatAppointments, formatChatHistory } from './textHelpers';
+import { characterStatDefinitions, characterStatDefinitionsForEditing } from './nodeHelpers';
+import { defaultCharacterStatDefinitions } from './defaults';
 import { isRpSaveFile, isWorkflowFile } from './validation';
 import { currentWorkflowFormatVersion } from './version';
 import {
@@ -246,18 +255,14 @@ const allBundledDefaultWorkflows = bundledDefaultWorkflowPaths.map((filePath) =>
 }));
 
 function assertFixture(condition: boolean, message: string) {
-  if (!condition) {
-    throw new Error(`Workflow validation fixture failed: ${message}`);
-  }
+  // Route through vitest's expect so a failure reports the message (and, where
+  // the caller passes a comparison, a value diff) instead of an opaque throw.
+  expect(condition, message).toBe(true);
 }
 
 function assertThrowsFixture(action: () => void, message: string) {
-  try {
-    action();
-  } catch {
-    return;
-  }
-  throw new Error(`Workflow validation fixture failed: ${message}`);
+  expect(action, message).toThrow();
+  return;
 }
 
 function fixtureTextSignature(text: string) {
@@ -4820,6 +4825,63 @@ export function verifyWorkflowValidationFixtures() {
     'hydration must replace a missing connection with the active default',
   );
 
+  const textReplaceEntriesFixture = [
+    { id: 'r1', source: 'Hero', replacement: 'Aria' },
+    { id: 'r2', source: 'city', replacement: 'Old Harbor' },
+  ];
+  const persistedTextReplace = persistentNodeData({
+    nodeType: 'text-replace',
+    label: 'Text Replace',
+    description: 'Swap source text for replacements',
+    preview: 'No replacements configured',
+    textReplaceEntries: textReplaceEntriesFixture,
+  } as WorkflowNodeData);
+  const hydratedTextReplace = hydrateNodeData(persistedTextReplace, {
+    defaultConnectionId: 'active-default',
+    connectionIds: new Set(['active-default']),
+  });
+  assertFixture(
+    JSON.stringify(hydratedTextReplace.textReplaceEntries) ===
+      JSON.stringify(textReplaceEntriesFixture),
+    'text replace rows must survive a save and hydrate round-trip with order and fields intact',
+  );
+
+  const textReplaceWorkflow = (entries: unknown): unknown => ({
+    format: 'rpgraph-workflow',
+    formatVersion: currentWorkflowFormatVersion,
+    savedAt: '2026-06-01T00:00:00.000Z',
+    nodes: [{
+      id: 'text-replace-1',
+      type: 'workflow',
+      position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'text-replace',
+        nodeDataVersion: '1.0.0',
+        label: 'Text Replace',
+        description: 'Swap source text for replacements',
+        preview: 'No replacements configured',
+        textReplaceEntries: entries,
+      },
+    }],
+    edges: [],
+  });
+  assertFixture(
+    isWorkflowFile(textReplaceWorkflow([{ id: 'r1', source: 'a', replacement: 'b' }])),
+    'a text replace node with well-formed rows must validate',
+  );
+  assertFixture(
+    !isWorkflowFile(textReplaceWorkflow('not-an-array')),
+    'a text replace node whose rows are not an array must be rejected',
+  );
+  assertFixture(
+    !isWorkflowFile(textReplaceWorkflow([{ id: 'r1', source: 'a' }])),
+    'a text replace row missing the replacement field must be rejected',
+  );
+  assertFixture(
+    !isWorkflowFile(textReplaceWorkflow([{ id: 1, source: 'a', replacement: 'b' }])),
+    'a text replace row with a non-string field must be rejected',
+  );
+
   const missingPluginData: Record<string, unknown> & {
     pluginConfiguration: { collection: string; topK: number };
   } = {
@@ -6723,7 +6785,218 @@ function verifyDirectAppActionPayloadFixtures() {
   );
 }
 
-verifyWorkflowValidationFixtures();
-verifyDirectAppActionPayloadFixtures();
-void verifyPromptRunFixtures();
-void verifyDirectActionsGraphFixture();
+function characterStatData(
+  characterStatDefinitionsValue: CharacterStatDefinition[] | undefined,
+): WorkflowNodeData {
+  return { characterStatDefinitions: characterStatDefinitionsValue } as unknown as WorkflowNodeData;
+}
+
+export function verifyCharacterStatDefinitionFixtures() {
+  // An empty or missing saved list falls back to the defaults (legacy or
+  // hand-authored data, or a list emptied outside the editor's minimum-one floor).
+  assertFixture(
+    characterStatDefinitions(characterStatData([])).length === defaultCharacterStatDefinitions.length,
+    'an empty saved characterStatDefinitions list must fall back to the defaults',
+  );
+  assertFixture(
+    characterStatDefinitionsForEditing(characterStatData(undefined)).length ===
+      defaultCharacterStatDefinitions.length,
+    'a missing characterStatDefinitions list must fall back to the defaults in the editor',
+  );
+
+  // Duplicate ids are deduped, first occurrence winning (matching the old merge).
+  const duplicated: CharacterStatDefinition[] = [
+    { id: 'stress', name: 'Stress', description: 'first', enabled: true },
+    { id: 'stress', name: 'Stress Copy', description: 'second', enabled: false },
+    { id: 'custom-1', name: 'Custom', description: '', enabled: true },
+  ];
+  const deduped = characterStatDefinitionsForEditing(characterStatData(duplicated));
+  assertFixture(
+    deduped.length === 2 && deduped[0]?.description === 'first' && deduped[1]?.id === 'custom-1',
+    'duplicate stat ids must be deduped keeping the first occurrence',
+  );
+
+  // A blank-named entry (a row mid-rename) stays in the editor list but is
+  // excluded from the runtime/prompt list so it never reaches the LLM or state.
+  const withBlankName: CharacterStatDefinition[] = [
+    { id: 'stress', name: 'Stress', description: '', enabled: true },
+    { id: 'confidence', name: '', description: '', enabled: true },
+  ];
+  assertFixture(
+    characterStatDefinitionsForEditing(characterStatData(withBlankName)).length === 2,
+    'a blank-named stat must remain in the editor list so it can still be renamed',
+  );
+  const runtimeDefinitions = characterStatDefinitions(characterStatData(withBlankName));
+  assertFixture(
+    runtimeDefinitions.length === 1 && runtimeDefinitions[0]?.id === 'stress',
+    'a blank-named stat must be excluded from the runtime/prompt definitions',
+  );
+}
+
+function editorTestStorybook() {
+  const base0 = parseRpStorybookJson(JSON.stringify({
+    format: 'rpgraph-storybook',
+    version: '2.0.0',
+    title: 'Test Book',
+    introduction: 'An intro.',
+    scenario: { summary: 'A summary.', openingSituation: 'Opening.', currentSituation: 'Current.' },
+    characters: [{
+      id: 'nova',
+      name: 'Nova',
+      description: 'Desc line one.\nDesc line two.',
+      personality: 'Kind.',
+      speechStyle: 'Formal.',
+      role: 'Lead',
+      comfyConfig: { loraName: 'nova.safetensors', loraUrl: '', appearance: 'tall' },
+      voiceConfig: { sampleName: 's', sampleMimeType: 'audio/mpeg', sampleDataUrl: 'data:audio/mpeg;base64,CCCC' },
+      images: [
+        { id: 'nova_image_01', name: 'i1', mimeType: 'image/jpeg', size: 4, dataUrl: 'data:image/jpeg;base64,AAAA', description: 'a' },
+        { id: 'nova_image_02', name: 'i2', mimeType: 'image/jpeg', size: 4, dataUrl: 'data:image/jpeg;base64,BBBB', description: 'b' },
+      ],
+      banking: { startBalance: 2000, fixedExpenses: [{ label: 'Rent', amount: 900 }] },
+      social: { fotogramUsername: 'nova.r', onlyfriendsUsername: '' },
+    }],
+    phoneContacts: { blocked: [] },
+    openingHistory: { summary: '', turns: [], checkpoints: [], events: [] },
+  }));
+  const imageId = base0.characters[0].images[0].id;
+  return parseRpStorybookJson(JSON.stringify({
+    ...base0,
+    characters: base0.characters.map((character) => ({
+      ...character,
+      profileImage: { imageId, dataUrl: 'data:image/jpeg;base64,AAAA', crop: { x: 10, y: 10, size: 50 } },
+    })),
+    openingHistory: {
+      summary: 'Imported memory.',
+      turns: [{
+        id: 'opening-turn-1',
+        number: 1,
+        createdAt: new Date(0).toISOString(),
+        input: { graphText: '', messages: [{ id: 1, role: 'user', originalText: 'hi' }] },
+        output: { graphText: '', messages: [{ id: 2, role: 'output', originalText: 'hey' }] },
+      }],
+      checkpoints: [],
+      events: [],
+    },
+  }));
+}
+
+export function verifyRpStorybookEditorFixtures() {
+  const base = editorTestStorybook();
+
+  // --- Raw JSON apply ---
+  const view = rpStorybookEditorJsonView(base);
+  assertFixture(
+    view.includes('[Data URL redacted:') && !view.includes('base64,AAAA'),
+    'the editable JSON view must redact binaries',
+  );
+
+  const applied = applyRpStorybookEditorJson(base, view);
+  assertFixture(!('error' in applied), 'applying the unedited JSON view must succeed');
+  if ('error' in applied) {
+    return;
+  }
+  assertFixture(
+    JSON.stringify(applied.storybook.openingHistory) === JSON.stringify(base.openingHistory),
+    'Raw JSON apply must restore Opening History wholesale',
+  );
+  assertFixture(
+    applied.storybook.characters[0].images[0].dataUrl === base.characters[0].images[0].dataUrl &&
+      applied.storybook.characters[0].voiceConfig?.sampleDataUrl === base.characters[0].voiceConfig?.sampleDataUrl &&
+      applied.storybook.characters[0].profileImage?.dataUrl === base.characters[0].profileImage?.dataUrl,
+    'Raw JSON apply must rehydrate redacted binaries by id',
+  );
+
+  // Deleting an image entry (the legitimate removal path) removes it cleanly.
+  const deletedValue = JSON.parse(view) as { characters: Array<{ images: unknown[] }> };
+  deletedValue.characters[0].images = deletedValue.characters[0].images.slice(1);
+  const withDeleted = applyRpStorybookEditorJson(base, JSON.stringify(deletedValue));
+  assertFixture(
+    !('error' in withDeleted) && withDeleted.storybook.characters[0].images.length === 1,
+    'deleting an image entry removes it',
+  );
+
+  // Editing an image id so its redacted binary can no longer resolve aborts
+  // (F3: no silent drop).
+  const orphanImageValue = JSON.parse(view) as { characters: Array<{ images: Array<{ id: string }> }> };
+  orphanImageValue.characters[0].images[0].id = 'ghost_image_99';
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify(orphanImageValue)),
+    'an unresolvable redacted image (edited image id) must abort the apply',
+  );
+
+  // Editing a non-binary value passes through.
+  const editValue = JSON.parse(view) as { characters: Array<{ description: string }> };
+  editValue.characters[0].description = 'Rewritten description.';
+  const withEdit = applyRpStorybookEditorJson(base, JSON.stringify(editValue));
+  assertFixture(
+    !('error' in withEdit) && withEdit.storybook.characters[0].description === 'Rewritten description.',
+    'edited non-binary JSON values must pass through',
+  );
+
+  // Renaming a character preserves its image content and profile image, with a warning.
+  const renameValue = JSON.parse(view) as { characters: Array<{ name: string }> };
+  renameValue.characters[0].name = 'Nova Reyes';
+  const withRename = applyRpStorybookEditorJson(base, JSON.stringify(renameValue));
+  assertFixture(
+    !('error' in withRename) &&
+      JSON.stringify(withRename.storybook.characters[0].images.map((image) => image.dataUrl)) ===
+        JSON.stringify(base.characters[0].images.map((image) => image.dataUrl)) &&
+      !!withRename.storybook.characters[0].profileImage &&
+      withRename.warnings.length >= 1,
+    'renaming a character must preserve image content and profile image (with a warning)',
+  );
+
+  // Invalid JSON / incompatible documents are rejected.
+  assertFixture('error' in applyRpStorybookEditorJson(base, '{not json'), 'invalid JSON must be rejected');
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify({ title: 'x' })),
+    'an incompatible document must be rejected',
+  );
+
+  // F3: editing a character id so its redacted binaries can no longer resolve aborts.
+  const idEditValue = JSON.parse(view) as { characters: Array<{ id: string }> };
+  idEditValue.characters[0].id = 'renamed-id';
+  assertFixture(
+    'error' in applyRpStorybookEditorJson(base, JSON.stringify(idEditValue)),
+    'an unresolvable redacted binary (edited character id) must abort the apply',
+  );
+
+  // F10: the editable JSON view omits Opening History.
+  assertFixture(
+    !rpStorybookEditorJsonView(base).includes('openingHistory'),
+    'the editable Raw JSON view must omit Opening History',
+  );
+
+  // Source recognition: both storybook node types are peers; others / incompatible are not.
+  const asNode = (nodeType: string, kind?: string) =>
+    ({ data: { nodeType, ...(kind ? { kind } : {}) } }) as unknown as WorkflowNode;
+  assertFixture(isStorybookSourceNode(asNode('rp-storybook')), 'rp-storybook is a storybook source');
+  assertFixture(isStorybookSourceNode(asNode('rp-storybook-editor')), 'rp-storybook-editor is a storybook source');
+  assertFixture(!isStorybookSourceNode(asNode('llm-prompt')), 'a non-storybook node is not a source');
+  assertFixture(
+    !isStorybookSourceNode(asNode('rp-storybook-editor', 'incompatible-core-node')),
+    'an incompatible-core-node is not a storybook source',
+  );
+}
+
+describe('workflow validation fixtures', () => {
+  it('validates workflows (format/version, load-then-commit, media)', () => {
+    verifyWorkflowValidationFixtures();
+  });
+  it('validates Direct App Action payloads', () => {
+    verifyDirectAppActionPayloadFixtures();
+  });
+  it('validates character stat definitions', () => {
+    verifyCharacterStatDefinitionFixtures();
+  });
+  it('validates the RP Storybook Editor Raw JSON pipeline and source recognition', () => {
+    verifyRpStorybookEditorFixtures();
+  });
+  it('runs prompt-run fixtures', async () => {
+    await verifyPromptRunFixtures();
+  });
+  it('runs the Direct Actions graph fixture', async () => {
+    await verifyDirectActionsGraphFixture();
+  });
+});

@@ -25,6 +25,7 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'llm-prompt-switch': '1.3.1',
   'llm-prompt': '1.2.1',
   combiner: '1.0.0',
+  'text-replace': '1.0.0',
   'load-text': '1.0.1',
   'write-text': '1.0.0',
   'text-preview': '1.1.0',
@@ -36,6 +37,7 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'fixed-bool': '1.0.0',
   'settings-value': '1.0.1',
   'rp-storybook': '2.1.0',
+  'rp-storybook-editor': '1.0.0',
   output: '1.6.0',
   'phone-apps': '1.0.0',
 };

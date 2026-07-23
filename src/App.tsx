@@ -16,6 +16,7 @@ import {
   StorybookCreatorDialog,
   SystemLogDialog,
 } from './components/AppDialogs';
+import { StorybookEditorDialog } from './components/StorybookEditorDialog';
 import {
   AssistantDialog,
   type AssistantMessage as AssistantChatMessage,
@@ -85,6 +86,7 @@ import { lastTurnMessages } from './data-management/historyStore';
 import {
   chatAttachmentFromStorybookImage,
   findChatEndpoints,
+  isStorybookSourceNode,
   storybookOpeningSituation,
   storyCharactersFromNodes,
   type StorybookCharacter,
@@ -217,6 +219,7 @@ import { NodeActionsContext } from './nodes/NodeActionsContext';
 import type { OutputFormatHelpKind } from './nodes/output/formatHelp';
 import type { ExecuteTraceFormatResult } from './nodes/types';
 import { getRegisteredCoreNode } from './nodes/registry';
+import { buildUpgradedNode, storybookOrSingletonUpgradeConflict } from './nodes/nodeUpgrade';
 import type { NodeViewValues } from './nodes/types';
 import { NodeViewContext } from './nodes/NodeViewContext';
 import { WorkflowNodeRenderer } from './nodes/WorkflowNodeRenderer';
@@ -250,6 +253,7 @@ import {
   workflowName,
 } from './app/useRpgraphFiles';
 import { useUiScaling } from './app/useUiScaling';
+import { useNodeContextMenu } from './app/useNodeContextMenu';
 import { useNodePalette } from './app/useNodePalette';
 import { useRunLifecycle } from './app/useRunLifecycle';
 import { useProviderConnections } from './app/useProviderConnections';
@@ -816,6 +820,7 @@ function App() {
       | 'event-manager-appointments'
     >('text');
   const [jsonDialogNodeId, setJsonDialogNodeId] = useState<string | null>(null);
+  const [storybookEditorNodeId, setStorybookEditorNodeId] = useState<string | null>(null);
   const [nodeAssistantNodeId, setNodeAssistantNodeId] = useState<string | null>(null);
   const [nodeAssistantHistories, setNodeAssistantHistories] = useState<Record<string, AssistantChatMessage[]>>({});
   const [assistantConnectionId, setAssistantConnectionId] = useState<string | undefined>(
@@ -891,7 +896,7 @@ function App() {
   const storybooksByNodeId = useMemo(() => {
     return new Map(
       nodeViewNodes.flatMap((node) => {
-        if (node.data.kind !== undefined || node.data.nodeType !== 'rp-storybook' || !node.data.storybookJson) {
+        if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
           return [];
         }
         try {
@@ -1433,6 +1438,7 @@ function App() {
     openStorybookCreator,
     submitStorybookCreatorMessage,
     updateStorybook,
+    commitStorybookToNode,
     applyStorybookToNode,
     importCurrentSessionAsOpeningHistory,
     clearStorybookOpeningHistory,
@@ -1581,6 +1587,18 @@ function App() {
     createId: uniqueId,
     notifySystem,
   });
+  const {
+    nodeContextMenu,
+    closeNodeContextMenu,
+    resetNodeContextMenuState,
+    openNodeContextMenu,
+    openSelectionContextMenu,
+    handleBeforeNodeDelete,
+    removeNodes,
+    pendingBulkNodeRemoval,
+    cancelBulkNodeRemoval,
+    confirmBulkNodeRemoval,
+  } = useNodeContextMenu({ nodesRef, flowInstanceRef });
 
   useEffect(() => {
     chatWidthRef.current = chatWidth;
@@ -2004,9 +2022,20 @@ function App() {
           .filter((node) => node.data.kind === undefined && getRegisteredCoreNode(node.data.nodeType)?.singleton)
           .map((node) => node.data.nodeType),
       );
+      // Storybook sources are mutually exclusive (v1 XOR editor): keep at most one
+      // across existing + restored nodes.
+      const storybookSourceExists = nodesRef.current.some(isStorybookSourceNode);
+      let storybookSourceRestored = false;
       const restoredNodes = deletedAction.nodes.filter((node) => {
         if (existingNodeIds.has(node.id)) {
           return false;
+        }
+        if (isStorybookSourceNode(node)) {
+          if (storybookSourceExists || storybookSourceRestored) {
+            return false;
+          }
+          storybookSourceRestored = true;
+          return true;
         }
         return !getRegisteredCoreNode(node.data.nodeType)?.singleton ||
           !existingSingletonTypes.has(node.data.nodeType);
@@ -2038,6 +2067,7 @@ function App() {
         commitEdges(nextEdges);
       }
       setNodeMenu(null);
+      resetNodeContextMenuState();
       updateDeletedNodeRestoreButton();
       return true;
     }
@@ -2104,11 +2134,23 @@ function App() {
           .filter((node) => getRegisteredCoreNode(node.data.nodeType)?.singleton)
           .map((node) => node.data.nodeType),
       );
-      const pasteableNodes = copied.nodes.filter(
-        (node) =>
+      // Storybook sources are mutually exclusive (v1 XOR editor): keep at most one
+      // across existing + pasted nodes.
+      const storybookSourceExists = nodesRef.current.some(isStorybookSourceNode);
+      let storybookSourcePasted = false;
+      const pasteableNodes = copied.nodes.filter((node) => {
+        if (isStorybookSourceNode(node)) {
+          if (storybookSourceExists || storybookSourcePasted) {
+            return false;
+          }
+          storybookSourcePasted = true;
+          return true;
+        }
+        return (
           !getRegisteredCoreNode(node.data.nodeType)?.singleton ||
-          !existingSingletons.has(node.data.nodeType),
-      );
+          !existingSingletons.has(node.data.nodeType)
+        );
+      });
       if (pasteableNodes.length === 0) {
         event.preventDefault();
         return;
@@ -2482,6 +2524,7 @@ function App() {
     pendingViewport.current = undefined;
     pendingFitView.current = false;
     setNodeMenu(null);
+    resetNodeContextMenuState();
     setTextDialogNodeId(null);
     setJsonDialogNodeId(null);
     activeWorkflowResetSnapshotRef.current = null;
@@ -2764,6 +2807,7 @@ function App() {
         ) + 1;
     }
     setNodeMenu(null);
+    resetNodeContextMenuState();
     setTextDialogNodeId(null);
     setTextDialogView('text');
     setJsonDialogNodeId(null);
@@ -2801,6 +2845,44 @@ function App() {
     }
   }
 
+  function handleUpgradeNode(nodeId: string) {
+    const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
+    if (!node || node.data.kind !== 'incompatible-core-node') {
+      return;
+    }
+    if (storybookOrSingletonUpgradeConflict(node, nodesRef.current)) {
+      notifySystem(
+        'warning',
+        `Cannot upgrade: a ${node.data.nodeType} node already exists in this workflow. Remove it first.`,
+      );
+      return;
+    }
+    const upgraded = buildUpgradedNode(node, {
+      createContext: {
+        defaultConnectionId,
+        position: node.position,
+        createId: (prefix) => `${prefix}-${uniqueId()}`,
+        readNodes: () => nodesRef.current,
+        originalHistory: formatChatHistory(messages, false, rpDateTimeFormat, rpWeekdayLanguage),
+        translatedHistory: formatChatHistory(messages, true, rpDateTimeFormat, rpWeekdayLanguage),
+      },
+      hydrateContext: {
+        defaultConnectionId,
+        connectionIds: new Set(connections.map((connection) => connection.id)),
+      },
+    });
+    if (!upgraded) {
+      return;
+    }
+    commitNodes(
+      nodesRef.current.map((candidate) => (candidate.id === nodeId ? upgraded : candidate)),
+    );
+    notifySystem(
+      'info',
+      `Upgraded ${node.data.nodeType} to v${upgraded.data.nodeDataVersion}. Reconnect its wires — edges to incompatible nodes were removed on load.`,
+    );
+  }
+
   const { nodeActions } = useNodeActionsController({
     nodesRef,
     edges,
@@ -2834,6 +2916,8 @@ function App() {
     setJsonDialogNodeId,
     setOutputFormatHelpKind,
     openStorybookCreator,
+    openStorybookEditor: setStorybookEditorNodeId,
+    upgradeNode: handleUpgradeNode,
     openCustomNodeAssistant: customNodeAssistant.open,
     runCustomNodeButton: customNodeAssistant.runButton,
     loadStorybookFile,
@@ -4550,7 +4634,7 @@ function App() {
       ? `Turn ${activeSessionSavedTurn} Saved`
       : null;
   const headerStorybookNode = nodeViewNodes.find(
-    (node) => node.data.kind === undefined && node.data.nodeType === 'rp-storybook',
+    isStorybookSourceNode,
   );
   const headerStorybookFileName = headerStorybookNode?.data.storybookFileName;
   const headerStorybookJson = headerStorybookNode?.data.storybookJson;
@@ -4609,6 +4693,7 @@ function App() {
   const textDialogNode = textDialogSourceNode;
   const jsonDialogNode = nodes.find((node) => node.id === jsonDialogNodeId);
   const storybookCreatorNode = nodeViewNodes.find((node) => node.id === storybookCreatorNodeId);
+  const storybookEditorNode = nodeViewNodes.find((node) => node.id === storybookEditorNodeId);
   const customNodeAssistantNode = customNodeAssistant.activeNode;
   const nodeAssistantNode = nodeViewNodes.find((node) => node.id === nodeAssistantNodeId);
   const nodeAssistantMessages = nodeAssistantNodeId ? (nodeAssistantHistories[nodeAssistantNodeId] || []) : [];
@@ -4938,15 +5023,37 @@ function App() {
                 onInit={initializeFlow}
                 onDragOver={allowNodeDrop}
                 onDrop={dropNode}
-                onPaneContextMenu={openNodeMenu}
+                onPaneContextMenu={(event) => {
+                  closeNodeContextMenu();
+                  openNodeMenu(event);
+                }}
                 onPaneClick={() => {
                   setNodeMenu(null);
+                  closeNodeContextMenu();
                   setIsChatPanelOpen(false);
                 }}
                 onNodeClick={() => {
                   setIsChatPanelOpen(false);
+                  closeNodeContextMenu();
                 }}
                 onNodeDoubleClick={(_event, node) => splitWireLink(node.id)}
+                onNodeContextMenu={(event, node) => {
+                  // Let form controls inside a node keep their native context
+                  // menu — the Remove action would sit right under the cursor.
+                  if (isEditableKeyboardTarget(event.target)) {
+                    return;
+                  }
+                  setNodeMenu(null);
+                  openNodeContextMenu(event, node);
+                }}
+                onSelectionContextMenu={(event, selectedNodes) => {
+                  setNodeMenu(null);
+                  openSelectionContextMenu(event, selectedNodes);
+                }}
+                onMoveStart={closeNodeContextMenu}
+                onNodeDragStart={closeNodeContextMenu}
+                onSelectionDragStart={closeNodeContextMenu}
+                onBeforeDelete={handleBeforeNodeDelete}
                 onNodesChange={onNodesChange}
                 onNodesDelete={rememberDeletedNodes}
                 onEdgesChange={onEdgesChange}
@@ -5055,6 +5162,32 @@ function App() {
                 );
               }) : (
                 <p className="node-menu-empty">Mark nodes with ★ in the side panel.</p>
+              )}
+            </div>
+          )}
+          {nodeContextMenu && (
+            <div
+              className="node-menu"
+              style={{ left: nodeContextMenu.screen.x, top: nodeContextMenu.screen.y }}
+            >
+              <strong>Node Actions</strong>
+              {nodeContextMenu.selectedNodeIds.length >= 2 ? (
+                <button
+                  type="button"
+                  onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}
+                >
+                  <span className="node-menu-item-label">
+                    <span>Remove All Selected</span>
+                  </span>
+                  <small>{nodeContextMenu.selectedNodeIds.length} nodes selected</small>
+                </button>
+              ) : (
+                <button type="button" onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}>
+                  <span className="node-menu-item-label">
+                    <span>Remove</span>
+                  </span>
+                  <small>Delete this node</small>
+                </button>
               )}
             </div>
           )}
@@ -5312,6 +5445,15 @@ function App() {
                   characterStorybookNodes.length > 0 &&
                   (narratorSelected || !!selectedCharacter)
                 )
+              }
+              runChatDisabledReason={
+                characterStorybookNodes.length === 0
+                  ? 'Add or load a Storybook with at least one named character to run the chat.'
+                  : !narratorSelected && !selectedCharacter
+                    ? 'Choose who you are playing as (or enable Narrator) to run the chat.'
+                    : !draft.trim() && draftImages.length === 0
+                      ? 'Type a message or attach an image to run the chat.'
+                      : undefined
               }
               autoplayEnabled={autoplay.enabled}
               autoplayMode={autoplay.mode}
@@ -5690,6 +5832,16 @@ function App() {
         />
       )}
 
+      {storybookEditorNode && storybookEditorNode.data.nodeType === 'rp-storybook-editor' && (
+        <StorybookEditorDialog
+          node={storybookEditorNode}
+          onCommit={(storybook, status) =>
+            commitStorybookToNode(storybookEditorNode.id, storybook, { storybookStatus: status })
+          }
+          onClose={() => setStorybookEditorNodeId(null)}
+        />
+      )}
+
       {customNodeAssistantNode && customNodeAssistantNode.data.nodeType === 'custom' && (
         <CustomNodeAssistantDialog
           node={customNodeAssistantNode}
@@ -6059,6 +6211,42 @@ function App() {
             setShowWelcome(false);
           }}
         />
+      )}
+      {pendingBulkNodeRemoval && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onClick={cancelBulkNodeRemoval}
+        >
+          <section
+            className="storybook-confirm-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="node-bulk-remove-title"
+            aria-describedby="node-bulk-remove-message"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="node-bulk-remove-title">
+              Remove {pendingBulkNodeRemoval.nodeCount} Nodes
+            </h3>
+            <p id="node-bulk-remove-message">
+              Remove {pendingBulkNodeRemoval.nodeCount} selected nodes from the graph?
+              You can undo this with Ctrl+Z or the restore button afterward.
+            </p>
+            <div className="storybook-confirm-actions">
+              <button className="inspect-button" type="button" onClick={cancelBulkNodeRemoval}>
+                Cancel
+              </button>
+              <button
+                className="inspect-button danger"
+                type="button"
+                onClick={confirmBulkNodeRemoval}
+              >
+                Remove All Selected
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

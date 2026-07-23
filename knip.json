@@ -3,10 +3,14 @@
   "entry": [
     "index.html",
     "electron/preload.cjs",
-    "electron/*.fixtures.cjs",
-    "src/workflow/validation.fixtures.ts",
+    "src/**/*.test.ts",
+    "electron/**/*.test.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "test/e2e/**/*.spec.ts",
+    "test/e2e/**/*.ts",
     "scripts/*.mjs"
   ],
-  "project": ["src/**/*.{ts,tsx}", "electron/**/*.cjs", "scripts/**/*.mjs"],
+  "project": ["src/**/*.{ts,tsx}", "electron/**/*.cjs", "electron/**/*.test.ts", "test/e2e/**/*.ts", "scripts/**/*.mjs"],
   "ignore": ["src/electron.d.ts"]
 }
