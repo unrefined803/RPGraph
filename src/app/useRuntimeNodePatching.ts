@@ -127,6 +127,7 @@ export function useRuntimeNodePatching({
         llmActiveCallLabel: runActive ? label : undefined,
         llmActiveCallStage: runActive ? stage : undefined,
         llmActiveCallStartedAtMs: runActive && label ? performance.now() : undefined,
+        llmActiveReasoningTokens: undefined,
       });
     }
   }

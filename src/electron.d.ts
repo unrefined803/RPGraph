@@ -89,6 +89,7 @@ declare global {
         },
         onChunk: (text: string) => void,
         onAbort?: (cancel: () => void) => void,
+        onReasoningTokens?: (tokenCount: number) => void,
       ) => Promise<LlmCompletionResult>;
       listFiles: () => Promise<SavedFileSummary[]>;
       listCharacterFiles: () => Promise<SavedFileSummary[]>;

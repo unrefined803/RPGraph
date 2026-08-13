@@ -310,6 +310,7 @@ type WorkflowNodeCommonFields = {
   llmActiveCallLabel?: string;
   llmActiveCallStage?: LlmCallStage;
   llmActiveCallStartedAtMs?: number;
+  llmActiveReasoningTokens?: number;
   runCompleted?: boolean;
   runPrepared?: boolean;
   runError?: string;

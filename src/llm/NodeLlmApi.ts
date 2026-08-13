@@ -19,6 +19,7 @@ type NodeLlmApiOptions = {
     metadata: { hasImages: boolean; label: string; stage?: LlmCallStage; startedAtMs: number },
   ) => void;
   onCallEnd?: (nodeId: string) => void;
+  onReasoningTokens?: (nodeId: string, tokenCount: number) => void;
   signal?: AbortSignal;
 };
 
@@ -50,11 +51,13 @@ export class NodeLlmApi {
       metadata: { hasImages: boolean; label: string; stage?: LlmCallStage; startedAtMs: number },
     ) => void,
     onCallEnd: (nodeId: string) => void,
+    onReasoningTokens?: (nodeId: string, tokenCount: number) => void,
   ) {
     return new NodeLlmApi({
       ...this.options,
       onCallStart,
       onCallEnd,
+      onReasoningTokens,
     });
   }
 
@@ -110,7 +113,30 @@ export class NodeLlmApi {
             frequencyPenalty: connection.frequencyPenalty,
           }
         : { temperature: request.temperature };
-      const completion = request.onChunk
+      let latestReasoningTokens = 0;
+      let lastReasoningUpdateMs = 0;
+      const onReasoningTokens = request.nodeId
+        ? (tokenCount: number) => {
+            latestReasoningTokens = tokenCount;
+            const now = performance.now();
+            if (now - lastReasoningUpdateMs >= 50) {
+              lastReasoningUpdateMs = now;
+              this.options.onReasoningTokens?.(request.nodeId!, tokenCount);
+            }
+          }
+        : undefined;
+      const supportsLiveReasoningStream = [
+        'lm-studio',
+        'llama-cpp',
+        'ollama',
+        'openrouter',
+      ].includes(requestConnection.providerKind ?? '');
+      const shouldStream = !!request.onChunk || (
+        supportsLiveReasoningStream &&
+        !!request.nodeId &&
+        !!this.options.onReasoningTokens
+      );
+      const completion = shouldStream
         ? await window.rpgraph.streamChatCompletion(
             {
               connection: requestConnection,
@@ -119,10 +145,11 @@ export class NodeLlmApi {
               maxTokens: request.maxTokens,
               ...sampling,
             },
-            request.onChunk,
+            request.onChunk ?? (() => undefined),
             (cancel) => {
               cleanupAbort = registerAbortCancel(signal, cancel);
             },
+            onReasoningTokens,
           )
         : await window.rpgraph.chatCompletion(
             {
@@ -136,6 +163,11 @@ export class NodeLlmApi {
               cleanupAbort = registerAbortCancel(signal, cancel);
             },
           );
+
+      if (request.nodeId && latestReasoningTokens > 0) {
+        const finalReasoningTokens = completion.stats.reasoningTokens ?? latestReasoningTokens;
+        this.options.onReasoningTokens?.(request.nodeId, finalReasoningTokens);
+      }
 
       if (request.nodeId) {
         this.options.recordCall?.(request.nodeId, request.label, completion.stats, {

@@ -1384,6 +1384,9 @@ function App() {
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
     recordCall: recordNodeLlmCall,
+    onReasoningTokens: (nodeId, tokenCount) => {
+      updateRuntimeNode(nodeId, { llmActiveReasoningTokens: tokenCount });
+    },
   });
   const customNodeAssistant = useCustomNodeAssistant({
     nodes: nodeViewNodes,

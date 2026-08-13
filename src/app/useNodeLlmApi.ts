@@ -16,17 +16,20 @@ type UseNodeLlmApiOptions = {
     signal?: AbortSignal,
   ) => Promise<ConnectionPreset>;
   recordCall: RecordNodeLlmCall;
+  onReasoningTokens: (nodeId: string, tokenCount: number) => void;
 };
 
 export function useNodeLlmApi({
   resolveConnection,
   recordCall,
+  onReasoningTokens,
 }: UseNodeLlmApiOptions) {
   return useMemo(
     () => new NodeLlmApi({
       resolveConnection,
       recordCall,
+      onReasoningTokens,
     }),
-    [recordCall, resolveConnection],
+    [onReasoningTokens, recordCall, resolveConnection],
   );
 }

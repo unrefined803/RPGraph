@@ -105,13 +105,19 @@ contextBridge.exposeInMainWorld('rpgraph', {
   unloadOllamaModels: (connection) =>
     ipcRenderer.invoke('ollama:unload-models', { connection }),
   chatCompletion: (request, onAbort) => abortableLlmInvoke('llm:chat-completion', request, onAbort),
-  streamChatCompletion: async (request, onChunk, onAbort) => {
+  streamChatCompletion: async (request, onChunk, onAbort, onReasoningTokens) => {
     const requestId = nextLlmRequestId();
     const channel = `llm:chat-stream-chunk:${requestId}`;
+    const reasoningChannel = `llm:chat-stream-reasoning:${requestId}`;
     let streamedText = '';
     const listener = (_event, deltaText) => {
       streamedText += deltaText;
       onChunk(streamedText);
+    };
+    const reasoningListener = (_event, tokenCount) => {
+      if (typeof onReasoningTokens === 'function' && Number.isFinite(tokenCount)) {
+        onReasoningTokens(tokenCount);
+      }
     };
     const requestWithoutSignal = { ...request };
     delete requestWithoutSignal.signal;
@@ -129,6 +135,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
     }
 
     ipcRenderer.on(channel, listener);
+    ipcRenderer.on(reasoningChannel, reasoningListener);
     try {
       return await Promise.race([
         ipcRenderer
@@ -141,6 +148,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
       ]);
     } finally {
       ipcRenderer.removeListener(channel, listener);
+      ipcRenderer.removeListener(reasoningChannel, reasoningListener);
     }
   },
   listFiles: () => ipcRenderer.invoke('file:list'),

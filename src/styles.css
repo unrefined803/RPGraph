@@ -11399,6 +11399,17 @@ button.message-timeline-row.phone:focus-visible {
   white-space: nowrap;
 }
 
+.chat-run-progress-reasoning {
+  min-width: 8ch;
+  flex: none;
+  color: #a9b8d2;
+  font-size: 12px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .chat-run-progress-controls {
   flex: none;
   gap: 10px;

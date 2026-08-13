@@ -45,6 +45,7 @@ const {
   lmStudioChatBody,
   lmStudioResponseText,
 } = require('./lmStudioChat.cjs');
+const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
 
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
@@ -2209,7 +2210,7 @@ async function requestLmStudioChat(request, abort) {
   return { text, usage: result.stats };
 }
 
-async function streamLmStudioChat(request, abort, onText) {
+async function streamLmStudioChat(request, abort, onText, onReasoningToken) {
   const reasoningProfile = await lmStudioReasoningProfile(request.connection, abort);
   const response = await requestLlmResponse(lmStudioEndpoint(request.connection, 'chat'), {
     method: 'POST',
@@ -2230,6 +2231,13 @@ async function streamLmStudioChat(request, abort, onText) {
 
   function consumeEvent(streamEvent) {
     const { type, payload } = streamEvent;
+    if (type === 'reasoning.delta') {
+      const delta = typeof payload?.content === 'string' ? payload.content : '';
+      if (delta) {
+        onReasoningToken?.();
+      }
+      return;
+    }
     if (type === 'message.delta') {
       const delta = typeof payload?.content === 'string' ? payload.content : '';
       if (delta) {
@@ -4059,6 +4067,23 @@ ipcMain.handle('llm:chat-completion', async (_event, request) => {
 ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
+  const reasoningChannel = `llm:chat-stream-reasoning:${request.requestId}`;
+  let liveReasoningTokens = 0;
+  const sendReasoningToken = () => {
+    liveReasoningTokens += 1;
+    event.sender.send(reasoningChannel, liveReasoningTokens);
+  };
+  const sendFinalReasoningTokens = (usage) => {
+    const finalTokens = usageReasoningTokens(usage);
+    if (
+      liveReasoningTokens > 0 &&
+      finalTokens !== undefined &&
+      finalTokens !== liveReasoningTokens
+    ) {
+      liveReasoningTokens = finalTokens;
+      event.sender.send(reasoningChannel, liveReasoningTokens);
+    }
+  };
   try {
     await freeComfyMemoryForLocalLlm(request.connection);
     await ensureLlamaCppModelLoaded(request.connection, abort);
@@ -4122,6 +4147,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
       }
       buffered += decoder.decode();
       buffered.split(/\r?\n/).forEach(consumeGeminiLine);
+      sendFinalReasoningTokens(usage);
 
       if (!content) {
         throw new Error(
@@ -4141,7 +4167,9 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
         request,
         abort,
         (text) => event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, text),
+        sendReasoningToken,
       );
+      sendFinalReasoningTokens(result.usage);
       return {
         text: result.text,
         stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)),
@@ -4195,6 +4223,10 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
         return;
       }
       const choice = chunk.choices?.[0];
+      const reasoningDelta = reasoningTextFromChatMessage(choice?.delta);
+      if (reasoningDelta) {
+        sendReasoningToken();
+      }
       const deltaText = textFromChatMessage(choice?.delta) ||
         (!content ? textFromChatChoice(choice) : '');
       if (deltaText) {
@@ -4222,6 +4254,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
     if (buffered) {
       consumeLine(buffered);
     }
+    sendFinalReasoningTokens(usage);
 
     if (!content) {
       throw emptyChatCompletionTextError({ finish_reason: finishReason });

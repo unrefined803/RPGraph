@@ -286,6 +286,7 @@ export async function executeGraph({
             llmActiveCallLabel: metadata.label,
             llmActiveCallStage: metadata.stage,
             llmActiveCallStartedAtMs: metadata.startedAtMs,
+            llmActiveReasoningTokens: undefined,
           });
         }
       },
@@ -296,7 +297,13 @@ export async function executeGraph({
             llmActiveCallLabel: undefined,
             llmActiveCallStage: undefined,
             llmActiveCallStartedAtMs: undefined,
+            llmActiveReasoningTokens: undefined,
           });
+        }
+      },
+      (nodeId, tokenCount) => {
+        if (isLlmNode(nodeId)) {
+          updateRuntimeNode(nodeId, { llmActiveReasoningTokens: tokenCount });
         }
       },
     );

@@ -52,6 +52,11 @@ export function RunProgressCard({
         <strong title={activity}>{activity}</strong>
       </div>
       <div className="chat-run-progress-controls">
+        {runtimeData?.llmActiveReasoningTokens !== undefined ? (
+          <span className="chat-run-progress-reasoning" title="Live reasoning tokens">
+            RSN: {runtimeData.llmActiveReasoningTokens}
+          </span>
+        ) : null}
         {runStartTimeMs !== null && (
           <span className="chat-run-progress-total-time" title="Total workflow time">
             <LiveRunClock isRunning startTimeMs={runStartTimeMs} finalMs={0} /> s
