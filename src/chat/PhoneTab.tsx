@@ -53,7 +53,7 @@ export function PhoneTab({
       )}
       {showSwitchHint && (
         <span
-          className="phone-notification-switch-hint"
+          className="feature-discovery-hint phone-notification-switch-hint"
           id={phoneNotificationSwitchHintId}
           role="status"
         >

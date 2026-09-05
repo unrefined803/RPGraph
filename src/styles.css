@@ -5880,10 +5880,7 @@ input[type="number"]::-webkit-outer-spin-button {
     0 2px 6px rgba(0, 0, 0, 0.28);
 }
 
-.phone-notification-switch-hint {
-  position: absolute;
-  top: calc(100% + 14px);
-  left: 50%;
+.feature-discovery-hint {
   z-index: 20;
   display: block;
   width: 250px;
@@ -5899,8 +5896,41 @@ input[type="number"]::-webkit-outer-spin-button {
   text-align: left;
   white-space: normal;
   pointer-events: none;
+}
+
+.phone-notification-switch-hint {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 50%;
   transform: translateX(-25%);
   animation: phone-notification-switch-hint-in 180ms ease-out;
+}
+
+.edge-character-picker-hint {
+  position: fixed;
+  top: 45%;
+  right: 18px;
+  width: min(250px, calc(100vw - 36px));
+  animation: edge-character-picker-hint-in 180ms ease-out;
+}
+
+.edge-character-picker-hint::before {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  border: 7px solid transparent;
+  border-left-color: #edf4ff;
+  content: '';
+  transform: translateY(-50%);
+}
+
+@keyframes edge-character-picker-hint-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feature-discovery-hint { animation: none; }
 }
 
 .phone-notification-switch-hint::before {
@@ -24184,4 +24214,107 @@ button.message-timeline-row.phone:focus-visible {
 .storybook-editor-fieldset legend {
   padding: 0 6px;
   font-weight: 600;
+}
+
+.edge-character-picker {
+  position: fixed;
+  z-index: 30;
+  top: 50%;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  width: min(172px, calc(100vw - 36px));
+  max-height: calc(100dvh - 144px);
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 28px;
+  background: rgba(18, 25, 40, 0.94);
+  box-shadow: -12px 12px 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(18px);
+  transform: translate(24px, -50%) scale(0.96);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 200ms ease, visibility 200ms;
+}
+
+.edge-character-picker.is-open {
+  transform: translate(0, -50%) scale(1);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.edge-character-choice {
+  flex: 0 0 var(--picker-item-height);
+  min-height: min-content;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--picker-color);
+  cursor: pointer;
+  transform: translateX(36px) scale(0.65);
+  opacity: 0;
+  transition: transform 180ms ease, opacity 140ms ease, background 140ms ease;
+}
+
+.is-open .edge-character-choice {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  transition: transform 340ms cubic-bezier(0.2, 1.4, 0.4, 1) var(--picker-delay), opacity 180ms ease var(--picker-delay), background 140ms ease;
+}
+
+.edge-character-choice img {
+  width: var(--picker-avatar-size);
+  height: var(--picker-avatar-size);
+  flex-shrink: 0;
+  object-fit: cover;
+  border: 2px solid var(--picker-color);
+  border-radius: 50%;
+  box-shadow: 0 4px 14px #0005;
+}
+
+.edge-character-choice span {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.edge-character-choice:not(.has-image) span {
+  white-space: pre-line;
+}
+
+.edge-character-choice:not(.has-image) {
+  flex-basis: auto;
+  min-height: max(44px, calc(var(--picker-item-height) * 0.55));
+  padding: 10px 8px;
+}
+
+.edge-character-choice:hover,
+.edge-character-choice:focus-visible,
+.edge-character-choice[aria-pressed="true"] {
+  background: #91b8ff20;
+}
+
+.edge-character-choice:focus-visible { outline: 2px solid var(--picker-color); outline-offset: -2px; }
+.edge-character-choice[aria-pressed="true"] img { border-width: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .edge-character-picker,
+  .edge-character-choice,
+  .is-open .edge-character-choice { transition: none; }
 }

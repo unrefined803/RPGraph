@@ -957,6 +957,7 @@ export type AppSettings = {
     chatGpdSidebarOpen?: boolean;
     chatGpdSidebarWidth?: number;
     chatGpdModel?: string;
+    edgeCharacterPickerHintSeen?: boolean;
     phoneNotificationSwitchHintSeen?: boolean;
   };
   layout?: {

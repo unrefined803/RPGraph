@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
+    coverage: { provider: 'v8' },
     include: ['src/**/*.test.ts', 'electron/**/*.test.ts'],
   },
 });

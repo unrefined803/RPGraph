@@ -22,6 +22,7 @@ import {
   type AssistantMessage as AssistantChatMessage,
   type DebugSnapshotAssistantSection,
 } from './components/AssistantDialog';
+import { EdgeCharacterPicker } from './components/EdgeCharacterPicker';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -691,6 +692,8 @@ function App() {
     setDialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
     setDialogueCloneVoiceProviderId,
+    edgeCharacterPickerHintSeen,
+    setEdgeCharacterPickerHintSeen,
     phoneNotificationSwitchHintSeen,
     setPhoneNotificationSwitchHintSeen,
   } = useAppSettings();
@@ -5215,6 +5218,17 @@ function App() {
         </section>
         </ErrorBoundary>
 
+        {isChatPanelOpen && !isResizing && (
+          <EdgeCharacterPicker
+            characters={storyCharacters}
+            settingsLoadComplete={settingsLoadComplete}
+            hintSeen={edgeCharacterPickerHintSeen}
+            onHintSeen={setEdgeCharacterPickerHintSeen}
+            selectedId={narratorSelected ? narratorCharacterId : selectedCharacter?.id}
+            characterColors={characterColors}
+            onSelect={selectChatCharacter}
+          />
+        )}
         <div
           className={`chat-drawer ${isChatPanelOpen || isResizing ? 'open' : ''}`}
           style={{ gridTemplateColumns: `7px ${chatWidth}px` }}
