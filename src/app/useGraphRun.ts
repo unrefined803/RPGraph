@@ -84,7 +84,6 @@ import {
   bankTransferPartyMatches,
 } from '../chat/bankTransfers';
 import {
-  parseSocialReactionsOutput,
   parseSocialDirectMessageOutput,
   socialAppNames,
   socialDirectMessageHistoryText,
@@ -109,7 +108,7 @@ import {
   socialHandleFromCatalogIdentity,
   withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
-import { resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
+import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
   chatGpdFallbackTitle,
@@ -512,9 +511,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : undefined
     );
     const runReferenceImageOptions = referenceImageOptionsForRun(phoneReplyTo);
-    const inputCharacter = existingInputMessage?.speakerName
-      ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.speakerName ?? ''))
-      : inputCharacterOverride ?? selectedCharacter;
+    const inputCharacter = socialDirectMessage && inputCharacterOverride
+      ? inputCharacterOverride
+      : existingInputMessage?.speakerName
+        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.speakerName ?? ''))
+        : inputCharacterOverride ?? selectedCharacter;
     const isAutoplayRun = messageFormatOverride === autoplayMessageFormat;
     const runPromptSwitchVisionFeaturesEnabled = runtimeNodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'llm-prompt-switch' && nodeHasVision(node),
@@ -2646,7 +2647,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
             includeInHistory: true,
             socialPost: persistedSocialPost,
           });
-          const parsedReactions = parseSocialReactionsOutput(socialMediaOutputText, socialPost);
+          const parsedReactions = parseValidatedSocialReactionsOutput(socialMediaOutputText, socialPost, {
+            characters: storyCharacters,
+            messages: messagesRef.current,
+          });
           reportFormatResult({
             name: 'Social Media JSON',
             status: parsedReactions.reactions && parsedReactions.warnings.length === 0 ? 'ok' : 'error',
@@ -2698,10 +2702,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
                   socialThreadCommentTextFromInput(originalInput) ?? socialThreadAction.commentText,
               }
             : socialThreadAction;
-          const parsedReactions = parseSocialReactionsOutput(socialMediaOutputText, {
+          const parsedReactions = parseValidatedSocialReactionsOutput(socialMediaOutputText, {
             app: persistedThreadAction.app,
             postId: persistedThreadAction.postId,
             append: true,
+          }, {
+            characters: storyCharacters,
+            messages: messagesRef.current,
           });
           reportFormatResult({
             name: 'Social Media Thread JSON',

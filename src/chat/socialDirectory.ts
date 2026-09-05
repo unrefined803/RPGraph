@@ -13,6 +13,20 @@ export type SocialDirectoryUser = {
 
 export type DynamicSocialUsers = Record<string, SocialDirectoryUser>;
 
+/** Account creation must reserve handles across all identities in this app. */
+export function socialHandleAvailable(
+  users: SocialDirectoryUser[],
+  app: SocialAppKind,
+  handle: string,
+  characterId: string,
+) {
+  const normalizedHandle = handle.trim().replace(/^@/, '');
+  return !!normalizedHandle && !users.some((user) =>
+    user.characterId !== characterId &&
+    socialIdentityMatches(user.handles[app] ?? '', normalizedHandle)
+  );
+}
+
 export type SocialConnectionsByCharacter = Record<
   string,
   Partial<Record<SocialAppKind, string[]>>
@@ -382,7 +396,7 @@ export function searchSocialDirectory(
   }
   return users
     .filter((user) =>
-      user.characterId !== excludedCharacterId &&
+      (!excludedCharacterId || user.characterId !== excludedCharacterId) &&
       !!user.handles[app] &&
       (
         normalizedIdentity(user.name).includes(search) ||

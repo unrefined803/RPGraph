@@ -3,6 +3,7 @@ import type { MessageRecord, SocialAppKind } from '../types';
 import { bundledSocialIdentities } from './socialCatalogs';
 import { buildSocialDirectory, type SocialDirectoryUser } from './socialDirectory';
 import { jsonObjectRanges, messengerAppMessageKeys } from './phoneMessages';
+import { parseSocialReactionsOutput, type SocialReactionTarget } from './socialMedia';
 
 function cleanHandle(value: string) {
   return value.trim().replace(/^@/, '');
@@ -68,13 +69,22 @@ function storybookCharacterForSocialIdentity(
   }
 
   const normalizedHandle = cleanIdentity.toLocaleLowerCase();
-  const exactHandleMatches = characters.filter((character) => [
-    storedHandle(character, app),
-    storedHandle(character, app === 'fotogram' ? 'onlyfriends' : 'fotogram'),
-  ].some((handle) => handle?.toLocaleLowerCase() === normalizedHandle));
+  const exactHandleMatches = characters.filter((character) =>
+    storedHandle(character, app)?.toLocaleLowerCase() === normalizedHandle
+  );
   const exactHandleMatch = uniqueCharacter(exactHandleMatches);
   if (exactHandleMatch) {
     return exactHandleMatch;
+  }
+
+  // A handle in the requested app takes precedence over an alias from the
+  // other app. Cross-app aliases still identify characters lacking an account.
+  const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
+  const otherAppHandleMatch = uniqueCharacter(characters.filter((character) =>
+    storedHandle(character, otherApp)?.toLocaleLowerCase() === normalizedHandle
+  ));
+  if (otherAppHandleMatch) {
+    return otherAppHandleMatch;
   }
 
   if (!identityLooksLikeHandle(identity)) {
@@ -191,6 +201,44 @@ export type SocialMessageValidationIssue = {
   role: 'sender' | 'recipient';
   resolved: ResolvedSocialMessageIdentity;
 };
+
+/** Apply the DM account rules before post or thread reactions enter the timeline. */
+export function parseValidatedSocialReactionsOutput(
+  text: string,
+  target: SocialReactionTarget,
+  context: { characters: StorybookCharacter[]; messages: MessageRecord[] },
+) {
+  const parsed = parseSocialReactionsOutput(text, target);
+  if (!parsed.reactions) {
+    return parsed;
+  }
+  let discardedComment = false;
+  const comments = parsed.reactions.comments.flatMap((comment) => {
+    const resolve = (identity: string) => resolveSocialMessageIdentity({
+      ...context, app: target.app, identity,
+    });
+    const byName = resolve(comment.from);
+    const byHandle = resolve(`@${comment.handle}`);
+    // A fabricated handle must not create an account for a known character.
+    // Conversely, a real character handle must keep its canonical owner name.
+    const resolved = byName.character ? byName : byHandle.character ? byHandle : byName;
+    if (!resolved.available) {
+      discardedComment = true;
+      parsed.warnings.push(`Social Media comment from "${comment.from}" was ignored. ${resolved.reason}`);
+      return [];
+    }
+    return [{
+      ...comment,
+      ...(resolved.character ? { from: resolved.name, handle: resolved.handle! } : {}),
+    }];
+  });
+  return {
+    ...parsed,
+    reactions: { ...parsed.reactions, comments },
+    // A model summary may describe a rejected comment as if it happened.
+    historySummary: discardedComment ? undefined : parsed.historySummary,
+  };
+}
 
 export type SocialMessageValidationResult = {
   issues: SocialMessageValidationIssue[];

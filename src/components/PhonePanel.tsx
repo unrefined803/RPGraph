@@ -262,12 +262,12 @@ type PhonePanelProps = {
     existingComments: SocialReactionComment[];
     likeCount: number;
   }) => Promise<boolean>;
-  onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord) => Promise<boolean>;
+  onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
     username: string,
-  ) => void;
+  ) => boolean;
   onImportSocialPostImage: (request: {
     owner: StorybookCharacter;
     image: ChatImageAttachment;

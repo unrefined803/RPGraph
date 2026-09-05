@@ -76,6 +76,23 @@ export function socialHandleForCharacter(
   return storedHandle || socialHandleForName(character.name);
 }
 
+/** Resolve the selected DM owner; older turns can recover a unique app handle. */
+export function socialDirectMessageActor(
+  characters: StorybookCharacter[],
+  characterId: string | undefined,
+  message: SocialDirectMessageRecord,
+) {
+  const matches = characters.filter((character) => {
+    const handle = message.app === 'fotogram'
+      ? character.social.fotogramUsername
+      : character.social.onlyfriendsUsername;
+    return (characterId === undefined || character.id === characterId) &&
+      !!handle.trim().replace(/^@/, '') &&
+      socialIdentityMatches(handle, message.fromHandle);
+  });
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 function normalizedSocialName(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }
@@ -467,7 +484,7 @@ export type SocialReactionsParseResult = {
   warnings: string[];
 };
 
-type SocialReactionTarget = Pick<SocialPostRecord, 'app' | 'postId'> & {
+export type SocialReactionTarget = Pick<SocialPostRecord, 'app' | 'postId'> & {
   append?: boolean;
 };
 

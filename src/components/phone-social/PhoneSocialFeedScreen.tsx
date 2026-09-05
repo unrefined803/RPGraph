@@ -111,7 +111,7 @@ type PhoneSocialFeedScreenProps = {
   phoneEmojiOptions: string[];
   recentlyUsedEmojis: string[];
   rpTimeTrackingEnabled: boolean;
-  onSendDirectMessage: (message: SocialDirectMessageRecord) => Promise<boolean>;
+  onSendDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
   unreadDirectMessages: SocialDmUnreadByHandle;
   onMarkDirectMessagesSeen: (partnerHandle: string) => void;
   /** Resolves a Storybook/Gallery image id to the stored image. */
@@ -160,7 +160,7 @@ type PhoneSocialFeedScreenProps = {
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
     username: string,
-  ) => void;
+  ) => boolean;
   onBack: () => void;
   connections?: ConnectionPreset[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
@@ -1132,7 +1132,10 @@ export function PhoneSocialFeedScreen({
     }
     // The account name is persisted in the Storybook so it survives closing
     // the app and is part of the story data.
-    onCreateSocialAccount(owner, app.id, username);
+    if (!onCreateSocialAccount(owner, app.id, username)) {
+      showNotice({ kind: 'error', text: 'Could not create this account. Choose an available nickname and try again.' });
+      return;
+    }
     setAccount(username);
     setNickname('');
   }
@@ -1224,6 +1227,7 @@ export function PhoneSocialFeedScreen({
             <span>{app.tagline}</span>
             {owner ? (
               <form onSubmit={createAccount}>
+                {notice?.kind === 'error' && <span role="alert">{notice.text}</span>}
                 <label className="phone-banking-field">
                   <span>Nickname</span>
                   <input
@@ -1654,7 +1658,7 @@ export function PhoneSocialFeedScreen({
               setDirectMessageParticipant(undefined);
               setDirectMessagesOpen(false);
             }}
-            onSend={onSendDirectMessage}
+            onSend={(message) => onSendDirectMessage(message, owner.id)}
           />
         ) : (
         <div className="phone-social-scroll">

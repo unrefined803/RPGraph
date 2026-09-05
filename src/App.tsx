@@ -69,6 +69,7 @@ import {
   bankTransferMessages,
 } from './chat/bankTransfers';
 import {
+  socialDirectMessageActor,
   socialDirectMessageInputText,
   socialIdentityMatches,
   socialPostInputText,
@@ -1413,6 +1414,7 @@ function App() {
   } = useStorybookPhoneImages({
     storybooksByNodeId,
     storyCharacters,
+    dynamicSocialUsers,
     messages,
     messagesRef,
     nodesRef,
@@ -3871,12 +3873,18 @@ function App() {
       const actorHandle = socialPost?.authorHandle ??
         socialThreadAction?.actorHandle ??
         socialDirectMessage?.fromHandle;
-      const actor = storyCharacters.find((character) =>
-        socialIdentityMatches(character.name, actorName ?? '') ||
-        socialIdentityMatches(character.id, actorName ?? '') ||
-        socialIdentityMatches(character.social.fotogramUsername, actorHandle ?? '') ||
-        socialIdentityMatches(character.social.onlyfriendsUsername, actorHandle ?? ''),
-      ) ?? selectedCharacter;
+      const actor = socialDirectMessage
+        ? socialDirectMessageActor(storyCharacters, undefined, socialDirectMessage)
+        : storyCharacters.find((character) =>
+            socialIdentityMatches(character.name, actorName ?? '') ||
+            socialIdentityMatches(character.id, actorName ?? '') ||
+            socialIdentityMatches(character.social.fotogramUsername, actorHandle ?? '') ||
+            socialIdentityMatches(character.social.onlyfriendsUsername, actorHandle ?? ''),
+          ) ?? selectedCharacter;
+      if (socialDirectMessage && !actor) {
+        notifySystem('warning', 'Could not identify a unique account owner for this social conversation.');
+        return;
+      }
       const historyMessages = messagesRef.current.filter(
         (message) => !allTurnMessageIds.has(message.id),
       );
@@ -4375,18 +4383,16 @@ function App() {
     );
   }
 
-  async function submitSocialDirectMessage(message: SocialDirectMessageRecord) {
+  async function submitSocialDirectMessage(message: SocialDirectMessageRecord, characterId: string) {
     if (isRunning) {
       return false;
     }
-    const actor = storyCharacters.find((character) =>
-      socialIdentityMatches(character.name, message.from) ||
-      socialIdentityMatches(character.id, message.from),
-    ) ?? selectedCharacter;
+    const actor = socialDirectMessageActor(storyCharacters, characterId, message);
     if (!actor) {
-      notifySystem('warning', 'Select a Storybook character before sending a social direct message.');
+      notifySystem('warning', 'The selected character no longer owns this social account. Reopen the app before sending a message.');
       return false;
     }
+    message = { ...message, from: actor.name };
     return runGraph(
       socialDirectMessageInputText(message, messagesRef.current),
       message.origin?.postImageId

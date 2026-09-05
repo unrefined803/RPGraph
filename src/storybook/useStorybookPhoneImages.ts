@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { buildSocialDirectory, socialHandleAvailable, type DynamicSocialUsers } from '../chat/socialDirectory';
 import {
   phoneImageActionMatchesMessage,
   phoneNamesMatch,
@@ -20,7 +21,7 @@ import {
   withStorybookImageDescriptionUpdated,
   type StorybookImageLibraryEnsureOptions,
 } from './imageLibrary';
-import { chatAttachmentFromStorybookImage, isStorybookSourceNode, type StorybookCharacter } from './runtime';
+import { chatAttachmentFromStorybookImage, isStorybookSourceNode, storyCharactersFromNodes, type StorybookCharacter } from './runtime';
 import type {
   ChatImageAttachment,
   ImageCaptionChange,
@@ -32,6 +33,7 @@ import type {
 type UseStorybookPhoneImagesOptions = {
   storybooksByNodeId: ReadonlyMap<string, RpStorybook>;
   storyCharacters: StorybookCharacter[];
+  dynamicSocialUsers: DynamicSocialUsers;
   messages: MessageRecord[];
   messagesRef: { current: MessageRecord[] };
   nodesRef: { current: WorkflowNode[] };
@@ -45,6 +47,7 @@ type UseStorybookPhoneImagesOptions = {
 export function useStorybookPhoneImages({
   storybooksByNodeId,
   storyCharacters,
+  dynamicSocialUsers,
   messages,
   messagesRef,
   nodesRef,
@@ -177,11 +180,24 @@ export function useStorybookPhoneImages({
     app: 'fotogram' | 'onlyfriends',
     username: string,
   ) {
+    const currentCharacters = storyCharactersFromNodes(nodesRef.current);
+    const directory = buildSocialDirectory({
+      storyCharacters: currentCharacters,
+      messages: messagesRef.current,
+      savedDynamicUsers: dynamicSocialUsers,
+    });
+    if (!socialHandleAvailable(directory.users, app, username, character.id)) {
+      notifySystem('warning', `The username @${username} is already taken or invalid.`);
+      return false;
+    }
     const storybookNode = nodesRef.current.find(
       (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
-      return;
+      return false;
+    }
+    if (!currentCharacters.some((entry) => entry.id === character.id)) {
+      return false;
     }
     const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
     const nextStorybook = withRpStorybookCharacterSocialUsername(
@@ -192,12 +208,13 @@ export function useStorybookPhoneImages({
     );
     const nextJson = rpStorybookJsonText(nextStorybook);
     if (nextJson === storybookNode.data.storybookJson) {
-      return;
+      return true;
     }
     updateRuntimeNode(storybookNode.id, {
       storybookJson: nextJson,
       storybookStatus: `${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account saved for ${character.name}.`,
     });
+    return true;
   }
 
   function imageIdsFromAttachments(images: ChatImageAttachment[] | undefined) {
