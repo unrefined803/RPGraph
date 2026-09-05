@@ -1,14 +1,13 @@
-import type { MessageRecord, TurnRecord, WorkflowNode } from '../types';
+import type { LlmDispatchMetadata, LlmRequestObserver } from '../llm/NodeLlmApi';
+import { TextMetricsApi } from '../llm/tokenMetrics';
+import { compactDebugValue, sanitizeDebugSnapshotValue } from './debugSnapshot';
+import type { LlmCallStage, LlmCallStats, MessageRecord, TurnRecord, WorkflowNode } from '../types';
 import type { FormattedChatHistorySegment } from '../workflow';
 import { sanitizeDataUrlsInText } from '../utils/sanitize';
 import {
   autoplayMessageFormat,
   socialMediaMessageFormat,
 } from '../chat/messageFormats';
-
-const textPreviewCharacters = 320;
-const textInputExcerptTargetWords = 240;
-const textInputExcerptMaxWords = 300;
 
 type TurnTracePromptPart = {
   text: string;
@@ -22,12 +21,6 @@ export type TurnTracePromptSection = {
   text: string;
   parts?: TurnTracePromptPart[];
   historySegments?: FormattedChatHistorySegment[];
-  excerpt?: {
-    kind: 'last-text-input-words';
-    shownWords: number;
-    totalWords: number;
-    targetWords: number;
-  };
 };
 
 export type TurnTracePromptPass = {
@@ -42,7 +35,8 @@ export type TurnTracePromptPass = {
   sections?: TurnTracePromptSection[];
 };
 
-type TraceRunCall = {
+type TraceRunCall = Partial<LlmCallStats> & {
+  startedAtMs?: number;
   order: number;
   nodeId: string;
   nodeLabel: string;
@@ -65,6 +59,10 @@ export type TurnTraceMessage = {
   text: string;
   translatedText?: string;
   imageCount?: number;
+  includeInHistory?: boolean;
+  replyToMessageId?: number;
+  turnId?: string;
+  rpDateTime?: string;
 };
 
 export type TurnTraceLlmCall = {
@@ -73,6 +71,20 @@ export type TurnTraceLlmCall = {
   nodeLabel: string;
   nodeType?: string;
   prompt: string;
+  capture?: 'request-boundary' | 'run-report-only';
+  status?: 'pending' | 'completed' | 'error' | 'cancelled';
+  dispatched?: boolean;
+  startedAt?: string;
+  startedAtMs?: number;
+  partialResponse?: string;
+  completedAt?: string;
+  completedAtMs?: number;
+  phase?: 'response' | 'prepare-next-turn';
+  stage?: LlmCallStage;
+  usage?: LlmCallStats;
+  requestSettings?: LlmDispatchMetadata;
+  error?: string;
+  routing?: { outputChannelValue: string; promptSlotValue: string };
   selectedOutputChannel?: number;
   selectedPromptSlot?: number;
   promptBefore?: string;
@@ -92,7 +104,7 @@ type TurnTraceFormatResult = {
   preview?: string;
 };
 
-export type TurnTraceEvent =
+export type TurnTraceEvent = { at?: string; atMs?: number; phase?: 'response' | 'prepare-next-turn' } & (
   | {
       kind: 'warning';
       nodeId?: string;
@@ -105,7 +117,7 @@ export type TurnTraceEvent =
       nodeId?: string;
       nodeLabel?: string;
       nodeType?: string;
-    } & TurnTraceFormatResult);
+    } & TurnTraceFormatResult));
 
 export type TurnTrace = {
   traceId: string;
@@ -113,7 +125,10 @@ export type TurnTrace = {
   turnNumber: number;
   startedAt: string;
   completedAt: string;
-  status: 'completed' | 'error';
+  status: 'completed' | 'error' | 'cancelled';
+  turnCreatedAt?: string;
+  nodeExecutions?: TurnTraceNodeExecution[];
+  events?: TurnTraceEvent[];
   mode: TurnRecord['mode'];
   channel: 'rp' | 'phone' | 'narrator' | 'event' | 'output-actions' | 'social-media' | 'autoplay';
   input: {
@@ -131,7 +146,8 @@ export type TurnTrace = {
 
 export type TurnTraceCopyPayload = {
   schema: 'rpgraph-turn-trace';
-  version: 5;
+  version: 6;
+  compression: { textPreviewCharacters: number; references: string; notes: string };
   createdAt: string;
   privacy: 'memory-only';
   range: {
@@ -139,201 +155,15 @@ export type TurnTraceCopyPayload = {
     toTurn: number;
     traceCount: number;
   };
-  traces: TurnTrace[];
+  traces: unknown[];
 };
 
 function traceText(value: string) {
-  return sanitizeDataUrlsInText(value).trim();
-}
-
-function previewText(value: string | undefined) {
-  const text = traceText(value ?? '');
-  if (!text) {
-    return undefined;
-  }
-  return text.length > textPreviewCharacters
-    ? `${text.slice(0, textPreviewCharacters)}...`
-    : text;
-}
-
-function wordMatches(text: string) {
-  return Array.from(text.matchAll(/\S+/g));
-}
-
-function countWords(text: string) {
-  return wordMatches(text).length;
-}
-
-function textAfterSentenceBoundary(text: string, startIndex: number) {
-  const windowStart = Math.max(0, startIndex - 1600);
-  const prefix = text.slice(windowStart, startIndex);
-  const boundaries = Array.from(prefix.matchAll(/(?:[.!?]["')\]]?|\n{2,})\s+/g));
-  const boundary = boundaries[boundaries.length - 1];
-  return boundary ? windowStart + boundary.index + boundary[0].length : startIndex;
-}
-
-function textInputExcerpt(text: string) {
-  const words = wordMatches(text);
-  if (words.length <= textInputExcerptMaxWords) {
-    return {
-      text,
-      excerpt: undefined,
-    };
-  }
-  const targetWord = words[Math.max(0, words.length - textInputExcerptTargetWords)];
-  const targetStart = targetWord?.index ?? 0;
-  let startIndex = textAfterSentenceBoundary(text, targetStart);
-  let excerpt = text.slice(startIndex).trimStart();
-  if (countWords(excerpt) > textInputExcerptMaxWords) {
-    startIndex = targetStart;
-    excerpt = text.slice(startIndex).trimStart();
-  }
-  const shownWords = countWords(excerpt);
-  return {
-    text: [
-      `[Text Input excerpt: showing the last ${shownWords} of ${words.length} words.]`,
-      excerpt,
-    ].join('\n\n'),
-    excerpt: {
-      kind: 'last-text-input-words' as const,
-      shownWords,
-      totalWords: words.length,
-      targetWords: textInputExcerptTargetWords,
-    },
-  };
-}
-
-function shouldExcerptTextInput(label: string) {
-  return label.trim().toLocaleLowerCase() === 'text input';
-}
-
-function tracePromptPart(part: {
-  text: string;
-  actionInserted?: boolean;
-  stepOutputInserted?: string;
-}) {
-  const text = traceText(part.text);
-  return text
-    ? {
-        text,
-        actionInserted: part.actionInserted || undefined,
-        stepOutputInserted: traceText(part.stepOutputInserted ?? '') || undefined,
-        historySegments: 'historySegments' in part && Array.isArray(part.historySegments)
-          ? part.historySegments
-          : undefined,
-      }
-    : undefined;
-}
-
-function tracePromptSections(
-  sections: Array<{
-    label: string;
-    text: string;
-    parts?: Array<{
-      text: string;
-      actionInserted?: boolean;
-      stepOutputInserted?: string;
-      historySegments?: FormattedChatHistorySegment[];
-    }>;
-    historySegments?: FormattedChatHistorySegment[];
-  }> | undefined,
-) {
-  return sections?.flatMap((section): TurnTracePromptSection[] => {
-    const label = traceText(section.label) || 'Prompt Section';
-    const rawText = traceText(section.text);
-    const inputExcerpt = shouldExcerptTextInput(label) ? textInputExcerpt(rawText) : undefined;
-    const text = inputExcerpt?.text ?? rawText;
-    const parts = inputExcerpt?.excerpt
-      ? [{ text }]
-      : section.parts?.flatMap((part) => {
-          const normalized = tracePromptPart(part);
-          return normalized ? [normalized] : [];
-        });
-    if (!text && !parts?.length) {
-      return [];
-    }
-    return [{
-      label,
-      text,
-      parts: parts?.length ? parts : undefined,
-      historySegments: section.historySegments?.length ? section.historySegments : undefined,
-      excerpt: inputExcerpt?.excerpt,
-    }];
-  });
-}
-
-function promptFromSections(sections: TurnTracePromptSection[] | undefined) {
-  return sections
-    ?.map((section) => section.text)
-    .filter(Boolean)
-    .join('\n\n') ?? '';
-}
-
-function tracePromptPasses(
-  passes: Array<{
-    label: string;
-    prompt?: string;
-    images?: TurnTracePromptPass['images'];
-    sections?: Array<{
-      label: string;
-      text: string;
-      parts?: Array<{
-        text: string;
-        actionInserted?: boolean;
-        stepOutputInserted?: string;
-        historySegments?: FormattedChatHistorySegment[];
-      }>;
-      historySegments?: FormattedChatHistorySegment[];
-    }>;
-  }> | undefined,
-) {
-  let textInputIncluded = false;
-  return passes?.flatMap((pass): TurnTracePromptPass[] => {
-    const sections = tracePromptSections(pass.sections)?.filter((section) => {
-      if (!shouldExcerptTextInput(section.label)) {
-        return true;
-      }
-      if (textInputIncluded) {
-        return false;
-      }
-      textInputIncluded = true;
-      return true;
-    });
-    const prompt = sections?.length ? promptFromSections(sections) : traceText(pass.prompt ?? '');
-    if (!prompt && !sections?.length) {
-      return [];
-    }
-    return [{
-      label: traceText(pass.label) || 'Prompt',
-      prompt: sections?.length ? undefined : prompt,
-      images: pass.images?.map((image) => ({
-        index: image.index,
-        id: image.id,
-        name: image.name,
-        source: image.source,
-      })),
-      sections: sections?.length ? sections : undefined,
-    }];
-  });
-}
-
-function traceOutputPasses(passes: Array<{ label: string; text: string }> | undefined) {
-  return passes?.flatMap((pass): Array<{ label: string; text: string }> => {
-    const text = traceText(pass.text);
-    return text
-      ? [{
-          label: traceText(pass.label) || 'Output',
-          text,
-        }]
-      : [];
-  });
+  return sanitizeDataUrlsInText(value);
 }
 
 function traceMessages(messages: MessageRecord[]) {
   return messages.flatMap((message): TurnTraceMessage[] => {
-    if (message.includeInHistory === false) {
-      return [];
-    }
     const text = traceText(message.originalText);
     const translatedText = traceText(message.translatedText ?? '');
     const imageCount = message.imageAttachments?.length ?? 0;
@@ -350,31 +180,24 @@ function traceMessages(messages: MessageRecord[]) {
       text,
       translatedText: translatedText && translatedText !== text ? translatedText : undefined,
       imageCount: imageCount || undefined,
+      includeInHistory: message.includeInHistory,
+      replyToMessageId: message.replyToMessageId,
+      turnId: message.turnId,
+      rpDateTime: message.rpDateTime,
     }];
   });
 }
 
-function traceChannel(turn: TurnRecord) {
-  const messages = [...turn.input.messages, ...turn.output.messages];
-  if (messages.some((message) => message.channel === 'phone' || message.phoneMessage)) {
-    return 'phone' as const;
+function traceChannel(turn: TurnRecord): TurnTrace['channel'] {
+  if (turn.directAction) return 'output-actions';
+  if (turn.messageFormat === socialMediaMessageFormat) return 'social-media';
+  if (turn.messageFormat === autoplayMessageFormat) return 'autoplay';
+  // Auxiliary output messages do not change the initiating turn's channel.
+  if (turn.messageFormat === 1 || turn.input.messages.some((message) => message.channel === 'phone' || message.phoneMessage)) {
+    return 'phone';
   }
-  if (messages.some((message) => message.eventInput)) {
-    return 'event' as const;
-  }
-  if (turn.directAction) {
-    return 'output-actions' as const;
-  }
-  if (turn.messageFormat === socialMediaMessageFormat) {
-    return 'social-media' as const;
-  }
-  if (turn.messageFormat === autoplayMessageFormat) {
-    return 'autoplay' as const;
-  }
-  if (turn.mode === 'narrator') {
-    return 'narrator' as const;
-  }
-  return 'rp' as const;
+  if (turn.input.messages.some((message) => message.eventInput)) return 'event';
+  return turn.mode === 'narrator' ? 'narrator' : 'rp';
 }
 
 function promptDebugForNode(node: WorkflowNode | undefined) {
@@ -391,179 +214,70 @@ function promptDebugForNode(node: WorkflowNode | undefined) {
 }
 
 export function createTurnTrace({
-  turn,
-  run,
-  nodes,
-  status,
-  warnings = [],
-  traceEvents = [],
-  error,
-  completedAt = new Date().toISOString(),
+  turn, run, status, warnings = [], traceEvents = [], error,
+  completedAt = new Date().toISOString(), capturedSteps = [], nodeExecutions,
 }: {
   turn: TurnRecord;
   run: TraceRunReport;
-  nodes: WorkflowNode[];
   status: TurnTrace['status'];
   warnings?: string[];
   traceEvents?: TurnTraceEvent[];
   error?: string;
   completedAt?: string;
+  capturedSteps?: TurnTraceLlmCall[];
+  nodeExecutions?: TurnTraceNodeExecution[];
 }): TurnTrace {
-  const nodesById = new Map(nodes.map((node) => [node.id, node]));
-  const promptPreviewIncluded = new Set<string>();
-  const inputMessages = traceMessages(turn.input.messages);
-  const outputMessages = traceMessages(turn.output.messages);
-  const normalizedWarnings = warnings
-    .map(traceText)
-    .filter((warning, index, values) => warning && values.indexOf(warning) === index);
-  const normalizedEvents = traceEvents.flatMap((event): TurnTraceEvent[] => {
-    if (event.kind === 'warning') {
-      const message = traceText(event.message);
-      return message ? [{ ...event, message }] : [];
-    }
-    const name = traceText(event.name);
-    if (!name) {
+  const unmatched = new Set(capturedSteps.filter((step) => step.status === 'completed'));
+  const reportOnly: TurnTraceLlmCall[] = run.calls.flatMap((call) => {
+    const captured = [...unmatched].find((step) =>
+      step.nodeId === call.nodeId && step.prompt === call.label &&
+      (call.startedAtMs === undefined || call.startedAtMs === step.startedAtMs),
+    );
+    if (captured) {
+      unmatched.delete(captured);
       return [];
     }
     return [{
-      ...event,
-      name,
-      detail: previewText(event.detail),
-      preview: previewText(event.preview),
+      order: call.order, nodeId: call.nodeId, nodeLabel: call.nodeLabel, prompt: call.label,
+      capture: 'run-report-only', status: 'completed', startedAtMs: call.startedAtMs,
+      usage: call.durationMs === undefined ? undefined : {
+        durationMs: call.durationMs, inputTokens: call.inputTokens,
+        outputTokens: call.outputTokens, totalTokens: call.totalTokens, reasoningTokens: call.reasoningTokens,
+      },
     }];
   });
-  const eventsByNodeId = new Map<string, TurnTraceEvent[]>();
-  normalizedEvents.forEach((event) => {
-    if (!event.nodeId) {
-      return;
-    }
-    eventsByNodeId.set(event.nodeId, [...(eventsByNodeId.get(event.nodeId) ?? []), event]);
-  });
-  const stepEvents = (nodeId: string | undefined) => {
-    if (!nodeId) {
-      return [];
-    }
-    const events = eventsByNodeId.get(nodeId) ?? [];
-    eventsByNodeId.delete(nodeId);
-    return events;
-  };
-  const stepFieldsForEvents = (events: TurnTraceEvent[]) => {
-    const stepWarnings = events.flatMap((event) =>
-      event.kind === 'warning' ? [event.message] : [],
-    );
-    const formatResults = events.flatMap((event) =>
-      event.kind === 'format'
-        ? [{
-            name: event.name,
-            status: event.status,
-            detail: event.detail,
-            preview: event.preview,
-          }]
-        : [],
-    );
-    return {
-      warnings: stepWarnings.length ? Array.from(new Set(stepWarnings)) : undefined,
-      formatResults: formatResults.length ? formatResults : undefined,
-    };
-  };
-  const callOccurrencesByNodeId = new Map<string, number>();
-  const baseSteps = [...run.calls]
-    .sort((left, right) => left.order - right.order)
-    .map((call) => {
-      const node = nodesById.get(call.nodeId);
-      const debug = promptDebugForNode(node);
-      const occurrenceIndex = callOccurrencesByNodeId.get(call.nodeId) ?? 0;
-      callOccurrencesByNodeId.set(call.nodeId, occurrenceIndex + 1);
-      const allPromptPasses = tracePromptPasses(debug?.promptPasses);
-      const allOutputPasses = traceOutputPasses(debug?.outputPasses);
-      const promptPasses = allPromptPasses?.[occurrenceIndex]
-        ? [allPromptPasses[occurrenceIndex]]
-        : occurrenceIndex === 0 && !allPromptPasses?.length && debug?.combinedPrompt
-          ? [{
-              label: 'Prompt',
-              prompt: traceText(debug.combinedPrompt),
-            }]
-          : undefined;
-      const outputPasses = allOutputPasses?.[occurrenceIndex] ? [allOutputPasses[occurrenceIndex]] : undefined;
-      const includeStaticPromptText = !!debug && !promptPreviewIncluded.has(call.nodeId);
-      if (includeStaticPromptText) {
-        promptPreviewIncluded.add(call.nodeId);
-      }
-      const includePromptDebug = !!debug && (includeStaticPromptText || !!promptPasses?.length || !!outputPasses?.length);
-      const switchDebug =
-        node && node.data.kind === undefined && node.data.nodeType === 'llm-prompt-switch'
-          ? node.data.llmPromptSwitchDebug
-          : undefined;
-      return {
-        order: call.order,
-        nodeId: call.nodeId,
-        nodeLabel: call.nodeLabel,
-        nodeType: node?.data.nodeType,
-        prompt: call.label,
-        selectedOutputChannel: switchDebug?.selectedOutputChannel,
-        selectedPromptSlot: switchDebug?.selectedPromptSlot,
-        promptBefore: includeStaticPromptText
-          ? traceText(debug?.promptBefore ?? '') || undefined
-          : undefined,
-        promptAfter: includeStaticPromptText
-          ? traceText(debug?.promptAfter ?? '') || undefined
-          : undefined,
-        promptPasses: includePromptDebug && promptPasses?.length ? promptPasses : undefined,
-        outputPasses: includePromptDebug && outputPasses?.length ? outputPasses : undefined,
-        actionResults: includeStaticPromptText
-          ? debug?.actionResults?.map(traceText).filter(Boolean)
-          : undefined,
-        generatedText: includeStaticPromptText
-          ? traceText(debug?.generatedText ?? '') || undefined
-          : undefined,
-        ...stepFieldsForEvents(stepEvents(call.nodeId)),
-      };
-    });
-  const syntheticSteps = Array.from(eventsByNodeId.values()).map((events, index) => {
-    const first = events[0];
-    const format = events.find((event) => event.kind === 'format');
-    return {
-      order: baseSteps.length + index + 1,
-      nodeId: first?.nodeId ?? `trace-event-${index}`,
-      nodeLabel: first?.nodeLabel ?? 'Trace Event',
-      nodeType: first?.nodeType,
-      prompt: format?.kind === 'format' ? format.name : 'Trace event',
-      ...stepFieldsForEvents(events),
-    };
-  });
-  return {
-    traceId: run.runId,
-    turnId: turn.id,
-    turnNumber: turn.number,
-    startedAt: run.startedAt,
-    completedAt,
-    status,
-    mode: turn.mode,
-    channel: traceChannel(turn),
-    input: {
-      messages: inputMessages,
-      graphText: inputMessages.length === 0 ? previewText(turn.input.graphText) : undefined,
-    },
-    steps: [...baseSteps, ...syntheticSteps],
-    output: {
-      messages: outputMessages,
-      graphText: outputMessages.length === 0 ? previewText(turn.output.graphText) : undefined,
-    },
-    warnings: normalizedWarnings.length ? normalizedWarnings : undefined,
-    error: status === 'error' ? traceText(error ?? 'Unknown run error') : undefined,
-  };
+  const steps = [...capturedSteps, ...reportOnly].sort((a, b) =>
+    (a.startedAtMs ?? Number.MAX_SAFE_INTEGER) - (b.startedAtMs ?? Number.MAX_SAFE_INTEGER),
+  ).map((step, index) => ({ ...step, order: index + 1 }));
+  return sanitizeDebugSnapshotValue({
+    traceId: run.runId, turnId: turn.id, turnNumber: turn.number,
+    startedAt: run.startedAt, completedAt, turnCreatedAt: turn.createdAt,
+    nodeExecutions,
+    events: traceEvents.length ? traceEvents : undefined,
+    status, mode: turn.mode, channel: traceChannel(turn),
+    input: { messages: traceMessages(turn.input.messages), graphText: traceText(turn.input.graphText) || undefined },
+    steps,
+    output: { messages: traceMessages(turn.output.messages), graphText: traceText(turn.output.graphText) || undefined },
+    warnings: warnings.length ? [...new Set(warnings.map(traceText).filter(Boolean))] : undefined,
+    error: status !== 'completed' ? traceText(error ?? 'Unknown run error') : undefined,
+  }) as TurnTrace;
 }
 
-export function turnTraceCopyPayload(traces: TurnTrace[]): TurnTraceCopyPayload {
+export function turnTraceCopyPayload(traces: TurnTrace[], textMetrics = new TextMetricsApi(), createdAt = new Date().toISOString()): TurnTraceCopyPayload {
   const ordered = [...traces].sort(
     (left, right) =>
       left.turnNumber - right.turnNumber ||
-      left.startedAt.localeCompare(right.startedAt),
+      left.startedAt.localeCompare(right.startedAt) || left.traceId.localeCompare(right.traceId),
   );
-  return {
+  return compactDebugValue({
     schema: 'rpgraph-turn-trace',
-    version: 5,
-    createdAt: new Date().toISOString(),
+    version: 6,
+    createdAt,
+    compression: {
+      textPreviewCharacters: 2400,
+      references: 'JSON Pointer within this payload; identical sources or excerpts only',
+      notes: 'Long texts show bounded excerpts. Request prompts are captured before dispatch; dispatched records bridge invocation, not provider receipt. Pass and node order is preserved. Usage tokens are provider-reported when available. Monotonic millisecond times share the application clock. Pending calls had not settled at capture. Report-only helpers have no captured prompt.',
+    },
     privacy: 'memory-only',
     range: {
       fromTurn: ordered[0]?.turnNumber ?? 0,
@@ -571,5 +285,96 @@ export function turnTraceCopyPayload(traces: TurnTrace[]): TurnTraceCopyPayload 
       traceCount: ordered.length,
     },
     traces: ordered,
+  }, textMetrics, false, new Set(['promptPasses', 'outputPasses', 'events'])) as TurnTraceCopyPayload;
+}
+
+export type TurnTraceNodeExecution = {
+  nodeId: string;
+  nodeLabel: string;
+  nodeType?: string;
+  sourceHandle?: string | null;
+  phase: 'response' | 'prepare-next-turn';
+  status: 'started' | 'completed' | 'error' | 'cancelled' | 'blocked';
+  at: string;
+  atMs: number;
+  preparedAtStart?: boolean;
+  output?: string;
+  error?: string;
+  actionResults?: string[];
+};
+
+/** Each observer belongs to one run; later node patches cannot alter its captures. */
+export function createTurnTraceRecorder(getNode: (id: string) => WorkflowNode | undefined) {
+  const steps: TurnTraceLlmCall[] = [];
+  const observe = (phase: 'response' | 'prepare-next-turn'): LlmRequestObserver => (request, startedAtMs) => {
+    const node = request.nodeId ? getNode(request.nodeId) : undefined;
+    const debug = promptDebugForNode(node);
+    const latestPass = debug?.promptPasses?.[debug.promptPasses.length - 1];
+    const imageSources = new Map(latestPass?.images?.map((image) => [image.id, image.source]));
+    const requestText = sanitizeDataUrlsInText(request.prompt);
+    // Sections are annotations only when they reconstruct this exact request.
+    const sectionsMatch = latestPass?.sections?.map((section) => section.text).filter(Boolean).join('\n\n') === request.prompt;
+    const switchDebug = node?.data.kind === undefined && node?.data.nodeType === 'llm-prompt-switch'
+      ? node.data.llmPromptSwitchDebug : undefined;
+    const step = sanitizeDebugSnapshotValue({
+      order: steps.length + 1,
+      nodeId: request.nodeId ?? 'unattributed',
+      nodeLabel: node?.data.label ?? request.nodeId ?? 'LLM helper',
+      nodeType: node?.data.nodeType,
+      prompt: request.label,
+      capture: 'request-boundary',
+      status: 'pending',
+      dispatched: false,
+      startedAt: new Date().toISOString(),
+      startedAtMs,
+      phase,
+      stage: request.stage,
+      selectedOutputChannel: sectionsMatch ? switchDebug?.selectedOutputChannel : undefined,
+      selectedPromptSlot: sectionsMatch ? switchDebug?.selectedPromptSlot : undefined,
+      routing: sectionsMatch && switchDebug ? {
+        outputChannelValue: switchDebug.outputChannelValue,
+        promptSlotValue: switchDebug.promptSlotValue,
+      } : undefined,
+      promptPasses: [{
+        label: sectionsMatch ? latestPass.label : request.label,
+        prompt: requestText,
+        sections: sectionsMatch ? latestPass.sections : undefined,
+      }],
+    }) as TurnTraceLlmCall;
+    steps.push(step);
+    return {
+      dispatched(images, metadata) {
+        step.dispatched = true;
+        step.requestSettings = sanitizeDebugSnapshotValue(metadata) as LlmDispatchMetadata;
+        step.promptPasses![0].images = images?.map((image, index) => ({
+          index: index + 1, id: sanitizeDataUrlsInText(image.id), name: sanitizeDataUrlsInText(image.name),
+          source: sectionsMatch ? imageSources.get(image.id) : undefined,
+        })) ?? [];
+      },
+      streamed(text) { step.partialResponse = sanitizeDataUrlsInText(text); },
+      completed(result) {
+        step.partialResponse = undefined;
+        step.status = 'completed';
+        step.completedAt = new Date().toISOString();
+        step.completedAtMs = performance.now();
+        step.outputPasses = [{ label: 'Raw response', text: sanitizeDataUrlsInText(result.text) }];
+        step.usage = { ...result.stats };
+      },
+      failed(error, cancelled) {
+        step.status = cancelled ? 'cancelled' : 'error';
+        step.completedAt = new Date().toISOString();
+        step.completedAtMs = performance.now();
+        step.error = sanitizeDataUrlsInText(error);
+      },
+    };
   };
+  const captureNodeExecution = (event: TurnTraceNodeExecution): TurnTraceNodeExecution => {
+    const observed = steps.some((step) => step.nodeId === event.nodeId && step.phase === event.phase);
+    const debug = observed && event.status !== 'started' ? promptDebugForNode(getNode(event.nodeId)) : undefined;
+    return sanitizeDebugSnapshotValue({
+      ...event,
+      actionResults: debug?.actionResults?.length ? debug.actionResults : undefined,
+    }) as TurnTraceNodeExecution;
+  };
+  return { steps, observe, captureNodeExecution };
 }

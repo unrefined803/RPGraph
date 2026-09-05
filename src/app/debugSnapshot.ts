@@ -96,10 +96,21 @@ export function compactDebugValue(
   value: unknown,
   textMetrics: TextMetricsApi,
   compressed = false,
+  unboundedCollections = new Set<string>(),
 ): unknown {
   const limits = compressed ? debugSnapshotLimits.compressed : debugSnapshotLimits.standard;
   const texts = new Map<string, string>();
   const diagnosticObjects = new Map<string, string>();
+  // Excerpts are compared separately: equal previews never imply equal sources.
+  const excerpts = new Map<string, string>();
+  const excerpt = (text: string, path: string): unknown => {
+    const previous = excerpts.get(text);
+    if (previous && text.length >= 160 && previous.length + 30 < text.length) {
+      return { $ref: previous };
+    }
+    if (text.length >= 160) excerpts.set(text, path);
+    return text;
+  };
   const walk = (entry: unknown, path: string, key: string): unknown => {
     if (typeof entry === 'string') {
       if (entry.length >= 160) {
@@ -107,7 +118,11 @@ export function compactDebugValue(
         if (previous !== undefined && previous.length + 30 < entry.length) return { $ref: previous };
         texts.set(entry, path);
       }
-      if (entry.length <= limits.textPreviewCharacters + 160) return entry;
+      if (entry.length <= limits.textPreviewCharacters + 160) {
+        const result = excerpt(entry, path);
+        if (typeof result !== 'string') texts.set(entry, excerpts.get(entry)!);
+        return result;
+      }
       const tailOnly = /history|inputValue/i.test(key);
       const headLength = Math.floor(limits.textPreviewCharacters / 3);
       return {
@@ -115,16 +130,16 @@ export function compactDebugValue(
         estimatedTokens: textMetrics.measure(entry).tokens,
         omittedCharacters: entry.length - limits.textPreviewCharacters,
         ...(tailOnly
-          ? { tail: entry.slice(-limits.textPreviewCharacters) }
+          ? { tail: excerpt(entry.slice(-limits.textPreviewCharacters), `${path}/tail`) }
           : {
-              head: entry.slice(0, headLength),
-              tail: entry.slice(-(limits.textPreviewCharacters - headLength)),
+              head: excerpt(entry.slice(0, headLength), `${path}/head`),
+              tail: excerpt(entry.slice(-(limits.textPreviewCharacters - headLength)), `${path}/tail`),
             }),
       };
     }
     if (Array.isArray(entry)) {
       let indexes = entry.map((_, index) => index);
-      if (boundedCollections.has(key) && entry.length > limits.maxCollectionItems) {
+      if (boundedCollections.has(key) && !unboundedCollections.has(key) && entry.length > limits.maxCollectionItems) {
         const limit = limits.maxCollectionItems;
         if (key === 'systemLog') {
           const recentStart = Math.max(0, entry.length - Math.floor(limit * 0.75));
@@ -157,6 +172,25 @@ export function compactDebugValue(
       return result;
     }
     if (entry && typeof entry === 'object') {
+      if (key === 'eventEntities') {
+        const items = Object.entries(entry);
+        if (items.length > limits.maxCollectionItems) {
+          const isOpen = (value: unknown) => !!value && typeof value === 'object' &&
+            'status' in value && value.status === 'upcoming';
+          const active = items.filter(([, value]) => isOpen(value));
+          const other = items.filter(([, value]) => !isOpen(value));
+          const remaining = Math.max(0, limits.maxCollectionItems - active.length);
+          const retained = [...active.slice(0, limits.maxCollectionItems),
+            ...(remaining ? other.slice(-remaining) : [])];
+          return {
+            collectionType: 'event-entity-map',
+            totalItems: items.length,
+            omittedItems: items.length - retained.length,
+            entries: Object.fromEntries(retained.map(([id, value]) =>
+              [id, walk(value, `${path}/entries/${pointerPart(id)}`, '')])),
+          };
+        }
+      }
       if (['runtimeDebug', 'llmPromptDebug', 'llmPromptSwitchDebug', 'runtimePortValues'].includes(key)) {
         const serialized = JSON.stringify(entry);
         if (serialized.length > 256) {
@@ -169,7 +203,8 @@ export function compactDebugValue(
         .map(([childKey, child]) => [childKey, walk(
           child,
           `${path}/${pointerPart(childKey)}`,
-          childKey === 'text' && 'label' in entry && entry.label === 'Text Input' ? 'inputValue' : childKey,
+          (childKey === 'text' && 'label' in entry && entry.label === 'Text Input') ||
+            (childKey === 'graphText' && key === 'input') ? 'inputValue' : childKey,
         )]));
     }
     return entry;

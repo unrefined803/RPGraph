@@ -1,3 +1,5 @@
+import type { TurnTraceNodeExecution } from '../app/turnTrace';
+import { sanitizeDataUrlsInText } from '../utils/sanitize';
 import type { Edge } from '@xyflow/react';
 import { NodeLlmApi } from '../llm/NodeLlmApi';
 import { PromptTokenCalibration, TextMetricsApi } from '../llm/tokenMetrics';
@@ -106,6 +108,7 @@ type ExecuteGraphOptions = {
   providerHealthById?: Record<string, ProviderConnectionHealth>;
   auxiliaryOutputHandles?: string[];
   onAuxiliaryOutput?: (handle: string, text: string) => void;
+  onNodeExecution?: (event: TurnTraceNodeExecution) => void;
   onWarning?: (message: string, node?: ExecuteTraceNodeInfo) => void;
   onFormatResult?: (result: ExecuteTraceFormatResult & ExecuteTraceNodeInfo) => void;
   onComfyGenerationActive?: (active: boolean) => void;
@@ -233,6 +236,7 @@ export async function executeGraph({
   providerHealthById = {},
   auxiliaryOutputHandles = [],
   onAuxiliaryOutput,
+  onNodeExecution,
   onWarning = () => {},
   onFormatResult = () => {},
   onComfyGenerationActive,
@@ -599,7 +603,19 @@ export async function executeGraph({
     const shouldTrackRunState = (node: WorkflowNode) =>
       trackRunCompletion && !(postOutputRun && node.data.kind === undefined && node.data.nodeType === 'input');
 
+    const traceNode = nodeById.get(nodeId);
+    const preparedAtStart = traceNode?.data.runPrepared;
+    const reportExecution = (status: TurnTraceNodeExecution['status'], output?: string, error?: string) => {
+      onNodeExecution?.({
+        nodeId, nodeLabel: traceNode?.data.label ?? nodeId, nodeType: traceNode?.data.nodeType,
+        sourceHandle, phase: postOutputRun ? 'prepare-next-turn' : 'response',
+        status, at: new Date().toISOString(), atMs: performance.now(), preparedAtStart,
+        output: output === undefined ? undefined : sanitizeDataUrlsInText(output),
+        error: error === undefined ? undefined : sanitizeDataUrlsInText(error),
+      });
+    };
     const promise = (async () => {
+      reportExecution('started');
       try {
         throwIfAborted(signal);
         let traceNodeInfo: ExecuteTraceNodeInfo | undefined;
@@ -778,7 +794,12 @@ export async function executeGraph({
           );
         }
         updateRuntimePortValue(nodeId, 'output', sourceHandle ?? 'default', result);
+        reportExecution('completed', result);
         return result;
+      } catch (error) {
+        reportExecution(signal?.aborted ? 'cancelled' : error instanceof PostOutputNodeBlockedError ? 'blocked' : 'error',
+          undefined, executionErrorMessage(error));
+        throw error;
       } finally {
         const node = nodeById.get(nodeId);
         if (node && shouldTrackRunState(node)) {

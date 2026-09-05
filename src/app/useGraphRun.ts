@@ -20,7 +20,6 @@ import type {
   RpDateTimeFormat,
   RpWeekdayLanguage,
   TurnContext,
-  TurnRecord,
   TurnRecordMode,
   WorkflowNode,
   WorkflowNodeData,
@@ -35,7 +34,7 @@ import type { RpStorybook } from '../nodes/rp-storybook/model';
 import type { ExecuteTraceFormatResult, ExecuteTraceNodeInfo } from '../nodes/types';
 import type { RunLlmReport, LlmRunHistoryEntry } from '../components/AppDialogs';
 import type { LastRunDebug } from './debugSnapshot';
-import type { TurnTraceEvent } from './turnTrace';
+import { createTurnTraceRecorder, type TurnTraceEvent, type TurnTraceNodeExecution } from './turnTrace';
 import type { useTurnTraceState } from './useTurnTraceState';
 import type { useTurnRecordState, TurnReplacement } from '../chat/useTurnRecordState';
 import type { useNextTurnReferenceImages } from '../chat/useNextTurnReferenceImages';
@@ -555,6 +554,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       );
     };
     const finishRun = () => {
+      stopObservingRequests();
       if (activeRun.current?.id !== runId) {
         return;
       }
@@ -792,9 +792,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const responseWorkflowVariableSetCommands: WorkflowVariableSetCommand[] = [];
     const runWarnings: string[] = [];
     const runTraceEvents: TurnTraceEvent[] = [];
+    let tracePhase: 'response' | 'prepare-next-turn' = 'response';
+    const traceRecorder = createTurnTraceRecorder((id) => nodesRef.current.find((node) => node.id === id));
+    const stopObservingRequests = nodeLlm.observeRequestsForSignal(runSignal, traceRecorder.observe('response'));
+    const nodeExecutions: TurnTraceNodeExecution[] = [];
+    const recordNodeExecution = (event: TurnTraceNodeExecution) => {
+      nodeExecutions.push(traceRecorder.captureNodeExecution(event));
+    };
     const reportRunWarning = (message: string, node?: ExecuteTraceNodeInfo) => {
       if (node) {
-        runTraceEvents.push({ kind: 'warning', ...node, message });
+        runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'warning', ...node, message });
       } else {
         runWarnings.push(message);
       }
@@ -804,7 +811,25 @@ export function useGraphRun(options: UseGraphRunOptions) {
       result: ExecuteTraceFormatResult,
       node: ExecuteTraceNodeInfo = outputNodeTraceInfo,
     ) => {
-      runTraceEvents.push({ kind: 'format', ...node, ...result });
+      runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'format', ...node, ...result });
+    };
+    const recordFailedAttempt = (error: unknown, graphText: string, selectedPromptSlot?: number) => {
+      const collector = activeTurnCollectorRef.current;
+      const report = activeRunLlmReport.current;
+      if (!collector || report?.runId !== runId) return;
+      recordTurnTrace({
+        turn: {
+          id: collector.turnId, number: collector.turnNumber, createdAt: collector.createdAt,
+          mode: turnMode, messageFormat, promptSlot: selectedPromptSlot, directAction: directActionOnly || undefined,
+          input: { graphText, messages: collector.inputMessages },
+          output: { graphText: '', messages: collector.outputMessages },
+        },
+        run: report,
+        status: isRunCancelledError(error) ? 'cancelled' : 'error',
+        warnings: runWarnings, traceEvents: runTraceEvents,
+        capturedSteps: traceRecorder.steps, nodeExecutions,
+        error: error instanceof Error ? error.message : String(error),
+      });
     };
     const setWorkflowVariablesForResponseRun = (commands: WorkflowVariableSetCommand[]) => {
       responseWorkflowVariableSetCommands.push(...structuredClone(commands));
@@ -925,6 +950,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         const cancelled = isRunCancelledError(error);
         const cancelReason = activeRunCancelReason.current as CancelReason;
         const restarting = cancelled && cancelReason === 'restart';
+        recordFailedAttempt(error, inputText);
         restoreReplacedMessages();
         if (replacement) {
           applyTurnCheckpointRuntime(replacement.turn, 'after');
@@ -1008,6 +1034,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         const cancelled = isRunCancelledError(error);
         const cancelReason = activeRunCancelReason.current as CancelReason;
         const restarting = cancelled && cancelReason === 'restart';
+        recordFailedAttempt(error, inputText);
         restoreReplacedMessages();
         if (replacement) {
           applyTurnCheckpointRuntime(replacement.turn, 'after');
@@ -1453,7 +1480,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
         translatedHistory,
         historyMessages,
         userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
-        llm: nodeLlm.withAbortSignal(runSignal),
+        llm: nodeLlm.withAbortSignal(runSignal).withRequestObserver(traceRecorder.observe('response')),
+        onNodeExecution: recordNodeExecution,
         textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
         updateRuntimeNode,
         connections,
@@ -1471,7 +1499,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         onTokenEstimateCalibrated: setCalibratedTokenBytesPerToken,
         onWarning: reportRunWarning,
         onFormatResult: (result) => {
-          runTraceEvents.push({ kind: 'format', ...result });
+          runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'format', ...result });
         },
         trackRunCompletion: true,
         // Direct Actions is intentionally absent here: normal, phone, social,
@@ -2800,6 +2828,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         rpWeekdayLanguage,
       );
       if (!directActionOnly) {
+        tracePhase = 'prepare-next-turn';
         try {
           const recentTurns = turnsRef.current
             .filter((turn) => turn.id !== collectedTurn?.turnId)
@@ -2822,14 +2851,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
           currentTurnId: collectedTurn?.turnId,
           updateHistoryMessageTimes,
           userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
-          llm: nodeLlm.withAbortSignal(runSignal),
+          llm: nodeLlm.withAbortSignal(runSignal).withRequestObserver(traceRecorder.observe('prepare-next-turn')),
+          onNodeExecution: recordNodeExecution,
           textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
           updateRuntimeNode,
           connections,
           onComfyGenerationActive: updateWorkflowComfyGenerationActive,
           onWarning: reportRunWarning,
           onFormatResult: (result) => {
-            runTraceEvents.push({ kind: 'format', ...result });
+            runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'format', ...result });
           },
           settingsValues: workflowSettingsValuesForGraph(),
           settingsValueDefinitions: settingsValueDefinitionsRef.current,
@@ -2882,10 +2912,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         recordTurnTrace({
           turn: committedTurn,
           run: completedRunReport,
-          nodes: nodesRef.current,
           status: 'completed',
           warnings: runWarnings,
           traceEvents: runTraceEvents,
+          capturedSteps: traceRecorder.steps,
+          nodeExecutions,
         });
       }
       clearTemporaryReferenceImages();
@@ -2896,36 +2927,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const cancelled = isRunCancelledError(error);
       const cancelReason = activeRunCancelReason.current as CancelReason;
       const restarting = cancelled && cancelReason === 'restart';
-      const failedCollector = activeTurnCollectorRef.current;
-      const failedRunReport = activeRunLlmReport.current;
-      if (!cancelled && failedCollector && failedRunReport) {
-        const failedTurn: TurnRecord = {
-          id: failedCollector.turnId,
-          number: failedCollector.turnNumber,
-          createdAt: failedCollector.createdAt,
-          mode: turnMode,
-          messageFormat,
-          promptSlot,
-          directAction: directActionOnly || undefined,
-          input: {
-            graphText: storedInputGraphText,
-            messages: structuredClone(failedCollector.inputMessages),
-          },
-          output: {
-            graphText: '',
-            messages: structuredClone(failedCollector.outputMessages),
-          },
-        };
-        recordTurnTrace({
-          turn: failedTurn,
-          run: failedRunReport,
-          nodes: nodesRef.current,
-          status: 'error',
-          warnings: runWarnings,
-          traceEvents: runTraceEvents,
-          error: message,
-        });
-      }
+      recordFailedAttempt(error, storedInputGraphText, promptSlot);
       pendingLiveOutput = undefined;
       clearLiveOutputFlush();
       if (liveOutputMessageId !== undefined) {

@@ -156,4 +156,37 @@ describe('debug snapshot compaction', () => {
     expect(JSON.stringify(compressed)).toContain('selectedOutputChannel');
     checkReferences(compressed);
   });
+  it('shares identical excerpts without merging sources with different middles', () => {
+    const head = 'Shared beginning. '.repeat(30);
+    const tail = 'Shared ending. '.repeat(60);
+    const result = compactDebugValue({
+      combined: head + 'first middle'.repeat(200) + tail,
+      part: head + 'different middle'.repeat(200) + tail,
+    }, textMetrics, true);
+    expect(result).not.toHaveProperty('part.$ref');
+    expect(result).toHaveProperty('part.head', { $ref: '#/combined/head' });
+    expect(result).toHaveProperty('part.tail', { $ref: '#/combined/tail' });
+    checkReferences(result);
+    const plain = JSON.parse(JSON.stringify(result));
+    plain.part.head = head.slice(0, 266);
+    plain.part.tail = tail.slice(-534);
+    expect(textMetrics.measure(JSON.stringify(result)).tokens)
+      .toBeLessThan(textMetrics.measure(JSON.stringify(plain)).tokens);
+  });
+
+  it('bounds event maps without colliding with IDs or referencing omitted values', () => {
+    const eventEntities = Object.fromEntries(Array.from({ length: 110 }, (_, index) => [
+      index === 0 ? 'entries' : index === 1 ? 'omittedItems' : `event/${index}~`,
+      { status: index < 2 ? 'upcoming' : 'completed', details: repeatedText },
+    ]));
+    const result = compactDebugValue({ eventEntities, text: repeatedText }, textMetrics, true);
+    expect(result).toHaveProperty('eventEntities.omittedItems', 70);
+    expect(result).toHaveProperty('eventEntities.entries.entries.status', 'upcoming');
+    expect(result).toHaveProperty('eventEntities.entries.omittedItems.status', 'upcoming');
+    checkReferences(result);
+    expect(decode(formatContextValue(result, 'toon'), { expandPaths: 'safe' }))
+      .toEqual(JSON.parse(JSON.stringify(result)));
+    expect(Object.keys(eventEntities)).toHaveLength(110);
+  });
+
 });

@@ -77,3 +77,37 @@ describe('custom node outputs', () => {
     await expect(run([source], [{ ...edge('custom', 'custom', 'in'), sourceHandle: 'b' }], 'custom')).rejects.toThrow('The graph contains a cycle.');
   }, 1000);
 });
+
+describe('graph trace timeline', () => {
+  it('records the selected route and reused dependencies without inventing LLM calls', async () => {
+    const events: import('../app/turnTrace').TurnTraceNodeExecution[] = [];
+    const nodes = [node('input', 'input'), node('left', 'text-replace'), node('right', 'text-replace'), node('out', 'combiner')];
+    nodes[0].data.runPrepared = true;
+    const edges = [edge('input', 'left'), edge('input', 'right'), edge('left', 'out', combinerInputHandle(0)), edge('right', 'out', combinerInputHandle(1))];
+    await executeGraph({
+      nodes, edges, outputNodeId: 'out', originalInput: 'Current input', originalHistory: '', translatedHistory: '',
+      llm: new NodeLlmApi({ resolveConnection: async () => { throw new Error('Unexpected LLM call'); } }),
+      textMetrics: new TextMetricsApi(), updateRuntimeNode: () => {},
+      onNodeExecution: (event) => events.push(event),
+    });
+    expect(events.filter((event) => event.nodeId === 'input' && event.status === 'started')).toHaveLength(1);
+    expect(events.find((event) => event.nodeId === 'input' && event.status === 'completed'))
+      .toMatchObject({ output: 'Current input', phase: 'response', preparedAtStart: true });
+    expect(events[0]).toMatchObject({ nodeId: 'out', status: 'started' });
+    expect(events[events.length - 1]).toMatchObject({ nodeId: 'out', status: 'completed' });
+  });
+
+  it('records dependency errors before any provider request', async () => {
+    const events: import('../app/turnTrace').TurnTraceNodeExecution[] = [];
+    const nodes = [node('input', 'input'), node('selector', 'text-selector'), node('replace', 'text-replace')];
+    const edges = [edge('input', 'selector', 'condition'), edge('replace', 'selector', 'true'), edge('selector', 'replace')];
+    await expect(executeGraph({
+      nodes, edges, outputNodeId: 'selector', originalInput: 'true', originalHistory: '', translatedHistory: '',
+      llm: new NodeLlmApi({ resolveConnection: async () => { throw new Error('Unexpected LLM call'); } }),
+      textMetrics: new TextMetricsApi(), updateRuntimeNode: () => {},
+      onNodeExecution: (event) => events.push(event),
+    })).rejects.toThrow('cycle');
+    expect(events.filter((event) => event.status === 'error').length).toBeGreaterThan(0);
+    expect(events[events.length - 1]).toMatchObject({ nodeId: 'selector', status: 'error', error: expect.stringContaining('cycle') });
+  });
+});

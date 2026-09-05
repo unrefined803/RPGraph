@@ -1,3 +1,4 @@
+import { formatContextValue } from '../data-management/formatters';
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   turnTraceCopyPayload,
@@ -56,13 +57,8 @@ function TraceMessages({
             {message.imageCount && <small>{message.imageCount} image attachment(s)</small>}
           </div>
         ))
-      ) : graphText ? (
-        <div className="turn-trace-message">
-          <p>{graphText}</p>
-        </div>
-      ) : (
-        <p className="turn-trace-empty">No stored text.</p>
-      )}
+      ) : !graphText ? <p className="turn-trace-empty">No stored text.</p> : null}
+      {graphText && <details><summary>Graph text</summary><HighlightedPreviewText text={graphText} /></details>}
     </section>
   );
 }
@@ -85,7 +81,7 @@ function stepHasExpandableText(step: TurnTraceLlmCall) {
 
 function tracePromptImagesText(images: TurnTracePromptPass['images']) {
   if (!images?.length) {
-    return 'No images sent to the LLM for this pass.';
+    return 'No images supplied to the bridge for this pass.';
   }
   return images
     .map((image) => `Image ${image.index} = ${image.id}${image.name && image.name !== image.id ? ` (${image.name})` : ''}${image.source ? ` · ${image.source}` : ''}`)
@@ -108,11 +104,6 @@ function TracePromptSection({ section }: { section: TurnTracePromptSection }) {
   return (
     <div className={`turn-trace-prompt-section${isTextInputSection(section.label) ? '' : ' prompt'}`}>
       <strong>{section.label}</strong>
-      {section.excerpt && (
-        <em>
-          Showing last {section.excerpt.shownWords.toLocaleString()} of {section.excerpt.totalWords.toLocaleString()} words.
-        </em>
-      )}
       {section.parts?.length ? (
         section.parts.map((part, partIndex) => part.stepOutputInserted ? (
           <div className="turn-trace-step-output-insertion" key={`${section.label}-${partIndex}`}>
@@ -139,18 +130,6 @@ function TracePromptSection({ section }: { section: TurnTracePromptSection }) {
   );
 }
 
-function TraceTextInput({ trace }: { trace: TurnTrace }) {
-  const section = trace.steps
-    .flatMap((step) => step.promptPasses ?? [])
-    .flatMap((pass) => pass.sections ?? [])
-    .find((candidate) => isTextInputSection(candidate.label));
-  return section ? (
-    <div className="turn-trace-shared-input">
-      <TracePromptSection section={section} />
-    </div>
-  ) : null;
-}
-
 function TracePromptPasses({ passes }: { passes: TurnTracePromptPass[] }) {
   return (
     <div className="turn-trace-prompt-passes">
@@ -158,17 +137,16 @@ function TracePromptPasses({ passes }: { passes: TurnTracePromptPass[] }) {
         <section className="turn-trace-prompt-pass" key={`${pass.label}-${passIndex}`}>
           <header>
             <strong>{passIndex + 1}. {pass.label}</strong>
-            <span>Full prompt sent to LLM</span>
+            <span>Captured prompt content</span>
           </header>
           {pass.images !== undefined && (
             <div className="turn-trace-prompt-section images">
-              <strong>Images Sent To LLM</strong>
+              <strong>Images supplied to bridge</strong>
               <pre>{tracePromptImagesText(pass.images)}</pre>
             </div>
           )}
           {pass.sections?.length ? (
             pass.sections
-              .filter((section) => !isTextInputSection(section.label))
               .map((section) => (
                 <TracePromptSection key={`${pass.label}-${section.label}`} section={section} />
               ))
@@ -228,6 +206,15 @@ function TurnTraceStep({
         {expandable && <span className="turn-trace-step-chevron" aria-hidden="true">▾</span>}
       </div>
       <div className="turn-trace-step-body">
+        <small>{step.capture} · {step.phase ?? 'response'} · {step.status ?? 'recorded'}
+          {step.dispatched !== undefined && (step.dispatched ? ' · bridge invoked' : ' · not dispatched')}
+        </small>
+        {step.partialResponse && <div><strong>Partial streamed response</strong><HighlightedPreviewText text={step.partialResponse} /></div>}
+        {step.error && <p className="turn-trace-step-warning">{step.error}</p>}
+        {step.usage && <small>Provider usage: {step.usage.inputTokens ?? '–'} input / {step.usage.outputTokens ?? '–'} output / {step.usage.reasoningTokens ?? '–'} reasoning tokens · {step.usage.durationMs} ms</small>}
+        {step.requestSettings && <pre>{JSON.stringify(step.requestSettings, null, 2)}</pre>}
+        {step.stage && <pre>{JSON.stringify(step.stage, null, 2)}</pre>}
+        {step.routing && <pre>{JSON.stringify(step.routing, null, 2)}</pre>}
         {(step.selectedOutputChannel !== undefined || step.selectedPromptSlot !== undefined) && (
           <small>
             Output {step.selectedOutputChannel ?? '–'} / Prompt {step.selectedPromptSlot ?? '–'}
@@ -262,6 +249,8 @@ function TurnTraceStep({
             {result.preview && <HighlightedPreviewText text={result.preview} />}
           </div>
         ))}
+        {step.actionResults?.map((text, index) => <HighlightedPreviewText key={`action-${index}`} text={text} />)}
+        {step.generatedText && <HighlightedPreviewText text={step.generatedText} />}
         {step.warnings?.map((warning) => (
           <p className="turn-trace-step-warning" key={warning}>{warning}</p>
         ))}
@@ -286,9 +275,10 @@ export function TurnTraceDialog({
   const initialToTurn = turnNumbers[turnNumbers.length - 1] ?? 0;
   const [fromTurn, setFromTurn] = useState(initialFromTurn);
   const [toTurn, setToTurn] = useState(initialToTurn);
-  const [copied, setCopied] = useState(false);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
   const [copyError, setCopyError] = useState('');
   const [viewMode, setViewMode] = useState<'ui' | 'json'>('ui');
+  const [exportFormat, setExportFormat] = useState<'json' | 'toon'>('json');
   const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>({});
   const timelineRef = useRef<HTMLElement>(null);
   const turnListRef = useRef<HTMLDivElement>(null);
@@ -312,18 +302,19 @@ export function TurnTraceDialog({
         ),
     [effectiveFromTurn, effectiveToTurn, traces],
   );
-  const payload = useMemo(() => turnTraceCopyPayload(selectedTraces), [selectedTraces]);
-  const payloadText = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
+  const payload = useMemo(() => turnTraceCopyPayload(selectedTraces, textMetrics), [selectedTraces, textMetrics]);
+  const payloadText = useMemo(() => exportFormat === 'json' ? JSON.stringify(payload, null, 2) : formatContextValue(payload, 'toon'), [payload, exportFormat]);
+  const copied = copiedText === payloadText;
   const selectedTokenEstimate = useMemo(
     () => textMetrics.measure(payloadText).tokens,
     [payloadText, textMetrics],
   );
   const turnTokenEstimates = useMemo(() => {
     return new Map(turnNumbers.map((turnNumber) => {
-      const turnPayload = turnTraceCopyPayload(traces.filter((trace) => trace.turnNumber === turnNumber));
-      return [turnNumber, textMetrics.measure(JSON.stringify(turnPayload, null, 2)).tokens];
+      const turnPayload = turnTraceCopyPayload(traces.filter((trace) => trace.turnNumber === turnNumber), textMetrics, payload.createdAt);
+      return [turnNumber, textMetrics.measure(exportFormat === 'json' ? JSON.stringify(turnPayload, null, 2) : formatContextValue(turnPayload, 'toon')).tokens];
     }));
-  }, [textMetrics, traces, turnNumbers]);
+  }, [textMetrics, traces, turnNumbers, exportFormat, payload.createdAt]);
   const selectOptions = turnNumbers.map((turnNumber) => ({
     value: turnNumber,
     label: `Turn ${turnNumber}`,
@@ -341,7 +332,7 @@ export function TurnTraceDialog({
   }, [effectiveFromTurn, effectiveToTurn, viewMode]);
 
   function changeFromTurn(value: number) {
-    setCopied(false);
+    setCopiedText(null);
     setFromTurn(value);
     if (value > effectiveToTurn) {
       setToTurn(value);
@@ -349,7 +340,7 @@ export function TurnTraceDialog({
   }
 
   function changeToTurn(value: number) {
-    setCopied(false);
+    setCopiedText(null);
     setToTurn(value);
     if (value < effectiveFromTurn) {
       setFromTurn(value);
@@ -359,11 +350,11 @@ export function TurnTraceDialog({
   function copyTrace() {
     void copyTextToClipboard(payloadText)
       .then(() => {
-        setCopied(true);
+        setCopiedText(payloadText);
         setCopyError('');
       })
       .catch((error) => {
-        setCopied(false);
+        setCopiedText(null);
         setCopyError(error instanceof Error ? error.message : String(error));
       });
   }
@@ -398,7 +389,7 @@ export function TurnTraceDialog({
           <aside className="turn-trace-range-panel">
             <div>
               <h4>Observed turns</h4>
-              <p>Only runs created after opening this RP are available.</p>
+              <p>RAM only: up to 90 attempts across the latest 30 turn numbers. Loading or resetting clears traces; undo removes that turn's attempts.</p>
             </div>
             {turnNumbers.length > 0 ? (
               <>
@@ -423,6 +414,7 @@ export function TurnTraceDialog({
                     const inRange = turnNumber >= effectiveFromTurn && turnNumber <= effectiveToTurn;
                     const turnTraces = traces.filter((trace) => trace.turnNumber === turnNumber);
                     const hasError = turnTraces.some((trace) => trace.status === 'error');
+                    const hasCancelled = turnTraces.some((trace) => trace.status === 'cancelled');
                     const tokenEstimate = turnTokenEstimates.get(turnNumber) ?? 0;
                     return (
                       <button
@@ -430,14 +422,14 @@ export function TurnTraceDialog({
                         className={inRange ? 'selected' : ''}
                         key={turnNumber}
                         onClick={() => {
-                          setCopied(false);
+                          setCopiedText(null);
                           setFromTurn(turnNumber);
                           setToTurn(turnNumber);
                         }}
                       >
                         <span>Turn {turnNumber}</span>
                         <em>
-                          {hasError ? 'error' : turnTraces[0]?.channel ?? 'run'} · ~{tokenEstimate.toLocaleString()}
+                          {hasError ? 'error' : hasCancelled ? 'cancelled' : turnTraces[0]?.channel ?? 'run'} · ~{tokenEstimate.toLocaleString()}
                         </em>
                       </button>
                     );
@@ -455,7 +447,7 @@ export function TurnTraceDialog({
           >
             {viewMode === 'json' ? (
               <div className="turn-trace-json-view">
-                <JsonSyntaxTextarea readOnly value={payloadText} />
+                {exportFormat === 'json' ? <JsonSyntaxTextarea readOnly value={payloadText} /> : <textarea readOnly value={payloadText} aria-label="TOON export preview" />}
               </div>
             ) : selectedTraces.length === 0 ? (
               <p className="turn-trace-empty">No traced turns in this range.</p>
@@ -467,7 +459,7 @@ export function TurnTraceDialog({
                       <strong>Turn {trace.turnNumber}</strong>
                       <span>{trace.channel} · {trace.status}</span>
                     </div>
-                    <time>{new Date(trace.startedAt).toLocaleString()}</time>
+                    <div><small>Run {trace.traceId}</small><time>{new Date(trace.startedAt).toLocaleString()} → {new Date(trace.completedAt).toLocaleTimeString()}</time></div>
                   </header>
                   <TraceMessages
                     title="1. Input"
@@ -476,9 +468,8 @@ export function TurnTraceDialog({
                   />
                   <section className="turn-trace-route">
                     <h5>2. LLM / Prompt route</h5>
-                    <TraceTextInput trace={trace} />
                     {trace.steps.length === 0 ? (
-                      <p className="turn-trace-empty">No completed LLM call was recorded.</p>
+                      <p className="turn-trace-empty">No LLM request was captured.</p>
                     ) : (
                       trace.steps.map((step) => {
                         const stepId = `${trace.traceId}-${step.order}`;
@@ -495,10 +486,28 @@ export function TurnTraceDialog({
                     )}
                   </section>
                   <TraceMessages
-                    title={trace.status === 'error' ? '3. Output before error' : '3. Output'}
+                    title={trace.status !== 'completed' ? '3. Output before interruption' : '3. Output'}
                     messages={trace.output.messages}
                     graphText={trace.output.graphText}
                   />
+                  {trace.nodeExecutions?.length ? <details>
+                    <summary>Node execution timeline ({trace.nodeExecutions.length} events)</summary>
+                    {trace.nodeExecutions.map((event, index) => <div key={index}>
+                      <strong>{event.nodeLabel} · {event.sourceHandle ?? 'default'} · {event.phase} · {event.status}</strong>
+                      <small>{event.at}{event.preparedAtStart ? ' · prepared at start' : ''}</small>
+                      {event.error && <p>{event.error}</p>}
+                      {event.output !== undefined && <HighlightedPreviewText text={event.output} />}
+                      {event.actionResults?.map((text, actionIndex) => <div key={actionIndex}><strong>Action result</strong><HighlightedPreviewText text={text} /></div>)}
+                    </div>)}
+                  </details> : null}
+                  {trace.events?.map((event, index) => <div className="turn-trace-format-result" key={index}>
+                    <strong>{event.nodeLabel ?? 'Run'} · {event.kind}</strong>
+                    {event.kind === 'warning' ? <p>{event.message}</p> : <>
+                      <p>{event.name} · {event.status}</p>
+                      {event.detail && <p>{event.detail}</p>}
+                      {event.preview && <HighlightedPreviewText text={event.preview} />}
+                    </>}
+                  </div>)}
                   {trace.warnings?.map((warning) => (
                     <p className="turn-trace-run-warning" key={warning}>{warning}</p>
                   ))}
@@ -510,8 +519,12 @@ export function TurnTraceDialog({
         </div>
 
         <footer className="turn-trace-actions">
-          <span>Selected range ~{selectedTokenEstimate.toLocaleString()} tokens. Copied data contains no image files and is never added to RP saves.</span>
+          <span>Selected range ~{selectedTokenEstimate.toLocaleString()} tokens. Export uses bounded excerpts and local references; UI shows captured text. No image files or RP-save persistence.</span>
           {copyError && <em>{copyError}</em>}
+          <label>Export format <select value={exportFormat} onChange={(event) => {
+            setExportFormat(event.target.value as 'json' | 'toon');
+            setCopiedText(null);
+          }}><option value="json">JSON</option><option value="toon">TOON</option></select></label>
           <div className="debug-format-tabs" role="tablist" aria-label="Turn Trace View Mode">
             <button
               className={viewMode === 'ui' ? 'active' : ''}
@@ -529,7 +542,7 @@ export function TurnTraceDialog({
               aria-selected={viewMode === 'json'}
               onClick={() => setViewMode('json')}
             >
-              JSON
+              Export preview
             </button>
           </div>
           <button

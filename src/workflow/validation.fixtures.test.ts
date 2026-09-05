@@ -5044,94 +5044,7 @@ export function verifyWorkflowValidationFixtures() {
     'a corrupted current-version storybook must fail hydration instead of silently becoming incompatible',
   );
 
-  const longTraceTextInput = [
-    ...Array.from({ length: 140 }, (_, index) => `Older context sentence ${index + 1} about party planning.`),
-    'Emily Miller texts Sarah Miller: And are you ready? What did you put on?',
-  ].join(' ');
-  const turnTraceNode = {
-    id: 'turn-trace-prompt-switch',
-    type: 'workflow',
-    position: { x: 0, y: 0 },
-    data: {
-      label: 'Trace Prompt Switch',
-      description: '',
-      preview: '',
-      nodeType: 'llm-prompt-switch',
-      llmPromptSwitchDebug: {
-        inputValue: 'large input omitted from the trace',
-        promptBefore: 'Before prompt',
-        promptAfter: 'A'.repeat(500),
-        combinedPrompt: '',
-        promptPasses: [
-          {
-            label: 'Initial action prompt',
-            sections: [
-              {
-                label: 'Text Input',
-                text: longTraceTextInput,
-                parts: [{ text: longTraceTextInput }],
-              },
-              {
-                label: 'Prompt After Input',
-                text: `${'A'.repeat(500)}\n\nStored character image search is available`,
-                parts: [
-                  { text: 'A'.repeat(500) },
-                  { text: 'Stored character image search is available', actionInserted: true },
-                ],
-              },
-            ],
-          },
-          {
-            label: 'Action follow-up: Get character phone image list',
-            sections: [
-              {
-                label: 'Text Input',
-                text: longTraceTextInput,
-                parts: [{ text: longTraceTextInput }],
-              },
-              {
-                label: 'Prompt After Input (Action Follow-Up)',
-                text: 'Action follow-up: search stored character phone images\n\nFirst-pass plan:\nFind Sarah mirror selfies.',
-                parts: [{
-                  text: 'Action follow-up: search stored character phone images\n\nFirst-pass plan:\nFind Sarah mirror selfies.',
-                  actionInserted: true,
-                }],
-              },
-            ],
-          },
-          {
-            label: 'Action replay 1',
-            sections: [
-              {
-                label: 'Text Input',
-                text: longTraceTextInput,
-                parts: [{ text: longTraceTextInput }],
-              },
-              {
-                label: 'Prompt After Input',
-                text: `${'A'.repeat(500)}\n\nImage ID list:\n- img-1: Sarah mirror selfie`,
-                parts: [
-                  { text: 'A'.repeat(500) },
-                  { text: 'Image ID list:\n- img-1: Sarah mirror selfie', actionInserted: true },
-                ],
-              },
-            ],
-          },
-        ],
-        outputPasses: [
-          { label: 'Initial action output', text: '{"action":"get_image_id","plan":"Find Sarah mirror selfies."}' },
-          { label: 'Action follow-up output: Get character phone image list', text: '{"action":"get_image_id","characters":"Sarah","tags":"mirror,selfie"}' },
-          { label: 'Action replay 1 output', text: '{"from":"Sarah","to":"Emily","message":"I found one.","sendImageId":"img-1"}' },
-        ],
-        actionResults: ['Image ID list:\n- img-1: Sarah mirror selfie'],
-        generatedText: 'AI reply',
-        selectedOutputChannel: 2,
-        selectedPromptSlot: 3,
-        outputChannelValue: '2',
-        promptSlotValue: '3',
-      },
-    },
-  } as WorkflowNode;
+  const turnTraceNode = { id: 'turn-trace-prompt-switch', data: { label: 'Trace Prompt Switch' } };
   const tracedTurn: TurnRecord = {
     id: 'trace-turn-40',
     number: 40,
@@ -5199,7 +5112,6 @@ export function verifyWorkflowValidationFixtures() {
         },
       ],
     },
-    nodes: [turnTraceNode],
     status: 'completed',
     warnings: ['Prompt fallback used.', 'Prompt fallback used.'],
     traceEvents: [
@@ -5239,45 +5151,17 @@ export function verifyWorkflowValidationFixtures() {
     'turn traces must retain useful phone/image metadata without storing image data',
   );
   assertFixture(
-    turnTrace.steps[0]?.selectedOutputChannel === 2 &&
-      turnTrace.steps[0]?.selectedPromptSlot === 3 &&
-      turnTrace.steps[0]?.promptAfter === 'A'.repeat(500) &&
-      turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[0]?.excerpt?.kind === 'last-text-input-words' &&
-      turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[0]?.text.includes('What did you put on?') === true &&
-      turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[0]?.text.includes('Older context sentence 1 about party planning.') === false &&
-      turnTrace.steps[0]?.promptPasses?.[0]?.sections?.[1]?.parts?.[1]?.actionInserted === true &&
-      turnTrace.steps[1]?.promptAfter === undefined &&
-      turnTrace.steps[1]?.promptPasses?.[0]?.sections?.some((section) => section.label === 'Text Input') === false &&
-      turnTrace.steps[1]?.promptPasses?.[0]?.sections?.some((section) => section.text.includes('First-pass plan:')) === true &&
-      turnTrace.steps[2]?.promptPasses?.[0]?.sections?.some((section) => section.label === 'Text Input') === false &&
-      turnTrace.steps[2]?.promptPasses?.[0]?.sections?.some((section) => section.text.includes('img-1: Sarah mirror selfie')) === true &&
-      (JSON.stringify(turnTrace).match(/"label":"Text Input"/g)?.length ?? 0) === 1,
-    'turn traces must identify the Prompt Switch route, include each action pass, and retain text input only once',
-  );
-  assertFixture(
-    !!turnTrace.steps[0]?.warnings?.includes('Prompt slot fallback used.') &&
-      turnTrace.steps[0]?.formatResults?.[0]?.name === 'Phone Message JSON' &&
-      turnTrace.steps.some((step) =>
-        step.nodeId === 'rp-output' &&
-        step.formatResults?.[0]?.status === 'error' &&
-        step.formatResults[0].preview === 'not json',
-      ),
-    'turn traces must attach node warnings and parse results to the relevant route step',
+    turnTrace.steps.every((step) => step.capture === 'run-report-only' && !step.promptPasses) &&
+      !!turnTrace.events?.some((event) => event.kind === 'warning' && event.message === 'Prompt slot fallback used.') &&
+      !!turnTrace.events?.some((event) => event.kind === 'format' && event.status === 'error' && event.preview === 'not json'),
+    'report-only traces must preserve events without reconstructing requests from final node state',
   );
   assertFixture(
     turnTrace.warnings?.length === 1 &&
       turnTraceCopyPayload([turnTrace]).range.fromTurn === 40 &&
-      turnTraceCopyPayload([turnTrace]).version === 5 &&
-      turnTraceCopyPayload([turnTrace]).privacy === 'memory-only' &&
-      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Text Input excerpt: showing the last') &&
-      !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Older context sentence 1 about party planning.') &&
-      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('Stored character image search is available') &&
-      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('First-pass plan:') &&
-      JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('img-1: Sarah mirror selfie') &&
-      !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('inputTokens') &&
-      !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('totalTokens') &&
-      !JSON.stringify(turnTraceCopyPayload([turnTrace])).includes('durationMs'),
-    'turn trace copy payloads must expose a compact memory-only range without token or timing stats',
+      turnTraceCopyPayload([turnTrace]).version === 6 &&
+      turnTraceCopyPayload([turnTrace]).privacy === 'memory-only',
+    'turn trace exports must identify their schema and selected range',
   );
 
   const inputDefinition = getRegisteredCoreNode('input');
