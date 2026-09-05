@@ -4,4 +4,4 @@ set -e
 npm run build
 npm run lint
 npm run check:unused
-npm run test
+npm run --silent test
