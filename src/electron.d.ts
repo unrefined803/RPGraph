@@ -29,12 +29,12 @@ declare global {
         connection: ConnectionPreset,
         onAbort?: (cancel: () => void) => void,
       ) => Promise<string[]>;
-      listLmStudioModels: (connection: ConnectionPreset) => Promise<LmStudioModelInfo[]>;
-      listLlamaCppModels: (connection: ConnectionPreset) => Promise<LlamaCppModelInfo[]>;
+      listLmStudioModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<LmStudioModelInfo[]>;
+      listLlamaCppModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<LlamaCppModelInfo[]>;
       loadLlamaCppModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
       isLlamaCppModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: LlamaCppModelInfo['status'] }>;
       unloadLlamaCppModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
-      listOpenRouterModels: (connection: ConnectionPreset) => Promise<OpenRouterModelInfo[]>;
+      listOpenRouterModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<OpenRouterModelInfo[]>;
       generateOpenRouterSpeech: (request: {
         connection: ConnectionPreset;
         input: string;
@@ -43,7 +43,7 @@ declare global {
         connection: ConnectionPreset;
         input: string;
       }, onChunk?: (base64PcmChunk: string) => void) => Promise<{ dataUrl: string; filename: string }>;
-      listGeminiModels: (connection: ConnectionPreset) => Promise<GeminiModelInfo[]>;
+      listGeminiModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<GeminiModelInfo[]>;
       loadLmStudioModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
         method?: 'rest' | 'cli' | 'already-loaded';
@@ -54,7 +54,7 @@ declare global {
         instanceIds: string[];
         method?: 'rest' | 'cli';
       }>;
-      listOllamaModels: (connection: ConnectionPreset) => Promise<OllamaModelInfo[]>;
+      listOllamaModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<OllamaModelInfo[]>;
       loadOllamaModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
       }>;

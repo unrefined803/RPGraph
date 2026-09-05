@@ -58,18 +58,18 @@ function abortableLlmInvoke(channel, request, onAbort) {
 contextBridge.exposeInMainWorld('rpgraph', {
   listModels: (connection, onAbort) =>
     abortableLlmInvoke('llm:list-models', { connection }, onAbort),
-  listLmStudioModels: (connection) =>
-    ipcRenderer.invoke('lmstudio:list-models', { connection }).then(throwIfRpgraphIpcError),
-  listLlamaCppModels: (connection) =>
-    ipcRenderer.invoke('llamacpp:list-models', { connection }).then(throwIfRpgraphIpcError),
+  listLmStudioModels: (connection, onAbort) =>
+    abortableLlmInvoke('lmstudio:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  listLlamaCppModels: (connection, onAbort) =>
+    abortableLlmInvoke('llamacpp:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   loadLlamaCppModel: (connection) =>
     ipcRenderer.invoke('llamacpp:load-model', { connection }),
   isLlamaCppModelLoaded: (connection) =>
     ipcRenderer.invoke('llamacpp:model-loaded', { connection }),
   unloadLlamaCppModels: (connection) =>
     ipcRenderer.invoke('llamacpp:unload-models', { connection }),
-  listOpenRouterModels: (connection) =>
-    ipcRenderer.invoke('openrouter:list-models', { connection }),
+  listOpenRouterModels: (connection, onAbort) =>
+    abortableLlmInvoke('openrouter:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   generateOpenRouterSpeech: (request, onChunk) => {
     const requestId = nextLlmRequestId();
     const channel = `openrouter:speech-chunk:${requestId}`;
@@ -88,16 +88,16 @@ contextBridge.exposeInMainWorld('rpgraph', {
       .invoke('gemini:generate-speech', { ...request, requestId })
       .finally(() => ipcRenderer.removeListener(channel, listener));
   },
-  listGeminiModels: (connection) =>
-    ipcRenderer.invoke('gemini:list-models', { connection }),
+  listGeminiModels: (connection, onAbort) =>
+    abortableLlmInvoke('gemini:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   loadLmStudioModel: (connection) =>
     ipcRenderer.invoke('lmstudio:load-model', { connection }),
   isLmStudioModelLoaded: (connection) =>
     ipcRenderer.invoke('lmstudio:model-loaded', { connection }),
   unloadLmStudioModels: (connection) =>
     ipcRenderer.invoke('lmstudio:unload-models', { connection }),
-  listOllamaModels: (connection) =>
-    ipcRenderer.invoke('ollama:list-models', { connection }).then(throwIfRpgraphIpcError),
+  listOllamaModels: (connection, onAbort) =>
+    abortableLlmInvoke('ollama:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   loadOllamaModel: (connection) =>
     ipcRenderer.invoke('ollama:load-model', { connection }),
   isOllamaModelLoaded: (connection) =>

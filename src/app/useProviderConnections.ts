@@ -68,7 +68,6 @@ import type {
   LlamaCppModelInfo,
   OllamaModelInfo,
   OpenRouterModelInfo,
-  ProviderConnectionCapabilities,
   ProviderConnectionHealth,
   WorkflowNode,
   WorkflowNodeData,
@@ -655,46 +654,28 @@ export function useProviderConnections({
     return connectionWithLlamaCppCapabilitiesForModels(connection, models);
   }
 
-  function applyDetectedConnectionCapabilities(
-    connection: ConnectionPreset,
-    capabilities: ProviderConnectionCapabilities,
-  ) {
-    if (
-      !isLmStudioConnection(connection) &&
-      !isLlamaCppConnection(connection) &&
-      !isOllamaConnection(connection) &&
-      !isOpenRouterConnection(connection) &&
-      !isGeminiConnection(connection)
-    ) {
-      return;
-    }
-    const vision = capabilities.vision === true;
-    setEditingConnection((current) =>
-      current.id === connection.id
-        ? isLmStudioConnection(current)
-          ? connectionWithLmStudioCapabilities(current)
-          : isLlamaCppConnection(current)
-            ? connectionWithLlamaCppCapabilities(current)
-          : isOllamaConnection(current)
-            ? connectionWithOllamaCapabilities(current)
-            : isOpenRouterConnection(current)
-              ? connectionWithOpenRouterCapabilities(current)
-              : connectionWithGeminiCapabilities(current)
-        : current,
-    );
-    setConnections((current) =>
-      current.map((entry) =>
-        entry.id !== connection.id
-          ? entry
-          : isOpenRouterConnection(entry)
-            ? connectionWithOpenRouterCapabilities(entry)
-            : isGeminiConnection(entry)
-              ? connectionWithGeminiCapabilities(entry)
-            : entry.vision !== vision
-              ? { ...entry, vision }
-              : entry,
-      ),
-    );
+  function connectionWithDetectedCapabilities(connection: ConnectionPreset): ConnectionPreset {
+    if (isLmStudioConnection(connection)) return connectionWithLmStudioCapabilities(connection);
+    if (isLlamaCppConnection(connection)) return connectionWithLlamaCppCapabilities(connection);
+    if (isOllamaConnection(connection)) return connectionWithOllamaCapabilities(connection);
+    if (isOpenRouterConnection(connection)) return connectionWithOpenRouterCapabilities(connection);
+    if (isGeminiConnection(connection)) return connectionWithGeminiCapabilities(connection);
+    return connection;
+  }
+
+  function applyDetectedConnectionCapabilities(connection: ConnectionPreset) {
+    // A model may have changed while the provider request was in flight.
+    // Resolve capabilities against each current selection, including saved presets.
+    const update = (current: ConnectionPreset) => {
+      if (current.id !== connection.id || current.baseUrl !== connection.baseUrl ||
+          llmProviderKind(current) !== llmProviderKind(connection)) return current;
+      const updated = connectionWithDetectedCapabilities(current);
+      return updated.vision === current.vision && updated.ttsVoice === current.ttsVoice
+        ? current
+        : updated;
+    };
+    setEditingConnection(update);
+    setConnections((current) => current.map(update));
   }
 
   async function checkProviderConnection(
@@ -759,10 +740,7 @@ export function useProviderConnections({
             current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
           );
         } else {
-          applyDetectedConnectionCapabilities(
-            detectedConnection,
-            lmStudioCapabilitiesForConnection(detectedConnection, modelDetails),
-          );
+          applyDetectedConnectionCapabilities(detectedConnection);
         }
         if (editingConnection.id === connection.id) {
           setAvailableConnectionModels(models);
@@ -795,10 +773,7 @@ export function useProviderConnections({
             current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
           );
         } else {
-          applyDetectedConnectionCapabilities(
-            detectedConnection,
-            llamaCppCapabilitiesForConnection(detectedConnection, modelDetails),
-          );
+          applyDetectedConnectionCapabilities(detectedConnection);
         }
         if (editingConnection.id === connection.id) {
           setAvailableConnectionModels(models);
@@ -832,10 +807,7 @@ export function useProviderConnections({
             current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
           );
         } else {
-          applyDetectedConnectionCapabilities(
-            detectedConnection,
-            ollamaCapabilitiesForConnection(detectedConnection, modelDetails),
-          );
+          applyDetectedConnectionCapabilities(detectedConnection);
         }
         if (editingConnection.id === connection.id) {
           setAvailableConnectionModels(models);
@@ -868,10 +840,7 @@ export function useProviderConnections({
             current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
           );
         } else {
-          applyDetectedConnectionCapabilities(
-            detectedConnection,
-            openRouterCapabilitiesForConnection(detectedConnection, modelDetails),
-          );
+          applyDetectedConnectionCapabilities(detectedConnection);
         }
         if (editingConnection.id === connection.id) {
           setAvailableConnectionModels(models);
@@ -912,10 +881,7 @@ export function useProviderConnections({
             current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
           );
         } else {
-          applyDetectedConnectionCapabilities(
-            detectedConnection,
-            geminiCapabilitiesForConnection(detectedConnection, modelDetails),
-          );
+          applyDetectedConnectionCapabilities(detectedConnection);
         }
         if (editingConnection.id === connection.id) {
           setAvailableConnectionModels(models);
@@ -2131,7 +2097,6 @@ export function useProviderConnections({
     setConnectionStatus(`Loading LM Studio model "${connection.model}" ...`);
     try {
       const result = await window.rpgraph.loadLmStudioModel(connection);
-      setEditingConnection(connection);
       setConnectionStatus(
         result.method === 'cli'
           ? `LM Studio load command sent for "${connection.model}".`
@@ -2157,7 +2122,6 @@ export function useProviderConnections({
     setConnectionStatus('Unloading LM Studio models ...');
     try {
       const result = await window.rpgraph.unloadLmStudioModels(connection);
-      setEditingConnection(connection);
       setConnectionStatus(
         result.method === 'cli'
           ? 'LM Studio unload all command sent.'
@@ -2189,7 +2153,6 @@ export function useProviderConnections({
     setConnectionStatus(`Loading Ollama model "${connection.model}" ...`);
     try {
       await window.rpgraph.loadOllamaModel(connection);
-      setEditingConnection(connection);
       setConnectionStatus(`Ollama loaded "${connection.model}".`);
     } catch (error) {
       setConnectionStatus(
@@ -2211,7 +2174,6 @@ export function useProviderConnections({
     setConnectionStatus('Unloading Ollama running models ...');
     try {
       const result = await window.rpgraph.unloadOllamaModels(connection);
-      setEditingConnection(connection);
       setConnectionStatus(
         result.unloadedCount === 0
           ? 'Ollama did not report any running models.'
@@ -2285,29 +2247,59 @@ export function useProviderConnections({
       return connection;
     }
 
+    if (signal?.aborted) throw new Error('The LLM request was cancelled.');
     let cleanupAbort: (() => void) | undefined;
+    const onAbort = (cancel: () => void) => {
+      if (!signal) return;
+      if (signal.aborted) {
+        cancel();
+        return;
+      }
+      signal.addEventListener('abort', cancel, { once: true });
+      cleanupAbort = () => signal.removeEventListener('abort', cancel);
+    };
     let models: string[];
     try {
-      models = await window.rpgraph.listModels(connection, (cancel) => {
-        if (signal) {
-          if (signal.aborted) {
-            cancel();
-            return;
-          }
-          signal.addEventListener('abort', cancel, { once: true });
-          cleanupAbort = () => signal.removeEventListener('abort', cancel);
-        }
-      });
+      if (isLmStudioConnection(connection)) {
+        const details = lmStudioLlmModels(await window.rpgraph.listLmStudioModels(connection, onAbort));
+        updateLmStudioModelCache(connection.id, details);
+        models = details.map((model) => model.id);
+      } else if (isLlamaCppConnection(connection)) {
+        const details = await window.rpgraph.listLlamaCppModels(connection, onAbort);
+        updateLlamaCppModelCache(connection.id, details);
+        models = details.map((model) => model.id);
+      } else if (isOllamaConnection(connection)) {
+        const details = await window.rpgraph.listOllamaModels(connection, onAbort);
+        updateOllamaModelCache(connection.id, details);
+        models = details.map((model) => model.id);
+      } else if (isOpenRouterConnection(connection)) {
+        const details = await window.rpgraph.listOpenRouterModels(connection, onAbort);
+        updateOpenRouterModelCache(connection.id, details);
+        models = details.map((model) => model.id);
+      } else if (isGeminiConnection(connection)) {
+        const details = await window.rpgraph.listGeminiModels(connection, onAbort);
+        updateGeminiModelCache(connection.id, details);
+        models = details.map((model) => model.id);
+      } else {
+        models = await window.rpgraph.listModels(connection, onAbort);
+      }
     } finally {
       cleanupAbort?.();
     }
+    if (signal?.aborted) throw new Error('The LLM request was cancelled.');
     if (!models[0]) {
       throw new Error('No model is configured for this provider.');
     }
 
-    const updated = { ...connection, model: models[0] };
+    const updated = connectionWithDetectedCapabilities({ ...connection, model: models[0] });
     setConnections((current) =>
-      current.map((entry) => (entry.id === updated.id ? updated : entry)),
+      current.map((entry) =>
+        entry.id === connection.id && !entry.model.trim() &&
+        entry.baseUrl === connection.baseUrl &&
+        llmProviderKind(entry) === llmProviderKind(connection)
+          ? connectionWithDetectedCapabilities({ ...entry, model: updated.model })
+          : entry,
+      ),
     );
     return updated;
   }

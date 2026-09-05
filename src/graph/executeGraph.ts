@@ -372,12 +372,18 @@ export async function executeGraph({
         .filter((connectionId): connectionId is string => !!connectionId),
     );
 
-  const activeLocalLlmConnections = (llmConnectionId?: string) => {
+  const activeLocalLlmConnections = async (llmConnectionId?: string) => {
     const activeConnectionIds = workflowConnectionIds();
     if (llmConnectionId) {
       activeConnectionIds.add(llmConnectionId);
     }
-    return connections.filter((connection) =>
+    const candidates = new Map(connections.map((connection) => [connection.id, connection]));
+    if (nodes.some((node) => isLlmNode(node.id) && node.data.connectionId === undefined)) {
+      const resolved = await graphLlm.resolveConnection(undefined, 'ComfyUI memory management', signal);
+      activeConnectionIds.add(resolved.id);
+      candidates.set(resolved.id, resolved);
+    }
+    return [...candidates.values()].filter((connection) =>
       activeConnectionIds.has(connection.id) &&
       isLocalProviderConnection(connection) &&
       (isLmStudioConnection(connection) || isOllamaConnection(connection) || isLlamaCppConnection(connection)),
@@ -386,10 +392,10 @@ export async function executeGraph({
 
   const unloadLocalLlmModelsBeforeComfy = async (
     warn: (message: string) => void,
-    llmConnectionId?: string,
+    localConnections: ConnectionPreset[],
   ) => {
     await Promise.all(
-      activeLocalLlmConnections(llmConnectionId)
+      localConnections
         .map(async (connection) => {
           try {
             if (isLmStudioConnection(connection)) {
@@ -467,10 +473,12 @@ export async function executeGraph({
 
     // With only API LLM providers in play, nothing competes with ComfyUI
     // for local VRAM, so its model can stay loaded across generations.
-    const manageModelMemory = (request.manageModelMemory ?? true) &&
-      activeLocalLlmConnections(request.llmConnectionId).length > 0;
+    const localConnections = (request.manageModelMemory ?? true)
+      ? await activeLocalLlmConnections(request.llmConnectionId)
+      : [];
+    const manageModelMemory = localConnections.length > 0;
     if (manageModelMemory) {
-      await unloadLocalLlmModelsBeforeComfy(warn, request.llmConnectionId);
+      await unloadLocalLlmModelsBeforeComfy(warn, localConnections);
     }
 
     const generationPrompt = prompt;
