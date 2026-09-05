@@ -236,6 +236,7 @@ export async function runActionAwarePrompt({
   streamsVisibleOutput,
   contributesToTokenCalibration,
   callLabel,
+  onDebug,
   random = Math.random,
 }: {
   node: WorkflowNode;
@@ -250,6 +251,7 @@ export async function runActionAwarePrompt({
   streamsVisibleOutput: boolean;
   contributesToTokenCalibration: boolean;
   callLabel: (actionReplayCount: number) => string;
+  onDebug?: (debug: PromptRunDebug) => void;
   random?: () => number;
 }) {
   // @step: markers split a prompt into an ordered chain of named passes. Every
@@ -325,6 +327,19 @@ export async function runActionAwarePrompt({
   const finalOutputActionTexts: string[] = [];
   const outputPasses: Array<{ label: string; text: string }> = [];
   const promptPasses: PromptPreviewPass[] = [];
+  const publishDebug = () => onDebug?.({
+    inputValue, promptBefore, promptAfter, combinedPrompt: '', generatedText: '',
+    promptPasses: [...promptPasses], outputPasses: [...outputPasses],
+    actionResults: [...actionResultTexts],
+  });
+  const recordPromptPass = (pass: PromptPreviewPass) => {
+    promptPasses.push(pass);
+    publishDebug();
+  };
+  const recordOutputPass = (pass: { label: string; text: string }) => {
+    outputPasses.push(pass);
+    publishDebug();
+  };
   const stepOutputInsertions = new Map<
     (typeof steps)[number],
     { before: Array<{ name: string; text: string }>; after: Array<{ name: string; text: string }> }
@@ -551,7 +566,7 @@ export async function runActionAwarePrompt({
       const passLabel = stepReplayCount
         ? `Step ${step.name} replay ${stepReplayCount}`
         : `Step ${step.name}`;
-      promptPasses.push({
+      recordPromptPass({
         label: passLabel,
         images: previewImagesForPass(stepImagePass),
         sections: [
@@ -592,7 +607,7 @@ export async function runActionAwarePrompt({
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
-      outputPasses.push({ label: `${passLabel} output`, text: stepOutput.text });
+      recordOutputPass({ label: `${passLabel} output`, text: stepOutput.text });
       const actionRequest = parsePromptActionRequest(stepOutput.text);
       if (!actionRequest) {
         stepText = stepOutput.text;
@@ -619,7 +634,7 @@ export async function runActionAwarePrompt({
         actionRequest.plan,
         stepImagePass.inputImageOffset + 1,
       );
-      promptPasses.push({
+      recordPromptPass({
         label: `Step ${step.name} action follow-up: ${actionConfig.title}`,
         images: previewImagesForPass(stepImagePass),
         sections: [
@@ -656,7 +671,7 @@ export async function runActionAwarePrompt({
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
-      outputPasses.push({
+      recordOutputPass({
         label: `Step ${step.name} action follow-up output: ${actionConfig.title}`,
         text: followUpOutput.text,
       });
@@ -744,7 +759,7 @@ export async function runActionAwarePrompt({
     const imagePass = currentImagePass();
     const textInputForPass = textInputForImagePass(inputValue, imagePass);
     const promptForPass = buildCombinedPrompt(textInputForPass);
-    promptPasses.push({
+    recordPromptPass({
       label: passLabel,
       images: previewImagesForPass(imagePass),
       sections: buildPromptSections(textInputForPass),
@@ -770,7 +785,7 @@ export async function runActionAwarePrompt({
       contributesToTokenCalibration,
       useConnectionSampling: true,
     });
-    outputPasses.push({
+    recordOutputPass({
       label: outputStepLabel
         ? `${passLabel} output`
         : actionReplay
@@ -793,7 +808,7 @@ export async function runActionAwarePrompt({
         socialAccountValidation.issues,
       );
       const correctedPrompt = buildCombinedPrompt(textInputForPass);
-      promptPasses.push({
+      recordPromptPass({
         label: 'Social account correction replay',
         images: imagePreviewItems([
           ...imagePass.actionImages.map((image) => ({ image, source: 'action' as const })),
@@ -819,7 +834,7 @@ export async function runActionAwarePrompt({
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
-      outputPasses.push({ label: 'Social account correction output', text: output.text });
+      recordOutputPass({ label: 'Social account correction output', text: output.text });
       socialAccountValidation = validateSocialMessengerAccounts({
         text: output.text,
         characters: socialCharacters,
@@ -909,7 +924,7 @@ export async function runActionAwarePrompt({
       const followUpTextInput = textInputForImagePass(inputValue, followUpImagePass);
       const promptBeforeForFollowUp = promptSectionValue(promptBefore);
       const followUpHistorySegments = cachedHistorySegments(followUpTextInput);
-      promptPasses.push({
+      recordPromptPass({
         label: `Action follow-up: ${actionConfig.title}`,
         images: previewImagesForPass(followUpImagePass),
         sections: [
@@ -954,7 +969,7 @@ export async function runActionAwarePrompt({
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
-      outputPasses.push({
+      recordOutputPass({
         label: `Action follow-up output: ${actionConfig.title}`,
         text: followUpOutput.text,
       });
@@ -1060,7 +1075,7 @@ export async function runActionAwarePrompt({
           }
         : undefined;
       const historySegments = cachedHistorySegments(commandTextInput);
-      promptPasses.push({
+      recordPromptPass({
         label: `Command: ${commandNames}`,
         images: previewImagesForPass(commandImagePass),
         sections: [
@@ -1091,7 +1106,7 @@ export async function runActionAwarePrompt({
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
-      outputPasses.push({ label: `Command output: ${commandNames}`, text: output.text });
+      recordOutputPass({ label: `Command output: ${commandNames}`, text: output.text });
       let commandSocialValidation = validateSocialMessengerAccounts({
         text: output.text,
         characters: socialCharacters,
@@ -1099,7 +1114,7 @@ export async function runActionAwarePrompt({
       });
       if (commandSocialValidation.issues.length > 0 && context.retryFormatErrorsEnabled) {
         const correction = socialMessageCorrectionContext(commandSocialValidation.issues);
-        promptPasses.push({
+        recordPromptPass({
           label: `Command correction: ${commandNames}`,
           images: previewImagesForPass(commandImagePass),
           sections: [
@@ -1138,7 +1153,7 @@ export async function runActionAwarePrompt({
           contributesToTokenCalibration,
           useConnectionSampling: true,
         });
-        outputPasses.push({
+        recordOutputPass({
           label: `Command correction output: ${commandNames}`,
           text: output.text,
         });
@@ -1213,7 +1228,7 @@ export async function runActionAwarePrompt({
     );
     const passLabel = `After-reply action: ${actionConfig.title}`;
     const historySegments = cachedHistorySegments(textInputForPass);
-    promptPasses.push({
+    recordPromptPass({
       label: passLabel,
       images: previewImagesForPass(afterReplyImagePass),
       sections: [
@@ -1253,7 +1268,7 @@ export async function runActionAwarePrompt({
       contributesToTokenCalibration,
       useConnectionSampling: true,
     });
-    outputPasses.push({ label: `${passLabel} output`, text: output.text });
+    recordOutputPass({ label: `${passLabel} output`, text: output.text });
     let actionCall = parsePromptActionCall(output.text);
     const captionCallMatchesRequiredState = () => {
       if (!captionState || !actionCall || actionCall.action !== 'updatePhoneImageCaption') {
@@ -1305,7 +1320,7 @@ export async function runActionAwarePrompt({
                 : `The current caption is: ${captionState?.currentCaption ?? '(none)'}`,
           ].join('\n');
       const correctionLabel = `${passLabel} correction`;
-      promptPasses.push({
+      recordPromptPass({
         label: correctionLabel,
         images: previewImagesForPass(afterReplyImagePass),
         sections: [
@@ -1334,7 +1349,7 @@ export async function runActionAwarePrompt({
         contributesToTokenCalibration,
         useConnectionSampling: true,
       });
-      outputPasses.push({ label: `${correctionLabel} output`, text: output.text });
+      recordOutputPass({ label: `${correctionLabel} output`, text: output.text });
       actionCall = parsePromptActionCall(output.text);
     }
     if (!actionCall || actionCall.action !== actionConfig.actionId || !captionCallMatchesRequiredState()) {

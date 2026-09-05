@@ -100,7 +100,7 @@ import {
   formatTimelineContext,
 } from './data-management/formatters';
 import {
-  compactDebugNode,
+  debugSnapshotNode,
   type DebugSnapshot,
   compactDebugValue,
   recentTurnDebugSummaries,
@@ -2493,6 +2493,7 @@ function App() {
   function clearCurrentSession() {
     clearTemporaryReferenceImages();
     clearTurnTraces();
+    lastRunDebugRef.current = null;
     messagesRef.current = [];
     setMessages([]);
     turnsRef.current = [];
@@ -2660,6 +2661,7 @@ function App() {
         : node,
     );
     clearTurnTraces();
+    lastRunDebugRef.current = null;
     setActiveWorkflowProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
     setActiveStorybookProtection('plain');
     commitHydratedWorkflow(
@@ -3270,42 +3272,44 @@ function App() {
         node.data.kind === undefined &&
         (node.data.nodeType === 'llm-prompt-switch' || node.data.nodeType === 'llm-prompt'),
     );
-    const textMetrics = new TextMetricsApi(activeTokenEstimateBytesPerToken);
     const promptSwitchDebug = promptDebugNodes.map((node) => ({
       id: node.id,
       nodeType: node.data.nodeType,
       label: node.data.label,
-      selectedOutputChannel: node.data.llmPromptSwitchSelectedOutputChannel,
-      selectedPromptSlot: node.data.llmPromptSwitchSelectedPromptSlot,
+      selectedOutputChannel: node.data.llmPromptSwitchDebug?.selectedOutputChannel,
+      selectedPromptSlot: node.data.llmPromptSwitchDebug?.selectedPromptSlot,
       runtimeDebug:
         node.data.nodeType === 'llm-prompt' ? node.data.llmPromptDebug : node.data.llmPromptSwitchDebug,
       preview: node.data.preview,
-      fullText: compactDebugValue(node.data.fullText, textMetrics),
+      fullText: node.data.fullText,
       generatedText: node.data.generatedText,
-      runtimePortValues: compactDebugValue(node.data.runtimePortValues, textMetrics),
+      runtimePortValues: node.data.runtimePortValues,
       runPrepared: node.data.runPrepared,
       runCompleted: node.data.runCompleted,
+      runActive: node.data.runActive,
+      runError: node.data.runError,
     }));
     const eventManagerDebug = currentEventManagerNode
       ? {
           id: currentEventManagerNode.id,
           label: currentEventManagerNode.data.label,
-          events: appointmentsFromEventEntities(currentEventEntities),
           eventEntities: currentEventEntities,
           preview: currentEventManagerNode.data.preview,
-          fullText: compactDebugValue(currentEventManagerNode.data.fullText, textMetrics),
+          fullText: currentEventManagerNode.data.fullText,
           status: currentEventManagerNode.data.eventStatus,
-          runtimePortValues: compactDebugValue(currentEventManagerNode.data.runtimePortValues, textMetrics),
+          runtimePortValues: currentEventManagerNode.data.runtimePortValues,
           runPrepared: currentEventManagerNode.data.runPrepared,
           runCompleted: currentEventManagerNode.data.runCompleted,
-          eventLastPrompt: compactDebugValue(currentEventManagerNode.data.eventLastPrompt, textMetrics),
+          runActive: currentEventManagerNode.data.runActive,
+          runError: currentEventManagerNode.data.runError,
+          eventLastPrompt: currentEventManagerNode.data.eventLastPrompt,
           eventLastResponse: currentEventManagerNode.data.eventLastResponse,
         }
       : {};
 
     return sanitizeDebugSnapshotValue({
       schema: 'rpgraph-debug-snapshot',
-      version: 1,
+      version: 2,
       createdAt: new Date().toISOString(),
       selectedSections: [],
       appState: {
@@ -3349,24 +3353,17 @@ function App() {
         displayLanguage,
         workflowVariables: workflowSettingsValuesRef.current,
       },
-      lastRun: lastRunDebugRef.current
-        ? {
-            ...lastRunDebugRef.current,
-            originalHistory: compactDebugValue(lastRunDebugRef.current.originalHistory, textMetrics),
-            translatedHistory: compactDebugValue(lastRunDebugRef.current.translatedHistory, textMetrics),
-          }
-        : {},
+      lastRun: lastRunDebugRef.current ?? {},
       recentTurns: recentTurnDebugSummaries(
         turnsRef.current,
         turnCheckpointsRef.current,
-        textMetrics,
         2,
       ),
       promptSwitch: {
         nodes: promptSwitchDebug,
       },
       eventManager: eventManagerDebug,
-      nodes: currentNodes.map((node) => compactDebugNode(node, textMetrics)),
+      nodes: currentNodes.map(debugSnapshotNode),
       edges: currentEdges,
       systemLog,
     }) as DebugSnapshot;
@@ -3480,7 +3477,7 @@ function App() {
     ];
     const textMetrics = new TextMetricsApi(activeTokenEstimateBytesPerToken);
     return sectionDefinitions.map((section) => {
-      const json = section.json ?? JSON.stringify(section.value, null, 2);
+      const json = section.json ?? JSON.stringify(compactDebugValue({ [section.id === 'system-log' ? 'systemLog' : 'data']: section.value }, textMetrics, true), null, 2);
       return {
         id: section.id,
         label: section.label,

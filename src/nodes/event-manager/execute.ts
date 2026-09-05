@@ -435,6 +435,8 @@ export async function executeEventManagerNode(node: WorkflowNode, context: Execu
   });
   let lastResponseText = '';
   const attemptEvents = async (attempt: number) => {
+    lastResponseText = '';
+    context.updateRuntimeData(node.id, { eventLastPrompt: prompt, eventLastResponse: '' });
     const completion = await context.llm.complete({
       connectionId: node.data.connectionId,
       nodeId: node.id,
@@ -447,6 +449,7 @@ export async function executeEventManagerNode(node: WorkflowNode, context: Execu
       temperature: attempt > 1 ? 0.5 : 0.1,
     });
     lastResponseText = completion.text;
+    context.updateRuntimeData(node.id, { eventLastResponse: completion.text });
     return { completion, response: parseResponse(completion.text, 'Event Manager') };
   };
   const maxAttempts = context.retryFormatErrorsEnabled ? 2 : 1;

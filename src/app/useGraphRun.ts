@@ -714,10 +714,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
     };
 
     clearAllRunActiveTimers();
+    lastRunDebugRef.current = null;
     const resetRunNodes = nodesRef.current.map((node) => ({
         ...node,
         data: {
           ...node.data,
+          ...(!node.data.runPrepared && (node.data.nodeType === 'llm-prompt' || node.data.nodeType === 'llm-prompt-switch')
+            ? { llmPromptDebug: undefined, llmPromptSwitchDebug: undefined, generatedText: '', fullText: '' }
+            : {}),
           runActive: false,
           runActiveStartedAtMs: undefined,
           llmActiveCallLabel: undefined,
@@ -1343,6 +1347,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const visibleInput = originalInput;
     const lastRpOutput = lastMessageText(historyMessages, 'output');
     lastRunDebugRef.current = {
+      runId,
+      startedAt: initialRunLlmReport.startedAt,
       turnMode,
       narratorAutoTurn,
       displayText,

@@ -82,7 +82,7 @@ import {
 import type { StorybookConversionResult } from '../storybook/conversion';
 import { formatContextValue } from '../data-management/formatters';
 import { TextMetricsApi } from '../llm/tokenMetrics';
-import { sanitizeDataUrls, sanitizeDataUrlsInText } from '../utils/sanitize';
+import { sanitizeDataUrls } from '../utils/sanitize';
 import { normalizeImageAttachment } from '../utils/imageNormalization';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { formatLogTimestamp } from '../utils/format';
@@ -90,7 +90,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { TurnTraceDialog } from './TurnTraceDialog';
 import { useBackdropDismiss } from './useBackdropDismiss';
 import type { TurnTrace } from '../app/turnTrace';
-import type { DebugSnapshot } from '../app/debugSnapshot';
+import { createDebugSnapshotCopy, type DebugSnapshot, type DebugSnapshotSectionKey } from '../app/debugSnapshot';
 import {
   llmPromptSwitchPromptAftersByOutput,
   llmPromptSwitchPromptBeforesByOutput,
@@ -3953,18 +3953,6 @@ type SystemLogDialogProps = {
   onCreateDebugSnapshot?: () => DebugSnapshot;
 };
 
-type DebugSnapshotSectionKey = keyof Pick<
-  DebugSnapshot,
-  | 'appState'
-  | 'lastRun'
-  | 'recentTurns'
-  | 'promptSwitch'
-  | 'eventManager'
-  | 'nodes'
-  | 'edges'
-  | 'systemLog'
->;
-
 type DebugSnapshotSectionDef = {
   id: string;
   label: string;
@@ -3988,52 +3976,6 @@ const debugSnapshotSectionDefs: DebugSnapshotSectionDef[] = [
   { id: 'system-log', label: 'System Log', snapshotKey: 'systemLog', defaultSelected: true },
 ];
 
-const compactSnapshotTextPreviewCharacters = 360;
-
-function compactSnapshotText(
-  text: string,
-  textMetrics: TextMetricsApi,
-  previewLength = compactSnapshotTextPreviewCharacters,
-) {
-  return {
-    characters: text.length,
-    estimatedTokens: textMetrics.measure(text).tokens,
-    preview: text.length > previewLength ? `${text.slice(0, previewLength)}...` : text,
-  };
-}
-
-function compactSnapshotCopyValue(value: unknown, textMetrics: TextMetricsApi, key = ''): unknown {
-  if (typeof value === 'string') {
-    const sanitized = sanitizeDataUrlsInText(value);
-    const alwaysSummarize = new Set([
-      'combinedPrompt',
-      'eventLastPrompt',
-      'eventLastResponse',
-      'fullText',
-      'generatedText',
-      'graphText',
-      'inputValue',
-      'originalHistory',
-      'promptAfter',
-      'translatedHistory',
-    ]);
-    return sanitized.length > 700 || alwaysSummarize.has(key)
-      ? compactSnapshotText(sanitized, textMetrics)
-      : sanitized;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => compactSnapshotCopyValue(entry, textMetrics));
-  }
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .filter(([entryKey]) => entryKey !== 'dataUrl')
-        .map(([entryKey, entryValue]) => [entryKey, compactSnapshotCopyValue(entryValue, textMetrics, entryKey)]),
-    );
-  }
-  return value;
-}
-
 export function SystemLogDialog({
   entries,
   counts,
@@ -4046,7 +3988,7 @@ export function SystemLogDialog({
   const [debugSnapshot, setDebugSnapshot] = useState<DebugSnapshot | null>(null);
   const [selectedDebugSections, setSelectedDebugSections] = useState<Record<string, boolean>>({});
   const [debugSnapshotToonEnabled, setDebugSnapshotToonEnabled] = useState(false);
-  const [debugSnapshotCompressed, setDebugSnapshotCompressed] = useState(false);
+  const [debugSnapshotCompressed, setDebugSnapshotCompressed] = useState(true);
   const [debugSnapshotPreviewOpen, setDebugSnapshotPreviewOpen] = useState(false);
   const [turnTraceOpen, setTurnTraceOpen] = useState(false);
   const [snapshotCopied, setSnapshotCopied] = useState(false);
@@ -4056,57 +3998,37 @@ export function SystemLogDialog({
     [estimatedTokenBytesPerToken],
   );
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
+  const selectedPayload = useMemo(() => debugSnapshot
+    ? createDebugSnapshotCopy(
+        debugSnapshot,
+        debugSnapshotSectionDefs.filter((section) => selectedDebugSections[section.id]),
+        textMetrics,
+        debugSnapshotCompressed,
+      )
+    : null,
+  [debugSnapshot, selectedDebugSections, textMetrics, debugSnapshotCompressed]);
+  const encodedPayload = useMemo(() => selectedPayload
+    ? debugSnapshotToonEnabled
+      ? formatContextValue(selectedPayload, 'toon')
+      : JSON.stringify(selectedPayload, null, 2)
+    : '',
+  [selectedPayload, debugSnapshotToonEnabled]);
   const debugSections = useMemo<DebugSnapshotSection[]>(() => {
-    if (!debugSnapshot) {
-      return [];
-    }
+    if (!debugSnapshot || !selectedPayload) return [];
     return debugSnapshotSectionDefs.map((def) => {
-      const copyValue = debugSnapshotCompressed
-        ? compactSnapshotCopyValue(debugSnapshot[def.snapshotKey], textMetrics)
-        : debugSnapshot[def.snapshotKey];
+      const copyValue = selectedDebugSections[def.id]
+        ? selectedPayload[def.snapshotKey]
+        : createDebugSnapshotCopy(debugSnapshot, [def], textMetrics, debugSnapshotCompressed)[def.snapshotKey];
       return {
         ...def,
         copyValue,
         tokenEstimate: estimateSnapshotTokens(copyValue, debugSnapshotToonEnabled, textMetrics),
       };
     });
-  }, [debugSnapshot, debugSnapshotCompressed, debugSnapshotToonEnabled, textMetrics]);
-  const selectedTokenTotal = debugSections.reduce(
-    (total, section) => total + (selectedDebugSections[section.id] ? section.tokenEstimate : 0),
-    0,
-  );
+  }, [debugSnapshot, selectedPayload, selectedDebugSections, debugSnapshotCompressed, debugSnapshotToonEnabled, textMetrics]);
+  const selectedTokenTotal = textMetrics.measure(encodedPayload).tokens;
   const selectedSnapshotSections = () =>
     debugSections.filter((section) => selectedDebugSections[section.id]);
-  const selectedSnapshotPayload = (selectedSections = selectedSnapshotSections()): DebugSnapshot => {
-    if (!debugSnapshot) {
-      throw new Error('No debug snapshot is open.');
-    }
-    const selectedSectionIds = selectedSections.map((section) => section.id);
-    const payload: DebugSnapshot = {
-      schema: debugSnapshot.schema,
-      version: debugSnapshot.version,
-      createdAt: new Date().toISOString(),
-      compression: debugSnapshotCompressed
-        ? {
-            mode: 'compact-debug-copy',
-            textPreviewCharacters: compactSnapshotTextPreviewCharacters,
-          }
-        : undefined,
-      selectedSections: selectedSectionIds,
-      appState: {},
-      lastRun: {},
-      recentTurns: [],
-      promptSwitch: {},
-      eventManager: {},
-      nodes: [],
-      edges: [],
-      systemLog: [],
-    };
-    selectedSections.forEach((section) => {
-      (payload as Record<string, unknown>)[section.snapshotKey] = section.copyValue;
-    });
-    return payload;
-  };
   const snapshotPreviewSections = useMemo(() => {
     if (!debugSnapshotPreviewOpen) {
       return [];
@@ -4149,10 +4071,6 @@ export function SystemLogDialog({
     if (!debugSnapshot) {
       return;
     }
-    const payload = selectedSnapshotPayload();
-    const encodedPayload = debugSnapshotToonEnabled
-      ? formatContextValue(payload, 'toon')
-      : JSON.stringify(payload, null, 2);
     void copyTextToClipboard(encodedPayload)
       .then(() => {
         setSnapshotCopied(true);
@@ -4252,7 +4170,7 @@ export function SystemLogDialog({
               <div className="debug-snapshot-header">
                 <div>
                   <h3>Debug Snapshot</h3>
-                  <p>Selected total ~{selectedTokenTotal.toLocaleString()} tokens</p>
+                  <p>Selected export ~{selectedTokenTotal.toLocaleString()} tokens. Repeated text is included once. Long text and lists are shortened.</p>
                 </div>
                 <div className="debug-snapshot-options">
                   <div className="debug-format-tabs" role="tablist" aria-label="Debug Snapshot encoding">
@@ -4326,7 +4244,7 @@ export function SystemLogDialog({
                 >
                   View Selected
                 </button>
-                <button className="close-button primary" type="button" onClick={copySelectedSnapshot}>
+                <button className="close-button primary" type="button" onClick={copySelectedSnapshot} disabled={selectedSnapshotSections().length === 0}>
                   {snapshotCopied ? 'Copied' : 'Copy Selected'}
                 </button>
               </div>

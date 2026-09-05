@@ -196,6 +196,8 @@ async function executeHistoryOutputs(node: WorkflowNode, context: ExecuteContext
       });
       let lastResponseText = '';
       const attemptRpTime = async (attempt: number) => {
+        lastResponseText = '';
+        context.updateRuntimeData(node.id, { historyLastPrompt: prompt, historyLastResponse: '' });
         const completion = await context.llm.complete({
           connectionId: node.data.connectionId,
           nodeId: node.id,

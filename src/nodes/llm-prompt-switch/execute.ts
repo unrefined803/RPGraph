@@ -54,6 +54,11 @@ async function resolveInput(node: WorkflowNode, context: ExecuteContext, targetH
 }
 
 async function runPromptSwitch(node: WorkflowNode, context: ExecuteContext) {
+  context.updateRuntimeData(node.id, {
+    llmPromptSwitchDebug: undefined,
+    generatedText: '',
+    fullText: '',
+  });
   const [inputValue, outputChannelValue, promptSlotValue] = await Promise.all([
     resolveInput(node, context, promptSwitchTextHandle),
     resolveInput(node, context, promptSwitchOutputChannelHandle),
@@ -94,6 +99,12 @@ async function runPromptSwitch(node: WorkflowNode, context: ExecuteContext) {
   const combinedPrompt = [promptBefore.trim(), inputValue, promptAfter.trim()]
     .filter(Boolean)
     .join('\n\n');
+  // Preserve current routing and input diagnostics even if image resolution or the LLM fails.
+  context.updateRuntimeData(node.id, {
+    llmPromptSwitchDebug: {
+      inputValue, promptBefore, promptAfter, combinedPrompt, generatedText: '', ...selectionDebug,
+    },
+  });
   if (!inputValue.trim()) {
     context.updateRuntimeData(node.id, {
       preview: 'Skipped: no text input',
@@ -148,6 +159,9 @@ async function runPromptSwitch(node: WorkflowNode, context: ExecuteContext) {
     commandConfigs: promptCommandConfigs(node.data.llmPromptCommands),
     streamsVisibleOutput,
     contributesToTokenCalibration: true,
+    onDebug: (debug) => context.updateRuntimeData(node.id, {
+      llmPromptSwitchDebug: { ...debug, ...selectionDebug },
+    }),
     callLabel: (actionReplayCount) =>
       `${outputTitle} / ${promptTitle}${actionReplayCount ? ` / Action replay ${actionReplayCount}` : ''}`,
   });

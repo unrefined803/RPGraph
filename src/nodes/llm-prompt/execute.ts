@@ -22,6 +22,11 @@ export async function executeLlmPromptNode({
   context: ExecuteContext;
   streamsVisibleOutput: boolean;
 }) {
+  context.updateRuntimeData(node.id, {
+    llmPromptDebug: undefined,
+    generatedText: '',
+    fullText: '',
+  });
   // A connection on either override handle bypasses (but never clears) the
   // authored field text: the received string is fed into the same operation.
   // Presence of the edge activates the override even when it resolves to ''.
@@ -51,6 +56,10 @@ export async function executeLlmPromptNode({
   const combinedPrompt = [promptBefore.trim(), inputValue, promptAfter.trim()]
     .filter(Boolean)
     .join('\n\n');
+  // Record the current request before any provider call can fail.
+  context.updateRuntimeData(node.id, {
+    llmPromptDebug: { inputValue, promptBefore, promptAfter, combinedPrompt, generatedText: '' },
+  });
   if (!inputValue.trim()) {
     context.updateRuntimeData(node.id, {
       preview: 'Skipped: no text input',
@@ -83,6 +92,7 @@ export async function executeLlmPromptNode({
     commandConfigs: promptCommandConfigs(node.data.llmPromptCommands),
     streamsVisibleOutput,
     contributesToTokenCalibration: true,
+    onDebug: (debug) => context.updateRuntimeData(node.id, { llmPromptDebug: debug }),
     callLabel: (actionReplayCount) =>
       `Generate${actionReplayCount ? ` / Action replay ${actionReplayCount}` : ''}`,
   });
