@@ -260,6 +260,7 @@ export type TurnCheckpoint = {
   nodeSnapshots: Record<string, {
     before: Record<string, unknown>;
     after: Record<string, unknown>;
+    clearedFields?: { before: string[]; after: string[] };
   }>;
   eventSnapshots?: Record<string, {
     before?: EventEntity;

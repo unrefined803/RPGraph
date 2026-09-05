@@ -1,5 +1,6 @@
 import type { WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
+import { customNodeMemo } from '../runScratch';
 import {
   customNodeImageInputMetadata,
   customNodeImageInputsFromGraph,
@@ -9,13 +10,25 @@ import { customNodeDefinition } from './model';
 import { coercePortValue, runCustomNodeDefinition } from './runtime';
 
 export async function executeCustomNode(node: WorkflowNode, context: ExecuteContext): Promise<string> {
+  const memo = customNodeMemo(context);
+  let pending = memo.get(node.id);
+  if (!pending) {
+    pending = Promise.resolve().then(() => executeCustomNodeOutputs(node, context));
+    memo.set(node.id, pending);
+  }
+  const outputs = await pending;
+  const definition = customNodeDefinition(node.data.customNodeDefinition);
+  return outputs[context.sourceHandle ?? definition.outputs[0]?.id ?? 'default'] ?? '';
+}
+
+async function executeCustomNodeOutputs(node: WorkflowNode, context: ExecuteContext): Promise<Record<string, string>> {
   const definition = customNodeDefinition(node.data.customNodeDefinition);
   if (!definition.code.trim()) {
     context.updateRuntimeData(node.id, {
       preview: 'Custom Node has no runtime code yet',
       customNodeRuntimeDisplays: {},
     });
-    return '';
+    return {};
   }
 
   const inputs: Record<string, unknown> = {};
@@ -60,7 +73,6 @@ export async function executeCustomNode(node: WorkflowNode, context: ExecuteCont
     },
   });
   const sourceHandle = context.sourceHandle ?? definition.outputs[0]?.id ?? 'default';
-  const outputValue = result.outputs[sourceHandle] ?? '';
 
   context.updateRuntimeData(node.id, {
     preview: definition.outputs.length
@@ -75,5 +87,5 @@ export async function executeCustomNode(node: WorkflowNode, context: ExecuteCont
   Object.entries(result.outputs).forEach(([handle, value]) => {
     context.updateRuntimePortValue(node.id, 'output', handle, value);
   });
-  return outputValue;
+  return result.outputs;
 }

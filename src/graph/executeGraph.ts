@@ -257,7 +257,15 @@ export async function executeGraph({
       ),
     ),
   );
-  const resolving = new Set<string>();
+  // Track active waits, including dependencies reached after an await or from
+  // another parallel branch, before reusing an in-flight result.
+  const dependencies = new Map<string, Set<string>>();
+  const dependsOn = (key: string, target: string, visited = new Set<string>()): boolean => {
+    if (key === target) return true;
+    if (visited.has(key)) return false;
+    visited.add(key);
+    return [...(dependencies.get(key) ?? [])].some((next) => dependsOn(next, target, visited));
+  };
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   // nodeById is a run-start snapshot; storybook JSON written during this run
   // must be read from here or a second image generation drops the first one.
@@ -568,9 +576,14 @@ export async function executeGraph({
   };
   runScratch.set(runScratchKeys.createComfyImageForCharacter, createComfyImageForCharacter);
 
+  // Custom outputs share one execution, so their waits share one identity too.
+  const dependencyKey = (nodeId: string, handle?: string | null) =>
+    `${nodeId}:${nodeById.get(nodeId)?.data.nodeType === 'custom' ? 'default' : handle ?? 'default'}`;
+
   const executeNode = async (nodeId: string, sourceHandle?: string | null): Promise<string> => {
     throwIfAborted(signal);
     const executionKey = `${nodeId}:${sourceHandle ?? 'default'}`;
+    const waitKey = dependencyKey(nodeId, sourceHandle);
     const memoized = memo.get(executionKey);
     if (memoized) {
       return memoized;
@@ -579,11 +592,6 @@ export async function executeGraph({
       trackRunCompletion && !(postOutputRun && node.data.kind === undefined && node.data.nodeType === 'input');
 
     const promise = (async () => {
-      if (resolving.has(executionKey)) {
-        throw new Error('The graph contains a cycle.');
-      }
-      resolving.add(executionKey);
-
       try {
         throwIfAborted(signal);
         let traceNodeInfo: ExecuteTraceNodeInfo | undefined;
@@ -666,7 +674,19 @@ export async function executeGraph({
               .map((connection) => connection.id),
             providerHealthById,
             executeInput: async (sourceNodeId, sourceHandle) => {
-              const inputValue = await executeNode(sourceNodeId, sourceHandle);
+              const inputKey = dependencyKey(sourceNodeId, sourceHandle);
+              if (dependsOn(inputKey, waitKey)) {
+                throw new Error('The graph contains a cycle.');
+              }
+              const waits = dependencies.get(waitKey) ?? new Set<string>();
+              dependencies.set(waitKey, waits);
+              waits.add(inputKey);
+              let inputValue: string;
+              try {
+                inputValue = await executeNode(sourceNodeId, sourceHandle);
+              } finally {
+                waits.delete(inputKey);
+              }
               edges
                 .filter(
                   (edge) =>
@@ -762,7 +782,7 @@ export async function executeGraph({
             llmActiveCallStartedAtMs: undefined,
           });
         }
-        resolving.delete(executionKey);
+        dependencies.delete(waitKey);
       }
     })();
 

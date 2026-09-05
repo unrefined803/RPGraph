@@ -434,7 +434,13 @@ function isSnapshotPairRecord(value: unknown) {
   return (
     isRecord(value) &&
     Object.values(value).every(
-      (entry) => isRecord(entry) && isRecord(entry.before) && isRecord(entry.after),
+      (entry) => isRecord(entry) && isRecord(entry.before) && isRecord(entry.after) && (
+        entry.clearedFields === undefined || (
+          isRecord(entry.clearedFields) &&
+          Array.isArray(entry.clearedFields.before) && entry.clearedFields.before.every((field) => typeof field === 'string') &&
+          Array.isArray(entry.clearedFields.after) && entry.clearedFields.after.every((field) => typeof field === 'string')
+        )
+      ),
     )
   );
 }

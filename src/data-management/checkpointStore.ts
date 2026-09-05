@@ -1,4 +1,5 @@
 import type { TurnRecord, RpAppointment, WorkflowNode } from '../types';
+import { customNodeDefinition } from '../nodes/custom-node/model';
 import { DATA_MANAGEMENT_BUDGETS } from './budgets';
 import {
   appointmentEntitiesFromAppointments,
@@ -8,6 +9,11 @@ import { turnTimelineEntryIds } from './timelineStore';
 import type { NodeDataPolicyByType, TurnCheckpoint } from './types';
 
 export const coreNodeDataPolicies: NodeDataPolicyByType = {
+  custom: {
+    persisted: ['customNodeDefinition'],
+    runtime: ['preview', 'customNodeRuntimeDisplays'],
+    checkpoint: ['customNodeDefinition'],
+  },
   history: {
     persisted: ['historyTimeTrackingEnabled', 'historyLastTurnsCount', 'historyRpTimePrompt'],
     runtime: ['preview', 'fullText', 'historyCurrentRpDateTime', 'historyTimeStatus'],
@@ -75,10 +81,15 @@ function valuesEqual(left: unknown, right: unknown) {
 }
 
 function patchFromCheckpoint(
-  snapshot: { before: Record<string, unknown>; after: Record<string, unknown> },
+  snapshot: TurnCheckpoint['nodeSnapshots'][string],
   target: 'before' | 'after',
 ) {
-  return structuredClone(snapshot[target]);
+  // Older JSON checkpoints omitted undefined values. The other side still
+  // identifies fields that must be cleared when restoring this side.
+  const fields = new Set([...Object.keys(snapshot.before), ...Object.keys(snapshot.after)]);
+  const patch = Object.fromEntries([...fields].map((field) => [field, structuredClone(snapshot[target][field])]));
+  snapshot.clearedFields?.[target].forEach((field) => { patch[field] = undefined; });
+  return patch;
 }
 
 function runtimeFieldsForNode(node: WorkflowNode): readonly string[] {
@@ -119,7 +130,13 @@ function createTurnCheckpoint(
     const before = pickNodeFields(beforeNode, policy.checkpoint);
     const after = pickNodeFields(afterNode, policy.checkpoint);
     if (!valuesEqual(before, after)) {
-      nodeSnapshots[afterNode.id] = { before, after };
+      const clearedFields = {
+        before: Object.keys(before).filter((field) => before[field] === undefined),
+        after: Object.keys(after).filter((field) => after[field] === undefined),
+      };
+      clearedFields.before.forEach((field) => { delete before[field]; });
+      clearedFields.after.forEach((field) => { delete after[field]; });
+      nodeSnapshots[afterNode.id] = { before, after, clearedFields };
     }
     if (afterNode.data.nodeType === 'event-manager') {
       const beforeAppointments = Array.isArray(beforeNode.data.eventAppointments)
@@ -213,6 +230,13 @@ export function applyTurnCheckpointToNodes(
     }
     const nodeSnapshot = checkpoint.nodeSnapshots[node.id];
     const nodePatch = nodeSnapshot ? patchFromCheckpoint(nodeSnapshot, target) : {};
+    if (node.data.nodeType === 'custom' && node.data.customNodeDefinition && nodePatch.customNodeDefinition) {
+      // Undo runtime state without replacing code or controls edited since the run.
+      nodePatch.customNodeDefinition = {
+        ...node.data.customNodeDefinition,
+        state: customNodeDefinition(nodePatch.customNodeDefinition).state,
+      };
+    }
     const eventPatch = node.data.nodeType === 'event-manager' && checkpoint.eventSnapshots
       ? {
           eventAppointments: applyEventSnapshotsToAppointments(

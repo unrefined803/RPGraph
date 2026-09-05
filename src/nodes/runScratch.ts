@@ -43,6 +43,7 @@ export type CreateComfyImageForCharacterRunner = (
 ) => Promise<CreateComfyImageForCharacterResult>;
 
 export const runScratchKeys = {
+  customNodeMemo: 'customNodeMemo',
   characterStatsMemo: 'characterStatsMemo',
   historyMemo: 'historyMemo',
   llmDecisionMemo: 'llmDecisionMemo',
@@ -90,4 +91,8 @@ export function createComfyImageForCharacter(
     throw new Error('Create character phone image action is not available for this graph run.');
   }
   return (runner as CreateComfyImageForCharacterRunner)(request, context.reportWarning);
+}
+
+export function customNodeMemo(context: ExecuteContext) {
+  return scratchMap<Promise<Record<string, string>>>(context, runScratchKeys.customNodeMemo);
 }

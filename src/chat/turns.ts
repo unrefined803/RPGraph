@@ -14,6 +14,9 @@ const commonRuntimeFields = [
 ] as const;
 
 const runtimeFieldsByNodeType: Record<string, readonly string[]> = {
+  'rp-storybook': [...commonRuntimeFields, 'storybookJson', 'storybookStatus'],
+  'rp-storybook-editor': [...commonRuntimeFields, 'storybookJson', 'storybookStatus'],
+  custom: [...commonRuntimeFields, 'customNodeDefinition', 'customNodeRuntimeDisplays'],
   history: [
     ...commonRuntimeFields,
     'historyCurrentRpDateTime',

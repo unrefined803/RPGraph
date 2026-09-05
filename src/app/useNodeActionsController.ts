@@ -836,6 +836,10 @@ export function useNodeActionsController({
           nodeSnapshots: {
             ...checkpoint.nodeSnapshots,
             [nodeId]: {
+              clearedFields: {
+                before: ['historyCurrentRpDateTime', 'historyLastPrompt', 'historyLastResponse'],
+                after: ['historyCurrentRpDateTime', 'historyLastPrompt', 'historyLastResponse'],
+              },
               before: patchSnapshot(nodeSnapshot.before),
               after: patchSnapshot(nodeSnapshot.after),
             },

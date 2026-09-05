@@ -163,7 +163,7 @@ function checkpointWithConvertedStorybooks(
         return [nodeId, snapshot];
       }
       changed = true;
-      return [nodeId, { before, after }];
+      return [nodeId, { ...snapshot, before, after }];
     }),
   );
   return changed ? { ...checkpoint, nodeSnapshots } : checkpoint;
