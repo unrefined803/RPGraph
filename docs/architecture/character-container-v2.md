@@ -1,7 +1,152 @@
 # Character Container V2 — Implementation Plan
 
-Status: Schema foundations and local app profile/publication integration implemented. Global NPC discovery remains a separate, unimplemented phase.
+Status: Schema foundations, local app integration and the pure registry contract are implemented. NPC directory discovery is the next phase.
 Character Container V2 and Storybook V3 use independent version numbers.
+Last reconciled with the implementation: 2026-09-07.
+
+## Progress at a glance
+
+**Current position: local character containers and the registry contract are
+implemented. Next: Stage 2 — directory loading, validation and desktop controls.**
+
+Legend: ✅ implemented · ➡️ next · ⬜ planned. Checked items describe implemented
+code; manual interface validation is listed separately.
+
+### ✅ Completed foundation
+
+- [x] Shared Character Container V2 payload and Storybook V3 migration.
+- [x] Stable character/account IDs and character-owned gallery references.
+- [x] Shared app profile management in Character Setup, both Storybook editors
+  and phone apps; automatic Fotogram provisioning and optional other accounts.
+- [x] Running-story identity locks and exact recipient resolution.
+- [x] Character export with profiles/gallery, optionally including own posts
+  without private game history.
+- [x] Local initial-post projection and repeatable character import without
+  duplicate seeds.
+- [x] Profile persistence regression coverage for Storybook, Opening History
+  and RP saves; unit tests, build and lint passed in the implementation phase.
+- [x] Fresh-context handoff and ordered next-stage plan documented.
+- [ ] Manual interface validation by the user — completion not yet recorded.
+
+### ➡️ Next implementation phase: global NPC library
+
+- [x] Stage 1 — registry, ownership and identity contract.
+- [ ] **➡️ Stage 2 — NPC directory loading, validation and desktop controls. START HERE.**
+- [ ] Stage 3 — saved NPC snapshots and media stability.
+- [ ] Stage 4 — shared app discovery, real MatchMe photos, posts and cross-app
+  conversation context (MatchMe → Fotogram).
+- [ ] Stage 5 — Storybook promotion, duplicate suppression and full round trip.
+
+### ⬜ After the library works
+
+- [ ] Stage 6 — shared container creator and explicit demo conversion.
+- [ ] Stage 7 — replace fresh dummy discovery and finish regression coverage.
+
+The detailed work and acceptance gates are in section 12. When a stage passes
+its gate, check it here, update its status in section 12 and mark the first
+remaining stage as next.
+
+## 0. Fresh-context handoff — read this first
+
+This document is the implementation handoff for the next development phase.
+The current request updates the plan only; it does not authorize implementing
+all future stages during this documentation task. When implementation is
+requested, follow the ordered stages in section 12. The status sections describe
+existing code; sections marked planned describe work that is still required.
+
+### User goal and agreed behavior
+
+A user exports a complete character, optionally with their own published posts,
+and places the plain JSON container in the dedicated NPC directory. On startup
+or explicit reload, the program discovers that character and makes its configured
+accounts, gallery and starting posts available to the appropriate phone apps.
+The same character is the person behind all of those accounts.
+
+If the same character is imported into the active Storybook, the Storybook
+instance takes precedence over the library instance in every app. Suppress only
+the duplicate library representation, not the character's effective account.
+This applies to every imported character, not only the currently selected player.
+Use existing `character.id` and `apps.*.accountId`; do not add another character
+ID or deduplicate by display name. Different IDs with the same name are different
+people. Importing a library character must preserve its established interactions.
+
+The central acceptance scenario is:
+
+1. Place a container with MatchMe and Fotogram profiles, gallery photos and
+   Fotogram `initialPosts` into the NPC directory.
+2. Open a story that does not contain this character. Find the character in
+   MatchMe, establish a match through the app, and start a conversation.
+3. Ask for their Fotogram account. The replying character knows its own actual
+   username and public profile metadata and returns the configured handle.
+4. Search that handle in Fotogram and find the same person's profile and posts.
+5. Import the container into the Storybook. There remains one effective person,
+   one account per app and one copy of each post; matches and conversations remain.
+6. Save/reload the RP, then remove or change the external file. Previously saved
+   interactions and referenced media remain valid through the saved NPC snapshot.
+
+Username search is the first required cross-app handoff. Copyable profile links,
+a link parser or clickable deep links are a later enhancement: no link scheme
+has been agreed or implemented. Do not invent links in the LLM prompt and assume
+the UI can already open them.
+
+Having an account does not automatically establish a phone contact, a follow,
+a match or acquaintance. Preserve app-specific discovery and access rules.
+Fotogram is provisioned for authored characters under the current normalization;
+other accounts remain optional. A character container can carry phone settings,
+but its existence does not grant every player a phone conversation with it.
+
+### Confirmed implementation gaps and compatibility traps
+
+- `src/characters/character.ts`, `profiles.ts`, `publications.ts` and
+  `messageIdentity.ts` already provide shared payload, profile updates, seed
+  projection/export and WhatsUp identity foundations. Extend these rather than
+  introducing a second container schema or a second ongoing post store.
+- `storyCharactersFromNodes` remains Storybook-only and returns node-scoped
+  runtime IDs alongside stable `sourceId`. The pure registry accepts explicit
+  legacy aliases, but Storybook/library/snapshot producers are not wired to it;
+  current MatchMe aliases are not yet a complete global identity migration.
+- `datingAccounts.ts` still adds `datingNpcProfiles`; Fotogram/OnlyFriends still
+  combine `dummySocialPosts` with real posts and use independent bundled catalogs.
+  These are not yet NPC containers.
+- MatchMe's profile editor shows gallery photos, but the discovery card in
+  `PhoneDatingScreen.tsx` still displays placeholder images. Wire real photo
+  references for discovered profiles as part of app integration.
+- `matchMeContext` currently supplies selected public dating fields and the
+  recipient's private personality. It does not supply a shared character context
+  containing that recipient's other configured app profiles. Therefore knowing
+  and sharing the correct Fotogram handle is an explicit remaining task.
+- `postsWithInitialContent` currently projects immutable seeds and deduplicates
+  against timeline posts by app/post ID. It does not persist an applied-seed
+  ledger or deletion tombstones. Preserve this behavior initially; design revision
+  pinning and any future seed deletion before claiming reload-safe deletions.
+- Post IDs currently use a per-game per-app sequence. Independently exported
+  characters can therefore contain the same post ID. Before global aggregation,
+  define ownership-scoped lookup (account ID + seed ID) or another explicit,
+  reversible mapping. Preserve source seed IDs; never silently let one person's
+  post hide another person's post. Keep existing message-command keys.
+- Legacy MatchMe decisions/history markers still exist in the existing profile
+  compatibility structure; active matches and newer DMs are timeline records.
+  Do not copy this legacy private state into public library containers or create
+  another independent authority while adding NPC snapshots.
+- The existing payload validator is TypeScript. Electron metadata recognition is
+  not equivalent to full payload validation. Establish a reusable validation
+  boundary for scanning and the creation CLI, with shared acceptance fixtures.
+- `resources/` and `bilder/` were absent when this handoff was checked. Earlier
+  references to supplied image groups are historical, not confirmed inputs.
+  Locate actual supplied images before authoring containers; preserve originals.
+
+### Validation baseline and scope
+
+The preceding implementation phase completed unit tests, build and lint
+successfully. Existing regression coverage includes
+`src/characters/{migration,profiles}.test.ts`, `src/chat/{socialIdentity,matchMe}.test.ts`
+and `src/workflow/validation.fixtures.test.ts`. This documentation update does not
+rerun or imply new UI validation. The user performs interface testing.
+
+Read `AGENTS.md` first in a fresh context. Keep repository content in English and
+communicate with the user in German. Do not start the app, Electron, a browser or
+UI/E2E tests without an explicit request. Do not commit unless requested.
+
 
 ## Implemented foundation and next steps
 
@@ -110,16 +255,17 @@ command or automatic recipient creation is introduced.
 
 ### Deferred global NPC phase
 
-The built-in/user-data registry, directory scanner, automatic external-container
-app discovery, NPC promotion/precedence and pinned library revisions are **not
-implemented**. Existing demo catalogs remain. No NPC directory is created or
-scanned by this phase. The full target design below continues to describe that
-future work, including global identity aliases, packaging and image-backed demo
-containers. Interactive validation remains with the user.
+The pure effective registry and its precedence/collision contract are implemented.
+Directory scanning, automatic external-container app discovery, NPC promotion
+integration and pinned library revisions are **not implemented**. Existing demo
+catalogs remain. No NPC directory is created or scanned by this phase. The full
+target design below continues to describe that future work, including registry
+wiring, packaging and image-backed demo containers. Interactive validation
+remains with the user.
 
 The sections below describe the full target design, including later phases;
 field names in examples are proposals where not implemented above.
-Prepared: 2026-09-06.
+Originally prepared: 2026-09-06. Updated handoff: 2026-09-07.
 
 ## 1. Objective and binding decisions
 
@@ -138,7 +284,7 @@ containing separate image files or ZIP packages:
   for a password or attempting decryption.**
 - Recognize containers by their format, supported version and validated payload,
   not by the character name or a special filename suffix.
-- Bump the character payload version from `1.0.0` to `2.0.0`.
+- Keep the implemented character payload version at `2.0.0`; do not repeat the completed V1 migration or bump it for this work.
 - Built-in containers and containers placed in a dedicated user-data directory
   are globally available across Storybooks without manual Storybook import.
 - App account configuration determines whether a global NPC appears in MatchMe,
@@ -155,7 +301,7 @@ containing separate image files or ZIP packages:
   legacy demo entries while preserving identities needed by old saves.
 
 This document is self-contained for continuation. The implementation status above
-distinguishes the completed schema foundation from the planned scanner and registry.
+distinguishes the completed schema/registry foundation from the planned scanner.
 
 ## 2. Existing implementation and useful entry points
 
@@ -166,7 +312,7 @@ Paths below are relative to the repository root.
 | Character schema | `src/nodes/rp-storybook/model.ts`: `RpStorybookCharacter` has `id`, `name`, `description`, `personality`, `speechStyle`, `role`, gallery images, profile image/crop, phone, social, banking, voice and Comfy configuration. |
 | Current versions | `src/storybook/formatVersions.json`: Storybook `3.0.0`, character container `2.0.0`, encrypted character envelope `1.0`. These versions are independent. |
 | Card serialization/import | `src/storybook/characterCard.ts`: `RpCharacterCard`, `rpCharacterCardForCharacter`, `planCharacterCardImport`. Cards wrap one character as `{ format: "rpgraph-character", version, character }`. V2 import replaces by stable ID and rejects image/account/post conflicts. Name replacement remains limited to legacy cards. |
-| Storybook actions | `src/storybook/useStorybookActions.ts`: `exportStorybookCharacter`, `importCharacterCard`, `beginCharacterCardImport`, `applyCharacterCardToNode`. Plain and encrypted paths already exist. Some paths explicitly require `rp-storybook`; support the manual `rp-storybook-editor` source too. |
+| Storybook actions | `src/storybook/useStorybookActions.ts`: `exportStorybookCharacter`, `importCharacterCard`, `beginCharacterCardImport`, `applyCharacterCardToNode`. Plain and encrypted paths already exist. Character import/export and profile management are wired to both Storybook editors. Audit remaining save/history source checks when extending global runtime integration. |
 | Electron recognition | `electron/characterCardFormat.cjs`: plain/encrypted metadata and version checks. Current metadata checks are not a substitute for full V2 payload/reference validation. |
 | Storage and IPC | `electron/main.cjs`: `charactersDirectory()` is `app.getPath('userData')/characters`; `character:list` and `character:save` list/save exported cards. Default export names currently end in `.rpgraph-character.json`. |
 | Renderer bridge | `electron/preload.cjs`, `src/electron.d.ts`: character listing and saving APIs. |
@@ -179,9 +325,9 @@ Paths below are relative to the repository root.
 | Runtime wiring | `src/App.tsx`, `src/app/{useGraphRun,useRoleplayPanelRuntime}.ts`, `src/chat/useTurnRecordState.ts`, `src/graph/executeGraph.ts`, `src/nodes/shared/promptRun.ts`. |
 | Packaging | `electron-builder.yml`: built-in NPC resources are not currently listed. Add explicit development and packaged resource resolution. |
 
-The preceding MatchMe work is already present in the workspace and may be
-uncommitted. Preserve it. The `bilder/` directory contains user-provided material;
-do not delete, rename or overwrite originals during the infrastructure phase.
+Preserve existing work and inspect `git status` before implementation. The earlier
+`bilder/` reference is historical; no such directory was present at the latest
+handoff check. Do not assume image files or their grouping are available.
 
 ## 3. Naming and format compatibility
 
@@ -199,11 +345,12 @@ The encrypted envelope remains `rpgraph-encrypted-character`. Keep its envelope
 version at `1.0` if encryption structure does not change; the encrypted payload
 version becomes `2.0.0`. Never bump envelope versions just to match payloads.
 
-Storybook and RP-save schemas need their own compatible version changes for new
-fields. Determine those from their existing version rules during implementation;
-keep Storybook at V3.0 or silently save new incompatible session fields
-under an unchanged schema version. Update shared version manifests, validators,
-fixtures and documentation together.
+Storybook and the RP-Storybook node stay at `3.0.0`; Character Container stays at
+`2.0.0`. These are binding version constraints for this development phase.
+Encrypted envelopes remain unchanged. NPC snapshot additions must follow the
+existing RP-save compatibility policy: inspect session validators and versions
+before choosing the additive representation, and document any required RP-save
+migration separately. Do not silently serialize incompatible session changes.
 
 ## 4. Canonical character data
 
@@ -395,10 +542,12 @@ Fresh stories see the latest global containers. Different stories do not share
 matches or conversation histories. Restoring a checkpoint restores the relevant
 story state; free history text cannot create accounts or matches.
 
-Prepared initial posts should become structured starting-state records once per
-character/seed ID in that story. Track seed application, including deliberate
-removal, so reload does not recreate posts the user removed. NPC profile
-availability and feed visibility/contact rules are separate concerns.
+Current initial posts are immutable character-owned projections, not inserted
+into the timeline. Extend their source to effective registry entries and pinned
+snapshots without duplicating live posts. If later revision/deletion support
+requires seed application records, key them by stable account and seed ID and
+retain tombstones so reload cannot recreate removed posts. NPC profile
+availability and feed visibility/contact rules remain separate concerns.
 
 ## 9. Storybook import, export and NPC promotion
 
@@ -449,9 +598,10 @@ A future request such as “create a character from these two images” should r
 in an authored specification plus invocation of this service, not another
 hard-coded app dataset. The service itself needs no LLM connection.
 
-After the core migration is validated, inspect `bilder/` and group images by the
-user's character grouping: reportedly three male groups and four female groups,
-with varying image counts. Verify the actual filenames before assigning groups.
+After the registry/app/save integration is validated, locate the images actually
+provided for this task and confirm their grouping. An earlier plan mentioned
+`bilder/` and seven groups, but that directory is not currently available; do not
+invent files or treat that old grouping as current input.
 Write fictional names, adult ages, biographies, personalities and speech styles
 suited to the intended characters; do not present inferred occupations or
 personalities as facts about the photographed people. Keep source files intact.
@@ -485,44 +635,172 @@ New paths below are proposed; existing paths are integration targets.
 | `scripts/create-character-container.mjs`, `package.json` | Creation CLI using the shared service; no independent schema. |
 | `resources/npc-characters/`, `electron-builder.yml` | Built-in V2 plain JSON containers and packaging. |
 
-## 12. Implementation phases and acceptance gates
+## 12. Ordered next implementation stages
 
-### Phase A — schema and compatibility
+These stages replace the earlier A–E ordering. Schema migration and local
+profile/export integration are already implemented. Do not start by deleting
+dummy data or converting every demo: first make one complete test container work
+through registry, apps, conversation context, promotion and saves.
 
-Foundation implemented; see the status above for limitations. Define V2 fields, canonical IDs, app shapes and migration rules. Implement one
-validator and V1 adapters; preserve non-app character settings. Add fixtures for
-plain/encrypted V1/V2 and unsupported newer payloads. Version Storybook/session
-changes deliberately. Gate: V1 round trips preserve data and V2 validates every
-image/account reference.
+### Stage 1 — registry, ownership and identity contract
 
-### Phase B — discovery and registry
+**Status: ✅ IMPLEMENTED.**
 
-Implement both roots, IPC, reload, precedence, diagnostics and playable/NPC
-selection. Gate: arbitrary JSON filenames work; encrypted files are ignored
-without prompts; same-name people stay distinct; same-source duplicate IDs are
-reported; user overrides built-in and Storybook overrides both.
+Build a pure, testable effective registry in `src/characters/` with provenance
+and diagnostics. Keep stable character identity separate from node-scoped legacy
+runtime aliases. Resolve all apps from the same effective character instance.
 
-### Phase C — Storybook and media integration
+For fresh discovery, precedence is Storybook > user library > bundled library.
+For an established game with pinned participants, use Storybook > saved NPC
+snapshot > current user library > bundled library. Duplicate stable IDs within
+one source tier are conflicts; same-name different-ID characters remain distinct.
+A Storybook override replaces the whole character, including disabled/absent
+optional accounts. Library entries are not player-selectable merely because an
+export contains `playable: true`.
 
-Unify editors, import/export, image resolution and promotion. Gate: the six-step
-round trip in section 9 works with all photos, stable accounts and one effective
-character. Both Storybook node types are supported.
+Decide account, image and seed collision handling here, before wiring feeds.
+Character IDs, account IDs and seed IDs from the source must survive promotion.
+Do not replace current IDs with names or regenerate them on file/node renames.
 
-### Phase D — applications and runtime
+Gate: unit tests cover precedence, whole-character overrides, duplicates,
+account lookup ambiguity and one effective account after Storybook import.
 
-Replace MatchMe and social catalog projections; create real initial posts;
-resolve direct and normal RP context from full NPC cards. Gate: profiles appear
-only in configured apps, messages require real accounts and active MatchMe
-matches, account switching cannot redirect replies, and image IDs resolve across
-apps without copies. Global NPCs are not automatically player-selectable.
+Implemented in `src/characters/registry.ts`. Same-tier duplicate character IDs
+are quarantined at that tier, allowing a valid lower-tier definition to remain.
+Effective account-ID and per-app username collisions are diagnosed and ambiguous
+lookups remain unresolved. Images use `(characterId, imageId)` ownership and
+starting posts use `(accountId, seedId)` ownership, so equal local IDs belonging
+to different characters cannot hide one another. Explicit legacy aliases remain
+separate from canonical IDs; a whole-character override does not restore a
+removed or replaced account from a lower tier.
 
-### Phase E — saves, rollback and demo replacement
+### Stage 2 — directory loading, validation and desktop controls
 
-Persist pinned NPC data/media and compatibility aliases; verify checkpoints,
-reset and export/import. Create image-backed demo containers only after this
-foundation is ready. Gate: removing/editing source files cannot break existing
-saved conversations; fresh stories see new library data; retired demos do not
-reappear in fresh discovery or get reassigned to new faces.
+**Status: ➡️ NEXT — not started.**
+
+Implement the two proposed roots in section 5, narrow Electron IPC, startup load
+and explicit reload. Add Open NPC Folder and concise library diagnostics.
+Validate actual V2 payloads and image references, not just metadata. Ignore
+unrelated JSON and encrypted containers without asking for a password. Keep
+manual encrypted import and the existing character export directory unchanged.
+
+Provide explicit development/packaged resource resolution and packaging rules;
+no scanner or directory is currently implemented. Automatic filesystem watching
+and recursive discovery are outside the initial scope.
+
+Gate: arbitrary `.json` filenames work, bad files do not prevent other loads,
+reload is idempotent, encrypted files are skipped, and packaged path resolution
+has non-UI tests. Prepare only a minimal fictional fixture for integration.
+
+### Stage 3 — NPC snapshots and media stability before live interactions
+
+**Status: ⬜ PLANNED — not started.**
+
+Define a saved participant snapshot containing the used character revision and
+necessary gallery data, keyed by stable identity. Use existing session media
+pooling; do not create a parallel conversation/post/like database. Capture a
+participant when persistent activity first depends on it, including a saved
+connection/match or interaction with a seeded post.
+
+Wire serialization, load, Opening History where it retains NPC-dependent
+activity, checkpoints and reset. Explain what Save Storybook retains if its
+Opening History refers to NPCs: the history must be self-contained without
+turning every library entry into a playable Storybook character. Preserve the
+existing ownership of live activity. Resolve historical references from pinned
+snapshots if the source file disappears or changes.
+
+Gate: save/reload and rollback preserve IDs, gallery references, profiles and
+activity after external deletion/change. Independent stories do not share live
+state. Do not expose persistent NPC conversations before this gate is satisfied.
+
+### Stage 4 — shared app discovery, photos, posts and conversation context
+
+**Status: ⬜ PLANNED — not started.**
+
+Connect social directory/search, Fotogram/OnlyFriends feeds, MatchMe discovery,
+phone identity and image lookup to the effective registry. Preserve existing
+follow/contact/match requirements; availability is not an automatic relationship.
+Render real MatchMe gallery photos instead of discovery placeholders. Use the
+existing `initialPosts` pipeline with ownership-safe IDs and no duplicate live
+post storage.
+
+Build a recipient-bound character context from the effective/pinned container:
+private characterization of the replying character plus that character's actual
+public profiles, usernames and relevant gallery/post descriptions. Include only
+needed context; do not disclose another participant's private characterization,
+DMs or unrelated history. Account metadata is data, never prompt instructions.
+Missing optional accounts must be described as absent, not invented.
+
+Preserve existing messenger commands, exact recipient resolution and bound
+MatchMe replies. Implement username search across library accounts so the central
+MatchMe-to-Fotogram scenario in section 0 works. Profile deep links remain later
+work unless separately requested.
+
+Gate: one fixture character works across MatchMe and Fotogram with real photos,
+correctly shared username, searchable profile, usable startposts and validated
+message delivery. Unknown or ambiguous recipients cannot be silently assigned.
+
+### Stage 5 — Storybook promotion and duplicate suppression end to end
+
+**Status: ⬜ PLANNED — not started.**
+
+Expose Add to Storybook through the existing import planning/commit services.
+Both Storybook node types must preserve the same character, accounts and media.
+The Storybook instance takes precedence immediately in all apps; do not retain a
+second discovered NPC or restart matches, posts or conversations. Test existing
+legacy aliases and account-bound direct replies during promotion and reload.
+
+Gate: complete the six-step user scenario in section 0, including source removal,
+repeated import, save/reload and no duplication. The currently selected player
+must not determine whether a library duplicate is suppressed.
+
+### Stage 6 — shared container creator and explicit demo conversion
+
+**Status: ⬜ PLANNED — not started.**
+
+After the preceding gates, add the creation service/CLI proposed in section 10.
+Accept authored character metadata, per-app profiles, local image inputs and
+optional initial publications. Convert supported input pictures to the gallery's
+actual supported format, embed each referenced image once, assign IDs only for
+new identities and validate the completed container through the shared boundary.
+Producing another revision must retain existing IDs. Do not infer a full factual
+identity from an image; character biographies/personality are authored fiction.
+
+Inventory `dummyPosts.ts`, social catalogs, bundled media imports and
+`datingNpcProfiles`. Create an explicit author/account/post mapping. Never merge
+unrelated demo people merely because they have similar names. Separate newly
+authored characters from legacy identities whose saved history must survive.
+Do not export synthetic engagement, DMs, matches or private game history as
+public starting content. Document unsupported cosmetic fields instead of
+silently claiming a lossless conversion of every dummy field.
+
+Gate: generated and converted containers pass the same validator/import tests,
+round-trip with stable references, and produce the expected profiles/posts.
+The CLI and UI export must not implement different container formats.
+
+### Stage 7 — replace fresh dummy discovery and finish regression coverage
+
+**Status: ⬜ PLANNED — not started.**
+
+Package the converted containers and remove corresponding hard-coded discovery
+sources only after equivalent registry-backed content is verified. Retain any
+explicit compatibility data needed for older saves; do not assign new faces to
+old identities. New installations must not show both converted and old demos.
+
+Run the full non-UI suite, build and lint. Report the real directories, reload,
+creation/import workflow, save compatibility and remaining manual checks.
+Leave interface and packaged-app interaction testing to the user. Broader NPC
+library editing, filesystem watching, deep links and source-revision update UI
+are subsequent work, not implicit prerequisites for the first usable library.
+
+### Suggested next implementation request
+
+For a fresh context, ask the agent to read `AGENTS.md` and this document, then
+implement stages 2–5 with one minimal fixture. Require the section 0 acceptance
+scenario, unit tests, build and lint; prohibit launching the app/browser/E2E.
+Keep versions unchanged as specified in section 3. Do not mass-convert or remove
+demos until the registry/app/save/promotion gates pass. Stages 6–7 can then form
+a separate task using the verified infrastructure and actual supplied images.
 
 ## 13. Validation and completion checklist
 
