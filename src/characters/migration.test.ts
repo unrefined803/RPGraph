@@ -87,10 +87,13 @@ describe('Character Container and Storybook V3', () => {
     expect(payload.apps.fotogram.enabled).toBe(false);
   });
 
-  it.each(['workflow.default_v26.json', 'workflow.default_planning_v26.json'])('ships %s in V3', (filename) => {
+  it.each(['workflow.default_v27.json', 'workflow.default_planning_v27.json'])('ships %s in V3', (filename) => {
     const source = JSON.parse(readFileSync(filename, 'utf8'));
     expect(migrateV3Document(source).migratedDocuments).toBe(0);
-    expect(JSON.stringify(source)).toContain('3.0.0');
+    const node = source.nodes.find((entry: { data: { nodeType: string } }) => entry.data.nodeType === 'rp-storybook');
+    expect(node.data.nodeDataVersion).toBe('3.0.0');
+    expect(node.data.label).toBe('RP Storybook V3');
+    expect(JSON.parse(node.data.storybookJson).version).toBe('3.0.0');
   });
 });
 

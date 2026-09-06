@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildUpgradedNode, storybookOrSingletonUpgradeConflict } from './nodeUpgrade';
+import { buildUpgradedNode, edgesAfterNodeUpgrade, storybookOrSingletonUpgradeConflict } from './nodeUpgrade';
 import type { UpgradeNodeContext } from './nodeUpgrade';
 import { getRegisteredCoreNode } from './registry';
 import { currentCoreNodeVersions } from './nodeVersion';
@@ -187,4 +187,32 @@ it('upgrades the Storybook node version while retaining its legacy document for 
   const node = upgradedNode(incompatibleNode('rp-storybook', { storybookJson }), { createContext, hydrateContext });
   expect(node.data.nodeDataVersion).toBe('3.0.0');
   expect(node.data.storybookJson).toBe(storybookJson);
+});
+
+
+it('refreshes old Storybook default labels while preserving custom labels', () => {
+  for (const [label, expected] of [['RP Storybook V2', 'RP Storybook V3'], ['My story', 'My story']]) {
+    const node = upgradedNode(incompatibleNode('rp-storybook', { label }), { createContext, hydrateContext });
+    expect(node.data.label).toBe(expected);
+  }
+});
+
+it('restores matching connections, rejects missing or mismatched ports, and waits for other upgrades', () => {
+  const source = upgradedNode(incompatibleNode('load-text'), { createContext, hydrateContext });
+  const target = getRegisteredCoreNode('text-preview')!.create(createContext);
+  const imageTarget = getRegisteredCoreNode('fixed-number')!.create(createContext);
+  const pending = incompatibleNode('text-preview', {}, { id: 'pending' });
+  const edge = { id: 'valid', source: source.id, target: target.id, sourceHandle: 'default', targetHandle: 'default' };
+  const edges = [edge,
+    { ...edge, id: 'removed-port', sourceHandle: 'removed' },
+    { ...edge, id: 'no-input', target: imageTarget.id },
+    { ...edge, id: 'pending', target: pending.id },
+  ];
+  expect(edgesAfterNodeUpgrade([source, target, imageTarget, pending], edges, source.id).map((entry) => entry.id))
+    .toEqual(['valid', 'pending']);
+  const prompt = getRegisteredCoreNode('llm-prompt')!.create(createContext);
+  const wrongType = { ...edge, id: 'wrong-type', target: prompt.id, targetHandle: 'image' };
+  expect(edgesAfterNodeUpgrade([source, prompt], [wrongType], source.id)).toEqual([]);
+  const upgradedTarget = upgradedNode(pending, { createContext, hydrateContext });
+  expect(edgesAfterNodeUpgrade([source, upgradedTarget], [edges[3]], upgradedTarget.id)).toEqual([edges[3]]);
 });

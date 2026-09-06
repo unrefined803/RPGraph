@@ -1,3 +1,4 @@
+import { workflowSnapshotFromGraph } from './workflowSnapshot';
 import { describe, it, expect } from 'vitest';
 import { hydrateLoadedWorkflow } from './workflowHydration';
 import { currentWorkflowFormatVersion } from '../workflow/version';
@@ -113,4 +114,18 @@ it.each(['2.1.0', '3.0.0'])('loads a Storybook node at %s without converting its
     expect(nodes[0].data.kind).toBeUndefined();
     expect(nodes[0].data.storybookJson).toBe(storybookJson);
   }
+});
+
+
+it('preserves connections through loading and saving incompatible nodes', () => {
+  const data = { nodeType: 'load-text', nodeDataVersion: '0.0.1', label: 'Old', description: '', preview: '' };
+  const workflow = { ...workflowWith([
+    { id: 'source', type: 'workflow', position: { x: 0, y: 0 }, data },
+    { id: 'target', type: 'workflow', position: { x: 200, y: 0 }, data: { ...data, nodeType: 'text-preview' } },
+  ]), edges: [{ id: 'wire', source: 'source', target: 'target', sourceHandle: 'default', targetHandle: 'default' }] };
+  const loaded = hydrateLoadedWorkflow({ workflow, defaultConnectionId: 'default', connectionIds: new Set(['default']) });
+  expect(loaded.edges).toHaveLength(1);
+  const saved = workflowSnapshotFromGraph({ nodes: loaded.nodes, edges: loaded.edges });
+  const reloaded = hydrateLoadedWorkflow({ workflow: saved, defaultConnectionId: 'default', connectionIds: new Set(['default']) });
+  expect(reloaded.edges[0]).toMatchObject(workflow.edges[0]);
 });

@@ -14,7 +14,7 @@ import {
 import { isStorybookSourceNode } from '../storybook/runtime';
 import type { TurnCheckpoint } from '../data-management/types';
 import type { MessageRecord, TurnRecord, WorkflowFile, WorkflowNode, WorkflowNodeData } from '../types';
-import { hydrateNodeData, removeEdgesConnectedToIncompatibleNodes } from '../workflow/persistence';
+import { hydrateNodeData } from '../workflow/persistence';
 import { isWorkflowFile } from '../workflow/validation';
 import { migrateStoredWorkflow } from '../workflow/migrations';
 
@@ -86,7 +86,7 @@ export function hydrateLoadedWorkflow({
   }
 
   const loadedEdges = keepLatestInputEdges(
-    removeEdgesConnectedToIncompatibleNodes(loadedNodes, migratedWorkflow.edges)
+    migratedWorkflow.edges
       .map((edge) => withWorkflowConnectionColor({ ...edge, selected: false })),
   );
 

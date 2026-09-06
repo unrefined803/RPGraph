@@ -37,7 +37,7 @@ export function IncompatibleCoreNodeCard({ id, data }: NodeProps<WorkflowNode>) 
       </button>
       <p className="incompatible-core-node-hint">
         Recreates the current version and copies matching settings. Some settings may
-        reset, and you will need to reconnect its wires.
+        reset. Saved connections are restored when their ports still match.
       </p>
     </div>
   );

@@ -1,3 +1,5 @@
+import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
+import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
 import { useMatchMeMigration } from './chat/useMatchMeMigration';
 import { datingAccountId } from './chat/datingAccounts';
 import { matchMeState, matchMeMessageAllowed, migrateDatingHistory, matchMeLikePolicy, matchMeMatchHistoryText } from './chat/matchMe';
@@ -2906,12 +2908,14 @@ function App() {
       return;
     }
     const upgraded = result.node;
-    commitNodes(
-      nodesRef.current.map((candidate) => (candidate.id === nodeId ? upgraded : candidate)),
-    );
+    const nextNodes = nodesRef.current.map((candidate) => candidate.id === nodeId ? upgraded : candidate);
+    const nextEdges = edgesAfterNodeUpgrade(nextNodes, edgesRef.current, nodeId);
+    const removedCount = edgesRef.current.length - nextEdges.length;
+    commitNodes(nextNodes);
+    commitEdges(nextEdges);
     notifySystem(
       'info',
-      `Upgraded ${node.data.nodeType} to v${upgraded.data.nodeDataVersion}. Reconnect its wires — edges to incompatible nodes were removed on load.`,
+      `Upgraded ${node.data.nodeType} to v${upgraded.data.nodeDataVersion}. Compatible connections were retained.${removedCount ? ` Removed ${removedCount} connection(s) whose ports no longer match.` : ''}`,
     );
   }
 
@@ -4888,7 +4892,7 @@ function App() {
     settingsValueDefinitions,
   ]);
   const renderedEdges = useMemo(
-    () => withSourceNodeStatusConnectionColors(edges, nodeViewNodes),
+    () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(nodeViewNodes, edges), nodeViewNodes),
     [edges, nodeViewNodes],
   );
   const workflowCapabilityIndicators = useWorkflowCapabilities({
