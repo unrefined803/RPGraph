@@ -22,7 +22,8 @@ describe('storybook format metadata', () => {
     assert.equal(storybookVersionStatus('1.0.0'), 'legacy');
     assert.equal(storybookVersionStatus('999.0.0'), 'newer');
     assert.equal(storybookVersionStatus('2.1.0'), 'legacy');
-    assert.equal(storybookVersionStatus('2.2.1'), 'newer');
+    assert.equal(storybookVersionStatus('2.2.1'), 'legacy');
+    assert.equal(storybookVersionStatus('3.0.1'), 'newer');
     assert.equal(storybookVersionStatus('not-a-version'), 'invalid');
     assert.equal(storybookVersionStatus(undefined), 'invalid');
   });

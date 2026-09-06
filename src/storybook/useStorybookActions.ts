@@ -1,8 +1,10 @@
+import { prepareV3Document, confirmV3Migration } from '../characters/migration';
 import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { StorybookCreatorMessage } from '../components/AppDialogs';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import {
   emptyRpStorybook,
+  storybookNeedsUpdate,
   parseRpStorybookAssistantResult,
   parseRpStorybookJson,
   rpStorybookEditPrompt,
@@ -246,7 +248,25 @@ export function useStorybookActions({
     return true;
   }
 
+  function ensureCurrentStorybook(nodeId: string): boolean {
+    const node = nodesRef.current.find((entry) => entry.id === nodeId);
+    if (storybookNeedsUpdate(node?.data.storybookJson)) {
+      try {
+        const updated = prepareV3Document(JSON.parse(node!.data.storybookJson!), confirmV3Migration);
+        const error = commitStorybookToNode(nodeId, parseRpStorybookJson(JSON.stringify(updated)), {
+          storybookStatus: 'Updated to Storybook 3.0.0 with Character Containers 2.0.0.',
+        });
+        if (error) return false;
+      } catch (error) {
+        updateRuntimeNode(nodeId, { storybookStatus: errorMessage(error) });
+        return false;
+      }
+    }
+    return true;
+  }
+
   function openStorybookCreator(nodeId: string) {
+    if (!ensureCurrentStorybook(nodeId)) return;
     setStorybookCreatorNodeId(nodeId);
     if (
       storybookCreatorMessageNodeIdRef.current !== nodeId &&
@@ -654,7 +674,7 @@ export function useStorybookActions({
 
   async function exportStorybookCharacter(nodeId: string, characterId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
+    if (!node || !isStorybookSourceNode(node)) {
       return;
     }
     try {
@@ -676,7 +696,7 @@ export function useStorybookActions({
 
   async function importCharacterCard(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
+    if (!node || !isStorybookSourceNode(node)) {
       return;
     }
     try {
@@ -787,13 +807,13 @@ export function useStorybookActions({
 
   function applyCharacterCardToNode(nodeId: string, cardValue: unknown, fileName: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
-      throw new Error('Add an RP Storybook V2 node before importing a character card.');
+    if (!node || !isStorybookSourceNode(node)) {
+      throw new Error('Add an RP Storybook V3 node before importing a character card.');
     }
     const currentStorybook = node.data.storybookJson
       ? parseRpStorybookJson(node.data.storybookJson)
       : emptyRpStorybook;
-    const plan = planCharacterCardImport(cardValue, currentStorybook);
+    const plan = planCharacterCardImport(prepareV3Document(cardValue, confirmV3Migration), currentStorybook);
     const label = plan.character.name || plan.character.id;
     const action = plan.replacesIndex !== undefined ? 'Replaced' : 'Added';
     const commitError = commitStorybookToNode(nodeId, plan.storybook, {
@@ -843,7 +863,7 @@ export function useStorybookActions({
 
   async function importSillyTavernCharacter(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
+    if (!node || !isStorybookSourceNode(node)) {
       return;
     }
 
@@ -981,6 +1001,7 @@ export function useStorybookActions({
     storybookCreatorMessages,
     storybookCreatorSubmitting,
     openStorybookCreator,
+    ensureCurrentStorybook,
     submitStorybookCreatorMessage,
     updateStorybook,
     commitStorybookToNode,

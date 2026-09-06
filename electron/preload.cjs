@@ -152,6 +152,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
     }
   },
   listFiles: () => ipcRenderer.invoke('file:list'),
+  confirmV3Migration: (summary) => ipcRenderer.sendSync('character:confirm-v3-migration', summary),
   listCharacterFiles: () => ipcRenderer.invoke('character:list'),
   saveNamedWorkflow: (name, workflow, protection, password, overwrite = false) =>
     ipcRenderer.invoke('workflow:save-named', { name, workflow, protection, password, overwrite }),

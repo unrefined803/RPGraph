@@ -98,3 +98,19 @@ describe('hydrateLoadedWorkflow node sizing', () => {
     expect(writer.style).toEqual({ width: 300, height: 200 });
   });
 });
+
+it.each(['2.1.0', '3.0.0'])('loads a Storybook node at %s without converting its embedded document', (version) => {
+  const storybookJson = JSON.stringify({ format: 'rpgraph-storybook', version: '2.2.0', title: 'Old book', characters: [] });
+  const { nodes } = hydrateLoadedWorkflow({
+    workflow: workflowWith([{ id: 'book', type: 'workflow', position: { x: 0, y: 0 },
+      data: { nodeType: 'rp-storybook', nodeDataVersion: version, label: 'Storybook', description: '', preview: '', storybookJson } }]),
+    defaultConnectionId: 'default', connectionIds: new Set(['default']),
+  });
+  if (version === '2.1.0') {
+    expect(nodes[0].data.kind).toBe('incompatible-core-node');
+    expect(nodes[0].data.storedData?.storybookJson).toBe(storybookJson);
+  } else {
+    expect(nodes[0].data.kind).toBeUndefined();
+    expect(nodes[0].data.storybookJson).toBe(storybookJson);
+  }
+});

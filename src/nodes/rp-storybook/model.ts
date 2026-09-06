@@ -1,3 +1,4 @@
+import { normalizeCharacterApps, socialFromCharacterApps, characterPayload, type Character } from '../../characters/character';
 import { normalizeDatingProfile, type DatingProfile } from '../../chat/datingProfile';
 import type { MessageRecord, RpAppointment, TurnRecord } from '../../types';
 import type { TurnCheckpoint } from '../../data-management/types';
@@ -80,20 +81,7 @@ export type RpStorybookCharacterSocial = {
   onlyfriendsUsername: string;
 };
 
-export type RpStorybookCharacter = {
-  id: string;
-  name: string;
-  description: string;
-  personality: string;
-  speechStyle: string;
-  role: string;
-  comfyConfig?: RpStorybookCharacterComfyConfig;
-  voiceConfig?: RpStorybookCharacterVoiceConfig;
-  profileImage?: RpStorybookCharacterProfileImage;
-  phoneSettings?: RpStorybookCharacterPhoneSettings;
-  banking?: RpStorybookCharacterBanking;
-  social?: RpStorybookCharacterSocial;
-} & RpStorybookCharacterImageOwner;
+export type RpStorybookCharacter = Character;
 
 export type RpStorybookPhoneContactBlock = {
   owner: string;
@@ -105,7 +93,7 @@ export type RpStorybookImageDescriptionPromptSettings = {
   customText?: string;
 };
 
-export const currentRpStorybookVersion = '2.2.0' as const;
+export const currentRpStorybookVersion = '3.0.0' as const;
 
 const rpStorybookVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
@@ -390,6 +378,7 @@ function normalizeCharacterImages(
   ownerBase: string,
   usedIds: Set<string>,
   usedImageDataUrls: Map<string, string>,
+  stableIds = false,
 ): RpStorybookCharacterImage[] {
   if (!Array.isArray(value)) {
     return [];
@@ -405,7 +394,12 @@ function normalizeCharacterImages(
     const receivedFrom = stringValue(image.receivedFrom);
     const imageAccess = image.imageAccess === true;
     const externalImage = !!receivedFrom || imageAccess;
-    const id = normalizedStorybookCharacterImageId(
+    const storedId = stringValue(image.id);
+    if (stableIds && storedId && (normalized.some((entry) => entry.id === storedId) ||
+      (usedIds.has(storedId) && usedImageDataUrls.get(storedId) !== dataUrl))) {
+      throw new Error(`Conflicting gallery image ID: ${storedId}`);
+    }
+    const id = stableIds && storedId ? storedId : normalizedStorybookCharacterImageId(
       image.id,
       ownerBase,
       normalized,
@@ -445,7 +439,7 @@ function normalizeCharacterProfileImage(
   const profileImage = recordValue(value);
   const imageId = stringValue(profileImage.imageId);
   const image = images.find((entry) => entry.id === imageId);
-  const dataUrl = stringValue(profileImage.dataUrl);
+  const dataUrl = image?.dataUrl ?? stringValue(profileImage.dataUrl);
   if (!image || !dataUrl.startsWith('data:image/jpeg;base64,')) {
     return undefined;
   }
@@ -613,8 +607,10 @@ function normalizeCharacter(
     imageOwnerBase,
     usedImageIds,
     usedImageDataUrls,
+    character.apps !== undefined,
   );
   const profileImage = normalizeCharacterProfileImage(character.profileImage, images);
+  const apps = normalizeCharacterApps(character.apps, character.social, id, name);
   return {
     id,
     name,
@@ -626,7 +622,11 @@ function normalizeCharacter(
     voiceConfig: rpStorybookCharacterVoiceConfig(character.voiceConfig),
     phoneSettings: rpStorybookCharacterPhoneSettings(character.phoneSettings),
     banking: rpStorybookCharacterBanking(character.banking),
-    social: rpStorybookCharacterSocial(character.social),
+    playable: character.playable !== false,
+    ...(typeof character.age === 'number' ? { age: character.age } : {}),
+    ...(['woman', 'man', 'nonbinary'].includes(String(character.gender)) ? { gender: character.gender as Character['gender'] } : {}),
+    apps,
+    social: socialFromCharacterApps(apps),
     ...(profileImage ? { profileImage } : {}),
     images,
   };
@@ -906,6 +906,17 @@ export const starterRpStorybook: RpStorybook = normalizeRpStorybook({
 const storybookParseCacheMaxEntries = 1;
 const storybookParseCache: Array<{ text: string; storybook: RpStorybook }> = [];
 
+/** Inspect stored data without normalizing or migrating it. */
+export function storybookNeedsUpdate(text: string | undefined): boolean {
+  if (!text?.trim()) return false;
+  try {
+    const value = JSON.parse(text);
+    return value.format === 'rpgraph-storybook' && rpStorybookVersionStatus(value.version) === 'legacy';
+  } catch {
+    return false;
+  }
+}
+
 export function parseRpStorybookJson(text: string): RpStorybook {
   const cachedIndex = storybookParseCache.findIndex((entry) => entry.text === text);
   if (cachedIndex >= 0) {
@@ -1100,6 +1111,12 @@ function applyStorybookJsonPatch(value: RpStorybook, patch: unknown) {
   patch.forEach((operation, index) => {
     try {
       applyJsonPatchOperation(target, operation as JsonPatchOperation);
+      const path = (operation as JsonPatchOperation).path;
+      const appEdit = typeof path === 'string' ? /^\/characters\/(\d+)\/apps(?:\/|$)/.exec(path) : null;
+      if (appEdit && (operation as JsonPatchOperation).op !== 'test') {
+        const character = target.characters[Number(appEdit[1])];
+        if (character) delete character.social;
+      }
     } catch (error) {
       const path = operation && typeof operation === 'object' ? operation.path : undefined;
       const patchError = new Error(`Patch operation ${index + 1}${typeof path === 'string' ? ` (${path})` : ''} failed: ${error instanceof Error ? error.message : String(error)} No changes were applied.`);
@@ -1148,6 +1165,7 @@ export function parseRpStorybookAssistantResult(text: string, fallback: RpStoryb
 export function rpStorybookJsonText(storybook: RpStorybook) {
   return JSON.stringify({
     ...storybook,
+    characters: storybook.characters.map((character) => characterPayload(character)),
     imageDescriptionPrompt: rpStorybookImageDescriptionPromptSaveSettings(storybook.imageDescriptionPrompt),
   }, null, 2);
 }
@@ -1162,9 +1180,9 @@ export function rpStorybookPromptJsonText(storybook: RpStorybook) {
     characters: storybook.characters.map((character) => {
       const { phoneSettings: _phoneSettings, ...characterWithoutPhoneSettings } = character;
       return {
-        ...characterWithoutPhoneSettings,
+        ...characterPayload(characterWithoutPhoneSettings),
         ...(character.profileImage
-          ? { profileImage: { ...character.profileImage, dataUrl: 'data:image/jpeg;base64,...' } }
+          ? { profileImage: { imageId: character.profileImage.imageId, crop: character.profileImage.crop } }
           : {}),
         ...(character.voiceConfig?.sampleDataUrl
           ? { voiceConfig: { ...character.voiceConfig, sampleDataUrl: 'data:audio/mpeg;base64,...' } }
@@ -1393,7 +1411,7 @@ export function rpStorybookIdentityLockViolations(
 }
 
 export function parseNodeStorybookJson(text: string | undefined): RpStorybook | undefined {
-  if (!text) {
+  if (!text || storybookNeedsUpdate(text)) {
     return undefined;
   }
   try {
@@ -1434,7 +1452,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
     'The schema example below describes field shapes, not current values. Never copy its sample names, handles, ids, or balances into existing characters:',
     `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
-    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
+    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"playable":true,"apps":{"fotogram":{"accountId":"character:character-id:fotogram","enabled":true,"username":"nova.reyes","displayName":"Nova Reyes","bio":""}},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
     'If the user asks for edits or provides new story facts, edit only the required fields. Preserve unrelated values. Image galleries, profile images, voice samples, and phoneSettings are managed by app controls: never patch them, even on request; explain which app controls to use instead. Image-generation text in comfyConfig can be edited on request.',
     'Use paths from Current JSON, with a leading slash and zero-based array indices: /characters/0/name, not characters/0/name, /characters/alice/name, or characters[0].name. Escape ~ as ~0 and / as ~1 inside a property name.',
@@ -1443,11 +1461,11 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Before returning, check each path against Current JSON and earlier operations. Do not guess missing character indices. If the target is ambiguous, ask a clarification in reply with an empty patch. Never claim a locked or app-managed change was completed.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
     'For character renames when identity is not locked, replace only /characters/{index}/name and keep the character id stable.',
-    'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, banking, social, comfyConfig, and images: []. Do not invent image data or voice samples.',
+    'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, playable: true, banking, apps: {}, comfyConfig, and images: []. Do not invent image data or voice samples.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',
     'characters[].banking.fixedExpenses lists recurring payments shown in the Banking app history, each as {"label":"Mobile plan","amount":24.99} with a US dollar amount. For new characters, include exactly one mobile plan entry with a realistic amount that fits the character. Add further fixed expenses in the same format only when the user asks for them; the app fills the rest of the history with generated everyday spending automatically.',
-    'characters[].social.fotogramUsername is the character\'s account username in the phone Fotogram app (a lowercase handle like "nova.reyes"). Every character is expected to have a Fotogram account, so always set a fitting handle derived from the name for new characters. Keep existing usernames unless the user asks to change them.',
-    'characters[].social.onlyfriendsUsername is the character\'s account username in the phone OnlyFriends app (an OnlyFans-style platform). For new characters, keep it an empty string unless the user or the story explicitly gives the character an OnlyFriends account.',
+    'characters[].apps contains optional app accounts. Each account has a stable accountId, enabled flag, username, displayName and bio. Keep existing account IDs and usernames unless explicitly asked to change them. App images reference the character gallery by image ID. New characters use playable: true. Only create accounts requested by the user.',
+    'characters[].apps.onlyfriends.username is the character\'s account username in the phone OnlyFriends app (an OnlyFans-style platform). For new characters, omit this account unless the user or the story explicitly gives the character an OnlyFriends account.',
     'characters[].comfyConfig is optional image-generation configuration. loraName is a ComfyUI LoRA file name for that character. loraUrl is an optional download/source URL for that LoRA. appearance is a concise visual description for generated images. For new characters, leave them empty unless the user explicitly provides image-generation details. Preserve existing settings unless asked to change them.',
     'characters[].voiceConfig stores a binary voice sample managed by the app. Never create, edit, or remove it.',
     'For edits, changedFields must list compact field paths that changed, for example "title", "scenario", "characters".',

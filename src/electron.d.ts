@@ -92,6 +92,7 @@ declare global {
         onReasoningTokens?: (tokenCount: number) => void,
       ) => Promise<LlmCompletionResult>;
       listFiles: () => Promise<SavedFileSummary[]>;
+      confirmV3Migration: (summary: string) => boolean;
       listCharacterFiles: () => Promise<SavedFileSummary[]>;
       saveNamedWorkflow: (
         name: string,

@@ -1,3 +1,4 @@
+import { characterPayload, validateCharacterPayload } from '../characters/character';
 import {
   normalizeRpStorybookCharacter,
   rpFormatVersionStatus,
@@ -17,14 +18,14 @@ const currentRpCharacterCardVersion = formatVersions.characterCard;
 export type RpCharacterCard = {
   format: 'rpgraph-character';
   version: string;
-  character: RpStorybookCharacter;
+  character: ReturnType<typeof characterPayload>;
 };
 
 export function rpCharacterCardForCharacter(character: RpStorybookCharacter): RpCharacterCard {
   return {
     format: 'rpgraph-character',
     version: currentRpCharacterCardVersion,
-    character: structuredClone(character),
+    character: characterPayload(structuredClone(character), true),
   };
 }
 
@@ -43,9 +44,8 @@ function recordValue(value: unknown): Record<string, unknown> {
 
 /**
  * Validates a character card file and merges its character into the
- * storybook: a character with the same id or name is replaced in place,
- * otherwise the character is appended. Image ids are re-namespaced so they
- * never collide with the other characters' images.
+ * storybook: V2 replaces only matching stable IDs. Legacy cards may also
+ * match by name. V2 rejects image collisions instead of changing references.
  */
 export function planCharacterCardImport(
   cardValue: unknown,
@@ -66,6 +66,7 @@ export function planCharacterCardImport(
   }
 
   const sourceCharacter = recordValue(card.character);
+  if (versionStatus === 'current') validateCharacterPayload(sourceCharacter);
   const sourceId = typeof sourceCharacter.id === 'string' ? sourceCharacter.id.trim() : '';
   const sourceName = typeof sourceCharacter.name === 'string' ? sourceCharacter.name.trim() : '';
   if (!sourceId && !sourceName) {
@@ -74,7 +75,7 @@ export function planCharacterCardImport(
   const matchingIdIndex = sourceId
     ? storybook.characters.findIndex((existing) => existing.id === sourceId)
     : -1;
-  const matchingNameIndex = sourceName
+  const matchingNameIndex = versionStatus === 'legacy' && sourceName
     ? storybook.characters.findIndex(
         (existing) => existing.name.trim().toLowerCase() === sourceName.toLowerCase(),
       )
@@ -95,7 +96,7 @@ export function planCharacterCardImport(
   });
 
   const targetIndex = replacesIndex >= 0 ? replacesIndex : storybook.characters.length;
-  const character = normalizeRpStorybookCharacter(sourceCharacter, targetIndex, usedImageIds);
+  const character = normalizeRpStorybookCharacter({ ...sourceCharacter, playable: true }, targetIndex, usedImageIds);
 
   const characters = [...storybook.characters];
   if (replacesIndex >= 0) {

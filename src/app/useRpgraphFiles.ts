@@ -14,7 +14,7 @@ import {
   currentWorkflowFormatVersion,
 } from '../workflow/version';
 import storybookFormatVersions from '../storybook/formatVersions.json';
-import type { RpStorybook } from '../nodes/rp-storybook/model';
+import { rpStorybookJsonText, type RpStorybook } from '../nodes/rp-storybook/model';
 import type { RpCharacterCard } from '../storybook/characterCard';
 
 export type WorkflowSaveScope = 'workflow' | 'workflow-storybook';
@@ -680,7 +680,7 @@ export function useRpgraphFiles({
     try {
       const result = await window.rpgraph.saveStorybook(
         name,
-        current.storybook,
+        JSON.parse(rpStorybookJsonText(current.storybook)),
         fileProtection,
         sessionPassword,
         sessionOverwritePending,
@@ -726,7 +726,7 @@ export function useRpgraphFiles({
       const result = await window.rpgraph.saveRpgraphFileToPath({
         kind: 'storybook',
         name,
-        storybook: current.storybook,
+        storybook: JSON.parse(rpStorybookJsonText(current.storybook)),
         protection: fileProtection,
         password: sessionPassword,
       });

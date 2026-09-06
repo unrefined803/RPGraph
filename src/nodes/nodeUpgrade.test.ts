@@ -181,3 +181,10 @@ describe('storybookOrSingletonUpgradeConflict', () => {
     expect(storybookOrSingletonUpgradeConflict(incompatible, [incompatible, live])).toBe(false);
   });
 });
+
+it('upgrades the Storybook node version while retaining its legacy document for explicit migration', () => {
+  const storybookJson = JSON.stringify({ format: 'rpgraph-storybook', version: '2.2.0', title: 'Keep me', characters: [] });
+  const node = upgradedNode(incompatibleNode('rp-storybook', { storybookJson }), { createContext, hydrateContext });
+  expect(node.data.nodeDataVersion).toBe('3.0.0');
+  expect(node.data.storybookJson).toBe(storybookJson);
+});

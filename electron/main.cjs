@@ -4556,6 +4556,15 @@ ipcMain.handle('file:list', async () => {
   return files.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
+ipcMain.on('character:confirm-v3-migration', (event, summary) => {
+  event.returnValue = dialog.showMessageBoxSync({
+    type: 'question', title: 'Update Storybook / Character Container',
+    message: 'Upgrade Character Containers and Storybooks?',
+    detail: typeof summary === 'string' ? summary.slice(0, 1500) : '',
+    buttons: ['Update', 'Cancel'], defaultId: 0, cancelId: 1,
+  }) === 0;
+});
+
 ipcMain.handle('character:list', async () => {
   const files = await listedFilesInDirectory(charactersDirectory(), 'characters');
   return files

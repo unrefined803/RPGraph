@@ -85,3 +85,21 @@ it('does not recreate a deleted node when an assistant response arrives', async 
   expect(state.render().storybookCreatorMessages.slice(-1)[0]?.text).toContain('response was not applied');
   expect(state.render().updateStorybook('book', emptyRpStorybook)).toBe(false);
 });
+
+it('updates a legacy Storybook only after the user confirms from its node', () => {
+  const state = harness();
+  const legacy = JSON.stringify({ ...emptyRpStorybook, version: '2.2.0', title: 'Old book' });
+  state.nodesRef.current[0].data.storybookJson = legacy;
+  const confirm = vi.fn(() => false);
+  vi.stubGlobal('window', { rpgraph: { confirmV3Migration: confirm } });
+  try {
+    expect(state.render().ensureCurrentStorybook('book')).toBe(false);
+    expect(state.nodesRef.current[0].data.storybookJson).toBe(legacy);
+    confirm.mockReturnValue(true);
+    expect(state.render().ensureCurrentStorybook('book')).toBe(true);
+    expect(JSON.parse(state.nodesRef.current[0].data.storybookJson!).version).toBe('3.0.0');
+    expect(confirm).toHaveBeenLastCalledWith(expect.stringContaining('0 character(s)'));
+    state.render().ensureCurrentStorybook('book');
+    expect(confirm).toHaveBeenCalledTimes(2);
+  } finally { vi.unstubAllGlobals(); }
+});

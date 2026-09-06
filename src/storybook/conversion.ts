@@ -1,3 +1,4 @@
+import { migrateV3Document } from '../characters/migration';
 import {
   currentRpStorybookVersion,
   normalizeRpStorybook,
@@ -65,7 +66,7 @@ function characterRows(
     allowedPatchPaths: [],
   }];
   const optionalSections: Array<{
-    key: 'banking' | 'social' | 'voiceConfig' | 'phoneSettings' | 'comfyConfig';
+    key: 'banking' | 'apps' | 'voiceConfig' | 'phoneSettings' | 'comfyConfig';
     label: string;
     aiFillable?: boolean;
   }> = [
@@ -75,7 +76,7 @@ function characterRows(
       aiFillable: true,
     },
     {
-      key: 'social',
+      key: 'apps',
       label: 'Social Accounts',
       aiFillable: true,
     },
@@ -88,7 +89,7 @@ function characterRows(
     },
   ];
   optionalSections.forEach((section) => {
-    const wasPresent = section.key in sourceCharacter;
+    const wasPresent = section.key in sourceCharacter || section.key === 'apps' && 'social' in sourceCharacter;
     rows.push({
       id: `character:${characterIndex}:${section.key}`,
       label: `${name}: ${section.label}`,
@@ -108,7 +109,7 @@ function characterRows(
  */
 export function convertLegacyRpStorybook(value: unknown): StorybookConversionResult {
   const source = recordValue(value);
-  const storybook = normalizeRpStorybook(source);
+  const storybook = normalizeRpStorybook(migrateV3Document(source).value);
   const rows: StorybookConversionRow[] = [];
 
   rows.push({

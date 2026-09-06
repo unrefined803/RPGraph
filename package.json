@@ -35,7 +35,8 @@
     "desktop:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev --no-sandbox\"",
     "desktop": "node scripts/run-electron.mjs --no-sandbox",
     "desktop:windows:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev\"",
-    "desktop:windows": "node scripts/run-electron.mjs"
+    "desktop:windows": "node scripts/run-electron.mjs",
+    "character:migrate-v3": "node scripts/migrate-character-v3.mjs"
   },
   "dependencies": {
     "@toon-format/toon": "^2.3.0",
@@ -63,7 +64,8 @@
     "typescript-eslint": "^8.62.1",
     "vite": "^7.3.5",
     "vitest": "^3.2.7",
-    "wait-on": "^8.0.3"
+    "wait-on": "^8.0.3",
+    "esbuild": "0.28.1"
   },
   "overrides": {
     "esbuild": "0.28.1"

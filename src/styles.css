@@ -21978,7 +21978,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .mini-storybook-card::before {
-  content: "RP Storybook V2";
+  content: "RP Storybook V3";
   position: absolute;
   top: -8px;
   left: 10px;

@@ -1457,6 +1457,7 @@ function App() {
     storybookCreatorMessages,
     storybookCreatorSubmitting,
     openStorybookCreator,
+    ensureCurrentStorybook,
     submitStorybookCreatorMessage,
     updateStorybook,
     commitStorybookToNode,
@@ -2488,7 +2489,7 @@ function App() {
       nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
       nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
     if (!storybookNode || storybookNode.data.nodeType !== 'rp-storybook') {
-      throw new Error('Add an RP Storybook V2 node before saving a storybook file.');
+      throw new Error('Add an RP Storybook V3 node before saving a storybook file.');
     }
     const storybook = storybookNode.data.storybookJson
       ? parseRpStorybookJson(storybookNode.data.storybookJson)
@@ -2587,7 +2588,7 @@ function App() {
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
       if (!storybookNode) {
-        throw new Error('Add an RP Storybook V2 node before opening a storybook file.');
+        throw new Error('Add an RP Storybook V3 node before opening a storybook file.');
       }
       const applied = applyStorybookToNode(
         storybookNode.id,
@@ -2613,7 +2614,7 @@ function App() {
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
       if (!storybookNode) {
-        throw new Error('Add an RP Storybook V2 node before importing a character card.');
+        throw new Error('Add an RP Storybook V3 node before importing a character card.');
       }
       applyCharacterCardToNode(storybookNode.id, result.value, result.fileName);
       setSelectedFile(result.fileName);
@@ -2947,7 +2948,9 @@ function App() {
     setJsonDialogNodeId,
     setOutputFormatHelpKind,
     openStorybookCreator,
-    openStorybookEditor: setStorybookEditorNodeId,
+    openStorybookEditor: (nodeId) => {
+      if (ensureCurrentStorybook(nodeId)) setStorybookEditorNodeId(nodeId);
+    },
     upgradeNode: handleUpgradeNode,
     openCustomNodeAssistant: customNodeAssistant.open,
     runCustomNodeButton: customNodeAssistant.runButton,

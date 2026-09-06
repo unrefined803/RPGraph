@@ -1,6 +1,51 @@
 # Character Container V2 — Implementation Plan
 
-Status: implementation handoff, not implemented by this document.
+Status: Phase A foundations implemented; global NPC discovery and app integration remain planned.
+Character Container V2 and Storybook V3 use independent version numbers.
+
+## Implemented foundation and next steps
+
+- Character Container payloads use `2.0.0`. Storybook payloads and the
+  `rp-storybook` node data version use `3.0.0`.
+  Outer workflow/session and encrypted envelope versions remain unchanged: their
+  structures are unchanged and embedded documents carry their own versions.
+- `src/characters/character.ts` defines the shared character payload: identity,
+  playable flag, optional age/gender, gallery, optional app accounts and existing
+  description/personality/speech/phone/banking/voice/Comfy settings.
+- Storybook stores these payloads directly in `characters`. Export wraps one in
+  `rpgraph-character`; import normalizes it and makes it playable. It uses stable
+  IDs rather than names for V2 replacement. Conflicting image IDs are rejected.
+- Embedded JPEG bytes live in each character's gallery. Portraits, app avatars,
+  initial posts and MatchMe photos reference gallery IDs. The portrait bytes and
+  legacy `social` fields exist only as runtime projections for existing editors.
+- `src/characters/migration.ts` converts legacy standalone and nested documents,
+  including workflow Storybook JSON and session checkpoints when explicitly invoked.
+  Workflow/session loading does not prompt or migrate embedded Storybooks. Old
+  Storybook nodes use the existing incompatible-node card and Upgrade Node flow.
+  After upgrading the node, Update Storybook replaces Edit Storybook until the
+  user confirms conversion. Legacy payloads stay unchanged on load/save and are
+  excluded from character runtime lookup and node execution until updated.
+  Standalone Storybook import retains its existing conversion review. Cancellation leaves the current state intact;
+  source files are not overwritten until explicitly saved.
+- Encrypted envelopes remain opaque to migration. Manual import can decrypt
+  first and then migrate the payload. Automatic encrypted NPC loading is not
+  implemented and must remain excluded in the future scanner.
+- Both bundled default workflows contain V3 Storybooks and V3 Storybook nodes. The shared migration
+  can also run without the UI:
+  `npm run character:migrate-v3 -- --input old.json --output new.json`.
+  Existing output files require an explicit `--overwrite` flag.
+- Portable export excludes live MatchMe messages and swipe decisions. Session
+  migration retains them. Other runtime story history stays outside the card.
+
+Next: implement the built-in/user-data NPC registry, app discovery, account
+editors for the new optional metadata, playable selection rules and promotion
+without duplicate runtime identities. Then create image-backed demo containers.
+The playable flag is available now; a complete global NPC runtime is a later
+phase. Initial posts and account avatars are modeled but not published by the
+existing app runtime yet. Interactive validation remains with the user.
+
+The sections below describe the full target design, including later phases;
+field names in examples are proposals where not implemented above.
 Prepared: 2026-09-06.
 
 ## 1. Objective and binding decisions
@@ -36,8 +81,8 @@ containing separate image files or ZIP packages:
   and create the initial image-backed NPC containers, replacing discoverable
   legacy demo entries while preserving identities needed by old saves.
 
-This document is self-contained for a new implementation task. Do not interpret
-it as a report that the schema, scanner or registry already exists.
+This document is self-contained for continuation. The implementation status above
+distinguishes the completed schema foundation from the planned scanner and registry.
 
 ## 2. Existing implementation and useful entry points
 
@@ -83,7 +128,7 @@ version becomes `2.0.0`. Never bump envelope versions just to match payloads.
 
 Storybook and RP-save schemas need their own compatible version changes for new
 fields. Determine those from their existing version rules during implementation;
-do not reset Storybook to V2.0 or silently save new incompatible session fields
+keep Storybook at V3.0 or silently save new incompatible session fields
 under an unchanged schema version. Update shared version manifests, validators,
 fixtures and documentation together.
 
@@ -370,7 +415,7 @@ New paths below are proposed; existing paths are integration targets.
 
 ### Phase A — schema and compatibility
 
-Define V2 fields, canonical IDs, app shapes and migration rules. Implement one
+Foundation implemented; see the status above for limitations. Define V2 fields, canonical IDs, app shapes and migration rules. Implement one
 validator and V1 adapters; preserve non-app character settings. Add fixtures for
 plain/encrypted V1/V2 and unsupported newer payloads. Version Storybook/session
 changes deliberately. Gate: V1 round trips preserve data and V2 validates every

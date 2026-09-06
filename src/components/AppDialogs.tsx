@@ -3284,7 +3284,7 @@ export function StorybookCreatorDialog({
                     Import SillyTavern Character
                   </button>
                   <button type="button" role="menuitem" onClick={() => runMoreAction(onImportCharacterCard)}>
-                    Import Character Card
+                    Import Character Container
                   </button>
                   <button
                     type="button"
@@ -3466,7 +3466,7 @@ export function StorybookCreatorDialog({
                             type="button"
                             className="contextual-action-button nodrag"
                             onClick={onImportCharacterCard}
-                            title="Import an RPGraph Character Card file"
+                            title="Import an RPGraph Character Container V2 file"
                           >
                             <span className="button-icon">+</span> Import Character
                           </button>
@@ -3582,7 +3582,7 @@ export function StorybookCreatorDialog({
                                   <button
                                     type="button"
                                     className="character-images-button nodrag"
-                                    title={`Export ${character.name || character.id} as an RPGraph Character Card file`}
+                                    title={`Export ${character.name || character.id} as an RPGraph Character Container V2 file`}
                                     onClick={() => void onExportCharacter(character.id)}
                                   >
                                     Export Character
