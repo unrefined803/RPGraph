@@ -123,6 +123,8 @@ function messageToTimelineEntry(
       : undefined,
     phone: channel === 'phone'
       ? {
+          fromAccountId: message.phoneFromAccountId,
+          toAccountId: message.phoneToAccountId,
           from: message.phoneFrom ?? '',
           to: message.phoneTo ?? '',
           voiceMessage: message.phoneVoiceMessage || undefined,

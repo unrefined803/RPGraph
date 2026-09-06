@@ -19,6 +19,8 @@ export function datingSeekingOrder(gender?: DatingGender): DatingGender[] {
 
 /** Gallery references keep profile media in the existing Storybook image pipeline. */
 export type DatingProfile = {
+  /** Runtime projection of the canonical MatchMe username. */
+  username?: string;
   name: string;
   age: number;
   gender?: DatingGender;
@@ -41,6 +43,7 @@ export function normalizeDatingProfile(value: unknown): DatingProfile | undefine
       !Number.isInteger(input.age) || input.age! < 18 || input.age! > 120 ||
       typeof input.bio !== 'string' || !input.bio.trim() || !photoIds.length) return undefined;
   return {
+    ...(typeof input.username === 'string' ? { username: input.username.trim() } : {}),
     name: input.name.trim().slice(0, 60), age: input.age!, bio: input.bio.trim().slice(0, 500),
     interests: typeof input.interests === 'string' ? input.interests.trim().slice(0, 150) : '',
     ...(datingGenders.includes(input.gender as DatingGender) ? { gender: input.gender } : {}),

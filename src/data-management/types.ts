@@ -62,6 +62,8 @@ type SpeakerAttribution = {
 };
 
 type PhoneMetadata = {
+  fromAccountId?: string;
+  toAccountId?: string;
   from: string;
   to: string;
   voiceMessage?: boolean;

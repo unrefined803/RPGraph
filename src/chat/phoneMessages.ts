@@ -16,6 +16,8 @@ import {
 } from './phoneAppsSessions';
 
 export type ParsedPhoneMessage = {
+  fromAccountId?: string;
+  toAccountId?: string;
   from: string;
   to: string;
   message: string;

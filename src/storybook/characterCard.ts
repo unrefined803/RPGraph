@@ -1,3 +1,6 @@
+import { withPublicationSnapshot } from '../characters/publications';
+import type { SocialPostRecord } from '../types';
+import { validateCharacterAccountDirectory } from '../characters/profiles';
 import { characterPayload, validateCharacterPayload } from '../characters/character';
 import {
   normalizeRpStorybookCharacter,
@@ -21,12 +24,18 @@ export type RpCharacterCard = {
   character: ReturnType<typeof characterPayload>;
 };
 
-export function rpCharacterCardForCharacter(character: RpStorybookCharacter): RpCharacterCard {
-  return {
-    format: 'rpgraph-character',
-    version: currentRpCharacterCardVersion,
-    character: characterPayload(structuredClone(character), true),
-  };
+export function rpCharacterCardForCharacter(character: RpStorybookCharacter, options?: {
+  includePosts?: boolean; posts?: SocialPostRecord[]; gallery?: RpStorybookCharacter['images'];
+}): RpCharacterCard {
+  const exported = options?.includePosts
+    ? withPublicationSnapshot(character, options.posts ?? [], options.gallery ?? character.images)
+    : structuredClone(character);
+  const payload = characterPayload(exported, true);
+  for (const [app, account] of Object.entries(payload.apps)) {
+    if (!options?.includePosts || (app !== 'fotogram' && app !== 'onlyfriends')) delete account.initialPosts;
+  }
+  validateCharacterPayload(payload);
+  return { format: 'rpgraph-character', version: currentRpCharacterCardVersion, character: payload };
 }
 
 export type CharacterCardImportPlan = {
@@ -112,6 +121,7 @@ export function planCharacterCardImport(
     characters.push({ ...character, id: uniqueId });
   }
 
+  validateCharacterAccountDirectory(characters);
   return {
     character: replacesIndex >= 0 ? characters[replacesIndex] : characters[characters.length - 1],
     ...(replacesIndex >= 0 ? { replacesIndex } : {}),

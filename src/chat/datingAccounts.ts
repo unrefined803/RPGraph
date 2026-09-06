@@ -9,10 +9,11 @@ export const datingNpcProfiles = [
 ];
 
 export type DatingAccount = {
-  id: string; characterId?: string; name: string; age: number; gender?: DatingGender;
+  id: string; characterId?: string; aliases?: string[]; name: string; age: number; gender?: DatingGender;
   bio: string; interests: string[]; personality: string; color: string;
 };
-export const datingAccountId = (characterId: string) => `storybook:${characterId}`;
+export const datingAccountId = (character: string | StorybookCharacter) => typeof character === 'string'
+  ? `storybook:${character}` : character.apps?.matchme?.accountId ?? `storybook:${character.id}`;
 
 /** Storybook links are explicit IDs; display names never merge accounts. */
 export function datingAccounts(characters: StorybookCharacter[]): DatingAccount[] {
@@ -20,7 +21,8 @@ export function datingAccounts(characters: StorybookCharacter[]): DatingAccount[
   for (const character of characters) {
     const profile = character.social.plotTwist;
     if (!profile) continue;
-    accounts.push({ id: datingAccountId(character.id), characterId: character.id,
+    accounts.push({ id: datingAccountId(character), characterId: character.id,
+      aliases: [datingAccountId(character.id), character.name, character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
       name: profile.name, age: profile.age, gender: profile.gender, bio: profile.bio,
       interests: profile.interests.split(',').map((part) => part.trim()).filter(Boolean),
       personality: [character.profile.personality, character.profile.speechStyle].filter(Boolean).join('\n'), color: 'violet' });
@@ -34,6 +36,11 @@ export function resolveDatingAccount(identity: string, accounts: DatingAccount[]
   const key = identity.trim().replace(/^@/, '');
   const byId = accounts.filter((account) => account.id === key);
   if (byId.length === 1) return byId[0];
-  const matches = accounts.filter((account) => account.name.toLowerCase() === key.toLowerCase());
+  const matches = accounts.filter((account) => account.name.toLowerCase() === key.toLowerCase() || account.aliases?.some((alias) => !!alias && alias.toLowerCase() === key.toLowerCase()));
   return matches.length === 1 ? matches[0] : undefined;
+}
+
+/** Saved node-scoped IDs remain read aliases for canonical account identities. */
+export function datingAccountMatches(character: StorybookCharacter, id: string | undefined) {
+  return !!id && (datingAccountId(character) === id || datingAccountId(character.id) === id);
 }

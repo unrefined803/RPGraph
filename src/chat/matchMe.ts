@@ -16,14 +16,22 @@ export function isMatchMeMatch(value: unknown): value is MatchMeMatch {
 
 /** The structured timeline is the only authority, including after checkpoint restoration. */
 export function matchMeState(characters: StorybookCharacter[], messages: MessageRecord[]): MatchMeState {
+  const accounts = datingAccounts(characters);
   const matches = new Map<string, MatchMeMatch>();
   for (const message of messages) {
-    if (isMatchMeMatch(message.matchMeMatch)) matches.set(message.matchMeMatch.id, message.matchMeMatch);
+    if (!isMatchMeMatch(message.matchMeMatch)) continue;
+    const source = message.matchMeMatch;
+    const accountIds = source.accountIds.map((id) => resolveDatingAccount(id, accounts)?.id ?? id) as [string, string];
+    const id = matchMePairId(...accountIds);
+    matches.set(id, { ...source, id, accountIds });
   }
-  return { accounts: datingAccounts(characters), matches: [...matches.values()] };
+  return { accounts, matches: [...matches.values()] };
+
 }
 
 export function canSendMatchMeMessage(senderId: string, recipientId: string, state: MatchMeState) {
+  senderId = resolveDatingAccount(senderId, state.accounts)?.id ?? senderId;
+  recipientId = resolveDatingAccount(recipientId, state.accounts)?.id ?? recipientId;
   return senderId !== recipientId &&
     [senderId, recipientId].every((id) => state.accounts.filter((account) => account.id === id).length === 1) &&
     state.matches.some((match) => isMatchMeMatch(match) && match.status === 'active' &&
@@ -32,6 +40,8 @@ export function canSendMatchMeMessage(senderId: string, recipientId: string, sta
 
 /** Replace this policy when reciprocal likes become available. */
 export function matchMeLikePolicy(senderId: string, recipientId: string, state: MatchMeState, now: string): MatchMeMatch | undefined {
+  senderId = resolveDatingAccount(senderId, state.accounts)?.id ?? senderId;
+  recipientId = resolveDatingAccount(recipientId, state.accounts)?.id ?? recipientId;
   if (senderId === recipientId || ![senderId, recipientId].every((id) => state.accounts.some((a) => a.id === id))) return;
   const id = matchMePairId(senderId, recipientId);
   if (state.matches.some((match) => match.id === id && match.status === 'active')) return;
@@ -82,7 +92,7 @@ export function migrateDatingHistory(owner: StorybookCharacter, state: MatchMeSt
   const profile = owner.social.plotTwist;
   if (!profile || profile.historyVersion === 1) return [];
   const additions: Array<Omit<MessageRecord, 'id'>> = [];
-  const senderId = datingAccountId(owner.id);
+  const senderId = datingAccountId(owner);
   const nextState = { ...state, matches: [...state.matches] };
   const legacyPartners = new Set([
     ...Object.entries(profile.decisions).flatMap(([id, decision]) => decision === 'like' ? [id] : []),

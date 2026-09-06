@@ -1,0 +1,41 @@
+.character-app-profile-editor {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.character-app-profile-editor label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.character-app-profile-editor input,
+.character-app-profile-editor textarea,
+.character-app-profile-editor select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #64748b;
+  border-radius: 6px;
+  background: #18202d;
+  color: #f1f5f9;
+  font: inherit;
+}
+
+.character-app-profile-editor input:disabled {
+  opacity: 0.65;
+}
+
+.character-account-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.character-account-row button {
+  margin-left: auto;
+}

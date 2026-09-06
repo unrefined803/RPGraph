@@ -2,8 +2,7 @@ import { matchMeState, incomingMatchMeMessage } from './matchMe';
 import { resolveDatingAccount } from './datingAccounts';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind, SocialMessengerAppKind, SocialDirectMessageRecord } from '../types';
-import { bundledSocialIdentities } from './socialCatalogs';
-import { buildSocialDirectory, type SocialDirectoryUser } from './socialDirectory';
+import { buildSocialDirectory } from './socialDirectory';
 import { jsonObjectRanges, messengerAppMessageKeys } from './phoneMessages';
 import { parseSocialReactionsOutput, type SocialReactionTarget } from './socialMedia';
 
@@ -15,111 +14,20 @@ function normalizedName(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }
 
-function compactIdentity(value: string, germanTransliteration = false) {
-  let normalized = cleanHandle(value).toLocaleLowerCase();
-  if (germanTransliteration) {
-    normalized = normalized
-      .replace(/ä/g, 'ae')
-      .replace(/ö/g, 'oe')
-      .replace(/ü/g, 'ue')
-      .replace(/ß/g, 'ss');
-  }
-  return normalized
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '');
-}
-
-function handleAliasesForName(name: string) {
-  return new Set([
-    compactIdentity(name),
-    compactIdentity(name, true),
-    compactIdentity(name.replace(/[^a-z0-9]+/gi, '.')),
-  ].filter(Boolean));
-}
-
 function storedHandle(character: StorybookCharacter, app: SocialAppKind) {
-  const value = app === 'fotogram'
-    ? character.social.fotogramUsername
-    : character.social.onlyfriendsUsername;
-  return cleanHandle(value) || undefined;
-}
-
-function identityLooksLikeHandle(value: string) {
-  const trimmed = value.trim();
-  return trimmed.startsWith('@') || !/\s/.test(trimmed);
-}
-
-function uniqueCharacter(matches: StorybookCharacter[]) {
-  const unique = Array.from(new Map(matches.map((character) => [character.id, character])).values());
-  return unique.length === 1 ? unique[0] : undefined;
-}
-
-/** Match a Storybook character by exact name, any stored app handle, or a name-like handle. */
-function storybookCharacterForSocialIdentity(
-  characters: StorybookCharacter[],
-  app: SocialAppKind,
-  identity: string,
-) {
-  const cleanIdentity = cleanHandle(identity);
-  const exactNameMatches = characters.filter(
-    (character) => normalizedName(character.name) === normalizedName(identity),
-  );
-  const exactNameMatch = uniqueCharacter(exactNameMatches);
-  if (exactNameMatch) {
-    return exactNameMatch;
-  }
-
-  const normalizedHandle = cleanIdentity.toLocaleLowerCase();
-  const exactHandleMatches = characters.filter((character) =>
-    storedHandle(character, app)?.toLocaleLowerCase() === normalizedHandle
-  );
-  const exactHandleMatch = uniqueCharacter(exactHandleMatches);
-  if (exactHandleMatch) {
-    return exactHandleMatch;
-  }
-
-  // A handle in the requested app takes precedence over an alias from the
-  // other app. Cross-app aliases still identify characters lacking an account.
-  const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
-  const otherAppHandleMatch = uniqueCharacter(characters.filter((character) =>
-    storedHandle(character, otherApp)?.toLocaleLowerCase() === normalizedHandle
-  ));
-  if (otherAppHandleMatch) {
-    return otherAppHandleMatch;
-  }
-
-  if (!identityLooksLikeHandle(identity)) {
-    return undefined;
-  }
-  const compactHandle = compactIdentity(identity);
-  const germanCompactHandle = compactIdentity(identity, true);
-  return uniqueCharacter(characters.filter((character) => {
-    const aliases = handleAliasesForName(character.name);
-    return aliases.has(compactHandle) || aliases.has(germanCompactHandle);
-  }));
+  return cleanHandle(app === 'fotogram' ? character.social.fotogramUsername : character.social.onlyfriendsUsername) || undefined;
 }
 
 export type ResolvedSocialMessageIdentity = {
   available: boolean;
+  accountId?: string;
+  characterId?: string;
   name: string;
   handle?: string;
   source: 'storybook' | 'directory' | 'new-npc';
   character?: StorybookCharacter;
   reason?: string;
 };
-
-function directoryIdentity(
-  users: SocialDirectoryUser[],
-  app: SocialAppKind,
-  value: string,
-) {
-  const normalizedValue = cleanHandle(value).toLocaleLowerCase();
-  const normalizedValueName = normalizedName(value);
-  return users.find((user) =>
-    user.handles[app]?.toLocaleLowerCase() === normalizedValue
-  ) ?? users.find((user) => normalizedName(user.name) === normalizedValueName);
-}
 
 /** Resolve an LLM-supplied name or nickname without inventing accounts for known characters. */
 export function resolveSocialMessageIdentity(options: {
@@ -134,72 +42,33 @@ export function resolveSocialMessageIdentity(options: {
     return account ? { available: true, name: account.name, handle: account.id, source: 'directory' }
       : { available: false, name: identity, source: 'directory', reason: 'Unknown or ambiguous MatchMe account.' };
   }
-  const cleanIdentity = cleanHandle(identity).toLocaleLowerCase();
-  const exactBundledIdentity = identityLooksLikeHandle(identity)
-    ? bundledSocialIdentities[options.app].find(
-        (entry) => entry.handle.toLocaleLowerCase() === cleanIdentity,
-      )
-    : undefined;
-  if (exactBundledIdentity) {
-    return {
-      available: true,
-      name: exactBundledIdentity.name,
-      handle: exactBundledIdentity.handle,
-      source: 'directory',
-    };
+  const key = cleanHandle(identity).toLowerCase();
+  const app = options.app;
+  const characters = options.characters.filter((character) => character.id === identity || character.sourceId === identity ||
+    character.apps?.[app]?.accountId === identity || normalizedName(character.name) === normalizedName(identity) ||
+    storedHandle(character, app)?.toLowerCase() === key);
+  const directory = buildSocialDirectory({ storyCharacters: options.characters, messages: options.messages });
+  const users = directory.users.filter((user) => user.source !== 'storybook' &&
+    (user.id === identity || user.handles[app]?.toLowerCase() === key || normalizedName(user.name) === normalizedName(identity)));
+  if (!characters.length && !users.length) {
+    const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
+    const crossApp = options.characters.filter((entry) => storedHandle(entry, otherApp)?.toLowerCase() === key);
+    if (crossApp.length === 1) return { available: false, name: crossApp[0].name, character: crossApp[0], source: 'storybook',
+      reason: `${crossApp[0].name} has no matching ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} username. Use the full character name or the username in this app.` };
   }
-  const character = storybookCharacterForSocialIdentity(
-    options.characters,
-    options.app,
-    identity,
-  );
+  if (characters.length + users.length !== 1) return { available: false, name: identity, source: 'directory',
+    reason: characters.length + users.length > 1 ? `Ambiguous ${app} recipient "${identity}". Use a unique app username or account ID.` : `Unknown ${app} recipient "${identity}". Use an existing full character name or app username.` };
+  const character = characters[0];
   if (character) {
-    const handle = storedHandle(character, options.app);
-    return handle
-      ? {
-          available: true,
-          name: character.name,
-          handle,
-          source: 'storybook',
-          character,
-        }
-      : {
-          available: false,
-          name: character.name,
-          source: 'storybook',
-          character,
-          reason: `${character.name} has no ${options.app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account.`,
-        };
+    const handle = storedHandle(character, app);
+    return { available: !!handle, name: character.name, handle, source: 'storybook', character,
+      characterId: character.sourceId, accountId: character.apps?.[app]?.accountId ?? `character:${character.sourceId}:${app}`,
+      ...(!handle ? { reason: `${character.name} has no ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account.` } : {}) };
   }
+  const user = users[0];
+  return { available: !!user.handles[app], name: user.name, handle: user.handles[app], accountId: user.id,
+    source: 'directory', ...(!user.handles[app] ? { reason: `${user.name} has no ${app} account.` } : {}) };
 
-  const directory = buildSocialDirectory({
-    storyCharacters: options.characters,
-    messages: options.messages,
-  });
-  const directoryUser = directoryIdentity(directory.users, options.app, identity);
-  const directoryHandle = directoryUser?.handles[options.app];
-  if (directoryUser && directoryHandle) {
-    return {
-      available: true,
-      name: directoryUser.name,
-      handle: directoryHandle,
-      source: 'directory',
-    };
-  }
-
-  if (identityLooksLikeHandle(identity)) {
-    return {
-      available: true,
-      name: cleanHandle(identity),
-      handle: cleanHandle(identity),
-      source: 'new-npc',
-    };
-  }
-  return {
-    available: true,
-    name: identity.replace(/\s+/g, ' '),
-    source: 'new-npc',
-  };
 }
 
 export type SocialMessageValidationIssue = {
@@ -229,6 +98,7 @@ export function parseValidatedSocialReactionsOutput(
     // A fabricated handle must not create an account for a known character.
     // Conversely, a real character handle must keep its canonical owner name.
     const resolved = byName.character ? byName : byHandle.character ? byHandle : byName;
+    if (!byName.character && !byHandle.character && byName.reason?.startsWith('Unknown ') && byHandle.reason?.startsWith('Unknown ')) return [comment];
     if (!resolved.available) {
       discardedComment = true;
       parsed.warnings.push(`Social Media comment from "${comment.from}" was ignored. ${resolved.reason}`);
@@ -363,7 +233,7 @@ export function socialMessageCorrectionContext(issues: SocialMessageValidationIs
       `- ${socialAppName(issue.app)} ${issue.role} "${issue.identity}": ${issue.resolved.reason}`
     ),
     'Rewrite the complete response. A known Storybook character may send or receive in an app only when that exact app account exists.',
-    'New NPC display names and usernames are accepted only for Fotogram and OnlyFriends. MatchMe requires existing accounts and an active application-provided match; never invent either.',
+    'Use an existing full character name, app username or stable account ID. Unknown or ambiguous recipients are rejected. MatchMe requires existing accounts and an active application-provided match; never invent either.',
     'Do not mention this validation or the discarded response.',
     '[/SOCIAL MESSAGE VALIDATION]',
   ].join('\n');

@@ -1,3 +1,4 @@
+import type { CharacterApps } from '../characters/character';
 import type { ChatImageAttachment, WorkflowNode } from '../types';
 import {
   parseNodeStorybookJson,
@@ -52,6 +53,7 @@ export type StorybookCharacter = {
   phoneSettings: RpStorybookCharacterPhoneSettings;
   banking: RpStorybookCharacterBanking;
   social: RpStorybookCharacterSocial;
+  apps?: CharacterApps;
 };
 
 export type StorybookImageList = {
@@ -125,6 +127,7 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         ...(character.profileImage ? { profileImage: character.profileImage } : {}),
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
         banking: character.banking ?? defaultRpStorybookCharacterBanking(),
+        apps: character.apps,
         social: character.social ?? defaultRpStorybookCharacterSocial(),
       };
     });

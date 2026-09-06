@@ -683,7 +683,7 @@ export function verifyWorkflowValidationFixtures() {
     characters: privateFotogramCharacters,
     messages: [],
     app: 'onlyfriends',
-    identity: '@leo.parker',
+    identity: 'Leo Parker',
   });
   const validFotogramName = resolveSocialMessageIdentity({
     characters: privateFotogramCharacters,
@@ -726,7 +726,7 @@ export function verifyWorkflowValidationFixtures() {
     text: [
       'The scene continues.',
       '```json',
-      '{"onlyFriendsApp":[{"from":"Espen Harper","to":"@leo.parker","message":"Hello"}]}',
+      '{"onlyFriendsApp":[{"from":"Espen Harper","to":"Leo Parker","message":"Hello"}]}',
       '```',
     ].join('\n'),
   });
@@ -735,24 +735,19 @@ export function verifyWorkflowValidationFixtures() {
       missingOnlyFriendsAccount.character?.name === 'Leo Parker' &&
       validFotogramName.available &&
       validFotogramName.handle === 'espen.afterdark' &&
-      unknownNpcName.available &&
-      unknownNpcName.source === 'new-npc' &&
+      !unknownNpcName.available &&
       bundledHandle.available &&
       bundledHandle.handle === 'violetlane' &&
-      unknownHandle.available &&
-      unknownHandle.source === 'new-npc' &&
-      unknownHandle.handle === 'janam98' &&
-      unknownAtHandle.available &&
-      unknownAtHandle.name === 'haterboy647' &&
-      unknownAtHandle.handle === 'haterboy647' &&
-      inventedHandleConversation.issues.length === 0 &&
-      inventedHandleConversation.sanitizedText.includes('fotogram-post-private-01') &&
+      !unknownHandle.available &&
+      !unknownAtHandle.available &&
+      inventedHandleConversation.issues.length > 0 &&
+      !inventedHandleConversation.sanitizedText.includes('fotogram-post-private-01') &&
       invalidSocialOutput.issues.length === 1 &&
       invalidSocialOutput.sanitizedText === 'The scene continues.' &&
       socialMessageCorrectionContext(invalidSocialOutput.issues).includes(
         'Leo Parker has no OnlyFriends account.',
       ),
-    'social messages must create unknown NPC usernames but block missing Storybook app accounts',
+    'social messages must reject unknown recipients and missing Storybook app accounts',
   );
   assertFixture(
     findSocialAccountByExactIdentity(
@@ -5742,7 +5737,7 @@ async function verifyPromptRunFixtures() {
 
   const socialReplayPrompts: string[] = [];
   const socialReplayOutputs = [
-    '{"onlyFriendsApp":[{"from":"Espen Harper","to":"@leo.parker","message":"Hello"}]}',
+    '{"onlyFriendsApp":[{"from":"Espen Harper","to":"Leo Parker","message":"Hello"}]}',
     'Espen realizes that Leo is not on OnlyFriends and puts the phone away.',
   ];
   const socialReplayContext = {

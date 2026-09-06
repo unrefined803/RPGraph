@@ -1,3 +1,5 @@
+import { validateCharacterAccountDirectory } from '../characters/profiles';
+import { validateCharacterPayload, characterPayload } from '../characters/character';
 import { prepareV3Document, confirmV3Migration } from '../characters/migration';
 import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { StorybookCreatorMessage } from '../components/AppDialogs';
@@ -204,6 +206,14 @@ export function useStorybookActions({
         currentStorybook,
         storybook,
       );
+      try {
+        validateCharacterAccountDirectory(committedStorybook.characters);
+        committedStorybook.characters.forEach((character) => validateCharacterPayload(characterPayload(character)));
+      } catch (error) {
+        const message = errorMessage(error);
+        notifySystem('warning', message);
+        return message;
+      }
       const removedImageIds = usedStorybookImageIdsRemoved(
         currentStorybook,
         committedStorybook,
@@ -672,7 +682,7 @@ export function useStorybookActions({
     });
   }
 
-  async function exportStorybookCharacter(nodeId: string, characterId: string) {
+  async function exportStorybookCharacter(nodeId: string, characterId: string, includePosts = false) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (!node || !isStorybookSourceNode(node)) {
       return;
@@ -686,7 +696,11 @@ export function useStorybookActions({
         updateRuntimeNode(nodeId, { storybookStatus: 'Export failed: character not found.' });
         return;
       }
-      requestSaveCharacter(nodeId, rpCharacterCardForCharacter(character));
+      const posts = [...storybook.openingHistory.turns, ...turnsRef.current].flatMap((turn) =>
+        [...turn.input.messages, ...turn.output.messages].flatMap((message) => message.socialPost ? [message.socialPost] : []));
+      const card = rpCharacterCardForCharacter(character, { includePosts, posts,
+        gallery: storybook.characters.flatMap((entry) => entry.images) });
+      requestSaveCharacter(nodeId, card);
     } catch (error) {
       const messageText = errorMessage(error);
       updateRuntimeNode(nodeId, { storybookStatus: `Character export failed: ${messageText}` });

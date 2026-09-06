@@ -1,4 +1,4 @@
-import { datingAccountId } from '../chat/datingAccounts';
+import { datingAccountMatches } from '../chat/datingAccounts';
 import {
   useCallback,
   useEffect,
@@ -317,7 +317,7 @@ export function useRoleplayPanelRuntime({
           if (
             message.isOpening ||
             directMessage?.app !== app ||
-            (app === 'matchme' ? directMessage.toAccountId !== datingAccountId(character.id) : directMessage.to !== character.name) ||
+            (app === 'matchme' ? !datingAccountMatches(character, directMessage.toAccountId) : directMessage.to !== character.name) ||
             chatEmbeddedSocialIds.has(message.id)
           ) {
             return;
@@ -797,7 +797,7 @@ export function useRoleplayPanelRuntime({
     }
     const characterForIdentity = (name: string, handle: string) =>
       storyCharacters.find((character) => {
-        if (directMessage.app === 'matchme') return !!character.social.plotTwist && datingAccountId(character.id) === handle;
+        if (directMessage.app === 'matchme') return !!character.social.plotTwist && datingAccountMatches(character, handle);
         const accountHandle = directMessage.app === 'fotogram'
           ? character.social.fotogramUsername
           : character.social.onlyfriendsUsername;

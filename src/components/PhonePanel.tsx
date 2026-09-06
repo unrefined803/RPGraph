@@ -1,3 +1,4 @@
+import type { CharacterAppAccount } from '../characters/character';
 import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
 import type { DatingProfile } from '../chat/datingProfile';
 import {
@@ -270,6 +271,7 @@ type PhonePanelProps = {
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
     username: string,
+    profile?: CharacterAppAccount,
   ) => boolean;
   onImportSocialPostImage: (request: {
     owner: StorybookCharacter;

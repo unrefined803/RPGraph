@@ -1,5 +1,5 @@
 import { matchMeContext, matchMeState } from './matchMe';
-import { datingAccountId } from './datingAccounts';
+import { datingAccountId, datingAccountMatches } from './datingAccounts';
 import type {
   MessageRecord,
   SocialAppKind,
@@ -76,7 +76,7 @@ export function socialHandleForCharacter(
   character: StorybookCharacter,
   app: SocialMessengerAppKind,
 ) {
-  if (app === 'matchme') return datingAccountId(character.id);
+  if (app === 'matchme') return datingAccountId(character);
   const storedHandle = app === 'fotogram'
     ? character.social.fotogramUsername
     : character.social.onlyfriendsUsername;
@@ -91,7 +91,7 @@ export function socialDirectMessageActor(
 ) {
   if (message.app === 'matchme') {
     const matches = characters.filter((character) => character.social.plotTwist &&
-      (characterId === undefined || character.id === characterId) && datingAccountId(character.id) === message.fromAccountId);
+      (characterId === undefined || character.id === characterId) && datingAccountMatches(character, message.fromAccountId));
     return matches.length === 1 ? matches[0] : undefined;
   }
   const matches = characters.filter((character) => {
@@ -99,6 +99,7 @@ export function socialDirectMessageActor(
       ? character.social.fotogramUsername
       : character.social.onlyfriendsUsername;
     return (characterId === undefined || character.id === characterId) &&
+      (!message.fromAccountId || character.apps?.[message.app]?.accountId === message.fromAccountId) &&
       !!handle.trim().replace(/^@/, '') &&
       socialIdentityMatches(handle, message.fromHandle);
   });
@@ -120,7 +121,7 @@ export function findSocialAccountByExactIdentity(
   if (!normalizedQueryName || !normalizedQueryHandle) {
     return undefined;
   }
-  return characters.find((character) => {
+  const matches = characters.filter((character) => {
     if (character.id === excludedCharacterId) {
       return false;
     }
@@ -132,6 +133,7 @@ export function findSocialAccountByExactIdentity(
       storedHandle.replace(/^@/, '').toLowerCase() === normalizedQueryHandle
     );
   });
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export function socialPostVisibleToViewer(

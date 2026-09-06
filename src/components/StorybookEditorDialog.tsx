@@ -1,3 +1,4 @@
+import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { useMemo, useState } from 'react';
 import type { WorkflowNode } from '../types';
 import {
@@ -17,6 +18,9 @@ type ViewMode = 'ui' | 'fields' | 'json';
 
 type StorybookEditorDialogProps = {
   node: WorkflowNode;
+  identityLocked?: boolean;
+  onExportCharacter?: (characterId: string, includePosts?: boolean) => Promise<void>;
+  onImportCharacter?: () => Promise<void>;
   // Returns a blocking error message (e.g. a running-story guard violation), or
   // null when the commit succeeded.
   onCommit: (storybook: RpStorybook, status: string) => string | null;
@@ -245,7 +249,7 @@ function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
   );
 }
 
-export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEditorDialogProps) {
+export function StorybookEditorDialog({ node, identityLocked = false, onExportCharacter, onImportCharacter, onCommit, onClose }: StorybookEditorDialogProps) {
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   // Track parse validity so an Apply can't overwrite unparseable stored JSON
   // with empty/edited content (the fallback would otherwise be silent).
@@ -443,6 +447,20 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
             </div>
           </div>
         </div>
+        <details className="storybook-section"><summary>Character accounts and export</summary>
+          {onImportCharacter && <button type="button" onClick={() => void onImportCharacter()}>Import Character</button>}
+          {storybook.characters.map((character) => <div key={character.id}>
+            <h3>{character.name}</h3>
+            <CharacterAppProfiles character={character} characters={storybook.characters}
+              locked={identityLocked || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0}
+              onChange={(next) => {
+                const error = onCommit({ ...storybook, characters: storybook.characters.map((entry) => entry.id === next.id ? next : entry) }, 'Character profile saved.');
+                if (error) setStatus(error); return !error;
+              }} />
+            {onExportCharacter && <><button type="button" onClick={() => void onExportCharacter(character.id)}>Export Character</button>
+              <button type="button" onClick={() => void onExportCharacter(character.id, true)}>Export Character with Own Posts</button></>}
+          </div>)}
+        </details>
       </section>
     </div>
   );

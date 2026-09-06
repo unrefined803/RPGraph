@@ -52,10 +52,14 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
   for (const app of ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const) {
     const account = record(source[app]);
     const legacyHandle = app === 'fotogram' ? social.fotogramUsername : app === 'onlyfriends' ? social.onlyfriendsUsername : undefined;
-    const profile = app === 'matchme' ? normalizeDatingProfile(social.plotTwist ?? account.profile) : undefined;
+    const rawProfile = app === 'matchme' ? record(account.profile ?? social.plotTwist) : {};
+    const profile = app === 'matchme' ? normalizeDatingProfile({ ...rawProfile,
+      ...(typeof account.displayName === 'string' ? { name: account.displayName } : {}),
+      ...(typeof account.bio === 'string' ? { bio: account.bio } : {}),
+      ...(typeof account.username === 'string' ? { username: account.username } : {}),
+    }) : undefined;
     if (!Object.keys(account).length && !legacyHandle && !profile) continue;
-    const preserveDisabledHandle = account.enabled === false && legacyHandle === '';
-    const username = legacyHandle !== undefined && !preserveDisabledHandle ? string(legacyHandle) : string(account.username);
+    const username = Object.keys(account).length ? string(account.username) : string(legacyHandle);
     apps[app] = {
       accountId: string(account.accountId) || `character:${id}:${app}`,
       enabled: typeof account.enabled === 'boolean' ? account.enabled : app === 'matchme' ? !!profile : !!username,
@@ -69,8 +73,11 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
       }) } : {}),
       ...(profile ? { profile } : {}),
     };
-    // Existing username editors explicitly creating/removing an account remain authoritative.
-    if (legacyHandle !== undefined && username !== string(account.username)) apps[app]!.enabled = !!username;
+  }
+  if (!apps.fotogram) {
+    apps.fotogram = { accountId: `character:${id}:fotogram`, enabled: true,
+      username: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'character'}.${id.replace(/[^a-zA-Z0-9]/g, '')}`,
+      displayName: name, bio: '' };
   }
   return apps;
 }
@@ -91,7 +98,9 @@ export function characterPayload(character: Character, portable = false) {
     const { messages: _messages, decisions: _decisions, historyVersion: _historyVersion, ...profile } = apps.matchme.profile;
     apps.matchme = { ...apps.matchme, profile: { ...profile, decisions: {} } };
   }
-  return { ...rest, playable: character.playable ?? true, apps,
+  return { ...rest,
+    ...(portable ? { images: rest.images.map(({ receivedFrom: _receivedFrom, imageAccess: _imageAccess, ...image }) => image) } : {}),
+    playable: character.playable ?? true, apps,
     ...(profileImage ? { profileImage: { imageId: profileImage.imageId, crop: profileImage.crop } } : {}) };
 }
 

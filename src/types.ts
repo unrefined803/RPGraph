@@ -736,6 +736,8 @@ export type SocialDirectMessageRecord = {
 
 /** A post a character published in a social app; persisted on the message. */
 export type SocialPostRecord = {
+  authorCharacterId?: string;
+  authorAccountId?: string;
   app: SocialAppKind;
   postId: string;
   author: string;
@@ -793,6 +795,8 @@ export type MessageRecord = {
   eventInput?: boolean;
   eventDisplayText?: string;
   phoneMessage?: boolean;
+  phoneFromAccountId?: string;
+  phoneToAccountId?: string;
   phoneFrom?: string;
   phoneTo?: string;
   phoneVoiceMessage?: boolean;

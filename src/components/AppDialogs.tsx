@@ -1,3 +1,5 @@
+import { CharacterAppProfiles } from './CharacterAppProfiles';
+import { socialFromCharacterApps, type CharacterApps } from '../characters/character';
 import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
@@ -15,7 +17,6 @@ import {
 } from '../nodes/custom-node/runtime';
 import {
   defaultRpStorybookCharacterBanking,
-  defaultRpStorybookCharacterSocial,
   defaultRpStorybookCharacterVoiceConfig,
   defaultRpStorybookImageDescriptionPrompt,
   defaultRpStorybookImageDescriptionPromptSettings,
@@ -23,7 +24,6 @@ import {
   nextStorybookCharacterImageId,
   parseRpStorybookJson,
   rpStorybookCharacterBanking,
-  rpStorybookCharacterSocial,
   rpStorybookFormattedText,
   rpStorybookFormattedTextSettings,
   rpStorybookImageDescriptionPromptSettings,
@@ -1053,6 +1053,7 @@ export function CustomNodeAssistantDialog({
 }
 
 type StorybookCreatorDialogProps = {
+  identityLocked?: boolean;
   node: WorkflowNode;
   workflowNodes: WorkflowNode[];
   promptActionSettings: PromptActionRuntimeSettings;
@@ -1095,7 +1096,7 @@ type StorybookCreatorDialogProps = {
   onResetStorybook: () => void;
   onImportSillyTavernCharacter: () => Promise<void>;
   onImportCharacterCard: () => Promise<void>;
-  onExportCharacter: (characterId: string) => Promise<void>;
+  onExportCharacter: (characterId: string, includePosts?: boolean) => Promise<void>;
   onDeleteCharacter: (characterId: string) => void;
   pendingConversion: {
     fileName?: string;
@@ -1352,25 +1353,18 @@ function storybookCharacterBanking(
     defaultRpStorybookCharacterBanking();
 }
 
-function storybookCharacterSocial(
-  storybook: RpStorybook,
-  characterId: string,
-): RpStorybookCharacterSocial {
-  return storybook.characters.find((character) => character.id === characterId)?.social ??
-    defaultRpStorybookCharacterSocial();
-}
-
 function withStorybookCharacterPhoneAccounts(
   storybook: RpStorybook,
   characterId: string,
   banking: RpStorybookCharacterBanking,
   social: RpStorybookCharacterSocial,
+  apps?: CharacterApps,
 ): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
       character.id === characterId
-        ? { ...character, banking, social }
+        ? { ...character, banking, social, apps: apps ?? character.apps }
         : character
     ),
   };
@@ -2329,6 +2323,7 @@ function CharacterImagesDialog({
 }
 
 function CharacterSetupDialog({
+  identityLocked,
   storybook,
   characterId,
   workflowNodes,
@@ -2342,12 +2337,13 @@ function CharacterSetupDialog({
   promptActionSettings,
   onClose,
 }: {
+  identityLocked: boolean;
   storybook: RpStorybook;
   characterId: string;
   workflowNodes: WorkflowNode[];
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
-  onUpdateStorybook: (storybook: RpStorybook, status?: string) => void;
+  onUpdateStorybook: (storybook: RpStorybook, status?: string) => boolean;
   onLoadCharacterComfyLoras: StorybookCreatorDialogProps['onLoadCharacterComfyLoras'];
   onGenerateCharacterComfyPreview: StorybookCreatorDialogProps['onGenerateCharacterComfyPreview'];
   onGenerateCharacterVoicePreview: StorybookCreatorDialogProps['onGenerateCharacterVoicePreview'];
@@ -2382,7 +2378,7 @@ function CharacterSetupDialog({
       })),
     };
   });
-  const [socialDraft, setSocialDraft] = useState(() => storybookCharacterSocial(storybook, characterId));
+  const [appsDraft, setAppsDraft] = useState<CharacterApps>(character?.apps ?? {});
   const [voiceTestText, setVoiceTestText] = useState('');
   const [voiceGenerating, setVoiceGenerating] = useState(false);
   const [voiceClip, setVoiceClip] = useState<{ dataUrl: string; filename: string } | null>(null);
@@ -2455,7 +2451,7 @@ function CharacterSetupDialog({
   }, [onLoadCharacterComfyLoras, providerId]);
 
   function commitCharacterSetup() {
-    onUpdateStorybook(
+    return onUpdateStorybook(
       withStorybookCharacterPhoneAccounts(
         withStorybookCharacterVoiceConfig(
           withStorybookCharacterComfyConfig(storybook, characterId, {
@@ -2474,7 +2470,8 @@ function CharacterSetupDialog({
             amount: Number(expense.amount),
           })),
         }),
-        rpStorybookCharacterSocial(socialDraft),
+        socialFromCharacterApps(appsDraft),
+        appsDraft,
       ),
       `Character setup saved for ${characterName}.`,
     );
@@ -2575,7 +2572,7 @@ function CharacterSetupDialog({
   }
 
   async function closeDialog() {
-    commitCharacterSetup();
+    if (!commitCharacterSetup()) { setStatus('Could not save character setup. Check the story identity restrictions.'); return; }
     if (!providerId) {
       onClose();
       return;
@@ -2784,43 +2781,8 @@ function CharacterSetupDialog({
                   The app fills the rest of the history with generated everyday spending.
                 </p>
               </div>
-              <div className="character-voice-card">
-                <span className="character-voice-card-title">SOCIAL APPS</span>
-                <label className="character-comfy-field">
-                  <span>FOTOGRAM USERNAME</span>
-                  <input
-                    className="node-text-input nodrag"
-                    type="text"
-                    value={socialDraft.fotogramUsername}
-                    placeholder="nova.reyes"
-                    onChange={(event) => {
-                      const fotogramUsername = event.currentTarget.value;
-                      setSocialDraft((current) => ({ ...current, fotogramUsername }));
-                    }}
-                  />
-                </label>
-                <p className="character-voice-hint">
-                  Every character is expected to have a Fotogram account. When empty, the app
-                  derives a handle from the character name automatically.
-                </p>
-                <label className="character-comfy-field">
-                  <span>ONLYFRIENDS USERNAME</span>
-                  <input
-                    className="node-text-input nodrag"
-                    type="text"
-                    value={socialDraft.onlyfriendsUsername}
-                    placeholder="Leave empty for no account"
-                    onChange={(event) => {
-                      const onlyfriendsUsername = event.currentTarget.value;
-                      setSocialDraft((current) => ({ ...current, onlyfriendsUsername }));
-                    }}
-                  />
-                </label>
-                <p className="character-voice-hint">
-                  OnlyFriends accounts are private. Leave this empty unless the story explicitly
-                  gives the character an account.
-                </p>
-              </div>
+              {character && <CharacterAppProfiles character={{ ...character, apps: appsDraft }} characters={storybook.characters}
+                locked={identityLocked} onChange={(next) => { setAppsDraft(next.apps!); return true; }} />}
             </div>
           ) : activeSetupTab === 'voice' ? (
             <div className="character-voice-body">
@@ -3046,6 +3008,7 @@ export function StorybookCreatorDialog({
   onApplyConversion,
   onCancelConversion,
   onClose,
+  identityLocked = false,
 }: StorybookCreatorDialogProps) {
   const [draft, setDraft] = useState('');
   const [viewMode, setViewMode] = useState<'ui' | 'json' | 'text'>('ui');
@@ -3587,6 +3550,7 @@ export function StorybookCreatorDialog({
                                   >
                                     Export Character
                                   </button>
+                                  <button type="button" className="character-images-button nodrag" onClick={() => void onExportCharacter(character.id, true)}>Export Character with Own Posts</button>
                                 </div>
                                 <button
                                   type="button"
@@ -3889,6 +3853,7 @@ export function StorybookCreatorDialog({
         )}
         {comfyConfigCharacterId && (
           <CharacterSetupDialog
+            identityLocked={identityLocked || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0}
             storybook={storybook}
             characterId={comfyConfigCharacterId}
             workflowNodes={workflowNodes}

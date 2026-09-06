@@ -1,3 +1,4 @@
+import { resolveWhatsUpRecipient } from './characters/messageIdentity';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
 import { useMatchMeMigration } from './chat/useMatchMeMigration';
@@ -3589,6 +3590,8 @@ function App() {
       includeInHistory: true,
       channel: 'phone',
       phoneMessage: true,
+      phoneFromAccountId: message.fromAccountId ?? (() => { try { return resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, canonicalMessage.from).accountId; } catch { return undefined; } })(),
+      phoneToAccountId: message.toAccountId ?? (() => { try { return resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, canonicalMessage.to).accountId; } catch { return undefined; } })(),
       phoneFrom: canonicalMessage.from,
       phoneTo: canonicalMessage.to,
       phoneVoiceMessage: canonicalMessage.isVoiceMessage || undefined,
@@ -4426,7 +4429,7 @@ function App() {
     state.matches.push(...entries.flatMap((entry) => entry.matchMeMatch ? [entry.matchMeMatch] : []));
     for (const [id, decision] of Object.entries(profile.decisions)) {
       if (decision !== 'like' || currentOwner.social.plotTwist?.decisions[id] === 'like') continue;
-      const match = matchMeLikePolicy(datingAccountId(owner.id), id, state, new Date().toISOString());
+      const match = matchMeLikePolicy(datingAccountId(owner), id, state, new Date().toISOString());
       if (!match) continue;
       state.matches.push(match);
       entries.push({ role: 'user', includeInHistory: true, matchMeMatch: match,
@@ -5904,6 +5907,7 @@ function App() {
           node={storybookCreatorNode}
           workflowNodes={nodeViewNodes}
           promptActionSettings={promptActionSettings}
+          identityLocked={messages.length > 0}
           messages={storybookCreatorMessages}
           isSubmitting={storybookCreatorSubmitting}
           connections={connections}
@@ -5936,7 +5940,7 @@ function App() {
           onResetStorybook={() => resetStorybook(storybookCreatorNode.id)}
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
           onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
-          onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}
+          onExportCharacter={(characterId, includePosts) => exportStorybookCharacter(storybookCreatorNode.id, characterId, includePosts)}
           onDeleteCharacter={(characterId) => deleteStorybookCharacter(storybookCreatorNode.id, characterId)}
           pendingConversion={
             pendingStorybookConversion?.nodeId === storybookCreatorNode.id
@@ -5954,6 +5958,9 @@ function App() {
       {storybookEditorNode && storybookEditorNode.data.nodeType === 'rp-storybook-editor' && (
         <StorybookEditorDialog
           node={storybookEditorNode}
+          identityLocked={messages.length > 0}
+          onExportCharacter={(characterId, includePosts) => exportStorybookCharacter(storybookEditorNode.id, characterId, includePosts)}
+          onImportCharacter={() => importCharacterCard(storybookEditorNode.id)}
           onCommit={(storybook, status) =>
             commitStorybookToNode(storybookEditorNode.id, storybook, { storybookStatus: status })
           }

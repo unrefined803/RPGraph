@@ -1,3 +1,6 @@
+import { postsWithInitialContent } from '../../characters/publications';
+import { SocialProfileEditor } from './SocialProfileEditor';
+import type { CharacterAppAccount } from '../../characters/character';
 import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -37,7 +40,6 @@ import {
   nextSocialPostId,
   socialCharacterForPost,
   socialHandleForCharacter,
-  socialHandleForName,
   socialIdentityMatches,
   socialLikeAccountKey,
   socialPostMessages,
@@ -160,6 +162,7 @@ type PhoneSocialFeedScreenProps = {
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
     username: string,
+    profile?: CharacterAppAccount,
   ) => boolean;
   onBack: () => void;
   connections?: ConnectionPreset[];
@@ -255,7 +258,7 @@ export function PhoneSocialFeedScreen({
   rpDateTimeFormat,
   rpWeekdayLanguage,
 }: PhoneSocialFeedScreenProps) {
-  const [nickname, setNickname] = useState('');
+  const [editingProfile, setEditingProfile] = useState(false);
   // A username stored in the Storybook means the character already has an
   // account in this app; the onboarding step is skipped then.
   const storedUsername =
@@ -597,7 +600,7 @@ export function PhoneSocialFeedScreen({
     ...(app.id === 'fotogram' ? dmPartnerAccounts : []),
   ]
     .flatMap((entry) => [entry.name, entry.handle]);
-  const persistedPosts: SocialPost[] = socialPostMessages(app.id, socialMediaMessages)
+  const persistedPosts: SocialPost[] = socialPostMessages(app.id, postsWithInitialContent(storyCharacters, socialMediaMessages))
     .reverse()
     .filter((message) => socialPostVisibleToViewer(
       message.socialPost,
@@ -1011,10 +1014,12 @@ export function PhoneSocialFeedScreen({
       postId: nextSocialPostId(
         app.id,
         socialMediaMessages,
-        optimisticPosts.map((post) => post.id),
+        [...optimisticPosts, ...persistedPosts].map((post) => post.id),
       ),
       author: owner.name,
       authorHandle: account,
+      authorCharacterId: owner.sourceId,
+      authorAccountId: owner.apps?.[app.id]?.accountId,
       caption,
       textOnly: !postDraftImage || undefined,
       // Only the Gallery image id is persisted; uploads were imported into
@@ -1124,21 +1129,7 @@ export function PhoneSocialFeedScreen({
     event.currentTarget.form?.requestSubmit();
   }
 
-  function createAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const username = socialHandleForName(nickname);
-    if (!nickname.trim() || !owner) {
-      return;
-    }
-    // The account name is persisted in the Storybook so it survives closing
-    // the app and is part of the story data.
-    if (!onCreateSocialAccount(owner, app.id, username)) {
-      showNotice({ kind: 'error', text: 'Could not create this account. Choose an available nickname and try again.' });
-      return;
-    }
-    setAccount(username);
-    setNickname('');
-  }
+
 
   function submitUserSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1203,55 +1194,17 @@ export function PhoneSocialFeedScreen({
     );
   }
 
-  if (!account) {
-    return (
-      <div className={`phone-social-screen ${app.themeClass}`} aria-label={app.name}>
-        <header className="phone-gallery-header phone-social-header">
-          <button type="button" onClick={onBack} aria-label="Back" title="Back">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div className="phone-social-brand">
-            <strong>{app.name}</strong>
-            <span>
-              {owner
-                ? `${owner.name} — no account`
-                : 'No account'}
-            </span>
-          </div>
-        </header>
-        <div className="phone-social-onboarding">
-          <div className="phone-social-onboarding-card">
-            <strong>{app.name}</strong>
-            <span>{app.tagline}</span>
-            {owner ? (
-              <form onSubmit={createAccount}>
-                {notice?.kind === 'error' && <span role="alert">{notice.text}</span>}
-                <label className="phone-banking-field">
-                  <span>Nickname</span>
-                  <input
-                    type="text"
-                    placeholder="Pick a nickname"
-                    value={nickname}
-                    onChange={(event) => setNickname(event.target.value)}
-                    autoFocus
-                  />
-                </label>
-                <button type="submit" disabled={!nickname.trim()}>
-                  Create Account
-                </button>
-              </form>
-            ) : (
-              <span className="phone-social-empty">
-                Select a character to create an account.
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (editingProfile && owner) return <SocialProfileEditor account={owner.apps?.[app.id]}
+    accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} images={phoneGalleryImages}
+    locked={socialMediaMessages.length > 0 || bankTransferMessages.length > 0}
+    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) setAccount(profile.username); return saved; }}
+    onCancel={() => setEditingProfile(false)} />;
+  if (!account && owner) return <SocialProfileEditor accountId={`character:${owner.sourceId}:${app.id}`}
+    name={owner.name} images={phoneGalleryImages} locked={false}
+    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) setAccount(profile.username); return saved; }}
+    onCancel={onBack} />;
+  if (!account) return <p>Select a character to open this app.</p>;
+
 
   const directMessageCommentAccounts: SocialDirectMessageParticipant[] = posts.flatMap((post) => [
     ...(post.comments ?? []),
@@ -1430,7 +1383,7 @@ export function PhoneSocialFeedScreen({
                 className="phone-avatar"
                 name={owner?.name ?? account}
                 fallback={(owner?.name ?? account).slice(0, 1).toUpperCase()}
-                profileImageDataUrl={owner?.profileImage?.dataUrl}
+                profileImageDataUrl={(owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!)?.dataUrl : undefined) ?? owner?.profileImage?.dataUrl}
                 style={ownerColor ? { borderColor: ownerColor, color: ownerColor } : undefined}
               />
               <span className="phone-social-account-main">
@@ -1438,6 +1391,8 @@ export function PhoneSocialFeedScreen({
                 <span>@{account}</span>
               </span>
             </button>
+            <button type="button" onClick={() => setEditingProfile(true)}>Edit profile</button>
+            <p>{owner?.apps?.[app.id]?.bio}</p>
             {followedAccounts.map((entry) => {
               const color = entry.character ? characterColors.get(entry.character.name) : undefined;
               const unread = unreadDirectMessages[entry.handle.toLowerCase()];
@@ -1457,7 +1412,7 @@ export function PhoneSocialFeedScreen({
                     className="phone-avatar"
                     name={entry.name}
                     fallback={entry.name.slice(0, 1).toUpperCase()}
-                    profileImageDataUrl={entry.character?.profileImage?.dataUrl}
+                    profileImageDataUrl={(entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!)?.dataUrl : undefined) ?? entry.character?.profileImage?.dataUrl}
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
@@ -1754,7 +1709,7 @@ export function PhoneSocialFeedScreen({
                       className="phone-avatar"
                       name={post.authorName}
                       fallback={post.authorName.slice(0, 1).toUpperCase()}
-                      profileImageDataUrl={postAuthorCharacter?.profileImage?.dataUrl}
+                      profileImageDataUrl={(postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!)?.dataUrl : undefined) ?? postAuthorCharacter?.profileImage?.dataUrl}
                       style={postAuthorColor
                         ? { borderColor: postAuthorColor, color: postAuthorColor }
                         : undefined}

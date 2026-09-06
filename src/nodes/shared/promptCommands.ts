@@ -139,7 +139,7 @@ const messengerMessageInstruction = [
   '  ]',
   '}',
   '',
-  'from, to, and message are required. isVoiceMessage and sendImageId are optional. They currently work only with whatsUpApp and are safely ignored by Fotogram and OnlyFriends. For WhatsUp, set isVoiceMessage to true only for a spoken TTS voice message and use sendImageId only with an exact known imageId. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits.',
+  'from, to, and message are required. isVoiceMessage and sendImageId are optional. They currently work only with whatsUpApp and are safely ignored by Fotogram and OnlyFriends. For WhatsUp, set isVoiceMessage to true only for a spoken TTS voice message and use sendImageId only with an exact known imageId. Use the existing full character name, the username of this app (with or without @), or its stable account ID in from/to. Unknown or ambiguous recipients are rejected; never guess a partial name or borrow another app’s username.',
 ].join('\n');
 
 const messengerConversationInstruction = [
@@ -182,7 +182,7 @@ const messengerConversationInstruction = [
   '',
   'Write both sides of the conversation yourself. Do not invent extra messages only to reach a longer pattern. Use messenger_message instead when only one message is sent.',
   '',
-  'Each entry requires from, to, and message. isVoiceMessage and sendImageId currently work only with whatsUpApp and are safely ignored by Fotogram and OnlyFriends. For WhatsUp, omit isVoiceMessage for typed messages and use sendImageId only with an exact known imageId. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits.',
+  'Each entry requires from, to, and message. isVoiceMessage and sendImageId currently work only with whatsUpApp and are safely ignored by Fotogram and OnlyFriends. For WhatsUp, omit isVoiceMessage for typed messages and use sendImageId only with an exact known imageId. Use the existing full character name, the username of this app (with or without @), or its stable account ID in from/to. Unknown or ambiguous recipients are rejected; never guess a partial name or borrow another app’s username.',
 ].join('\n');
 
 const displayImageInstruction = [

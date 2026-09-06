@@ -321,6 +321,8 @@ function chatMessageFromTimelineEntry(
     eventInput: entry.flags?.eventInput,
     eventDisplayText: entry.eventDisplayText,
     phoneMessage: entry.channel === 'phone',
+    phoneFromAccountId: entry.phone?.fromAccountId,
+    phoneToAccountId: entry.phone?.toAccountId,
     phoneFrom: entry.phone?.from,
     phoneTo: entry.phone?.to,
     phoneVoiceMessage: entry.phone?.voiceMessage,

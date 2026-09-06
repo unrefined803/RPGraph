@@ -1,6 +1,6 @@
 # Character Container V2 — Implementation Plan
 
-Status: Phase A foundations implemented; global NPC discovery and app integration remain planned.
+Status: Schema foundations and local app profile/publication integration implemented. Global NPC discovery remains a separate, unimplemented phase.
 Character Container V2 and Storybook V3 use independent version numbers.
 
 ## Implemented foundation and next steps
@@ -37,12 +37,85 @@ Character Container V2 and Storybook V3 use independent version numbers.
 - Portable export excludes live MatchMe messages and swipe decisions. Session
   migration retains them. Other runtime story history stays outside the card.
 
-Next: implement the built-in/user-data NPC registry, app discovery, account
-editors for the new optional metadata, playable selection rules and promotion
-without duplicate runtime identities. Then create image-backed demo containers.
-The playable flag is available now; a complete global NPC runtime is a later
-phase. Initial posts and account avatars are modeled but not published by the
-existing app runtime yet. Interactive validation remains with the user.
+### Implemented local profile and publication phase
+
+The format versions remain **Storybook 3.0.0**, **RP-Storybook node 3.0.0** and
+**Character Container 2.0.0**. This is ongoing development within those formats.
+
+- `CharacterAppProfiles` provides the account overview for both Storybook
+  editors. Fotogram is provisioned deterministically when absent; existing
+  usernames, account IDs and explicit account data are retained. OnlyFriends
+  and MatchMe remain optional, including after play begins.
+- Setup and the phone share `SocialProfileEditor` for Fotogram/OnlyFriends.
+  MatchMe reuses `PhoneDatingScreen` in profile-only mode, with gallery
+  selection. Photo uploads remain in the phone/gallery workflow.
+- `characters[].apps` owns stable account IDs, usernames, display names, bios,
+  avatars and prepared `initialPosts`. `characters[].images` owns image bytes.
+  Profile editors update the canonical account and refresh `social` immediately;
+  stale compatibility fields cannot override an existing canonical account.
+  MatchMe's existing profile structure is retained and its common public fields
+  are normalized from the account metadata. Legacy decisions/history markers
+  remain compatible with the existing game storage; portable exports remove
+  decisions and messages. Active matches and new DMs stay in the timeline.
+- Running-story guards protect account IDs, enabled accounts and established
+  nonempty usernames as well as character identities. An absent optional account
+  can still be created. Gallery references and account/initial-post collisions
+  are validated before Storybook commits and imports.
+- Social messages resolve exact full character names, the requested app's
+  username (optionally prefixed with `@`), or stable account IDs. Duplicate names,
+  duplicate handles, and name/handle collisions are rejected. A cross-app handle
+  cannot authorize delivery. Unknown recipients are rejected; public generated
+  comments may still introduce NPCs through the existing social directory.
+  WhatsUp delivery also rejects unknown/ambiguous recipients rather than guessing
+  from partial names; existing historical phone contacts remain usable.
+- New social and WhatsUp messages retain account IDs. MatchMe uses canonical
+  account IDs; existing node-scoped account IDs are read aliases, and structured
+  matches are resolved through those aliases without rewriting source history.
+  Full-character-name and username aliases supplement the existing MatchMe
+  account-ID syntax; direct replies remain bound to the requested account IDs.
+
+### Concrete storage responsibilities
+
+| Action / data | What is stored |
+| --- | --- |
+| Save Storybook | Current canonical character payloads, galleries, profiles, scenario and already configured Opening History. It does not automatically copy the current chat into Opening History. `currentStorybookForSave` and `rpStorybookJsonText` retain app metadata. |
+| Import current session as Opening History | Existing turns, relevant checkpoints, scheduled events and the existing likes/directory/connections/notes/ChatGPD snapshots. Character payloads are retained unchanged by spreading the current Storybook. Live posts remain structured `socialPost` records in these turns. |
+| Save RP | Workflow including Storybook character profiles/gallery, runtime snapshots, checkpoints and the structured timeline with posts, DMs, matches and other game state. The existing media pool handles serialization copies. |
+| Export Character | One portable character with gallery and app profiles. No initial publications, DMs, reactions, swipe history, matches or private image-sharing metadata. |
+| Export Character with Own Posts | The same portable payload plus a read-only snapshot of this character's own current publications and existing starting publications under the existing `apps.fotogram/onlyfriends.initialPosts`. Only post ID, text and image ID are copied. Required gallery records are gathered once per image ID. Foreign publications and engagement are excluded. Missing media aborts export. |
+| Import starting publications | Stable initial-post IDs remain in the imported character. The feed and command post lookup combine them with the timeline by app/post ID, giving an existing timeline post precedence. No second live-post store and no automatic timeline insertion is introduced. Reimport by character ID replaces the same payload and cannot append duplicate seeds. |
+
+Starting publications are immutable source content, not a mirror of ongoing
+social activity. New posts and reactions never update `initialPosts` during play.
+There is currently no separate initial-post deletion/tombstone UI; a future
+editable NPC seed lifecycle must preserve deliberate removals when applying
+library revisions. Different imported characters with conflicting account or
+post IDs are rejected instead of silently merging activity.
+
+### Existing messenger command syntax
+
+The existing `messenger_message` / `messenger_conversation` commands and their
+app-specific JSON keys remain the only syntax. For example:
+
+```json
+{"fotogramApp":[{"from":"Nova Reyes","to":"@jordan.art","message":"Hello!"}]}
+```
+
+`from` and `to` accept full character names, usernames belonging to that app, or
+stable account IDs. Use an account ID to disambiguate duplicate display names.
+`whatsUpApp`, `fotogramApp`, `onlyFriendsApp`, and `matchMeApp` keep their existing
+capabilities. MatchMe still requires an active application-created match, plain
+message text and exactly the expected IDs for a direct reply. No new parallel
+command or automatic recipient creation is introduced.
+
+### Deferred global NPC phase
+
+The built-in/user-data registry, directory scanner, automatic external-container
+app discovery, NPC promotion/precedence and pinned library revisions are **not
+implemented**. Existing demo catalogs remain. No NPC directory is created or
+scanned by this phase. The full target design below continues to describe that
+future work, including global identity aliases, packaging and image-backed demo
+containers. Interactive validation remains with the user.
 
 The sections below describe the full target design, including later phases;
 field names in examples are proposals where not implemented above.
@@ -91,8 +164,8 @@ Paths below are relative to the repository root.
 | Area | Existing files and behavior |
 | --- | --- |
 | Character schema | `src/nodes/rp-storybook/model.ts`: `RpStorybookCharacter` has `id`, `name`, `description`, `personality`, `speechStyle`, `role`, gallery images, profile image/crop, phone, social, banking, voice and Comfy configuration. |
-| Current versions | `src/storybook/formatVersions.json`: Storybook `2.2.0`, character card `1.0.0`, encrypted character envelope `1.0`. These versions are independent. |
-| Card serialization/import | `src/storybook/characterCard.ts`: `RpCharacterCard`, `rpCharacterCardForCharacter`, `planCharacterCardImport`. Cards wrap one character as `{ format: "rpgraph-character", version, character }`. Current import can replace by ID **or name**, and can rename image IDs to avoid collisions. Both behaviors need review for stable V2 identities. |
+| Current versions | `src/storybook/formatVersions.json`: Storybook `3.0.0`, character container `2.0.0`, encrypted character envelope `1.0`. These versions are independent. |
+| Card serialization/import | `src/storybook/characterCard.ts`: `RpCharacterCard`, `rpCharacterCardForCharacter`, `planCharacterCardImport`. Cards wrap one character as `{ format: "rpgraph-character", version, character }`. V2 import replaces by stable ID and rejects image/account/post conflicts. Name replacement remains limited to legacy cards. |
 | Storybook actions | `src/storybook/useStorybookActions.ts`: `exportStorybookCharacter`, `importCharacterCard`, `beginCharacterCardImport`, `applyCharacterCardToNode`. Plain and encrypted paths already exist. Some paths explicitly require `rp-storybook`; support the manual `rp-storybook-editor` source too. |
 | Electron recognition | `electron/characterCardFormat.cjs`: plain/encrypted metadata and version checks. Current metadata checks are not a substitute for full V2 payload/reference validation. |
 | Storage and IPC | `electron/main.cjs`: `charactersDirectory()` is `app.getPath('userData')/characters`; `character:list` and `character:save` list/save exported cards. Default export names currently end in `.rpgraph-character.json`. |
@@ -304,9 +377,10 @@ All global NPCs are discoverable in any Storybook according to enabled app
 profiles. This does not create a match, phone contact, acquaintance or published
 post merely because a character has an album.
 
-Keep the following in the RP save: matches, messages, conversations, delivered
-image references, published posts, comments, likes, read markers, profile changes
-made during play and other story-specific state. Do not write these changes back
+Keep matches, messages, conversations, delivered image references, published
+posts, comments, likes, read markers and other story-specific activity in the RP
+save. Profiles and galleries belong to the character payload embedded in the
+Storybook; an RP save retains that payload as part of its workflow/runtime. Do not write these changes back
 to a global source file automatically.
 
 When a global NPC first participates in persistent activity, retain a deduplicated

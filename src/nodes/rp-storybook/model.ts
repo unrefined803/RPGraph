@@ -1,3 +1,4 @@
+import { withCharacterAppProfile } from '../../characters/profiles';
 import { normalizeCharacterApps, socialFromCharacterApps, characterPayload, type Character } from '../../characters/character';
 import { normalizeDatingProfile, type DatingProfile } from '../../chat/datingProfile';
 import type { MessageRecord, RpAppointment, TurnRecord } from '../../types';
@@ -1360,21 +1361,15 @@ export function withRpStorybookCharacterSocialUsername(
   app: 'fotogram' | 'onlyfriends',
   username: string,
 ): RpStorybook {
-  const field = app === 'fotogram' ? 'fotogramUsername' : 'onlyfriendsUsername';
-  return {
-    ...storybook,
-    characters: storybook.characters.map((character) =>
-      character.id === characterId
-        ? {
-            ...character,
-            social: {
-              ...(character.social ?? defaultRpStorybookCharacterSocial()),
-              [field]: username.trim(),
-            },
-          }
-        : character,
-    ),
-  };
+
+  return { ...storybook, characters: storybook.characters.map((character) => character.id === characterId
+    ? withCharacterAppProfile(character, app, {
+        accountId: character.apps?.[app]?.accountId ?? `character:${character.id}:${app}`,
+        displayName: character.name, bio: '', ...character.apps?.[app],
+        username: username.trim(), enabled: !!username.trim(),
+      })
+    : character) };
+
 }
 
 /**
@@ -1397,6 +1392,14 @@ export function rpStorybookIdentityLockViolations(
     }
     if (character.name && nextCharacter.name !== character.name) {
       violations.push(`Character "${label}" cannot be renamed while the story has chat or Opening History.`);
+    }
+    for (const app of ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const) {
+      const account = character.apps?.[app];
+      const nextAccount = nextCharacter.apps?.[app];
+      if (account && (!nextAccount || account.accountId !== nextAccount.accountId ||
+        (account.enabled && !nextAccount.enabled) || (account.username && account.username !== nextAccount.username))) {
+        violations.push(`The ${app} account identity of "${label}" cannot be changed or removed while the story has chat or Opening History.`);
+      }
     }
     const currentSocial = character.social ?? defaultRpStorybookCharacterSocial();
     const nextSocial = nextCharacter.social ?? defaultRpStorybookCharacterSocial();

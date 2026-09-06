@@ -1,3 +1,4 @@
+import { resolveSocialMessageIdentity } from './socialMessageValidation';
 import { matchMeMessageAllowed, matchMeState } from './matchMe';
 import { storyCharactersFromNodes } from '../storybook/runtime';
 import { useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
@@ -96,6 +97,8 @@ export function useTurnRecordState({
     eventInput,
     eventDisplayText,
     phoneMessage,
+    phoneFromAccountId,
+    phoneToAccountId,
     phoneFrom,
     phoneTo,
     phoneVoiceMessage,
@@ -132,6 +135,14 @@ export function useTurnRecordState({
     deletedPhoneNote,
     simulatedAiChat,
   }: AppendMessageInput) {
+    if (socialDirectMessage && socialDirectMessage.app !== 'matchme') {
+      const characters = storyCharactersFromNodes(nodesRef.current);
+      const from = resolveSocialMessageIdentity({ characters, messages: messagesRef.current, app: socialDirectMessage.app, identity: socialDirectMessage.fromAccountId ?? socialDirectMessage.fromHandle });
+      const to = resolveSocialMessageIdentity({ characters, messages: messagesRef.current, app: socialDirectMessage.app, identity: socialDirectMessage.toAccountId ?? socialDirectMessage.toHandle });
+      if (!from.available || !to.available) throw new Error(from.reason ?? to.reason ?? 'Unknown or ambiguous social account.');
+      if (from.handle?.toLowerCase() !== socialDirectMessage.fromHandle.replace(/^@/, '').toLowerCase() || to.handle?.toLowerCase() !== socialDirectMessage.toHandle.replace(/^@/, '').toLowerCase()) throw new Error('Social message account IDs and usernames do not match.');
+      socialDirectMessage = { ...socialDirectMessage, from: from.name, to: to.name, fromAccountId: from.accountId, toAccountId: to.accountId };
+    }
     if (socialDirectMessage?.app === 'matchme') {
       if (!matchMeMessageAllowed(socialDirectMessage, matchMeState(storyCharactersFromNodes(nodesRef.current), messagesRef.current))) {
         throw new Error('MatchMe delivery blocked: the accounts need an active match.');
@@ -159,6 +170,8 @@ export function useTurnRecordState({
       eventInput,
       eventDisplayText,
       phoneMessage,
+      phoneFromAccountId,
+      phoneToAccountId,
       phoneFrom,
       phoneTo,
       phoneVoiceMessage,

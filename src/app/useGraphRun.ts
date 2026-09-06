@@ -1,3 +1,5 @@
+import { postsWithInitialContent } from '../characters/publications';
+import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
 import { storyCharactersFromNodes } from '../storybook/runtime';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
@@ -1869,10 +1871,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
               );
             }
           }
+          let recipientIdentity;
+          try { recipientIdentity = resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, phoneReply.to); }
+          catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
           const canonicalParsedPhoneMessage = {
             ...phoneReply,
             from: canonicalPhoneName(phoneCharacters, phoneReply.from),
-            to: canonicalPhoneName(phoneCharacters, phoneReply.to),
+            to: recipientIdentity.name,
+            toAccountId: recipientIdentity.accountId,
           };
           const outgoingRpPicture = rpPicturePhoneAttachment(
             [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
@@ -2027,10 +2033,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const embeddedPhoneMessages: EmbeddedPhoneMessageLink[] = [];
       if (embeddedPhoneResult.phoneMessages.length > 0) {
         for (const [index, embeddedPhoneMessage] of embeddedPhoneResult.phoneMessages.entries()) {
+          let recipientIdentity;
+          try { recipientIdentity = resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, embeddedPhoneMessage.to); }
+          catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
           const canonicalEmbeddedPhoneMessage = {
             ...embeddedPhoneMessage,
             from: canonicalPhoneName(phoneCharacters, embeddedPhoneMessage.from),
-            to: canonicalPhoneName(phoneCharacters, embeddedPhoneMessage.to),
+            to: recipientIdentity.name,
+            toAccountId: recipientIdentity.accountId,
           };
           const outgoingRpPicture = rpPicturePhoneAttachment(
             [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
@@ -2363,10 +2373,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ...appliedActions.phoneMessages,
           ...socialDirectExtras.phoneMessages,
         ].entries()) {
+          let recipientIdentity;
+          try { recipientIdentity = resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, actionPhoneMessage.to); }
+          catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
           const canonicalActionPhoneMessage = {
             ...actionPhoneMessage,
             from: canonicalPhoneName(phoneCharacters, actionPhoneMessage.from),
-            to: canonicalPhoneName(phoneCharacters, actionPhoneMessage.to),
+            to: recipientIdentity.name,
+            toAccountId: recipientIdentity.accountId,
           };
           let translatedMessage: string | undefined;
           if (runEnglishProcessing) {
@@ -2485,7 +2499,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         // A social post comment command appends one comment to an existing
         // post via the same append-reactions record the comment thread uses.
         for (const postComment of parsedSocialPostComments) {
-          const targetPost = messagesRef.current.find(
+          const targetPost = postsWithInitialContent(storyCharacters, messagesRef.current).find(
             (message) =>
               message.socialPost?.app === postComment.app &&
               message.socialPost.postId === postComment.postId,
@@ -2636,7 +2650,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
           let originPost = runPost && runPost.postId === incoming.postId ? runPost : undefined;
           if (!originPost && incoming.postId) {
-            originPost = messagesRef.current.find(
+            originPost = postsWithInitialContent(storyCharacters, messagesRef.current).find(
               (message) =>
                 message.socialPost?.app === incoming.app &&
                 message.socialPost.postId === incoming.postId,
@@ -2654,8 +2668,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
             messageId: `${incoming.app}-dm-incoming-${Date.now()}-${incomingSocialDmSequence}`,
             from,
             fromHandle,
+            fromAccountId: resolvedSender.accountId,
             to,
             toHandle,
+            toAccountId: resolvedRecipient.accountId,
             text: incoming.text,
             ...(incoming.tip !== undefined ? { tip: incoming.tip } : {}),
             sentAt: new Date().toISOString(),
