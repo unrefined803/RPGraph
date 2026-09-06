@@ -102,6 +102,7 @@ export type ExecuteContext<TLlm = NodeLlmApi, TTextMetrics = TextMetricsApi> = {
   recentTurns: TurnRecord[];
   currentTurnId?: string;
   userControlledCharacterId?: string;
+  matchMeDirectMessage?: import('../types').SocialDirectMessageRecord;
   outputNodeId: string;
   sourceHandle?: string | null;
   directActionOnly?: boolean;

@@ -1,3 +1,4 @@
+import { datingAccountId } from '../chat/datingAccounts';
 import {
   useCallback,
   useEffect,
@@ -78,6 +79,7 @@ import type {
   EmbeddedSocialMessageLink,
   MessageRecord,
   SocialAppKind,
+  SocialMessengerAppKind,
   SocialDirectMessageOpenRequest,
   SocialDmUnreadByHandle,
   SocialPostRecord,
@@ -286,8 +288,8 @@ export function useRoleplayPanelRuntime({
 
   const phoneAppNotifications = useMemo(() => {
     const byCharacter = new Map<string, {
-      counts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends', number>;
-      unreadDirectMessages: Record<'fotogram' | 'onlyfriends', SocialDmUnreadByHandle>;
+      counts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends' | 'matchme', number>;
+      unreadDirectMessages: Record<SocialMessengerAppKind, SocialDmUnreadByHandle>;
     }>();
     // DMs rendered as embedded app blocks inside a chat bubble were already
     // read there, so they produce no app notification while the option is on.
@@ -308,19 +310,19 @@ export function useRoleplayPanelRuntime({
       // reactions, instead of one badge per message. DM conversations keep
       // their own seen id (marked when the thread is opened, like phone
       // conversations); reactions clear with the app-level seen id.
-      const socialApp = (app: 'fotogram' | 'onlyfriends') => {
+      const socialApp = (app: SocialMessengerAppKind) => {
         const unreadDms: SocialDmUnreadByHandle = {};
         messages.forEach((message) => {
           const directMessage = message.socialDirectMessage;
           if (
             message.isOpening ||
             directMessage?.app !== app ||
-            directMessage.to !== character.name ||
+            (app === 'matchme' ? directMessage.toAccountId !== datingAccountId(character.id) : directMessage.to !== character.name) ||
             chatEmbeddedSocialIds.has(message.id)
           ) {
             return;
           }
-          const handleKey = directMessage.fromHandle.toLowerCase();
+          const handleKey = app === 'matchme' ? directMessage.fromHandle : directMessage.fromHandle.toLowerCase();
           const dmSeen = phoneAppSeenByCharacter[`${character.id}:${app}:dm:${handleKey}`] ?? 0;
           if (message.id <= dmSeen) {
             return;
@@ -346,16 +348,19 @@ export function useRoleplayPanelRuntime({
       };
       const fotogram = socialApp('fotogram');
       const onlyfriends = socialApp('onlyfriends');
+      const matchme = socialApp('matchme');
       byCharacter.set(character.id, {
         counts: {
           notes: count('notes', (message) => message.createdPhoneNote?.characterId === character.id),
           ai: count('ai', (message) => message.simulatedAiChat?.characterId === character.id),
           fotogram: fotogram.count,
           onlyfriends: onlyfriends.count,
+          matchme: matchme.count,
         },
         unreadDirectMessages: {
           fotogram: fotogram.unreadDms,
           onlyfriends: onlyfriends.unreadDms,
+          matchme: matchme.unreadDms,
         },
       });
     });
@@ -366,9 +371,10 @@ export function useRoleplayPanelRuntime({
     ai: 0,
     fotogram: 0,
     onlyfriends: 0,
+    matchme: 0,
   };
   const unreadSocialDirectMessages = phoneAppNotifications.get(viewedPhoneCharacter?.id ?? '')
-    ?.unreadDirectMessages ?? { fotogram: {}, onlyfriends: {} };
+    ?.unreadDirectMessages ?? { fotogram: {}, onlyfriends: {}, matchme: {} };
 
   const markViewedPhoneAppSeen = useCallback((app: 'notes' | 'ai' | 'fotogram' | 'onlyfriends') => {
     if (!viewedPhoneCharacter) {
@@ -381,12 +387,12 @@ export function useRoleplayPanelRuntime({
     );
   }, [messages, viewedPhoneCharacter]);
 
-  const markViewedSocialDmSeen = useCallback((app: SocialAppKind, partnerHandle: string) => {
+  const markViewedSocialDmSeen = useCallback((app: SocialMessengerAppKind, partnerHandle: string) => {
     if (!viewedPhoneCharacter) {
       return;
     }
     const latestId = messages.reduce((highest, message) => Math.max(highest, message.id), 0);
-    const key = `${viewedPhoneCharacter.id}:${app}:dm:${partnerHandle.toLowerCase()}`;
+    const key = `${viewedPhoneCharacter.id}:${app}:dm:${app === 'matchme' ? partnerHandle : partnerHandle.toLowerCase()}`;
     setPhoneAppSeenByCharacter((current) =>
       latestId > (current[key] ?? 0) ? { ...current, [key]: latestId } : current
     );
@@ -791,6 +797,7 @@ export function useRoleplayPanelRuntime({
     }
     const characterForIdentity = (name: string, handle: string) =>
       storyCharacters.find((character) => {
+        if (directMessage.app === 'matchme') return !!character.social.plotTwist && datingAccountId(character.id) === handle;
         const accountHandle = directMessage.app === 'fotogram'
           ? character.social.fotogramUsername
           : character.social.onlyfriendsUsername;

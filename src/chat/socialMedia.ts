@@ -1,6 +1,9 @@
+import { matchMeContext, matchMeState } from './matchMe';
+import { datingAccountId } from './datingAccounts';
 import type {
   MessageRecord,
   SocialAppKind,
+  SocialMessengerAppKind,
   SocialDirectMessageRecord,
   SocialPostRecord,
   SocialReactionComment,
@@ -20,9 +23,10 @@ import {
   type ParsedPhoneMessage,
 } from './phoneMessages';
 
-export const socialAppNames: Record<SocialAppKind, string> = {
+export const socialAppNames: Record<SocialMessengerAppKind, string> = {
   fotogram: 'Fotogram',
   onlyfriends: 'OnlyFriends',
+  matchme: 'MatchMe',
 };
 
 export type SocialThreadRunContext = {
@@ -40,15 +44,17 @@ export type SocialDirectMessageParseResult = {
 };
 
 /** Shared messenger-app JSON key the DM reply block must use. */
-const socialDirectMessageJsonKeys: Record<SocialAppKind, string> = {
+const socialDirectMessageJsonKeys: Record<SocialMessengerAppKind, string> = {
   fotogram: messengerAppMessageKeys.fotogram,
   onlyfriends: messengerAppMessageKeys.onlyfriends,
+  matchme: messengerAppMessageKeys.matchme,
 };
 
 /** Structured-input header for a DM turn, per social app. */
-const socialDirectMessageInputHeaders: Record<SocialAppKind, string> = {
+const socialDirectMessageInputHeaders: Record<SocialMessengerAppKind, string> = {
   fotogram: '[FOTOGRAM DIRECT MESSAGE]',
   onlyfriends: '[ONLYFRIENDS DIRECT MESSAGE]',
+  matchme: '[MATCHME DIRECT MESSAGE]',
 };
 
 /** Derive a handle-looking nickname from a character name, e.g. "Nova Reyes" → "nova.reyes". */
@@ -68,8 +74,9 @@ export function socialIdentityMatches(left: string, right: string) {
 
 export function socialHandleForCharacter(
   character: StorybookCharacter,
-  app: SocialAppKind,
+  app: SocialMessengerAppKind,
 ) {
+  if (app === 'matchme') return datingAccountId(character.id);
   const storedHandle = app === 'fotogram'
     ? character.social.fotogramUsername
     : character.social.onlyfriendsUsername;
@@ -82,6 +89,11 @@ export function socialDirectMessageActor(
   characterId: string | undefined,
   message: SocialDirectMessageRecord,
 ) {
+  if (message.app === 'matchme') {
+    const matches = characters.filter((character) => character.social.plotTwist &&
+      (characterId === undefined || character.id === characterId) && datingAccountId(character.id) === message.fromAccountId);
+    return matches.length === 1 ? matches[0] : undefined;
+  }
   const matches = characters.filter((character) => {
     const handle = message.app === 'fotogram'
       ? character.social.fotogramUsername
@@ -171,12 +183,14 @@ function compactHistorySummary(text: string) {
 export function socialDirectMessageInputText(
   message: SocialDirectMessageRecord,
   historyMessages: MessageRecord[],
+  characters: StorybookCharacter[] = [],
 ) {
   const conversation = historyMessages.flatMap((entry) => {
     const directMessage = entry.socialDirectMessage;
     if (
       !directMessage ||
       directMessage.app !== message.app ||
+      (message.app === 'matchme' && (directMessage.matchId !== message.matchId || directMessage.messageId === message.messageId)) ||
       !(
         socialIdentityMatches(directMessage.fromHandle, message.fromHandle) &&
         socialIdentityMatches(directMessage.toHandle, message.toHandle) ||
@@ -194,6 +208,7 @@ export function socialDirectMessageInputText(
   });
   return [
     socialDirectMessageInputHeaders[message.app],
+    ...(message.app === 'matchme' ? [matchMeContext(matchMeState(characters, historyMessages), message)] : []),
     `App: ${socialAppNames[message.app]}`,
     `Sender: ${message.from} (@${message.fromHandle})`,
     `Recipient: ${message.to} (@${message.toHandle})`,
@@ -388,9 +403,7 @@ export function parseSocialDirectMessageOutput(
     return result;
   }
   const expectedKey = socialDirectMessageJsonKeys[userMessage.app];
-  const wrongAppKey = socialDirectMessageJsonKeys[
-    userMessage.app === 'fotogram' ? 'onlyfriends' : 'fotogram'
-  ];
+  const wrongAppKeys = Object.values(socialDirectMessageJsonKeys).filter((key) => key !== expectedKey);
   const cleaned = withoutJsonCodeFences(text);
   const ranges = jsonObjectRanges(cleaned);
   let sawAnyJson = false;
@@ -405,6 +418,12 @@ export function parseSocialDirectMessageOutput(
     if (!isRecord(parsed)) {
       result.warnings.push('A Social Media DM output block is not a JSON object; it was skipped.');
       continue;
+    }
+    if (userMessage.app === 'matchme' && (wrongAppKeys.some((key) => key in parsed) ||
+      (Array.isArray(parsed[expectedKey]) && (parsed[expectedKey].length !== 1 || result.message)))) {
+      result.message = undefined;
+      result.warnings.push('MatchMe requires exactly one reply in matchMeApp and no other social app keys.');
+      return result;
     }
     if (Array.isArray(parsed[expectedKey])) {
       const expectedEntries = parsed[expectedKey];
@@ -423,7 +442,17 @@ export function parseSocialDirectMessageOutput(
         result.warnings.push(`The ${expectedKey} block is missing a message text.`);
         continue;
       }
+      if (userMessage.app === 'matchme') {
+        const raw = expectedEntries[0];
+        if (!isRecord(raw) || payload.from !== userMessage.toAccountId || payload.to !== userMessage.fromAccountId ||
+          ['postId', 'isVoiceMessage', 'sendImageId', 'tip'].some((key) => key in raw)) {
+          result.message = undefined;
+          result.warnings.push('MatchMe reply must use the exact expected account IDs and plain message text.');
+          return result;
+        }
+      }
       result.message = {
+        ...(userMessage.app === 'matchme' ? { matchId: userMessage.matchId, fromAccountId: userMessage.toAccountId, toAccountId: userMessage.fromAccountId } : {}),
         app: userMessage.app,
         messageId: `${userMessage.app}-dm-reply-${userMessage.messageId}`,
         from: userMessage.to,
@@ -438,8 +467,8 @@ export function parseSocialDirectMessageOutput(
       };
       continue;
     }
-    if (Array.isArray(parsed[wrongAppKey]) || isRecord(parsed.directMessage)) {
-      const usedKey = Array.isArray(parsed[wrongAppKey]) ? wrongAppKey : 'directMessage';
+    if (wrongAppKeys.some((key) => Array.isArray(parsed[key])) || isRecord(parsed.directMessage)) {
+      const usedKey = wrongAppKeys.find((key) => Array.isArray(parsed[key])) ?? 'directMessage';
       result.warnings.push(
         `Social Media DM output used "${usedKey}" but this ${socialAppNames[userMessage.app]} conversation requires "${expectedKey}".`,
       );

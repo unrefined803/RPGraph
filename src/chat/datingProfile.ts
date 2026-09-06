@@ -27,6 +27,7 @@ export type DatingProfile = {
   interests: string;
   photoIds: string[];
   messages?: DatingMessage[];
+  historyVersion?: 1;
   decisions: Record<string, 'like' | 'pass'>;
 };
 
@@ -45,6 +46,7 @@ export function normalizeDatingProfile(value: unknown): DatingProfile | undefine
     ...(datingGenders.includes(input.gender as DatingGender) ? { gender: input.gender } : {}),
     ...(Array.isArray(input.seeking) ? { seeking: datingGenders.filter((gender) => input.seeking!.includes(gender)) } : {}),
     photoIds,
+    ...(input.historyVersion === 1 ? { historyVersion: 1 as const } : {}),
     ...(Array.isArray(input.messages) ? { messages: normalizeDatingMessages(input.messages) } : {}),
     decisions: Object.fromEntries(Object.entries(input.decisions && typeof input.decisions === 'object' ? input.decisions : {})
       .filter((entry) => entry[1] === 'like' || entry[1] === 'pass')),

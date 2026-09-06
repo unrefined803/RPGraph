@@ -1,6 +1,8 @@
-import { createDatingDemoExchange } from '../../chat/datingMessages';
+import { datingAccountId } from '../../chat/datingAccounts';
+import { matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
+import type { MessageRecord, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChatImageAttachment } from '../../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
@@ -8,15 +10,15 @@ import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { NodeCustomSelect } from '../../nodes/shared/NodeCustomSelect';
 import './phoneDating.css';
 
-const demoProfiles = [
-  { id: 'demo-alex', name: 'Alex', age: 26, bio: 'Coffee first. Spontaneous road trip second. I will absolutely make you a playlist.', interests: ['Music', 'Road trips', 'Coffee'], color: 'rose' },
-  { id: 'demo-jamie', name: 'Jamie', age: 28, bio: 'Collecting little adventures and very big books. Tell me your most unpopular movie opinion.', interests: ['Books', 'Cinema', 'Cooking'], color: 'violet' },
-  { id: 'demo-robin', name: 'Robin', age: 24, bio: 'Usually at a flea market or getting lost on a trail. Looking for a partner in side quests.', interests: ['Outdoors', 'Vintage', 'Art'], color: 'peach' },
-  { id: 'demo-sam', name: 'Sam', age: 30, bio: 'Excellent dinner guest. Questionable dancer. Let’s find our new favorite place.', interests: ['Food', 'Dancing', 'Travel'], color: 'violet' },
-];
-
 type Props = {
   owner?: StorybookCharacter;
+  characters: StorybookCharacter[];
+  unread: SocialDmUnreadByHandle;
+  onMarkSeen: (id: string) => void;
+  openRequest?: SocialDirectMessageOpenRequest;
+  history: MessageRecord[];
+  isRunning: boolean;
+  onSendMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
   emojiOptions: string[];
   recentlyUsedEmojis: string[];
   images: ChatImageAttachment[];
@@ -25,7 +27,7 @@ type Props = {
   onBack: () => void;
 };
 
-export function PhoneDatingScreen({ owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis }: Props) {
+export function PhoneDatingScreen({ unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis }: Props) {
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
   const [editing, setEditing] = useState(!profile);
   const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
@@ -41,11 +43,41 @@ export function PhoneDatingScreen({ owner, images, onImportImage, onSave, onBack
   const [drag, setDrag] = useState(0);
   const start = useRef<{ x: number; y: number } | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
-  const [selectedMatchId, setSelectedMatchId] = useState<string>();
-  // Fixed reciprocal likes make the UI demonstrable until real matching is connected.
-  const matches = demoProfiles.filter((entry) => ['demo-alex', 'demo-robin'].includes(entry.id) && profile?.decisions[entry.id] === 'like');
+  const [selectedMatchId, setSelectedMatchId] = useState<string | undefined>(openRequest?.participantHandle);
+  const [seenOpenRequest, setSeenOpenRequest] = useState(openRequest?.requestId);
+  if (openRequest && seenOpenRequest !== openRequest.requestId) {
+    setSeenOpenRequest(openRequest.requestId); setSelectedMatchId(openRequest.participantHandle); setEditing(false); setTab('discover');
+  }
+  useEffect(() => { if (selectedMatchId && !editing && tab === 'discover') onMarkSeen(selectedMatchId); }, [selectedMatchId, editing, tab, history, onMarkSeen]);
+  const state = matchMeState(characters, history);
+  const ownerId = owner ? datingAccountId(owner.id) : '';
+  const availableProfiles = state.accounts.filter((account) => account.id !== ownerId);
+  const matches = availableProfiles.filter((entry) => canSendMatchMeMessage(ownerId, entry.id, state));
+  const [failedMessages, setFailedMessages] = useState<Record<string, SocialDirectMessageRecord>>({});
+  const sending = useRef(false);
+  const conversationMessages = (id: string) => history.flatMap((entry) => {
+    const message = entry.socialDirectMessage;
+    if (message?.app !== 'matchme' || !((message.fromAccountId === ownerId && message.toAccountId === id) ||
+      (message.toAccountId === ownerId && message.fromAccountId === id))) return [];
+    return [{ id: message.messageId, matchId: id, sender: message.fromAccountId === ownerId ? 'owner' as const : 'match' as const,
+      text: message.displayText ?? message.text, sentAt: message.sentAt, demo: message.demo }];
+  });
+  async function send(id: string, retry = false) {
+    if (!owner || isRunning || sending.current) return;
+    const message = retry ? failedMessages[id] : incomingMatchMeMessage(ownerId, id, (chatDrafts[id] ?? '').trim(), state,
+      `matchme-outgoing-${crypto.randomUUID()}`, new Date().toISOString());
+    if (!message || !message.text) { setError('This conversation needs an active match.'); return; }
+    sending.current = true; setBusy(true); setError('');
+    setChatDrafts((current) => ({ ...current, [id]: '' }));
+    try {
+      const success = await onSendMessage(message, owner.id);
+      setFailedMessages((current) => { const next = { ...current }; if (success) delete next[id]; else next[id] = message; return next; });
+      if (!success) setError('No reply was delivered. Check the workflow diagnostics and retry.');
+    } catch { setFailedMessages((current) => ({ ...current, [id]: message })); setError('Message failed. You can retry.'); }
+    finally { sending.current = false; setBusy(false); }
+  }
   const selectedMatch = matches.find((entry) => entry.id === selectedMatchId);
-  const candidate = demoProfiles.find((entry) => !profile?.decisions[entry.id]);
+  const candidate = availableProfiles.find((entry) => !profile?.decisions[entry.id]);
   const allImages = [...images, ...imported];
 
   function save(next: DatingProfile) {
@@ -53,7 +85,7 @@ export function PhoneDatingScreen({ owner, images, onImportImage, onSave, onBack
     setProfile(next); setDraft(next); setError(''); return true;
   }
   function decide(decision: 'like' | 'pass') {
-    if (!profile || !candidate || selectedMatch) return;
+    if (!profile || !candidate || selectedMatch || isRunning || busy) return;
     if (save({ ...profile, decisions: { ...profile.decisions, [candidate.id]: decision } })) {
       setPhoto(0); setNotice(decision === 'like' ? `You liked ${candidate.name}.` : `Passed on ${candidate.name}.`);
     }
@@ -93,9 +125,9 @@ export function PhoneDatingScreen({ owner, images, onImportImage, onSave, onBack
           {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
             onClick={() => { setSelectedMatchId(match.id); setPhoto(0); setTab('discover'); setEditing(false); }}>
             <span className="pt-match-avatar" aria-hidden="true">{match.name[0]}</span>
-            <span><strong>{match.name}<span className="pt-match-age">, {match.age}</span></strong><small>{profile.messages?.slice().reverse().find((message) => message.matchId === match.id)?.text ?? 'Say hello'}</small></span>
+            <span><strong>{match.name}<span className="pt-match-age">, {match.age}</span>{unread[match.id]?.count ? ` · ${unread[match.id].count} new` : ''}</strong><small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small></span>
           </button>)}
-          {!matches.length && <p className="pt-subtle pt-match-empty">When you both like each other, your match appears here.</p>}
+          {!matches.length && <p className="pt-subtle pt-match-empty">Like a profile to create a match and start a conversation.</p>}
         </div>
       </aside>}
     <main className={`pt-main${selectedMatch && !editing ? ' pt-chat-main' : ''}`}>
@@ -143,19 +175,15 @@ export function PhoneDatingScreen({ owner, images, onImportImage, onSave, onBack
           <button className="pt-primary" disabled={busy} type="submit">{profile ? 'Save profile' : 'Create account & explore'} <span aria-hidden="true">→</span></button>
           {profile && <button type="button" disabled={busy} onClick={() => { setDraft(profile); setEditing(false); }}>Cancel</button>}
         </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id}
-          name={selectedMatch.name} age={selectedMatch.age} messages={(profile.messages ?? []).filter((message) => message.matchId === selectedMatch.id)}
+          name={selectedMatch.name} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
+          busy={busy || isRunning}
           draft={chatDrafts[selectedMatch.id] ?? ''}
           onDraftChange={(text) => setChatDrafts((current) => ({ ...current, [selectedMatch.id]: text }))}
           emojiOptions={emojiOptions} recentEmojis={recentEmojis}
           onUseEmoji={(emoji) => setRecentEmojis((current) => [emoji, ...current.filter((entry) => entry !== emoji)].slice(0, 8))}
           onBack={() => { setSelectedMatchId(undefined); setPhoto(0); }}
-          onSend={() => {
-            const exchange = createDatingDemoExchange(selectedMatch.id, chatDrafts[selectedMatch.id] ?? '', profile.messages ?? []);
-            if (exchange.length && save({ ...profile, messages: [...(profile.messages ?? []), ...exchange] })) {
-              setChatDrafts((current) => ({ ...current, [selectedMatch.id]: '' }));
-            }
-          }} /> : tab === 'discover' ? <div className="pt-discover">
-          <div className="pt-section-heading"><div><span className="pt-eyebrow">A LITTLE CHEMISTRY?</span><h2>Discover</h2></div><span className="pt-preview">Demo profiles</span></div>
+          onSend={() => { void send(selectedMatch.id); }} /> : tab === 'discover' ? <div className="pt-discover">
+          <div className="pt-section-heading"><div><span className="pt-eyebrow">A LITTLE CHEMISTRY?</span><h2>Discover</h2></div><span className="pt-preview">Available profiles</span></div>
           {candidate ? <>
             <article className={`pt-card pt-${candidate.color}`} style={{ transform: `translateX(${drag}px) rotate(${drag / 22}deg)` }}
               onPointerDown={(event) => { if (selectedMatch || (event.target instanceof Element && event.target.closest('button'))) return; start.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }}
@@ -166,16 +194,17 @@ export function PhoneDatingScreen({ owner, images, onImportImage, onSave, onBack
               <div className="pt-placeholder"><span aria-hidden="true">✧</span><strong>Image {photo + 1}</strong><small>A face for this story, coming soon.</small></div>
               <div className="pt-image-nav"><button type="button" aria-label="Previous image" onClick={() => setPhoto((photo + 2) % 3)}>‹</button><button type="button" aria-label="Next image" onClick={() => setPhoto((photo + 1) % 3)}>›</button></div>
               {!!drag && <span className="pt-swipe-label">{drag > 0 ? 'LIKE' : 'PASS'}</span>}
-              <div className="pt-card-info"><small>FICTIONAL DEMO CHARACTER</small><h3>{candidate.name} <span>{candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
+              <div className="pt-card-info"><small>{candidate.characterId ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small><h3>{candidate.name} <span>{candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
             </article>
             <div className="pt-decisions"><button type="button" aria-label={`Pass on ${candidate.name}`} onClick={() => decide('pass')}>×</button><span>Swipe to find your story</span><button type="button" aria-label={`Like ${candidate.name}`} onClick={() => decide('like')}>♥</button></div>
-          </> : <div className="pt-empty"><span className="pt-empty-heart">✧</span><h2>You’re all caught up.</h2><p>That’s everyone in the demo. Another chapter is on its way.</p><button type="button" className="pt-primary" onClick={() => { if (profile) save({ ...profile, decisions: {} }); setPhoto(0); }}>Explore again</button></div>}
-        </div> : tab === 'likes' ? <div className="pt-list"><span className="pt-eyebrow">YOUR MAYBES & WHAT-IFS</span><h2>People you like</h2><p className="pt-subtle">Likes are saved for this character. Demo mutual likes appear in Matches. Open a match to start chatting.</p>
-          {demoProfiles.filter((entry) => profile?.decisions[entry.id] === 'like').map((entry) => <div className="pt-like" key={entry.id}><span aria-hidden="true">♥</span><div><strong>{entry.name}, {entry.age}</strong><small>Demo profile · Liked by you</small></div></div>)}
+          </> : <div className="pt-empty"><span className="pt-empty-heart">✧</span><h2>You’re all caught up.</h2><p>You have seen all available profiles. You can explore them again.</p><button type="button" className="pt-primary" onClick={() => { if (profile) save({ ...profile, decisions: {} }); setPhoto(0); }}>Explore again</button></div>}
+        </div> : tab === 'likes' ? <div className="pt-list"><span className="pt-eyebrow">YOUR MAYBES & WHAT-IFS</span><h2>People you like</h2><p className="pt-subtle">Likes are saved for this character. Every like creates a mutual match. Open a match to start chatting.</p>
+          {availableProfiles.filter((entry) => profile?.decisions[entry.id] === 'like').map((entry) => <div className="pt-like" key={entry.id}><span aria-hidden="true">♥</span><div><strong>{entry.name}, {entry.age}</strong><small>Liked by you</small></div></div>)}
           {!Object.values(profile?.decisions ?? {}).includes('like') && <div className="pt-empty"><h3>A little spark starts here.</h3><p>Like someone in Discover to see them here.</p></div>}
         </div> : <div className="pt-list"><span className="pt-eyebrow">THE MAIN CHARACTER</span><h2>{profile?.name}, {profile?.age}</h2><div className="pt-profile-photos">{profile?.photoIds.map((id, index) => { const image = allImages.find((entry) => entry.id === id); return image ? <img key={id} src={image.dataUrl} alt={`Your profile photo ${index + 1}`} /> : <span key={id}>Photo unavailable</span>; })}</div><dl className="pt-profile-details"><div><dt>I am</dt><dd>{profile?.gender ? datingGenderLabels[profile.gender] : 'Not specified'}</dd></div>
           <div><dt>I would like to meet</dt><dd>{profile?.seeking?.length ? profile.seeking.map((gender) => datingSeekingLabels[gender]).join(', ') : 'Not specified'}</dd></div></dl>
           <p>{profile?.bio}</p><p className="pt-subtle">{profile?.interests}</p><button type="button" className="pt-primary" onClick={() => { if (profile) setDraft(profile); setEditing(true); }}>Edit profile</button><p className="pt-subtle">Saved in {owner.name}’s Storybook profile.</p></div>}
+      {selectedMatch && failedMessages[selectedMatch.id] && <button type="button" disabled={busy || isRunning} onClick={() => { void send(selectedMatch.id, true); }}>Retry reply</button>}
       {error && <p className="pt-error" role="alert">{error}</p>}
       <span className="pt-sr-only" role="status">{notice}</span>
     </main>

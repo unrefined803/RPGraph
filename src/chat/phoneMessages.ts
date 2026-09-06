@@ -4,6 +4,7 @@ import type {
   ImageCaptionChange,
   MessageRecord,
   SocialAppKind,
+  SocialMessengerAppKind,
   TurnContext,
 } from '../types';
 import { isRecord } from '../utils/records';
@@ -73,7 +74,7 @@ type ParsedSocialPostComment = {
 
 /** An LLM-sent message for the Fotogram or OnlyFriends messenger. */
 export type ParsedIncomingSocialDirectMessage = {
-  app: SocialAppKind;
+  app: SocialMessengerAppKind;
   from: string;
   /** Optional explicit sender handle; derived from the name when absent. */
   handle?: string;
@@ -506,12 +507,13 @@ function parseEmbeddedSocialPostCommentsObject(value: unknown): ParsedSocialPost
   });
 }
 
-type MessengerAppKind = 'whatsup' | SocialAppKind;
+type MessengerAppKind = 'whatsup' | SocialMessengerAppKind;
 
 export const messengerAppMessageKeys: Record<MessengerAppKind, string> = {
   whatsup: 'whatsUpApp',
   fotogram: 'fotogramApp',
   onlyfriends: 'onlyFriendsApp',
+  matchme: 'matchMeApp',
 };
 
 type ParsedMessengerAppMessages = {
@@ -585,7 +587,7 @@ export function parseMessengerAppMessagesObject(value: unknown): ParsedMessenger
 /** True when the object claims a Fotogram or OnlyFriends message array. */
 export function hasIncomingSocialDirectMessagesKey(value: unknown) {
   return isRecord(value) &&
-    ([messengerAppMessageKeys.fotogram, messengerAppMessageKeys.onlyfriends] as const)
+    ([messengerAppMessageKeys.fotogram, messengerAppMessageKeys.onlyfriends, messengerAppMessageKeys.matchme] as const)
       .some((key) => value[key] !== undefined);
 }
 
@@ -758,6 +760,7 @@ function stripIncompleteEmbeddedJsonTail(value: string) {
       tail.includes('"whatsUpApp"') ||
       tail.includes('"fotogramApp"') ||
       tail.includes('"onlyFriendsApp"') ||
+      tail.includes('"matchMeApp"') ||
       tail.includes('"bankTransfers"') ||
       tail.includes('"fotogramPostComment"') ||
       tail.includes('"onlyFriendsPostComment"') ||
@@ -855,7 +858,7 @@ function incompleteMessengerPreview(value: string): PartialMessengerPreview | un
   }
   const openObject = value.slice(openObjectStart);
   const appMatch = openObject.match(
-    /"(phoneMessages|whatsUpApp|fotogramApp|onlyFriendsApp)"\s*:\s*\[/,
+    /"(phoneMessages|whatsUpApp|fotogramApp|onlyFriendsApp|matchMeApp)"\s*:\s*\[/,
   );
   if (!appMatch || appMatch.index === undefined) {
     return undefined;

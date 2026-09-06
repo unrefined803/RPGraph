@@ -348,7 +348,7 @@ export function buildSocialDirectory(options: {
       register(post.author, post.app, post.authorHandle);
     }
     const directMessage = message.socialDirectMessage;
-    if (directMessage) {
+    if (directMessage && directMessage.app !== 'matchme') {
       register(directMessage.from, directMessage.app, directMessage.fromHandle);
       register(directMessage.to, directMessage.app, directMessage.toHandle);
     }

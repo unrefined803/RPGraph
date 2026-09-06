@@ -33,7 +33,7 @@ Selects the prompt slot inside the chosen normal output channel:
 4 = Narrator
 5 = Narrator AutoTurn
 
-Social Media uses its own slots: 0 = Fotogram post, 1 = OnlyFriends post, 2 = Fotogram comment thread, 3 = OnlyFriends comment thread, 4 = Fotogram DM, 5 = OnlyFriends DM.
+Social Media uses its own slots: 0 = Fotogram post, 1 = OnlyFriends post, 2 = Fotogram comment thread, 3 = OnlyFriends comment thread, 4 = Fotogram DM, 5 = OnlyFriends DM. MatchMe DM is installed in the first free slot from 6 onward without overwriting custom prompts.
 
 Autoplay uses its own slots: 0 = Local Activity, 1 = Remote Activity.
 
@@ -184,6 +184,8 @@ The app derives handles from exact known or listed names. postId is optional and
 
 A [SOCIAL MEDIA THREAD ACTION] input either adds a user comment or loads more comments. Return new reactions to append plus a very short English history summary:
 {"reactions":{"postId":"the post id from the input","additionalLikes":2,"comments":[{"from":"Name","text":"new reply"}]},"summary":"Alex complimented Jamie's photo; Jamie thanked Alex while other people joined the thread."}
+
+A [MATCHME DIRECT MESSAGE] input uses matchMeApp with exactly one message. Use the exact account IDs supplied by the application for from and to, replying only as the specified recipient. Both accounts must have a confirmed active MatchMe match. Never invent accounts, establish matches, or include postId, isVoiceMessage, sendImageId or tip. Normal RP and Messenger_message commands may also emit matchMeApp messages between application-confirmed matched accounts.
 
 A [FOTOGRAM DIRECT MESSAGE] input asks the recipient to answer one private Fotogram message. Return the shared messenger-array shape with one reply:
 {"fotogramApp":[{"from":"recipient name","to":"sender name","message":"Hey! Yes, I would love to."}]}

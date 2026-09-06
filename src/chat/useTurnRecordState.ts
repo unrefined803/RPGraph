@@ -1,3 +1,5 @@
+import { matchMeMessageAllowed, matchMeState } from './matchMe';
+import { storyCharactersFromNodes } from '../storybook/runtime';
 import { useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { restoreTurnRuntime } from './turns';
 import {
@@ -125,10 +127,18 @@ export function useTurnRecordState({
     socialThreadAction,
     socialReactions,
     socialDirectMessage,
+    matchMeMatch,
     createdPhoneNote,
     deletedPhoneNote,
     simulatedAiChat,
   }: AppendMessageInput) {
+    if (socialDirectMessage?.app === 'matchme') {
+      if (!matchMeMessageAllowed(socialDirectMessage, matchMeState(storyCharactersFromNodes(nodesRef.current), messagesRef.current))) {
+        throw new Error('MatchMe delivery blocked: the accounts need an active match.');
+      }
+      const existing = messagesRef.current.find((entry) => entry.socialDirectMessage?.messageId === socialDirectMessage.messageId);
+      if (existing) return existing.id;
+    }
     const id = nextMessageIdRef.current;
     nextMessageIdRef.current += 1;
     const collector = activeTurnCollectorRef.current;
@@ -180,6 +190,7 @@ export function useTurnRecordState({
       socialThreadAction,
       socialReactions,
       socialDirectMessage,
+      matchMeMatch,
       createdPhoneNote,
       deletedPhoneNote,
       simulatedAiChat,
@@ -391,6 +402,39 @@ export function useTurnRecordState({
     return turn;
   }
 
+  /** Commit synchronous app actions through the same timeline and checkpoint transaction. */
+  function commitLocalAppTurn(entries: AppendMessageInput[], mutate: () => boolean,
+    metadata: Pick<TurnRecord, 'messageFormat' | 'promptSlot' | 'directAction'> = { messageFormat: 2, directAction: true }) {
+    if (activeTurnCollectorRef.current) return false;
+    const beforeNodes = nodesRef.current;
+    const beforeVariables = { ...workflowVariablesRef.current };
+    const beforeMessages = messagesRef.current;
+    const beforeTurns = turnsRef.current;
+    const beforeCheckpoints = turnCheckpointsRef.current;
+    try {
+      if (!mutate()) return false;
+      if (!entries.length) return true;
+      const createdAt = new Date().toISOString();
+      activeTurnCollectorRef.current = {
+        turnId: `app-${crypto.randomUUID()}`, turnNumber: (turnsRef.current[turnsRef.current.length - 1]?.number ?? 0) + 1,
+        createdAt, part: 'input', inputMessages: [], outputMessages: [],
+      };
+      entries.forEach((entry) => appendMessage(entry));
+      commitCollectedTurn(entries.map((entry) => entry.originalText).join('\n'), '', beforeNodes, beforeVariables,
+        undefined, 'user', metadata);
+      return true;
+    } catch {
+      activeTurnCollectorRef.current = null;
+      nodesRef.current = beforeNodes;
+      setNodes(beforeNodes);
+      setWorkflowVariables(beforeVariables);
+      setMessages(beforeMessages);
+      setTurns(beforeTurns);
+      setTurnCheckpoints(beforeCheckpoints);
+      return false;
+    }
+  }
+
   return {
     messages,
     setMessages,
@@ -414,5 +458,6 @@ export function useTurnRecordState({
     applyTurnCheckpointRuntime,
     removeTurnCheckpoint,
     commitCollectedTurn,
+    commitLocalAppTurn,
   };
 }

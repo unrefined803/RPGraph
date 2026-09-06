@@ -124,7 +124,7 @@ const simulateAiChatInstruction = [
 const messengerMessageInstruction = [
   'Command messenger_message: send one private message through a supported messenger app.',
   '',
-  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Never output MessengerAppName itself or a generic messengerApp key. When a plan is noted with the request, take the app, sender, recipient, and message gist from it.',
+  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, onlyFriendsApp for OnlyFriends, or matchMeApp for MatchMe. MatchMe requires an active application-provided match and exact account IDs; never invent a MatchMe account or match. Never output MessengerAppName itself or a generic messengerApp key. When a plan is noted with the request, take the app, sender, recipient, and message gist from it.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -145,7 +145,7 @@ const messengerMessageInstruction = [
 const messengerConversationInstruction = [
   'Command messenger_conversation: simulate a short private conversation through a supported messenger app.',
   '',
-  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Never output MessengerAppName itself or a generic messengerApp key.',
+  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, onlyFriendsApp for OnlyFriends, or matchMeApp for MatchMe. MatchMe requires an active application-provided match and exact account IDs; never invent a MatchMe account or match. Never output MessengerAppName itself or a generic messengerApp key.',
   '',
   'Output exactly one JSON object in this format:',
   '{',

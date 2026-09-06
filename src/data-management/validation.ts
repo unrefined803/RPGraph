@@ -1,3 +1,4 @@
+import { isMatchMeMatch, matchMePairId } from '../chat/matchMe';
 import type { RpgraphSessionV2, TimelineEntry } from './types';
 import { phoneNoteColors } from '../chat/phoneAppsSessions';
 import {
@@ -140,7 +141,15 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
     );
     const validSocialDirectMessage = value.socialDirectMessage === undefined || (
       isRecord(value.socialDirectMessage) &&
-      (value.socialDirectMessage.app === 'fotogram' || value.socialDirectMessage.app === 'onlyfriends') &&
+      (value.socialDirectMessage.app === 'fotogram' || value.socialDirectMessage.app === 'onlyfriends' || value.socialDirectMessage.app === 'matchme')
+      && (value.socialDirectMessage.app !== 'matchme' || (
+        typeof value.socialDirectMessage.fromAccountId === 'string' && typeof value.socialDirectMessage.toAccountId === 'string' &&
+        value.socialDirectMessage.fromAccountId !== value.socialDirectMessage.toAccountId &&
+        value.socialDirectMessage.fromHandle === value.socialDirectMessage.fromAccountId &&
+        value.socialDirectMessage.toHandle === value.socialDirectMessage.toAccountId &&
+        (value.socialDirectMessage.demo === undefined || typeof value.socialDirectMessage.demo === 'boolean') &&
+        value.socialDirectMessage.matchId === matchMePairId(value.socialDirectMessage.fromAccountId, value.socialDirectMessage.toAccountId)
+      )) &&
       typeof value.socialDirectMessage.messageId === 'string' &&
       typeof value.socialDirectMessage.from === 'string' &&
       typeof value.socialDirectMessage.fromHandle === 'string' &&
@@ -278,6 +287,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validSocialThreadAction &&
       validSocialReactions &&
       validSocialDirectMessage &&
+      (value.matchMeMatch === undefined || isMatchMeMatch(value.matchMeMatch)) &&
       validCreatedPhoneNote &&
       validDeletedPhoneNote &&
       validSimulatedAiChat

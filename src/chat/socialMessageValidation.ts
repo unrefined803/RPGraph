@@ -1,5 +1,7 @@
+import { matchMeState, incomingMatchMeMessage } from './matchMe';
+import { resolveDatingAccount } from './datingAccounts';
 import type { StorybookCharacter } from '../storybook/runtime';
-import type { MessageRecord, SocialAppKind } from '../types';
+import type { MessageRecord, SocialAppKind, SocialMessengerAppKind, SocialDirectMessageRecord } from '../types';
 import { bundledSocialIdentities } from './socialCatalogs';
 import { buildSocialDirectory, type SocialDirectoryUser } from './socialDirectory';
 import { jsonObjectRanges, messengerAppMessageKeys } from './phoneMessages';
@@ -123,10 +125,15 @@ function directoryIdentity(
 export function resolveSocialMessageIdentity(options: {
   characters: StorybookCharacter[];
   messages: MessageRecord[];
-  app: SocialAppKind;
+  app: SocialMessengerAppKind;
   identity: string;
 }): ResolvedSocialMessageIdentity {
   const identity = options.identity.trim();
+  if (options.app === 'matchme') {
+    const account = resolveDatingAccount(identity, matchMeState(options.characters, options.messages).accounts);
+    return account ? { available: true, name: account.name, handle: account.id, source: 'directory' }
+      : { available: false, name: identity, source: 'directory', reason: 'Unknown or ambiguous MatchMe account.' };
+  }
   const cleanIdentity = cleanHandle(identity).toLocaleLowerCase();
   const exactBundledIdentity = identityLooksLikeHandle(identity)
     ? bundledSocialIdentities[options.app].find(
@@ -196,7 +203,7 @@ export function resolveSocialMessageIdentity(options: {
 }
 
 export type SocialMessageValidationIssue = {
-  app: SocialAppKind;
+  app: SocialMessengerAppKind;
   identity: string;
   role: 'sender' | 'recipient';
   resolved: ResolvedSocialMessageIdentity;
@@ -245,8 +252,8 @@ export type SocialMessageValidationResult = {
   sanitizedText: string;
 };
 
-function socialAppName(app: SocialAppKind) {
-  return app === 'fotogram' ? 'Fotogram' : 'OnlyFriends';
+function socialAppName(app: SocialMessengerAppKind) {
+  return app === 'matchme' ? 'MatchMe' : app === 'fotogram' ? 'Fotogram' : 'OnlyFriends';
 }
 
 function expandedJsonRange(text: string, range: { start: number; end: number }) {
@@ -263,15 +270,21 @@ function expandedJsonRange(text: string, range: { start: number; end: number }) 
   return { start, end };
 }
 
-/** Validate every generated Fotogram/OnlyFriends message before it leaves the LLM node. */
+/** Validate generated social messages before they leave the LLM node. */
 export function validateSocialMessengerAccounts(options: {
   text: string;
+  directMessage?: SocialDirectMessageRecord;
   characters: StorybookCharacter[];
   messages: MessageRecord[];
 }): SocialMessageValidationResult {
   const issues: SocialMessageValidationIssue[] = [];
   const invalidRanges: Array<{ start: number; end: number }> = [];
-  for (const range of jsonObjectRanges(options.text)) {
+  const ranges = jsonObjectRanges(options.text);
+  const directReplyBlockCount = options.directMessage ? ranges.filter((range) => {
+    try { return Array.isArray(JSON.parse(options.text.slice(range.start, range.end))?.matchMeApp); }
+    catch { return false; }
+  }).length : 0;
+  for (const range of ranges) {
     let parsed: unknown;
     try {
       parsed = JSON.parse(options.text.slice(range.start, range.end)) as unknown;
@@ -283,7 +296,16 @@ export function validateSocialMessengerAccounts(options: {
     }
     const record = parsed as Record<string, unknown>;
     const rangeIssues: SocialMessageValidationIssue[] = [];
-    for (const app of ['fotogram', 'onlyfriends'] as const) {
+    if (options.directMessage && ['fotogramApp', 'onlyFriendsApp'].some((key) => key in record)) {
+      rangeIssues.push({ app: 'matchme', identity: '', role: 'sender', resolved: { available: false, name: '', source: 'directory', reason: 'This direct reply must use matchMeApp only.' } });
+    }
+    if (options.directMessage && Array.isArray(record.matchMeApp) && (directReplyBlockCount !== 1 || record.matchMeApp.length !== 1 ||
+      record.matchMeApp.some((entry) => !entry || typeof entry !== 'object' ||
+        entry.from !== options.directMessage?.toAccountId || entry.to !== options.directMessage?.fromAccountId))) {
+      rangeIssues.push({ app: 'matchme', identity: '', role: 'sender', resolved: { available: false, name: '', source: 'directory', reason: `Return exactly one matchMeApp message from ${options.directMessage.toAccountId} to ${options.directMessage.fromAccountId}. Do not change the replying account.` } });
+    }
+
+    for (const app of ['fotogram', 'onlyfriends', 'matchme'] as const) {
       const entries = record[messengerAppMessageKeys[app]];
       if (!Array.isArray(entries)) {
         continue;
@@ -293,6 +315,13 @@ export function validateSocialMessengerAccounts(options: {
           continue;
         }
         const message = entry as Record<string, unknown>;
+        if (app === 'matchme' && (!incomingMatchMeMessage(
+          typeof message.from === 'string' ? message.from : '', typeof message.to === 'string' ? message.to : '',
+          typeof message.message === 'string' ? message.message : '', matchMeState(options.characters, options.messages), 'validation', new Date().toISOString()) ||
+          ['postId', 'isVoiceMessage', 'sendImageId', 'tip'].some((key) => key in message))) {
+          rangeIssues.push({ app, identity: String(message.from ?? ''), role: 'sender',
+            resolved: { available: false, name: String(message.from ?? ''), source: 'directory', reason: 'MatchMe requires existing unambiguous accounts with an active match and plain message text.' } });
+        }
         for (const [field, role] of [['from', 'sender'], ['to', 'recipient']] as const) {
           const identity = message[field];
           if (typeof identity !== 'string' || !identity.trim()) {
@@ -334,7 +363,7 @@ export function socialMessageCorrectionContext(issues: SocialMessageValidationIs
       `- ${socialAppName(issue.app)} ${issue.role} "${issue.identity}": ${issue.resolved.reason}`
     ),
     'Rewrite the complete response. A known Storybook character may send or receive in an app only when that exact app account exists.',
-    'New NPC display names and usernames are accepted. Never invent an app account for a known Storybook character.',
+    'New NPC display names and usernames are accepted only for Fotogram and OnlyFriends. MatchMe requires existing accounts and an active application-provided match; never invent either.',
     'Do not mention this validation or the discarded response.',
     '[/SOCIAL MESSAGE VALIDATION]',
   ].join('\n');

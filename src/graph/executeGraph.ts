@@ -82,6 +82,7 @@ type ExecuteGraphOptions = {
   currentTurnId?: string;
   updateHistoryMessageTimes?: (patches: Array<{ id: number; rpDateTime: string }>) => void;
   userControlledCharacterId?: string;
+  matchMeDirectMessage?: import('../types').SocialDirectMessageRecord;
   llm: NodeLlmApi;
   textMetrics: TextMetricsApi;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
@@ -214,6 +215,7 @@ export async function executeGraph({
   currentTurnId,
   updateHistoryMessageTimes = () => {},
   userControlledCharacterId,
+  matchMeDirectMessage,
   llm,
   textMetrics,
   updateRuntimeNode,
@@ -679,6 +681,7 @@ export async function executeGraph({
             recentTurns,
             currentTurnId,
             userControlledCharacterId,
+            matchMeDirectMessage,
             outputNodeId,
             sourceHandle,
             directActionOnly: outputSourceHandle === 'direct-actions',

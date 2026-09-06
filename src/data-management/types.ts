@@ -149,6 +149,7 @@ export type TimelineMessageEntry = {
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
+  matchMeMatch?: import('../types').MatchMeMatch;
   createdPhoneNote?: CreatedPhoneNoteCommit;
   deletedPhoneNote?: DeletedPhoneNoteCommit;
   simulatedAiChat?: SimulatedAiChatCommit;

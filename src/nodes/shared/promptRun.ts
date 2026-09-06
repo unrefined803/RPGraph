@@ -1,3 +1,4 @@
+import { matchMeContext, matchMeState } from '../../chat/matchMe';
 import {
   promptWithImageAttachmentMarkers,
   promptWithReferenceImageMarkers,
@@ -355,6 +356,7 @@ export async function runActionAwarePrompt({
     stepOutputInsertions.set(step, insertions);
   };
   const socialCharacters = storyCharactersFromNodes(context.nodes);
+  const matchMeApplicationContext = matchMeContext(matchMeState(socialCharacters, context.historyMessages), context.matchMeDirectMessage);
   let socialAccountCorrectionText = '';
   let socialAccountReplayUsed = false;
   const promptSectionValue = (value: string) =>
@@ -450,6 +452,11 @@ export async function runActionAwarePrompt({
         parts: [{ text: textInput, historySegments }],
         historySegments,
       },
+      ...(matchMeApplicationContext ? [{
+        label: 'MatchMe Application Context',
+        text: matchMeApplicationContext,
+        parts: [{ text: matchMeApplicationContext, actionInserted: true }],
+      }] : []),
       ...(socialAccountCorrectionText
         ? [{
             label: 'Social Message Validation',
@@ -467,6 +474,7 @@ export async function runActionAwarePrompt({
   const buildCombinedPrompt = (textInput = inputValue) => [
     promptSectionValue(promptBefore),
     textInput,
+    matchMeApplicationContext,
     socialAccountCorrectionText,
     promptSectionValue(promptAfter),
   ]
@@ -797,6 +805,7 @@ export async function runActionAwarePrompt({
       text: output.text,
       characters: socialCharacters,
       messages: context.historyMessages,
+      directMessage: context.matchMeDirectMessage,
     });
     if (
       socialAccountValidation.issues.length > 0 &&
@@ -839,6 +848,7 @@ export async function runActionAwarePrompt({
         text: output.text,
         characters: socialCharacters,
         messages: context.historyMessages,
+        directMessage: context.matchMeDirectMessage,
       });
       if (socialAccountValidation.issues.length === 0) {
         context.reportFormatResult({
@@ -1111,6 +1121,7 @@ export async function runActionAwarePrompt({
         text: output.text,
         characters: socialCharacters,
         messages: context.historyMessages,
+        directMessage: context.matchMeDirectMessage,
       });
       if (commandSocialValidation.issues.length > 0 && context.retryFormatErrorsEnabled) {
         const correction = socialMessageCorrectionContext(commandSocialValidation.issues);
@@ -1161,6 +1172,7 @@ export async function runActionAwarePrompt({
           text: output.text,
           characters: socialCharacters,
           messages: context.historyMessages,
+        directMessage: context.matchMeDirectMessage,
         });
         if (commandSocialValidation.issues.length === 0) {
           context.reportFormatResult({

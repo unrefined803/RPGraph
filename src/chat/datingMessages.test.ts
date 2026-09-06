@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { createDatingDemoExchange, normalizeDatingMessages } from './datingMessages';
+import { normalizeDatingMessages, type DatingMessage } from './datingMessages';
 import { rpStorybookCharacterSocial } from '../nodes/rp-storybook/model';
 
-describe('MatchMe conversations', () => {
+const legacyMessages: DatingMessage[] = [
+  { id: 'legacy-out', matchId: 'demo-alex', sender: 'owner', text: 'Hello 😊', sentAt: '2026-09-06T10:00:00.000Z' },
+  { id: 'legacy-in', matchId: 'demo-alex', sender: 'match', text: 'Demo reply', sentAt: '2026-09-06T10:00:01.000Z', demo: true },
+];
+
+describe('Legacy MatchMe conversations', () => {
   it('stores both directions and emoji text through Storybook normalization', () => {
-    const messages = createDatingDemoExchange('demo-alex', 'Hello 😊', []);
+    const messages = legacyMessages;
     const social = rpStorybookCharacterSocial({ plotTwist: {
       name: 'Player', age: 25, bio: 'Hello', photoIds: ['photo-1'], messages,
     } });
@@ -13,15 +18,8 @@ describe('MatchMe conversations', () => {
     expect(messages[0].text).toBe('Hello 😊');
     expect(messages[1].demo).toBe(true);
   });
-  it('keeps replies scoped to the selected match and rejects empty messages', () => {
-    const alex = createDatingDemoExchange('demo-alex', 'Hey', []);
-    const robin = createDatingDemoExchange('demo-robin', 'Hello', alex);
-    expect(robin.every((message) => message.matchId === 'demo-robin')).toBe(true);
-    expect(robin[1].text).toContain('afternoon');
-    expect(createDatingDemoExchange('demo-alex', '  ', alex)).toEqual([]);
-  });
   it('filters corrupt and duplicate records without losing valid conversations', () => {
-    const messages = createDatingDemoExchange('demo-alex', 'Hi', []);
+    const messages = legacyMessages;
     expect(normalizeDatingMessages([null, ...messages, messages[0], { ...messages[0], id: 'bad', sender: 'unknown' }, { ...messages[0], id: 'bad-date', sentAt: 'invalid' }])).toEqual(messages);
   });
 });

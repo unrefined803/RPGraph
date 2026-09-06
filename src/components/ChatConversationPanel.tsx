@@ -74,6 +74,7 @@ function chatReadingColor(brightness: number) {
   return `rgb(${start.map((channel, index) => Math.round(channel + (end[index] - channel) * progress)).join(', ')})`;
 }
 import {
+  socialAppNames,
   socialCharacterForPost,
   socialMessageHiddenFromChat,
   socialPostEngagementByPostId,
@@ -1267,8 +1268,11 @@ export function ChatConversationPanel({
               const first = current?.[0];
               const sameConversation = first &&
                 first.app === socialMessage.app &&
-                [first.from, first.to].map((name) => name.toLocaleLowerCase()).sort().join('::') ===
-                  [socialMessage.from, socialMessage.to].map((name) => name.toLocaleLowerCase()).sort().join('::');
+                (first.app === 'matchme'
+                  ? !!socialMessagesById.get(first.socialMessageId)?.matchId &&
+                    socialMessagesById.get(first.socialMessageId)?.matchId === socialMessagesById.get(socialMessage.socialMessageId)?.matchId
+                  : [first.from, first.to].map((name) => name.toLocaleLowerCase()).sort().join('::') ===
+                    [socialMessage.from, socialMessage.to].map((name) => name.toLocaleLowerCase()).sort().join('::'));
               if (!current || !sameConversation) {
                 groups.push([socialMessage]);
               } else {
@@ -1284,7 +1288,7 @@ export function ChatConversationPanel({
                     return null;
                   }
                   const anchorSender = first.from.trim().toLocaleLowerCase();
-                  const appName = first.app === 'fotogram' ? 'Fotogram' : 'OnlyFriends';
+                  const appName = socialAppNames[first.app];
                   return (
                     <section
                       className={`chat-social-message-card ${first.app}`}
@@ -1300,7 +1304,9 @@ export function ChatConversationPanel({
                           const text = englishProcessingEnabled
                             ? linkedMessage?.displayText ?? socialMessage.translatedMessage ?? socialMessage.message
                             : socialMessage.message;
-                          const outgoing = socialMessage.from.trim().toLocaleLowerCase() === anchorSender;
+                          const outgoing = first.app === 'matchme'
+                            ? linkedMessage?.fromAccountId === socialMessagesById.get(first.socialMessageId)?.fromAccountId
+                            : socialMessage.from.trim().toLocaleLowerCase() === anchorSender;
                           const fromColor = characterColors.get(socialMessage.from);
                           return (
                             <div

@@ -3,6 +3,7 @@ import type { DatingMessage } from '../../chat/datingMessages';
 
 type Props = {
   name: string;
+  busy: boolean;
   age: number;
   messages: DatingMessage[];
   draft: string;
@@ -14,7 +15,7 @@ type Props = {
   onBack: () => void;
 };
 
-export function MatchMeConversation({ name, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, onUseEmoji, onSend, onBack }: Props) {
+export function MatchMeConversation({ busy, name, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, onUseEmoji, onSend, onBack }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -57,7 +58,7 @@ export function MatchMeConversation({ name, age, messages, draft, onDraftChange,
     <header className="phone-social-dm-header conversation">
       <button type="button" onClick={onBack} aria-label="Back to Discover">‹</button>
       <span className="pt-match-avatar" aria-hidden="true">{name[0]}</span>
-      <div><strong>{name}, {age}</strong><span>Demo match · Automatic demo replies</span></div>
+      <div><strong>{name}, {age}</strong><span>Active match · Private conversation</span></div>
     </header>
     <div className="phone-social-dm-thread" ref={threadRef} role="log" aria-label={`Messages with ${name}`} aria-live="polite" aria-relevant="additions">
       {!messages.length && <div className="phone-social-dm-empty conversation-empty">
@@ -70,7 +71,7 @@ export function MatchMeConversation({ name, age, messages, draft, onDraftChange,
         </div>
       </div>)}
     </div>
-    <form className="phone-social-dm-composer" onSubmit={(event) => { event.preventDefault(); if (draft.trim()) onSend(); }}>
+    <form className="phone-social-dm-composer" onSubmit={(event) => { event.preventDefault(); if (draft.trim() && !busy) onSend(); }}>
       <input ref={inputRef} type="text" aria-label={`Message ${name}`} placeholder="Message…" maxLength={4000} value={draft}
         onChange={(event) => onDraftChange(event.target.value)} autoFocus />
       <div className="phone-social-dm-emoji-menu" ref={emojiRef}>
@@ -86,7 +87,7 @@ export function MatchMeConversation({ name, age, messages, draft, onDraftChange,
           <div className="phone-social-dm-emoji-grid">{emojiOptions.map((emoji) => <button type="button" key={emoji} onClick={() => selectEmoji(emoji)} aria-label={`Insert ${emoji}`}>{emoji}</button>)}</div>
         </div>}
       </div>
-      <button type="submit" disabled={!draft.trim()} aria-label="Send message">Send</button>
+      <button type="submit" disabled={busy || !draft.trim()} aria-label="Send message">{busy ? 'Replying…' : 'Send'}</button>
     </form>
   </section>;
 }

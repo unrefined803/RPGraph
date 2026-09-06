@@ -164,6 +164,7 @@ function messageToTimelineEntry(
     socialThreadAction: message.socialThreadAction,
     socialReactions: message.socialReactions,
     socialDirectMessage: message.socialDirectMessage,
+    matchMeMatch: message.matchMeMatch,
     createdPhoneNote: message.createdPhoneNote,
     deletedPhoneNote: message.deletedPhoneNote,
     simulatedAiChat: message.simulatedAiChat,
