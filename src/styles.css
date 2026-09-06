@@ -24407,3 +24407,105 @@ button.message-timeline-row.phone:focus-visible {
   .edge-character-choice,
   .is-open .edge-character-choice { transition: none; }
 }
+
+/* Raised Storybook actions retain depth in both solid and glass themes. */
+.workflow-node.rp-storybook-node .storybook-actions .load-text-button {
+  background-image: linear-gradient(180deg, rgba(144, 225, 164, 0.16), rgba(0, 0, 0, 0.12));
+  border-bottom-width: 3px;
+  box-shadow: inset 0 1px 0 rgba(222, 255, 231, 0.2), 0 3px 0 #142a1d, 0 5px 9px rgba(0, 0, 0, 0.25);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.workflow-node.rp-storybook-node .storybook-actions .load-text-button:hover {
+  transform: translateY(-1px);
+}
+
+.workflow-node.rp-storybook-node .storybook-actions .load-text-button:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 0 #142a1d;
+}
+
+.storybook-inline-editor {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.storybook-inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 20px;
+  padding: 0;
+}
+
+/* Preview actions share the title's vertical space instead of adding a row. */
+.storybook-inline-editor:not(.has-heading):not(.is-editing) > .storybook-inline-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.storybook-inline-editor:not(.is-editing) .book-details h3,
+.storybook-inline-editor:not(.is-editing) .character-card-header {
+  padding-right: 48px;
+}
+
+.storybook-inline-action {
+  appearance: none;
+  border: 0;
+  border-radius: 3px;
+  padding: 2px 3px;
+  background: transparent;
+  box-shadow: none;
+  color: #aeb9ce;
+  font: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.storybook-inline-action:hover:not(:disabled) {
+  color: var(--soft-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.storybook-inline-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.storybook-inline-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.storybook-inline-actions.section-header {
+  margin-bottom: 12px;
+}
+
+.storybook-inline-editor.is-editing:not(.has-heading) > .storybook-inline-actions {
+  margin-bottom: 8px;
+}
+
+.storybook-inline-editor .storybook-editor-fields {
+  padding: 0;
+}
+
+.storybook-inline-editor .storybook-editor-field textarea {
+  min-height: 100px;
+}
+
+.storybook-inline-editor p {
+  white-space: pre-wrap;
+}
+
+.storybook-inline-actions h4 {
+  margin-right: auto;
+}
+
+.storybook-actor-card > .storybook-inline-editor > .character-fields {
+  margin-top: 14px;
+}

@@ -939,10 +939,15 @@ function decodeJsonPointerPath(pathValue: unknown) {
   if (typeof pathValue !== 'string' || !pathValue.startsWith('/')) {
     throw new Error('JSON Patch path must start with /.');
   }
-  return pathValue
-    .slice(1)
-    .split('/')
-    .map((part) => part.replace(/~1/g, '/').replace(/~0/g, '~'));
+  const parts = pathValue.slice(1).split('/');
+  if (parts.some((part) => /~(?:[^01]|$)/.test(part))) {
+    throw new Error('JSON Patch paths must escape ~ as ~0 and / as ~1.');
+  }
+  const decoded = parts.map((part) => part.replace(/~1/g, '/').replace(/~0/g, '~'));
+  if (decoded.some((part) => ['__proto__', 'constructor', 'prototype'].includes(part))) {
+    throw new Error('JSON Patch path contains a forbidden property.');
+  }
+  return decoded;
 }
 
 function jsonPatchParent(target: unknown, pathValue: unknown) {
@@ -952,12 +957,21 @@ function jsonPatchParent(target: unknown, pathValue: unknown) {
   }
   let parent = target;
   for (const part of parts.slice(0, -1)) {
-    if (!parent || typeof parent !== 'object') {
+    if (!parent || typeof parent !== 'object' || !Object.prototype.hasOwnProperty.call(parent, part)) {
       throw new Error(`JSON Patch path does not exist: ${String(pathValue)}`);
     }
+    if (Array.isArray(parent)) jsonPatchArrayIndex(part, parent.length);
     parent = (parent as Record<string, unknown>)[part];
   }
   return { parent, key: parts[parts.length - 1] };
+}
+
+function jsonPatchArrayIndex(key: string, length: number, allowAppend = false) {
+  const index = Number(key);
+  if (!/^(0|[1-9][0-9]*)$/.test(key) || !Number.isSafeInteger(index) || index >= length + (allowAppend ? 1 : 0)) {
+    throw new Error(`Invalid JSON Patch array index "${key}". Use a zero-based numeric index from the current JSON.`);
+  }
+  return index;
 }
 
 function jsonPatchValue(target: unknown, pathValue: unknown) {
@@ -968,10 +982,7 @@ function jsonPatchValue(target: unknown, pathValue: unknown) {
   let value = target;
   for (const part of parts) {
     if (Array.isArray(value)) {
-      const index = Number(part);
-      if (!Number.isInteger(index) || index < 0 || index >= value.length) {
-        throw new Error(`JSON Patch path does not exist: ${String(pathValue)}`);
-      }
+      const index = jsonPatchArrayIndex(part, value.length);
       value = value[index];
     } else if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, part)) {
       value = (value as Record<string, unknown>)[part];
@@ -992,10 +1003,7 @@ function applyJsonPatchAdd(target: unknown, operation: JsonPatchOperation) {
       parent.push(operation.value);
       return;
     }
-    const index = Number(key);
-    if (!Number.isInteger(index) || index < 0 || index > parent.length) {
-      throw new Error(`Invalid JSON Patch array index: ${String(operation.path)}`);
-    }
+    const index = jsonPatchArrayIndex(key, parent.length, true);
     parent.splice(index, 0, operation.value);
     return;
   }
@@ -1005,10 +1013,7 @@ function applyJsonPatchAdd(target: unknown, operation: JsonPatchOperation) {
 function applyJsonPatchRemove(target: unknown, operation: JsonPatchOperation) {
   const { parent, key } = jsonPatchParent(target, operation.path);
   if (Array.isArray(parent)) {
-    const index = Number(key);
-    if (!Number.isInteger(index) || index < 0 || index >= parent.length) {
-      throw new Error(`Invalid JSON Patch array index: ${String(operation.path)}`);
-    }
+    const index = jsonPatchArrayIndex(key, parent.length);
     parent.splice(index, 1);
     return;
   }
@@ -1021,10 +1026,7 @@ function applyJsonPatchRemove(target: unknown, operation: JsonPatchOperation) {
 function applyJsonPatchReplace(target: unknown, operation: JsonPatchOperation) {
   const { parent, key } = jsonPatchParent(target, operation.path);
   if (Array.isArray(parent)) {
-    const index = Number(key);
-    if (!Number.isInteger(index) || index < 0 || index >= parent.length) {
-      throw new Error(`Invalid JSON Patch array index: ${String(operation.path)}`);
-    }
+    const index = jsonPatchArrayIndex(key, parent.length);
     parent[index] = operation.value;
     return;
   }
@@ -1056,6 +1058,16 @@ function applyJsonPatchOperation(target: unknown, operation: JsonPatchOperation)
   if (operation.path === '') {
     throw new Error('Storybook JSON Patch path cannot target the document root.');
   }
+  if ((op === 'add' || op === 'replace' || op === 'test') && !Object.prototype.hasOwnProperty.call(operation, 'value')) {
+    throw new Error(`JSON Patch ${op} requires a value. Use an empty string to clear text.`);
+  }
+  if (op === 'move') {
+    const from = decodeJsonPointerPath(operation.from);
+    const to = decodeJsonPointerPath(operation.path);
+    if (to.length > from.length && from.every((part, index) => part === to[index])) {
+      throw new Error('JSON Patch move cannot move a value into its own child.');
+    }
+  }
   if (op === 'add') {
     applyJsonPatchAdd(target, operation);
   } else if (op === 'replace') {
@@ -1082,30 +1094,17 @@ function applyStorybookJsonPatch(value: RpStorybook, patch: unknown) {
     throw new Error('Assistant response must include a JSON Patch array in "patch".');
   }
   const target = structuredClone(value);
-  patch.forEach((operation) => applyJsonPatchOperation(target, operation as JsonPatchOperation));
-  return target;
-}
-
-function changedFieldsFromJsonPatch(patch: unknown[]) {
-  const fields = new Set<string>();
-  patch.forEach((operation) => {
-    if (!operation || typeof operation !== 'object' || Array.isArray(operation)) {
-      return;
-    }
-    const pathValue = (operation as JsonPatchOperation).path;
-    if (typeof pathValue !== 'string' || !pathValue.startsWith('/')) {
-      return;
-    }
-    const [first, second] = decodeJsonPointerPath(pathValue);
-    if (!first) {
-      fields.add('storybook');
-    } else if (first === 'scenario' && second) {
-      fields.add(`scenario.${second}`);
-    } else {
-      fields.add(first);
+  patch.forEach((operation, index) => {
+    try {
+      applyJsonPatchOperation(target, operation as JsonPatchOperation);
+    } catch (error) {
+      const path = operation && typeof operation === 'object' ? operation.path : undefined;
+      const patchError = new Error(`Patch operation ${index + 1}${typeof path === 'string' ? ` (${path})` : ''} failed: ${error instanceof Error ? error.message : String(error)} No changes were applied.`);
+      Object.assign(patchError, { cause: error });
+      throw patchError;
     }
   });
-  return Array.from(fields);
+  return target;
 }
 
 export function parseRpStorybookAssistantResult(text: string, fallback: RpStorybook): RpStorybookAssistantResult {
@@ -1120,18 +1119,14 @@ export function parseRpStorybookAssistantResult(text: string, fallback: RpStoryb
   if (!patch) {
     throw new Error('Assistant response must include a JSON Patch array in "patch".');
   }
-  const explicitChangedFields = Array.isArray(parsed.changedFields)
-    ? parsed.changedFields.map(stringValue).filter(Boolean)
-    : [];
-  const changedFields = explicitChangedFields.length || patch.length === 0
-    ? explicitChangedFields
-    : changedFieldsFromJsonPatch(patch);
-
   const patchedStorybook = applyStorybookJsonPatch(fallback, patch);
-  const normalizedStorybook = withPreservedCharacterImages(
-    normalizeRpStorybook(patchedStorybook),
-    fallback,
-  );
+  const normalizedStorybook = jsonValuesEqual(patchedStorybook, fallback)
+    ? patchedStorybook
+    : withPreservedCharacterImages(normalizeRpStorybook(patchedStorybook), fallback);
+
+  // Report persisted changes, not the model's potentially inaccurate claims.
+  const changedFields = (Object.keys(normalizedStorybook) as Array<keyof RpStorybook>)
+    .filter((key) => !jsonValuesEqual(normalizedStorybook[key], fallback[key]));
 
   return {
     reply: stringValue(parsed.reply) || (changedFields.length ? 'Updated the storybook.' : 'No changes.'),
@@ -1207,9 +1202,7 @@ function withPreservedCharacterImages(
       ...(fallbackCharacters.get(character.id)?.profileImage
         ? { profileImage: fallbackCharacters.get(character.id)!.profileImage }
         : {}),
-      comfyConfig: character.comfyConfig?.loraName || character.comfyConfig?.loraUrl || character.comfyConfig?.appearance
-        ? character.comfyConfig
-        : fallbackCharacters.get(character.id)?.comfyConfig ?? character.comfyConfig ?? defaultRpStorybookCharacterComfyConfig(),
+      comfyConfig: character.comfyConfig ?? defaultRpStorybookCharacterComfyConfig(),
       // Voice samples are binary payloads the assistant never edits; always keep the stored ones.
       voiceConfig: fallbackCharacters.get(character.id)?.voiceConfig ??
         character.voiceConfig ??
@@ -1436,19 +1429,23 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Return this response shape with a valid RFC 6902 JSON Patch array. The patch paths use RFC 6901 JSON Pointer.',
     '{"reply":"short user-facing answer","changedFields":["title","scenario.openingSituation"],"patch":[{"op":"replace","path":"/title","value":"New title"}]}',
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
-    'Keep the exact storybook shape below:',
+    'The schema example below describes field shapes, not current values. Never copy its sample names, handles, ids, or balances into existing characters:',
     `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
-    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
+    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
-    'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, characters[].phoneSettings, and characters[].images dataUrl values, unless the user explicitly changes them.',
+    'If the user asks for edits or provides new story facts, edit only the required fields. Preserve unrelated values. Image galleries, profile images, voice samples, and phoneSettings are managed by app controls: never patch them, even on request; explain which app controls to use instead. Image-generation text in comfyConfig can be edited on request.',
+    'Use paths from Current JSON, with a leading slash and zero-based array indices: /characters/0/name, not characters/0/name, /characters/alice/name, or characters[0].name. Escape ~ as ~0 and / as ~1 inside a property name.',
+    'Prefer replace for existing text fields and add at /characters/- to append a new character. replace requires an existing target; add requires an existing parent. Include value for every add or replace. To clear text, replace its value with an empty string, not null or a remove operation.',
+    'Apply operations in order. Array removals shift later indices, so remove multiple entries from highest index to lowest. Never replace the entire characters array to edit one person. Keep existing ids stable and give each new character a unique, non-empty id.',
+    'Before returning, check each path against Current JSON and earlier operations. Do not guess missing character indices. If the target is ambiguous, ask a clarification in reply with an empty patch. Never claim a locked or app-managed change was completed.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
-    'For character renames, replace only characters/{index}/name and keep the character id stable.',
-    'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, banking, social, comfyConfig, and images.',
+    'For character renames when identity is not locked, replace only /characters/{index}/name and keep the character id stable.',
+    'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, banking, social, comfyConfig, and images: []. Do not invent image data or voice samples.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',
-    'characters[].banking.fixedExpenses lists recurring payments shown in the Banking app history, each as {"label":"Mobile plan","amount":24.99} with a US dollar amount. Always include exactly one mobile plan entry with a realistic amount that fits the character. Add further fixed expenses in the same format only when the user asks for them; the app fills the rest of the history with generated everyday spending automatically.',
+    'characters[].banking.fixedExpenses lists recurring payments shown in the Banking app history, each as {"label":"Mobile plan","amount":24.99} with a US dollar amount. For new characters, include exactly one mobile plan entry with a realistic amount that fits the character. Add further fixed expenses in the same format only when the user asks for them; the app fills the rest of the history with generated everyday spending automatically.',
     'characters[].social.fotogramUsername is the character\'s account username in the phone Fotogram app (a lowercase handle like "nova.reyes"). Every character is expected to have a Fotogram account, so always set a fitting handle derived from the name for new characters. Keep existing usernames unless the user asks to change them.',
-    'characters[].social.onlyfriendsUsername is the character\'s account username in the phone OnlyFriends app (an OnlyFans-style platform). These accounts are private: keep it an empty string unless the user or the story explicitly gives the character an OnlyFriends account.',
-    'characters[].comfyConfig is optional image-generation configuration. loraName is a ComfyUI LoRA file name for that character. loraUrl is an optional download/source URL for that LoRA. appearance is a concise visual description for generated images. Leave them empty unless the user explicitly provides image-generation details.',
+    'characters[].social.onlyfriendsUsername is the character\'s account username in the phone OnlyFriends app (an OnlyFans-style platform). For new characters, keep it an empty string unless the user or the story explicitly gives the character an OnlyFriends account.',
+    'characters[].comfyConfig is optional image-generation configuration. loraName is a ComfyUI LoRA file name for that character. loraUrl is an optional download/source URL for that LoRA. appearance is a concise visual description for generated images. For new characters, leave them empty unless the user explicitly provides image-generation details. Preserve existing settings unless asked to change them.',
     'characters[].voiceConfig stores a binary voice sample managed by the app. Never create, edit, or remove it.',
     'For edits, changedFields must list compact field paths that changed, for example "title", "scenario", "characters".',
     'Every playable person, npc, or roleplay participant belongs in characters. Do not create any other character container fields.',
@@ -1457,6 +1454,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Use character ids for owner and contact. Store each hidden pair once only. If you add or rename characters, keep character ids stable and update phoneContacts.blocked only when needed.',
     'Use concise but useful roleplay authoring text. Answer in the same language as the user when practical.',
     '',
+    'Current JSON is the authoritative state. Conversation history is context only: do not repeat earlier edits or retry failed edits unless the current user request asks for them.',
     `Current JSON:\n${currentJson}`,
     '',
     `User instruction:\n${instruction}`,

@@ -57,7 +57,7 @@ export function RpStorybookNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         <span className="storybook-node-introduction">
           {storybook.introduction || 'No introduction defined.'}
         </span>
-        <span>Charakter: {characterNames.length ? characterNames.join(', ') : 'None'}</span>
+        <span>Characters: {characterNames.length ? characterNames.join(', ') : 'None'}</span>
         {storybookHasContent && (
           <span className="storybook-node-token-estimate">
             ~{estimatedRpStorybookPromptTokens(storybook).toLocaleString('en-US')} tokens (images excluded)

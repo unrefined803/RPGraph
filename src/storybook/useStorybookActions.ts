@@ -141,6 +141,9 @@ export function useStorybookActions({
   const [storybookCreatorMessages, setStorybookCreatorMessages] = useState<StorybookCreatorMessage[]>([]);
   const storybookCreatorMessageNodeIdRef = useRef<string | null>(null);
   const [storybookCreatorSubmitting, setStorybookCreatorSubmitting] = useState(false);
+  const creatorRequestActiveRef = useRef(false);
+  const pendingConversionRef = useRef(pendingStorybookConversion);
+  pendingConversionRef.current = pendingStorybookConversion;
   const [pendingCharacterLoad, setPendingCharacterLoad] = useState<{
     nodeId: string;
     filePath?: string;
@@ -179,6 +182,9 @@ export function useStorybookActions({
     options?: { replaceExisting?: boolean },
   ): string | null {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
+    if (!node || !isStorybookSourceNode(node)) {
+      return 'Cannot update: the Storybook node no longer exists.';
+    }
     let committedStorybook = storybook;
     if (options?.replaceExisting) {
       clearCurrentSession();
@@ -254,10 +260,11 @@ export function useStorybookActions({
   async function submitStorybookCreatorMessage(message: string, visibleMessage = message) {
     const nodeId = storybookCreatorNodeId;
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!nodeId || !node || node.data.nodeType !== 'rp-storybook') {
+    if (creatorRequestActiveRef.current || !nodeId || !node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
 
+    creatorRequestActiveRef.current = true;
     setStorybookCreatorMessages((current) => [...current, { role: 'user', text: visibleMessage }]);
     setStorybookCreatorSubmitting(true);
     updateRuntimeNode(nodeId, {
@@ -294,12 +301,20 @@ export function useStorybookActions({
         label: 'Storybook Chat',
         prompt: rpStorybookEditPrompt(currentJson, instruction, storyHistoryPresent(currentStorybook)),
       });
+      const latestNode = nodesRef.current.find((entry) => entry.id === nodeId);
+      if (
+        !latestNode || latestNode.data.nodeType !== 'rp-storybook' ||
+        latestNode.data.storybookJson !== node.data.storybookJson ||
+        (conversion ? pendingConversionRef.current !== conversion : pendingConversionRef.current?.nodeId === nodeId)
+      ) {
+        throw new Error('Storybook changed while the assistant was working. The response was not applied. Please send your request again.');
+      }
       const result = parseRpStorybookAssistantResult(completion.text, currentStorybook);
       const changedFields = result.changedFields.slice(0, 4);
       const storybookChanged = JSON.stringify(result.storybook) !== JSON.stringify(currentStorybook);
       const changedSummary = changedFields.length
         ? `edit ${changedFields.join(' + ')}${result.changedFields.length > changedFields.length ? ' + more' : ''}`
-        : 'answer';
+        : result.patchPaths.length ? 'no changes applied' : 'answer';
       if (storybookChanged && conversion) {
         const rows = conversion.result.rows.map((row) => {
           const rowWasChanged = row.allowedPatchPaths.some((allowed) =>
@@ -337,6 +352,7 @@ export function useStorybookActions({
       updateRuntimeNode(nodeId, { storybookStatus: `Error: ${messageText}` });
       setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText }]);
     } finally {
+      creatorRequestActiveRef.current = false;
       setStorybookCreatorSubmitting(false);
     }
   }

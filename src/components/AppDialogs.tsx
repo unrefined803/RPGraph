@@ -1,3 +1,4 @@
+import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
 import { LiveRunClock } from './LiveRunClock';
@@ -1066,7 +1067,7 @@ type StorybookCreatorDialogProps = {
   setPromptTextCustomPresets: (updater: (current: Record<string, string>) => Record<string, string>) => void;
   usedImageIds: ReadonlySet<string>;
   imageCaptionChangesById: ReadonlyMap<string, ImageCaptionChange[]>;
-  onUpdateStorybook: (storybook: RpStorybook, status?: string) => void;
+  onUpdateStorybook: (storybook: RpStorybook, status?: string) => boolean;
   onChangeImageCaptionUpdate: (change: ImageCaptionChange, caption: string) => void;
   onUpdateFormattedTextSettings: (settings: RpStorybookFormattedTextSettings) => void;
   onDescribeCharacterImage: (
@@ -3067,13 +3068,15 @@ export function StorybookCreatorDialog({
     | null
   >(null);
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
-  const storybook = useMemo(() => {
+  const parsedStorybook = useMemo(() => {
     try {
       return node.data.storybookJson ? parseRpStorybookJson(node.data.storybookJson) : emptyRpStorybook;
     } catch {
-      return emptyRpStorybook;
+      return null;
     }
   }, [node.data.storybookJson]);
+  const storybook = parsedStorybook ?? emptyRpStorybook;
+  const editingDisabled = isSubmitting || !parsedStorybook;
   const estimatedPromptTokens = useMemo(
     () => estimatedRpStorybookPromptTokens(pendingConversion?.result.storybook ?? storybook),
     [pendingConversion, storybook],
@@ -3390,24 +3393,43 @@ export function StorybookCreatorDialog({
 
                 {viewMode === 'ui' && !pendingConversion && (
                   <div className="storybook-ui-view">
+                    {!parsedStorybook && <p role="alert">Stored Storybook JSON is invalid. Text editing is disabled.</p>}
                     {/* Header: Title and Introduction */}
                     <div className="storybook-ui-header">
                       <div className="storybook-ui-cover-art">
                         <div className="book-spine"></div>
+                        <StorybookInlineEditor
+                          label="Introduction"
+                          disabled={editingDisabled}
+                          fields={[
+                            { key: 'title', label: 'Title', value: storybook.title },
+                            { key: 'introduction', label: 'Introduction', value: storybook.introduction, multiline: true },
+                          ]}
+                          onSave={(values) => onUpdateStorybook({ ...storybook, title: values.title, introduction: values.introduction }, 'Introduction updated.')}
+                        >
                         <div className="book-details">
                           <h3>{storybook.title || 'Untitled RP Storybook'}</h3>
                           <p className="storybook-intro">
                             {storybook.introduction || 'No introduction defined.'}
                           </p>
                         </div>
+                        </StorybookInlineEditor>
                       </div>
                     </div>
 
                     {/* Section: Scenario */}
                     <section className="storybook-section scenario-section">
-                      <div className="section-header">
-                        <h4>Scenario</h4>
-                      </div>
+                      <StorybookInlineEditor
+                        label="Scenario"
+                        heading={<h4>Scenario</h4>}
+                        disabled={editingDisabled}
+                        fields={[
+                          { key: 'summary', label: 'Summary', value: storybook.scenario.summary, multiline: true },
+                          { key: 'openingSituation', label: 'Opening Situation', value: storybook.scenario.openingSituation, multiline: true },
+                          { key: 'currentSituation', label: 'Current Situation', value: storybook.scenario.currentSituation, multiline: true },
+                        ]}
+                        onSave={(values) => onUpdateStorybook({ ...storybook, scenario: { ...storybook.scenario, summary: values.summary, openingSituation: values.openingSituation, currentSituation: values.currentSituation } }, 'Scenario updated.')}
+                      >
                       <div className="section-content">
                         <div className="scenario-field">
                           <span className="field-label">Summary</span>
@@ -3424,12 +3446,13 @@ export function StorybookCreatorDialog({
                           </div>
                         </div>
                       </div>
+                      </StorybookInlineEditor>
                     </section>
 
                     {/* Section: Characters */}
                     <section className="storybook-section actors-section">
                       <div className="section-header">
-                        <h4>Charakter</h4>
+                        <h4>Characters</h4>
                         <div className="storybook-section-header-actions">
                           <button
                             type="button"
@@ -3460,6 +3483,24 @@ export function StorybookCreatorDialog({
                             });
                             return (
                             <article className="storybook-actor-card" key={character.id}>
+                              <StorybookInlineEditor
+                                label={character.name || character.id}
+                                disabled={editingDisabled}
+                                fields={[
+                                  { key: 'name', label: 'Name', value: character.name },
+                                  { key: 'role', label: 'Role', value: character.role },
+                                  { key: 'description', label: 'Description', value: character.description, multiline: true },
+                                  { key: 'personality', label: 'Personality', value: character.personality, multiline: true },
+                                  { key: 'speechStyle', label: 'Speech Style', value: character.speechStyle, multiline: true },
+                                ]}
+                                onSave={(values) => onUpdateStorybook({
+                                  ...storybook,
+                                  characters: storybook.characters.map((entry) => entry.id === character.id ? {
+                                    ...entry, name: values.name, role: values.role, description: values.description,
+                                    personality: values.personality, speechStyle: values.speechStyle,
+                                  } : entry),
+                                }, 'Character updated.')}
+                              >
                               <div className="character-card-header">
                                 <button
                                   type="button"
@@ -3515,6 +3556,8 @@ export function StorybookCreatorDialog({
                                   <p>{imageStatusText(character.images)}</p>
                                 </div>
                               </div>
+
+                              </StorybookInlineEditor>
 
                               <div className="character-card-footer">
                                 <div className="character-card-footer-actions">
