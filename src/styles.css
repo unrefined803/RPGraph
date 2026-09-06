@@ -7011,7 +7011,7 @@ input[type="number"]::-webkit-outer-spin-button {
   padding: 10px 14px;
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 16px;
-  color: #edf1ff;
+  color: var(--chat-reading-color, #edf1ff);
   font-size: 13px;
   line-height: 1.45;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
@@ -10277,7 +10277,10 @@ input[type="number"]::-webkit-outer-spin-button {
   padding: 12px 16px;
   border-radius: 18px 18px 18px 4px;
   border: 1px solid #222e43;
-  background: #1d283a;
+  background:
+    radial-gradient(ellipse at top right, rgba(92, 112, 145, 0.025), transparent 58%),
+    radial-gradient(ellipse at bottom left, rgba(4, 8, 16, 0.1), transparent 62%),
+    linear-gradient(100deg, #172131, #202b3d);
   white-space: pre-wrap;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -10296,7 +10299,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .chat-reading-stripes {
   --dialogue-initial-color: #edf1ff;
   display: block;
-  color: #d5d9e6;
+  color: var(--chat-reading-color, #d5d9e6);
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0,
@@ -10941,6 +10944,7 @@ button.message-timeline-row.phone:focus-visible {
   background: var(--chat-social-incoming);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
   line-height: 1.45;
+  color: var(--chat-reading-color, #edf1ff);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   cursor: pointer;
@@ -11201,15 +11205,22 @@ button.message-timeline-row.phone:focus-visible {
   box-shadow: 0 4px 14px rgba(138, 115, 201, 0.1);
 }
 
+.message.is-editing {
+  width: 85%;
+}
+
 .message-edit-textarea {
-  width: min(100%, 360px);
-  min-width: 240px;
-  resize: vertical;
+  width: 100%;
+  min-width: 0;
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   color: #edf1ff;
-  line-height: 1.48;
+  line-height: 1.6;
   font-size: 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  padding: 12px 16px;
+  border-radius: 18px 18px 4px 18px;
   border: 1px solid rgba(138, 115, 201, 0.5);
   background: rgba(25, 34, 50, 0.96);
   outline: none;
@@ -23169,6 +23180,7 @@ button.message-timeline-row.phone:focus-visible {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
   font-size: 14px;
   line-height: 1.45;
+  color: var(--chat-reading-color, #edf1ff);
   overflow-wrap: anywhere;
 }
 

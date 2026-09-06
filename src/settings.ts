@@ -27,6 +27,9 @@ const defaultTokenEstimateBytesPerToken = 3;
 const minTokenEstimateBytesPerToken = 1;
 const maxTokenEstimateBytesPerToken = 8;
 export const defaultChatTextSize = 14;
+const defaultChatTextBrightness = 70;
+const defaultChatColorIntensity = 70;
+
 export const defaultPhoneChatTextSize = 14;
 export const phoneDesktopGridColumns = 8;
 export const phoneDesktopGridRows = 12;
@@ -160,6 +163,12 @@ function validCalibratedTokenBytesPerToken(value?: number) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? validTokenEstimateBytesPerToken(value)
     : undefined;
+}
+
+function validChatAppearancePercent(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(100, Math.max(0, Math.round(value)))
+    : fallback;
 }
 
 function validChatTextSize(value?: number) {
@@ -743,6 +752,12 @@ function isAppSettings(value: unknown): value is AppSettings {
     isPromptActionCustomPresets(settings.options.promptActionCustomPresets) &&
     isPromptActionRuntimeSettings(settings.options.promptActionSettings) &&
     isStringRecord(settings.options.promptTextCustomPresets) &&
+    (settings.options.chatTextBrightness === undefined ||
+      (typeof settings.options.chatTextBrightness === 'number' &&
+        Number.isFinite(settings.options.chatTextBrightness))) &&
+    (settings.options.chatColorIntensity === undefined ||
+      (typeof settings.options.chatColorIntensity === 'number' &&
+        Number.isFinite(settings.options.chatColorIntensity))) &&
     (settings.options.chatTextSize === undefined ||
       (typeof settings.options.chatTextSize === 'number' &&
         Number.isFinite(settings.options.chatTextSize) &&
@@ -830,6 +845,10 @@ type AppSettingsState = {
   setPromptActionSettings: Dispatch<SetStateAction<PromptActionRuntimeSettings>>;
   promptTextCustomPresets: Record<string, string>;
   setPromptTextCustomPresets: Dispatch<SetStateAction<Record<string, string>>>;
+  chatTextBrightness: number;
+  setChatTextBrightness: Dispatch<SetStateAction<number>>;
+  chatColorIntensity: number;
+  setChatColorIntensity: Dispatch<SetStateAction<number>>;
   chatTextSize: number;
   setChatTextSize: Dispatch<SetStateAction<number>>;
   phoneChatTextSize: number;
@@ -903,6 +922,8 @@ export function useAppSettings(): AppSettingsState {
   const [promptActionCustomPresets, setPromptActionCustomPresets] = useState<PromptActionConfig[]>([]);
   const [promptActionSettings, setPromptActionSettings] = useState<PromptActionRuntimeSettings>({});
   const [promptTextCustomPresets, setPromptTextCustomPresets] = useState<Record<string, string>>({});
+  const [chatTextBrightness, setChatTextBrightness] = useState(defaultChatTextBrightness);
+  const [chatColorIntensity, setChatColorIntensity] = useState(defaultChatColorIntensity);
   const [chatTextSize, setChatTextSize] = useState(defaultChatTextSize);
   const [phoneChatTextSize, setPhoneChatTextSize] = useState(defaultPhoneChatTextSize);
   const [phoneDesktopLayout, setPhoneDesktopLayout] = useState(defaultPhoneDesktopLayout);
@@ -1002,6 +1023,8 @@ export function useAppSettings(): AppSettingsState {
         setPromptActionCustomPresets(promptActionConfigs(result.settings.options.promptActionCustomPresets));
         setPromptActionSettings(promptActionRuntimeSettings(result.settings.options.promptActionSettings));
         setPromptTextCustomPresets(workflowVariableRecord(result.settings.options.promptTextCustomPresets));
+        setChatTextBrightness(validChatAppearancePercent(result.settings.options.chatTextBrightness, defaultChatTextBrightness));
+        setChatColorIntensity(validChatAppearancePercent(result.settings.options.chatColorIntensity, defaultChatColorIntensity));
         setChatTextSize(validChatTextSize(result.settings.options.chatTextSize));
         setPhoneChatTextSize(validPhoneChatTextSize(result.settings.options.phoneChatTextSize));
         setPhoneDesktopLayout(validPhoneDesktopLayout(result.settings.options.phoneDesktopLayout));
@@ -1089,6 +1112,8 @@ export function useAppSettings(): AppSettingsState {
         promptActionCustomPresets: promptActionSaveConfigs(promptActionCustomPresets),
         promptActionSettings: promptActionRuntimeSettings(promptActionSettings),
         promptTextCustomPresets,
+        chatTextBrightness: validChatAppearancePercent(chatTextBrightness, defaultChatTextBrightness),
+        chatColorIntensity: validChatAppearancePercent(chatColorIntensity, defaultChatColorIntensity),
         chatTextSize: validChatTextSize(chatTextSize),
         phoneChatTextSize: validPhoneChatTextSize(phoneChatTextSize),
         phoneDesktopLayout: validPhoneDesktopLayout(phoneDesktopLayout),
@@ -1150,6 +1175,8 @@ export function useAppSettings(): AppSettingsState {
     promptActionCustomPresets,
     promptActionSettings,
     promptTextCustomPresets,
+    chatTextBrightness,
+    chatColorIntensity,
     chatTextSize,
     phoneChatTextSize,
     phoneDesktopLayout,
@@ -1205,6 +1232,10 @@ export function useAppSettings(): AppSettingsState {
     setPromptActionSettings,
     promptTextCustomPresets,
     setPromptTextCustomPresets,
+    chatTextBrightness,
+    setChatTextBrightness,
+    chatColorIntensity,
+    setChatColorIntensity,
     chatTextSize,
     setChatTextSize,
     phoneChatTextSize,

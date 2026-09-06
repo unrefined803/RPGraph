@@ -135,6 +135,8 @@ type StudioDialogsProps = {
   activeTokenEstimateBytesPerToken: number;
   settingsValueDefinitions: SettingsValueDefinition[];
   settingsValues: Record<string, string>;
+  chatTextBrightness: number;
+  chatColorIntensity: number;
   chatTextSize: number;
   phoneChatTextSize: number;
   smoothChatAutoScrollEnabled: boolean;
@@ -162,6 +164,8 @@ type StudioDialogsProps = {
   onSettingsValueChange: (optionKey: string, value: string) => void;
   onSettingsValueRename: (optionKey: string, label: string) => void;
   onSettingsValueRemove: (optionKey: string) => void;
+  onChatTextBrightnessChange: (value: number) => void;
+  onChatColorIntensityChange: (value: number) => void;
   onChatTextSizeChange: (value: number) => void;
   onPhoneChatTextSizeChange: (value: number) => void;
   onSmoothChatAutoScrollEnabledChange: (enabled: boolean) => void;
@@ -770,6 +774,8 @@ export function StudioDialogs({
   activeTokenEstimateBytesPerToken,
   settingsValueDefinitions,
   settingsValues,
+  chatTextBrightness,
+  chatColorIntensity,
   chatTextSize,
   phoneChatTextSize,
   smoothChatAutoScrollEnabled,
@@ -797,6 +803,8 @@ export function StudioDialogs({
   onSettingsValueChange,
   onSettingsValueRename,
   onSettingsValueRemove,
+  onChatTextBrightnessChange,
+  onChatColorIntensityChange,
   onChatTextSizeChange,
   onPhoneChatTextSizeChange,
   onSmoothChatAutoScrollEnabledChange,
@@ -1893,6 +1901,40 @@ export function StudioDialogs({
                           />
                           <span>{chatTextSize}px</span>
                         </div>
+                      </label>
+                      <label className="option-field chat-text-size-field" htmlFor="chatTextBrightness">
+                        RP TEXT BRIGHTNESS
+                        <div className="option-range-row">
+                          <input
+                            id="chatTextBrightness"
+                            aria-describedby="chatTextBrightness-hint"
+                            min={0}
+                            max={100}
+                            step={1}
+                            type="range"
+                            value={chatTextBrightness}
+                            onChange={(event) => onChatTextBrightnessChange(Number(event.target.value))}
+                          />
+                          <span>{chatTextBrightness}%</span>
+                        </div>
+                        <small id="chatTextBrightness-hint">100% keeps the previous brightness. 50% is gently dimmed; 0% is a little dimmer still.</small>
+                      </label>
+                      <label className="option-field chat-text-size-field" htmlFor="chatColorIntensity">
+                        RP DIALOGUE COLOR INTENSITY
+                        <div className="option-range-row">
+                          <input
+                            id="chatColorIntensity"
+                            aria-describedby="chatColorIntensity-hint"
+                            min={0}
+                            max={100}
+                            step={1}
+                            type="range"
+                            value={chatColorIntensity}
+                            onChange={(event) => onChatColorIntensityChange(Number(event.target.value))}
+                          />
+                          <span>{chatColorIntensity}%</span>
+                        </div>
+                        <small id="chatColorIntensity-hint">100% keeps the original colors. Lower values gently soften saturation and slightly dim dialogue colors.</small>
                       </label>
                       <label className="option-field chat-text-size-field" htmlFor="phone-chat-text-size">
                         PHONE CHAT TEXT SIZE

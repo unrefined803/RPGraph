@@ -934,6 +934,8 @@ export type AppSettings = {
     promptActionCustomPresets?: PromptActionStoredConfig[];
     promptActionSettings?: PromptActionRuntimeSettings;
     promptTextCustomPresets?: Record<string, string>;
+    chatTextBrightness?: number;
+    chatColorIntensity?: number;
     chatTextSize?: number;
     phoneChatTextSize?: number;
     smoothChatAutoScrollEnabled?: boolean;

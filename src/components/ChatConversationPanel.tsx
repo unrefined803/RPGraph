@@ -1,5 +1,6 @@
 import {
   Fragment,
+  type CSSProperties,
   type FormEvent,
   type RefObject,
   useCallback,
@@ -61,6 +62,17 @@ import { SocialPostCard } from './SocialPostCard';
 import { CreatedPhoneNoteCard } from './CreatedPhoneNoteCard';
 import { SimulatedAiChatCard } from './SimulatedAiChatCard';
 import type { CommandInputCommand } from '../chat/structuredCommands';
+
+function chatReadingColor(brightness: number) {
+  const value = Math.min(100, Math.max(0, brightness));
+  const base = [213, 217, 230];
+  const dark = [180, 185, 198];
+  const target = [255, 255, 255];
+  const start = value < 70 ? dark : base;
+  const end = value < 70 ? base : target;
+  const progress = value < 70 ? value / 70 : (value - 70) / 30;
+  return `rgb(${start.map((channel, index) => Math.round(channel + (end[index] - channel) * progress)).join(', ')})`;
+}
 import {
   socialCharacterForPost,
   socialMessageHiddenFromChat,
@@ -216,6 +228,8 @@ type ChatConversationPanelProps = {
   voiceReadAloudActive: boolean;
   onStopVoiceReadAloud: () => void;
   rpTimeTrackingEnabled: boolean;
+  chatTextBrightness: number;
+  chatColorIntensity: number;
   chatTextSize: number;
   onChatTextSizeChange: (value: number) => void;
   phoneAuthorBadgesEnabled: boolean;
@@ -302,6 +316,8 @@ export function ChatConversationPanel({
   voiceReadAloudActive,
   onStopVoiceReadAloud,
   rpTimeTrackingEnabled,
+  chatTextBrightness,
+  chatColorIntensity,
   chatTextSize,
   onChatTextSizeChange,
   phoneAuthorBadgesEnabled,
@@ -705,7 +721,14 @@ export function ChatConversationPanel({
 
   return (
     <>
-      <div className="messages" ref={chatThreadRef} aria-live="polite">
+      <div
+        className="messages"
+        ref={chatThreadRef}
+        aria-live="polite"
+        style={{
+          '--chat-reading-color': chatReadingColor(chatTextBrightness),
+        } as CSSProperties}
+      >
         {visibleMessages.map((message, index) => {
           if (skippedPhoneTimelineMessageIds.has(message.id)) {
             return null;
@@ -844,7 +867,11 @@ export function ChatConversationPanel({
                 <span
                   key={`${keyPrefix}:${index}`}
                   className={className || undefined}
-                  style={speechColor ? { color: speechColor } : undefined}
+                  style={speechColor ? {
+                    color: chatColorIntensity === 100
+                      ? speechColor
+                      : `oklch(from ${speechColor} calc(l * ${0.98 + chatColorIntensity * 0.0002}) calc(c * ${0.75 + chatColorIntensity * 0.0025}) h)`,
+                  } : undefined}
                   title={
                     voiceKey
                       ? voiceActive
@@ -1629,7 +1656,7 @@ export function ChatConversationPanel({
           return (
             <Fragment key={message.id}>
               {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-              <article className={`message ${message.role} ${hasOutputActionUi ? 'has-output-action-ui' : ''}`}>
+              <article className={`message ${message.role} ${hasOutputActionUi ? 'has-output-action-ui' : ''}${isEditingMessage ? ' is-editing' : ''}`}>
               {speakerLabelNames.length > 0 && (
                 <div className={`message-speakers${speakerLabelsPlaceholder ? ' is-placeholder' : ''}`}>
                   {speakerLabelNames.map((speakerName) => {
@@ -1670,6 +1697,7 @@ export function ChatConversationPanel({
                   {isEditingMessage ? (
                     <textarea
                       className="message-edit-textarea"
+                      style={{ fontSize: chatTextSize || defaultChatTextSize }}
                       value={editingDraft}
                       onChange={(event) => onEditingDraftChange(event.target.value)}
                       onKeyDown={(event) => {
@@ -1678,7 +1706,7 @@ export function ChatConversationPanel({
                           onRegenerateEditedMessage();
                         }
                       }}
-                      rows={4}
+                      rows={1}
                       autoFocus
                     />
                   ) : (

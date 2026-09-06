@@ -642,6 +642,10 @@ function App() {
     setPromptActionSettings,
     promptTextCustomPresets,
     setPromptTextCustomPresets,
+    chatTextBrightness,
+    setChatTextBrightness,
+    chatColorIntensity,
+    setChatColorIntensity,
     chatTextSize,
     setChatTextSize,
     phoneChatTextSize,
@@ -5454,6 +5458,8 @@ function App() {
               voiceReadAloudActive={readAloudActive}
               onStopVoiceReadAloud={stopDialogueVoice}
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
+              chatTextBrightness={chatTextBrightness}
+              chatColorIntensity={chatColorIntensity}
               chatTextSize={chatTextSize}
               onChatTextSizeChange={setChatTextSize}
               phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}
@@ -5960,6 +5966,8 @@ function App() {
         activeTokenEstimateBytesPerToken={activeTokenEstimateBytesPerToken}
         settingsValueDefinitions={settingsValueDefinitions}
         settingsValues={resolvedWorkflowSettingsValues}
+        chatTextBrightness={chatTextBrightness}
+        chatColorIntensity={chatColorIntensity}
         chatTextSize={chatTextSize}
         phoneChatTextSize={phoneChatTextSize}
         smoothChatAutoScrollEnabled={smoothChatAutoScrollEnabled}
@@ -5987,6 +5995,8 @@ function App() {
         onSettingsValueChange={changeWorkflowSettingsValue}
         onSettingsValueRename={renameWorkflowSettingsValue}
         onSettingsValueRemove={removeWorkflowSettingsValue}
+        onChatTextBrightnessChange={setChatTextBrightness}
+        onChatColorIntensityChange={setChatColorIntensity}
         onChatTextSizeChange={setChatTextSize}
         onPhoneChatTextSizeChange={setPhoneChatTextSize}
         onSmoothChatAutoScrollEnabledChange={setSmoothChatAutoScrollEnabled}

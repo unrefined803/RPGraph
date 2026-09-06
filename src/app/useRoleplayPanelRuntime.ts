@@ -969,6 +969,7 @@ export function useRoleplayPanelRuntime({
     }
     if (view === 'phone') {
       setSocialPostOpenRequest(undefined);
+      setSocialDirectMessageOpenRequest(undefined);
     }
     setChatPanelView(view);
   }
@@ -976,6 +977,7 @@ export function useRoleplayPanelRuntime({
   function selectPhonePanelView() {
     setHighlightedPhoneMessage(undefined);
     setSocialPostOpenRequest(undefined);
+    setSocialDirectMessageOpenRequest(undefined);
     if (chatPanelView !== 'phone') {
       setChatPanelView('phone');
       return;
@@ -1009,6 +1011,7 @@ export function useRoleplayPanelRuntime({
     }
 
     setSocialPostOpenRequest(undefined);
+    setSocialDirectMessageOpenRequest(undefined);
     setPhoneHomeRequestId((current) => current + 1);
     return switchedOwner;
   }
