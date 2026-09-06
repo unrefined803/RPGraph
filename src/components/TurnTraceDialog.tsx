@@ -1,5 +1,5 @@
 import { formatContextValue } from '../data-management/formatters';
-import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   turnTraceCopyPayload,
   type TurnTrace,
@@ -36,6 +36,23 @@ function messageHeading(message: TurnTraceMessage) {
   return message.speaker || message.role;
 }
 
+function TraceDisclosure({ title, detail, children, open = false }: {
+  title: string; detail?: string; children: ReactNode; open?: boolean;
+}) {
+  return <details className="turn-trace-disclosure" open={open}>
+    <summary><span>{title}</span>{detail && <small>{detail}</small>}<span className="turn-trace-disclosure-chevron" aria-hidden="true">▾</span></summary>
+    <div className="turn-trace-disclosure-body">{children}</div>
+  </details>;
+}
+
+function TraceMetadata({ values }: { values: Record<string, unknown> }) {
+  return <dl className="turn-trace-metadata">
+    {Object.entries(values).filter(([, value]) => value !== undefined).map(([label, value]) =>
+      <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>,
+    )}
+  </dl>;
+}
+
 function TraceMessages({
   title,
   messages,
@@ -45,6 +62,9 @@ function TraceMessages({
   messages: TurnTraceMessage[];
   graphText?: string;
 }) {
+  const distinctGraphText = graphText && !messages.some((message) =>
+    message.text === graphText || message.translatedText === graphText,
+  ) && messages.map((message) => message.text).join('\n\n') !== graphText;
   return (
     <section className="turn-trace-message-group">
       <h5>{title}</h5>
@@ -58,7 +78,9 @@ function TraceMessages({
           </div>
         ))
       ) : !graphText ? <p className="turn-trace-empty">No stored text.</p> : null}
-      {graphText && <details><summary>Graph text</summary><HighlightedPreviewText text={graphText} /></details>}
+      {distinctGraphText && <TraceDisclosure title="Graph text" detail="Additional graph content" open={messages.length === 0}>
+        <HighlightedPreviewText text={graphText} />
+      </TraceDisclosure>}
     </section>
   );
 }
@@ -101,6 +123,7 @@ function readableStepName(name: string) {
 }
 
 function TracePromptSection({ section }: { section: TurnTracePromptSection }) {
+  if (!section.text && !section.parts?.some((part) => part.text)) return null;
   return (
     <div className={`turn-trace-prompt-section${isTextInputSection(section.label) ? '' : ' prompt'}`}>
       <strong>{section.label}</strong>
@@ -139,7 +162,7 @@ function TracePromptPasses({ passes }: { passes: TurnTracePromptPass[] }) {
             <strong>{passIndex + 1}. {pass.label}</strong>
             <span>Captured prompt content</span>
           </header>
-          {pass.images !== undefined && (
+          {!!pass.images?.length && (
             <div className="turn-trace-prompt-section images">
               <strong>Images supplied to bridge</strong>
               <pre>{tracePromptImagesText(pass.images)}</pre>
@@ -174,52 +197,43 @@ function TurnTraceStep({
   onToggle: (stepId: string, expanded: boolean) => void;
 }) {
   const expandable = stepHasExpandableText(step);
-  const toggle = () => {
-    if (expandable) {
-      onToggle(stepId, expanded);
-    }
-  };
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!expandable) {
-      return;
-    }
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onToggle(stepId, expanded);
-    }
-  };
-
+  const toggle = () => onToggle(stepId, expanded);
   return (
     <div
       className={`turn-trace-step${expandable ? ' collapsible' : ''}${expanded ? ' expanded' : ''}`}
-      role={expandable ? 'button' : undefined}
-      tabIndex={expandable ? 0 : undefined}
-      aria-expanded={expandable ? expanded : undefined}
-      onClick={toggle}
-      onKeyDown={handleKeyDown}
     >
-      <div className="turn-trace-step-heading">
-        <div>
+      <button type="button" className="turn-trace-step-heading" onClick={toggle} aria-expanded={expanded} disabled={!expandable}>
+        <span className="turn-trace-step-label">
           <strong>{step.order}. {step.nodeLabel}</strong>
           <span>{step.nodeType ?? 'LLM'} · {step.prompt}</span>
-        </div>
+        </span>
         {expandable && <span className="turn-trace-step-chevron" aria-hidden="true">▾</span>}
-      </div>
-      <div className="turn-trace-step-body">
-        <small>{step.capture} · {step.phase ?? 'response'} · {step.status ?? 'recorded'}
-          {step.dispatched !== undefined && (step.dispatched ? ' · bridge invoked' : ' · not dispatched')}
-        </small>
-        {step.partialResponse && <div><strong>Partial streamed response</strong><HighlightedPreviewText text={step.partialResponse} /></div>}
+      </button>
+      <div className="turn-trace-badges">
+          <span className={`turn-trace-status ${step.status ?? 'pending'}`}>{step.status ?? 'Recorded'}</span>
+          <span>{step.phase === 'prepare-next-turn' ? 'Next-turn preparation' : 'Response'}</span>
+          {step.selectedOutputChannel !== undefined && <span>Output {step.selectedOutputChannel} · Prompt {step.selectedPromptSlot ?? '–'}</span>}
+          {step.usage && <span>{(step.usage.durationMs / 1000).toFixed(2)} s</span>}
+        </div>
         {step.error && <p className="turn-trace-step-warning">{step.error}</p>}
-        {step.usage && <small>Provider usage: {step.usage.inputTokens ?? '–'} input / {step.usage.outputTokens ?? '–'} output / {step.usage.reasoningTokens ?? '–'} reasoning tokens · {step.usage.durationMs} ms</small>}
-        {step.requestSettings && <pre>{JSON.stringify(step.requestSettings, null, 2)}</pre>}
-        {step.stage && <pre>{JSON.stringify(step.stage, null, 2)}</pre>}
-        {step.routing && <pre>{JSON.stringify(step.routing, null, 2)}</pre>}
-        {(step.selectedOutputChannel !== undefined || step.selectedPromptSlot !== undefined) && (
-          <small>
-            Output {step.selectedOutputChannel ?? '–'} / Prompt {step.selectedPromptSlot ?? '–'}
-          </small>
-        )}
+      <div className="turn-trace-step-body">
+        {step.partialResponse && <div className="turn-trace-output-pass"><strong>Partial response</strong><HighlightedPreviewText text={step.partialResponse} /></div>}
+        <TraceDisclosure title="Request details" detail={step.requestSettings?.model}>
+          <TraceMetadata values={{
+            Capture: step.capture, Dispatched: step.dispatched, Model: step.requestSettings?.model,
+            Provider: step.requestSettings?.providerKind, Connection: step.requestSettings?.connectionId,
+            Temperature: step.requestSettings?.temperature, 'Top P': step.requestSettings?.topP,
+            'Presence penalty': step.requestSettings?.presencePenalty, 'Frequency penalty': step.requestSettings?.frequencyPenalty,
+            'Reasoning effort': step.requestSettings?.reasoningEffort, 'Maximum tokens': step.requestSettings?.maxTokens,
+            Stage: step.stage?.kind, 'Stage name': step.stage && 'name' in step.stage ? step.stage.name : undefined,
+            Replay: step.stage?.kind === 'step' ? step.stage.replay : undefined,
+            Correction: step.stage && 'correction' in step.stage ? step.stage.correction : undefined,
+            'Routing input': step.routing?.outputChannelValue, 'Prompt input': step.routing?.promptSlotValue,
+            'Input tokens': step.usage?.inputTokens, 'Output tokens': step.usage?.outputTokens,
+            'Reasoning tokens': step.usage?.reasoningTokens, 'Total tokens': step.usage?.totalTokens,
+            Started: step.startedAt, Completed: step.completedAt,
+          }} />
+        </TraceDisclosure>
         {step.promptPasses?.length ? (
           <TracePromptPasses passes={step.promptPasses} />
         ) : (
@@ -256,10 +270,10 @@ function TurnTraceStep({
         ))}
       </div>
       {expandable && (
-        <div className="turn-trace-step-expand-hint" aria-hidden="true">
+        <button type="button" className="turn-trace-step-expand-hint" onClick={toggle} aria-expanded={expanded}>
           <span>{expanded ? 'Collapse' : 'Expand'}</span>
-          <span>▾</span>
-        </div>
+          <span aria-hidden="true">▾</span>
+        </button>
       )}
     </div>
   );
@@ -374,7 +388,7 @@ export function TurnTraceDialog({
     >
       <section className="turn-trace-dialog" role="dialog" aria-modal="true" aria-label="Turn Trace">
         <header className="turn-trace-header">
-          <div>
+          <div className="turn-trace-title">
             <h3>Turn Trace</h3>
             <p>
               RAM only · {selectedTraces.length} trace(s) · ~{selectedTokenEstimate.toLocaleString()} tokens
@@ -389,7 +403,7 @@ export function TurnTraceDialog({
           <aside className="turn-trace-range-panel">
             <div>
               <h4>Observed turns</h4>
-              <p>RAM only: up to 90 attempts across the latest 30 turn numbers. Loading or resetting clears traces; undo removes that turn's attempts.</p>
+              <p title="Up to 90 attempts across 30 turn numbers. Loading or resetting clears traces; undo removes that turn’s attempts.">Recent runs · stored in memory</p>
             </div>
             {turnNumbers.length > 0 ? (
               <>
@@ -459,7 +473,7 @@ export function TurnTraceDialog({
                       <strong>Turn {trace.turnNumber}</strong>
                       <span>{trace.channel} · {trace.status}</span>
                     </div>
-                    <div><small>Run {trace.traceId}</small><time>{new Date(trace.startedAt).toLocaleString()} → {new Date(trace.completedAt).toLocaleTimeString()}</time></div>
+                    <div title={`Run ${trace.traceId}`}><time>{new Date(trace.startedAt).toLocaleString()} → {new Date(trace.completedAt).toLocaleTimeString()}</time></div>
                   </header>
                   <TraceMessages
                     title="1. Input"
@@ -478,7 +492,7 @@ export function TurnTraceDialog({
                             key={stepId}
                             step={step}
                             stepId={stepId}
-                            expanded={expandedSteps[stepId] ?? !!step.promptPasses?.length}
+                            expanded={expandedSteps[stepId] ?? (step.nodeType === 'llm-prompt' || step.nodeType === 'llm-prompt-switch' || step.status === 'error')}
                             onToggle={toggleStep}
                           />
                         );
@@ -490,24 +504,44 @@ export function TurnTraceDialog({
                     messages={trace.output.messages}
                     graphText={trace.output.graphText}
                   />
-                  {trace.nodeExecutions?.length ? <details>
-                    <summary>Node execution timeline ({trace.nodeExecutions.length} events)</summary>
-                    {trace.nodeExecutions.map((event, index) => <div key={index}>
-                      <strong>{event.nodeLabel} · {event.sourceHandle ?? 'default'} · {event.phase} · {event.status}</strong>
-                      <small>{event.at}{event.preparedAtStart ? ' · prepared at start' : ''}</small>
-                      {event.error && <p>{event.error}</p>}
-                      {event.output !== undefined && <HighlightedPreviewText text={event.output} />}
-                      {event.actionResults?.map((text, actionIndex) => <div key={actionIndex}><strong>Action result</strong><HighlightedPreviewText text={text} /></div>)}
-                    </div>)}
-                  </details> : null}
-                  {trace.events?.map((event, index) => <div className="turn-trace-format-result" key={index}>
-                    <strong>{event.nodeLabel ?? 'Run'} · {event.kind}</strong>
-                    {event.kind === 'warning' ? <p>{event.message}</p> : <>
-                      <p>{event.name} · {event.status}</p>
-                      {event.detail && <p>{event.detail}</p>}
-                      {event.preview && <HighlightedPreviewText text={event.preview} />}
-                    </>}
-                  </div>)}
+                  <section className="turn-trace-diagnostics">
+                    {trace.nodeExecutions?.length ? <TraceDisclosure title="Node execution timeline" detail={`${trace.nodeExecutions.length} events`}
+                      open={trace.nodeExecutions.some((event) => event.status === 'error')}>
+                      {(['response', 'prepare-next-turn'] as const).map((phase) => {
+                        const events = trace.nodeExecutions!.filter((event) => event.phase === phase);
+                        return events.length ? <div className="turn-trace-node-phase" key={phase}>
+                          <h5>{phase === 'response' ? 'Response' : 'Next-turn preparation'}</h5>
+                          {events.map((event, index) => <div className={`turn-trace-node-event ${event.status}`} key={index}>
+                            <div className="turn-trace-node-event-heading">
+                              <strong>{event.nodeLabel}</strong>
+                              <span className={`turn-trace-status ${event.status}`}>{event.status}</span>
+                              <time title={event.at}>{new Date(event.at).toLocaleTimeString()}</time>
+                            </div>
+                            <div className="turn-trace-node-event-meta">{event.sourceHandle ?? 'Default output'}{event.preparedAtStart ? ' · prepared at start' : ''}</div>
+                            {event.error && <p className="turn-trace-step-warning">{event.error}</p>}
+                            {!!event.output && <TraceDisclosure title="Node output"><HighlightedPreviewText text={event.output} /></TraceDisclosure>}
+                            {event.actionResults?.map((text, actionIndex) => <TraceDisclosure key={actionIndex} title={`Action result ${actionIndex + 1}`}><HighlightedPreviewText text={text} /></TraceDisclosure>)}
+                          </div>)}
+                        </div> : null;
+                      })}
+                    </TraceDisclosure> : null}
+                    {!!trace.events?.length && <TraceDisclosure title="Validation and diagnostics"
+                      detail={`${trace.events.length} checks`}
+                      open={trace.events.some((event) => event.kind === 'warning' || event.status === 'error')}>
+                      {trace.events.map((event, index) => <div className={`turn-trace-format-result ${event.kind === 'warning' ? 'warning' : event.status}`} key={index}>
+                        <strong>{event.kind === 'warning' ? event.nodeLabel ?? 'Run warning' : event.name}</strong>
+                        <span>{event.kind === 'warning' ? 'Warning' : event.status}</span>
+                        {event.kind === 'warning' ? <p>{event.message}</p> : <>
+                          {event.detail && <p>{event.detail}</p>}
+                          {event.preview && <HighlightedPreviewText text={event.preview} />}
+                        </>}
+                      </div>)}
+                    </TraceDisclosure>}
+                    <TraceDisclosure title="Run details">
+                      <TraceMetadata values={{ 'Run ID': trace.traceId, 'Turn ID': trace.turnId,
+                        'Turn created': trace.turnCreatedAt, Started: trace.startedAt, Completed: trace.completedAt }} />
+                    </TraceDisclosure>
+                  </section>
                   {trace.warnings?.map((warning) => (
                     <p className="turn-trace-run-warning" key={warning}>{warning}</p>
                   ))}
@@ -519,12 +553,18 @@ export function TurnTraceDialog({
         </div>
 
         <footer className="turn-trace-actions">
-          <span>Selected range ~{selectedTokenEstimate.toLocaleString()} tokens. Export uses bounded excerpts and local references; UI shows captured text. No image files or RP-save persistence.</span>
-          {copyError && <em>{copyError}</em>}
-          <label>Export format <select value={exportFormat} onChange={(event) => {
-            setExportFormat(event.target.value as 'json' | 'toon');
-            setCopiedText(null);
-          }}><option value="json">JSON</option><option value="toon">TOON</option></select></label>
+          <span className="turn-trace-export-note" title="Exports contain bounded text excerpts and local references. Image files are excluded; traces are not saved with the RP.">Text export · no image files</span>
+          {copyError && <em role="alert">{copyError}</em>}
+          <div className="turn-trace-export-format">
+            <span>Export format</span>
+            <div className="debug-format-tabs" role="group" aria-label="Export format">
+              {(['json', 'toon'] as const).map((format) => <button key={format} type="button"
+                className={exportFormat === format ? 'active' : ''} aria-pressed={exportFormat === format}
+                onClick={() => { setExportFormat(format); setCopiedText(null); }}>
+                {format.toUpperCase()}
+              </button>)}
+            </div>
+          </div>
           <div className="debug-format-tabs" role="tablist" aria-label="Turn Trace View Mode">
             <button
               className={viewMode === 'ui' ? 'active' : ''}
