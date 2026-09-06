@@ -1411,6 +1411,7 @@ function App() {
     allowPhoneContactPair: allowStorybookPhoneContactPair,
     changePhoneWallpaper: changeStorybookPhoneWallpaper,
     saveSocialUsername: saveStorybookSocialUsername,
+    saveDatingProfile,
     imageIdsFromAttachments,
     imageDescriptionFromAttachments,
     ensureImagesForCharacter: ensureImagesForStorybookCharacter,
@@ -5657,6 +5658,7 @@ function App() {
               onSubmitSocialPost={submitSocialPost}
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
+              onSaveDatingProfile={saveDatingProfile}
               onCreateSocialAccount={saveStorybookSocialUsername}
               onImportSocialPostImage={importSocialPostImage}
               socialImageById={socialImageById}

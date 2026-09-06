@@ -1,3 +1,4 @@
+import { normalizeDatingProfile, type DatingProfile } from '../chat/datingProfile';
 import { useEffect, useMemo, useRef } from 'react';
 import { buildSocialDirectory, socialHandleAvailable, type DynamicSocialUsers } from '../chat/socialDirectory';
 import {
@@ -173,6 +174,19 @@ export function useStorybookPhoneImages({
       storybookJson: nextJson,
       storybookStatus: `Phone wallpaper updated for ${character.name}.`,
     });
+  }
+
+  function saveDatingProfile(character: StorybookCharacter, profile: DatingProfile) {
+    const normalized = normalizeDatingProfile(profile);
+    const node = nodesRef.current.find((entry) => entry.id === character.storybookNodeId && isStorybookSourceNode(entry));
+    if (!normalized || !node?.data.storybookJson) return false;
+    const storybook = parseRpStorybookJson(node.data.storybookJson);
+    if (!storybook.characters.some((entry) => entry.id === character.sourceId)) return false;
+    const next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === character.sourceId
+      ? { ...entry, social: { fotogramUsername: '', onlyfriendsUsername: '', ...entry.social, plotTwist: normalized } }
+      : entry) };
+    updateRuntimeNode(node.id, { storybookJson: rpStorybookJsonText(next), storybookStatus: `MatchMe profile saved for ${character.name}.` });
+    return true;
   }
 
   function saveSocialUsername(
@@ -537,6 +551,7 @@ export function useStorybookPhoneImages({
     allowPhoneContactPair,
     changePhoneWallpaper,
     saveSocialUsername,
+    saveDatingProfile,
     imageIdsFromAttachments,
     imageDescriptionFromAttachments,
     ensureImagesForCharacter,

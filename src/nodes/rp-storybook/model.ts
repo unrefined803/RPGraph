@@ -1,3 +1,4 @@
+import { normalizeDatingProfile, type DatingProfile } from '../../chat/datingProfile';
 import type { MessageRecord, RpAppointment, TurnRecord } from '../../types';
 import type { TurnCheckpoint } from '../../data-management/types';
 import {
@@ -72,6 +73,7 @@ export type RpStorybookCharacterBanking = {
 };
 
 export type RpStorybookCharacterSocial = {
+  plotTwist?: DatingProfile;
   /** Fotogram account username; every character is expected to have one. */
   fotogramUsername: string;
   /** OnlyFriends account username; empty string means no account (accounts are private). */
@@ -530,6 +532,7 @@ export function rpStorybookCharacterSocial(value: unknown): RpStorybookCharacter
   return {
     fotogramUsername: stringValue(social.fotogramUsername).trim(),
     onlyfriendsUsername: stringValue(social.onlyfriendsUsername).trim(),
+    ...(normalizeDatingProfile(social.plotTwist) ? { plotTwist: normalizeDatingProfile(social.plotTwist) } : {}),
   };
 }
 

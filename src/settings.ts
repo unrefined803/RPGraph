@@ -44,6 +44,7 @@ const defaultPhoneDesktopLayout: PhoneDesktopLayout = {
     onlyfriends: { column: 4, row: 2 },
     notes: { column: 3, row: 2 },
     ai: { column: 2, row: 2 },
+    plottwist: { column: 5, row: 2 },
   },
 };
 const defaultPhoneDesktopIconSize: PhoneDesktopIconSize = 'large';
@@ -220,6 +221,7 @@ function validPhoneDesktopLayout(value: unknown): PhoneDesktopLayout {
       banking: appPosition('banking'),
       fotogram: appPosition('fotogram'),
       onlyfriends: appPosition('onlyfriends'),
+      plottwist: appPosition('plottwist'),
       notes: appPosition('notes'),
       ai: appPosition('ai'),
     },

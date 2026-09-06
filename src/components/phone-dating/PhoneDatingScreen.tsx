@@ -1,0 +1,185 @@
+import { createDatingDemoExchange } from '../../chat/datingMessages';
+import { MatchMeConversation } from './MatchMeConversation';
+import { useRef, useState } from 'react';
+import type { ChatImageAttachment } from '../../types';
+import type { StorybookCharacter } from '../../storybook/runtime';
+import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
+import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
+import { NodeCustomSelect } from '../../nodes/shared/NodeCustomSelect';
+import './phoneDating.css';
+
+const demoProfiles = [
+  { id: 'demo-alex', name: 'Alex', age: 26, bio: 'Coffee first. Spontaneous road trip second. I will absolutely make you a playlist.', interests: ['Music', 'Road trips', 'Coffee'], color: 'rose' },
+  { id: 'demo-jamie', name: 'Jamie', age: 28, bio: 'Collecting little adventures and very big books. Tell me your most unpopular movie opinion.', interests: ['Books', 'Cinema', 'Cooking'], color: 'violet' },
+  { id: 'demo-robin', name: 'Robin', age: 24, bio: 'Usually at a flea market or getting lost on a trail. Looking for a partner in side quests.', interests: ['Outdoors', 'Vintage', 'Art'], color: 'peach' },
+  { id: 'demo-sam', name: 'Sam', age: 30, bio: 'Excellent dinner guest. Questionable dancer. Let’s find our new favorite place.', interests: ['Food', 'Dancing', 'Travel'], color: 'violet' },
+];
+
+type Props = {
+  owner?: StorybookCharacter;
+  emojiOptions: string[];
+  recentlyUsedEmojis: string[];
+  images: ChatImageAttachment[];
+  onImportImage: (request: { owner: StorybookCharacter; image: ChatImageAttachment }) => Promise<ChatImageAttachment | undefined>;
+  onSave: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
+  onBack: () => void;
+};
+
+export function PhoneDatingScreen({ owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis }: Props) {
+  const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
+  const [editing, setEditing] = useState(!profile);
+  const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
+  const [draft, setDraft] = useState<DatingProfile>(profile ?? { name: owner?.name ?? '', age: 18, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
+  const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
+  const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
+  const [gallery, setGallery] = useState(false);
+  const [imported, setImported] = useState<ChatImageAttachment[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [photo, setPhoto] = useState(0);
+  const [drag, setDrag] = useState(0);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string>();
+  // Fixed reciprocal likes make the UI demonstrable until real matching is connected.
+  const matches = demoProfiles.filter((entry) => ['demo-alex', 'demo-robin'].includes(entry.id) && profile?.decisions[entry.id] === 'like');
+  const selectedMatch = matches.find((entry) => entry.id === selectedMatchId);
+  const candidate = demoProfiles.find((entry) => !profile?.decisions[entry.id]);
+  const allImages = [...images, ...imported];
+
+  function save(next: DatingProfile) {
+    if (!owner || !onSave(owner, next)) { setError('Could not save your profile. Please try again.'); return false; }
+    setProfile(next); setDraft(next); setError(''); return true;
+  }
+  function decide(decision: 'like' | 'pass') {
+    if (!profile || !candidate || selectedMatch) return;
+    if (save({ ...profile, decisions: { ...profile.decisions, [candidate.id]: decision } })) {
+      setPhoto(0); setNotice(decision === 'like' ? `You liked ${candidate.name}.` : `Passed on ${candidate.name}.`);
+    }
+  }
+  function addPhoto(image: ChatImageAttachment) {
+    setDraft((current) => ({ ...current, photoIds: [...new Set([...current.photoIds, image.id])].slice(0, datingPhotoLimit) }));
+  }
+  async function upload(file?: File) {
+    if (!file || !owner) return;
+    if (!file.type.startsWith('image/')) { setError('Choose an image file.'); return; }
+    setBusy(true); setError('');
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Invalid image'));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const image = await onImportImage({ owner, image: { id: `upload-${Date.now()}`, name: file.name, mimeType: file.type, size: file.size, dataUrl } });
+      if (!image) throw new Error('Import failed');
+      setImported((current) => [...current, image]); addPhoto(image);
+    } catch { setError('Could not import this photo. Please try another image.'); }
+    finally { setBusy(false); }
+  }
+
+  if (gallery) return <PhoneGalleryScreen title={`${owner?.name ?? 'Character'}’s photos`} images={images} action="select"
+    onBack={() => setGallery(false)} onSelectImage={(image) => { addPhoto(image); setGallery(false); }} />;
+
+  return <div className="pt-app">
+    <header className="pt-header"><button type="button" onClick={onBack} aria-label="Back to phone">‹</button>
+      <strong><svg className="pt-brand-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" /></svg>MatchMe</strong></header>
+    <div className="pt-layout">
+      {profile && <aside className="pt-matches" aria-label="Matches">
+        <h2>Matches <span>{matches.length}</span></h2>
+        <p className="pt-subtle">Your mutual connections</p>
+        <div className="pt-match-list">
+          {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
+            onClick={() => { setSelectedMatchId(match.id); setPhoto(0); setTab('discover'); setEditing(false); }}>
+            <span className="pt-match-avatar" aria-hidden="true">{match.name[0]}</span>
+            <span><strong>{match.name}<span className="pt-match-age">, {match.age}</span></strong><small>{profile.messages?.slice().reverse().find((message) => message.matchId === match.id)?.text ?? 'Say hello'}</small></span>
+          </button>)}
+          {!matches.length && <p className="pt-subtle pt-match-empty">When you both like each other, your match appears here.</p>}
+        </div>
+      </aside>}
+    <main className={`pt-main${selectedMatch && !editing ? ' pt-chat-main' : ''}`}>
+      {!owner ? <div className="pt-empty"><h2>Who’s holding the phone?</h2><p>Select a Storybook character to create a profile.</p></div> : editing ?
+        <form className="pt-form" onSubmit={(event) => {
+          event.preventDefault();
+          if (!draft.gender || !draft.seeking?.length) {
+            setError('Choose your gender and at least one gender you would like to meet.'); return;
+          }
+          const normalized = normalizeDatingProfile(draft);
+          if (!normalized) { setError('Add a name, age (18–120), bio, and at least one photo.'); return; }
+          if (save(normalized)) { setEditing(false); setTab('discover'); }
+        }}>
+          <div className="pt-intro"><span className="pt-eyebrow">A NEW CHAPTER STARTS HERE</span>
+            <h2>{profile ? 'Make it you.' : 'Find your match.'}</h2></div>
+          <div className="pt-field-row"><label>Display name<input required maxLength={60} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
+            <label>Age<input required type="number" min={18} max={120} value={draft.age || ''} onChange={(e) => setDraft({ ...draft, age: Number(e.target.value) })} /></label></div>
+          <div className="pt-gender-field"><label htmlFor="matchme-gender">I am</label>
+            <NodeCustomSelect<DatingGender | ''> id="matchme-gender" value={draft.gender ?? ''}
+              onChange={(gender) => { if (gender) setDraft({ ...draft, gender, seeking: [datingSeekingOrder(gender)[0]] }); }}
+              options={[{ value: '', label: 'Select your gender', disabled: true }, ...datingGenders.map((gender) => ({ value: gender, label: datingGenderLabels[gender] }))]} />
+          </div>
+          <fieldset className="pt-seeking"><legend>I would like to meet</legend>
+            <p className="pt-subtle">Choose one or more. Select all for everyone.</p>
+            <div className="pt-seeking-options">{datingSeekingOrder(draft.gender).map((gender) => <label key={gender} className={draft.seeking?.includes(gender) ? 'selected' : ''}>
+              <input type="checkbox" checked={draft.seeking?.includes(gender) ?? false}
+                onChange={(event) => setDraft({ ...draft, seeking: event.target.checked
+                  ? [...(draft.seeking ?? []), gender] : (draft.seeking ?? []).filter((entry) => entry !== gender) })} />
+              {datingSeekingLabels[gender]}
+            </label>)}</div>
+          </fieldset>
+          <label>About you<textarea required maxLength={500} rows={3} placeholder="A little about your character…" value={draft.bio} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} /></label>
+          <label>Interests<input maxLength={150} placeholder="Coffee, late-night walks, side quests" value={draft.interests} onChange={(e) => setDraft({ ...draft, interests: e.target.value })} /></label>
+          <div><div className="pt-photo-heading"><strong>Your photos</strong><small>{draft.photoIds.length}/{datingPhotoLimit} · At least one required</small></div>
+            <div className="pt-photos">{draft.photoIds.map((id, index) => {
+              const image = allImages.find((entry) => entry.id === id);
+              return <div className="pt-photo" key={id}>{image ? <img src={image.dataUrl} alt={`Profile photo ${index + 1}`} /> : <span>Photo unavailable</span>}
+                {index === 0 ? <small>MAIN</small> : <button className="pt-set-main" type="button" onClick={() => setDraft({ ...draft, photoIds: [id, ...draft.photoIds.filter((entry) => entry !== id)] })}>Make main</button>}<button type="button" aria-label={`Remove photo ${index + 1}`} onClick={() => setDraft({ ...draft, photoIds: draft.photoIds.filter((entry) => entry !== id) })}>×</button></div>;
+            })}</div>
+            <div className="pt-photo-actions"><button type="button" disabled={busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => uploadRef.current?.click()}>{busy ? 'Importing…' : '↑ Upload photo'}</button>
+              <button type="button" disabled={busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => setGallery(true)}>▧ Character album</button></div>
+            <input ref={uploadRef} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
+          </div>
+          <p className="pt-subtle">A local character account. No email or password needed. Uploaded photos are saved to the character’s album.</p>
+          <button className="pt-primary" disabled={busy} type="submit">{profile ? 'Save profile' : 'Create account & explore'} <span aria-hidden="true">→</span></button>
+          {profile && <button type="button" disabled={busy} onClick={() => { setDraft(profile); setEditing(false); }}>Cancel</button>}
+        </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id}
+          name={selectedMatch.name} age={selectedMatch.age} messages={(profile.messages ?? []).filter((message) => message.matchId === selectedMatch.id)}
+          draft={chatDrafts[selectedMatch.id] ?? ''}
+          onDraftChange={(text) => setChatDrafts((current) => ({ ...current, [selectedMatch.id]: text }))}
+          emojiOptions={emojiOptions} recentEmojis={recentEmojis}
+          onUseEmoji={(emoji) => setRecentEmojis((current) => [emoji, ...current.filter((entry) => entry !== emoji)].slice(0, 8))}
+          onBack={() => { setSelectedMatchId(undefined); setPhoto(0); }}
+          onSend={() => {
+            const exchange = createDatingDemoExchange(selectedMatch.id, chatDrafts[selectedMatch.id] ?? '', profile.messages ?? []);
+            if (exchange.length && save({ ...profile, messages: [...(profile.messages ?? []), ...exchange] })) {
+              setChatDrafts((current) => ({ ...current, [selectedMatch.id]: '' }));
+            }
+          }} /> : tab === 'discover' ? <div className="pt-discover">
+          <div className="pt-section-heading"><div><span className="pt-eyebrow">A LITTLE CHEMISTRY?</span><h2>Discover</h2></div><span className="pt-preview">Demo profiles</span></div>
+          {candidate ? <>
+            <article className={`pt-card pt-${candidate.color}`} style={{ transform: `translateX(${drag}px) rotate(${drag / 22}deg)` }}
+              onPointerDown={(event) => { if (selectedMatch || (event.target instanceof Element && event.target.closest('button'))) return; start.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }}
+              onPointerMove={(event) => { if (start.current) setDrag(Math.max(-130, Math.min(130, event.clientX - start.current.x))); }}
+              onPointerUp={(event) => { const origin = start.current; start.current = null; setDrag(0); if (origin && Math.abs(event.clientY - origin.y) < 90 && Math.abs(event.clientX - origin.x) > 65) decide(event.clientX > origin.x ? 'like' : 'pass'); }}
+              onPointerCancel={() => { start.current = null; setDrag(0); }}>
+              <div className="pt-photo-progress">{[0, 1, 2].map((index) => <button key={index} type="button" aria-label={`Show image ${index + 1}`} aria-pressed={photo === index} className={photo === index ? 'active' : ''} onClick={() => setPhoto(index)} />)}</div>
+              <div className="pt-placeholder"><span aria-hidden="true">✧</span><strong>Image {photo + 1}</strong><small>A face for this story, coming soon.</small></div>
+              <div className="pt-image-nav"><button type="button" aria-label="Previous image" onClick={() => setPhoto((photo + 2) % 3)}>‹</button><button type="button" aria-label="Next image" onClick={() => setPhoto((photo + 1) % 3)}>›</button></div>
+              {!!drag && <span className="pt-swipe-label">{drag > 0 ? 'LIKE' : 'PASS'}</span>}
+              <div className="pt-card-info"><small>FICTIONAL DEMO CHARACTER</small><h3>{candidate.name} <span>{candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
+            </article>
+            <div className="pt-decisions"><button type="button" aria-label={`Pass on ${candidate.name}`} onClick={() => decide('pass')}>×</button><span>Swipe to find your story</span><button type="button" aria-label={`Like ${candidate.name}`} onClick={() => decide('like')}>♥</button></div>
+          </> : <div className="pt-empty"><span className="pt-empty-heart">✧</span><h2>You’re all caught up.</h2><p>That’s everyone in the demo. Another chapter is on its way.</p><button type="button" className="pt-primary" onClick={() => { if (profile) save({ ...profile, decisions: {} }); setPhoto(0); }}>Explore again</button></div>}
+        </div> : tab === 'likes' ? <div className="pt-list"><span className="pt-eyebrow">YOUR MAYBES & WHAT-IFS</span><h2>People you like</h2><p className="pt-subtle">Likes are saved for this character. Demo mutual likes appear in Matches. Open a match to start chatting.</p>
+          {demoProfiles.filter((entry) => profile?.decisions[entry.id] === 'like').map((entry) => <div className="pt-like" key={entry.id}><span aria-hidden="true">♥</span><div><strong>{entry.name}, {entry.age}</strong><small>Demo profile · Liked by you</small></div></div>)}
+          {!Object.values(profile?.decisions ?? {}).includes('like') && <div className="pt-empty"><h3>A little spark starts here.</h3><p>Like someone in Discover to see them here.</p></div>}
+        </div> : <div className="pt-list"><span className="pt-eyebrow">THE MAIN CHARACTER</span><h2>{profile?.name}, {profile?.age}</h2><div className="pt-profile-photos">{profile?.photoIds.map((id, index) => { const image = allImages.find((entry) => entry.id === id); return image ? <img key={id} src={image.dataUrl} alt={`Your profile photo ${index + 1}`} /> : <span key={id}>Photo unavailable</span>; })}</div><dl className="pt-profile-details"><div><dt>I am</dt><dd>{profile?.gender ? datingGenderLabels[profile.gender] : 'Not specified'}</dd></div>
+          <div><dt>I would like to meet</dt><dd>{profile?.seeking?.length ? profile.seeking.map((gender) => datingSeekingLabels[gender]).join(', ') : 'Not specified'}</dd></div></dl>
+          <p>{profile?.bio}</p><p className="pt-subtle">{profile?.interests}</p><button type="button" className="pt-primary" onClick={() => { if (profile) setDraft(profile); setEditing(true); }}>Edit profile</button><p className="pt-subtle">Saved in {owner.name}’s Storybook profile.</p></div>}
+      {error && <p className="pt-error" role="alert">{error}</p>}
+      <span className="pt-sr-only" role="status">{notice}</span>
+    </main>
+    </div>
+    {profile && !editing && <nav className="pt-tabs" aria-label="MatchMe navigation">{(['discover', 'likes', 'profile'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-current={tab === item ? 'page' : undefined} onClick={() => { setTab(item); setSelectedMatchId(undefined); setPhoto(0); }}><span aria-hidden="true">{item === 'discover' ? '✧' : item === 'likes' ? '♡' : '◎'}</span>{item === 'discover' ? 'Discover' : item === 'likes' ? 'Likes' : 'My profile'}</button>)}</nav>}
+  </div>;
+}

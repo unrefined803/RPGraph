@@ -6463,6 +6463,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-icon,
 .phone-fotogram-icon,
 .phone-onlyfriends-icon,
+.phone-matchme-icon,
 .phone-notes-icon,
 .phone-chatgpd-icon {
   display: grid;
@@ -6504,6 +6505,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-color: rgba(192, 132, 252, 0.58);
 }
 
+.phone-matchme-icon,
 .phone-onlyfriends-icon {
   background: linear-gradient(135deg, rgba(236, 72, 153, 0.44), rgba(225, 29, 72, 0.26));
   border-color: rgba(244, 114, 182, 0.58);
@@ -6528,6 +6530,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-icon svg,
 .phone-fotogram-icon svg,
 .phone-onlyfriends-icon svg,
+.phone-matchme-icon svg,
 .phone-notes-icon svg {
   width: 54%;
   height: 54%;
@@ -6571,6 +6574,8 @@ input[type="number"]::-webkit-outer-spin-button {
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
 
+.phone-desktop-app:hover .phone-matchme-icon,
+.phone-desktop-app:focus-visible .phone-matchme-icon,
 .phone-desktop-app:hover .phone-onlyfriends-icon,
 .phone-desktop-app:focus-visible .phone-onlyfriends-icon {
   transform: translateY(-3px) scale(1.06);
@@ -10299,6 +10304,8 @@ input[type="number"]::-webkit-outer-spin-button {
 .chat-reading-stripes {
   --dialogue-initial-color: #edf1ff;
   display: block;
+  /* Add half of Ubuntu Sans's 0.229em space width. */
+  word-spacing: 0.0444em;
   color: var(--chat-reading-color, #d5d9e6);
   background-image: repeating-linear-gradient(
     to bottom,
@@ -24521,3 +24528,5 @@ button.message-timeline-row.phone:focus-visible {
 .storybook-actor-card > .storybook-inline-editor > .character-fields {
   margin-top: 14px;
 }
+
+.phone-onlyfriends-monogram { font-size: calc(var(--phone-icon, 52px) * 0.3); font-weight: 700; letter-spacing: -0.04em; }

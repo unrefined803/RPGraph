@@ -1,3 +1,5 @@
+import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
+import type { DatingProfile } from '../chat/datingProfile';
 import {
   Fragment,
   type CSSProperties,
@@ -94,12 +96,12 @@ type UnreadPhoneConversation = {
 
 type PhoneScreen =
   | 'desktop' | 'whatsup' | 'gallery' | 'chat-gallery' | 'camera' | 'banking'
-  | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
+  | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist';
 
-type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
+type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist';
 
 const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
-  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes', 'ai'];
+  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes', 'ai', 'plottwist'];
 
 const defaultPhoneWallpapers: ChatImageAttachment[] = [
   {
@@ -263,6 +265,7 @@ type PhonePanelProps = {
     likeCount: number;
   }) => Promise<boolean>;
   onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
+  onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
@@ -398,6 +401,7 @@ export function PhonePanel({
   onSubmitSocialThreadAction,
   onSubmitSocialDirectMessage,
   onCreateSocialAccount,
+  onSaveDatingProfile,
   onImportSocialPostImage,
   socialImageById,
   socialLikesByAccount,
@@ -753,6 +757,13 @@ export function PhonePanel({
     );
   }
 
+  if (screen === 'plottwist') {
+    return <PhoneDatingScreen key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
+      emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
+      images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
+      onBack={() => setScreen('desktop')} />;
+  }
+
   if (screen === 'banking') {
     return (
       <PhoneBankingScreen
@@ -950,6 +961,19 @@ export function PhonePanel({
           </button>
         </div>
         <div className="phone-desktop-apps">
+          <button className="phone-desktop-app" type="button"
+            style={{ gridColumn: desktopLayout.apps.plottwist.column, gridRow: desktopLayout.apps.plottwist.row }}
+            onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'app', appId: 'plottwist' })}
+            onClick={() => {
+              if (suppressAppClickRef.current) { suppressAppClickRef.current = false; return; }
+              setScreen('plottwist');
+            }} aria-label="Open MatchMe">
+            <span className="phone-matchme-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />
+              </svg>
+            </span><span>MatchMe</span>
+          </button>
           <button
             className="phone-desktop-app"
             type="button"
@@ -1119,9 +1143,7 @@ export function PhonePanel({
               : 'Open OnlyFriends'}
           >
             <span className="phone-onlyfriends-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />
-              </svg>
+              <span className="phone-onlyfriends-monogram">OF</span>
             </span>
             {phoneAppNotificationCounts.onlyfriends > 0 && (
               <span className="phone-desktop-app-badge" aria-hidden="true">

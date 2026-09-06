@@ -976,7 +976,7 @@ export type PhoneDesktopLayout = {
     width: number;
     height: number;
   };
-  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai', {
+  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist', {
     column: number;
     row: number;
   }>;
