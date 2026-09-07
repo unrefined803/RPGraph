@@ -1,13 +1,13 @@
 # Character Container V2 — Implementation Plan
 
-Status: Schema foundations, local app integration, registry and NPC directory discovery are implemented. Saved NPC snapshots are next.
+Status: Schema foundations, local app integration, NPC directory discovery and saved NPC snapshots are implemented. Shared app discovery is next.
 Character Container V2 and Storybook V3 use independent version numbers.
 Last reconciled with the implementation: 2026-09-07.
 
 ## Progress at a glance
 
 **Current position: local character containers, the registry contract and NPC
-directory loading are implemented. Next: Stage 3 — saved NPC snapshots and media stability.**
+directory loading and saved NPC snapshots are implemented. Next: Stage 4 — shared app discovery and conversation context.**
 
 Legend: ✅ implemented · ➡️ next · ⬜ planned. Checked items describe implemented
 code; manual interface validation is listed separately.
@@ -32,9 +32,9 @@ code; manual interface validation is listed separately.
 
 - [x] Stage 1 — registry, ownership and identity contract.
 - [x] Stage 2 — NPC directory loading, validation and desktop controls.
-- [ ] **➡️ Stage 3 — saved NPC snapshots and media stability. START HERE.**
-- [ ] Stage 4 — shared app discovery, real MatchMe photos, posts and cross-app
-  conversation context (MatchMe → Fotogram).
+- [x] Stage 3 — saved NPC snapshots and media stability.
+- [ ] **➡️ Stage 4 — shared app discovery, real MatchMe photos, posts and cross-app
+  conversation context (MatchMe → Fotogram). START HERE.**
 - [ ] Stage 5 — Storybook promotion, duplicate suppression and full round trip.
 
 ### ⬜ After the library works
@@ -49,9 +49,8 @@ remaining stage as next.
 ## 0. Fresh-context handoff — read this first
 
 This document is the implementation handoff for the next development phase.
-The current request updates the plan only; it does not authorize implementing
-all future stages during this documentation task. When implementation is
-requested, follow the ordered stages in section 12. The status sections describe
+Implement only the stages requested by the user, following the ordered stages
+in section 12. The status sections describe
 existing code; sections marked planned describe work that is still required.
 
 ### User goal and agreed behavior
@@ -103,8 +102,9 @@ but its existence does not grant every player a phone conversation with it.
   introducing a second container schema or a second ongoing post store.
 - `storyCharactersFromNodes` remains Storybook-only and returns node-scoped
   runtime IDs alongside stable `sourceId`. The pure registry accepts explicit
-  legacy aliases, but Storybook/library/snapshot producers are not wired to it;
-  current MatchMe aliases are not yet a complete global identity migration.
+  legacy aliases. The snapshot runtime now combines Storybook/library/snapshot
+  producers; phone-app consumers still need that registry in Stage 4. Current
+  MatchMe aliases are not yet a complete global identity migration.
 - `datingAccounts.ts` still adds `datingNpcProfiles`; Fotogram/OnlyFriends still
   combine `dummySocialPosts` with real posts and use independent bundled catalogs.
   These are not yet NPC containers.
@@ -153,8 +153,9 @@ UI/E2E tests without an explicit request. Do not commit unless requested.
 
 - Character Container payloads use `2.0.0`. Storybook payloads and the
   `rp-storybook` node data version use `3.0.0`.
-  Outer workflow/session and encrypted envelope versions remain unchanged: their
-  structures are unchanged and embedded documents carry their own versions.
+  Outer workflow/session and encrypted envelope versions remain unchanged. NPC
+  archives are optional additive fields; missing fields in older saves mean an
+  empty archive. Embedded documents carry their own versions.
 - `src/characters/character.ts` defines the shared character payload: identity,
   playable flag, optional age/gender, gallery, optional app accounts and existing
   description/personality/speech/phone/banking/voice/Comfy settings.
@@ -224,9 +225,9 @@ The format versions remain **Storybook 3.0.0**, **RP-Storybook node 3.0.0** and
 
 | Action / data | What is stored |
 | --- | --- |
-| Save Storybook | Current canonical character payloads, galleries, profiles, scenario and already configured Opening History. It does not automatically copy the current chat into Opening History. `currentStorybookForSave` and `rpStorybookJsonText` retain app metadata. |
-| Import current session as Opening History | Existing turns, relevant checkpoints, scheduled events and the existing likes/directory/connections/notes/ChatGPD snapshots. Character payloads are retained unchanged by spreading the current Storybook. Live posts remain structured `socialPost` records in these turns. |
-| Save RP | Workflow including Storybook character profiles/gallery, runtime snapshots, checkpoints and the structured timeline with posts, DMs, matches and other game state. The existing media pool handles serialization copies. |
+| Save Storybook | Current canonical character payloads, galleries, profiles, scenario and already configured Opening History, including its non-playable pinned NPC archive. It does not automatically copy the current chat into Opening History. `currentStorybookForSave` and `rpStorybookJsonText` retain app metadata. |
+| Import current session as Opening History | Existing turns, relevant checkpoints, scheduled events and the existing likes/directory/connections/notes/ChatGPD snapshots, plus the current pinned NPC archive needed by history and undo. Character payloads are retained unchanged by spreading the current Storybook. Live posts remain structured `socialPost` records in these turns. |
+| Save RP | Workflow including Storybook character profiles/gallery, the pinned NPC revision archive, runtime snapshots, checkpoints and the structured timeline with posts, DMs, matches and other game state. The existing media pool handles serialization copies. |
 | Export Character | One portable character with gallery and app profiles. No initial publications, DMs, reactions, swipe history, matches or private image-sharing metadata. |
 | Export Character with Own Posts | The same portable payload plus a read-only snapshot of this character's own current publications and existing starting publications under the existing `apps.fotogram/onlyfriends.initialPosts`. Only post ID, text and image ID are copied. Required gallery records are gathered once per image ID. Foreign publications and engagement are excluded. Missing media aborts export. |
 | Import starting publications | Stable initial-post IDs remain in the imported character. The feed and command post lookup combine them with the timeline by app/post ID, giving an existing timeline post precedence. No second live-post store and no automatic timeline insertion is introduced. Reimport by character ID replaces the same payload and cannot append duplicate seeds. |
@@ -256,11 +257,11 @@ command or automatic recipient creation is introduced.
 
 ### Deferred global NPC phase
 
-The pure effective registry, directory scanning, validation and desktop library
-controls are implemented. Automatic external-container app discovery, NPC
-promotion integration and pinned library revisions are **not implemented**.
+The pure effective registry, directory scanning, validation, desktop library
+controls and pinned NPC revision persistence are implemented. Automatic
+external-container app discovery and NPC promotion integration are **not implemented**.
 Existing demo catalogs remain. The full target design below continues to describe
-that future work, including app wiring, snapshots and image-backed demo containers.
+that future work, including app wiring, promotion and image-backed demo containers.
 Interactive validation remains with the user.
 
 The sections below describe the full target design, including later phases;
@@ -705,7 +706,7 @@ resources but explicitly reports that the user directory is unavailable.
 
 ### Stage 3 — NPC snapshots and media stability before live interactions
 
-**Status: ➡️ NEXT — not started.**
+**Status: ✅ IMPLEMENTED.**
 
 Define a saved participant snapshot containing the used character revision and
 necessary gallery data, keyed by stable identity. Use existing session media
@@ -724,9 +725,48 @@ Gate: save/reload and rollback preserve IDs, gallery references, profiles and
 activity after external deletion/change. Independent stories do not share live
 state. Do not expose persistent NPC conversations before this gate is satisfied.
 
+Implemented in `src/characters/npcParticipants.ts`, `npcParticipantRuntime.ts`
+and `useNpcParticipants.ts`, with session, turn-commit, social-action and
+Opening History integration. The archive is keyed by stable character ID and
+stores an immutable copy of the used payload, complete gallery, source and
+aliases. Only structured account/character/post references pin revisions;
+free text, display names and ambiguous seed IDs cannot pin another person.
+`npcSeedPostKey(accountId, seedId)` supplies an ownership-scoped reversible key
+for Stage 4 app projections without rewriting source seed IDs.
+
+The archive is stored once as optional `runtime.current.npcParticipantsJson`,
+using the existing session media pool. Missing or malformed referenced media
+rejects loading before replacing the running RP. Older saves without the field
+load with an empty archive. No format version or encryption-envelope change is
+required. Timeline messages/matches and existing UI records remain the activity
+authorities; the archive contains no parallel live-state database.
+
+Checkpoint policy: pinned revisions survive undo/redo, including after their
+last active reference is rolled back. This immutable revision archive is
+shared by current state and checkpoints, so retry/redo cannot silently acquire
+a new personality or lose a referenced image after a library reload. Undo still
+removes activity through the existing timeline/checkpoint behavior; retaining a
+revision does not recreate a match, message or like. Reset/new-workflow loading
+replaces the archive, and a fresh story sees current library revisions.
+
+Import Current Session as Opening History copies the pinned archive alongside
+activity and checkpoints. Save Storybook preserves only that configured history
+archive, without promoting its NPCs into `characters` or copying the entire
+library. Both Storybook source types hydrate it. Clearing Opening History
+removes its stored archive. Snapshot payloads are omitted from the Storybook
+assistant prompt; recipient-specific app context remains Stage 4 work.
+
+Gate passed with non-UI regression coverage in
+`src/characters/npcParticipants.test.ts`: changed/deleted sources, stable IDs,
+owner-scoped seeds, pooled media, corruption rejection, independent stories,
+older saves, both Opening History sources and persisted checkpoint undo/redo.
+Full unit tests, build and lint passed. App discovery/conversation exposure and
+manual interface validation remain outside this stage.
+
+
 ### Stage 4 — shared app discovery, photos, posts and conversation context
 
-**Status: ⬜ PLANNED — not started.**
+**Status: ➡️ NEXT — not started.**
 
 Connect social directory/search, Fotogram/OnlyFriends feeds, MatchMe discovery,
 phone identity and image lookup to the effective registry. Preserve existing
@@ -807,8 +847,8 @@ are subsequent work, not implicit prerequisites for the first usable library.
 ### Suggested next implementation request
 
 For a fresh context, ask the agent to read `AGENTS.md` and this document, then
-implement stages 2–5 with one minimal fixture. Require the section 0 acceptance
-scenario, unit tests, build and lint; prohibit launching the app/browser/E2E.
+implement Stage 4 with the minimal fixture and existing snapshot runtime.
+Require the Stage 4 acceptance gate, unit tests, build and lint; prohibit launching the app/browser/E2E.
 Keep versions unchanged as specified in section 3. Do not mass-convert or remove
 demos until the registry/app/save/promotion gates pass. Stages 6–7 can then form
 a separate task using the verified infrastructure and actual supplied images.

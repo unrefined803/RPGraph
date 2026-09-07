@@ -1,3 +1,4 @@
+import { useNpcParticipants } from './characters/useNpcParticipants';
 import { resolveWhatsUpRecipient } from './characters/messageIdentity';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
@@ -858,6 +859,7 @@ function App() {
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
+  const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const characterDropdownRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -884,6 +886,7 @@ function App() {
     commitCollectedTurn,
     commitLocalAppTurn,
   } = useTurnRecordState({
+    captureNpcMessages: npcParticipants.captureMessages,
     nodesRef,
     setNodes,
     workflowVariablesRef: workflowSettingsValuesRef,
@@ -1043,6 +1046,7 @@ function App() {
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,
   } = useRoleplayPanelRuntime({
+    captureNpcParticipants: npcParticipants.capture,
     nodeViewNodes,
     nodesRef,
     messages,
@@ -1510,6 +1514,7 @@ function App() {
     setActiveStorybookProtection,
     notifySystem,
     usedStorybookImageIds,
+    currentNpcParticipants: npcParticipants.current,
     currentSocialLikesByAccount: () => socialLikesByAccount,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
     currentSocialConnectionsByCharacter: () => socialConnectionsByCharacter,
@@ -2337,6 +2342,7 @@ function App() {
           )),
     ];
 
+    npcParticipants.importOpeningHistory(nextNodes, replaceCurrentChat);
     messagesRef.current = nextMessages;
     turnsRef.current = nextTurns;
     turnCheckpointsRef.current = nextTurnCheckpoints;
@@ -2450,6 +2456,7 @@ function App() {
         displayLanguage,
       },
       workflowVariables: workflowSettingsValuesRef.current,
+      npcParticipants: npcParticipants.current(),
       turns: turnsRef.current,
       turnCheckpoints: turnCheckpointsRef.current,
       openingMessages,
@@ -2510,6 +2517,7 @@ function App() {
   }
 
   function clearCurrentSession() {
+    npcParticipants.reset();
     clearTemporaryReferenceImages();
     clearTurnTraces();
     lastRunDebugRef.current = null;
@@ -2691,6 +2699,7 @@ function App() {
       'embedded workflow',
       false,
     );
+    npcParticipants.restore(sessionState.npcParticipants);
     const openingMessages = sessionState.openingMessages;
     const loadedTurns = sessionState.turns;
     const loadedMessages = [
@@ -2808,6 +2817,7 @@ function App() {
     commitNodes(loadedNodes);
     commitEdges(loadedEdges);
     if (hydrateOpeningHistory) {
+      npcParticipants.restore(hydratedWorkflow.openingNpcParticipants);
       const openingTurns = hydratedWorkflow.openingTurns;
       const openingMessages = hydratedWorkflow.openingMessages;
       const openingCheckpoints = hydratedWorkflow.openingCheckpoints;

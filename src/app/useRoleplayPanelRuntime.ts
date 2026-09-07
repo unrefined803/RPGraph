@@ -1,3 +1,4 @@
+import type { NpcParticipantReference } from '../characters/npcParticipants';
 import { datingAccountMatches } from '../chat/datingAccounts';
 import {
   useCallback,
@@ -95,6 +96,7 @@ const chatReadsPhoneAppsStorageKey = 'rpgraph-chat-reads-phone-apps-enabled';
 const chatAutoFollowBottomMargin = 48;
 
 type UseRoleplayPanelRuntimeOptions = {
+  captureNpcParticipants: (references: NpcParticipantReference[]) => void;
   nodeViewNodes: WorkflowNode[];
   nodesRef: { current: WorkflowNode[] };
   messages: MessageRecord[];
@@ -111,6 +113,7 @@ type UseRoleplayPanelRuntimeOptions = {
 };
 
 export function useRoleplayPanelRuntime({
+  captureNpcParticipants,
   nodeViewNodes,
   nodesRef,
   messages,
@@ -253,6 +256,11 @@ export function useRoleplayPanelRuntime({
     [storyCharacters, storybooksByNodeId],
   );
   function addSocialConnection(characterId: string, app: SocialAppKind, socialUserId: string) {
+    const user = socialDirectory.users.find((entry) => entry.id === socialUserId);
+    if (user) captureNpcParticipants([
+      { kind: 'character', id: user.characterId ?? user.id },
+      ...(user.handles[app] ? [{ kind: 'account' as const, app, id: user.handles[app]! }] : []),
+    ]);
     setSocialConnectionsByCharacter((current) =>
       withSocialDirectoryConnectionAdded(
         current,
@@ -840,6 +848,7 @@ export function useRoleplayPanelRuntime({
   );
 
   function toggleSocialLike(characterId: string, app: SocialAppKind, postId: string) {
+    captureNpcParticipants([{ kind: 'post', app, id: postId }]);
     const accountKey = socialLikeAccountKey(characterId, app);
     setSocialLikesByAccount((current) => {
       const liked = current[accountKey] ?? [];
@@ -853,6 +862,7 @@ export function useRoleplayPanelRuntime({
   }
 
   function unlockOnlyFriendsPost(characterId: string, postId: string, price: number) {
+    captureNpcParticipants([{ kind: 'post', app: 'onlyfriends', id: postId }]);
     setOnlyFriendsPurchasesByCharacter((current) => {
       const purchases = current[characterId] ?? {};
       if (purchases[postId] !== undefined) {

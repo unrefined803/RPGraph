@@ -1,3 +1,5 @@
+import { parseNpcParticipantSnapshots } from '../characters/npcParticipants';
+import { createMediaPoolReader } from './mediaPool';
 import { isMatchMeMatch, matchMePairId } from '../chat/matchMe';
 import type { RpgraphSessionV2, TimelineEntry } from './types';
 import { phoneNoteColors } from '../chat/phoneAppsSessions';
@@ -496,6 +498,16 @@ function isWorkflowVariableRecord(value: unknown) {
   );
 }
 
+function hasValidNpcParticipants(runtime: Record<string, unknown>, media: unknown) {
+  if (runtime.npcParticipantsJson === undefined) return true;
+  if (typeof runtime.npcParticipantsJson !== 'string') return false;
+  try {
+    const reader = createMediaPoolReader(media as Record<string, string> | undefined);
+    parseNpcParticipantSnapshots(JSON.parse(reader.rehydratedStorybookJson(runtime.npcParticipantsJson)));
+    return true;
+  } catch { return false; }
+}
+
 export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
   if (!isRecord(value)) {
     return false;
@@ -530,6 +542,7 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     hasValidVoiceClipMediaReferences(value.timeline, value.entities.mediaData) &&
     isRecord(value.runtime) &&
     isRecord(value.runtime.current) &&
+    hasValidNpcParticipants(value.runtime.current, value.entities.mediaData) &&
     isWorkflowVariableRecord(value.runtime.current.workflowVariables) &&
     isNodeRuntimeRecord(value.runtime.current.nodes) &&
     Array.isArray(value.runtime.undo) &&

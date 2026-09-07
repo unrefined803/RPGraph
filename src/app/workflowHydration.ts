@@ -1,3 +1,5 @@
+import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
+import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import type { Edge } from '@xyflow/react';
 import {
   keepLatestInputEdges,
@@ -31,6 +33,7 @@ export type HydratedWorkflow = {
   openingTurns: TurnRecord[];
   openingMessages: MessageRecord[];
   openingCheckpoints: TurnCheckpoint[];
+  openingNpcParticipants: NpcParticipantSnapshots;
 };
 
 export function hydrateLoadedWorkflow({
@@ -93,7 +96,9 @@ export function hydrateLoadedWorkflow({
   let openingTurns: TurnRecord[] = [];
   let openingMessages: MessageRecord[] = [];
   let openingCheckpoints: TurnCheckpoint[] = [];
+  let openingNpcParticipants: NpcParticipantSnapshots = {};
   if (hydrateOpeningHistory) {
+    openingNpcParticipants = openingHistoryNpcParticipantsFromNodes(loadedNodes);
     const openingEvents = openingHistoryEventsFromNodes(loadedNodes);
     if (openingEvents.length > 0) {
       loadedNodes = loadedNodes.map((node) =>
@@ -121,5 +126,6 @@ export function hydrateLoadedWorkflow({
     openingTurns,
     openingMessages,
     openingCheckpoints,
+    openingNpcParticipants,
   };
 }

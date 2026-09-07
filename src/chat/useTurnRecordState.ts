@@ -39,6 +39,7 @@ export type TurnReplacement = {
 };
 
 type UseTurnRecordStateOptions = {
+  captureNpcMessages: (messages: MessageRecord[]) => void;
   nodesRef: RefObject<WorkflowNode[]>;
   setNodes: Dispatch<SetStateAction<WorkflowNode[]>>;
   workflowVariablesRef: RefObject<Record<string, string>>;
@@ -48,6 +49,7 @@ type UseTurnRecordStateOptions = {
 type AppendMessageInput = Omit<MessageRecord, 'id' | 'isOpening'>;
 
 export function useTurnRecordState({
+  captureNpcMessages,
   nodesRef,
   setNodes,
   workflowVariablesRef,
@@ -211,6 +213,7 @@ export function useTurnRecordState({
       turnNumber: collector?.turnNumber,
       turnPart: collector?.part,
     };
+    captureNpcMessages([message]);
     if (collector) {
       const collectedMessages =
         collector.part === 'input' ? collector.inputMessages : collector.outputMessages;
@@ -242,6 +245,7 @@ export function useTurnRecordState({
         messages: patchMessages(turn.output.messages),
       },
     }));
+    captureNpcMessages(nextTurns.flatMap((turn) => [...turn.input.messages, ...turn.output.messages]));
     setTurns(nextTurns);
     messagesRef.current = patchMessages(messagesRef.current);
     setMessages(messagesRef.current);

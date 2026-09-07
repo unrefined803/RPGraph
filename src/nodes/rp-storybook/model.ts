@@ -1,3 +1,4 @@
+import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../../characters/npcParticipants';
 import { withCharacterAppProfile } from '../../characters/profiles';
 import { normalizeCharacterApps, socialFromCharacterApps, characterPayload, type Character } from '../../characters/character';
 import { normalizeDatingProfile, type DatingProfile } from '../../chat/datingProfile';
@@ -153,6 +154,8 @@ export type RpStorybook = {
     blocked: RpStorybookPhoneContactBlock[];
   };
   openingHistory: {
+    /** Non-playable pinned NPC revisions required by activity and its checkpoints. */
+    npcParticipants?: NpcParticipantSnapshots;
     summary: string;
     turns: TurnRecord[];
     checkpoints: TurnCheckpoint[];
@@ -273,6 +276,7 @@ export const emptyRpStorybook: RpStorybook = {
     blocked: [],
   },
   openingHistory: {
+    npcParticipants: {},
     summary: '',
     turns: [],
     checkpoints: [],
@@ -849,6 +853,7 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
     characters: normalizedCharacters,
     phoneContacts: normalizePhoneContacts(storybook.phoneContacts, validPhoneContactRefs),
     openingHistory: {
+      npcParticipants: parseNpcParticipantSnapshots(openingHistory.npcParticipants),
       summary: stringValue(openingHistory.summary),
       turns: normalizedOpeningHistoryMedia.turns,
       checkpoints: openingHistoryCheckpoints
@@ -1196,6 +1201,7 @@ export function rpStorybookPromptJsonText(storybook: RpStorybook) {
     openingHistory: {
       ...storybook.openingHistory,
       summary: [storybook.openingHistory.summary, omittedNote].filter(Boolean).join(' '),
+      npcParticipants: {},
       checkpoints: [],
       turns: [],
       voiceMedia: {},

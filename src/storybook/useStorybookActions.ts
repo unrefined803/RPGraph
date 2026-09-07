@@ -1,3 +1,4 @@
+import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { validateCharacterAccountDirectory } from '../characters/profiles';
 import { validateCharacterPayload, characterPayload } from '../characters/character';
 import { prepareV3Document, confirmV3Migration } from '../characters/migration';
@@ -80,6 +81,7 @@ type UseStorybookActionsOptions = {
   nodesRef: MutableRefObject<WorkflowNode[]>;
   turnsRef: MutableRefObject<TurnRecord[]>;
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
+  currentNpcParticipants: () => NpcParticipantSnapshots;
   currentSocialLikesByAccount: () => Record<string, string[]>;
   currentDynamicSocialUsers: () => DynamicSocialUsers;
   currentSocialConnectionsByCharacter: () => SocialConnectionsByCharacter;
@@ -110,6 +112,7 @@ export function useStorybookActions({
   nodesRef,
   turnsRef,
   turnCheckpointsRef,
+  currentNpcParticipants,
   currentSocialLikesByAccount,
   currentDynamicSocialUsers,
   currentSocialConnectionsByCharacter,
@@ -590,6 +593,7 @@ export function useStorybookActions({
         summary: hasOpeningContent
           ? `Imported from current RP session: ${historyMessageCount} messages and ${normalizedOpeningEvents.length} events across ${historyTurns.length} turns.${phoneAppSuffix}`
           : '',
+        npcParticipants: structuredClone(currentNpcParticipants()),
         turns: historyTurns,
         checkpoints: historyCheckpoints,
         events: normalizedOpeningEvents,

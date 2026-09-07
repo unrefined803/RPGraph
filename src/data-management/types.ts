@@ -249,6 +249,8 @@ export type SessionEntities = {
 type NodeRuntimeState = Record<string, unknown>;
 
 export type RuntimeState = {
+  /** Pooled JSON revision archive shared by current activity and undo history. */
+  npcParticipantsJson?: string;
   nodes: Record<string, NodeRuntimeState>;
   workflowVariables: Record<string, string>;
 };

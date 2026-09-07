@@ -1,3 +1,4 @@
+import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../characters/npcParticipants';
 import {
   currentSessionFormatVersion,
   currentSessionWorkflowFormatVersion,
@@ -41,6 +42,7 @@ import type {
 } from './types';
 
 export type SessionV2AppState = {
+  npcParticipants: NpcParticipantSnapshots;
   settings: {
     englishProcessingEnabled: boolean;
     inputTranslationOnlyEnabled?: boolean;
@@ -66,6 +68,7 @@ export type SessionV2AppState = {
 };
 
 export type SessionV2CurrentStateInput = {
+  npcParticipants?: NpcParticipantSnapshots;
   name: string;
   settings: SessionV2AppState['settings'];
   workflowVariables: Record<string, string>;
@@ -208,6 +211,11 @@ export function sessionV2FromCurrentState(
     runtimeStateFromNodes(runtimeNodes, state.workflowVariables),
     mediaWriter.redactedStorybookJson,
   );
+  if (state.npcParticipants && Object.keys(state.npcParticipants).length) {
+    redactedRuntime.npcParticipantsJson = mediaWriter.redactedStorybookJson(
+      JSON.stringify(parseNpcParticipantSnapshots(state.npcParticipants)),
+    );
+  }
   const redactedCheckpoints = state.turnCheckpoints.map((checkpoint) =>
     checkpointWithConvertedStorybooks(checkpoint, mediaWriter.redactedStorybookJson),
   );
@@ -463,6 +471,8 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
       inputTranslationOnlyEnabled: session.metadata.settings.inputTranslationOnlyEnabled,
       displayLanguage: session.metadata.settings.displayLanguage,
     },
+    npcParticipants: parseNpcParticipantSnapshots(session.runtime.current.npcParticipantsJson === undefined
+      ? undefined : JSON.parse(mediaReader.rehydratedStorybookJson(session.runtime.current.npcParticipantsJson))),
     workflowVariables: workflowVariableRecord(session.runtime.current.workflowVariables),
     turns,
     turnCheckpoints: session.runtime.undo.map((checkpoint) =>
