@@ -5,12 +5,12 @@ import type { EffectiveCharacterRegistry } from './registry';
 
 /** App discovery shares one effective payload; player selection stays Storybook-only. */
 export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry): StorybookCharacter[] {
-  return registry.characters.map(({ character, provenance, aliases }) => {
+  return registry.characters.map(({ character, provenance, aliases, npcOrigin }) => {
     const portrait = character.images.find((image) => image.id === character.profileImage?.imageId);
     return {
       id: provenance.tier === 'storybook' ? aliases.characterIds?.[0] ?? character.id : character.id,
       sourceId: character.id, storybookNodeId: provenance.tier === 'storybook' ? provenance.source : '',
-      libraryNpc: provenance.tier !== 'storybook', identityAliases: aliases,
+      libraryNpc: provenance.tier !== 'storybook', npcOrigin, identityAliases: aliases,
       kind: 'character', name: character.name, label: character.name,
       profile: { name: character.name, description: character.description,
         personality: character.personality, speechStyle: character.speechStyle, role: character.role },

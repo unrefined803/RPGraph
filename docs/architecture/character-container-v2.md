@@ -1,13 +1,13 @@
 # Character Container V2 — Implementation Plan
 
-Status: Schema foundations, NPC directory discovery, saved NPC snapshots and shared app discovery/conversation context are implemented. Storybook promotion is next.
+Status: Schema foundations, NPC directory discovery, saved NPC snapshots and shared app discovery/conversation context are implemented. Storybook promotion and the complete app/save round trip are implemented. The shared creator is next.
 Character Container V2 and Storybook V3 use independent version numbers.
 Last reconciled with the implementation: 2026-09-07.
 
 ## Progress at a glance
 
 **Current position: local character containers, the registry contract and NPC
-directory loading, saved NPC snapshots and shared app discovery/context are implemented. Next: Stage 5 — Storybook promotion and the complete round trip.**
+directory loading, saved NPC snapshots, shared app discovery/context and Storybook promotion are implemented. Next: Stage 6 — shared container creator and explicit demo conversion.**
 
 Legend: ✅ implemented · ➡️ next · ⬜ planned. Checked items describe implemented
 code; manual interface validation is listed separately.
@@ -28,23 +28,30 @@ code; manual interface validation is listed separately.
 - [x] Fresh-context handoff and ordered next-stage plan documented.
 - [ ] Manual interface validation by the user — completion not yet recorded.
 
-### ➡️ Next implementation phase: global NPC library
+### ✅ Global NPC library and Storybook promotion
 
 - [x] Stage 1 — registry, ownership and identity contract.
 - [x] Stage 2 — NPC directory loading, validation and desktop controls.
 - [x] Stage 3 — saved NPC snapshots and media stability.
 - [x] Stage 4 — shared app discovery, real MatchMe photos, posts and cross-app
   conversation context (MatchMe → Fotogram).
-- [ ] **➡️ Stage 5 — Storybook promotion, duplicate suppression and full round trip. START HERE.**
+- [x] Stage 5 — Storybook promotion, duplicate suppression and full round trip.
 
 ### ⬜ After the library works
 
-- [ ] Stage 6 — shared container creator and explicit demo conversion.
+- [ ] **➡️ Stage 6 — shared container creator and explicit demo conversion. START HERE.**
 - [ ] Stage 7 — replace fresh dummy discovery and finish regression coverage.
+- [ ] Stage 8 — optional NPC embedding, linked dependencies by default and
+  meaningful-interaction capture rules.
 
 The detailed work and acceptance gates are in section 12. When a stage passes
 its gate, check it here, update its status in section 12 and mark the first
 remaining stage as next.
+
+Stage 8 records a later user decision that will supersede the automatic snapshot
+capture policy from Stages 3–4. Until Stage 8 is implemented, the current behavior
+remains unchanged: matches, likes and connections can still capture NPC snapshots.
+Stage 5 is implemented; Stage 6 is the next implementation step.
 
 ## 0. Fresh-context handoff — read this first
 
@@ -104,8 +111,8 @@ but its existence does not grant every player a phone conversation with it.
   runtime IDs alongside stable `sourceId`. The pure registry accepts explicit
   legacy aliases. The snapshot runtime now combines Storybook/library/snapshot
   producers. `appCharactersFromRegistry` supplies discovery, account validation
-  and recipient context without changing player selection. Full promotion/history
-  alias reconciliation remains Stage 5 work.
+  and recipient context without changing player selection. Promotion retains pinned NPC projection keys and compatible historical aliases
+  without rewriting timeline or checkpoint activity.
 - `datingAccounts.ts` still adds `datingNpcProfiles`; Fotogram/OnlyFriends still
   combine `dummySocialPosts` with real posts and use independent bundled catalogs.
   These are not yet NPC containers.
@@ -118,7 +125,8 @@ but its existence does not grant every player a phone conversation with it.
 - `postsWithInitialContent` still projects immutable seeds rather than inserting
   timeline records. Library/snapshot seeds use reversible `npcSeedPostKey`
   account/seed keys. Existing Storybook seed keys are unchanged to preserve saved
-  likes/comments; reconciling these keys during promotion belongs to Stage 5.
+  likes/comments. Promoted characters with a pinned NPC revision retain NPC seed
+  keys, so likes/comments and purchases keep their established references.
   An owner-matching timeline post takes precedence. Export recovers source IDs.
 - Image lookup accepts a stable character/account owner. Ambiguous unowned image
   IDs return no image rather than another person's photo. There is still no
@@ -258,9 +266,9 @@ command or automatic recipient creation is introduced.
 
 The pure effective registry, directory scanning, validation, desktop library
 controls, pinned NPC revision persistence and registry-backed app discovery are
-implemented. NPC promotion integration is **not implemented**.
+implemented, including Storybook promotion through the shared import/commit path.
 Existing demo catalogs remain. The full target design below continues to describe
-that future work, including app wiring, promotion and image-backed demo containers.
+the remaining creator and image-backed demo conversion work.
 Interactive validation remains with the user.
 
 The sections below describe the full target design, including later phases;
@@ -824,7 +832,7 @@ also remain manual checks. Creation tooling and deep links are not part of Stage
 
 ### Stage 5 — Storybook promotion and duplicate suppression end to end
 
-**Status: ➡️ NEXT — not started.**
+**Status: ✅ IMPLEMENTED.**
 
 Expose Add to Storybook through the existing import planning/commit services.
 Both Storybook node types must preserve the same character, accounts and media.
@@ -836,9 +844,39 @@ Gate: complete the six-step user scenario in section 0, including source removal
 repeated import, save/reload and no duplication. The currently selected player
 must not determine whether a library duplicate is suppressed.
 
+Implemented through `src/characters/promotion.ts`, the existing character-card
+planner/Storybook commit service and the NPC Library dialog. Select the target
+Storybook and choose **Add to Storybook**. The effective pinned revision is used
+when the external file has changed. Both Storybook source types use the same
+preflight; repeat import replaces by stable ID. Import into a second Storybook
+node with the same character is rejected, as are account/handle conflicts and
+changes that would remove pinned identities, media or immutable starting posts.
+
+Pinned NPC origins retain their ownership-scoped seed keys and stable directory
+IDs after promotion. Historical directory IDs and reciprocal connection owners
+resolve through explicit character aliases. Account aliases survive only when
+the canonical account is unchanged. Activity, likes, purchases and checkpoints
+stay in their existing stores; no history rewrite or second publication store is
+introduced. Repeat public import preserves the existing character's private
+legacy MatchMe decisions, messages and history marker.
+
+Gate passed with `src/characters/promotion.test.ts`: both Storybook node types,
+MatchMe-to-Fotogram handoff, real gallery media, repeated promotion, stable posts
+and directory connections, legacy aliases, account-bound replies, full RP save
+round trip and changed/deleted external sources. Existing local Storybook seed
+keys remain unchanged. Format versions and library directories are unchanged.
+Full non-UI tests, build and lint passed; manual interface validation is pending.
+
+Manual check: use the Stage 4 fixture, establish the MatchMe conversation and
+Fotogram connection, like its starting post, then choose **Add to Storybook**.
+Keep the original player selected and verify one profile/post with retained
+activity. Repeat the import, save/reload the RP, remove the external file and
+reload the library. Repeat with the other Storybook source type. A Storybook save
+still retains only explicitly configured Opening History, not the current RP.
+
 ### Stage 6 — shared container creator and explicit demo conversion
 
-**Status: ⬜ PLANNED — not started.**
+**Status: ➡️ NEXT — not started.**
 
 After the preceding gates, add the creation service/CLI proposed in section 10.
 Accept authored character metadata, per-app profiles, local image inputs and
@@ -875,15 +913,118 @@ Leave interface and packaged-app interaction testing to the user. Broader NPC
 library editing, filesystem watching, deep links and source-revision update UI
 are subsequent work, not implicit prerequisites for the first usable library.
 
+### Stage 8 — optional NPC embedding and meaningful-interaction dependencies
+
+**Status: ⬜ PLANNED — not started. User decision recorded after Stage 4.**
+
+Reduce save growth by separating lightweight activity references from NPCs needed
+to continue actual conversations. This stage supersedes the earlier requirement
+to capture a full character/gallery for every match, like or saved connection.
+Implement this policy for RP saves and for NPC-dependent Opening History; do not
+change portable character export or write game activity back to library files.
+
+#### Interaction boundary
+
+Only these activities create a required NPC dependency:
+
+- A sent or received DM in MatchMe, Fotogram or OnlyFriends.
+- A comment involving an NPC, including commenting on that NPC's post or an NPC
+  commenting on a player's post. Track the actual participants and relevant post
+  owner through structured identities, not names or free history text.
+- A sent or received WhatsUp phone message.
+
+Viewing/searching profiles, swipes, likes, matches, follows and adding a social
+connection do not qualify. A purchase/unlock alone also does not qualify under
+this exclusive boundary. Keep their existing activity records and stable IDs,
+but do not create a required dependency or copy the character/gallery for them.
+Audit direct UI capture calls and structured timeline capture together so a
+reaction record containing only likes cannot indirectly trigger a snapshot.
+Preserve existing ownership of messages, matches, comments, likes and purchases;
+do not introduce a separate activity database.
+
+#### Storage option and defaults
+
+Provide an explicit per-RP option to embed required NPCs in saves. It is **off by
+default for new RPs**: qualifying interactions store linked dependencies, not
+complete NPC containers or gallery copies. Persist the selected policy, and carry
+the relevant policy/dependencies into Opening History when the user explicitly
+imports the current session. Saving a Storybook alone still does not import the
+current RP history.
+
+Links use stable character IDs, app account IDs and the post/media references
+needed by retained activity. Resolve them through the effective registry, never
+by filename, directory position or display name. A library rename must not break
+the link, and Storybook promotion must satisfy the same identity dependency.
+Linked mode uses the available effective container; it does not guarantee an
+immutable revision if the external container changes. Explain this dependency
+and the file-size tradeoff in the option's user-facing text.
+
+With embedding enabled, qualifying interactions retain the existing immutable
+NPC snapshot and gallery behavior, using the existing media pool. Matches/likes
+alone still do not trigger embedding. A snapshot remains a non-playable RP
+participant, not an automatic Storybook character import. Neither mode changes
+the rule that the user must save the RP to persist new activity to disk.
+
+Retain compatibility with existing saves and their already embedded NPCs. Do not
+silently discard old snapshots or convert older self-contained saves into
+externally dependent saves because the new default is off. Define policy changes
+explicitly: enabling embedding must resolve and capture existing required linked
+participants; disabling it must not silently remove previously saved protection.
+Automatic stripping of existing snapshots is outside this stage.
+
+#### Missing linked NPCs
+
+Before applying an RP save or NPC-dependent Opening History, validate required
+linked participants and the account/media references needed by their retained
+activity. If a required NPC cannot resolve, **reject loading before replacing the
+current RP**. Show a clear error identifying the missing NPC/stable ID and explain
+that its container must be restored and the library reloaded before retrying.
+Ambiguous identities or unavailable required references must likewise fail
+explicitly rather than binding another person or silently dropping history.
+
+Treat this as an unloadable save with a missing dependency; the error should not
+claim that the save's JSON bytes are corrupt. Do not offer partial loading or
+silently create replacement NPCs in this first implementation. Apply the same
+checks after decrypting encrypted saves. External changes/reloads during an RP
+must not silently erase dependencies or fabricate successful interactions; keep
+activity intact and report unavailable required participants when used.
+
+Missing NPCs referenced **only by lightweight activity** must not block loading:
+
+- MatchMe: preferably retain the match entry with **Account deleted** and disable
+  messaging. Hiding the unavailable entry is an acceptable initial fallback;
+  keep the underlying match record either way.
+- Fotogram/OnlyFriends: unavailable profiles and their external starting posts
+  disappear from discovery/feed views. Stored like/follow references can remain
+  without creating ghost accounts or required dependencies.
+
+An embedded NPC remains available even if its external source disappears. A
+linked NPC with qualifying activity instead follows the strict loading rule
+above. Do not confuse these cases with the lightweight missing-account display.
+Checkpoint/undo handling must retain dependencies needed by restorable activity
+without recreating undone matches, messages or comments.
+
+Gate: tests prove that new RPs default to linked mode; matches, likes, follows and
+unlocks neither embed nor block loading after source removal; DMs, comments and
+WhatsUp messages create the correct dependencies; embedding is opt-in and keeps
+required NPCs/media available after source removal. Cover the chosen unavailable
+match display model, same-name/different-ID accounts, source renames, promotion,
+changed containers, missing required media, policy changes and existing embedded
+saves. Required missing dependencies must fail RP/Opening History loading
+atomically with actionable errors, including encrypted saves and checkpoint
+restoration. Run non-UI tests, build and lint; leave interface validation to the
+user. No runtime behavior is changed merely by adding this stage to the plan.
+
 ### Suggested next implementation request
 
 For a fresh context, ask the agent to read `AGENTS.md` and this document, then
-implement Stage 5 using the Stage 4 fixture and shared app/snapshot runtime.
-Reconcile library seed keys and directory connection IDs during promotion while
-retaining existing activity. Require the Stage 5 acceptance gate, unit tests, build and lint; prohibit launching the app/browser/E2E.
-Keep versions unchanged as specified in section 3. Do not mass-convert or remove
-demos until the registry/app/save/promotion gates pass. Stages 6–7 can then form
-a separate task using the verified infrastructure and actual supplied images.
+implement Stage 6 using the shared container validator and verified import,
+registry, snapshot and app runtime. Locate actual supplied images before creating
+containers. Require the Stage 6 acceptance gate, non-UI tests, build and lint;
+prohibit launching the app/browser/E2E. Keep format versions unchanged. Do not
+remove hard-coded demo discovery until the explicit Stage 7 conversion gate.
+Stage 8 remains a separate storage-policy task; its documented future default
+does not change the current snapshot behavior.
 
 ## 13. Validation and completion checklist
 
@@ -906,6 +1047,9 @@ Automated non-UI coverage must include:
 - RP-save JSON round trips, encrypted saves, deleted library sources, Storybook
   removal/promotion, checkpoint restoration and independent story histories.
 - Creation CLI output passes the same validator as UI export and library import.
+- Stage 8: linked-by-default storage, opt-in embedding, the restricted interaction
+  boundary, missing lightweight accounts and atomic rejection of missing required
+  dependencies, including Opening History and compatibility with embedded saves.
 
 Use `npm run --silent test -- <filters>` for targeted tests and
 `npm run --silent test` for the complete non-UI suite, plus `npm run build` and

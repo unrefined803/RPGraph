@@ -209,6 +209,7 @@ import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
+import { npcPromotionCard } from './characters/promotion';
 import { NpcLibraryDialog } from './components/NpcLibraryDialog';
 import { useNpcLibrary } from './characters/useNpcLibrary';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
@@ -1518,6 +1519,7 @@ function App() {
     notifySystem,
     usedStorybookImageIds,
     currentNpcParticipants: npcParticipants.current,
+    currentCharacterRegistry: npcParticipants.registry,
     currentSocialLikesByAccount: () => socialLikesByAccount,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
     currentSocialConnectionsByCharacter: () => socialConnectionsByCharacter,
@@ -6344,6 +6346,18 @@ function App() {
       {npcLibrary.open && (
         <NpcLibraryDialog
           snapshot={npcLibrary.snapshot}
+          storybooks={nodes.filter(isStorybookSourceNode).map((node) => ({ id: node.id, label: node.data.label || node.id }))}
+          onAddToStorybook={(characterId, nodeId) => {
+            const previous = npcParticipants.current();
+            try {
+              const card = npcPromotionCard(npcParticipants.registry(), characterId);
+              npcParticipants.capture([{ kind: 'character', id: characterId }]);
+              applyCharacterCardToNode(nodeId, card, 'NPC Library');
+            } catch (error) {
+              npcParticipants.restore(previous);
+              throw error;
+            }
+          }}
           loading={npcLibrary.loading}
           status={npcLibrary.status}
           onReload={() => void npcLibrary.reload()}

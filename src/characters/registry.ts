@@ -38,6 +38,8 @@ export type EffectiveCharacter = {
   aliases: CharacterRegistryAliases;
   /** Only active Storybook characters can be offered as the player character. */
   playerSelectable: boolean;
+  /** Retain NPC projection keys while a saved revision anchors prior activity. */
+  npcOrigin: boolean;
 };
 
 export type EffectiveCharacterRegistry = {
@@ -89,7 +91,9 @@ function winnerAliases(entries: CharacterRegistryEntry[], winner: CharacterRegis
   const accountIds: CharacterRegistryAliases['accountIds'] = {};
   for (const app of apps) {
     const canonicalId = winner.character.apps?.[app]?.accountId;
-    const aliases = unique(winner.aliases?.accountIds?.[app] ?? []).filter((alias) => alias !== canonicalId);
+    const aliases = unique(entries.flatMap((entry) =>
+      entry.character.apps?.[app]?.accountId === canonicalId && canonicalId
+        ? entry.aliases?.accountIds?.[app] ?? [] : [])).filter((alias) => alias !== canonicalId);
     if (aliases.length) accountIds[app] = aliases;
   }
   return {
@@ -135,6 +139,7 @@ export function buildCharacterRegistry(entries: CharacterRegistryEntry[]): Effec
       character: winner.character,
       provenance: { tier: winner.tier, source: winner.source },
       aliases: winnerAliases(candidates, winner),
+      npcOrigin: winner.tier !== 'storybook' || candidates.some((entry) => entry.tier === 'snapshot'),
       playerSelectable: winner.tier === 'storybook' && winner.character.playable !== false,
     } satisfies EffectiveCharacter;
   });

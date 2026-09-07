@@ -41,6 +41,7 @@ type StorybookCharacterProfile = {
 
 export type StorybookCharacter = {
   libraryNpc?: boolean;
+  npcOrigin?: boolean;
   images?: RpStorybookCharacterImage[];
   identityAliases?: import("../characters/registry").CharacterRegistryAliases;
   id: string;

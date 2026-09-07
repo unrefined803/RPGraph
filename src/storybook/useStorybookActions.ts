@@ -1,3 +1,5 @@
+import { planCharacterImportToNode } from '../characters/promotion';
+import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { validateCharacterAccountDirectory } from '../characters/profiles';
 import { validateCharacterPayload, characterPayload } from '../characters/character';
@@ -35,7 +37,7 @@ import {
   isLegacyRpStorybookValue,
   type StorybookConversionResult,
 } from './conversion';
-import { planCharacterCardImport, rpCharacterCardForCharacter } from './characterCard';
+import { rpCharacterCardForCharacter } from './characterCard';
 import { storybookWithoutCharacter } from './characterManagement';
 import { storybookAssistantConversationContext } from './assistantConversation';
 import {
@@ -82,6 +84,7 @@ type UseStorybookActionsOptions = {
   turnsRef: MutableRefObject<TurnRecord[]>;
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
   currentNpcParticipants: () => NpcParticipantSnapshots;
+  currentCharacterRegistry: () => EffectiveCharacterRegistry;
   currentSocialLikesByAccount: () => Record<string, string[]>;
   currentDynamicSocialUsers: () => DynamicSocialUsers;
   currentSocialConnectionsByCharacter: () => SocialConnectionsByCharacter;
@@ -113,6 +116,7 @@ export function useStorybookActions({
   turnsRef,
   turnCheckpointsRef,
   currentNpcParticipants,
+  currentCharacterRegistry,
   currentSocialLikesByAccount,
   currentDynamicSocialUsers,
   currentSocialConnectionsByCharacter,
@@ -828,10 +832,9 @@ export function useStorybookActions({
     if (!node || !isStorybookSourceNode(node)) {
       throw new Error('Add an RP Storybook V3 node before importing a character card.');
     }
-    const currentStorybook = node.data.storybookJson
-      ? parseRpStorybookJson(node.data.storybookJson)
-      : emptyRpStorybook;
-    const plan = planCharacterCardImport(prepareV3Document(cardValue, confirmV3Migration), currentStorybook);
+    const plan = planCharacterImportToNode({ nodes: nodesRef.current, nodeId,
+      card: prepareV3Document(cardValue, confirmV3Migration),
+      snapshots: currentNpcParticipants(), registry: currentCharacterRegistry() });
     const label = plan.character.name || plan.character.id;
     const action = plan.replacesIndex !== undefined ? 'Replaced' : 'Added';
     const commitError = commitStorybookToNode(nodeId, plan.storybook, {

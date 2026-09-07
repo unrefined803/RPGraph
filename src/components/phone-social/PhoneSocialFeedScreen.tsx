@@ -49,6 +49,7 @@ import {
 import {
   searchSocialDirectory,
   socialConnectionIds,
+  resolveSocialDirectoryUser,
   type SocialConnectionsByCharacter,
   type SocialDirectoryUser,
 } from '../../chat/socialDirectory';
@@ -348,6 +349,7 @@ export function PhoneSocialFeedScreen({
     socialConnectionsByCharacter,
     owner?.id,
     app.id,
+    storyCharacters,
   );
   const defaultFotogramUserIds = app.id === 'fotogram' && owner
     ? (fotogramContactsByCharacter[owner.id] ?? []).flatMap((characterId) => {
@@ -359,10 +361,10 @@ export function PhoneSocialFeedScreen({
     : [];
   const connectedSocialUserIds = [...new Set([
     ...defaultFotogramUserIds,
-    ...savedSocialUserIds,
+    ...savedSocialUserIds.map((id) => resolveSocialDirectoryUser(socialDirectoryUsers, id)?.id ?? id),
   ])];
   const connectedSocialUsers = connectedSocialUserIds.flatMap((socialUserId) => {
-    const user = socialDirectoryUsers.find((entry) => entry.id === socialUserId);
+    const user = resolveSocialDirectoryUser(socialDirectoryUsers, socialUserId);
     return user?.handles[app.id] ? [user] : [];
   });
   const directorySearchResults = searchSocialDirectory(

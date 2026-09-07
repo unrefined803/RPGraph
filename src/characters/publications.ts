@@ -8,7 +8,7 @@ export function initialCharacterPosts(characters: StorybookCharacter[]): SocialP
   return characters.flatMap((character) => (['fotogram', 'onlyfriends'] as const).flatMap((app) => {
     const account = character.apps?.[app];
     if (!account?.enabled) return [];
-    return (account.initialPosts ?? []).map((post) => ({ app, postId: character.libraryNpc ? npcSeedPostKey(account.accountId, post.id) : post.id, author: character.name,
+    return (account.initialPosts ?? []).map((post) => ({ app, postId: (character.libraryNpc || character.npcOrigin) ? npcSeedPostKey(account.accountId, post.id) : post.id, author: character.name,
       authorHandle: account.username, authorCharacterId: character.sourceId, authorAccountId: account.accountId,
       caption: post.text, imageDescription: character.images?.find((image) => image.id === post.imageId)?.description, textOnly: !post.imageId, ...(post.imageId ? { imageId: post.imageId } : {}) }));
   }));
@@ -58,7 +58,7 @@ export function postsWithInitialContent(characters: StorybookCharacter[], messag
       (post.authorAccountId ? seed.authorAccountId === post.authorAccountId :
         post.authorCharacterId ? seed.authorCharacterId === post.authorCharacterId :
         seed.author === post.author && seed.authorHandle === post.authorHandle) &&
-      (seed.postId === post.postId || sourceSeedId(seed.postId, seed.authorAccountId!) === post.postId));
+      (seed.postId === post.postId || sourceSeedId(seed.postId, seed.authorAccountId!) === sourceSeedId(post.postId, seed.authorAccountId!)));
     return candidates.length === 1 ? { ...message, socialPost: { ...post, postId: candidates[0].postId } } : message;
   });
   const stored = new Set(timeline.flatMap((entry) => entry.socialPost ? [`${entry.socialPost.app}/${entry.socialPost.postId}`] : []));

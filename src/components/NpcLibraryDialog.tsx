@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { buildCharacterRegistry } from '../characters/registry';
 import type { NpcLibrarySnapshot } from '../characters/npcLibrary';
 
@@ -6,12 +6,17 @@ type NpcLibraryDialogProps = {
   snapshot: NpcLibrarySnapshot | null;
   loading: boolean;
   status: string;
+  storybooks: { id: string; label: string }[];
+  onAddToStorybook: (characterId: string, nodeId: string) => void;
   onReload: () => void;
   onOpenFolder: () => void;
   onClose: () => void;
 };
 
-export function NpcLibraryDialog({ snapshot, loading, status, onReload, onOpenFolder, onClose }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ snapshot, loading, status, storybooks, onAddToStorybook, onReload, onOpenFolder, onClose }: NpcLibraryDialogProps) {
+  const [selectedNodeId, setSelectedNodeId] = useState('');
+  const [importStatus, setImportStatus] = useState('');
+  const targetNodeId = storybooks.some((node) => node.id === selectedNodeId) ? selectedNodeId : storybooks[0]?.id ?? '';
   const registry = useMemo(() => buildCharacterRegistry(snapshot?.entries ?? []), [snapshot]);
   const diagnostics = [
     ...(snapshot?.diagnostics ?? []).map((item) => ({ key: `${item.tier}:${item.fileName}:${item.code}`,
@@ -51,11 +56,28 @@ export function NpcLibraryDialog({ snapshot, loading, status, onReload, onOpenFo
         <div className="npc-library-content">
           <section>
             <h3>Discovered containers</h3>
+            <label>Target Storybook
+              <select value={targetNodeId} onChange={(event) => setSelectedNodeId(event.target.value)}>
+                {!storybooks.length && <option value="">Add a Storybook node first</option>}
+                {storybooks.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
+              </select>
+            </label>
+            {importStatus && <p role="status">{importStatus}</p>}
             {snapshot?.entries.length ? (
               <ul>{snapshot.entries.map((entry) => (
                 <li key={`${entry.tier}:${entry.fileName}`}>
                   <strong>{entry.character.name}</strong>
                   <span>{entry.tier} · {entry.fileName} · {entry.character.id}</span>
+                  <button type="button" disabled={loading || !targetNodeId || !registry.characters.some((effective) =>
+                    effective.provenance.tier === entry.tier && effective.provenance.source === entry.source)}
+                    onClick={() => {
+                      try {
+                        onAddToStorybook(entry.character.id, targetNodeId);
+                        setImportStatus(`Added ${entry.character.name} to Storybook. Save the Storybook or RP to keep this change.`);
+                      } catch (error) {
+                        setImportStatus(`Character import failed: ${error instanceof Error ? error.message : String(error)}`);
+                      }
+                    }}>Add to Storybook</button>
                 </li>
               ))}</ul>
             ) : <p className="npc-library-empty">No valid NPC containers found.</p>}

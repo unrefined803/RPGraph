@@ -1,7 +1,7 @@
 import { withPublicationSnapshot } from '../characters/publications';
 import type { SocialPostRecord } from '../types';
 import { validateCharacterAccountDirectory } from '../characters/profiles';
-import { characterPayload, validateCharacterPayload } from '../characters/character';
+import { characterPayload, socialFromCharacterApps, validateCharacterPayload } from '../characters/character';
 import {
   normalizeRpStorybookCharacter,
   rpFormatVersionStatus,
@@ -106,6 +106,17 @@ export function planCharacterCardImport(
 
   const targetIndex = replacesIndex >= 0 ? replacesIndex : storybook.characters.length;
   const character = normalizeRpStorybookCharacter({ ...sourceCharacter, playable: true }, targetIndex, usedImageIds);
+
+  const existingAccount = replacesIndex >= 0 ? storybook.characters[replacesIndex].apps?.matchme : undefined;
+  const importedAccount = character.apps?.matchme;
+  if (existingAccount?.profile && importedAccount?.profile && existingAccount.accountId === importedAccount.accountId) {
+    // Portable cards carry public data; an import must not reset private RP compatibility state.
+    const { decisions, messages, historyVersion } = existingAccount.profile;
+    importedAccount.profile = { ...importedAccount.profile, decisions: structuredClone(decisions),
+      ...(messages ? { messages: structuredClone(messages) } : {}),
+      ...(historyVersion ? { historyVersion } : {}) };
+    character.social = socialFromCharacterApps(character.apps ?? {});
+  }
 
   const characters = [...storybook.characters];
   if (replacesIndex >= 0) {

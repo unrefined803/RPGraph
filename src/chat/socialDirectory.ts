@@ -9,6 +9,7 @@ export type SocialDirectoryUser = {
   handles: Partial<Record<SocialAppKind, string>>;
   source: 'bundled' | 'storybook' | 'dynamic';
   characterId?: string;
+  aliases?: string[];
 };
 
 export type DynamicSocialUsers = Record<string, SocialDirectoryUser>;
@@ -215,7 +216,9 @@ function storybookSocialUsers(characters: StorybookCharacter[]): SocialDirectory
       return [];
     }
     return [{
-      id: `storybook:${character.id}`,
+      id: `storybook:${character.npcOrigin ? character.sourceId : character.id}`,
+      aliases: [...new Set([character.id, character.sourceId, ...(character.identityAliases?.characterIds ?? [])])]
+        .map((id) => `storybook:${id}`),
       name: character.name,
       handles: {
         ...(fotogram ? { fotogram } : {}),
@@ -413,12 +416,23 @@ export function searchSocialDirectory(
     .slice(0, limit);
 }
 
+/** Read historical directory IDs without rewriting saved connections or checkpoints. */
+export function resolveSocialDirectoryUser(users: SocialDirectoryUser[], id: string) {
+  const exact = users.filter((user) => user.id === id);
+  const matches = exact.length ? exact : users.filter((user) => user.aliases?.includes(id));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 export function socialConnectionIds(
   connections: SocialConnectionsByCharacter,
   characterId: string | undefined,
   app: SocialAppKind,
+  characters: StorybookCharacter[] = [],
 ) {
-  return characterId ? connections[characterId]?.[app] ?? [] : [];
+  if (!characterId) return [];
+  const owner = characters.find((character) => character.id === characterId);
+  const ids = [characterId, ...(owner ? [owner.sourceId, ...(owner.identityAliases?.characterIds ?? [])] : [])];
+  return [...new Set(ids.flatMap((id) => connections[id]?.[app] ?? []))];
 }
 
 export function withSocialConnectionAdded(
@@ -451,7 +465,7 @@ export function withSocialDirectoryConnectionAdded(
   if (app !== 'fotogram') {
     return next;
   }
-  const targetUser = users.find((user) => user.id === socialUserId);
+  const targetUser = resolveSocialDirectoryUser(users, socialUserId);
   const ownerUser = users.find((user) =>
     user.source === 'storybook' && user.characterId === characterId && !!user.handles.fotogram
   );
