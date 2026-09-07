@@ -1,13 +1,13 @@
 # Character Container V2 — Implementation Plan
 
-Status: Schema foundations, local app integration and the pure registry contract are implemented. NPC directory discovery is the next phase.
+Status: Schema foundations, local app integration, registry and NPC directory discovery are implemented. Saved NPC snapshots are next.
 Character Container V2 and Storybook V3 use independent version numbers.
 Last reconciled with the implementation: 2026-09-07.
 
 ## Progress at a glance
 
-**Current position: local character containers and the registry contract are
-implemented. Next: Stage 2 — directory loading, validation and desktop controls.**
+**Current position: local character containers, the registry contract and NPC
+directory loading are implemented. Next: Stage 3 — saved NPC snapshots and media stability.**
 
 Legend: ✅ implemented · ➡️ next · ⬜ planned. Checked items describe implemented
 code; manual interface validation is listed separately.
@@ -31,8 +31,8 @@ code; manual interface validation is listed separately.
 ### ➡️ Next implementation phase: global NPC library
 
 - [x] Stage 1 — registry, ownership and identity contract.
-- [ ] **➡️ Stage 2 — NPC directory loading, validation and desktop controls. START HERE.**
-- [ ] Stage 3 — saved NPC snapshots and media stability.
+- [x] Stage 2 — NPC directory loading, validation and desktop controls.
+- [ ] **➡️ Stage 3 — saved NPC snapshots and media stability. START HERE.**
 - [ ] Stage 4 — shared app discovery, real MatchMe photos, posts and cross-app
   conversation context (MatchMe → Fotogram).
 - [ ] Stage 5 — Storybook promotion, duplicate suppression and full round trip.
@@ -128,9 +128,10 @@ but its existence does not grant every player a phone conversation with it.
   compatibility structure; active matches and newer DMs are timeline records.
   Do not copy this legacy private state into public library containers or create
   another independent authority while adding NPC snapshots.
-- The existing payload validator is TypeScript. Electron metadata recognition is
-  not equivalent to full payload validation. Establish a reusable validation
-  boundary for scanning and the creation CLI, with shared acceptance fixtures.
+- `shared/character-container.cjs` is now the reusable payload/reference
+  validation boundary used by both TypeScript import and Electron discovery.
+  Electron's general stored-file metadata recognition remains intentionally
+  shallower and must not replace this boundary in future creation tooling.
 - `resources/` and `bilder/` were absent when this handoff was checked. Earlier
   references to supplied image groups are historical, not confirmed inputs.
   Locate actual supplied images before authoring containers; preserve originals.
@@ -255,13 +256,12 @@ command or automatic recipient creation is introduced.
 
 ### Deferred global NPC phase
 
-The pure effective registry and its precedence/collision contract are implemented.
-Directory scanning, automatic external-container app discovery, NPC promotion
-integration and pinned library revisions are **not implemented**. Existing demo
-catalogs remain. No NPC directory is created or scanned by this phase. The full
-target design below continues to describe that future work, including registry
-wiring, packaging and image-backed demo containers. Interactive validation
-remains with the user.
+The pure effective registry, directory scanning, validation and desktop library
+controls are implemented. Automatic external-container app discovery, NPC
+promotion integration and pinned library revisions are **not implemented**.
+Existing demo catalogs remain. The full target design below continues to describe
+that future work, including app wiring, snapshots and image-backed demo containers.
+Interactive validation remains with the user.
 
 The sections below describe the full target design, including later phases;
 field names in examples are proposals where not implemented above.
@@ -301,7 +301,7 @@ containing separate image files or ZIP packages:
   legacy demo entries while preserving identities needed by old saves.
 
 This document is self-contained for continuation. The implementation status above
-distinguishes the completed schema/registry foundation from the planned scanner.
+distinguishes the completed schema/registry/scanner foundation from saved runtime integration.
 
 ## 2. Existing implementation and useful entry points
 
@@ -323,7 +323,7 @@ Paths below are relative to the repository root.
 | Social directory | `src/chat/{socialDirectory,socialCatalogs}.ts` and `src/chat/catalogs/`: bundled names/handles and dynamic identities are not full character containers. |
 | Fotogram/OnlyFriends feeds | `src/components/phone-social/PhoneSocialFeedScreen.tsx`: saved posts reference gallery image IDs; cosmetic `dummySocialPosts` are still mixed into the feed. |
 | Runtime wiring | `src/App.tsx`, `src/app/{useGraphRun,useRoleplayPanelRuntime}.ts`, `src/chat/useTurnRecordState.ts`, `src/graph/executeGraph.ts`, `src/nodes/shared/promptRun.ts`. |
-| Packaging | `electron-builder.yml`: built-in NPC resources are not currently listed. Add explicit development and packaged resource resolution. |
+| Packaging | `electron-builder.yml` packages `resources/npc-characters/` into the application resource directory and includes the shared CommonJS validator. Development and packaged roots are resolved explicitly by `electron/npcLibrary.cjs`. |
 
 Preserve existing work and inspect `git status` before implementation. The earlier
 `bilder/` reference is historical; no such directory was present at the latest
@@ -676,7 +676,7 @@ removed or replaced account from a lower tier.
 
 ### Stage 2 — directory loading, validation and desktop controls
 
-**Status: ➡️ NEXT — not started.**
+**Status: ✅ IMPLEMENTED.**
 
 Implement the two proposed roots in section 5, narrow Electron IPC, startup load
 and explicit reload. Add Open NPC Folder and concise library diagnostics.
@@ -685,16 +685,27 @@ unrelated JSON and encrypted containers without asking for a password. Keep
 manual encrypted import and the existing character export directory unchanged.
 
 Provide explicit development/packaged resource resolution and packaging rules;
-no scanner or directory is currently implemented. Automatic filesystem watching
-and recursive discovery are outside the initial scope.
+automatic filesystem watching and recursive discovery are outside the initial
+scope.
 
 Gate: arbitrary `.json` filenames work, bad files do not prevent other loads,
 reload is idempotent, encrypted files are skipped, and packaged path resolution
 has non-UI tests. Prepare only a minimal fictional fixture for integration.
 
+Implemented in `electron/npcLibrary.cjs` with a startup cache and narrow
+`get`/`reload`/`open-folder` IPC. Development reads
+`resources/npc-characters/`; packaged builds read
+`<resources>/npc-characters`; user containers live in
+`<userData>/npc-characters`. Only direct regular `.json` files are considered.
+Malformed/unsupported character containers produce per-file diagnostics, while
+encrypted containers, unrelated JSON and symlinks are ignored. The renderer's
+NPC Library dialog shows roots, effective counts, source and registry diagnostics,
+and exposes Reload Library and Open NPC Folder. Browser mode can load bundled
+resources but explicitly reports that the user directory is unavailable.
+
 ### Stage 3 — NPC snapshots and media stability before live interactions
 
-**Status: ⬜ PLANNED — not started.**
+**Status: ➡️ NEXT — not started.**
 
 Define a saved participant snapshot containing the used character revision and
 necessary gallery data, keyed by stable identity. Use existing session media

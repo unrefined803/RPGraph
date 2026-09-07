@@ -14,6 +14,7 @@ import type {
 import type { RpStorybook } from './nodes/rp-storybook/model';
 import type { RpCharacterCard } from './storybook/characterCard';
 import type { RpgraphSessionV2 } from './data-management/types';
+import type { NpcLibrarySnapshot } from './characters/npcLibrary';
 
 type SelectedImageFile = {
   name: string;
@@ -94,6 +95,9 @@ declare global {
       listFiles: () => Promise<SavedFileSummary[]>;
       confirmV3Migration: (summary: string) => boolean;
       listCharacterFiles: () => Promise<SavedFileSummary[]>;
+      getNpcLibrary: () => Promise<NpcLibrarySnapshot>;
+      reloadNpcLibrary: () => Promise<NpcLibrarySnapshot>;
+      openNpcLibraryFolder: () => Promise<{ path: string }>;
       saveNamedWorkflow: (
         name: string,
         workflow: WorkflowFile,

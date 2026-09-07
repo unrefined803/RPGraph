@@ -207,6 +207,8 @@ import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
+import { NpcLibraryDialog } from './components/NpcLibraryDialog';
+import { useNpcLibrary } from './characters/useNpcLibrary';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
   withSourceNodeStatusConnectionColors,
@@ -606,6 +608,7 @@ type PreviewImageState = {
 };
 
 function App() {
+  const npcLibrary = useNpcLibrary();
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
   const nodesRef = useRef(nodes);
@@ -4975,6 +4978,9 @@ function App() {
             <button className="connection-button" type="button" onClick={() => void openFiles()}>
               Files
             </button>
+            <button className="connection-button" type="button" onClick={npcLibrary.show}>
+              NPC Library
+            </button>
           </div>
         </div>
         <div className="header-actions">
@@ -6318,6 +6324,16 @@ function App() {
           onCreateDebugSnapshot={createDebugSnapshot}
           onClear={clearSystemLog}
           onClose={() => setShowSystemLog(false)}
+        />
+      )}
+      {npcLibrary.open && (
+        <NpcLibraryDialog
+          snapshot={npcLibrary.snapshot}
+          loading={npcLibrary.loading}
+          status={npcLibrary.status}
+          onReload={() => void npcLibrary.reload()}
+          onOpenFolder={() => void npcLibrary.openFolder()}
+          onClose={npcLibrary.close}
         />
       )}
       {comfyPreview && (

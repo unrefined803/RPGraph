@@ -1,4 +1,8 @@
 import { normalizeDatingProfile, type DatingProfile } from '../chat/datingProfile';
+import {
+  validateCharacterContainer as validateSharedCharacterContainer,
+  validateCharacterPayload as validateSharedCharacterPayload,
+} from '../../shared/character-container.cjs';
 import type {
   RpStorybookCharacterBanking, RpStorybookCharacterComfyConfig, RpStorybookCharacterImage,
   RpStorybookCharacterPhoneSettings, RpStorybookCharacterProfileImage, RpStorybookCharacterSocial,
@@ -104,40 +108,11 @@ export function characterPayload(character: Character, portable = false) {
     ...(profileImage ? { profileImage: { imageId: profileImage.imageId, crop: profileImage.crop } } : {}) };
 }
 
-/** Reject ambiguous identities and dangling image references before importing V2 data. */
+/** Reject malformed fields and dangling image references through the shared boundary. */
 export function validateCharacterPayload(value: unknown) {
-  const character = record(value);
-  if (!string(character.id).trim() || !string(character.name).trim()) throw new Error('Character Container V2 requires a stable id and name.');
-  if (typeof character.playable !== 'boolean') throw new Error('Character Container V2 requires a playable flag.');
-  if (!Array.isArray(character.images)) throw new Error('Character Container V2 requires a gallery.');
-  const images = new Set<string>();
-  for (const raw of character.images) {
-    const image = record(raw);
-    if (!string(image.id) || images.has(string(image.id))) throw new Error('Duplicate or missing gallery image id.');
-    if (image.mimeType !== 'image/jpeg' || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(string(image.dataUrl))) throw new Error('Gallery images require embedded JPEG base64 data.');
-    images.add(string(image.id));
-  }
-  const requireImage = (id: unknown) => { if (typeof id !== 'string' || !images.has(id)) throw new Error(`Unknown character gallery image: ${String(id)}`); };
-  if (character.profileImage !== undefined) requireImage(record(character.profileImage).imageId);
-  const ids = new Set<string>();
-  for (const [app, raw] of Object.entries(record(character.apps))) {
-    if (!['whatsup', 'fotogram', 'onlyfriends', 'matchme'].includes(app)) throw new Error(`Unknown character app: ${app}`);
-    const account = record(raw);
-    if (!string(account.accountId) || ids.has(string(account.accountId)) || typeof account.enabled !== 'boolean') throw new Error('App accounts require unique stable IDs and an enabled flag.');
-    ids.add(string(account.accountId));
-    if (account.avatarImageId !== undefined) requireImage(account.avatarImageId);
-    const posts = new Set<string>();
-    for (const rawPost of Array.isArray(account.initialPosts) ? account.initialPosts : []) {
-      const post = record(rawPost);
-      if (!string(post.id) || posts.has(string(post.id))) throw new Error('Initial posts require unique IDs.');
-      posts.add(string(post.id));
-      if (post.imageId !== undefined) requireImage(post.imageId);
-    }
-    if (app === 'matchme' && account.profile !== undefined) {
-      const profile = record(account.profile);
-      if (!normalizeDatingProfile(profile)) throw new Error('Invalid MatchMe profile in character container.');
-      if (!Array.isArray(profile.photoIds)) throw new Error('MatchMe photoIds must be an array.');
-      profile.photoIds.forEach(requireImage);
-    }
-  }
+  validateSharedCharacterPayload(value);
+}
+
+export function validateCharacterContainer(value: unknown) {
+  validateSharedCharacterContainer(value);
 }

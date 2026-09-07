@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, shell } = require('electron');
 const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
 const fs = require('node:fs/promises');
@@ -46,6 +46,7 @@ const {
   lmStudioResponseText,
 } = require('./lmStudioChat.cjs');
 const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
+const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
 
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
@@ -163,6 +164,16 @@ if (process.platform === 'win32') {
 } else if (process.platform === 'linux') {
   app.setDesktopName('rpgraph-studio.desktop');
 }
+
+const npcLibraryService = createNpcLibraryService({
+  roots: npcLibraryRoots({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    projectRootPath,
+    userDataPath: app.getPath('userData'),
+  }),
+  openPath: (directory) => shell.openPath(directory),
+});
 
 function normalizedWorkflowPath(filePath) {
   if (
@@ -4572,6 +4583,12 @@ ipcMain.handle('character:list', async () => {
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
+ipcMain.handle('npc-library:get', async () => npcLibraryService.current());
+
+ipcMain.handle('npc-library:reload', async () => npcLibraryService.reload());
+
+ipcMain.handle('npc-library:open-folder', async () => npcLibraryService.openUserDirectory());
+
 ipcMain.handle('workflow:save-named', async (_event, request) => {
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
@@ -5303,6 +5320,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  await npcLibraryService.reload();
   await createWindow();
 
   app.on('activate', () => {

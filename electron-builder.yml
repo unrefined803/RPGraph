@@ -16,8 +16,15 @@ files:
   - src/session/formatVersions.json
   - src/storybook/formatVersions.json
   - src/workflow/formatVersions.json
+  - shared/**/*.cjs
   - package.json
   - LICENSE
+
+extraResources:
+  - from: resources/npc-characters
+    to: npc-characters
+    filter:
+      - "**/*"
 
 artifactName: RPGraph-Studio-${version}-${arch}.${ext}
 
