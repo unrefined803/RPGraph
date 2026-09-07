@@ -45,8 +45,8 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
         if (locked && current?.username && username !== current.username) { setError('The MatchMe username is locked.'); return false; }
         if (username && !/^[a-zA-Z0-9._-]+$/.test(username)) { setError('Choose a valid MatchMe username.'); return false; }
         const saved = save(withCharacterAppProfile(character, 'matchme', {
-          accountId: current?.accountId ?? `character:${character.id}:matchme`, enabled: true,
-          ...current, username, displayName: profile.name, bio: profile.bio, profile,
+          accountId: current?.accountId ?? `character:${character.id}:matchme`,
+          ...current, enabled: true, username, displayName: profile.name, bio: profile.bio, profile,
         }));
         if (saved) setEditingApp(null);
         return saved;

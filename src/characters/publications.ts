@@ -51,6 +51,7 @@ function sourceSeedId(id: string, accountId: string) {
 
 export function postsWithInitialContent(characters: StorybookCharacter[], messages: MessageRecord[]): MessageRecord[] {
   const seeds = initialCharacterPosts(characters);
+  const replacedSeeds = new Set<SocialPostRecord>();
   const timeline = messages.map((message) => {
     const post = message.socialPost;
     if (!post) return message;
@@ -59,9 +60,10 @@ export function postsWithInitialContent(characters: StorybookCharacter[], messag
         post.authorCharacterId ? seed.authorCharacterId === post.authorCharacterId :
         seed.author === post.author && seed.authorHandle === post.authorHandle) &&
       (seed.postId === post.postId || sourceSeedId(seed.postId, seed.authorAccountId!) === sourceSeedId(post.postId, seed.authorAccountId!)));
-    return candidates.length === 1 ? { ...message, socialPost: { ...post, postId: candidates[0].postId } } : message;
+    if (candidates.length !== 1) return message;
+    replacedSeeds.add(candidates[0]);
+    return { ...message, socialPost: { ...post, postId: candidates[0].postId } };
   });
-  const stored = new Set(timeline.flatMap((entry) => entry.socialPost ? [`${entry.socialPost.app}/${entry.socialPost.postId}`] : []));
-  return [...seeds.filter((post) => !stored.has(`${post.app}/${post.postId}`))
+  return [...seeds.filter((post) => !replacedSeeds.has(post))
     .map((socialPost, index): MessageRecord => ({ id: -1 - index, role: 'user', originalText: '', socialPost })), ...timeline];
 }

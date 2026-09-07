@@ -123,6 +123,18 @@ describe('shared NPC app discovery', () => {
     expect(initialCharacterPosts(characters).find((post) => post.authorCharacterId === 'player')?.postId).toBe('first-post');
   });
 
+  it('does not let another account replace a starting post by reusing its runtime ID', () => {
+    const { characters } = setup();
+    const seed = initialCharacterPosts(characters).find((post) => post.authorCharacterId === 'stage4-nova')!;
+    const foreign: MessageRecord = { id: 2, role: 'user', originalText: '', socialPost: {
+      ...seed, author: 'Someone else', authorHandle: 'someone.else',
+      authorCharacterId: 'foreign', authorAccountId: 'foreign-fg', caption: 'Unrelated post',
+    } };
+    const combined = postsWithInitialContent(characters, [foreign]);
+    expect(combined.some((message) => message.socialPost?.authorAccountId === seed.authorAccountId)).toBe(true);
+    expect(combined.find((message) => message.id === foreign.id)).toEqual(foreign);
+  });
+
   it('keeps apps, context, media and delivery available from pinned snapshots after source deletion/change', () => {
     const { entries, messages, outgoing } = setup();
     const archive = captureNpcParticipants({}, entries, npcReferencesFromMessages(messages));

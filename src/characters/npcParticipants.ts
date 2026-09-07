@@ -136,7 +136,10 @@ export function npcReferencesFromMessages(messages: MessageRecord[]): NpcPartici
       account(thread.app, undefined, thread.actorHandle);
     }
     const reactions = message.socialReactions;
-    if (reactions) references.push({ kind: 'post', app: reactions.app, id: reactions.postId });
+    if (reactions) {
+      references.push({ kind: 'post', app: reactions.app, id: reactions.postId });
+      reactions.comments.forEach((comment) => account(reactions.app, undefined, comment.handle));
+    }
   }
   return references;
 }

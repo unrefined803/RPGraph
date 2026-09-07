@@ -109,6 +109,21 @@ describe('saved NPC revisions', () => {
     expect(Object.keys(captureNpcParticipants({}, entries, npcReferencesFromMessages([thread])))).toEqual(['other']);
   });
 
+  it('pins NPC commenters on live posts and preserves them after source removal', () => {
+    const reaction: MessageRecord = { id: 6, role: 'output', originalText: '', socialReactions: {
+      app: 'fotogram', postId: 'player-live-post', likes: 1,
+      comments: [{ from: 'Nova', handle: 'nova.art', text: 'Beautiful photo!' }],
+    } };
+    const snapshots = captureNpcParticipants({}, [entry()], npcReferencesFromMessages([reaction]));
+    expect(Object.keys(snapshots)).toEqual(['nova']);
+    const restored = appStateFromSessionV2(JSON.parse(JSON.stringify(save(snapshots))));
+    expect(resolveRegistryAccount(buildCharacterRegistry(npcSnapshotEntries(restored.npcParticipants)),
+      'fotogram', 'nova.art').status).toBe('found');
+    const ambiguous = character('other');
+    ambiguous.apps!.fotogram!.username = 'nova.art';
+    expect(captureNpcParticipants({}, [entry(), entry(ambiguous)], npcReferencesFromMessages([reaction]))).toEqual({});
+  });
+
   it('pools media and restores IDs, gallery, profiles, matches, likes and connections from JSON', () => {
     const other = character('other');
     const snapshots = captureNpcParticipants(pin(), [entry(other)], [{ kind: 'character', id: 'other' }]);

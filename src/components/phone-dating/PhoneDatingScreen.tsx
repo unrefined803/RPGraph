@@ -82,7 +82,9 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     finally { sending.current = false; setBusy(false); }
   }
   const selectedMatch = matches.find((entry) => entry.id === resolveDatingAccount(selectedMatchId ?? '', state.accounts)?.id);
-  const candidate = availableProfiles.find((entry) => !profile?.decisions[entry.id] && !entry.aliases?.some((alias) => profile?.decisions[alias]));
+  const candidate = availableProfiles.find((entry) =>
+    (!profile?.seeking?.length || !!entry.gender && profile.seeking.includes(entry.gender)) &&
+    !profile?.decisions[entry.id] && !entry.aliases?.some((alias) => profile?.decisions[alias]));
   const allImages = [...images, ...imported];
 
   function save(next: DatingProfile) {

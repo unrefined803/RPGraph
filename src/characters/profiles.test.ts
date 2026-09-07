@@ -10,6 +10,7 @@ import { resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { appStateFromSessionV2, sessionV2FromCurrentState, workflowV2ToWorkflowFile } from '../data-management/sessionStore';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { turnsForStorybookOpeningHistory } from '../storybook/openingHistoryRuntime';
+import { withStorybookExternalImagesPruned } from '../storybook/imageLibrary';
 import { datingAccountId, resolveDatingAccount } from '../chat/datingAccounts';
 import { canSendMatchMeMessage, matchMePairId, matchMeState } from '../chat/matchMe';
 import type { MessageRecord, SocialPostRecord, TurnRecord, WorkflowFile, WorkflowNode } from '../types';
@@ -26,6 +27,22 @@ const ownPost = (): SocialPostRecord => ({ app: 'fotogram', postId: 'fotogram-po
   authorAccountId: 'nova-fg', authorCharacterId: 'nova', caption: 'Published text', imageId: image.id });
 
 describe('canonical character profiles', () => {
+  it('retains gallery media referenced by app profiles and starting posts during pruning', () => {
+    const book = story();
+    const character = book.characters[0];
+    character.images = ['avatar', 'dating', 'seed', 'portrait', 'unused'].map((id) => ({
+      ...image, id, receivedFrom: 'Former contact',
+    }));
+    character.profileImage = { imageId: 'portrait', dataUrl: image.dataUrl };
+    character.apps!.fotogram!.avatarImageId = 'avatar';
+    character.apps!.fotogram!.initialPosts = [{ id: 'first', text: 'Hello', imageId: 'seed' }];
+    character.apps!.matchme!.profile!.photoIds = ['dating'];
+    const pruned = withStorybookExternalImagesPruned(book, []);
+    expect(pruned.removedCount).toBe(1);
+    expect(pruned.storybook.characters[0].images.map((entry) => entry.id)).toEqual(['avatar', 'dating', 'seed', 'portrait']);
+    expect(() => validateCharacterPayload(characterPayload(pruned.storybook.characters[0]))).not.toThrow();
+  });
+
   it('uses canonical fields over stale compatibility projections and round-trips edits', () => {
     const character = story().characters[0];
     character.social!.fotogramUsername = 'stale';

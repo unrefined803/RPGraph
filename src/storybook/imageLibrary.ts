@@ -205,10 +205,19 @@ export function withStorybookExternalImagesPruned(
 
   let removedCount = 0;
   const characters = storybook.characters.map((character) => {
+    const profileImageIds = new Set([
+      character.profileImage?.imageId,
+      ...Object.values(character.apps ?? {}).flatMap((account) => [
+        account.avatarImageId,
+        ...(account.initialPosts ?? []).map((post) => post.imageId),
+      ]),
+      ...(character.apps?.matchme?.profile?.photoIds ?? []),
+    ]);
     const images = character.images.filter((image) => {
       const external = !!image.receivedFrom || image.imageAccess === true;
       if (
         !external ||
+        profileImageIds.has(image.id) ||
         usedImageIds.has(image.id) ||
         usedDataUrls.has(image.dataUrl)
       ) {

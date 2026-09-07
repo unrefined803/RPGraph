@@ -197,7 +197,7 @@ export function useStorybookPhoneImages({
       notifySystem('warning', 'MatchMe photos must belong to the character gallery.'); return false;
     }
     const next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === character.sourceId
-      ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, enabled: true, ...entry.apps?.matchme, username, displayName: normalized.name, bio: normalized.bio, profile: normalized })
+      ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, enabled: true, username, displayName: normalized.name, bio: normalized.bio, profile: normalized })
       : entry) };
     updateRuntimeNode(node.id, { storybookJson: rpStorybookJsonText(next), storybookStatus: `MatchMe profile saved for ${character.name}.` });
     return true;
