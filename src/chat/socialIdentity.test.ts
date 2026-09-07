@@ -101,9 +101,9 @@ describe('social account creation', () => {
     expect(socialHandleAvailable(directory.users, 'fotogram', 'saved.npc', owner.id)).toBe(false);
   });
 
-  it('reserves bundled handles even when the catalog user is not followed', () => {
-    const bundled = directory.users.find((user) => user.source === 'bundled' && user.handles.fotogram)!;
-    expect(socialHandleAvailable(directory.users, 'fotogram', bundled.handles.fotogram!, owner.id)).toBe(false);
+  it('does not reserve removed catalog handles without a loaded character', () => {
+    expect(socialHandleAvailable(directory.users, 'fotogram', 'luna.sky', owner.id)).toBe(true);
+    expect(directory.users.some((user) => user.source === 'bundled')).toBe(false);
   });
 
   it('allows the owner to retain its handle and permits independent app namespaces', () => {

@@ -7,7 +7,7 @@ import type {
 import { socialAppNames } from '../chat/socialMedia';
 import { formatRpDateTimeParts } from '../workflow';
 import { CharacterAvatar } from './CharacterAvatar';
-import { formatSocialCount } from './phone-social/dummyPosts';
+import { formatSocialCount } from './phone-social/socialPostPresentation';
 
 type SocialPostCardProps = {
   post: SocialPostRecord;

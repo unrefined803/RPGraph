@@ -1,13 +1,14 @@
 # Character Container V2 — Implementation Plan
 
-Status: Schema foundations, NPC directory discovery, saved NPC snapshots and shared app discovery/conversation context are implemented. Storybook promotion and the complete app/save round trip are implemented. The shared creator and explicit demo conversion are implemented; Stage 7 is next.
+Status: Character Container V2 is implemented through Stage 7. Fresh demo discovery now uses image-backed character containers; image-less placeholders were removed. Stage 8 remains optional.
 Character Container V2 and Storybook V3 use independent version numbers.
 Last reconciled with the implementation: 2026-09-07.
 
 ## Progress at a glance
 
-**Current position: local character containers, the registry contract and NPC
-directory loading, saved NPC snapshots, shared app discovery/context and Storybook promotion are implemented. Shared creation and explicit demo conversion are implemented. Next: Stage 7 — fresh demo discovery replacement.**
+**Current position: local character containers, registry-backed discovery,
+snapshots, shared app context, Storybook promotion, shared creation and the
+image-backed demo replacement are implemented. Stage 8 is optional.**
 
 Legend: ✅ implemented · ➡️ next · ⬜ planned. Checked items describe implemented
 code; manual interface validation is listed separately.
@@ -40,7 +41,7 @@ code; manual interface validation is listed separately.
 ### ⬜ After the library works
 
 - [x] Stage 6 — shared container creator and explicit demo conversion.
-- [ ] **➡️ Stage 7 — replace fresh dummy discovery and finish regression coverage. START HERE.**
+- [x] Stage 7 — replace fresh dummy discovery and finish regression coverage.
 - [ ] Stage 8 — optional NPC embedding, linked dependencies by default and
   meaningful-interaction capture rules.
 
@@ -51,7 +52,7 @@ remaining stage as next.
 Stage 8 records a later user decision that will supersede the automatic snapshot
 capture policy from Stages 3–4. Until Stage 8 is implemented, the current behavior
 remains unchanged: matches, likes and connections can still capture NPC snapshots.
-Stage 6 is implemented; Stage 7 is the next implementation step.
+Stage 7 is implemented; Stage 8 remains a separate optional storage-policy task.
 
 ## 0. Fresh-context handoff — read this first
 
@@ -113,9 +114,10 @@ but its existence does not grant every player a phone conversation with it.
   producers. `appCharactersFromRegistry` supplies discovery, account validation
   and recipient context without changing player selection. Promotion retains pinned NPC projection keys and compatible historical aliases
   without rewriting timeline or checkpoint activity.
-- `datingAccounts.ts` still adds `datingNpcProfiles`; Fotogram/OnlyFriends still
-  combine `dummySocialPosts` with real posts and use independent bundled catalogs.
-  These are not yet NPC containers.
+- Fresh MatchMe no longer adds `datingNpcProfiles`; existing saves restore only
+  referenced legacy IDs. Fotogram/OnlyFriends no longer combine cosmetic
+  `dummySocialPosts` with real posts or seed runtime discovery from bundled
+  catalogs. Thirteen image-backed legacy Fotogram profiles are NPC containers.
 - MatchMe discovery now resolves selected photos from the effective character's
   gallery. Legacy demo accounts without gallery data show Photo unavailable.
 - Recipient-bound context includes the replying character's characterization,
@@ -937,7 +939,7 @@ for old demo activity and new photo-backed replacements belong to Stage 7.
 
 ### Stage 7 — replace fresh dummy discovery and finish regression coverage
 
-**Status: ➡️ NEXT — not started.**
+**Status: ✅ IMPLEMENTED.**
 
 Package the converted containers and remove corresponding hard-coded discovery
 sources only after equivalent registry-backed content is verified. Retain any
@@ -949,6 +951,26 @@ creation/import workflow, save compatibility and remaining manual checks.
 Leave interface and packaged-app interaction testing to the user. Broader NPC
 library editing, filesystem watching, deep links and source-revision update UI
 are subsequent work, not implicit prerequisites for the first usable library.
+
+Implemented by bundling the 13 legacy Fotogram identities backed by actual image
+files as validated Character Container V2 documents. Their readable filenames
+follow the character name (for example `luna-sky.json`), while stable character,
+account, image and post IDs retain compatibility. Each has an authored fictional
+description, personality, speech style, role and Fotogram bio based on the
+existing post theme. Its image is embedded once and referenced by the start post.
+
+Fresh runtime discovery no longer seeds the 200-entry social catalogs, adds
+cosmetic `dummySocialPosts`, or exposes the four image-less MatchMe cards. The
+social prompt lists only accounts in the effective character registry.
+Image-less catalog entries, text-only post authors and OnlyFriends templates
+without media are not packaged. Legacy MatchMe profiles are restored only when
+an existing save references their stable ID. Converted social IDs remain aliases
+for historical saved connections.
+
+The conversion CLI supports `--images-only` and produces readable filenames for
+the curated bundled set. `src/characters/stage7.test.ts` covers the packaged
+containers, registry profiles/posts, historical aliases and fresh placeholder
+removal. Character Container, Storybook and save format versions are unchanged.
 
 ### Stage 8 — optional NPC embedding and meaningful-interaction dependencies
 
@@ -1054,16 +1076,8 @@ user. No runtime behavior is changed merely by adding this stage to the plan.
 
 ### Suggested next implementation request
 
-For a fresh context, ask the agent to read `AGENTS.md` and this document, then
-implement Stage 7 using the shared creator, checked-in conversion map and verified
-import, registry, snapshot and app runtime. Read `character-creator.md` for known
-conversion limits. No legacy MatchMe portrait exists; do not assign new faces to
-old identities. Preserve old viewer-scoped cosmetic post activity and explicit
-legacy IDs. Require non-UI tests, build and lint; prohibit launching the
-app/browser/E2E. Keep format versions unchanged. Only replace hard-coded demo
-discovery after equivalent registry content and save compatibility are verified.
-Stage 8 remains a separate storage-policy task; its documented future default
-does not change the current snapshot behavior.
+Stage 7 is complete. Stage 8 remains a separate optional storage-policy task;
+its documented future default does not change the current snapshot behavior.
 
 ## 13. Validation and completion checklist
 

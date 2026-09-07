@@ -157,6 +157,18 @@ Current saves, discovery and runtime history stores are unchanged by Stage 6.
 Manual creation/import, reload, profile display and packaged-app validation remain
 with the user; automated tests cover the shared boundary and CLI round trips.
 
+Stage 7 packages only the 13 Fotogram identities backed by actual image files:
+
+```sh
+npm run character:convert-demos -- --output /tmp/rpgraph-image-demos --images-only
+```
+
+This filtered mode writes readable character-name filenames such as
+`luna-sky.json`. Image-less catalog identities, text-only authors, OnlyFriends
+templates without images and the four legacy MatchMe placeholders remain outside
+bundled discovery. The unfiltered command remains an explicit compatibility
+inventory and staging tool; it does not make those entries discoverable.
+
 ## Bundled image-backed MatchMe characters
 
 Seven independent fictional characters with explicit MatchMe and Fotogram

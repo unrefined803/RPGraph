@@ -161,7 +161,6 @@ import {
 } from '../chat/socialMedia';
 import {
   buildSocialDirectory,
-  bundledSocialUsers,
   establishedSocialHandle,
   searchSocialDirectory,
   socialConnectionIds,
@@ -736,8 +735,7 @@ export function verifyWorkflowValidationFixtures() {
       validFotogramName.available &&
       validFotogramName.handle === 'espen.afterdark' &&
       !unknownNpcName.available &&
-      bundledHandle.available &&
-      bundledHandle.handle === 'violetlane' &&
+      !bundledHandle.available &&
       !unknownHandle.available &&
       !unknownAtHandle.available &&
       inventedHandleConversation.issues.length > 0 &&
@@ -911,15 +909,8 @@ export function verifyWorkflowValidationFixtures() {
   const ryanSocialUser = socialDirectory.users.find((user) =>
     user.characterId === 'storybook:character:ryan-private'
   );
-  const bundledFotogramNames = new Set(
-    bundledSocialUsers
-      .filter((user) => user.handles.fotogram)
-      .map((user) => user.name.toLowerCase()),
-  );
   assertFixture(
-    bundledSocialUsers.filter((user) => user.handles.fotogram).length === 100 &&
-      bundledSocialUsers.filter((user) => user.handles.onlyfriends).length === 100 &&
-      bundledSocialIdentityContext('fotogram').some((line) =>
+    bundledSocialIdentityContext('fotogram').some((line) =>
         line === '- Luna Sky (@luna.sky)'
       ) &&
       bundledSocialIdentityContext('onlyfriends').some((line) =>
@@ -968,9 +959,7 @@ export function verifyWorkflowValidationFixtures() {
         'fotogram',
         'Unknown Person',
       ) === undefined &&
-      bundledSocialUsers
-        .filter((user) => user.handles.onlyfriends)
-        .every((user) => !bundledFotogramNames.has(user.name.toLowerCase())) &&
+      !socialDirectory.users.some((user) => user.source === 'bundled') &&
       searchSocialDirectory(socialDirectory.users, 'fotogram', 'es').length === 0 &&
       searchSocialDirectory(socialDirectory.users, 'fotogram', 'Espen').some((user) =>
         user.characterId === 'storybook:character:espen-private'
@@ -984,7 +973,7 @@ export function verifyWorkflowValidationFixtures() {
       sameNameDirectory.users.filter((user) =>
         user.source === 'dynamic' && user.name === 'Shared Name'
       ).length === 2,
-    'social directories must use separate 100-user catalogs and discover only eligible Storybook or runtime accounts',
+    'legacy catalogs must remain compatibility metadata while discovery includes only eligible character or runtime accounts',
   );
   const addedSocialConnections = zephiraSocialUser
     ? withSocialConnectionAdded(

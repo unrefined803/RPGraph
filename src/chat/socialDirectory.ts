@@ -1,6 +1,5 @@
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind } from '../types';
-import { bundledSocialIdentities } from './socialCatalogs';
 import { socialHandleForName, socialIdentityMatches } from './socialMedia';
 
 export type SocialDirectoryUser = {
@@ -127,20 +126,6 @@ function socialUserSlug(value: string) {
   return normalizedIdentity(value).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'user';
 }
 
-function bundledUsersForApp(app: SocialAppKind): SocialDirectoryUser[] {
-  return bundledSocialIdentities[app].map(({ name, handle }) => ({
-    id: `bundled:${app}:${normalizedIdentity(handle)}`,
-    name,
-    handles: { [app]: handle },
-    source: 'bundled',
-  }));
-}
-
-export const bundledSocialUsers: SocialDirectoryUser[] = [
-  ...bundledUsersForApp('fotogram'),
-  ...bundledUsersForApp('onlyfriends'),
-];
-
 function validSocialDirectoryUser(value: unknown): value is SocialDirectoryUser {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -217,8 +202,15 @@ function storybookSocialUsers(characters: StorybookCharacter[]): SocialDirectory
     }
     return [{
       id: `storybook:${character.npcOrigin ? character.sourceId : character.id}`,
-      aliases: [...new Set([character.id, character.sourceId, ...(character.identityAliases?.characterIds ?? [])])]
-        .map((id) => `storybook:${id}`),
+      aliases: [...new Set([
+        character.id,
+        character.sourceId,
+        ...(character.identityAliases?.characterIds ?? []),
+        ...(character.identityAliases?.accountIds?.fotogram ?? []),
+        ...(character.identityAliases?.accountIds?.onlyfriends ?? []),
+        character.apps?.fotogram?.accountId ?? '',
+        character.apps?.onlyfriends?.accountId ?? '',
+      ].flatMap((id) => id ? [id, `storybook:${id}`] : []))],
       name: character.name,
       handles: {
         ...(fotogram ? { fotogram } : {}),
@@ -296,7 +288,6 @@ export function buildSocialDirectory(options: {
   savedDynamicUsers?: DynamicSocialUsers;
 }) {
   const users = new Map<string, SocialDirectoryUser>();
-  bundledSocialUsers.forEach((user) => users.set(user.id, structuredClone(user)));
   storybookSocialUsers(options.storyCharacters).forEach((user) => users.set(user.id, user));
   Object.values(normalizeDynamicSocialUsers(options.savedDynamicUsers)).forEach((user) => {
     users.set(user.id, structuredClone(user));

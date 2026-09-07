@@ -1,5 +1,5 @@
 import { recipientCharacterContext } from '../characters/appRuntime';
-import type { ChatImageAttachment } from '../types';
+import type { ChatImageAttachment, MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { DatingGender } from './datingProfile';
 
@@ -19,8 +19,29 @@ export const datingAccountId = (character: string | StorybookCharacter) => typeo
   ? `storybook:${character}` : character.apps?.matchme?.accountId ?? `storybook:${character.id}`;
 
 /** Storybook links are explicit IDs; display names never merge accounts. */
-export function datingAccounts(characters: StorybookCharacter[]): DatingAccount[] {
-  const accounts: DatingAccount[] = [...datingNpcProfiles];
+function referencedLegacyDatingIds(characters: StorybookCharacter[], messages: MessageRecord[]) {
+  const knownIds = new Set(datingNpcProfiles.map((profile) => profile.id));
+  const referenced = new Set<string>();
+  characters.forEach((character) => {
+    const profile = character.social.plotTwist;
+    Object.keys(profile?.decisions ?? {}).forEach((id) => { if (knownIds.has(id)) referenced.add(id); });
+    profile?.messages?.forEach((message) => { if (knownIds.has(message.matchId)) referenced.add(message.matchId); });
+  });
+  messages.forEach((message) => {
+    message.matchMeMatch?.accountIds.forEach((id) => { if (knownIds.has(id)) referenced.add(id); });
+    const direct = message.socialDirectMessage;
+    if (direct?.app === 'matchme') {
+      [direct.fromAccountId, direct.toAccountId, direct.fromHandle, direct.toHandle]
+        .forEach((id) => { if (id && knownIds.has(id)) referenced.add(id); });
+    }
+  });
+  return referenced;
+}
+
+/** Image-less demo profiles are restored only when an existing save references them. */
+export function datingAccounts(characters: StorybookCharacter[], messages: MessageRecord[] = []): DatingAccount[] {
+  const legacyIds = referencedLegacyDatingIds(characters, messages);
+  const accounts: DatingAccount[] = datingNpcProfiles.filter((profile) => legacyIds.has(profile.id));
   for (const character of characters) {
     const profile = character.social.plotTwist;
     if (!profile) continue;

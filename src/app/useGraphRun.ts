@@ -105,11 +105,6 @@ import {
 import {
   establishedSocialHandle,
 } from '../chat/socialDirectory';
-import {
-  isBundledSocialHandle,
-  socialHandleFromCatalogIdentity,
-  withBundledSocialIdentityContext,
-} from '../chat/socialCatalogs';
 import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
@@ -1247,8 +1242,21 @@ export function useGraphRun(options: UseGraphRunOptions) {
         ? formatCurrentPhoneInput(inputText)
         : withSpeakerPrefix(inputCharacterName, inputText)));
     const socialCatalogApp = socialPost?.app ?? socialThreadAction?.app;
-    const executionOriginalInput = socialCatalogApp
-      ? withBundledSocialIdentityContext(originalInput, socialCatalogApp)
+    const availableSocialAccounts = socialCatalogApp
+      ? appCharacters().flatMap((character) => {
+          const account = character.apps?.[socialCatalogApp];
+          return account?.enabled && account.username.trim()
+            ? [`- ${character.name} (@${account.username.replace(/^@/, '')})`]
+            : [];
+        })
+      : [];
+    const executionOriginalInput = availableSocialAccounts.length
+      ? [originalInput,
+          '[AVAILABLE SOCIAL ACCOUNTS]',
+          'Use these exact existing name and handle pairs for social participants:',
+          ...availableSocialAccounts,
+          'Do not invent another social identity.',
+          '[/AVAILABLE SOCIAL ACCOUNTS]'].join('\n')
       : originalInput;
     const storedInputGraphText = socialDirectMessage?.app === 'matchme' ? originalInput : directActionOnly
       ? originalInput
@@ -2628,21 +2636,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
           const from = resolvedSender.name;
           const senderCharacter = resolvedSender.character;
-          const explicitOrCatalogHandle = socialHandleFromCatalogIdentity(
-            incoming.app,
-            incoming.from,
-            incoming.handle,
-          );
           const knownFromHandle = resolvedSender.handle ??
             (senderCharacter
               ? socialHandleForCharacter(senderCharacter, incoming.app)
               : establishedSocialHandle(messagesRef.current, incoming.app, from));
-          const fromHandle = senderCharacter
-            ? knownFromHandle ?? socialHandleForName(from)
-            : explicitOrCatalogHandle &&
-                (!knownFromHandle || isBundledSocialHandle(incoming.app, explicitOrCatalogHandle))
-              ? explicitOrCatalogHandle
-              : knownFromHandle ?? socialHandleForName(from);
+          const fromHandle = knownFromHandle ?? socialHandleForName(from);
           if (socialIdentityMatches(fromHandle, toHandle)) {
             reportRunWarning(
               `A ${socialAppNames[incoming.app]} direct message from "${from}" to themselves was ignored.`,

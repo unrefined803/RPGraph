@@ -16,7 +16,7 @@ export function isMatchMeMatch(value: unknown): value is MatchMeMatch {
 
 /** The structured timeline is the only authority, including after checkpoint restoration. */
 export function matchMeState(characters: StorybookCharacter[], messages: MessageRecord[]): MatchMeState {
-  const accounts = datingAccounts(characters);
+  const accounts = datingAccounts(characters, messages);
   const matches = new Map<string, MatchMeMatch>();
   for (const message of messages) {
     if (!isMatchMeMatch(message.matchMeMatch)) continue;

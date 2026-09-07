@@ -65,11 +65,10 @@ import {
   type SocialDirectMessageParticipant,
 } from './PhoneSocialDirectMessages';
 import {
-  dummySocialPosts,
   formatSocialCount,
   type SocialComment,
   type SocialPost,
-} from './dummyPosts';
+} from './socialPostPresentation';
 
 type SocialAccount = {
   key: string;
@@ -634,17 +633,7 @@ export function PhoneSocialFeedScreen({
     ...optimisticPosts.filter((post) => !persistedPostIds.has(post.id)),
     ...persistedPosts,
   ].filter((post) => !delayedPostIds.has(post.id));
-  // Cosmetic starter posts form the app's general home page. They are visible
-  // without adding their authors and do not imply a saved social connection.
-  const starterPosts = dummySocialPosts(
-    app,
-    owner?.id ?? 'no-account',
-    storyCharacters.map((character) => character.id),
-  );
-  const feedPosts = [
-    ...availablePosts,
-    ...starterPosts,
-  ];
+  const feedPosts = availablePosts;
   // The heart state belongs to the owner; the visible count adds one like
   // per player character that liked the post (persisted in the RP save).
   const likedPostIds = new Set(
@@ -1238,11 +1227,6 @@ export function PhoneSocialFeedScreen({
     ...connectedAccounts,
     ...directMessageCommentAccounts,
     ...dmPartnerAccounts,
-    ...starterPosts.map((post) => ({
-      key: `virtual-${app.id}-${post.authorHandle}`,
-      name: post.authorName,
-      handle: post.authorHandle,
-    })),
     ...persistedPosts.map((post) => ({
       key: `post-author-${app.id}-${post.authorHandle}`,
       name: post.authorName,

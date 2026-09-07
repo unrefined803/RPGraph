@@ -238,4 +238,18 @@ describe('shared container creator', () => {
       }
     }
   }, 30000);
+
+  it('stages only the thirteen image-backed legacy accounts for bundled discovery', async () => {
+    const output = join(directory, 'image-backed-demos');
+    await run(process.execPath, ['scripts/convert-demo-characters.mjs', '--output', output, '--images-only']);
+    const inventory = JSON.parse(readFileSync(join(output, 'conversion-map.json'), 'utf8'));
+    expect(inventory).toHaveLength(13);
+    expect(inventory.every((entry: { posts: { imagePath?: string }[] }) =>
+      entry.posts.some((post) => post.imagePath)
+    )).toBe(true);
+    const files = readdirSync(output).filter((file) => file !== 'conversion-map.json');
+    expect(files).toHaveLength(13);
+    expect(files).toContain('luna-sky.json');
+    expect(files.every((file) => /^[a-z0-9]+(?:-[a-z0-9]+)*\.json$/.test(file))).toBe(true);
+  }, 30000);
 });

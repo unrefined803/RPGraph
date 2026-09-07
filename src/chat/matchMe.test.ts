@@ -6,7 +6,7 @@ import { currentWorkflowFormatVersion } from '../workflow/version';
 import { sessionV2FromCurrentState, appStateFromSessionV2 } from '../data-management/sessionStore';
 import { isRpgraphSessionV2 } from '../data-management/validation';
 import { datingAccountId, datingAccounts, datingNpcProfiles, resolveDatingAccount } from './datingAccounts';
-import { canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMeState, migrateDatingHistory } from './matchMe';
+import { canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
 import { parseSocialDirectMessageOutput, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
 import { parseMessengerAppMessagesObject } from './phoneMessages';
 import { validateSocialMessengerAccounts } from './socialMessageValidation';
@@ -24,8 +24,8 @@ function character(id = 'mia', name = 'Mia'): StorybookCharacter {
 function fixture(partner = 'demo-alex') {
   const owner = character();
   const characters = [owner];
-  const state = matchMeState(characters, []);
-  const match = matchMeLikePolicy(datingAccountId(owner.id), partner, state, now)!;
+  const accountIds = [datingAccountId(owner.id), partner].sort() as [string, string];
+  const match = { id: matchMePairId(...accountIds), accountIds, matchedAt: now, status: 'active' as const };
   const messages: MessageRecord[] = [{ id: 1, role: 'user', originalText: 'Display text can change.', includeInHistory: true, matchMeMatch: match }];
   const active = matchMeState(characters, messages);
   const outgoing = incomingMatchMeMessage(datingAccountId(owner.id), partner, 'Hello', active, 'outgoing-1', now)!;
@@ -34,7 +34,7 @@ function fixture(partner = 'demo-alex') {
 const replyJson = (from = 'demo-alex', to = datingAccountId('mia')) => JSON.stringify({ matchMeApp: [{ from, to, message: 'Hi!' }] });
 
 describe('MatchMe permissions and identity', () => {
-  it.each(datingNpcProfiles.map((profile) => profile.id))('automatically matches %s once, in both directions', (id) => {
+  it.each(datingNpcProfiles.map((profile) => profile.id))('restores legacy match %s once, in both directions', (id) => {
     const { state, owner, match } = fixture(id);
     const ownerId = datingAccountId(owner.id);
     expect(canSendMatchMeMessage(ownerId, id, state)).toBe(true);
@@ -42,6 +42,11 @@ describe('MatchMe permissions and identity', () => {
     expect(matchMeLikePolicy(ownerId, id, state, now)).toBeUndefined();
     expect(matchMeLikePolicy(id, ownerId, state, now)).toBeUndefined();
     expect(isMatchMeMatch(match)).toBe(true);
+  });
+  it('does not expose image-less legacy profiles in fresh discovery', () => {
+    expect(matchMeState([character()], []).accounts.map((account) => account.id)).not.toEqual(
+      expect.arrayContaining(datingNpcProfiles.map((profile) => profile.id)),
+    );
   });
   it('rejects self, unknown, ambiguous IDs, inactive matches and visible history claims', () => {
     const { state, characters, owner, match } = fixture();
@@ -75,7 +80,9 @@ describe('MatchMe permissions and identity', () => {
   });
   it('isolates conversation history by stable match IDs after profile changes', () => {
     const { owner, messages, state, outgoing } = fixture();
-    const otherMatch = matchMeLikePolicy(datingAccountId(owner.id), 'demo-robin', state, now)!;
+    const otherAccountIds = [datingAccountId(owner.id), 'demo-robin'].sort() as [string, string];
+    const otherMatch = { id: matchMePairId(...otherAccountIds), accountIds: otherAccountIds,
+      matchedAt: now, status: 'active' as const };
     const otherState = { ...state, matches: [...state.matches, otherMatch] };
     const unrelated = incomingMatchMeMessage('demo-robin', datingAccountId(owner.id), 'Unrelated private conversation', otherState, 'other', now)!;
     const input = socialDirectMessageInputText(outgoing, [...messages, { id: 2, role: 'output', originalText: '', socialDirectMessage: unrelated }], [owner]);
