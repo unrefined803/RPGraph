@@ -139,9 +139,10 @@ but its existence does not grant every player a phone conversation with it.
   validation boundary used by both TypeScript import and Electron discovery.
   Electron's general stored-file metadata recognition remains intentionally
   shallower and must not replace this boundary in future creation tooling.
-- `resources/npc-characters/` currently contains its packaging README; `bilder/` is absent. Earlier
-  references to supplied image groups are historical, not confirmed inputs.
-  Locate actual supplied images before authoring containers; preserve originals.
+- Seven authored image-backed MatchMe/Fotogram containers are bundled under
+  `resources/npc-characters/`. Their former source PNG directory was removed
+  after conversion; the blob-free inspect/edit workflow can preserve, extract,
+  unlink, replace or add embedded media without requiring those sources.
 
 ### Validation baseline and scope
 
@@ -607,10 +608,9 @@ A future request such as “create a character from these two images” should r
 in an authored specification plus invocation of this service, not another
 hard-coded app dataset. The service itself needs no LLM connection.
 
-After the registry/app/save integration is validated, locate the images actually
-provided for this task and confirm their grouping. An earlier plan mentioned
-`bilder/` and seven groups, but that directory is not currently available; do not
-invent files or treat that old grouping as current input.
+Supplied source groups are converted once and may be removed after the completed
+containers pass validation. Use the blob-free packed-container edit specification
+for later revisions; extract only the embedded JPEG that needs pixel-level work.
 Write fictional names, adult ages, biographies, personalities and speech styles
 suited to the intended characters; do not present inferred occupations or
 personalities as facts about the photographed people. Keep source files intact.
@@ -900,11 +900,19 @@ round-trip with stable references, and produce the expected profiles/posts.
 The CLI and UI export must not implement different container formats.
 
 Implemented through `src/characters/creator.ts`, shared by UI character export
-and the creation CLI. Local JPEG/PNG/WebP inputs are decoded into embedded JPEG
-through ImageMagick 7 without launching the application. IDs and keyed media/post
+and the creation CLI. Local JPEG/PNG/WebP inputs are decoded, limited to one
+megapixel and 200 KiB, and embedded as JPEG through ImageMagick 7 without
+launching the application. IDs and keyed media/post
 references remain stable across explicit revisions. Completed containers use the
 existing shared validator; explicit CLI installation publishes atomically into
 the selected user library and respects existing arbitrary basenames.
+
+Packed containers can also be inspected as blob-free
+`rpgraph-character-edit` 1.0.0 specifications and revised atomically. Existing
+JPEG bytes remain exact unless an image is explicitly replaced; references and
+gallery membership can be edited independently, and individual images can be
+extracted for external pixel-level work. The same validation boundary rejects
+dangling media or identity changes before publication.
 
 `src/characters/demoConversion.ts` and `character:convert-demos` convert 200
 app-scoped social identities and four separate legacy MatchMe identities into

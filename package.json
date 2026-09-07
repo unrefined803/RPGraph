@@ -38,6 +38,8 @@
     "desktop:windows": "node scripts/run-electron.mjs",
     "character:migrate-v3": "node scripts/migrate-character-v3.mjs",
     "character:create": "node scripts/create-character-container.mjs",
+    "character:inspect": "node scripts/inspect-character-container.mjs",
+    "character:edit": "node scripts/edit-character-container.mjs",
     "character:convert-demos": "node scripts/convert-demo-characters.mjs"
   },
   "dependencies": {

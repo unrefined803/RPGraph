@@ -13,15 +13,15 @@ npm run character:create -- --input docs/examples/character-specification.json -
 ```
 
 Local JPEG, PNG and WebP conversion requires ImageMagick 7 (`magick` on PATH).
-The CLI decodes and auto-orients images, flattens transparency onto white,
-removes metadata and encodes JPEG at quality 90. Animated/multi-frame files
-are rejected. Embedded galleries in existing V2 containers need no converter.
-Image dimensions and byte sizes describe the output JPEG, not the source.
-Original files are read only. No Electron, browser, LLM or UI is launched.
+The CLI decodes and auto-orients images, limits them to one megapixel, flattens
+transparency onto white, removes metadata and encodes JPEG with an upper quality
+of 84 and a hard 200 KiB size limit. Animated/multi-frame files are rejected.
+Embedded galleries in existing V2 containers need no converter. Image dimensions
+and byte sizes describe the output JPEG, not the source. Original files are read
+only. No Electron, browser, LLM or UI is launched.
 
 The example is authored fiction using existing landscape media. It is a new
 identity, unrelated to every legacy demo and to the Stage 4 fixture.
-No additional supplied person-image directory was found during Stage 6.
 
 Input is a character specification or an existing plain V2 container. Required:
 `name`; all other character fields use the canonical model. Local `images`
@@ -70,6 +70,49 @@ No new UI creator/install button was added; UI exports use the common service,
 and CLI installation is explicit. Storybook import and Add to Storybook use the
 existing promotion/import flow.
 
+## Inspect and edit a packed container
+
+Inspection produces a complete, small edit specification without embedded
+base64 payloads. Existing images retain their IDs and show only editable labels
+plus read-only embedded metadata:
+
+```sh
+npm run character:inspect -- --input resources/npc-characters/luca-reed.json --output /tmp/luca-edit.json
+```
+
+Edit the resulting character fields, accounts, profiles, references and posts as
+normal JSON. Existing image entries with `embedded` metadata reuse the exact JPEG
+bytes from the source container. A new image uses
+`{id, path, name, description}`; adding `path` to an existing image ID replaces
+that image. Local paths resolve relative to the edit specification. Added and
+replaced images pass through the same JPEG, one-megapixel and 200-KiB conversion
+as newly created characters.
+
+Apply the revision to a separate file, or explicitly overwrite in place:
+
+```sh
+npm run character:edit -- --input resources/npc-characters/luca-reed.json --spec /tmp/luca-edit.json --output /tmp/luca-revised.json
+npm run character:edit -- --input resources/npc-characters/luca-reed.json --spec /tmp/luca-edit.json --overwrite
+```
+
+Removing a reference does not remove the gallery image. Remove an image entry
+only after clearing or changing its portrait, avatar, MatchMe photo and initial
+post references. Final validation rejects dangling references, duplicate IDs and
+an active MatchMe profile without one to three photos before replacing a target.
+Character IDs and retained account IDs cannot change in a revision.
+
+Extract one embedded JPEG for pixel-level work without unpacking the complete
+container:
+
+```sh
+npm run character:inspect -- --input resources/npc-characters/luca-reed.json --extract-image authored-matchme-m1:image:day-drive --image-output /tmp/luca-day-drive.jpg
+```
+
+Inspection specifications and extracted images are protected from replacement
+unless `--overwrite` is explicit. All writes are atomic. The edit specification
+format is `rpgraph-character-edit` 1.0.0 and is an authoring aid, not a runtime
+container or application format.
+
 ## Explicit legacy conversion
 
 ```sh
@@ -113,3 +156,12 @@ It does not claim lossless cosmetic conversion or migration of existing saves.
 Current saves, discovery and runtime history stores are unchanged by Stage 6.
 Manual creation/import, reload, profile display and packaged-app validation remain
 with the user; automated tests cover the shared boundary and CLI round trips.
+
+## Bundled image-backed MatchMe characters
+
+Seven independent fictional characters with explicit MatchMe and Fotogram
+profiles are checked in under `resources/npc-characters/`. Their supplied source
+PNGs were converted and embedded once, then removed after the inspect/edit path
+proved a byte-preserving round trip. Future metadata, account, reference and
+media changes use the packed-container workflow above. Stable character, account,
+image and post IDs make each result a revision rather than a new identity.
