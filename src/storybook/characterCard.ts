@@ -1,3 +1,4 @@
+import { createCharacterContainer } from '../characters/creator';
 import { withPublicationSnapshot } from '../characters/publications';
 import type { SocialPostRecord } from '../types';
 import { validateCharacterAccountDirectory } from '../characters/profiles';
@@ -30,12 +31,7 @@ export function rpCharacterCardForCharacter(character: RpStorybookCharacter, opt
   const exported = options?.includePosts
     ? withPublicationSnapshot(character, options.posts ?? [], options.gallery ?? character.images)
     : structuredClone(character);
-  const payload = characterPayload(exported, true);
-  for (const [app, account] of Object.entries(payload.apps)) {
-    if (!options?.includePosts || (app !== 'fotogram' && app !== 'onlyfriends')) delete account.initialPosts;
-  }
-  validateCharacterPayload(payload);
-  return { format: 'rpgraph-character', version: currentRpCharacterCardVersion, character: payload };
+  return createCharacterContainer(exported, options?.includePosts);
 }
 
 export type CharacterCardImportPlan = {

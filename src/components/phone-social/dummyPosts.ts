@@ -67,7 +67,7 @@ function comment(authorName: string, authorHandle: string, text: string): Omit<S
 // The two platforms intentionally use separate, hand-written pools. The seeded
 // selection below makes every character's starting feed feel individual while
 // keeping it stable when the app is reopened.
-const dummyPostPools: Record<SocialAppConfig['id'], readonly DummyPostTemplate[]> = {
+export const dummyPostPools: Record<SocialAppConfig['id'], readonly DummyPostTemplate[]> = {
   fotogram: [
     {
       id: 'lake-run',

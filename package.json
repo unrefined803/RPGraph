@@ -36,7 +36,9 @@
     "desktop": "node scripts/run-electron.mjs --no-sandbox",
     "desktop:windows:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev\"",
     "desktop:windows": "node scripts/run-electron.mjs",
-    "character:migrate-v3": "node scripts/migrate-character-v3.mjs"
+    "character:migrate-v3": "node scripts/migrate-character-v3.mjs",
+    "character:create": "node scripts/create-character-container.mjs",
+    "character:convert-demos": "node scripts/convert-demo-characters.mjs"
   },
   "dependencies": {
     "@toon-format/toon": "^2.3.0",

@@ -95,7 +95,9 @@ export function socialFromCharacterApps(apps: CharacterApps): RpStorybookCharact
 }
 
 /** Materialize one canonical payload, retaining gallery bytes only in images. */
-export function characterPayload(character: Character, portable = false) {
+export function characterPayload(character: Omit<Character, 'profileImage'> & {
+  profileImage?: Pick<RpStorybookCharacterProfileImage, 'imageId' | 'crop'>;
+}, portable = false) {
   const { social, profileImage, ...rest } = character;
   const apps = normalizeCharacterApps(character.apps, social, character.id, character.name);
   if (portable && apps.matchme?.profile) {
