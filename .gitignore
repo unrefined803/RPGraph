@@ -54,3 +54,6 @@ user_data/
 
 # spec driven dev docs and tooling
 openspec/
+# Local face detection environment and downloaded model
+.face-tools/
+__pycache__/

@@ -102,6 +102,18 @@ Fotogram is provisioned for authored characters under the current normalization;
 other accounts remain optional. A character container can carry phone settings,
 but its existence does not grant every player a phone conversation with it.
 
+### Portrait persistence and authoring
+
+Portraits retain a gallery `imageId` and optional `crop: { x, y, size }` in V2.
+Runtime avatar projections apply the crop after loading; they do not replace it
+with the uncropped gallery photo. Missing portraits use initials, and image-only
+portraits remain valid for scenery or objects. New CLI-authored characters can
+receive a local automatic face crop; existing manual choices remain editable.
+See [character creator portrait tooling](character-creator.md#portraits-and-automatic-face-crops)
+for setup, batch backfill, primary image selection and no-face behavior.
+The seven authored NPC portraits have been backfilled; the thirteen legacy scene
+profiles retain initials. Manual interface validation remains with the user.
+
 ### Confirmed implementation gaps and compatibility traps
 
 - `src/characters/character.ts`, `profiles.ts`, `publications.ts` and

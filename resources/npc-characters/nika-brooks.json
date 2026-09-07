@@ -61,7 +61,12 @@
       }
     },
     "profileImage": {
-      "imageId": "authored-matchme-f3:image:studio-selfie"
+      "imageId": "authored-matchme-f3:image:studio-selfie",
+      "crop": {
+        "x": 23.369687,
+        "y": 17.003133,
+        "size": 47.332215
+      }
     }
   }
 }

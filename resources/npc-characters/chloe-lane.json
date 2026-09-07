@@ -77,7 +77,12 @@
       }
     },
     "profileImage": {
-      "imageId": "authored-matchme-f2:image:home-mirror"
+      "imageId": "authored-matchme-f2:image:home-mirror",
+      "crop": {
+        "x": 25.352349,
+        "y": 9.189794,
+        "size": 33.635347
+      }
     }
   }
 }

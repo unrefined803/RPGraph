@@ -10,6 +10,7 @@ try {
     specification: { type: 'string' },
     output: { type: 'string' },
     overwrite: { type: 'boolean', default: false },
+    'detect-faces': { type: 'boolean', default: false },
   } });
   const requestedSpecification = values.specification ?? values.spec;
   if (!values.input || !requestedSpecification) {
@@ -21,7 +22,7 @@ try {
   if (output === input && !values.overwrite) throw new Error('Editing a container in place requires --overwrite.');
   const container = JSON.parse(await readFile(input, 'utf8'));
   const specification = JSON.parse(await readFile(specificationPath, 'utf8'));
-  const edited = await createEditedCharacterContainer(container, specification, dirname(specificationPath));
+  const edited = await createEditedCharacterContainer(container, specification, dirname(specificationPath), { detectFace: values['detect-faces'] });
   await writeContainerAtomic(output, edited, values.overwrite);
   console.log(`Created Character Container ${edited.version} revision: ${output}`);
 } catch (error) {

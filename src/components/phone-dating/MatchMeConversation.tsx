@@ -1,8 +1,10 @@
+import { CharacterAvatar } from '../CharacterAvatar';
 import { useEffect, useRef, useState } from 'react';
 import type { DatingMessage } from '../../chat/datingMessages';
 
 type Props = {
   name: string;
+  avatarDataUrl?: string;
   busy: boolean;
   age: number;
   messages: DatingMessage[];
@@ -15,7 +17,7 @@ type Props = {
   onBack: () => void;
 };
 
-export function MatchMeConversation({ busy, name, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, onUseEmoji, onSend, onBack }: Props) {
+export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, onUseEmoji, onSend, onBack }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -57,12 +59,12 @@ export function MatchMeConversation({ busy, name, age, messages, draft, onDraftC
   return <section className="phone-social-dm pt-conversation" aria-label={`Conversation with ${name}`}>
     <header className="phone-social-dm-header conversation">
       <button type="button" onClick={onBack} aria-label="Back to Discover">‹</button>
-      <span className="pt-match-avatar" aria-hidden="true">{name[0]}</span>
+      <CharacterAvatar className="pt-match-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
       <div><strong>{name}, {age}</strong><span>Active match · Private conversation</span></div>
     </header>
     <div className="phone-social-dm-thread" ref={threadRef} role="log" aria-label={`Messages with ${name}`} aria-live="polite" aria-relevant="additions">
       {!messages.length && <div className="phone-social-dm-empty conversation-empty">
-        <span className="pt-match-avatar" aria-hidden="true">{name[0]}</span>
+        <CharacterAvatar className="pt-match-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
         <strong>You matched with {name}</strong><small>Say hello or break the ice with an emoji.</small>
       </div>}
       {messages.map((message) => <div key={message.id} className={`phone-social-dm-message-row ${message.sender === 'owner' ? 'outgoing' : 'incoming'}`}>

@@ -61,7 +61,12 @@
       }
     },
     "profileImage": {
-      "imageId": "authored-matchme-m3:image:terrace-dinner"
+      "imageId": "authored-matchme-m3:image:terrace-dinner",
+      "crop": {
+        "x": 20.620805,
+        "y": 14.803044,
+        "size": 49.58613
+      }
     }
   }
 }

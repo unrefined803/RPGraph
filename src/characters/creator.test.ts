@@ -16,7 +16,7 @@ const galleryImageMaxPixels = 1_000_000;
 const galleryImageMaxBytes = 200 * 1024;
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 const fixture = JSON.parse(readFileSync('src/characters/fixtures/stage4-npc.json', 'utf8'));
-const cli = (args: string[]) => run(process.execPath, ['scripts/create-character-container.mjs', ...args], { encoding: 'utf8' });
+const cli = (args: string[]) => run(process.execPath, ['scripts/create-character-container.mjs', '--skip-face-detection', ...args], { encoding: 'utf8' });
 const inspectCli = (args: string[]) => run(process.execPath, ['scripts/inspect-character-container.mjs', ...args], { encoding: 'utf8' });
 const editCli = (args: string[]) => run(process.execPath, ['scripts/edit-character-container.mjs', ...args], { encoding: 'utf8' });
 

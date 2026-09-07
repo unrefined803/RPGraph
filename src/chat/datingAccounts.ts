@@ -1,3 +1,4 @@
+import { appAvatarDataUrl } from '../characters/portrait';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import type { ChatImageAttachment, MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -12,7 +13,7 @@ export const datingNpcProfiles = [
 
 export type DatingAccount = {
   id: string; characterId?: string; aliases?: string[]; name: string; age: number; gender?: DatingGender;
-  photos?: ChatImageAttachment[]; recipientContext?: string; libraryNpc?: boolean;
+  avatarDataUrl?: string; photos?: ChatImageAttachment[]; recipientContext?: string; libraryNpc?: boolean;
   bio: string; interests: string[]; personality: string; color: string;
 };
 export const datingAccountId = (character: string | StorybookCharacter) => typeof character === 'string'
@@ -47,6 +48,7 @@ export function datingAccounts(characters: StorybookCharacter[], messages: Messa
     if (!profile) continue;
     accounts.push({ id: datingAccountId(character), characterId: character.id,
       photos: (profile.photoIds ?? []).flatMap((id) => character.images?.find((image) => image.id === id) ?? []),
+      avatarDataUrl: appAvatarDataUrl(character, character.images?.find((image) => image.id === character.apps?.matchme?.avatarImageId)),
       recipientContext: recipientCharacterContext(character), libraryNpc: character.libraryNpc,
       aliases: [...(character.identityAliases?.accountIds?.matchme ?? []), ...(character.identityAliases?.characterIds ?? []).map(datingAccountId), datingAccountId(character.id), character.name, character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
       name: profile.name, age: profile.age, gender: profile.gender, bio: profile.bio,

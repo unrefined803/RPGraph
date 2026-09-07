@@ -24,15 +24,15 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
     <p>Fotogram is included. Other accounts can be created at any time.</p>
     {(['fotogram', 'onlyfriends', 'matchme'] as const).map((app) => <div key={app} className="character-account-row">
       <strong>{app === 'fotogram' ? 'Fotogram' : app === 'onlyfriends' ? 'OnlyFriends' : 'MatchMe'}</strong>
-      <span>{apps[app]?.enabled ? ` — ${apps[app]?.displayName} ${apps[app]?.username ? `(@${apps[app]?.username})` : ''}` : ' — Not configured'}</span>
+      <span>{apps[app]?.enabled ? ` — ${apps[app]?.displayName}` : ' — Not configured'}</span>
       <button type="button" onClick={() => setEditingApp(app)}>{apps[app]?.enabled ? 'Open / edit profile' : 'Set up profile'}</button>
     </div>)}
     {error && <p role="alert">{error}</p>}
-    {editingApp && editingApp !== 'matchme' && <SocialProfileEditor key={editingApp}
+    {(editingApp === 'fotogram' || editingApp === 'onlyfriends') && <SocialProfileEditor key={editingApp} app={editingApp}
       account={apps[editingApp]} accountId={`character:${character.id}:${editingApp}`} name={character.name}
-      images={character.images} locked={locked} onCancel={() => setEditingApp(null)}
-      onSave={(account) => save(withCharacterAppProfile(character, editingApp, account))} />}
-    {editingApp === 'matchme' && <PhoneDatingScreen key="profile" profileOnly identityLocked={locked}
+      images={character.images} profileImage={character.profileImage} locked={locked} onCancel={() => setEditingApp(null)}
+      onSave={(account) => { const saved = save(withCharacterAppProfile(character, editingApp, account)); if (saved) setEditingApp(null); return saved; }} />}
+    {editingApp === 'matchme' && <PhoneDatingScreen key="profile" profileOnly
       owner={{ id: character.id, sourceId: character.id, storybookNodeId: '', kind: 'character', name: character.name,
         label: character.name, profile: character, apps, social: socialFromCharacterApps(apps),
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(), banking: character.banking ?? defaultRpStorybookCharacterBanking() }}

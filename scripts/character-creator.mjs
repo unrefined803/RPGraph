@@ -1,3 +1,4 @@
+import { ensureFaceCrop } from './character-faces.mjs';
 import { build } from 'esbuild';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -50,7 +51,7 @@ export async function readGalleryImage(file, metadata) {
     dataUrl: `data:image/jpeg;base64,${stdout.toString('base64')}` };
 }
 
-export async function createFromSpecification(document, directory, newId = randomUUID) {
+export async function createFromSpecification(document, directory, newId = randomUUID, { detectFace = true, faceDetector } = {}) {
   if (document.format !== undefined) validator.validateCharacterContainer(document);
   const source = structuredClone(document.character ?? document);
   source.id ??= newId();
@@ -76,6 +77,7 @@ export async function createFromSpecification(document, directory, newId = rando
     images.push(image);
   }
   source.images = images;
+  if (detectFace && document.format === undefined) await ensureFaceCrop(source, faceDetector);
   for (const [app, account] of Object.entries(source.apps ?? {})) {
     if (account.initialPosts) account.initialPosts = account.initialPosts.map((post) => {
       const { key, id, text, imageId } = post;
@@ -112,7 +114,7 @@ export function editableCharacterSpecification(container) {
 }
 
 /** Apply a blob-free edit specification while preserving untouched embedded JPEG bytes exactly. */
-export async function createEditedCharacterContainer(container, editSpecification, directory) {
+export async function createEditedCharacterContainer(container, editSpecification, directory, options = { detectFace: false }) {
   validator.validateCharacterContainer(container);
   if (editSpecification?.format !== characterEditFormat || editSpecification?.version !== characterEditVersion ||
       editSpecification?.sourceCharacterId !== container.character.id ||
@@ -152,7 +154,7 @@ export async function createEditedCharacterContainer(container, editSpecificatio
     revisedImages.push({ ...existing, name: input.name ?? existing.name, description: input.description ?? existing.description });
   }
   source.images = revisedImages;
-  return createFromSpecification(source, directory, () => { throw new Error('A character edit cannot allocate a new identity.'); });
+  return createFromSpecification(source, directory, () => { throw new Error('A character edit cannot allocate a new identity.'); }, options);
 }
 
 export function embeddedImageBytes(container, imageId) {

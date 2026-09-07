@@ -1,3 +1,4 @@
+import { portraitDataUrl } from './portrait';
 import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterPhoneSettings } from '../nodes/rp-storybook/model';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { socialFromCharacterApps } from './character';
@@ -15,7 +16,7 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
       profile: { name: character.name, description: character.description,
         personality: character.personality, speechStyle: character.speechStyle, role: character.role },
       apps: character.apps, social: socialFromCharacterApps(character.apps ?? {}), images: character.images,
-      ...(character.profileImage ? { profileImage: { ...character.profileImage, ...(portrait ? { dataUrl: portrait.dataUrl } : {}) } } : {}),
+      ...(character.profileImage ? { profileImage: { ...character.profileImage, ...(portrait ? { dataUrl: portraitDataUrl(portrait, character.profileImage.crop) } : {}) } } : {}),
       phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
       banking: character.banking ?? defaultRpStorybookCharacterBanking(),
       comfyConfig: character.comfyConfig, voiceConfig: character.voiceConfig,

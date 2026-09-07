@@ -1,3 +1,4 @@
+import { withCharacterPortrait } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { socialFromCharacterApps, type CharacterApps } from '../characters/character';
 import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
@@ -1125,7 +1126,7 @@ const storybookFormattedTextSettingControls: Array<{
 
 type StorybookImageOwner = { kind: 'character'; characterId: string };
 type CharacterImagesDialogMode = 'images' | 'profile';
-type ProfileCrop = RpStorybookCharacterProfileImage['crop'];
+type ProfileCrop = NonNullable<RpStorybookCharacterProfileImage['crop']>;
 
 function storybookImageOwnerKey(owner: StorybookImageOwner) {
   return `character:${owner.characterId}`;
@@ -1178,12 +1179,12 @@ function withStorybookImageOwnerImages(
 function withStorybookCharacterProfileImage(
   storybook: RpStorybook,
   owner: StorybookImageOwner,
-  profileImage: RpStorybookCharacterProfileImage,
+  profileImage: RpStorybookCharacterProfileImage | undefined,
 ): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
-      character.id === owner.characterId ? { ...character, profileImage } : character
+      character.id === owner.characterId ? withCharacterPortrait(character, profileImage) : character
     ),
   };
 }
@@ -1516,7 +1517,7 @@ function ProfilePickDialog({
     image.width && image.height ? image.width / image.height : 1
   );
   const [crop, setCrop] = useState<ProfileCrop>(() =>
-    currentProfileImage?.imageId === image.id
+    currentProfileImage?.imageId === image.id && currentProfileImage.crop
       ? currentProfileImage.crop
       : centeredProfileCrop(image.width && image.height ? image.width / image.height : 1)
   );
@@ -1651,6 +1652,9 @@ function ProfilePickDialog({
         <div className="profile-pick-actions">
           <button className="inspect-button nodrag" type="button" onClick={onClose}>
             Cancel
+          </button>
+          <button className="inspect-button nodrag" type="button" onClick={() => onApply({ imageId: image.id, dataUrl: image.dataUrl })}>
+            Use Full Image
           </button>
           <button className="contextual-action-button nodrag" type="button" onClick={() => void applyProfileImage()}>
             Apply
@@ -2037,6 +2041,12 @@ function CharacterImagesDialog({
             >
               Change Profile Pic
             </button>
+            {profileImage && <button className="inspect-button nodrag" type="button" onClick={() => {
+              onUpdateStorybook(withStorybookCharacterProfileImage(storybook, owner, undefined), `Cleared profile pic for ${characterName}.`);
+              setStatus('Character profile pic cleared.');
+            }}>
+              Clear Profile Pic
+            </button>}
             <button
               className="inspect-button nodrag"
               type="button"

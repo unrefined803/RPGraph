@@ -1,3 +1,4 @@
+import { portraitDataUrl } from '../../characters/portrait';
 import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../../characters/npcParticipants';
 import { withCharacterAppProfile } from '../../characters/profiles';
 import { normalizeCharacterApps, socialFromCharacterApps, characterPayload, type Character } from '../../characters/character';
@@ -42,7 +43,7 @@ export type RpStorybookCharacterImageOwner = {
 export type RpStorybookCharacterProfileImage = {
   imageId: string;
   dataUrl: string;
-  crop: {
+  crop?: {
     x: number;
     y: number;
     size: number;
@@ -450,12 +451,13 @@ function normalizeCharacterProfileImage(
   }
   const crop = recordValue(profileImage.crop);
   const size = percentValue(crop.size);
+  if (profileImage.crop === undefined) return { imageId, dataUrl };
   if (size === undefined || size <= 0) {
     return undefined;
   }
   return {
     imageId,
-    dataUrl,
+    dataUrl: portraitDataUrl(image, { x: percentValue(crop.x) ?? 0, y: percentValue(crop.y) ?? 0, size }),
     crop: {
       x: percentValue(crop.x) ?? 0,
       y: percentValue(crop.y) ?? 0,

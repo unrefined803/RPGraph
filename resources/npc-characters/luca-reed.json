@@ -77,7 +77,12 @@
       }
     },
     "profileImage": {
-      "imageId": "authored-matchme-m1:image:day-drive"
+      "imageId": "authored-matchme-m1:image:day-drive",
+      "crop": {
+        "x": 17.346197,
+        "y": 14.420322,
+        "size": 49.759508
+      }
     }
   }
 }

@@ -1,3 +1,4 @@
+import { appAvatarDataUrl } from '../../characters/portrait';
 import { postsWithInitialContent } from '../../characters/publications';
 import { SocialProfileEditor } from './SocialProfileEditor';
 import type { CharacterAppAccount } from '../../characters/character';
@@ -1185,14 +1186,14 @@ export function PhoneSocialFeedScreen({
     );
   }
 
-  if (editingProfile && owner) return <SocialProfileEditor account={owner.apps?.[app.id]}
-    accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} images={phoneGalleryImages}
+  if (editingProfile && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]}
+    accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages}
     locked={socialMediaMessages.length > 0 || bankTransferMessages.length > 0}
-    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) setAccount(profile.username); return saved; }}
+    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) { setAccount(profile.username); setEditingProfile(false); } return saved; }}
     onCancel={() => setEditingProfile(false)} />;
-  if (!account && owner) return <SocialProfileEditor accountId={`character:${owner.sourceId}:${app.id}`}
-    name={owner.name} images={phoneGalleryImages} locked={false}
-    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) setAccount(profile.username); return saved; }}
+  if (!account && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]} accountId={`character:${owner.sourceId}:${app.id}`}
+    name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages} locked={false}
+    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) { setAccount(profile.username); setEditingProfile(false); } return saved; }}
     onCancel={onBack} />;
   if (!account) return <p>Select a character to open this app.</p>;
 
@@ -1369,7 +1370,7 @@ export function PhoneSocialFeedScreen({
                 className="phone-avatar"
                 name={owner?.name ?? account}
                 fallback={(owner?.name ?? account).slice(0, 1).toUpperCase()}
-                profileImageDataUrl={(owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId)?.dataUrl : undefined) ?? owner?.profileImage?.dataUrl}
+                profileImageDataUrl={appAvatarDataUrl(owner, owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId) : undefined)}
                 style={ownerColor ? { borderColor: ownerColor, color: ownerColor } : undefined}
               />
               <span className="phone-social-account-main">
@@ -1377,7 +1378,6 @@ export function PhoneSocialFeedScreen({
                 <span>@{account}</span>
               </span>
             </button>
-            <button type="button" onClick={() => setEditingProfile(true)}>Edit profile</button>
             <p>{owner?.apps?.[app.id]?.bio}</p>
             {followedAccounts.map((entry) => {
               const color = entry.character ? characterColors.get(entry.character.name) : undefined;
@@ -1398,7 +1398,7 @@ export function PhoneSocialFeedScreen({
                     className="phone-avatar"
                     name={entry.name}
                     fallback={entry.name.slice(0, 1).toUpperCase()}
-                    profileImageDataUrl={(entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!, entry.character.sourceId)?.dataUrl : undefined) ?? entry.character?.profileImage?.dataUrl}
+                    profileImageDataUrl={appAvatarDataUrl(entry.character, entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!, entry.character.sourceId) : undefined)}
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
@@ -1420,6 +1420,7 @@ export function PhoneSocialFeedScreen({
             })}
           </div>
           <div className="phone-social-sidebar-actions">
+            <button type="button" className="phone-social-sidebar-button" onClick={() => setEditingProfile(true)}>Edit Profile</button>
             {addingPerson && (
               <form className="phone-social-add-user" onSubmit={submitUserSearch}>
                 <input
@@ -1443,8 +1444,8 @@ export function PhoneSocialFeedScreen({
                             type="button"
                             onClick={() => addSocialUser(user)}
                             disabled={alreadyAdded}
-                            aria-label={alreadyAdded ? `${user.name} already added` : `Add ${user.name}`}
-                            title={alreadyAdded ? 'Already added' : 'Add user'}
+                            aria-label={alreadyAdded ? `${user.name} already followed` : `Follow ${user.name}`}
+                            title={alreadyAdded ? 'Already following' : 'Follow user'}
                           >
                             {alreadyAdded ? '✓' : '+'}
                           </button>
@@ -1467,7 +1468,7 @@ export function PhoneSocialFeedScreen({
             >
               {addingPerson
                 ? 'Cancel'
-                : '+ Add User'}
+                : '+ Follow User'}
             </button>
             <div className="phone-social-post-menu-anchor" ref={postMenuRef}>
               {postStage === 'menu' && (
@@ -1695,7 +1696,7 @@ export function PhoneSocialFeedScreen({
                       className="phone-avatar"
                       name={post.authorName}
                       fallback={post.authorName.slice(0, 1).toUpperCase()}
-                      profileImageDataUrl={(postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!, postAuthorCharacter.sourceId)?.dataUrl : undefined) ?? postAuthorCharacter?.profileImage?.dataUrl}
+                      profileImageDataUrl={appAvatarDataUrl(postAuthorCharacter, postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!, postAuthorCharacter.sourceId) : undefined)}
                       style={postAuthorColor
                         ? { borderColor: postAuthorColor, color: postAuthorColor }
                         : undefined}

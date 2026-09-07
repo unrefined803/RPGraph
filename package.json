@@ -40,7 +40,9 @@
     "character:create": "node scripts/create-character-container.mjs",
     "character:inspect": "node scripts/inspect-character-container.mjs",
     "character:edit": "node scripts/edit-character-container.mjs",
-    "character:convert-demos": "node scripts/convert-demo-characters.mjs"
+    "character:convert-demos": "node scripts/convert-demo-characters.mjs",
+    "character:faces:setup": "node scripts/setup-character-faces.mjs",
+    "character:faces": "node scripts/backfill-character-faces.mjs"
   },
   "dependencies": {
     "@toon-format/toon": "^2.3.0",

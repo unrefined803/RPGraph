@@ -151,3 +151,6 @@
 @media (prefers-reduced-motion: reduce) {
   .pt-app button, .pt-seeking label { transition: none; }
 }
+
+.pt-match-avatar { overflow: hidden; }
+.pt-match-avatar img { width: 100%; height: 100%; object-fit: cover; }

@@ -81,7 +81,17 @@ function validateCharacterPayload(value) {
       throw new Error(`Unknown character gallery image: ${String(id)}`);
     }
   };
-  if (character.profileImage !== undefined) requireImage(record(character.profileImage).imageId);
+  if (character.profileImage !== undefined) {
+    const profile = record(character.profileImage);
+    requireImage(profile.imageId);
+    if (profile.crop !== undefined) {
+      const crop = record(profile.crop);
+      if (![crop.x, crop.y, crop.size].every((value) => typeof value === 'number' &&
+          Number.isFinite(value) && value >= 0 && value <= 100) || crop.size <= 0) {
+        throw new Error('Portrait crops require finite x, y and size percentages; size must be positive.');
+      }
+    }
+  }
   const accountIds = new Set();
   for (const [app, raw] of Object.entries(record(character.apps))) {
     if (!appNames.includes(app)) throw new Error(`Unknown character app: ${app}`);

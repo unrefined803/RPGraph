@@ -1,3 +1,4 @@
+import { CharacterAvatar } from '../CharacterAvatar';
 import { datingAccountId, resolveDatingAccount } from '../../chat/datingAccounts';
 import { matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
 import type { MessageRecord, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
@@ -12,7 +13,6 @@ import './phoneDating.css';
 
 type Props = {
   profileOnly?: boolean;
-  identityLocked?: boolean;
   owner?: StorybookCharacter;
   characters: StorybookCharacter[];
   unread: SocialDmUnreadByHandle;
@@ -29,11 +29,11 @@ type Props = {
   onBack: () => void;
 };
 
-export function PhoneDatingScreen({ profileOnly = false, identityLocked = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis }: Props) {
+export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis }: Props) {
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
   const [editing, setEditing] = useState(profileOnly || !profile);
   const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
-  const [draft, setDraft] = useState<DatingProfile>(profile ?? { username: '', name: owner?.name ?? '', age: 18, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
+  const [draft, setDraft] = useState<DatingProfile>(profile ?? { username: owner?.apps?.matchme?.username || `matchme.${(owner?.sourceId ?? 'character').replace(/[^a-zA-Z0-9._-]/g, '')}`, name: owner?.name ?? '', age: 18, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
   const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
   const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
   const [gallery, setGallery] = useState(false);
@@ -129,7 +129,7 @@ export function PhoneDatingScreen({ profileOnly = false, identityLocked = false,
         <div className="pt-match-list">
           {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
             onClick={() => { setSelectedMatchId(match.id); setPhoto(0); setTab('discover'); setEditing(false); }}>
-            <span className="pt-match-avatar" aria-hidden="true">{match.name[0]}</span>
+            <CharacterAvatar className="pt-match-avatar" name={match.name} profileImageDataUrl={match.avatarDataUrl} fallback={match.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
             <span><strong>{match.name}<span className="pt-match-age">, {match.age}</span>{unread[match.id]?.count ? ` · ${unread[match.id].count} new` : ''}</strong><small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small></span>
           </button>)}
           {!matches.length && <p className="pt-subtle pt-match-empty">Like a profile to create a match and start a conversation.</p>}
@@ -148,8 +148,6 @@ export function PhoneDatingScreen({ profileOnly = false, identityLocked = false,
         }}>
           <div className="pt-intro"><span className="pt-eyebrow">A NEW CHAPTER STARTS HERE</span>
             <h2>{profile ? 'Make it you.' : 'Find your match.'}</h2></div>
-          <label>Username<input required={!profile} value={draft.username ?? ''} disabled={(identityLocked || history.length > 0) && !!profile?.username}
-            onChange={(event) => setDraft({ ...draft, username: event.target.value })} placeholder="Choose a username" /></label>
           <div className="pt-field-row"><label>Display name<input required maxLength={60} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
             <label>Age<input required type="number" min={18} max={120} value={draft.age || ''} onChange={(e) => setDraft({ ...draft, age: Number(e.target.value) })} /></label></div>
           <div className="pt-gender-field"><label htmlFor="matchme-gender">I am</label>
@@ -182,7 +180,7 @@ export function PhoneDatingScreen({ profileOnly = false, identityLocked = false,
           <button className="pt-primary" disabled={busy} type="submit">{profile ? 'Save profile' : 'Create account & explore'} <span aria-hidden="true">→</span></button>
           {profile && <button type="button" disabled={busy} onClick={() => { setDraft(profile); setEditing(false); }}>Cancel</button>}
         </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id}
-          name={selectedMatch.name} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
+          name={selectedMatch.name} avatarDataUrl={selectedMatch.avatarDataUrl} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
           busy={busy || isRunning}
           draft={chatDrafts[selectedMatch.id] ?? ''}
           onDraftChange={(text) => setChatDrafts((current) => ({ ...current, [selectedMatch.id]: text }))}

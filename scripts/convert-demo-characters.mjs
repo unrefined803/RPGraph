@@ -34,7 +34,7 @@ try {
   const inventory = [];
   const fileNames = new Set();
   for (const { specification, ...mapping } of plan) {
-    const container = await createFromSpecification(specification, project);
+    const container = await createFromSpecification(specification, project, undefined, { detectFace: false });
     const fileName = values['images-only']
       ? readableCharacterFileName(container.character.name)
       : containerFileName(container.character.id);

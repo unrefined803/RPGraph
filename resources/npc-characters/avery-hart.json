@@ -77,7 +77,12 @@
       }
     },
     "profileImage": {
-      "imageId": "authored-matchme-f1:image:cafe-afternoon"
+      "imageId": "authored-matchme-f1:image:cafe-afternoon",
+      "crop": {
+        "x": 20.176174,
+        "y": 13.014772,
+        "size": 54.614094
+      }
     }
   }
 }
