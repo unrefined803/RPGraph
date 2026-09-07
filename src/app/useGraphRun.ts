@@ -1255,7 +1255,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           '[AVAILABLE SOCIAL ACCOUNTS]',
           'Use these exact existing name and handle pairs for social participants:',
           ...availableSocialAccounts,
-          'Do not invent another social identity.',
+          'Keep these existing identities exact. Additional fictional social users may participate without a character container; never assign a missing app account to a known character.',
           '[/AVAILABLE SOCIAL ACCOUNTS]'].join('\n')
       : originalInput;
     const storedInputGraphText = socialDirectMessage?.app === 'matchme' ? originalInput : directActionOnly
@@ -2604,6 +2604,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             messages: messagesRef.current,
             app: incoming.app,
             identity: recipientName,
+            allowNewNpc: true,
           });
           if (!resolvedRecipient.available) {
             reportRunWarning(
@@ -2626,6 +2627,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             messages: messagesRef.current,
             app: incoming.app,
             identity: incoming.from,
+            allowNewNpc: true,
           });
           if (!resolvedSender.available) {
             reportRunWarning(

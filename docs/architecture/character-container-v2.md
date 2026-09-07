@@ -56,6 +56,16 @@ Stage 7 is implemented; Stage 8 remains a separate optional storage-policy task.
 
 ## 0. Fresh-context handoff — read this first
 
+Social identity policy clarification (2026-09-07): narrator-generated Fotogram
+and OnlyFriends messages may introduce fictional users without NPC containers,
+just as generated comments do. Their structured DMs establish dynamic directory
+identities that survive in session history. Unknown presentation names are
+allowed only at this creation boundary; known characters without the requested
+account, ambiguous identities and unknown canonical IDs remain rejected.
+MatchMe still requires existing accounts and an application-created match.
+This clarification supersedes the blanket unknown-social-recipient rejection
+described in the earlier implementation notes below.
+
 This document is the implementation handoff for the next development phase.
 Implement only the stages requested by the user, following the ordered stages
 in section 12. The status sections describe

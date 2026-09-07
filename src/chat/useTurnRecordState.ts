@@ -1,4 +1,4 @@
-import { resolveSocialMessageIdentity } from './socialMessageValidation';
+import { canonicalSocialDirectMessage } from './socialMessageValidation';
 import { matchMeMessageAllowed, matchMeState } from './matchMe';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
@@ -140,12 +140,7 @@ export function useTurnRecordState({
     simulatedAiChat,
   }: AppendMessageInput) {
     if (socialDirectMessage && socialDirectMessage.app !== 'matchme') {
-      const characters = appCharacters();
-      const from = resolveSocialMessageIdentity({ characters, messages: messagesRef.current, app: socialDirectMessage.app, identity: socialDirectMessage.fromAccountId ?? socialDirectMessage.fromHandle });
-      const to = resolveSocialMessageIdentity({ characters, messages: messagesRef.current, app: socialDirectMessage.app, identity: socialDirectMessage.toAccountId ?? socialDirectMessage.toHandle });
-      if (!from.available || !to.available) throw new Error(from.reason ?? to.reason ?? 'Unknown or ambiguous social account.');
-      if (from.handle?.toLowerCase() !== socialDirectMessage.fromHandle.replace(/^@/, '').toLowerCase() || to.handle?.toLowerCase() !== socialDirectMessage.toHandle.replace(/^@/, '').toLowerCase()) throw new Error('Social message account IDs and usernames do not match.');
-      socialDirectMessage = { ...socialDirectMessage, from: from.name, to: to.name, fromAccountId: from.accountId, toAccountId: to.accountId };
+      socialDirectMessage = canonicalSocialDirectMessage(socialDirectMessage, appCharacters(), messagesRef.current);
     }
     if (socialDirectMessage?.app === 'matchme') {
       if (!matchMeMessageAllowed(socialDirectMessage, matchMeState(appCharacters(), messagesRef.current))) {

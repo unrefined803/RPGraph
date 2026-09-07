@@ -4,7 +4,7 @@ import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind, SocialMessengerAppKind, SocialDirectMessageRecord } from '../types';
 import { buildSocialDirectory } from './socialDirectory';
 import { jsonObjectRanges, messengerAppMessageKeys } from './phoneMessages';
-import { parseSocialReactionsOutput, type SocialReactionTarget } from './socialMedia';
+import { parseSocialReactionsOutput, socialHandleForName, type SocialReactionTarget } from './socialMedia';
 
 function cleanHandle(value: string) {
   return value.trim().replace(/^@/, '');
@@ -35,6 +35,7 @@ export function resolveSocialMessageIdentity(options: {
   messages: MessageRecord[];
   app: SocialMessengerAppKind;
   identity: string;
+  allowNewNpc?: boolean;
 }): ResolvedSocialMessageIdentity {
   const identity = options.identity.trim();
   if (options.app === 'matchme') {
@@ -54,8 +55,16 @@ export function resolveSocialMessageIdentity(options: {
   if (!characters.length && !users.length) {
     const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
     const crossApp = options.characters.filter((entry) => storedHandle(entry, otherApp)?.toLowerCase() === key);
-    if (crossApp.length === 1) return { available: false, name: crossApp[0].name, character: crossApp[0], source: 'storybook',
+    if (crossApp.length > 0) return { available: false, name: crossApp[0].name, character: crossApp[0], source: 'storybook',
       reason: `${crossApp[0].name} has no matching ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} username. Use the full character name or the username in this app.` };
+    if (options.allowNewNpc && key && !identity.includes(':') && !options.characters.some((entry) =>
+      Object.values(entry.apps ?? {}).some((account) => account.accountId === identity ||
+        !!account.username && cleanHandle(account.username).toLowerCase() === key))) {
+      const handle = /^[a-zA-Z0-9._-]+$/.test(cleanHandle(identity)) ? key : socialHandleForName(identity);
+      // A derived handle must not silently claim an existing person's account.
+      const occupied = directory.users.some((user) => user.handles[app]?.toLowerCase() === handle);
+      if (!occupied) return { available: true, name: cleanHandle(identity), handle, source: 'new-npc' };
+    }
   }
   if (characters.length + users.length !== 1) return { available: false, name: identity, source: 'directory',
     reason: characters.length + users.length > 1 ? `Ambiguous ${app} recipient "${identity}". Use a unique app username or account ID.` : `Unknown ${app} recipient "${identity}". Use an existing full character name or app username.` };
@@ -74,6 +83,26 @@ export function resolveSocialMessageIdentity(options: {
   return { available: !!user.handles[app], name: user.name, handle: user.handles[app], accountId: user.id,
     source: 'directory', ...(!user.handles[app] ? { reason: `${user.name} has no ${app} account.` } : {}) };
 
+}
+
+/** Introduce fictional social participants only through a committed structured DM. */
+export function canonicalSocialDirectMessage(message: SocialDirectMessageRecord, characters: StorybookCharacter[], messages: MessageRecord[]) {
+  if (message.app === 'matchme') return message;
+  const resolve = (identity: string, allowNewNpc = false, history = messages) =>
+    resolveSocialMessageIdentity({ characters, messages: history, app: message.app, identity, allowNewNpc });
+  const from = resolve(message.fromAccountId ?? message.from, !message.fromAccountId);
+  const to = resolve(message.toAccountId ?? message.to, !message.toAccountId);
+  if (!from.available || !to.available) throw new Error(from.reason ?? to.reason ?? 'Unknown or ambiguous social account.');
+  if (from.handle?.toLowerCase() !== cleanHandle(message.fromHandle).toLowerCase() ||
+      to.handle?.toLowerCase() !== cleanHandle(message.toHandle).toLowerCase()) {
+    throw new Error('Social message account IDs and usernames do not match.');
+  }
+  const canonical = { ...message, from: from.name, to: to.name };
+  const history = [...messages, { id: -1, role: 'output' as const, originalText: '', socialDirectMessage: canonical }];
+  const registeredFrom = from.source === 'new-npc' ? resolve(from.handle!, false, history) : from;
+  const registeredTo = to.source === 'new-npc' ? resolve(to.handle!, false, history) : to;
+  if (!registeredFrom.available || !registeredTo.available) throw new Error('Ambiguous social account after registration.');
+  return { ...canonical, fromAccountId: registeredFrom.accountId, toAccountId: registeredTo.accountId };
 }
 
 export type SocialMessageValidationIssue = {
@@ -207,6 +236,7 @@ export function validateSocialMessengerAccounts(options: {
             messages: options.messages,
             app,
             identity,
+            allowNewNpc: true,
           });
           if (!resolved.available) {
             rangeIssues.push({ app, identity: identity.trim(), role, resolved });
@@ -238,7 +268,7 @@ export function socialMessageCorrectionContext(issues: SocialMessageValidationIs
       `- ${socialAppName(issue.app)} ${issue.role} "${issue.identity}": ${issue.resolved.reason}`
     ),
     'Rewrite the complete response. A known Storybook character may send or receive in an app only when that exact app account exists.',
-    'Use an existing full character name, app username or stable account ID. Unknown or ambiguous recipients are rejected. MatchMe requires existing accounts and an active application-provided match; never invent either.',
+    'Use exact identities for existing characters. Fotogram and OnlyFriends may introduce fictional users without containers through structured messages. Never invent a missing account for a known character or reuse an ambiguous identity. MatchMe requires existing accounts and an active application-provided match; never invent either.',
     'Do not mention this validation or the discarded response.',
     '[/SOCIAL MESSAGE VALIDATION]',
   ].join('\n');

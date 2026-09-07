@@ -738,14 +738,14 @@ export function verifyWorkflowValidationFixtures() {
       !bundledHandle.available &&
       !unknownHandle.available &&
       !unknownAtHandle.available &&
-      inventedHandleConversation.issues.length > 0 &&
-      !inventedHandleConversation.sanitizedText.includes('fotogram-post-private-01') &&
+      inventedHandleConversation.issues.length === 0 &&
+      inventedHandleConversation.sanitizedText.includes('fotogram-post-private-01') &&
       invalidSocialOutput.issues.length === 1 &&
       invalidSocialOutput.sanitizedText === 'The scene continues.' &&
       socialMessageCorrectionContext(invalidSocialOutput.issues).includes(
         'Leo Parker has no OnlyFriends account.',
       ),
-    'social messages must reject unknown recipients and missing Storybook app accounts',
+    'structured social messages may introduce fictional users but must reject missing Storybook app accounts',
   );
   assertFixture(
     findSocialAccountByExactIdentity(
