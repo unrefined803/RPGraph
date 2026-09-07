@@ -13,8 +13,8 @@ const authoredMatchMeCharacters = {
 const authoredMatchMeIds = Object.keys(authoredMatchMeCharacters);
 
 describe('bundled authored MatchMe characters', () => {
-  it('discovers each character with valid MatchMe and Fotogram media', () => {
-    const snapshot = browserNpcLibrarySnapshot();
+  it('discovers each character with valid MatchMe and Fotogram media', async () => {
+    const snapshot = await browserNpcLibrarySnapshot();
     expect(snapshot.diagnostics).toEqual([]);
     const characters = snapshot.entries
       .filter(({ character }) => authoredMatchMeIds.includes(character.id))

@@ -12,9 +12,9 @@ export function useNpcLibrary() {
     setStatus('');
     try {
       const bridge = window.rpgraph;
-      const next = bridge?.getNpcLibrary
-        ? await (reload ? bridge.reloadNpcLibrary() : bridge.getNpcLibrary())
-        : browserNpcLibrarySnapshot();
+      const next = await (bridge?.getNpcLibrary
+        ? (reload ? bridge.reloadNpcLibrary() : bridge.getNpcLibrary())
+        : browserNpcLibrarySnapshot());
       setSnapshot(next);
       if (reload) setStatus(`Reloaded ${next.entries.length} NPC container${next.entries.length === 1 ? '' : 's'}.`);
     } catch (error) {
@@ -28,7 +28,7 @@ export function useNpcLibrary() {
     let active = true;
     const initial = window.rpgraph?.getNpcLibrary
       ? window.rpgraph.getNpcLibrary()
-      : Promise.resolve(browserNpcLibrarySnapshot());
+      : browserNpcLibrarySnapshot();
     void initial.then((next) => {
       if (active) setSnapshot(next);
     }).catch((error) => {

@@ -710,7 +710,10 @@ Malformed/unsupported character containers produce per-file diagnostics, while
 encrypted containers, unrelated JSON and symlinks are ignored. The renderer's
 NPC Library dialog shows roots, effective counts, source and registry diagnostics,
 and exposes Reload Library and Open NPC Folder. Browser mode can load bundled
-resources but explicitly reports that the user directory is unavailable.
+resources but explicitly reports that the user directory is unavailable. Bundled
+browser-fallback containers are separate lazy modules rather than eager contents
+of the renderer entry chunk. Electron uses IPC discovery and never loads that
+fallback copy; its current IPC snapshot still contains complete character media.
 
 ### Stage 3 — NPC snapshots and media stability before live interactions
 
