@@ -267,7 +267,7 @@ type ChatConversationPanelProps = {
   onOpenEmbeddedPhoneMessage: (message: EmbeddedPhoneMessageLink) => void;
   onOpenEmbeddedSocialMessage: (message: EmbeddedSocialMessageLink) => void;
   onOpenSocialPost: (post: SocialPostRecord) => void;
-  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   socialLikesByAccount: Record<string, string[]>;
   onOutputActionChoice: (selection: InputActionSelection) => void;
   onSubmitMessage: (event: FormEvent<HTMLFormElement>) => void;
@@ -1620,7 +1620,7 @@ export function ChatConversationPanel({
                 <SocialPostCard
                   post={socialPost}
                   imageDataUrl={socialPost.imageId
-                    ? socialImageById(socialPost.imageId)?.dataUrl
+                    ? socialImageById(socialPost.imageId, socialPost.authorAccountId ?? socialPost.authorCharacterId)?.dataUrl
                     : undefined}
                   authorCharacter={authorCharacter}
                   authorColor={authorColor}

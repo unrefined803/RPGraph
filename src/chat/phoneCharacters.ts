@@ -29,6 +29,8 @@ export function phoneRuntimeCharactersFromMessages(
   storyCharacters: StorybookCharacter[],
   messages: MessageRecord[],
 ): PhoneRuntimeCharacter[] {
+  storyCharacters = storyCharacters.filter((character) => !character.libraryNpc || messages.some((message) =>
+    !!character.apps?.whatsup?.accountId && [message.phoneFromAccountId, message.phoneToAccountId].includes(character.apps.whatsup.accountId)));
   const knownNames = new Set(storyCharacters.map((character) => normalizePhoneName(character.name)));
   const temporaryCharacters: PhoneRuntimeCharacter[] = [];
 

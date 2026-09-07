@@ -1,7 +1,6 @@
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
-import { storyCharactersFromNodes } from '../storybook/runtime';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
 // Pure move: all component-scope dependencies arrive via the options object; the run
 // body is unchanged. nodesRef discipline: runGraph writes nodesRef.current manually and
@@ -236,6 +235,7 @@ type UseGraphRunOptions = Pick<
   promptActionSettings: NonNullable<ExecuteGraphOptions['promptActionSettings']>;
   workflowSettingsValuesRef: Ref<NonNullable<Parameters<typeof captureTurnRuntime>[1]>>;
   characterStorybookNodes: readonly unknown[];
+  appCharacters: () => StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
   phoneCharacters: StorybookCharacter[];
   selectedCharacter: StorybookCharacter | undefined;
@@ -407,6 +407,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     promptActionSettings,
     workflowSettingsValuesRef,
     characterStorybookNodes,
+    appCharacters,
     storyCharacters,
     phoneCharacters,
     selectedCharacter,
@@ -486,7 +487,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
   ) {
     if (activeRun.current) return false;
     if (socialDirectMessage?.app === 'matchme' && !matchMeMessageAllowed(socialDirectMessage,
-      matchMeState(storyCharactersFromNodes(nodesRef.current), historyMessages))) {
+      matchMeState(appCharacters(), historyMessages))) {
       notifySystem('warning', 'MatchMe message blocked: the accounts need an active match.');
       return false;
     }
@@ -785,7 +786,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     }
     let inputText = socialDirectMessage?.app === 'matchme'
       ? socialDirectMessageInputText({ ...socialDirectMessage,
-          text: existingInputMessage?.socialDirectMessage?.internalText ?? socialDirectMessage.text }, historyMessages, storyCharacters)
+          text: existingInputMessage?.socialDirectMessage?.internalText ?? socialDirectMessage.text }, historyMessages, appCharacters())
       : displayText;
     let displayInputText = displayText;
     let translatedSocialDirectMessageText: string | undefined;
@@ -1021,7 +1022,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               ? { ...socialDirectMessage, text: translatedMessage }
               : socialDirectMessage,
             historyMessages,
-            storyCharacters,
+            appCharacters(),
           );
         } else if (socialPost) {
           const translatedCaption = await translateSocialText(socialPost.caption);
@@ -1478,7 +1479,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ? { ...parsedReply.message, displayText: translatedReplyText }
           : parsedReply.message;
         if (persistedReply.app === 'matchme') {
-          if (!matchMeMessageAllowed(persistedReply, matchMeState(storyCharactersFromNodes(nodesRef.current), messagesRef.current))) {
+          if (!matchMeMessageAllowed(persistedReply, matchMeState(appCharacters(), messagesRef.current))) {
             reportRunWarning('MatchMe reply blocked: the active match is no longer available.', outputNodeTraceInfo);
             return;
           }
@@ -1510,6 +1511,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         originalHistory,
         translatedHistory,
         historyMessages,
+        appCharacters: appCharacters(),
         matchMeDirectMessage: socialDirectMessage?.app === 'matchme' ? socialDirectMessage : undefined,
         userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
         llm: nodeLlm.withAbortSignal(runSignal).withRequestObserver(traceRecorder.observe('response')),
@@ -2499,7 +2501,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         // A social post comment command appends one comment to an existing
         // post via the same append-reactions record the comment thread uses.
         for (const postComment of parsedSocialPostComments) {
-          const targetPost = postsWithInitialContent(storyCharacters, messagesRef.current).find(
+          const targetPost = postsWithInitialContent(appCharacters(), messagesRef.current).find(
             (message) =>
               message.socialPost?.app === postComment.app &&
               message.socialPost.postId === postComment.postId,
@@ -2515,7 +2517,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           // so known Storybook characters without an account in the app are
           // blocked here too instead of silently gaining one.
           const resolvedCommenter = resolveSocialMessageIdentity({
-            characters: storyCharacters,
+            characters: appCharacters(),
             messages: messagesRef.current,
             app: postComment.app,
             identity: postComment.from,
@@ -2563,14 +2565,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
             // Direct runs accept their single bound reply only; commands cannot add another MatchMe message.
             if (socialDirectMessage?.app === 'matchme') return undefined;
             const record = incomingMatchMeMessage(incoming.from, incoming.to ?? '', incoming.text,
-              matchMeState(storyCharactersFromNodes(nodesRef.current), messagesRef.current),
+              matchMeState(appCharacters(), messagesRef.current),
               `matchme-incoming-${runId}-${++incomingSocialDmSequence}`, new Date().toISOString());
             if (!record || incoming.postId || incoming.tip !== undefined) {
               reportRunWarning('MatchMe message blocked: unknown accounts or no active match.', outputNodeTraceInfo);
               return undefined;
             }
             const displayText = await translateOutputActionText(record.text, { text: record.text });
-            if (!matchMeMessageAllowed(record, matchMeState(storyCharactersFromNodes(nodesRef.current), messagesRef.current))) {
+            if (!matchMeMessageAllowed(record, matchMeState(appCharacters(), messagesRef.current))) {
               reportRunWarning('MatchMe message blocked before delivery: match no longer active.', outputNodeTraceInfo);
               return undefined;
             }
@@ -2590,7 +2592,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             return undefined;
           }
           const resolvedRecipient = resolveSocialMessageIdentity({
-            characters: storyCharacters,
+            characters: appCharacters(),
             messages: messagesRef.current,
             app: incoming.app,
             identity: recipientName,
@@ -2612,7 +2614,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
                 : establishedSocialHandle(messagesRef.current, incoming.app, to) ??
                   socialHandleForName(to));
           const resolvedSender = resolveSocialMessageIdentity({
-            characters: storyCharacters,
+            characters: appCharacters(),
             messages: messagesRef.current,
             app: incoming.app,
             identity: incoming.from,
@@ -2650,7 +2652,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
           let originPost = runPost && runPost.postId === incoming.postId ? runPost : undefined;
           if (!originPost && incoming.postId) {
-            originPost = postsWithInitialContent(storyCharacters, messagesRef.current).find(
+            originPost = postsWithInitialContent(appCharacters(), messagesRef.current).find(
               (message) =>
                 message.socialPost?.app === incoming.app &&
                 message.socialPost.postId === incoming.postId,
@@ -2750,7 +2752,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             socialPost: persistedSocialPost,
           });
           const parsedReactions = parseValidatedSocialReactionsOutput(socialMediaOutputText, socialPost, {
-            characters: storyCharacters,
+            characters: appCharacters(),
             messages: messagesRef.current,
           });
           reportFormatResult({
@@ -2809,7 +2811,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             postId: persistedThreadAction.postId,
             append: true,
           }, {
-            characters: storyCharacters,
+            characters: appCharacters(),
             messages: messagesRef.current,
           });
           reportFormatResult({

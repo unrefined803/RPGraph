@@ -35,6 +35,9 @@
 .pt-photo-progress button { flex: 1; padding: 0; height: 5px; border: 0; background: #ffffff50; }
 .pt-photo-progress button.active { background: #ffd2e4; }
 .pt-placeholder { display: grid; place-content: center; justify-items: center; gap: 10px; flex: 1; min-height: 180px; }
+.pt-discovery-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.pt-card-info, .pt-image-nav, .pt-swipe-label { z-index: 1; }
+.pt-card-info { position: relative; background: linear-gradient(transparent, #17121fee); }
 .pt-placeholder > span { font-size: 62px; opacity: .6; }
 .pt-placeholder > strong { font-size: 24px; font-weight: 500; }
 .pt-placeholder > small { font-size: 11px; }

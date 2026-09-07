@@ -355,7 +355,7 @@ export async function runActionAwarePrompt({
     insertions[field].push({ name, text });
     stepOutputInsertions.set(step, insertions);
   };
-  const socialCharacters = storyCharactersFromNodes(context.nodes);
+  const socialCharacters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
   const matchMeApplicationContext = matchMeContext(matchMeState(socialCharacters, context.historyMessages), context.matchMeDirectMessage);
   let socialAccountCorrectionText = '';
   let socialAccountReplayUsed = false;

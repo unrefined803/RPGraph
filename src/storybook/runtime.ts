@@ -40,6 +40,9 @@ type StorybookCharacterProfile = {
 };
 
 export type StorybookCharacter = {
+  libraryNpc?: boolean;
+  images?: RpStorybookCharacterImage[];
+  identityAliases?: import("../characters/registry").CharacterRegistryAliases;
   id: string;
   storybookNodeId: string;
   kind: StorybookCharacterKind;
@@ -128,6 +131,7 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
         banking: character.banking ?? defaultRpStorybookCharacterBanking(),
         apps: character.apps,
+        images: character.images,
         social: character.social ?? defaultRpStorybookCharacterSocial(),
       };
     });

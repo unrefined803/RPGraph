@@ -1,13 +1,13 @@
 # Character Container V2 — Implementation Plan
 
-Status: Schema foundations, local app integration, NPC directory discovery and saved NPC snapshots are implemented. Shared app discovery is next.
+Status: Schema foundations, NPC directory discovery, saved NPC snapshots and shared app discovery/conversation context are implemented. Storybook promotion is next.
 Character Container V2 and Storybook V3 use independent version numbers.
 Last reconciled with the implementation: 2026-09-07.
 
 ## Progress at a glance
 
 **Current position: local character containers, the registry contract and NPC
-directory loading and saved NPC snapshots are implemented. Next: Stage 4 — shared app discovery and conversation context.**
+directory loading, saved NPC snapshots and shared app discovery/context are implemented. Next: Stage 5 — Storybook promotion and the complete round trip.**
 
 Legend: ✅ implemented · ➡️ next · ⬜ planned. Checked items describe implemented
 code; manual interface validation is listed separately.
@@ -33,9 +33,9 @@ code; manual interface validation is listed separately.
 - [x] Stage 1 — registry, ownership and identity contract.
 - [x] Stage 2 — NPC directory loading, validation and desktop controls.
 - [x] Stage 3 — saved NPC snapshots and media stability.
-- [ ] **➡️ Stage 4 — shared app discovery, real MatchMe photos, posts and cross-app
-  conversation context (MatchMe → Fotogram). START HERE.**
-- [ ] Stage 5 — Storybook promotion, duplicate suppression and full round trip.
+- [x] Stage 4 — shared app discovery, real MatchMe photos, posts and cross-app
+  conversation context (MatchMe → Fotogram).
+- [ ] **➡️ Stage 5 — Storybook promotion, duplicate suppression and full round trip. START HERE.**
 
 ### ⬜ After the library works
 
@@ -103,27 +103,26 @@ but its existence does not grant every player a phone conversation with it.
 - `storyCharactersFromNodes` remains Storybook-only and returns node-scoped
   runtime IDs alongside stable `sourceId`. The pure registry accepts explicit
   legacy aliases. The snapshot runtime now combines Storybook/library/snapshot
-  producers; phone-app consumers still need that registry in Stage 4. Current
-  MatchMe aliases are not yet a complete global identity migration.
+  producers. `appCharactersFromRegistry` supplies discovery, account validation
+  and recipient context without changing player selection. Full promotion/history
+  alias reconciliation remains Stage 5 work.
 - `datingAccounts.ts` still adds `datingNpcProfiles`; Fotogram/OnlyFriends still
   combine `dummySocialPosts` with real posts and use independent bundled catalogs.
   These are not yet NPC containers.
-- MatchMe's profile editor shows gallery photos, but the discovery card in
-  `PhoneDatingScreen.tsx` still displays placeholder images. Wire real photo
-  references for discovered profiles as part of app integration.
-- `matchMeContext` currently supplies selected public dating fields and the
-  recipient's private personality. It does not supply a shared character context
-  containing that recipient's other configured app profiles. Therefore knowing
-  and sharing the correct Fotogram handle is an explicit remaining task.
-- `postsWithInitialContent` currently projects immutable seeds and deduplicates
-  against timeline posts by app/post ID. It does not persist an applied-seed
-  ledger or deletion tombstones. Preserve this behavior initially; design revision
-  pinning and any future seed deletion before claiming reload-safe deletions.
-- Post IDs currently use a per-game per-app sequence. Independently exported
-  characters can therefore contain the same post ID. Before global aggregation,
-  define ownership-scoped lookup (account ID + seed ID) or another explicit,
-  reversible mapping. Preserve source seed IDs; never silently let one person's
-  post hide another person's post. Keep existing message-command keys.
+- MatchMe discovery now resolves selected photos from the effective character's
+  gallery. Legacy demo accounts without gallery data show Photo unavailable.
+- Recipient-bound context includes the replying character's characterization,
+  actual public accounts, usernames and publication/photo descriptions. Absent or
+  disabled optional accounts are represented as null. No profile link scheme is
+  invented, and gallery bytes/private messages are not included in this context.
+- `postsWithInitialContent` still projects immutable seeds rather than inserting
+  timeline records. Library/snapshot seeds use reversible `npcSeedPostKey`
+  account/seed keys. Existing Storybook seed keys are unchanged to preserve saved
+  likes/comments; reconciling these keys during promotion belongs to Stage 5.
+  An owner-matching timeline post takes precedence. Export recovers source IDs.
+- Image lookup accepts a stable character/account owner. Ambiguous unowned image
+  IDs return no image rather than another person's photo. There is still no
+  applied-seed ledger or deletion tombstone; do not claim reload-safe deletions.
 - Legacy MatchMe decisions/history markers still exist in the existing profile
   compatibility structure; active matches and newer DMs are timeline records.
   Do not copy this legacy private state into public library containers or create
@@ -230,7 +229,7 @@ The format versions remain **Storybook 3.0.0**, **RP-Storybook node 3.0.0** and
 | Save RP | Workflow including Storybook character profiles/gallery, the pinned NPC revision archive, runtime snapshots, checkpoints and the structured timeline with posts, DMs, matches and other game state. The existing media pool handles serialization copies. |
 | Export Character | One portable character with gallery and app profiles. No initial publications, DMs, reactions, swipe history, matches or private image-sharing metadata. |
 | Export Character with Own Posts | The same portable payload plus a read-only snapshot of this character's own current publications and existing starting publications under the existing `apps.fotogram/onlyfriends.initialPosts`. Only post ID, text and image ID are copied. Required gallery records are gathered once per image ID. Foreign publications and engagement are excluded. Missing media aborts export. |
-| Import starting publications | Stable initial-post IDs remain in the imported character. The feed and command post lookup combine them with the timeline by app/post ID, giving an existing timeline post precedence. No second live-post store and no automatic timeline insertion is introduced. Reimport by character ID replaces the same payload and cannot append duplicate seeds. |
+| Import starting publications | Stable initial-post IDs remain in the imported character. The feed and command post lookup combine them with the timeline, using ownership-scoped runtime keys for library/snapshot seeds and giving an owner-matching timeline post precedence. No second live-post store and no automatic timeline insertion is introduced. Reimport by character ID replaces the same payload and cannot append duplicate seeds. |
 
 Starting publications are immutable source content, not a mirror of ongoing
 social activity. New posts and reactions never update `initialPosts` during play.
@@ -258,8 +257,8 @@ command or automatic recipient creation is introduced.
 ### Deferred global NPC phase
 
 The pure effective registry, directory scanning, validation, desktop library
-controls and pinned NPC revision persistence are implemented. Automatic
-external-container app discovery and NPC promotion integration are **not implemented**.
+controls, pinned NPC revision persistence and registry-backed app discovery are
+implemented. NPC promotion integration is **not implemented**.
 Existing demo catalogs remain. The full target design below continues to describe
 that future work, including app wiring, promotion and image-backed demo containers.
 Interactive validation remains with the user.
@@ -320,7 +319,7 @@ Paths below are relative to the repository root.
 | Runtime characters | `src/storybook/runtime.ts`: `StorybookCharacter`, `storyCharactersFromNodes`, `isStorybookSourceNode`. Runtime IDs currently depend on node ID plus character ID through `storybookCharacterId` in the Storybook model. |
 | Image library | `src/storybook/imageLibrary.ts`, `src/storybook/imageUsage.ts`, `src/storybook/useStorybookPhoneImages.ts`: gallery lookup, references, ownership and phone image operations. |
 | Save/media infrastructure | `src/data-management/{types,entityStore,mediaPool,timelineStore,sessionStore,validation,checkpointStore}.ts`: timeline, runtime, checkpoints and pooled inline media. Media pooling exists at serialization boundaries, but this does not yet constitute one global character/image registry. |
-| MatchMe | `src/chat/{datingAccounts,datingProfile,datingMessages,matchMe,matchMePrompt,socialMedia,socialMessageValidation}.ts`; `src/components/phone-dating/`. Stable demo IDs and Storybook-derived accounts exist, but NPC character data is still separate. |
+| MatchMe | `src/chat/{datingAccounts,datingProfile,datingMessages,matchMe,matchMePrompt,socialMedia,socialMessageValidation}.ts`; `src/components/phone-dating/`. Registry-derived accounts share NPC data, photos and recipient context; stable legacy demo accounts remain until Stages 6–7. |
 | Social directory | `src/chat/{socialDirectory,socialCatalogs}.ts` and `src/chat/catalogs/`: bundled names/handles and dynamic identities are not full character containers. |
 | Fotogram/OnlyFriends feeds | `src/components/phone-social/PhoneSocialFeedScreen.tsx`: saved posts reference gallery image IDs; cosmetic `dummySocialPosts` are still mixed into the feed. |
 | Runtime wiring | `src/App.tsx`, `src/app/{useGraphRun,useRoleplayPanelRuntime}.ts`, `src/chat/useTurnRecordState.ts`, `src/graph/executeGraph.ts`, `src/nodes/shared/promptRun.ts`. |
@@ -732,7 +731,7 @@ stores an immutable copy of the used payload, complete gallery, source and
 aliases. Only structured account/character/post references pin revisions;
 free text, display names and ambiguous seed IDs cannot pin another person.
 `npcSeedPostKey(accountId, seedId)` supplies an ownership-scoped reversible key
-for Stage 4 app projections without rewriting source seed IDs.
+for app projections without rewriting source seed IDs.
 
 The archive is stored once as optional `runtime.current.npcParticipantsJson`,
 using the existing session media pool. Missing or malformed referenced media
@@ -754,7 +753,7 @@ activity and checkpoints. Save Storybook preserves only that configured history
 archive, without promoting its NPCs into `characters` or copying the entire
 library. Both Storybook source types hydrate it. Clearing Opening History
 removes its stored archive. Snapshot payloads are omitted from the Storybook
-assistant prompt; recipient-specific app context remains Stage 4 work.
+assistant prompt; recipient-specific app context is supplied by Stage 4.
 
 Gate passed with non-UI regression coverage in
 `src/characters/npcParticipants.test.ts`: changed/deleted sources, stable IDs,
@@ -766,7 +765,7 @@ manual interface validation remain outside this stage.
 
 ### Stage 4 — shared app discovery, photos, posts and conversation context
 
-**Status: ➡️ NEXT — not started.**
+**Status: ✅ IMPLEMENTED.**
 
 Connect social directory/search, Fotogram/OnlyFriends feeds, MatchMe discovery,
 phone identity and image lookup to the effective registry. Preserve existing
@@ -791,9 +790,41 @@ Gate: one fixture character works across MatchMe and Fotogram with real photos,
 correctly shared username, searchable profile, usable startposts and validated
 message delivery. Unknown or ambiguous recipients cannot be silently assigned.
 
+Implemented through `src/characters/appRuntime.ts` and the existing registry,
+phone/social consumers, graph prompt context and final timeline validation.
+MatchMe cards use ordered gallery photos; Fotogram/OnlyFriends search and feeds
+use the same effective accounts and immutable initial publications. Player
+selection and banking remain Storybook-only. Library availability creates no
+follow, match or phone contact; a saved structured WhatsUp participant can resolve
+through its pinned account. Legacy demo catalogs remain unchanged in scope.
+
+The recipient context provides only that recipient's characterization and actual
+public app metadata, with missing accounts explicit and metadata treated as data.
+MatchMe's bound reply checks apply inside prompt execution and again at commit.
+Existing messenger keys and username-based cross-app handoff remain unchanged.
+Custom workflow inputs remain under the existing in-world knowledge rules; this
+change does not sanitize arbitrary user-authored prompt inputs.
+
+Gate passed with `src/characters/appRuntime.test.ts`, including actual prompt
+execution with a stub provider, MatchMe → Fotogram identity/search/delivery,
+absent/disabled accounts, ambiguous identities, owner-scoped posts/images, export
+source IDs and changed/deleted sources resolved from pinned snapshots. Full
+non-UI tests, build and lint passed. Manual UI/provider validation is outstanding.
+
+For manual validation, copy `src/characters/fixtures/stage4-npc.json` into the
+user directory shown by **Open NPC Folder**, then **Reload Library**. This plain
+V2 fixture contains fictional Nova Vale, MatchMe `nova.vale`, Fotogram
+`nova.vale.art`, one starting post and a real embedded lakeside photo reused from
+`src/assets/social/fotogram/lake-run.jpg`. It is not installed as a new demo by
+default. With a player's MatchMe profile, like Nova, ask for the Fotogram handle,
+then search/add `@nova.vale.art` in Fotogram and check the post/photo. Save/reload
+and remove/change the source to verify the pinned revision interactively.
+OnlyFriends, photo navigation, likes/comments, provider retry and unread badges
+also remain manual checks. Creation tooling and deep links are not part of Stage 4.
+
 ### Stage 5 — Storybook promotion and duplicate suppression end to end
 
-**Status: ⬜ PLANNED — not started.**
+**Status: ➡️ NEXT — not started.**
 
 Expose Add to Storybook through the existing import planning/commit services.
 Both Storybook node types must preserve the same character, accounts and media.
@@ -847,8 +878,9 @@ are subsequent work, not implicit prerequisites for the first usable library.
 ### Suggested next implementation request
 
 For a fresh context, ask the agent to read `AGENTS.md` and this document, then
-implement Stage 4 with the minimal fixture and existing snapshot runtime.
-Require the Stage 4 acceptance gate, unit tests, build and lint; prohibit launching the app/browser/E2E.
+implement Stage 5 using the Stage 4 fixture and shared app/snapshot runtime.
+Reconcile library seed keys and directory connection IDs during promotion while
+retaining existing activity. Require the Stage 5 acceptance gate, unit tests, build and lint; prohibit launching the app/browser/E2E.
 Keep versions unchanged as specified in section 3. Do not mass-convert or remove
 demos until the registry/app/save/promotion gates pass. Stages 6–7 can then form
 a separate task using the verified infrastructure and actual supplied images.

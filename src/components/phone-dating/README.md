@@ -9,11 +9,13 @@ There is no background message timer.
 ## Accounts and persistence
 
 `chat/datingAccounts.ts` contains four stable fictional NPC accounts with public
-profiles and private personalities. Storybook characters with MatchMe profiles
-are offered as separate accounts linked by character ID, using their existing
-personality and speech style. Matching names never link an NPC to a Storybook
-character or merge conversations. Storybook account IDs have a `storybook:`
-prefix; legacy `demo-*` NPC account IDs remain stable.
+profiles and private personalities for legacy/demo compatibility. Effective
+Storybook, library and pinned-snapshot characters with MatchMe profiles are
+projected through the shared registry, with ordered gallery photos and their own
+characterization and public cross-app metadata. Matching names never link an NPC to a Storybook
+character or merge conversations. Canonical container account IDs are preserved;
+node-scoped `storybook:` IDs remain read aliases and legacy `demo-*` NPC account
+IDs remain stable.
 
 The `plotTwist` profile field and `plottwist` phone layout key remain compatible.
 Profiles store public fields, photo references, decisions and a migration version.
@@ -93,5 +95,8 @@ Manual checks: create/edit a profile; like each NPC; open a Storybook account
 with a profile; send text and emoji; switch conversations and characters during
 a run; force a provider error and retry; check unread badges and embedded links;
 save/load and export/import; restore earlier history and reset. Also check photo
-selection, dark-mode compact layouts and keyboard focus. NPC profile photos
-remain placeholders, and the matching policy is intentionally unconditional.
+selection, gallery-backed discovery photos, dark-mode compact layouts and
+keyboard focus. Accounts without available photos show an unavailable state;
+the matching policy is intentionally unconditional. The shared library fixture
+and cross-app manual steps are documented in
+`docs/architecture/character-container-v2.md`, Stage 4.

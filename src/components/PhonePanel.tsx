@@ -140,6 +140,7 @@ function desktopBadgeLabel(count: number) {
 
 type PhonePanelProps = {
   phoneContacts: PhoneContact[];
+  appCharacters: StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
   characterColors: Map<string, string>;
   selectedPhoneContact?: PhoneContact;
@@ -277,7 +278,7 @@ type PhonePanelProps = {
     owner: StorybookCharacter;
     image: ChatImageAttachment;
   }) => Promise<ChatImageAttachment | undefined>;
-  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   socialLikesByAccount: Record<string, string[]>;
   socialDirectoryUsers: SocialDirectoryUser[];
   fotogramContactsByCharacter: Record<string, string[]>;
@@ -318,6 +319,7 @@ type PhonePanelProps = {
 
 export function PhonePanel({
   phoneContacts,
+  appCharacters,
   storyCharacters,
   characterColors,
   selectedPhoneContact,
@@ -761,7 +763,7 @@ export function PhonePanel({
 
   if (screen === 'plottwist') {
     return <PhoneDatingScreen key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
-      characters={storyCharacters} history={socialMediaMessages} isRunning={isRunning}
+      characters={appCharacters} history={socialMediaMessages} isRunning={isRunning}
       onSendMessage={onSubmitSocialDirectMessage}
       unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
       openRequest={socialDirectMessageOpenRequest?.app === 'matchme' ? socialDirectMessageOpenRequest : undefined}
@@ -831,7 +833,7 @@ export function PhonePanel({
         key={`${screen}-${selectedCharacter?.id ?? 'no-account'}`}
         app={socialApps[screen]}
         owner={selectedCharacter}
-        storyCharacters={storyCharacters}
+        storyCharacters={appCharacters}
         characterColors={characterColors}
         phoneGalleryImages={phoneGalleryImages}
         bankTransferMessages={bankTransferMessages}

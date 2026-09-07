@@ -44,11 +44,12 @@ export function resolveSocialMessageIdentity(options: {
   }
   const key = cleanHandle(identity).toLowerCase();
   const app = options.app;
-  const characters = options.characters.filter((character) => character.id === identity || character.sourceId === identity ||
+  const byAccountId = options.characters.filter((character) => character.apps?.[app]?.accountId === identity);
+  const characters = byAccountId.length ? byAccountId : options.characters.filter((character) => character.id === identity || character.sourceId === identity ||
     character.apps?.[app]?.accountId === identity || normalizedName(character.name) === normalizedName(identity) ||
     storedHandle(character, app)?.toLowerCase() === key);
   const directory = buildSocialDirectory({ storyCharacters: options.characters, messages: options.messages });
-  const users = directory.users.filter((user) => user.source !== 'storybook' &&
+  const users = byAccountId.length ? [] : directory.users.filter((user) => user.source !== 'storybook' &&
     (user.id === identity || user.handles[app]?.toLowerCase() === key || normalizedName(user.name) === normalizedName(identity)));
   if (!characters.length && !users.length) {
     const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
@@ -61,6 +62,10 @@ export function resolveSocialMessageIdentity(options: {
   const character = characters[0];
   if (character) {
     const handle = storedHandle(character, app);
+    const accountId = character.apps?.[app]?.accountId;
+    if (accountId && options.characters.filter((entry) => entry.apps?.[app]?.accountId === accountId).length !== 1) {
+      return { available: false, name: character.name, source: 'storybook', reason: `Ambiguous ${app} account ownership.` };
+    }
     return { available: !!handle, name: character.name, handle, source: 'storybook', character,
       characterId: character.sourceId, accountId: character.apps?.[app]?.accountId ?? `character:${character.sourceId}:${app}`,
       ...(!handle ? { reason: `${character.name} has no ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account.` } : {}) };

@@ -1,3 +1,4 @@
+import { npcSeedPostAccountId } from '../../characters/npcParticipants';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import type {
@@ -30,7 +31,7 @@ type PhoneSocialDirectMessagesProps = {
   selectedParticipant?: SocialDirectMessageParticipant;
   messages: SocialDirectMessageRecord[];
   characterColors: Map<string, string>;
-  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   messageRpDateTimeById: ReadonlyMap<string, string>;
   rpTimeTrackingEnabled: boolean;
   rpDateTimeFormat: RpDateTimeFormat;
@@ -236,7 +237,7 @@ export function PhoneSocialDirectMessages({
     ? characterColors.get(selectedParticipant.character.name)
     : undefined;
   const origin = selectedParticipant.origin ?? conversation.find((message) => message.origin)?.origin;
-  const originImage = origin?.postImageId ? socialImageById(origin.postImageId) : undefined;
+  const originImage = origin?.postImageId ? socialImageById(origin.postImageId, npcSeedPostAccountId(origin.postId)) : undefined;
   // The stored origin comment keeps its real author; when the viewer wrote
   // that comment (e.g. after switching characters), it renders as outgoing.
   const originOutgoing = !!origin?.commentAuthorHandle &&

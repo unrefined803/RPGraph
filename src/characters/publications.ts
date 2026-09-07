@@ -1,3 +1,4 @@
+import { npcSeedPostKey } from './npcParticipants';
 import type { Character } from './character';
 import type { MessageRecord, SocialPostRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -7,9 +8,9 @@ export function initialCharacterPosts(characters: StorybookCharacter[]): SocialP
   return characters.flatMap((character) => (['fotogram', 'onlyfriends'] as const).flatMap((app) => {
     const account = character.apps?.[app];
     if (!account?.enabled) return [];
-    return (account.initialPosts ?? []).map((post) => ({ app, postId: post.id, author: character.name,
+    return (account.initialPosts ?? []).map((post) => ({ app, postId: character.libraryNpc ? npcSeedPostKey(account.accountId, post.id) : post.id, author: character.name,
       authorHandle: account.username, authorCharacterId: character.sourceId, authorAccountId: account.accountId,
-      caption: post.text, textOnly: !post.imageId, ...(post.imageId ? { imageId: post.imageId } : {}) }));
+      caption: post.text, imageDescription: character.images?.find((image) => image.id === post.imageId)?.description, textOnly: !post.imageId, ...(post.imageId ? { imageId: post.imageId } : {}) }));
   }));
 }
 
@@ -29,15 +30,38 @@ export function withPublicationSnapshot(character: Character, posts: SocialPostR
         if (!image) throw new Error(`Cannot export post ${post.postId}: missing gallery image ${post.imageId}.`);
         copy.images.push(structuredClone(image));
       }
-      seeds.set(post.postId, { id: post.postId, text: post.caption, ...(post.imageId ? { imageId: post.imageId } : {}) });
+      const seedId = sourceSeedId(post.postId, account.accountId);
+      seeds.set(seedId, { id: seedId, text: post.caption, ...(post.imageId ? { imageId: post.imageId } : {}) });
     }
     account.initialPosts = [...seeds.values()];
   }
   return copy;
 }
 
+/** Decode only keys owned by this account; never rewrite another owner's source ID. */
+function sourceSeedId(id: string, accountId: string) {
+  if (id.startsWith('npc-seed:')) {
+    try {
+      const parsed: unknown = JSON.parse(id.slice('npc-seed:'.length));
+      if (Array.isArray(parsed) && parsed.length === 2 && parsed[0] === accountId && typeof parsed[1] === 'string') return parsed[1];
+    } catch { /* A literal source ID may also contain this prefix. */ }
+  }
+  return id;
+}
+
 export function postsWithInitialContent(characters: StorybookCharacter[], messages: MessageRecord[]): MessageRecord[] {
-  const stored = new Set(messages.flatMap((entry) => entry.socialPost ? [`${entry.socialPost.app}/${entry.socialPost.postId}`] : []));
-  return [...initialCharacterPosts(characters).filter((post) => !stored.has(`${post.app}/${post.postId}`))
-    .map((socialPost, index): MessageRecord => ({ id: -1 - index, role: 'user', originalText: '', socialPost })), ...messages];
+  const seeds = initialCharacterPosts(characters);
+  const timeline = messages.map((message) => {
+    const post = message.socialPost;
+    if (!post) return message;
+    const candidates = seeds.filter((seed) => seed.app === post.app &&
+      (post.authorAccountId ? seed.authorAccountId === post.authorAccountId :
+        post.authorCharacterId ? seed.authorCharacterId === post.authorCharacterId :
+        seed.author === post.author && seed.authorHandle === post.authorHandle) &&
+      (seed.postId === post.postId || sourceSeedId(seed.postId, seed.authorAccountId!) === post.postId));
+    return candidates.length === 1 ? { ...message, socialPost: { ...post, postId: candidates[0].postId } } : message;
+  });
+  const stored = new Set(timeline.flatMap((entry) => entry.socialPost ? [`${entry.socialPost.app}/${entry.socialPost.postId}`] : []));
+  return [...seeds.filter((post) => !stored.has(`${post.app}/${post.postId}`))
+    .map((socialPost, index): MessageRecord => ({ id: -1 - index, role: 'user', originalText: '', socialPost })), ...timeline];
 }

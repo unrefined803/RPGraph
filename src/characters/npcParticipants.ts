@@ -53,6 +53,15 @@ export function npcSeedPostKey(accountId: string, seedId: string) {
   return `npc-seed:${JSON.stringify([accountId, seedId])}`;
 }
 
+/** Recover the stable gallery owner for a seeded post's DM origin. */
+export function npcSeedPostAccountId(postId: string) {
+  if (!postId.startsWith('npc-seed:')) return undefined;
+  try {
+    const key: unknown = JSON.parse(postId.slice('npc-seed:'.length));
+    return Array.isArray(key) && key.length === 2 && key.every((item) => typeof item === 'string') ? key[0] as string : undefined;
+  } catch { return undefined; }
+}
+
 function referencedParticipant(registry: EffectiveCharacterRegistry, reference: NpcParticipantReference) {
   if (reference.kind === 'character') {
     // Never bind historical IDs through display-name fallback.

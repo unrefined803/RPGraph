@@ -1,6 +1,6 @@
 import { resolveSocialMessageIdentity } from './socialMessageValidation';
 import { matchMeMessageAllowed, matchMeState } from './matchMe';
-import { storyCharactersFromNodes } from '../storybook/runtime';
+import type { StorybookCharacter } from '../storybook/runtime';
 import { useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { restoreTurnRuntime } from './turns';
 import {
@@ -39,6 +39,7 @@ export type TurnReplacement = {
 };
 
 type UseTurnRecordStateOptions = {
+  appCharacters: () => StorybookCharacter[];
   captureNpcMessages: (messages: MessageRecord[]) => void;
   nodesRef: RefObject<WorkflowNode[]>;
   setNodes: Dispatch<SetStateAction<WorkflowNode[]>>;
@@ -49,6 +50,7 @@ type UseTurnRecordStateOptions = {
 type AppendMessageInput = Omit<MessageRecord, 'id' | 'isOpening'>;
 
 export function useTurnRecordState({
+  appCharacters,
   captureNpcMessages,
   nodesRef,
   setNodes,
@@ -138,7 +140,7 @@ export function useTurnRecordState({
     simulatedAiChat,
   }: AppendMessageInput) {
     if (socialDirectMessage && socialDirectMessage.app !== 'matchme') {
-      const characters = storyCharactersFromNodes(nodesRef.current);
+      const characters = appCharacters();
       const from = resolveSocialMessageIdentity({ characters, messages: messagesRef.current, app: socialDirectMessage.app, identity: socialDirectMessage.fromAccountId ?? socialDirectMessage.fromHandle });
       const to = resolveSocialMessageIdentity({ characters, messages: messagesRef.current, app: socialDirectMessage.app, identity: socialDirectMessage.toAccountId ?? socialDirectMessage.toHandle });
       if (!from.available || !to.available) throw new Error(from.reason ?? to.reason ?? 'Unknown or ambiguous social account.');
@@ -146,7 +148,7 @@ export function useTurnRecordState({
       socialDirectMessage = { ...socialDirectMessage, from: from.name, to: to.name, fromAccountId: from.accountId, toAccountId: to.accountId };
     }
     if (socialDirectMessage?.app === 'matchme') {
-      if (!matchMeMessageAllowed(socialDirectMessage, matchMeState(storyCharactersFromNodes(nodesRef.current), messagesRef.current))) {
+      if (!matchMeMessageAllowed(socialDirectMessage, matchMeState(appCharacters(), messagesRef.current))) {
         throw new Error('MatchMe delivery blocked: the accounts need an active match.');
       }
       const existing = messagesRef.current.find((entry) => entry.socialDirectMessage?.messageId === socialDirectMessage.messageId);

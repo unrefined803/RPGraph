@@ -1,3 +1,4 @@
+import { appCharacterImage } from '../characters/appRuntime';
 import type { NpcParticipantReference } from '../characters/npcParticipants';
 import { datingAccountMatches } from '../chat/datingAccounts';
 import {
@@ -40,7 +41,6 @@ import {
   socialLikeAccountKey,
   socialMessageHiddenFromChat,
 } from '../chat/socialMedia';
-import { storybookImageById } from '../storybook/imageLibrary';
 import { dialogueColors } from '../chat/textRendering';
 import {
   chatAttachmentFromStorybookImage,
@@ -96,6 +96,7 @@ const chatReadsPhoneAppsStorageKey = 'rpgraph-chat-reads-phone-apps-enabled';
 const chatAutoFollowBottomMargin = 48;
 
 type UseRoleplayPanelRuntimeOptions = {
+  appCharacters: StorybookCharacter[];
   captureNpcParticipants: (references: NpcParticipantReference[]) => void;
   nodeViewNodes: WorkflowNode[];
   nodesRef: { current: WorkflowNode[] };
@@ -113,6 +114,7 @@ type UseRoleplayPanelRuntimeOptions = {
 };
 
 export function useRoleplayPanelRuntime({
+  appCharacters,
   captureNpcParticipants,
   nodeViewNodes,
   nodesRef,
@@ -212,8 +214,8 @@ export function useRoleplayPanelRuntime({
     [nodeViewNodes],
   );
   const phoneCharacters = useMemo(
-    () => phoneRuntimeCharactersFromMessages(storyCharacters, messages),
-    [messages, storyCharacters],
+    () => phoneRuntimeCharactersFromMessages(appCharacters, messages),
+    [messages, appCharacters],
   );
   const characterColors = useMemo(
     () =>
@@ -227,11 +229,11 @@ export function useRoleplayPanelRuntime({
   );
   const socialDirectory = useMemo(
     () => buildSocialDirectory({
-      storyCharacters,
+      storyCharacters: appCharacters,
       messages,
       savedDynamicUsers: savedDynamicSocialUsers,
     }),
-    [messages, savedDynamicSocialUsers, storyCharacters],
+    [messages, savedDynamicSocialUsers, appCharacters],
   );
   const fotogramContactsByCharacter = useMemo(
     () => Object.fromEntries(storyCharacters.map((viewer) => [
@@ -480,7 +482,7 @@ export function useRoleplayPanelRuntime({
         return rpStorybookPhoneContactAllowed(storybook, viewer.sourceId, contact.sourceId);
       }
     }
-    return !viewer.temporaryPhone && !contact.temporaryPhone;
+    return !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
   }, [phoneConversationInfo, storybooksByNodeId]);
 
   const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>) => {
@@ -840,11 +842,11 @@ export function useRoleplayPanelRuntime({
   // Posted photos are stored as Storybook/Gallery image ids; resolve the
   // pixels from the image library wherever a post is rendered.
   const socialImageById = useCallback(
-    (imageId: string) => {
-      const image = storybookImageById(storybooksByNodeId.values(), imageId);
+    (imageId: string, ownerId?: string) => {
+      const image = appCharacterImage(appCharacters, imageId, ownerId);
       return image ? chatAttachmentFromStorybookImage(image) : undefined;
     },
-    [storybooksByNodeId],
+    [appCharacters],
   );
 
   function toggleSocialLike(characterId: string, app: SocialAppKind, postId: string) {

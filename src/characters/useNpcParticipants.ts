@@ -1,3 +1,4 @@
+import { appCharactersFromRegistry } from './appRuntime';
 import { useRef } from 'react';
 import type { MessageRecord, WorkflowNode } from '../types';
 import type { NpcLibrarySnapshot } from './npcLibrary';
@@ -18,6 +19,7 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   return {
     current: () => snapshotsRef.current,
     registry: () => buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)]),
+    characters: () => appCharactersFromRegistry(buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)])),
     capture,
     captureMessages: (messages: MessageRecord[]) => capture(npcReferencesFromMessages(messages)),
     restore: (snapshots: NpcParticipantSnapshots) => { snapshotsRef.current = parseNpcParticipantSnapshots(snapshots); },

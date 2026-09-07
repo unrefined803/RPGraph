@@ -1,3 +1,4 @@
+import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
 import { resolveWhatsUpRecipient } from './characters/messageIdentity';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
@@ -886,6 +887,7 @@ function App() {
     commitCollectedTurn,
     commitLocalAppTurn,
   } = useTurnRecordState({
+    appCharacters: npcParticipants.characters,
     captureNpcMessages: npcParticipants.captureMessages,
     nodesRef,
     setNodes,
@@ -1046,6 +1048,7 @@ function App() {
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,
   } = useRoleplayPanelRuntime({
+    appCharacters: npcParticipants.characters(),
     captureNpcParticipants: npcParticipants.capture,
     nodeViewNodes,
     nodesRef,
@@ -3707,6 +3710,7 @@ function App() {
     });
   }
   const { runGraph } = useGraphRun({
+    appCharacters: npcParticipants.characters,
     messages,
     setMessages,
     messagesRef,
@@ -3945,11 +3949,11 @@ function App() {
               threadContext?.likeCount ?? 0,
             )
           : socialDirectRunMessage
-            ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages, storyCharacters)
+            ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages, npcParticipants.characters())
             : turn.input.graphText;
       const imageId = socialPost?.imageId ?? socialDirectMessage?.origin?.postImageId;
       const inputImages = imageId
-        ? [socialImageById(imageId)].filter(
+        ? [socialImageById(imageId, socialPost?.authorAccountId ?? socialPost?.authorCharacterId ?? (socialDirectMessage?.origin ? npcSeedPostAccountId(socialDirectMessage.origin.postId) : undefined))].filter(
             (image): image is ChatImageAttachment => !!image,
           )
         : [];
@@ -4434,7 +4438,7 @@ function App() {
 
   function saveMatchMeProfile(owner: StorybookCharacter, profile: DatingProfile) {
     if (isRunning || activeTurnCollectorRef.current) return false;
-    const characters = storyCharactersFromNodes(nodesRef.current);
+    const characters = npcParticipants.characters();
     const currentOwner = characters.find((entry) => entry.id === owner.id);
     if (!currentOwner) return false;
     const state = matchMeState(characters, messagesRef.current);
@@ -4469,7 +4473,7 @@ function App() {
     }
     let slot = { fotogram: 4, onlyfriends: 5, matchme: 6 }[message.app];
     if (message.app === 'matchme') {
-      if (!matchMeMessageAllowed(message, matchMeState(storyCharactersFromNodes(nodesRef.current), messagesRef.current))) {
+      if (!matchMeMessageAllowed(message, matchMeState(npcParticipants.characters(), messagesRef.current))) {
         notifySystem('warning', 'MatchMe message blocked: this conversation needs an active match.');
         return false;
       }
@@ -4495,9 +4499,9 @@ function App() {
       : undefined;
     if (message.app === 'matchme' && messagesRef.current.some((entry) => entry.socialDirectMessage?.replyToMessageId === message.messageId)) return true;
     return runGraph(
-      socialDirectMessageInputText(message, messagesRef.current, storyCharactersFromNodes(nodesRef.current)),
+      socialDirectMessageInputText(message, messagesRef.current, npcParticipants.characters()),
       message.origin?.postImageId
-        ? [socialImageById(message.origin.postImageId)].filter(
+        ? [socialImageById(message.origin.postImageId, npcSeedPostAccountId(message.origin.postId))].filter(
             (image): image is ChatImageAttachment => !!image,
           )
         : [],
@@ -5631,6 +5635,7 @@ function App() {
             />
           ) : chatPanelView === 'phone' ? (
             <PhonePanel
+              appCharacters={npcParticipants.characters()}
               phoneContacts={phoneContacts}
               storyCharacters={storyCharacters}
               estimatedTokenBytesPerToken={activeTokenEstimateBytesPerToken}

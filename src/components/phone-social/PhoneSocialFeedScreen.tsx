@@ -117,7 +117,7 @@ type PhoneSocialFeedScreenProps = {
   unreadDirectMessages: SocialDmUnreadByHandle;
   onMarkDirectMessagesSeen: (partnerHandle: string) => void;
   /** Resolves a Storybook/Gallery image id to the stored image. */
-  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   /** Liked post ids per "characterId/app" account (persisted in the RP save). */
   socialLikesByAccount: Record<string, string[]>;
   socialDirectoryUsers: SocialDirectoryUser[];
@@ -621,7 +621,7 @@ export function PhoneSocialFeedScreen({
       // Posts store only the Gallery image id; the pixels live in the
       // Storybook image library and are resolved here for display.
       imageDataUrl: message.socialPost.imageId
-        ? socialImageById(message.socialPost.imageId)?.dataUrl
+        ? socialImageById(message.socialPost.imageId, message.socialPost.authorAccountId ?? message.socialPost.authorCharacterId)?.dataUrl
         : undefined,
       imageId: message.socialPost.imageId,
       imageDescription: message.socialPost.imageDescription,
@@ -1383,7 +1383,7 @@ export function PhoneSocialFeedScreen({
                 className="phone-avatar"
                 name={owner?.name ?? account}
                 fallback={(owner?.name ?? account).slice(0, 1).toUpperCase()}
-                profileImageDataUrl={(owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!)?.dataUrl : undefined) ?? owner?.profileImage?.dataUrl}
+                profileImageDataUrl={(owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId)?.dataUrl : undefined) ?? owner?.profileImage?.dataUrl}
                 style={ownerColor ? { borderColor: ownerColor, color: ownerColor } : undefined}
               />
               <span className="phone-social-account-main">
@@ -1412,7 +1412,7 @@ export function PhoneSocialFeedScreen({
                     className="phone-avatar"
                     name={entry.name}
                     fallback={entry.name.slice(0, 1).toUpperCase()}
-                    profileImageDataUrl={(entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!)?.dataUrl : undefined) ?? entry.character?.profileImage?.dataUrl}
+                    profileImageDataUrl={(entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!, entry.character.sourceId)?.dataUrl : undefined) ?? entry.character?.profileImage?.dataUrl}
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
@@ -1709,7 +1709,7 @@ export function PhoneSocialFeedScreen({
                       className="phone-avatar"
                       name={post.authorName}
                       fallback={post.authorName.slice(0, 1).toUpperCase()}
-                      profileImageDataUrl={(postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!)?.dataUrl : undefined) ?? postAuthorCharacter?.profileImage?.dataUrl}
+                      profileImageDataUrl={(postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!, postAuthorCharacter.sourceId)?.dataUrl : undefined) ?? postAuthorCharacter?.profileImage?.dataUrl}
                       style={postAuthorColor
                         ? { borderColor: postAuthorColor, color: postAuthorColor }
                         : undefined}

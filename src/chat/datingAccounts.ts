@@ -1,3 +1,5 @@
+import { recipientCharacterContext } from '../characters/appRuntime';
+import type { ChatImageAttachment } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { DatingGender } from './datingProfile';
 
@@ -10,6 +12,7 @@ export const datingNpcProfiles = [
 
 export type DatingAccount = {
   id: string; characterId?: string; aliases?: string[]; name: string; age: number; gender?: DatingGender;
+  photos?: ChatImageAttachment[]; recipientContext?: string; libraryNpc?: boolean;
   bio: string; interests: string[]; personality: string; color: string;
 };
 export const datingAccountId = (character: string | StorybookCharacter) => typeof character === 'string'
@@ -22,7 +25,9 @@ export function datingAccounts(characters: StorybookCharacter[]): DatingAccount[
     const profile = character.social.plotTwist;
     if (!profile) continue;
     accounts.push({ id: datingAccountId(character), characterId: character.id,
-      aliases: [datingAccountId(character.id), character.name, character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
+      photos: (profile.photoIds ?? []).flatMap((id) => character.images?.find((image) => image.id === id) ?? []),
+      recipientContext: recipientCharacterContext(character), libraryNpc: character.libraryNpc,
+      aliases: [...(character.identityAliases?.accountIds?.matchme ?? []), ...(character.identityAliases?.characterIds ?? []).map(datingAccountId), datingAccountId(character.id), character.name, character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
       name: profile.name, age: profile.age, gender: profile.gender, bio: profile.bio,
       interests: profile.interests.split(',').map((part) => part.trim()).filter(Boolean),
       personality: [character.profile.personality, character.profile.speechStyle].filter(Boolean).join('\n'), color: 'violet' });
@@ -42,5 +47,6 @@ export function resolveDatingAccount(identity: string, accounts: DatingAccount[]
 
 /** Saved node-scoped IDs remain read aliases for canonical account identities. */
 export function datingAccountMatches(character: StorybookCharacter, id: string | undefined) {
-  return !!id && (datingAccountId(character) === id || datingAccountId(character.id) === id);
+  return !!id && (datingAccountId(character) === id || datingAccountId(character.id) === id || character.identityAliases?.accountIds?.matchme?.includes(id) ||
+    character.identityAliases?.characterIds?.some((alias) => datingAccountId(alias) === id));
 }

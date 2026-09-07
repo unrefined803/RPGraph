@@ -1,3 +1,4 @@
+import { recipientCharacterContext } from '../characters/appRuntime';
 import { matchMeContext, matchMeState } from './matchMe';
 import { datingAccountId, datingAccountMatches } from './datingAccounts';
 import type {
@@ -208,8 +209,12 @@ export function socialDirectMessageInputText(
       )}`,
     ];
   });
+  const recipients = characters.filter((character) => message.toAccountId
+    ? character.apps?.[message.app]?.accountId === message.toAccountId
+    : character.apps?.[message.app]?.enabled && socialIdentityMatches(character.apps[message.app]!.username, message.toHandle));
   return [
     socialDirectMessageInputHeaders[message.app],
+    ...(message.app !== 'matchme' && recipients.length === 1 ? [recipientCharacterContext(recipients[0])] : []),
     ...(message.app === 'matchme' ? [matchMeContext(matchMeState(characters, historyMessages), message)] : []),
     `App: ${socialAppNames[message.app]}`,
     `Sender: ${message.from} (@${message.fromHandle})`,
