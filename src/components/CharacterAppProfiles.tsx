@@ -48,7 +48,7 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
           onClick={() => { setSelectedApp(app); setError(''); }}
         >
           <span className="character-account-tab-name">{appName(app)}</span>
-          <span className={`character-account-status${created ? ' created' : ''}`} aria-hidden="true">{created ? '✓' : '−'}</span>
+          <span className={`character-account-status${created ? ' created' : ''}`} aria-hidden="true">{created ? '✓' : '×'}</span>
           <span className={`character-account-status-label${created ? ' created' : ''}`}>
             {created ? 'Account created' : 'Account not created'}
           </span>

@@ -1378,7 +1378,7 @@ function characterPhoneSummary(character: RpStorybookCharacter) {
       className={`character-phone-account-status${created ? ' created' : ''}`}
       aria-label={created ? 'Account created' : 'Account not created'}
     >
-      {created ? '✓' : '−'}
+      {created ? '✓' : '×'}
     </span>
   );
   const onlyFriendsCreated = Boolean(character.apps?.onlyfriends?.enabled);
