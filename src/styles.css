@@ -13009,6 +13009,20 @@ button.message-timeline-row.phone:focus-visible {
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
 }
 
+.storybook-picker-dialog {
+  width: min(760px, calc(100vw - 40px));
+  height: min(620px, calc(100vh - 100px));
+  min-height: min(440px, calc(100vh - 100px));
+}
+
+.storybook-picker-actions {
+  justify-content: flex-end;
+}
+
+.storybook-picker-actions .secondary {
+  margin-left: 0;
+}
+
 .chat-password-dialog {
   width: min(500px, calc(100vw - 40px));
   overflow: hidden;

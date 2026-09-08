@@ -49,14 +49,14 @@ The main app shell is built in [`src/App.tsx`](../../src/App.tsx). It renders a 
 At a high level, the app works like this:
 
 1. The user opens or creates a workflow.
-2. The workflow graph contains nodes such as `User Input`, `LLM Prompt`, `RP Output`, `RP Storybook V2`, and supporting context nodes.
+2. The workflow graph contains nodes such as `User Input`, `LLM Prompt`, `RP Output`, `RP Storybook V3`, and supporting context nodes.
 3. The user selects who they are playing as in the chat panel.
 4. The user sends a chat message, phone message, social-media action, event run, auto-turn, direct app action, or regeneration request.
 5. `App.tsx` coordinates focused hooks such as `useGraphRun`, `useRoleplayPanelRuntime`, and `useRpgraphFiles`, which prepare the current session state and start the requested run.
 6. The runtime resolves connected nodes, calls LLM or utility nodes as needed, and updates runtime node state.
 7. The output is appended back into the chat/session timeline and shown in the UI.
 
-The two bundled default workflows are ready-to-use roleplay graphs rather than minimal three-node examples. Both combine `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, `RP Storybook V2`, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Messenger Apps, and Social Media runs into the matching `RP Output` inputs. It also provides an Autoplay output that can be connected to the dedicated RP Output Autoplay input. The classic `workflow.default_vNN.json` family keeps the single-pass prompts, while `workflow.default_planning_vNN.json` uses multistep planning for Normal RP and Messenger prompts. Shared graph and format changes are maintained in both families.
+The two bundled default workflows are ready-to-use roleplay graphs rather than minimal three-node examples. Both combine `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, an empty `RP Storybook V3` slot, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Messenger Apps, and Social Media runs into the matching `RP Output` inputs. It also provides an Autoplay output that can be connected to the dedicated RP Output Autoplay input. The classic `workflow.default_vNN.json` family keeps the single-pass prompts, while `workflow.default_planning_vNN.json` uses multistep planning for Normal RP and Messenger prompts. Shared graph and format changes are maintained in both families. Bundled workflows and standalone Storybooks live under `resources/default-content`.
 
 ## Prompt Routing
 
@@ -220,7 +220,7 @@ Important file actions:
 - `openStoredFile`, `requestOpenFile`, and `loadStoredFile` route plain or encrypted loads through the correct unlock path.
 - `resetWorkflow` reloads the active workflow file, restores an embedded workflow snapshot, or restores both bundled workflow families and opens the planning workflow.
 
-Bundled workflow names are versioned independently in the classic `workflow.default_vNN.json` and multistep `workflow.default_planning_vNN.json` families. On startup the Electron layer imports every bundled filename not already recorded in `workflow-state.json`. It never overwrites an existing local file, so an updated classic or planning workflow appears alongside previously imported versions. On a fresh installation the planning family is selected as the primary default; an existing installation keeps its last active workflow.
+Bundled workflow names are versioned independently in the classic `workflow.default_vNN.json` and multistep `workflow.default_planning_vNN.json` families. On startup the Electron layer imports every new bundled workflow and Storybook filename into RPGraph Studio Files. It never overwrites an existing local file, so updated content appears alongside previously imported versions. On a fresh installation the planning family is selected as the primary default; an existing installation keeps its last active workflow. Loading a workflow whose RP Storybook node is empty opens the local Storybook picker, which can also be dismissed to continue without a Storybook.
 
 ## Node System
 

@@ -232,19 +232,19 @@ import {
 } from './variables';
 
 const bundledDefaultWorkflows = import.meta.glob<{ default: unknown }>(
-  '../../workflow.default*.json',
+  '../../resources/default-content/workflow.default*.json',
   { eager: true },
 );
 const bundledDefaultWorkflowPaths = Object.keys(bundledDefaultWorkflows)
   .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 if (bundledDefaultWorkflowPaths.length === 0) {
-  throw new Error('No workflow.default*.json file was found in the project root.');
+  throw new Error('No workflow.default*.json file was found in resources/default-content.');
 }
 const planningDefaultWorkflowPath = [...bundledDefaultWorkflowPaths]
   .reverse()
   .find((filePath) => /planning/i.test(filePath));
 if (!planningDefaultWorkflowPath) {
-  throw new Error('No planning bundled workflow was found in the project root.');
+  throw new Error('No planning bundled workflow was found in resources/default-content.');
 }
 const currentWorkflow = bundledDefaultWorkflows[planningDefaultWorkflowPath]
   .default as WorkflowFile;

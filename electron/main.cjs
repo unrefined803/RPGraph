@@ -112,16 +112,31 @@ function resolveProjectPath(relativePath) {
   return resolved;
 }
 
+function bundledDefaultContentDirectory() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'default-content')
+    : path.join(projectRootPath, 'resources', 'default-content');
+}
+
 function bundledDefaultWorkflowPaths() {
-  const names = bundledDefaultWorkflowFileNames(fsSync.readdirSync(projectRootPath));
+  const directory = bundledDefaultContentDirectory();
+  const names = bundledDefaultWorkflowFileNames(fsSync.readdirSync(directory));
   if (names.length === 0) {
-    throw new Error('No workflow.default*.json file was found in the app directory.');
+    throw new Error('No workflow.default*.json file was found in the bundled default content directory.');
   }
   return names.map((name) => {
-    const resolved = path.resolve(projectRootPath, name);
+    const resolved = path.resolve(directory, name);
     approvedWorkflowPaths.add(resolved);
     return resolved;
   });
+}
+
+function bundledDefaultStorybookPaths() {
+  const directory = bundledDefaultContentDirectory();
+  return fsSync.readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.rpgraph-storybook.json'))
+    .map((entry) => path.resolve(directory, entry.name))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
 function bundledDefaultWorkflowPath() {
@@ -718,7 +733,45 @@ async function ensureBundledDefaultWorkflowFiles(overwriteExisting) {
   );
 }
 
-async function importMissingBundledDefaultWorkflows() {
+async function ensureDefaultStorybookFile(bundledPath) {
+  const bundledFileName = path.basename(bundledPath);
+  const directory = filesDirectory();
+  await fs.mkdir(directory, { recursive: true });
+  const baseName = bundledFileName.replace(/\.json$/i, '');
+  let fileName = `${baseName}${jsonFileExtension}`;
+  let filePath = path.join(directory, fileName);
+  for (let index = 2; fsSync.existsSync(filePath); index += 1) {
+    const metadata = await readStoredFileMetadata(filePath);
+    if (metadata.type === 'storybook' && metadata.protection === 'plain' && metadata.compatible) {
+      const state = await loadWorkflowState();
+      await saveWorkflowState({
+        importedDefaultFileNames: Array.from(new Set([
+          ...state.importedDefaultFileNames,
+          bundledFileName,
+        ])),
+      });
+      return { fileName, name: storedJsonName(fileName), filePath };
+    }
+    fileName = `${baseName}-${index}${jsonFileExtension}`;
+    filePath = path.join(directory, fileName);
+  }
+  const contents = await fs.readFile(bundledPath, 'utf8');
+  const metadata = storedFileMetadata(JSON.parse(contents));
+  if (metadata.type !== 'storybook' || metadata.protection !== 'plain' || !metadata.compatible) {
+    throw new Error(`Bundled Storybook is not a compatible plain Storybook: ${bundledFileName}`);
+  }
+  await writeNewTextFileAtomically(filePath, contents);
+  const state = await loadWorkflowState();
+  await saveWorkflowState({
+    importedDefaultFileNames: Array.from(new Set([
+      ...state.importedDefaultFileNames,
+      bundledFileName,
+    ])),
+  });
+  return { fileName, name: storedJsonName(fileName), filePath };
+}
+
+async function importMissingBundledDefaultContent() {
   const bundledPaths = bundledDefaultWorkflowPaths();
   const initialState = await loadWorkflowState();
   const importedNames = new Set(initialState.importedDefaultFileNames);
@@ -732,6 +785,12 @@ async function importMissingBundledDefaultWorkflows() {
   }
   if (!initialState.lastWorkflowFileName && imported.length > 0) {
     await saveLastWorkflowFileName(imported[imported.length - 1].fileName);
+  }
+  for (const bundledPath of bundledDefaultStorybookPaths()) {
+    const bundledFileName = path.basename(bundledPath);
+    if (!importedNames.has(bundledFileName)) {
+      await ensureDefaultStorybookFile(bundledPath);
+    }
   }
   return imported;
 }
@@ -4865,9 +4924,9 @@ ipcMain.handle('workflow:restore-default', async () => {
 
 ipcMain.handle('workflow:load-startup', async () => {
   try {
-    await importMissingBundledDefaultWorkflows();
+    await importMissingBundledDefaultContent();
   } catch (error) {
-    console.error('Unable to import bundled default workflows:', error);
+    console.error('Unable to import bundled default content:', error);
   }
   let files = await workflowFiles();
   if (files.length === 0) {

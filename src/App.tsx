@@ -245,6 +245,7 @@ import { contextCompressionCapacitySegments } from './nodes/context-compression/
 import {
   defaultRpStorybookImageDescriptionPrompt,
   emptyRpStorybook,
+  isEmptyRpStorybook,
   parseRpStorybookJson,
   type RpStorybookCharacterImage,
   type RpStorybook,
@@ -446,11 +447,11 @@ function displayStorybookName(
   headerStorybookJson: string | undefined,
   activeSessionFileName: string | null,
 ) {
+  if (!headerStorybookJson || isEmptyRpStorybook(headerStorybookJson)) {
+    return 'not loaded';
+  }
   if (headerStorybookFileName) {
     return `${headerStorybookFileName} (file)`;
-  }
-  if (!headerStorybookJson) {
-    return 'not loaded';
   }
   try {
     const storybook = parseRpStorybookJson(headerStorybookJson);
@@ -1342,6 +1343,8 @@ function App() {
   const {
     showFiles,
     setShowFiles,
+    showStorybookPicker,
+    setShowStorybookPicker,
     savedFiles,
     selectedFile,
     setSelectedFile,
@@ -1391,6 +1394,7 @@ function App() {
     activateWorkflowPath,
     refreshFiles,
     openFiles,
+    openStorybookPicker,
     saveNamedWorkflow,
     requestExportWorkflow,
     requestSaveStorybook,
@@ -2999,7 +3003,10 @@ function App() {
     upgradeNode: handleUpgradeNode,
     openCustomNodeAssistant: customNodeAssistant.open,
     runCustomNodeButton: customNodeAssistant.runButton,
-    loadStorybookFile,
+    loadStorybookFile: async () => {
+      await openStorybookPicker();
+      return true;
+    },
     importSillyTavernCharacter,
   });
 
@@ -4793,6 +4800,7 @@ function App() {
   );
   const headerStorybookFileName = headerStorybookNode?.data.storybookFileName;
   const headerStorybookJson = headerStorybookNode?.data.storybookJson;
+  const headerHasStorybook = !!headerStorybookJson && !isEmptyRpStorybook(headerStorybookJson);
   const displayedStorybookName = displayStorybookName(
     headerStorybookFileName,
     headerStorybookJson,
@@ -4817,9 +4825,9 @@ function App() {
     : displayedWorkflowName;
 
   const isStorybookEncrypted =
-    (activeStorybookProtection === 'encrypted' && !!headerStorybookNode?.data.storybookFileName) ||
-    (isSessionEncrypted && !headerStorybookNode?.data.storybookFileName && !!headerStorybookNode?.data.storybookJson) ||
-    (activeWorkflowProtection === 'encrypted' && !headerStorybookNode?.data.storybookFileName && !!headerStorybookNode?.data.storybookJson);
+    (activeStorybookProtection === 'encrypted' && !!headerStorybookNode?.data.storybookFileName && headerHasStorybook) ||
+    (isSessionEncrypted && !headerStorybookNode?.data.storybookFileName && headerHasStorybook) ||
+    (activeWorkflowProtection === 'encrypted' && !headerStorybookNode?.data.storybookFileName && headerHasStorybook);
   const displayedStorybookNameFormatted = isStorybookEncrypted
     ? headerStorybookNode?.data.storybookFileName
       ? formatEncryptedFileName(headerStorybookNode.data.storybookFileName)
@@ -5964,7 +5972,10 @@ function App() {
           connections={connections}
           providerHealthById={providerHealthById}
           onSubmit={submitStorybookCreatorMessage}
-          onLoad={() => loadStorybookFile(storybookCreatorNode.id)}
+          onLoad={async () => {
+            await openStorybookPicker();
+            return true;
+          }}
           onSaveStorybook={() => requestSaveStorybook(false)}
           promptTextCustomPresets={promptTextCustomPresets}
           setPromptTextCustomPresets={setPromptTextCustomPresets}
@@ -6153,6 +6164,7 @@ function App() {
         onUiScaleChange={changeUiScale}
         onRetryFormatErrorsChange={setRetryFormatErrorsEnabled}
         showFiles={showFiles}
+        showStorybookPicker={showStorybookPicker}
         savedFiles={savedFiles}
         selectedFile={selectedFile}
         workflowName={workflowNameDraft}
@@ -6172,6 +6184,25 @@ function App() {
           setSessionPassword('');
           setPendingSessionFilePath(null);
           setPendingStorybookLoad(null);
+        }}
+        onCloseStorybookPicker={() => {
+          setShowStorybookPicker(false);
+          setSelectedFile(null);
+          setFileStorageStatus('');
+        }}
+        onRequestOpenStorybookFile={() => {
+          const storybookNode = nodesRef.current.find(
+            (node) => node.data.nodeType === 'rp-storybook',
+          );
+          if (!storybookNode) {
+            setFileStorageStatus('No RP Storybook V3 node is available.');
+            return;
+          }
+          void loadStorybookFile(storybookNode.id).then((loaded) => {
+            if (loaded) {
+              setShowStorybookPicker(false);
+            }
+          });
         }}
         onSelectFile={(file) => {
           setSelectedFile(file.fileName);
@@ -6241,7 +6272,9 @@ function App() {
             cancelCharacterCardUnlock();
           }
           setShowFiles(
-            sessionPasswordAction === 'save-workflow' ||
+            showStorybookPicker
+              ? false
+              : sessionPasswordAction === 'save-workflow' ||
               sessionPasswordAction === 'save-session' ||
               sessionPasswordAction === 'save-storybook' ||
               sessionPasswordAction === 'save-character'

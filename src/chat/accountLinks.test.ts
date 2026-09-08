@@ -43,8 +43,11 @@ function direct(characters = setup().characters, text = 'Here: @whatsup:Third Pe
 }
 
 describe('inline account links', () => {
-  it.each(['workflow.default_v27.json', 'workflow.default_planning_v27.json'])('resolves the reported Fotogram messages with standard WhatsUp accounts in %s', (file) => {
-    const workflow = JSON.parse(readFileSync(file, 'utf8')) as WorkflowFile;
+  it('resolves the bundled Storybook Fotogram messages with standard WhatsUp accounts', () => {
+    const workflow = JSON.parse(readFileSync('resources/default-content/workflow.default_v28.json', 'utf8')) as WorkflowFile;
+    const storybook = readFileSync('resources/default-content/Saturday Night at Maple Street.rpgraph-storybook.json', 'utf8');
+    const storybookNode = workflow.nodes.find((node) => node.data.nodeType === 'rp-storybook')!;
+    storybookNode.data.storybookJson = storybook;
     const characters = structuredClone(storyCharactersFromNodes(workflow.nodes));
     for (const [text, name] of [
       ['espen has a new number @whatsup:Espen Harper', 'Espen Harper'],

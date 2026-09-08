@@ -30,11 +30,11 @@ export type LaunchedApp = {
 function bundledDefaultBasename(): string {
   const pattern = /^workflow\.default.*\.json$/i;
   const names = fs
-    .readdirSync(repoRoot)
+    .readdirSync(path.join(repoRoot, 'resources', 'default-content'))
     .filter((name) => pattern.test(name))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   if (names.length === 0) {
-    throw new Error('No workflow.default*.json found in the app directory.');
+    throw new Error('No workflow.default*.json found in resources/default-content.');
   }
   return names[names.length - 1];
 }

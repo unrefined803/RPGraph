@@ -874,6 +874,17 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
   };
 }
 
+export function isEmptyRpStorybook(value: unknown): boolean {
+  try {
+    const storybook = typeof value === 'string'
+      ? parseRpStorybookJson(value)
+      : normalizeRpStorybook(value);
+    return JSON.stringify(storybook) === JSON.stringify(emptyRpStorybook);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * A tiny, ready-to-run starter story used when a fresh Storybook node is added,
  * so the chat works out of the box (one player + one actor) — enough to try a

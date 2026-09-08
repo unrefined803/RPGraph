@@ -218,7 +218,7 @@ UI/E2E tests without an explicit request. Do not commit unless requested.
 - Encrypted envelopes remain opaque to migration. Manual import can decrypt
   first and then migrate the payload. Automatic encrypted NPC loading is not
   implemented and must remain excluded in the future scanner.
-- Both bundled default workflows contain V3 Storybooks and V3 Storybook nodes. The shared migration
+- Both bundled default workflows contain empty V3 Storybook nodes; the bundled story is a standalone file. The shared migration
   can also run without the UI:
   `npm run character:migrate-v3 -- --input old.json --output new.json`.
   Existing output files require an explicit `--overwrite` flag.

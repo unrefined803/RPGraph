@@ -10,7 +10,6 @@ directories:
 files:
   - dist/**/*
   - electron/**/*
-  - workflow.default*.json
   - comfy-workflows/api-workflows-with-variables/**/*
   - src/assets/app-icons/rpgraph.png
   - src/session/formatVersions.json
@@ -21,6 +20,10 @@ files:
   - LICENSE
 
 extraResources:
+  - from: resources/default-content
+    to: default-content
+    filter:
+      - "**/*"
   - from: resources/npc-characters
     to: npc-characters
     filter:

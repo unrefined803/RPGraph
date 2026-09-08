@@ -16,6 +16,7 @@ import {
 import storybookFormatVersions from '../storybook/formatVersions.json';
 import { rpStorybookJsonText, type RpStorybook } from '../nodes/rp-storybook/model';
 import type { RpCharacterCard } from '../storybook/characterCard';
+import { workflowNeedsStorybookSelection } from './workflowSnapshot';
 
 export type WorkflowSaveScope = 'workflow' | 'workflow-storybook';
 export type CharacterSaveLocation = 'characters' | 'npc-characters' | 'choose';
@@ -87,6 +88,7 @@ export function useRpgraphFiles({
   clearWorkspaceForLockedStartup,
 }: UseRpgraphFilesOptions) {
   const [showFiles, setShowFiles] = useState(false);
+  const [showStorybookPicker, setShowStorybookPicker] = useState(false);
   const [savedFiles, setSavedFiles] = useState<SavedFileSummary[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [workflowNameDraft, setWorkflowNameDraft] = useState('');
@@ -147,6 +149,10 @@ export function useRpgraphFiles({
     activateWorkflowPath(null, fileName);
   }
 
+  function updateStorybookPickerForWorkflow(workflow: unknown) {
+    setShowStorybookPicker(workflowNeedsStorybookSelection(workflow));
+  }
+
   async function refreshFiles(
     selectFileName: string | null | undefined = selectedFile,
   ) {
@@ -177,6 +183,22 @@ export function useRpgraphFiles({
     } catch (error) {
       setFileStorageStatus(
         `Unable to list files: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  async function openStorybookPicker() {
+    setShowFiles(false);
+    setShowStorybookPicker(true);
+    setSelectedFile(null);
+    setSessionPasswordAction(null);
+    setSessionPassword('');
+    setFileStorageStatus('');
+    try {
+      await refreshFiles(null);
+    } catch (error) {
+      setFileStorageStatus(
+        `Unable to list Storybooks: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -409,6 +431,11 @@ export function useRpgraphFiles({
     try {
       const result = await window.rpgraph.loadFile(fileName, password, storage);
       applyLoadedRpgraphFile(result, password);
+      if (result.type === 'workflow') {
+        updateStorybookPickerForWorkflow(result.value);
+      } else if (result.type === 'storybook') {
+        setShowStorybookPicker(false);
+      }
     } catch (error) {
       setFileStorageStatus(
         `Load failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -768,6 +795,11 @@ export function useRpgraphFiles({
   async function openFilePath(filePath: string, password = '') {
     const result = await window.rpgraph.loadFilePath(filePath, password);
     applyLoadedRpgraphFile(result, password);
+    if (result.type === 'workflow') {
+      updateStorybookPickerForWorkflow(result.value);
+    } else if (result.type === 'storybook') {
+      setShowStorybookPicker(false);
+    }
     await refreshFiles(result.fileName);
   }
 
@@ -805,6 +837,7 @@ export function useRpgraphFiles({
       await refreshFiles(result.fileName);
       setPendingStorybookLoad(null);
       setPendingSessionFilePath(null);
+      setShowStorybookPicker(false);
       setSessionPassword('');
       setSessionPasswordAction(null);
       setFileStorageStatus(`Loaded encrypted storybook: ${result.name}`);
@@ -896,6 +929,7 @@ export function useRpgraphFiles({
         result.fileName,
         result.protection === 'encrypted' ? result.fileName : undefined,
       );
+      updateStorybookPickerForWorkflow(result.workflow ?? result.value);
       setActiveWorkflowProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
       setSelectedFile(result.fileName);
       await refreshFiles(result.fileName);
@@ -911,6 +945,7 @@ export function useRpgraphFiles({
     try {
       const result = await window.rpgraph.loadDefaultWorkflow();
       applyLoadedWorkflow(result.workflow, result.filePath, 'Loaded', result.fileName);
+      updateStorybookPickerForWorkflow(result.workflow);
       setActiveWorkflowProtection('plain');
     } catch (error) {
       notifySystem(
@@ -926,6 +961,7 @@ export function useRpgraphFiles({
       const result = await window.rpgraph.restoreDefaultWorkflow();
       clearCurrentFileSelection();
       applyLoadedWorkflow(result.workflow, result.filePath, 'Restored default workflow', result.fileName);
+      updateStorybookPickerForWorkflow(result.workflow);
       setActiveWorkflowProtection('plain');
       await refreshFiles(result.fileName);
       setSelectedFile(result.fileName);
@@ -958,6 +994,7 @@ export function useRpgraphFiles({
           workflowSnapshot.fileName,
           workflowSnapshot.fileName,
         );
+        updateStorybookPickerForWorkflow(workflowSnapshot.workflow);
         return;
       }
       const result = workflowPath
@@ -968,12 +1005,14 @@ export function useRpgraphFiles({
           ? result.fileName
           : undefined;
       applyLoadedWorkflow(result.workflow, result.filePath, 'Reset', resultFileName);
+      updateStorybookPickerForWorkflow(result.workflow);
       setActiveWorkflowProtection('plain');
     } catch (error) {
       if (workflowPath && workflowFileMissing(error)) {
         try {
           const result = await window.rpgraph.loadDefaultWorkflow();
           applyLoadedWorkflow(result.workflow, result.filePath, 'Reset to default', result.fileName);
+          updateStorybookPickerForWorkflow(result.workflow);
           setActiveWorkflowProtection('plain');
           notifySystem('warning', `The previous workflow file no longer exists: ${workflowName(workflowPath)}`);
           return;
@@ -1014,6 +1053,8 @@ export function useRpgraphFiles({
   return {
     showFiles,
     setShowFiles,
+    showStorybookPicker,
+    setShowStorybookPicker,
     savedFiles,
     selectedFile,
     setSelectedFile,
@@ -1067,6 +1108,7 @@ export function useRpgraphFiles({
     activateWorkflowSnapshot,
     refreshFiles,
     openFiles,
+    openStorybookPicker,
     saveNamedWorkflow,
     requestExportWorkflow,
     requestSaveStorybook,

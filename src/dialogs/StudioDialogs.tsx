@@ -183,6 +183,7 @@ type StudioDialogsProps = {
   onUiScaleChange: (scale: number) => void;
   onRetryFormatErrorsChange: (enabled: boolean) => void;
   showFiles: boolean;
+  showStorybookPicker: boolean;
   savedFiles: SavedFileSummary[];
   selectedFile: string | null;
   workflowName: string;
@@ -194,6 +195,8 @@ type StudioDialogsProps = {
   workflowOverwritePending: boolean;
   fileStorageStatus: string;
   onCloseFiles: () => void;
+  onCloseStorybookPicker: () => void;
+  onRequestOpenStorybookFile: () => void;
   onSelectFile: (file: SavedFileSummary) => void;
   onOpenFile: (file: SavedFileSummary) => void;
   onDeleteFile: (file: SavedFileSummary) => void;
@@ -826,6 +829,7 @@ export function StudioDialogs({
   onUiScaleChange,
   onRetryFormatErrorsChange,
   showFiles,
+  showStorybookPicker,
   savedFiles,
   selectedFile,
   workflowName,
@@ -837,6 +841,8 @@ export function StudioDialogs({
   workflowOverwritePending,
   fileStorageStatus,
   onCloseFiles,
+  onCloseStorybookPicker,
+  onRequestOpenStorybookFile,
   onSelectFile,
   onOpenFile,
   onDeleteFile,
@@ -956,6 +962,7 @@ export function StudioDialogs({
   const isSavingFile = isSavingWorkflow || isSavingSession || isSavingStorybook || isSavingCharacter;
   const savingKindLabel = isSavingWorkflow ? 'Workflow' : isSavingStorybook ? 'Storybook' : isSavingCharacter ? 'Character' : 'RP';
   const hasStoredWorkflow = savedFiles.some((file) => file.type === 'workflow');
+  const storybookPickerFiles = savedFiles.filter((file) => file.type === 'storybook');
   const connectionModelOptions = Array.from(
     new Set(
       [editingConnection.model, ...availableConnectionModels].filter(
@@ -1382,6 +1389,8 @@ export function StudioDialogs({
       ? 'connections'
       : sessionPasswordAction
         ? 'session-password'
+        : showStorybookPicker
+          ? 'storybook-picker'
         : showCharacterFiles
           ? 'characters'
         : showFiles
@@ -1468,6 +1477,7 @@ export function StudioDialogs({
         return;
       }
       if (activeDialog === 'session-password') { onCloseSessionPassword(); return; }
+      if (activeDialog === 'storybook-picker') { onCloseStorybookPicker(); return; }
       if (activeDialog === 'connections') { onCloseConnections(); return; }
       if (activeDialog === 'characters') { onCloseCharacterFiles(); return; }
       if (activeDialog === 'files') { onCloseFiles(); return; }
@@ -1513,7 +1523,7 @@ export function StudioDialogs({
   }, [
     activeDialog,
     showFileVersionInfo,
-    onCloseText, onCloseJson, onCloseOptions, onCloseFiles, onCloseCharacterFiles,
+    onCloseText, onCloseJson, onCloseOptions, onCloseFiles, onCloseStorybookPicker, onCloseCharacterFiles,
     onCloseSessionPassword, onCloseConnections,
   ]);
 
@@ -2430,6 +2440,80 @@ export function StudioDialogs({
               <button type="button" onClick={() => onImportCharacterFile()}>
                 Import Character
               </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showStorybookPicker && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onPointerDown={trackBackdropPointerDown}
+          onClick={(event) => closeFromBackdropClick(event, 'storybook-picker', onCloseStorybookPicker)}
+        >
+          <section
+            ref={activeDialog === 'storybook-picker' ? activeDialogRef : undefined}
+            className="chat-files-dialog storybook-picker-dialog"
+            role="dialog"
+            aria-modal={activeDialog === 'storybook-picker'}
+            aria-hidden={activeDialog !== 'storybook-picker'}
+            aria-label="Open a Storybook"
+            tabIndex={-1}
+          >
+            <div className="dialog-header">
+              <div>
+                <h2 className="workflow-dialog-title">Open a Storybook</h2>
+                <p>This workflow has no embedded Storybook. Choose one from RPGraph Studio Files or continue without one.</p>
+              </div>
+              <button type="button" className="close-button" onClick={onCloseStorybookPicker}>
+                Cancel
+              </button>
+            </div>
+            <div className="chat-files-form">
+              <div className="saved-chat-list" aria-label="Available Storybooks">
+                {storybookPickerFiles.length === 0 ? (
+                  <p className="empty-chat-list">No Storybooks are available in RPGraph Studio Files.</p>
+                ) : storybookPickerFiles.map((file) => (
+                  <div
+                    className={`saved-chat-row${selectedFile === file.fileName ? ' selected' : ''}`}
+                    key={file.fileName}
+                    onDoubleClick={() => file.compatible && onOpenFile(file)}
+                  >
+                    <button
+                      className="saved-chat-select"
+                      type="button"
+                      onClick={() => onSelectFile(file)}
+                      onDoubleClick={() => file.compatible && onOpenFile(file)}
+                    >
+                      <span className="saved-file-summary">
+                        <strong className="saved-file-name-container">
+                          <span className="file-type-badge storybook">Storybook</span>
+                          <span className="saved-file-name-text">{file.name}</span>
+                        </strong>
+                        <small>
+                          {formatFileDate(file.updatedAt)} · v{file.formatVersion} · {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+                        </small>
+                      </span>
+                    </button>
+                    <div className="saved-chat-actions">
+                      <button
+                        className="saved-chat-open"
+                        type="button"
+                        disabled={!file.compatible}
+                        onClick={() => onOpenFile(file)}
+                      >
+                        Open
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {fileStorageStatus && <p className="chat-storage-status">{fileStorageStatus}</p>}
+            </div>
+            <div className="dialog-actions chat-files-actions storybook-picker-actions">
+              <button type="button" className="secondary" onClick={onRequestOpenStorybookFile}>Open File</button>
+              <button type="button" className="secondary" onClick={onCloseStorybookPicker}>Continue Without Storybook</button>
             </div>
           </section>
         </div>
