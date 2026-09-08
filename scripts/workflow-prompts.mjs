@@ -1,26 +1,27 @@
 #!/usr/bin/env node
 import { readdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const promptFileFormat = 'rpgraph-llm-prompt-switch-prompts';
 const promptFileFormatVersion = 1;
 const defaultPromptPath = '/tmp/rpgraph-workflow.default.prompts.json';
 const maximumEntries = 10;
+const bundledContentDirectory = 'resources/default-content';
 
 function bundledDefaultWorkflowFile() {
-  const names = readdirSync('.')
+  const names = readdirSync(bundledContentDirectory)
     .filter((name) => /^workflow\.default.*\.json$/i.test(name))
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   if (names.length === 0) {
-    throw new Error('No workflow.default*.json file was found in the current directory.');
+    throw new Error(`No workflow.default*.json file was found in ${bundledContentDirectory}.`);
   }
   if (names.length > 1) {
     throw new Error(
       `Multiple bundled workflows were found (${names.join(', ')}). Pass the intended workflow path explicitly.`,
     );
   }
-  return names[0];
+  return join(bundledContentDirectory, names[0]);
 }
 
 function usage() {
@@ -30,7 +31,7 @@ function usage() {
     '  node scripts/workflow-prompts.mjs merge [promptSource] [workflowSource] [workflowDest]',
     '',
     'Defaults:',
-    '  workflow source/dest: auto-detected only when exactly one workflow.default*.json exists',
+    `  workflow source/dest: auto-detected in ${bundledContentDirectory} only when exactly one default exists`,
     `  prompt file:          ${defaultPromptPath}`,
   ].join('\n');
 }
