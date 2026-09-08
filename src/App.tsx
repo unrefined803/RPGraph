@@ -1,6 +1,6 @@
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
-import { resolveWhatsUpRecipient } from './characters/messageIdentity';
+import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
 import { useMatchMeMigration } from './chat/useMatchMeMigration';
@@ -57,7 +57,6 @@ import {
   eventGraphInputText,
 } from './chat/instructions';
 import {
-  canonicalPhoneName,
   parsePhoneGraphInput,
   phoneNamesMatch,
   type ParsedPhoneMessage,
@@ -944,6 +943,7 @@ function App() {
     selectedCharacter,
     narratorSelected,
     storyCharacters,
+    playerCharacters,
     phoneCharacters,
     characterColors,
     viewedPhoneCharacter,
@@ -1447,6 +1447,8 @@ function App() {
     messages,
     messagesRef,
     nodesRef,
+    currentCharacterRegistry: npcParticipants.registry,
+    characterRegistryForStorybook: npcParticipants.registryForStorybook,
     currentTurnInputMessages: () => activeTurnCollectorRef.current?.inputMessages ?? [],
     updateRuntimeNode,
     updateMessage,
@@ -1520,6 +1522,8 @@ function App() {
     usedStorybookImageIds,
     currentNpcParticipants: npcParticipants.current,
     currentCharacterRegistry: npcParticipants.registry,
+    characterRegistryForStorybook: npcParticipants.registryForStorybook,
+    currentTimelineMessages: () => messagesRef.current,
     currentSocialLikesByAccount: () => socialLikesByAccount,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
     currentSocialConnectionsByCharacter: () => socialConnectionsByCharacter,
@@ -3574,10 +3578,14 @@ function App() {
     workflowVariableSetCommands?: WorkflowVariableSetCommand[],
     inputMetadata: Pick<MessageRecord, 'inputMessageFormat' | 'inputPromptSlot' | 'replyToMessageId'> = {},
   ) {
+    const participants = resolveWhatsUpMessageParticipants(npcParticipants.characters(), messagesRef.current, {
+      from: message.fromAccountId ?? message.from,
+      to: message.toAccountId ?? message.to,
+    });
     const canonicalMessage = {
       ...message,
-      from: canonicalPhoneName(phoneCharacters, message.from),
-      to: canonicalPhoneName(phoneCharacters, message.to),
+      from: participants.from.name,
+      to: participants.to.name,
     };
     const storybookImage = canonicalMessage.imageAttachments?.length
       ? undefined
@@ -3608,8 +3616,8 @@ function App() {
       includeInHistory: true,
       channel: 'phone',
       phoneMessage: true,
-      phoneFromAccountId: message.fromAccountId ?? (() => { try { return resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, canonicalMessage.from).accountId; } catch { return undefined; } })(),
-      phoneToAccountId: message.toAccountId ?? (() => { try { return resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, canonicalMessage.to).accountId; } catch { return undefined; } })(),
+      phoneFromAccountId: participants.from.accountId,
+      phoneToAccountId: participants.to.accountId,
       phoneFrom: canonicalMessage.from,
       phoneTo: canonicalMessage.to,
       phoneVoiceMessage: canonicalMessage.isVoiceMessage || undefined,
@@ -4651,7 +4659,7 @@ function App() {
     }
     const eventSpeaker = eventStoryCharacter(eventToRun, storyCharacters);
     if (!eventSpeaker) {
-      notifySystem('warning', 'Event needs at least one playable character.');
+      notifySystem('warning', 'Event needs at least one Storybook participant.');
       return;
     }
     const eventGraphText = eventGraphInputText(eventToRun);
@@ -5327,7 +5335,7 @@ function App() {
 
         {isChatPanelOpen && !isResizing && (
           <EdgeCharacterPicker
-            characters={storyCharacters}
+            characters={playerCharacters}
             settingsLoadComplete={settingsLoadComplete}
             hintSeen={edgeCharacterPickerHintSeen}
             onHintSeen={setEdgeCharacterPickerHintSeen}
@@ -5430,7 +5438,7 @@ function App() {
                     >
                       {narratorSpeakerName}
                     </button>
-                    {storyCharacters.map((character) => {
+                    {playerCharacters.map((character) => {
                       const charColor = characterColors.get(character.name);
                       return (
                         <button
@@ -5653,7 +5661,7 @@ function App() {
               selectedCharacter={viewedPhoneCharacter}
               selectedCharacterPlayable={
                 !!viewedPhoneCharacter &&
-                storyCharacters.some((character) => character.id === viewedPhoneCharacter.id)
+                playerCharacters.some((character) => character.id === viewedPhoneCharacter.id)
               }
               selectedPhoneConversation={selectedPhoneConversation}
               selectedPhoneDividerAfterId={selectedPhoneDividerAfterId}

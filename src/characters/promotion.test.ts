@@ -120,6 +120,20 @@ describe('Storybook NPC promotion', () => {
     expect(posts.find((post) => post.authorCharacterId === fixture.character.id)?.postId).toBe('first-post');
   });
 
+  it('does not block an unrelated import because two library accounts already conflict', () => {
+    const first = library();
+    first.character.id = 'broken-one';
+    const second = structuredClone(first);
+    second.character.id = 'broken-two';
+    const registry = buildCharacterRegistry([first, second]);
+    const card = npcPromotionCard(buildCharacterRegistry([library()]), fixture.character.id);
+    for (const [app, account] of Object.entries(card.character.apps)) {
+      account.accountId = `new-${app}`;
+      account.username = `new.${app}`;
+    }
+    expect(() => planCharacterImportToNode({ nodes: [node()], nodeId: 'book', card, snapshots: {}, registry })).not.toThrow();
+  });
+
   it('retains legacy private MatchMe state on repeated public import', () => {
     const registry = buildCharacterRegistry([library()]);
     const card = npcPromotionCard(registry, fixture.character.id);

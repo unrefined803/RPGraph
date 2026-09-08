@@ -148,16 +148,16 @@ export function buildCharacterRegistry(entries: CharacterRegistryEntry[]): Effec
     const account = character.character.apps?.[app];
     return account ? [{ app, character, account } satisfies EffectiveCharacterAccount] : [];
   }));
+  for (const [accountId, collisions] of groupBy(accounts, (entry) => entry.account.accountId)) {
+    if (collisions.length < 2) continue;
+    const app = collisions.every((entry) => entry.app === collisions[0].app) ? collisions[0].app : undefined;
+    diagnostics.push({ code: 'duplicate-account-id', app, identity: accountId,
+      message: `Duplicate account ID: ${accountId} belongs to multiple effective accounts.`,
+      characterIds: collisions.map((entry) => entry.character.character.id),
+      sources: collisions.map((entry) => entry.character.provenance.source) });
+  }
   for (const app of apps) {
     const appAccounts = accounts.filter((entry) => entry.app === app);
-    const byId = groupBy(appAccounts, (entry) => entry.account.accountId);
-    for (const [accountId, collisions] of byId) {
-      if (collisions.length < 2) continue;
-      diagnostics.push({ code: 'duplicate-account-id', app, identity: accountId,
-        message: `${app} account ID "${accountId}" belongs to multiple effective characters.`,
-        characterIds: collisions.map((entry) => entry.character.character.id),
-        sources: collisions.map((entry) => entry.character.provenance.source) });
-    }
     const withUsername = appAccounts.filter((entry) => !!entry.account.username.trim());
     const byUsername = groupBy(withUsername, (entry) => normalizedAlias(entry.account.username));
     for (const [username, collisions] of byUsername) {

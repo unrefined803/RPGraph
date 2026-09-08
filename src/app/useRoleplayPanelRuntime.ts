@@ -213,6 +213,10 @@ export function useRoleplayPanelRuntime({
     () => storyCharactersFromNodes(nodeViewNodes),
     [nodeViewNodes],
   );
+  const playerCharacters = useMemo(
+    () => storyCharacters.filter((character) => character.playerSelectable !== false),
+    [storyCharacters],
+  );
   const phoneCharacters = useMemo(
     () => phoneRuntimeCharactersFromMessages(appCharacters, messages),
     [messages, appCharacters],
@@ -276,11 +280,11 @@ export function useRoleplayPanelRuntime({
   const selectedCharacter =
     selectedCharacterId === narratorCharacterId
       ? undefined
-      : storyCharacters.find((character) => character.id === selectedCharacterId) ?? storyCharacters[0];
+      : playerCharacters.find((character) => character.id === selectedCharacterId) ?? playerCharacters[0];
   const narratorSelected = selectedCharacterId === narratorCharacterId;
   const viewedPhoneCharacter =
     narratorSelected
-      ? phoneCharacters.find((character) => character.id === viewedPhoneCharacterId) ?? storyCharacters[0]
+      ? phoneCharacters.find((character) => character.id === viewedPhoneCharacterId) ?? playerCharacters[0]
       : selectedCharacter;
   const viewedBankingCharacter = viewedPhoneCharacter && storyCharacters.some(
     (character) => character.id === viewedPhoneCharacter.id,
@@ -452,6 +456,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function selectChatCharacter(characterId: string) {
+    if (characterId !== narratorCharacterId && !playerCharacters.some((character) => character.id === characterId)) {
+      return;
+    }
     if (characterId === narratorCharacterId && viewedPhoneCharacter) {
       // Keep showing the current character's phone while the narrator plays.
       setViewedPhoneCharacterId(viewedPhoneCharacter.id);
@@ -509,12 +516,17 @@ export function useRoleplayPanelRuntime({
   ) => {
     const seenBefore = phoneSeenByConversation[conversationKey] ?? 0;
     if (select) {
-      const speakerIsPlayable = storyCharacters.some((character) => character.id === select.speakerId);
-      if ((select.activatePlayer ?? true) && speakerIsPlayable) {
-        setSelectedCharacterId(select.speakerId);
+      let { speakerId, contactId } = select;
+      if (select.activatePlayer ?? true) {
+        if (!playerCharacters.some((character) => character.id === speakerId) &&
+            playerCharacters.some((character) => character.id === contactId)) {
+          [speakerId, contactId] = [contactId, speakerId];
+        }
+        setSelectedCharacterId(playerCharacters.some((character) => character.id === speakerId)
+          ? speakerId : narratorCharacterId);
       }
-      setViewedPhoneCharacterId(select.speakerId);
-      setSelectedPhoneCharacterId(select.contactId);
+      setViewedPhoneCharacterId(speakerId);
+      setSelectedPhoneCharacterId(contactId);
     }
     setOpenedPhoneConversationKey(conversationKey);
     setPhoneDividerAfterByConversation((current) => ({
@@ -522,7 +534,7 @@ export function useRoleplayPanelRuntime({
       [conversationKey]: seenBefore,
     }));
     markPhoneConversationsSeen([{ key: conversationKey, latestId }]);
-  }, [markPhoneConversationsSeen, phoneSeenByConversation, storyCharacters]);
+  }, [markPhoneConversationsSeen, phoneSeenByConversation, playerCharacters]);
 
   const phoneContacts = useMemo(
     () => phoneContactsForViewer(
@@ -566,12 +578,12 @@ export function useRoleplayPanelRuntime({
   }
 
   const recentChatCharacters = recentChatCharacterIds
-    .map((id) => storyCharacters.find((character) => character.id === id))
+    .map((id) => playerCharacters.find((character) => character.id === id))
     .filter((character): character is StorybookCharacter => !!character);
   const chatSwitchTarget =
     recentChatCharacters.find((character) => character.id !== selectedCharacter?.id) ??
     recentChatCharacters[0];
-  const phoneSwitchTargetPlayable = !!selectedPhoneContact && storyCharacters.some(
+  const phoneSwitchTargetPlayable = !!selectedPhoneContact && playerCharacters.some(
     (character) => character.id === selectedPhoneContact.character.id,
   );
 
@@ -818,15 +830,16 @@ export function useRoleplayPanelRuntime({
       });
     const senderCharacter = characterForIdentity(directMessage.from, directMessage.fromHandle);
     const recipientCharacter = characterForIdentity(directMessage.to, directMessage.toHandle);
-    const owner = senderCharacter ?? recipientCharacter;
+    const owner = [senderCharacter, recipientCharacter].find((character) => character && character.playerSelectable !== false)
+      ?? senderCharacter ?? recipientCharacter;
     if (!owner) {
-      notifySystem('warning', 'Could not find a playable character for this social conversation.');
+      notifySystem('warning', 'Could not find a Storybook participant for this social conversation.');
       return;
     }
     const ownerIsSender = owner.id === senderCharacter?.id;
-    setSelectedCharacterId(owner.id);
+    setSelectedCharacterId(owner.playerSelectable !== false ? owner.id : narratorCharacterId);
     setViewedPhoneCharacterId(owner.id);
-    rememberChatCharacter(owner.id);
+    if (owner.playerSelectable !== false) rememberChatCharacter(owner.id);
     setHighlightedPhoneMessage(undefined);
     setSocialPostOpenRequest(undefined);
     setSocialDirectMessageOpenRequest((current) => ({
@@ -887,9 +900,9 @@ export function useRoleplayPanelRuntime({
         notifySystem('warning', `Could not find the OnlyFriends post author "${post.author}".`);
         return;
       }
-      setSelectedCharacterId(author.id);
+      setSelectedCharacterId(author.playerSelectable !== false ? author.id : narratorCharacterId);
       setViewedPhoneCharacterId(author.id);
-      rememberChatCharacter(author.id);
+      if (author.playerSelectable !== false) rememberChatCharacter(author.id);
     }
     setHighlightedPhoneMessage(undefined);
     setSocialDirectMessageOpenRequest(undefined);
@@ -1010,13 +1023,16 @@ export function useRoleplayPanelRuntime({
       return false;
     }
     let switchedOwner = false;
-    if (phoneNotificationOwners.length > 0) {
-      const currentOwnerIndex = phoneNotificationOwners.findIndex(
+    const availableOwners = narratorSelected
+      ? phoneNotificationOwners
+      : phoneNotificationOwners.filter((entry) => entry.character.playerSelectable !== false);
+    if (availableOwners.length > 0) {
+      const currentOwnerIndex = availableOwners.findIndex(
         (entry) => entry.character.id === viewedPhoneCharacter?.id,
       );
       const nextOwner = currentOwnerIndex >= 0
-        ? phoneNotificationOwners[(currentOwnerIndex + 1) % phoneNotificationOwners.length]
-        : phoneNotificationOwners[0];
+        ? availableOwners[(currentOwnerIndex + 1) % availableOwners.length]
+        : availableOwners[0];
       if (nextOwner) {
         switchedOwner = nextOwner.character.id !== viewedPhoneCharacter?.id;
         if (narratorSelected) {
@@ -1342,6 +1358,7 @@ export function useRoleplayPanelRuntime({
     selectedCharacter,
     narratorSelected,
     storyCharacters,
+    playerCharacters,
     phoneCharacters,
     characterColors,
     viewedPhoneCharacter,

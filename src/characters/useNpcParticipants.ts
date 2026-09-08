@@ -7,11 +7,19 @@ import {
   captureNpcParticipants, npcReferencesFromMessages, npcSnapshotEntries, parseNpcParticipantSnapshots,
   type NpcParticipantReference, type NpcParticipantSnapshots,
 } from './npcParticipants';
-import { openingHistoryNpcParticipantsFromNodes, storybookRegistryEntries } from './npcParticipantRuntime';
+import {
+  openingHistoryNpcParticipantsFromNodes,
+  storybookRegistryEntries,
+  candidateStorybookRegistry,
+  type StorybookRegistryCandidateOptions,
+} from './npcParticipantRuntime';
+import type { Character } from './character';
 
 export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, library: NpcLibrarySnapshot | null) {
   const snapshotsRef = useRef<NpcParticipantSnapshots>({});
   const entries = () => [...(library?.entries ?? []), ...storybookRegistryEntries(nodesRef.current)];
+  const registryForStorybook = (nodeId: string, characters: Character[], options?: StorybookRegistryCandidateOptions) =>
+    candidateStorybookRegistry(entries(), snapshotsRef.current, nodeId, characters, options);
   const capture = (references: NpcParticipantReference[]) => {
     if (!references.length) return;
     snapshotsRef.current = captureNpcParticipants(snapshotsRef.current, entries(), references);
@@ -19,6 +27,7 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   return {
     current: () => snapshotsRef.current,
     registry: () => buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)]),
+    registryForStorybook,
     characters: () => appCharactersFromRegistry(buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)])),
     capture,
     captureMessages: (messages: MessageRecord[]) => capture(npcReferencesFromMessages(messages)),

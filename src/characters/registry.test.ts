@@ -9,6 +9,7 @@ import {
   resolveRegistryInitialPost,
   type CharacterRegistryEntry,
 } from './registry';
+import { validateCandidateCharacterRegistry } from './profiles';
 
 const character = (id: string, options: {
   name?: string;
@@ -140,5 +141,34 @@ describe('effective character registry', () => {
       entry('user', character('disabled', { accountId: 'shared-account', enabled: false })),
     ]);
     expect(resolveRegistryAccount(registry, 'fotogram', 'shared-account')).toMatchObject({ status: 'ambiguous' });
+  });
+
+  it('rejects newly introduced effective conflicts but ignores unrelated existing diagnostics', () => {
+    const first = character('first', { username: 'taken' });
+    const duplicateA = character('duplicate-a', { username: 'already-broken' });
+    const duplicateB = character('duplicate-b', { username: 'ALREADY-BROKEN' });
+    const current = buildCharacterRegistry([
+      entry('user', first), entry('user', duplicateA), entry('user', duplicateB),
+      entry('storybook', character('player', { username: 'player' })),
+    ]);
+    const safe = buildCharacterRegistry([
+      entry('user', first), entry('user', duplicateA), entry('user', duplicateB),
+      entry('storybook', character('player', { username: 'still-safe' })),
+    ]);
+    expect(() => validateCandidateCharacterRegistry(current, safe)).not.toThrow();
+    const conflicting = buildCharacterRegistry([
+      entry('user', first), entry('user', duplicateA), entry('user', duplicateB),
+      entry('storybook', character('player', { username: 'TAKEN' })),
+    ]);
+    expect(() => validateCandidateCharacterRegistry(current, conflicting)).toThrow('username');
+  });
+
+  it('rejects raw account IDs reused across different apps', () => {
+    const library = character('library');
+    const player = character('player');
+    player.apps!.whatsup = { ...player.apps!.fotogram!, accountId: library.apps!.fotogram!.accountId };
+    const current = buildCharacterRegistry([entry('user', library)]);
+    const candidate = buildCharacterRegistry([entry('user', library), entry('storybook', player)]);
+    expect(() => validateCandidateCharacterRegistry(current, candidate)).toThrow('Duplicate account ID');
   });
 });

@@ -1,5 +1,13 @@
-import { withCharacterAppProfile, profileIdentityError } from '../characters/profiles';
-import type { CharacterAppAccount } from '../characters/character';
+import {
+  profileIdentityError,
+  validateCandidateCharacterRegistry,
+  validateCharacterAccountDirectory,
+  withCharacterAppProfile,
+} from '../characters/profiles';
+import { characterPayload, validateCharacterPayload, type CharacterAppAccount } from '../characters/character';
+import type { EffectiveCharacterRegistry } from '../characters/registry';
+import { appCharactersFromRegistry } from '../characters/appRuntime';
+import { validateCandidateLegacySeedTimeline } from '../characters/publications';
 import { normalizeDatingProfile, type DatingProfile } from '../chat/datingProfile';
 import { useEffect, useMemo, useRef } from 'react';
 import { buildSocialDirectory, socialHandleAvailable, type DynamicSocialUsers } from '../chat/socialDirectory';
@@ -39,6 +47,8 @@ type UseStorybookPhoneImagesOptions = {
   messages: MessageRecord[];
   messagesRef: { current: MessageRecord[] };
   nodesRef: { current: WorkflowNode[] };
+  currentCharacterRegistry: () => EffectiveCharacterRegistry;
+  characterRegistryForStorybook: (nodeId: string, characters: RpStorybook['characters']) => EffectiveCharacterRegistry;
   currentTurnInputMessages: () => MessageRecord[];
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   updateMessage: (messageId: number, patch: Partial<MessageRecord>) => void;
@@ -53,6 +63,8 @@ export function useStorybookPhoneImages({
   messages,
   messagesRef,
   nodesRef,
+  currentCharacterRegistry,
+  characterRegistryForStorybook,
   currentTurnInputMessages,
   updateRuntimeNode,
   updateMessage,
@@ -63,6 +75,16 @@ export function useStorybookPhoneImages({
     () => storybookImageDescriptions(storybooksByNodeId.values()),
     [storybooksByNodeId],
   );
+  function validateProfileCandidate(nodeId: string, storybook: RpStorybook) {
+    validateCharacterAccountDirectory(storybook.characters);
+    storybook.characters.forEach((entry) => validateCharacterPayload(characterPayload(entry)));
+    const current = currentCharacterRegistry();
+    const candidate = characterRegistryForStorybook(nodeId, storybook.characters);
+    validateCandidateCharacterRegistry(current, candidate);
+    validateCandidateLegacySeedTimeline(
+      appCharactersFromRegistry(current), appCharactersFromRegistry(candidate), messagesRef.current,
+    );
+  }
   const imageDescriptionSignature = JSON.stringify(
     [...imageDescriptionById].sort(([left], [right]) => left.localeCompare(right)),
   );
@@ -119,7 +141,9 @@ export function useStorybookPhoneImages({
   }
 
   function characterByPhoneName(name: string) {
-    return storyCharacters.find((character) => phoneNamesMatch(character.name, name));
+    const key = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase();
+    const matches = storyCharacters.filter((character) => key(character.name) === key(name));
+    return matches.length === 1 ? matches[0] : undefined;
   }
 
   function allowPhoneContactPair(fromName: string, toName: string) {
@@ -196,9 +220,16 @@ export function useStorybookPhoneImages({
     if (normalized.photoIds.some((id) => !current.images.some((image) => image.id === id))) {
       notifySystem('warning', 'MatchMe photos must belong to the character gallery.'); return false;
     }
-    const next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === character.sourceId
-      ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, enabled: true, username, displayName: normalized.name, bio: normalized.bio, profile: normalized })
-      : entry) };
+    let next: RpStorybook;
+    try {
+      next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === character.sourceId
+        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, enabled: true, username, displayName: normalized.name, bio: normalized.bio, profile: normalized })
+        : entry) };
+      validateProfileCandidate(node.id, next);
+    } catch (error) {
+      notifySystem('warning', error instanceof Error ? error.message : String(error));
+      return false;
+    }
     updateRuntimeNode(node.id, { storybookJson: rpStorybookJsonText(next), storybookStatus: `MatchMe profile saved for ${character.name}.` });
     return true;
   }
@@ -235,8 +266,15 @@ export function useStorybookPhoneImages({
     const reason = profileIdentityError(source.apps?.[app], account, messagesRef.current.length > 0 ||
       storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0);
     if (reason) { notifySystem('warning', reason); return false; }
-    const nextStorybook = { ...storybook, characters: storybook.characters.map((entry) =>
-      entry.id === source.id ? withCharacterAppProfile(entry, app, account) : entry) };
+    let nextStorybook: RpStorybook;
+    try {
+      nextStorybook = { ...storybook, characters: storybook.characters.map((entry) =>
+        entry.id === source.id ? withCharacterAppProfile(entry, app, account) : entry) };
+      validateProfileCandidate(storybookNode.id, nextStorybook);
+    } catch (error) {
+      notifySystem('warning', error instanceof Error ? error.message : String(error));
+      return false;
+    }
     const nextJson = rpStorybookJsonText(nextStorybook);
     if (nextJson === storybookNode.data.storybookJson) {
       return true;

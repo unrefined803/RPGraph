@@ -1,5 +1,5 @@
 import { postsWithInitialContent } from '../characters/publications';
-import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
+import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
 // Pure move: all component-scope dependencies arrive via the options object; the run
@@ -529,6 +529,25 @@ export function useGraphRun(options: UseGraphRunOptions) {
       notifySystem('warning', 'Select a Storybook character to play as.');
       return false;
     }
+    const basePhoneMessage = phoneMessageOverride ?? existingInputMessage?.phoneMessage ?? false;
+    const messageFormat = messageFormatOverride ?? (basePhoneMessage ? 1 : 0);
+    const isPhoneMessage = messageFormat === 1;
+    const isNarratorPhoneAutoTurn = narratorAutoTurn && isNarratorTurn && isPhoneMessage;
+    let inputPhoneParticipants: ReturnType<typeof resolveWhatsUpMessageParticipants> | undefined;
+    if (isPhoneMessage && !isNarratorPhoneAutoTurn) {
+      const recipient = phoneRecipientCharacterOverride ?? selectedPhoneContact?.character;
+      try {
+        inputPhoneParticipants = resolveWhatsUpMessageParticipants(appCharacters(), historyMessages, {
+          from: existingInputMessage?.phoneFromAccountId ?? existingInputMessage?.phoneFrom ??
+            inputCharacter?.apps?.whatsup?.accountId ?? inputCharacter?.name ?? '',
+          to: existingInputMessage?.phoneToAccountId ?? existingInputMessage?.phoneTo ??
+            recipient?.apps?.whatsup?.accountId ?? recipient?.name ?? '',
+        });
+      } catch (error) {
+        notifySystem('warning', error instanceof Error ? error.message : String(error));
+        return false;
+      }
+    }
     const runId = createRunId();
     const runController = new AbortController();
     const runSignal = runController.signal;
@@ -767,13 +786,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       rpDateTimeFormat,
       rpWeekdayLanguage,
     );
-    const basePhoneMessage = phoneMessageOverride ?? existingInputMessage?.phoneMessage ?? false;
-    const messageFormat =
-      messageFormatOverride ??
-      (basePhoneMessage ? 1 : 0);
-    const isPhoneMessage = messageFormat === 1;
     const turnModeOverrideValue = turnModeOverride;
-    const isNarratorPhoneAutoTurn = narratorAutoTurn && isNarratorTurn && isPhoneMessage;
     const shouldAppendInputMessage =
       !existingInputMessage && replacement?.replaceInput !== false;
     if (shouldAppendInputMessage && activeTurnCollectorRef.current) {
@@ -1083,12 +1096,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
       displayInputText = 'Attached image.';
     }
 
-    const inputCharacterName = existingInputMessage?.speakerName ??
+    const inputCharacterName = inputPhoneParticipants?.from.name ?? existingInputMessage?.speakerName ??
       (isAutoplayRun || isNarratorTurn || (isAutoTurn && !inputCharacter)
         ? narratorSpeakerName
         : inputCharacter!.name);
     const phoneRecipientName =
-      existingInputMessage?.phoneTo ?? phoneRecipientCharacterOverride?.name ?? selectedPhoneContact?.character.name;
+      inputPhoneParticipants?.to.name ?? existingInputMessage?.phoneTo ?? phoneRecipientCharacterOverride?.name ?? selectedPhoneContact?.character.name;
     const rawSentPhoneImages = existingInputMessage?.imageAttachments ?? inputImages;
     const sentPhoneImages =
       isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length
@@ -1310,6 +1323,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       appendPhoneMessage({
         from: inputCharacterName,
         to: phoneRecipientName,
+        fromAccountId: inputPhoneParticipants?.from.accountId,
+        toAccountId: inputPhoneParticipants?.to.accountId,
         message: inputText.trim() || 'Attached image.',
         translatedMessage: runEnglishProcessing ? displayInputText.trim() || 'Attached image.' : undefined,
         imageAttachments: sentPhoneImages,
@@ -1848,6 +1863,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
         });
         const appendedPhoneMessageLinks: EmbeddedPhoneMessageLink[] = [];
         for (const [messageIndex, phoneReply] of parsedPhoneMessages.entries()) {
+          let participants;
+          try {
+            participants = resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, phoneReply);
+          } catch (error) {
+            reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo);
+            continue;
+          }
           let phoneImageCaptionChange: ImageCaptionChange | undefined;
           const phoneImageAction = runPromptSwitchVisionFeaturesEnabled && messageIndex === 0
             ? phoneReply.incomingImageAction ?? phoneOutputBankResult?.phoneImageActions[0]
@@ -1881,14 +1903,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
               );
             }
           }
-          let recipientIdentity;
-          try { recipientIdentity = resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, phoneReply.to); }
-          catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
           const canonicalParsedPhoneMessage = {
             ...phoneReply,
-            from: canonicalPhoneName(phoneCharacters, phoneReply.from),
-            to: recipientIdentity.name,
-            toAccountId: recipientIdentity.accountId,
+            from: participants.from.name,
+            to: participants.to.name,
+            fromAccountId: participants.from.accountId,
+            toAccountId: participants.to.accountId,
           };
           const outgoingRpPicture = rpPicturePhoneAttachment(
             [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
@@ -2030,6 +2050,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const targetPhoneMessage = embeddedPhoneResult.phoneMessages.find(
             (message) => message.imageId?.trim() === embeddedImageAction.imageId.trim(),
           );
+          if (targetPhoneMessage) {
+            try { resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, targetPhoneMessage); }
+            catch { continue; }
+          }
           const embeddedCaptionChange = applyPhoneImageActionFromLlm(
             embeddedImageAction,
             phoneReplyTo,
@@ -2043,14 +2067,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const embeddedPhoneMessages: EmbeddedPhoneMessageLink[] = [];
       if (embeddedPhoneResult.phoneMessages.length > 0) {
         for (const [index, embeddedPhoneMessage] of embeddedPhoneResult.phoneMessages.entries()) {
-          let recipientIdentity;
-          try { recipientIdentity = resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, embeddedPhoneMessage.to); }
+          let participants;
+          try { participants = resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, embeddedPhoneMessage); }
           catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
           const canonicalEmbeddedPhoneMessage = {
             ...embeddedPhoneMessage,
-            from: canonicalPhoneName(phoneCharacters, embeddedPhoneMessage.from),
-            to: recipientIdentity.name,
-            toAccountId: recipientIdentity.accountId,
+            from: participants.from.name,
+            to: participants.to.name,
+            fromAccountId: participants.from.accountId,
+            toAccountId: participants.to.accountId,
           };
           const outgoingRpPicture = rpPicturePhoneAttachment(
             [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
@@ -2305,7 +2330,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
             phoneNamesMatch(control.name, narratorSpeakerName)
               ? { id: narratorCharacterId }
               : storyCharacters.find(
-                  (entry) => entry.id === control.name || phoneNamesMatch(entry.name, control.name),
+                  (entry) => entry.playerSelectable !== false &&
+                    (entry.id === control.name || phoneNamesMatch(entry.name, control.name)),
                 );
           if (character) {
             selectChatCharacter(character.id);
@@ -2383,14 +2409,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ...appliedActions.phoneMessages,
           ...socialDirectExtras.phoneMessages,
         ].entries()) {
-          let recipientIdentity;
-          try { recipientIdentity = resolveWhatsUpRecipient(phoneCharacters, messagesRef.current, actionPhoneMessage.to); }
+          let participants;
+          try { participants = resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, actionPhoneMessage); }
           catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
           const canonicalActionPhoneMessage = {
             ...actionPhoneMessage,
-            from: canonicalPhoneName(phoneCharacters, actionPhoneMessage.from),
-            to: recipientIdentity.name,
-            toAccountId: recipientIdentity.accountId,
+            from: participants.from.name,
+            to: participants.to.name,
+            fromAccountId: participants.from.accountId,
+            toAccountId: participants.to.accountId,
           };
           let translatedMessage: string | undefined;
           if (runEnglishProcessing) {
@@ -2419,6 +2446,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
             {
               from: canonicalActionPhoneMessage.from,
               to: canonicalActionPhoneMessage.to,
+              fromAccountId: canonicalActionPhoneMessage.fromAccountId,
+              toAccountId: canonicalActionPhoneMessage.toAccountId,
               message: canonicalActionPhoneMessage.message,
               translatedMessage,
               imageId: canonicalActionPhoneMessage.imageId,

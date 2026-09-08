@@ -4,7 +4,12 @@ import { appCharacterImage, appCharactersFromRegistry, recipientCharacterContext
 import { validateCharacterContainer, type Character } from './character';
 import { buildCharacterRegistry, type CharacterRegistryEntry } from './registry';
 import { captureNpcParticipants, npcReferencesFromMessages, npcSeedPostKey, npcSnapshotEntries, parseNpcParticipantSnapshots } from './npcParticipants';
-import { initialCharacterPosts, postsWithInitialContent, withPublicationSnapshot } from './publications';
+import {
+  initialCharacterPosts,
+  postsWithInitialContent,
+  validateCandidateLegacySeedTimeline,
+  withPublicationSnapshot,
+} from './publications';
 import { buildSocialDirectory, searchSocialDirectory } from '../chat/socialDirectory';
 import { canSendMatchMeMessage, incomingMatchMeMessage, matchMeLikePolicy, matchMeMessageAllowed, matchMeState } from '../chat/matchMe';
 import { parseSocialDirectMessageOutput, socialDirectMessageInputText } from '../chat/socialMedia';
@@ -133,6 +138,34 @@ describe('shared NPC app discovery', () => {
     const combined = postsWithInitialContent(characters, [foreign]);
     expect(combined.some((message) => message.socialPost?.authorAccountId === seed.authorAccountId)).toBe(true);
     expect(combined.find((message) => message.id === foreign.id)).toEqual(foreign);
+  });
+
+  it('rejects a newly imported bare seed ID owned by an existing timeline author', () => {
+    const player = npc('player');
+    const current = appCharactersFromRegistry(buildCharacterRegistry([entry(player, 'storybook')]));
+    const imported = npc('imported');
+    const candidate = appCharactersFromRegistry(buildCharacterRegistry([
+      entry(player, 'storybook'), entry(imported, 'storybook'),
+    ]));
+    const existingPost = initialCharacterPosts(current)[0];
+    const timeline: MessageRecord[] = [{ id: 9, role: 'user', originalText: '', socialPost: existingPost }];
+    expect(() => validateCandidateLegacySeedTimeline(current, candidate, timeline))
+      .toThrow('already belongs to another timeline author');
+    expect(() => validateCandidateLegacySeedTimeline(current, current, timeline)).not.toThrow();
+  });
+
+  it('allows own legacy posts without IDs and checks literal npc-seed-prefixed Storybook IDs', () => {
+    const player = npc('player');
+    const cast = appCharactersFromRegistry(buildCharacterRegistry([entry(player, 'storybook')]));
+    const post = initialCharacterPosts(cast)[0];
+    const legacy = { ...post, authorAccountId: undefined, authorCharacterId: undefined };
+    expect(() => validateCandidateLegacySeedTimeline([], cast, [{ id: 1, role: 'user', originalText: '', socialPost: legacy }]))
+      .not.toThrow();
+    player.apps!.fotogram!.initialPosts![0].id = 'npc-seed:literal-source-id';
+    const prefixed = appCharactersFromRegistry(buildCharacterRegistry([entry(player, 'storybook')]));
+    expect(() => validateCandidateLegacySeedTimeline([], prefixed, [{ id: 1, role: 'user', originalText: '',
+      socialPost: { ...legacy, postId: 'npc-seed:literal-source-id', author: 'Other', authorHandle: 'other' } }]))
+      .toThrow('timeline author');
   });
 
   it('keeps apps, context, media and delivery available from pinned snapshots after source deletion/change', () => {

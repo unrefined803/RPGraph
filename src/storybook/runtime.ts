@@ -40,6 +40,8 @@ type StorybookCharacterProfile = {
 };
 
 export type StorybookCharacter = {
+  /** Participant data remains available even when this character cannot be selected as the player. */
+  playerSelectable?: boolean;
   libraryNpc?: boolean;
   npcOrigin?: boolean;
   images?: RpStorybookCharacterImage[];
@@ -134,6 +136,7 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         apps: character.apps,
         images: character.images,
         social: character.social ?? defaultRpStorybookCharacterSocial(),
+        playerSelectable: character.playable !== false,
       };
     });
   });

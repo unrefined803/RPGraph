@@ -1,19 +1,50 @@
 import { parseRpStorybookJson, parseNodeStorybookJson, storybookCharacterId, storybookNeedsUpdate } from '../nodes/rp-storybook/model';
 import { isStorybookSourceNode } from '../storybook/runtime';
 import type { WorkflowNode } from '../types';
-import type { CharacterRegistryEntry } from './registry';
-import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from './npcParticipants';
+import { buildCharacterRegistry, type CharacterRegistryEntry } from './registry';
+import type { Character } from './character';
+import { npcSnapshotEntries, parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from './npcParticipants';
+
+export type StorybookRegistryCandidateOptions = {
+  replaceExisting?: boolean;
+  openingSnapshots?: NpcParticipantSnapshots;
+};
+
+/** Model the registry that will exist after the Storybook and session update. */
+export function candidateStorybookRegistry(
+  entries: CharacterRegistryEntry[],
+  snapshots: NpcParticipantSnapshots,
+  nodeId: string,
+  characters: Character[],
+  options?: StorybookRegistryCandidateOptions,
+) {
+  return buildCharacterRegistry([
+    ...entries.filter((entry) => entry.tier !== 'storybook' || entry.source !== nodeId),
+    ...storybookRegistryEntriesForCharacters(nodeId, characters),
+    ...npcSnapshotEntries({ ...parseNpcParticipantSnapshots(options?.openingSnapshots),
+      ...(options?.replaceExisting ? {} : snapshots) }),
+  ]);
+}
 
 export function storybookRegistryEntries(nodes: WorkflowNode[]): CharacterRegistryEntry[] {
   return nodes.flatMap((node) => {
     if (!isStorybookSourceNode(node) || !node.data.storybookJson || storybookNeedsUpdate(node.data.storybookJson)) return [];
     const storybook = parseNodeStorybookJson(node.data.storybookJson);
     if (!storybook) return [];
-    return storybook.characters.map((character, index) => ({
-      character, tier: 'storybook', source: node.id,
-      aliases: { characterIds: [storybookCharacterId(node.id, character.id, index)] },
-    }));
+    return storybookRegistryEntriesForCharacters(node.id, storybook.characters);
   });
+}
+
+export function storybookRegistryEntriesForCharacters(
+  nodeId: string,
+  characters: Character[],
+): CharacterRegistryEntry[] {
+  return characters.map((character, index) => ({
+    character,
+    tier: 'storybook',
+    source: nodeId,
+    aliases: { characterIds: [storybookCharacterId(nodeId, character.id, index)] },
+  }));
 }
 
 export function openingHistoryNpcParticipantsFromNodes(nodes: WorkflowNode[]): NpcParticipantSnapshots {

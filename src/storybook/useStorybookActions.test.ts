@@ -3,6 +3,12 @@ import type { SetStateAction } from 'react';
 import type { WorkflowNode } from '../types';
 import { emptyRpStorybook, parseRpStorybookJson, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 import { useStorybookActions } from './useStorybookActions';
+import { candidateStorybookRegistry, storybookRegistryEntries } from '../characters/npcParticipantRuntime';
+import { buildCharacterRegistry, type CharacterRegistryEntry } from '../characters/registry';
+import { npcSnapshotEntries, type NpcParticipantSnapshots } from '../characters/npcParticipants';
+import type { MessageRecord } from '../types';
+import fixture from '../characters/fixtures/stage4-npc.json';
+import { normalizeRpStorybook } from '../nodes/rp-storybook/model';
 
 // Exercise delayed model replies without launching a UI or provider.
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
@@ -30,9 +36,19 @@ function harness() {
   } as WorkflowNode] };
   let resolve!: (value: { text: string; connection: { label: string } }) => void;
   const complete = vi.fn(() => new Promise((done) => { resolve = done; }));
+  const clearCurrentSession = vi.fn();
+  const library: CharacterRegistryEntry[] = [];
+  const snapshots: NpcParticipantSnapshots = {};
+  const messages: MessageRecord[] = [];
   const options = {
     nodesRef, turnsRef: { current: [] }, turnCheckpointsRef: { current: [] },
     nodeLlm: { complete }, usedStorybookImageIds: new Set(),
+    currentCharacterRegistry: () => buildCharacterRegistry([...library, ...storybookRegistryEntries(nodesRef.current),
+      ...npcSnapshotEntries(snapshots)]),
+    characterRegistryForStorybook: ((nodeId, characters, candidateOptions) => candidateStorybookRegistry(
+      [...library, ...storybookRegistryEntries(nodesRef.current)], snapshots, nodeId, characters, candidateOptions)) as Options['characterRegistryForStorybook'],
+    currentTimelineMessages: () => messages,
+    clearCurrentSession,
     updateRuntimeNode: (id: string, patch: object) => {
       nodesRef.current = nodesRef.current.map((node) => node.id === id ? { ...node, data: { ...node.data, ...patch } } : node);
     },
@@ -46,7 +62,7 @@ function harness() {
   }
   render().openStorybookCreator('book');
   return {
-    nodesRef, complete, render,
+    nodesRef, complete, clearCurrentSession, options, render, library, snapshots, messages,
     reply: () => resolve({ text: JSON.stringify({ reply: 'Updated.', patch: [{ op: 'replace', path: '/title', value: 'AI title' }] }), connection: { label: 'Test' } }),
   };
 }
@@ -102,4 +118,69 @@ it('updates a legacy Storybook only after the user confirms from its node', () =
     state.render().ensureCurrentStorybook('book');
     expect(confirm).toHaveBeenCalledTimes(2);
   } finally { vi.unstubAllGlobals(); }
+});
+
+it('validates a full replacement before clearing the current session', () => {
+  const state = harness();
+  state.options.characterRegistryForStorybook = () => ({ characters: [], diagnostics: [{
+    code: 'duplicate-username', app: 'fotogram', identity: 'taken',
+    characterIds: ['one', 'two'], sources: ['one.json', 'book'], message: 'Username conflict.',
+  }] });
+  expect(state.render().commitStorybookToNode('book', emptyRpStorybook, {}, { replaceExisting: true }))
+    .toBe('Username conflict.');
+  expect(state.clearCurrentSession).not.toHaveBeenCalled();
+});
+
+function reviewBook(id = 'player') {
+  const character = structuredClone(fixture.character);
+  character.id = id;
+  for (const [app, account] of Object.entries(character.apps)) {
+    account.accountId = `${id}-${app}`;
+    account.username = `${id}.${app}`;
+  }
+  return normalizeRpStorybook({ ...emptyRpStorybook, characters: [character] });
+}
+
+it('checks real library identities during editor commits', () => {
+  const state = harness();
+  const npc = reviewBook('npc').characters[0];
+  state.library.push({ character: npc, source: 'npc.json', tier: 'user' });
+  const book = reviewBook();
+  book.characters[0].apps!.fotogram!.username = npc.apps!.fotogram!.username;
+  expect(state.render().commitStorybookToNode('book', book, {})).toContain('username');
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters).toEqual([]);
+});
+
+it('drops old snapshots and timeline collisions when replacing the entire session', () => {
+  const state = harness();
+  const book = reviewBook();
+  const oldNpc = reviewBook('old-npc').characters[0];
+  oldNpc.apps!.fotogram!.username = book.characters[0].apps!.fotogram!.username;
+  state.snapshots[oldNpc.id] = { character: oldNpc, source: 'old.json' };
+  state.messages.push({ id: 1, role: 'user', originalText: '', socialPost: {
+    app: 'fotogram', postId: 'first-post', author: 'Old Author', authorHandle: 'old.author', caption: 'Old activity',
+  } });
+  expect(state.render().commitStorybookToNode('book', book, {}, { replaceExisting: true })).toBeNull();
+  expect(state.clearCurrentSession).toHaveBeenCalledOnce();
+});
+
+it('checks incoming Opening History snapshots before replacing the session', () => {
+  const state = harness();
+  const book = reviewBook();
+  const npc = reviewBook('incoming-npc').characters[0];
+  npc.apps!.fotogram!.username = book.characters[0].apps!.fotogram!.username;
+  book.openingHistory.npcParticipants = { [npc.id]: { character: npc, source: 'incoming.json' } };
+  expect(state.render().commitStorybookToNode('book', book, {}, { replaceExisting: true })).toContain('username');
+  expect(state.clearCurrentSession).not.toHaveBeenCalled();
+});
+
+it('rejects newly added Opening History collisions with existing starting posts', () => {
+  const state = harness();
+  const book = reviewBook();
+  expect(state.render().commitStorybookToNode('book', book, {})).toBeNull();
+  const incoming = structuredClone(book);
+  incoming.openingHistory.turns = [{ id: 'opening', number: 1, mode: 'user', createdAt: '2026-09-08T00:00:00Z',
+    input: { graphText: '', messages: [] }, output: { graphText: '', messages: [{ id: 1, role: 'output',
+      originalText: '', socialPost: { app: 'fotogram', postId: 'first-post', author: 'Foreign', authorHandle: 'foreign', caption: '' } }] } }];
+  expect(state.render().commitStorybookToNode('book', incoming, {})).toContain('timeline author');
 });

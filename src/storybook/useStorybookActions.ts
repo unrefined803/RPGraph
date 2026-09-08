@@ -1,7 +1,9 @@
 import { planCharacterImportToNode } from '../characters/promotion';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
+import { appCharactersFromRegistry } from '../characters/appRuntime';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
-import { validateCharacterAccountDirectory } from '../characters/profiles';
+import { validateCandidateCharacterRegistry, validateCharacterAccountDirectory } from '../characters/profiles';
+import { validateCandidateLegacySeedTimeline } from '../characters/publications';
 import { validateCharacterPayload, characterPayload } from '../characters/character';
 import { prepareV3Document, confirmV3Migration } from '../characters/migration';
 import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
@@ -85,6 +87,10 @@ type UseStorybookActionsOptions = {
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
   currentNpcParticipants: () => NpcParticipantSnapshots;
   currentCharacterRegistry: () => EffectiveCharacterRegistry;
+  characterRegistryForStorybook: (nodeId: string, characters: RpStorybook['characters'], options?: {
+    replaceExisting?: boolean; openingSnapshots?: NpcParticipantSnapshots;
+  }) => EffectiveCharacterRegistry;
+  currentTimelineMessages: () => import('../types').MessageRecord[];
   currentSocialLikesByAccount: () => Record<string, string[]>;
   currentDynamicSocialUsers: () => DynamicSocialUsers;
   currentSocialConnectionsByCharacter: () => SocialConnectionsByCharacter;
@@ -117,6 +123,8 @@ export function useStorybookActions({
   turnCheckpointsRef,
   currentNpcParticipants,
   currentCharacterRegistry,
+  characterRegistryForStorybook,
+  currentTimelineMessages,
   currentSocialLikesByAccount,
   currentDynamicSocialUsers,
   currentSocialConnectionsByCharacter,
@@ -196,31 +204,46 @@ export function useStorybookActions({
     if (!node || !isStorybookSourceNode(node)) {
       return 'Cannot update: the Storybook node no longer exists.';
     }
-    let committedStorybook = storybook;
+    const currentStorybook = !options?.replaceExisting && node.data.storybookJson
+      ? parseRpStorybookJson(node.data.storybookJson)
+      : emptyRpStorybook;
+    const committedStorybook = options?.replaceExisting
+      ? storybook
+      : withChangedStorybookImageDescriptionsSynchronized(
+        currentStorybook,
+        storybook,
+      );
+    try {
+      validateCharacterAccountDirectory(committedStorybook.characters);
+      committedStorybook.characters.forEach((character) => validateCharacterPayload(characterPayload(character)));
+      const currentRegistry = currentCharacterRegistry();
+      const candidateRegistry = characterRegistryForStorybook(nodeId, committedStorybook.characters, {
+        replaceExisting: options?.replaceExisting,
+        openingSnapshots: committedStorybook.openingHistory.npcParticipants,
+      });
+      validateCandidateCharacterRegistry(currentRegistry, candidateRegistry);
+      const openingMessages = committedStorybook.openingHistory.turns.flatMap((turn) =>
+        [...turn.input.messages, ...turn.output.messages]);
+      validateCandidateLegacySeedTimeline(
+        options?.replaceExisting ? [] : appCharactersFromRegistry(currentRegistry),
+        appCharactersFromRegistry(candidateRegistry),
+        [...(options?.replaceExisting ? [] : currentTimelineMessages()), ...openingMessages],
+        currentTimelineMessages(),
+      );
+    } catch (error) {
+      const message = errorMessage(error);
+      notifySystem('warning', message);
+      return message;
+    }
     if (options?.replaceExisting) {
       clearCurrentSession();
       updateRuntimeNode(nodeId, {
         ...patch,
-        storybookJson: rpStorybookJsonText(storybook),
+        storybookJson: rpStorybookJsonText(committedStorybook),
       });
       return null;
     }
     if (node && isStorybookSourceNode(node)) {
-      const currentStorybook = node.data.storybookJson
-        ? parseRpStorybookJson(node.data.storybookJson)
-        : emptyRpStorybook;
-      committedStorybook = withChangedStorybookImageDescriptionsSynchronized(
-        currentStorybook,
-        storybook,
-      );
-      try {
-        validateCharacterAccountDirectory(committedStorybook.characters);
-        committedStorybook.characters.forEach((character) => validateCharacterPayload(characterPayload(character)));
-      } catch (error) {
-        const message = errorMessage(error);
-        notifySystem('warning', message);
-        return message;
-      }
       const removedImageIds = usedStorybookImageIdsRemoved(
         currentStorybook,
         committedStorybook,

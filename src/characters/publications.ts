@@ -67,3 +67,45 @@ export function postsWithInitialContent(characters: StorybookCharacter[], messag
   return [...seeds.filter((post) => !replacedSeeds.has(post))
     .map((socialPost, index): MessageRecord => ({ id: -1 - index, role: 'user', originalText: '', socialPost })), ...timeline];
 }
+
+function publicationOwnerMatches(left: SocialPostRecord, right: SocialPostRecord) {
+  if (right.authorAccountId) {
+    return left.authorAccountId === right.authorAccountId;
+  }
+  if (right.authorCharacterId) {
+    return left.authorCharacterId === right.authorCharacterId;
+  }
+  return left.author.trim().toLowerCase() === right.author.trim().toLowerCase() &&
+    left.authorHandle.trim().replace(/^@/, '').toLowerCase() ===
+      right.authorHandle.trim().replace(/^@/, '').toLowerCase();
+}
+
+/** Bare Storybook seed IDs must not alias retained live activity owned by somebody else. */
+export function legacySeedTimelineConflicts(
+  characters: StorybookCharacter[],
+  messages: MessageRecord[],
+) {
+  const bareSeeds = initialCharacterPosts(characters.filter((character) => !character.libraryNpc && !character.npcOrigin));
+  return messages.flatMap((message) => {
+    const live = message.socialPost;
+    if (!live) return [];
+    return bareSeeds.flatMap((seed) =>
+      seed.app === live.app && seed.postId === live.postId && !publicationOwnerMatches(seed, live)
+        ? [{ key: JSON.stringify([message.id, seed.app, seed.postId, seed.authorAccountId, seed.authorCharacterId,
+            seed.author, seed.authorHandle, live.authorAccountId, live.authorCharacterId, live.author, live.authorHandle]),
+            message: `Conflicting ${seed.app} post ID "${seed.postId}" already belongs to another timeline author.` }]
+        : []);
+  });
+}
+
+export function validateCandidateLegacySeedTimeline(
+  currentCharacters: StorybookCharacter[],
+  candidateCharacters: StorybookCharacter[],
+  messages: MessageRecord[],
+  currentMessages: MessageRecord[] = messages,
+) {
+  const existing = new Set(legacySeedTimelineConflicts(currentCharacters, currentMessages).map((entry) => entry.key));
+  const conflict = legacySeedTimelineConflicts(candidateCharacters, messages)
+    .find((entry) => !existing.has(entry.key));
+  if (conflict) throw new Error(conflict.message);
+}

@@ -1,5 +1,24 @@
 import type { DatingProfile } from '../chat/datingProfile';
 import { normalizeCharacterApps, socialFromCharacterApps, type Character, type CharacterAppAccount, type CharacterApps } from './character';
+import type { CharacterRegistryDiagnostic, EffectiveCharacterRegistry } from './registry';
+
+const registryDiagnosticKey = (diagnostic: CharacterRegistryDiagnostic) => JSON.stringify([
+  diagnostic.code,
+  diagnostic.app ?? '',
+  diagnostic.identity,
+  [...diagnostic.characterIds].sort(),
+  diagnostic.code === 'duplicate-character-id' ? [...diagnostic.sources].sort() : undefined,
+]);
+
+/** Reject only conflicts introduced by a candidate; unrelated existing library diagnostics remain visible but non-blocking. */
+export function validateCandidateCharacterRegistry(
+  current: EffectiveCharacterRegistry,
+  candidate: EffectiveCharacterRegistry,
+) {
+  const existing = new Set(current.diagnostics.map(registryDiagnosticKey));
+  const conflict = candidate.diagnostics.find((diagnostic) => !existing.has(registryDiagnosticKey(diagnostic)));
+  if (conflict) throw new Error(conflict.message);
+}
 
 /** Update the canonical account and immediately refresh the legacy runtime projection. */
 export function withCharacterAppProfile(character: Character, app: keyof CharacterApps, account: CharacterAppAccount & { profile?: DatingProfile }): Character {

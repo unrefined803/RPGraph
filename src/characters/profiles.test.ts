@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { characterPayload, validateCharacterPayload } from './character';
 import { profileIdentityError, withCharacterAppProfile } from './profiles';
 import { initialCharacterPosts, postsWithInitialContent } from './publications';
-import { resolveWhatsUpRecipient } from './messageIdentity';
+import { resolveWhatsUpMessageParticipants, resolveWhatsUpRecipient } from './messageIdentity';
 import { emptyRpStorybook, normalizeRpStorybook, parseRpStorybookJson, rpStorybookIdentityLockViolations, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 import { planCharacterCardImport, rpCharacterCardForCharacter } from '../storybook/characterCard';
 import { storyCharactersFromNodes } from '../storybook/runtime';
@@ -145,6 +145,26 @@ describe('exact recipient identities', () => {
     expect(resolveDatingAccount('Nova Testerson', state.accounts)?.id).toBe('nova-mm');
     expect(resolveDatingAccount('@nova.date', state.accounts)?.id).toBe('nova-mm');
   });
+  it('resolves both WhatsUp endpoints exactly, including account IDs and historical contacts', () => {
+    const owner = { ...characters[0], apps: { ...characters[0].apps,
+      whatsup: { accountId: 'nova-wa', enabled: true, username: 'nova.phone', displayName: 'Nova', bio: '' } } };
+    const contactHistory: MessageRecord[] = [{ id: 1, role: 'user', originalText: '', phoneMessage: true,
+      phoneFrom: 'Known Contact', phoneTo: owner.name, phoneFromAccountId: 'known-wa', phoneToAccountId: 'nova-wa' }];
+    expect(resolveWhatsUpMessageParticipants([owner], contactHistory, { from: 'nova-wa', to: 'known-wa' }))
+      .toEqual({ from: { name: owner.name, characterId: owner.sourceId, accountId: 'nova-wa' },
+        to: { name: 'Known Contact', accountId: 'known-wa' } });
+    expect(() => resolveWhatsUpMessageParticipants([owner], [], { from: 'Nova', to: owner.name })).toThrow('Unknown');
+    owner.apps!.whatsup!.enabled = false;
+    expect(() => resolveWhatsUpMessageParticipants([owner], [], { from: 'nova-wa', to: owner.name })).toThrow('Unavailable');
+  });
+});
+
+it('retains non-playable Storybook participants without making them player-selectable', () => {
+  const value = story();
+  value.characters[0].playable = false;
+  const character = storyCharactersFromNodes([node(value)])[0];
+  expect(character).toMatchObject({ sourceId: 'nova', playerSelectable: false });
+  expect(character.apps?.fotogram?.accountId).toBe('nova-fg');
 });
 
 it('preserves profiles through Storybook, Opening History and RP save round trips', () => {

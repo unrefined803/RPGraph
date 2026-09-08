@@ -1,7 +1,7 @@
 import { characterPayload } from './character';
-import type { EffectiveCharacterRegistry } from './registry';
+import { buildCharacterRegistry, type EffectiveCharacterRegistry } from './registry';
 import type { NpcParticipantSnapshots } from './npcParticipants';
-import { validateCharacterAccountDirectory } from './profiles';
+import { validateCandidateCharacterRegistry } from './profiles';
 import { storybookRegistryEntries } from './npcParticipantRuntime';
 import { isStorybookSourceNode } from '../storybook/runtime';
 import { planCharacterCardImport } from '../storybook/characterCard';
@@ -33,11 +33,10 @@ export function planCharacterImportToNode(options: {
     throw new Error('This character already belongs to another Storybook node. Select that Storybook to replace it.');
   }
   const others = registry.characters.filter((entry) => entry.character.id !== plan.character.id);
-  // Library seed IDs are account-scoped; only the target Storybook requires bare-ID uniqueness.
-  validateCharacterAccountDirectory([...others.map((entry) => entry.character), plan.character].map((character) => ({
-    ...character, apps: Object.fromEntries(Object.entries(character.apps ?? {}).map(([app, account]) =>
-      [app, { ...account, initialPosts: [] }])),
-  })));
+  validateCandidateCharacterRegistry(registry, buildCharacterRegistry([
+    ...others.map((entry) => ({ character: entry.character, ...entry.provenance, aliases: entry.aliases })),
+    { character: plan.character, tier: 'storybook', source: nodeId },
+  ]));
   const pinned = snapshots[plan.character.id]?.character;
   if (pinned) {
     const violations = rpStorybookIdentityLockViolations(
