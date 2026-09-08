@@ -70,6 +70,8 @@ import {
 } from '../comfy/workflowCompatibility';
 import { comfyConnectionRole } from '../comfy/connectionRole';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { StorybookReadonlyPreview } from '../components/StorybookReadonlyPreview';
+import { normalizeRpStorybook, type RpStorybook } from '../nodes/rp-storybook/model';
 
 type ComfyModelLists = {
   checkpoints: string[];
@@ -937,6 +939,12 @@ export function StudioDialogs({
   const uiScaleInputFocusedRef = useRef(false);
   const uiScalePercentRef = useRef(Math.round(uiScale * 100));
   const [showFileVersionInfo, setShowFileVersionInfo] = useState(false);
+  const [storybookInfo, setStorybookInfo] = useState<{
+    file: SavedFileSummary;
+    storybook: RpStorybook;
+  } | null>(null);
+  const [storybookInfoLoading, setStorybookInfoLoading] = useState<string | null>(null);
+  const [storybookInfoStatus, setStorybookInfoStatus] = useState('');
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
   const [deleteFileCandidate, setDeleteFileCandidate] = useState<SavedFileSummary | null>(null);
   const [fileFilter, setFileFilter] = useState<'all' | 'workflow' | 'storybook' | 'session' | 'character-card'>('all');
@@ -1390,6 +1398,8 @@ export function StudioDialogs({
       ? 'connections'
       : sessionPasswordAction
         ? 'session-password'
+        : storybookInfo
+          ? 'storybook-info'
         : showStorybookPicker
           ? 'storybook-picker'
         : showCharacterFiles
@@ -1403,6 +1413,16 @@ export function StudioDialogs({
                 : textDialogNode
                   ? 'text'
                   : null;
+
+  useEffect(() => {
+    if (!showStorybookPicker) {
+      queueMicrotask(() => {
+        setStorybookInfo(null);
+        setStorybookInfoLoading(null);
+        setStorybookInfoStatus('');
+      });
+    }
+  }, [showStorybookPicker]);
 
   useEffect(() => {
     if (!showFiles) {
@@ -1473,6 +1493,7 @@ export function StudioDialogs({
     }
 
     function closeActiveDialog() {
+      if (activeDialog === 'storybook-info') { setStorybookInfo(null); return; }
       if (showFileVersionInfo) {
         setShowFileVersionInfo(false);
         return;
@@ -1544,6 +1565,27 @@ export function StudioDialogs({
     backdropPointerStartedRef.current = false;
     if (shouldClose) {
       close();
+    }
+  }
+
+  async function openStorybookInfo(file: SavedFileSummary) {
+    if (file.protection !== 'plain' || !file.compatible) {
+      return;
+    }
+    setStorybookInfoLoading(file.fileName);
+    setStorybookInfoStatus('');
+    try {
+      const result = await window.rpgraph.loadFile(file.fileName, '', file.storage);
+      if (result.type !== 'storybook' || result.protection !== 'plain') {
+        throw new Error('This file is not a readable plain Storybook.');
+      }
+      setStorybookInfo({ file, storybook: normalizeRpStorybook(result.value) });
+    } catch (error) {
+      setStorybookInfoStatus(
+        `Preview failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setStorybookInfoLoading(null);
     }
   }
 
@@ -2491,13 +2533,44 @@ export function StudioDialogs({
                         <strong className="saved-file-name-container">
                           <span className="file-type-badge storybook">Storybook</span>
                           <span className="saved-file-name-text">{file.name}</span>
+                          {file.protection === 'encrypted' && (
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              style={{ marginLeft: '4px', verticalAlign: 'middle', color: 'var(--success)' }}
+                              aria-label="Encrypted"
+                            >
+                              <title>Encrypted</title>
+                              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                          )}
                         </strong>
                         <small>
                           {formatFileDate(file.updatedAt)} · v{file.formatVersion} · {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
                         </small>
                       </span>
                     </button>
-                    <div className="saved-chat-actions">
+                    <div className="saved-chat-actions" onDoubleClick={(event) => event.stopPropagation()}>
+                      <button
+                        className="saved-chat-info"
+                        type="button"
+                        disabled={file.protection !== 'plain' || !file.compatible || storybookInfoLoading === file.fileName}
+                        title={file.protection === 'encrypted'
+                          ? 'Preview is unavailable for encrypted Storybooks.'
+                          : !file.compatible
+                            ? 'Preview is unavailable for incompatible Storybooks.'
+                            : `Preview ${file.name}`}
+                        onClick={() => void openStorybookInfo(file)}
+                      >
+                        {storybookInfoLoading === file.fileName ? 'Loading…' : 'Info'}
+                      </button>
                       <button
                         className="saved-chat-open"
                         type="button"
@@ -2510,11 +2583,55 @@ export function StudioDialogs({
                   </div>
                 ))}
               </div>
-              {fileStorageStatus && <p className="chat-storage-status">{fileStorageStatus}</p>}
+              {(storybookInfoStatus || fileStorageStatus) && (
+                <p className="chat-storage-status">{storybookInfoStatus || fileStorageStatus}</p>
+              )}
             </div>
             <div className="dialog-actions chat-files-actions storybook-picker-actions">
               <button type="button" className="secondary" onClick={onRequestOpenStorybookFile}>Open File</button>
               <button type="button" className="secondary" onClick={onCloseStorybookPicker}>Continue Without Storybook</button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {storybookInfo && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onPointerDown={trackBackdropPointerDown}
+          onClick={(event) => closeFromBackdropClick(event, 'storybook-info', () => setStorybookInfo(null))}
+        >
+          <section
+            ref={activeDialog === 'storybook-info' ? activeDialogRef : undefined}
+            className="storybook-creator-dialog storybook-info-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Storybook Preview: ${storybookInfo.file.name}`}
+            tabIndex={-1}
+          >
+            <div className="dialog-header storybook-creator-header">
+              <div className="storybook-title-row">
+                <h2>Storybook Preview</h2>
+                <p>{storybookInfo.file.name}</p>
+              </div>
+              <div className="storybook-header-actions">
+                <button type="button" className="close-button danger" onClick={() => setStorybookInfo(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="storybook-creator-body">
+              <div className="storybook-main-workspace storybook-info-workspace">
+                <div className="storybook-document-panel">
+                  <div className="storybook-panel-content">
+                    <StorybookReadonlyPreview
+                      storybook={storybookInfo.storybook}
+                      showDocumentHeader={false}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </div>

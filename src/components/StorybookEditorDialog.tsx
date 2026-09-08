@@ -13,6 +13,7 @@ import {
 } from '../nodes/rp-storybook-editor/rawJson';
 import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
 import { useBackdropDismiss } from './useBackdropDismiss';
+import { StorybookReadonlyPreview } from './StorybookReadonlyPreview';
 
 type ViewMode = 'ui' | 'fields' | 'json';
 
@@ -26,95 +27,6 @@ type StorybookEditorDialogProps = {
   onCommit: (storybook: RpStorybook, status: string) => string | null;
   onClose: () => void;
 };
-
-function StorybookReadonlyPreview({ storybook }: { storybook: RpStorybook }) {
-  return (
-    <div className="storybook-ui-view">
-      <div className="storybook-ui-header">
-        <div className="storybook-ui-cover-art">
-          <div className="book-spine" />
-          <div className="book-details">
-            <h3>{storybook.title || 'Untitled RP Storybook'}</h3>
-            <p className="storybook-intro">{storybook.introduction || 'No introduction defined.'}</p>
-          </div>
-        </div>
-      </div>
-
-      <section className="storybook-section scenario-section">
-        <div className="section-header">
-          <h4>Scenario</h4>
-        </div>
-        <div className="section-content">
-          <div className="scenario-field">
-            <span className="field-label">Summary</span>
-            <p>{storybook.scenario.summary || 'No scenario summary defined.'}</p>
-          </div>
-          <div className="scenario-grid">
-            <div className="scenario-field">
-              <span className="field-label">Opening Situation</span>
-              <p>{storybook.scenario.openingSituation || 'No opening situation defined.'}</p>
-            </div>
-            <div className="scenario-field">
-              <span className="field-label">Current Situation</span>
-              <p>{storybook.scenario.currentSituation || 'No current situation defined.'}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="storybook-section actors-section">
-        <div className="section-header">
-          <h4>Characters</h4>
-        </div>
-        {storybook.characters.length ? (
-          <div className="storybook-actor-grid">
-            {storybook.characters.map((character) => (
-              <article className="storybook-actor-card" key={character.id}>
-                <div className="character-card-header">
-                  {character.profileImage?.dataUrl ? (
-                    <img
-                      className="storybook-editor-avatar"
-                      src={character.profileImage.dataUrl}
-                      alt={character.name || character.id}
-                    />
-                  ) : null}
-                  <div className="storybook-editor-actor-heading">
-                    <strong>{character.name || character.id}</strong>
-                    {character.role ? <span className="field-label">{character.role}</span> : null}
-                  </div>
-                </div>
-                {character.description ? <p>{character.description}</p> : null}
-                {character.personality ? (
-                  <p><span className="field-label">Personality</span> {character.personality}</p>
-                ) : null}
-                {character.speechStyle ? (
-                  <p><span className="field-label">Speech Style</span> {character.speechStyle}</p>
-                ) : null}
-                {character.comfyConfig?.appearance ? (
-                  <p><span className="field-label">Appearance</span> {character.comfyConfig.appearance}</p>
-                ) : null}
-                {character.images.length ? (
-                  <div className="storybook-editor-thumbnails">
-                    {character.images.slice(0, 8).map((image) => (
-                      <img
-                        key={image.id}
-                        src={image.dataUrl}
-                        alt={image.description || image.id}
-                        title={image.description || image.id}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="storybook-empty-note">No characters defined.</p>
-        )}
-      </section>
-    </div>
-  );
-}
 
 type FieldsEditorProps = {
   draft: RpStorybook;
