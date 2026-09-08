@@ -955,17 +955,28 @@ export function useRpgraphFiles({
     }
   }
 
-  async function restoreDefaultWorkflow() {
+  async function restoreDefaultFiles() {
     try {
-      setFileStorageStatus('Restoring default workflow ...');
-      const result = await window.rpgraph.restoreDefaultWorkflow();
+      setFileStorageStatus('Restoring default files ...');
+      const result = await window.rpgraph.restoreDefaultFiles();
       clearCurrentFileSelection();
-      applyLoadedWorkflow(result.workflow, result.filePath, 'Restored default workflow', result.fileName);
-      updateStorybookPickerForWorkflow(result.workflow);
-      setActiveWorkflowProtection('plain');
-      await refreshFiles(result.fileName);
-      setSelectedFile(result.fileName);
-      setFileStorageStatus(`Restored default workflow: ${workflowName(result.filePath)}`);
+      if (result.workflow) {
+        applyLoadedWorkflow(
+          result.workflow.value,
+          result.workflow.filePath,
+          'Restored default workflow',
+          result.workflow.fileName,
+        );
+        updateStorybookPickerForWorkflow(result.workflow.value);
+        setActiveWorkflowProtection('plain');
+      }
+      await refreshFiles(result.workflow?.fileName ?? null);
+      setSelectedFile(result.workflow?.fileName ?? null);
+      setFileStorageStatus(
+        result.restoredTypes.length > 0
+          ? `Restored default files: ${result.restoredTypes.join(' and ')}.`
+          : 'All default files are already available.',
+      );
     } catch (error) {
       setFileStorageStatus(
         `Restore failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -1129,7 +1140,7 @@ export function useRpgraphFiles({
     saveCurrentSession,
     loadStartupWorkflow,
     loadDefaultWorkflow,
-    restoreDefaultWorkflow,
+    restoreDefaultFiles,
     resetWorkflow,
     saveWorkflowAs,
     saveCurrentWorkflow,

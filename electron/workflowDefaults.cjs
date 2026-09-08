@@ -28,6 +28,14 @@ function importedDefaultFileNamesFromState(state) {
   ]));
 }
 
+function missingDefaultFileTypes(files) {
+  const types = new Set(Array.isArray(files) ? files.map((file) => file?.type) : []);
+  return [
+    ...(!types.has('workflow') ? ['workflows'] : []),
+    ...(!types.has('storybook') ? ['Storybooks'] : []),
+  ];
+}
+
 async function restoreBundledDefaultWorkflows(
   bundledPaths,
   restoreWorkflow,
@@ -48,5 +56,6 @@ async function restoreBundledDefaultWorkflows(
 module.exports = {
   bundledDefaultWorkflowFileNames,
   importedDefaultFileNamesFromState,
+  missingDefaultFileTypes,
   restoreBundledDefaultWorkflows,
 };

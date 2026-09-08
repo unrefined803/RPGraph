@@ -175,7 +175,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
   loadDefaultWorkflow: () => ipcRenderer.invoke('workflow:load-default'),
   loadStartupWorkflow: () => ipcRenderer.invoke('workflow:load-startup'),
   resolveProjectPath: (relativePath) => ipcRenderer.invoke('app:resolve-project-path', relativePath),
-  restoreDefaultWorkflow: () => ipcRenderer.invoke('workflow:restore-default'),
+  restoreDefaultFiles: () => ipcRenderer.invoke('defaults:restore-files'),
   reloadWorkflow: (filePath) => ipcRenderer.invoke('workflow:reload', filePath),
   saveCurrentWorkflow: (filePath, workflow) =>
     ipcRenderer.invoke('workflow:save-current', { filePath, workflow }),

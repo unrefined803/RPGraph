@@ -1411,7 +1411,7 @@ function App() {
     unlockStoredFile,
     saveCurrentSession,
     loadStartupWorkflow,
-    restoreDefaultWorkflow,
+    restoreDefaultFiles,
     resetWorkflow,
     saveCurrentWorkflow,
   } = useRpgraphFiles({
@@ -6242,7 +6242,7 @@ function App() {
         onOpenFile={(file) => void openStoredFile(file)}
         onDeleteFile={(file) => void deleteStoredFile(file)}
         onRequestOpenFile={() => void requestOpenFile()}
-        onRestoreDefaultWorkflow={() => void restoreDefaultWorkflow()}
+        onRestoreDefaultFiles={() => void restoreDefaultFiles()}
         onRequestExportWorkflow={() => requestExportWorkflow(true)}
         onRequestSaveStorybook={() => requestSaveStorybook(true)}
         onWorkflowNameChange={(name) => {

@@ -222,10 +222,13 @@ declare global {
       resolveProjectPath: (relativePath: string) => Promise<{
         path: string;
       }>;
-      restoreDefaultWorkflow: () => Promise<{
-        filePath: string;
-        fileName: string;
-        workflow: unknown;
+      restoreDefaultFiles: () => Promise<{
+        restoredTypes: string[];
+        workflow?: {
+          filePath: string;
+          fileName: string;
+          value: unknown;
+        };
       }>;
       reloadWorkflow: (filePath: string) => Promise<{
         filePath: string;

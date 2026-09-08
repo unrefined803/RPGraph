@@ -201,7 +201,7 @@ type StudioDialogsProps = {
   onOpenFile: (file: SavedFileSummary) => void;
   onDeleteFile: (file: SavedFileSummary) => void;
   onRequestOpenFile: () => void;
-  onRestoreDefaultWorkflow: () => void;
+  onRestoreDefaultFiles: () => void;
   onRequestExportWorkflow: () => void;
   onRequestSaveStorybook: () => void;
   onWorkflowNameChange: (name: string) => void;
@@ -847,7 +847,7 @@ export function StudioDialogs({
   onOpenFile,
   onDeleteFile,
   onRequestOpenFile,
-  onRestoreDefaultWorkflow,
+  onRestoreDefaultFiles,
   onRequestExportWorkflow,
   onRequestSaveStorybook,
   onWorkflowNameChange,
@@ -962,6 +962,7 @@ export function StudioDialogs({
   const isSavingFile = isSavingWorkflow || isSavingSession || isSavingStorybook || isSavingCharacter;
   const savingKindLabel = isSavingWorkflow ? 'Workflow' : isSavingStorybook ? 'Storybook' : isSavingCharacter ? 'Character' : 'RP';
   const hasStoredWorkflow = savedFiles.some((file) => file.type === 'workflow');
+  const hasStoredStorybook = savedFiles.some((file) => file.type === 'storybook');
   const storybookPickerFiles = savedFiles.filter((file) => file.type === 'storybook');
   const connectionModelOptions = Array.from(
     new Set(
@@ -2752,9 +2753,9 @@ export function StudioDialogs({
               <button type="button" className="secondary" onClick={onRequestOpenFile}>
                 Open File
               </button>
-              {!hasStoredWorkflow && (
-                <button type="button" className="secondary" onClick={onRestoreDefaultWorkflow}>
-                  Restore Default Workflow
+              {(!hasStoredWorkflow || !hasStoredStorybook) && (
+                <button type="button" className="secondary" onClick={onRestoreDefaultFiles}>
+                  Restore Default Files
                 </button>
               )}
               <button type="button" className="secondary" onClick={onRequestExportWorkflow}>

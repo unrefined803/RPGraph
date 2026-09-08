@@ -24,6 +24,7 @@ const {
 const {
   bundledDefaultWorkflowFileNames,
   importedDefaultFileNamesFromState,
+  missingDefaultFileTypes,
   restoreBundledDefaultWorkflows,
 } = require('./workflowDefaults.cjs');
 const {
@@ -675,8 +676,29 @@ async function restoreDefaultWorkflowFile() {
   return ensureBundledDefaultWorkflowFiles(false);
 }
 
-async function refreshDefaultWorkflowFile() {
-  return ensureBundledDefaultWorkflowFiles(true);
+async function restoreMissingBundledDefaultFiles() {
+  const storedFiles = await listedFilesInDirectory(filesDirectory(), 'files');
+  const missingTypes = missingDefaultFileTypes(storedFiles);
+  const restoredTypes = [];
+  let workflow;
+
+  if (missingTypes.includes('workflows')) {
+    const restored = await ensureBundledDefaultWorkflowFiles(false);
+    workflow = {
+      filePath: restored.filePath,
+      fileName: restored.fileName,
+      value: JSON.parse(await fs.readFile(restored.filePath, 'utf8')),
+    };
+    restoredTypes.push('workflows');
+  }
+  if (missingTypes.includes('Storybooks')) {
+    for (const bundledPath of bundledDefaultStorybookPaths()) {
+      await ensureDefaultStorybookFile(bundledPath);
+    }
+    restoredTypes.push('Storybooks');
+  }
+
+  return { restoredTypes, workflow };
 }
 
 async function ensureDefaultWorkflowFile(
@@ -4912,15 +4934,7 @@ ipcMain.handle('workflow:load-default', async () => {
   };
 });
 
-ipcMain.handle('workflow:restore-default', async () => {
-  const restored = await refreshDefaultWorkflowFile();
-  const contents = await fs.readFile(restored.filePath, 'utf8');
-  return {
-    filePath: restored.filePath,
-    fileName: restored.fileName,
-    workflow: JSON.parse(contents),
-  };
-});
+ipcMain.handle('defaults:restore-files', async () => restoreMissingBundledDefaultFiles());
 
 ipcMain.handle('workflow:load-startup', async () => {
   try {
