@@ -61,7 +61,7 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
       ...(typeof account.displayName === 'string' ? { name: account.displayName } : {}),
       ...(typeof account.bio === 'string' ? { bio: account.bio } : {}),
       ...(typeof account.username === 'string' ? { username: account.username } : {}),
-    }) : undefined;
+    }, account.enabled === false) : undefined;
     if (!Object.keys(account).length && !legacyHandle && !profile) continue;
     const username = Object.keys(account).length ? string(account.username) : string(legacyHandle);
     apps[app] = {

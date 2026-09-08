@@ -33,7 +33,7 @@ export type DatingProfile = {
   decisions: Record<string, 'like' | 'pass'>;
 };
 
-export function normalizeDatingProfile(value: unknown): DatingProfile | undefined {
+export function normalizeDatingProfile(value: unknown, allowMissingPhoto = false): DatingProfile | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const input = value as Partial<DatingProfile>;
   const photoIds = Array.isArray(input.photoIds)
@@ -41,7 +41,7 @@ export function normalizeDatingProfile(value: unknown): DatingProfile | undefine
     : [];
   if (typeof input.name !== 'string' || !input.name.trim() ||
       !Number.isInteger(input.age) || input.age! < 18 || input.age! > 120 ||
-      typeof input.bio !== 'string' || !input.bio.trim() || !photoIds.length) return undefined;
+      typeof input.bio !== 'string' || !input.bio.trim() || (!allowMissingPhoto && !photoIds.length)) return undefined;
   return {
     ...(typeof input.username === 'string' ? { username: input.username.trim() } : {}),
     name: input.name.trim().slice(0, 60), age: input.age!, bio: input.bio.trim().slice(0, 500),

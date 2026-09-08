@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { characterPayload, validateCharacterPayload } from '../../characters/character';
+import { normalizeDatingProfile } from '../../chat/datingProfile';
 import {
   normalizeRpStorybook,
   parseRpStorybookAssistantResult,
   rpStorybookEditPrompt,
+  rpStorybookIdentityLockViolations,
+  rpStorybookJsonText,
+  parseRpStorybookJson,
   rpStorybookPromptJsonText,
   starterRpStorybook,
 } from './model';
@@ -75,4 +80,89 @@ it('provides a consistent editing contract to the model', () => {
   expect(prompt).toContain('Character identity is locked');
   expect(prompt).toContain('never patch them, even on request');
   expect(prompt).toContain('do not repeat earlier edits');
+});
+
+
+describe('assistant app profile lifecycle', () => {
+  const account = (app: string) => ({
+    accountId: `character:${starterRpStorybook.characters[0].id}:${app}`,
+    enabled: true, username: 'nova.profile', displayName: 'Nova online', bio: 'Hello there',
+  });
+
+  it('creates, edits and deletes OnlyFriends without restoring the legacy account', () => {
+    const created = apply([{ op: 'add', path: '/characters/0/apps/onlyfriends', value: account('onlyfriends') }]).storybook;
+    expect(created.characters[0].social?.onlyfriendsUsername).toBe('nova.profile');
+    const edited = apply([
+      { op: 'replace', path: '/characters/0/apps/onlyfriends/displayName', value: 'New display' },
+      { op: 'replace', path: '/characters/0/apps/onlyfriends/bio', value: '' },
+    ], created).storybook;
+    expect(edited.characters[0].name).toBe(starterRpStorybook.characters[0].name);
+    expect(edited.characters[0].apps?.onlyfriends).toEqual({ ...account('onlyfriends'), displayName: 'New display', bio: '' });
+    const deleted = apply([{ op: 'remove', path: '/characters/0/apps/onlyfriends' }], edited).storybook;
+    expect(deleted.characters[0].apps?.onlyfriends).toBeUndefined();
+    expect(deleted.characters[0].social?.onlyfriendsUsername).toBe('');
+    expect(rpStorybookIdentityLockViolations(edited, deleted).length).toBeGreaterThan(0);
+    expect(rpStorybookIdentityLockViolations(created, edited)).toEqual([]);
+  });
+
+  it('creates and updates MatchMe with gallery references, then removes its runtime projection', () => {
+    const book = normalizeRpStorybook({ ...starterRpStorybook, characters: [{
+      ...starterRpStorybook.characters[0],
+      images: [{ id: 'profile-photo', name: 'Portrait', mimeType: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,AA==', description: 'Portrait' }],
+    }] });
+    const photoId = book.characters[0].images[0].id;
+    const profile = { name: 'Nova online', age: 25, bio: 'Hello there', interests: 'Music', photoIds: [photoId], decisions: {} };
+    const created = apply([{ op: 'add', path: '/characters/0/apps/matchme', value: { ...account('matchme'), profile } }], book).storybook;
+    expect(created.characters[0].social?.plotTwist).toMatchObject(profile);
+    const edited = apply([
+      { op: 'replace', path: '/characters/0/apps/matchme/displayName', value: 'New display' },
+      { op: 'replace', path: '/characters/0/apps/matchme/profile/name', value: 'New display' },
+      { op: 'add', path: '/characters/0/apps/fotogram/avatarImageId', value: photoId },
+    ], created).storybook;
+    expect(edited.characters[0].social?.plotTwist?.name).toBe('New display');
+    expect(edited.characters[0].images).toEqual(book.characters[0].images);
+    expect(edited.characters[0].apps?.fotogram?.avatarImageId).toBe(photoId);
+    const deleted = apply([
+      { op: 'remove', path: '/characters/0/apps/matchme' },
+      { op: 'remove', path: '/characters/0/apps/fotogram/avatarImageId' },
+    ], edited).storybook;
+    expect(deleted.characters[0].apps?.matchme).toBeUndefined();
+    expect(deleted.characters[0].social?.plotTwist).toBeUndefined();
+    expect(deleted.characters[0].apps?.fotogram?.avatarImageId).toBeUndefined();
+  });
+
+  it('deactivates and reactivates Fotogram while retaining its identity', () => {
+    const disabled = apply([{ op: 'replace', path: '/characters/0/apps/fotogram/enabled', value: false }]).storybook;
+    expect(disabled.characters[0].social?.fotogramUsername).toBe('');
+    const enabled = apply([{ op: 'replace', path: '/characters/0/apps/fotogram/enabled', value: true }], disabled).storybook;
+    expect(enabled.characters[0].apps?.fotogram).toEqual(starterRpStorybook.characters[0].apps?.fotogram);
+    expect(rpStorybookIdentityLockViolations(starterRpStorybook, disabled).length).toBeGreaterThan(0);
+  });
+});
+
+
+it('preserves a photo-less MatchMe draft through patches and storage until activation', () => {
+  const profile = { name: 'Ryan online', age: 28, bio: 'Hello', interests: 'Music', seeking: ['woman'], photoIds: [], decisions: {} };
+  const result = apply([{ op: 'add', path: '/characters/0/apps/matchme', value: {
+    accountId: `character:${starterRpStorybook.characters[0].id}:matchme`,
+    enabled: false, username: 'ryan.online', displayName: profile.name, bio: profile.bio, profile,
+  } }]).storybook;
+  const reloaded = parseRpStorybookJson(rpStorybookJsonText(result));
+  const character = reloaded.characters[0];
+  expect(character.apps?.matchme?.profile).toMatchObject(profile);
+  expect(character.social?.plotTwist).toBeUndefined();
+  expect(() => validateCharacterPayload(characterPayload(character))).not.toThrow();
+  expect(normalizeDatingProfile(character.apps?.matchme?.profile, true)).toMatchObject(profile);
+  expect(normalizeDatingProfile(character.apps?.matchme?.profile)).toBeUndefined();
+  expect(() => validateCharacterPayload({ ...characterPayload(character), apps: {
+    ...character.apps, matchme: { ...character.apps!.matchme!, enabled: true },
+  } })).toThrow('Invalid MatchMe profile');
+});
+
+it('instructs the assistant to prefer the marked portrait and save drafts without photos', () => {
+  const prompt = rpStorybookEditPrompt(rpStorybookPromptJsonText(starterRpStorybook), 'Create profiles');
+  expect(prompt).toContain('prioritize characters[].profileImage.imageId');
+  expect(prompt).toContain('Otherwise choose the first available image');
+  expect(prompt).toContain('profile.photoIds: []');
+  expect(prompt).toContain('Fotogram and OnlyFriends can be enabled without avatarImageId');
 });

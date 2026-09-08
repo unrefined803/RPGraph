@@ -16,11 +16,11 @@ function optionalFiniteNumber(value) {
   return value === undefined || (typeof value === 'number' && Number.isFinite(value));
 }
 
-function validateDatingProfile(value, requireImage) {
+function validateDatingProfile(value, requireImage, allowMissingPhoto = false) {
   const profile = record(value);
   if (!nonEmptyString(profile.name) || !Number.isInteger(profile.age) || profile.age < 18 || profile.age > 120 ||
       !nonEmptyString(profile.bio) || typeof profile.interests !== 'string' || !Array.isArray(profile.photoIds) ||
-      profile.photoIds.length === 0 || profile.photoIds.length > 3) {
+      (!allowMissingPhoto && profile.photoIds.length === 0) || profile.photoIds.length > 3) {
     throw new Error('Invalid MatchMe profile in character container.');
   }
   if (profile.gender !== undefined && !datingGenders.includes(profile.gender)) {
@@ -116,7 +116,7 @@ function validateCharacterPayload(value) {
       if (post.imageId !== undefined) requireImage(post.imageId);
     }
     if (app === 'matchme' && account.profile !== undefined) {
-      validateDatingProfile(account.profile, requireImage);
+      validateDatingProfile(account.profile, requireImage, account.enabled === false);
     }
   }
   return character;
