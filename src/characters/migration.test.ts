@@ -75,7 +75,7 @@ describe('Character Container and Storybook V3', () => {
     const story = normalizeRpStorybook(migrateV3Document(legacy()).value);
     const card = rpCharacterCardForCharacter(story.characters[0]);
     const other = normalizeRpStorybook({ ...emptyRpStorybook, characters: [{ id: 'other', name: 'Nova', images: [] }] });
-    expect(planCharacterCardImport(card, other).storybook.characters).toHaveLength(2);
+    expect(() => planCharacterCardImport(card, other)).toThrow('Character names must be unique');
     card.character.apps.fotogram!.avatarImageId = 'missing';
     expect(() => planCharacterCardImport(card, emptyRpStorybook)).toThrow('Unknown character gallery image');
   });

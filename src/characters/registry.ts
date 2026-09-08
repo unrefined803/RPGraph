@@ -20,6 +20,8 @@ export type CharacterRegistryEntry = {
 
 export type CharacterRegistryDiagnosticCode =
   | 'duplicate-character-id'
+  | 'duplicate-character-name'
+  | 'shadowed-character-name'
   | 'duplicate-account-id'
   | 'duplicate-username';
 
@@ -67,6 +69,7 @@ const tierRank: Record<CharacterRegistryTier, number> = {
 
 const apps: CharacterApp[] = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'];
 const normalizedAlias = (value: string) => value.trim().replace(/^@/, '').replace(/\s+/g, ' ').toLowerCase();
+const normalizedCharacterName = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase();
 const unique = (values: string[]) => [...new Set(values.filter(Boolean))];
 
 function groupBy<T>(values: T[], keyFor: (value: T) => string) {
@@ -132,7 +135,7 @@ export function buildCharacterRegistry(entries: CharacterRegistryEntry[]): Effec
     validById.set(id, [...(validById.get(id) ?? []), sameTierEntries[0]]);
   }
 
-  const characters = [...validById.values()].map((candidates) => {
+  let characters = [...validById.values()].map((candidates) => {
     const winner = candidates.reduce((current, candidate) =>
       tierRank[candidate.tier] > tierRank[current.tier] ? candidate : current);
     return {
@@ -143,6 +146,35 @@ export function buildCharacterRegistry(entries: CharacterRegistryEntry[]): Effec
       playerSelectable: winner.tier === 'storybook' && winner.character.playable !== false,
     } satisfies EffectiveCharacter;
   });
+
+  const hiddenCharacterIds = new Set<string>();
+  for (const [name, collisions] of groupBy(characters, (entry) => normalizedCharacterName(entry.character.name))) {
+    if (!name || collisions.length < 2) continue;
+    const storybookCharacters = collisions.filter((entry) => entry.provenance.tier === 'storybook');
+    if (storybookCharacters.length > 1) {
+      diagnostics.push({
+        code: 'duplicate-character-name',
+        identity: name,
+        message: `Character name "${storybookCharacters[0].character.name}" is used by multiple Storybook characters. Character names must be unique.`,
+        characterIds: storybookCharacters.map((entry) => entry.character.id),
+        sources: storybookCharacters.map((entry) => entry.provenance.source),
+      });
+    }
+    if (storybookCharacters.length) {
+      const hidden = collisions.filter((entry) => entry.provenance.tier !== 'storybook');
+      hidden.forEach((entry) => hiddenCharacterIds.add(entry.character.id));
+      if (hidden.length) {
+        diagnostics.push({
+          code: 'shadowed-character-name',
+          identity: name,
+          message: `NPC Library character "${hidden[0].character.name}" is hidden because a different Storybook character uses the same name.`,
+          characterIds: [...storybookCharacters, ...hidden].map((entry) => entry.character.id),
+          sources: [...storybookCharacters, ...hidden].map((entry) => entry.provenance.source),
+        });
+      }
+    }
+  }
+  characters = characters.filter((entry) => !hiddenCharacterIds.has(entry.character.id));
 
   const accounts = characters.flatMap((character) => apps.flatMap((app) => {
     const account = character.character.apps?.[app];

@@ -16,8 +16,10 @@ export function validateCandidateCharacterRegistry(
   candidate: EffectiveCharacterRegistry,
 ) {
   const existing = new Set(current.diagnostics.map(registryDiagnosticKey));
-  const conflict = candidate.diagnostics.find((diagnostic) => !existing.has(registryDiagnosticKey(diagnostic)));
+  const introduced = candidate.diagnostics.filter((diagnostic) => !existing.has(registryDiagnosticKey(diagnostic)));
+  const conflict = introduced.find((diagnostic) => diagnostic.code !== 'shadowed-character-name');
   if (conflict) throw new Error(conflict.message);
+  return introduced.filter((diagnostic) => diagnostic.code === 'shadowed-character-name');
 }
 
 /** Update the canonical account and immediately refresh the legacy runtime projection. */
@@ -41,9 +43,15 @@ export function profileIdentityError(current: CharacterAppAccount | undefined, n
 /** Keep canonical account and post identities unique; WhatsUp display handles may be shared names. */
 export function validateCharacterAccountDirectory(characters: Character[]) {
   const ids = new Set<string>();
+  const names = new Set<string>();
   const handles = new Set<string>();
   const posts = new Set<string>();
   for (const character of characters) {
+    const name = character.name.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (name && names.has(name)) {
+      throw new Error(`Character name "${character.name.trim()}" is already used in this Storybook. Character names must be unique.`);
+    }
+    if (name) names.add(name);
     for (const [app, account] of Object.entries(character.apps ?? {})) {
       if (ids.has(account.accountId)) throw new Error(`Duplicate account ID: ${account.accountId}`);
       ids.add(account.accountId);

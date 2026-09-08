@@ -1,4 +1,5 @@
 import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
+import { validateCharacterAccountDirectory } from '../characters/profiles';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import type { Edge } from '@xyflow/react';
 import {
@@ -14,6 +15,7 @@ import {
   openingHistoryTurnsFromNodes,
 } from '../storybook/openingHistoryRuntime';
 import { isStorybookSourceNode } from '../storybook/runtime';
+import { parseRpStorybookJson } from '../nodes/rp-storybook/model';
 import type { TurnCheckpoint } from '../data-management/types';
 import type { MessageRecord, TurnRecord, WorkflowFile, WorkflowNode, WorkflowNodeData } from '../types';
 import { hydrateNodeData } from '../workflow/persistence';
@@ -86,6 +88,11 @@ export function hydrateLoadedWorkflow({
     throw new Error(
       'This workflow has more than one storybook source. A graph may contain only one RP Storybook or RP Storybook Editor node.',
     );
+  }
+  for (const node of loadedNodes.filter(isStorybookSourceNode)) {
+    if (node.data.storybookJson) {
+      validateCharacterAccountDirectory(parseRpStorybookJson(node.data.storybookJson).characters);
+    }
   }
 
   const loadedEdges = keepLatestInputEdges(

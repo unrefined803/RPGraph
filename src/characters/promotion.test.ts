@@ -103,7 +103,7 @@ describe('Storybook NPC promotion', () => {
     }
   });
 
-  it('keeps same-name library people and their owner-scoped seeds independent', () => {
+  it('hides a same-name library person after Storybook promotion', () => {
     const other = library(); other.character.id = 'other';
     for (const [app, account] of Object.entries(other.character.apps!)) {
       account.accountId = `other-${app}`; account.username = `other.${app}`;
@@ -113,10 +113,9 @@ describe('Storybook NPC promotion', () => {
     const plan = planCharacterImportToNode({ nodes: [node()], nodeId: 'book', card, snapshots: {}, registry });
     const current = appCharactersFromRegistry(buildCharacterRegistry([library(), other,
       ...storybookRegistryEntries([node(plan.storybook)])]));
-    expect(current.filter((character) => character.name === 'Nova Vale')).toHaveLength(2);
+    expect(current.filter((character) => character.name === 'Nova Vale')).toHaveLength(1);
     const posts = initialCharacterPosts(current);
-    expect(posts).toHaveLength(2);
-    expect(new Set(posts.map((post) => post.postId)).size).toBe(2);
+    expect(posts).toHaveLength(1);
     expect(posts.find((post) => post.authorCharacterId === fixture.character.id)?.postId).toBe('first-post');
   });
 
@@ -168,6 +167,6 @@ describe('Storybook NPC promotion', () => {
     const plan = planCharacterImportToNode({ ...options, card });
     expect(() => planCharacterImportToNode({ ...options, nodes: [...nodes, node(plan.storybook, 'rp-storybook-editor', 'other')], card })).toThrow('another Storybook');
     const duplicate = npcPromotionCard(registry, source.character.id); duplicate.character.id = 'different-person';
-    expect(() => planCharacterImportToNode({ ...options, card: duplicate })).toThrow();
+    expect(() => planCharacterImportToNode({ ...options, card: duplicate })).not.toThrow();
   });
 });

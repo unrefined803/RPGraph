@@ -1103,6 +1103,17 @@ function App() {
   useEffect(() => {
     notifySystemRef.current = notifySystem;
   }, [notifySystem]);
+  const activeCharacterNameDiagnostics = npcParticipants.registry().diagnostics.filter((diagnostic) =>
+    diagnostic.code === 'shadowed-character-name' || diagnostic.code === 'duplicate-character-name');
+  const activeCharacterNameDiagnosticSignature = JSON.stringify(activeCharacterNameDiagnostics.map((diagnostic) =>
+    diagnostic.message));
+  const previousCharacterNameDiagnosticSignatureRef = useRef('[]');
+  useEffect(() => {
+    if (activeCharacterNameDiagnosticSignature === previousCharacterNameDiagnosticSignatureRef.current) return;
+    previousCharacterNameDiagnosticSignatureRef.current = activeCharacterNameDiagnosticSignature;
+    (JSON.parse(activeCharacterNameDiagnosticSignature) as string[]).forEach((message) =>
+      notifySystem('warning', message));
+  }, [activeCharacterNameDiagnosticSignature, notifySystem]);
   const replaceCurrentChatWithOpeningHistoryRef = useRef(false);
   const {
     updateRuntimeNode,
@@ -6359,6 +6370,7 @@ function App() {
       {npcLibrary.open && (
         <NpcLibraryDialog
           snapshot={npcLibrary.snapshot}
+          activeRegistry={npcParticipants.registry()}
           storybooks={nodes.filter(isStorybookSourceNode).map((node) => ({ id: node.id, label: node.data.label || node.id }))}
           onAddToStorybook={(characterId, nodeId) => {
             const previous = npcParticipants.current();

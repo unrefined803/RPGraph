@@ -36,6 +36,7 @@ it.each(['fotogram', 'matchme'] as const)('rejects a phone %s username taken by 
   const { api, library, owner, updateRuntimeNode, book } = harness();
   const npc = structuredClone(book.characters[0]);
   npc.id = 'library-npc';
+  npc.name = 'Library NPC';
   for (const [kind, account] of Object.entries(npc.apps!)) {
     account.accountId = `library-${kind}`;
     account.username = `library.${kind}`;

@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
-import { buildCharacterRegistry } from '../characters/registry';
+import { useState } from 'react';
+import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibrarySnapshot } from '../characters/npcLibrary';
 
 type NpcLibraryDialogProps = {
   snapshot: NpcLibrarySnapshot | null;
+  activeRegistry: EffectiveCharacterRegistry;
   loading: boolean;
   status: string;
   storybooks: { id: string; label: string }[];
@@ -13,15 +14,18 @@ type NpcLibraryDialogProps = {
   onClose: () => void;
 };
 
-export function NpcLibraryDialog({ snapshot, loading, status, storybooks, onAddToStorybook, onReload, onOpenFolder, onClose }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, storybooks, onAddToStorybook, onReload, onOpenFolder, onClose }: NpcLibraryDialogProps) {
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const [importStatus, setImportStatus] = useState('');
   const targetNodeId = storybooks.some((node) => node.id === selectedNodeId) ? selectedNodeId : storybooks[0]?.id ?? '';
-  const registry = useMemo(() => buildCharacterRegistry(snapshot?.entries ?? []), [snapshot]);
+  const visibleEntries = (snapshot?.entries ?? []).filter((entry) => {
+    const effective = activeRegistry.characters.find((candidate) => candidate.character.id === entry.character.id);
+    return !!effective && effective.provenance.tier !== 'storybook';
+  });
   const diagnostics = [
     ...(snapshot?.diagnostics ?? []).map((item) => ({ key: `${item.tier}:${item.fileName}:${item.code}`,
       title: item.fileName || `${item.tier} directory`, detail: item.message })),
-    ...registry.diagnostics.map((item, index) => ({ key: `registry:${item.code}:${item.identity}:${index}`,
+    ...activeRegistry.diagnostics.map((item, index) => ({ key: `registry:${item.code}:${item.identity}:${index}`,
       title: item.code, detail: item.message })),
   ];
 
@@ -47,7 +51,7 @@ export function NpcLibraryDialog({ snapshot, loading, status, storybooks, onAddT
           <div><dt>User</dt><dd>{snapshot?.roots.user ?? 'Loading…'}</dd></div>
         </dl>
         <div className="npc-library-summary">
-          <span>{registry.characters.length} effective NPC{registry.characters.length === 1 ? '' : 's'}</span>
+          <span>{visibleEntries.length} effective NPC{visibleEntries.length === 1 ? '' : 's'}</span>
           <span>{snapshot?.entries.length ?? 0} valid file{snapshot?.entries.length === 1 ? '' : 's'}</span>
           <span>{snapshot?.skipped ?? 0} ignored file{snapshot?.skipped === 1 ? '' : 's'}</span>
           <span className={diagnostics.length ? 'warning' : ''}>{diagnostics.length} diagnostic{diagnostics.length === 1 ? '' : 's'}</span>
@@ -63,13 +67,13 @@ export function NpcLibraryDialog({ snapshot, loading, status, storybooks, onAddT
               </select>
             </label>
             {importStatus && <p role="status">{importStatus}</p>}
-            {snapshot?.entries.length ? (
-              <ul>{snapshot.entries.map((entry) => (
+            {visibleEntries.length ? (
+              <ul>{visibleEntries.map((entry) => (
                 <li key={`${entry.tier}:${entry.fileName}`}>
                   <strong>{entry.character.name}</strong>
                   <span>{entry.tier} · {entry.fileName} · {entry.character.id}</span>
-                  <button type="button" disabled={loading || !targetNodeId || !registry.characters.some((effective) =>
-                    effective.provenance.tier === entry.tier && effective.provenance.source === entry.source)}
+                  <button type="button" disabled={loading || !targetNodeId || !activeRegistry.characters.some((effective) =>
+                    effective.character.id === entry.character.id && effective.provenance.tier !== 'storybook')}
                     onClick={() => {
                       try {
                         onAddToStorybook(entry.character.id, targetNodeId);

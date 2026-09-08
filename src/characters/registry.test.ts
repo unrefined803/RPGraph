@@ -81,14 +81,35 @@ describe('effective character registry', () => {
     }));
   });
 
-  it('keeps same-name different-ID characters and makes name lookup ambiguous', () => {
+  it('hides a different library identity when a Storybook character uses its name', () => {
+    const libraryEntry = entry('user', character('one', { name: 'Same Name' }));
+    const current = buildCharacterRegistry([libraryEntry]);
     const registry = buildCharacterRegistry([
-      entry('user', character('one', { name: 'Same Name' })),
-      entry('bundled', character('two', { name: 'Same Name' })),
+      libraryEntry,
+      entry('storybook', character('two', { name: 'Same Name' })),
     ]);
-    expect(registry.characters).toHaveLength(2);
-    expect(resolveRegistryCharacter(registry, 'Same Name')).toMatchObject({ status: 'ambiguous' });
-    expect(resolveRegistryCharacter(registry, 'one')).toMatchObject({ status: 'found', value: { character: { id: 'one' } } });
+    expect(registry.characters).toHaveLength(1);
+    expect(registry.characters[0]).toMatchObject({ character: { id: 'two' }, provenance: { tier: 'storybook' } });
+    expect(resolveRegistryCharacter(registry, 'Same Name')).toMatchObject({ status: 'found' });
+    expect(resolveRegistryCharacter(registry, 'one')).toEqual({ status: 'missing' });
+    expect(registry.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'shadowed-character-name', identity: 'same name', characterIds: ['two', 'one'],
+    }));
+    expect(validateCandidateCharacterRegistry(current, registry)).toEqual([
+      expect.objectContaining({ code: 'shadowed-character-name' }),
+    ]);
+  });
+
+  it('reports duplicate names across Storybook characters as a blocking conflict', () => {
+    const current = buildCharacterRegistry([]);
+    const candidate = buildCharacterRegistry([
+      entry('storybook', character('one', { name: 'Same Name' }), 'storybook-a'),
+      entry('storybook', character('two', { name: ' same   name ' }), 'storybook-b'),
+    ]);
+    expect(candidate.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'duplicate-character-name', identity: 'same name', characterIds: ['one', 'two'],
+    }));
+    expect(() => validateCandidateCharacterRegistry(current, candidate)).toThrow('Character names must be unique');
   });
 
   it('reports account and username collisions and never guesses an ambiguous alias', () => {

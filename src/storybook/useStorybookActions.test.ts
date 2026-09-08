@@ -144,6 +144,7 @@ function reviewBook(id = 'player') {
 it('checks real library identities during editor commits', () => {
   const state = harness();
   const npc = reviewBook('npc').characters[0];
+  npc.name = 'Library NPC';
   state.library.push({ character: npc, source: 'npc.json', tier: 'user' });
   const book = reviewBook();
   book.characters[0].apps!.fotogram!.username = npc.apps!.fotogram!.username;
@@ -168,10 +169,21 @@ it('checks incoming Opening History snapshots before replacing the session', () 
   const state = harness();
   const book = reviewBook();
   const npc = reviewBook('incoming-npc').characters[0];
+  npc.name = 'Incoming NPC';
   npc.apps!.fotogram!.username = book.characters[0].apps!.fotogram!.username;
   book.openingHistory.npcParticipants = { [npc.id]: { character: npc, source: 'incoming.json' } };
   expect(state.render().commitStorybookToNode('book', book, {}, { replaceExisting: true })).toContain('username');
   expect(state.clearCurrentSession).not.toHaveBeenCalled();
+});
+
+it('blocks duplicate character names from assistant and editor commits', () => {
+  const state = harness();
+  const book = reviewBook();
+  const duplicate = reviewBook('duplicate').characters[0];
+  duplicate.name = `  ${book.characters[0].name.toUpperCase()}  `;
+  book.characters.push(duplicate);
+  expect(state.render().commitStorybookToNode('book', book, {})).toContain('Character names must be unique');
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters).toEqual([]);
 });
 
 it('rejects newly added Opening History collisions with existing starting posts', () => {

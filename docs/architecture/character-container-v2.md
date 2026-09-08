@@ -111,6 +111,15 @@ WhatsUp and Fotogram are provisioned for every character under the current
 normalization; OnlyFriends and MatchMe remain optional. A character container can carry phone settings,
 but its existence does not grant every player a phone conversation with it.
 
+Character IDs remain the canonical identity. When a Storybook character and an
+NPC Library character have the same ID, the Storybook definition wins. When
+their IDs differ but their normalized full names match, the Storybook character
+still wins for runtime discovery: the Library character is hidden from apps,
+links and the Library list, and the system log reports a warning. Names must be
+unique within the active Storybook set. Character Card imports, Storybook loads,
+editor commits and assistant patches reject duplicate names case-insensitively
+after trimming and collapsing whitespace.
+
 ### Portrait persistence and authoring
 
 Portraits retain a gallery `imageId` and optional `crop: { x, y, size }` in V2.

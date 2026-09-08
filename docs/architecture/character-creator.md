@@ -49,6 +49,11 @@ text and optional image ID. Portable serialization removes private MatchMe
 history and private gallery access metadata. UI export still includes starting
 and own publications only when the user selects export with posts.
 
+Character names must be unique inside a Storybook, compared case-insensitively
+after trimming and collapsing whitespace. Import and assistant commits reject a
+second different character with the same name. A same-name Library character is
+hidden with a system warning while the Storybook character is active.
+
 Existing files are protected unless `--overwrite` is present. Writes use a
 same-directory temporary file and atomic publication; a failed individual write
 leaves the previous target intact. A command targeting both output and install

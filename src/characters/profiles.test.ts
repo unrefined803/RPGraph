@@ -121,6 +121,7 @@ describe('portable publication snapshots', () => {
   it('rejects account and post collisions instead of merging different people', () => {
     const card = rpCharacterCardForCharacter(story().characters[0], { includePosts: true, posts: [ownPost()] });
     const other = structuredClone(card); other.character.id = 'other';
+    other.character.name = 'Other Character';
     const target = story(); target.characters[0].images = [];
     delete target.characters[0].apps!.fotogram!.avatarImageId;
     expect(() => planCharacterCardImport(other, target)).toThrow('Duplicate account ID');

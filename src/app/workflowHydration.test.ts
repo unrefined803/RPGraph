@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { hydrateLoadedWorkflow } from './workflowHydration';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { currentCoreNodeVersions } from '../nodes/nodeVersion';
+import { emptyRpStorybook, normalizeRpStorybook, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 
 function workflowWith(nodes: unknown[]) {
   return {
@@ -114,6 +115,18 @@ it.each(['2.1.0', '3.0.0'])('loads a Storybook node at %s without converting its
     expect(nodes[0].data.kind).toBeUndefined();
     expect(nodes[0].data.storybookJson).toBe(storybookJson);
   }
+});
+
+it('rejects a loaded Storybook containing duplicate character names', () => {
+  const storybook = normalizeRpStorybook({ ...emptyRpStorybook, characters: [
+    { id: 'one', name: 'Same Name', images: [] },
+    { id: 'two', name: ' same   name ', images: [] },
+  ] });
+  const workflow = workflowWith([{ id: 'book', type: 'workflow', position: { x: 0, y: 0 },
+    data: { nodeType: 'rp-storybook', nodeDataVersion: '3.0.0', label: 'Storybook', description: '', preview: '',
+      storybookJson: rpStorybookJsonText(storybook) } }]);
+  expect(() => hydrateLoadedWorkflow({ workflow, defaultConnectionId: 'default', connectionIds: new Set(['default']) }))
+    .toThrow('Character names must be unique');
 });
 
 

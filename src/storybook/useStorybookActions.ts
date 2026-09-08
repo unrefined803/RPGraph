@@ -213,6 +213,7 @@ export function useStorybookActions({
         currentStorybook,
         storybook,
       );
+    let registryWarnings: ReturnType<typeof validateCandidateCharacterRegistry>;
     try {
       validateCharacterAccountDirectory(committedStorybook.characters);
       committedStorybook.characters.forEach((character) => validateCharacterPayload(characterPayload(character)));
@@ -221,7 +222,7 @@ export function useStorybookActions({
         replaceExisting: options?.replaceExisting,
         openingSnapshots: committedStorybook.openingHistory.npcParticipants,
       });
-      validateCandidateCharacterRegistry(currentRegistry, candidateRegistry);
+      registryWarnings = validateCandidateCharacterRegistry(currentRegistry, candidateRegistry);
       const openingMessages = committedStorybook.openingHistory.turns.flatMap((turn) =>
         [...turn.input.messages, ...turn.output.messages]);
       validateCandidateLegacySeedTimeline(
@@ -235,6 +236,7 @@ export function useStorybookActions({
       notifySystem('warning', message);
       return message;
     }
+    registryWarnings.forEach((warning) => notifySystem('warning', warning.message));
     if (options?.replaceExisting) {
       clearCurrentSession();
       updateRuntimeNode(nodeId, {
