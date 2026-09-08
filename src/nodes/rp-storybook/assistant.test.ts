@@ -166,3 +166,33 @@ it('instructs the assistant to prefer the marked portrait and save drafts withou
   expect(prompt).toContain('profile.photoIds: []');
   expect(prompt).toContain('Fotogram and OnlyFriends can be enabled without avatarImageId');
 });
+
+
+it('activates a prepared MatchMe account with a single portrait using only enabled', () => {
+  const book = normalizeRpStorybook({ ...starterRpStorybook, characters: [{
+    ...starterRpStorybook.characters[0],
+    images: [{ id: 'portrait', name: 'Portrait', mimeType: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,AA==', description: 'Portrait', size: 1 }],
+    profileImage: { imageId: 'portrait' },
+    apps: { ...starterRpStorybook.characters[0].apps, matchme: {
+      accountId: 'ryan-matchme', enabled: false, username: 'ryan', displayName: 'Ryan', bio: 'Hello',
+      avatarImageId: 'portrait',
+      profile: { name: 'Ryan', age: 28, bio: 'Hello', interests: 'Music', gender: 'man', seeking: ['woman'], photoIds: ['portrait'], decisions: {} },
+    } },
+  }] });
+  expect(book.characters[0].social?.plotTwist).toBeUndefined();
+  const result = apply([{ op: 'replace', path: '/characters/0/apps/matchme/enabled', value: true }], book).storybook;
+  const reloaded = parseRpStorybookJson(rpStorybookJsonText(result));
+  expect(reloaded.characters[0].apps?.matchme?.enabled).toBe(true);
+  expect(reloaded.characters[0].social?.plotTwist?.photoIds).toEqual(['portrait']);
+  expect(normalizeDatingProfile(reloaded.characters[0].social?.plotTwist)).toBeDefined();
+  expect(() => validateCharacterPayload(characterPayload(reloaded.characters[0]))).not.toThrow();
+  expect(rpStorybookIdentityLockViolations(book, result)).toEqual([]);
+});
+
+it('explicitly requires activation with one photo, including existing drafts', () => {
+  const prompt = rpStorybookEditPrompt(rpStorybookPromptJsonText(starterRpStorybook), 'Create MatchMe');
+  expect(prompt).toContain('ONE existing gallery photo is sufficient');
+  expect(prompt).toContain('explicitly set apps.matchme.enabled to true in the same patch');
+  expect(prompt).toContain('Also set enabled to true when completing an existing disabled draft');
+  expect(prompt).toContain('there are ZERO usable images');
+});
