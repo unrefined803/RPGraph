@@ -15067,6 +15067,35 @@ button.message-timeline-row.phone:focus-visible {
   color: #dbe2f4;
 }
 
+.character-phone-summary {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.character-phone-summary > span:not(.character-phone-summary-separator) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.character-phone-summary-separator {
+  margin: 0 10px;
+  color: #65748e;
+}
+
+.character-phone-account-status {
+  color: #f1c46b;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.character-phone-account-status.created {
+  color: #6cd3ad;
+}
+
 .storybook-actor-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -15526,7 +15555,20 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .character-comfy-dialog {
-  width: min(940px, calc(100vw - 56px));
+  width: min(1080px, calc(100vw - 56px));
+  min-height: min(725px, calc(100vh - 56px));
+}
+
+.character-setup-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.character-setup-header-title span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .character-setup-layout {
@@ -15569,6 +15611,18 @@ button.message-timeline-row.phone:focus-visible {
   transition: color 0.2s ease;
 }
 
+.character-setup-tab-symbol {
+  display: grid;
+  place-items: center;
+  flex: 0 0 16px;
+  width: 16px;
+  color: #556885;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
 .character-setup-tabs button:hover {
   border-color: rgba(126, 185, 197, 0.45);
   color: #dbe4f7;
@@ -15576,6 +15630,10 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .character-setup-tabs button:hover svg {
+  color: #7eb9c5;
+}
+
+.character-setup-tabs button:hover .character-setup-tab-symbol {
   color: #7eb9c5;
 }
 
@@ -15587,6 +15645,10 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .character-setup-tabs button.active svg {
+  color: #7eb9c5;
+}
+
+.character-setup-tabs button.active .character-setup-tab-symbol {
   color: #7eb9c5;
 }
 

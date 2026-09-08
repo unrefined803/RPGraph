@@ -40,6 +40,116 @@
   margin-left: auto;
 }
 
+.character-social-accounts-card {
+  gap: 14px;
+}
+
+.character-social-account-note {
+  color: #8794b1;
+  font-size: 11px;
+}
+
+.character-account-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #233147;
+  border-radius: 10px;
+  background: #0d1522;
+}
+
+.character-account-tabs button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #8794b1;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.character-account-tab-name {
+  grid-column: 1 / -1;
+  color: inherit;
+  font-size: 13px;
+}
+
+.character-account-tabs button:hover {
+  color: #e7edf8;
+  background: #16263d;
+}
+
+.character-account-tabs button.active {
+  border-color: #7eb9c5;
+  color: #f4f7ff;
+  background: #1a3046;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.character-account-status {
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #f1c46b;
+  background: rgba(241, 196, 107, 0.13);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.character-account-status.created {
+  color: #9ae0bd;
+  background: rgba(108, 211, 173, 0.14);
+}
+
+.character-account-status-label {
+  min-width: 0;
+  overflow: hidden;
+  color: #f1c46b;
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-account-status-label.created {
+  color: #9ae0bd;
+}
+
+.character-account-overview {
+  display: grid;
+  gap: 5px;
+  min-height: 110px;
+  place-content: center;
+  padding: 18px;
+  border: 1px dashed #2b3a53;
+  border-radius: 10px;
+  background: rgba(13, 21, 34, 0.45);
+  text-align: center;
+}
+
+.character-account-overview strong {
+  color: #dce5f5;
+  font-size: 13px;
+}
+
+.character-account-overview p {
+  margin: 0;
+  color: #8794b1;
+  font-size: 11px;
+}
+
 .social-profile-editor {
   --profile-accent: #f1a1c6;
   --profile-tint: #3b223e;

@@ -1371,16 +1371,27 @@ function withStorybookCharacterPhoneAccounts(
   };
 }
 
-function characterPhoneSummaryText(character: RpStorybookCharacter) {
+function characterPhoneSummary(character: RpStorybookCharacter) {
   const banking = character.banking ?? defaultRpStorybookCharacterBanking();
-  const parts = [`Bank: $${banking.startBalance}`];
-  if (character.social?.fotogramUsername) {
-    parts.push(`Fotogram: @${character.social.fotogramUsername}`);
-  }
-  if (character.social?.onlyfriendsUsername) {
-    parts.push(`OnlyFriends: @${character.social.onlyfriendsUsername}`);
-  }
-  return parts.join(' · ');
+  const accountStatus = (created: boolean) => (
+    <span
+      className={`character-phone-account-status${created ? ' created' : ''}`}
+      aria-label={created ? 'Account created' : 'Account not created'}
+    >
+      {created ? '✓' : '−'}
+    </span>
+  );
+  const onlyFriendsCreated = Boolean(character.apps?.onlyfriends?.enabled);
+  const matchMeCreated = Boolean(character.apps?.matchme?.enabled);
+  return <span className="character-phone-summary">
+    <span>Bank: ${banking.startBalance}</span>
+    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
+    <span>Fotogram {accountStatus(true)}</span>
+    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
+    <span>OnlyFriends {accountStatus(onlyFriendsCreated)}</span>
+    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
+    <span>MatchMe {accountStatus(matchMeCreated)}</span>
+  </span>;
 }
 
 function storybookCharacterImageFromAttachment(
@@ -2372,7 +2383,8 @@ function CharacterSetupDialog({
     : `Name: ${characterName}`;
   const comfyConnections = connections.filter(isComfyImageConnection);
   const voiceConnections = connections.filter(isComfyVoiceConnection);
-  const [activeSetupTab, setActiveSetupTab] = useState<'image' | 'voice' | 'phone'>('image');
+  const [activeSetupTab, setActiveSetupTab] = useState<'phone' | 'banking' | 'image' | 'voice'>('phone');
+  const [phoneAppsViewKey, setPhoneAppsViewKey] = useState(0);
   const [providerId, setProviderId] = useState(comfyConnections[0]?.id ?? '');
   const [voiceProviderId, setVoiceProviderId] = useState(voiceConnections[0]?.id ?? '');
   const [loraOptions, setLoraOptions] = useState<string[]>([]);
@@ -2650,10 +2662,9 @@ function CharacterSetupDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="storybook-image-dialog-header">
-          <div>
-            <h3>Character Setup</h3>
-            <p>{characterName}</p>
-          </div>
+          <h3 className="character-setup-header-title">
+            Character Setup <span>{characterName}</span>
+          </h3>
           <div className="storybook-image-dialog-actions">
             <button type="button" className="close-button" onClick={() => void closeDialog()}>Close</button>
           </div>
@@ -2661,6 +2672,32 @@ function CharacterSetupDialog({
         {status && <span className="run-note storybook-image-status">{status}</span>}
         <div className="character-setup-layout">
           <div className="character-setup-tabs" role="tablist" aria-label="Character setup sections">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSetupTab === 'phone'}
+              className={activeSetupTab === 'phone' ? 'active' : ''}
+              onClick={() => {
+                setActiveSetupTab('phone');
+                setPhoneAppsViewKey((current) => current + 1);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="7" y="2" width="10" height="20" rx="2" ry="2" />
+                <line x1="11" y1="18" x2="13" y2="18" />
+              </svg>
+              <span>Phone Apps</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSetupTab === 'banking'}
+              className={activeSetupTab === 'banking' ? 'active' : ''}
+              onClick={() => setActiveSetupTab('banking')}
+            >
+              <span className="character-setup-tab-symbol" aria-hidden="true">$</span>
+              <span>Banking App</span>
+            </button>
             <button
               type="button"
               role="tab"
@@ -2689,21 +2726,13 @@ function CharacterSetupDialog({
               </svg>
               <span>Voice Setup</span>
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSetupTab === 'phone'}
-              className={activeSetupTab === 'phone' ? 'active' : ''}
-              onClick={() => setActiveSetupTab('phone')}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="7" y="2" width="10" height="20" rx="2" ry="2" />
-                <line x1="11" y1="18" x2="13" y2="18" />
-              </svg>
-              <span>Phone Apps</span>
-            </button>
           </div>
           {activeSetupTab === 'phone' ? (
+            <div className="character-voice-body">
+              {character && <CharacterAppProfiles key={phoneAppsViewKey} character={{ ...character, apps: appsDraft }} characters={storybook.characters}
+                locked={identityLocked} onChange={(next) => { setAppsDraft(next.apps!); return true; }} />}
+            </div>
+          ) : activeSetupTab === 'banking' ? (
             <div className="character-voice-body">
               <div className="character-voice-card">
                 <span className="character-voice-card-title">BANKING APP</span>
@@ -2791,8 +2820,6 @@ function CharacterSetupDialog({
                   The app fills the rest of the history with generated everyday spending.
                 </p>
               </div>
-              {character && <CharacterAppProfiles character={{ ...character, apps: appsDraft }} characters={storybook.characters}
-                locked={identityLocked} onChange={(next) => { setAppsDraft(next.apps!); return true; }} />}
             </div>
           ) : activeSetupTab === 'voice' ? (
             <div className="character-voice-body">
@@ -3522,7 +3549,7 @@ export function StorybookCreatorDialog({
                                 )}
                                 <div className="character-field">
                                   <span className="field-label">Phone Apps</span>
-                                  <p>{characterPhoneSummaryText(character)}</p>
+                                  <p>{characterPhoneSummary(character)}</p>
                                 </div>
                                 <div className="character-field character-images-summary-field">
                                   <span className="field-label">Images</span>
