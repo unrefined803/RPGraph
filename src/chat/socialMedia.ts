@@ -1,6 +1,6 @@
 import { recipientCharacterContext } from '../characters/appRuntime';
 import { matchMeContext, matchMeState } from './matchMe';
-import { datingAccountId, datingAccountMatches } from './datingAccounts';
+import { datingAccountId, datingAccountMatches, datingAccounts, resolveDatingAccount } from './datingAccounts';
 import type {
   MessageRecord,
   SocialAppKind,
@@ -399,6 +399,7 @@ export function parseSocialDirectMessageOutput(
   text: string,
   userMessage: SocialDirectMessageRecord,
   sentAt = new Date().toISOString(),
+  characters: StorybookCharacter[] = [],
 ): SocialDirectMessageParseResult {
   const result: SocialDirectMessageParseResult = {
     phoneMessages: [],
@@ -451,7 +452,9 @@ export function parseSocialDirectMessageOutput(
       }
       if (userMessage.app === 'matchme') {
         const raw = expectedEntries[0];
-        if (!isRecord(raw) || payload.from !== userMessage.toAccountId || payload.to !== userMessage.fromAccountId ||
+        const accounts = datingAccounts(characters);
+        const canonical = (identity: string | undefined) => identity ? resolveDatingAccount(identity, accounts)?.id ?? identity : undefined;
+        if (!isRecord(raw) || canonical(payload.from) !== userMessage.toAccountId || canonical(payload.to) !== userMessage.fromAccountId ||
           ['postId', 'isVoiceMessage', 'sendImageId', 'tip'].some((key) => key in raw)) {
           result.message = undefined;
           result.warnings.push('MatchMe reply must use the exact expected account IDs and plain message text.');

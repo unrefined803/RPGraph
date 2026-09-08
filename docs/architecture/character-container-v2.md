@@ -2,7 +2,7 @@
 
 Status: Character Container V2 is implemented through Stage 7. Fresh demo discovery now uses image-backed character containers; image-less placeholders were removed. Stage 8 remains optional.
 Character Container V2 and Storybook V3 use independent version numbers.
-Last reconciled with the implementation: 2026-09-07.
+Last reconciled with the implementation: 2026-09-08.
 
 ## Progress at a glance
 
@@ -101,15 +101,14 @@ The central acceptance scenario is:
 6. Save/reload the RP, then remove or change the external file. Previously saved
    interactions and referenced media remain valid through the saved NPC snapshot.
 
-Username search is the first required cross-app handoff. Copyable profile links,
-a link parser or clickable deep links are a later enhancement: no link scheme
-has been agreed or implemented. Do not invent links in the LLM prompt and assume
-the UI can already open them.
+Username search remains available. Inline account sharing is now implemented
+using `@fotogram:username` and `@whatsup:Full Name`, without brackets or quotes.
+See **Inline account sharing** below for resolution, contact grants and persistence.
 
 Having an account does not automatically establish a phone contact, a follow,
 a match or acquaintance. Preserve app-specific discovery and access rules.
-Fotogram is provisioned for authored characters under the current normalization;
-other accounts remain optional. A character container can carry phone settings,
+WhatsUp and Fotogram are provisioned for every character under the current
+normalization; OnlyFriends and MatchMe remain optional. A character container can carry phone settings,
 but its existence does not grant every player a phone conversation with it.
 
 ### Portrait persistence and authoring
@@ -144,8 +143,9 @@ profiles retain initials. Manual interface validation remains with the user.
   gallery. Legacy demo accounts without gallery data show Photo unavailable.
 - Recipient-bound context includes the replying character's characterization,
   actual public accounts, usernames and publication/photo descriptions. Absent or
-  disabled optional accounts are represented as null. No profile link scheme is
-  invented, and gallery bytes/private messages are not included in this context.
+  disabled optional accounts are represented as null. Account-sharing instructions
+  live in the authored default workflow prompts; no account-sharing directory
+  or account-sharing instructions are injected by the execution engine.
 - `postsWithInitialContent` still projects immutable seeds rather than inserting
   timeline records. Library/snapshot seeds use reversible `npcSeedPostKey`
   account/seed keys. Existing Storybook seed keys are unchanged to preserve saved
@@ -222,9 +222,9 @@ The format versions remain **Storybook 3.0.0**, **RP-Storybook node 3.0.0** and
 **Character Container 2.0.0**. This is ongoing development within those formats.
 
 - `CharacterAppProfiles` provides the account overview for both Storybook
-  editors. Fotogram is provisioned deterministically when absent; existing
-  usernames, account IDs and explicit account data are retained. OnlyFriends
-  and MatchMe remain optional, including after play begins.
+  editors. WhatsUp and Fotogram are provisioned deterministically when absent;
+  existing usernames, account IDs and explicit account data are retained.
+  OnlyFriends and MatchMe remain optional, including after play begins.
 - Setup and the phone share `SocialProfileEditor` for Fotogram/OnlyFriends.
   MatchMe reuses `PhoneDatingScreen` in profile-only mode, with gallery
   selection. Photo uploads remain in the phone/gallery workflow.
@@ -240,8 +240,8 @@ The format versions remain **Storybook 3.0.0**, **RP-Storybook node 3.0.0** and
   nonempty usernames as well as character identities. An absent optional account
   can still be created. Gallery references and account/initial-post collisions
   are validated before Storybook commits and imports.
-- Social messages resolve exact full character names, the requested app's
-  username (optionally prefixed with `@`), or stable account IDs. Duplicate names,
+- Social messages resolve exact full character names, the requested app's display
+  name or username (optionally prefixed with `@`), or stable account IDs. Duplicate names,
   duplicate handles, and name/handle collisions are rejected. A cross-app handle
   cannot authorize delivery. Unknown recipients are rejected; public generated
   comments may still introduce NPCs through the existing social directory.
@@ -252,6 +252,75 @@ The format versions remain **Storybook 3.0.0**, **RP-Storybook node 3.0.0** and
   matches are resolved through those aliases without rewriting source history.
   Full-character-name and username aliases supplement the existing MatchMe
   account-ID syntax; direct replies remain bound to the requested account IDs.
+
+### Inline account sharing
+
+Implemented on 2026-09-08 as a separate enhancement after Stage 7; this does not
+implement or change the optional Stage 8 storage policy.
+
+Use account links directly inside ordinary message text, including messenger JSON:
+
+```json
+{"matchMeApp":[{"from":"nova-mm","to":"player-mm","message":"Here is my account: @fotogram:nova.art. You can also reach me at @whatsup:Nova Vale."}]}
+```
+
+- Supported prefixes: `@fotogram:`, `@whatsup:`, `@onlyfriends:` and `@matchme:`.
+  `@photogram:` and `@whatsapp:` are accepted aliases. App prefixes and names
+  are case-insensitive; canonical account IDs retain exact identity precedence.
+- Targets can be a full character name, the requested app's display name,
+  username (also with a leading `@`) or account ID. The longest complete known
+  identity is recognized, ending at a word/punctuation boundary. Partial names,
+  unknown accounts, disabled accounts and ambiguous aliases remain plain text.
+  For names that are also ordinary words, prefer a unique username or account ID.
+- There is no autocomplete. Composers show recognized links beneath the input
+  as validation feedback. Sent messages render the same links inline in RP chat,
+  WhatsUp and social DMs. Own-account links are visibly recognized but disabled.
+- Clicking another character's link adds that account to the viewed character's
+  connections and opens the corresponding app/conversation. WhatsUp can show a
+  new NPC contact with no fabricated message. Every effective character, including
+  a library NPC, receives the same stable standard WhatsUp account during
+  normalization when the source has no `apps.whatsup` entry. An explicitly
+  disabled WhatsUp account remains unavailable. Social links use the existing
+  connection rules. MatchMe opens the existing conversation or discovery card;
+  it never creates a match or bypasses the active-match requirement. OnlyFriends
+  links do not unlock paid publications.
+- User-sent DMs grant linked contacts automatically to their simulated recipient.
+  Generated messages to non-playable recipients do the same. Generated messages
+  to player recipients require an explicit click. Merely rendering a received
+  link or typing a draft creates no connection. Third-party sharing follows the
+  same rules; the LLM must still respect the character's in-world knowledge.
+- Committed links retain their original token plus stable character/account IDs
+  in additive message metadata. RP timelines and Opening History preserve these
+  bindings. Previously unrecognized tokens (including older empty binding lists)
+  resolve against currently available identities; existing bindings remain pinned.
+  Renaming a display name does not rebind a stored link to someone else.
+  Shared NPC references participate in the existing snapshot capture policy,
+  including third parties, so removing a library file does not discard them.
+- WhatsUp connection IDs share the existing per-character connections store,
+  whose save/checkpoint normalization now retains `whatsup`. Simulated contact
+  grants are projected from structured message history. Older saves without
+  bindings or phone grants remain compatible; there is no format-version bump.
+- Short account-sharing instructions are authored in Prompt After Input in both
+  bundled default workflows: all WhatsUp prompts and all Social Media prompts
+  that can emit private messages, including an explicit MatchMe DM slot. There is
+  no automatic account-sharing injection or registry-name list. Existing custom
+  workflows can copy the short block into their own prompts. Bound replies tolerate aliases
+  only when they resolve to the exact expected sender and recipient. Translation
+  shields recognized account tokens so names and handles remain unchanged.
+- WhatsUp avatars use the character portrait when present, then fall back to an
+  avatar image referenced by WhatsUp, Fotogram, MatchMe or OnlyFriends in that
+  same container. Adding a library NPC to the Storybook is therefore not required
+  for its existing container image to appear in the phone contact list.
+
+Implementation: `src/chat/accountLinks.ts`, `accountLinkContext.ts`,
+`src/components/AccountLinkText.tsx`, the existing roleplay/phone runtime,
+message commit boundary and timeline serializers. Regression coverage is in
+`src/chat/accountLinks.test.ts` and the existing identity/MatchMe suites.
+
+Manual interface validation remains with the user: share your own account and a
+third person's account in MatchMe, follow a received Fotogram/WhatsUp link, verify
+that the NPC appears without a fake message, switch characters, and save/reload.
+Check the recognized-link feedback, own-link disabled state and app navigation.
 
 ### Concrete storage responsibilities
 
@@ -280,7 +349,7 @@ app-specific JSON keys remain the only syntax. For example:
 {"fotogramApp":[{"from":"Nova Reyes","to":"@jordan.art","message":"Hello!"}]}
 ```
 
-`from` and `to` accept full character names, usernames belonging to that app, or
+`from` and `to` accept full character names, display names/usernames belonging to that app, or
 stable account IDs. Use an account ID to disambiguate duplicate display names.
 `whatsUpApp`, `fotogramApp`, `onlyFriendsApp`, and `matchMeApp` keep their existing
 capabilities. MatchMe still requires an active application-created match, plain
@@ -406,7 +475,7 @@ Recommended V2 additions and structure:
 | `character.apps.matchme` | Public profile fields, adult profile age, gender, seeking, interests, ordered gallery image references. No matches or live messages. |
 | `character.apps.fotogram` | Username, public display name/bio and avatar image reference/crop. Optional prepared initial posts. |
 | `character.apps.onlyfriends` | Preserve existing account/configuration where present; separate account capability and visibility rules. |
-| `character.apps.whatsup` | Explicit phone account availability/settings compatible with existing phone behavior. |
+| `character.apps.whatsup` | Standard phone account, provisioned with a stable character-owned ID and full-name username when absent. |
 | `character.apps.*.initialPosts` | Optional authored starting publications with stable seed IDs, text and gallery references; not conversation state. |
 
 Use typed per-app fields, not a loose bag where every app receives feed, payment

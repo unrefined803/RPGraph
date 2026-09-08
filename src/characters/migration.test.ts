@@ -28,6 +28,10 @@ describe('Character Container and Storybook V3', () => {
     expect(payload.profileImage).not.toHaveProperty('dataUrl');
     expect(payload).not.toHaveProperty('social');
     expect(payload.apps.fotogram?.username).toBe('nova.art');
+    expect(payload.apps.whatsup).toMatchObject({
+      accountId: 'character:nova:whatsup', enabled: true,
+      username: 'Nova', displayName: 'Nova',
+    });
     expect(payload.apps.matchme?.profile?.photoIds).toEqual([image.id]);
     expect(payload.banking?.startBalance).toBe(1400);
     expect(character.profileImage?.dataUrl).toBe(image.dataUrl);

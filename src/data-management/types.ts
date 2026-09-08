@@ -102,6 +102,7 @@ export type TimelineOutputActions = {
 };
 
 export type TimelineMessageEntry = {
+  accountLinks?: import('../chat/accountLinks').AccountLink[];
   id: string;
   kind: 'message';
   turnId: string;

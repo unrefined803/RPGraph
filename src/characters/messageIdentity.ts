@@ -3,31 +3,34 @@ import type { MessageRecord } from '../types';
 
 const key = (value: string) => value.trim().replace(/^@/, '').replace(/\s+/g, ' ').toLowerCase();
 
+/** Every effective character has a stable phone identity, even before a contact is added. */
+export function whatsUpAccountId(character: StorybookCharacter) {
+  return character.apps?.whatsup?.accountId ?? `character:${character.sourceId}:whatsup`;
+}
+
 /** WhatsUp recipients must be exact identities, never fuzzy name guesses. */
 export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messages: MessageRecord[], identity: string) {
   // Temporary UI contacts are projections of history, not newly provisioned accounts.
   characters = characters.filter((character) => !(character as StorybookCharacter & { temporaryPhone?: boolean }).temporaryPhone);
-  const accountId = (character: StorybookCharacter) => character.apps?.whatsup?.accountId ??
-    `character:${character.sourceId}:whatsup`;
-  const canonical = characters.filter((character) => accountId(character) === identity);
+  const canonical = characters.filter((character) => whatsUpAccountId(character) === identity);
   const stable = characters.filter((character) => character.id === identity || character.sourceId === identity ||
     character.identityAliases?.characterIds?.includes(identity) ||
     character.identityAliases?.accountIds?.whatsup?.includes(identity));
   const identityCharacters = canonical.length ? canonical : stable.length ? stable : characters.filter((character) =>
     key(character.name) === key(identity) ||
+    (!!character.apps?.whatsup?.displayName && key(character.apps.whatsup.displayName) === key(identity)) ||
     (!!character.apps?.whatsup?.username && key(character.apps.whatsup.username) === key(identity)));
   if (identityCharacters.length > 1) {
     throw new Error(`Ambiguous WhatsUp recipient "${identity}". Use a unique account ID.`);
   }
-  const matches = identityCharacters.filter((character) => character.apps?.whatsup?.enabled !== false &&
-    (!character.libraryNpc || !!character.apps?.whatsup));
+  const matches = identityCharacters.filter((character) => character.apps?.whatsup?.enabled !== false);
   if (matches.length === 1) {
     const character = matches[0];
-    if (characters.filter((entry) => accountId(entry) === accountId(character)).length > 1) {
+    if (characters.filter((entry) => whatsUpAccountId(entry) === whatsUpAccountId(character)).length > 1) {
       throw new Error(`Ambiguous WhatsUp recipient "${identity}". Its account ID belongs to multiple characters.`);
     }
     return { name: character.name, characterId: character.sourceId,
-      accountId: accountId(character) };
+      accountId: whatsUpAccountId(character) };
   }
   if (identityCharacters.length > 0) {
     throw new Error(`Unavailable WhatsUp recipient "${identity}". The matching account is absent or disabled.`);

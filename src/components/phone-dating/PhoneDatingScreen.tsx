@@ -65,7 +65,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     if (message?.app !== 'matchme' || !((message.fromAccountId === ownerId && message.toAccountId === id) ||
       (message.toAccountId === ownerId && message.fromAccountId === id))) return [];
     return [{ id: message.messageId, matchId: id, sender: message.fromAccountId === ownerId ? 'owner' as const : 'match' as const,
-      text: message.displayText ?? message.text, sentAt: message.sentAt, demo: message.demo }];
+      text: message.displayText ?? message.text, accountLinks: message.accountLinks, sentAt: message.sentAt, demo: message.demo }];
   });
   async function send(id: string, retry = false) {
     if (!owner || isRunning || sending.current) return;
@@ -82,7 +82,8 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     finally { sending.current = false; setBusy(false); }
   }
   const selectedMatch = matches.find((entry) => entry.id === resolveDatingAccount(selectedMatchId ?? '', state.accounts)?.id);
-  const candidate = availableProfiles.find((entry) =>
+  const linkedCandidate = availableProfiles.find((entry) => entry.id === selectedMatchId);
+  const candidate = linkedCandidate ?? availableProfiles.find((entry) =>
     (!profile?.seeking?.length || !!entry.gender && profile.seeking.includes(entry.gender)) &&
     !profile?.decisions[entry.id] && !entry.aliases?.some((alias) => profile?.decisions[alias]));
   const allImages = [...images, ...imported];
@@ -94,7 +95,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   function decide(decision: 'like' | 'pass') {
     if (!profile || !candidate || selectedMatch || isRunning || busy) return;
     if (save({ ...profile, decisions: { ...profile.decisions, [candidate.id]: decision } })) {
-      setPhoto(0); setNotice(decision === 'like' ? `You liked ${candidate.name}.` : `Passed on ${candidate.name}.`);
+      setSelectedMatchId(undefined); setPhoto(0); setNotice(decision === 'like' ? `You liked ${candidate.name}.` : `Passed on ${candidate.name}.`);
     }
   }
   function addPhoto(image: ChatImageAttachment) {

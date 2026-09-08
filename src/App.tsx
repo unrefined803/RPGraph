@@ -1,3 +1,5 @@
+import { shieldTranslationAccountLinks, restoreTranslationAccountLinks } from './chat/accountLinks';
+import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
 import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
@@ -985,6 +987,7 @@ function App() {
     socialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
     addSocialConnection,
+    accountLinkContext,
     phoneNotesByCharacter,
     setPhoneNotesByCharacter,
     chatGpdChatsByCharacter,
@@ -3229,7 +3232,8 @@ function App() {
     // W11: shield emoji so a weak translation model (e.g. Haiku) cannot mangle
     // them into U+FFFD replacement characters. Translate ASCII placeholders and
     // restore the original emoji afterwards (streamed output restored on the fly).
-    const { shielded, tokens } = shieldTranslationEmoji(text);
+    const accountLinks = shieldTranslationAccountLinks(text, npcParticipants.characters());
+    const { shielded, tokens } = shieldTranslationEmoji(accountLinks.shielded);
     const prompt = translationPrompt({
       text: shielded,
       direction,
@@ -3246,10 +3250,10 @@ function App() {
         prompt,
         fastTask: true,
         onChunk: onChunk
-          ? (streamed) => onChunk(restoreTranslationEmoji(streamed, tokens))
+          ? (streamed) => onChunk(restoreTranslationAccountLinks(restoreTranslationEmoji(streamed, tokens), accountLinks.tokens))
           : undefined,
       });
-      const translated = restoreTranslationEmoji(completion.text, tokens).trim();
+      const translated = restoreTranslationAccountLinks(restoreTranslationEmoji(completion.text, tokens), accountLinks.tokens).trim();
       if (!translated) {
         if (direction === 'to-english') {
           return '';
@@ -4941,6 +4945,7 @@ function App() {
   });
 
   return (
+    <AccountLinkContext.Provider value={accountLinkContext}>
     <div
       className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
       style={{
@@ -6433,6 +6438,7 @@ function App() {
         </div>
       )}
     </div>
+    </AccountLinkContext.Provider>
   );
 }
 

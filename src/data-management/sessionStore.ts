@@ -384,6 +384,7 @@ function chatMessageFromTimelineEntry(
     socialPost: entry.socialPost,
     socialThreadAction: entry.socialThreadAction,
     socialReactions: entry.socialReactions,
+    accountLinks: entry.accountLinks,
     socialDirectMessage: entry.socialDirectMessage,
     matchMeMatch: entry.matchMeMatch,
     createdPhoneNote: entry.createdPhoneNote,

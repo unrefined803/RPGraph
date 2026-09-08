@@ -1,3 +1,5 @@
+import { appCharactersFromRegistry } from '../../characters/appRuntime';
+import { buildCharacterRegistry } from '../../characters/registry';
 import { describe, it, expect } from 'vitest';
 import type { Edge } from '@xyflow/react';
 import type { WorkflowNode } from '../../types';
@@ -62,6 +64,18 @@ function runArgs(node: WorkflowNode, context: ExecuteContext, inputValue: string
 }
 
 describe('LLM Prompt text overrides', () => {
+  it('does not inject account-sharing instructions or a registry directory into authored prompts', async () => {
+    const { context, prompts } = createContext({ edges: [] });
+    context.appCharacters = appCharactersFromRegistry(buildCharacterRegistry([{
+      tier: 'storybook', source: 'book', character: {
+        id: 'owner', name: 'Existing Character', description: '', personality: '', speechStyle: '', role: '', images: [],
+        apps: { fotogram: { accountId: 'owner-fg', enabled: true, username: 'hidden.registry.handle', displayName: 'Owner', bio: '' } },
+      },
+    }]));
+    await executeLlmPromptNode(runArgs(promptNode({}), context, 'the input'));
+    expect(prompts).toEqual(['the input']);
+  });
+
   it('uses the prompt-before override string and bypasses the authored text', async () => {
     const node = promptNode({ llmPromptBefore: 'AUTHORED BEFORE', llmPromptAfter: 'AUTHORED AFTER' });
     const { context, prompts } = createContext({

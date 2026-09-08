@@ -1,4 +1,5 @@
 export type DatingMessage = {
+  accountLinks?: import('./accountLinks').AccountLink[];
   id: string;
   matchId: string;
   sender: 'owner' | 'match';

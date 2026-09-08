@@ -1,3 +1,5 @@
+import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
+import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
 import { appCharacterImage } from '../characters/appRuntime';
 import type { NpcParticipantReference } from '../characters/npcParticipants';
 import { datingAccountMatches } from '../chat/datingAccounts';
@@ -32,6 +34,8 @@ import { normalizePhoneName } from '../chat/phoneMessages';
 import {
   buildSocialDirectory,
   withSocialDirectoryConnectionAdded,
+  withSocialConnectionAdded,
+  socialConnectionIds,
   type DynamicSocialUsers,
   type SocialConnectionsByCharacter,
 } from '../chat/socialDirectory';
@@ -142,7 +146,7 @@ export function useRoleplayPanelRuntime({
   // Liked post ids per "characterId/app" account key; part of the RP save.
   const [socialLikesByAccount, setSocialLikesByAccount] = useState<Record<string, string[]>>({});
   const [savedDynamicSocialUsers, setDynamicSocialUsers] = useState<DynamicSocialUsers>({});
-  const [socialConnectionsByCharacter, setSocialConnectionsByCharacter] =
+  const [savedSocialConnectionsByCharacter, setSocialConnectionsByCharacter] =
     useState<SocialConnectionsByCharacter>({});
   // Notes and ChatGPD chats per character id; part of the RP save.
   const [phoneNotesByCharacter, setPhoneNotesByCharacter] = useState<PhoneNotesByCharacter>({});
@@ -150,6 +154,8 @@ export function useRoleplayPanelRuntime({
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = useState(0);
+  const accountLinkRequestId = useRef(0);
+  const [accountLinkOpenRequest, setAccountLinkOpenRequest] = useState<AccountLinkOpenRequest>();
   const [socialPostOpenRequest, setSocialPostOpenRequest] = useState<{
     requestId: number;
     app: SocialPostRecord['app'];
@@ -217,9 +223,28 @@ export function useRoleplayPanelRuntime({
     () => storyCharacters.filter((character) => character.playerSelectable !== false),
     [storyCharacters],
   );
+  const socialDirectory = useMemo(
+    () => buildSocialDirectory({
+      storyCharacters: appCharacters,
+      messages,
+      savedDynamicUsers: savedDynamicSocialUsers,
+    }),
+    [messages, savedDynamicSocialUsers, appCharacters],
+  );
+  const socialConnectionsByCharacter = useMemo(() => {
+    let connections = savedSocialConnectionsByCharacter;
+    for (const { owner, link } of automaticAccountLinkGrants(messages, appCharacters)) {
+      if (link.app === 'matchme') continue;
+      const user = socialDirectory.users.find((entry) => entry.characterId === link.character.id);
+      const targetId = link.app === 'whatsup' ? link.accountId : user?.id;
+      if (targetId) connections = withSocialConnectionAdded(connections, owner.sourceId, link.app, targetId);
+    }
+    return connections;
+  }, [savedSocialConnectionsByCharacter, messages, appCharacters, socialDirectory]);
   const phoneCharacters = useMemo(
-    () => phoneRuntimeCharactersFromMessages(appCharacters, messages),
-    [messages, appCharacters],
+    () => phoneRuntimeCharactersFromMessages(appCharacters, messages,
+      new Set(Object.values(socialConnectionsByCharacter).flatMap((apps) => apps.whatsup ?? []))),
+    [messages, appCharacters, socialConnectionsByCharacter],
   );
   const characterColors = useMemo(
     () =>
@@ -230,14 +255,6 @@ export function useRoleplayPanelRuntime({
         ]),
       ),
     [phoneCharacters],
-  );
-  const socialDirectory = useMemo(
-    () => buildSocialDirectory({
-      storyCharacters: appCharacters,
-      messages,
-      savedDynamicUsers: savedDynamicSocialUsers,
-    }),
-    [messages, savedDynamicSocialUsers, appCharacters],
   );
   const fotogramContactsByCharacter = useMemo(
     () => Object.fromEntries(storyCharacters.map((viewer) => [
@@ -463,6 +480,7 @@ export function useRoleplayPanelRuntime({
       // Keep showing the current character's phone while the narrator plays.
       setViewedPhoneCharacterId(viewedPhoneCharacter.id);
     }
+    setAccountLinkOpenRequest(undefined);
     setSelectedCharacterId(characterId);
     if (characterId !== narratorCharacterId) {
       rememberChatCharacter(characterId);
@@ -480,6 +498,8 @@ export function useRoleplayPanelRuntime({
     if (!viewer || viewer.id === contact.id) {
       return false;
     }
+    const sharedPhoneIds = socialConnectionIds(socialConnectionsByCharacter, viewer.id, 'whatsup', appCharacters);
+    if (sharedPhoneIds.some((id) => resolveAccountLink('whatsup', id, appCharacters)?.characterId === contact.sourceId)) return true;
     if (phoneConversationInfo.has(phoneConversationKey(viewer.name, contact.name))) {
       return true;
     }
@@ -490,7 +510,7 @@ export function useRoleplayPanelRuntime({
       }
     }
     return !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
-  }, [phoneConversationInfo, storybooksByNodeId]);
+  }, [phoneConversationInfo, storybooksByNodeId, socialConnectionsByCharacter, appCharacters]);
 
   const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>) => {
     if (updates.length === 0) {
@@ -810,6 +830,34 @@ export function useRoleplayPanelRuntime({
     selectChatPanelView('phone');
   }
 
+  function openAccountLink(link: AccountLinkTarget) {
+    const owner = chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter;
+    if (!owner || isRunning) return;
+    const target = resolveAccountLink(link.app, link.accountId, appCharacters);
+    if (!target || target.characterId !== link.characterId) {
+      notifySystem('warning', 'This shared account is unavailable.');
+      return;
+    }
+    if (owner.sourceId === target.characterId) return;
+    captureNpcParticipants([{ kind: 'account', app: target.app, id: target.accountId, canonical: true }]);
+    if (target.app === 'whatsup') {
+      setSocialConnectionsByCharacter((current) => withSocialConnectionAdded(current, owner.sourceId, 'whatsup', target.accountId));
+      openPhoneConversation(phoneConversationKey(owner.name, target.character.name), 0,
+        { speakerId: owner.id, contactId: target.character.id, activatePlayer: false });
+    } else if (target.app !== 'matchme') {
+      const user = socialDirectory.users.find((entry) => entry.characterId === target.character.id);
+      if (!user) { notifySystem('warning', 'This shared social account is unavailable.'); return; }
+      addSocialConnection(owner.id, target.app, user.id);
+    }
+    setViewedPhoneCharacterId(owner.id);
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setSocialDirectMessageOpenRequest(undefined);
+    setAccountLinkOpenRequest({ requestId: -(++accountLinkRequestId.current),
+      app: target.app, accountId: target.accountId, name: target.name, username: target.username });
+    setChatPanelView('phone');
+  }
+
   function openEmbeddedSocialMessage(message: EmbeddedSocialMessageLink) {
     const directMessage = messages.find((entry) => entry.id === message.socialMessageId)
       ?.socialDirectMessage;
@@ -836,6 +884,7 @@ export function useRoleplayPanelRuntime({
       notifySystem('warning', 'Could not find a Storybook participant for this social conversation.');
       return;
     }
+    setAccountLinkOpenRequest(undefined);
     const ownerIsSender = owner.id === senderCharacter?.id;
     setSelectedCharacterId(owner.playerSelectable !== false ? owner.id : narratorCharacterId);
     setViewedPhoneCharacterId(owner.id);
@@ -906,6 +955,7 @@ export function useRoleplayPanelRuntime({
     }
     setHighlightedPhoneMessage(undefined);
     setSocialDirectMessageOpenRequest(undefined);
+    setAccountLinkOpenRequest(undefined);
     setSocialPostOpenRequest((current) => ({
       requestId: (current?.requestId ?? 0) + 1,
       app: post.app,
@@ -992,6 +1042,7 @@ export function useRoleplayPanelRuntime({
   }
 
   function selectChatPanelView(view: ChatPanelView) {
+    setAccountLinkOpenRequest(undefined);
     if (view === 'chat') {
       setLastSeenMessageRecordId(latestMessageRecordId);
     }
@@ -1010,6 +1061,7 @@ export function useRoleplayPanelRuntime({
     setHighlightedPhoneMessage(undefined);
     setSocialPostOpenRequest(undefined);
     setSocialDirectMessageOpenRequest(undefined);
+    setAccountLinkOpenRequest(undefined);
     if (chatPanelView !== 'phone') {
       setChatPanelView('phone');
       return;
@@ -1047,6 +1099,7 @@ export function useRoleplayPanelRuntime({
 
     setSocialPostOpenRequest(undefined);
     setSocialDirectMessageOpenRequest(undefined);
+    setAccountLinkOpenRequest(undefined);
     setPhoneHomeRequestId((current) => current + 1);
     return switchedOwner;
   }
@@ -1437,6 +1490,8 @@ export function useRoleplayPanelRuntime({
     setBankingContactsByCharacter,
     addBankingContact,
     markSelectedPhoneConversationSeen,
+    accountLinkContext: { characters: appCharacters, owner: chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter,
+      disabled: isRunning, open: openAccountLink, request: accountLinkOpenRequest },
     phoneHomeRequestId,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,

@@ -51,12 +51,12 @@ describe('WhatsUp delivery identity', () => {
     }
   });
 
-  it('keeps implicit legacy Storybook phone IDs stable across delivery boundaries', () => {
+  it('keeps implicit character phone IDs stable across delivery boundaries', () => {
     const cast = characters();
     delete cast[0].apps!.whatsup;
     const first = resolveWhatsUpMessageParticipants(cast, [], { from: cast[0].name, to: 'wa-1' });
     expect(resolveWhatsUpRecipient(cast, [], first.from.accountId)).toEqual(first.from);
     cast[0].libraryNpc = true;
-    expect(() => resolveWhatsUpRecipient(cast, [], cast[0].name)).toThrow('Unavailable');
+    expect(resolveWhatsUpRecipient(cast, [], cast[0].name)).toEqual(first.from);
   });
 });

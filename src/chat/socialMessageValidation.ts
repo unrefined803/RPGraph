@@ -48,6 +48,7 @@ export function resolveSocialMessageIdentity(options: {
   const byAccountId = options.characters.filter((character) => character.apps?.[app]?.accountId === identity);
   const characters = byAccountId.length ? byAccountId : options.characters.filter((character) => character.id === identity || character.sourceId === identity ||
     character.apps?.[app]?.accountId === identity || normalizedName(character.name) === normalizedName(identity) ||
+    (!!character.apps?.[app]?.displayName && normalizedName(character.apps[app]!.displayName) === normalizedName(identity)) ||
     storedHandle(character, app)?.toLowerCase() === key);
   const directory = buildSocialDirectory({ storyCharacters: options.characters, messages: options.messages });
   const users = byAccountId.length ? [] : directory.users.filter((user) => user.source !== 'storybook' &&
@@ -205,7 +206,9 @@ export function validateSocialMessengerAccounts(options: {
     }
     if (options.directMessage && Array.isArray(record.matchMeApp) && (directReplyBlockCount !== 1 || record.matchMeApp.length !== 1 ||
       record.matchMeApp.some((entry) => !entry || typeof entry !== 'object' ||
-        entry.from !== options.directMessage?.toAccountId || entry.to !== options.directMessage?.fromAccountId))) {
+        typeof entry.from !== 'string' || typeof entry.to !== 'string' ||
+        resolveDatingAccount(entry.from, matchMeState(options.characters, options.messages).accounts)?.id !== options.directMessage?.toAccountId ||
+        resolveDatingAccount(entry.to, matchMeState(options.characters, options.messages).accounts)?.id !== options.directMessage?.fromAccountId))) {
       rangeIssues.push({ app: 'matchme', identity: '', role: 'sender', resolved: { available: false, name: '', source: 'directory', reason: `Return exactly one matchMeApp message from ${options.directMessage.toAccountId} to ${options.directMessage.fromAccountId}. Do not change the replying account.` } });
     }
 

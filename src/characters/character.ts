@@ -83,6 +83,10 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
       username: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'character'}.${id.replace(/[^a-zA-Z0-9]/g, '')}`,
       displayName: name, bio: '' };
   }
+  if (!apps.whatsup) {
+    apps.whatsup = { accountId: `character:${id}:whatsup`, enabled: true,
+      username: name, displayName: name, bio: '' };
+  }
   return apps;
 }
 

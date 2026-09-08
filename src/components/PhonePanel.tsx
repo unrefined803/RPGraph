@@ -1,5 +1,8 @@
+import { AccountLinkContext } from '../chat/accountLinkContext';
+import { AccountLinkText } from './AccountLinkText';
 import type { CharacterAppAccount } from '../characters/character';
 import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
+import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
 import type { DatingProfile } from '../chat/datingProfile';
 import {
   Fragment,
@@ -7,6 +10,7 @@ import {
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -437,13 +441,27 @@ export function PhonePanel({
   onUnloadImageAssistantComfyModel,
   onRefreshImageAssistantModelState,
 }: PhonePanelProps) {
+  const { request: accountLinkRequest } = useContext(AccountLinkContext);
+  const accountLinkScreen = accountLinkRequest?.app === 'matchme' ? 'plottwist' : accountLinkRequest?.app;
+  const linkedSocialRequest = accountLinkRequest && accountLinkRequest.app !== 'whatsup' ? {
+    requestId: accountLinkRequest.requestId, app: accountLinkRequest.app, messageId: '',
+    participantName: accountLinkRequest.name,
+    participantHandle: accountLinkRequest.app === 'matchme' ? accountLinkRequest.accountId : accountLinkRequest.username,
+  } : undefined;
+  const directMessageRequest = linkedSocialRequest ?? socialDirectMessageOpenRequest;
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   // Start on the conversation when the panel opens through a chat message
   // link, or on a requested social post; otherwise start on the desktop.
   const [screen, setScreen] = useState<PhoneScreen>(() =>
-    (socialDirectMessageOpenRequest?.app === 'matchme' ? 'plottwist' : socialDirectMessageOpenRequest?.app) ??
+    accountLinkScreen ??
+    (directMessageRequest?.app === 'matchme' ? 'plottwist' : directMessageRequest?.app) ??
     socialPostOpenRequest?.app ??
     (highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop'));
+  const [seenAccountLinkRequest, setSeenAccountLinkRequest] = useState(accountLinkRequest);
+  if (seenAccountLinkRequest !== accountLinkRequest) {
+    setSeenAccountLinkRequest(accountLinkRequest);
+    if (accountLinkScreen) setScreen(accountLinkScreen);
+  }
   const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = useState(phoneHomeRequestId);
   if (seenPhoneHomeRequestId !== phoneHomeRequestId) {
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
@@ -470,15 +488,15 @@ export function PhonePanel({
     }
   }
   const [seenSocialDirectMessageOpenRequestId, setSeenSocialDirectMessageOpenRequestId] = useState(
-    socialDirectMessageOpenRequest?.requestId ?? 0,
+    directMessageRequest?.requestId ?? 0,
   );
   if (
-    socialDirectMessageOpenRequest &&
-    seenSocialDirectMessageOpenRequestId !== socialDirectMessageOpenRequest.requestId
+    directMessageRequest &&
+    seenSocialDirectMessageOpenRequestId !== directMessageRequest.requestId
   ) {
-    setSeenSocialDirectMessageOpenRequestId(socialDirectMessageOpenRequest.requestId);
-    if (screen !== socialDirectMessageOpenRequest.app) {
-      setScreen(socialDirectMessageOpenRequest.app === 'matchme' ? 'plottwist' : socialDirectMessageOpenRequest.app);
+    setSeenSocialDirectMessageOpenRequestId(directMessageRequest.requestId);
+    if (screen !== directMessageRequest.app) {
+      setScreen(directMessageRequest.app === 'matchme' ? 'plottwist' : directMessageRequest.app);
     }
   }
   const unreadWhatsUpCount = phoneContacts.reduce(
@@ -766,7 +784,7 @@ export function PhonePanel({
       characters={appCharacters} history={socialMediaMessages} isRunning={isRunning}
       onSendMessage={onSubmitSocialDirectMessage}
       unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
-      openRequest={socialDirectMessageOpenRequest?.app === 'matchme' ? socialDirectMessageOpenRequest : undefined}
+      openRequest={directMessageRequest?.app === 'matchme' ? directMessageRequest : undefined}
       emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
       images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
       onBack={() => setScreen('desktop')} />;
@@ -855,9 +873,9 @@ export function PhonePanel({
             : undefined
         }
         openDirectMessageRequest={
-          socialDirectMessageOpenRequest?.app === screen &&
-          socialDirectMessageOpenRequest.requestId !== dismissedSocialDirectMessageOpenRequestId
-            ? socialDirectMessageOpenRequest
+          directMessageRequest?.app === screen &&
+          directMessageRequest.requestId !== dismissedSocialDirectMessageOpenRequestId
+            ? directMessageRequest
             : undefined
         }
         isRunning={isRunning}
@@ -881,7 +899,7 @@ export function PhonePanel({
         }}
         onBack={() => {
           setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
-          setDismissedSocialDirectMessageOpenRequestId(socialDirectMessageOpenRequest?.requestId);
+          setDismissedSocialDirectMessageOpenRequestId(directMessageRequest?.requestId);
           setScreen('desktop');
         }}
         connections={connections}
@@ -1314,7 +1332,7 @@ export function PhonePanel({
                 className="phone-avatar"
                 name={contact.character.name}
                 fallback={contact.character.name.slice(0, 1).toUpperCase()}
-                profileImageDataUrl={contact.character.profileImage?.dataUrl}
+                profileImageDataUrl={phoneCharacterAvatarDataUrl(contact.character)}
                 style={{ borderColor: contact.color, color: contact.color }}
               />
               <span className="phone-contact-main">
@@ -1365,7 +1383,7 @@ export function PhonePanel({
                 className="phone-avatar large"
                 name={selectedPhoneContact.character.name}
                 fallback={selectedPhoneContact.character.name.slice(0, 1).toUpperCase()}
-                profileImageDataUrl={selectedPhoneContact.character.profileImage?.dataUrl}
+                profileImageDataUrl={phoneCharacterAvatarDataUrl(selectedPhoneContact.character)}
                 style={{
                   borderColor: selectedPhoneContact.color,
                   color: selectedPhoneContact.color,
@@ -1481,7 +1499,7 @@ export function PhonePanel({
                                 }
                               />
                             ) : (
-                              <span>{view.visibleText}</span>
+                              <span><AccountLinkText text={view.visibleText} bindings={message.accountLinks} /></span>
                             )
                           )}
                           {message.phoneImageCaptionChange && (

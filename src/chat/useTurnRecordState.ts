@@ -1,3 +1,4 @@
+import { bindAccountLinks } from './accountLinks';
 import { canonicalSocialDirectMessage } from './socialMessageValidation';
 import { matchMeMessageAllowed, matchMeState } from './matchMe';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -210,6 +211,11 @@ export function useTurnRecordState({
       turnNumber: collector?.turnNumber,
       turnPart: collector?.part,
     };
+    message.accountLinks = bindAccountLinks(message.originalText, appCharacters());
+    if (message.socialDirectMessage) {
+      message.socialDirectMessage = { ...message.socialDirectMessage,
+        accountLinks: bindAccountLinks(message.socialDirectMessage.text, appCharacters()) };
+    }
     captureNpcMessages([message]);
     if (collector) {
       const collectedMessages =
@@ -222,6 +228,18 @@ export function useTurnRecordState({
   }
 
   function updateMessage(messageId: number, patch: Partial<MessageRecord>) {
+    if (patch.socialDirectMessage) {
+      const previous = messagesRef.current.find((entry) => entry.id === messageId)?.socialDirectMessage;
+      patch = { ...patch, socialDirectMessage: { ...patch.socialDirectMessage,
+        accountLinks: previous?.text === patch.socialDirectMessage.text && previous.accountLinks
+          ? previous.accountLinks : bindAccountLinks(patch.socialDirectMessage.text, appCharacters()) } };
+    }
+    if (patch.originalText !== undefined) {
+      const previous = messagesRef.current.find((entry) => entry.id === messageId);
+      patch = { ...patch, accountLinks: previous?.originalText === patch.originalText && previous.accountLinks
+        ? previous.accountLinks : bindAccountLinks(patch.originalText, appCharacters()) };
+    }
+
     const patchMessages = (current: MessageRecord[]) =>
       current.map((message) =>
         message.id === messageId ? { ...message, ...patch } : message,

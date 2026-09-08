@@ -1,3 +1,4 @@
+import { AccountLinkText } from '../AccountLinkText';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { useEffect, useRef, useState } from 'react';
 import type { DatingMessage } from '../../chat/datingMessages';
@@ -68,11 +69,12 @@ export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, 
         <strong>You matched with {name}</strong><small>Say hello or break the ice with an emoji.</small>
       </div>}
       {messages.map((message) => <div key={message.id} className={`phone-social-dm-message-row ${message.sender === 'owner' ? 'outgoing' : 'incoming'}`}>
-        <div className="phone-social-dm-bubble"><span>{message.text}</span>
+        <div className="phone-social-dm-bubble"><span><AccountLinkText text={message.text} bindings={message.accountLinks} /></span>
           <time dateTime={message.sentAt}>{message.demo ? 'Demo reply · ' : ''}{new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
         </div>
       </div>)}
     </div>
+    <AccountLinkText text={draft} preview />
     <form className="phone-social-dm-composer" onSubmit={(event) => { event.preventDefault(); if (draft.trim() && !busy) onSend(); }}>
       <input ref={inputRef} type="text" aria-label={`Message ${name}`} placeholder="Message…" maxLength={4000} value={draft}
         onChange={(event) => onDraftChange(event.target.value)} autoFocus />

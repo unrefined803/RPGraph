@@ -38,7 +38,7 @@ export function profileIdentityError(current: CharacterAppAccount | undefined, n
   return undefined;
 }
 
-/** Do not merge people through duplicate account aliases or imported post IDs. */
+/** Keep canonical account and post identities unique; WhatsUp display handles may be shared names. */
 export function validateCharacterAccountDirectory(characters: Character[]) {
   const ids = new Set<string>();
   const handles = new Set<string>();
@@ -49,7 +49,7 @@ export function validateCharacterAccountDirectory(characters: Character[]) {
       ids.add(account.accountId);
       const handle = `${app}/${account.username.trim().toLowerCase()}`;
       if (account.enabled && account.username) {
-        if (handles.has(handle)) throw new Error(`Ambiguous ${app} username: @${account.username}`);
+        if (app !== 'whatsup' && handles.has(handle)) throw new Error(`Ambiguous ${app} username: @${account.username}`);
         handles.add(handle);
       }
       for (const post of account.initialPosts ?? []) {

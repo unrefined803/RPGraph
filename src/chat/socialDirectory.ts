@@ -29,7 +29,7 @@ export function socialHandleAvailable(
 
 export type SocialConnectionsByCharacter = Record<
   string,
-  Partial<Record<SocialAppKind, string[]>>
+  Partial<Record<SocialAppKind | 'whatsup', string[]>>
 >;
 
 function normalizedIdentity(value: string) {
@@ -178,14 +178,16 @@ export function normalizeSocialConnectionsByCharacter(
         return [];
       }
       const record = apps as Record<string, unknown>;
-      const normalized = (app: SocialAppKind) => Array.isArray(record[app])
+      const normalized = (app: SocialAppKind | 'whatsup') => Array.isArray(record[app])
         ? [...new Set(record[app].filter((entry): entry is string =>
             typeof entry === 'string' && !!entry.trim()
           ).map((entry) => entry.trim()))]
         : [];
+      const whatsup = normalized('whatsup');
       const fotogram = normalized('fotogram');
       const onlyfriends = normalized('onlyfriends');
       return [[characterId, {
+        ...(whatsup.length ? { whatsup } : {}),
         ...(fotogram.length ? { fotogram } : {}),
         ...(onlyfriends.length ? { onlyfriends } : {}),
       }]];
@@ -417,7 +419,7 @@ export function resolveSocialDirectoryUser(users: SocialDirectoryUser[], id: str
 export function socialConnectionIds(
   connections: SocialConnectionsByCharacter,
   characterId: string | undefined,
-  app: SocialAppKind,
+  app: SocialAppKind | 'whatsup',
   characters: StorybookCharacter[] = [],
 ) {
   if (!characterId) return [];
@@ -429,7 +431,7 @@ export function socialConnectionIds(
 export function withSocialConnectionAdded(
   connections: SocialConnectionsByCharacter,
   characterId: string,
-  app: SocialAppKind,
+  app: SocialAppKind | 'whatsup',
   socialUserId: string,
 ) {
   const current = connections[characterId]?.[app] ?? [];

@@ -1460,6 +1460,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           text,
           socialDirectMessage,
           new Date().toISOString(),
+          appCharacters(),
         );
         socialDirectExtras.phoneMessages.push(...parsedReply.phoneMessages);
         socialDirectExtras.bankTransfers.push(...parsedReply.bankTransfers);

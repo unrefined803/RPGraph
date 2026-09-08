@@ -1,3 +1,4 @@
+import { AccountLinkText } from './AccountLinkText';
 import {
   Fragment,
   type CSSProperties,
@@ -895,7 +896,7 @@ export function ChatConversationPanel({
                       }
                       key={thoughtIndex}
                     >
-                      {thoughtPart.text}
+                      <AccountLinkText text={thoughtPart.text} bindings={message.accountLinks} />
                     </span>
                   ))}
                 </span>
@@ -1188,7 +1189,7 @@ export function ChatConversationPanel({
                           />
                         </div>
                       ) : text ? (
-                        <span>{text}</span>
+                        <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
                       ) : null}
                       {linkedMessage?.phoneImageCaptionChange && (
                         <button
@@ -1329,7 +1330,7 @@ export function ChatConversationPanel({
                                 <strong style={fromColor ? { color: fromColor } : undefined}>
                                   {socialMessage.from}
                                 </strong>
-                                <span>{text}</span>
+                                <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
                               </div>
                             </div>
                           );

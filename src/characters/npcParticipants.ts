@@ -119,6 +119,9 @@ export function npcReferencesFromMessages(messages: MessageRecord[]): NpcPartici
     if (id || handle) references.push({ kind: 'account', app, id: (id || handle)!, canonical: !!id });
   };
   for (const message of messages) {
+    for (const link of message.socialDirectMessage?.accountLinks ?? message.accountLinks ?? []) {
+      account(link.app, link.accountId);
+    }
     message.matchMeMatch?.accountIds.forEach((id) => account('matchme', id));
     account('whatsup', message.phoneFromAccountId);
     account('whatsup', message.phoneToAccountId);

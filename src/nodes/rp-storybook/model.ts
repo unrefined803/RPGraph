@@ -1148,13 +1148,17 @@ export function parseRpStorybookAssistantResult(text: string, fallback: RpStoryb
     throw new Error('Assistant response must include a JSON Patch array in "patch".');
   }
   const patchedStorybook = applyStorybookJsonPatch(fallback, patch);
-  const normalizedStorybook = jsonValuesEqual(patchedStorybook, fallback)
+  const unchanged = jsonValuesEqual(patchedStorybook, fallback);
+  const normalizedStorybook = unchanged
     ? patchedStorybook
     : withPreservedCharacterImages(normalizeRpStorybook(patchedStorybook), fallback);
+  const comparisonFallback = unchanged
+    ? fallback
+    : withPreservedCharacterImages(normalizeRpStorybook(fallback), fallback);
 
-  // Report persisted changes, not the model's potentially inaccurate claims.
+  // Report authored changes, excluding defaults introduced by normalization.
   const changedFields = (Object.keys(normalizedStorybook) as Array<keyof RpStorybook>)
-    .filter((key) => !jsonValuesEqual(normalizedStorybook[key], fallback[key]));
+    .filter((key) => !jsonValuesEqual(normalizedStorybook[key], comparisonFallback[key]));
 
   return {
     reply: stringValue(parsed.reply) || (changedFields.length ? 'Updated the storybook.' : 'No changes.'),
@@ -1463,7 +1467,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
     'The schema example below describes field shapes, not current values. Never copy its sample names, handles, ids, or balances into existing characters:',
     `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
-    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"playable":true,"apps":{"fotogram":{"accountId":"character:character-id:fotogram","enabled":true,"username":"nova.reyes","displayName":"Nova Reyes","bio":""}},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
+    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"playable":true,"apps":{"whatsup":{"accountId":"character:character-id:whatsup","enabled":true,"username":"Nova Reyes","displayName":"Nova Reyes","bio":""},"fotogram":{"accountId":"character:character-id:fotogram","enabled":true,"username":"nova.reyes","displayName":"Nova Reyes","bio":""}},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
     'If the user asks for edits or provides new story facts, edit only the required fields. Preserve unrelated values. Image galleries, profile images, voice samples, and phoneSettings are managed by app controls: never patch them, even on request; explain which app controls to use instead. Image-generation text in comfyConfig can be edited on request.',
     'Use paths from Current JSON, with a leading slash and zero-based array indices: /characters/0/name, not characters/0/name, /characters/alice/name, or characters[0].name. Escape ~ as ~0 and / as ~1 inside a property name.',
@@ -1475,7 +1479,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, playable: true, banking, apps: {}, comfyConfig, and images: []. Do not invent image data or voice samples.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',
     'characters[].banking.fixedExpenses lists recurring payments shown in the Banking app history, each as {"label":"Mobile plan","amount":24.99} with a US dollar amount. For new characters, include exactly one mobile plan entry with a realistic amount that fits the character. Add further fixed expenses in the same format only when the user asks for them; the app fills the rest of the history with generated everyday spending automatically.',
-    'characters[].apps contains optional app accounts. Each account has a stable accountId, enabled flag, username, displayName and bio. Keep existing account IDs and usernames unless explicitly asked to change them. App images reference the character gallery by image ID. New characters use playable: true. Only create accounts requested by the user.',
+    'characters[].apps contains app accounts. WhatsUp and Fotogram are standard accounts and must exist for every character; OnlyFriends and MatchMe are optional. Each account has a stable accountId, enabled flag, username, displayName and bio. Keep existing account IDs and usernames unless explicitly asked to change them. App images reference the character gallery by image ID. New characters use playable: true.',
     'characters[].apps.onlyfriends.username is the character\'s account username in the phone OnlyFriends app (an OnlyFans-style platform). For new characters, omit this account unless the user or the story explicitly gives the character an OnlyFriends account.',
     'characters[].comfyConfig is optional image-generation configuration. loraName is a ComfyUI LoRA file name for that character. loraUrl is an optional download/source URL for that LoRA. appearance is a concise visual description for generated images. For new characters, leave them empty unless the user explicitly provides image-generation details. Preserve existing settings unless asked to change them.',
     'characters[].voiceConfig stores a binary voice sample managed by the app. Never create, edit, or remove it.',

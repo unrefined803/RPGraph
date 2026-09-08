@@ -41,9 +41,9 @@ preserved. An overwrite that changes an existing character/account ID fails.
 Changing content or captions under existing IDs creates a revision; it does not
 update an RP's already pinned NPC revision.
 
-Optional apps use canonical profiles. Fotogram is provisioned by the existing
-normalizer when absent; provide an explicitly disabled Fotogram account to
-keep a legacy account confined to another app. Malformed profiles and dangling
+Apps use canonical profiles. WhatsUp and Fotogram are provisioned by the existing
+normalizer when absent; OnlyFriends and MatchMe remain optional. An explicitly
+stored disabled standard account remains disabled. Malformed profiles and dangling
 references fail before normalization. Starting publications contain only ID,
 text and optional image ID. Portable serialization removes private MatchMe
 history and private gallery access metadata. UI export still includes starting

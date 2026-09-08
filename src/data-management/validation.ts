@@ -1,3 +1,4 @@
+import { validAccountLinkBindings } from '../chat/accountLinks';
 import { parseNpcParticipantSnapshots } from '../characters/npcParticipants';
 import { createMediaPoolReader } from './mediaPool';
 import { isMatchMeMatch, matchMePairId } from '../chat/matchMe';
@@ -143,6 +144,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
     );
     const validSocialDirectMessage = value.socialDirectMessage === undefined || (
       isRecord(value.socialDirectMessage) &&
+      validAccountLinkBindings(value.socialDirectMessage.accountLinks) &&
       (value.socialDirectMessage.app === 'fotogram' || value.socialDirectMessage.app === 'onlyfriends' || value.socialDirectMessage.app === 'matchme')
       && (value.socialDirectMessage.app !== 'matchme' || (
         typeof value.socialDirectMessage.fromAccountId === 'string' && typeof value.socialDirectMessage.toAccountId === 'string' &&
@@ -289,6 +291,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validSocialThreadAction &&
       validSocialReactions &&
       validSocialDirectMessage &&
+      validAccountLinkBindings(value.accountLinks) &&
       (value.matchMeMatch === undefined || isMatchMeMatch(value.matchMeMatch)) &&
       validCreatedPhoneNote &&
       validDeletedPhoneNote &&

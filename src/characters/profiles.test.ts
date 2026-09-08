@@ -52,10 +52,17 @@ describe('canonical character profiles', () => {
     expect(saved.characters[0].apps?.fotogram).toMatchObject({ accountId: 'nova-fg', bio: 'New bio', displayName: 'Artist', avatarImageId: 'portrait' });
     expect(saved.characters[0].social?.fotogramUsername).toBe('nova.art');
   });
-  it('gives new characters a persistent Fotogram account and leaves other apps optional', () => {
+  it('gives new characters persistent Fotogram and WhatsUp accounts', () => {
     const character = normalizeRpStorybook({ ...emptyRpStorybook, characters: [{ id: 'new', name: 'New Person', images: [] }] }).characters[0];
     expect(character.apps?.fotogram?.enabled).toBe(true);
+    expect(character.apps?.whatsup).toMatchObject({
+      accountId: 'character:new:whatsup',
+      enabled: true,
+      username: 'New Person',
+      displayName: 'New Person',
+    });
     expect(character.apps?.onlyfriends).toBeUndefined();
+    expect(character.apps?.matchme).toBeUndefined();
     expect(characterPayload(character).apps.fotogram?.accountId).toBe(character.apps?.fotogram?.accountId);
   });
   it('locks account IDs and established usernames but permits first-time optional accounts', () => {
@@ -128,7 +135,8 @@ describe('exact recipient identities', () => {
   it('rejects unknown recipients, duplicate names, duplicate usernames and name/handle collisions', () => {
     const other = { ...characters[0], id: 'other', sourceId: 'other', apps: { fotogram: { ...characters[0].apps!.fotogram!, accountId: 'other-fg' } } };
     for (const identity of ['Nova Testerson', '@nova.art']) expect(resolveSocialMessageIdentity({ characters: [...characters, other], messages: [], app: 'fotogram', identity }).available).toBe(false);
-    expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity: 'Nova' }).available).toBe(false);
+    expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity: 'Nova' }).available).toBe(true);
+    expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity: 'Nov' }).available).toBe(false);
     expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'onlyfriends', identity: '@nova.art' }).available).toBe(false);
     expect(() => resolveWhatsUpRecipient([...characters, other], [], 'Nova Testerson')).toThrow('Ambiguous');
     expect(() => resolveWhatsUpRecipient(characters, [], 'Nova')).toThrow('Unknown');
@@ -153,7 +161,8 @@ describe('exact recipient identities', () => {
     expect(resolveWhatsUpMessageParticipants([owner], contactHistory, { from: 'nova-wa', to: 'known-wa' }))
       .toEqual({ from: { name: owner.name, characterId: owner.sourceId, accountId: 'nova-wa' },
         to: { name: 'Known Contact', accountId: 'known-wa' } });
-    expect(() => resolveWhatsUpMessageParticipants([owner], [], { from: 'Nova', to: owner.name })).toThrow('Unknown');
+    expect(resolveWhatsUpMessageParticipants([owner], [], { from: 'Nova', to: owner.name }).from.accountId).toBe('nova-wa');
+    expect(() => resolveWhatsUpMessageParticipants([owner], [], { from: 'Nov', to: owner.name })).toThrow('Unknown');
     owner.apps!.whatsup!.enabled = false;
     expect(() => resolveWhatsUpMessageParticipants([owner], [], { from: 'nova-wa', to: owner.name })).toThrow('Unavailable');
   });

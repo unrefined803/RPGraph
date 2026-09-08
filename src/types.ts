@@ -691,6 +691,7 @@ export type SocialDmUnreadByHandle = Record<string, { count: number; tipTotal: n
 
 /** A direct message sent inside one social app; persisted on the timeline message. */
 export type SocialDirectMessageRecord = {
+  accountLinks?: import('./chat/accountLinks').AccountLink[];
   app: SocialMessengerAppKind;
   messageId: string;
   matchId?: string;
@@ -785,6 +786,7 @@ export type SocialReactionsRecord = {
 };
 
 export type MessageRecord = {
+  accountLinks?: import('./chat/accountLinks').AccountLink[];
   id: number;
   role: 'user' | 'output' | 'error';
   originalText: string;
