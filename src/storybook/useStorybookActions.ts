@@ -114,6 +114,7 @@ type UseStorybookActionsOptions = {
   requestSaveCharacter: (
     nodeId: string,
     characterCard: ReturnType<typeof rpCharacterCardForCharacter>,
+    characterCardWithOwnPosts?: ReturnType<typeof rpCharacterCardForCharacter>,
   ) => void;
 };
 
@@ -715,7 +716,7 @@ export function useStorybookActions({
     });
   }
 
-  async function exportStorybookCharacter(nodeId: string, characterId: string, includePosts = false) {
+  async function exportStorybookCharacter(nodeId: string, characterId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (!node || !isStorybookSourceNode(node)) {
       return;
@@ -731,9 +732,11 @@ export function useStorybookActions({
       }
       const posts = [...storybook.openingHistory.turns, ...turnsRef.current].flatMap((turn) =>
         [...turn.input.messages, ...turn.output.messages].flatMap((message) => message.socialPost ? [message.socialPost] : []));
-      const card = rpCharacterCardForCharacter(character, { includePosts, posts,
+      const card = rpCharacterCardForCharacter(character, { includePosts: false, posts,
         gallery: storybook.characters.flatMap((entry) => entry.images) });
-      requestSaveCharacter(nodeId, card);
+      const cardWithOwnPosts = rpCharacterCardForCharacter(character, { includePosts: true, posts,
+        gallery: storybook.characters.flatMap((entry) => entry.images) });
+      requestSaveCharacter(nodeId, card, cardWithOwnPosts);
     } catch (error) {
       const messageText = errorMessage(error);
       updateRuntimeNode(nodeId, { storybookStatus: `Character export failed: ${messageText}` });

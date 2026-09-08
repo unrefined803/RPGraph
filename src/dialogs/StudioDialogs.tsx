@@ -41,6 +41,7 @@ import { HighlightedPreviewText } from '../nodes/shared/HighlightedPreviewText';
 import { providerOption } from '../nodes/shared/providerHealthLabels';
 import { llmProviderKind } from '../llm/providerKind';
 import { sanitizeDataUrls, sanitizeDataUrlsInText } from '../utils/sanitize';
+import type { CharacterSaveLocation } from '../app/useRpgraphFiles';
 import {
   connectionReasoningEfforts,
   bundledComfyWorkflows,
@@ -211,12 +212,16 @@ type StudioDialogsProps = {
   fileProtection: 'plain' | 'encrypted';
   workflowSaveScope: 'workflow' | 'workflow-storybook';
   chooseSaveLocation: boolean;
+  characterSaveLocation: CharacterSaveLocation;
+  includeCharacterOwnPosts: boolean;
   onCloseSessionPassword: () => void;
   onSessionNameChange: (name: string) => void;
   onSessionPasswordChange: (password: string) => void;
   onFileProtectionChange: (protection: 'plain' | 'encrypted') => void;
   onWorkflowSaveScopeChange: (scope: 'workflow' | 'workflow-storybook') => void;
   onChooseSaveLocationChange: (enabled: boolean) => void;
+  onCharacterSaveLocationChange: (location: CharacterSaveLocation) => void;
+  onIncludeCharacterOwnPostsChange: (enabled: boolean) => void;
   onSubmitSessionPassword: () => void;
   showCharacterFiles: boolean;
   characterFiles: SavedFileSummary[];
@@ -850,12 +855,16 @@ export function StudioDialogs({
   fileProtection,
   workflowSaveScope,
   chooseSaveLocation,
+  characterSaveLocation,
+  includeCharacterOwnPosts,
   onCloseSessionPassword,
   onSessionNameChange,
   onSessionPasswordChange,
   onFileProtectionChange,
   onWorkflowSaveScopeChange,
   onChooseSaveLocationChange,
+  onCharacterSaveLocationChange,
+  onIncludeCharacterOwnPostsChange,
   onSubmitSessionPassword,
   showCharacterFiles,
   characterFiles,
@@ -2822,6 +2831,34 @@ export function StudioDialogs({
                       </label>
                     </div>
                   )}
+                  {isSavingCharacter && (
+                    <div className="character-export-options">
+                      <label className="dialog-action-checkbox character-export-posts">
+                        <input
+                          type="checkbox"
+                          checked={includeCharacterOwnPosts}
+                          onChange={(event) => onIncludeCharacterOwnPostsChange(event.target.checked)}
+                        />
+                        <span>
+                          <strong>Export Character with Own Posts</strong>
+                          <small>Include posts published by this character</small>
+                        </span>
+                      </label>
+                      <label className="character-export-location" htmlFor="character-export-location">
+                        <span>EXPORT LOCATION</span>
+                        <NodeCustomSelect<CharacterSaveLocation>
+                          id="character-export-location"
+                          value={characterSaveLocation}
+                          options={[
+                            { value: 'characters', label: 'RPGraph Studio Characters Folder' },
+                            { value: 'npc-characters', label: 'NPC Characters Folder' },
+                            { value: 'choose', label: 'Choose Save Location…' },
+                          ]}
+                          onChange={onCharacterSaveLocationChange}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </>
               )}
               {(sessionPasswordAction === 'load' || sessionPasswordAction === 'load-storybook') && (
@@ -2858,7 +2895,7 @@ export function StudioDialogs({
               {fileStorageStatus && <p className="chat-storage-status">{fileStorageStatus}</p>}
             </div>
             <div className="dialog-actions">
-              {isSavingFile && (
+              {isSavingFile && !isSavingCharacter && (
                 <label className="dialog-action-checkbox">
                   <input
                     type="checkbox"

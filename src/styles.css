@@ -17982,6 +17982,53 @@ button.message-timeline-row.phone:focus-visible {
   display: block;
 }
 
+.character-export-options {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(9, 13, 20, 0.55);
+}
+
+.character-export-posts.dialog-action-checkbox {
+  align-items: flex-start;
+  width: 100%;
+}
+
+.character-export-posts input {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  accent-color: var(--accent);
+}
+
+.character-export-posts span,
+.character-export-posts small {
+  display: block;
+}
+
+.character-export-posts strong {
+  color: #edf1ff;
+}
+
+.character-export-posts small {
+  margin-top: 3px;
+  color: #7d8ba6;
+}
+
+.character-export-location {
+  display: grid;
+  gap: 7px;
+}
+
+.character-export-location > span {
+  color: #9ba8c0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
 .file-protection-options small {
   margin-top: 3px;
   color: #7d8ba6;

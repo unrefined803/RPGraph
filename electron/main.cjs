@@ -4655,7 +4655,13 @@ ipcMain.handle('storybook:save', async (_event, request) => {
 });
 
 ipcMain.handle('character:save', async (_event, request) => {
-  const directory = charactersDirectory();
+  const destination = request?.destination ?? 'characters';
+  if (destination !== 'characters' && destination !== 'npc-characters') {
+    throw new Error('Choose a valid character export location.');
+  }
+  const directory = destination === 'npc-characters'
+    ? npcLibraryService.current().roots.user
+    : charactersDirectory();
   await fs.mkdir(directory, { recursive: true });
   const card = request?.characterCard;
   if (
@@ -4693,6 +4699,9 @@ ipcMain.handle('character:save', async (_event, request) => {
     throw error;
   }
   approveFilePath(filePath);
+  if (destination === 'npc-characters') {
+    await npcLibraryService.reload();
+  }
   return { fileName, name: baseName, filePath };
 });
 

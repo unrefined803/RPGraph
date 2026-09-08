@@ -1377,6 +1377,10 @@ function App() {
     setSessionOverwritePending,
     chooseSaveLocation,
     setChooseSaveLocation,
+    characterSaveLocation,
+    setCharacterSaveLocation,
+    includeCharacterOwnPosts,
+    setIncludeCharacterOwnPosts,
     returnToFilesAfterSaveRef,
     pendingSessionFilePath,
     setPendingSessionFilePath,
@@ -5987,7 +5991,7 @@ function App() {
           onResetStorybook={() => resetStorybook(storybookCreatorNode.id)}
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
           onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
-          onExportCharacter={(characterId, includePosts) => exportStorybookCharacter(storybookCreatorNode.id, characterId, includePosts)}
+          onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}
           onDeleteCharacter={(characterId) => deleteStorybookCharacter(storybookCreatorNode.id, characterId)}
           pendingConversion={
             pendingStorybookConversion?.nodeId === storybookCreatorNode.id
@@ -6006,7 +6010,7 @@ function App() {
         <StorybookEditorDialog
           node={storybookEditorNode}
           identityLocked={messages.length > 0}
-          onExportCharacter={(characterId, includePosts) => exportStorybookCharacter(storybookEditorNode.id, characterId, includePosts)}
+          onExportCharacter={(characterId) => exportStorybookCharacter(storybookEditorNode.id, characterId)}
           onImportCharacter={() => importCharacterCard(storybookEditorNode.id)}
           onCommit={(storybook, status) =>
             commitStorybookToNode(storybookEditorNode.id, storybook, { storybookStatus: status })
@@ -6230,6 +6234,8 @@ function App() {
         fileProtection={fileProtection}
         workflowSaveScope={workflowSaveScope}
         chooseSaveLocation={chooseSaveLocation}
+        characterSaveLocation={characterSaveLocation}
+        includeCharacterOwnPosts={includeCharacterOwnPosts}
         onCloseSessionPassword={() => {
           if (sessionPasswordAction === 'load-character') {
             cancelCharacterCardUnlock();
@@ -6271,6 +6277,11 @@ function App() {
             setSessionOverwritePending(false);
           }
         }}
+        onCharacterSaveLocationChange={(location) => {
+          setCharacterSaveLocation(location);
+          setSessionOverwritePending(false);
+        }}
+        onIncludeCharacterOwnPostsChange={setIncludeCharacterOwnPosts}
         onSubmitSessionPassword={() =>
           void (
             sessionPasswordAction === 'save-workflow'

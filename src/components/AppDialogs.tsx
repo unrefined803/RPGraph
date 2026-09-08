@@ -1097,7 +1097,7 @@ type StorybookCreatorDialogProps = {
   onResetStorybook: () => void;
   onImportSillyTavernCharacter: () => Promise<void>;
   onImportCharacterCard: () => Promise<void>;
-  onExportCharacter: (characterId: string, includePosts?: boolean) => Promise<void>;
+  onExportCharacter: (characterId: string) => Promise<void>;
   onDeleteCharacter: (characterId: string) => void;
   pendingConversion: {
     fileName?: string;
@@ -3560,7 +3560,6 @@ export function StorybookCreatorDialog({
                                   >
                                     Export Character
                                   </button>
-                                  <button type="button" className="character-images-button nodrag" onClick={() => void onExportCharacter(character.id, true)}>Export Character with Own Posts</button>
                                 </div>
                                 <button
                                   type="button"

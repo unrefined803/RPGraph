@@ -18,6 +18,7 @@ import { rpStorybookJsonText, type RpStorybook } from '../nodes/rp-storybook/mod
 import type { RpCharacterCard } from '../storybook/characterCard';
 
 export type WorkflowSaveScope = 'workflow' | 'workflow-storybook';
+export type CharacterSaveLocation = 'characters' | 'npc-characters' | 'choose';
 
 type FileProtection = 'plain' | 'encrypted';
 
@@ -106,6 +107,8 @@ export function useRpgraphFiles({
   const [workflowSaveScope, setWorkflowSaveScope] = useState<WorkflowSaveScope>('workflow-storybook');
   const [sessionOverwritePending, setSessionOverwritePending] = useState(false);
   const [chooseSaveLocation, setChooseSaveLocation] = useState(false);
+  const [characterSaveLocation, setCharacterSaveLocation] = useState<CharacterSaveLocation>('characters');
+  const [includeCharacterOwnPosts, setIncludeCharacterOwnPosts] = useState(true);
   const returnToFilesAfterSaveRef = useRef(false);
   const [pendingSessionFilePath, setPendingSessionFilePath] = useState<string | null>(null);
   const [pendingStorybookLoad, setPendingStorybookLoad] = useState<{
@@ -116,6 +119,7 @@ export function useRpgraphFiles({
   const [pendingCharacterSave, setPendingCharacterSave] = useState<{
     nodeId: string;
     characterCard: RpCharacterCard;
+    characterCardWithOwnPosts: RpCharacterCard;
   } | null>(null);
   const [activeWorkflowPath, setActiveWorkflowPath] = useState<string | null>(null);
   const activeWorkflowPathRef = useRef<string | null>(null);
@@ -309,16 +313,19 @@ export function useRpgraphFiles({
   function requestSaveCharacter(
     nodeId: string,
     characterCard: RpCharacterCard,
+    characterCardWithOwnPosts: RpCharacterCard = characterCard,
     returnToFilesAfterSave = false,
   ) {
     const name = characterCard.character.name || characterCard.character.id;
-    setPendingCharacterSave({ nodeId, characterCard });
+    setPendingCharacterSave({ nodeId, characterCard, characterCardWithOwnPosts });
     setCharacterNameDraft(name);
     setShowFiles(false);
     setSessionPassword('');
     setFileProtection('plain');
     setSessionOverwritePending(false);
     setChooseSaveLocation(false);
+    setCharacterSaveLocation('characters');
+    setIncludeCharacterOwnPosts(true);
     setFileStorageStatus('');
     returnToFilesAfterSaveRef.current = returnToFilesAfterSave;
     setSessionPasswordAction('save-character');
@@ -341,20 +348,24 @@ export function useRpgraphFiles({
         : 'Saving character card as plain JSON ...',
     );
     try {
-      const result = chooseSaveLocation
+      const characterCard = includeCharacterOwnPosts
+        ? pending.characterCardWithOwnPosts
+        : pending.characterCard;
+      const result = characterSaveLocation === 'choose'
         ? await window.rpgraph.saveRpgraphFileToPath({
             kind: 'character',
             name,
-            characterCard: pending.characterCard,
+            characterCard,
             protection: fileProtection,
             password: sessionPassword,
           })
         : await window.rpgraph.saveCharacter(
             name,
-            pending.characterCard,
+            characterCard,
             fileProtection,
             sessionPassword,
             sessionOverwritePending,
+            characterSaveLocation,
           );
       if ('conflict' in result && result.conflict) {
         setSessionOverwritePending(true);
@@ -378,7 +389,7 @@ export function useRpgraphFiles({
       setPendingCharacterSave(null);
       setSessionOverwritePending(false);
       setSessionPassword('');
-      if (!chooseSaveLocation) {
+      if (characterSaveLocation === 'characters') {
         await refreshFiles(fileName);
       }
       setFileStorageStatus(`Saved character card: ${result.filePath}`);
@@ -1038,6 +1049,10 @@ export function useRpgraphFiles({
     setSessionOverwritePending,
     chooseSaveLocation,
     setChooseSaveLocation,
+    characterSaveLocation,
+    setCharacterSaveLocation,
+    includeCharacterOwnPosts,
+    setIncludeCharacterOwnPosts,
     returnToFilesAfterSaveRef,
     pendingSessionFilePath,
     setPendingSessionFilePath,

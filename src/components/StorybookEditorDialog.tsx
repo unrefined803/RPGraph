@@ -19,7 +19,7 @@ type ViewMode = 'ui' | 'fields' | 'json';
 type StorybookEditorDialogProps = {
   node: WorkflowNode;
   identityLocked?: boolean;
-  onExportCharacter?: (characterId: string, includePosts?: boolean) => Promise<void>;
+  onExportCharacter?: (characterId: string) => Promise<void>;
   onImportCharacter?: () => Promise<void>;
   // Returns a blocking error message (e.g. a running-story guard violation), or
   // null when the commit succeeded.
@@ -457,8 +457,7 @@ export function StorybookEditorDialog({ node, identityLocked = false, onExportCh
                 const error = onCommit({ ...storybook, characters: storybook.characters.map((entry) => entry.id === next.id ? next : entry) }, 'Character profile saved.');
                 if (error) setStatus(error); return !error;
               }} />
-            {onExportCharacter && <><button type="button" onClick={() => void onExportCharacter(character.id)}>Export Character</button>
-              <button type="button" onClick={() => void onExportCharacter(character.id, true)}>Export Character with Own Posts</button></>}
+            {onExportCharacter && <button type="button" onClick={() => void onExportCharacter(character.id)}>Export Character</button>}
           </div>)}
         </details>
       </section>

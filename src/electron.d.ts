@@ -423,6 +423,7 @@ declare global {
         protection: 'plain' | 'encrypted',
         password: string,
         overwrite?: boolean,
+        destination?: 'characters' | 'npc-characters',
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
       saveCurrentSession: (
         filePath: string,
