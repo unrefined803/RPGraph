@@ -6371,7 +6371,7 @@ function App() {
         <NpcLibraryDialog
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
-          storybooks={nodes.filter(isStorybookSourceNode).map((node) => ({ id: node.id, label: node.data.label || node.id }))}
+          storybookNodeId={nodes.find(isStorybookSourceNode)?.id}
           onAddToStorybook={(characterId, nodeId) => {
             const previous = npcParticipants.current();
             try {
