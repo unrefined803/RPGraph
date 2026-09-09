@@ -45,8 +45,9 @@ export function useRuntimeNodePatching({
       previousNode !== undefined &&
       isStorybookSourceNode(previousNode) &&
       nextStorybookJson !== undefined &&
-      openingHistorySignature(previousNode.data.storybookJson) !==
-        openingHistorySignature(nextStorybookJson);
+      (replaceCurrentChatWithOpeningHistoryRef.current ||
+        openingHistorySignature(previousNode.data.storybookJson) !==
+          openingHistorySignature(nextStorybookJson));
     const nextNodes = nodesRef.current.map((node) =>
       node.id === nodeId
         ? { ...node, data: { ...node.data, ...patch } as WorkflowNodeData }

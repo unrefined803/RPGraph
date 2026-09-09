@@ -9,6 +9,8 @@ import { npcSnapshotEntries, type NpcParticipantSnapshots } from '../characters/
 import type { MessageRecord } from '../types';
 import fixture from '../characters/fixtures/stage4-npc.json';
 import { normalizeRpStorybook } from '../nodes/rp-storybook/model';
+import { useRuntimeNodePatching } from '../app/useRuntimeNodePatching';
+import { openingHistoryTurnsFromNodes } from './openingHistoryRuntime';
 
 // Exercise delayed model replies without launching a UI or provider.
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
@@ -49,6 +51,7 @@ function harness() {
       [...library, ...storybookRegistryEntries(nodesRef.current)], snapshots, nodeId, characters, candidateOptions)) as Options['characterRegistryForStorybook'],
     currentTimelineMessages: () => messages,
     clearCurrentSession,
+    replaceCurrentChatWithOpeningHistoryRef: { current: false },
     updateRuntimeNode: (id: string, patch: object) => {
       nodesRef.current = nodesRef.current.map((node) => node.id === id ? { ...node, data: { ...node.data, ...patch } } : node);
     },
@@ -164,6 +167,42 @@ it('drops old snapshots and timeline collisions when replacing the entire sessio
   expect(state.render().commitStorybookToNode('book', book, {}, { replaceExisting: true })).toBeNull();
   expect(state.clearCurrentSession).toHaveBeenCalledOnce();
 });
+
+it.each(['rp-storybook', 'rp-storybook-editor'] as const)(
+  'restores Opening History on repeated file loads into %s', (nodeType) => {
+    const state = harness();
+    state.nodesRef.current[0].data.nodeType = nodeType;
+    state.options.setActiveStorybookProtection = vi.fn();
+    const book = structuredClone(emptyRpStorybook);
+    book.openingHistory.turns = [{
+      id: 'opening', number: 1, createdAt: '2026-09-09T12:00:00Z',
+      input: { graphText: '', messages: [] },
+      output: { graphText: '', messages: [{ id: 1, role: 'output', originalText: 'Opening message' }] },
+    }];
+    state.clearCurrentSession.mockImplementation(() => { state.messages.length = 0; });
+    const refresh = vi.fn((nodes: WorkflowNode[]) => {
+      state.messages.push(...openingHistoryTurnsFromNodes(nodes).flatMap((turn) => turn.output.messages));
+      state.options.replaceCurrentChatWithOpeningHistoryRef.current = false;
+    });
+    const patching = useRuntimeNodePatching({
+      nodesRef: state.nodesRef,
+      commitNodes: (nodes) => { state.nodesRef.current = nodes; },
+      activeRunRef: { current: null }, activeRunLlmReportRef: { current: null },
+      setRunLlmReport: vi.fn(),
+      openingHistorySignature: (json) => JSON.stringify(parseRpStorybookJson(json ?? '').openingHistory),
+      onStorybookOpeningHistoryChanged: refresh,
+      replaceCurrentChatWithOpeningHistoryRef: state.options.replaceCurrentChatWithOpeningHistoryRef,
+    });
+    state.options.updateRuntimeNode = patching.updateRuntimeNode;
+    for (let load = 0; load < 3; load += 1) {
+      expect(state.render().applyStorybookToNode('book', book, 'book.json')).toBe(true);
+      expect(state.messages.map((message) => message.originalText)).toEqual(['Opening message']);
+      expect(refresh).toHaveBeenCalledTimes(load + 1);
+    }
+    state.render().updateStorybook('book', { ...book, title: 'Edited title' });
+    expect(refresh).toHaveBeenCalledTimes(3);
+  },
+);
 
 it('checks incoming Opening History snapshots before replacing the session', () => {
   const state = harness();

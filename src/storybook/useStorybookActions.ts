@@ -240,6 +240,7 @@ export function useStorybookActions({
     registryWarnings.forEach((warning) => notifySystem('warning', warning.message));
     if (options?.replaceExisting) {
       clearCurrentSession();
+      replaceCurrentChatWithOpeningHistoryRef.current = true;
       updateRuntimeNode(nodeId, {
         ...patch,
         storybookJson: rpStorybookJsonText(committedStorybook),
