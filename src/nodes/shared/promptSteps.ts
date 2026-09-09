@@ -89,7 +89,49 @@ type PlanRoll = {
   outcome: PlanRollOutcome;
 };
 
-const planPercentPattern = /\(?[ \t]*chance:[ \t]*([0-9]{1,3})[ \t]*%[ \t]*\)?/i;
+type PlanProbabilityMarker = {
+  pattern: RegExp;
+  successChance: number;
+};
+
+const labeledPlanPercentPattern = /\(?\s*(chance|success|failure|fail)\s*:\s*([0-9]{1,3})\s*%\s*\)?/i;
+const parenthesizedPlanPercentPattern = /\(\s*([0-9]{1,3})\s*%\s*\)/i;
+const barePlanPercentPattern = /([0-9]{1,3})\s*%/i;
+
+function planProbabilityMarker(line: string): PlanProbabilityMarker | undefined {
+  const labeled = line.match(labeledPlanPercentPattern);
+  if (labeled) {
+    const probability = Number(labeled[2]);
+    if (!Number.isFinite(probability) || probability < 0 || probability > 100) {
+      return undefined;
+    }
+    const label = labeled[1].toLocaleLowerCase();
+    return {
+      pattern: labeledPlanPercentPattern,
+      successChance: label === 'failure' || label === 'fail' ? 100 - probability : probability,
+    };
+  }
+
+  const parenthesized = line.match(parenthesizedPlanPercentPattern);
+  if (parenthesized) {
+    const probability = Number(parenthesized[1]);
+    if (Number.isFinite(probability) && probability >= 0 && probability <= 100) {
+      return { pattern: parenthesizedPlanPercentPattern, successChance: probability };
+    }
+  }
+
+  // An unlabelled, unparenthesized percentage is ambiguous (battery level,
+  // price discount, progress, ...). Treat it as a probability only when the
+  // line explicitly supplies the alternative outcome.
+  if (/\botherwise\s*:/i.test(line)) {
+    const bare = line.match(barePlanPercentPattern);
+    const probability = bare ? Number(bare[1]) : NaN;
+    if (Number.isFinite(probability) && probability >= 0 && probability <= 100) {
+      return { pattern: barePlanPercentPattern, successChance: probability };
+    }
+  }
+  return undefined;
+}
 
 function planRollOutcome(chance: number, roll: number): PlanRollOutcome {
   // High rolls are good: the roll must beat (100 - chance). The distance to
@@ -119,24 +161,25 @@ const planRollOutcomeTexts: Record<PlanRollOutcome, string> = {
 
 // Replaces the chance marker of every uncertain plan bullet with an
 // automatically diced outcome, e.g. "(chance: 80%)" -> "(chance: 80%: SUCCESS,
-// this happens; ...)". Only the explicit "chance:" keyword triggers a roll;
-// bare percentages (dates, prices, battery levels) stay untouched, as do lines
-// without a marker.
+// this happens; ...)". "success:" is equivalent to "chance:", while a
+// "failure:" probability is inverted. Parenthesized percentages and bare
+// percentages paired with an otherwise-branch are accepted as fallbacks;
+// unrelated bare percentages (dates, prices, battery levels) stay untouched.
 export function rollPlanOutcomes(planText: string, random: () => number = Math.random) {
   const rolls: PlanRoll[] = [];
   const text = planText
     .split('\n')
     .map((line) => {
-      const match = line.match(planPercentPattern);
-      const chance = match ? Number(match[1]) : NaN;
-      if (!match || !Number.isFinite(chance) || chance < 1 || chance > 100) {
+      const marker = planProbabilityMarker(line);
+      if (!marker) {
         return line;
       }
+      const chance = marker.successChance;
       const roll = Math.min(100, Math.floor(random() * 100) + 1);
       const outcome = planRollOutcome(chance, roll);
       rolls.push({ chance, roll, outcome });
       return line.replace(
-        planPercentPattern,
+        marker.pattern,
         `(chance: ${chance}%: ${planRollOutcomeTexts[outcome]})`,
       );
     })

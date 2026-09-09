@@ -278,7 +278,6 @@ export async function runActionAwarePrompt({
   // Snapshot the authored prompt texts before earlier steps inject their
   // outputs; the missing-rolls warning must not trigger on "chance:" markers
   // that arrive via an injected plan.
-  const authoredStepTexts = steps.map((step) => [step.before, step.after].join('\n'));
   let promptBefore = outputStep.before;
   let promptAfter = outputStep.after;
   const visionEnabled = await context.llm.supportsVision(
@@ -690,10 +689,13 @@ export async function runActionAwarePrompt({
     const stepOutputText = rolledOutput.text.trim();
     const laterSteps = steps.slice(stepIndex + 1);
     if (stepOutputText) {
-      // A missing-rolls warning only makes sense for plan-style steps; a
-      // prompt that never mentions "chance:" gets its output passed on
-      // verbatim.
-      if (!rolledOutput.rolls.length && /chance:/i.test(authoredStepTexts[stepIndex])) {
+      // A certain plan legitimately contains no probability. Warn only when
+      // the model emitted something that resembles a labelled probability but
+      // could not be parsed (for example an out-of-range value).
+      if (
+        !rolledOutput.rolls.length &&
+        /\b(?:chance|success|failure|fail)\s*:/i.test(stepText)
+      ) {
         context.reportWarning(
           `${node.data.label}: Step ${step.name} output contains no (chance: NN%) markers; it is passed on without dice rolls.`,
         );
