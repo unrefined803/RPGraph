@@ -1442,7 +1442,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
         translatedHistory,
       };
       updateRuntimeNode(inputNode.id, {
-        preview: (isAutoTurn || isNarratorTurn) ? `${narratorSpeakerName}: ${narratorDisplayInput}` : originalInput,
+        preview: availableSocialAccounts.length
+          ? executionOriginalInput
+          : (isAutoTurn || isNarratorTurn)
+            ? `${narratorSpeakerName}: ${narratorDisplayInput}`
+            : originalInput,
+        // The dialog must show the value emitted by the Input node, including
+        // runtime-only context such as the social account catalog. The raw
+        // originalInput remains separate for chat display and persistence.
+        fullText: executionOriginalInput,
       });
 
       let outputHighlightingContext = '';
