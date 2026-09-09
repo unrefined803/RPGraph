@@ -1,0 +1,26 @@
+.account-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #72b9ff;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.account-link:disabled {
+  color: #94bde4;
+  opacity: 1;
+  cursor: default;
+}
+.account-link:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.account-link-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  padding: 4px 8px;
+}

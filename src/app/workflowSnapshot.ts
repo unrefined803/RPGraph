@@ -1,7 +1,7 @@
 import type { Edge } from '@xyflow/react';
 import type { WorkflowFile, WorkflowNode, WorkflowNodeData } from '../types';
 import { withWorkflowConnectionColor } from '../graph/edges';
-import { emptyRpStorybook, rpStorybookJsonText } from '../nodes/rp-storybook/model';
+import { emptyRpStorybook, isEmptyRpStorybook, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 import { persistentNodeData } from '../workflow/persistence';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 
@@ -25,6 +25,23 @@ function workflowNodeDataForSave(
     storybookFileName: undefined,
     storybookFilePath: undefined,
   };
+}
+
+export function workflowNeedsStorybookSelection(workflow: unknown): boolean {
+  if (!workflow || typeof workflow !== 'object' || !('nodes' in workflow) || !Array.isArray(workflow.nodes)) {
+    return false;
+  }
+  const storybookNode = workflow.nodes.find((node) =>
+    node && typeof node === 'object' && 'data' in node && node.data && typeof node.data === 'object' &&
+    'nodeType' in node.data && node.data.nodeType === 'rp-storybook');
+  if (!storybookNode || typeof storybookNode !== 'object' || !('data' in storybookNode) ||
+    !storybookNode.data || typeof storybookNode.data !== 'object') {
+    return false;
+  }
+  const storybookJson = 'storybookJson' in storybookNode.data
+    ? storybookNode.data.storybookJson
+    : undefined;
+  return !storybookJson || isEmptyRpStorybook(storybookJson);
 }
 
 export function workflowSnapshotFromGraph({
@@ -72,5 +89,5 @@ export function suggestedWorkflowNameFromPath(filePath: string | null | undefine
     return 'workflow';
   }
   const fileName = filePath.split(/[\\/]/).pop() ?? 'workflow';
-  return fileName.replace(/(\.rpgraph)?\.json$/i, '') || 'workflow';
+  return fileName.replace(/^workflow\./i, '').replace(/(\.rpgraph)?\.json$/i, '').replace(/\s+/g, '_') || 'workflow';
 }

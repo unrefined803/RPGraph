@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { RunLlmReport } from '../components/AppDialogs';
 import { getRegisteredNode } from '../nodes/registry';
+import { storybookNeedsUpdate } from '../nodes/rp-storybook/model';
 import { isStorybookSourceNode } from '../storybook/runtime';
 import type { LlmCallStage, LlmCallStats, WorkflowNode, WorkflowNodeData } from '../types';
 import type { ActiveRun } from './useGraphRun';
@@ -45,8 +46,11 @@ export function useRuntimeNodePatching({
       previousNode !== undefined &&
       isStorybookSourceNode(previousNode) &&
       nextStorybookJson !== undefined &&
-      openingHistorySignature(previousNode.data.storybookJson) !==
-        openingHistorySignature(nextStorybookJson);
+      (replaceCurrentChatWithOpeningHistoryRef.current ||
+        // An upgrade can activate history without changing its normalized content.
+        (storybookNeedsUpdate(previousNode.data.storybookJson) && !storybookNeedsUpdate(nextStorybookJson)) ||
+        openingHistorySignature(previousNode.data.storybookJson) !==
+          openingHistorySignature(nextStorybookJson));
     const nextNodes = nodesRef.current.map((node) =>
       node.id === nodeId
         ? { ...node, data: { ...node.data, ...patch } as WorkflowNodeData }

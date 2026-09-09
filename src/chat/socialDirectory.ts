@@ -1,6 +1,5 @@
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind } from '../types';
-import { bundledSocialIdentities } from './socialCatalogs';
 import { socialHandleForName, socialIdentityMatches } from './socialMedia';
 
 export type SocialDirectoryUser = {
@@ -9,6 +8,7 @@ export type SocialDirectoryUser = {
   handles: Partial<Record<SocialAppKind, string>>;
   source: 'bundled' | 'storybook' | 'dynamic';
   characterId?: string;
+  aliases?: string[];
 };
 
 export type DynamicSocialUsers = Record<string, SocialDirectoryUser>;
@@ -29,7 +29,7 @@ export function socialHandleAvailable(
 
 export type SocialConnectionsByCharacter = Record<
   string,
-  Partial<Record<SocialAppKind, string[]>>
+  Partial<Record<SocialAppKind | 'whatsup', string[]>>
 >;
 
 function normalizedIdentity(value: string) {
@@ -126,20 +126,6 @@ function socialUserSlug(value: string) {
   return normalizedIdentity(value).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'user';
 }
 
-function bundledUsersForApp(app: SocialAppKind): SocialDirectoryUser[] {
-  return bundledSocialIdentities[app].map(({ name, handle }) => ({
-    id: `bundled:${app}:${normalizedIdentity(handle)}`,
-    name,
-    handles: { [app]: handle },
-    source: 'bundled',
-  }));
-}
-
-export const bundledSocialUsers: SocialDirectoryUser[] = [
-  ...bundledUsersForApp('fotogram'),
-  ...bundledUsersForApp('onlyfriends'),
-];
-
 function validSocialDirectoryUser(value: unknown): value is SocialDirectoryUser {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -192,14 +178,16 @@ export function normalizeSocialConnectionsByCharacter(
         return [];
       }
       const record = apps as Record<string, unknown>;
-      const normalized = (app: SocialAppKind) => Array.isArray(record[app])
+      const normalized = (app: SocialAppKind | 'whatsup') => Array.isArray(record[app])
         ? [...new Set(record[app].filter((entry): entry is string =>
             typeof entry === 'string' && !!entry.trim()
           ).map((entry) => entry.trim()))]
         : [];
+      const whatsup = normalized('whatsup');
       const fotogram = normalized('fotogram');
       const onlyfriends = normalized('onlyfriends');
       return [[characterId, {
+        ...(whatsup.length ? { whatsup } : {}),
         ...(fotogram.length ? { fotogram } : {}),
         ...(onlyfriends.length ? { onlyfriends } : {}),
       }]];
@@ -215,7 +203,16 @@ function storybookSocialUsers(characters: StorybookCharacter[]): SocialDirectory
       return [];
     }
     return [{
-      id: `storybook:${character.id}`,
+      id: `storybook:${character.npcOrigin ? character.sourceId : character.id}`,
+      aliases: [...new Set([
+        character.id,
+        character.sourceId,
+        ...(character.identityAliases?.characterIds ?? []),
+        ...(character.identityAliases?.accountIds?.fotogram ?? []),
+        ...(character.identityAliases?.accountIds?.onlyfriends ?? []),
+        character.apps?.fotogram?.accountId ?? '',
+        character.apps?.onlyfriends?.accountId ?? '',
+      ].flatMap((id) => id ? [id, `storybook:${id}`] : []))],
       name: character.name,
       handles: {
         ...(fotogram ? { fotogram } : {}),
@@ -293,7 +290,6 @@ export function buildSocialDirectory(options: {
   savedDynamicUsers?: DynamicSocialUsers;
 }) {
   const users = new Map<string, SocialDirectoryUser>();
-  bundledSocialUsers.forEach((user) => users.set(user.id, structuredClone(user)));
   storybookSocialUsers(options.storyCharacters).forEach((user) => users.set(user.id, user));
   Object.values(normalizeDynamicSocialUsers(options.savedDynamicUsers)).forEach((user) => {
     users.set(user.id, structuredClone(user));
@@ -348,7 +344,7 @@ export function buildSocialDirectory(options: {
       register(post.author, post.app, post.authorHandle);
     }
     const directMessage = message.socialDirectMessage;
-    if (directMessage) {
+    if (directMessage && directMessage.app !== 'matchme') {
       register(directMessage.from, directMessage.app, directMessage.fromHandle);
       register(directMessage.to, directMessage.app, directMessage.toHandle);
     }
@@ -413,18 +409,29 @@ export function searchSocialDirectory(
     .slice(0, limit);
 }
 
+/** Read historical directory IDs without rewriting saved connections or checkpoints. */
+export function resolveSocialDirectoryUser(users: SocialDirectoryUser[], id: string) {
+  const exact = users.filter((user) => user.id === id);
+  const matches = exact.length ? exact : users.filter((user) => user.aliases?.includes(id));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 export function socialConnectionIds(
   connections: SocialConnectionsByCharacter,
   characterId: string | undefined,
-  app: SocialAppKind,
+  app: SocialAppKind | 'whatsup',
+  characters: StorybookCharacter[] = [],
 ) {
-  return characterId ? connections[characterId]?.[app] ?? [] : [];
+  if (!characterId) return [];
+  const owner = characters.find((character) => character.id === characterId);
+  const ids = [characterId, ...(owner ? [owner.sourceId, ...(owner.identityAliases?.characterIds ?? [])] : [])];
+  return [...new Set(ids.flatMap((id) => connections[id]?.[app] ?? []))];
 }
 
 export function withSocialConnectionAdded(
   connections: SocialConnectionsByCharacter,
   characterId: string,
-  app: SocialAppKind,
+  app: SocialAppKind | 'whatsup',
   socialUserId: string,
 ) {
   const current = connections[characterId]?.[app] ?? [];
@@ -451,7 +458,7 @@ export function withSocialDirectoryConnectionAdded(
   if (app !== 'fotogram') {
     return next;
   }
-  const targetUser = users.find((user) => user.id === socialUserId);
+  const targetUser = resolveSocialDirectoryUser(users, socialUserId);
   const ownerUser = users.find((user) =>
     user.source === 'storybook' && user.characterId === characterId && !!user.handles.fotogram
   );

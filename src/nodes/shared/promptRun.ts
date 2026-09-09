@@ -56,7 +56,6 @@ import {
   storyCharactersFromNodes,
 } from '../../storybook/runtime';
 import {
-  socialMessageCorrectionContext,
   validateSocialMessengerAccounts,
 } from '../../chat/socialMessageValidation';
 import { stripPlanBlocks, stripPlanBlocksFromStream } from '../../chat/messageFormats';
@@ -256,8 +255,8 @@ export async function runActionAwarePrompt({
 }) {
   // @step: markers split a prompt into an ordered chain of named passes. Every
   // step before the last runs as an intermediate pass whose diced output is
-  // injected into later steps at @output:<name> tokens (or prepended to the
-  // next step without one); the last step produces the visible reply.
+  // inserted only at explicit @output:<name> tokens in later steps; the last
+  // step produces the visible reply.
   const steps = buildPromptStepChain(promptBeforeInput, promptAfterInput);
   // @output tokens may only reference an earlier step; every other token is
   // removed here so unresolved markers never reach the LLM.
@@ -279,7 +278,6 @@ export async function runActionAwarePrompt({
   // Snapshot the authored prompt texts before earlier steps inject their
   // outputs; the missing-rolls warning must not trigger on "chance:" markers
   // that arrive via an injected plan.
-  const authoredStepTexts = steps.map((step) => [step.before, step.after].join('\n'));
   let promptBefore = outputStep.before;
   let promptAfter = outputStep.after;
   const visionEnabled = await context.llm.supportsVision(
@@ -354,9 +352,7 @@ export async function runActionAwarePrompt({
     insertions[field].push({ name, text });
     stepOutputInsertions.set(step, insertions);
   };
-  const socialCharacters = storyCharactersFromNodes(context.nodes);
-  let socialAccountCorrectionText = '';
-  let socialAccountReplayUsed = false;
+  const socialCharacters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
   const promptSectionValue = (value: string) =>
     replacePromptCommandTokensWithHints(
       replacePromptActionTokensWithInstructions(
@@ -450,13 +446,6 @@ export async function runActionAwarePrompt({
         parts: [{ text: textInput, historySegments }],
         historySegments,
       },
-      ...(socialAccountCorrectionText
-        ? [{
-            label: 'Social Message Validation',
-            text: socialAccountCorrectionText,
-            parts: [{ text: socialAccountCorrectionText, actionInserted: true }],
-          }]
-        : []),
       {
         label: 'Prompt After Input',
         text: after,
@@ -467,7 +456,6 @@ export async function runActionAwarePrompt({
   const buildCombinedPrompt = (textInput = inputValue) => [
     promptSectionValue(promptBefore),
     textInput,
-    socialAccountCorrectionText,
     promptSectionValue(promptAfter),
   ]
     .filter(Boolean)
@@ -701,10 +689,13 @@ export async function runActionAwarePrompt({
     const stepOutputText = rolledOutput.text.trim();
     const laterSteps = steps.slice(stepIndex + 1);
     if (stepOutputText) {
-      // A missing-rolls warning only makes sense for plan-style steps; a
-      // prompt that never mentions "chance:" gets its output passed on
-      // verbatim.
-      if (!rolledOutput.rolls.length && /chance:/i.test(authoredStepTexts[stepIndex])) {
+      // A certain plan legitimately contains no probability. Warn only when
+      // the model emitted something that resembles a labelled probability but
+      // could not be parsed (for example an out-of-range value).
+      if (
+        !rolledOutput.rolls.length &&
+        /\b(?:chance|success|failure|fail)\s*:/i.test(stepText)
+      ) {
         context.reportWarning(
           `${node.data.label}: Step ${step.name} output contains no (chance: NN%) markers; it is passed on without dice rolls.`,
         );
@@ -724,9 +715,7 @@ export async function runActionAwarePrompt({
         injected = injected || beforeInjection.injected || afterInjection.injected;
       }
       if (!injected) {
-        const nextStep = laterSteps[0];
-        nextStep.before = [stepOutputText, nextStep.before].filter(Boolean).join('\n\n');
-        rememberStepOutputInsertion(nextStep, 'before', step.name, stepOutputText);
+        context.reportWarning(`${node.data.label}: Step ${step.name} has no later @output:${step.name} marker; its output was not inserted.`);
       }
     } else {
       context.reportWarning(
@@ -793,61 +782,12 @@ export async function runActionAwarePrompt({
           : 'Initial action output',
       text: output.text,
     });
-    let socialAccountValidation = validateSocialMessengerAccounts({
+    const socialAccountValidation = validateSocialMessengerAccounts({
       text: output.text,
       characters: socialCharacters,
       messages: context.historyMessages,
+      directMessage: context.matchMeDirectMessage,
     });
-    if (
-      socialAccountValidation.issues.length > 0 &&
-      context.retryFormatErrorsEnabled &&
-      !socialAccountReplayUsed
-    ) {
-      socialAccountReplayUsed = true;
-      socialAccountCorrectionText = socialMessageCorrectionContext(
-        socialAccountValidation.issues,
-      );
-      const correctedPrompt = buildCombinedPrompt(textInputForPass);
-      recordPromptPass({
-        label: 'Social account correction replay',
-        images: imagePreviewItems([
-          ...imagePass.actionImages.map((image) => ({ image, source: 'action' as const })),
-          ...imagePass.inputImages.map((image) => ({ image, source: 'input' as const })),
-          ...imagePass.referenceImages.map((image) => ({ image, source: 'reference' as const })),
-        ]),
-        sections: buildPromptSections(textInputForPass),
-      });
-      context.updateRuntimeData(node.id, {
-        preview: 'Invalid social account blocked; replaying prompt with account context ...',
-      });
-      context.streamOutput?.('');
-      output = await context.llm.complete({
-        connectionId: node.data.connectionId,
-        nodeId: node.id,
-        label: `${callLabel(actionReplayCount)} / Social account correction`,
-        stage: { kind: 'correction', name: 'Social account' },
-        prompt: correctedPrompt,
-        images: imagePass.images,
-        onChunk: streamsVisibleOutput
-          ? (pendingPreReplyAction ? streamUnlessActionCall : streamVisible)
-          : undefined,
-        contributesToTokenCalibration,
-        useConnectionSampling: true,
-      });
-      recordOutputPass({ label: 'Social account correction output', text: output.text });
-      socialAccountValidation = validateSocialMessengerAccounts({
-        text: output.text,
-        characters: socialCharacters,
-        messages: context.historyMessages,
-      });
-      if (socialAccountValidation.issues.length === 0) {
-        context.reportFormatResult({
-          name: 'Social messenger accounts',
-          status: 'ok',
-          detail: 'Invalid social account was corrected before delivery.',
-        });
-      }
-    }
     if (socialAccountValidation.issues.length > 0) {
       const reasons = socialAccountValidation.issues
         .map((issue) => issue.resolved.reason)
@@ -1107,69 +1047,12 @@ export async function runActionAwarePrompt({
         useConnectionSampling: true,
       });
       recordOutputPass({ label: `Command output: ${commandNames}`, text: output.text });
-      let commandSocialValidation = validateSocialMessengerAccounts({
+      const commandSocialValidation = validateSocialMessengerAccounts({
         text: output.text,
         characters: socialCharacters,
         messages: context.historyMessages,
+        directMessage: context.matchMeDirectMessage,
       });
-      if (commandSocialValidation.issues.length > 0 && context.retryFormatErrorsEnabled) {
-        const correction = socialMessageCorrectionContext(commandSocialValidation.issues);
-        recordPromptPass({
-          label: `Command correction: ${commandNames}`,
-          images: previewImagesForPass(commandImagePass),
-          sections: [
-            {
-              label: 'Text Input',
-              text: commandTextInput,
-              parts: [{ text: commandTextInput, historySegments }],
-              historySegments,
-            },
-            {
-              label: 'Social Message Validation',
-              text: correction,
-              parts: [{ text: correction, actionInserted: true }],
-            },
-            {
-              label: 'Command Pass Prompt',
-              text: instruction,
-              parts: [{ text: instruction, actionInserted: true }],
-            },
-          ],
-        });
-        context.updateRuntimeData(node.id, {
-          preview: 'Invalid command social account blocked; replaying command pass ...',
-        });
-        if (streamsVisibleOutput) {
-          context.streamOutput?.(streamedVisibleReply);
-        }
-        output = await context.llm.complete({
-          connectionId: node.data.connectionId,
-          nodeId: node.id,
-          label: `${callLabel(0)} / Command: ${commandNames} / Correction`,
-          stage: { kind: 'command', name: commandNames, correction: true },
-          prompt: [commandTextInput, correction, instruction].filter(Boolean).join('\n\n'),
-          images: commandImagePass.images,
-          onChunk: streamCommandOutput,
-          contributesToTokenCalibration,
-          useConnectionSampling: true,
-        });
-        recordOutputPass({
-          label: `Command correction output: ${commandNames}`,
-          text: output.text,
-        });
-        commandSocialValidation = validateSocialMessengerAccounts({
-          text: output.text,
-          characters: socialCharacters,
-          messages: context.historyMessages,
-        });
-        if (commandSocialValidation.issues.length === 0) {
-          context.reportFormatResult({
-            name: 'Social messenger accounts',
-            status: 'ok',
-            detail: 'Invalid command social account was corrected before delivery.',
-          });
-        }
-      }
       if (commandSocialValidation.issues.length > 0) {
         const reasons = commandSocialValidation.issues
           .map((issue) => issue.resolved.reason)

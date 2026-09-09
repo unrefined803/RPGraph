@@ -1,3 +1,7 @@
+import { validAccountLinkBindings } from '../chat/accountLinks';
+import { parseNpcParticipantSnapshots } from '../characters/npcParticipants';
+import { createMediaPoolReader } from './mediaPool';
+import { isMatchMeMatch, matchMePairId } from '../chat/matchMe';
 import type { RpgraphSessionV2, TimelineEntry } from './types';
 import { phoneNoteColors } from '../chat/phoneAppsSessions';
 import {
@@ -140,7 +144,16 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
     );
     const validSocialDirectMessage = value.socialDirectMessage === undefined || (
       isRecord(value.socialDirectMessage) &&
-      (value.socialDirectMessage.app === 'fotogram' || value.socialDirectMessage.app === 'onlyfriends') &&
+      validAccountLinkBindings(value.socialDirectMessage.accountLinks) &&
+      (value.socialDirectMessage.app === 'fotogram' || value.socialDirectMessage.app === 'onlyfriends' || value.socialDirectMessage.app === 'matchme')
+      && (value.socialDirectMessage.app !== 'matchme' || (
+        typeof value.socialDirectMessage.fromAccountId === 'string' && typeof value.socialDirectMessage.toAccountId === 'string' &&
+        value.socialDirectMessage.fromAccountId !== value.socialDirectMessage.toAccountId &&
+        value.socialDirectMessage.fromHandle === value.socialDirectMessage.fromAccountId &&
+        value.socialDirectMessage.toHandle === value.socialDirectMessage.toAccountId &&
+        (value.socialDirectMessage.demo === undefined || typeof value.socialDirectMessage.demo === 'boolean') &&
+        value.socialDirectMessage.matchId === matchMePairId(value.socialDirectMessage.fromAccountId, value.socialDirectMessage.toAccountId)
+      )) &&
       typeof value.socialDirectMessage.messageId === 'string' &&
       typeof value.socialDirectMessage.from === 'string' &&
       typeof value.socialDirectMessage.fromHandle === 'string' &&
@@ -278,6 +291,8 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validSocialThreadAction &&
       validSocialReactions &&
       validSocialDirectMessage &&
+      validAccountLinkBindings(value.accountLinks) &&
+      (value.matchMeMatch === undefined || isMatchMeMatch(value.matchMeMatch)) &&
       validCreatedPhoneNote &&
       validDeletedPhoneNote &&
       validSimulatedAiChat
@@ -486,6 +501,16 @@ function isWorkflowVariableRecord(value: unknown) {
   );
 }
 
+function hasValidNpcParticipants(runtime: Record<string, unknown>, media: unknown) {
+  if (runtime.npcParticipantsJson === undefined) return true;
+  if (typeof runtime.npcParticipantsJson !== 'string') return false;
+  try {
+    const reader = createMediaPoolReader(media as Record<string, string> | undefined);
+    parseNpcParticipantSnapshots(JSON.parse(reader.rehydratedStorybookJson(runtime.npcParticipantsJson)));
+    return true;
+  } catch { return false; }
+}
+
 export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
   if (!isRecord(value)) {
     return false;
@@ -520,6 +545,7 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     hasValidVoiceClipMediaReferences(value.timeline, value.entities.mediaData) &&
     isRecord(value.runtime) &&
     isRecord(value.runtime.current) &&
+    hasValidNpcParticipants(value.runtime.current, value.entities.mediaData) &&
     isWorkflowVariableRecord(value.runtime.current.workflowVariables) &&
     isNodeRuntimeRecord(value.runtime.current.nodes) &&
     Array.isArray(value.runtime.undo) &&

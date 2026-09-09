@@ -6,6 +6,7 @@ import { runStateClassName, useNodeLayoutSync } from '../shared/CardView';
 import { PortLabel } from '../shared/PortValue';
 import {
   emptyRpStorybook,
+  storybookNeedsUpdate,
   estimatedRpStorybookPromptTokens,
   parseRpStorybookJson,
   type RpStorybook,
@@ -64,7 +65,7 @@ export function RpStorybookEditorNodeCard({ id, data }: NodeProps<WorkflowNode>)
       </div>
       <div className="storybook-actions">
         <button className="load-text-button nodrag" type="button" onClick={() => openStorybookEditor(id)}>
-          Open Editor
+          {storybookNeedsUpdate(data.storybookJson) ? 'Update Storybook' : 'Open Editor'}
         </button>
       </div>
       <div className="node-actions">

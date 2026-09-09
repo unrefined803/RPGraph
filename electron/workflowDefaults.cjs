@@ -1,10 +1,9 @@
 const path = require('node:path');
 
-const defaultWorkflowFileNamePattern = /^workflow\.default.*\.json$/i;
 
 function bundledDefaultWorkflowFileNames(names) {
   return names
-    .filter((name) => defaultWorkflowFileNamePattern.test(name))
+    .filter((name) => /\.json$/i.test(name))
     .sort((left, right) => {
       const leftPlanning = /planning/i.test(left);
       const rightPlanning = /planning/i.test(right);
@@ -28,6 +27,14 @@ function importedDefaultFileNamesFromState(state) {
   ]));
 }
 
+function missingDefaultFileTypes(files) {
+  const types = new Set(Array.isArray(files) ? files.map((file) => file?.type) : []);
+  return [
+    ...(!types.has('workflow') ? ['workflows'] : []),
+    ...(!types.has('storybook') ? ['Storybooks'] : []),
+  ];
+}
+
 async function restoreBundledDefaultWorkflows(
   bundledPaths,
   restoreWorkflow,
@@ -48,5 +55,6 @@ async function restoreBundledDefaultWorkflows(
 module.exports = {
   bundledDefaultWorkflowFileNames,
   importedDefaultFileNamesFromState,
+  missingDefaultFileTypes,
   restoreBundledDefaultWorkflows,
 };

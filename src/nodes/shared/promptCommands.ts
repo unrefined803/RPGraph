@@ -124,7 +124,7 @@ const simulateAiChatInstruction = [
 const messengerMessageInstruction = [
   'Command messenger_message: send one private message through a supported messenger app.',
   '',
-  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Never output MessengerAppName itself or a generic messengerApp key. When a plan is noted with the request, take the app, sender, recipient, and message gist from it.',
+  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, onlyFriendsApp for OnlyFriends, or matchMeApp for MatchMe. MatchMe requires an active application-provided match and exact account IDs; never invent a MatchMe account or match. Never output MessengerAppName itself or a generic messengerApp key. When a plan is noted with the request, take the app, sender, recipient, and message gist from it.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -139,13 +139,13 @@ const messengerMessageInstruction = [
   '  ]',
   '}',
   '',
-  'from, to, and message are required. isVoiceMessage and sendImageId are optional. They currently work only with whatsUpApp and are safely ignored by Fotogram and OnlyFriends. For WhatsUp, set isVoiceMessage to true only for a spoken TTS voice message and use sendImageId only with an exact known imageId. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits.',
+  'from, to, and message are required. isVoiceMessage and sendImageId are optional and work only with whatsUpApp. For WhatsUp, set isVoiceMessage to true only for a spoken TTS voice message and use sendImageId only with an exact known imageId. Use exact full names, app usernames or stable account IDs for existing participants. Fotogram and OnlyFriends may introduce fictional users without character containers; use a consistent name or username throughout the conversation. Never invent a missing app account for a known character, guess a partial name or borrow another app’s username. WhatsUp requires a known recipient; MatchMe requires existing matched accounts.',
 ].join('\n');
 
 const messengerConversationInstruction = [
   'Command messenger_conversation: simulate a short private conversation through a supported messenger app.',
   '',
-  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends. Never output MessengerAppName itself or a generic messengerApp key.',
+  'Choose the app required by the context and replace MessengerAppName in the format below with its real key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, onlyFriendsApp for OnlyFriends, or matchMeApp for MatchMe. MatchMe requires an active application-provided match and exact account IDs; never invent a MatchMe account or match. Never output MessengerAppName itself or a generic messengerApp key.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -182,7 +182,7 @@ const messengerConversationInstruction = [
   '',
   'Write both sides of the conversation yourself. Do not invent extra messages only to reach a longer pattern. Use messenger_message instead when only one message is sent.',
   '',
-  'Each entry requires from, to, and message. isVoiceMessage and sendImageId currently work only with whatsUpApp and are safely ignored by Fotogram and OnlyFriends. For WhatsUp, omit isVoiceMessage for typed messages and use sendImageId only with an exact known imageId. Use full displayed names for known contacts; invent a new outside contact name only when no known contact fits.',
+  'Each entry requires from, to, and message. isVoiceMessage and sendImageId work only with whatsUpApp. For WhatsUp, omit isVoiceMessage for typed messages and use sendImageId only with an exact known imageId. Use exact full names, app usernames or stable account IDs for existing participants. Fotogram and OnlyFriends may introduce fictional users without character containers; use a consistent name or username throughout the conversation. Never invent a missing app account for a known character, guess a partial name or borrow another app’s username. WhatsUp requires a known recipient; MatchMe requires existing matched accounts.',
 ].join('\n');
 
 const displayImageInstruction = [

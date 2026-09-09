@@ -1,3 +1,5 @@
+import { AccountLinkText } from '../AccountLinkText';
+import { npcSeedPostAccountId } from '../../characters/npcParticipants';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import type {
@@ -30,7 +32,7 @@ type PhoneSocialDirectMessagesProps = {
   selectedParticipant?: SocialDirectMessageParticipant;
   messages: SocialDirectMessageRecord[];
   characterColors: Map<string, string>;
-  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   messageRpDateTimeById: ReadonlyMap<string, string>;
   rpTimeTrackingEnabled: boolean;
   rpDateTimeFormat: RpDateTimeFormat;
@@ -236,7 +238,7 @@ export function PhoneSocialDirectMessages({
     ? characterColors.get(selectedParticipant.character.name)
     : undefined;
   const origin = selectedParticipant.origin ?? conversation.find((message) => message.origin)?.origin;
-  const originImage = origin?.postImageId ? socialImageById(origin.postImageId) : undefined;
+  const originImage = origin?.postImageId ? socialImageById(origin.postImageId, npcSeedPostAccountId(origin.postId)) : undefined;
   // The stored origin comment keeps its real author; when the viewer wrote
   // that comment (e.g. after switching characters), it renders as outgoing.
   const originOutgoing = !!origin?.commentAuthorHandle &&
@@ -336,7 +338,7 @@ export function PhoneSocialDirectMessages({
               key={`${message.messageId}-${highlighted ? highlightedMessagePulseKey : 'idle'}`}
             >
               <div className="phone-social-dm-bubble">
-                <span>{message.displayText ?? message.text}</span>
+                <span><AccountLinkText text={message.displayText ?? message.text} bindings={message.accountLinks} /></span>
                 {message.app === 'onlyfriends' && message.tip !== undefined && (
                   <span className="phone-social-dm-tip">+{formatBankingAmount(message.tip)} tip</span>
                 )}
@@ -346,6 +348,7 @@ export function PhoneSocialDirectMessages({
           );
         })}
       </div>
+      <AccountLinkText text={draft} preview />
       <form className="phone-social-dm-composer" onSubmit={submitMessage}>
         <input
           type="text"

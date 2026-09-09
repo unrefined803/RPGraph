@@ -574,7 +574,7 @@ export type EmbeddedPhoneMessageLink = {
 
 export type EmbeddedSocialMessageLink = {
   socialMessageId: number;
-  app: SocialAppKind;
+  app: SocialMessengerAppKind;
   from: string;
   to: string;
   message: string;
@@ -585,7 +585,7 @@ export type EmbeddedSocialMessageLink = {
 
 export type SocialDirectMessageOpenRequest = {
   requestId: number;
-  app: SocialAppKind;
+  app: SocialMessengerAppKind;
   messageId: string;
   participantName: string;
   participantHandle: string;
@@ -680,14 +680,24 @@ export type BankTransferRecord = {
 };
 
 export type SocialAppKind = 'fotogram' | 'onlyfriends';
+export type SocialMessengerAppKind = SocialAppKind | 'matchme';
+
+export type MatchMeMatch = {
+  id: string; accountIds: [string, string]; matchedAt: string; status: 'active' | 'inactive';
+};
 
 /** Unread incoming DM count and tip sum per lowercased partner handle. */
 export type SocialDmUnreadByHandle = Record<string, { count: number; tipTotal: number }>;
 
 /** A direct message sent inside one social app; persisted on the timeline message. */
 export type SocialDirectMessageRecord = {
-  app: SocialAppKind;
+  accountLinks?: import('./chat/accountLinks').AccountLink[];
+  app: SocialMessengerAppKind;
   messageId: string;
+  matchId?: string;
+  fromAccountId?: string;
+  toAccountId?: string;
+  demo?: boolean;
   from: string;
   fromHandle: string;
   to: string;
@@ -727,6 +737,8 @@ export type SocialDirectMessageRecord = {
 
 /** A post a character published in a social app; persisted on the message. */
 export type SocialPostRecord = {
+  authorCharacterId?: string;
+  authorAccountId?: string;
   app: SocialAppKind;
   postId: string;
   author: string;
@@ -774,6 +786,7 @@ export type SocialReactionsRecord = {
 };
 
 export type MessageRecord = {
+  accountLinks?: import('./chat/accountLinks').AccountLink[];
   id: number;
   role: 'user' | 'output' | 'error';
   originalText: string;
@@ -784,6 +797,8 @@ export type MessageRecord = {
   eventInput?: boolean;
   eventDisplayText?: string;
   phoneMessage?: boolean;
+  phoneFromAccountId?: string;
+  phoneToAccountId?: string;
   phoneFrom?: string;
   phoneTo?: string;
   phoneVoiceMessage?: boolean;
@@ -826,6 +841,7 @@ export type MessageRecord = {
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
+  matchMeMatch?: MatchMeMatch;
   createdPhoneNote?: CreatedPhoneNoteCommit;
   deletedPhoneNote?: DeletedPhoneNoteCommit;
   simulatedAiChat?: SimulatedAiChatCommit;
@@ -976,7 +992,7 @@ export type PhoneDesktopLayout = {
     width: number;
     height: number;
   };
-  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai', {
+  apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist', {
     column: number;
     row: number;
   }>;

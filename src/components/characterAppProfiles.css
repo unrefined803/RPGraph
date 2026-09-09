@@ -1,0 +1,208 @@
+.character-app-profile-editor {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.character-app-profile-editor label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.character-app-profile-editor input,
+.character-app-profile-editor textarea,
+.character-app-profile-editor select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #64748b;
+  border-radius: 6px;
+  background: #18202d;
+  color: #f1f5f9;
+  font: inherit;
+}
+
+.character-app-profile-editor input:disabled {
+  opacity: 0.65;
+}
+
+.character-account-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.character-account-row button {
+  margin-left: auto;
+}
+
+.character-social-accounts-card {
+  gap: 14px;
+}
+
+.character-social-account-note {
+  color: #8794b1;
+  font-size: 11px;
+}
+
+.character-account-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #233147;
+  border-radius: 10px;
+  background: #0d1522;
+}
+
+.character-account-tabs button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #8794b1;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.character-account-tab-name {
+  grid-column: 1 / -1;
+  color: inherit;
+  font-size: 13px;
+}
+
+.character-account-tabs button:hover {
+  color: #e7edf8;
+  background: #16263d;
+}
+
+.character-account-tabs button.active {
+  border-color: #7eb9c5;
+  color: #f4f7ff;
+  background: #1a3046;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.character-account-status {
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #f1c46b;
+  background: rgba(241, 196, 107, 0.13);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.character-account-status.created {
+  color: #9ae0bd;
+  background: rgba(108, 211, 173, 0.14);
+}
+
+.character-account-status-label {
+  min-width: 0;
+  overflow: hidden;
+  color: #f1c46b;
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-account-status-label.created {
+  color: #9ae0bd;
+}
+
+.character-account-overview {
+  display: grid;
+  gap: 5px;
+  min-height: 110px;
+  place-content: center;
+  padding: 18px;
+  border: 1px dashed #2b3a53;
+  border-radius: 10px;
+  background: rgba(13, 21, 34, 0.45);
+  text-align: center;
+}
+
+.character-account-overview strong {
+  color: #dce5f5;
+  font-size: 13px;
+}
+
+.character-account-overview p {
+  margin: 0;
+  color: #8794b1;
+  font-size: 11px;
+}
+
+.social-profile-editor {
+  --profile-accent: #f1a1c6;
+  --profile-tint: #3b223e;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: clamp(18px, 4%, 40px);
+  color: #f4f1f7;
+  background: radial-gradient(ellipse at top right, var(--profile-tint), transparent 65%), #111521;
+  font-size: 13px;
+  text-align: left;
+}
+.social-profile-editor--onlyfriends { --profile-accent: #79d9ee; --profile-tint: #143947; }
+.social-profile-editor > * { width: 100%; max-width: 680px; margin: 0 auto; box-sizing: border-box; }
+.social-profile-editor h2 { margin: 8px 0; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.035em; }
+.social-profile-editor h3 { margin: 0; font-size: 16px; }
+.social-profile-editor p { margin: 8px 0 0; color: #b6bbcc; line-height: 1.6; }
+.social-profile-eyebrow { color: var(--profile-accent); font-size: 10px; font-weight: 750; letter-spacing: 0.14em; text-transform: uppercase; }
+.social-profile-preview { display: flex; align-items: center; gap: 20px; padding: 24px; border: 1px solid #ffffff19; border-radius: 20px; background: #ffffff06; }
+.social-profile-preview > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.social-profile-preview h3 { margin-top: 6px; font-size: 22px; }
+.social-profile-preview p { white-space: pre-wrap; }
+.social-profile-avatar { flex: 0 0 80px; height: 80px; padding: 4px; border: 2px solid var(--profile-accent); border-radius: 50%; display: grid; place-items: center; font-size: 30px; color: var(--profile-accent); }
+.social-profile-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.social-profile-section { display: grid; gap: 18px; }
+.social-profile-section h3 { display: flex; align-items: center; gap: 10px; }
+.social-profile-section h3 > span { color: var(--profile-accent); font-size: 11px; }
+.social-profile-editor label { display: grid; gap: 8px; font-weight: 600; }
+.social-profile-editor small { color: #a9afc2; font-size: 11px; font-weight: 400; line-height: 1.5; }
+.social-profile-editor input, .social-profile-editor textarea { width: 100%; box-sizing: border-box; border: 1px solid #ffffff24; border-radius: 10px; padding: 12px 14px; background: #0d111bb3; color: #f4f1f7; font: inherit; }
+.social-profile-editor input[readonly] { background: #ffffff04; color: #adb4c8; }
+.social-profile-editor textarea { resize: vertical; min-height: 100px; }
+.social-profile-editor input::placeholder, .social-profile-editor textarea::placeholder { color: #8992aa; }
+.social-profile-editor :is(input, textarea, button):focus-visible { outline: 2px solid var(--profile-accent); outline-offset: 3px; }
+.social-profile-count { text-align: right; }
+.social-profile-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; max-height: 290px; overflow-y: auto; padding: 4px; }
+.social-profile-editor button { cursor: pointer; font: inherit; }
+.social-profile-photo { min-width: 0; padding: 5px; border: 2px solid transparent; border-radius: 13px; background: #ffffff08; color: #bdc4d6; }
+.social-profile-photo[aria-pressed="true"] { border-color: var(--profile-accent); color: var(--profile-accent); background: var(--profile-tint); }
+.social-profile-photo img, .social-profile-photo-fallback { display: grid; place-items: center; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 7px; font-size: 30px; }
+.social-profile-photo > span:last-child { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 7px 2px 2px; font-size: 11px; }
+.social-profile-actions { display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #ffffff19; padding-top: 20px; }
+.social-profile-actions button { border: 1px solid #ffffff26; border-radius: 10px; padding: 12px 18px; background: #ffffff08; color: #e7e9f2; font-weight: 650; }
+.social-profile-actions .social-profile-save { background: var(--profile-accent); color: #111521; border-color: transparent; }
+.social-profile-save span { margin-left: 16px; }
+.social-profile-editor .social-profile-error { padding: 12px; border: 1px solid #fb8a9a; border-radius: 10px; color: #ffbcc6; background: #411d2c; }
+@media (max-width: 480px) {
+  .social-profile-preview { padding: 16px; gap: 14px; }
+  .social-profile-avatar { flex-basis: 60px; height: 60px; }
+  .social-profile-actions button { flex: 1; }
+}

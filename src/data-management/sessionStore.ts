@@ -1,3 +1,4 @@
+import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../characters/npcParticipants';
 import {
   currentSessionFormatVersion,
   currentSessionWorkflowFormatVersion,
@@ -41,6 +42,7 @@ import type {
 } from './types';
 
 export type SessionV2AppState = {
+  npcParticipants: NpcParticipantSnapshots;
   settings: {
     englishProcessingEnabled: boolean;
     inputTranslationOnlyEnabled?: boolean;
@@ -66,6 +68,7 @@ export type SessionV2AppState = {
 };
 
 export type SessionV2CurrentStateInput = {
+  npcParticipants?: NpcParticipantSnapshots;
   name: string;
   settings: SessionV2AppState['settings'];
   workflowVariables: Record<string, string>;
@@ -208,6 +211,11 @@ export function sessionV2FromCurrentState(
     runtimeStateFromNodes(runtimeNodes, state.workflowVariables),
     mediaWriter.redactedStorybookJson,
   );
+  if (state.npcParticipants && Object.keys(state.npcParticipants).length) {
+    redactedRuntime.npcParticipantsJson = mediaWriter.redactedStorybookJson(
+      JSON.stringify(parseNpcParticipantSnapshots(state.npcParticipants)),
+    );
+  }
   const redactedCheckpoints = state.turnCheckpoints.map((checkpoint) =>
     checkpointWithConvertedStorybooks(checkpoint, mediaWriter.redactedStorybookJson),
   );
@@ -321,6 +329,8 @@ function chatMessageFromTimelineEntry(
     eventInput: entry.flags?.eventInput,
     eventDisplayText: entry.eventDisplayText,
     phoneMessage: entry.channel === 'phone',
+    phoneFromAccountId: entry.phone?.fromAccountId,
+    phoneToAccountId: entry.phone?.toAccountId,
     phoneFrom: entry.phone?.from,
     phoneTo: entry.phone?.to,
     phoneVoiceMessage: entry.phone?.voiceMessage,
@@ -374,7 +384,9 @@ function chatMessageFromTimelineEntry(
     socialPost: entry.socialPost,
     socialThreadAction: entry.socialThreadAction,
     socialReactions: entry.socialReactions,
+    accountLinks: entry.accountLinks,
     socialDirectMessage: entry.socialDirectMessage,
+    matchMeMatch: entry.matchMeMatch,
     createdPhoneNote: entry.createdPhoneNote,
     deletedPhoneNote: entry.deletedPhoneNote,
     simulatedAiChat: entry.simulatedAiChat,
@@ -460,6 +472,8 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
       inputTranslationOnlyEnabled: session.metadata.settings.inputTranslationOnlyEnabled,
       displayLanguage: session.metadata.settings.displayLanguage,
     },
+    npcParticipants: parseNpcParticipantSnapshots(session.runtime.current.npcParticipantsJson === undefined
+      ? undefined : JSON.parse(mediaReader.rehydratedStorybookJson(session.runtime.current.npcParticipantsJson))),
     workflowVariables: workflowVariableRecord(session.runtime.current.workflowVariables),
     turns,
     turnCheckpoints: session.runtime.undo.map((checkpoint) =>

@@ -1,3 +1,6 @@
+import { withCharacterPortrait } from '../characters/portrait';
+import { CharacterAppProfiles } from './CharacterAppProfiles';
+import { socialFromCharacterApps, type CharacterApps } from '../characters/character';
 import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
@@ -15,7 +18,6 @@ import {
 } from '../nodes/custom-node/runtime';
 import {
   defaultRpStorybookCharacterBanking,
-  defaultRpStorybookCharacterSocial,
   defaultRpStorybookCharacterVoiceConfig,
   defaultRpStorybookImageDescriptionPrompt,
   defaultRpStorybookImageDescriptionPromptSettings,
@@ -23,7 +25,6 @@ import {
   nextStorybookCharacterImageId,
   parseRpStorybookJson,
   rpStorybookCharacterBanking,
-  rpStorybookCharacterSocial,
   rpStorybookFormattedText,
   rpStorybookFormattedTextSettings,
   rpStorybookImageDescriptionPromptSettings,
@@ -1053,6 +1054,7 @@ export function CustomNodeAssistantDialog({
 }
 
 type StorybookCreatorDialogProps = {
+  identityLocked?: boolean;
   node: WorkflowNode;
   workflowNodes: WorkflowNode[];
   promptActionSettings: PromptActionRuntimeSettings;
@@ -1124,7 +1126,7 @@ const storybookFormattedTextSettingControls: Array<{
 
 type StorybookImageOwner = { kind: 'character'; characterId: string };
 type CharacterImagesDialogMode = 'images' | 'profile';
-type ProfileCrop = RpStorybookCharacterProfileImage['crop'];
+type ProfileCrop = NonNullable<RpStorybookCharacterProfileImage['crop']>;
 
 function storybookImageOwnerKey(owner: StorybookImageOwner) {
   return `character:${owner.characterId}`;
@@ -1177,12 +1179,12 @@ function withStorybookImageOwnerImages(
 function withStorybookCharacterProfileImage(
   storybook: RpStorybook,
   owner: StorybookImageOwner,
-  profileImage: RpStorybookCharacterProfileImage,
+  profileImage: RpStorybookCharacterProfileImage | undefined,
 ): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
-      character.id === owner.characterId ? { ...character, profileImage } : character
+      character.id === owner.characterId ? withCharacterPortrait(character, profileImage) : character
     ),
   };
 }
@@ -1352,40 +1354,44 @@ function storybookCharacterBanking(
     defaultRpStorybookCharacterBanking();
 }
 
-function storybookCharacterSocial(
-  storybook: RpStorybook,
-  characterId: string,
-): RpStorybookCharacterSocial {
-  return storybook.characters.find((character) => character.id === characterId)?.social ??
-    defaultRpStorybookCharacterSocial();
-}
-
 function withStorybookCharacterPhoneAccounts(
   storybook: RpStorybook,
   characterId: string,
   banking: RpStorybookCharacterBanking,
   social: RpStorybookCharacterSocial,
+  apps?: CharacterApps,
 ): RpStorybook {
   return {
     ...storybook,
     characters: storybook.characters.map((character) =>
       character.id === characterId
-        ? { ...character, banking, social }
+        ? { ...character, banking, social, apps: apps ?? character.apps }
         : character
     ),
   };
 }
 
-function characterPhoneSummaryText(character: RpStorybookCharacter) {
+function characterPhoneSummary(character: RpStorybookCharacter) {
   const banking = character.banking ?? defaultRpStorybookCharacterBanking();
-  const parts = [`Bank: $${banking.startBalance}`];
-  if (character.social?.fotogramUsername) {
-    parts.push(`Fotogram: @${character.social.fotogramUsername}`);
-  }
-  if (character.social?.onlyfriendsUsername) {
-    parts.push(`OnlyFriends: @${character.social.onlyfriendsUsername}`);
-  }
-  return parts.join(' · ');
+  const accountStatus = (created: boolean) => (
+    <span
+      className={`character-phone-account-status${created ? ' created' : ''}`}
+      aria-label={created ? 'Account created' : 'Account not created'}
+    >
+      {created ? '✓' : '×'}
+    </span>
+  );
+  const onlyFriendsCreated = Boolean(character.apps?.onlyfriends?.enabled);
+  const matchMeCreated = Boolean(character.apps?.matchme?.enabled);
+  return <span className="character-phone-summary">
+    <span>Bank: ${banking.startBalance}</span>
+    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
+    <span>Fotogram {accountStatus(true)}</span>
+    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
+    <span>OnlyFriends {accountStatus(onlyFriendsCreated)}</span>
+    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
+    <span>MatchMe {accountStatus(matchMeCreated)}</span>
+  </span>;
 }
 
 function storybookCharacterImageFromAttachment(
@@ -1522,7 +1528,7 @@ function ProfilePickDialog({
     image.width && image.height ? image.width / image.height : 1
   );
   const [crop, setCrop] = useState<ProfileCrop>(() =>
-    currentProfileImage?.imageId === image.id
+    currentProfileImage?.imageId === image.id && currentProfileImage.crop
       ? currentProfileImage.crop
       : centeredProfileCrop(image.width && image.height ? image.width / image.height : 1)
   );
@@ -1657,6 +1663,9 @@ function ProfilePickDialog({
         <div className="profile-pick-actions">
           <button className="inspect-button nodrag" type="button" onClick={onClose}>
             Cancel
+          </button>
+          <button className="inspect-button nodrag" type="button" onClick={() => onApply({ imageId: image.id, dataUrl: image.dataUrl })}>
+            Use Full Image
           </button>
           <button className="contextual-action-button nodrag" type="button" onClick={() => void applyProfileImage()}>
             Apply
@@ -2043,6 +2052,12 @@ function CharacterImagesDialog({
             >
               Change Profile Pic
             </button>
+            {profileImage && <button className="inspect-button nodrag" type="button" onClick={() => {
+              onUpdateStorybook(withStorybookCharacterProfileImage(storybook, owner, undefined), `Cleared profile pic for ${characterName}.`);
+              setStatus('Character profile pic cleared.');
+            }}>
+              Clear Profile Pic
+            </button>}
             <button
               className="inspect-button nodrag"
               type="button"
@@ -2329,6 +2344,7 @@ function CharacterImagesDialog({
 }
 
 function CharacterSetupDialog({
+  identityLocked,
   storybook,
   characterId,
   workflowNodes,
@@ -2342,12 +2358,13 @@ function CharacterSetupDialog({
   promptActionSettings,
   onClose,
 }: {
+  identityLocked: boolean;
   storybook: RpStorybook;
   characterId: string;
   workflowNodes: WorkflowNode[];
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
-  onUpdateStorybook: (storybook: RpStorybook, status?: string) => void;
+  onUpdateStorybook: (storybook: RpStorybook, status?: string) => boolean;
   onLoadCharacterComfyLoras: StorybookCreatorDialogProps['onLoadCharacterComfyLoras'];
   onGenerateCharacterComfyPreview: StorybookCreatorDialogProps['onGenerateCharacterComfyPreview'];
   onGenerateCharacterVoicePreview: StorybookCreatorDialogProps['onGenerateCharacterVoicePreview'];
@@ -2366,7 +2383,8 @@ function CharacterSetupDialog({
     : `Name: ${characterName}`;
   const comfyConnections = connections.filter(isComfyImageConnection);
   const voiceConnections = connections.filter(isComfyVoiceConnection);
-  const [activeSetupTab, setActiveSetupTab] = useState<'image' | 'voice' | 'phone'>('image');
+  const [activeSetupTab, setActiveSetupTab] = useState<'phone' | 'banking' | 'image' | 'voice'>('phone');
+  const [phoneAppsViewKey, setPhoneAppsViewKey] = useState(0);
   const [providerId, setProviderId] = useState(comfyConnections[0]?.id ?? '');
   const [voiceProviderId, setVoiceProviderId] = useState(voiceConnections[0]?.id ?? '');
   const [loraOptions, setLoraOptions] = useState<string[]>([]);
@@ -2382,7 +2400,7 @@ function CharacterSetupDialog({
       })),
     };
   });
-  const [socialDraft, setSocialDraft] = useState(() => storybookCharacterSocial(storybook, characterId));
+  const [appsDraft, setAppsDraft] = useState<CharacterApps>(character?.apps ?? {});
   const [voiceTestText, setVoiceTestText] = useState('');
   const [voiceGenerating, setVoiceGenerating] = useState(false);
   const [voiceClip, setVoiceClip] = useState<{ dataUrl: string; filename: string } | null>(null);
@@ -2455,7 +2473,7 @@ function CharacterSetupDialog({
   }, [onLoadCharacterComfyLoras, providerId]);
 
   function commitCharacterSetup() {
-    onUpdateStorybook(
+    return onUpdateStorybook(
       withStorybookCharacterPhoneAccounts(
         withStorybookCharacterVoiceConfig(
           withStorybookCharacterComfyConfig(storybook, characterId, {
@@ -2474,7 +2492,8 @@ function CharacterSetupDialog({
             amount: Number(expense.amount),
           })),
         }),
-        rpStorybookCharacterSocial(socialDraft),
+        socialFromCharacterApps(appsDraft),
+        appsDraft,
       ),
       `Character setup saved for ${characterName}.`,
     );
@@ -2575,7 +2594,7 @@ function CharacterSetupDialog({
   }
 
   async function closeDialog() {
-    commitCharacterSetup();
+    if (!commitCharacterSetup()) { setStatus('Could not save character setup. Check the story identity restrictions.'); return; }
     if (!providerId) {
       onClose();
       return;
@@ -2643,10 +2662,9 @@ function CharacterSetupDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="storybook-image-dialog-header">
-          <div>
-            <h3>Character Setup</h3>
-            <p>{characterName}</p>
-          </div>
+          <h3 className="character-setup-header-title">
+            Character Setup <span>{characterName}</span>
+          </h3>
           <div className="storybook-image-dialog-actions">
             <button type="button" className="close-button" onClick={() => void closeDialog()}>Close</button>
           </div>
@@ -2654,6 +2672,32 @@ function CharacterSetupDialog({
         {status && <span className="run-note storybook-image-status">{status}</span>}
         <div className="character-setup-layout">
           <div className="character-setup-tabs" role="tablist" aria-label="Character setup sections">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSetupTab === 'phone'}
+              className={activeSetupTab === 'phone' ? 'active' : ''}
+              onClick={() => {
+                setActiveSetupTab('phone');
+                setPhoneAppsViewKey((current) => current + 1);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="7" y="2" width="10" height="20" rx="2" ry="2" />
+                <line x1="11" y1="18" x2="13" y2="18" />
+              </svg>
+              <span>Phone Apps</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSetupTab === 'banking'}
+              className={activeSetupTab === 'banking' ? 'active' : ''}
+              onClick={() => setActiveSetupTab('banking')}
+            >
+              <span className="character-setup-tab-symbol" aria-hidden="true">$</span>
+              <span>Banking App</span>
+            </button>
             <button
               type="button"
               role="tab"
@@ -2682,21 +2726,13 @@ function CharacterSetupDialog({
               </svg>
               <span>Voice Setup</span>
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSetupTab === 'phone'}
-              className={activeSetupTab === 'phone' ? 'active' : ''}
-              onClick={() => setActiveSetupTab('phone')}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="7" y="2" width="10" height="20" rx="2" ry="2" />
-                <line x1="11" y1="18" x2="13" y2="18" />
-              </svg>
-              <span>Phone Apps</span>
-            </button>
           </div>
           {activeSetupTab === 'phone' ? (
+            <div className="character-voice-body">
+              {character && <CharacterAppProfiles key={phoneAppsViewKey} character={{ ...character, apps: appsDraft }} characters={storybook.characters}
+                locked={identityLocked} onChange={(next) => { setAppsDraft(next.apps!); return true; }} />}
+            </div>
+          ) : activeSetupTab === 'banking' ? (
             <div className="character-voice-body">
               <div className="character-voice-card">
                 <span className="character-voice-card-title">BANKING APP</span>
@@ -2782,43 +2818,6 @@ function CharacterSetupDialog({
                 <p className="character-voice-hint">
                   Recurring payments shown in the Banking app history (for example a mobile plan).
                   The app fills the rest of the history with generated everyday spending.
-                </p>
-              </div>
-              <div className="character-voice-card">
-                <span className="character-voice-card-title">SOCIAL APPS</span>
-                <label className="character-comfy-field">
-                  <span>FOTOGRAM USERNAME</span>
-                  <input
-                    className="node-text-input nodrag"
-                    type="text"
-                    value={socialDraft.fotogramUsername}
-                    placeholder="nova.reyes"
-                    onChange={(event) => {
-                      const fotogramUsername = event.currentTarget.value;
-                      setSocialDraft((current) => ({ ...current, fotogramUsername }));
-                    }}
-                  />
-                </label>
-                <p className="character-voice-hint">
-                  Every character is expected to have a Fotogram account. When empty, the app
-                  derives a handle from the character name automatically.
-                </p>
-                <label className="character-comfy-field">
-                  <span>ONLYFRIENDS USERNAME</span>
-                  <input
-                    className="node-text-input nodrag"
-                    type="text"
-                    value={socialDraft.onlyfriendsUsername}
-                    placeholder="Leave empty for no account"
-                    onChange={(event) => {
-                      const onlyfriendsUsername = event.currentTarget.value;
-                      setSocialDraft((current) => ({ ...current, onlyfriendsUsername }));
-                    }}
-                  />
-                </label>
-                <p className="character-voice-hint">
-                  OnlyFriends accounts are private. Leave this empty unless the story explicitly
-                  gives the character an account.
                 </p>
               </div>
             </div>
@@ -3046,6 +3045,7 @@ export function StorybookCreatorDialog({
   onApplyConversion,
   onCancelConversion,
   onClose,
+  identityLocked = false,
 }: StorybookCreatorDialogProps) {
   const [draft, setDraft] = useState('');
   const [viewMode, setViewMode] = useState<'ui' | 'json' | 'text'>('ui');
@@ -3284,7 +3284,7 @@ export function StorybookCreatorDialog({
                     Import SillyTavern Character
                   </button>
                   <button type="button" role="menuitem" onClick={() => runMoreAction(onImportCharacterCard)}>
-                    Import Character Card
+                    Import Character Container
                   </button>
                   <button
                     type="button"
@@ -3466,7 +3466,7 @@ export function StorybookCreatorDialog({
                             type="button"
                             className="contextual-action-button nodrag"
                             onClick={onImportCharacterCard}
-                            title="Import an RPGraph Character Card file"
+                            title="Import an RPGraph Character Container V2 file"
                           >
                             <span className="button-icon">+</span> Import Character
                           </button>
@@ -3549,7 +3549,7 @@ export function StorybookCreatorDialog({
                                 )}
                                 <div className="character-field">
                                   <span className="field-label">Phone Apps</span>
-                                  <p>{characterPhoneSummaryText(character)}</p>
+                                  <p>{characterPhoneSummary(character)}</p>
                                 </div>
                                 <div className="character-field character-images-summary-field">
                                   <span className="field-label">Images</span>
@@ -3582,7 +3582,7 @@ export function StorybookCreatorDialog({
                                   <button
                                     type="button"
                                     className="character-images-button nodrag"
-                                    title={`Export ${character.name || character.id} as an RPGraph Character Card file`}
+                                    title={`Export ${character.name || character.id} as an RPGraph Character Container V2 file`}
                                     onClick={() => void onExportCharacter(character.id)}
                                   >
                                     Export Character
@@ -3889,6 +3889,7 @@ export function StorybookCreatorDialog({
         )}
         {comfyConfigCharacterId && (
           <CharacterSetupDialog
+            identityLocked={identityLocked || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0}
             storybook={storybook}
             characterId={comfyConfigCharacterId}
             workflowNodes={workflowNodes}

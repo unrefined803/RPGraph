@@ -561,6 +561,9 @@ export function visibleMessageRecords(
   } = {},
 ) {
   const linkedIds = linkedPhoneMessageIds(messages);
+  const linkedSocialIds = new Set(messages.flatMap((message) =>
+    (message.embeddedSocialMessages ?? []).map((link) => link.socialMessageId),
+  ));
   return messages.filter((message) =>
     message.role !== 'error' &&
     !(
@@ -568,6 +571,7 @@ export function visibleMessageRecords(
       !message.embeddedPhoneMessages?.length &&
       !message.embeddedSocialMessages?.length
     ) &&
+    (!message.socialDirectMessage || !linkedSocialIds.has(message.id)) &&
     (message.channel !== 'phone' || !linkedIds.has(message.id))
   );
 }

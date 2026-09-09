@@ -1,3 +1,4 @@
+import { AccountLinkText } from './AccountLinkText';
 import {
   forwardRef,
   type FormEvent,
@@ -397,6 +398,7 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
             ))}
           </div>
         )}
+        <AccountLinkText text={value} preview />
         <textarea
           ref={textareaRef}
           id={id}

@@ -1,3 +1,7 @@
+import { appAvatarDataUrl } from '../../characters/portrait';
+import { postsWithInitialContent } from '../../characters/publications';
+import { SocialProfileEditor } from './SocialProfileEditor';
+import type { CharacterAppAccount } from '../../characters/character';
 import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -35,9 +39,9 @@ import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { PhoneImagePicker } from '../PhoneImagePicker';
 import {
   nextSocialPostId,
+  recommendedSocialPostIdentities,
   socialCharacterForPost,
   socialHandleForCharacter,
-  socialHandleForName,
   socialIdentityMatches,
   socialLikeAccountKey,
   socialPostMessages,
@@ -47,6 +51,7 @@ import {
 import {
   searchSocialDirectory,
   socialConnectionIds,
+  resolveSocialDirectoryUser,
   type SocialConnectionsByCharacter,
   type SocialDirectoryUser,
 } from '../../chat/socialDirectory';
@@ -62,11 +67,11 @@ import {
   type SocialDirectMessageParticipant,
 } from './PhoneSocialDirectMessages';
 import {
-  dummySocialPosts,
   formatSocialCount,
+  npcSeedPostEngagement,
   type SocialComment,
   type SocialPost,
-} from './dummyPosts';
+} from './socialPostPresentation';
 
 type SocialAccount = {
   key: string;
@@ -83,6 +88,7 @@ type SocialNotice = {
 
 type PendingCommentReveal = {
   actionId: string;
+  action: 'comment' | 'load-more';
   postId: string;
   baselineCount: number;
   baselineVisibleCount: number;
@@ -115,7 +121,7 @@ type PhoneSocialFeedScreenProps = {
   unreadDirectMessages: SocialDmUnreadByHandle;
   onMarkDirectMessagesSeen: (partnerHandle: string) => void;
   /** Resolves a Storybook/Gallery image id to the stored image. */
-  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   /** Liked post ids per "characterId/app" account (persisted in the RP save). */
   socialLikesByAccount: Record<string, string[]>;
   socialDirectoryUsers: SocialDirectoryUser[];
@@ -160,6 +166,7 @@ type PhoneSocialFeedScreenProps = {
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
     username: string,
+    profile?: CharacterAppAccount,
   ) => boolean;
   onBack: () => void;
   connections?: ConnectionPreset[];
@@ -255,7 +262,7 @@ export function PhoneSocialFeedScreen({
   rpDateTimeFormat,
   rpWeekdayLanguage,
 }: PhoneSocialFeedScreenProps) {
-  const [nickname, setNickname] = useState('');
+  const [editingProfile, setEditingProfile] = useState(false);
   // A username stored in the Storybook means the character already has an
   // account in this app; the onboarding step is skipped then.
   const storedUsername =
@@ -345,6 +352,7 @@ export function PhoneSocialFeedScreen({
     socialConnectionsByCharacter,
     owner?.id,
     app.id,
+    storyCharacters,
   );
   const defaultFotogramUserIds = app.id === 'fotogram' && owner
     ? (fotogramContactsByCharacter[owner.id] ?? []).flatMap((characterId) => {
@@ -356,10 +364,10 @@ export function PhoneSocialFeedScreen({
     : [];
   const connectedSocialUserIds = [...new Set([
     ...defaultFotogramUserIds,
-    ...savedSocialUserIds,
+    ...savedSocialUserIds.map((id) => resolveSocialDirectoryUser(socialDirectoryUsers, id)?.id ?? id),
   ])];
   const connectedSocialUsers = connectedSocialUserIds.flatMap((socialUserId) => {
-    const user = socialDirectoryUsers.find((entry) => entry.id === socialUserId);
+    const user = resolveSocialDirectoryUser(socialDirectoryUsers, socialUserId);
     return user?.handles[app.id] ? [user] : [];
   });
   const directorySearchResults = searchSocialDirectory(
@@ -597,13 +605,17 @@ export function PhoneSocialFeedScreen({
     ...(app.id === 'fotogram' ? dmPartnerAccounts : []),
   ]
     .flatMap((entry) => [entry.name, entry.handle]);
-  const persistedPosts: SocialPost[] = socialPostMessages(app.id, socialMediaMessages)
+  const visiblePostIdentities = [
+    ...discoveredIdentities,
+    ...recommendedSocialPostIdentities(app.id, storyCharacters),
+  ];
+  const persistedPosts: SocialPost[] = socialPostMessages(app.id, postsWithInitialContent(storyCharacters, socialMediaMessages))
     .reverse()
     .filter((message) => socialPostVisibleToViewer(
       message.socialPost,
       owner?.name ?? '',
       account ?? '',
-      discoveredIdentities,
+      visiblePostIdentities,
     ))
     .map((message) => ({
       id: message.socialPost.postId,
@@ -618,7 +630,7 @@ export function PhoneSocialFeedScreen({
       // Posts store only the Gallery image id; the pixels live in the
       // Storybook image library and are resolved here for display.
       imageDataUrl: message.socialPost.imageId
-        ? socialImageById(message.socialPost.imageId)?.dataUrl
+        ? socialImageById(message.socialPost.imageId, message.socialPost.authorAccountId ?? message.socialPost.authorCharacterId)?.dataUrl
         : undefined,
       imageId: message.socialPost.imageId,
       imageDescription: message.socialPost.imageDescription,
@@ -629,17 +641,7 @@ export function PhoneSocialFeedScreen({
     ...optimisticPosts.filter((post) => !persistedPostIds.has(post.id)),
     ...persistedPosts,
   ].filter((post) => !delayedPostIds.has(post.id));
-  // Cosmetic starter posts form the app's general home page. They are visible
-  // without adding their authors and do not imply a saved social connection.
-  const starterPosts = dummySocialPosts(
-    app,
-    owner?.id ?? 'no-account',
-    storyCharacters.map((character) => character.id),
-  );
-  const feedPosts = [
-    ...availablePosts,
-    ...starterPosts,
-  ];
+  const feedPosts = availablePosts;
   // The heart state belongs to the owner; the visible count adds one like
   // per player character that liked the post (persisted in the RP save).
   const likedPostIds = new Set(
@@ -663,13 +665,18 @@ export function PhoneSocialFeedScreen({
     characterLikeCountsRef.current = characterLikeCountByPostId;
   }, [characterLikeCountByPostId, persistedCommentsByPostId, persistedReactions]);
   const posts = feedPosts.map((post) => {
+    const seedEngagement = npcSeedPostEngagement(post.id);
     const fullLikeCount =
       post.likeCount +
+      (seedEngagement?.likeCount ?? 0) +
       (persistedReactions[post.id]?.likes ?? 0) +
       (characterLikeCountByPostId[post.id] ?? 0);
-    const fullCommentCount =
+    const storedCommentCount =
       post.commentCount +
       (persistedCommentsByPostId[post.id]?.length ?? 0);
+    const fullCommentCount = storedCommentCount > 0
+      ? storedCommentCount
+      : seedEngagement?.commentCount ?? 0;
     return {
       ...post,
       likeCount: freshPostIds.has(post.id)
@@ -762,8 +769,9 @@ export function PhoneSocialFeedScreen({
     });
   }, [freshPostIds, socialMediaMessages]);
 
-  // For a comment action, show the actor's comment first and then reveal every
-  // generated reply at a random three-to-six-second interval.
+  // Replies to a new user comment arrive gradually. Loading an existing thread
+  // reveals the completed workflow result together, because those comments
+  // are presented as already existing rather than newly arriving reactions.
   useEffect(() => {
     if (
       !pendingCommentReveal ||
@@ -788,6 +796,14 @@ export function PhoneSocialFeedScreen({
     const total = baselineCount + Math.max(0, currentPersistedCount - baselinePersistedCount);
     const firstVisibleCount = Math.min(total, baselineVisibleCount + 1);
     queueMicrotask(() => {
+      if (pendingCommentReveal.action === 'load-more') {
+        setVisibleCommentCounts((current) => ({
+          ...current,
+          [postId]: Math.max(current[postId] ?? 0, total),
+        }));
+        setPendingCommentReveal(undefined);
+        return;
+      }
       setVisibleCommentCounts((current) => ({
         ...current,
         [postId]: Math.max(current[postId] ?? 0, firstVisibleCount),
@@ -900,6 +916,7 @@ export function PhoneSocialFeedScreen({
     }));
     setPendingCommentReveal({
       actionId,
+      action: 'comment',
       postId: post.id,
       baselineCount,
       baselineVisibleCount,
@@ -973,6 +990,7 @@ export function PhoneSocialFeedScreen({
     }));
     setPendingCommentReveal({
       actionId,
+      action: 'load-more',
       postId: post.id,
       baselineCount,
       baselineVisibleCount,
@@ -1000,6 +1018,18 @@ export function PhoneSocialFeedScreen({
     }
   }
 
+  function toggleComments(post: SocialPost, commentsOpen: boolean) {
+    setCommentDraft('');
+    if (commentsOpen) {
+      setOpenCommentsPostId(undefined);
+      return;
+    }
+    setOpenCommentsPostId(post.id);
+    if (commentsForPost(post).length === 0) {
+      void loadMoreComments(post);
+    }
+  }
+
   async function submitPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const caption = postDraft.trim();
@@ -1011,10 +1041,12 @@ export function PhoneSocialFeedScreen({
       postId: nextSocialPostId(
         app.id,
         socialMediaMessages,
-        optimisticPosts.map((post) => post.id),
+        [...optimisticPosts, ...persistedPosts].map((post) => post.id),
       ),
       author: owner.name,
       authorHandle: account,
+      authorCharacterId: owner.sourceId,
+      authorAccountId: owner.apps?.[app.id]?.accountId,
       caption,
       textOnly: !postDraftImage || undefined,
       // Only the Gallery image id is persisted; uploads were imported into
@@ -1124,21 +1156,7 @@ export function PhoneSocialFeedScreen({
     event.currentTarget.form?.requestSubmit();
   }
 
-  function createAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const username = socialHandleForName(nickname);
-    if (!nickname.trim() || !owner) {
-      return;
-    }
-    // The account name is persisted in the Storybook so it survives closing
-    // the app and is part of the story data.
-    if (!onCreateSocialAccount(owner, app.id, username)) {
-      showNotice({ kind: 'error', text: 'Could not create this account. Choose an available nickname and try again.' });
-      return;
-    }
-    setAccount(username);
-    setNickname('');
-  }
+
 
   function submitUserSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1203,55 +1221,17 @@ export function PhoneSocialFeedScreen({
     );
   }
 
-  if (!account) {
-    return (
-      <div className={`phone-social-screen ${app.themeClass}`} aria-label={app.name}>
-        <header className="phone-gallery-header phone-social-header">
-          <button type="button" onClick={onBack} aria-label="Back" title="Back">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div className="phone-social-brand">
-            <strong>{app.name}</strong>
-            <span>
-              {owner
-                ? `${owner.name} — no account`
-                : 'No account'}
-            </span>
-          </div>
-        </header>
-        <div className="phone-social-onboarding">
-          <div className="phone-social-onboarding-card">
-            <strong>{app.name}</strong>
-            <span>{app.tagline}</span>
-            {owner ? (
-              <form onSubmit={createAccount}>
-                {notice?.kind === 'error' && <span role="alert">{notice.text}</span>}
-                <label className="phone-banking-field">
-                  <span>Nickname</span>
-                  <input
-                    type="text"
-                    placeholder="Pick a nickname"
-                    value={nickname}
-                    onChange={(event) => setNickname(event.target.value)}
-                    autoFocus
-                  />
-                </label>
-                <button type="submit" disabled={!nickname.trim()}>
-                  Create Account
-                </button>
-              </form>
-            ) : (
-              <span className="phone-social-empty">
-                Select a character to create an account.
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (editingProfile && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]}
+    accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages}
+    locked={socialMediaMessages.length > 0 || bankTransferMessages.length > 0}
+    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) { setAccount(profile.username); setEditingProfile(false); } return saved; }}
+    onCancel={() => setEditingProfile(false)} />;
+  if (!account && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]} accountId={`character:${owner.sourceId}:${app.id}`}
+    name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages} locked={false}
+    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) { setAccount(profile.username); setEditingProfile(false); } return saved; }}
+    onCancel={onBack} />;
+  if (!account) return <p>Select a character to open this app.</p>;
+
 
   const directMessageCommentAccounts: SocialDirectMessageParticipant[] = posts.flatMap((post) => [
     ...(post.comments ?? []),
@@ -1283,11 +1263,6 @@ export function PhoneSocialFeedScreen({
     ...connectedAccounts,
     ...directMessageCommentAccounts,
     ...dmPartnerAccounts,
-    ...starterPosts.map((post) => ({
-      key: `virtual-${app.id}-${post.authorHandle}`,
-      name: post.authorName,
-      handle: post.authorHandle,
-    })),
     ...persistedPosts.map((post) => ({
       key: `post-author-${app.id}-${post.authorHandle}`,
       name: post.authorName,
@@ -1430,7 +1405,7 @@ export function PhoneSocialFeedScreen({
                 className="phone-avatar"
                 name={owner?.name ?? account}
                 fallback={(owner?.name ?? account).slice(0, 1).toUpperCase()}
-                profileImageDataUrl={owner?.profileImage?.dataUrl}
+                profileImageDataUrl={appAvatarDataUrl(owner, owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId) : undefined)}
                 style={ownerColor ? { borderColor: ownerColor, color: ownerColor } : undefined}
               />
               <span className="phone-social-account-main">
@@ -1457,7 +1432,7 @@ export function PhoneSocialFeedScreen({
                     className="phone-avatar"
                     name={entry.name}
                     fallback={entry.name.slice(0, 1).toUpperCase()}
-                    profileImageDataUrl={entry.character?.profileImage?.dataUrl}
+                    profileImageDataUrl={appAvatarDataUrl(entry.character, entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!, entry.character.sourceId) : undefined)}
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
@@ -1479,6 +1454,7 @@ export function PhoneSocialFeedScreen({
             })}
           </div>
           <div className="phone-social-sidebar-actions">
+            <button type="button" className="phone-social-sidebar-button" onClick={() => setEditingProfile(true)}>Edit Profile</button>
             {addingPerson && (
               <form className="phone-social-add-user" onSubmit={submitUserSearch}>
                 <input
@@ -1502,8 +1478,8 @@ export function PhoneSocialFeedScreen({
                             type="button"
                             onClick={() => addSocialUser(user)}
                             disabled={alreadyAdded}
-                            aria-label={alreadyAdded ? `${user.name} already added` : `Add ${user.name}`}
-                            title={alreadyAdded ? 'Already added' : 'Add user'}
+                            aria-label={alreadyAdded ? `${user.name} already followed` : `Follow ${user.name}`}
+                            title={alreadyAdded ? 'Already following' : 'Follow user'}
                           >
                             {alreadyAdded ? '✓' : '+'}
                           </button>
@@ -1526,7 +1502,7 @@ export function PhoneSocialFeedScreen({
             >
               {addingPerson
                 ? 'Cancel'
-                : '+ Add User'}
+                : '+ Follow User'}
             </button>
             <div className="phone-social-post-menu-anchor" ref={postMenuRef}>
               {postStage === 'menu' && (
@@ -1754,7 +1730,7 @@ export function PhoneSocialFeedScreen({
                       className="phone-avatar"
                       name={post.authorName}
                       fallback={post.authorName.slice(0, 1).toUpperCase()}
-                      profileImageDataUrl={postAuthorCharacter?.profileImage?.dataUrl}
+                      profileImageDataUrl={appAvatarDataUrl(postAuthorCharacter, postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!, postAuthorCharacter.sourceId) : undefined)}
                       style={postAuthorColor
                         ? { borderColor: postAuthorColor, color: postAuthorColor }
                         : undefined}
@@ -1802,10 +1778,7 @@ export function PhoneSocialFeedScreen({
                       <button
                         type="button"
                         className="phone-social-open-comments-toggle"
-                        onClick={() => {
-                          setOpenCommentsPostId(commentsOpen ? undefined : post.id);
-                          setCommentDraft('');
-                        }}
+                        onClick={() => toggleComments(post, commentsOpen)}
                         aria-expanded={commentsOpen}
                       >
                         <span>{commentsOpen ? 'Hide comments' : 'Open comments'}</span>
@@ -1901,10 +1874,7 @@ export function PhoneSocialFeedScreen({
                           <button
                             type="button"
                             className="phone-social-comment-button"
-                            onClick={() => {
-                              setOpenCommentsPostId(commentsOpen ? undefined : post.id);
-                              setCommentDraft('');
-                            }}
+                            onClick={() => toggleComments(post, commentsOpen)}
                             aria-expanded={commentsOpen}
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1925,10 +1895,7 @@ export function PhoneSocialFeedScreen({
                           <button
                             type="button"
                             className="phone-social-open-comments-toggle"
-                            onClick={() => {
-                              setOpenCommentsPostId(commentsOpen ? undefined : post.id);
-                              setCommentDraft('');
-                            }}
+                            onClick={() => toggleComments(post, commentsOpen)}
                             aria-expanded={commentsOpen}
                           >
                             <span>{commentsOpen ? 'Hide comments' : 'Open comments'}</span>
@@ -1996,7 +1963,11 @@ export function PhoneSocialFeedScreen({
                       );
                     })}
                     {comments.length === 0 && (
-                      <span className="phone-social-empty">No comments yet.</span>
+                      <span className="phone-social-empty">
+                        {pendingCommentReveal?.postId === post.id
+                          ? 'The comment servers are catching up. This may take a moment.'
+                          : 'No comments yet.'}
+                      </span>
                     )}
                     <button
                       type="button"

@@ -123,6 +123,8 @@ function messageToTimelineEntry(
       : undefined,
     phone: channel === 'phone'
       ? {
+          fromAccountId: message.phoneFromAccountId,
+          toAccountId: message.phoneToAccountId,
           from: message.phoneFrom ?? '',
           to: message.phoneTo ?? '',
           voiceMessage: message.phoneVoiceMessage || undefined,
@@ -163,7 +165,9 @@ function messageToTimelineEntry(
     socialPost: message.socialPost,
     socialThreadAction: message.socialThreadAction,
     socialReactions: message.socialReactions,
+    accountLinks: message.accountLinks,
     socialDirectMessage: message.socialDirectMessage,
+    matchMeMatch: message.matchMeMatch,
     createdPhoneNote: message.createdPhoneNote,
     deletedPhoneNote: message.deletedPhoneNote,
     simulatedAiChat: message.simulatedAiChat,

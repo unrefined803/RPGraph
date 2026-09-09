@@ -25,7 +25,7 @@ export function stripPlanBlocksFromStream(text: string) {
   return visible === '[' ? '' : visible;
 }
 
-const autoplayMessengerKeyPattern = /"(?:whatsUpApp|fotogramApp|onlyFriendsApp)"\s*:/;
+const autoplayMessengerKeyPattern = /"(?:whatsUpApp|fotogramApp|onlyFriendsApp|matchMeApp)"\s*:/;
 
 export function autoplayStreamPreviewText(text: string) {
   const visible = stripPlanBlocksFromStream(text);

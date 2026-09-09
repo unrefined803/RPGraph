@@ -1,13 +1,13 @@
 import { spawn } from 'node:child_process';
 import { closeSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const [runner, ...args] = process.argv.slice(2);
 const entrypoints = {
-  vitest: 'vitest/vitest.mjs',
+  vitest: 'vitest/package.json',
   playwright: '@playwright/test/cli',
 };
 
@@ -20,7 +20,10 @@ const interactive = args.some((arg) =>
   ['--watch', '-w', '--ui', '--debug', '--help', '-h', '--version', '-v', '--list', 'list'].includes(arg),
 ) || process.env.PWDEBUG === '1';
 const verbose = interactive || process.env.RPGRAPH_TEST_VERBOSE === '1';
-const entrypoint = require.resolve(entrypoints[runner]);
+const resolvedEntrypoint = require.resolve(entrypoints[runner]);
+const entrypoint = runner === 'vitest'
+  ? join(dirname(resolvedEntrypoint), require('vitest/package.json').bin.vitest)
+  : resolvedEntrypoint;
 const logDirectory = verbose ? undefined : mkdtempSync(join(tmpdir(), 'rpgraph-tests-'));
 const logPath = logDirectory && join(logDirectory, 'output.log');
 const logFd = logPath ? openSync(logPath, 'w') : undefined;

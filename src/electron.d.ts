@@ -14,6 +14,7 @@ import type {
 import type { RpStorybook } from './nodes/rp-storybook/model';
 import type { RpCharacterCard } from './storybook/characterCard';
 import type { RpgraphSessionV2 } from './data-management/types';
+import type { NpcLibrarySnapshot } from './characters/npcLibrary';
 
 type SelectedImageFile = {
   name: string;
@@ -92,7 +93,11 @@ declare global {
         onReasoningTokens?: (tokenCount: number) => void,
       ) => Promise<LlmCompletionResult>;
       listFiles: () => Promise<SavedFileSummary[]>;
+      confirmV3Migration: (summary: string) => boolean;
       listCharacterFiles: () => Promise<SavedFileSummary[]>;
+      getNpcLibrary: () => Promise<NpcLibrarySnapshot>;
+      reloadNpcLibrary: () => Promise<NpcLibrarySnapshot>;
+      openNpcLibraryFolder: () => Promise<{ path: string }>;
       saveNamedWorkflow: (
         name: string,
         workflow: WorkflowFile,
@@ -217,10 +222,13 @@ declare global {
       resolveProjectPath: (relativePath: string) => Promise<{
         path: string;
       }>;
-      restoreDefaultWorkflow: () => Promise<{
-        filePath: string;
-        fileName: string;
-        workflow: unknown;
+      restoreDefaultFiles: () => Promise<{
+        restoredTypes: string[];
+        workflow?: {
+          filePath: string;
+          fileName: string;
+          value: unknown;
+        };
       }>;
       reloadWorkflow: (filePath: string) => Promise<{
         filePath: string;
@@ -418,6 +426,7 @@ declare global {
         protection: 'plain' | 'encrypted',
         password: string,
         overwrite?: boolean,
+        destination?: 'characters' | 'npc-characters',
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
       saveCurrentSession: (
         filePath: string,

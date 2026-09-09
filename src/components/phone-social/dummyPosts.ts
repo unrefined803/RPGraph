@@ -13,30 +13,7 @@ import fotogramTrailViewUrl from '../../assets/social/fotogram/trail-view.jpg';
 import fotogramWaterfrontRideUrl from '../../assets/social/fotogram/waterfront-ride.jpg';
 import fotogramWindowCatUrl from '../../assets/social/fotogram/window-cat.jpg';
 
-export type SocialPost = {
-  id: string;
-  authorName: string;
-  authorHandle: string;
-  caption: string;
-  likeCount: number;
-  commentCount: number;
-  /** Built-in background comments for deterministic dummy posts. */
-  comments?: SocialComment[];
-  /** Price in dollars for locked posts; only used when the app requires unlocking. */
-  unlockPrice?: number;
-  /** Locked posts hide their image and caption until unlocked. */
-  locked: boolean;
-  /** Built-in cosmetic post; entries without image data render a placeholder. */
-  dummy: boolean;
-  /** Text-only posts have no image area at all; the caption moves on top. */
-  textOnly?: boolean;
-  imageDataUrl?: string;
-  imageId?: string;
-  imageDescription?: string;
-  rpDateTime?: string;
-};
-
-export type SocialComment = {
+type SocialComment = {
   id: string;
   authorName?: string;
   authorHandle: string;
@@ -67,7 +44,7 @@ function comment(authorName: string, authorHandle: string, text: string): Omit<S
 // The two platforms intentionally use separate, hand-written pools. The seeded
 // selection below makes every character's starting feed feel individual while
 // keeping it stable when the app is reopened.
-const dummyPostPools: Record<SocialAppConfig['id'], readonly DummyPostTemplate[]> = {
+export const dummyPostPools: Record<SocialAppConfig['id'], readonly DummyPostTemplate[]> = {
   fotogram: [
     {
       id: 'lake-run',
@@ -407,90 +384,3 @@ const dummyPostPools: Record<SocialAppConfig['id'], readonly DummyPostTemplate[]
     },
   ],
 };
-
-function characterSeed(seed: string) {
-  // Matches Banking: a stable account identifier always produces the same feed.
-  let hash = 0x811c9dc5;
-  for (const char of seed.trim().toLocaleLowerCase()) {
-    hash ^= char.codePointAt(0) ?? 0;
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
-}
-
-function mulberry32(seed: number) {
-  let state = seed || 1;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
-    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function seededShuffle<T>(values: T[], random: () => number) {
-  for (let index = values.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
-    [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
-  }
-  return values;
-}
-
-/**
- * Deterministic home-page feed for one account. The shuffled template pool is
- * divided evenly across all player characters. A template overlaps only when
- * equal-sized partitions cannot be formed without reusing the pool remainder.
- * These cosmetic discovery posts do not represent followed accounts.
- */
-export function dummySocialPosts(
-  app: SocialAppConfig,
-  viewerId: string,
-  viewerIds: readonly string[],
-  author?: { name: string; handle: string },
-): SocialPost[] {
-  const pool = seededShuffle(
-    [...dummyPostPools[app.id]],
-    mulberry32(characterSeed(`${app.id}:starter-pool`)),
-  );
-  const partitionViewerIds = [...new Set([...viewerIds, viewerId])]
-    .filter((id) => id.trim())
-    .sort((left, right) => left.localeCompare(right));
-  const viewerIndex = Math.max(0, partitionViewerIds.indexOf(viewerId));
-  const partitionSize = Math.ceil(pool.length / Math.max(1, partitionViewerIds.length));
-  const selectedTemplates = Array.from(
-    { length: partitionSize },
-    (_, offset) => pool[(viewerIndex * partitionSize + offset) % pool.length],
-  );
-  return selectedTemplates
-    .map((template) => {
-      const postId = `dummy-${app.id}-${viewerId}-${template.id}`;
-      const comments = template.comments.map((entry, index) => ({
-        ...entry,
-        id: `${postId}-comment-${index}`,
-      }));
-      const postAuthor = author ?? template.author;
-      const locked = app.postsRequireUnlock && template.locked === true;
-      return {
-        id: postId,
-        authorName: postAuthor.name,
-        authorHandle: postAuthor.handle,
-        caption: template.caption,
-        likeCount: template.likeCount,
-        commentCount: comments.length,
-        comments,
-        unlockPrice: locked ? template.unlockPrice : undefined,
-        locked,
-        dummy: true,
-        textOnly: template.textOnly,
-        imageDataUrl: template.imageDataUrl,
-      };
-    });
-}
-
-export function formatSocialCount(count: number) {
-  if (count >= 1000) {
-    const compact = (count / 1000).toFixed(count >= 10_000 ? 0 : 1);
-    return `${compact.replace(/\.0$/, '')}k`;
-  }
-  return String(count);
-}

@@ -98,7 +98,7 @@ export function promptActionHintText(actionId: PromptActionId) {
     case 'getImageId':
       return [
         'Stored character image search is available. To request it, output exactly one JSON object and nothing else:',
-        '{"action":"get_image_id","plan":"brief plan describing whose image is needed and what it should show"}',
+        '{"action":"get_image_id","plan":"brief plan stating whose phone gallery to search and who or what the image should show"}',
       ].join('\n');
     case 'createImage':
       return [
@@ -145,16 +145,20 @@ export const getImagesLlmInstruction = [
   'The first pass requested this action with the following plan:',
   '{{plan}}',
   '',
-  'Use the Text Input and this plan to choose the Storybook characters and visual search tags. This pass performs only the image search; do not write or continue the visible reply.',
+  'Use the Text Input and this plan to choose the phone owner, photographed characters, and visual search tags. This pass performs only the image search; do not write or continue the visible reply.',
   '',
   'Now output exactly one JSON object and nothing else:',
   '',
   '{',
   '"action": "get_image_id",',
+  '"phoneOwner": "Phone Owner Full Name",',
   '"characters": "Character Name, Other Name",',
   '"tags": "name, location, pose, clothing, selfie, mirror"',
   '}',
   '',
+  'phoneOwner is required: search only this character\'s Phone Gallery, including NPC container images. Use the full owner name, never the name of the photographed person unless this is their own gallery.',
+  'characters is an optional comma-separated list of photographed people used as caption search hints, not gallery owners. Leave it empty when irrelevant. Tags rank visual caption matches within the selected gallery.',
+  'If an NPC took a picture of the player, phoneOwner is the NPC and characters is the player. For a selfie both can be the NPC. Never switch to another phone when no image matches.',
   'Search with at least 10 tags.',
 ].join('\n');
 
@@ -608,6 +612,24 @@ const previousGetImagesLlmInstructions = new Set([
     '`tags` is a comma-separated list of short search tags such as selfie, mirror, bedroom, outfit, smiling, angry, phone_photo.',
     '',
     'Only call this action when image information is needed. Do not write a normal message together with this action.',
+  ].join('\n'),
+  [
+    'Action follow-up: search stored character phone images',
+    '',
+    'The first pass requested this action with the following plan:',
+    '{{plan}}',
+    '',
+    'Use the Text Input and this plan to choose the Storybook characters and visual search tags. This pass performs only the image search; do not write or continue the visible reply.',
+    '',
+    'Now output exactly one JSON object and nothing else:',
+    '',
+    '{',
+    '"action": "get_image_id",',
+    '"characters": "Character Name, Other Name",',
+    '"tags": "name, location, pose, clothing, selfie, mirror"',
+    '}',
+    '',
+    'Search with at least 10 tags.',
   ].join('\n'),
 ]);
 
@@ -1422,16 +1444,16 @@ function parsePromptActionRecord(parsed: unknown): ParsedPromptActionCall | unde
   }
   const record = parsed as Record<string, unknown>;
   if (record.action === 'get_image_id' || record.action === 'getImageId' || record.action === 'getImages') {
+    const phoneOwner = typeof record.phoneOwner === 'string' ? record.phoneOwner.trim() : '';
     const characters = typeof record.characters === 'string' ? record.characters.trim() : '';
     const tags = typeof record.tags === 'string' ? record.tags.trim() : '';
-    // Tags are required for an executable search. Rejecting character-only or
-    // plan-only calls prevents an unfiltered image dump when the follow-up
-    // model omits the visual search terms.
-    if (!tags) {
+    // Explicit ownership and tags prevent searches across unrelated phones.
+    if (!phoneOwner || !tags) {
       return undefined;
     }
     return {
       action: 'getImageId',
+      phoneOwner,
       characters,
       tags,
     };
@@ -1711,20 +1733,6 @@ function splitSearchWords(value: string) {
     .filter(Boolean);
 }
 
-function namesMatch(characterName: string, requestedName: string) {
-  const character = normalizedSearchText(characterName);
-  const requested = normalizedSearchText(requestedName);
-  if (!character || !requested) {
-    return false;
-  }
-  if (character === requested) {
-    return true;
-  }
-  const characterParts = character.split(' ');
-  const requestedParts = requested.split(' ');
-  return requestedParts.length === 1 && characterParts[0] === requestedParts[0];
-}
-
 function searchWords(tags: string[]) {
   return Array.from(new Set(tags.flatMap(splitSearchWords)));
 }
@@ -1791,20 +1799,28 @@ function imageRecipientsById(
 }
 
 function findGetImagesResults(
-  nodes: WorkflowNode[],
-  historyMessages: MessageRecord[],
+  context: ExecuteContext,
   call: ParsedPromptActionCall,
   maxReturnedImages: number,
 ): ActionImageResult[] {
   const requestedCharacters = splitCommaList(call.characters ?? '');
   const requestedTags = splitCommaList(call.tags ?? '');
   const words = searchWords(requestedTags);
-  const imageLists = storybookImageListsFromNodes(nodes);
-  const recipientsByImageId = imageRecipientsById(imageLists, historyMessages);
+  if (!call.phoneOwner?.trim() || words.length === 0) return [];
+  const imageLists = context.appCharacters
+    ? context.appCharacters.map((character) => ({
+        id: `${character.id}:images`, storybookNodeId: character.storybookNodeId,
+        kind: character.kind, sourceId: character.sourceId, name: character.name,
+        label: character.label, images: character.images ?? [],
+      }))
+    : storybookImageListsFromNodes(context.nodes);
+  const recipientsByImageId = imageRecipientsById(imageLists, context.historyMessages);
   const lists = imageLists.filter((imageList) =>
-    requestedCharacters.length === 0 ||
-    requestedCharacters.some((characterName) => namesMatch(imageList.name, characterName)),
+    normalizedSearchText(imageList.name) === normalizedSearchText(call.phoneOwner ?? ''),
   );
+  // Ambiguous owners must never combine separate galleries.
+  if (lists.length !== 1) return [];
+  const subjectWords = searchWords(requestedCharacters);
   return lists
     .flatMap((imageList) =>
       imageList.images.map((image) => ({
@@ -1813,6 +1829,7 @@ function findGetImagesResults(
         characterName: imageList.name,
         shownTo: recipientsByImageId.get(image.id) ?? [],
         score: tagScore(image.description, words),
+        subjectScore: tagScore(image.description, subjectWords),
         attachment: {
           id: image.id,
           name: image.name,
@@ -1829,6 +1846,7 @@ function findGetImagesResults(
     )
     .filter((result) => words.length === 0 || result.score > 0)
     .sort((left, right) =>
+      right.subjectScore - left.subjectScore ||
       right.score - left.score ||
       left.characterName.localeCompare(right.characterName) ||
       left.imageId.localeCompare(right.imageId),
@@ -1842,7 +1860,7 @@ const imageTemplateLinePattern =
   /\{\{(?:imageReference|imageReferences|imageId|imageIdTag|imageId_tag|imageTag|imageTags|caption|imageText|imageShownTo)\}\}/;
 
 function noMatchingImagesLine() {
-  return '* No matching stored Storybook character images were found for the requested characters and tags.';
+  return '* No matching stored phone images were found in the selected owner gallery for the requested search hints.';
 }
 
 function imageReferenceLabel(index: number, includeImageOrderLabels: boolean) {
@@ -1946,8 +1964,9 @@ function getImagesResultTemplateText(
   hideImageText: boolean,
 ) {
   const template = expandImageTemplateRows(config.resultTemplate, results, config.sendImagesToLlm, hideImageText);
-  return template
+  return `Phone Gallery searched: ${call.phoneOwner?.trim() || '(owner missing)'}.\n${template}`
     .split('{{actionId}}').join(config.actionId)
+    .split('{{phoneOwner}}').join(call.phoneOwner ?? '')
     .split('{{characters}}').join(call.characters ?? '')
     .split('{{tags}}').join(call.tags ?? '')
     .split('{{images}}').join(formatImages(results, config.sendImagesToLlm, hideImageText))
@@ -2072,7 +2091,7 @@ export async function executePromptAction(
       images: options.visionEnabled !== false && generatedImage ? [generatedImage] : [],
     };
   }
-  const results = findGetImagesResults(context.nodes, context.historyMessages, call, config.maxReturnedImages);
+  const results = findGetImagesResults(context, call, config.maxReturnedImages);
   const sendImagesToLlm = options.visionEnabled !== false && config.sendImagesToLlm;
   const resultConfig = sendImagesToLlm === config.sendImagesToLlm
     ? config

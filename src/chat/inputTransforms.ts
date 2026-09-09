@@ -70,9 +70,10 @@ export function translationPrompt({
   return fastTaskPrompt([
     instruction,
     'Preserve tone, meaning, names, formatting, and roleplay style.',
+    'Copy account links such as @fotogram:username and @whatsup:Full Name verbatim, including the entire name or account ID. Never translate or reformat account links.',
     'Preserve quotation boundaries exactly: keep every quoted passage quoted and every unquoted passage unquoted.',
     'Never add quotation marks around text that was not quoted in the source, and never remove quotation marks that were present in the source.',
-    'Tokens such as [[RPGRAPH_EMOJI_0]] are immutable placeholders. Copy every one exactly once, unchanged and in its original position.',
+    'Tokens such as [[RPGRAPH_EMOJI_0]] and [[RPGRAPH_ACCOUNT_LINK_0]] are immutable placeholders. Copy every one exactly once, unchanged and in its original position.',
     recentHistoryContext?.trim()
       ? [
           'Use this recent roleplay context only to resolve names, pronouns, tone, references, and wording:',

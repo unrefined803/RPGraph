@@ -1,9 +1,16 @@
+import { AccountLinkContext } from '../chat/accountLinkContext';
+import { AccountLinkText } from './AccountLinkText';
+import type { CharacterAppAccount } from '../characters/character';
+import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
+import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
+import type { DatingProfile } from '../chat/datingProfile';
 import {
   Fragment,
   type CSSProperties,
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -22,7 +29,7 @@ import type {
   ImageCaptionChange,
   MessageRecord,
   SocialPostRecord,
-  SocialAppKind,
+  SocialMessengerAppKind,
   SocialDirectMessageOpenRequest,
   SocialDmUnreadByHandle,
   SocialDirectMessageRecord,
@@ -94,12 +101,12 @@ type UnreadPhoneConversation = {
 
 type PhoneScreen =
   | 'desktop' | 'whatsup' | 'gallery' | 'chat-gallery' | 'camera' | 'banking'
-  | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
+  | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist';
 
-type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
+type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist';
 
 const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
-  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes', 'ai'];
+  ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes', 'ai', 'plottwist'];
 
 const defaultPhoneWallpapers: ChatImageAttachment[] = [
   {
@@ -137,6 +144,7 @@ function desktopBadgeLabel(count: number) {
 
 type PhonePanelProps = {
   phoneContacts: PhoneContact[];
+  appCharacters: StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
   characterColors: Map<string, string>;
   selectedPhoneContact?: PhoneContact;
@@ -148,7 +156,7 @@ type PhonePanelProps = {
   highlightedPhoneMessagePulseKey: number;
   unreadPhoneConversations: UnreadPhoneConversation[];
   unreadBankingCount: number;
-  phoneAppNotificationCounts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends', number>;
+  phoneAppNotificationCounts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends' | 'matchme', number>;
   phoneHomeRequestId: number;
   socialPostOpenRequest?: {
     requestId: number;
@@ -188,8 +196,8 @@ type PhonePanelProps = {
   onMarkSelectedPhoneConversationSeen: () => void;
   onMarkBankingSeen: () => void;
   onMarkPhoneAppSeen: (app: 'notes' | 'ai' | 'fotogram' | 'onlyfriends') => void;
-  onMarkSocialDirectMessagesSeen: (app: SocialAppKind, partnerHandle: string) => void;
-  unreadSocialDirectMessages: Record<SocialAppKind, SocialDmUnreadByHandle>;
+  onMarkSocialDirectMessagesSeen: (app: SocialMessengerAppKind, partnerHandle: string) => void;
+  unreadSocialDirectMessages: Record<SocialMessengerAppKind, SocialDmUnreadByHandle>;
   onOpenUnreadPhoneConversation: (conversation: UnreadPhoneConversation) => void;
   unreadPhoneSwitchName: (conversation: UnreadPhoneConversation) => string;
   onSwitchToViewedCharacter: () => void;
@@ -263,16 +271,18 @@ type PhonePanelProps = {
     likeCount: number;
   }) => Promise<boolean>;
   onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
+  onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
     username: string,
+    profile?: CharacterAppAccount,
   ) => boolean;
   onImportSocialPostImage: (request: {
     owner: StorybookCharacter;
     image: ChatImageAttachment;
   }) => Promise<ChatImageAttachment | undefined>;
-  socialImageById: (imageId: string) => ChatImageAttachment | undefined;
+  socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   socialLikesByAccount: Record<string, string[]>;
   socialDirectoryUsers: SocialDirectoryUser[];
   fotogramContactsByCharacter: Record<string, string[]>;
@@ -313,6 +323,7 @@ type PhonePanelProps = {
 
 export function PhonePanel({
   phoneContacts,
+  appCharacters,
   storyCharacters,
   characterColors,
   selectedPhoneContact,
@@ -398,6 +409,7 @@ export function PhonePanel({
   onSubmitSocialThreadAction,
   onSubmitSocialDirectMessage,
   onCreateSocialAccount,
+  onSaveDatingProfile,
   onImportSocialPostImage,
   socialImageById,
   socialLikesByAccount,
@@ -429,13 +441,27 @@ export function PhonePanel({
   onUnloadImageAssistantComfyModel,
   onRefreshImageAssistantModelState,
 }: PhonePanelProps) {
+  const { request: accountLinkRequest } = useContext(AccountLinkContext);
+  const accountLinkScreen = accountLinkRequest?.app === 'matchme' ? 'plottwist' : accountLinkRequest?.app;
+  const linkedSocialRequest = accountLinkRequest && accountLinkRequest.app !== 'whatsup' ? {
+    requestId: accountLinkRequest.requestId, app: accountLinkRequest.app, messageId: '',
+    participantName: accountLinkRequest.name,
+    participantHandle: accountLinkRequest.app === 'matchme' ? accountLinkRequest.accountId : accountLinkRequest.username,
+  } : undefined;
+  const directMessageRequest = linkedSocialRequest ?? socialDirectMessageOpenRequest;
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   // Start on the conversation when the panel opens through a chat message
   // link, or on a requested social post; otherwise start on the desktop.
   const [screen, setScreen] = useState<PhoneScreen>(() =>
-    socialDirectMessageOpenRequest?.app ??
+    accountLinkScreen ??
+    (directMessageRequest?.app === 'matchme' ? 'plottwist' : directMessageRequest?.app) ??
     socialPostOpenRequest?.app ??
     (highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop'));
+  const [seenAccountLinkRequest, setSeenAccountLinkRequest] = useState(accountLinkRequest);
+  if (seenAccountLinkRequest !== accountLinkRequest) {
+    setSeenAccountLinkRequest(accountLinkRequest);
+    if (accountLinkScreen) setScreen(accountLinkScreen);
+  }
   const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = useState(phoneHomeRequestId);
   if (seenPhoneHomeRequestId !== phoneHomeRequestId) {
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
@@ -462,15 +488,15 @@ export function PhonePanel({
     }
   }
   const [seenSocialDirectMessageOpenRequestId, setSeenSocialDirectMessageOpenRequestId] = useState(
-    socialDirectMessageOpenRequest?.requestId ?? 0,
+    directMessageRequest?.requestId ?? 0,
   );
   if (
-    socialDirectMessageOpenRequest &&
-    seenSocialDirectMessageOpenRequestId !== socialDirectMessageOpenRequest.requestId
+    directMessageRequest &&
+    seenSocialDirectMessageOpenRequestId !== directMessageRequest.requestId
   ) {
-    setSeenSocialDirectMessageOpenRequestId(socialDirectMessageOpenRequest.requestId);
-    if (screen !== socialDirectMessageOpenRequest.app) {
-      setScreen(socialDirectMessageOpenRequest.app);
+    setSeenSocialDirectMessageOpenRequestId(directMessageRequest.requestId);
+    if (screen !== directMessageRequest.app) {
+      setScreen(directMessageRequest.app === 'matchme' ? 'plottwist' : directMessageRequest.app);
     }
   }
   const unreadWhatsUpCount = phoneContacts.reduce(
@@ -753,6 +779,17 @@ export function PhonePanel({
     );
   }
 
+  if (screen === 'plottwist') {
+    return <PhoneDatingScreen key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
+      characters={appCharacters} history={socialMediaMessages} isRunning={isRunning}
+      onSendMessage={onSubmitSocialDirectMessage}
+      unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
+      openRequest={directMessageRequest?.app === 'matchme' ? directMessageRequest : undefined}
+      emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
+      images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
+      onBack={() => setScreen('desktop')} />;
+  }
+
   if (screen === 'banking') {
     return (
       <PhoneBankingScreen
@@ -814,7 +851,7 @@ export function PhonePanel({
         key={`${screen}-${selectedCharacter?.id ?? 'no-account'}`}
         app={socialApps[screen]}
         owner={selectedCharacter}
-        storyCharacters={storyCharacters}
+        storyCharacters={appCharacters}
         characterColors={characterColors}
         phoneGalleryImages={phoneGalleryImages}
         bankTransferMessages={bankTransferMessages}
@@ -836,9 +873,9 @@ export function PhonePanel({
             : undefined
         }
         openDirectMessageRequest={
-          socialDirectMessageOpenRequest?.app === screen &&
-          socialDirectMessageOpenRequest.requestId !== dismissedSocialDirectMessageOpenRequestId
-            ? socialDirectMessageOpenRequest
+          directMessageRequest?.app === screen &&
+          directMessageRequest.requestId !== dismissedSocialDirectMessageOpenRequestId
+            ? directMessageRequest
             : undefined
         }
         isRunning={isRunning}
@@ -862,7 +899,7 @@ export function PhonePanel({
         }}
         onBack={() => {
           setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
-          setDismissedSocialDirectMessageOpenRequestId(socialDirectMessageOpenRequest?.requestId);
+          setDismissedSocialDirectMessageOpenRequestId(directMessageRequest?.requestId);
           setScreen('desktop');
         }}
         connections={connections}
@@ -950,6 +987,19 @@ export function PhonePanel({
           </button>
         </div>
         <div className="phone-desktop-apps">
+          <button className="phone-desktop-app" type="button"
+            style={{ gridColumn: desktopLayout.apps.plottwist.column, gridRow: desktopLayout.apps.plottwist.row }}
+            onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'app', appId: 'plottwist' })}
+            onClick={() => {
+              if (suppressAppClickRef.current) { suppressAppClickRef.current = false; return; }
+              setScreen('plottwist');
+            }} aria-label="Open MatchMe">
+            <span className="phone-matchme-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />
+              </svg>
+            </span>{phoneAppNotificationCounts.matchme > 0 && <span className="phone-desktop-app-badge" aria-hidden="true">{desktopBadgeLabel(phoneAppNotificationCounts.matchme)}</span>}<span>MatchMe</span>
+          </button>
           <button
             className="phone-desktop-app"
             type="button"
@@ -1119,9 +1169,7 @@ export function PhonePanel({
               : 'Open OnlyFriends'}
           >
             <span className="phone-onlyfriends-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />
-              </svg>
+              <span className="phone-onlyfriends-monogram">OF</span>
             </span>
             {phoneAppNotificationCounts.onlyfriends > 0 && (
               <span className="phone-desktop-app-badge" aria-hidden="true">
@@ -1284,7 +1332,7 @@ export function PhonePanel({
                 className="phone-avatar"
                 name={contact.character.name}
                 fallback={contact.character.name.slice(0, 1).toUpperCase()}
-                profileImageDataUrl={contact.character.profileImage?.dataUrl}
+                profileImageDataUrl={phoneCharacterAvatarDataUrl(contact.character)}
                 style={{ borderColor: contact.color, color: contact.color }}
               />
               <span className="phone-contact-main">
@@ -1335,7 +1383,7 @@ export function PhonePanel({
                 className="phone-avatar large"
                 name={selectedPhoneContact.character.name}
                 fallback={selectedPhoneContact.character.name.slice(0, 1).toUpperCase()}
-                profileImageDataUrl={selectedPhoneContact.character.profileImage?.dataUrl}
+                profileImageDataUrl={phoneCharacterAvatarDataUrl(selectedPhoneContact.character)}
                 style={{
                   borderColor: selectedPhoneContact.color,
                   color: selectedPhoneContact.color,
@@ -1451,7 +1499,7 @@ export function PhonePanel({
                                 }
                               />
                             ) : (
-                              <span>{view.visibleText}</span>
+                              <span><AccountLinkText text={view.visibleText} bindings={message.accountLinks} /></span>
                             )
                           )}
                           {message.phoneImageCaptionChange && (

@@ -161,7 +161,6 @@ import {
 } from '../chat/socialMedia';
 import {
   buildSocialDirectory,
-  bundledSocialUsers,
   establishedSocialHandle,
   searchSocialDirectory,
   socialConnectionIds,
@@ -176,7 +175,6 @@ import {
 } from '../chat/socialCatalogs';
 import {
   resolveSocialMessageIdentity,
-  socialMessageCorrectionContext,
   validateSocialMessengerAccounts,
 } from '../chat/socialMessageValidation';
 import type { StorybookCharacter, StorybookCreateImageCharacter } from '../storybook/runtime';
@@ -233,19 +231,19 @@ import {
 } from './variables';
 
 const bundledDefaultWorkflows = import.meta.glob<{ default: unknown }>(
-  '../../workflow.default*.json',
+  '../../resources/default-content/default*.json',
   { eager: true },
 );
 const bundledDefaultWorkflowPaths = Object.keys(bundledDefaultWorkflows)
   .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 if (bundledDefaultWorkflowPaths.length === 0) {
-  throw new Error('No workflow.default*.json file was found in the project root.');
+  throw new Error('No workflow.default*.json file was found in resources/default-content.');
 }
 const planningDefaultWorkflowPath = [...bundledDefaultWorkflowPaths]
   .reverse()
   .find((filePath) => /planning/i.test(filePath));
 if (!planningDefaultWorkflowPath) {
-  throw new Error('No planning bundled workflow was found in the project root.');
+  throw new Error('No planning bundled workflow was found in resources/default-content.');
 }
 const currentWorkflow = bundledDefaultWorkflows[planningDefaultWorkflowPath]
   .default as WorkflowFile;
@@ -294,6 +292,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-instruction-2:735:49788531',
   'get-images-instruction-3:389:ed7ed76f',
   'get-images-instruction-4:605:9ce7d20e',
+  'get-images-instruction-5:522:fa4e3343',
   'create-image-result-1:243:e4845c8c',
   'create-image-result-2:240:be37f41b',
   'create-image-result-3:209:a11ab164',
@@ -536,10 +535,10 @@ export function verifyWorkflowValidationFixtures() {
   );
   assertFixture(
     socialDirectInput.startsWith('[FOTOGRAM DIRECT MESSAGE]') &&
-      socialDirectInput.includes('Jamie (@jamie): Maybe after work.') &&
+      !socialDirectInput.includes('Maybe after work.') &&
       socialDirectInput.includes('Post text: Trying this dress for tonight.') &&
       socialDirectInput.includes('Original comment from Jamie (@jamie): That dress looks amazing!') &&
-      socialDirectInput.includes('New message: Are you free later?') &&
+      socialDirectInput.includes('New message:\nAlex: Are you free later?') &&
       parsedSocialDirectReply.message?.fromHandle === 'jamie' &&
       parsedSocialDirectReply.message?.toHandle === 'alex' &&
       parsedSocialDirectReply.message?.replyToMessageId === 'fotogram-dm-user-1' &&
@@ -557,13 +556,13 @@ export function verifyWorkflowValidationFixtures() {
       ) &&
       parsedOnlyFriendsReply.message?.text === 'You are the best!' &&
       parsedOnlyFriendsReply.message.tip === 10 &&
-      socialMessageHiddenFromChat({
+      !socialMessageHiddenFromChat({
         id: 22,
         role: 'output',
         originalText: 'Hidden DM history',
         socialDirectMessage: parsedSocialDirectReply.message,
       }),
-    'social direct messages must include conversation context, parse the recipient reply, and stay hidden in Chat',
+    'social direct messages must include conversation context, parse the recipient reply, and remain visible in Chat',
   );
   const parsedReactionsWithDms = parseSocialReactionsOutput(
     [
@@ -683,7 +682,7 @@ export function verifyWorkflowValidationFixtures() {
     characters: privateFotogramCharacters,
     messages: [],
     app: 'onlyfriends',
-    identity: '@leo.parker',
+    identity: 'Leo Parker',
   });
   const validFotogramName = resolveSocialMessageIdentity({
     characters: privateFotogramCharacters,
@@ -726,7 +725,7 @@ export function verifyWorkflowValidationFixtures() {
     text: [
       'The scene continues.',
       '```json',
-      '{"onlyFriendsApp":[{"from":"Espen Harper","to":"@leo.parker","message":"Hello"}]}',
+      '{"onlyFriendsApp":[{"from":"Espen Harper","to":"Leo Parker","message":"Hello"}]}',
       '```',
     ].join('\n'),
   });
@@ -735,24 +734,16 @@ export function verifyWorkflowValidationFixtures() {
       missingOnlyFriendsAccount.character?.name === 'Leo Parker' &&
       validFotogramName.available &&
       validFotogramName.handle === 'espen.afterdark' &&
-      unknownNpcName.available &&
-      unknownNpcName.source === 'new-npc' &&
-      bundledHandle.available &&
-      bundledHandle.handle === 'violetlane' &&
-      unknownHandle.available &&
-      unknownHandle.source === 'new-npc' &&
-      unknownHandle.handle === 'janam98' &&
-      unknownAtHandle.available &&
-      unknownAtHandle.name === 'haterboy647' &&
-      unknownAtHandle.handle === 'haterboy647' &&
+      !unknownNpcName.available &&
+      !bundledHandle.available &&
+      !unknownHandle.available &&
+      !unknownAtHandle.available &&
       inventedHandleConversation.issues.length === 0 &&
       inventedHandleConversation.sanitizedText.includes('fotogram-post-private-01') &&
       invalidSocialOutput.issues.length === 1 &&
       invalidSocialOutput.sanitizedText === 'The scene continues.' &&
-      socialMessageCorrectionContext(invalidSocialOutput.issues).includes(
-        'Leo Parker has no OnlyFriends account.',
-      ),
-    'social messages must create unknown NPC usernames but block missing Storybook app accounts',
+      invalidSocialOutput.issues[0]?.resolved.reason?.includes('Leo Parker has no OnlyFriends account.') === true,
+    'structured social messages may introduce fictional users but must reject missing Storybook app accounts',
   );
   assertFixture(
     findSocialAccountByExactIdentity(
@@ -916,15 +907,8 @@ export function verifyWorkflowValidationFixtures() {
   const ryanSocialUser = socialDirectory.users.find((user) =>
     user.characterId === 'storybook:character:ryan-private'
   );
-  const bundledFotogramNames = new Set(
-    bundledSocialUsers
-      .filter((user) => user.handles.fotogram)
-      .map((user) => user.name.toLowerCase()),
-  );
   assertFixture(
-    bundledSocialUsers.filter((user) => user.handles.fotogram).length === 100 &&
-      bundledSocialUsers.filter((user) => user.handles.onlyfriends).length === 100 &&
-      bundledSocialIdentityContext('fotogram').some((line) =>
+    bundledSocialIdentityContext('fotogram').some((line) =>
         line === '- Luna Sky (@luna.sky)'
       ) &&
       bundledSocialIdentityContext('onlyfriends').some((line) =>
@@ -973,9 +957,7 @@ export function verifyWorkflowValidationFixtures() {
         'fotogram',
         'Unknown Person',
       ) === undefined &&
-      bundledSocialUsers
-        .filter((user) => user.handles.onlyfriends)
-        .every((user) => !bundledFotogramNames.has(user.name.toLowerCase())) &&
+      !socialDirectory.users.some((user) => user.source === 'bundled') &&
       searchSocialDirectory(socialDirectory.users, 'fotogram', 'es').length === 0 &&
       searchSocialDirectory(socialDirectory.users, 'fotogram', 'Espen').some((user) =>
         user.characterId === 'storybook:character:espen-private'
@@ -989,7 +971,7 @@ export function verifyWorkflowValidationFixtures() {
       sameNameDirectory.users.filter((user) =>
         user.source === 'dynamic' && user.name === 'Shared Name'
       ).length === 2,
-    'social directories must use separate 100-user catalogs and discover only eligible Storybook or runtime accounts',
+    'legacy catalogs must remain compatibility metadata while discovery includes only eligible character or runtime accounts',
   );
   const addedSocialConnections = zephiraSocialUser
     ? withSocialConnectionAdded(
@@ -3940,10 +3922,10 @@ export function verifyWorkflowValidationFixtures() {
     '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":0,"prompt":"A small dog lies on a sofa."}',
   );
   const characterOnlyImageSearch = parsePromptActionCall(
-    '{"action":"get_image_id","characters":"Robert Miller"}',
+    '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Robert Miller"}',
   );
   const taggedImageSearch = parsePromptActionCall(
-    '{"action":"get_image_id","characters":"Robert Miller","tags":"mirror, selfie"}',
+    '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Robert Miller","tags":"mirror, selfie"}',
   );
   assertFixture(
     createImageAction?.action === 'createImage' &&
@@ -5286,6 +5268,7 @@ async function verifyPromptRunFixtures() {
     defaultPromptActionConfig('Get character phone image list', 'getImageId'),
     {
       action: 'getImageId',
+      phoneOwner: 'Sarah Miller',
       characters: 'Sarah Miller',
       tags: 'mirror, selfie, party, outfit',
     },
@@ -5299,6 +5282,7 @@ async function verifyPromptRunFixtures() {
     },
     {
       action: 'getImageId',
+      phoneOwner: 'Sarah Miller',
       characters: 'Sarah Miller',
       tags: 'mirror, selfie, party, outfit',
     },
@@ -5332,7 +5316,7 @@ async function verifyPromptRunFixtures() {
   }> = [];
   const combinedCaptionOutputs = [
     '{"action":"get_image_id","plan":"Find Sarah Miller\'s party selfie before replying."}',
-    '{"action":"get_image_id","characters":"Sarah Miller","tags":"mirror, selfie, party, outfit, smiling, indoor, portrait, evening, phone, bedroom"}',
+    '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Sarah Miller","tags":"mirror, selfie, party, outfit, smiling, indoor, portrait, evening, phone, bedroom"}',
     '{"whatsUpApp":[{"from":"Espen Harper","to":"Helga Harper","message":"I found the picture."}]}',
     `{"action":"update_phone_image_caption","imageId":"${combinedCaptionImageId}","imageAction":"no_change"}`,
   ];
@@ -5742,7 +5726,7 @@ async function verifyPromptRunFixtures() {
 
   const socialReplayPrompts: string[] = [];
   const socialReplayOutputs = [
-    '{"onlyFriendsApp":[{"from":"Espen Harper","to":"@leo.parker","message":"Hello"}]}',
+    '{"onlyFriendsApp":[{"from":"Espen Harper","to":"Leo Parker","message":"Hello"}]}',
     'Espen realizes that Leo is not on OnlyFriends and puts the phone away.',
   ];
   const socialReplayContext = {
@@ -5813,12 +5797,10 @@ async function verifyPromptRunFixtures() {
     callLabel: () => 'Fixture call',
   });
   assertFixture(
-    socialReplayPrompts.length === 2 &&
-      !socialReplayPrompts[0]?.includes('[SOCIAL MESSAGE VALIDATION]') &&
-      socialReplayPrompts[1]?.includes('Leo Parker has no OnlyFriends account.') === true &&
-      socialReplayResult.generatedText ===
-        'Espen realizes that Leo is not on OnlyFriends and puts the phone away.',
-    'invalid social accounts must discard the first output and replay the same prompt once with targeted context',
+    socialReplayPrompts.length === 1 &&
+      socialReplayPrompts[0] === 'Espen wants to contact Leo on OnlyFriends.\n\nWrite the scene and any social message.' &&
+      !socialReplayResult.generatedText.includes('onlyFriendsApp'),
+    'invalid social accounts must be blocked without injecting context or making a correction request',
   );
 
   const planStepRequests: Array<{
@@ -6094,7 +6076,7 @@ async function verifyPromptRunFixtures() {
   );
   const actionCallScenario = await runStreamingScenario([
     '{"action":"get_image_id","plan":"Find a stored Espen party selfie that shows her outfit."}',
-    '{"action":"get_image_id","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone, smiling, evening, indoor, portrait"}',
+    '{"action":"get_image_id","phoneOwner":"Espen Harper","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone, smiling, evening, indoor, portrait"}',
     'Espen scrolls to the party photo and smirks.',
   ]);
   assertFixture(

@@ -1,3 +1,8 @@
+import { createCharacterContainer } from '../characters/creator';
+import { withPublicationSnapshot } from '../characters/publications';
+import type { SocialPostRecord } from '../types';
+import { validateCharacterAccountDirectory } from '../characters/profiles';
+import { characterPayload, socialFromCharacterApps, validateCharacterPayload } from '../characters/character';
 import {
   normalizeRpStorybookCharacter,
   rpFormatVersionStatus,
@@ -17,15 +22,16 @@ const currentRpCharacterCardVersion = formatVersions.characterCard;
 export type RpCharacterCard = {
   format: 'rpgraph-character';
   version: string;
-  character: RpStorybookCharacter;
+  character: ReturnType<typeof characterPayload>;
 };
 
-export function rpCharacterCardForCharacter(character: RpStorybookCharacter): RpCharacterCard {
-  return {
-    format: 'rpgraph-character',
-    version: currentRpCharacterCardVersion,
-    character: structuredClone(character),
-  };
+export function rpCharacterCardForCharacter(character: RpStorybookCharacter, options?: {
+  includePosts?: boolean; posts?: SocialPostRecord[]; gallery?: RpStorybookCharacter['images'];
+}): RpCharacterCard {
+  const exported = options?.includePosts
+    ? withPublicationSnapshot(character, options.posts ?? [], options.gallery ?? character.images)
+    : structuredClone(character);
+  return createCharacterContainer(exported, options?.includePosts);
 }
 
 export type CharacterCardImportPlan = {
@@ -43,9 +49,8 @@ function recordValue(value: unknown): Record<string, unknown> {
 
 /**
  * Validates a character card file and merges its character into the
- * storybook: a character with the same id or name is replaced in place,
- * otherwise the character is appended. Image ids are re-namespaced so they
- * never collide with the other characters' images.
+ * storybook: V2 replaces only matching stable IDs. Legacy cards may also
+ * match by name. V2 rejects image collisions instead of changing references.
  */
 export function planCharacterCardImport(
   cardValue: unknown,
@@ -66,6 +71,7 @@ export function planCharacterCardImport(
   }
 
   const sourceCharacter = recordValue(card.character);
+  if (versionStatus === 'current') validateCharacterPayload(sourceCharacter);
   const sourceId = typeof sourceCharacter.id === 'string' ? sourceCharacter.id.trim() : '';
   const sourceName = typeof sourceCharacter.name === 'string' ? sourceCharacter.name.trim() : '';
   if (!sourceId && !sourceName) {
@@ -74,7 +80,7 @@ export function planCharacterCardImport(
   const matchingIdIndex = sourceId
     ? storybook.characters.findIndex((existing) => existing.id === sourceId)
     : -1;
-  const matchingNameIndex = sourceName
+  const matchingNameIndex = versionStatus === 'legacy' && sourceName
     ? storybook.characters.findIndex(
         (existing) => existing.name.trim().toLowerCase() === sourceName.toLowerCase(),
       )
@@ -95,7 +101,18 @@ export function planCharacterCardImport(
   });
 
   const targetIndex = replacesIndex >= 0 ? replacesIndex : storybook.characters.length;
-  const character = normalizeRpStorybookCharacter(sourceCharacter, targetIndex, usedImageIds);
+  const character = normalizeRpStorybookCharacter({ ...sourceCharacter, playable: true }, targetIndex, usedImageIds);
+
+  const existingAccount = replacesIndex >= 0 ? storybook.characters[replacesIndex].apps?.matchme : undefined;
+  const importedAccount = character.apps?.matchme;
+  if (existingAccount?.profile && importedAccount?.profile && existingAccount.accountId === importedAccount.accountId) {
+    // Portable cards carry public data; an import must not reset private RP compatibility state.
+    const { decisions, messages, historyVersion } = existingAccount.profile;
+    importedAccount.profile = { ...importedAccount.profile, decisions: structuredClone(decisions),
+      ...(messages ? { messages: structuredClone(messages) } : {}),
+      ...(historyVersion ? { historyVersion } : {}) };
+    character.social = socialFromCharacterApps(character.apps ?? {});
+  }
 
   const characters = [...storybook.characters];
   if (replacesIndex >= 0) {
@@ -111,6 +128,7 @@ export function planCharacterCardImport(
     characters.push({ ...character, id: uniqueId });
   }
 
+  validateCharacterAccountDirectory(characters);
   return {
     character: replacesIndex >= 0 ? characters[replacesIndex] : characters[characters.length - 1],
     ...(replacesIndex >= 0 ? { replacesIndex } : {}),

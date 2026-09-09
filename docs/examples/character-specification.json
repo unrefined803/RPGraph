@@ -1,0 +1,50 @@
+{
+  "id": "example-rowan-mercer",
+  "name": "Rowan Mercer",
+  "age": 29,
+  "gender": "nonbinary",
+  "description": "An entirely fictional librarian who enjoys cycling and lakeside walks. The landscape images illustrate their hobbies, not their appearance.",
+  "personality": "Patient, curious and gently humorous.",
+  "speechStyle": "Warm, concise sentences with occasional dry humor.",
+  "role": "Fictional neighbor",
+  "playable": false,
+  "images": [
+    {
+      "id": "rowan-lake",
+      "path": "../../src/assets/social/fotogram/lake-run.jpg",
+      "name": "Lakeside morning",
+      "description": "A lakeside scene used to illustrate a fictional character's hobby."
+    },
+    {
+      "id": "rowan-cycling",
+      "path": "../../src/assets/social/fotogram/waterfront-ride.jpg",
+      "name": "Waterfront ride",
+      "description": "A waterfront cycling scene."
+    }
+  ],
+  "apps": {
+    "fotogram": {
+      "username": "rowan.mercer.books",
+      "displayName": "Rowan Mercer",
+      "bio": "Books, bikes and quiet mornings.",
+      "avatarImageId": "rowan-lake",
+      "initialPosts": [
+        { "key": "lake-morning", "text": "A quiet morning by the lake before opening the library.", "imageId": "rowan-lake" }
+      ]
+    },
+    "matchme": {
+      "username": "rowan.mercer",
+      "displayName": "Rowan Mercer",
+      "bio": "Looking for good conversation and a cycling companion.",
+      "profile": {
+        "name": "Rowan Mercer",
+        "age": 29,
+        "gender": "nonbinary",
+        "bio": "Looking for good conversation and a cycling companion.",
+        "interests": "Books, Cycling, Walking",
+        "photoIds": ["rowan-lake", "rowan-cycling"],
+        "decisions": {}
+      }
+    }
+  }
+}

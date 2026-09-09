@@ -1,3 +1,5 @@
+import type { Edge } from '@xyflow/react';
+import { validatePortConnection } from '../graph/portCompatibility';
 import { getRegisteredCoreNode } from './registry';
 import { isStorybookSourceNode } from '../storybook/runtime';
 import type { CreateNodeContext, HydrateContext } from './types';
@@ -77,8 +79,7 @@ export type UpgradeNodeResult =
  * The shell comes from the definition's own `create()` — giving the node the current
  * default style and, critically, none of the stale saved `width`/`height`/`measured`
  * that make the placeholder's wrapper an oversized invisible drag target. The id and
- * position are preserved so the node doesn't jump; incompatible nodes carry no edges
- * (stripped at load), so reusing the id is safe.
+ * position are preserved so stored connections can be revalidated against the new ports.
  */
 export function buildUpgradedNode(
   node: WorkflowNode,
@@ -103,8 +104,28 @@ export function buildUpgradedNode(
   }
 
   const shell = definition.create(createContext);
+  // Replace historical default labels, but keep names assigned by the user.
+  if (node.data.nodeType === 'rp-storybook' && /^RP Storybook V\d+(?:\.\d+)*$/.test(data.label)) {
+    data = { ...data, label: shell.data.label };
+  }
   return {
     status: 'upgraded',
     node: { ...shell, id: node.id, position: node.position, data },
   };
+}
+
+/** Keep pending connections until both endpoints are upgraded; validate affected live ports. */
+export function edgesAfterNodeUpgrade(nodes: WorkflowNode[], edges: Edge[], nodeId: string): Edge[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  return edges.filter((edge) => {
+    if (edge.source !== nodeId && edge.target !== nodeId) return true;
+    const source = byId.get(edge.source);
+    const target = byId.get(edge.target);
+    if (!source || !target) return false;
+    if (source.data.kind !== undefined || target.data.kind !== undefined) return true;
+    return validatePortConnection(nodes, edges, {
+      source: edge.source, target: edge.target,
+      sourceHandle: edge.sourceHandle ?? null, targetHandle: edge.targetHandle ?? null,
+    }, edge.id).ok;
+  });
 }

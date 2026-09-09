@@ -1,3 +1,6 @@
+import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
+import { validateCharacterAccountDirectory } from '../characters/profiles';
+import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import type { Edge } from '@xyflow/react';
 import {
   keepLatestInputEdges,
@@ -12,9 +15,10 @@ import {
   openingHistoryTurnsFromNodes,
 } from '../storybook/openingHistoryRuntime';
 import { isStorybookSourceNode } from '../storybook/runtime';
+import { parseRpStorybookJson } from '../nodes/rp-storybook/model';
 import type { TurnCheckpoint } from '../data-management/types';
 import type { MessageRecord, TurnRecord, WorkflowFile, WorkflowNode, WorkflowNodeData } from '../types';
-import { hydrateNodeData, removeEdgesConnectedToIncompatibleNodes } from '../workflow/persistence';
+import { hydrateNodeData } from '../workflow/persistence';
 import { isWorkflowFile } from '../workflow/validation';
 import { migrateStoredWorkflow } from '../workflow/migrations';
 
@@ -31,6 +35,7 @@ export type HydratedWorkflow = {
   openingTurns: TurnRecord[];
   openingMessages: MessageRecord[];
   openingCheckpoints: TurnCheckpoint[];
+  openingNpcParticipants: NpcParticipantSnapshots;
 };
 
 export function hydrateLoadedWorkflow({
@@ -84,16 +89,23 @@ export function hydrateLoadedWorkflow({
       'This workflow has more than one storybook source. A graph may contain only one RP Storybook or RP Storybook Editor node.',
     );
   }
+  for (const node of loadedNodes.filter(isStorybookSourceNode)) {
+    if (node.data.storybookJson) {
+      validateCharacterAccountDirectory(parseRpStorybookJson(node.data.storybookJson).characters);
+    }
+  }
 
   const loadedEdges = keepLatestInputEdges(
-    removeEdgesConnectedToIncompatibleNodes(loadedNodes, migratedWorkflow.edges)
+    migratedWorkflow.edges
       .map((edge) => withWorkflowConnectionColor({ ...edge, selected: false })),
   );
 
   let openingTurns: TurnRecord[] = [];
   let openingMessages: MessageRecord[] = [];
   let openingCheckpoints: TurnCheckpoint[] = [];
+  let openingNpcParticipants: NpcParticipantSnapshots = {};
   if (hydrateOpeningHistory) {
+    openingNpcParticipants = openingHistoryNpcParticipantsFromNodes(loadedNodes);
     const openingEvents = openingHistoryEventsFromNodes(loadedNodes);
     if (openingEvents.length > 0) {
       loadedNodes = loadedNodes.map((node) =>
@@ -121,5 +133,6 @@ export function hydrateLoadedWorkflow({
     openingTurns,
     openingMessages,
     openingCheckpoints,
+    openingNpcParticipants,
   };
 }

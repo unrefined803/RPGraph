@@ -3,7 +3,8 @@ import { defaultRpStorybookCharacterBanking } from '../nodes/rp-storybook/model'
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { SocialAppKind, SocialDirectMessageRecord } from '../types';
 import { buildSocialDirectory, searchSocialDirectory, socialHandleAvailable, type SocialDirectoryUser } from './socialDirectory';
-import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from './socialMessageValidation';
+import { canonicalSocialDirectMessage, parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity, validateSocialMessengerAccounts } from './socialMessageValidation';
+import type { MessageRecord } from '../types';
 import { socialDirectMessageActor } from './socialMedia';
 
 function character(
@@ -26,6 +27,53 @@ function character(
 }
 
 describe('social identity resolution', () => {
+  it.each<SocialAppKind>(['fotogram', 'onlyfriends'])('introduces a fictional %s DM user and retains their identity through replies and reload', (app) => {
+    const owner = character('helga', 'Helga Harper', { fotogramUsername: 'helga.harper', onlyfriendsUsername: 'helga.private' });
+    const handle = app === 'fotogram' ? 'helga.harper' : 'helga.private';
+    const key = app === 'fotogram' ? 'fotogramApp' : 'onlyFriendsApp';
+    const text = JSON.stringify({ [key]: [
+      { from: 'Helga Harper', to: 'realist_99', message: 'It is natural light.' },
+      { from: 'realist_99', to: 'Helga Harper', message: 'I disagree.' },
+    ] });
+    expect(validateSocialMessengerAccounts({ text, characters: [owner], messages: [] }).issues).toEqual([]);
+    const outgoing: SocialDirectMessageRecord = { app, messageId: 'first', from: owner.name,
+      fromHandle: handle, to: 'realist_99', toHandle: 'realist_99', text: 'It is natural light.', sentAt: '2026-09-07T21:46:00Z' };
+    const first = canonicalSocialDirectMessage(outgoing, [owner], []);
+    expect(first.toAccountId).toBe('dynamic:realist-99');
+    const history: MessageRecord[] = JSON.parse(JSON.stringify([{ id: 1, role: 'output', originalText: '', socialDirectMessage: first }]));
+    const reply = canonicalSocialDirectMessage({ ...outgoing, messageId: 'reply', from: first.to,
+      fromHandle: first.toHandle, fromAccountId: first.toAccountId, to: first.from,
+      toHandle: first.fromHandle, text: 'I disagree.' }, [owner], history);
+    expect(reply.fromAccountId).toBe(first.toAccountId);
+    expect(buildSocialDirectory({ storyCharacters: [owner], messages: history }).dynamicUsers[first.toAccountId!].handles[app]).toBe('realist_99');
+    expect(resolveSocialMessageIdentity({ characters: [owner], messages: [], app, identity: 'realist_99' }).available).toBe(false);
+  });
+
+  it('keeps absent known accounts, ambiguous names, cross-app aliases and MatchMe protected', () => {
+    const absent = character('known', 'Known Person', { fotogramUsername: '', onlyfriendsUsername: 'private.known' });
+    const other = character('other', 'Known Person', { fotogramUsername: 'other', onlyfriendsUsername: '' });
+    for (const [characters, identity] of [[[absent], 'Known Person'], [[absent], '@private.known'], [[absent, other], 'Known Person']] as const) {
+      expect(resolveSocialMessageIdentity({ characters: [...characters], messages: [], app: 'fotogram', identity, allowNewNpc: true }).available).toBe(false);
+    }
+    expect(resolveSocialMessageIdentity({ characters: [], messages: [], app: 'matchme', identity: 'realist_99', allowNewNpc: true }).available).toBe(false);
+    expect(resolveSocialMessageIdentity({ characters: [], messages: [], app: 'fotogram', identity: 'character:missing:fotogram', allowNewNpc: true }).available).toBe(false);
+  });
+
+  it('reuses a comment-created user instead of creating another DM identity', () => {
+    const owner = character('helga', 'Helga Harper', { fotogramUsername: 'helga.harper', onlyfriendsUsername: '' });
+    const history: MessageRecord[] = [{ id: 1, role: 'output', originalText: '', socialReactions: {
+      app: 'fotogram', postId: 'post', likes: 0,
+      comments: [{ from: 'Random Troll', handle: 'realist_99', text: 'Fake!' }],
+    } }];
+    const message: SocialDirectMessageRecord = { app: 'fotogram', messageId: 'dm',
+      from: 'Helga Harper', fromHandle: 'helga.harper', to: 'Random Troll', toHandle: 'realist_99',
+      text: 'It is real.', sentAt: '2026-09-07T21:46:00Z' };
+    const canonical = canonicalSocialDirectMessage(message, [owner], history);
+    expect(canonical.toAccountId).toBe('dynamic:random-troll');
+    expect(() => canonicalSocialDirectMessage({ ...message, toAccountId: 'dynamic:invented' }, [owner], history)).toThrow();
+    expect(() => canonicalSocialDirectMessage({ ...message, toHandle: 'someone.else' }, [owner], history)).toThrow();
+  });
+
   it.each<SocialAppKind>(['fotogram', 'onlyfriends'])(
     'prefers the actual %s account over another character\'s cross-app alias',
     (app) => {
@@ -101,9 +149,9 @@ describe('social account creation', () => {
     expect(socialHandleAvailable(directory.users, 'fotogram', 'saved.npc', owner.id)).toBe(false);
   });
 
-  it('reserves bundled handles even when the catalog user is not followed', () => {
-    const bundled = directory.users.find((user) => user.source === 'bundled' && user.handles.fotogram)!;
-    expect(socialHandleAvailable(directory.users, 'fotogram', bundled.handles.fotogram!, owner.id)).toBe(false);
+  it('does not reserve removed catalog handles without a loaded character', () => {
+    expect(socialHandleAvailable(directory.users, 'fotogram', 'luna.sky', owner.id)).toBe(true);
+    expect(directory.users.some((user) => user.source === 'bundled')).toBe(false);
   });
 
   it('allows the owner to retain its handle and permits independent app namespaces', () => {

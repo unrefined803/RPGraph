@@ -3,6 +3,7 @@ import { describe, it } from 'vitest';
 import {
   bundledDefaultWorkflowFileNames,
   importedDefaultFileNamesFromState,
+  missingDefaultFileTypes,
   restoreBundledDefaultWorkflows,
 } from './workflowDefaults.cjs';
 
@@ -34,6 +35,13 @@ describe('workflow defaults', () => {
       }),
       ['workflow.default_v23.json', 'workflow.default_planning_v1.json'],
     );
+  });
+
+  it('reports whichever default file categories are missing', () => {
+    assert.deepEqual(missingDefaultFileTypes([]), ['workflows', 'Storybooks']);
+    assert.deepEqual(missingDefaultFileTypes([{ type: 'workflow' }]), ['Storybooks']);
+    assert.deepEqual(missingDefaultFileTypes([{ type: 'storybook' }]), ['workflows']);
+    assert.deepEqual(missingDefaultFileTypes([{ type: 'workflow' }, { type: 'storybook' }]), []);
   });
 
   it('restores every bundled default and activates the last one', async () => {

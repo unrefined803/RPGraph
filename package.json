@@ -1,7 +1,7 @@
 {
   "name": "rpgraph-studio",
   "private": true,
-  "version": "0.4.10",
+  "version": "0.5.0",
   "description": "Local-first node graph studio for roleplay workflows.",
   "author": {
     "name": "unrefined803",
@@ -25,20 +25,27 @@
     "test:e2e": "node scripts/run-tests.mjs playwright test",
     "test:e2e:headed": "node scripts/run-tests.mjs playwright test --headed",
     "prepare": "node scripts/setup-git-hooks.mjs",
-    "workflow:redact": "node scripts/workflow-redact.mjs redact",
-    "workflow:merge": "node scripts/workflow-redact.mjs merge",
     "workflow:prompts:extract": "node scripts/workflow-prompts.mjs extract",
     "workflow:prompts:merge": "node scripts/workflow-prompts.mjs merge",
-    "storybook:redact": "node scripts/workflow-redact.mjs redact-storybook",
-    "storybook:merge": "node scripts/workflow-redact.mjs merge-storybook",
+    "storybook:redact": "node scripts/storybook-media.mjs redact",
+    "storybook:merge": "node scripts/storybook-media.mjs merge",
     "preview": "vite preview",
     "desktop:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev --no-sandbox\"",
     "desktop": "node scripts/run-electron.mjs --no-sandbox",
     "desktop:windows:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev\"",
-    "desktop:windows": "node scripts/run-electron.mjs"
+    "desktop:windows": "node scripts/run-electron.mjs",
+    "character:migrate-v3": "node scripts/migrate-character-v3.mjs",
+    "character:create": "node scripts/create-character-container.mjs",
+    "character:inspect": "node scripts/inspect-character-container.mjs",
+    "character:unpack": "node scripts/unpack-character-workspace.mjs",
+    "character:pack": "node scripts/pack-character-workspace.mjs",
+    "character:edit": "node scripts/edit-character-container.mjs",
+    "character:convert-demos": "node scripts/convert-demo-characters.mjs",
+    "character:faces:setup": "node scripts/setup-character-faces.mjs",
+    "character:faces": "node scripts/backfill-character-faces.mjs"
   },
   "dependencies": {
-    "@toon-format/toon": "^2.3.0",
+    "@toon-format/toon": "^2.3.1",
     "@xyflow/react": "^12.11.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
@@ -50,10 +57,11 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^5.2.0",
-    "@vitest/coverage-v8": "^3.2.7",
+    "@vitest/coverage-v8": "^4.1.11",
     "concurrently": "^9.1.2",
-    "electron": "^41.8.0",
+    "electron": "^41.10.7",
     "electron-builder": "^26.15.3",
+    "esbuild": "0.28.1",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
@@ -62,14 +70,14 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.62.1",
     "vite": "^7.3.5",
-    "vitest": "^3.2.7",
+    "vitest": "^4.1.11",
     "wait-on": "^8.0.3"
   },
   "overrides": {
     "esbuild": "0.28.1"
   },
   "allowScripts": {
-    "electron@41.8.0": true,
+    "electron@41.10.7": true,
     "esbuild@0.28.1": true,
     "electron-winstaller@5.4.0": true
   }

@@ -34,6 +34,7 @@ import {
 } from '../workflow/defaults';
 import {
   emptyRpStorybook,
+  storybookNeedsUpdate,
   parseRpStorybookJson,
   rpStorybookFormattedTextSettings,
   rpStorybookJsonText,
@@ -381,7 +382,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
         : emptyRpStorybook;
       return preservedData(data, 'No storybook loaded', {
         connectionId: data.connectionId,
-        storybookJson: rpStorybookJsonText(storybook),
+        storybookJson: storybookNeedsUpdate(data.storybookJson) ? data.storybookJson : rpStorybookJsonText(storybook),
         storybookStatus: storybook.title ? 'Embedded storybook' : 'Ready',
         storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),
       });
@@ -392,7 +393,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
         : emptyRpStorybook;
       return preservedData(data, 'No storybook loaded', {
         connectionId: connectionId(data, context),
-        storybookJson: rpStorybookJsonText(storybook),
+        storybookJson: storybookNeedsUpdate(data.storybookJson) ? data.storybookJson : rpStorybookJsonText(storybook),
         storybookStatus: storybook.title ? 'Loaded embedded storybook' : 'Ready',
         storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),
       });
@@ -404,7 +405,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
         ? parseRpStorybookJson(data.storybookJson)
         : emptyRpStorybook;
       return preservedData(data, 'No storybook loaded', {
-        storybookJson: rpStorybookJsonText(storybook),
+        storybookJson: storybookNeedsUpdate(data.storybookJson) ? data.storybookJson : rpStorybookJsonText(storybook),
         storybookStatus: storybook.title ? 'Embedded storybook' : 'Ready',
         storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),
       });
@@ -414,7 +415,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
         ? parseRpStorybookJson(data.storybookJson)
         : emptyRpStorybook;
       return preservedData(data, 'No storybook loaded', {
-        storybookJson: rpStorybookJsonText(storybook),
+        storybookJson: storybookNeedsUpdate(data.storybookJson) ? data.storybookJson : rpStorybookJsonText(storybook),
         storybookStatus: storybook.title ? 'Loaded embedded storybook' : 'Ready',
         storybookFormattedTextSettings: rpStorybookFormattedTextSettings(data.storybookFormattedTextSettings),
       });
