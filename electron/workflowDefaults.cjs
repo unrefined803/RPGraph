@@ -1,10 +1,9 @@
 const path = require('node:path');
 
-const defaultWorkflowFileNamePattern = /^workflow\.default.*\.json$/i;
 
 function bundledDefaultWorkflowFileNames(names) {
   return names
-    .filter((name) => defaultWorkflowFileNamePattern.test(name))
+    .filter((name) => /\.json$/i.test(name))
     .sort((left, right) => {
       const leftPlanning = /planning/i.test(left);
       const rightPlanning = /planning/i.test(right);

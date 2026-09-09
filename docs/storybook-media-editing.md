@@ -43,8 +43,8 @@ the application first.
 For LLM Prompt Switch changes, avoid touching unrelated graph data:
 
 ```bash
-npm run workflow:prompts:extract -- resources/default-content/workflow.default_v28.json /tmp/rpgraph-prompts.json
-npm run workflow:prompts:merge -- /tmp/rpgraph-prompts.json resources/default-content/workflow.default_v28.json resources/default-content/workflow.default_v28.json
+npm run workflow:prompts:extract -- resources/default-content/default_normal_v28.json /tmp/rpgraph-prompts.json
+npm run workflow:prompts:merge -- /tmp/rpgraph-prompts.json resources/default-content/default_normal_v28.json resources/default-content/default_normal_v28.json
 ```
 
 Always pass the intended workflow explicitly because the repository contains both

@@ -1,3 +1,5 @@
+const { safeWorkflowBaseName, safeStorybookBaseName, safeCharacterCardBaseName } = require('./fileNames.cjs');
+const { bundledJsonFilesByFormat } = require('./bundledJsonFiles.cjs');
 const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, shell } = require('electron');
 const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
@@ -121,9 +123,9 @@ function bundledDefaultContentDirectory() {
 
 function bundledDefaultWorkflowPaths() {
   const directory = bundledDefaultContentDirectory();
-  const names = bundledDefaultWorkflowFileNames(fsSync.readdirSync(directory));
+  const names = bundledDefaultWorkflowFileNames(bundledJsonFilesByFormat(directory, 'rpgraph-workflow'));
   if (names.length === 0) {
-    throw new Error('No workflow.default*.json file was found in the bundled default content directory.');
+    throw new Error('No bundled workflow JSON file was found in the bundled default content directory.');
   }
   return names.map((name) => {
     const resolved = path.resolve(directory, name);
@@ -134,9 +136,8 @@ function bundledDefaultWorkflowPaths() {
 
 function bundledDefaultStorybookPaths() {
   const directory = bundledDefaultContentDirectory();
-  return fsSync.readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.rpgraph-storybook.json'))
-    .map((entry) => path.resolve(directory, entry.name))
+  return bundledJsonFilesByFormat(directory, 'rpgraph-storybook')
+    .map((name) => path.resolve(directory, name))
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
@@ -485,31 +486,8 @@ function safeSessionBaseName(value) {
     : baseName;
 }
 
-function safeWorkflowBaseName(value) {
-  const cleaned = String(value ?? '')
-    .trim()
-    .replace(invalidFileBaseNameCharacters, '-')
-    .replace(/[. ]+$/g, '')
-    .replace(/(\.rpgraph)?\.json$/i, '')
-    .slice(0, 80);
-  const baseName = cleaned || `workflow-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)
-    ? `workflow-${baseName}`
-    : baseName;
-}
 
-function safeStorybookBaseName(value) {
-  const cleaned = String(value ?? '')
-    .trim()
-    .replace(invalidFileBaseNameCharacters, '-')
-    .replace(/[. ]+$/g, '')
-    .replace(/(\.rpgraph-storybook)?\.json$/i, '')
-    .slice(0, 80);
-  const baseName = cleaned || `storybook-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)
-    ? `storybook-${baseName}`
-    : baseName;
-}
+
 
 function validatedStoredFileName(fileName) {
   if (
@@ -522,18 +500,6 @@ function validatedStoredFileName(fileName) {
   return fileName;
 }
 
-function safeCharacterCardBaseName(value) {
-  const cleaned = String(value ?? '')
-    .trim()
-    .replace(invalidFileBaseNameCharacters, '-')
-    .replace(/[. ]+$/g, '')
-    .replace(/(\.rpgraph-character)?\.json$/i, '')
-    .slice(0, 80);
-  const baseName = cleaned || `character-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)
-    ? `${baseName}-file`
-    : baseName;
-}
 
 function storedJsonName(fileName) {
   return fileName.replace(/(\.rpgraph-storybook|\.rpgraph-character|\.rpgraph-session|\.rpgraph)?\.json$/i, '');
@@ -4708,7 +4674,7 @@ ipcMain.handle('storybook:save', async (_event, request) => {
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const baseName = safeStorybookBaseName(request?.name ?? request?.storybook?.title);
-  const fileName = `${baseName}.rpgraph-storybook${jsonFileExtension}`;
+  const fileName = `${baseName}${jsonFileExtension}`;
   const filePath = path.join(directory, fileName);
   if (request.overwrite) {
     await assertOverwriteType(filePath, 'storybook');
@@ -4756,7 +4722,7 @@ ipcMain.handle('character:save', async (_event, request) => {
     );
   }
   const baseName = safeCharacterCardBaseName(request?.name ?? card.character?.name);
-  const fileName = `${baseName}.rpgraph-character${jsonFileExtension}`;
+  const fileName = `${baseName}${jsonFileExtension}`;
   const filePath = path.join(directory, fileName);
   if (request.overwrite) {
     await assertOverwriteType(filePath, 'character-card');
@@ -4809,7 +4775,7 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
     baseName = safeStorybookBaseName(request?.name ?? request?.storybook?.title);
     expectedType = 'storybook';
     title = 'Save Storybook File';
-    defaultFileName = `${baseName}.rpgraph-storybook${jsonFileExtension}`;
+    defaultFileName = `${baseName}${jsonFileExtension}`;
     payload = protection === 'encrypted'
       ? await encryptStorybook(request.storybook, request.password)
       : protection === 'plain'
@@ -4829,7 +4795,7 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
     baseName = safeCharacterCardBaseName(request?.name ?? request?.characterCard?.character?.name);
     expectedType = 'character-card';
     title = 'Export Character Card';
-    defaultFileName = `${baseName}.rpgraph-character${jsonFileExtension}`;
+    defaultFileName = `${baseName}${jsonFileExtension}`;
     const card = request?.characterCard;
     if (
       !card ||

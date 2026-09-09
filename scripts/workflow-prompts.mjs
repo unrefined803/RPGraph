@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-import { readdirSync } from 'node:fs';
+import bundledJsonFiles from '../electron/bundledJsonFiles.cjs';
 import { dirname, join, resolve } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+
+const { bundledJsonFilesByFormat } = bundledJsonFiles;
 
 const promptFileFormat = 'rpgraph-llm-prompt-switch-prompts';
 const promptFileFormatVersion = 1;
@@ -10,11 +12,10 @@ const maximumEntries = 10;
 const bundledContentDirectory = 'resources/default-content';
 
 function bundledDefaultWorkflowFile() {
-  const names = readdirSync(bundledContentDirectory)
-    .filter((name) => /^workflow\.default.*\.json$/i.test(name))
+  const names = bundledJsonFilesByFormat(bundledContentDirectory, 'rpgraph-workflow')
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   if (names.length === 0) {
-    throw new Error(`No workflow.default*.json file was found in ${bundledContentDirectory}.`);
+    throw new Error(`No workflow JSON file was found in ${bundledContentDirectory}.`);
   }
   if (names.length > 1) {
     throw new Error(

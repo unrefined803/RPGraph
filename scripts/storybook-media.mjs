@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { readdirSync } from 'node:fs';
+import bundledJsonFiles from '../electron/bundledJsonFiles.cjs';
 import { dirname, join, resolve } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+
+const { bundledJsonFilesByFormat } = bundledJsonFiles;
 
 const dataUrlPattern = /data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,([a-z0-9+/_=-]+)/gi;
 const markerPattern = /__RPGRAPH_DATA_URL_REDACTED__sha256:([a-f0-9]{64});mime:([^;]+);bytes:(\d+)__/g;
@@ -10,11 +12,10 @@ const defaultStorybookRedactedPath = '/tmp/rpgraph-storybook.redacted.json';
 const bundledContentDirectory = 'resources/default-content';
 
 function bundledStorybookFile() {
-  const names = readdirSync(bundledContentDirectory)
-    .filter((name) => /\.rpgraph-storybook\.json$/i.test(name))
+  const names = bundledJsonFilesByFormat(bundledContentDirectory, 'rpgraph-storybook')
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   if (names.length === 0) {
-    throw new Error(`No *.rpgraph-storybook.json file was found in ${bundledContentDirectory}.`);
+    throw new Error(`No Storybook JSON file was found in ${bundledContentDirectory}.`);
   }
   if (names.length > 1) {
     throw new Error(
@@ -25,8 +26,7 @@ function bundledStorybookFile() {
 }
 
 function storybookFileInCurrentDirectory() {
-  const names = readdirSync('.')
-    .filter((name) => /\.rpgraph-storybook\.json$/i.test(name))
+  const names = bundledJsonFilesByFormat('.', 'rpgraph-storybook')
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   if (names.length === 0) {
     return undefined;
@@ -50,7 +50,7 @@ function usage() {
     '  npm run storybook:merge -- <redactedStorybook> <originalStorybook> <dest>',
     '',
     'Defaults:',
-    `  Storybook source: the sole *.rpgraph-storybook.json in the current directory or ${bundledContentDirectory}`,
+    `  Storybook source: the sole Storybook JSON in the current directory or ${bundledContentDirectory}`,
     `  redacted copy:   ${defaultStorybookRedactedPath}`,
     '  merge requires the redacted copy, untouched image-bearing original, and destination.',
     '',

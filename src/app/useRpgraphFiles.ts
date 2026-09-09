@@ -400,7 +400,7 @@ export function useRpgraphFiles({
         setFileStorageStatus('');
         return;
       }
-      const fileName = result.fileName ?? `${name}.rpgraph-character.json`;
+      const fileName = result.fileName ?? `${name.trim().replace(/\s+/g, '-')}.json`;
       updateRuntimeNode(pending.nodeId, {
         storybookStatus: fileProtection === 'encrypted'
           ? `Exported encrypted character: ${fileName}`

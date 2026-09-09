@@ -231,7 +231,7 @@ import {
 } from './variables';
 
 const bundledDefaultWorkflows = import.meta.glob<{ default: unknown }>(
-  '../../resources/default-content/workflow.default*.json',
+  '../../resources/default-content/default*.json',
   { eager: true },
 );
 const bundledDefaultWorkflowPaths = Object.keys(bundledDefaultWorkflows)

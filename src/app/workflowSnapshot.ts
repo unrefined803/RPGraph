@@ -89,5 +89,5 @@ export function suggestedWorkflowNameFromPath(filePath: string | null | undefine
     return 'workflow';
   }
   const fileName = filePath.split(/[\\/]/).pop() ?? 'workflow';
-  return fileName.replace(/(\.rpgraph)?\.json$/i, '') || 'workflow';
+  return fileName.replace(/^workflow\./i, '').replace(/(\.rpgraph)?\.json$/i, '').replace(/\s+/g, '_') || 'workflow';
 }
