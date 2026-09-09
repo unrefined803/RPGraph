@@ -249,12 +249,12 @@ export function useRoleplayPanelRuntime({
   const characterColors = useMemo(
     () =>
       new Map(
-        phoneCharacters.map((character, index) => [
+        playerCharacters.map((character, index) => [
           character.name,
           dialogueColors[index % dialogueColors.length],
         ]),
       ),
-    [phoneCharacters],
+    [playerCharacters],
   );
   const fotogramContactsByCharacter = useMemo(
     () => Object.fromEntries(storyCharacters.map((viewer) => [
@@ -569,7 +569,7 @@ export function useRoleplayPanelRuntime({
         messages,
         conversations: phoneConversationInfo,
         characterColors,
-        fallbackColor: dialogueColors[0],
+        fallbackColor: '#e8edf3',
         englishProcessingEnabled,
       },
     ),

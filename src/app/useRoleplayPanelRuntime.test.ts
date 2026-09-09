@@ -51,6 +51,8 @@ it('retains NPC participants but excludes them from initial, explicit and restor
   const { render, npc, player } = harness();
   expect(render().storyCharacters).toHaveLength(2);
   expect(render().playerCharacters.map((character) => character.id)).toEqual([player.id]);
+  expect(render().characterColors.has(player.name)).toBe(true);
+  expect(render().characterColors.has(npc.name)).toBe(false);
   expect(render().selectedCharacter?.id).toBe(player.id);
   render().selectChatCharacter(npc.id);
   expect(render().selectedCharacter?.id).toBe(player.id);
@@ -64,6 +66,7 @@ it('opens an NPC conversation from the playable side and preserves narrator insp
   expect(render().selectedCharacter?.id).toBe(player.id);
   expect(render().viewedPhoneCharacter?.id).toBe(player.id);
   expect(render().selectedPhoneContact?.character.id).toBe(npc.id);
+  expect(render().selectedPhoneContact?.color).toBe('#e8edf3');
   render().selectChatCharacter(narratorCharacterId);
   render().openPhoneConversation('npc-player', 1, { speakerId: npc.id, contactId: player.id, activatePlayer: false });
   expect(render().narratorSelected).toBe(true);
