@@ -1383,7 +1383,6 @@ export function PhoneSocialFeedScreen({
                 <span>@{account}</span>
               </span>
             </button>
-            <p>{owner?.apps?.[app.id]?.bio}</p>
             {followedAccounts.map((entry) => {
               const color = entry.character ? characterColors.get(entry.character.name) : undefined;
               const unread = unreadDirectMessages[entry.handle.toLowerCase()];
