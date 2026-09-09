@@ -182,45 +182,25 @@ function compactHistorySummary(text: string) {
   return summary.length <= 280 ? summary : `${summary.slice(0, 277).trimEnd()}...`;
 }
 
-/** LLM-facing input for a direct-message turn, including only this app conversation. */
+/** LLM-facing recipient context and new message; conversation history is supplied separately. */
 export function socialDirectMessageInputText(
   message: SocialDirectMessageRecord,
   historyMessages: MessageRecord[],
   characters: StorybookCharacter[] = [],
 ) {
-  const conversation = historyMessages.flatMap((entry) => {
-    const directMessage = entry.socialDirectMessage;
-    if (
-      !directMessage ||
-      directMessage.app !== message.app ||
-      (message.app === 'matchme' && (directMessage.matchId !== message.matchId || directMessage.messageId === message.messageId)) ||
-      !(
-        socialIdentityMatches(directMessage.fromHandle, message.fromHandle) &&
-        socialIdentityMatches(directMessage.toHandle, message.toHandle) ||
-        socialIdentityMatches(directMessage.fromHandle, message.toHandle) &&
-        socialIdentityMatches(directMessage.toHandle, message.fromHandle)
-      )
-    ) {
-      return [];
-    }
-    return [
-      `- ${directMessage.from} (@${directMessage.fromHandle}): ${singleLine(
-        directMessage.internalText ?? directMessage.text,
-      )}`,
-    ];
-  });
   const recipients = characters.filter((character) => message.toAccountId
     ? character.apps?.[message.app]?.accountId === message.toAccountId
     : character.apps?.[message.app]?.enabled && socialIdentityMatches(character.apps[message.app]!.username, message.toHandle));
   return [
     socialDirectMessageInputHeaders[message.app],
-    ...(message.app !== 'matchme' && recipients.length === 1 ? [recipientCharacterContext(recipients[0])] : []),
-    ...(message.app === 'matchme' ? [matchMeContext(matchMeState(characters, historyMessages), message)] : []),
     `App: ${socialAppNames[message.app]}`,
-    `Sender: ${message.from} (@${message.fromHandle})`,
-    `Recipient: ${message.to} (@${message.toHandle})`,
-    'Existing conversation:',
-    ...(conversation.length ? conversation : ['- No previous messages']),
+    `Sender: ${message.from}${message.app === 'matchme' ? '' : ` (@${message.fromHandle})`}`,
+    `Recipient: ${message.to}${message.app === 'matchme' ? '' : ` (@${message.toHandle})`}`,
+    `Reply as: ${message.to} to ${message.from}`,
+    '',
+    ...(message.app === 'matchme'
+      ? [matchMeContext(matchMeState(characters, historyMessages), message), '']
+      : recipients.length === 1 ? [recipientCharacterContext(recipients[0]), ''] : []),
     ...(message.origin
       ? [
           message.origin.commentText
@@ -240,7 +220,8 @@ export function socialDirectMessageInputText(
             : ['This conversation is about that post. Treat the new message in that context.']),
         ]
       : []),
-    `New message: ${singleLine(message.text)}`,
+    '', 'New message:',
+    `${message.from}: ${message.text.trim()}`,
   ].join('\n');
 }
 

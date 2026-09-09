@@ -12,7 +12,7 @@
 export const promptStepMarkerPattern = /^[ \t]*@step:[ \t]*([A-Za-z0-9_-]+)[ \t]*$/gim;
 
 // Marks where an earlier step's output is injected into a later step. A step
-// output that no later step references is prepended to the next step instead.
+// output that no later step references is not inserted into another prompt.
 export const stepOutputTokenPattern = /@output:([A-Za-z0-9_-]+)\b/gi;
 
 type PromptTextSections = {

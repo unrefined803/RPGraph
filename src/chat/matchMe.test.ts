@@ -70,7 +70,7 @@ describe('MatchMe permissions and identity', () => {
     expect(socialDirectMessageActor([owner, second], owner.id, outgoing)?.id).toBe(owner.id);
     expect(datingAccounts([owner]).find((a) => a.characterId === owner.id)?.personality).toContain('Private personality of mia');
     const context = matchMeContext(state, outgoing);
-    expect(context).toContain('Public profile');
+    expect(context).toContain('Public MatchMe profiles');
     expect(context).not.toContain('Private personality of mia');
     expect(context).not.toContain('Private background');
     expect(context).toContain(datingNpcProfiles[0].personality);
@@ -88,8 +88,8 @@ describe('MatchMe permissions and identity', () => {
     const input = socialDirectMessageInputText(outgoing, [...messages, { id: 2, role: 'output', originalText: '', socialDirectMessage: unrelated }], [owner]);
     expect(input).not.toContain('Unrelated private conversation');
     const retryInput = socialDirectMessageInputText(outgoing, [...messages, { id: 3, role: 'user', originalText: '', socialDirectMessage: outgoing }], [owner]);
-    expect(retryInput).toContain('No previous messages');
-    expect(retryInput).toContain('New message: Hello');
+    expect(retryInput).not.toContain('Existing conversation');
+    expect(retryInput).toContain(`New message:\n${outgoing.from}: Hello`);
     expect(matchMeMessageAllowed({ ...outgoing, matchId: otherMatch.id }, state)).toBe(false);
   });
 });

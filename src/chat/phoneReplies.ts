@@ -1,4 +1,23 @@
 import type { MessageRecord } from '../types';
+import type { StorybookCharacter } from '../storybook/runtime';
+import { recipientCharacterContext } from '../characters/appRuntime';
+
+/** Workflow input for the bound WhatsUp recipient; history is supplied separately. */
+export function whatsUpMessageInputText(
+  from: string,
+  to: string,
+  message: string,
+  recipient?: StorybookCharacter,
+  context?: string,
+) {
+  return [
+    '[WHATSUP MESSAGE]', 'App: WhatsUp', `Sender: ${from}`, `Recipient: ${to}`,
+    `Reply as: ${to} to ${from}`, '',
+    ...(recipient ? [recipientCharacterContext(recipient), ''] : []),
+    ...(context ? [context, ''] : []),
+    'New message:', `${from}: ${message.trim()}`,
+  ].join('\n');
+}
 
 function replyImageIds(message: MessageRecord) {
   const ids = message.phoneImageIds?.length
@@ -26,7 +45,7 @@ export function phoneReplyVisibleText(message: MessageRecord, translated = false
   return message.imageAttachments?.length && text === 'Attached image.' ? '' : text;
 }
 
-function formatPhoneReplyQuote(message: MessageRecord, translated = false) {
+export function formatPhoneReplyQuote(message: MessageRecord, translated = false) {
   const sender = message.phoneFrom || message.speakerName || 'Unknown';
   const imageIds = replyImageIds(message);
   const description = replyImageDescription(message);

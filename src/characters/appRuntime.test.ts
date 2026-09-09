@@ -15,6 +15,7 @@ import { canSendMatchMeMessage, incomingMatchMeMessage, matchMeLikePolicy, match
 import { parseSocialDirectMessageOutput, socialDirectMessageInputText } from '../chat/socialMedia';
 import { resolveSocialMessageIdentity, validateSocialMessengerAccounts } from '../chat/socialMessageValidation';
 import { phoneRuntimeCharactersFromMessages } from '../chat/phoneCharacters';
+import { whatsUpMessageInputText } from '../chat/phoneReplies';
 import type { MessageRecord } from '../types';
 
 const now = '2026-09-07T12:00:00Z';
@@ -43,6 +44,41 @@ function setup(extra: CharacterRegistryEntry[] = []) {
 }
 
 describe('shared NPC app discovery', () => {
+  it('formats Fotogram recipient data readably without leaking other characters or technical payloads', () => {
+    const unrelated = npc('unrelated'); unrelated.personality = 'UNRELATED SECRET';
+    const { characters, outgoing } = setup([entry(unrelated)]);
+    const message = { ...outgoing, app: 'fotogram' as const,
+      from: 'Player', fromHandle: 'player.fotogram', fromAccountId: 'player-fotogram',
+      to: 'Nova Vale', toHandle: 'nova.vale.art', toAccountId: 'stage4-nova-fg' };
+    const context = socialDirectMessageInputText(message, [], characters);
+    expect(context).toContain('Sender: Player (@player.fotogram)\nRecipient: Nova Vale (@nova.vale.art)\nReply as: Nova Vale to Player');
+    expect(context).toContain('Private characterization\nName: Nova Vale');
+    expect(context).toContain(fixture.character.personality);
+    expect(context).toContain('Public social profiles\n\n');
+    expect(context).toContain('Fotogram\nUsername: @nova.vale.art');
+    expect(context).toContain('No account: WhatsUp, OnlyFriends');
+    expect(context).not.toContain('Existing conversation');
+    expect(context).toContain(`New message:\nPlayer: ${message.text}`);
+    for (const hidden of ['SENDER SECRET', 'UNRELATED SECRET', 'data:image', 'accountId', 'privateCharacterization', '[REPLYING CHARACTER CONTEXT]', 'null']) {
+      expect(context).not.toContain(hidden);
+    }
+    const recipient = characters.find((character) => character.sourceId === 'stage4-nova')!;
+    expect(context).toContain(recipient.apps!.fotogram!.bio);
+    const image = recipient.images?.find((item) => item.id === recipient.apps!.fotogram!.avatarImageId);
+    if (image?.description) expect(context).toContain(`Profile photo 1: ${image.description}`);
+    const onlyFriends = structuredClone(recipient);
+    onlyFriends.apps!.onlyfriends = { ...onlyFriends.apps!.fotogram!, accountId: 'nova-of', username: 'nova.private' };
+    const onlyFriendsInput = socialDirectMessageInputText({ ...message, app: 'onlyfriends', toAccountId: 'nova-of' }, [], [onlyFriends]);
+    expect(onlyFriendsInput).toContain('Private characterization');
+    expect(onlyFriendsInput).toContain('Username: @nova.vale.art');
+    const phoneInput = whatsUpMessageInputText('Player', recipient.name, 'What is your Fotogram account?', recipient);
+    expect(phoneInput).toContain('Reply as: Nova Vale to Player');
+    expect(phoneInput).toContain('Username: @nova.vale.art');
+    expect(phoneInput).toContain(fixture.character.personality);
+    expect(phoneInput).toContain('New message:\nPlayer: What is your Fotogram account?');
+    expect(phoneInput).not.toContain('Existing conversation');
+  });
+
   it('validates the portable fixture and uses its real gallery photos in MatchMe', () => {
     expect(() => validateCharacterContainer(fixture)).not.toThrow();
     const { characters, active } = setup();
@@ -61,7 +97,7 @@ describe('shared NPC app discovery', () => {
     const context = socialDirectMessageInputText(outgoing, messages, characters);
     expect(context).toContain('nova.vale.art');
     expect(context).toContain(fixture.character.personality);
-    expect(context).toContain('"onlyfriends":null');
+    expect(context).toContain('No account: WhatsUp, OnlyFriends');
     expect(context).not.toContain('SENDER SECRET');
     expect(context).not.toContain('UNRELATED SECRET');
     expect(context).not.toContain('data:image');
@@ -85,7 +121,7 @@ describe('shared NPC app discovery', () => {
       const characters = appCharactersFromRegistry(buildCharacterRegistry([entry(value)]));
       if (app === 'matchme') expect(matchMeState(characters, []).accounts.some((account) => account.characterId === value.id)).toBe(false);
       else expect(searchSocialDirectory(buildSocialDirectory({ storyCharacters: characters, messages: [] }).users, app, 'nova.vale.art')).toEqual([]);
-      expect(recipientCharacterContext(characters[0])).toContain(`"${app}":null`);
+      expect(recipientCharacterContext(characters[0])).toMatch(new RegExp(`No account: .*${app === 'matchme' ? 'MatchMe' : 'Fotogram'}`));
     }
     const value = npc(); value.apps!.fotogram!.enabled = false; value.apps!.matchme!.enabled = false;
     const characters = appCharactersFromRegistry(buildCharacterRegistry([entry(value)]));
@@ -204,7 +240,9 @@ describe('NPC prompt execution boundary', () => {
     const node = { id: 'prompt', type: 'workflow', position: { x: 0, y: 0 }, data: {
       nodeType: 'llm-prompt', label: 'Reply', connectionId: 'test', llmPromptBefore: '', llmPromptAfter: '',
     } } as import('../types').WorkflowNode;
-    const result = await executeLlmPromptNode({ node, context, inputValue: outgoing.text, images: [], referenceImages: [], streamsVisibleOutput: false });
+    const inputValue = socialDirectMessageInputText(outgoing, messages, characters);
+    const result = await executeLlmPromptNode({ node, context, inputValue, images: [], referenceImages: [], streamsVisibleOutput: false });
+    expect(prompts[0]).toBe(inputValue);
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).toContain('nova.vale.art');
     expect(prompts[0]).not.toContain('SENDER SECRET');

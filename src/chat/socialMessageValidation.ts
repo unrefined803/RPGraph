@@ -157,10 +157,6 @@ export type SocialMessageValidationResult = {
   sanitizedText: string;
 };
 
-function socialAppName(app: SocialMessengerAppKind) {
-  return app === 'matchme' ? 'MatchMe' : app === 'fotogram' ? 'Fotogram' : 'OnlyFriends';
-}
-
 function expandedJsonRange(text: string, range: { start: number; end: number }) {
   let start = range.start;
   let end = range.end;
@@ -257,22 +253,4 @@ export function validateSocialMessengerAccounts(options: {
     options.text,
   ).replace(/\n{3,}/g, '\n\n').trim();
   return { issues, sanitizedText };
-}
-
-/** Targeted private context for one discarded response and its correction replay. */
-export function socialMessageCorrectionContext(issues: SocialMessageValidationIssue[]) {
-  const uniqueIssues = Array.from(new Map(
-    issues.map((issue) => [`${issue.app}:${issue.role}:${issue.identity}`, issue]),
-  ).values());
-  return [
-    '[SOCIAL MESSAGE VALIDATION]',
-    'The previous response was discarded before any message was sent.',
-    ...uniqueIssues.map((issue) =>
-      `- ${socialAppName(issue.app)} ${issue.role} "${issue.identity}": ${issue.resolved.reason}`
-    ),
-    'Rewrite the complete response. A known Storybook character may send or receive in an app only when that exact app account exists.',
-    'Use exact identities for existing characters. Fotogram and OnlyFriends may introduce fictional users without containers through structured messages. Never invent a missing account for a known character or reuse an ambiguous identity. MatchMe requires existing accounts and an active application-provided match; never invent either.',
-    'Do not mention this validation or the discarded response.',
-    '[/SOCIAL MESSAGE VALIDATION]',
-  ].join('\n');
 }

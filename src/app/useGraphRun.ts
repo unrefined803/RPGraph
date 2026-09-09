@@ -70,7 +70,7 @@ import {
   workflowVariablePreviewValues,
   type WorkflowVariableSetCommand,
 } from '../workflow';
-import { formatPhoneInput, formatPhoneReplyInput } from '../chat/phoneReplies';
+import { formatPhoneInput, formatPhoneReplyQuote, whatsUpMessageInputText } from '../chat/phoneReplies';
 import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import { nodesPreparedAfterOutput } from '../graph/edges';
 import {
@@ -1133,20 +1133,25 @@ export function useGraphRun(options: UseGraphRunOptions) {
           sentPhoneImages[0],
         )
       : undefined;
-    const formatCurrentPhoneInput = (message: string, translated = false) =>
-      phoneReplyTo
-        ? formatPhoneReplyInput(inputCharacterName, phoneReplyTo, message.trim(), translated)
-        : formatPhoneInput(
+    const phoneContextRecipient = inputPhoneParticipants?.to.characterId
+      ? appCharacters().find((character) => character.sourceId === inputPhoneParticipants.to.characterId)
+      : undefined;
+    const formatCurrentPhoneInput = (message: string, translated = false) => {
+      const context = phoneReplyTo
+        ? formatPhoneReplyQuote(phoneReplyTo, translated)
+        : sentPhoneImages.length ? formatPhoneInput(
             inputCharacterName,
             phoneRecipientName ?? 'Unknown',
-            message,
-            sentPhoneImages.length
-              ? {
-                  id: sentStorybookImage?.id ?? sentPhoneImages[0]?.id,
-                  description: sentStorybookImage?.description ?? sentPhoneImages[0]?.description,
-                }
-              : undefined,
-          );
+            '',
+            {
+              id: sentStorybookImage?.id ?? sentPhoneImages[0]?.id,
+              description: sentStorybookImage?.description ?? sentPhoneImages[0]?.description,
+            },
+          ) : undefined;
+      return whatsUpMessageInputText(
+        inputCharacterName, phoneRecipientName ?? 'Unknown', message, phoneContextRecipient, context,
+      );
+    };
     const promptSlot = turnModeOverrideValue ?? (
       eventDisplayText
         ? 3

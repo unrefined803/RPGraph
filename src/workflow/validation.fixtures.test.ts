@@ -175,7 +175,6 @@ import {
 } from '../chat/socialCatalogs';
 import {
   resolveSocialMessageIdentity,
-  socialMessageCorrectionContext,
   validateSocialMessengerAccounts,
 } from '../chat/socialMessageValidation';
 import type { StorybookCharacter, StorybookCreateImageCharacter } from '../storybook/runtime';
@@ -536,10 +535,10 @@ export function verifyWorkflowValidationFixtures() {
   );
   assertFixture(
     socialDirectInput.startsWith('[FOTOGRAM DIRECT MESSAGE]') &&
-      socialDirectInput.includes('Jamie (@jamie): Maybe after work.') &&
+      !socialDirectInput.includes('Maybe after work.') &&
       socialDirectInput.includes('Post text: Trying this dress for tonight.') &&
       socialDirectInput.includes('Original comment from Jamie (@jamie): That dress looks amazing!') &&
-      socialDirectInput.includes('New message: Are you free later?') &&
+      socialDirectInput.includes('New message:\nAlex: Are you free later?') &&
       parsedSocialDirectReply.message?.fromHandle === 'jamie' &&
       parsedSocialDirectReply.message?.toHandle === 'alex' &&
       parsedSocialDirectReply.message?.replyToMessageId === 'fotogram-dm-user-1' &&
@@ -743,9 +742,7 @@ export function verifyWorkflowValidationFixtures() {
       inventedHandleConversation.sanitizedText.includes('fotogram-post-private-01') &&
       invalidSocialOutput.issues.length === 1 &&
       invalidSocialOutput.sanitizedText === 'The scene continues.' &&
-      socialMessageCorrectionContext(invalidSocialOutput.issues).includes(
-        'Leo Parker has no OnlyFriends account.',
-      ),
+      invalidSocialOutput.issues[0]?.resolved.reason?.includes('Leo Parker has no OnlyFriends account.') === true,
     'structured social messages may introduce fictional users but must reject missing Storybook app accounts',
   );
   assertFixture(
@@ -5800,12 +5797,10 @@ async function verifyPromptRunFixtures() {
     callLabel: () => 'Fixture call',
   });
   assertFixture(
-    socialReplayPrompts.length === 2 &&
-      !socialReplayPrompts[0]?.includes('[SOCIAL MESSAGE VALIDATION]') &&
-      socialReplayPrompts[1]?.includes('Leo Parker has no OnlyFriends account.') === true &&
-      socialReplayResult.generatedText ===
-        'Espen realizes that Leo is not on OnlyFriends and puts the phone away.',
-    'invalid social accounts must discard the first output and replay the same prompt once with targeted context',
+    socialReplayPrompts.length === 1 &&
+      socialReplayPrompts[0] === 'Espen wants to contact Leo on OnlyFriends.\n\nWrite the scene and any social message.' &&
+      !socialReplayResult.generatedText.includes('onlyFriendsApp'),
+    'invalid social accounts must be blocked without injecting context or making a correction request',
   );
 
   const planStepRequests: Array<{
