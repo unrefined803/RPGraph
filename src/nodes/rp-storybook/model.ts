@@ -624,6 +624,7 @@ function normalizeCharacter(
     description: stringValue(character.description),
     personality: stringValue(character.personality),
     speechStyle: stringValue(character.speechStyle),
+    ...(typeof character.hiddenAgency === 'string' ? { hiddenAgency: character.hiddenAgency } : {}),
     role: stringValue(character.role),
     comfyConfig: rpStorybookCharacterComfyConfig(character.comfyConfig),
     voiceConfig: rpStorybookCharacterVoiceConfig(character.voiceConfig),

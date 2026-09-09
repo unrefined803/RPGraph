@@ -14,8 +14,8 @@ npm run character:create -- --input docs/examples/character-specification.json -
 
 Local JPEG, PNG and WebP conversion requires ImageMagick 7 (`magick` on PATH).
 The CLI decodes and auto-orients images, limits them to one megapixel, flattens
-transparency onto white, removes metadata and encodes JPEG with an upper quality
-of 84 and a hard 200 KiB size limit. Animated/multi-frame files are rejected.
+transparency onto white, removes metadata and encodes JPEG at fixed quality
+84. The approximate 200 KiB target is advisory, not a hard byte limit. Animated/multi-frame files are rejected.
 Embedded galleries in existing V2 containers need no converter. Image dimensions
 and byte sizes describe the output JPEG, not the source. Original files are read
 only. No Electron, browser, LLM or UI is launched.
@@ -90,7 +90,7 @@ normal JSON. Existing image entries with `embedded` metadata reuse the exact JPE
 bytes from the source container. A new image uses
 `{id, path, name, description}`; adding `path` to an existing image ID replaces
 that image. Local paths resolve relative to the edit specification. Added and
-replaced images pass through the same JPEG, one-megapixel and 200-KiB conversion
+replaced images pass through the same JPEG, one-megapixel, fixed-quality JPEG conversion
 as newly created characters.
 
 Apply the revision to a separate file, or explicitly overwrite in place:
@@ -264,3 +264,46 @@ portraits can be edited in the active Storybook or used in a fresh story.
 
 Detector reference: [MediaPipe Face Detector for Python](https://developers.google.com/edge/mediapipe/solutions/vision/face_detector/python).
 Model reference: [BlazeFace models](https://developers.google.com/edge/mediapipe/solutions/vision/face_detector#models).
+
+## Hidden agency and filename assignments
+
+The optional `character.hiddenAgency` string holds author-only goals and motives.
+It is preserved through creation, inspection, editing, import and export. Existing
+containers without it remain valid V2 documents. An empty string has no authored
+agency. There is no gameplay behavior or ordinary RP prompt integration yet.
+See [NPC In-Game Assistant](npc-in-game-assistant.md) for the future editor design.
+
+Use a new workspace to unpack a library into editable specifications and images:
+
+```sh
+npm run character:unpack -- --input resources/npc-characters --output /tmp/npc-workspace
+npm run character:pack -- --workspace /tmp/npc-workspace --check
+npm run character:pack -- --workspace /tmp/npc-workspace --output /tmp/npc-revised
+```
+
+Unpacking preserves the original library and backs up containers in `.originals/`.
+Each character folder has `character.json` and `images/`. The manifest is local
+authoring metadata, not a runtime format. Keep the manifest and backups intact.
+Packing validates the whole batch before writing; choose a fresh output folder.
+
+Prefix image filenames with uppercase F (Fotogram post), O (OnlyFriends post),
+M (MatchMe gallery) and P (character portrait/shared account avatar). Separate
+flags and the descriptive filename with hyphens or underscores: `F-P_cafe.png`.
+Order is irrelevant; repeated flags, multiple portraits and more than three
+MatchMe photos fail. G alone explicitly means gallery-only. No P clears the
+portrait and shared avatars. P alone creates neither posts nor MatchMe photos.
+Missing M removes the MatchMe profile, while retaining any existing account.
+
+Renamed original files are recognized by exact bytes or their registered stable
+image label/path. New images must first be registered in `character.json` with
+`id`, `path`, `name` and `description`; the offline tool does not inspect pixels
+with an LLM or invent descriptions. This authoring step can be performed by an
+assistant. Existing matching captions are retained, new posts start with empty
+text unless authored, and text-only posts survive. Old image posts are replaced
+according to the flags. Adding M to a new account requires a valid adult age and
+profile bio in the specification. New accounts use the character's stable ID.
+
+The September 2026 bundled revision normalizes character IDs to lowercase names
+with underscores, updates associated account/image/post references and applies
+explicit image assignments. Historical conversion maps and existing saves retain
+their original identities. Future edits keep the new IDs stable.

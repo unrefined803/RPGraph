@@ -5,13 +5,13 @@ import { describe, expect, it } from 'vitest';
 import { browserNpcLibrarySnapshot } from './npcLibrary';
 
 const authoredMatchMeCharacters = {
-  'authored-matchme-f1': { name: 'Avery Hart', fotogram: 'avery.afterfive', matchme: 'avery.hart' },
-  'authored-matchme-f2': { name: 'Chloe Lane', fotogram: 'chloe.onrepeat', matchme: 'chloe.lane' },
-  'authored-matchme-f3': { name: 'Nika Brooks', fotogram: 'nika.lines', matchme: 'nika.brooks' },
-  'authored-matchme-f4': { name: 'Maya Quinn', fotogram: 'maya.inframe', matchme: 'maya.quinn' },
-  'authored-matchme-m1': { name: 'Luca Reed', fotogram: 'luca.moving', matchme: 'luca.reed' },
-  'authored-matchme-m2': { name: 'Eli Ward', fotogram: 'eli.offgrid', matchme: 'eli.ward' },
-  'authored-matchme-m3': { name: 'Noah Blake', fotogram: 'noah.citynotes', matchme: 'noah.blake' },
+  'avery_hart': { name: 'Avery Hart', fotogram: 'avery.afterfive', matchme: 'avery.hart' },
+  'chloe_lane': { name: 'Chloe Lane', fotogram: 'chloe.onrepeat', matchme: 'chloe.lane' },
+  'nika_brooks': { name: 'Nika Brooks', fotogram: 'nika.lines', matchme: 'nika.brooks' },
+  'maya_quinn': { name: 'Maya Quinn', fotogram: 'maya.inframe', matchme: 'maya.quinn' },
+  'luca_reed': { name: 'Luca Reed', fotogram: 'luca.moving', matchme: 'luca.reed' },
+  'eli_ward': { name: 'Eli Ward', fotogram: 'eli.offgrid', matchme: 'eli.ward' },
+  'noah_blake': { name: 'Noah Blake', fotogram: 'noah.citynotes', matchme: 'noah.blake' },
 } as const;
 const authoredMatchMeIds = Object.keys(authoredMatchMeCharacters);
 
@@ -48,8 +48,9 @@ describe('bundled authored MatchMe characters', () => {
       expect(matchme?.username).toBe(expected.matchme);
       expect(matchme?.profile).toMatchObject({ name: expected.name, username: expected.matchme });
       expect(fotogram?.avatarImageId).toBeTruthy();
-      expect(matchme?.profile?.photoIds.length).toBe(character.images.length);
-      expect(fotogram?.initialPosts).toHaveLength(character.images.length);
+      expect(matchme?.profile?.photoIds).toHaveLength(1);
+      expect(fotogram?.initialPosts).toHaveLength(['avery_hart', 'chloe_lane', 'luca_reed'].includes(character.id) ? 1 : 0);
+      expect(character.hiddenAgency).toBe('');
       for (const account of [fotogram!, matchme!]) {
         expect(accountIds.has(account.accountId)).toBe(false);
         expect(usernames.has(account.username)).toBe(false);
@@ -60,16 +61,16 @@ describe('bundled authored MatchMe characters', () => {
   });
 });
 
-it('provides Eli Ward with a runtime WhatsUp account without changing the bundled container', async () => {
+it('provides Eli Ward with a stable authored WhatsUp account', async () => {
   const snapshot = await browserNpcLibrarySnapshot();
   const entry = snapshot.entries.find(({ character }) => character.name === 'Eli Ward')!;
-  expect(entry.character.apps?.whatsup).toBeUndefined();
+  expect(entry.character.apps?.whatsup?.accountId).toBe('character:eli_ward:whatsup');
   const registry = buildCharacterRegistry([entry]);
   const characters = appCharactersFromRegistry(registry);
   const context = recipientCharacterContext(characters[0]);
   expect(context).toContain('WhatsUp\nUsername: @Eli Ward');
   expect(context).toContain('No account: OnlyFriends');
   expect(resolveRegistryAccount(registry, 'whatsup', 'Eli Ward').status).toBe('found');
-  expect(resolveWhatsUpRecipient(characters, [], 'Eli Ward').accountId).toBe('character:authored-matchme-m2:whatsup');
-  expect(entry.character.apps?.whatsup).toBeUndefined();
+  expect(resolveWhatsUpRecipient(characters, [], 'Eli Ward').accountId).toBe('character:eli_ward:whatsup');
+  expect(entry.character.apps?.whatsup?.accountId).toBe('character:eli_ward:whatsup');
 });

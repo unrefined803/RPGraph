@@ -1214,3 +1214,13 @@ Implementation completion should report migrated formats, configured library
 paths, creation/import usage, preservation of existing saves, automated results
 and remaining manual checks. Do not claim the future slash-command UI was built
 unless it was explicitly included; its reusable promotion service belongs in V2.
+
+## Additive hidden agency field
+
+The common character payload accepts optional `hiddenAgency: string`. It stores
+free-form author-only motivations and is initially unused by gameplay. Empty and
+absent values both mean no authored agency. The shared validator rejects other
+types. Creator, edit specifications, Storybook normalization and portable export
+retain the field; existing V2 containers need no migration. It is plaintext in
+container files, not an encrypted secret. Public profiles and ordinary RP context
+do not gain this field. See [NPC In-Game Assistant](npc-in-game-assistant.md).

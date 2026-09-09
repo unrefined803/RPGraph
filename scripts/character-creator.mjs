@@ -10,6 +10,7 @@ import validator from '../shared/character-container.cjs';
 
 const run = promisify(execFile);
 export const galleryImageMaxPixels = 1_000_000;
+// Approximate size target only; conversion always uses JPEG quality 84.
 export const galleryImageMaxBytes = 200 * 1024;
 export const characterEditFormat = 'rpgraph-character-edit';
 export const characterEditVersion = '1.0.0';
@@ -34,7 +35,7 @@ export async function readGalleryImage(file, metadata) {
   // Leave a small rounding margin because ImageMagick rounds both output dimensions.
   const child = run('magick', ['-', '-auto-orient', '-resize', `${galleryImageResizePixels}@>`,
     '-background', 'white', '-alpha', 'remove', '-alpha', 'off', '-strip',
-    '-define', 'jpeg:extent=200kb', '-quality', '84', 'jpeg:-'],
+    '-quality', '84', 'jpeg:-'],
   { encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 });
   child.child.stdin.end(source);
   const { stdout } = await child;
@@ -44,8 +45,8 @@ export async function readGalleryImage(file, metadata) {
   if (!/^\d+ \d+$/.test(measured)) throw new Error('Animated or multi-frame images are unsupported.');
   const [width, height] = measured.split(' ').map(Number);
   if (!width || !height) throw new Error(`Unable to decode image: ${file}`);
-  if (width * height > galleryImageMaxPixels || stdout.length > galleryImageMaxBytes) {
-    throw new Error(`Unable to fit image within the ${galleryImageMaxPixels}-pixel and 200 KiB gallery limits: ${file}`);
+  if (width * height > galleryImageMaxPixels) {
+    throw new Error(`Unable to fit image within the ${galleryImageMaxPixels}-pixel gallery limit: ${file}`);
   }
   return { ...metadata, mimeType: 'image/jpeg', size: stdout.length, width, height,
     dataUrl: `data:image/jpeg;base64,${stdout.toString('base64')}` };

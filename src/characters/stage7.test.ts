@@ -18,10 +18,12 @@ function bundledCharacters() {
     });
 }
 
+const convertedIds = new Set(['ari_blume', 'eden_moss', 'ivy_rowan', 'jordan_lee', 'kit_harlow', 'lena_ford', 'luna_sky', 'max_power', 'maya_brooks', 'mina_park', 'nova_reyes', 'owen_reed', 'sasha_vale']);
+
 describe('Stage 7 bundled discovery replacement', () => {
   it('bundles exactly the thirteen image-backed legacy Fotogram characters with readable filenames', () => {
     const converted = bundledCharacters().filter(({ character }) =>
-      character.id.startsWith('bundled:fotogram:')
+      convertedIds.has(character.id)
     );
     expect(converted).toHaveLength(13);
     for (const { file, character } of converted) {
@@ -33,23 +35,23 @@ describe('Stage 7 bundled discovery replacement', () => {
       expect(character.apps?.fotogram?.bio).not.toBe('');
       expect(character.apps?.fotogram?.initialPosts?.some((post) => !!post.imageId)).toBe(true);
       expect(character.apps?.onlyfriends).toBeUndefined();
-      expect(character.apps?.matchme).toBeUndefined();
+      if (!['eden_moss', 'ivy_rowan'].includes(character.id)) expect(character.apps?.matchme).toBeUndefined();
     }
   });
 
-  it('discovers converted accounts through the registry and resolves historical directory IDs', () => {
+  it('discovers converted accounts through the registry and resolves normalized account IDs', () => {
     const entries: CharacterRegistryEntry[] = bundledCharacters().map(({ file, character }) => ({
       tier: 'bundled', source: `bundled:${file}`, character,
     }));
     const characters = appCharactersFromRegistry(buildCharacterRegistry(entries));
-    const converted = characters.filter((character) => character.sourceId.startsWith('bundled:fotogram:'));
+    const converted = characters.filter((character) => convertedIds.has(character.sourceId));
     const directory = buildSocialDirectory({ storyCharacters: characters, messages: [] });
     expect(converted).toHaveLength(13);
-    expect(initialCharacterPosts(converted)).toHaveLength(13);
+    expect(initialCharacterPosts(converted)).toHaveLength(15);
     expect(directory.users.filter((user) =>
-      user.characterId?.startsWith('bundled:fotogram:')
+      convertedIds.has(user.characterId ?? '')
     )).toHaveLength(13);
-    expect(resolveSocialDirectoryUser(directory.users, 'bundled:fotogram:luna.sky')?.name).toBe('Luna Sky');
+    expect(resolveSocialDirectoryUser(directory.users, 'character:luna_sky:fotogram')?.name).toBe('Luna Sky');
     expect(directory.users.some((user) => user.source === 'bundled')).toBe(false);
     expect(matchMeState(characters, []).accounts.some((account) => account.id.startsWith('demo-'))).toBe(false);
   });

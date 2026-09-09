@@ -21,7 +21,7 @@ export type CharacterSpecification = Omit<Partial<Parameters<typeof characterPay
 /** IDs depend on an explicit identity, never a name, filename or array order. */
 export function createAuthoredCharacter(specification: CharacterSpecification, newId: () => string) {
   const source = structuredClone(specification);
-  const allowed = new Set(['id', 'name', 'description', 'personality', 'speechStyle', 'role', 'playable',
+  const allowed = new Set(['id', 'name', 'description', 'personality', 'speechStyle', 'hiddenAgency', 'role', 'playable',
     'age', 'gender', 'images', 'apps', 'profileImage', 'phoneSettings', 'banking', 'comfyConfig', 'voiceConfig']);
   for (const field of Object.keys(source)) {
     if (!allowed.has(field)) throw new Error(`Unsupported authored character field: ${field}`);

@@ -51,6 +51,9 @@ function validateCharacterPayload(value) {
       throw new Error(`Character Container V2 requires a ${field} string.`);
     }
   }
+  if (character.hiddenAgency !== undefined && typeof character.hiddenAgency !== 'string') {
+    throw new Error('Character hiddenAgency must be a string when present.');
+  }
   if (typeof character.playable !== 'boolean') {
     throw new Error('Character Container V2 requires a playable flag.');
   }

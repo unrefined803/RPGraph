@@ -37,6 +37,8 @@
     "character:migrate-v3": "node scripts/migrate-character-v3.mjs",
     "character:create": "node scripts/create-character-container.mjs",
     "character:inspect": "node scripts/inspect-character-container.mjs",
+    "character:unpack": "node scripts/unpack-character-workspace.mjs",
+    "character:pack": "node scripts/pack-character-workspace.mjs",
     "character:edit": "node scripts/edit-character-container.mjs",
     "character:convert-demos": "node scripts/convert-demo-characters.mjs",
     "character:faces:setup": "node scripts/setup-character-faces.mjs",

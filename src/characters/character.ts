@@ -32,6 +32,8 @@ export type Character = {
   description: string;
   personality: string;
   speechStyle: string;
+  /** Author-only motivations; stored without activating runtime behavior. */
+  hiddenAgency?: string;
   role: string;
   playable?: boolean;
   age?: number;

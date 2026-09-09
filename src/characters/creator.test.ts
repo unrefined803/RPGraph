@@ -6,6 +6,8 @@ import { mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createAuthoredCharacter } from './creator';
+import { buildCharacterRegistry } from './registry';
+import { appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
 import { validateCharacterContainer } from './character';
 import { planCharacterCardImport, rpCharacterCardForCharacter } from '../storybook/characterCard';
 import { emptyRpStorybook } from '../nodes/rp-storybook/model';
@@ -31,6 +33,24 @@ describe('shared container creator', () => {
     expect(exported).toMatchObject({ ...card, character: { ...card.character, playable: true } });
     expect(rpCharacterCardForCharacter(planCharacterCardImport(exported, repeated.storybook).character, { includePosts: true })).toEqual(exported);
     expect(rpCharacterCardForCharacter(repeated.character).character.apps.fotogram).not.toHaveProperty('initialPosts');
+  });
+
+  it('preserves optional hidden agency through import, export and CLI editing', async () => {
+    const agency = 'Primary: build trust. Secondary: invite friends to a private event.';
+    const card = createAuthoredCharacter({ ...fixture.character, hiddenAgency: agency }, () => '');
+    const imported = planCharacterCardImport(card, structuredClone(emptyRpStorybook));
+    const runtime = appCharactersFromRegistry(buildCharacterRegistry([{ tier: 'bundled', source: 'test', character: imported.character }]));
+    expect(recipientCharacterContext(runtime[0])).not.toContain(agency);
+    expect(rpCharacterCardForCharacter(imported.character).character.hiddenAgency).toBe(agency);
+    const input = join(directory, 'agency.json');
+    const spec = join(directory, 'agency-edit.json');
+    const output = join(directory, 'agency-revised.json');
+    writeFileSync(input, JSON.stringify(card));
+    await inspectCli(['--input', input, '--output', spec]);
+    await editCli(['--input', input, '--spec', spec, '--output', output]);
+    expect(JSON.parse(readFileSync(output, 'utf8')).character.hiddenAgency).toBe(agency);
+    expect(() => validateCharacterContainer({ ...card, character: { ...card.character, hiddenAgency: [] } })).toThrow('hiddenAgency');
+    expect(() => createAuthoredCharacter(fixture.character, () => '')).not.toThrow();
   });
 
   it('allocates only a new identity and derives stable account IDs independently of names', () => {
@@ -102,7 +122,7 @@ describe('shared container creator', () => {
     expect(readdirSync(directory).some((file) => file.endsWith('.tmp'))).toBe(false);
   });
 
-  it('limits large gallery images to one megapixel and 200 KiB', async () => {
+  it('limits large gallery images to one megapixel at fixed JPEG quality 84', async () => {
     const photo = join(directory, 'large-photo.png');
     await run('magick', ['-size', '1800x1400', 'plasma:fractal', photo]);
     const input = join(directory, 'large-spec.json');
@@ -112,7 +132,9 @@ describe('shared container creator', () => {
     await cli(['--input', input, '--output', output]);
     const image = JSON.parse(readFileSync(output, 'utf8')).character.images[0];
     expect(image.width * image.height).toBeLessThanOrEqual(galleryImageMaxPixels);
-    expect(image.size).toBeLessThanOrEqual(galleryImageMaxBytes);
+    const jpeg = join(directory, 'quality-check.jpg');
+    writeFileSync(jpeg, Buffer.from(image.dataUrl.split(',')[1], 'base64'));
+    expect((await run('magick', [jpeg, '-format', '%Q', 'info:'])).stdout.trim()).toBe('84');
     expect(Buffer.from(image.dataUrl.split(',')[1], 'base64')).toHaveLength(image.size);
   });
 
