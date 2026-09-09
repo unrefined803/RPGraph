@@ -2,7 +2,7 @@ import { normalizeCharacterApps } from './character';
 import type { Character, CharacterAppAccount, CharacterApps } from './character';
 
 export type CharacterApp = keyof CharacterApps;
-export type CharacterRegistryTier = 'bundled' | 'user' | 'snapshot' | 'storybook';
+type CharacterRegistryTier = 'bundled' | 'user' | 'snapshot' | 'storybook';
 
 export type CharacterRegistryAliases = {
   /** Previously issued stable or node-scoped runtime character IDs. */
@@ -19,7 +19,7 @@ export type CharacterRegistryEntry = {
   aliases?: CharacterRegistryAliases;
 };
 
-export type CharacterRegistryDiagnosticCode =
+type CharacterRegistryDiagnosticCode =
   | 'duplicate-character-id'
   | 'duplicate-character-name'
   | 'shadowed-character-name'

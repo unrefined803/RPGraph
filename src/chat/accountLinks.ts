@@ -2,7 +2,7 @@ import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
 
-export const accountLinkApps = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const;
+const accountLinkApps = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const;
 export type AccountLinkApp = typeof accountLinkApps[number];
 export type AccountLink = { token: string; app: AccountLinkApp; accountId: string; characterId: string };
 export type AccountLinkTarget = AccountLink & { name: string; username: string; character: StorybookCharacter };
@@ -13,7 +13,7 @@ const appAliases: Record<string, AccountLinkApp> = {
 };
 const key = (text: string) => text.trim().replace(/^@/, '').replace(/\s+/g, ' ').toLowerCase();
 
-export function accountLinkTargets(characters: StorybookCharacter[]) {
+function accountLinkTargets(characters: StorybookCharacter[]) {
   return characters.flatMap((character) => accountLinkApps.flatMap<AccountLinkTarget>((app) => {
     const account = character.apps?.[app];
     if (app === 'whatsup') {
@@ -90,7 +90,7 @@ export function bindAccountLinks(text: string, characters: StorybookCharacter[])
   return parseAccountLinks(text, characters).map(({ token, app, accountId, characterId }) => ({ token, app, accountId, characterId }));
 }
 
-export function messageAccountLinks(message: MessageRecord, characters: StorybookCharacter[]) {
+function messageAccountLinks(message: MessageRecord, characters: StorybookCharacter[]) {
   const text = message.socialDirectMessage?.text ?? message.originalText;
   return parseAccountLinks(text, characters, message.socialDirectMessage?.accountLinks ?? message.accountLinks);
 }

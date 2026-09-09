@@ -2,8 +2,8 @@ import type { Character } from './character';
 import { validateCharacterContainer } from './character';
 import type { CharacterRegistryEntry } from './registry';
 
-export type NpcLibraryTier = 'bundled' | 'user';
-export type NpcLibraryDiagnostic = {
+type NpcLibraryTier = 'bundled' | 'user';
+type NpcLibraryDiagnostic = {
   tier: NpcLibraryTier;
   fileName: string;
   code: 'directory-error' | 'invalid-json' | 'invalid-container' | 'unsupported-version';

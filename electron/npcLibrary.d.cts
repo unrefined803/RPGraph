@@ -28,7 +28,6 @@ export function npcLibraryRoots(options: {
   projectRootPath: string;
   userDataPath: string;
 }): NpcLibraryRoots;
-export function scanNpcDirectory(directory: string, tier: 'bundled' | 'user'): Promise<Omit<NpcLibrarySnapshot, 'roots'>>;
 export function scanNpcLibrary(roots: NpcLibraryRoots): Promise<NpcLibrarySnapshot>;
 export function createNpcLibraryService(options: {
   roots: NpcLibraryRoots;

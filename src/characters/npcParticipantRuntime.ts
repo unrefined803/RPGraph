@@ -35,7 +35,7 @@ export function storybookRegistryEntries(nodes: WorkflowNode[]): CharacterRegist
   });
 }
 
-export function storybookRegistryEntriesForCharacters(
+function storybookRegistryEntriesForCharacters(
   nodeId: string,
   characters: Character[],
 ): CharacterRegistryEntry[] {

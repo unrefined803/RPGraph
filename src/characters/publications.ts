@@ -81,7 +81,7 @@ function publicationOwnerMatches(left: SocialPostRecord, right: SocialPostRecord
 }
 
 /** Bare Storybook seed IDs must not alias retained live activity owned by somebody else. */
-export function legacySeedTimelineConflicts(
+function legacySeedTimelineConflicts(
   characters: StorybookCharacter[],
   messages: MessageRecord[],
 ) {

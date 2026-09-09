@@ -107,6 +107,5 @@ function createNpcLibraryService({ roots, openPath }) {
 module.exports = {
   createNpcLibraryService,
   npcLibraryRoots,
-  scanNpcDirectory,
   scanNpcLibrary,
 };

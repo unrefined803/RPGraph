@@ -1,7 +1,7 @@
 import type { WorkflowNode } from '../types';
 import { llmPromptSwitchPromptTitlesByOutput, llmPromptSwitchPromptBeforesByOutput, llmPromptSwitchPromptAftersByOutput, llmPromptSwitchOutputTitles, maximumLlmPromptSwitchEntries } from '../workflow/nodeHelpers';
 
-export const accountLinkPrompt = 'To share an account you know from the story or chat history, write @app:Full Name directly inside the message text, for example @fotogram:Full Name or @whatsup:Full Name. App names are whatsup, fotogram, onlyfriends and matchme; an exact app display name or username also works. Share only existing accounts you know, including your own or another person’s. Use no brackets, extra JSON fields or command markers for links.';
+const accountLinkPrompt = 'To share an account you know from the story or chat history, write @app:Full Name directly inside the message text, for example @fotogram:Full Name or @whatsup:Full Name. App names are whatsup, fotogram, onlyfriends and matchme; an exact app display name or username also works. Share only existing accounts you know, including your own or another person’s. Use no brackets, extra JSON fields or command markers for links.';
 
 export const defaultMatchMeDmPrompt = `This is a private MatchMe conversation with a confirmed active match supplied by the application.
 Reply only as the specified recipient. Use their supplied Storybook personality or stable NPC personality. Public profiles, bio and interests inform their voice. Keep the reply concise and natural. Let familiarity and flirting follow the established interaction rather than assuming intimacy.

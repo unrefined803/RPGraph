@@ -106,7 +106,7 @@ export function canonicalSocialDirectMessage(message: SocialDirectMessageRecord,
   return { ...canonical, fromAccountId: registeredFrom.accountId, toAccountId: registeredTo.accountId };
 }
 
-export type SocialMessageValidationIssue = {
+type SocialMessageValidationIssue = {
   app: SocialMessengerAppKind;
   identity: string;
   role: 'sender' | 'recipient';
