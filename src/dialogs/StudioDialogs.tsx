@@ -3052,8 +3052,8 @@ export function StudioDialogs({
                           id="character-export-location"
                           value={characterSaveLocation}
                           options={[
-                            { value: 'characters', label: 'RPGraph Studio Characters Folder' },
-                            { value: 'npc-characters', label: 'NPC Characters Folder' },
+                            { value: 'characters', label: 'Characters Folder' },
+                            { value: 'npc-characters', label: 'NPC Library Folder' },
                             { value: 'choose', label: 'Choose Save Location…' },
                           ]}
                           onChange={onCharacterSaveLocationChange}
