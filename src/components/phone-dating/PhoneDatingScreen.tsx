@@ -86,6 +86,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   const candidate = linkedCandidate ?? availableProfiles.find((entry) =>
     (!profile?.seeking?.length || !!entry.gender && profile.seeking.includes(entry.gender)) &&
     !profile?.decisions[entry.id] && !entry.aliases?.some((alias) => profile?.decisions[alias]));
+  const candidatePhotoCount = candidate?.photos?.length ?? 0;
   const allImages = [...images, ...imported];
 
   function save(next: DatingProfile) {
@@ -133,12 +134,15 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
             onClick={() => { setSelectedMatchId(match.id); setPhoto(0); setTab('discover'); setEditing(false); }}>
             <CharacterAvatar className="pt-match-avatar" name={match.name} profileImageDataUrl={match.avatarDataUrl} fallback={match.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
-            <span><strong>{match.name}<span className="pt-match-age">, {match.age}</span>{unread[match.id]?.count ? ` · ${unread[match.id].count} new` : ''}</strong><small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small></span>
+            <span><strong>{match.name}<span className="pt-match-age">, {match.age}</span></strong>
+              {unread[match.id]?.count ? <small className="pt-match-unread"><span>New Message</span><span className="pt-match-unread-badge" aria-label={`${unread[match.id].count} unread messages`}>{unread[match.id].count}</span></small>
+                : <small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small>}
+            </span>
           </button>)}
           {!matches.length && <p className="pt-subtle pt-match-empty">Like a profile to create a match and start a conversation.</p>}
         </div>
       </aside>}
-    <main className={`pt-main${selectedMatch && !editing ? ' pt-chat-main' : ''}`}>
+    <main className={`pt-main${selectedMatch && !editing ? ' pt-chat-main' : !editing && tab === 'discover' ? ' pt-discover-main' : ''}`}>
       {!owner ? <div className="pt-empty"><h2>Who’s holding the phone?</h2><p>Select a Storybook character to create a profile.</p></div> : editing ?
         <form className="pt-form" onSubmit={(event) => {
           event.preventDefault();
@@ -198,13 +202,13 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               onPointerMove={(event) => { if (start.current) setDrag(Math.max(-130, Math.min(130, event.clientX - start.current.x))); }}
               onPointerUp={(event) => { const origin = start.current; start.current = null; setDrag(0); if (origin && Math.abs(event.clientY - origin.y) < 90 && Math.abs(event.clientX - origin.x) > 65) decide(event.clientX > origin.x ? 'like' : 'pass'); }}
               onPointerCancel={() => { start.current = null; setDrag(0); }}>
-              <div className="pt-photo-progress">{(candidate.photos ?? []).map((_, index) => <button key={index} type="button" aria-label={`Show image ${index + 1}`} aria-pressed={photo === index} className={photo === index ? 'active' : ''} onClick={() => setPhoto(index)} />)}</div>
+              {candidatePhotoCount > 1 && <div className="pt-photo-progress">{(candidate.photos ?? []).map((_, index) => <button key={index} type="button" aria-label={`Show image ${index + 1}`} aria-pressed={photo === index} className={photo === index ? 'active' : ''} onClick={() => setPhoto(index)} />)}</div>}
               <div className="pt-placeholder">{candidate.photos?.length ? <img className="pt-discovery-photo" src={candidate.photos[photo % candidate.photos.length].dataUrl} alt={candidate.photos[photo % candidate.photos.length].description || `${candidate.name}, photo ${photo + 1}`} /> : <><span aria-hidden="true">✧</span><small>Photo unavailable</small></>}</div>
-              <div className="pt-image-nav"><button type="button" aria-label="Previous image" onClick={() => setPhoto((photo + (candidate.photos?.length ?? 1) - 1) % Math.max(1, candidate.photos?.length ?? 1))}>‹</button><button type="button" aria-label="Next image" onClick={() => setPhoto((photo + 1) % Math.max(1, candidate.photos?.length ?? 1))}>›</button></div>
+              {candidatePhotoCount > 1 && <div className="pt-image-nav"><button type="button" aria-label="Previous image" onClick={() => setPhoto((photo + candidatePhotoCount - 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" aria-label="Next image" onClick={() => setPhoto((photo + 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>}
               {!!drag && <span className="pt-swipe-label">{drag > 0 ? 'LIKE' : 'PASS'}</span>}
               <div className="pt-card-info"><small>{candidate.characterId && !candidate.libraryNpc ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small><h3>{candidate.name} <span>{candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
             </article>
-            <div className="pt-decisions"><button type="button" aria-label={`Pass on ${candidate.name}`} onClick={() => decide('pass')}>×</button><span>Swipe to find your story</span><button type="button" aria-label={`Like ${candidate.name}`} onClick={() => decide('like')}>♥</button></div>
+            <div className="pt-decisions"><button className="pt-pass" type="button" disabled={busy || isRunning} aria-label={`Pass on ${candidate.name}`} title="Pass" onClick={() => decide('pass')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button><span>Find your next connection</span><button className="pt-like-action" type="button" disabled={busy || isRunning} aria-label={`Like ${candidate.name}`} title="Like" onClick={() => decide('like')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg></button></div>
           </> : <div className="pt-empty"><span className="pt-empty-heart">✧</span><h2>You’re all caught up.</h2><p>You have seen all available profiles. You can explore them again.</p><button type="button" className="pt-primary" onClick={() => { if (profile) save({ ...profile, decisions: {} }); setPhoto(0); }}>Explore again</button></div>}
         </div> : tab === 'likes' ? <div className="pt-list"><span className="pt-eyebrow">YOUR MAYBES & WHAT-IFS</span><h2>People you like</h2><p className="pt-subtle">Likes are saved for this character. Every like creates a mutual match. Open a match to start chatting.</p>
           {availableProfiles.filter((entry) => profile?.decisions[entry.id] === 'like').map((entry) => <div className="pt-like" key={entry.id}><span aria-hidden="true">♥</span><div><strong>{entry.name}, {entry.age}</strong><small>Liked by you</small></div></div>)}
