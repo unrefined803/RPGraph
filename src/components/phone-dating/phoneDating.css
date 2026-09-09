@@ -1,6 +1,6 @@
 .pt-app { color-scheme: dark; height: 100%; min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #14151d; color: #f3edf2; font-size: 14px; }
-.pt-app button { cursor: pointer; color: inherit; border: 1px solid #38313f; border-radius: 12px; background: #20212c; padding: 10px 16px; font: inherit; }
-.pt-app button:disabled { opacity: .5; cursor: wait; }
+.pt-app button:not(.account-link) { cursor: pointer; color: inherit; border: 1px solid #38313f; border-radius: 12px; background: #20212c; padding: 10px 16px; font: inherit; }
+.pt-app button:disabled:not(.account-link) { opacity: .5; cursor: wait; }
 .pt-app button:focus-visible, .pt-app input:focus-visible, .pt-app textarea:focus-visible, .pt-app select:focus-visible { outline: 2px solid #d3bce1; outline-offset: 2px; }
 .pt-header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #34303d; }
 .pt-header > strong { display: flex; align-items: center; gap: 9px; font-size: 21px; letter-spacing: -0.6px; flex: 1; }
@@ -128,7 +128,7 @@
 
 /* Shared interaction polish stays scoped to MatchMe. */
 .pt-app button, .pt-seeking label { transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
-.pt-app button:disabled { cursor: not-allowed; }
+.pt-app button:disabled:not(.account-link) { cursor: not-allowed; }
 .pt-header > button, .pt-conversation .phone-social-dm-header > button { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; padding: 0; border: 1px solid #ffffff24; border-radius: 10px; background: linear-gradient(145deg, #ffffff0d, #ffffff03); }
 .pt-header > button:hover, .pt-header > button:focus-visible,
 .pt-conversation .phone-social-dm-header > button:hover, .pt-conversation .phone-social-dm-header > button:focus-visible { color: #ffe2ef; border-color: #ef9dbd99; background: #ef9dbd1c; box-shadow: 0 0 15px #ef9dbd30, inset 0 1px 0 #ffffff20; transform: translateX(-1px); }

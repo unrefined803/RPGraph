@@ -4525,7 +4525,8 @@ function App() {
     let existing = messagesRef.current.find((entry) => entry.socialDirectMessage?.messageId === message.messageId);
     if (message.app === 'matchme' && !existing) {
       const saved = commitLocalAppTurn([{ role: 'user', originalText: socialDirectMessageHistoryText(message),
-        includeInHistory: true, socialDirectMessage: message }], () => true,
+        includeInHistory: true, socialDirectMessage: message,
+        turnContext: { englishProcessingEnabled, inputTranslationOnlyEnabled, displayLanguage } }], () => true,
         { messageFormat: socialMediaMessageFormat, promptSlot: slot });
       if (!saved) return false;
       existing = messagesRef.current.find((entry) => entry.socialDirectMessage?.messageId === message.messageId);

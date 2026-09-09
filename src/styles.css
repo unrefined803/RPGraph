@@ -6274,7 +6274,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .messages {
-  --chat-card-gap: 18px;
+  --chat-card-gap: 24px;
   flex: 1;
   overflow-y: auto;
   overflow-anchor: none;
@@ -11018,6 +11018,13 @@ button.message-timeline-row.phone:focus-visible {
   --chat-social-accent-soft: rgba(244, 63, 94, 0.22);
   --chat-social-incoming: rgba(49, 31, 47, 0.97);
   --chat-social-outgoing: linear-gradient(135deg, rgba(236, 72, 153, 0.34), rgba(225, 29, 72, 0.26));
+}
+
+.chat-social-message-card.matchme {
+  --chat-social-accent: #ef9dbd;
+  --chat-social-accent-soft: #ef9dbd33;
+  --chat-social-incoming: #29232f;
+  --chat-social-outgoing: linear-gradient(135deg, #77364f, #542e4d);
 }
 
 .chat-social-message-card.whatsup {

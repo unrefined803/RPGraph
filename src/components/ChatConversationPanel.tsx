@@ -606,7 +606,7 @@ export function ChatConversationPanel({
       !!message.outputActionsHidden ||
       socialMessageHiddenFromChat(message),
   });
-  const socialTimeline = socialTimelineGroups(visibleMessages);
+  const socialTimeline = socialTimelineGroups(visibleMessages, englishProcessingEnabled);
   const outsidePhoneEntriesByMessageId = new Map<number, PhoneTimelineEntry[]>();
 
   const directPhoneTimelineEntriesByMessageId = new Map(
@@ -1318,7 +1318,7 @@ export function ChatConversationPanel({
                       key={`${first.socialMessageId}-${segmentIndex}`}
                     >
                       <header className="chat-social-message-header">
-                        <strong>{appName}</strong>
+                        <strong>{appName}{first.app === 'matchme' && <span aria-hidden="true"> ♥</span>}</strong>
                         <span>{first.from} and {first.to}</span>
                       </header>
                       <div className="chat-social-message-thread">

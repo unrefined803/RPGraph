@@ -647,10 +647,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
       return false;
     }
     const turnContext: TurnContext = existingInputMessage?.turnContext ?? {
-      englishProcessingEnabled: existingInputMessage
+      englishProcessingEnabled: existingInputMessage && socialDirectMessage?.app !== 'matchme'
         ? !!existingInputMessage.translatedText
         : englishProcessingEnabled,
-      inputTranslationOnlyEnabled: existingInputMessage
+      inputTranslationOnlyEnabled: existingInputMessage && socialDirectMessage?.app !== 'matchme'
         ? existingInputMessage.turnContext?.inputTranslationOnlyEnabled ?? false
         : inputTranslationOnlyEnabled,
       displayLanguage,

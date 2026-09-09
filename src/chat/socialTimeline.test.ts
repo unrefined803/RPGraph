@@ -25,6 +25,24 @@ describe('standalone social DM timeline', () => {
     expect(groups.get(1)?.[0]).toMatchObject({ app, message: 'Message 1', translatedMessage: 'Translation 1' });
   });
 
+  it.each(['fotogram', 'onlyfriends', 'matchme'] as const)('merges %s conversation turns across invisible workflow outputs', (app) => {
+    const empty: MessageRecord = { id: 3, role: 'output', originalText: '', rpDateTime: '2026-09-09T12:01' };
+    const messages = [dm(1, app), dm(2, app), empty, dm(4, app), dm(5, app)];
+    const grouped = socialTimelineGroups(messages);
+    expect([...grouped.groups.keys()]).toEqual([1]);
+    expect(grouped.groups.get(1)?.map((link) => link.socialMessageId)).toEqual([1, 2, 4, 5]);
+    expect([...grouped.skippedIds]).toEqual([2, 4, 5]);
+
+    for (const interruption of [
+      { ...empty, originalText: 'The door opens.' },
+      { ...empty, outputActionInfoBoxes: [{ title: 'Notice', text: 'Something happened.' }] },
+      { ...empty, embeddedPhoneMessages: [{ phoneMessageId: 30, from: 'Alice', to: 'Bob', message: 'A phone message.' }] },
+      { ...empty, rpDateTime: '2026-09-10T00:00' },
+    ] satisfies MessageRecord[]) {
+      expect([...socialTimelineGroups([messages[0], messages[1], interruption, ...messages.slice(3)]).groups.keys()]).toEqual([1, 4]);
+    }
+  });
+
   it('keeps embedded DMs visible once and hides match events without deleting history', () => {
     const direct = dm(2, 'matchme');
     const parent: MessageRecord = { id: 1, role: 'output', originalText: 'She checks her phone.',
