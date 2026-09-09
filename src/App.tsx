@@ -65,7 +65,7 @@ import {
 } from './chat/phoneMessages';
 import { useNextTurnReferenceImages } from './chat/useNextTurnReferenceImages';
 import { shieldTranslationEmoji, restoreTranslationEmoji } from './chat/translationEmojiShield';
-import { type OutputActionContextCapacityRequest } from './chat/outputActions';
+import { findOutputActionPlayer, type OutputActionContextCapacityRequest } from './chat/outputActions';
 import {
   applyTimeCommandsToWorkflowNodes,
   structuredInputPayload,
@@ -4307,9 +4307,7 @@ function App() {
         runNarratorSelected = true;
         runSelectedCharacter = undefined;
       } else {
-        const targetCharacter = storyCharacters.find(
-          (character) => character.id === requestedPlayer || phoneNamesMatch(character.name, requestedPlayer),
-        );
+        const targetCharacter = findOutputActionPlayer(playerCharacters, requestedPlayer);
         if (targetCharacter) {
           runNarratorSelected = false;
           runSelectedCharacter = targetCharacter;

@@ -4,8 +4,9 @@ import type {
   OutputActionInfoBox,
   OutputActionProgressBar,
 } from '../types';
+import type { StorybookCharacter } from '../storybook/runtime';
 import { isRecord } from '../utils/records';
-import { phoneVoiceMessageFlag } from './phoneMessages';
+import { phoneNamesMatch, phoneVoiceMessageFlag } from './phoneMessages';
 import {
   phoneNoteColors,
   type CreatedPhoneNoteCommit,
@@ -73,6 +74,16 @@ export type ParseOutputActionsOptions = {
    */
   phoneAppCommits?: boolean;
 };
+
+export function findOutputActionPlayer<T extends Pick<StorybookCharacter, 'id' | 'name' | 'playerSelectable'>>(
+  characters: T[],
+  requestedPlayer: string,
+): T | undefined {
+  return characters.find(
+    (character) => character.playerSelectable !== false &&
+      (character.id === requestedPlayer || phoneNamesMatch(character.name, requestedPlayer)),
+  );
+}
 
 const emptyOutputActions = (): ParsedOutputActions => ({
   phoneMessages: [],

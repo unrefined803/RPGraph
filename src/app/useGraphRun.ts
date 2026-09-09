@@ -74,6 +74,7 @@ import { formatPhoneInput, formatPhoneReplyQuote, whatsUpMessageInputText } from
 import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import { nodesPreparedAfterOutput } from '../graph/edges';
 import {
+  findOutputActionPlayer,
   parseOutputActions,
   type OutputActionChatMessage,
   type OutputActionContextCapacityRequest,
@@ -2343,10 +2344,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const character =
             phoneNamesMatch(control.name, narratorSpeakerName)
               ? { id: narratorCharacterId }
-              : storyCharacters.find(
-                  (entry) => entry.playerSelectable !== false &&
-                    (entry.id === control.name || phoneNamesMatch(entry.name, control.name)),
-                );
+              : findOutputActionPlayer(storyCharacters, control.name);
           if (character) {
             selectChatCharacter(character.id);
           } else {
