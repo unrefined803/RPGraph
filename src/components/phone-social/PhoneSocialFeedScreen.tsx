@@ -68,6 +68,7 @@ import {
 } from './PhoneSocialDirectMessages';
 import {
   formatSocialCount,
+  npcSeedPostEngagement,
   type SocialComment,
   type SocialPost,
 } from './socialPostPresentation';
@@ -87,6 +88,7 @@ type SocialNotice = {
 
 type PendingCommentReveal = {
   actionId: string;
+  action: 'comment' | 'load-more';
   postId: string;
   baselineCount: number;
   baselineVisibleCount: number;
@@ -663,13 +665,18 @@ export function PhoneSocialFeedScreen({
     characterLikeCountsRef.current = characterLikeCountByPostId;
   }, [characterLikeCountByPostId, persistedCommentsByPostId, persistedReactions]);
   const posts = feedPosts.map((post) => {
+    const seedEngagement = npcSeedPostEngagement(post.id);
     const fullLikeCount =
       post.likeCount +
+      (seedEngagement?.likeCount ?? 0) +
       (persistedReactions[post.id]?.likes ?? 0) +
       (characterLikeCountByPostId[post.id] ?? 0);
-    const fullCommentCount =
+    const storedCommentCount =
       post.commentCount +
       (persistedCommentsByPostId[post.id]?.length ?? 0);
+    const fullCommentCount = storedCommentCount > 0
+      ? storedCommentCount
+      : seedEngagement?.commentCount ?? 0;
     return {
       ...post,
       likeCount: freshPostIds.has(post.id)
@@ -762,8 +769,9 @@ export function PhoneSocialFeedScreen({
     });
   }, [freshPostIds, socialMediaMessages]);
 
-  // For a comment action, show the actor's comment first and then reveal every
-  // generated reply at a random three-to-six-second interval.
+  // Replies to a new user comment arrive gradually. Loading an existing thread
+  // reveals the completed workflow result together, because those comments
+  // are presented as already existing rather than newly arriving reactions.
   useEffect(() => {
     if (
       !pendingCommentReveal ||
@@ -788,6 +796,14 @@ export function PhoneSocialFeedScreen({
     const total = baselineCount + Math.max(0, currentPersistedCount - baselinePersistedCount);
     const firstVisibleCount = Math.min(total, baselineVisibleCount + 1);
     queueMicrotask(() => {
+      if (pendingCommentReveal.action === 'load-more') {
+        setVisibleCommentCounts((current) => ({
+          ...current,
+          [postId]: Math.max(current[postId] ?? 0, total),
+        }));
+        setPendingCommentReveal(undefined);
+        return;
+      }
       setVisibleCommentCounts((current) => ({
         ...current,
         [postId]: Math.max(current[postId] ?? 0, firstVisibleCount),
@@ -900,6 +916,7 @@ export function PhoneSocialFeedScreen({
     }));
     setPendingCommentReveal({
       actionId,
+      action: 'comment',
       postId: post.id,
       baselineCount,
       baselineVisibleCount,
@@ -973,6 +990,7 @@ export function PhoneSocialFeedScreen({
     }));
     setPendingCommentReveal({
       actionId,
+      action: 'load-more',
       postId: post.id,
       baselineCount,
       baselineVisibleCount,
@@ -997,6 +1015,18 @@ export function PhoneSocialFeedScreen({
     if (!succeeded) {
       setPendingCommentReveal(undefined);
       showNotice({ kind: 'error', text: 'Comments could not be loaded.' }, 3_000);
+    }
+  }
+
+  function toggleComments(post: SocialPost, commentsOpen: boolean) {
+    setCommentDraft('');
+    if (commentsOpen) {
+      setOpenCommentsPostId(undefined);
+      return;
+    }
+    setOpenCommentsPostId(post.id);
+    if (commentsForPost(post).length === 0) {
+      void loadMoreComments(post);
     }
   }
 
@@ -1748,10 +1778,7 @@ export function PhoneSocialFeedScreen({
                       <button
                         type="button"
                         className="phone-social-open-comments-toggle"
-                        onClick={() => {
-                          setOpenCommentsPostId(commentsOpen ? undefined : post.id);
-                          setCommentDraft('');
-                        }}
+                        onClick={() => toggleComments(post, commentsOpen)}
                         aria-expanded={commentsOpen}
                       >
                         <span>{commentsOpen ? 'Hide comments' : 'Open comments'}</span>
@@ -1847,10 +1874,7 @@ export function PhoneSocialFeedScreen({
                           <button
                             type="button"
                             className="phone-social-comment-button"
-                            onClick={() => {
-                              setOpenCommentsPostId(commentsOpen ? undefined : post.id);
-                              setCommentDraft('');
-                            }}
+                            onClick={() => toggleComments(post, commentsOpen)}
                             aria-expanded={commentsOpen}
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1871,10 +1895,7 @@ export function PhoneSocialFeedScreen({
                           <button
                             type="button"
                             className="phone-social-open-comments-toggle"
-                            onClick={() => {
-                              setOpenCommentsPostId(commentsOpen ? undefined : post.id);
-                              setCommentDraft('');
-                            }}
+                            onClick={() => toggleComments(post, commentsOpen)}
                             aria-expanded={commentsOpen}
                           >
                             <span>{commentsOpen ? 'Hide comments' : 'Open comments'}</span>
@@ -1942,7 +1963,11 @@ export function PhoneSocialFeedScreen({
                       );
                     })}
                     {comments.length === 0 && (
-                      <span className="phone-social-empty">No comments yet.</span>
+                      <span className="phone-social-empty">
+                        {pendingCommentReveal?.postId === post.id
+                          ? 'The comment servers are catching up. This may take a moment.'
+                          : 'No comments yet.'}
+                      </span>
                     )}
                     <button
                       type="button"
