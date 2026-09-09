@@ -3,6 +3,7 @@ import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
 import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
+import { appCharacterImage } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
 import { useMatchMeMigration } from './chat/useMatchMeMigration';
@@ -3579,20 +3580,24 @@ function App() {
     });
   }
 
-  function storybookPhoneImageAttachment(message: Pick<ParsedPhoneMessage, 'from' | 'imageId'>) {
+  function phoneImageAttachment(
+    message: Pick<ParsedPhoneMessage, 'imageId'>,
+    ownerId: string,
+    ownerName: string,
+  ) {
     const imageId = message.imageId?.trim();
     if (!imageId) {
       return undefined;
     }
-    const source = currentStorybookImageSourceById(imageId);
-    if (!source) {
-      notifySystem('warning', `Phone image ${imageId} was not found in the Storybook image libraries.`);
+    const image = appCharacterImage(npcParticipants.characters(), imageId, ownerId);
+    if (!image) {
+      notifySystem('warning', `Phone image ${imageId} was not found in ${ownerName}'s image library.`);
       return undefined;
     }
     return {
-      attachment: chatAttachmentFromStorybookImage(source.image),
-      description: source.image.description.trim() || undefined,
-      ownerName: source.ownerName,
+      attachment: chatAttachmentFromStorybookImage(image),
+      description: image.description.trim() || undefined,
+      ownerName,
     };
   }
 
@@ -3613,24 +3618,24 @@ function App() {
       from: participants.from.name,
       to: participants.to.name,
     };
-    const storybookImage = canonicalMessage.imageAttachments?.length
+    const storedImage = canonicalMessage.imageAttachments?.length
       ? undefined
-      : storybookPhoneImageAttachment(canonicalMessage);
+      : phoneImageAttachment(canonicalMessage, participants.from.accountId, participants.from.name);
     const sourceImageAttachments = canonicalMessage.imageAttachments?.length
       ? canonicalMessage.imageAttachments
-      : storybookImage
-        ? [storybookImage.attachment]
+      : storedImage
+        ? [storedImage.attachment]
         : undefined;
     const imageDescription =
       canonicalMessage.imageDescription ??
-      storybookImage?.description ??
+      storedImage?.description ??
       imageDescriptionFromAttachments(sourceImageAttachments);
     const imageAttachments = ensurePhoneImagesInStorybooks(
       canonicalMessage.from,
       canonicalMessage.to,
       sourceImageAttachments,
       imageDescription,
-      storybookImage?.ownerName,
+      storedImage?.ownerName,
     ) ?? sourceImageAttachments;
     const phoneImageIds = imageIdsFromAttachments(imageAttachments);
     allowStorybookPhoneContactPair(canonicalMessage.from, canonicalMessage.to);
