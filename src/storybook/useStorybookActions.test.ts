@@ -105,23 +105,50 @@ it('does not recreate a deleted node when an assistant response arrives', async 
   expect(state.render().updateStorybook('book', emptyRpStorybook)).toBe(false);
 });
 
-it('updates a legacy Storybook only after the user confirms from its node', () => {
-  const state = harness();
-  const legacy = JSON.stringify({ ...emptyRpStorybook, version: '2.2.0', title: 'Old book' });
-  state.nodesRef.current[0].data.storybookJson = legacy;
-  const confirm = vi.fn(() => false);
-  vi.stubGlobal('window', { rpgraph: { confirmV3Migration: confirm } });
-  try {
-    expect(state.render().ensureCurrentStorybook('book')).toBe(false);
-    expect(state.nodesRef.current[0].data.storybookJson).toBe(legacy);
-    confirm.mockReturnValue(true);
-    expect(state.render().ensureCurrentStorybook('book')).toBe(true);
-    expect(JSON.parse(state.nodesRef.current[0].data.storybookJson!).version).toBe('3.0.0');
-    expect(confirm).toHaveBeenLastCalledWith(expect.stringContaining('0 character(s)'));
-    state.render().ensureCurrentStorybook('book');
-    expect(confirm).toHaveBeenCalledTimes(2);
-  } finally { vi.unstubAllGlobals(); }
-});
+it.each(['rp-storybook', 'rp-storybook-editor'] as const)(
+  'hydrates legacy history only after a confirmed upgrade in %s', (nodeType) => {
+    const state = harness();
+    state.nodesRef.current[0].data.nodeType = nodeType;
+    const book = structuredClone(emptyRpStorybook);
+    book.openingHistory.turns = [{
+      id: 'opening', number: 1, createdAt: '2026-09-09T12:00:00Z',
+      input: { graphText: '', messages: [] },
+      output: { graphText: '', messages: [{ id: 1, role: 'output', originalText: 'Opening message' }] },
+    }];
+    const legacy = JSON.stringify({ ...book, version: '2.2.0', title: 'Old book' });
+    state.nodesRef.current[0].data.storybookJson = legacy;
+    const signature = (json?: string) => JSON.stringify(parseRpStorybookJson(json ?? '').openingHistory);
+    const refresh = vi.fn((nodes: WorkflowNode[]) => {
+      expect(state.options.replaceCurrentChatWithOpeningHistoryRef.current).toBe(false);
+      state.messages.push(...openingHistoryTurnsFromNodes(nodes).flatMap((turn) => turn.output.messages));
+    });
+    state.options.updateRuntimeNode = useRuntimeNodePatching({
+      nodesRef: state.nodesRef,
+      commitNodes: (nodes) => { state.nodesRef.current = nodes; },
+      activeRunRef: { current: null }, activeRunLlmReportRef: { current: null },
+      setRunLlmReport: vi.fn(), openingHistorySignature: signature,
+      onStorybookOpeningHistoryChanged: refresh,
+      replaceCurrentChatWithOpeningHistoryRef: state.options.replaceCurrentChatWithOpeningHistoryRef,
+    }).updateRuntimeNode;
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal('window', { rpgraph: { confirmV3Migration: confirm } });
+    try {
+      expect(state.render().ensureCurrentStorybook('book')).toBe(false);
+      expect(state.nodesRef.current[0].data.storybookJson).toBe(legacy);
+      expect(refresh).not.toHaveBeenCalled();
+      confirm.mockReturnValue(true);
+      expect(state.render().ensureCurrentStorybook('book')).toBe(true);
+      expect(JSON.parse(state.nodesRef.current[0].data.storybookJson!).version).toBe('3.0.0');
+      expect(signature(state.nodesRef.current[0].data.storybookJson)).toBe(signature(legacy));
+      expect(state.messages.map((message) => message.originalText)).toEqual(['Opening message']);
+      expect(state.clearCurrentSession).not.toHaveBeenCalled();
+      expect(confirm).toHaveBeenLastCalledWith(expect.stringContaining('0 character(s)'));
+      state.render().ensureCurrentStorybook('book');
+      expect(confirm).toHaveBeenCalledTimes(2);
+      expect(refresh).toHaveBeenCalledOnce();
+    } finally { vi.unstubAllGlobals(); }
+  },
+);
 
 it('validates a full replacement before clearing the current session', () => {
   const state = harness();
