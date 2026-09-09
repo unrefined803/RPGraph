@@ -39,6 +39,7 @@ import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { PhoneImagePicker } from '../PhoneImagePicker';
 import {
   nextSocialPostId,
+  recommendedSocialPostIdentities,
   socialCharacterForPost,
   socialHandleForCharacter,
   socialIdentityMatches,
@@ -602,13 +603,17 @@ export function PhoneSocialFeedScreen({
     ...(app.id === 'fotogram' ? dmPartnerAccounts : []),
   ]
     .flatMap((entry) => [entry.name, entry.handle]);
+  const visiblePostIdentities = [
+    ...discoveredIdentities,
+    ...recommendedSocialPostIdentities(app.id, storyCharacters),
+  ];
   const persistedPosts: SocialPost[] = socialPostMessages(app.id, postsWithInitialContent(storyCharacters, socialMediaMessages))
     .reverse()
     .filter((message) => socialPostVisibleToViewer(
       message.socialPost,
       owner?.name ?? '',
       account ?? '',
-      discoveredIdentities,
+      visiblePostIdentities,
     ))
     .map((message) => ({
       id: message.socialPost.postId,

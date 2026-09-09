@@ -151,6 +151,20 @@ export function socialPostVisibleToViewer(
     );
 }
 
+/** Public NPC-container accounts can seed Fotogram's recommendation-style feed. */
+export function recommendedSocialPostIdentities(
+  app: SocialAppKind,
+  characters: StorybookCharacter[],
+) {
+  if (app !== 'fotogram') return [];
+  return characters.flatMap((character) => {
+    const account = character.apps?.fotogram;
+    return character.npcOrigin && account?.enabled
+      ? [character.name, account.username]
+      : [];
+  });
+}
+
 export function socialCharacterForPost(
   post: SocialPostRecord,
   storyCharacters: StorybookCharacter[],

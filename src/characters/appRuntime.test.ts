@@ -12,7 +12,7 @@ import {
 } from './publications';
 import { buildSocialDirectory, searchSocialDirectory } from '../chat/socialDirectory';
 import { canSendMatchMeMessage, incomingMatchMeMessage, matchMeLikePolicy, matchMeMessageAllowed, matchMeState } from '../chat/matchMe';
-import { parseSocialDirectMessageOutput, socialDirectMessageInputText } from '../chat/socialMedia';
+import { parseSocialDirectMessageOutput, recommendedSocialPostIdentities, socialDirectMessageInputText } from '../chat/socialMedia';
 import { resolveSocialMessageIdentity, validateSocialMessengerAccounts } from '../chat/socialMessageValidation';
 import { phoneRuntimeCharactersFromMessages } from '../chat/phoneCharacters';
 import { whatsUpMessageInputText } from '../chat/phoneReplies';
@@ -44,6 +44,19 @@ function setup(extra: CharacterRegistryEntry[] = []) {
 }
 
 describe('shared NPC app discovery', () => {
+  it('recommends public NPC-container posts in Fotogram without exposing OnlyFriends', () => {
+    const { characters } = setup();
+    const libraryNpc = characters.find((character) => character.sourceId === 'stage4-nova')!;
+    const storybookCharacter = characters.find((character) => character.sourceId === 'player')!;
+
+    expect(recommendedSocialPostIdentities('fotogram', characters)).toEqual([
+      libraryNpc.name,
+      libraryNpc.apps!.fotogram!.username,
+    ]);
+    expect(recommendedSocialPostIdentities('fotogram', characters)).not.toContain(storybookCharacter.name);
+    expect(recommendedSocialPostIdentities('onlyfriends', characters)).toEqual([]);
+  });
+
   it('formats Fotogram recipient data readably without leaking other characters or technical payloads', () => {
     const unrelated = npc('unrelated'); unrelated.personality = 'UNRELATED SECRET';
     const { characters, outgoing } = setup([entry(unrelated)]);
