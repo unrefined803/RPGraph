@@ -34,17 +34,17 @@ export const defaultPhoneChatTextSize = 14;
 export const phoneDesktopGridColumns = 8;
 export const phoneDesktopGridRows = 12;
 const defaultPhoneDesktopLayout: PhoneDesktopLayout = {
-  clock: { column: 2, row: 4, width: 5, height: 2 },
+  clock: { column: 2, row: 6, width: 5, height: 2 },
   apps: {
     whatsup: { column: 1, row: 1 },
     gallery: { column: 2, row: 1 },
     camera: { column: 3, row: 1 },
-    banking: { column: 4, row: 1 },
+    banking: { column: 3, row: 2 },
     fotogram: { column: 1, row: 2 },
-    onlyfriends: { column: 4, row: 2 },
-    notes: { column: 3, row: 2 },
+    onlyfriends: { column: 3, row: 3 },
+    notes: { column: 2, row: 3 },
     ai: { column: 2, row: 2 },
-    plottwist: { column: 5, row: 2 },
+    plottwist: { column: 1, row: 3 },
   },
 };
 const defaultPhoneDesktopIconSize: PhoneDesktopIconSize = 'large';
