@@ -293,6 +293,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-instruction-2:735:49788531',
   'get-images-instruction-3:389:ed7ed76f',
   'get-images-instruction-4:605:9ce7d20e',
+  'get-images-instruction-5:522:fa4e3343',
   'create-image-result-1:243:e4845c8c',
   'create-image-result-2:240:be37f41b',
   'create-image-result-3:209:a11ab164',
@@ -3924,10 +3925,10 @@ export function verifyWorkflowValidationFixtures() {
     '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":0,"prompt":"A small dog lies on a sofa."}',
   );
   const characterOnlyImageSearch = parsePromptActionCall(
-    '{"action":"get_image_id","characters":"Robert Miller"}',
+    '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Robert Miller"}',
   );
   const taggedImageSearch = parsePromptActionCall(
-    '{"action":"get_image_id","characters":"Robert Miller","tags":"mirror, selfie"}',
+    '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Robert Miller","tags":"mirror, selfie"}',
   );
   assertFixture(
     createImageAction?.action === 'createImage' &&
@@ -5270,6 +5271,7 @@ async function verifyPromptRunFixtures() {
     defaultPromptActionConfig('Get character phone image list', 'getImageId'),
     {
       action: 'getImageId',
+      phoneOwner: 'Sarah Miller',
       characters: 'Sarah Miller',
       tags: 'mirror, selfie, party, outfit',
     },
@@ -5283,6 +5285,7 @@ async function verifyPromptRunFixtures() {
     },
     {
       action: 'getImageId',
+      phoneOwner: 'Sarah Miller',
       characters: 'Sarah Miller',
       tags: 'mirror, selfie, party, outfit',
     },
@@ -5316,7 +5319,7 @@ async function verifyPromptRunFixtures() {
   }> = [];
   const combinedCaptionOutputs = [
     '{"action":"get_image_id","plan":"Find Sarah Miller\'s party selfie before replying."}',
-    '{"action":"get_image_id","characters":"Sarah Miller","tags":"mirror, selfie, party, outfit, smiling, indoor, portrait, evening, phone, bedroom"}',
+    '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Sarah Miller","tags":"mirror, selfie, party, outfit, smiling, indoor, portrait, evening, phone, bedroom"}',
     '{"whatsUpApp":[{"from":"Espen Harper","to":"Helga Harper","message":"I found the picture."}]}',
     `{"action":"update_phone_image_caption","imageId":"${combinedCaptionImageId}","imageAction":"no_change"}`,
   ];
@@ -6078,7 +6081,7 @@ async function verifyPromptRunFixtures() {
   );
   const actionCallScenario = await runStreamingScenario([
     '{"action":"get_image_id","plan":"Find a stored Espen party selfie that shows her outfit."}',
-    '{"action":"get_image_id","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone, smiling, evening, indoor, portrait"}',
+    '{"action":"get_image_id","phoneOwner":"Espen Harper","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone, smiling, evening, indoor, portrait"}',
     'Espen scrolls to the party photo and smirks.',
   ]);
   assertFixture(
