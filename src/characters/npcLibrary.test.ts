@@ -1,3 +1,6 @@
+import { appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
+import { buildCharacterRegistry, resolveRegistryAccount } from './registry';
+import { resolveWhatsUpRecipient } from './messageIdentity';
 import { describe, expect, it } from 'vitest';
 import { browserNpcLibrarySnapshot } from './npcLibrary';
 
@@ -55,4 +58,18 @@ describe('bundled authored MatchMe characters', () => {
       }
     }
   });
+});
+
+it('provides Eli Ward with a runtime WhatsUp account without changing the bundled container', async () => {
+  const snapshot = await browserNpcLibrarySnapshot();
+  const entry = snapshot.entries.find(({ character }) => character.name === 'Eli Ward')!;
+  expect(entry.character.apps?.whatsup).toBeUndefined();
+  const registry = buildCharacterRegistry([entry]);
+  const characters = appCharactersFromRegistry(registry);
+  const context = recipientCharacterContext(characters[0]);
+  expect(context).toContain('WhatsUp\nUsername: @Eli Ward');
+  expect(context).toContain('No account: OnlyFriends');
+  expect(resolveRegistryAccount(registry, 'whatsup', 'Eli Ward').status).toBe('found');
+  expect(resolveWhatsUpRecipient(characters, [], 'Eli Ward').accountId).toBe('character:authored-matchme-m2:whatsup');
+  expect(entry.character.apps?.whatsup).toBeUndefined();
 });

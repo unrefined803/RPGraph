@@ -56,7 +56,7 @@ describe('shared NPC app discovery', () => {
     expect(context).toContain(fixture.character.personality);
     expect(context).toContain('Public social profiles\n\n');
     expect(context).toContain('Fotogram\nUsername: @nova.vale.art');
-    expect(context).toContain('No account: WhatsUp, OnlyFriends');
+    expect(context).toContain('No account: OnlyFriends');
     expect(context).not.toContain('Existing conversation');
     expect(context).toContain(`New message:\nPlayer: ${message.text}`);
     for (const hidden of ['SENDER SECRET', 'UNRELATED SECRET', 'data:image', 'accountId', 'privateCharacterization', '[REPLYING CHARACTER CONTEXT]', 'null']) {
@@ -97,7 +97,7 @@ describe('shared NPC app discovery', () => {
     const context = socialDirectMessageInputText(outgoing, messages, characters);
     expect(context).toContain('nova.vale.art');
     expect(context).toContain(fixture.character.personality);
-    expect(context).toContain('No account: WhatsUp, OnlyFriends');
+    expect(context).toContain('No account: OnlyFriends');
     expect(context).not.toContain('SENDER SECRET');
     expect(context).not.toContain('UNRELATED SECRET');
     expect(context).not.toContain('data:image');
@@ -121,7 +121,8 @@ describe('shared NPC app discovery', () => {
       const characters = appCharactersFromRegistry(buildCharacterRegistry([entry(value)]));
       if (app === 'matchme') expect(matchMeState(characters, []).accounts.some((account) => account.characterId === value.id)).toBe(false);
       else expect(searchSocialDirectory(buildSocialDirectory({ storyCharacters: characters, messages: [] }).users, app, 'nova.vale.art')).toEqual([]);
-      expect(recipientCharacterContext(characters[0])).toMatch(new RegExp(`No account: .*${app === 'matchme' ? 'MatchMe' : 'Fotogram'}`));
+      if (app === 'matchme') expect(recipientCharacterContext(characters[0])).toMatch(/No account: .*MatchMe/);
+      else expect(characters[0].apps?.fotogram).toMatchObject({ enabled: true, displayName: value.name });
     }
     const value = npc(); value.apps!.fotogram!.enabled = false; value.apps!.matchme!.enabled = false;
     const characters = appCharactersFromRegistry(buildCharacterRegistry([entry(value)]));

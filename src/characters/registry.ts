@@ -1,3 +1,4 @@
+import { normalizeCharacterApps } from './character';
 import type { Character, CharacterAppAccount, CharacterApps } from './character';
 
 export type CharacterApp = keyof CharacterApps;
@@ -139,7 +140,9 @@ export function buildCharacterRegistry(entries: CharacterRegistryEntry[]): Effec
     const winner = candidates.reduce((current, candidate) =>
       tierRank[candidate.tier] > tierRank[current.tier] ? candidate : current);
     return {
-      character: winner.character,
+      character: { ...winner.character, apps: normalizeCharacterApps(
+        winner.character.apps, winner.character.social, winner.character.id, winner.character.name,
+      ) },
       provenance: { tier: winner.tier, source: winner.source },
       aliases: winnerAliases(candidates, winner),
       npcOrigin: winner.tier !== 'storybook' || candidates.some((entry) => entry.tier === 'snapshot'),

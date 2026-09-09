@@ -556,13 +556,13 @@ export function verifyWorkflowValidationFixtures() {
       ) &&
       parsedOnlyFriendsReply.message?.text === 'You are the best!' &&
       parsedOnlyFriendsReply.message.tip === 10 &&
-      socialMessageHiddenFromChat({
+      !socialMessageHiddenFromChat({
         id: 22,
         role: 'output',
         originalText: 'Hidden DM history',
         socialDirectMessage: parsedSocialDirectReply.message,
       }),
-    'social direct messages must include conversation context, parse the recipient reply, and stay hidden in Chat',
+    'social direct messages must include conversation context, parse the recipient reply, and remain visible in Chat',
   );
   const parsedReactionsWithDms = parseSocialReactionsOutput(
     [

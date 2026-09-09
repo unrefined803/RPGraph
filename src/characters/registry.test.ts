@@ -58,8 +58,9 @@ describe('effective character registry', () => {
     ]);
     expect(saved.characters).toHaveLength(1);
     expect(saved.characters[0]).toMatchObject({ provenance: { tier: 'storybook' }, playerSelectable: true });
-    expect(saved.characters[0].character.apps?.fotogram).toBeUndefined();
-    expect(registryAccounts(saved, 'fotogram')).toEqual([]);
+    expect(saved.characters[0].character.apps?.fotogram).toMatchObject({ enabled: true, displayName: saved.characters[0].character.name });
+    expect(registryAccounts(saved, 'fotogram').map(({ account }) => account.accountId)).toEqual(['character:nova:fotogram']);
+    expect(saved.characters[0].character.apps?.fotogram?.bio).toBe('');
   });
 
   it('never makes a library export player-selectable', () => {

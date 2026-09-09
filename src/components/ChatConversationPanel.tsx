@@ -1,3 +1,4 @@
+import { socialTimelineGroups, socialTimelineMessageText } from '../chat/socialTimeline';
 import { AccountLinkText } from './AccountLinkText';
 import {
   Fragment,
@@ -605,6 +606,7 @@ export function ChatConversationPanel({
       !!message.outputActionsHidden ||
       socialMessageHiddenFromChat(message),
   });
+  const socialTimeline = socialTimelineGroups(visibleMessages);
   const outsidePhoneEntriesByMessageId = new Map<number, PhoneTimelineEntry[]>();
 
   const directPhoneTimelineEntriesByMessageId = new Map(
@@ -674,6 +676,13 @@ export function ChatConversationPanel({
       !!candidate.outputActionContextCapacityBars?.length;
     return (
       candidate.role === 'output' &&
+      !candidate.socialDirectMessage &&
+      !candidate.embeddedSocialMessages?.length &&
+      !candidate.bankTransfer &&
+      !candidate.socialPost &&
+      !candidate.createdPhoneNote &&
+      !candidate.deletedPhoneNote &&
+      !candidate.simulatedAiChat &&
       !candidateText &&
       !candidate.rpDateTime &&
       !hasOutputActionUi &&
@@ -732,7 +741,7 @@ export function ChatConversationPanel({
         } as CSSProperties}
       >
         {visibleMessages.map((message, index) => {
-          if (skippedPhoneTimelineMessageIds.has(message.id)) {
+          if (skippedPhoneTimelineMessageIds.has(message.id) || socialTimeline.skippedIds.has(message.id)) {
             return null;
           }
           const displayText = message.eventInput && message.eventDisplayText
@@ -843,6 +852,19 @@ export function ChatConversationPanel({
             rpTimeTrackingEnabled && effectiveMessageRpDateTime && messageDay !== previousDay
               ? formatRpDayLabel(effectiveMessageRpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
               : '';
+          // Empty workflow outputs must not occupy a timeline slot between cards.
+          if (
+            message.role === 'output' && !isEditingMessage && !visibleText.trim() &&
+            !compositeTextBefore?.trim() && !compositeTextAfter?.trim() &&
+            !message.embeddedPhoneMessages?.length && !message.embeddedSocialMessages?.length &&
+            !message.imageAttachments?.length && !hasOutputActionUi &&
+            !message.bankTransfer && !message.socialPost && !message.socialDirectMessage &&
+            !message.createdPhoneNote && !message.deletedPhoneNote && !message.simulatedAiChat
+          ) {
+            return dayLabel
+              ? <div className="rp-day-divider chat-day-divider" key={message.id}><span>{dayLabel}</span></div>
+              : null;
+          }
           const renderDialoguePartSpans = (
             textParts: Array<{ text: string; speakerName?: string; isSpeech?: boolean }>,
             keyPrefix: string,
@@ -1300,11 +1322,9 @@ export function ChatConversationPanel({
                         <span>{first.from} and {first.to}</span>
                       </header>
                       <div className="chat-social-message-thread">
-                        {segment.map((socialMessage) => {
+                        {segment.map((socialMessage, messageIndex) => {
                           const linkedMessage = socialMessagesById.get(socialMessage.socialMessageId);
-                          const text = englishProcessingEnabled
-                            ? linkedMessage?.displayText ?? socialMessage.translatedMessage ?? socialMessage.message
-                            : socialMessage.message;
+                          const text = socialTimelineMessageText(socialMessage, linkedMessage, englishProcessingEnabled);
                           const outgoing = first.app === 'matchme'
                             ? linkedMessage?.fromAccountId === socialMessagesById.get(first.socialMessageId)?.fromAccountId
                             : socialMessage.from.trim().toLocaleLowerCase() === anchorSender;
@@ -1327,8 +1347,12 @@ export function ChatConversationPanel({
                                 }}
                                 style={{ fontSize: chatTextSize || defaultChatTextSize }}
                               >
-                                <strong style={fromColor ? { color: fromColor } : undefined}>
-                                  {socialMessage.from}
+                                <strong className={messageIndex === 0 ? 'chat-phone-bubble-route' : undefined}>
+                                  <span style={fromColor ? { color: fromColor } : undefined}>{socialMessage.from}</span>
+                                  {messageIndex === 0 && <>
+                                    <span>texts</span>
+                                    <span style={{ color: characterColors.get(socialMessage.to) }}>{socialMessage.to}</span>
+                                  </>}
                                 </strong>
                                 <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
                               </div>
@@ -1490,6 +1514,17 @@ export function ChatConversationPanel({
                   rpWeekdayLanguage,
                 )
               : undefined;
+          const standaloneSocialMessages = socialTimeline.groups.get(message.id);
+          if (standaloneSocialMessages) {
+            return (
+              <Fragment key={message.id}>
+                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+                <section className="phone-timeline-bubbles">
+                  {renderEmbeddedSocialMessages(standaloneSocialMessages)}
+                </section>
+              </Fragment>
+            );
+          }
           const phoneTimelineGroup = phoneTimelineGroupsByFirstMessageId.get(message.id);
 
           if (phoneTimelineGroup?.entries.length) {

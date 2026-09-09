@@ -169,7 +169,7 @@ export function socialLikeAccountKey(characterId: string, app: SocialAppKind) {
 
 /** Social reaction/history records remain available to the LLM but are folded into the post card in Chat. */
 export function socialMessageHiddenFromChat(message: MessageRecord) {
-  return !!message.socialDirectMessage ||
+  return !!message.matchMeMatch ||
     (!message.socialPost && (!!message.socialThreadAction || !!message.socialReactions));
 }
 

@@ -6274,13 +6274,14 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .messages {
+  --chat-card-gap: 18px;
   flex: 1;
   overflow-y: auto;
   overflow-anchor: none;
   padding: 24px 18px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--chat-card-gap);
 }
 
 .phone-desktop {
@@ -9707,7 +9708,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .message-speakers.is-placeholder {
-  visibility: hidden;
+  display: none;
 }
 
 .message-speaker {
@@ -10905,7 +10906,7 @@ button.message-timeline-row.phone:focus-visible {
   align-self: center;
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: var(--chat-card-gap, 18px);
   width: min(68%, 760px);
   max-width: 100%;
 }
@@ -10914,8 +10915,12 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   width: 100%;
   flex-direction: column;
-  gap: 32px;
-  padding: 2px 0;
+  gap: var(--chat-card-gap, 18px);
+  padding: 0;
+}
+
+.phone-timeline-bubbles > .chat-social-message-stack {
+  gap: var(--chat-card-gap, 18px);
 }
 
 .chat-phone-bubble-stack.embedded {
