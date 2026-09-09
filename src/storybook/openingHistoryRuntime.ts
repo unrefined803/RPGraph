@@ -194,6 +194,12 @@ export function remapOpeningTurnMessageIds(openingTurns: TurnRecord[], startId: 
           phoneMessageId: idMap.get(embeddedMessage.phoneMessageId) ?? embeddedMessage.phoneMessageId,
         }));
       }
+      if (message.embeddedSocialMessages?.length) {
+        message.embeddedSocialMessages = message.embeddedSocialMessages.map((embeddedMessage) => ({
+          ...embeddedMessage,
+          socialMessageId: idMap.get(embeddedMessage.socialMessageId) ?? embeddedMessage.socialMessageId,
+        }));
+      }
       if (message.replyToMessageId !== undefined) {
         message.replyToMessageId = idMap.get(message.replyToMessageId) ?? message.replyToMessageId;
       }
