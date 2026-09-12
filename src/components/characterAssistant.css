@@ -49,3 +49,25 @@
   .character-assistant-dialog .typing-indicator span,
   .character-assistant-dialog .thinking .message-sender-avatar { animation: none; }
 }
+
+/* The composer fills the panel; attachment and send actions share its bottom row. */
+.character-assistant-dialog .storybook-chat-form { align-items: stretch; padding: 16px 18px; }
+.character-assistant-dialog .storybook-chat-form > textarea {
+  flex: none; width: 100%; box-sizing: border-box; height: 110px; min-height: 90px; max-height: 220px; resize: vertical;
+}
+.character-assistant-composer-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.character-assistant-attachment-count { margin-right: auto; color: var(--muted); font-size: 11px; }
+.character-assistant-dialog .character-assistant-attach { display: inline-flex; align-items: center; gap: 8px; height: 40px; margin: 0; padding: 0 14px; border-radius: 12px; }
+.character-assistant-fields details, .character-assistant-image details { border: 1px solid #303d53; border-radius: 10px; padding: 12px; }
+.character-assistant-fields summary, .character-assistant-image summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; list-style: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+.character-assistant-fields summary::-webkit-details-marker, .character-assistant-image summary::-webkit-details-marker { display: none; }
+.character-assistant-fields summary::after, .character-assistant-image summary::after { content: '+'; color: var(--muted); font-size: 18px; font-weight: 400; }
+.character-assistant-fields details[open] > summary::after, .character-assistant-image details[open] > summary::after { content: '−'; }
+.character-assistant-fields details[open] > summary, .character-assistant-image details[open] > summary { margin-bottom: 14px; }
+.character-assistant-fields details > div { display: grid; gap: 12px; margin-top: 12px; }
+.character-assistant-fields details > div > label { padding: 12px; margin-bottom: 4px; border: 1px solid #2a374e; border-radius: 8px; background: #111925; }
+.character-assistant-fields .contextual-action-button, .character-assistant-image .contextual-action-button { justify-self: start; width: fit-content; }
+.character-assistant-fields details > button { margin-top: 12px; }
+.character-assistant-fields details h4 { margin: 8px 0 0; }
+.character-assistant-fields details > .character-assistant-inline { display: flex; }
+.character-assistant-image details > label { margin-top: 10px; }

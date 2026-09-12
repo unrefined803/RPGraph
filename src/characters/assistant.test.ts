@@ -15,6 +15,22 @@ function fixture(): Character {
 const response = (patch: unknown[]) => JSON.stringify({ reply: 'Updated.', patch });
 
 describe('Character Assistant edits', () => {
+  it('keeps playable internal and defaults authored containers to NPC', () => {
+    const character = newAssistantCharacter();
+    expect(character.playable).toBe(false);
+    expect(() => parseCharacterAssistantResult(response([{ op: 'add', path: '/character/playable', value: true }]), character)).toThrow();
+  });
+
+  it('supports automatic cropping requests and first portrait selection', () => {
+    const character = fixture();
+    delete character.profileImage;
+    const result = parseCharacterAssistantResult(JSON.stringify({ reply: 'Selecting the portrait.', autoCrop: true,
+      patch: [{ op: 'replace', path: '/character/profileImage', value: { imageId: 'one' } }] }), character);
+    expect(result.autoCrop).toBe(true);
+    expect(result.character.profileImage?.imageId).toBe('one');
+    expect(parseCharacterAssistantResult(JSON.stringify({ reply: 'Detecting.', patch: [], autoCrop: true }), result.character).autoCrop).toBe(true);
+  });
+
   it('preserves source, media, voice and identities when editing text and captions', () => {
     const original = assignCharacterImage(fixture(), 'one', 'F', true);
     const before = structuredClone(original);

@@ -9,15 +9,16 @@ export const facePython = () => process.env.RPGRAPH_FACE_PYTHON || resolve(faceT
   process.platform === 'win32' ? 'venv/Scripts/python.exe' : 'venv/bin/python');
 export const faceModel = () => process.env.RPGRAPH_FACE_MODEL || resolve(faceToolsDirectory, 'blaze_face_short_range.tflite');
 
-export async function detectFaces(images) {
+export async function detectFaces(images, { cacheDirectory = resolve(faceToolsDirectory, 'matplotlib') } = {}) {
   if (!images.length) return [];
   try {
     const operation = run(facePython(), [fileURLToPath(new URL('./detect-character-faces.py', import.meta.url)), faceModel()],
-      { timeout: 60_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, MPLCONFIGDIR: resolve(faceToolsDirectory, 'matplotlib') } });
+      { timeout: 60_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, MPLCONFIGDIR: cacheDirectory } });
     operation.child.stdin.on('error', () => { /* The process error below contains the setup diagnostic. */ });
     operation.child.stdin.end(JSON.stringify(images));
     return JSON.parse((await operation).stdout);
   } catch (error) {
+    if (error.killed) throw new Error('Local face detection timed out. Try again or select the portrait crop manually.', { cause: error });
     throw new Error(`Local face detection is unavailable. Run npm run character:faces:setup, or provide an explicit profileImage.crop. ${error.message}`, { cause: error });
   }
 }

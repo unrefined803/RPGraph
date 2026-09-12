@@ -420,6 +420,7 @@ declare global {
         password: string,
         overwrite?: boolean,
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
+      detectCharacterFace: (image: { id: string; dataUrl: string }) => Promise<{ faces: number; crop?: { x: number; y: number; size: number } }>;
       saveCharacter: (
         name: string,
         characterCard: RpCharacterCard,

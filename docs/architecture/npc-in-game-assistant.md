@@ -31,7 +31,7 @@ of unsaved edits. Drafts are held in memory, not persisted across application ex
 The UI Preview initially shows a readable character card. **Edit** opens the
 character text fields; **Accounts & Settings → Edit** reveals the additional
 controls. The manual form includes name, age, gender, role, description, personality, speech
-style, hidden agency, playable status, social and WhatsUp profiles, starting posts,
+style, hidden agency, social and WhatsUp profiles, starting posts,
 banking and image-generation settings. Gallery entries expose names, descriptions,
 assignments, portrait crop percentages and attachment selection. **Raw JSON**
 shows the same lightweight projection used by the model, with binary media omitted.
@@ -153,6 +153,8 @@ and rewrites all corresponding media references while preserving image bytes.
 Its proposed filename ends in `Copy`; it creates an independent character rather
 than an override. The library reloads after successful saving.
 
+The creator always writes `playable: false` and does not expose this internal flag
+in its form or model projection. Storybook import handles player eligibility.
 The folder does not by itself make a character the active player. Player selection
 currently requires a character in the Storybook with `playable` enabled. Existing
 Storybook definitions and captured session snapshots retain their higher registry
@@ -194,3 +196,21 @@ Interactive verification is performed by the user:
 5. Cancel a request or edit the draft during a request; verify no stale changes apply.
 6. Verify discard/overwrite prompts, encrypted character loading, manual profile
    editing and portable container compatibility with the offline tools.
+
+### Local portrait detection
+
+The Character Assistant now invokes the existing local MediaPipe detector through
+`character:detect-face`. Selecting a new portrait runs detection automatically;
+**Portrait crop → Auto Crop** retries it explicitly. The assistant may request the
+same operation with `autoCrop: true` in its response. Exactly one detected face
+produces a square crop; no face or multiple faces leave the crop unchanged and
+show a diagnostic. Responses from an older draft revision are discarded.
+
+This uses the Python/model installation from `character:faces:setup`, not the
+selected chat provider. Packaged builds include the detector scripts; the Python
+environment and model must be provided locally using `RPGRAPH_FACE_PYTHON` and
+`RPGRAPH_FACE_MODEL`. A missing installation produces the existing setup message.
+
+The chat composer uses a full-width text area with attachment and send controls
+in one bottom action row. Settings and publication cards use spaced disclosure
+sections instead of unstyled browser arrows and adjacent full-width buttons.

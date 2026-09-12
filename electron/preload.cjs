@@ -197,6 +197,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('session:save', { name, session, protection, password, overwrite }),
   saveStorybook: (name, storybook, protection, password, overwrite = false) =>
     ipcRenderer.invoke('storybook:save', { name, storybook, protection, password, overwrite }),
+  detectCharacterFace: (image) => ipcRenderer.invoke('character:detect-face', image),
   saveCharacter: (name, characterCard, protection, password, overwrite = false, destination = 'characters') =>
     ipcRenderer.invoke('character:save', { name, characterCard, protection, password, overwrite, destination }),
   saveCurrentSession: (filePath, session, protection, password) =>

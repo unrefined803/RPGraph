@@ -20,6 +20,11 @@ files:
   - LICENSE
 
 extraResources:
+  - from: scripts
+    to: character-face-tools
+    filter:
+      - character-faces.mjs
+      - detect-character-faces.py
   - from: resources/default-content
     to: default-content
     filter:

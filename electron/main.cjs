@@ -4701,6 +4701,19 @@ ipcMain.handle('storybook:save', async (_event, request) => {
   return { fileName, name: baseName, filePath };
 });
 
+ipcMain.handle('character:detect-face', async (_event, image) => {
+  if (!image || typeof image.id !== 'string' || typeof image.dataUrl !== 'string' ||
+      image.dataUrl.length > 45 * 1024 * 1024 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) {
+    throw new Error('Face detection requires an embedded JPEG image of at most 32 MB.');
+  }
+  const { pathToFileURL } = require('node:url');
+  const directory = app.isPackaged ? path.join(process.resourcesPath, 'character-face-tools') : path.join(projectRootPath, 'scripts');
+  const { detectFaces } = await import(pathToFileURL(path.join(directory, 'character-faces.mjs')).href);
+  const [result] = await detectFaces([{ id: image.id, dataUrl: image.dataUrl }], { cacheDirectory: path.join(app.getPath('userData'), 'face-detection-cache') });
+  if (!result || !Number.isInteger(result.faces)) throw new Error('Face detection returned an invalid result.');
+  return { faces: result.faces, crop: result.crop };
+});
+
 ipcMain.handle('character:save', async (_event, request) => {
   const destination = request?.destination ?? 'characters';
   if (destination !== 'characters' && destination !== 'npc-characters') {

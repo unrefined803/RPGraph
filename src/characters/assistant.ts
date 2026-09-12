@@ -17,17 +17,17 @@ function assertNoEmbeddedMedia(value: unknown): void {
 }
 
 const editableFields = new Set(['name', 'age', 'gender', 'description', 'personality', 'speechStyle', 'hiddenAgency',
-  'role', 'playable', 'banking', 'phoneSettings', 'comfyConfig', 'apps', 'profileImage']);
+  'role', 'banking', 'phoneSettings', 'comfyConfig', 'apps', 'profileImage']);
 
 export function newAssistantCharacter(): Character {
   const id = crypto.randomUUID();
   return { id, name: 'New Character', description: '', personality: '', speechStyle: '', hiddenAgency: '', role: '',
-    playable: true, images: [], apps: normalizeCharacterApps({}, undefined, id, 'New Character') };
+    playable: false, images: [], apps: normalizeCharacterApps({}, undefined, id, 'New Character') };
 }
 
 /** The model sees stable media references, never gallery or voice bytes. */
 export function characterAssistantProjection(character: Character) {
-  const { images, voiceConfig: _voice, ...fields } = characterPayload(structuredClone(character));
+  const { images, playable: _playable, voiceConfig: _voice, ...fields } = characterPayload(structuredClone(character));
   return { character: fields, images: Object.fromEntries(images.map((image) => [image.id,
     { name: image.name, description: image.description }])) };
 }
@@ -68,11 +68,11 @@ export function validateAssistantCharacter(character: Character) {
 /** Apply a complete response transactionally, preserving binary data and existing identities. */
 export function parseCharacterAssistantResult(text: string, current: Character) {
   const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const response = JSON.parse(stripped) as { reply?: unknown; patch?: unknown };
+  const response = JSON.parse(stripped) as { reply?: unknown; patch?: unknown; autoCrop?: unknown };
   if (!response || typeof response.reply !== 'string' || !Array.isArray(response.patch)) {
     throw new Error('The assistant must return a reply string and a JSON Patch array.');
   }
-  if (!response.patch.length) return { character: current, reply: response.reply };
+  if (!response.patch.length) return { character: current, reply: response.reply, autoCrop: response.autoCrop === true };
   const projection = characterAssistantProjection(current);
   for (const operation of response.patch) {
     if (!operation || !['add', 'replace', 'remove', 'test'].includes(operation.op) || typeof operation.path !== 'string') {
@@ -85,13 +85,16 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
       throw new Error(`The assistant cannot edit ${operation.path}. No changes were applied.`);
     }
     assertNoEmbeddedMedia(operation.value);
-    applyJsonPatchOperation(projection, operation);
+    // Portrait selection is an upsert even when a model uses replace on a fresh draft.
+    const portraitSelection = operation.op === 'replace' && operation.path === '/character/profileImage' && !projection.character.profileImage;
+    applyJsonPatchOperation(projection, portraitSelection ? { ...operation, op: 'add' } : operation);
   }
   const next = { ...current, ...projection.character, images: current.images.map((image) => ({ ...image, ...projection.images[image.id] })) } as Character;
   // Optional fields removed by a patch must not survive the merge with the source.
   for (const field of editableFields) {
     if (!Object.prototype.hasOwnProperty.call(projection.character, field)) delete (next as unknown as Record<string, unknown>)[field];
   }
+  next.playable = false;
   delete next.social;
   if (!next.apps || typeof next.apps !== 'object' || Array.isArray(next.apps)) throw new Error('apps must be an object.');
   const defaults = normalizeCharacterApps({}, undefined, current.id, next.name);
@@ -113,7 +116,7 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
     next.profileImage = { ...next.profileImage, dataUrl: image.dataUrl };
   }
   validateAssistantCharacter(next);
-  return { character: next, reply: response.reply };
+  return { character: next, reply: response.reply, autoCrop: response.autoCrop === true };
 }
 
 export function characterAssistantPrompt(character: Character, messages: CharacterAssistantMessage[], instruction: string,
@@ -123,13 +126,13 @@ export function characterAssistantPrompt(character: Character, messages: Charact
     'Return only JSON: {"reply":"short answer","patch":[{"op":"replace","path":"/character/name","value":"New name"}]}. No markdown. For questions or ambiguous requests, answer in reply with patch: [].',
     'Use RFC 6902 add, replace, remove and test with RFC 6901 paths. Patch only requested fields. Do not replace the document root, /character, /images or entire gallery entries. Use add for an optional field that does not exist. All operations form one validated, undoable edit.',
     'The application owns character.id, accountId, image IDs, binary media and filesystem access. Never edit these or emit image bytes, URLs, paths, voiceConfig or legacy social fields. Existing IDs remain stable across renames. New account IDs and new post IDs are allocated by the application. When adding an account, omit accountId; when replacing an existing account object preserve its accountId exactly.',
-    'Editable /character fields: name, description, personality, speechStyle, hiddenAgency, role (strings), age (number), gender (woman/man/nonbinary), playable (boolean), apps, profileImage, banking, phoneSettings and comfyConfig. Preserve unrelated fields. Write authored character text, names and captions in English; answer the user in their language.',
+    'Editable /character fields: name, description, personality, speechStyle, hiddenAgency, role (strings), age (number), gender (woman/man/nonbinary), apps, profileImage, banking, phoneSettings and comfyConfig. Preserve unrelated fields. Write authored character text, names and captions in English; answer the user in their language.',
     'hiddenAgency is author-only free text for concealed motivations, priorities, boundaries and relationships. It is not a runtime command and never triggers messages, posts, transactions or autonomous actions.',
     'banking shape: {"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]}. For a new authored character choose a plausible balance and one mobile plan expense fitting their circumstances. Preserve existing banking unless asked. comfyConfig shape: {"loraName":"","loraUrl":"","appearance":"visual appearance for image generation"}; do not invent LoRA files or URLs.',
     'apps keys: whatsup, fotogram (also called Photogram), onlyfriends, matchme. WhatsUp and Fotogram are standard; OnlyFriends and MatchMe are optional. Account fields: enabled (boolean), username, displayName, bio, optional avatarImageId and initialPosts. Existing accounts have immutable accountId. Handles use letters, numbers, dots, underscores and hyphens without @; WhatsUp permits spaces. Display name is 1–60 characters; bio is at most 500. Keep existing handles unless asked to change them. Use enabled:false to disable a standard account. Optional accounts may be removed.',
     'MatchMe additionally requires profile: {"name":"Display name","age":25,"gender":"woman","seeking":["man"],"bio":"About me","interests":"Music, hiking","photoIds":["existing-image-id"],"decisions":{}}. Match profile name and bio to displayName and bio. Age must be an integer 18–120, interests at most 150 characters, and enabled profiles need one to three unique gallery photo IDs. One photo is sufficient. With no photos prepare enabled:false and photoIds:[]. Ask about unknown required personal details. Preserve existing decisions/messages/historyVersion; never invent private activity.',
     'Gallery metadata is /images/<stable-image-id>/name and /images/<stable-image-id>/description. Rename and describe only existing images. Filenames are not visual evidence. Only images listed under Attached image IDs are visible in this request, in that order; otherwise rely on authored descriptions or ask for an attachment. Never claim to have inspected unattached pictures. No pixel editing or image generation is available here.',
-    'Image assignments use container references, not filenames: P sets /character/profileImage to {"imageId":"existing-id"} and the shared account avatarImageId references; P alone creates no post or MatchMe gallery entry. A changed portrait clears its old crop. F/O adds or retains an initialPosts entry on fotogram/onlyfriends: {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. New post IDs are assigned by the app; preserve existing post IDs. M puts the ID into apps.matchme.profile.photoIds. Gallery-only images need no assignment. Moving F to M must remove that image’s former Fotogram post if the user requests a move rather than an additional use. Keep unrelated posts. Image description describes visible content; post text is the social caption.',
+    'Image assignments use container references, not filenames: P sets /character/profileImage to {"imageId":"existing-id"} and the shared account avatarImageId references; P alone creates no post or MatchMe gallery entry. A changed portrait clears its old crop. For a face-centered portrait crop, return autoCrop:true alongside reply and patch. The application runs its local face detector; do not guess coordinates or claim detection succeeded. Use add at /character/profileImage if the field is absent, never replace an absent field. Playable status is internal and cannot be edited here. F/O adds or retains an initialPosts entry on fotogram/onlyfriends: {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. New post IDs are assigned by the app; preserve existing post IDs. M puts the ID into apps.matchme.profile.photoIds. Gallery-only images need no assignment. Moving F to M must remove that image’s former Fotogram post if the user requests a move rather than an additional use. Keep unrelated posts. Image description describes visible content; post text is the social caption.',
     'No model response saves files. Explain the Save controls when asked to save; do not claim a disk write. Characters Folder writes <userData>/characters; NPC Library Folder writes <userData>/npc-characters. The destination is selected by the user. Save keeps identity; Save as Copy allocates a new identity. Editing a built-in NPC writes a local override, never the program directory. A saved character becomes player-selectable after import into a Storybook with playable enabled; saving does not change a running session.',
     `Selected destination: ${destination}. Attached image IDs: ${JSON.stringify(attachmentIds)}.`,
     `Current draft (authoritative):\n${JSON.stringify(characterAssistantProjection(character))}`,
