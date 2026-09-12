@@ -1074,7 +1074,7 @@ function jsonValuesEqual(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function applyJsonPatchOperation(target: unknown, operation: JsonPatchOperation) {
+export function applyJsonPatchOperation(target: unknown, operation: JsonPatchOperation) {
   if (!operation || typeof operation !== 'object' || Array.isArray(operation)) {
     throw new Error('JSON Patch entries must be objects.');
   }

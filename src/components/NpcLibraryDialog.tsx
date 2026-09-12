@@ -14,6 +14,7 @@ type NpcLibraryDialogProps = {
   onReload: () => void;
   onOpenFolder: () => void;
   onClose: () => void;
+  onCreateCharacter: () => void;
 };
 
 const appLabels = { fotogram: 'Fotogram', whatsup: 'WhatsUp', onlyfriends: 'OnlyFriends', matchme: 'MatchMe' } as const;
@@ -73,7 +74,7 @@ function CharacterRow({ entry, issues, canImport, inStorybook, onImport }: {
   );
 }
 
-export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter }: NpcLibraryDialogProps) {
   const [importStatus, setImportStatus] = useState('');
   const targetNodeId = storybookNodeId ?? '';
   const entries = useMemo(() => [...(snapshot?.entries ?? [])].sort((a, b) =>
@@ -114,6 +115,7 @@ export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, st
           <header><div><h2 id="npc-library-title">NPC Library</h2><p>Your character collection</p></div>
             <button type="button" className="dialog-close" onClick={onClose} aria-label="Close NPC library" autoFocus>×</button></header>
           <div className="npc-library-actions">
+            <button type="button" className="primary" onClick={onCreateCharacter}>Create Character</button>
             <button type="button" className="primary" onClick={onReload} disabled={loading}>{loading ? 'Reloading…' : 'Reload Library'}</button>
             <button type="button" onClick={onOpenFolder} disabled={!snapshot || snapshot.browserLimited}>Open NPC Folder</button>
           </div>

@@ -121,6 +121,7 @@ function fileToDataUrl(file: File): Promise<string> {
 export async function normalizeImageAttachment(
   source: SelectedImageSource,
   createId: () => string,
+  quality = normalizedImageQuality,
 ): Promise<ChatImageAttachment> {
   assertSelectedImageSize(source);
   assertAllowedRasterImage(source);
@@ -144,7 +145,7 @@ export async function normalizeImageAttachment(
   context.fillStyle = '#ffffff';
   context.fillRect(0, 0, width, height);
   context.drawImage(image, 0, 0, width, height);
-  const dataUrl = canvas.toDataURL(normalizedImageMimeType, normalizedImageQuality);
+  const dataUrl = canvas.toDataURL(normalizedImageMimeType, quality);
   return {
     id: createId(),
     name: `${source.name.replace(/\.[^.]+$/, '')}.${normalizedImageExtension}`,
@@ -159,6 +160,7 @@ export async function normalizeImageAttachment(
 export async function normalizeImageFile(
   file: File,
   createId: () => string,
+  quality = normalizedImageQuality,
 ): Promise<ChatImageAttachment> {
   assertSelectedImageSize({
     name: file.name,
@@ -170,5 +172,5 @@ export async function normalizeImageFile(
     mimeType: file.type || 'application/octet-stream',
     size: file.size,
     dataUrl,
-  }, createId);
+  }, createId, quality);
 }

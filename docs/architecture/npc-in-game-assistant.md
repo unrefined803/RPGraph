@@ -1,112 +1,190 @@
-# NPC In-Game Assistant
+# Character Assistant
 
-Status: proposed editor; no editor UI, model requests or autonomous NPC execution
-are implemented by this change. The container field and offline media tools are
-implemented foundations.
-
-## Container preparation
-
-`character.hiddenAgency?: string` stores author-only motivations as free text.
-An absent field or empty string means no authored agency. The field applies to
-the common PC/NPC character payload. Existing Character Container V2 files remain
-valid; no version bump or separate database table is needed. Import, editing,
-Storybook normalization and portable export preserve it.
-
-Authors may describe primary and secondary goals, how friends and strangers are
-treated, conditions, boundaries, changes of intent and clues to concealed motives
-inside this one field. No fixed goal catalog or relationship schema is required.
-The current bundled NPCs start with an empty string. The user's proposed agency
-catalog will be supplied later as authoring guidance for the editor assistant.
-
-Hidden means withheld from public character profiles and ordinary RP prompt
-context, not encrypted in the JSON container. This field must not itself trigger
-messages, posts, account changes or bank transfers. Future runtime integration
-needs a separate design for relevant context, scheduling, state and permitted
-in-game actions. The current change does not connect the field to that runtime.
+Status: implemented character editor with provider-backed chat, image attachments,
+manual forms, gallery assignments, local loading and saving. Autonomous NPC
+execution is a separate feature and is not connected to this editor.
 
 ## Entry point and layout
 
-Add **Create Character** and **Edit Character** to NPC Library inside the existing
-application. Open a dedicated editor dialog/workspace with the application's
-visual language. A separate executable or launcher menu entry is unnecessary.
-The same container model supports playable characters as well as library NPCs.
+Open **NPC Library → Create Character** to enter **Character Assistant** inside the
+application. No Storybook node, separate executable or launcher entry is required.
+The editor uses the Storybook Creator's dialog, character-card and chat styling,
+and reuses `CharacterAppProfiles` for the existing social profile forms. The left
+pane shows one character and its gallery; the larger right pane holds the chat.
 
-The left pane contains editable name, age, description, personality, speech style,
-role, playable flag, hidden agency, accounts, starting posts and a visual gallery.
-The right pane contains a chat assistant, provider/model selection, image
-attachments and request status. Manual editing works without an API connection.
+- **New Character** starts a fresh Character Container V2 draft.
+- **Load Character** lists containers from the local Characters Folder. Encrypted
+  files can be opened with their password; unsupported containers are rejected.
+- **Load NPC** lists the local and built-in NPC Library containers. A local revision
+  hides the built-in entry with the same character ID in this picker.
+- **Undo** restores a previous draft, including a complete assistant edit. Up to
+  twenty prior drafts are held in memory.
 
-Users can create a character, open an existing V2 JSON container, or edit a library
-entry. Loading parses the container into an in-memory draft; disk extraction is
-not required. Existing images are displayed through local object URLs and stable
-image IDs. Unsaved changes are recoverable or explicitly discarded when closing.
+Both load actions edit the same container payload. Their only difference is the
+source folder. Loading retains gallery bytes, identity, accounts and starting
+posts; no disk extraction or conversion of existing JPEGs is needed. Closing,
+starting a new character or loading another character requires explicit discard
+of unsaved edits. Drafts are held in memory, not persisted across application exit.
+
+The manual form includes name, age, gender, role, description, personality, speech
+style, hidden agency, playable status, social and WhatsUp profiles, starting posts,
+banking and image-generation settings. Gallery entries expose names, descriptions,
+assignments, portrait crop percentages and attachment selection. **Inspect JSON**
+shows the same lightweight projection used by the model, with binary media omitted.
+Manual editing remains available without an API connection.
+
+## Provider and assistant integration
+
+`src/components/CharacterAssistantDialog.tsx` uses the shared `NodeLlmApi.complete`
+request path with a selected existing LLM connection. **Provider / Model** lists the
+configured connections and their models, including their vision capability. Keys,
+model configuration and transport remain in the existing provider infrastructure;
+this dialog adds no credential store. Unlike the Storybook Creator, it does not
+inherit a connection from a graph node.
+
+`src/characters/assistant.ts` builds a dedicated authoring prompt covering:
+
+- editable character and account fields, banking and image-generation settings;
+- standard WhatsUp/Fotogram accounts and optional OnlyFriends/MatchMe profiles;
+- gallery descriptions versus social captions, portrait and app image references;
+- immutable identity, application-managed media and creation of account/post IDs;
+- loading, local save destinations, overrides and the distinction between editing
+  a container and selecting a player in a running story.
+
+The model receives the current draft projection and the twelve most recent
+non-error messages. Gallery metadata is keyed by stable image ID under `images`;
+character fields live under `character`. Embedded images and voice samples never
+enter that JSON context. Only explicitly selected gallery images accompany the
+request as vision attachments, in the order documented in the prompt. The dialog
+requires a vision-enabled connection for image attachments; otherwise the user
+can deselect them and describe the images in text.
+
+Responses use `{ "reply": "...", "patch": [...] }`, with JSON Patch `add`,
+`replace`, `remove` and `test` operations. The editor reuses the Storybook model's
+JSON Patch operation implementation, with a separate character-editor allowlist.
+It rejects edits to character identity, binary media, unknown images, account ID
+paths and reserved properties. New account and post IDs are assigned by the
+application; existing identities remain stable. The complete candidate is
+validated before it replaces the draft. Invalid batches leave the original
+untouched, including nested fields and media.
+
+Each request captures a draft revision. Manual editing or Undo invalidates a
+response from an earlier revision. Requests can be cancelled; errors restore the
+submitted text for correction and retry. A response never performs a filesystem
+write or gameplay action. Saving remains an explicit application control.
 
 ## Media workflow
 
-Each image exposes Fotogram, OnlyFriends, MatchMe and Profile toggles. These use
-the same F/O/M/P meaning as the offline tools; filename prefixes are optional
-import hints in the graphical editor, not persistent runtime identity.
+**Add Images** in the gallery and **Attach Images** in the chat import local files
+into the same gallery and select them for the next request. Existing images can
+be attached again by checking **Attach**. The assistant can describe visible
+images, rename them, write captions and update references; this is not a pixel
+editing or image-generation endpoint. File names are not visual descriptions.
 
-- F and O create or retain a starting publication in the selected app.
-- M selects a MatchMe gallery photo; the current schema allows one to three.
-- P selects one character portrait and the shared account avatar. It does not
-  implicitly add a post or MatchMe photo. Changing the selected image clears an
-  incompatible crop; the editor offers crop selection.
-- Gallery-only images remain possible. The offline representation uses G alone.
+Each image exposes F/O/M/P controls, equivalent to the offline assignment tools:
 
-Adding a file does not duplicate its bytes for each app. Existing image IDs stay
-stable across renames and revisions. New images receive stable IDs once accepted.
-The assistant can inspect explicitly attached images with a vision-capable model,
-propose English names, descriptions and captions, and change assignments through
-structured edits. Without vision support it requests a description instead of
-claiming to have inspected the picture. File names are not visual descriptions.
+- **F / O** creates or retains a starting publication in Fotogram / OnlyFriends.
+  Clearing a flag removes that image's starting publications from that app.
+  Create the account first if it does not exist. Captions remain editable under
+  **Starting posts**.
+- **M** adds a reference to an existing MatchMe profile. At most three gallery
+  photos are allowed; removing its last photo disables the profile until completed.
+- **P** selects the character portrait. Accounts without a separate avatar use it
+  as their fallback; accounts following the previous portrait follow the new one.
+  Portrait selection alone creates no publication or MatchMe photo. A changed
+  image clears the previous crop; percentage controls edit the new crop.
+- Unassigned gallery images remain available for later use. Filename prefixes
+  are not interpreted by this graphical importer.
 
-Decode new/replaced images locally, auto-orient, resize proportionally to at most
-one megapixel without upscaling, flatten transparency on white, strip metadata and
-encode JPEG at quality 84. The approximate 0.2 MB target is advisory. Unchanged
-embedded JPEGs retain their exact bytes. Animation and unsupported media fail
-with an actionable error. Browser implementation should share these semantics
-with the CLI, even if its encoder produces different byte sizes.
+All app references point to one stored gallery image rather than duplicate bytes.
+`src/characters/assistantMedia.ts` rejects animated PNG/WebP and GIF inputs before
+browser decoding. It uses the shared browser normalization path for static JPEG,
+PNG and WebP imports: browser orientation, proportional downscaling to at most one
+megapixel without upscaling, white transparency background, metadata removal by
+canvas re-encoding and JPEG quality 84. The approximate 0.2 MB size target is
+advisory. The browser encoder can differ from the CLI in exact output size.
+Unchanged gallery JPEGs are never re-encoded during load, editing or saving.
 
-## Assistant integration
+Removing a gallery image requires clearing its portrait, avatar, publication and
+MatchMe references first. The assistant can move a photo from one app to another
+by removing the old publication and adding the new reference in one transaction.
 
-Reuse provider credentials, model selection and request infrastructure from the
-existing application. Inspect the current provider and assistant hooks before
-implementation rather than building another credential store. API keys and
-assistant chat history do not belong in exported character containers.
+## Save destinations and overrides
 
-Send a small draft projection containing editable fields and image metadata.
-Send image bytes only for selected vision attachments, never the entire embedded
-gallery as JSON context. The assistant returns structured operations against
-allowed fields and stable media IDs. It cannot invent image bytes, filesystem
-paths or new IDs for an existing character/account revision.
+Both destinations use the existing `character:save` IPC handler and atomic file
+writing. The editor saves plain Character Container V2 JSON, retaining authored
+starting posts. API keys and assistant conversations are never exported. The
+shared portable serializer removes private dating history and runtime-only media
+access metadata, as it does for existing character exports.
 
-Validate operations against the current draft revision, apply them as one undoable
-change and show the resulting form immediately. Reject stale responses after the
-user edits or switches characters. Support cancellation, retry and clear model
-errors. Descriptive and authoring chat content never directly executes RP actions.
+| Save destination | Directory | Purpose |
+| --- | --- | --- |
+| Characters Folder | `<userData>/characters` | Local character containers for later loading or Storybook import |
+| NPC Library Folder | `<userData>/npc-characters` | User NPC Library entries and local revisions of built-in NPCs |
 
-## Save and acceptance
+`userData` is Electron's per-user application-data directory (AppData on Windows),
+not the installation directory. The footer identifies the selected destination;
+a successful save reports the full written path. The NPC root is also shown by
+the existing library snapshot.
 
-Validate all accounts, image references, MatchMe requirements and hiddenAgency's
-string type before export or installation. Show missing required values in the
-form. WhatsUp and Fotogram are standard accounts; OnlyFriends and MatchMe are
-optional. Library revisions retain identity. Saving an independent copy allocates
-a new identity explicitly. Bundled read-only content is saved through the existing
-user-library installation mechanism, followed by reload.
+**Save** preserves character, account, image and existing post identities. A loaded
+local file retains its filename when saved back to the same folder. For NPCs,
+the editor looks up an existing local file by character ID, including renamed
+files, to avoid creating a duplicate revision under another filename. Multiple
+local files with that identity must be resolved before saving. An existing target
+file requires an explicit replacement confirmation.
 
-Acceptance scenarios:
+Editing a built-in NPC writes a user version to `<userData>/npc-characters` when
+**NPC Library Folder** is selected. The program file remains untouched. The
+existing registry resolves matching character IDs with `user` above `bundled`, so
+the local revision becomes effective after library reload. This is precedence,
+not a deletion or an enabled flag written to the program file. Removing that local
+revision and reloading restores the built-in definition. Merely saving a character
+in **Characters Folder** does not override the NPC Library.
 
-1. Open an existing container, change hidden agency, save and reopen without losing
-   media bytes, stable IDs, starting posts or agency text.
-2. Add an image through chat, describe it with a selected vision model, assign F/P,
-   preview its caption and portrait, then save a valid container.
-3. Move an image from Fotogram to MatchMe without leaving its previous post behind.
-4. Edit all fields manually with no provider configured.
-5. Cancel or reject an invalid assistant edit without damaging the last valid draft.
-6. Reopen the saved container in the offline tools and retain equivalent data.
-7. Confirm hidden agency neither appears in public profiles nor initiates gameplay.
+**Save as Copy** allocates a new character ID, account IDs, image IDs and post IDs,
+and rewrites all corresponding media references while preserving image bytes.
+Its proposed filename ends in `Copy`; it creates an independent character rather
+than an override. The library reloads after successful saving.
 
-Implementation order: manual draft editor and persistence; gallery assignments
-and conversion; provider-connected structured assistant; agency authoring guidance.
-Autonomous NPC gameplay is a separate later feature.
+The folder does not by itself make a character the active player. Player selection
+currently requires a character in the Storybook with `playable` enabled. Existing
+Storybook definitions and captured session snapshots retain their higher registry
+priority; editing a library container does not rewrite an ongoing RP session.
+
+## Hidden agency
+
+`character.hiddenAgency?: string` stores author-only motivations as free text in
+the common PC/NPC payload. An absent field or empty string means no authored
+agency. Existing V2 containers remain valid; no format bump or separate table is
+needed. The field is preserved through editing, import and portable export.
+
+Authors can describe primary and secondary goals, relationships, conditions,
+boundaries and clues to concealed motives. No fixed goal catalog is required.
+A future agency catalog can extend authoring guidance without changing the schema.
+
+Hidden means withheld from public profiles and ordinary RP prompt context, not
+encrypted in the JSON container. The authoring assistant intentionally sees it.
+It never triggers posts, messages, account changes or banking transactions.
+Autonomous NPC scheduling, context and permitted in-game actions need a separate
+runtime design.
+
+## Validation
+
+`src/characters/assistant.test.ts` covers transactional edits, source immutability,
+identity and binary-media protection, new IDs, MatchMe drafts and activation,
+portrait crop changes, publication moves, independent copies, local precedence,
+prompt media omission and animation rejection. Existing Storybook patch and
+library tests cover the reused mechanisms.
+
+Interactive verification is performed by the user:
+
+1. Open **NPC Library → Create Character**, select a provider and draft a character.
+2. Attach a photo with a vision provider, request a description and F/P assignment,
+   inspect the gallery and caption, then Undo and reapply a change.
+3. Save in each local destination and reopen through the corresponding load action.
+4. Load a built-in NPC, edit and save to NPC Library, then verify local precedence
+   without changes to the installed file.
+5. Cancel a request or edit the draft during a request; verify no stale changes apply.
+6. Verify discard/overwrite prompts, encrypted character loading, manual profile
+   editing and portable container compatibility with the offline tools.

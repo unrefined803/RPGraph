@@ -213,6 +213,7 @@ import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { npcPromotionCard } from './characters/promotion';
 import { NpcLibraryDialog } from './components/NpcLibraryDialog';
+import { CharacterAssistantDialog } from './components/CharacterAssistantDialog';
 import { useNpcLibrary } from './characters/useNpcLibrary';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
@@ -615,6 +616,7 @@ type PreviewImageState = {
 
 function App() {
   const npcLibrary = useNpcLibrary();
+  const [showCharacterAssistant, setShowCharacterAssistant] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
   const nodesRef = useRef(nodes);
@@ -6415,8 +6417,14 @@ function App() {
           onClose={() => setShowSystemLog(false)}
         />
       )}
-      {npcLibrary.open && (
+      {showCharacterAssistant && (
+        <CharacterAssistantDialog nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
+          snapshot={npcLibrary.snapshot} onSaved={async () => { await npcLibrary.reload(); }}
+          onClose={() => setShowCharacterAssistant(false)} />
+      )}
+      {npcLibrary.open && !showCharacterAssistant && (
         <NpcLibraryDialog
+          onCreateCharacter={() => setShowCharacterAssistant(true)}
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
           storybookNodeId={nodes.find(isStorybookSourceNode)?.id}
