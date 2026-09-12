@@ -21,3 +21,13 @@ export function characterLibrarySummary(character: Character) {
   const initials = [words[0]?.[0], words.length > 1 ? words[words.length - 1]?.[0] : ''].join('').toUpperCase() || '?';
   return { apps, used, unused: galleryIds.size - used, initials };
 }
+
+/** Display the same whole-container winner as the registry; retain ambiguous files for diagnostics. */
+export function visibleLibraryEntries(entries: import('./npcLibrary').NpcLibraryEntry[]) {
+  const bundledIds = new Set(entries.filter((entry) => entry.tier === 'bundled').map((entry) => entry.character.id));
+  const userCounts = new Map<string, number>();
+  for (const entry of entries) if (entry.tier === 'user') userCounts.set(entry.character.id, (userCounts.get(entry.character.id) ?? 0) + 1);
+  return entries.filter((entry) => entry.tier !== 'bundled' || userCounts.get(entry.character.id) !== 1)
+    .map((entry) => ({ ...entry, editedBuiltIn: entry.tier === 'user' && bundledIds.has(entry.character.id) }))
+    .sort((a, b) => a.character.name.localeCompare(b.character.name) || a.fileName.localeCompare(b.fileName));
+}

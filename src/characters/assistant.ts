@@ -68,11 +68,16 @@ export function validateAssistantCharacter(character: Character) {
 /** Apply a complete response transactionally, preserving binary data and existing identities. */
 export function parseCharacterAssistantResult(text: string, current: Character) {
   const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const response = JSON.parse(stripped) as { reply?: unknown; patch?: unknown; autoCrop?: unknown };
+  const response = JSON.parse(stripped) as { reply?: unknown; patch?: unknown; autoCrop?: unknown; steps?: unknown };
   if (!response || typeof response.reply !== 'string' || !Array.isArray(response.patch)) {
     throw new Error('The assistant must return a reply string and a JSON Patch array.');
   }
-  if (!response.patch.length) return { character: current, reply: response.reply, autoCrop: response.autoCrop === true };
+  const steps = response.steps ?? [];
+  if (!Array.isArray(steps) || steps.some((step) => step !== 'profile' && step !== 'accounts') ||
+      new Set(steps).size !== steps.length || (steps.length === 2 && steps[0] !== 'profile')) {
+    throw new Error('Assistant steps must be profile followed by accounts, without duplicates.');
+  }
+  if (!response.patch.length) return { character: current, reply: response.reply, autoCrop: response.autoCrop === true, steps: steps as CharacterAuthoringStep[] };
   const projection = characterAssistantProjection(current);
   for (const operation of response.patch) {
     if (!operation || !['add', 'replace', 'remove', 'test'].includes(operation.op) || typeof operation.path !== 'string') {
@@ -116,7 +121,7 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
     next.profileImage = { ...next.profileImage, dataUrl: image.dataUrl };
   }
   validateAssistantCharacter(next);
-  return { character: next, reply: response.reply, autoCrop: response.autoCrop === true };
+  return { character: next, reply: response.reply, autoCrop: response.autoCrop === true, steps: steps as CharacterAuthoringStep[] };
 }
 
 export function characterAssistantPrompt(character: Character, messages: CharacterAssistantMessage[], instruction: string,
@@ -124,6 +129,7 @@ export function characterAssistantPrompt(character: Character, messages: Charact
   return [
     'You are the Character Assistant inside RPGraph. Author exactly one Character Container V2, used for both playable characters and NPCs. This is an editor, not an in-game actor.',
     'Return only JSON: {"reply":"short answer","patch":[{"op":"replace","path":"/character/name","value":"New name"}]}. No markdown. For questions or ambiguous requests, answer in reply with patch: [].',
+    'For creating a new character from an empty draft, return steps:["profile","accounts"] and patch:[] to delegate sequential work. A profile specialist first writes the identity and personality; an accounts specialist then configures accounts, image descriptions and posts using that profile. You may request just one specialist with steps:["profile"] or steps:["accounts"]. Do not also draft the delegated fields yourself. For ordinary questions, requests needing clarification, or targeted edits, answer or patch directly and omit steps. Never claim delegated steps are already complete. Only request the accounts step when the user asks for accounts/posts or full character creation; optional accounts require user intent.',
     'Use RFC 6902 add, replace, remove and test with RFC 6901 paths. Patch only requested fields. Do not replace the document root, /character, /images or entire gallery entries. Use add for an optional field that does not exist. All operations form one validated, undoable edit.',
     'The application owns character.id, accountId, image IDs, binary media and filesystem access. Never edit these or emit image bytes, URLs, paths, voiceConfig or legacy social fields. Existing IDs remain stable across renames. New account IDs and new post IDs are allocated by the application. When adding an account, omit accountId; when replacing an existing account object preserve its accountId exactly.',
     'Editable /character fields: name, description, personality, speechStyle, hiddenAgency, role (strings), age (number), gender (woman/man/nonbinary), apps, profileImage, banking, phoneSettings and comfyConfig. Preserve unrelated fields. Write authored character text, names and captions in English; answer the user in their language.',
@@ -182,4 +188,50 @@ export function assignCharacterImage(character: Character, imageId: string, use:
     if (enabled) account.enabled = true;
   }
   return next;
+}
+
+
+export type CharacterAuthoringStep = 'profile' | 'accounts';
+
+export function characterAuthoringStepPrompt(step: CharacterAuthoringStep, character: Character, instruction: string, attachmentIds: string[]) {
+  const projection = characterAssistantProjection(character);
+  const { apps: _apps, profileImage: _portrait, ...profile } = projection.character;
+  return [
+    `You are RPGraph's ${step === 'profile' ? 'character profile' : 'accounts and publications'} authoring specialist. Complete only this step.`,
+    `Return JSON only: ${JSON.stringify({ reply: 'brief result or clarification', patch: [{ op: 'add', path: step === 'profile' ? '/character/description' : '/character/apps/fotogram/bio', value: '...' }] })}. Use add/replace/remove/test JSON Patch. Use add when a field is absent. No steps or delegation. Work on exactly one existing character; preserve its identity. Write authored content in English. Answer the user in their language.`,
+    step === 'profile'
+      ? 'Edit only /character/name, age, gender (woman/man/nonbinary), role, description, personality, speechStyle, hiddenAgency and banking. Text fields are strings; age is a number. Banking: {"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]}. Choose plausible fictional details when asked to invent a character. Do not edit accounts, gallery or portrait. Preserve existing details unless asked. If essential intent is unclear, ask a question and return an empty patch.'
+      : 'Edit only /character/apps, /character/profileImage and /images/<existing-id>/name or description. Keep character identity and profile text unchanged. WhatsUp and Fotogram are standard; only create OnlyFriends or MatchMe if requested. Account shape: {"enabled":true,"username":"handle","displayName":"Name","bio":""}. Preserve existing accountId on replacement; omit accountId on a new account (the app assigns it). Never change an accountId path. Handles use letters, numbers, dots, underscores or hyphens; WhatsUp allows spaces. Display names: 1–60 characters; bios: at most 500. Update placeholder handles/display names to fit the completed profile when creating a new character.',
+    ...(step === 'accounts' ? [
+      'Gallery metadata is keyed by stable image ID. Only attached images can be inspected visually. Names are not visual evidence. Use existing descriptions for unattached images. Never create media or IDs. Portrait: add /character/profileImage with {"imageId":"existing-id"}. App avatarImageId uses a gallery ID. F/O publications go in apps.fotogram.initialPosts or apps.onlyfriends.initialPosts as {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. Preserve existing post IDs; the app allocates new IDs. Create posts requested by the user; do not duplicate existing posts. Moving an image removes its former app post. P alone creates no post. You may request autoCrop:true for local face detection; do not guess coordinates.',
+      'MatchMe account additionally needs profile:{"name":"Name","age":25,"bio":"About me","interests":"Music","photoIds":["existing-id"],"decisions":{}}. Name/bio match account displayName/bio. Integer age 18–120; interests at most 150 characters; one to three unique photos. Optional gender and seeking use woman/man/nonbinary (seeking is an array). With no photo, save enabled:false and photoIds:[]. Enabled MatchMe requires at least one photo. Preserve existing decisions/messages/historyVersion. Ask about missing required personal details instead of inventing them.',
+    ] : []),
+    'No filesystem writes, gameplay actions, binary data or playable edits. Never claim the character is saved. An empty patch asks for clarification and pauses the sequence.',
+    `Attached image IDs (in order): ${JSON.stringify(attachmentIds)}.`,
+    `Current draft: ${JSON.stringify(step === 'profile' ? { character: profile } : projection)}`,
+    `User request and conversation: ${instruction}`,
+  ].join('\n\n');
+}
+
+/** Execute specialists sequentially in an isolated draft; caller commits only the final result. */
+export async function runCharacterAuthoringSteps(initial: ReturnType<typeof parseCharacterAssistantResult>, instruction: string,
+  attachmentIds: string[], complete: (step: CharacterAuthoringStep, prompt: string) => Promise<string>) {
+  let result = initial;
+  const replies = [initial.reply];
+  for (const step of initial.steps) {
+    const text = await complete(step, characterAuthoringStepPrompt(step, result.character, instruction, attachmentIds));
+    const raw = JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+    if (raw.steps?.length) throw new Error('Specialists cannot delegate further steps.');
+    if (!Array.isArray(raw.patch) || raw.patch.some((operation: { path?: string }) => {
+      const path = operation?.path ?? '';
+      return step === 'profile'
+        ? !/^\/character\/(name|age|gender|role|description|personality|speechStyle|hiddenAgency|banking)(\/|$)/.test(path)
+        : !/^\/character\/(apps|profileImage)(\/|$)|^\/images\//.test(path);
+    })) throw new Error(`The ${step} specialist tried to edit fields outside its step.`);
+    const next = parseCharacterAssistantResult(text, result.character);
+    replies.push(next.reply);
+    result = { ...next, autoCrop: result.autoCrop || next.autoCrop };
+    if (!raw.patch.length) break;
+  }
+  return { ...result, reply: replies.filter(Boolean).join('\n\n'), steps: [] };
 }

@@ -140,8 +140,9 @@ files, to avoid creating a duplicate revision under another filename. Multiple
 local files with that identity must be resolved before saving. An existing target
 file requires an explicit replacement confirmation.
 
-Editing a built-in NPC writes a user version to `<userData>/npc-characters` when
-**NPC Library Folder** is selected. The program file remains untouched. The
+Editing a built-in NPC writes a user version to `<userData>/npc-characters` automatically, retaining the same character ID. Saving a built-in revision
+uses the NPC Library Folder; it cannot accidentally become a separate Characters
+Folder save. The program file remains untouched. The
 existing registry resolves matching character IDs with `user` above `bundled`, so
 the local revision becomes effective after library reload. This is precedence,
 not a deletion or an enabled flag written to the program file. Removing that local
@@ -214,3 +215,33 @@ environment and model must be provided locally using `RPGRAPH_FACE_PYTHON` and
 The chat composer uses a full-width text area with attachment and send controls
 in one bottom action row. Settings and publication cards use spaced disclosure
 sections instead of unstyled browser arrows and adjacent full-width buttons.
+
+### Effective library rows and staged authoring
+
+The NPC Library and Load NPC picker share `visibleLibraryEntries`. One valid local
+revision with the same character ID hides the bundled row and displays
+**Built-in · Edited**. Matching uses identity, not name or filename. Truly new
+user entries remain **User-created**. Counts reflect visible characters rather
+than both files; ambiguous duplicate local files remain visible for diagnostics.
+The existing registry's user-over-bundled precedence still controls execution.
+No persisted primary or disabled flag is needed, and removing the local revision
+restores the bundled entry.
+
+The provider preset selector sits to the right of the assistant heading.
+
+Authoring uses three prompt roles: the main conversational editor, a profile
+specialist, and an accounts/media/posts specialist. The main response can include
+`steps: ["profile", "accounts"]` (or just one of them), normally with an empty
+patch, to create a new character in smaller requests. Targeted edits and questions
+continue to use the main prompt directly. Profile steps cannot edit accounts or
+media; account steps cannot change the character identity texts. Each specialist
+receives its own smaller instructions, current draft and selected attachments.
+The accounts step receives the completed profile from the preceding step.
+
+The sequence is bounded to two specialist calls, with no recursive delegation.
+An empty specialist patch pauses for clarification. All steps run on an isolated
+draft; a later validation failure, cancellation or concurrent edit prevents the
+sequence from being committed. A successful sequence is applied as one undoable
+change. The UI reports the active step; no model stage saves files automatically.
+`authoringSteps.test.ts` covers ordering, scope restrictions, clarification,
+transactional failures, and effective library rows.

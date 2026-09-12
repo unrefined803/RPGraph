@@ -71,3 +71,11 @@
 .character-assistant-fields details h4 { margin: 8px 0 0; }
 .character-assistant-fields details > .character-assistant-inline { display: flex; }
 .character-assistant-image details > label { margin-top: 10px; }
+
+.character-assistant-dialog .character-assistant-chat-header { flex-direction: row; align-items: center; justify-content: space-between; gap: 18px; }
+.character-assistant-chat-title { display: grid; gap: 5px; min-width: 0; }
+.character-assistant-chat-header .character-assistant-provider { margin: 0; width: clamp(160px, 38%, 260px); flex-shrink: 0; }
+@media (max-width: 1050px) {
+  .character-assistant-dialog .character-assistant-chat-header { flex-wrap: wrap; }
+  .character-assistant-chat-header .character-assistant-provider { flex: 1; }
+}

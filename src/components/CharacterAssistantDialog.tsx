@@ -4,9 +4,10 @@ import type { ConnectionPreset, SavedFileSummary } from '../types';
 import { validateCharacterContainer, type Character } from '../characters/character';
 import type { NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { assignCharacterImage, characterAssistantProjection, characterAssistantPrompt, copyAssistantCharacter,
-  newAssistantCharacter, parseCharacterAssistantResult, validateAssistantCharacter,
+  newAssistantCharacter, parseCharacterAssistantResult, runCharacterAuthoringSteps, validateAssistantCharacter,
   type CharacterAssistantMessage, type CharacterDestination } from '../characters/assistant';
 import { normalizeCharacterImage } from '../characters/assistantMedia';
+import { visibleLibraryEntries } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { CharacterAvatar } from './CharacterAvatar';
@@ -57,6 +58,7 @@ export function CharacterAssistantDialog({ nodeLlm, connections, defaultConnecti
   const chatEnd = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const dirty = character !== savedCharacter;
+  const isBuiltInRevision = source?.bundled || !!snapshot?.entries.some((entry) => entry.tier === 'bundled' && entry.character.id === character.id);
   const llmConnections = connections.filter((entry) => entry.kind !== 'comfyui');
   const selectedConnection = llmConnections.find((entry) => entry.id === connectionId);
   const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -91,7 +93,7 @@ export function CharacterAssistantDialog({ nodeLlm, connections, defaultConnecti
     setSavedCharacter(next);
     setUndo([]); setMessages([]); setDraft(''); setAttachments([]);
     setSource(nextSource); setFileName(nextSource?.fileName.replace(/\.json$/i, '') ?? '');
-    if (nextSource) setDestination(nextSource.destination);
+    if (nextSource) setDestination(nextSource.bundled || snapshot?.entries.some((entry) => entry.tier === 'bundled' && entry.character.id === next.id) ? 'npc-characters' : nextSource.destination);
     setChoices(null); setPassword(''); setEditSettings(false);
   }
   async function showLoad(target: CharacterDestination) {
@@ -108,9 +110,8 @@ export function CharacterAssistantDialog({ nodeLlm, connections, defaultConnecti
       } else {
         const library = window.rpgraph?.reloadNpcLibrary ? await window.rpgraph.reloadNpcLibrary() : snapshot;
         if (!library) throw new Error('The NPC library has not loaded yet.');
-        const localIds = new Set(library.entries.filter((entry) => entry.tier === 'user').map((entry) => entry.character.id));
-        available = library.entries.filter((entry) => entry.tier === 'user' || !localIds.has(entry.character.id)).map((entry) => ({
-          key: `${entry.tier}:${entry.fileName}`, label: `${entry.character.name} · ${entry.tier === 'bundled' ? 'Built-in' : 'Local'} · ${entry.fileName}`,
+        available = visibleLibraryEntries(library.entries).map((entry) => ({
+          key: `${entry.tier}:${entry.fileName}`, label: `${entry.character.name} · ${entry.editedBuiltIn ? 'Built-in · Edited' : entry.tier === 'bundled' ? 'Built-in' : 'User-created'} · ${entry.fileName}`,
           source: { destination: target, fileName: entry.fileName, bundled: entry.tier === 'bundled' }, character: entry.character,
         }));
       }
@@ -137,21 +138,22 @@ export function CharacterAssistantDialog({ nodeLlm, connections, defaultConnecti
   }
   async function save(asCopy = false, overwrite = false, prepared?: { character: Character; name: string }) {
     if (!window.rpgraph?.saveCharacter) { setStatus('Saving to application folders requires the desktop application.'); return; }
+    const saveDestination = !asCopy && isBuiltInRevision ? 'npc-characters' : destination;
     setIoBusy(true); setStatus('');
     try {
       const next = prepared?.character ?? (asCopy ? copyAssistantCharacter(character) : character);
       validateAssistantCharacter(next);
       const container = createCharacterContainer({ ...next, playable: false }, includePosts);
-      let name = prepared?.name ?? (!asCopy && source?.destination === destination && !source.bundled
+      let name = prepared?.name ?? (!asCopy && source?.destination === saveDestination && !source.bundled
         ? source.fileName.replace(/\.json$/i, '') : fileName.trim() || character.name);
       if (asCopy && !prepared) name += ' Copy';
-      if (destination === 'npc-characters' && !asCopy && !prepared) {
+      if (saveDestination === 'npc-characters' && !asCopy && !prepared) {
         const library = await window.rpgraph.reloadNpcLibrary();
         const matches = library.entries.filter((entry) => entry.tier === 'user' && entry.character.id === next.id);
         if (matches.length > 1) throw new Error('Multiple local NPC files have this identity. Resolve the duplicate files before saving.');
         if (matches[0]) name = matches[0].fileName.replace(/\.json$/i, '');
       }
-      const result = await window.rpgraph.saveCharacter(name, container, 'plain', '', overwrite, destination);
+      const result = await window.rpgraph.saveCharacter(name, container, 'plain', '', overwrite, saveDestination);
       if (result.conflict) {
         setConfirm({ message: `${result.fileName} already exists in the selected folder. Replace it with this character?`, label: 'Replace file',
           action: () => { void save(asCopy, true, { character: next, name }); } });
@@ -159,7 +161,8 @@ export function CharacterAssistantDialog({ nodeLlm, connections, defaultConnecti
       }
       change(next, false); setSavedCharacter(next); setFileName(result.name);
       setShowSave(false);
-      setSource({ destination, fileName: result.fileName });
+      setDestination(saveDestination);
+      setSource({ destination: saveDestination, fileName: result.fileName });
       if (asCopy) { setUndo([]); setAttachments([]); setMessages([]); }
       setStatus(`Saved to ${result.filePath}`);
       try { await onSaved(); } catch (error) { setStatus(`Saved to ${result.filePath}. Library refresh failed: ${errorText(error)}`); }
@@ -214,7 +217,17 @@ export function CharacterAssistantDialog({ nodeLlm, connections, defaultConnecti
         images: selectedImages });
       if (controller.signal.aborted) return;
       if (startRevision !== revision.current) throw new Error('The character changed during the request. The response was not applied. Send your request again.');
-      const result = parseCharacterAssistantResult(response.text, original);
+      const initial = parseCharacterAssistantResult(response.text, original);
+      const context = [...messages.filter((entry) => entry.role !== 'error').slice(-6).map((entry) => `${entry.role}: ${entry.text}`), `Current request: ${message}`].join('\n');
+      const result = await runCharacterAuthoringSteps(initial, context, selectedImages.map((image) => image.id), async (step, prompt) => {
+        if (controller.signal.aborted || startRevision !== revision.current) throw new Error('The request was cancelled or the character changed.');
+        setStatus(step === 'profile' ? 'Step 1: Creating character profile…' : 'Step 2: Creating accounts, images and posts…');
+        const completion = await nodeLlm.complete({ connectionId, label: `Character Assistant: ${step}`, signal: controller.signal, prompt, images: selectedImages });
+        return completion.text;
+      });
+      if (controller.signal.aborted) return;
+      if (startRevision !== revision.current) throw new Error('The character changed during creation. No generated changes were applied.');
+      setStatus('');
       if (JSON.stringify(characterAssistantProjection(result.character)) !== JSON.stringify(characterAssistantProjection(original))) change(result.character);
       setMessages((history) => [...history, { role: 'assistant', text: result.reply }]);
       setAttachments([]);
@@ -340,7 +353,7 @@ export function CharacterAssistantDialog({ nodeLlm, connections, defaultConnecti
           </div>
         </div>
         <div className="storybook-chat-panel">
-          <div className="storybook-chat-header"><span className="panel-title">AI Character Assistant</span><span className="panel-subtitle">Create, describe and refine your character and images.</span>
+          <div className="storybook-chat-header character-assistant-chat-header"><div className="character-assistant-chat-title"><span className="panel-title">AI Character Assistant</span><span className="panel-subtitle">Create, describe and refine your character and images.</span></div>
             <label className="character-assistant-provider"><span>Provider Preset</span><NodeCustomSelect value={connectionId} onChange={setConnectionId} disabled={busy}
               options={llmConnections.length ? llmConnections.map((entry) => ({ value: entry.id, label: entry.label })) : [{ value: '', label: 'Configure a provider in Providers', disabled: true }]} /></label>
           </div>
@@ -372,8 +385,8 @@ export function CharacterAssistantDialog({ nodeLlm, connections, defaultConnecti
         <div className="chat-password-form">
           <label className="chat-file-field">CHARACTER NAME<input autoFocus value={fileName} placeholder={character.name} disabled={ioBusy || (!!source && !source.bundled && source.destination === destination)} onChange={(event) => setFileName(event.target.value)} /></label>
           <div className="chat-security-info"><strong>Plain JSON</strong><p>Save the complete character, including images and app profiles, in your local character collection.</p></div>
-          <CharacterSaveOptions action="Save" includePosts={includePosts} onIncludePostsChange={setIncludePosts} destination={destination} onDestinationChange={setDestination} disabled={ioBusy}
-            destinations={[{ value: 'characters', label: 'Characters Folder' }, { value: 'npc-characters', label: 'NPC Library Folder' }]} />
+          <CharacterSaveOptions action="Save" includePosts={includePosts} onIncludePostsChange={setIncludePosts} destination={destination} onDestinationChange={(value) => setDestination(isBuiltInRevision ? 'npc-characters' : value)} disabled={ioBusy}
+            destinations={[...(!isBuiltInRevision ? [{ value: 'characters' as const, label: 'Characters Folder' }] : []), { value: 'npc-characters', label: 'NPC Library Folder' }]} />
           <p className="chat-storage-status">{destination === 'npc-characters' ? snapshot?.roots.user || 'Local application data / npc-characters' : 'Local application data / characters'}</p>
           {status && <p className="chat-storage-status" role="status">{status}</p>}
         </div>

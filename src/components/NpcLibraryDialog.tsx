@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
-import { characterLibrarySummary } from '../characters/librarySummary';
+import { characterLibrarySummary, visibleLibraryEntries } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 
 type NpcLibraryDialogProps = {
@@ -20,7 +20,7 @@ type NpcLibraryDialogProps = {
 const appLabels = { fotogram: 'Fotogram', whatsup: 'WhatsUp', onlyfriends: 'OnlyFriends', matchme: 'MatchMe' } as const;
 
 function CharacterRow({ entry, issues, canImport, inStorybook, onImport }: {
-  entry: NpcLibraryEntry; issues: string[]; canImport: boolean; inStorybook: boolean; onImport: () => void;
+  entry: NpcLibraryEntry & { editedBuiltIn: boolean }; issues: string[]; canImport: boolean; inStorybook: boolean; onImport: () => void;
 }) {
   const { character } = entry;
   const { apps, used, unused, initials } = useMemo(() => characterLibrarySummary(character), [character]);
@@ -37,7 +37,7 @@ function CharacterRow({ entry, issues, canImport, inStorybook, onImport }: {
       <div className="npc-library-identity">
         <h3>{character.name}</h3>
         <div className="npc-library-badges">
-          <span className={`npc-library-origin ${entry.tier}`}>{entry.tier === 'bundled' ? 'Built-in' : 'User-created'}</span>
+          <span className={`npc-library-origin ${entry.tier}`}>{entry.editedBuiltIn ? 'Built-in · Edited' : entry.tier === 'bundled' ? 'Built-in' : 'User-created'}</span>
           {inStorybook && <span className="npc-library-origin in-storybook">In Storybook</span>}
         </div>
       </div>
@@ -77,8 +77,7 @@ function CharacterRow({ entry, issues, canImport, inStorybook, onImport }: {
 export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter }: NpcLibraryDialogProps) {
   const [importStatus, setImportStatus] = useState('');
   const targetNodeId = storybookNodeId ?? '';
-  const entries = useMemo(() => [...(snapshot?.entries ?? [])].sort((a, b) =>
-    a.character.name.localeCompare(b.character.name) || a.tier.localeCompare(b.tier) || a.fileName.localeCompare(b.fileName)), [snapshot]);
+  const entries = useMemo(() => visibleLibraryEntries(snapshot?.entries ?? []), [snapshot]);
   const issuesFor = (entry: NpcLibraryEntry) => [
     ...(snapshot?.diagnostics ?? []).filter((item) => item.tier === entry.tier && item.fileName === entry.fileName).map((item) => item.message),
     ...activeRegistry.diagnostics.filter((item) => item.characterIds.includes(entry.character.id)).map((item) => item.message),
@@ -121,8 +120,8 @@ export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, st
           </div>
           <section className="npc-library-statistics"><h3>Statistics</h3>
             <dl>{[
-              ['Characters', entries.length], ['Built-in', entries.filter((entry) => entry.tier === 'bundled').length],
-              ['User-created', entries.filter((entry) => entry.tier === 'user').length], ['Ignored files', snapshot?.skipped ?? 0],
+              ['Characters', entries.length], ['Built-in', entries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
+              ['User-created', entries.filter((entry) => entry.tier === 'user' && !entry.editedBuiltIn).length], ['Ignored files', snapshot?.skipped ?? 0],
             ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}</dl>
             <span className={diagnosticCount ? 'npc-library-warning' : 'npc-library-muted'}>{diagnosticCount} diagnostic{diagnosticCount === 1 ? '' : 's'}{diagnosticCount > 0 ? ' · Check the info icons' : ''}</span>
             {generalIssues.length > 0 && <details className="npc-library-general-issues"><summary>ⓘ File and library issues ({generalIssues.length})</summary>
