@@ -15,12 +15,13 @@ type NpcLibraryDialogProps = {
   onOpenFolder: () => void;
   onClose: () => void;
   onCreateCharacter: () => void;
+  onEditCharacter: (entry: NpcLibraryEntry) => void;
 };
 
 const appLabels = { fotogram: 'Fotogram', whatsup: 'WhatsUp', onlyfriends: 'OnlyFriends', matchme: 'MatchMe' } as const;
 
-function CharacterRow({ entry, issues, canImport, inStorybook, onImport }: {
-  entry: NpcLibraryEntry & { editedBuiltIn: boolean }; issues: string[]; canImport: boolean; inStorybook: boolean; onImport: () => void;
+function CharacterRow({ entry, issues, canImport, inStorybook, onImport, onEdit }: {
+  entry: NpcLibraryEntry & { editedBuiltIn: boolean }; issues: string[]; canImport: boolean; inStorybook: boolean; onImport: () => void; onEdit: () => void;
 }) {
   const { character } = entry;
   const { apps, used, unused, initials } = useMemo(() => characterLibrarySummary(character), [character]);
@@ -37,7 +38,7 @@ function CharacterRow({ entry, issues, canImport, inStorybook, onImport }: {
       <div className="npc-library-identity">
         <h3>{character.name}</h3>
         <div className="npc-library-badges">
-          <span className={`npc-library-origin ${entry.tier}`}>{entry.editedBuiltIn ? 'Built-in · Edited' : entry.tier === 'bundled' ? 'Built-in' : 'User-created'}</span>
+          <span className={`npc-library-origin ${entry.tier}`}>{entry.editedBuiltIn ? 'Built-in → Edited' : entry.tier === 'bundled' ? 'Built-in' : 'User-created'}</span>
           {inStorybook && <span className="npc-library-origin in-storybook">In Storybook</span>}
         </div>
       </div>
@@ -63,7 +64,7 @@ function CharacterRow({ entry, issues, canImport, inStorybook, onImport }: {
         <span>Images</span><strong>{used} <small>used</small></strong><strong>{unused} <small>unused</small></strong>
       </div>
       <div className="npc-library-row-actions">
-        <button type="button" aria-disabled="true" title="Character viewing will be available in a future update">View character</button>
+        <button type="button" onClick={onEdit}>View / Edit Character</button>
         <button type="button" className="primary" disabled={!canImport} onClick={onImport}>{inStorybook ? 'In Storybook' : 'Add to Storybook'}</button>
       </div>
       {issues.length > 0 && <details className="npc-library-row-issues">
@@ -74,7 +75,7 @@ function CharacterRow({ entry, issues, canImport, inStorybook, onImport }: {
   );
 }
 
-export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter }: NpcLibraryDialogProps) {
   const [importStatus, setImportStatus] = useState('');
   const targetNodeId = storybookNodeId ?? '';
   const entries = useMemo(() => visibleLibraryEntries(snapshot?.entries ?? []), [snapshot]);
@@ -98,7 +99,7 @@ export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, st
             const effective = activeRegistry.characters.find((item) => item.character.id === entry.character.id);
             const available = effective && effective.provenance.tier !== 'storybook' &&
               (effective.provenance.tier === 'snapshot' || (effective.provenance.tier === entry.tier && effective.provenance.source === entry.source));
-            return <CharacterRow key={`${entry.tier}:${entry.fileName}`} entry={entry} issues={issuesFor(entry)}
+            return <CharacterRow key={`${entry.tier}:${entry.fileName}`} entry={entry} onEdit={() => onEditCharacter(entry)} issues={issuesFor(entry)}
               inStorybook={effective?.provenance.tier === 'storybook'}
               canImport={!!available && !loading && !!targetNodeId} onImport={() => {
                 try {

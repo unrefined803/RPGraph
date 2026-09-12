@@ -115,51 +115,46 @@ by removing the old publication and adding the new reference in one transaction.
 
 ## Save destinations and overrides
 
-Both destinations use the existing `character:save` IPC handler and atomic file
-writing. The editor saves plain Character Container V2 JSON, retaining authored
-starting posts unless the user clears the own-posts checkbox. API keys and assistant conversations are never exported. The
-shared portable serializer removes private dating history and runtime-only media
-access metadata, as it does for existing character exports.
+**Save Character** uses the same protection controls and `CharacterSaveOptions`
+as the Storybook export. The default is **NPC Library Folder**, whereas Storybook
+export defaults to **Characters Folder**. All destinations remain selectable,
+including for built-in revisions:
 
-| Save destination | Directory | Purpose |
-| --- | --- | --- |
-| Characters Folder | `<userData>/characters` | Local character containers for later loading or Storybook import |
-| NPC Library Folder | `<userData>/npc-characters` | User NPC Library entries and local revisions of built-in NPCs |
+| Destination | Purpose |
+| --- | --- |
+| NPC Library Folder | User NPC entries and overrides in `<userData>/npc-characters` |
+| Characters Folder | Character containers in `<userData>/characters` |
+| Choose Save Location… | Native save dialog for an arbitrary export file |
 
-`userData` is Electron's per-user application-data directory (AppData on Windows),
-not the installation directory. **Save Character** in the header opens a dialog using the same
-`CharacterSaveOptions` component as the Storybook character export, with local
-destination selection and an optional own-posts checkbox (enabled by default).
-There is no persistent save footer. A successful save reports the full written path. The NPC root is also shown by
-the existing library snapshot.
+The dialog displays the character's actual name with spaces, read-only. It never
+shows the hyphenated storage filename as the character name. Filename sanitization
+remains in the existing persistence layer. Loaded local revisions retain their
+filename when saving back to the same folder; NPC saves also locate an existing
+local revision by stable character ID. An existing target requires replacement
+confirmation. The dialog does not display filesystem paths or a Save as Copy action.
 
-**Save** preserves character, account, image and existing post identities. A loaded
-local file retains its filename when saved back to the same folder. For NPCs,
-the editor looks up an existing local file by character ID, including renamed
-files, to avoid creating a duplicate revision under another filename. Multiple
-local files with that identity must be resolved before saving. An existing target
-file requires an explicit replacement confirmation.
+**Plain JSON** and **Password encrypted** both use the existing persistence and
+whole-file encryption code. Encrypted saves require a password or PIN. The optional
+own-posts checkbox defaults to enabled. The portable serializer excludes private
+dating history and runtime media access metadata; API keys and assistant messages
+are never exported. An encrypted file in the NPC folder is currently ignored by
+the scanner and will not become an active NPC override. Encrypted files in the
+Characters Folder can still be opened through Load Character with a password.
 
-Editing a built-in NPC writes a user version to `<userData>/npc-characters` automatically, retaining the same character ID. Saving a built-in revision
-uses the NPC Library Folder; it cannot accidentally become a separate Characters
-Folder save. The program file remains untouched. The
-existing registry resolves matching character IDs with `user` above `bundled`, so
-the local revision becomes effective after library reload. This is precedence,
-not a deletion or an enabled flag written to the program file. Removing that local
-revision and reloading restores the built-in definition. Merely saving a character
-in **Characters Folder** does not override the NPC Library.
+Saving preserves character, account, image and existing post IDs. A built-in
+revision saved to NPC Library replaces the bundled definition by ID through the
+existing user-over-bundled registry precedence; the original program file stays
+unchanged. **Built-in → Edited** identifies that effective local entry. Saving to
+Characters Folder or another location is an export and does not change the active
+NPC Library. Removing a local override restores the bundled definition on reload.
 
-**Save as Copy** allocates a new character ID, account IDs, image IDs and post IDs,
-and rewrites all corresponding media references while preserving image bytes.
-Its proposed filename ends in `Copy`; it creates an independent character rather
-than an override. The library reloads after successful saving.
+**View / Edit Character** on a library row opens the Character Assistant with that
+exact character already loaded. Create Character continues to open an empty draft.
+The editor's save destination starts at NPC Library Folder in both cases.
 
-The creator always writes `playable: false` and does not expose this internal flag
-in its form or model projection. Storybook import handles player eligibility.
-The folder does not by itself make a character the active player. Player selection
-currently requires a character in the Storybook with `playable` enabled. Existing
-Storybook definitions and captured session snapshots retain their higher registry
-priority; editing a library container does not rewrite an ongoing RP session.
+The creator writes `playable: false` without exposing this internal flag in the
+form or model projection. Storybook import controls player eligibility. Saving a
+library file does not modify existing Storybook definitions or session snapshots.
 
 ## Hidden agency
 
@@ -220,7 +215,7 @@ sections instead of unstyled browser arrows and adjacent full-width buttons.
 
 The NPC Library and Load NPC picker share `visibleLibraryEntries`. One valid local
 revision with the same character ID hides the bundled row and displays
-**Built-in · Edited**. Matching uses identity, not name or filename. Truly new
+**Built-in → Edited**. Matching uses identity, not name or filename. Truly new
 user entries remain **User-created**. Counts reflect visible characters rather
 than both files; ambiguous duplicate local files remain visible for diagnostics.
 The existing registry's user-over-bundled precedence still controls execution.
