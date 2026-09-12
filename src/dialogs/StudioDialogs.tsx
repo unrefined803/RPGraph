@@ -7,6 +7,7 @@ import {
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { CharacterSaveOptions } from '../components/CharacterSaveOptions';
 import { StatLine } from '../components/StatLine';
 import { ModelIdPicker } from '../components/ModelIdPicker';
 import { DarkAudioPlayer } from '../components/DarkAudioPlayer';
@@ -3034,32 +3035,13 @@ export function StudioDialogs({
                     </div>
                   )}
                   {isSavingCharacter && (
-                    <div className="character-export-options">
-                      <label className="dialog-action-checkbox character-export-posts">
-                        <input
-                          type="checkbox"
-                          checked={includeCharacterOwnPosts}
-                          onChange={(event) => onIncludeCharacterOwnPostsChange(event.target.checked)}
-                        />
-                        <span>
-                          <strong>Export Character with Own Posts</strong>
-                          <small>Include posts published by this character</small>
-                        </span>
-                      </label>
-                      <label className="character-export-location" htmlFor="character-export-location">
-                        <span>EXPORT LOCATION</span>
-                        <NodeCustomSelect<CharacterSaveLocation>
-                          id="character-export-location"
-                          value={characterSaveLocation}
-                          options={[
-                            { value: 'characters', label: 'Characters Folder' },
-                            { value: 'npc-characters', label: 'NPC Library Folder' },
-                            { value: 'choose', label: 'Choose Save Location…' },
-                          ]}
-                          onChange={onCharacterSaveLocationChange}
-                        />
-                      </label>
-                    </div>
+                    <CharacterSaveOptions includePosts={includeCharacterOwnPosts} onIncludePostsChange={onIncludeCharacterOwnPostsChange}
+                      destination={characterSaveLocation} onDestinationChange={onCharacterSaveLocationChange}
+                      destinations={[
+                        { value: 'characters', label: 'Characters Folder' },
+                        { value: 'npc-characters', label: 'NPC Library Folder' },
+                        { value: 'choose', label: 'Choose Save Location…' },
+                      ]} />
                   )}
                 </>
               )}

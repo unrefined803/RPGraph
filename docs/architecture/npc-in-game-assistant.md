@@ -9,7 +9,9 @@ execution is a separate feature and is not connected to this editor.
 Open **NPC Library → Create Character** to enter **Character Assistant** inside the
 application. No Storybook node, separate executable or launcher entry is required.
 The editor uses the Storybook Creator's dialog, character-card and chat styling,
-and reuses `CharacterAppProfiles` for the existing social profile forms. The left
+and reuses `StorybookInlineEditor` for explicit Edit/Save/Cancel interactions,
+`JsonSyntaxTextarea` for the Raw JSON preview, and `CharacterAppProfiles` for the
+existing social profile forms. The left
 pane shows one character and its gallery; the larger right pane holds the chat.
 
 - **New Character** starts a fresh Character Container V2 draft.
@@ -26,18 +28,20 @@ posts; no disk extraction or conversion of existing JPEGs is needed. Closing,
 starting a new character or loading another character requires explicit discard
 of unsaved edits. Drafts are held in memory, not persisted across application exit.
 
-The manual form includes name, age, gender, role, description, personality, speech
+The UI Preview initially shows a readable character card. **Edit** opens the
+character text fields; **Accounts & Settings → Edit** reveals the additional
+controls. The manual form includes name, age, gender, role, description, personality, speech
 style, hidden agency, playable status, social and WhatsUp profiles, starting posts,
 banking and image-generation settings. Gallery entries expose names, descriptions,
-assignments, portrait crop percentages and attachment selection. **Inspect JSON**
+assignments, portrait crop percentages and attachment selection. **Raw JSON**
 shows the same lightweight projection used by the model, with binary media omitted.
 Manual editing remains available without an API connection.
 
 ## Provider and assistant integration
 
 `src/components/CharacterAssistantDialog.tsx` uses the shared `NodeLlmApi.complete`
-request path with a selected existing LLM connection. **Provider / Model** lists the
-configured connections and their models, including their vision capability. Keys,
+request path with a selected existing LLM connection. **Provider Preset** lists only the configured preset labels. Model configuration
+and vision capability still come from the selected connection. Keys,
 model configuration and transport remain in the existing provider infrastructure;
 this dialog adds no credential store. Unlike the Storybook Creator, it does not
 inherit a connection from a graph node.
@@ -113,7 +117,7 @@ by removing the old publication and adding the new reference in one transaction.
 
 Both destinations use the existing `character:save` IPC handler and atomic file
 writing. The editor saves plain Character Container V2 JSON, retaining authored
-starting posts. API keys and assistant conversations are never exported. The
+starting posts unless the user clears the own-posts checkbox. API keys and assistant conversations are never exported. The
 shared portable serializer removes private dating history and runtime-only media
 access metadata, as it does for existing character exports.
 
@@ -123,8 +127,10 @@ access metadata, as it does for existing character exports.
 | NPC Library Folder | `<userData>/npc-characters` | User NPC Library entries and local revisions of built-in NPCs |
 
 `userData` is Electron's per-user application-data directory (AppData on Windows),
-not the installation directory. The footer identifies the selected destination;
-a successful save reports the full written path. The NPC root is also shown by
+not the installation directory. **Save Character** in the header opens a dialog using the same
+`CharacterSaveOptions` component as the Storybook character export, with local
+destination selection and an optional own-posts checkbox (enabled by default).
+There is no persistent save footer. A successful save reports the full written path. The NPC root is also shown by
 the existing library snapshot.
 
 **Save** preserves character, account, image and existing post identities. A loaded
