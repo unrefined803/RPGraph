@@ -1,3 +1,4 @@
+import { HiddenAgencyField } from './HiddenAgencyField';
 import { withCharacterPortrait } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { socialFromCharacterApps, type CharacterApps } from '../characters/character';
@@ -3547,6 +3548,12 @@ export function StorybookCreatorDialog({
                                     <p>{character.speechStyle}</p>
                                   </div>
                                 )}
+                              <HiddenAgencyField value={character.hiddenAgency} disabled={editingDisabled}
+                                onSave={(hiddenAgency) => onUpdateStorybook({
+                                  ...storybook,
+                                  characters: storybook.characters.map((entry) => entry.id === character.id
+                                    ? { ...entry, hiddenAgency } : entry),
+                                }, 'Hidden agency updated.')} />
                                 <div className="character-field">
                                   <span className="field-label">Phone Apps</span>
                                   <p>{characterPhoneSummary(character)}</p>

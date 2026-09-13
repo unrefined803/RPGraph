@@ -1,3 +1,4 @@
+import { HiddenAgencyField } from './HiddenAgencyField';
 import { CharacterAvatar } from './CharacterAvatar';
 import {
   defaultRpStorybookCharacterBanking,
@@ -90,6 +91,7 @@ export function StorybookReadonlyPreview({
                       <p>{character.speechStyle}</p>
                     </div>
                   ) : null}
+                  <HiddenAgencyField value={character.hiddenAgency} />
                   {character.comfyConfig?.appearance ? (
                     <div className="character-field">
                       <span className="field-label">Appearance</span>

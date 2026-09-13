@@ -1224,3 +1224,11 @@ types. Creator, edit specifications, Storybook normalization and portable export
 retain the field; existing V2 containers need no migration. It is plaintext in
 container files, not an encrypted secret. Public profiles and ordinary RP context
 do not gain this field. See [NPC In-Game Assistant](npc-in-game-assistant.md).
+
+Storybook authoring supports optional hidden agency through assistant patches and
+manual editing. The assistant authors it only on request or when requested
+character creation clearly requires concealed motivations, and does not repeat
+its contents in replies unless asked to reveal them. Storybook character views
+and the NPC Character Assistant show a collapsed Hidden Agency disclosure with
+an Empty/Defined status; viewing or editing the text requires expanding it.
+Raw JSON remains an explicit full-data view.

@@ -1,3 +1,4 @@
+import { HiddenAgencyField } from './HiddenAgencyField';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { useMemo, useState } from 'react';
 import type { WorkflowNode } from '../types';
@@ -137,6 +138,8 @@ function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
               onChange={(event) => setCharacter(index, { speechStyle: event.currentTarget.value })}
             />
           </label>
+          <HiddenAgencyField value={character.hiddenAgency}
+            onChange={(hiddenAgency) => setCharacter(index, { hiddenAgency })} />
           <label className="storybook-editor-field">
             <span className="field-label">Appearance</span>
             <textarea

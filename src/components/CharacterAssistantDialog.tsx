@@ -1,3 +1,4 @@
+import { HiddenAgencyField } from './HiddenAgencyField';
 import { useEffect, useRef, useState } from 'react';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import type { ConnectionPreset, SavedFileSummary } from '../types';
@@ -281,8 +282,8 @@ export function CharacterAssistantDialog({ initialEntry, nodeLlm, connections, d
           {showJson ? <div className="storybook-json-panel"><JsonSyntaxTextarea id="character-json-preview" readOnly value={JSON.stringify(characterAssistantProjection(character), null, 2)} /></div> : <div className="storybook-ui-view">
           <article className="storybook-actor-card">
             <StorybookInlineEditor key={character.id} label={character.name || 'Character'} disabled={ioBusy}
-              fields={(['name', 'role', 'description', 'personality', 'speechStyle', 'hiddenAgency'] as const).map((field) => ({
-                key: field, label: { name: 'Name', role: 'Role', description: 'Description', personality: 'Personality', speechStyle: 'Speech Style', hiddenAgency: 'Hidden Agency' }[field],
+              fields={(['name', 'role', 'description', 'personality', 'speechStyle'] as const).map((field) => ({
+                key: field, label: { name: 'Name', role: 'Role', description: 'Description', personality: 'Personality', speechStyle: 'Speech Style' }[field],
                 value: character[field] ?? '', multiline: field !== 'name' && field !== 'role',
               }))}
               onSave={(values) => { change({ ...character, ...values }); return true; }}>
@@ -291,13 +292,15 @@ export function CharacterAssistantDialog({ initialEntry, nodeLlm, connections, d
                 <div className="character-card-title-side"><h5 className="character-name">{character.name || 'Unnamed Character'}</h5><p className="character-subrole">{character.role || 'Character draft'}</p></div>
               </div>
               <div className="character-fields">
-                {(['description', 'personality', 'speechStyle', 'hiddenAgency'] as const).map((field) => <div className="character-field" key={field}>
-                  <span className="field-label">{{ description: 'Description', personality: 'Personality', speechStyle: 'Speech Style', hiddenAgency: 'Hidden Agency' }[field]}</span>
+                {(['description', 'personality', 'speechStyle'] as const).map((field) => <div className="character-field" key={field}>
+                  <span className="field-label">{{ description: 'Description', personality: 'Personality', speechStyle: 'Speech Style' }[field]}</span>
                   <p>{character[field] || 'Not defined yet.'}</p>
                 </div>)}
                 <div className="character-field"><span className="field-label">Character Details</span><p>{character.age ? `${character.age} years · ` : ''}{character.gender || 'Gender unspecified'}</p></div>
               </div>
             </StorybookInlineEditor>
+            <HiddenAgencyField key={`agency:${character.id}`} value={character.hiddenAgency} disabled={ioBusy}
+              onSave={(hiddenAgency) => { change({ ...character, hiddenAgency }); return true; }} />
             <div className="section-header"><h4>Accounts & Settings</h4><button className="storybook-inline-action nodrag" type="button" onClick={() => setEditSettings(!editSettings)}>{editSettings ? 'Done' : 'Edit'}</button></div>
             {!editSettings && <div className="character-fields"><div className="character-field"><span className="field-label">Accounts</span><p>{Object.entries(character.apps ?? {}).filter(([, account]) => account.enabled).map(([app, account]) => `${{ whatsup: 'WhatsUp', fotogram: 'Fotogram', onlyfriends: 'OnlyFriends', matchme: 'MatchMe' }[app] || app}: ${account.displayName || account.username}`).join(' · ') || 'No active accounts'}</p></div><div className="character-field"><span className="field-label">Starting Posts</span><p>{Object.values(character.apps ?? {}).reduce((total, account) => total + (account.initialPosts?.length ?? 0), 0)} posts</p></div></div>}
             {editSettings && <fieldset disabled={ioBusy} className="character-assistant-fields">

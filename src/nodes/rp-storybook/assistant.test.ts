@@ -17,6 +17,18 @@ function apply(patch: unknown[], fallback = starterRpStorybook, changedFields = 
 }
 
 describe('Storybook assistant patches', () => {
+  it('adds, edits and clears optional hidden agency through saved Storybooks', () => {
+    const added = apply([{ op: 'add', path: '/characters/0/hiddenAgency', value: 'Protect a concealed ally.' }]).storybook;
+    const restored = parseRpStorybookJson(rpStorybookJsonText(added));
+    expect(restored.characters[0].hiddenAgency).toBe('Protect a concealed ally.');
+    expect(JSON.parse(rpStorybookPromptJsonText(restored)).characters[0].hiddenAgency).toBe('Protect a concealed ally.');
+    const edited = apply([{ op: 'replace', path: '/characters/0/hiddenAgency', value: 'Find the missing witness.' }], restored).storybook;
+    expect(edited.characters[0].hiddenAgency).toBe('Find the missing witness.');
+    const cleared = apply([{ op: 'replace', path: '/characters/0/hiddenAgency', value: '' }], edited).storybook;
+    expect(cleared.characters[0].hiddenAgency).toBe('');
+    expect(starterRpStorybook.characters[0].hiddenAgency).toBeUndefined();
+  });
+
   it('clears image-generation settings without restoring the old values', () => {
     const book = normalizeRpStorybook({ ...starterRpStorybook, characters: [{
       ...starterRpStorybook.characters[0],
