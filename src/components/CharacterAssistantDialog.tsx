@@ -25,6 +25,8 @@ import './characterAssistant.css';
 type Props = {
   referenceCharacters?: Character[];
   initialEntry?: NpcLibraryEntry;
+  onApplyToRp?: (character: Character) => void;
+  rpBusy?: boolean;
   nodeLlm: NodeLlmApi;
   connections: ConnectionPreset[];
   defaultConnectionId: string;
@@ -35,7 +37,8 @@ type Props = {
 type Source = { destination: CharacterDestination; fileName: string; bundled?: boolean };
 type LoadChoice = { key: string; label: string; source: Source; character?: Character; file?: SavedFileSummary };
 
-export function CharacterAssistantDialog({ referenceCharacters = [], initialEntry, nodeLlm, connections, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
+export function CharacterAssistantDialog({ referenceCharacters = [], initialEntry, onApplyToRp, rpBusy = false, nodeLlm, connections, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
+  const [editingRp, setEditingRp] = useState(!!onApplyToRp);
   const [character, setCharacter] = useState<Character>(() => initialEntry ? { ...structuredClone(initialEntry.character), playable: false } : newAssistantCharacter());
   const current = useRef(character);
   const revision = useRef(0);
@@ -46,7 +49,7 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
   const relationshipCharacters = characterReferenceCandidates([character], referenceCharacters.length ? referenceCharacters : visibleLibraryEntries(snapshot?.entries ?? []).map((entry) => entry.character));
   const [connectionId, setConnectionId] = useState(defaultConnectionId);
   const [destination, setDestination] = useState<CharacterDestination | 'choose'>('npc-characters');
-  const [source, setSource] = useState<Source | undefined>(() => initialEntry ? { destination: 'npc-characters', fileName: initialEntry.fileName, bundled: initialEntry.tier === 'bundled' } : undefined);
+  const [source, setSource] = useState<Source | undefined>(() => initialEntry && !onApplyToRp ? { destination: 'npc-characters', fileName: initialEntry.fileName, bundled: initialEntry.tier === 'bundled' } : undefined);
   const [protection, setProtection] = useState<'plain' | 'encrypted'>('plain');
   const [savePassword, setSavePassword] = useState('');
   const [savedCharacter, setSavedCharacter] = useState(character);
@@ -99,6 +102,7 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
     next = { ...next, playable: false };
     change(next, false);
     setSavedCharacter(next);
+    setEditingRp(false);
     setUndo([]); setMessages([]); setDraft(''); setAttachments([]); setReferenceIds([]);
     setSource(nextSource); setProtection('plain'); setSavePassword('');
     setDestination('npc-characters');
@@ -170,11 +174,21 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
         }
         setSource({ destination, fileName: result.fileName });
       }
-      setSavedCharacter(character); setShowSave(false); setSavePassword('');
-      setStatus('Character saved.');
+      if (!editingRp) setSavedCharacter(character);
+      setShowSave(false); setSavePassword('');
+      setStatus(editingRp ? 'Character file saved. Apply to RP to update the active RP copy.' : 'Character file saved.');
       try { await onSaved(); } catch (error) { setStatus(`Character saved. Library refresh failed: ${errorText(error)}`); }
     } catch (error) { setStatus(errorText(error)); }
     finally { setIoBusy(false); }
+  }
+  function applyToRp() {
+    if (!editingRp || !onApplyToRp || busy || ioBusy || rpBusy) return;
+    try {
+      validateAssistantCharacter(character);
+      onApplyToRp(character);
+      setSavedCharacter(character);
+      setStatus('Applied to the active RP copy. Save the RP to keep these changes on disk.');
+    } catch (error) { setStatus(errorText(error)); }
   }
   async function addImages(files: File[]) {
     setIoBusy(true);
@@ -266,9 +280,10 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
         }
       }}>
       <header inert={showSave || !!choices || !!confirm} className="dialog-header storybook-creator-header">
-        <div className="storybook-title-row"><h2 id="character-assistant-title">Character Assistant</h2><p>{dirty ? 'Unsaved changes' : 'Ready'} · {source ? `${source.bundled ? 'Built-in' : 'Local'} · ${source.fileName}` : 'New character'}</p></div>
+        <div className="storybook-title-row"><h2 id="character-assistant-title">Character Assistant</h2><p>{dirty ? 'Unsaved changes' : 'Ready'} · {editingRp ? 'Editing: RP copy · Used in this RP' : source ? `${source.bundled ? 'Built-in' : 'Local'} · ${source.fileName}` : 'New character'}</p></div>
         <div className="storybook-header-actions">
-          <button className="inspect-button nodrag" type="button" disabled={ioBusy || busy} onClick={() => { setStatus(''); setShowSave(true); }}>Save Character</button>
+          {editingRp && <button className="inspect-button nodrag primary" type="button" disabled={ioBusy || busy || rpBusy || !dirty} onClick={applyToRp}>Apply to RP</button>}
+          <button className="inspect-button nodrag" type="button" disabled={ioBusy || busy} onClick={() => { setStatus(''); setShowSave(true); }}>Save Character File…</button>
           <button className="close-button danger" type="button" disabled={ioBusy} onClick={close}>Close</button>
         </div>
       </header>
@@ -279,7 +294,7 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
         <button className="contextual-action-button nodrag" type="button" disabled={!undo.length || ioBusy} onClick={() => {
           const previous = undo[undo.length - 1]; if (previous) { change(previous, false); setUndo((history) => history.slice(0, -1)); }
         }}>Undo</button>
-        <span className="character-assistant-source">{source ? `${source.bundled ? 'Built-in' : 'Local'} · ${source.fileName}` : 'New container'}</span>
+        <span className="character-assistant-source">{editingRp ? 'Editing: RP copy · Used in this RP' : source ? `${source.bundled ? 'Built-in' : 'Local'} · ${source.fileName}` : 'New container'}</span>
       </div>
       <div inert={showSave || !!choices || !!confirm} className="storybook-creator-body"><div className="storybook-main-workspace character-assistant-workspace">
         <div className="storybook-document-panel">
@@ -396,7 +411,7 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
       </div>
       </div>
       {showSave && <div className="storybook-confirm-backdrop"><section inert={!!confirm} className="chat-password-dialog" role="dialog" aria-modal="true" aria-labelledby="character-save-title">
-        <div className="dialog-header"><div><h2 id="character-save-title">Save Character</h2><p>Choose where the complete character should be stored</p></div><button type="button" className="close-button" disabled={ioBusy} onClick={() => setShowSave(false)}>Close</button></div>
+        <div className="dialog-header"><div><h2 id="character-save-title">Save Character File</h2><p>Choose where the complete character should be stored</p></div><button type="button" className="close-button" disabled={ioBusy} onClick={() => setShowSave(false)}>Close</button></div>
         <div className="chat-password-form">
           <label className="chat-file-field">CHARACTER NAME<input value={character.name} readOnly /></label>
           <div className="chat-security-info"><strong>Whole-file protection</strong><p>Plain JSON is readable and easy to share. Password encrypted protects the complete character, including images and app setup.</p></div>
@@ -409,7 +424,7 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
           {protection === 'encrypted' && <label className="chat-file-field">PASSWORD OR PIN<input autoFocus type="password" autoComplete="new-password" value={savePassword} disabled={ioBusy} onChange={(event) => setSavePassword(event.target.value)} placeholder="Enter password or PIN" /></label>}
           {status && <p className="chat-storage-status" role="status">{status}</p>}
         </div>
-        <div className="dialog-actions"><button type="button" className="secondary" disabled={ioBusy} onClick={() => setShowSave(false)}>Cancel</button><button type="button" disabled={ioBusy || busy} onClick={() => void save()}>Save Character</button></div>
+        <div className="dialog-actions"><button type="button" className="secondary" disabled={ioBusy} onClick={() => setShowSave(false)}>Cancel</button><button type="button" disabled={ioBusy || busy} onClick={() => void save()}>Save Character File</button></div>
       </section></div>}
       {status && <p className="character-assistant-status" role="status">{status}</p>}
       <input ref={imageInput} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={(event) => { const files = Array.from(event.target.files ?? []); event.target.value = ''; if (files.length) void addImages(files); }} />

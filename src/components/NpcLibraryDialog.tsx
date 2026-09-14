@@ -99,7 +99,7 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
         <span>Images</span><strong>{used} <small>used</small></strong><strong>{unused} <small>unused</small></strong>
       </div>
       <div className="npc-library-row-actions">
-        <button type="button" onClick={onEdit}>{inStorybook ? 'Open Storybook' : display.retained ? 'View RP Character' : 'View / Edit Character'}</button>
+        <button type="button" onClick={onEdit}>{inStorybook ? 'Open Storybook' : display.retained ? 'Edit RP Copy' : 'Edit Library File'}</button>
         {display.playable ? (
           <button
             type="button"
@@ -143,7 +143,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
       const bundled = bundledById.get(character.id);
       const saved = participants[character.id]?.character;
       const inStorybook = effective.provenance.tier === 'storybook';
-      const source = saved ?? libraryEntry?.character;
+      const source = libraryEntry?.character;
       return { character, libraryEntry, inStorybook,
         playable: effective.playerSelectable, nodeId: inStorybook ? effective.provenance.source : undefined,
         retained: !!saved || effective.provenance.tier === 'snapshot',
@@ -259,7 +259,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
               ['Characters', entries.length],
               ['Playable', entries.filter((entry) => entry.playable).length],
               ['Interacted', entries.filter((entry) => !entry.playable && entry.hasActivity).length],
-              ['RP copies', entries.filter((entry) => entry.retained).length],
+              ['RP copies', entries.filter((entry) => entry.retained && !entry.inStorybook).length],
               ['Built-in', libraryEntries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
               ['Library files', libraryEntries.filter((entry) => entry.tier === 'user').length],
               ['Ignored files', snapshot?.skipped ?? 0],

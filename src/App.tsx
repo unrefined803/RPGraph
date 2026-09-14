@@ -1,3 +1,4 @@
+import { planNpcCopyEdit } from './characters/editNpcCopy';
 import { CharacterRemovalDialog } from './components/CharacterRemovalDialog';
 import { createCharacterContainer } from './characters/creator';
 import { shieldTranslationAccountLinks, restoreTranslationAccountLinks } from './chat/accountLinks';
@@ -620,6 +621,7 @@ type PreviewImageState = {
 function App() {
   const npcLibrary = useNpcLibrary();
   const [characterRemoval, setCharacterRemoval] = useState<{ nodeId: string; characterId: string } | null>(null);
+  const editedNpcSnapshotRef = useRef<import('./characters/npcParticipants').NpcParticipantSnapshots[string] | undefined>(undefined);
   const [characterAssistantEntry, setCharacterAssistantEntry] = useState<import('./characters/npcLibrary').NpcLibraryEntry | undefined>();
   const [showCharacterAssistant, setShowCharacterAssistant] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
@@ -6443,6 +6445,17 @@ function App() {
       )}
       {showCharacterAssistant && (
         <CharacterAssistantDialog referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)} initialEntry={characterAssistantEntry} nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
+          rpBusy={isRunning}
+          onApplyToRp={characterAssistantEntry?.source === `snapshot:${characterAssistantEntry?.character.id}` ? (character) => {
+            if (activeRunRef.current) throw new Error('Wait for the current run to finish before editing the RP copy.');
+            const expected = editedNpcSnapshotRef.current;
+            if (!expected) throw new Error('Reopen the active RP copy before applying edits.');
+            const plan = planNpcCopyEdit(nodesRef.current, npcParticipants.current(), npcParticipants.registry(), expected, character, messagesRef.current);
+            npcParticipants.restore(plan.participants);
+            commitNodes(plan.nodes);
+            editedNpcSnapshotRef.current = npcParticipants.current()[character.id];
+            plan.warnings.forEach((warning) => notifySystem('warning', warning.message));
+          } : undefined}
           snapshot={npcLibrary.snapshot} onSaved={async () => { await npcLibrary.reload(); }}
           onClose={() => setShowCharacterAssistant(false)} />
       )}
@@ -6455,7 +6468,7 @@ function App() {
       {npcLibrary.open && !showCharacterAssistant && (
         <NpcLibraryDialog
           onCreateCharacter={() => { setCharacterAssistantEntry(undefined); setShowCharacterAssistant(true); }}
-          onEditCharacter={(entry) => { setCharacterAssistantEntry(entry); setShowCharacterAssistant(true); }}
+          onEditCharacter={(entry) => { editedNpcSnapshotRef.current = npcParticipants.current()[entry.character.id]; setCharacterAssistantEntry(entry); setShowCharacterAssistant(true); }}
           onOpenStorybook={(nodeId) => {
             openStorybookCreator(nodeId);
             npcLibrary.close();

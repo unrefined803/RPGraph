@@ -60,7 +60,7 @@ export function characterProvenanceStages(options: {
   } else if (options.tier === 'user') {
     stages.push({ label: 'Library file', title: 'Character file in the local NPC Library folder' });
   }
-  if (options.retained) {
+  if (options.retained && !options.inStorybook) {
     stages.push({ label: options.snapshotEdited ? 'RP modified' : 'RP copy',
       title: `${options.tier
         ? options.snapshotEdited ? 'RP copy differs from the NPC Library version. ' : 'RP copy matches the NPC Library version. '
@@ -68,11 +68,11 @@ export function characterProvenanceStages(options: {
   }
   if (options.inStorybook) {
     if (!stages.length) {
-      stages.push({ label: 'Storybook only', title: 'Character exists only in the Storybook' });
+      stages.push({ label: 'Storybook only', title: 'Active Storybook character without a corresponding NPC Library file' });
     } else {
       stages.push(options.storybookEdited
-        ? { label: 'Storybook modified', title: `The Storybook character differs from ${options.retained ? 'the retained RP copy' : 'the NPC Library version'}` }
-        : { label: 'Storybook copy', title: `The Storybook character matches ${options.retained ? 'the retained RP copy' : 'the NPC Library version'}` });
+        ? { label: 'Storybook modified', title: 'The Storybook character differs from the NPC Library version' }
+        : { label: 'Storybook copy', title: 'The Storybook character matches the NPC Library version' });
     }
   }
   return stages;

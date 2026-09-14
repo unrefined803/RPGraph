@@ -701,6 +701,23 @@ posts must be an explicit option; do not silently export the whole RP history.
 Audit character deletion: it must not erase account history or media still used
 by a global counterpart, a saved snapshot or historical messages.
 
+### Editing the active RP copy
+
+NPC Library opens retained participants with **Edit RP Copy**, file sources with
+**Edit Library File**, and playable definitions with **Open Storybook**. In the
+Character Assistant, **Apply to RP** explicitly replaces the active pinned copy
+and any matching Opening History archives together, without writing a library
+file or changing playability. Normal RP saving persists the applied changes.
+**Save Character File…** remains a separate export operation and does not mark
+unapplied RP edits as applied. New/load actions leave RP editing mode.
+
+Explicit RP authoring is the exception to automatic revision pinning: library
+reloads and Undo still do not refresh the pinned copy. Applying rejects stale
+editor targets and active graph runs, validates the candidate registry and
+relationships, and preserves existing character/account identities, gallery
+image data and initial-post IDs. Add new images rather than replacing media that
+may be referenced by saved history or checkpoints.
+
 ## 10. Shared creation function and future image-backed NPCs
 
 Provide one deterministic service accepting character fields, app profiles and
@@ -1320,7 +1337,10 @@ example **Built-in › Library modified › Storybook modified**. The rightmost,
 stage is the active definition. A content-equivalent normalized local override is
 shown as **Library copy**; an altered one is **Library modified**. An unchanged playable
 import ends with **Storybook copy**, while **Storybook only** means no library
-source or retained RP copy exists. Playability is shown by the subtle green **Playable** action,
+source exists. Retained recovery copies are hidden for active Storybook characters;
+their content is compared directly with the Library version. Switching to NPC and
+back therefore restores the same badges when the content is unchanged. The RP
+copies statistic counts only copies outside the active Storybook cast. Playability is shown by the subtle green **Playable** action,
 which changes to **Remove** on hover or keyboard focus. Library-only rows use
 **Make Playable**; Storybook rows open their owning Storybook editor.
 Ambiguous local files remain visible as diagnostic rows with promotion disabled;

@@ -6,7 +6,7 @@ import {
 } from './registry';
 import type { MessageRecord } from '../types';
 
-/** Immutable revision archive, scoped to one RP. Activity remains in its existing stores. */
+/** Pinned revision archive, scoped to one RP; changed only through explicit authoring. Activity remains separate. */
 export type NpcParticipantSnapshots = Record<string, {
   character: Character;
   source: string;

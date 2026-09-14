@@ -33,6 +33,17 @@ describe('edited built-in library entries', () => {
     expect(effectiveLibraryEntry([local, duplicate], 'same')).toBeUndefined();
     expect(effectiveLibraryEntry([bundled], 'missing')).toBeUndefined();
   });
+  it('hides retained recovery copies after switching back to Storybook', () => {
+    for (const tier of [undefined, 'bundled', 'user'] as const) {
+      for (const storybookEdited of [false, true]) {
+        const options = { tier, inStorybook: true, storybookEdited };
+        expect(characterProvenanceStages({ ...options, retained: true, snapshotEdited: true }))
+          .toEqual(characterProvenanceStages(options));
+      }
+    }
+    expect(characterProvenanceStages({ inStorybook: false, storybookEdited: false, retained: true })
+      .map((stage) => stage.label)).toEqual(['RP copy']);
+  });
   it('shows resolution layers in priority order with the active layer last', () => {
     expect(characterProvenanceStages({ editedBuiltIn: true, localEdited: true, tier: 'user', inStorybook: true, storybookEdited: true })
       .map((stage) => stage.label)).toEqual(['Built-in', 'Library modified', 'Storybook modified']);
