@@ -31,3 +31,35 @@ export function visibleLibraryEntries(entries: import('./npcLibrary').NpcLibrary
     .map((entry) => ({ ...entry, editedBuiltIn: entry.tier === 'user' && bundledIds.has(entry.character.id) }))
     .sort((a, b) => a.character.name.localeCompare(b.character.name) || a.fileName.localeCompare(b.fileName));
 }
+
+export type CharacterProvenanceStage = { label: string; title: string };
+
+/** Ordered resolution layers for the compact NPC Library provenance chain. */
+export function characterProvenanceStages(options: {
+  tier?: 'bundled' | 'user'; editedBuiltIn?: boolean; localEdited?: boolean;
+  inStorybook: boolean; storybookEdited: boolean;
+}): CharacterProvenanceStage[] {
+  const stages: CharacterProvenanceStage[] = [];
+  if (options.editedBuiltIn) {
+    stages.push(
+      { label: 'Built-in', title: 'Bundled application character' },
+      options.localEdited
+        ? { label: 'Local edit', title: 'Locally edited NPC file overrides the built-in character' }
+        : { label: 'Local copy', title: 'Local NPC file matches the built-in character' },
+    );
+  } else if (options.tier === 'bundled') {
+    stages.push({ label: 'Built-in', title: 'Bundled application character' });
+  } else if (options.tier === 'user') {
+    stages.push({ label: 'User-created', title: 'Character from the local NPC Library folder' });
+  }
+  if (options.inStorybook) {
+    if (!stages.length) {
+      stages.push({ label: 'Storybook original', title: 'Character exists only in the Storybook' });
+    } else {
+      stages.push(options.storybookEdited
+        ? { label: 'Storybook edit', title: 'The active Storybook character differs from its library source' }
+        : { label: 'In Storybook', title: 'The active Storybook character matches its library source' });
+    }
+  }
+  return stages;
+}

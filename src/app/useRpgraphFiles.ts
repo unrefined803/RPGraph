@@ -109,7 +109,7 @@ export function useRpgraphFiles({
   const [workflowSaveScope, setWorkflowSaveScope] = useState<WorkflowSaveScope>('workflow-storybook');
   const [sessionOverwritePending, setSessionOverwritePending] = useState(false);
   const [chooseSaveLocation, setChooseSaveLocation] = useState(false);
-  const [characterSaveLocation, setCharacterSaveLocation] = useState<CharacterSaveLocation>('characters');
+  const [characterSaveLocation, setCharacterSaveLocation] = useState<CharacterSaveLocation>('npc-characters');
   const [includeCharacterOwnPosts, setIncludeCharacterOwnPosts] = useState(true);
   const returnToFilesAfterSaveRef = useRef(false);
   const [pendingSessionFilePath, setPendingSessionFilePath] = useState<string | null>(null);
@@ -346,7 +346,7 @@ export function useRpgraphFiles({
     setFileProtection('plain');
     setSessionOverwritePending(false);
     setChooseSaveLocation(false);
-    setCharacterSaveLocation('characters');
+    setCharacterSaveLocation('npc-characters');
     setIncludeCharacterOwnPosts(true);
     setFileStorageStatus('');
     returnToFilesAfterSaveRef.current = returnToFilesAfterSave;

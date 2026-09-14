@@ -3038,8 +3038,8 @@ export function StudioDialogs({
                     <CharacterSaveOptions includePosts={includeCharacterOwnPosts} onIncludePostsChange={onIncludeCharacterOwnPostsChange}
                       destination={characterSaveLocation} onDestinationChange={onCharacterSaveLocationChange}
                       destinations={[
-                        { value: 'characters', label: 'Characters Folder' },
                         { value: 'npc-characters', label: 'NPC Library Folder' },
+                        { value: 'characters', label: 'Characters Folder' },
                         { value: 'choose', label: 'Choose Save Location…' },
                       ]} />
                   )}

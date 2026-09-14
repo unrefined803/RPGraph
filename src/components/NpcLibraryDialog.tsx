@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
-import { characterLibrarySummary, visibleLibraryEntries } from '../characters/librarySummary';
+import { characterLibrarySummary, characterProvenanceStages, visibleLibraryEntries } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 import { characterPayload, type Character } from '../characters/character';
+import { normalizeRpStorybookCharacter } from '../nodes/rp-storybook/model';
 
 type NpcLibraryDialogProps = {
   snapshot: NpcLibrarySnapshot | null;
@@ -27,20 +28,26 @@ type DisplayEntry = {
   libraryEntry?: NpcLibraryEntry & { editedBuiltIn: boolean };
   inStorybook: boolean;
   storybookEdited: boolean;
+  localEdited: boolean;
 };
 
 function comparableCharacter(character: Character) {
-  return characterPayload({ ...structuredClone(character), playable: false }, true);
+  const normalized = normalizeRpStorybookCharacter(structuredClone(character), 0, new Set());
+  return characterPayload({ ...normalized, playable: false }, true);
 }
 
 function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
   display: DisplayEntry; issues: string[]; canImport: boolean; onImport: () => void; onEdit: () => void;
 }) {
-  const { character, libraryEntry, inStorybook, storybookEdited } = display;
+  const { character, libraryEntry, inStorybook, storybookEdited, localEdited } = display;
   const { apps, used, unused, initials } = useMemo(() => characterLibrarySummary(character), [character]);
   const portrait = useMemo(() => appAvatarDataUrl(character,
     character.images.find((image) => image.id === character.profileImage?.imageId)), [character]);
   const [failedPortrait, setFailedPortrait] = useState('');
+  const provenance = characterProvenanceStages({
+    tier: libraryEntry?.tier, editedBuiltIn: libraryEntry?.editedBuiltIn,
+    localEdited, inStorybook, storybookEdited,
+  });
   return (
     <li className="npc-library-row">
       <div className="npc-library-avatar" aria-hidden="true">
@@ -51,11 +58,15 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
       <div className="npc-library-identity">
         <h3>{character.name}</h3>
         <div className="npc-library-badges">
-          <span className={`npc-library-origin ${libraryEntry?.tier ?? 'storybook'}`}>
-            {!libraryEntry ? 'Storybook only' : libraryEntry.editedBuiltIn ? 'Built-in → Local edit' : libraryEntry.tier === 'bundled' ? 'Built-in' : 'User-created'}
+          <span className="npc-library-provenance" aria-label={`Active character source: ${provenance.map((stage) => stage.label).join(' then ')}`}>
+            {provenance.map((stage, index) => <span className="npc-library-provenance-segment" key={stage.label}>
+              {index > 0 && <span className="npc-library-provenance-arrow" aria-hidden="true">›</span>}
+              <span className={`npc-library-provenance-stage${index === provenance.length - 1 ? ' active' : ''}`}
+                title={`${stage.title}${index === provenance.length - 1 ? '. This is the active version.' : ''}`}>
+                {stage.label}
+              </span>
+            </span>)}
           </span>
-          {inStorybook && <span className="npc-library-origin in-storybook">Playable</span>}
-          {storybookEdited && <span className="npc-library-origin storybook-edited">Storybook edited</span>}
         </div>
       </div>
       <div className="npc-library-accounts">
@@ -81,7 +92,9 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
       </div>
       <div className="npc-library-row-actions">
         <button type="button" onClick={onEdit}>{inStorybook ? 'Open Storybook' : 'View / Edit Character'}</button>
-        <button type="button" className="primary" disabled={!canImport} onClick={onImport}>{inStorybook ? 'Playable' : 'Add as Playable'}</button>
+        <button type="button" className={`primary${inStorybook ? ' playable-active' : ''}`} disabled={!canImport}
+          title={inStorybook ? 'This character is available as a playable Storybook character' : undefined}
+          onClick={onImport}>{inStorybook ? 'Playable' : 'Add as Playable'}</button>
       </div>
       {issues.length > 0 && <details className="npc-library-row-issues">
         <summary aria-label={`Diagnostics for ${character.name}: ${issues.length}`} title="Show character diagnostics">ⓘ</summary>
@@ -97,24 +110,31 @@ export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, st
   const libraryEntries = useMemo(() => visibleLibraryEntries(snapshot?.entries ?? []), [snapshot]);
   const entries = useMemo(() => {
     const byId = new Map(libraryEntries.map((entry) => [entry.character.id, entry]));
+    const bundledById = new Map((snapshot?.entries ?? []).filter((entry) => entry.tier === 'bundled')
+      .map((entry) => [entry.character.id, entry.character]));
     const storybookCharacters = activeRegistry.characters.filter((entry) => entry.provenance.tier === 'storybook');
     const storybookIds = new Set(storybookCharacters.map((entry) => entry.character.id));
     const display: DisplayEntry[] = storybookCharacters.map((entry) => {
       const libraryEntry = byId.get(entry.character.id);
+      const bundled = bundledById.get(entry.character.id);
       return {
         character: entry.character,
         libraryEntry,
         inStorybook: true,
         storybookEdited: !!libraryEntry && JSON.stringify(comparableCharacter(entry.character)) !==
           JSON.stringify(comparableCharacter(libraryEntry.character)),
+        localEdited: !!libraryEntry?.editedBuiltIn && !!bundled &&
+          JSON.stringify(comparableCharacter(libraryEntry.character)) !== JSON.stringify(comparableCharacter(bundled)),
       };
     });
     display.push(...libraryEntries.filter((entry) => !storybookIds.has(entry.character.id)).map((entry) => ({
       character: entry.character, libraryEntry: entry, inStorybook: false, storybookEdited: false,
+      localEdited: !!entry.editedBuiltIn && !!bundledById.get(entry.character.id) &&
+        JSON.stringify(comparableCharacter(entry.character)) !== JSON.stringify(comparableCharacter(bundledById.get(entry.character.id)!)),
     })));
     return display.sort((left, right) => Number(right.inStorybook) - Number(left.inStorybook) ||
       left.character.name.localeCompare(right.character.name));
-  }, [activeRegistry, libraryEntries]);
+  }, [activeRegistry, libraryEntries, snapshot]);
   const issuesFor = (entry: NpcLibraryEntry) => [
     ...(snapshot?.diagnostics ?? []).filter((item) => item.tier === entry.tier && item.fileName === entry.fileName).map((item) => item.message),
     ...activeRegistry.diagnostics.filter((item) => item.characterIds.includes(entry.character.id)).map((item) => item.message),

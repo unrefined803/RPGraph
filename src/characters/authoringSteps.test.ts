@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newAssistantCharacter, parseCharacterAssistantResult, runCharacterAuthoringSteps } from './assistant';
-import { visibleLibraryEntries } from './librarySummary';
+import { characterProvenanceStages, visibleLibraryEntries } from './librarySummary';
 import type { NpcLibraryEntry } from './npcLibrary';
 
 const response = (patch: unknown[], extra = {}) => JSON.stringify({ reply: 'Done.', patch, ...extra });
@@ -23,6 +23,18 @@ describe('edited built-in library entries', () => {
   });
   it('keeps ambiguous user files visible for diagnostics instead of silently picking one', () => {
     expect(visibleLibraryEntries([entry('bundled'), entry('user'), entry('user', 'same', 'duplicate.json')])).toHaveLength(3);
+  });
+  it('shows resolution layers in priority order with the active layer last', () => {
+    expect(characterProvenanceStages({ editedBuiltIn: true, localEdited: true, tier: 'user', inStorybook: true, storybookEdited: true })
+      .map((stage) => stage.label)).toEqual(['Built-in', 'Local edit', 'Storybook edit']);
+    expect(characterProvenanceStages({ editedBuiltIn: true, localEdited: false, tier: 'user', inStorybook: false, storybookEdited: false })
+      .map((stage) => stage.label)).toEqual(['Built-in', 'Local copy']);
+    expect(characterProvenanceStages({ tier: 'bundled', inStorybook: true, storybookEdited: false })
+      .map((stage) => stage.label)).toEqual(['Built-in', 'In Storybook']);
+    expect(characterProvenanceStages({ inStorybook: true, storybookEdited: false })
+      .map((stage) => stage.label)).toEqual(['Storybook original']);
+    expect(characterProvenanceStages({ tier: 'user', inStorybook: false, storybookEdited: false })
+      .map((stage) => stage.label)).toEqual(['User-created']);
   });
 });
 

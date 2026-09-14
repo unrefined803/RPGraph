@@ -1314,12 +1314,15 @@ edits made in the same request are merged by target ID. Merely mentioning or
 linking the character does not import it.
 
 The NPC Library view includes effective Storybook characters even when no
-library file exists. Playable rows sort before library-only NPCs. Origin badges
-show **Built-in**, **Built-in → Local edit**, **User-created**, or **Storybook
-only** independently of the **Playable** badge. If the Storybook copy differs
-from its current backing library container, it additionally shows **Storybook
-edited**. Library-only rows use **Add as Playable**; playable rows open the
-Storybook editor instead of a separate library-file editor.
+library file exists. Playable rows sort before library-only NPCs. A compact
+left-to-right provenance chain shows only existing resolution layers, for
+example **Built-in › Local edit › Storybook edit**. The rightmost, highlighted
+stage is the active definition. A byte-equivalent normalized local override is
+shown as **Local copy**; an altered one is **Local edit**. An unchanged playable
+import ends with **In Storybook**, while **Storybook original** means no library
+source exists. Playability is shown by the green disabled **Playable** action
+instead of another badge. Library-only rows use **Add as Playable**; playable
+rows open the Storybook editor instead of a separate library-file editor.
 
 Formatted Text includes **Contacts & Relationships** by default and allows it to
 be disabled. **Hidden Agency** is independently selectable and defaults to off.
