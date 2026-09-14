@@ -1,6 +1,6 @@
 import { characterUsageReasons } from '../characters/lifecycle';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
-import { useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { characterLibrarySummary, characterProvenanceStages, visibleLibraryEntries } from '../characters/librarySummary';
@@ -73,7 +73,6 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
               </span>
             </span>)}
           </span>
-          {display.hasActivity && <span className="npc-library-muted" title="Referenced by this RP’s history or saved activity">History / activity</span>}
         </div>
       </div>
       <div className="npc-library-accounts">
@@ -99,10 +98,27 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
       </div>
       <div className="npc-library-row-actions">
         <button type="button" onClick={onEdit}>{inStorybook ? 'Open Storybook' : display.retained ? 'View RP Character' : 'View / Edit Character'}</button>
-        <button type="button" className={`primary${display.playable ? ' playable-active' : ''}`} disabled={!canImport}
-          title={display.playable ? 'This character is playable. Use Remove to return it to an NPC.' : undefined}
-          onClick={onImport}>{display.playable ? 'Playable' : 'Make Playable'}</button>
-        {display.playable && onRemove && <button type="button" className="character-delete-button" onClick={onRemove}>Remove</button>}
+        {display.playable ? (
+          <button
+            type="button"
+            className="npc-library-playable-button"
+            disabled={!onRemove}
+            title={onRemove ? 'Click to remove from playable cast' : 'This character is playable.'}
+            onClick={onRemove}
+          >
+            <span className="label-playable">Playable</span>
+            <span className="label-remove">Remove</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="primary"
+            disabled={!canImport}
+            onClick={onImport}
+          >
+            Make Playable
+          </button>
+        )}
       </div>
       {issues.length > 0 && <details className="npc-library-row-issues">
         <summary aria-label={`Diagnostics for ${character.name}: ${issues.length}`} title="Show character diagnostics">ⓘ</summary>
@@ -143,9 +159,25 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
         !characterContentEqual(entry.character, bundledById.get(entry.character.id)!),
       playable: false, retained: false, hasActivity: false, snapshotEdited: false,
     })));
-    return display.sort((left, right) => Number(right.playable) - Number(left.playable) ||
-      left.character.name.localeCompare(right.character.name));
+    return display.sort((left, right) => {
+      const leftGroup = left.playable ? 0 : (left.hasActivity || left.retained) ? 1 : 2;
+      const rightGroup = right.playable ? 0 : (right.hasActivity || right.retained) ? 1 : 2;
+      return leftGroup - rightGroup || left.character.name.localeCompare(right.character.name);
+    });
   }, [activeRegistry, libraryEntries, snapshot, participants, activity]);
+
+  const sections = useMemo(() => {
+    const playable = entries.filter((entry) => entry.playable);
+    const interacted = entries.filter((entry) => !entry.playable && (entry.hasActivity || entry.retained));
+    const available = entries.filter((entry) => !entry.playable && !entry.hasActivity && !entry.retained);
+
+    return [
+      { id: 'playable', title: 'Playable Characters', entries: playable },
+      { id: 'interacted', title: 'Interacted Characters', entries: interacted },
+      { id: 'available', title: 'Available Characters', entries: available },
+    ].filter((section) => section.entries.length > 0);
+  }, [entries]);
+
   const issuesFor = (entry: NpcLibraryEntry) => [
     ...(snapshot?.diagnostics ?? []).filter((item) => item.tier === entry.tier && item.fileName === entry.fileName).map((item) => item.message),
     ...activeRegistry.diagnostics.filter((item) => item.characterIds.includes(entry.character.id)).map((item) => item.message),
@@ -157,34 +189,65 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
   ];
   const diagnosticCount = (snapshot?.diagnostics.length ?? 0) + activeRegistry.diagnostics.length;
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="dialog-backdrop" role="presentation" onClick={onClose}>
       <section className="npc-library-dialog" role="dialog" aria-modal="true" aria-labelledby="npc-library-title"
-        onClick={(event) => event.stopPropagation()} onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}>
+        onClick={(event) => event.stopPropagation()}>
         <main className="npc-library-main" aria-label="Library characters" aria-busy={loading}>
-          {entries.length ? <ul className="npc-library-list">{entries.map((display) => {
-            const entry = display.libraryEntry;
-            const effective = activeRegistry.characters.find((item) => item.character.id === display.character.id);
-            const available = effective && !effective.playerSelectable;
-            const target = display.nodeId ?? targetNodeId;
-            return <CharacterRow key={`${display.inStorybook ? 'storybook' : entry?.tier}:${display.character.id}`} display={display}
-              onEdit={() => display.inStorybook ? onOpenStorybook() : onEditCharacter(display.retained
-                ? { character: display.character, tier: 'user', source: `snapshot:${display.character.id}`, fileName: `${display.character.name}.json` }
-                : entry!)} issues={entry ? issuesFor(entry) : []}
-              onRemove={onRemove && display.nodeId && !busy ? () => onRemove(display.character.id, display.nodeId!) : undefined}
-              canImport={!!available && !loading && !busy && !!target} onImport={() => {
-                try {
-                  onAddToStorybook(display.character.id, target);
-                  setImportStatus(`Added ${display.character.name} as a playable Storybook character. Save the Storybook or RP to keep this change.`);
-                } catch (error) {
-                  setImportStatus(`Character import failed: ${error instanceof Error ? error.message : String(error)}`);
-                }
-              }} />;
-          })}</ul> : <p className="npc-library-empty">{loading ? 'Loading characters…' : 'No characters found. Add character files to your NPC folder and reload the library.'}</p>}
+          {entries.length ? (
+            <ul className="npc-library-list">
+              {sections.map((section) => (
+                <Fragment key={section.id}>
+                  <li className="npc-library-section-divider" role="separator" aria-label={section.title}>
+                    <span>{section.title}</span>
+                  </li>
+                  {section.entries.map((display) => {
+                    const entry = display.libraryEntry;
+                    const effective = activeRegistry.characters.find((item) => item.character.id === display.character.id);
+                    const available = effective && !effective.playerSelectable;
+                    const target = display.nodeId ?? targetNodeId;
+                    return (
+                      <CharacterRow
+                        key={`${display.inStorybook ? 'storybook' : entry?.tier}:${display.character.id}`}
+                        display={display}
+                        onEdit={() => display.inStorybook ? onOpenStorybook() : onEditCharacter(display.retained
+                          ? { character: display.character, tier: 'user', source: `snapshot:${display.character.id}`, fileName: `${display.character.name}.json` }
+                          : entry!)}
+                        issues={entry ? issuesFor(entry) : []}
+                        onRemove={onRemove && display.nodeId && !busy ? () => onRemove(display.character.id, display.nodeId!) : undefined}
+                        canImport={!!available && !loading && !busy && !!target}
+                        onImport={() => {
+                          try {
+                            onAddToStorybook(display.character.id, target);
+                            setImportStatus(`Added ${display.character.name} as a playable Storybook character. Save the Storybook or RP to keep this change.`);
+                          } catch (error) {
+                            setImportStatus(`Character import failed: ${error instanceof Error ? error.message : String(error)}`);
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </ul>
+          ) : (
+            <p className="npc-library-empty">{loading ? 'Loading characters…' : 'No characters found. Add character files to your NPC folder and reload the library.'}</p>
+          )}
         </main>
         <aside className="npc-library-sidebar">
           <header><div><h2 id="npc-library-title">NPC Library</h2><p>Your character collection</p></div>
-            <button type="button" className="dialog-close" onClick={onClose} aria-label="Close NPC library" autoFocus>×</button></header>
+            <button type="button" className="close-button" onClick={onClose} autoFocus>Close</button></header>
           <div className="npc-library-actions">
             <button type="button" className="primary" onClick={onCreateCharacter}>Create Character</button>
             <button type="button" className="primary" onClick={onReload} disabled={loading}>{loading ? 'Reloading…' : 'Reload Library'}</button>
@@ -192,10 +255,13 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
           </div>
           <section className="npc-library-statistics"><h3>Statistics</h3>
             <dl>{[
-              ['Characters', entries.length], ['Playable', entries.filter((entry) => entry.playable).length],
+              ['Characters', entries.length],
+              ['Playable', entries.filter((entry) => entry.playable).length],
+              ['Interacted', entries.filter((entry) => !entry.playable && (entry.hasActivity || entry.retained)).length],
               ['RP copies', entries.filter((entry) => entry.retained).length],
               ['Built-in', libraryEntries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
-              ['User-created', libraryEntries.filter((entry) => entry.tier === 'user' && !entry.editedBuiltIn).length], ['Ignored files', snapshot?.skipped ?? 0],
+              ['User-created', libraryEntries.filter((entry) => entry.tier === 'user' && !entry.editedBuiltIn).length],
+              ['Ignored files', snapshot?.skipped ?? 0],
             ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}</dl>
             <span className={diagnosticCount ? 'npc-library-warning' : 'npc-library-muted'}>{diagnosticCount} diagnostic{diagnosticCount === 1 ? '' : 's'}{diagnosticCount > 0 ? ' · Check the info icons' : ''}</span>
             {generalIssues.length > 0 && <details className="npc-library-general-issues"><summary>ⓘ File and library issues ({generalIssues.length})</summary>
