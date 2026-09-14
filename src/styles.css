@@ -13889,8 +13889,8 @@ button.message-timeline-row.phone:focus-visible {
 
 .storybook-creator-dialog {
   position: relative;
-  width: min(1680px, calc(100vw - 24px));
-  height: min(980px, calc(100vh - 24px));
+  width: calc(100vw - 32px);
+  height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -14657,7 +14657,7 @@ button.message-timeline-row.phone:focus-visible {
 .storybook-main-workspace {
   flex: 1;
   display: grid;
-  grid-template-columns: 1.4fr 0.6fr;
+  grid-template-columns: minmax(0, 1.34fr) minmax(0, 0.66fr);
   gap: 20px;
   min-height: 0;
   height: 100%;
@@ -14948,7 +14948,7 @@ button.message-timeline-row.phone:focus-visible {
 .character-card-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
   flex-wrap: wrap;
   padding-top: 12px;
@@ -14983,14 +14983,17 @@ button.message-timeline-row.phone:focus-visible {
 .character-delete-button {
   display: inline-grid;
   width: auto;
-  min-height: 30px;
   flex: none;
   place-items: center;
-  padding: 4px 10px;
+  padding: 6px 12px;
   border: 1px solid rgba(239, 111, 111, 0.35);
   border-radius: 6px;
   color: #f0a0a0;
   background: rgba(130, 48, 48, 0.16);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -15230,8 +15233,14 @@ button.message-timeline-row.phone:focus-visible {
 
 .storybook-actor-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+@media (max-width: 1120px) {
+  .storybook-actor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .storybook-image-dialog-backdrop {

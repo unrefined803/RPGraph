@@ -3602,16 +3602,16 @@ export function StorybookCreatorDialog({
                                   >
                                     Export Character
                                   </button>
+                                  <button
+                                    type="button"
+                                    className="character-delete-button nodrag"
+                                    aria-label={`Remove ${character.name || character.id}`}
+                                    title={`Remove ${character.name || character.id}`}
+                                    onClick={() => onDeleteCharacter(character.id)}
+                                  >
+                                    Remove
+                                  </button>
                                 </div>
-                                <button
-                                  type="button"
-                                  className="character-delete-button nodrag"
-                                  aria-label={`Remove ${character.name || character.id}`}
-                                  title={`Remove ${character.name || character.id}`}
-                                  onClick={() => onDeleteCharacter(character.id)}
-                                >
-                                  Remove
-                                </button>
                               </div>
                             </article>
                           );
