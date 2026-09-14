@@ -92,11 +92,12 @@ export function useRuntimeNodePatching({
         const remainingMs = minimumActiveMs - (performance.now() - startedAt);
         if (remainingMs > 0) {
           clearRunActiveEndTimer(nodeId);
-          const delayedPatch = { ...patch };
           runActiveEndTimers.current[nodeId] = setTimeout(() => {
             delete runActiveEndTimers.current[nodeId];
             delete runActiveStartedAt.current[nodeId];
-            applyRuntimeNodePatch(nodeId, delayedPatch);
+            // Only the visual indicator is delayed. Replaying data here can
+            // overwrite a checkpoint restored since this node completed.
+            applyRuntimeNodePatch(nodeId, { runActive: false });
           }, remainingMs);
           const immediatePatch: Partial<WorkflowNodeData> = { ...patch };
           delete immediatePatch.runActive;

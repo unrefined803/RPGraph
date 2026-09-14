@@ -35,7 +35,6 @@ type UseDirectAppActionsOptions = {
   isRunning: boolean;
   messagesRef: { current: MessageRecord[] };
   turnsRef: { current: TurnRecord[] };
-  applyTurnCheckpointRuntime: (turn: TurnRecord, target: 'before' | 'after') => void;
   undoLastTurn: () => void;
   replaceLastTurnCreatedPhoneNote: (commit: CreatedPhoneNoteCommit) => boolean;
   removeLastTurnCreatedPhoneNote: (characterId: string, noteId: string) => boolean;
@@ -52,7 +51,6 @@ export function useDirectAppActions({
   isRunning,
   messagesRef,
   turnsRef,
-  applyTurnCheckpointRuntime,
   undoLastTurn,
   replaceLastTurnCreatedPhoneNote,
   removeLastTurnCreatedPhoneNote,
@@ -76,9 +74,6 @@ export function useDirectAppActions({
     const historyMessages = replacementTurn
       ? messagesRef.current.filter((message) => !turnMessageIds(replacementTurn).has(message.id))
       : messagesRef.current;
-    if (replacementTurn) {
-      applyTurnCheckpointRuntime(replacementTurn, 'before');
-    }
     void runGraph(
       directAppActionJson(payload),
       [],

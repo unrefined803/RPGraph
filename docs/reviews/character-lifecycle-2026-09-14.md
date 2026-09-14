@@ -50,7 +50,7 @@ Promotion and retirement can retain a snapshot without any interaction. The
 middle section and its statistic now explicitly include retained characters,
 rather than claiming every entry has interacted.
 
-## Open finding
+## Follow-up finding
 
 ### P2 — Turn undo can reverse a later manual retirement or deletion
 
@@ -76,7 +76,7 @@ Relevant code:
 - `src/chat/useTurnRecordState.ts`: `applyTurnCheckpointRuntime`.
 - `src/storybook/useStorybookActions.ts`: `removeStorybookCharacter`.
 
-Not changed in this pass: a correct fix needs a consistent policy separating
+Not changed in that pass; subsequently addressed in [the turn lifecycle review](turn-lifecycle-2026-09-14.md) with conflict-aware restoration. The confirmed policy retaining manual promotion across turn Undo is documented there. A correct fix needs a consistent policy separating
 manual authoring/lifecycle changes from turn-owned runtime changes, including
 saved checkpoints, regeneration and Opening History. Blindly rewriting old
 checkpoints could lose intentional historical changes.

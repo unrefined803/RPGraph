@@ -116,6 +116,7 @@ export class NodeLlmApi {
         request.purpose ?? request.label,
         signal,
       );
+      if (signal?.aborted) throw new Error('The LLM request was cancelled.');
       const requestConnection = request.fastTask
         ? { ...connection, reasoningEffort: 'none' as const }
         : connection;
@@ -143,6 +144,7 @@ export class NodeLlmApi {
       let lastReasoningUpdateMs = 0;
       const onReasoningTokens = request.nodeId
         ? (tokenCount: number) => {
+            if (signal?.aborted) return;
             latestReasoningTokens = tokenCount;
             const now = performance.now();
             if (now - lastReasoningUpdateMs >= 50) {
@@ -177,6 +179,7 @@ export class NodeLlmApi {
               ...sampling,
             },
             (text) => {
+              if (signal?.aborted) return;
               observer?.streamed?.(text);
               request.onChunk?.(text);
             },
@@ -198,6 +201,9 @@ export class NodeLlmApi {
             },
           );
 
+      // IPC cancellation is best effort; an already completed provider reply
+      // can still arrive after abort and must not be delivered to the graph.
+      if (signal?.aborted) throw new Error('The LLM request was cancelled.');
       const result = { ...completion, connection };
       observer?.completed?.(result);
 

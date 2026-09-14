@@ -10,7 +10,10 @@ import { createCharacterContainer } from './creator';
 import { appStateFromSessionV2, sessionV2FromCurrentState } from '../data-management/sessionStore';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { currentCoreNodeVersions } from '../nodes/nodeVersion';
-import type { WorkflowNode, WorkflowFile } from '../types';
+import { applyTurnCheckpointToNodes, createTurnCheckpointFromNodesForTurnRecord } from '../data-management/checkpointStore';
+import { restoreTurnRuntime } from '../chat/turns';
+import { storybookRegistryEntries } from './npcParticipantRuntime';
+import type { TurnRecord, MessageRecord, WorkflowNode, WorkflowFile } from '../types';
 
 const book = () => normalizeRpStorybook({ characters: [{ id: 'ari', name: 'Ari Blume', description: 'Artist',
   personality: 'Curious', speechStyle: 'Warm', role: 'Friend', playable: true,
@@ -79,4 +82,38 @@ describe.each([false, true])('retiring a character with NPC origin %s', (npcOrig
     expect(loaded.npcParticipants.ari.character.images[0].dataUrl).toBe('data:image/jpeg;base64,YWJj');
     expect(buildCharacterRegistry(npcSnapshotEntries(loaded.npcParticipants)).characters[0].playerSelectable).toBe(false);
   });
+});
+
+it('undoes two turns after retirement and reloads without restoring playability or losing media', () => {
+  const makeNode = (value: ReturnType<typeof book>): WorkflowNode => ({ id: 'book', type: 'workflow', position: { x: 0, y: 0 },
+    data: { nodeType: 'rp-storybook', nodeDataVersion: currentCoreNodeVersions['rp-storybook'], label: 'Book',
+      description: '', preview: '', storybookJson: rpStorybookJsonText(value) } });
+  const original = book();
+  const first = { ...original, title: 'Turn one' };
+  const second = { ...first, title: 'Turn two' };
+  const turnOne: TurnRecord = { id: 'one', number: 1, createdAt: '2026-09-14T00:00:00Z',
+    input: { graphText: '', messages: [] }, output: { graphText: '', messages: [] } };
+  const post: MessageRecord = { id: 1, role: 'user', originalText: 'Published a post',
+    socialPost: { postId: 'live-post', app: 'fotogram', author: 'Ari Blume', authorHandle: 'ari.art',
+      caption: 'Hello', imageIds: ['ari-image'] } as MessageRecord['socialPost'] };
+  const turnTwo: TurnRecord = { ...turnOne, id: 'two', number: 2, input: { graphText: '', messages: [post] } };
+  const checkpoints = [createTurnCheckpointFromNodesForTurnRecord(turnOne, [makeNode(original)], [makeNode(first)]),
+    createTurnCheckpointFromNodesForTurnRecord(turnTwo, [makeNode(first)], [makeNode(second)])];
+  const retired = storybookWithRetiredCharacter(second, buildCharacterRegistry(entries()).characters[0]);
+  let nodes = [makeNode(retired)];
+  for (const checkpoint of [...checkpoints].reverse()) nodes = applyTurnCheckpointToNodes(nodes, JSON.parse(JSON.stringify(checkpoint)), 'before');
+  const workflow: WorkflowFile = { format: 'rpgraph-workflow', formatVersion: currentWorkflowFormatVersion,
+    savedAt: turnOne.createdAt, nodes, edges: [] };
+  const saved = sessionV2FromCurrentState({ name: 'Undo retirement', settings: { englishProcessingEnabled: false, displayLanguage: 'en' },
+    workflowVariables: {}, turns: [], turnCheckpoints: [], openingMessages: [], npcParticipants: retired.openingHistory.npcParticipants }, workflow, nodes);
+  const loaded = appStateFromSessionV2(JSON.parse(JSON.stringify(saved)));
+  const restored = restoreTurnRuntime(nodes, loaded.currentRuntime);
+  const registry = buildCharacterRegistry([...storybookRegistryEntries(restored), ...npcSnapshotEntries(loaded.npcParticipants)]);
+  expect(loaded.turns).toEqual([]);
+  expect(characterUsageReasons(registry.characters[0].character, registry.characters[0].aliases, loaded.turns)).toEqual([]);
+  expect(registry.characters).toHaveLength(1);
+  expect(registry.characters[0].playerSelectable).toBe(false);
+  expect(registry.characters[0].character.apps?.fotogram?.accountId).toBe('ari-fg');
+  expect(registry.characters[0].character.images[0].dataUrl).toBe('data:image/jpeg;base64,YWJj');
+  expect(parseRpStorybookJson(restored[0].data.storybookJson!).title).toBe(original.title);
 });

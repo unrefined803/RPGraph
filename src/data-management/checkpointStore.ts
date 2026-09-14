@@ -7,6 +7,7 @@ import {
 } from './eventStore';
 import { turnTimelineEntryIds } from './timelineStore';
 import type { NodeDataPolicyByType, TurnCheckpoint } from './types';
+import { restoreStorybookCheckpoint } from './storybookCheckpoint';
 
 export const coreNodeDataPolicies: NodeDataPolicyByType = {
   custom: {
@@ -230,6 +231,11 @@ export function applyTurnCheckpointToNodes(
     }
     const nodeSnapshot = checkpoint.nodeSnapshots[node.id];
     const nodePatch = nodeSnapshot ? patchFromCheckpoint(nodeSnapshot, target) : {};
+    if (nodeSnapshot && (node.data.nodeType === 'rp-storybook' || node.data.nodeType === 'rp-storybook-editor') &&
+        Object.prototype.hasOwnProperty.call(nodePatch, 'storybookJson')) {
+      nodePatch.storybookJson = restoreStorybookCheckpoint(node.data.storybookJson,
+        nodeSnapshot[target === 'before' ? 'after' : 'before'].storybookJson, nodePatch.storybookJson);
+    }
     if (node.data.nodeType === 'custom' && node.data.customNodeDefinition && nodePatch.customNodeDefinition) {
       // Undo runtime state without replacing code or controls edited since the run.
       nodePatch.customNodeDefinition = {

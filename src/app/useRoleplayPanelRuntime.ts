@@ -1463,6 +1463,9 @@ export function useRoleplayPanelRuntime({
     setDynamicSocialUsers,
     socialConnectionsByCharacter,
     persistedSocialConnectionsByCharacter,
+    // Automatic grants are rebuilt from timeline messages. Saving the merged
+    // view would turn them into permanent manual contacts after reload.
+    savedSocialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
     addSocialConnection,
     phoneNotesByCharacter,

@@ -1346,8 +1346,9 @@ character, account, image, or initial-post identities.
 The NPC Library shows retained participant revisions as **RP snapshot** or
 **RP edit**, separately from playability and detected history/activity. A
 snapshot alone is not evidence of interaction because promotion itself may
-capture a recovery copy. The **Interacted or Retained Characters** section
-includes both kinds of non-playable entries. Deletion eligibility inspects
+capture a recovery copy. **Interacted Characters** includes only non-playable
+entries with retained activity references. Snapshot-only entries appear under
+**Available Characters**, retaining their provenance label. Deletion eligibility inspects
 references owned by the selected character, including persisted social-directory
 IDs and their legacy aliases, rather than treating any chat or Opening History
 in the story as a global lock.

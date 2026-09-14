@@ -212,6 +212,7 @@ export function useStorybookActions({
     patch: Partial<WorkflowNodeData>,
     options?: { replaceExisting?: boolean; participantSnapshots?: NpcParticipantSnapshots; changedParticipantId?: string; dryRun?: boolean },
   ): string | null {
+    if (lifecycleBusy?.()) return 'Wait for the current generation to finish before editing the Storybook.';
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (!node || !isStorybookSourceNode(node)) {
       return 'Cannot update: the Storybook node no longer exists.';

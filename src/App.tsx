@@ -997,6 +997,7 @@ function App() {
     setDynamicSocialUsers,
     socialConnectionsByCharacter,
     persistedSocialConnectionsByCharacter,
+    savedSocialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
     addSocialConnection,
     accountLinkContext,
@@ -1557,7 +1558,7 @@ function App() {
     restoreNpcParticipants: npcParticipants.restore,
     commitLifecycleNodes: (nextNodes) => commitNodes(nextNodes),
     currentLibraryEntries: () => npcLibrary.snapshot?.entries ?? [],
-    lifecycleBusy: () => lifecycleRunningRef.current,
+    lifecycleBusy: () => !!activeRunRef.current || lifecycleRunningRef.current,
     saveNpcCharacter: async (character, overwrite) => {
       if (!window.rpgraph?.saveCharacter) throw new Error('Saving requires the desktop application.');
       const library = await window.rpgraph.reloadNpcLibrary();
@@ -2523,7 +2524,7 @@ function App() {
       bankingContactsByCharacter,
       socialLikesByAccount,
       dynamicSocialUsers,
-      socialConnectionsByCharacter: persistedSocialConnectionsByCharacter,
+      socialConnectionsByCharacter: savedSocialConnectionsByCharacter,
       onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
@@ -2533,10 +2534,11 @@ function App() {
   }
 
   async function currentSession(name: string): Promise<RpgraphSessionV2> {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before replacing or saving the RP.');
     const savedAt = new Date().toISOString();
     return sessionV2FromCurrentState(
       currentSessionState(name),
-      await currentWorkflowForSave(),
+      currentWorkflow(),
       nodesRef.current,
       savedAt,
     );
@@ -2574,6 +2576,7 @@ function App() {
   }
 
   function clearCurrentSession() {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before replacing or saving the RP.');
     npcParticipants.reset();
     clearTemporaryReferenceImages();
     clearTurnTraces();
@@ -2635,6 +2638,7 @@ function App() {
     },
     password = '',
   ) {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before loading a file.');
     if (result.type === 'workflow') {
       const hydratedWorkflow = prepareLoadedWorkflow(result.value);
       clearCurrentSession();
@@ -2715,6 +2719,7 @@ function App() {
     session: RpgraphSessionV2,
     password: string,
   ) {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before loading an RP.');
     // Prepare everything that can fail before touching any state, so a
     // corrupted session cannot leave a half-loaded mix of old and new data.
     const hydratedWorkflow = prepareLoadedWorkflow(workflowV2ToWorkflowFile(session.workflow), false);
@@ -2864,6 +2869,7 @@ function App() {
     resetSnapshotFileName?: string,
     hydrateOpeningHistory = true,
   ) {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before loading a workflow.');
     customNodeAssistant.clearState();
     clearTemporaryReferenceImages();
     if (hydrateOpeningHistory) {
@@ -3930,7 +3936,6 @@ function App() {
       return;
     }
     if (turn.directAction) {
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         turn.input.graphText,
         inputMessage?.imageAttachments ?? [],
@@ -4039,7 +4044,6 @@ function App() {
           return;
         }
       }
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         displayText,
         inputImages,
@@ -4068,7 +4072,6 @@ function App() {
       return;
     }
     if (turn.messageFormat === autoplayMessageFormat) {
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         turn.input.graphText,
         [],
@@ -4098,7 +4101,6 @@ function App() {
       const phoneRecipient = phoneInput
         ? phoneCharacters.find((character) => phoneNamesMatch(character.name, phoneInput.to))
         : undefined;
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         storedAutoTurnInputText(turn.input.graphText),
         [],
@@ -4115,7 +4117,6 @@ function App() {
       return;
     }
     if (turn.mode === 'narrator') {
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         storedNarratorInputText(turn.input.graphText),
         inputMessage?.imageAttachments ?? [],
@@ -4136,7 +4137,6 @@ function App() {
     const inputCharacter = inputMessage.speakerName
       ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.speakerName ?? ''))
       : selectedCharacter;
-    applyTurnCheckpointRuntime(turn, 'before');
     void runGraph(
       inputMessage.translatedText ?? inputMessage.originalText,
       inputMessage.imageAttachments ?? [],
@@ -4158,6 +4158,7 @@ function App() {
   }
 
   function undoLastTurn() {
+    if (activeRunRef.current) return;
     const turnIndex = lastSessionTurnIndex(turnsRef.current);
     const turn = turnIndex >= 0 ? turnsRef.current[turnIndex] : undefined;
     if (isRunning) {
@@ -4250,7 +4251,6 @@ function App() {
     }
     const replacedMessageIds = turnMessageIds(turn);
     cancelEditMessage();
-    applyTurnCheckpointRuntime(turn, 'before');
     void runGraph(
       editedText,
       inputMessage.imageAttachments ?? [],
@@ -4383,7 +4383,6 @@ function App() {
     isRunning,
     messagesRef,
     turnsRef,
-    applyTurnCheckpointRuntime,
     undoLastTurn,
     replaceLastTurnCreatedPhoneNote,
     removeLastTurnCreatedPhoneNote,

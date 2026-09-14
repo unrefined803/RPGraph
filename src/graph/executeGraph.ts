@@ -485,11 +485,13 @@ export async function executeGraph({
       ? await activeLocalLlmConnections(request.llmConnectionId)
       : [];
     const manageModelMemory = localConnections.length > 0;
+    throwIfAborted(signal);
     if (manageModelMemory) {
       await unloadLocalLlmModelsBeforeComfy(warn, localConnections);
     }
 
     const generationPrompt = prompt;
+    throwIfAborted(signal);
     const characterLoraName = resolvedLoraCharacter?.createImage.loraName ?? '';
 
     let result: Awaited<ReturnType<typeof window.rpgraph.runComfyWorkflowPath>>;
@@ -520,6 +522,7 @@ export async function executeGraph({
       }
     }
 
+    throwIfAborted(signal);
     const normalizedImages = await Promise.all(
       result.images.map((image, index) =>
         normalizeImageAttachment({
@@ -540,6 +543,7 @@ export async function executeGraph({
       warn,
     });
 
+    throwIfAborted(signal);
     const storybookNodeCandidate = nodeById.get(phoneOwner.storybookNodeId);
     const storybookNode = storybookNodeCandidate && isStorybookSourceNode(storybookNodeCandidate)
       ? storybookNodeCandidate

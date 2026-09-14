@@ -161,20 +161,20 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
       playable: false, retained: false, hasActivity: false, snapshotEdited: false, diagnosticOnly: true,
     })));
     return display.sort((left, right) => {
-      const leftGroup = left.playable ? 0 : (left.hasActivity || left.retained) ? 1 : 2;
-      const rightGroup = right.playable ? 0 : (right.hasActivity || right.retained) ? 1 : 2;
+      const leftGroup = left.playable ? 0 : left.hasActivity ? 1 : 2;
+      const rightGroup = right.playable ? 0 : right.hasActivity ? 1 : 2;
       return leftGroup - rightGroup || left.character.name.localeCompare(right.character.name);
     });
   }, [activeRegistry, libraryEntries, snapshot, participants, activity]);
 
   const sections = useMemo(() => {
     const playable = entries.filter((entry) => entry.playable);
-    const interacted = entries.filter((entry) => !entry.playable && (entry.hasActivity || entry.retained));
-    const available = entries.filter((entry) => !entry.playable && !entry.hasActivity && !entry.retained);
+    const interacted = entries.filter((entry) => !entry.playable && entry.hasActivity);
+    const available = entries.filter((entry) => !entry.playable && !entry.hasActivity);
 
     return [
       { id: 'playable', title: 'Playable Characters', entries: playable },
-      { id: 'interacted', title: 'Interacted or Retained Characters', entries: interacted },
+      { id: 'interacted', title: 'Interacted Characters', entries: interacted },
       { id: 'available', title: 'Available Characters', entries: available },
     ].filter((section) => section.entries.length > 0);
   }, [entries]);
@@ -258,7 +258,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
             <dl>{[
               ['Characters', entries.length],
               ['Playable', entries.filter((entry) => entry.playable).length],
-              ['Interacted / retained', entries.filter((entry) => !entry.playable && (entry.hasActivity || entry.retained)).length],
+              ['Interacted', entries.filter((entry) => !entry.playable && entry.hasActivity).length],
               ['RP copies', entries.filter((entry) => entry.retained).length],
               ['Built-in', libraryEntries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
               ['User-created', libraryEntries.filter((entry) => entry.tier === 'user' && !entry.editedBuiltIn).length],
