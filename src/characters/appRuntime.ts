@@ -1,3 +1,4 @@
+import { runtimeRelationshipContext } from './relationships';
 import { portraitDataUrl } from './portrait';
 import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterPhoneSettings } from '../nodes/rp-storybook/model';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -15,6 +16,8 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
       kind: 'character', name: character.name, label: character.name,
       profile: { name: character.name, description: character.description,
         personality: character.personality, speechStyle: character.speechStyle, role: character.role },
+      relationships: character.relationships,
+      relationshipContext: runtimeRelationshipContext(character, registry.characters.map((entry) => entry.character)),
       apps: character.apps, social: socialFromCharacterApps(character.apps ?? {}), images: character.images,
       ...(character.profileImage ? { profileImage: { ...character.profileImage, ...(portrait ? { dataUrl: portraitDataUrl(portrait, character.profileImage.crop) } : {}) } } : {}),
       phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
@@ -72,6 +75,7 @@ export function recipientCharacterContext(character: StorybookCharacter) {
     ...field('Personality', character.profile.personality),
     ...field('Speech style', character.profile.speechStyle),
     ...field('Role', character.profile.role),
+    ...field('Relationship context', character.relationshipContext),
     '', 'Public social profiles',
     ...profiles,
     ...(absent.length ? ['', `No account: ${absent.join(', ')}`] : []),

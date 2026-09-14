@@ -2,7 +2,11 @@
 
 Status: Character Container V2 is implemented through Stage 7. Fresh demo discovery now uses image-backed character containers; image-less placeholders were removed. Stage 8 remains optional.
 Character Container V2 and Storybook V3 use independent version numbers.
-Last reconciled with the implementation: 2026-09-08.
+Last reconciled with the implementation: 2026-09-13.
+
+Authored per-app relationships and assistant character references are now implemented.
+See [Contacts and relationships](#contacts-and-relationships) for the additive schema,
+legacy contact migration, directed follows and starting MatchMe matches.
 
 ## Progress at a glance
 
@@ -1223,7 +1227,9 @@ absent values both mean no authored agency. The shared validator rejects other
 types. Creator, edit specifications, Storybook normalization and portable export
 retain the field; existing V2 containers need no migration. It is plaintext in
 container files, not an encrypted secret. Public profiles and ordinary RP context
-do not gain this field. See [NPC In-Game Assistant](npc-in-game-assistant.md).
+do not gain this field by default. The Storybook Formatted Text output now offers
+an explicit Hidden Agency switch, disabled by default. Enabling it includes the
+authored text in that output only; it does not activate NPC autonomy. See [NPC In-Game Assistant](npc-in-game-assistant.md).
 
 Storybook authoring supports optional hidden agency through assistant patches and
 manual editing. The assistant authors it only on request or when requested
@@ -1232,3 +1238,131 @@ its contents in replies unless asked to reveal them. Storybook character views
 and the NPC Character Assistant show a collapsed Hidden Agency disclosure with
 an Empty/Defined status; viewing or editing the text requires expanding it.
 Raw JSON remains an explicit full-data view.
+
+
+## Contacts and relationships
+
+Implemented as an additive optional `relationships` array on the shared Character
+Container V2 payload. Storybook V3 and container version numbers are unchanged.
+Storybook characters, portable exports, the Character Assistant, NPC discovery,
+CLI inspect/edit and saved NPC snapshots preserve the same representation:
+
+```json
+{
+  "relationships": [
+    {
+      "characterId": "character-maya",
+      "description": "Maya is her older sister. They speak regularly but disagree about money.",
+      "apps": { "whatsup": true, "fotogram": true }
+    },
+    {
+      "characterId": "character-jules",
+      "description": "Jules is an artist whose work she follows online.",
+      "apps": { "onlyfriends": true }
+    }
+  ]
+}
+```
+
+Each target occurs once. Self-links, malformed descriptions, unknown app keys
+and non-boolean flags are rejected by the shared validator. Descriptions may be
+empty or contain multiple sentences. Missing app flags mean false. Descriptions
+and bare name mentions never create connections. An empty list means no authored
+connections; new characters use this explicit default.
+
+| App | Meaning | Direction |
+| --- | --- | --- |
+| `whatsup` | Knows the target's phone number | Owner to target |
+| `fotogram` | Follows the target | Owner to target |
+| `onlyfriends` | Follows the target; no paid unlock or wallet charge | Owner to target |
+| `matchme` | An established match before the story | Mutual |
+
+Connections require available enabled accounts. A missing NPC, disabled account
+or ambiguous canonical target grants nothing; the authored link is retained and
+shown as unavailable in the editor. References resolve only through stable
+character IDs, never filenames or fallback names. Adding a contact does not copy
+an NPC into the Storybook or make them playable. Promotion retains the same ID;
+the effective Storybook definition replaces the Library representation.
+
+### Authoring and assistant references
+
+The Storybook Creator, manual Storybook field editor and Character Assistant show
+**Contacts & Relationships** with a target picker, four independent checkboxes
+and a relationship description. The picker searches the effective Storybook and
+NPC directory. Both assistant composers also support `@` followed by at least
+one character, returning at most five results. Arrow keys navigate; Enter/Tab or
+a click selects a result. Selection inserts a readable mention and attaches a
+removable identity reference. It does not itself import a character or grant an
+app connection.
+
+Selected references provide the assistant with the stable ID, characterization,
+relationships and public account metadata. Binary media, voice samples, private
+app history and Hidden Agency are excluded from these reference attachments.
+The Storybook's own draft remains authoritative. Existing external relationship
+targets can also supply context on subsequent requests. New assistant-authored
+links must resolve to the available directory or the resulting cast; existing
+dangling links remain editable. The existing Character Assistant profile step
+can author relationships and receives the selected reference context. No extra
+model call or authoring step was added.
+
+When an explicit Storybook request adds a selected external character, the model
+uses that exact stable ID and the application replaces the model's text-only
+object with the authoritative effective container. Accounts, gallery media,
+portrait, settings and existing relationships therefore come from the current
+user override or built-in source selected by registry precedence. Relationship
+edits made in the same request are merged by target ID. Merely mentioning or
+linking the character does not import it.
+
+The NPC Library view includes effective Storybook characters even when no
+library file exists. Playable rows sort before library-only NPCs. Origin badges
+show **Built-in**, **Built-in → Local edit**, **User-created**, or **Storybook
+only** independently of the **Playable** badge. If the Storybook copy differs
+from its current backing library container, it additionally shows **Storybook
+edited**. Library-only rows use **Add as Playable**; playable rows open the
+Storybook editor instead of a separate library-file editor.
+
+Formatted Text includes **Contacts & Relationships** by default and allows it to
+be disabled. **Hidden Agency** is independently selectable and defaults to off.
+The other character-context outputs include relationships, and app recipient
+context includes both the recipient's own descriptions and explicitly attributed
+incoming descriptions. An incoming description is never silently reversed into
+the recipient's own perspective. These are character data, not commands.
+
+### Migration and runtime state
+
+When loading a legacy Storybook character without `relationships`, visible
+Storybook contact pairs become directed WhatsUp and Fotogram entries with empty
+descriptions. Hidden pairs remain absent. Existing explicit lists are untouched;
+round trips store those lists so this migration is not repeated. The old
+`phoneContacts.blocked` field remains readable compatibility metadata, but no
+longer drives characters with explicit relationships. Old individually imported
+containers start without connections instead of inheriting the whole cast.
+Removing an authored list through an assistant patch or manual JSON editing
+clears it rather than restoring the legacy default.
+
+Authored social connections are projected alongside independently acquired
+runtime connections. RP/Opening History persistence stores acquired connections,
+not a flattened copy of authored defaults; removing a default therefore does
+not leave an accidental permanent follow. Existing conversations remain visible.
+Sending WhatsUp messages no longer edits authored relationship lists or grants
+Fotogram access. Newly added Fotogram follows are directed; already saved
+reciprocal follows remain intact. Bundled Fotogram prompts describe per-app access.
+
+Starting MatchMe matches are derived before timeline matches. Later timeline
+records, including inactive matches, take precedence and remain effective after
+save/reload or checkpoint restoration. A starting match has no invented in-world
+date: prompt context describes it as predating the story. The runtime projection
+uses an epoch sentinel solely to satisfy the existing timestamp validator; it is
+not appended to the timeline as a fabricated event. This feature does not alter
+the separately planned Stage 8 NPC storage policy.
+
+### Validation
+
+`src/characters/relationships.test.ts` covers schema rejection, old contact
+migration, clearing lists, independent/directed app access, canonical identity,
+missing/disabled targets, promotion, portable/Storybook round trips, starting
+matches and timeline overrides, assistant patches/steps, compact reference
+context and output privacy defaults. The existing creator CLI test also covers
+relationship preservation with byte-identical gallery media through inspect/edit.
+Manual interface and provider testing remains with the user; no app or browser
+is launched by these checks.

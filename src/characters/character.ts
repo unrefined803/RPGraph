@@ -25,6 +25,13 @@ export type CharacterApps = {
   matchme?: CharacterAppAccount & { profile?: DatingProfile };
 };
 
+export type CharacterRelationship = {
+  characterId: string;
+  description: string;
+  /** Directed contacts/follows; a MatchMe match is reciprocal. Missing apps mean false. */
+  apps: Partial<Record<keyof CharacterApps, boolean>>;
+};
+
 /** The same character payload is used inside Storybooks and portable containers. */
 export type Character = {
   id: string;
@@ -34,6 +41,7 @@ export type Character = {
   speechStyle: string;
   /** Author-only motivations; stored without activating runtime behavior. */
   hiddenAgency?: string;
+  relationships?: CharacterRelationship[];
   role: string;
   playable?: boolean;
   age?: number;
@@ -110,7 +118,7 @@ export function characterPayload(character: Omit<Character, 'profileImage'> & {
     const { messages: _messages, decisions: _decisions, historyVersion: _historyVersion, ...profile } = apps.matchme.profile;
     apps.matchme = { ...apps.matchme, profile: { ...profile, decisions: {} } };
   }
-  return { ...rest,
+  return { ...rest, relationships: rest.relationships ?? [],
     ...(portable ? { images: rest.images.map(({ receivedFrom: _receivedFrom, imageAccess: _imageAccess, ...image }) => image) } : {}),
     playable: character.playable ?? true, apps,
     ...(profileImage ? { profileImage: { imageId: profileImage.imageId, crop: profileImage.crop } } : {}) };

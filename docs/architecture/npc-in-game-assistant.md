@@ -31,7 +31,7 @@ of unsaved edits. Drafts are held in memory, not persisted across application ex
 The UI Preview initially shows a readable character card. **Edit** opens the
 character text fields; **Accounts & Settings → Edit** reveals the additional
 controls. The manual form includes name, age, gender, role, description, personality, speech
-style, hidden agency, social and WhatsUp profiles, starting posts,
+style, hidden agency, per-app relationships, social and WhatsUp profiles, starting posts,
 banking and image-generation settings. Gallery entries expose names, descriptions,
 assignments, portrait crop percentages and attachment selection. **Raw JSON**
 shows the same lightweight projection used by the model, with binary media omitted.
@@ -170,6 +170,8 @@ A future agency catalog can extend authoring guidance without changing the schem
 Hidden means withheld from public profiles and ordinary RP prompt context, not
 encrypted in the JSON container. The authoring assistant intentionally sees it.
 It never triggers posts, messages, account changes or banking transactions.
+Storybook Formatted Text now provides an explicit Hidden Agency output switch,
+disabled by default; it does not change this assistant or activate autonomy.
 Autonomous NPC scheduling, context and permitted in-game actions need a separate
 runtime design.
 
@@ -240,3 +242,23 @@ sequence from being committed. A successful sequence is applied as one undoable
 change. The UI reports the active step; no model stage saves files automatically.
 `authoringSteps.test.ts` covers ordering, scope restrictions, clarification,
 transactional failures, and effective library rows.
+
+
+### Character references and relationships
+
+Type `@` and at least one letter in either assistant composer to search up to five
+Storybook or NPC Library characters. Selecting a result attaches that character's
+stable identity and compact characterization/account context, without binary
+media, Hidden Agency or private app history. References stay visible as removable
+chips. A reference alone neither imports the NPC nor creates a contact.
+
+The shared **Contacts & Relationships** editor stores one target ID, four
+independent app flags and a free-form relationship description per row. WhatsUp
+numbers and Fotogram/OnlyFriends follows are directed; MatchMe is a mutual
+starting match. All flags default to false. OnlyFriends follows do not purchase
+content. Missing targets retain their IDs and appear unavailable.
+
+Both assistants can patch relationships. The profile specialist handles them in
+the existing sequential creation flow; no additional specialist call is needed.
+See [Character Container relationships](character-container-v2.md#contacts-and-relationships)
+for the schema, legacy migration, runtime projection and validation contract.

@@ -1,4 +1,5 @@
-import type { CharacterApps } from '../characters/character';
+import { relationshipText, runtimeRelationshipContext } from '../characters/relationships';
+import type { CharacterApps, CharacterRelationship } from '../characters/character';
 import type { ChatImageAttachment, WorkflowNode } from '../types';
 import {
   parseNodeStorybookJson,
@@ -60,6 +61,8 @@ export type StorybookCharacter = {
   banking: RpStorybookCharacterBanking;
   social: RpStorybookCharacterSocial;
   apps?: CharacterApps;
+  relationships?: CharacterRelationship[];
+  relationshipContext?: string;
 };
 
 export type StorybookImageList = {
@@ -134,6 +137,8 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
         banking: character.banking ?? defaultRpStorybookCharacterBanking(),
         apps: character.apps,
+        relationships: character.relationships,
+        relationshipContext: runtimeRelationshipContext(character, storybook.characters),
         images: character.images,
         social: character.social ?? defaultRpStorybookCharacterSocial(),
         playerSelectable: character.playable !== false,
@@ -239,6 +244,7 @@ export function storybookContextBuilderSections(text: string) {
       character.description ? `Description: ${character.description}` : '',
       character.personality ? `Personality: ${character.personality}` : '',
       character.speechStyle ? `Speech Style: ${character.speechStyle}` : '',
+      relationshipText(character, storybook.characters),
     ].filter(Boolean).join('\n')).filter(Boolean).join('\n\n')],
   ] as Array<[string, string]>;
 }
@@ -257,6 +263,7 @@ export function storybookCharacterInfoText(text: string) {
           character.description ? `Description: ${character.description}` : '',
           character.personality ? `Personality: ${character.personality}` : '',
           character.speechStyle ? `Speech Style: ${character.speechStyle}` : '',
+      relationshipText(character, storybook.characters),
         ].filter(Boolean).join('\n')).join('\n\n')
       : 'No characters defined.',
   ].join('\n').trim();

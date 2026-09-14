@@ -91,7 +91,7 @@ describe('Storybook NPC promotion', () => {
       expect(searchSocialDirectory(users, 'fotogram', '@nova.vale.art')).toHaveLength(1);
       expect(resolveSocialDirectoryUser(users, novaUser.id)?.characterId).toBe(nova.id);
       expect(resolveSocialDirectoryUser(users, 'storybook:old-node:nova')?.characterId).toBe(nova.id);
-      expect(socialConnectionIds(loaded.socialConnectionsByCharacter, nova.id, 'fotogram', current)).toContain(directory.find((user) => user.characterId === player.id)!.id);
+      expect(socialConnectionIds(loaded.socialConnectionsByCharacter, nova.id, 'fotogram', current)).toEqual([]);
       expect(loaded.socialLikesByAccount.player).toEqual([seed.postId]);
       expect(matchMeMessageAllowed(outgoing, matchMeState(current, messages))).toBe(true);
       const legacyMessages = [{ ...messages[0], matchMeMatch: { ...match, id: matchMePairId('player-matchme', 'old-nova-mm'), accountIds: ['player-matchme', 'old-nova-mm'] as [string, string] } }];

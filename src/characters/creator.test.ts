@@ -35,9 +35,10 @@ describe('shared container creator', () => {
     expect(rpCharacterCardForCharacter(repeated.character).character.apps.fotogram).not.toHaveProperty('initialPosts');
   });
 
-  it('preserves optional hidden agency through import, export and CLI editing', async () => {
+  it('preserves hidden agency and relationships through import, export and CLI editing', async () => {
     const agency = 'Primary: build trust. Secondary: invite friends to a private event.';
-    const card = createAuthoredCharacter({ ...fixture.character, hiddenAgency: agency }, () => '');
+    const relationships = [{ characterId: 'external-character', description: 'A former colleague.', apps: { whatsup: true, fotogram: false } }];
+    const card = createAuthoredCharacter({ ...fixture.character, hiddenAgency: agency, relationships }, () => '');
     const imported = planCharacterCardImport(card, structuredClone(emptyRpStorybook));
     const runtime = appCharactersFromRegistry(buildCharacterRegistry([{ tier: 'bundled', source: 'test', character: imported.character }]));
     expect(recipientCharacterContext(runtime[0])).not.toContain(agency);
@@ -48,7 +49,11 @@ describe('shared container creator', () => {
     writeFileSync(input, JSON.stringify(card));
     await inspectCli(['--input', input, '--output', spec]);
     await editCli(['--input', input, '--spec', spec, '--output', output]);
-    expect(JSON.parse(readFileSync(output, 'utf8')).character.hiddenAgency).toBe(agency);
+    const restored = JSON.parse(readFileSync(output, 'utf8')).character;
+    expect(restored.hiddenAgency).toBe(agency);
+    expect(restored.relationships).toEqual(relationships);
+    expect(restored.images).toEqual(card.character.images);
+    expect(imported.character.relationships).toEqual(relationships);
     expect(() => validateCharacterContainer({ ...card, character: { ...card.character, hiddenAgency: [] } })).toThrow('hiddenAgency');
     expect(() => createAuthoredCharacter(fixture.character, () => '')).not.toThrow();
   });

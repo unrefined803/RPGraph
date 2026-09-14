@@ -1,3 +1,4 @@
+import { relationshipAuthoringInstructions } from './relationships';
 import { applyJsonPatchOperation } from '../nodes/rp-storybook/model';
 import { characterPayload, normalizeCharacterApps, validateCharacterPayload, type Character } from './character';
 import { createCharacterContainer } from './creator';
@@ -16,12 +17,12 @@ function assertNoEmbeddedMedia(value: unknown): void {
   }
 }
 
-const editableFields = new Set(['name', 'age', 'gender', 'description', 'personality', 'speechStyle', 'hiddenAgency',
+const editableFields = new Set(['name', 'age', 'gender', 'description', 'personality', 'speechStyle', 'hiddenAgency', 'relationships',
   'role', 'banking', 'phoneSettings', 'comfyConfig', 'apps', 'profileImage']);
 
 export function newAssistantCharacter(): Character {
   const id = crypto.randomUUID();
-  return { id, name: 'New Character', description: '', personality: '', speechStyle: '', hiddenAgency: '', role: '',
+  return { id, name: 'New Character', description: '', personality: '', speechStyle: '', hiddenAgency: '', relationships: [], role: '',
     playable: false, images: [], apps: normalizeCharacterApps({}, undefined, id, 'New Character') };
 }
 
@@ -132,7 +133,8 @@ export function characterAssistantPrompt(character: Character, messages: Charact
     'For creating a new character from an empty draft, return steps:["profile","accounts"] and patch:[] to delegate sequential work. A profile specialist first writes the identity and personality; an accounts specialist then configures accounts, image descriptions and posts using that profile. You may request just one specialist with steps:["profile"] or steps:["accounts"]. Do not also draft the delegated fields yourself. For ordinary questions, requests needing clarification, or targeted edits, answer or patch directly and omit steps. Never claim delegated steps are already complete. Only request the accounts step when the user asks for accounts/posts or full character creation; optional accounts require user intent.',
     'Use RFC 6902 add, replace, remove and test with RFC 6901 paths. Patch only requested fields. Do not replace the document root, /character, /images or entire gallery entries. Use add for an optional field that does not exist. All operations form one validated, undoable edit.',
     'The application owns character.id, accountId, image IDs, binary media and filesystem access. Never edit these or emit image bytes, URLs, paths, voiceConfig or legacy social fields. Existing IDs remain stable across renames. New account IDs and new post IDs are allocated by the application. When adding an account, omit accountId; when replacing an existing account object preserve its accountId exactly.',
-    'Editable /character fields: name, description, personality, speechStyle, hiddenAgency, role (strings), age (number), gender (woman/man/nonbinary), apps, profileImage, banking, phoneSettings and comfyConfig. Preserve unrelated fields. Write authored character text, names and captions in English; answer the user in their language.',
+    'Editable /character fields: name, description, personality, speechStyle, hiddenAgency, role (strings), age (number), gender (woman/man/nonbinary), relationships (array), apps, profileImage, banking, phoneSettings and comfyConfig. Preserve unrelated fields. Write authored character text, names and captions in English; answer the user in their language.',
+    relationshipAuthoringInstructions,
     'hiddenAgency is author-only free text for concealed motivations, priorities, boundaries and relationships. It is not a runtime command and never triggers messages, posts, transactions or autonomous actions.',
     'banking shape: {"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]}. For a new authored character choose a plausible balance and one mobile plan expense fitting their circumstances. Preserve existing banking unless asked. comfyConfig shape: {"loraName":"","loraUrl":"","appearance":"visual appearance for image generation"}; do not invent LoRA files or URLs.',
     'apps keys: whatsup, fotogram (also called Photogram), onlyfriends, matchme. WhatsUp and Fotogram are standard; OnlyFriends and MatchMe are optional. Account fields: enabled (boolean), username, displayName, bio, optional avatarImageId and initialPosts. Existing accounts have immutable accountId. Handles use letters, numbers, dots, underscores and hyphens without @; WhatsUp permits spaces. Display name is 1–60 characters; bio is at most 500. Keep existing handles unless asked to change them. Use enabled:false to disable a standard account. Optional accounts may be removed.',
@@ -200,13 +202,14 @@ export function characterAuthoringStepPrompt(step: CharacterAuthoringStep, chara
     `You are RPGraph's ${step === 'profile' ? 'character profile' : 'accounts and publications'} authoring specialist. Complete only this step.`,
     `Return JSON only: ${JSON.stringify({ reply: 'brief result or clarification', patch: [{ op: 'add', path: step === 'profile' ? '/character/description' : '/character/apps/fotogram/bio', value: '...' }] })}. Use add/replace/remove/test JSON Patch. Use add when a field is absent. No steps or delegation. Work on exactly one existing character; preserve its identity. Write authored content in English. Answer the user in their language.`,
     step === 'profile'
-      ? 'Edit only /character/name, age, gender (woman/man/nonbinary), role, description, personality, speechStyle, hiddenAgency and banking. Text fields are strings; age is a number. Banking: {"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]}. Choose plausible fictional details when asked to invent a character. Do not edit accounts, gallery or portrait. Preserve existing details unless asked. If essential intent is unclear, ask a question and return an empty patch.'
+      ? 'Edit only /character/name, age, gender (woman/man/nonbinary), role, description, personality, speechStyle, hiddenAgency, relationships and banking. Text fields are strings; age is a number. Banking: {"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]}. Choose plausible fictional details when asked to invent a character. Do not edit accounts, gallery or portrait. Preserve existing details unless asked. If essential intent is unclear, ask a question and return an empty patch.'
       : 'Edit only /character/apps, /character/profileImage and /images/<existing-id>/name or description. Keep character identity and profile text unchanged. WhatsUp and Fotogram are standard; only create OnlyFriends or MatchMe if requested. Account shape: {"enabled":true,"username":"handle","displayName":"Name","bio":""}. Preserve existing accountId on replacement; omit accountId on a new account (the app assigns it). Never change an accountId path. Handles use letters, numbers, dots, underscores or hyphens; WhatsUp allows spaces. Display names: 1–60 characters; bios: at most 500. Update placeholder handles/display names to fit the completed profile when creating a new character.',
     ...(step === 'accounts' ? [
       'Gallery metadata is keyed by stable image ID. Only attached images can be inspected visually. Names are not visual evidence. Use existing descriptions for unattached images. Never create media or IDs. Portrait: add /character/profileImage with {"imageId":"existing-id"}. App avatarImageId uses a gallery ID. F/O publications go in apps.fotogram.initialPosts or apps.onlyfriends.initialPosts as {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. Preserve existing post IDs; the app allocates new IDs. Create posts requested by the user; do not duplicate existing posts. Moving an image removes its former app post. P alone creates no post. You may request autoCrop:true for local face detection; do not guess coordinates.',
       'MatchMe account additionally needs profile:{"name":"Name","age":25,"bio":"About me","interests":"Music","photoIds":["existing-id"],"decisions":{}}. Name/bio match account displayName/bio. Integer age 18–120; interests at most 150 characters; one to three unique photos. Optional gender and seeking use woman/man/nonbinary (seeking is an array). With no photo, save enabled:false and photoIds:[]. Enabled MatchMe requires at least one photo. Preserve existing decisions/messages/historyVersion. Ask about missing required personal details instead of inventing them.',
     ] : []),
     'No filesystem writes, gameplay actions, binary data or playable edits. Never claim the character is saved. An empty patch asks for clarification and pauses the sequence.',
+    ...(step === 'profile' ? [relationshipAuthoringInstructions] : []),
     `Attached image IDs (in order): ${JSON.stringify(attachmentIds)}.`,
     `Current draft: ${JSON.stringify(step === 'profile' ? { character: profile } : projection)}`,
     `User request and conversation: ${instruction}`,
@@ -225,7 +228,7 @@ export async function runCharacterAuthoringSteps(initial: ReturnType<typeof pars
     if (!Array.isArray(raw.patch) || raw.patch.some((operation: { path?: string }) => {
       const path = operation?.path ?? '';
       return step === 'profile'
-        ? !/^\/character\/(name|age|gender|role|description|personality|speechStyle|hiddenAgency|banking)(\/|$)/.test(path)
+        ? !/^\/character\/(name|age|gender|role|description|personality|speechStyle|hiddenAgency|relationships|banking)(\/|$)/.test(path)
         : !/^\/character\/(apps|profileImage)(\/|$)|^\/images\//.test(path);
     })) throw new Error(`The ${step} specialist tried to edit fields outside its step.`);
     const next = parseCharacterAssistantResult(text, result.character);

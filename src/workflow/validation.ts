@@ -131,7 +131,9 @@ function isRpStorybookFormattedTextSettings(value: unknown) {
     typeof value.scenario === 'boolean' &&
     typeof value.characters === 'boolean' &&
     typeof value.openingHistory === 'boolean' &&
-    typeof value.characterImages === 'boolean'
+    typeof value.characterImages === 'boolean' &&
+    (value.relationships === undefined || typeof value.relationships === 'boolean') &&
+    (value.hiddenAgency === undefined || typeof value.hiddenAgency === 'boolean')
   );
 }
 

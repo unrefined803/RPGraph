@@ -1,3 +1,4 @@
+import { hasAuthoredConnection, relationshipTarget } from '../characters/relationships';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind } from '../types';
 import { socialHandleForName, socialIdentityMatches } from './socialMedia';
@@ -449,27 +450,29 @@ export function withSocialConnectionAdded(
 
 export function withSocialDirectoryConnectionAdded(
   connections: SocialConnectionsByCharacter,
-  users: SocialDirectoryUser[],
+  _users: SocialDirectoryUser[],
   characterId: string,
   app: SocialAppKind,
   socialUserId: string,
 ) {
-  let next = withSocialConnectionAdded(connections, characterId, app, socialUserId);
-  if (app !== 'fotogram') {
-    return next;
+  return withSocialConnectionAdded(connections, characterId, app, socialUserId);
+}
+
+
+/** Starting contacts are a projection; only independently acquired connections enter session state. */
+export function withAuthoredSocialConnections(connections: SocialConnectionsByCharacter, characters: StorybookCharacter[], users: SocialDirectoryUser[]) {
+  let next = connections;
+  for (const owner of characters) {
+    for (const relation of owner.relationships ?? []) {
+      const target = relationshipTarget(characters, relation.characterId);
+      if (!target) continue;
+      for (const app of ['whatsup', 'fotogram', 'onlyfriends'] as const) {
+        if (!hasAuthoredConnection(owner, target, app)) continue;
+        const user = users.find((entry) => entry.characterId === target.id);
+        const targetId = app === 'whatsup' ? target.apps?.whatsup?.accountId : user?.id;
+        if (targetId) next = withSocialConnectionAdded(next, owner.sourceId, app, targetId);
+      }
+    }
   }
-  const targetUser = resolveSocialDirectoryUser(users, socialUserId);
-  const ownerUser = users.find((user) =>
-    user.source === 'storybook' && user.characterId === characterId && !!user.handles.fotogram
-  );
-  if (targetUser?.source !== 'storybook' || !targetUser.characterId || !ownerUser) {
-    return next;
-  }
-  next = withSocialConnectionAdded(
-    next,
-    targetUser.characterId,
-    'fotogram',
-    ownerUser.id,
-  );
   return next;
 }

@@ -424,9 +424,8 @@ export function PhoneSocialFeedScreen({
     return () => document.removeEventListener('pointerdown', closeMenu);
   }, [postStage]);
 
-  // Fotogram inherits the Storybook's Phone + Fotogram contacts. OnlyFriends
-  // stays private until accounts are added explicitly. Real DM partners are
-  // surfaced separately below in both apps.
+  // Each app uses its own directed authored and acquired follows. Real DM
+  // partners surface separately without granting access to another app.
   const connectedAccounts: SocialAccount[] = connectedSocialUsers.map((user) => ({
     key: `connected-${user.id}`,
     socialUserId: user.id,

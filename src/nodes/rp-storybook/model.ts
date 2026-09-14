@@ -1,3 +1,5 @@
+import { validateCharacterRelationships } from '../../../shared/character-container.cjs';
+import { relationshipText, relationshipAuthoringInstructions } from '../../characters/relationships';
 import { portraitDataUrl } from '../../characters/portrait';
 import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../../characters/npcParticipants';
 import { withCharacterAppProfile } from '../../characters/profiles';
@@ -197,6 +199,8 @@ export type RpStorybookFormattedTextSettings = {
   characters: boolean;
   openingHistory: boolean;
   characterImages: boolean;
+  relationships: boolean;
+  hiddenAgency: boolean;
 };
 
 export const defaultRpStorybookFormattedTextSettings: RpStorybookFormattedTextSettings = {
@@ -206,6 +210,8 @@ export const defaultRpStorybookFormattedTextSettings: RpStorybookFormattedTextSe
   characters: true,
   openingHistory: true,
   characterImages: false,
+  relationships: true,
+  hiddenAgency: false,
 };
 
 export function rpStorybookFormattedTextSettings(
@@ -218,6 +224,8 @@ export function rpStorybookFormattedTextSettings(
     characters: value?.characters ?? defaultRpStorybookFormattedTextSettings.characters,
     openingHistory: value?.openingHistory ?? defaultRpStorybookFormattedTextSettings.openingHistory,
     characterImages: value?.characterImages ?? defaultRpStorybookFormattedTextSettings.characterImages,
+    relationships: value?.relationships ?? true,
+    hiddenAgency: value?.hiddenAgency ?? false,
   };
 }
 
@@ -608,6 +616,7 @@ function normalizeCharacter(
 ): RpStorybookCharacter {
   const character = recordValue(value);
   const { name, id } = characterIdentityValues(character, index);
+  validateCharacterRelationships(character.relationships, id);
   const imageOwnerBase = storybookCharacterImageOwnerIdBase(name, id);
   const images = normalizeCharacterImages(
     character.images,
@@ -625,6 +634,7 @@ function normalizeCharacter(
     personality: stringValue(character.personality),
     speechStyle: stringValue(character.speechStyle),
     ...(typeof character.hiddenAgency === 'string' ? { hiddenAgency: character.hiddenAgency } : {}),
+    ...(character.relationships !== undefined ? { relationships: structuredClone(character.relationships) as RpStorybookCharacter['relationships'] } : {}),
     role: stringValue(character.role),
     comfyConfig: rpStorybookCharacterComfyConfig(character.comfyConfig),
     voiceConfig: rpStorybookCharacterVoiceConfig(character.voiceConfig),
@@ -824,6 +834,13 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
     normalizeCharacter(character, index, usedImageIds, usedImageDataUrls)
   );
   const validPhoneContactRefs = new Set(normalizedCharacters.map((character) => character.id));
+  const legacyContacts = normalizePhoneContacts(storybook.phoneContacts, validPhoneContactRefs);
+  for (const character of normalizedCharacters) {
+    if (character.relationships !== undefined) continue;
+    character.relationships = normalizedCharacters.filter((other) => other.id !== character.id &&
+      !legacyContacts.blocked.some((pair) => phoneContactPairKey(pair.owner, pair.contact) === phoneContactPairKey(character.id, other.id)))
+      .map((other) => ({ characterId: other.id, description: '', apps: { whatsup: true, fotogram: true } }));
+  }
   const openingHistory = recordValue(storybook.openingHistory);
   const openingHistoryTurns = Array.isArray(openingHistory.turns)
     ? openingHistory.turns
@@ -1160,6 +1177,10 @@ export function parseRpStorybookAssistantResult(text: string, fallback: RpStoryb
     throw new Error('Assistant response must include a JSON Patch array in "patch".');
   }
   const patchedStorybook = applyStorybookJsonPatch(fallback, patch);
+  for (const character of patchedStorybook.characters) {
+    const previous = fallback.characters.find((existing) => existing.id === character.id);
+    if (character.relationships === undefined && (!previous || previous.relationships !== undefined)) character.relationships = [];
+  }
   const unchanged = jsonValuesEqual(patchedStorybook, fallback);
   const normalizedStorybook = unchanged
     ? patchedStorybook
@@ -1273,6 +1294,8 @@ export function rpStorybookFormattedText(
         character.description ? `Description: ${character.description}` : '',
         character.personality ? `Personality: ${character.personality}` : '',
         character.speechStyle ? `Speech Style: ${character.speechStyle}` : '',
+        settings.relationships ? relationshipText(character, storybook.characters) : '',
+        settings.hiddenAgency && character.hiddenAgency ? `Hidden Agency: ${character.hiddenAgency}` : '',
         character.comfyConfig?.appearance ? `Appearance: ${character.comfyConfig.appearance}` : '',
         settings.characterImages && character.images.length
           ? [
@@ -1333,7 +1356,10 @@ export function rpStorybookPhoneContactAllowed(
   ownerRef: string,
   contactRef: string,
 ) {
-  return ownerRef !== contactRef && !rpStorybookPhoneContactBlocked(storybook, ownerRef, contactRef);
+  const owner = storybook.characters.find((character) => character.id === ownerRef);
+  return ownerRef !== contactRef && (owner?.relationships !== undefined
+    ? !!owner.relationships.find((entry) => entry.characterId === contactRef)?.apps.whatsup
+    : !rpStorybookPhoneContactBlocked(storybook, ownerRef, contactRef));
 }
 
 export function withRpStorybookPhoneContactPairBlocked(
@@ -1349,6 +1375,13 @@ export function withRpStorybookPhoneContactPairBlocked(
   );
   return {
     ...storybook,
+    characters: storybook.characters.map((character) => {
+      const otherId = character.id === leftRef ? rightRef : character.id === rightRef ? leftRef : undefined;
+      if (!otherId || character.relationships === undefined) return character;
+      const existing = character.relationships.find((entry) => entry.characterId === otherId);
+      return { ...character, relationships: [...character.relationships.filter((entry) => entry.characterId !== otherId),
+        { characterId: otherId, description: existing?.description ?? '', apps: { ...existing?.apps, whatsup: !blocked, fotogram: !blocked } }] };
+    }),
     phoneContacts: {
       blocked: blocked ? [...nextBlocked, target] : nextBlocked,
     },
@@ -1489,7 +1522,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
     'For character renames when identity is not locked, replace only /characters/{index}/name and keep the character id stable.',
     'Optional characters[].hiddenAgency is author-only free text for concealed motivations, goals, priorities, boundaries and relationships, especially for NPCs. Add or edit it when the user asks, or when requested character authoring clearly requires concealed motivations. Otherwise leave it absent or empty; do not invent secret goals for every character or duplicate an ordinary role already clear from the story. Preserve existing agency unless asked to change it. Use add at /characters/{index}/hiddenAgency when absent. It is not public profile text, ordinary RP context, or a runtime command. Do not quote or summarize its contents in reply unless the user explicitly asks to reveal them; confirm only that hidden agency was updated.',
-    'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, playable: true, banking, apps: {}, comfyConfig, and images: []. Do not invent image data or voice samples.',
+    'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, playable: true, banking, relationships: [], apps: {}, comfyConfig, and images: []. Do not invent image data or voice samples.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',
     'characters[].banking.fixedExpenses lists recurring payments shown in the Banking app history, each as {"label":"Mobile plan","amount":24.99} with a US dollar amount. For new characters, include exactly one mobile plan entry with a realistic amount that fits the character. Add further fixed expenses in the same format only when the user asks for them; the app fills the rest of the history with generated everyday spending automatically.',
     'characters[].apps contains app accounts. WhatsUp and Fotogram are standard accounts and must exist for every character; OnlyFriends and MatchMe are optional. Each account has a stable accountId, enabled flag, username, displayName and bio. Keep existing account IDs and usernames unless explicitly asked to change them. Use only the canonical keys whatsup, fotogram (also when the user says Photogram), onlyfriends and matchme under apps; never write legacy social, plotTwist, or a separate account/character container. App images reference the character gallery by image ID. New characters use playable: true. Empty apps on a new character automatically creates WhatsUp and Fotogram defaults; include explicit account objects when specific profiles are requested.',
@@ -1504,10 +1537,12 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'characters[].comfyConfig is optional image-generation configuration. loraName is a ComfyUI LoRA file name for that character. loraUrl is an optional download/source URL for that LoRA. appearance is a concise visual description for generated images. For new characters, leave them empty unless the user explicitly provides image-generation details. Preserve existing settings unless asked to change them.',
     'characters[].voiceConfig stores a binary voice sample managed by the app. Never create, edit, or remove it.',
     'For edits, changedFields must list compact field paths that changed, for example "title", "scenario", "characters".',
-    'Every playable person, npc, or roleplay participant belongs in characters. Do not create any other character container fields.',
-    'phoneContacts.blocked stores bidirectional hidden contact pairs for the Phone and Fotogram UIs. It is not story context and never blocks messages. Default is everyone can see everyone, so keep blocked empty unless the user explicitly says two characters should not appear as Phone + Fotogram contacts.',
+    'Every authored Storybook participant belongs in characters. Existing NPC Library contacts may remain external references in relationships; do not copy them into the cast just to establish contact.',
+    relationshipAuthoringInstructions,
+    'When the user explicitly asks to add a selected external character to the Storybook, add one complete character object using that selected reference\'s exact stable id. The application replaces that text-only object with the authoritative container, including its accounts, images and settings. Do not invent a new id, paraphrase the character as a different person, or claim an import when no character object was added. A request to add only a relationship or app connection must not import the referenced character.',
+    'phoneContacts.blocked is legacy data. Edit characters[].relationships instead. New characters must have relationships:[] unless explicit connections are requested.',
     'characters[].phoneSettings is app-only Phone UI state. It is intentionally omitted from the current JSON and must never be created or patched by the assistant.',
-    'Use character ids for owner and contact. Store each hidden pair once only. If you add or rename characters, keep character ids stable and update phoneContacts.blocked only when needed.',
+    'Keep character IDs stable when editing relationships or renaming people.',
     'Use concise but useful roleplay authoring text. Answer in the same language as the user when practical.',
     '',
     'Current JSON is the authoritative state. Conversation history is context only: do not repeat earlier edits or retry failed edits unless the current user request asks for them.',

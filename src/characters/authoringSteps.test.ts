@@ -34,7 +34,7 @@ describe('sequential character specialists', () => {
     const result = await runCharacterAuthoringSteps(initial, 'Create a character', [], async (step, prompt) => {
       calls.push(step);
       if (step === 'profile') {
-        expect(prompt).not.toContain('"apps":');
+        expect(JSON.parse(prompt.split('Current draft: ')[1].split('\n\n')[0]).character).not.toHaveProperty('apps');
         return response([{ op: 'replace', path: '/character/name', value: 'Alex' }]);
       }
       expect(prompt).toContain('"name":"Alex"');

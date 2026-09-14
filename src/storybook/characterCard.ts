@@ -101,7 +101,7 @@ export function planCharacterCardImport(
   });
 
   const targetIndex = replacesIndex >= 0 ? replacesIndex : storybook.characters.length;
-  const character = normalizeRpStorybookCharacter({ ...sourceCharacter, playable: true }, targetIndex, usedImageIds);
+  const character = normalizeRpStorybookCharacter({ ...sourceCharacter, relationships: sourceCharacter.relationships ?? [], playable: true }, targetIndex, usedImageIds);
 
   const existingAccount = replacesIndex >= 0 ? storybook.characters[replacesIndex].apps?.matchme : undefined;
   const importedAccount = character.apps?.matchme;

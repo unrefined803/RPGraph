@@ -75,6 +75,8 @@ function rehydrateCharacterBinaries(draftValue: Record<string, unknown>, current
       continue;
     }
     const character = entry as Record<string, unknown>;
+    // Clearing an authored list must not re-run the legacy everyone-connected migration.
+    if (character.relationships === undefined) character.relationships = [];
     const source = typeof character.id === 'string' ? currentById.get(character.id) : undefined;
     if (!source) {
       continue;

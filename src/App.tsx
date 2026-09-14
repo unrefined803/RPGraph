@@ -990,6 +990,7 @@ function App() {
     dynamicSocialUsers,
     setDynamicSocialUsers,
     socialConnectionsByCharacter,
+    persistedSocialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
     addSocialConnection,
     accountLinkContext,
@@ -1455,7 +1456,6 @@ function App() {
     imageDescriptionById: storybookImageDescriptionById,
     imageCaptionChangesById: phoneImageCaptionChangesById,
     currentImageSourceById: currentStorybookImageSourceById,
-    allowPhoneContactPair: allowStorybookPhoneContactPair,
     changePhoneWallpaper: changeStorybookPhoneWallpaper,
     saveSocialUsername: saveStorybookSocialUsername,
     saveDatingProfile,
@@ -1552,7 +1552,7 @@ function App() {
     currentTimelineMessages: () => messagesRef.current,
     currentSocialLikesByAccount: () => socialLikesByAccount,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
-    currentSocialConnectionsByCharacter: () => socialConnectionsByCharacter,
+    currentSocialConnectionsByCharacter: () => persistedSocialConnectionsByCharacter,
     currentPhoneNotesByCharacter: () => phoneNotesByCharacter,
     currentChatGpdChatsByCharacter: () => chatGpdChatsByCharacter,
     clearCurrentSession: () => clearCurrentSession(),
@@ -2501,7 +2501,7 @@ function App() {
       bankingContactsByCharacter,
       socialLikesByAccount,
       dynamicSocialUsers,
-      socialConnectionsByCharacter,
+      socialConnectionsByCharacter: persistedSocialConnectionsByCharacter,
       onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
@@ -3641,7 +3641,6 @@ function App() {
       storedImage?.ownerName,
     ) ?? sourceImageAttachments;
     const phoneImageIds = imageIdsFromAttachments(imageAttachments);
-    allowStorybookPhoneContactPair(canonicalMessage.from, canonicalMessage.to);
     const id = appendMessage({
       role,
       originalText: canonicalMessage.message,
@@ -5970,6 +5969,7 @@ function App() {
 
       {storybookCreatorNode && storybookCreatorNode.data.nodeType === 'rp-storybook' && (
         <StorybookCreatorDialog
+          referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)}
           node={storybookCreatorNode}
           workflowNodes={nodeViewNodes}
           promptActionSettings={promptActionSettings}
@@ -5978,7 +5978,7 @@ function App() {
           isSubmitting={storybookCreatorSubmitting}
           connections={connections}
           providerHealthById={providerHealthById}
-          onSubmit={submitStorybookCreatorMessage}
+          onSubmit={(message, referenceIds) => submitStorybookCreatorMessage(message, message, referenceIds)}
           onLoad={async () => {
             await openStorybookPicker();
             return true;
@@ -6026,6 +6026,7 @@ function App() {
 
       {storybookEditorNode && storybookEditorNode.data.nodeType === 'rp-storybook-editor' && (
         <StorybookEditorDialog
+          referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)}
           node={storybookEditorNode}
           identityLocked={messages.length > 0}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookEditorNode.id, characterId)}
@@ -6419,7 +6420,7 @@ function App() {
         />
       )}
       {showCharacterAssistant && (
-        <CharacterAssistantDialog initialEntry={characterAssistantEntry} nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
+        <CharacterAssistantDialog referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)} initialEntry={characterAssistantEntry} nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
           snapshot={npcLibrary.snapshot} onSaved={async () => { await npcLibrary.reload(); }}
           onClose={() => setShowCharacterAssistant(false)} />
       )}
@@ -6427,6 +6428,11 @@ function App() {
         <NpcLibraryDialog
           onCreateCharacter={() => { setCharacterAssistantEntry(undefined); setShowCharacterAssistant(true); }}
           onEditCharacter={(entry) => { setCharacterAssistantEntry(entry); setShowCharacterAssistant(true); }}
+          onOpenStorybook={() => {
+            const nodeId = nodes.find(isStorybookSourceNode)?.id;
+            if (nodeId) openStorybookCreator(nodeId);
+            npcLibrary.close();
+          }}
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
           storybookNodeId={nodes.find(isStorybookSourceNode)?.id}

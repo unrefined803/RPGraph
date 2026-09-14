@@ -20,7 +20,6 @@ import {
   parseRpStorybookJson,
   rpStorybookJsonText,
   withRpStorybookCharacterPhoneWallpaper,
-  withRpStorybookPhoneContactPairAllowed,
   type RpStorybook,
 } from '../nodes/rp-storybook/model';
 import {
@@ -144,38 +143,6 @@ export function useStorybookPhoneImages({
     const key = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase();
     const matches = storyCharacters.filter((character) => key(character.name) === key(name));
     return matches.length === 1 ? matches[0] : undefined;
-  }
-
-  function allowPhoneContactPair(fromName: string, toName: string) {
-    const fromCharacter = characterByPhoneName(fromName);
-    const toCharacter = characterByPhoneName(toName);
-    if (
-      !fromCharacter ||
-      !toCharacter ||
-      fromCharacter.storybookNodeId !== toCharacter.storybookNodeId
-    ) {
-      return;
-    }
-    const storybookNode = nodesRef.current.find(
-      (node) => node.id === fromCharacter.storybookNodeId && isStorybookSourceNode(node),
-    );
-    if (!storybookNode?.data.storybookJson) {
-      return;
-    }
-    const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
-    const nextStorybook = withRpStorybookPhoneContactPairAllowed(
-      storybook,
-      fromCharacter.sourceId,
-      toCharacter.sourceId,
-    );
-    const nextJson = rpStorybookJsonText(nextStorybook);
-    if (nextJson === storybookNode.data.storybookJson) {
-      return;
-    }
-    updateRuntimeNode(storybookNode.id, {
-      storybookJson: nextJson,
-      storybookStatus: `Phone + Fotogram contact added: ${fromCharacter.name} <-> ${toCharacter.name}`,
-    });
   }
 
   function changePhoneWallpaper(character: StorybookCharacter, wallpaperId: string) {
@@ -603,7 +570,6 @@ export function useStorybookPhoneImages({
     imageDescriptionById,
     imageCaptionChangesById,
     currentImageSourceById,
-    allowPhoneContactPair,
     changePhoneWallpaper,
     saveSocialUsername,
     saveDatingProfile,

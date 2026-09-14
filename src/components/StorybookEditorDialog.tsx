@@ -1,3 +1,6 @@
+import type { Character } from '../characters/character';
+import { CharacterRelationships } from './CharacterRelationships';
+import { characterReferenceCandidates } from '../characters/relationships';
 import { HiddenAgencyField } from './HiddenAgencyField';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { useMemo, useState } from 'react';
@@ -19,6 +22,7 @@ import { StorybookReadonlyPreview } from './StorybookReadonlyPreview';
 type ViewMode = 'ui' | 'fields' | 'json';
 
 type StorybookEditorDialogProps = {
+  referenceCharacters?: Character[];
   node: WorkflowNode;
   identityLocked?: boolean;
   onExportCharacter?: (characterId: string) => Promise<void>;
@@ -30,6 +34,7 @@ type StorybookEditorDialogProps = {
 };
 
 type FieldsEditorProps = {
+  referenceCharacters: Character[];
   draft: RpStorybook;
   onChange: (next: RpStorybook) => void;
 };
@@ -40,7 +45,7 @@ type FieldsEditorProps = {
  * field. Character names/ids/images/structure are read-only here — those are
  * Raw-JSON operations.
  */
-function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
+function StorybookFieldsEditor({ draft, onChange, referenceCharacters }: FieldsEditorProps) {
   const setCharacter = (index: number, patch: Partial<RpStorybook['characters'][number]>) => {
     onChange({
       ...draft,
@@ -138,6 +143,8 @@ function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
               onChange={(event) => setCharacter(index, { speechStyle: event.currentTarget.value })}
             />
           </label>
+          <CharacterRelationships character={character} characters={characterReferenceCandidates(draft.characters, referenceCharacters)}
+            onChange={(relationships) => setCharacter(index, { relationships })} />
           <HiddenAgencyField value={character.hiddenAgency}
             onChange={(hiddenAgency) => setCharacter(index, { hiddenAgency })} />
           <label className="storybook-editor-field">
@@ -164,7 +171,7 @@ function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
   );
 }
 
-export function StorybookEditorDialog({ node, identityLocked = false, onExportCharacter, onImportCharacter, onCommit, onClose }: StorybookEditorDialogProps) {
+export function StorybookEditorDialog({ referenceCharacters = [], node, identityLocked = false, onExportCharacter, onImportCharacter, onCommit, onClose }: StorybookEditorDialogProps) {
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   // Track parse validity so an Apply can't overwrite unparseable stored JSON
   // with empty/edited content (the fallback would otherwise be silent).
@@ -296,7 +303,7 @@ export function StorybookEditorDialog({ node, identityLocked = false, onExportCh
               </div>
 
               <div className="storybook-panel-content">
-                {viewMode === 'ui' && <StorybookReadonlyPreview storybook={storybook} />}
+                {viewMode === 'ui' && <StorybookReadonlyPreview storybook={storybook} referenceCharacters={referenceCharacters} />}
 
                 {viewMode === 'fields' && (
                   <div className="storybook-editor-panel">
@@ -318,7 +325,7 @@ export function StorybookEditorDialog({ node, identityLocked = false, onExportCh
                         Apply
                       </button>
                     </div>
-                    <StorybookFieldsEditor draft={fieldsDraft} onChange={setFieldsDraft} />
+                    <StorybookFieldsEditor referenceCharacters={referenceCharacters} draft={fieldsDraft} onChange={setFieldsDraft} />
                   </div>
                 )}
 

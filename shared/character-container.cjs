@@ -40,6 +40,22 @@ function validateDatingProfile(value, requireImage, allowMissingPhoto = false) {
   }
 }
 
+function validateCharacterRelationships(value, ownerId) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) throw new Error('Character relationships must be an array.');
+  const targets = new Set();
+  for (const entry of value) {
+    const relation = record(entry);
+    if (!nonEmptyString(relation.characterId) || relation.characterId === ownerId || targets.has(relation.characterId) ||
+        typeof relation.description !== 'string' || !relation.apps || typeof relation.apps !== 'object' || Array.isArray(relation.apps) ||
+        Object.entries(relation.apps).some(([app, enabled]) => !appNames.includes(app) || typeof enabled !== 'boolean') ||
+        Object.keys(relation).some((key) => !['characterId', 'description', 'apps'].includes(key))) {
+      throw new Error('Relationships require unique other character IDs, a description and boolean app connections.');
+    }
+    targets.add(relation.characterId);
+  }
+}
+
 /** Validate the canonical Character Container V2 payload and all gallery references. */
 function validateCharacterPayload(value) {
   const character = record(value);
@@ -54,6 +70,7 @@ function validateCharacterPayload(value) {
   if (character.hiddenAgency !== undefined && typeof character.hiddenAgency !== 'string') {
     throw new Error('Character hiddenAgency must be a string when present.');
   }
+  validateCharacterRelationships(character.relationships, character.id);
   if (typeof character.playable !== 'boolean') {
     throw new Error('Character Container V2 requires a playable flag.');
   }
@@ -139,6 +156,7 @@ function validateCharacterContainer(value) {
 
 module.exports = {
   currentCharacterContainerVersion,
+  validateCharacterRelationships,
   validateCharacterContainer,
   validateCharacterPayload,
 };

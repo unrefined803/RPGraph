@@ -1,3 +1,4 @@
+import { characterReferenceCandidates, hydrateAddedCharacterReferences, relationshipReferenceContext, validateRelationshipTargets } from '../characters/relationships';
 import { planCharacterImportToNode } from '../characters/promotion';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import { appCharactersFromRegistry } from '../characters/appRuntime';
@@ -321,7 +322,7 @@ export function useStorybookActions({
     storybookCreatorMessageNodeIdRef.current = nodeId;
   }
 
-  async function submitStorybookCreatorMessage(message: string, visibleMessage = message) {
+  async function submitStorybookCreatorMessage(message: string, visibleMessage = message, referenceIds: string[] = []) {
     const nodeId = storybookCreatorNodeId;
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (creatorRequestActiveRef.current || !nodeId || !node || node.data.nodeType !== 'rp-storybook') {
@@ -352,10 +353,13 @@ export function useStorybookActions({
             'During conversion, patches update the conversion draft only. They do not update the active node.',
           ].join('\n')
         : '';
+      const referenceCharacters = characterReferenceCandidates(currentStorybook.characters, currentCharacterRegistry().characters.map((entry) => entry.character));
+      const referenceContext = relationshipReferenceContext([...referenceIds, ...currentStorybook.characters.flatMap((character) => (character.relationships ?? []).map((entry) => entry.characterId))], referenceCharacters);
       const conversationContext = storybookAssistantConversationContext(storybookCreatorMessages);
       const instruction = [
         conversionStatus,
         conversationContext,
+        referenceContext,
         `Current user message:\n${message}`,
       ].filter(Boolean).join('\n\n');
       const currentJson = rpStorybookPromptJsonText(currentStorybook);
@@ -373,7 +377,23 @@ export function useStorybookActions({
       ) {
         throw new Error('Storybook changed while the assistant was working. The response was not applied. Please send your request again.');
       }
-      const result = parseRpStorybookAssistantResult(completion.text, currentStorybook);
+      const parsedResult = parseRpStorybookAssistantResult(completion.text, currentStorybook);
+      const hydratedCharacters = hydrateAddedCharacterReferences(
+        parsedResult.storybook.characters,
+        currentStorybook.characters,
+        referenceIds,
+        referenceCharacters,
+      );
+      const result = hydratedCharacters === parsedResult.storybook.characters
+        ? parsedResult
+        : {
+            ...parsedResult,
+            storybook: parseRpStorybookJson(rpStorybookJsonText({
+              ...parsedResult.storybook,
+              characters: hydratedCharacters,
+            })),
+          };
+      validateRelationshipTargets(result.storybook.characters, currentStorybook.characters, referenceCharacters);
       const changedFields = result.changedFields.slice(0, 4);
       const storybookChanged = JSON.stringify(result.storybook) !== JSON.stringify(currentStorybook);
       const changedSummary = changedFields.length

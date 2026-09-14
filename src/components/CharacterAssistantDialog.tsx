@@ -1,3 +1,6 @@
+import { CharacterRelationships } from './CharacterRelationships';
+import { CharacterMentionInput } from './CharacterMentionInput';
+import { characterReferenceCandidates, relationshipReferenceContext, validateRelationshipTargets } from '../characters/relationships';
 import { HiddenAgencyField } from './HiddenAgencyField';
 import { useEffect, useRef, useState } from 'react';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
@@ -20,6 +23,7 @@ import { createCharacterContainer } from '../characters/creator';
 import './characterAssistant.css';
 
 type Props = {
+  referenceCharacters?: Character[];
   initialEntry?: NpcLibraryEntry;
   nodeLlm: NodeLlmApi;
   connections: ConnectionPreset[];
@@ -31,13 +35,15 @@ type Props = {
 type Source = { destination: CharacterDestination; fileName: string; bundled?: boolean };
 type LoadChoice = { key: string; label: string; source: Source; character?: Character; file?: SavedFileSummary };
 
-export function CharacterAssistantDialog({ initialEntry, nodeLlm, connections, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
+export function CharacterAssistantDialog({ referenceCharacters = [], initialEntry, nodeLlm, connections, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
   const [character, setCharacter] = useState<Character>(() => initialEntry ? { ...structuredClone(initialEntry.character), playable: false } : newAssistantCharacter());
   const current = useRef(character);
   const revision = useRef(0);
   const request = useRef<AbortController | null>(null);
   const [messages, setMessages] = useState<CharacterAssistantMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const [referenceIds, setReferenceIds] = useState<string[]>([]);
+  const relationshipCharacters = characterReferenceCandidates([character], referenceCharacters.length ? referenceCharacters : visibleLibraryEntries(snapshot?.entries ?? []).map((entry) => entry.character));
   const [connectionId, setConnectionId] = useState(defaultConnectionId);
   const [destination, setDestination] = useState<CharacterDestination | 'choose'>('npc-characters');
   const [source, setSource] = useState<Source | undefined>(() => initialEntry ? { destination: 'npc-characters', fileName: initialEntry.fileName, bundled: initialEntry.tier === 'bundled' } : undefined);
@@ -93,7 +99,7 @@ export function CharacterAssistantDialog({ initialEntry, nodeLlm, connections, d
     next = { ...next, playable: false };
     change(next, false);
     setSavedCharacter(next);
-    setUndo([]); setMessages([]); setDraft(''); setAttachments([]);
+    setUndo([]); setMessages([]); setDraft(''); setAttachments([]); setReferenceIds([]);
     setSource(nextSource); setProtection('plain'); setSavePassword('');
     setDestination('npc-characters');
     setChoices(null); setPassword(''); setEditSettings(false);
@@ -210,16 +216,18 @@ export function CharacterAssistantDialog({ initialEntry, nodeLlm, connections, d
     const controller = new AbortController(); request.current = controller;
     const startRevision = revision.current;
     const original = character;
+    const referenceContext = relationshipReferenceContext([...referenceIds, ...(character.relationships ?? []).map((entry) => entry.characterId)], relationshipCharacters);
+    const instruction = [message, referenceContext].filter(Boolean).join('\n\n');
     setBusy(true); setDraft(''); setStatus('');
     setMessages((history) => [...history, { role: 'user', text: message }]);
     try {
       const response = await nodeLlm.complete({ connectionId, label: 'Character Assistant', signal: controller.signal,
-        prompt: characterAssistantPrompt(original, messages, message, selectedImages.map((image) => image.id), destination === 'choose' ? 'npc-characters' : destination),
+        prompt: characterAssistantPrompt(original, messages, instruction, selectedImages.map((image) => image.id), destination === 'choose' ? 'npc-characters' : destination),
         images: selectedImages });
       if (controller.signal.aborted) return;
       if (startRevision !== revision.current) throw new Error('The character changed during the request. The response was not applied. Send your request again.');
       const initial = parseCharacterAssistantResult(response.text, original);
-      const context = [...messages.filter((entry) => entry.role !== 'error').slice(-6).map((entry) => `${entry.role}: ${entry.text}`), `Current request: ${message}`].join('\n');
+      const context = [...messages.filter((entry) => entry.role !== 'error').slice(-6).map((entry) => `${entry.role}: ${entry.text}`), `Current request: ${instruction}`].join('\n');
       const result = await runCharacterAuthoringSteps(initial, context, selectedImages.map((image) => image.id), async (step, prompt) => {
         if (controller.signal.aborted || startRevision !== revision.current) throw new Error('The request was cancelled or the character changed.');
         setStatus(step === 'profile' ? 'Step 1: Creating character profile…' : 'Step 2: Creating accounts, images and posts…');
@@ -228,6 +236,7 @@ export function CharacterAssistantDialog({ initialEntry, nodeLlm, connections, d
       });
       if (controller.signal.aborted) return;
       if (startRevision !== revision.current) throw new Error('The character changed during creation. No generated changes were applied.');
+      validateRelationshipTargets([result.character], [original], relationshipCharacters);
       setStatus('');
       if (JSON.stringify(characterAssistantProjection(result.character)) !== JSON.stringify(characterAssistantProjection(original))) change(result.character);
       setMessages((history) => [...history, { role: 'assistant', text: result.reply }]);
@@ -299,6 +308,8 @@ export function CharacterAssistantDialog({ initialEntry, nodeLlm, connections, d
                 <div className="character-field"><span className="field-label">Character Details</span><p>{character.age ? `${character.age} years · ` : ''}{character.gender || 'Gender unspecified'}</p></div>
               </div>
             </StorybookInlineEditor>
+            <CharacterRelationships character={character} characters={relationshipCharacters} disabled={ioBusy}
+              onChange={(relationships) => change({ ...character, relationships })} />
             <HiddenAgencyField key={`agency:${character.id}`} value={character.hiddenAgency} disabled={ioBusy}
               onSave={(hiddenAgency) => { change({ ...character, hiddenAgency }); return true; }} />
             <div className="section-header"><h4>Accounts & Settings</h4><button className="storybook-inline-action nodrag" type="button" onClick={() => setEditSettings(!editSettings)}>{editSettings ? 'Done' : 'Edit'}</button></div>
@@ -372,7 +383,8 @@ export function CharacterAssistantDialog({ initialEntry, nodeLlm, connections, d
             {busy && <div className="chat-message-row assistant thinking"><div className="message-sender-avatar">AI</div><div className="chat-message-bubble typing-bubble" aria-label="Working on your character"><div className="typing-indicator"><span></span><span></span><span></span></div></div></div>}<div ref={chatEnd} />
           </div>
           <form className="storybook-chat-form" onSubmit={(event) => { event.preventDefault(); void send(); }}>
-            <textarea rows={5} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Describe a character, ask a question, or request changes…" onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
+            <CharacterMentionInput value={draft} onChange={setDraft} characters={relationshipCharacters} selectedIds={referenceIds}
+              onSelectedIdsChange={setReferenceIds} onSubmit={() => void send()} disabled={busy || ioBusy} />
             <div className="character-assistant-composer-actions">
               <span className="character-assistant-attachment-count">{attachments.length ? `${attachments.length} image${attachments.length === 1 ? '' : 's'} selected` : 'Shift + Enter for a new line'}</span>
               <button className="inspect-button character-assistant-attach" type="button" disabled={ioBusy || busy} onClick={() => imageInput.current?.click()}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m8 12 7-7a4 4 0 0 1 6 6L10 22a6 6 0 0 1-8-8L13 3m-7 13 10-10" /></svg>Attach Images</button>

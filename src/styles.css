@@ -5460,6 +5460,8 @@ input[type="number"]::-webkit-outer-spin-button {
 .npc-library-origin { display: inline-block; font-size: 10px; font-weight: 600; border: 1px solid #3c465b; border-radius: 5px; padding: 3px 7px; color: #abb8d0; }
 .npc-library-badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .npc-library-origin.in-storybook { color: #6cd3ad; border-color: #365e54; background: #203b34; }
+.npc-library-origin.storybook { color: #8fd9ff; border-color: #386078; background: #203746; }
+.npc-library-origin.storybook-edited { color: #f0c879; border-color: #705d37; background: #40351f; }
 .npc-library-origin.user { color: #c8b8f4; border-color: #584574; background: #30253f; }
 .npc-library-accounts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
 .npc-library-account { display: flex; gap: 7px; min-width: 0; font-size: 11px; }

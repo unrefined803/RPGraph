@@ -1,3 +1,7 @@
+import type { Character } from '../characters/character';
+import { characterReferenceCandidates } from '../characters/relationships';
+import { CharacterRelationships } from './CharacterRelationships';
+import { CharacterMentionInput } from './CharacterMentionInput';
 import { HiddenAgencyField } from './HiddenAgencyField';
 import { withCharacterPortrait } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
@@ -32,10 +36,7 @@ import {
   rpStorybookImageDescriptionPromptText,
   rpStorybookLogicCheckInstruction,
   estimatedRpStorybookPromptTokens,
-  rpStorybookPhoneContactAllowed,
-  rpStorybookPhoneContactCharacters,
   storybookCharacterImageOwnerIdBase,
-  withRpStorybookPhoneContactPairBlocked,
   type RpStorybookCharacterBanking,
   type RpStorybookCharacterComfyConfig,
   type RpStorybookCharacterSocial,
@@ -1055,6 +1056,7 @@ export function CustomNodeAssistantDialog({
 }
 
 type StorybookCreatorDialogProps = {
+  referenceCharacters?: Character[];
   identityLocked?: boolean;
   node: WorkflowNode;
   workflowNodes: WorkflowNode[];
@@ -1063,7 +1065,7 @@ type StorybookCreatorDialogProps = {
   isSubmitting: boolean;
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
-  onSubmit: (message: string) => Promise<void>;
+  onSubmit: (message: string, referenceIds?: string[]) => Promise<void>;
   onLoad: () => Promise<boolean>;
   onSaveStorybook: () => void;
   promptTextCustomPresets: Record<string, string>;
@@ -1123,6 +1125,8 @@ const storybookFormattedTextSettingControls: Array<{
   { key: 'characters', label: 'Charakter' },
   { key: 'openingHistory', label: 'Opening History' },
   { key: 'characterImages', label: 'Character Images' },
+  { key: 'relationships', label: 'Contacts & Relationships' },
+  { key: 'hiddenAgency', label: 'Hidden Agency' },
 ];
 
 type StorybookImageOwner = { kind: 'character'; characterId: string };
@@ -3011,6 +3015,7 @@ function CharacterSetupDialog({
 }
 
 export function StorybookCreatorDialog({
+  referenceCharacters = [],
   node,
   workflowNodes,
   promptActionSettings,
@@ -3083,7 +3088,8 @@ export function StorybookCreatorDialog({
     [pendingConversion, storybook],
   );
   const formattedTextSettings = rpStorybookFormattedTextSettings(node.data.storybookFormattedTextSettings);
-  const phoneContactCharacters = useMemo(() => rpStorybookPhoneContactCharacters(storybook), [storybook]);
+  const [referenceIds, setReferenceIds] = useState<string[]>([]);
+  const relationshipCharacters = characterReferenceCandidates(storybook.characters, referenceCharacters);
   const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
   const openingHistoryMessages = useMemo(
     () => {
@@ -3132,7 +3138,7 @@ export function StorybookCreatorDialog({
       return;
     }
     setDraft('');
-    void onSubmit(message);
+    void onSubmit(message, referenceIds);
   }
 
   function submitDraft() {
@@ -3141,7 +3147,7 @@ export function StorybookCreatorDialog({
       return;
     }
     setDraft('');
-    void onSubmit(message);
+    void onSubmit(message, referenceIds);
   }
 
   async function loadStorybook() {
@@ -3548,6 +3554,8 @@ export function StorybookCreatorDialog({
                                     <p>{character.speechStyle}</p>
                                   </div>
                                 )}
+                              <CharacterRelationships character={character} characters={relationshipCharacters} disabled={editingDisabled}
+                                onChange={(relationships) => onUpdateStorybook({ ...storybook, characters: storybook.characters.map((entry) => entry.id === character.id ? { ...entry, relationships } : entry) }, 'Relationships updated.')} />
                               <HiddenAgencyField value={character.hiddenAgency} disabled={editingDisabled}
                                 onSave={(hiddenAgency) => onUpdateStorybook({
                                   ...storybook,
@@ -3619,86 +3627,6 @@ export function StorybookCreatorDialog({
                         </div>
                       ) : (
                         <p className="no-data-msg">No characters defined yet. Click SillyTavern Import above or ask the assistant to add characters.</p>
-                      )}
-                    </section>
-
-                    <section className="storybook-section phone-contacts-section">
-                      <div className="section-header">
-                        <div className="section-title-with-help">
-                          <h4>Phone + Fotogram Contacts</h4>
-                          <button
-                            type="button"
-                            className="node-info-button storybook-section-help"
-                            aria-label="Phone and Fotogram contacts visibility help"
-                            data-tooltip="Controls the default contact display in Phone and Fotogram. Everyone is connected by default. A real message can still make a hidden conversation appear; this does not block messages."
-                          >
-                            ?
-                          </button>
-                        </div>
-                      </div>
-                      {phoneContactCharacters.length >= 2 ? (
-                        <div className="phone-contact-matrix-wrap">
-                          <table className="phone-contact-matrix">
-                            <thead>
-                              <tr>
-                                <th scope="col">Owner</th>
-                                {phoneContactCharacters.map((contact) => (
-                                  <th scope="col" key={contact.ref}>
-                                    <span title={contact.name}>{contact.name}</span>
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {phoneContactCharacters.map((owner) => (
-                                <tr key={owner.ref}>
-                                  <th scope="row">
-                                    <span title={owner.name}>{owner.name}</span>
-                                  </th>
-                                  {phoneContactCharacters.map((contact) => {
-                                    const sameCharacter = owner.ref === contact.ref;
-                                    const allowed = rpStorybookPhoneContactAllowed(
-                                      storybook,
-                                      owner.ref,
-                                      contact.ref,
-                                    );
-                                    return (
-                                      <td key={contact.ref}>
-                                        {sameCharacter ? (
-                                          <span className="phone-contact-self">-</span>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            className={`phone-contact-cell${allowed ? ' allowed' : ' blocked'}`}
-                                            aria-pressed={allowed}
-                                            title={`${owner.name} ${allowed ? 'can see' : 'cannot see'} ${contact.name}`}
-                                            onClick={() => {
-                                              onUpdateStorybook(
-                                                withRpStorybookPhoneContactPairBlocked(
-                                                  storybook,
-                                                  owner.ref,
-                                                  contact.ref,
-                                                  allowed,
-                                                ),
-                                                allowed
-                                                  ? `Hid Phone + Fotogram contact ${owner.name} <-> ${contact.name}.`
-                                                  : `Added Phone + Fotogram contact ${owner.name} <-> ${contact.name}.`,
-                                              );
-                                            }}
-                                          >
-                                            {allowed ? '✓' : '×'}
-                                          </button>
-                                        )}
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p className="no-data-msg">Add at least two characters to configure Phone + Fotogram contacts.</p>
                       )}
                     </section>
 
@@ -3858,19 +3786,8 @@ export function StorybookCreatorDialog({
               </div>
 
               <form className="storybook-chat-form" onSubmit={submit}>
-                <textarea
-                  className="nodrag nowheel"
-                  rows={4}
-                  value={draft}
-                  placeholder="Ask the assistant to change details or add characters..."
-                  onChange={(event) => setDraft(event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      submitDraft();
-                    }
-                  }}
-                />
+                <CharacterMentionInput value={draft} onChange={setDraft} characters={relationshipCharacters}
+                  selectedIds={referenceIds} onSelectedIdsChange={setReferenceIds} onSubmit={submitDraft} disabled={isSubmitting} />
                 <button type="submit" className="send-message-button" disabled={isSubmitting || !draft.trim()}>
                   {isSubmitting ? 'Sending...' : 'Send'}
                 </button>

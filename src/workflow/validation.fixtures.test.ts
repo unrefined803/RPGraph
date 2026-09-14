@@ -990,7 +990,7 @@ export function verifyWorkflowValidationFixtures() {
       )[0] === zephiraSocialUser.id,
     'adding a social directory result must persist its id for the current character and app',
   );
-  const mutualFotogramConnections = espenSocialUser && ryanSocialUser
+  const oneWayFotogramConnections = espenSocialUser && ryanSocialUser
     ? withSocialDirectoryConnectionAdded(
         {},
         socialDirectory.users,
@@ -1012,21 +1012,21 @@ export function verifyWorkflowValidationFixtures() {
     espenSocialUser !== undefined &&
       ryanSocialUser !== undefined &&
       socialConnectionIds(
-        mutualFotogramConnections,
+        oneWayFotogramConnections,
         'storybook:character:espen-private',
         'fotogram',
       ).includes(ryanSocialUser.id) &&
       socialConnectionIds(
-        mutualFotogramConnections,
+        oneWayFotogramConnections,
         'storybook:character:ryan-private',
         'fotogram',
-      ).includes(espenSocialUser.id) &&
+      ).length === 0 &&
       socialConnectionIds(
         oneWayOnlyFriendsConnections,
         'storybook:character:ryan-private',
         'onlyfriends',
       ).length === 0,
-    'adding a Storybook Fotogram account must connect both characters while OnlyFriends remains one-way',
+    'adding a Storybook Fotogram or OnlyFriends account must create a one-way follow',
   );
   const hiddenPhoneAndFotogramPair = withRpStorybookPhoneContactPairBlocked(
     emptyRpStorybook,
@@ -1924,9 +1924,9 @@ export function verifyWorkflowValidationFixtures() {
         prompt.includes('[AVAILABLE VIRTUAL SOCIAL USERS]') &&
         prompt.includes('Never invent an additional background social identity.')
       ) &&
-      bundledSocialPrompts[0]?.includes('mutual Phone + Fotogram contact setting') &&
+      bundledSocialPrompts[0]?.includes('explicit directed Fotogram follow') &&
       !bundledSocialPrompts[0]?.includes('every story character has an account and sees this post'),
-    'default social prompts must apply mutual Fotogram contacts and select background identities from the bundled app catalog',
+    'default social prompts must apply directed Fotogram follows and select background identities from the supplied app directory',
   );
   const clampedPromptActions = promptActionConfigs([
     { ...defaultPromptActionConfig('Low limit', 'getImageId'), maxReturnedImages: 0 },
