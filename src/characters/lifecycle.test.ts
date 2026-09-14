@@ -35,6 +35,9 @@ it.each([
   { matchMeMatch: { accountIds: ['ari-fg'] } },
   { likes: { 'someone/fotogram': ['npc-seed:["ari-fg","post"]'] } },
   { notes: { 'book:character:ari': ['Note'] } },
+  { connections: { other: { fotogram: ['storybook:ari'] } } },
+  { connections: { other: { onlyfriends: ['storybook:book:character:ari'] } } },
+  { connections: { other: { fotogram: ['storybook:ari-fg'] } } },
   { phoneImageIds: ['ari-image'] },
 ])('blocks deletion for retained references: %j', (history) => {
   expect(characterUsageReasons(book().characters[0], { characterIds: ['book:character:ari'] }, history)).toHaveLength(1);

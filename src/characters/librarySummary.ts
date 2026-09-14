@@ -32,6 +32,14 @@ export function visibleLibraryEntries(entries: import('./npcLibrary').NpcLibrary
     .sort((a, b) => a.character.name.localeCompare(b.character.name) || a.fileName.localeCompare(b.fileName));
 }
 
+/** Select the same library tier as the registry without choosing an ambiguous file. */
+export function effectiveLibraryEntry<T extends import('./npcLibrary').NpcLibraryEntry>(entries: T[], characterId: string): T | undefined {
+  for (const tier of ['user', 'bundled'] as const) {
+    const matches = entries.filter((entry) => entry.character.id === characterId && entry.tier === tier);
+    if (matches.length === 1) return matches[0];
+  }
+}
+
 export type CharacterProvenanceStage = { label: string; title: string };
 
 /** Ordered resolution layers for the compact NPC Library provenance chain. */

@@ -45,10 +45,10 @@ export function CharacterRemovalDialog({ info, blocked, canSave, onRemove, onClo
           <div className={`character-removal-option-card${deleteBlocked ? ' disabled' : ''}`}>
             <div className="character-removal-option-details">
               <div className="character-removal-option-title">Delete from Storybook</div>
-              <p>Deletes this Storybook character and its unused RP copy. Library files are unchanged.</p>
+              <p>Deletes this character from the Storybook and current RP. NPC Library files stay unchanged.</p>
               {info.reasons.length > 0 && (
                 <p className="character-removal-reason">
-                  {info.reasons.join(' ')} Deleting is unavailable; keeping an NPC preserves its history and accounts.
+                  Cannot delete: {info.reasons.join(' ')} Keep as an NPC to preserve these references.
                 </p>
               )}
             </div>
@@ -59,12 +59,12 @@ export function CharacterRemovalDialog({ info, blocked, canSave, onRemove, onClo
           <div className="character-removal-option-card">
             <div className="character-removal-option-details">
               <div className="character-removal-option-title">
-                {info.matchesLibrary ? 'Make NPC' : 'Keep as temporary NPC'}
+                {info.matchesLibrary ? 'Make NPC' : 'Keep as NPC in this RP'}
               </div>
               <p>
                 {info.matchesLibrary
-                  ? 'The character matches its library file. Its RP revision remains available as an NPC.'
-                  : 'Keep this version in the current RP and Storybook, including future saves. No library file is written.'}
+                  ? 'Removes player control and keeps this version as an NPC in RP and Storybook saves.'
+                  : 'Removes player control and keeps this NPC in RP and Storybook saves, without saving to the NPC Library.'}
               </p>
             </div>
             <button type="button" className="character-removal-action-button" disabled={busy || blocked}

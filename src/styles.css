@@ -5439,23 +5439,22 @@ input[type="number"]::-webkit-outer-spin-button {
 .npc-library-dialog button:hover:not(:disabled):not([aria-disabled="true"]) { background: #263149; border-color: var(--accent); }
 .npc-library-dialog .primary { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
 .npc-library-dialog button:disabled, .npc-library-dialog [aria-disabled="true"] { opacity: 0.45; cursor: default; }
-.npc-library-dialog button.playable-active:disabled { opacity: 1; color: #82ddb9; border-color: #365e54; background: #203b34; }
 .npc-library-dialog :is(button, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.npc-library-playable-button {
+.npc-library-dialog button.npc-library-playable-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #45c490;
+  border: 1px solid #426657;
   border-radius: 8px;
   padding: 9px 12px;
-  background: linear-gradient(180deg, rgba(34, 94, 69, 0.65), rgba(20, 56, 42, 0.85));
-  color: #a3f7cf;
+  background: color-mix(in srgb, #45c490 8%, var(--surface));
+  color: #a0cfb7;
   font: inherit;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(69, 196, 144, 0.3), inset 0 1px 0 rgba(163, 247, 207, 0.25);
+  box-shadow: inset 0 0 8px rgba(69, 196, 144, 0.08);
   transition: all 0.2s ease;
 }
 
@@ -5467,12 +5466,13 @@ input[type="number"]::-webkit-outer-spin-button {
   display: none;
 }
 
-.npc-library-playable-button:hover:not(:disabled),
-.npc-library-playable-button:focus-visible:not(:disabled) {
-  border-color: #ff5252 !important;
-  background: linear-gradient(180deg, rgba(145, 30, 30, 0.7), rgba(85, 18, 18, 0.85)) !important;
-  color: #ffe5e5 !important;
-  box-shadow: 0 0 12px rgba(255, 82, 82, 0.4), inset 0 1px 0 rgba(255, 200, 200, 0.25) !important;
+.npc-library-dialog button.npc-library-playable-button:hover:not(:disabled),
+.npc-library-dialog button.npc-library-playable-button:focus-visible:not(:disabled) {
+  border-color: #a85d63;
+  background: color-mix(in srgb, #e46b75 12%, var(--surface));
+  color: #efb0b6;
+  box-shadow: inset 0 0 10px rgba(228, 107, 117, 0.12);
+  outline-color: #a85d63;
 }
 
 .npc-library-playable-button:hover:not(:disabled) .label-playable,
@@ -5485,7 +5485,7 @@ input[type="number"]::-webkit-outer-spin-button {
   display: inline;
 }
 
-.npc-library-playable-button:disabled {
+.npc-library-dialog button.npc-library-playable-button:disabled {
   opacity: 0.8;
   cursor: default;
 }
@@ -24982,7 +24982,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .character-removal-option-card.disabled {
-  opacity: 0.55;
+  border-style: dashed;
 }
 
 .character-removal-option-details {

@@ -6457,9 +6457,8 @@ function App() {
         <NpcLibraryDialog
           onCreateCharacter={() => { setCharacterAssistantEntry(undefined); setShowCharacterAssistant(true); }}
           onEditCharacter={(entry) => { setCharacterAssistantEntry(entry); setShowCharacterAssistant(true); }}
-          onOpenStorybook={() => {
-            const nodeId = nodes.find(isStorybookSourceNode)?.id;
-            if (nodeId) openStorybookCreator(nodeId);
+          onOpenStorybook={(nodeId) => {
+            openStorybookCreator(nodeId);
             npcLibrary.close();
           }}
           snapshot={npcLibrary.snapshot}
@@ -6470,6 +6469,7 @@ function App() {
             nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory)]}
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
+          dismissOnEscape={!characterRemoval}
           storybookNodeId={nodes.find(isStorybookSourceNode)?.id}
           onAddToStorybook={(characterId, nodeId) => {
             const previous = npcParticipants.current();

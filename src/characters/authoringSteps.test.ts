@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newAssistantCharacter, parseCharacterAssistantResult, runCharacterAuthoringSteps } from './assistant';
-import { characterProvenanceStages, visibleLibraryEntries } from './librarySummary';
+import { characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries } from './librarySummary';
 import type { NpcLibraryEntry } from './npcLibrary';
 
 const response = (patch: unknown[], extra = {}) => JSON.stringify({ reply: 'Done.', patch, ...extra });
@@ -23,6 +23,15 @@ describe('edited built-in library entries', () => {
   });
   it('keeps ambiguous user files visible for diagnostics instead of silently picking one', () => {
     expect(visibleLibraryEntries([entry('bundled'), entry('user'), entry('user', 'same', 'duplicate.json')])).toHaveLength(3);
+  });
+  it('uses the bundled fallback when local files share an ID and never picks an arbitrary duplicate', () => {
+    const bundled = entry('bundled');
+    const local = entry('user');
+    const duplicate = entry('user', 'same', 'duplicate.json');
+    expect(effectiveLibraryEntry([bundled, local], 'same')).toBe(local);
+    expect(effectiveLibraryEntry([bundled, local, duplicate], 'same')).toBe(bundled);
+    expect(effectiveLibraryEntry([local, duplicate], 'same')).toBeUndefined();
+    expect(effectiveLibraryEntry([bundled], 'missing')).toBeUndefined();
   });
   it('shows resolution layers in priority order with the active layer last', () => {
     expect(characterProvenanceStages({ editedBuiltIn: true, localEdited: true, tier: 'user', inStorybook: true, storybookEdited: true })

@@ -11,6 +11,8 @@ import fixture from '../characters/fixtures/stage4-npc.json';
 import { normalizeRpStorybook } from '../nodes/rp-storybook/model';
 import { useRuntimeNodePatching } from '../app/useRuntimeNodePatching';
 import { openingHistoryTurnsFromNodes } from './openingHistoryRuntime';
+import { appCharactersFromRegistry } from '../characters/appRuntime';
+import { buildSocialDirectory } from '../chat/socialDirectory';
 
 // Exercise delayed model replies without launching a UI or provider.
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
@@ -363,4 +365,22 @@ it('does not remove the character if the RP changes while its NPC file is being 
   await expect(state.render().removeStorybookCharacter('book', fixture.character.id, 'save')).rejects.toThrow('RP changed');
   expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0].description).toBe('Edited while saving');
   expect(state.snapshots).toEqual({});
+});
+
+it('protects a followed character without chat and preserves the connection when retired', async () => {
+  const state = harness();
+  const book = normalizeRpStorybook({ characters: [fixture.character] });
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+  const directory = () => buildSocialDirectory({
+    storyCharacters: appCharactersFromRegistry(state.options.currentCharacterRegistry()), messages: [],
+  }).users;
+  const originalUserId = directory()[0].id;
+  state.options.currentSocialConnectionsByCharacter = () => ({
+    other: { fotogram: [originalUserId] },
+  });
+  expect(state.render().removalInfo('book', fixture.character.id).reasons.length).toBeGreaterThan(0);
+  await expect(state.render().removeStorybookCharacter('book', fixture.character.id, 'delete')).rejects.toThrow('in use');
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'npc');
+  expect(directory()[0].id).toBe(originalUserId);
+  expect(state.snapshots[fixture.character.id].character.playable).toBe(false);
 });

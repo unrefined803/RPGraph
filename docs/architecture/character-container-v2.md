@@ -1320,9 +1320,11 @@ example **Built-in › Local edit › Storybook edit**. The rightmost, highlight
 stage is the active definition. A content-equivalent normalized local override is
 shown as **Local copy**; an altered one is **Local edit**. An unchanged playable
 import ends with **In Storybook**, while **Storybook original** means no library
-source exists. Playability is shown by the green disabled **Playable** action
-instead of another badge. Library-only rows use **Add as Playable**; playable
-rows open the Storybook editor instead of a separate library-file editor.
+source exists. Playability is shown by the subtle green **Playable** action,
+which changes to **Remove** on hover or keyboard focus. Library-only rows use
+**Make Playable**; Storybook rows open their owning Storybook editor.
+Ambiguous local files remain visible as diagnostic rows with promotion disabled;
+the effective row uses the same unambiguous library fallback as the registry.
 
 Content comparison ignores JSON object key order, empty optional author notes
 and post lists, playability, cached portrait previews, media access metadata,
@@ -1344,9 +1346,11 @@ character, account, image, or initial-post identities.
 The NPC Library shows retained participant revisions as **RP snapshot** or
 **RP edit**, separately from playability and detected history/activity. A
 snapshot alone is not evidence of interaction because promotion itself may
-capture a recovery copy. Deletion eligibility therefore inspects references
-owned by the selected character rather than treating any chat or Opening
-History in the story as a global lock.
+capture a recovery copy. The **Interacted or Retained Characters** section
+includes both kinds of non-playable entries. Deletion eligibility inspects
+references owned by the selected character, including persisted social-directory
+IDs and their legacy aliases, rather than treating any chat or Opening History
+in the story as a global lock.
 
 Formatted Text includes **Contacts & Relationships** by default and allows it to
 be disabled. **Hidden Agency** is independently selectable and defaults to off.

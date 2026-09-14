@@ -3,7 +3,7 @@ import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
-import { characterLibrarySummary, characterProvenanceStages, visibleLibraryEntries } from '../characters/librarySummary';
+import { characterLibrarySummary, characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 import type { Character } from '../characters/character';
 import { characterContentEqual } from '../characters/contentComparison';
@@ -13,6 +13,7 @@ type NpcLibraryDialogProps = {
   participants?: NpcParticipantSnapshots;
   activity?: unknown;
   busy?: boolean;
+  dismissOnEscape?: boolean;
   onRemove?: (characterId: string, nodeId: string) => void;
   activeRegistry: EffectiveCharacterRegistry;
   loading: boolean;
@@ -24,7 +25,7 @@ type NpcLibraryDialogProps = {
   onClose: () => void;
   onCreateCharacter: () => void;
   onEditCharacter: (entry: NpcLibraryEntry) => void;
-  onOpenStorybook: () => void;
+  onOpenStorybook: (nodeId: string) => void;
 };
 
 const appLabels = { fotogram: 'Fotogram', whatsup: 'WhatsUp', onlyfriends: 'OnlyFriends', matchme: 'MatchMe' } as const;
@@ -40,6 +41,7 @@ type DisplayEntry = {
   retained: boolean;
   hasActivity: boolean;
   snapshotEdited: boolean;
+  diagnosticOnly?: boolean;
 };
 
 function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }: {
@@ -128,17 +130,16 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
   );
 }
 
-export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy = false, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
   const [importStatus, setImportStatus] = useState('');
   const targetNodeId = storybookNodeId ?? '';
   const libraryEntries = useMemo(() => visibleLibraryEntries(snapshot?.entries ?? []), [snapshot]);
   const entries = useMemo(() => {
-    const byId = new Map(libraryEntries.map((entry) => [entry.character.id, entry]));
     const bundledById = new Map((snapshot?.entries ?? []).filter((entry) => entry.tier === 'bundled')
       .map((entry) => [entry.character.id, entry.character]));
     const display: DisplayEntry[] = activeRegistry.characters.map((effective) => {
       const character = effective.character;
-      const libraryEntry = byId.get(character.id);
+      const libraryEntry = effectiveLibraryEntry(libraryEntries, character.id);
       const bundled = bundledById.get(character.id);
       const saved = participants[character.id]?.character;
       const inStorybook = effective.provenance.tier === 'storybook';
@@ -153,11 +154,11 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
       };
     });
     // Keep quarantined files accessible for diagnostics.
-    display.push(...libraryEntries.filter((entry) => !display.some((row) => row.character.id === entry.character.id)).map((entry) => ({
+    display.push(...libraryEntries.filter((entry) => !display.some((row) => row.libraryEntry === entry)).map((entry) => ({
       character: entry.character, libraryEntry: entry, inStorybook: false, storybookEdited: false,
       localEdited: !!entry.editedBuiltIn && !!bundledById.get(entry.character.id) &&
         !characterContentEqual(entry.character, bundledById.get(entry.character.id)!),
-      playable: false, retained: false, hasActivity: false, snapshotEdited: false,
+      playable: false, retained: false, hasActivity: false, snapshotEdited: false, diagnosticOnly: true,
     })));
     return display.sort((left, right) => {
       const leftGroup = left.playable ? 0 : (left.hasActivity || left.retained) ? 1 : 2;
@@ -173,7 +174,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
 
     return [
       { id: 'playable', title: 'Playable Characters', entries: playable },
-      { id: 'interacted', title: 'Interacted Characters', entries: interacted },
+      { id: 'interacted', title: 'Interacted or Retained Characters', entries: interacted },
       { id: 'available', title: 'Available Characters', entries: available },
     ].filter((section) => section.entries.length > 0);
   }, [entries]);
@@ -191,14 +192,14 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && dismissOnEscape) {
         event.preventDefault();
         onClose();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [dismissOnEscape, onClose]);
 
   return (
     <div className="dialog-backdrop" role="presentation" onClick={onClose}>
@@ -215,13 +216,13 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
                   {section.entries.map((display) => {
                     const entry = display.libraryEntry;
                     const effective = activeRegistry.characters.find((item) => item.character.id === display.character.id);
-                    const available = effective && !effective.playerSelectable;
+                    const available = effective && !effective.playerSelectable && !display.diagnosticOnly;
                     const target = display.nodeId ?? targetNodeId;
                     return (
                       <CharacterRow
-                        key={`${display.inStorybook ? 'storybook' : entry?.tier}:${display.character.id}`}
+                        key={`${display.diagnosticOnly ? entry?.source : 'effective'}:${display.character.id}`}
                         display={display}
-                        onEdit={() => display.inStorybook ? onOpenStorybook() : onEditCharacter(display.retained
+                        onEdit={() => display.inStorybook ? onOpenStorybook(display.nodeId!) : onEditCharacter(display.retained
                           ? { character: display.character, tier: 'user', source: `snapshot:${display.character.id}`, fileName: `${display.character.name}.json` }
                           : entry!)}
                         issues={entry ? issuesFor(entry) : []}
@@ -257,7 +258,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
             <dl>{[
               ['Characters', entries.length],
               ['Playable', entries.filter((entry) => entry.playable).length],
-              ['Interacted', entries.filter((entry) => !entry.playable && (entry.hasActivity || entry.retained)).length],
+              ['Interacted / retained', entries.filter((entry) => !entry.playable && (entry.hasActivity || entry.retained)).length],
               ['RP copies', entries.filter((entry) => entry.retained).length],
               ['Built-in', libraryEntries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
               ['User-created', libraryEntries.filter((entry) => entry.tier === 'user' && !entry.editedBuiltIn).length],

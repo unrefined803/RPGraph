@@ -6,9 +6,13 @@ import type { RpStorybook } from '../nodes/rp-storybook/model';
 
 /** Inspect historical values only, never the character definitions or snapshot archive itself. */
 export function characterUsageReasons(character: Character, aliases: CharacterRegistryAliases, history: unknown, others: Character[] = []): string[] {
-  const identities = new Set([character.id, ...(aliases.characterIds ?? []),
-    ...Object.values(character.apps ?? {}).flatMap((account) => [account.accountId, account.username].filter(Boolean)),
-    ...Object.values(aliases.accountIds ?? {}).flat(), ...character.images.map((image) => image.id),
+  // Social directories persist prefixed character/account IDs, including legacy aliases.
+  const directoryIds = [character.id, ...(aliases.characterIds ?? []),
+    ...Object.values(character.apps ?? {}).map((account) => account.accountId),
+    ...Object.values(aliases.accountIds ?? {}).flat()];
+  const identities = new Set([...directoryIds.flatMap((id) => [id, `storybook:${id}`]),
+    ...Object.values(character.apps ?? {}).map((account) => account.username).filter(Boolean),
+    ...character.images.map((image) => image.id),
     ...Object.values(character.apps ?? {}).flatMap((account) => account.initialPosts?.map((post) => post.id) ?? [])]);
   const name = character.name.trim();
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
