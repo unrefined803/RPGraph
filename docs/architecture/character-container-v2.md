@@ -1316,11 +1316,11 @@ linking the character does not import it.
 The NPC Library view includes effective Storybook characters even when no
 library file exists. Playable rows sort before library-only NPCs. A compact
 left-to-right provenance chain shows only existing resolution layers, for
-example **Built-in › Local edit › Storybook edit**. The rightmost, highlighted
+example **Built-in › Library modified › Storybook modified**. The rightmost, highlighted
 stage is the active definition. A content-equivalent normalized local override is
-shown as **Local copy**; an altered one is **Local edit**. An unchanged playable
-import ends with **In Storybook**, while **Storybook original** means no library
-source exists. Playability is shown by the subtle green **Playable** action,
+shown as **Library copy**; an altered one is **Library modified**. An unchanged playable
+import ends with **Storybook copy**, while **Storybook only** means no library
+source or retained RP copy exists. Playability is shown by the subtle green **Playable** action,
 which changes to **Remove** on hover or keyboard focus. Library-only rows use
 **Make Playable**; Storybook rows open their owning Storybook editor.
 Ambiguous local files remain visible as diagnostic rows with promotion disabled;
@@ -1343,8 +1343,8 @@ the NPC Library folder. Retired revisions remain available to app histories
 and can later be promoted to playable again without changing their stable
 character, account, image, or initial-post identities.
 
-The NPC Library shows retained participant revisions as **RP snapshot** or
-**RP edit**, separately from playability and detected history/activity. A
+The NPC Library shows retained participant revisions as **RP copy** or
+**RP modified**, separately from playability and detected history/activity. A
 snapshot alone is not evidence of interaction because promotion itself may
 capture a recovery copy. **Interacted Characters** includes only non-playable
 entries with retained activity references. Snapshot-only entries appear under

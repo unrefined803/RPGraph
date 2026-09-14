@@ -261,7 +261,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
               ['Interacted', entries.filter((entry) => !entry.playable && entry.hasActivity).length],
               ['RP copies', entries.filter((entry) => entry.retained).length],
               ['Built-in', libraryEntries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
-              ['User-created', libraryEntries.filter((entry) => entry.tier === 'user' && !entry.editedBuiltIn).length],
+              ['Library files', libraryEntries.filter((entry) => entry.tier === 'user').length],
               ['Ignored files', snapshot?.skipped ?? 0],
             ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}</dl>
             <span className={diagnosticCount ? 'npc-library-warning' : 'npc-library-muted'}>{diagnosticCount} diagnostic{diagnosticCount === 1 ? '' : 's'}{diagnosticCount > 0 ? ' · Check the info icons' : ''}</span>

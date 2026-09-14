@@ -52,25 +52,27 @@ export function characterProvenanceStages(options: {
     stages.push(
       { label: 'Built-in', title: 'Bundled application character' },
       options.localEdited
-        ? { label: 'Local edit', title: 'Locally edited NPC file overrides the built-in character' }
-        : { label: 'Local copy', title: 'Local NPC file matches the built-in character' },
+        ? { label: 'Library modified', title: 'Local NPC Library file differs from the built-in character' }
+        : { label: 'Library copy', title: 'Local NPC Library file matches the built-in character' },
     );
   } else if (options.tier === 'bundled') {
     stages.push({ label: 'Built-in', title: 'Bundled application character' });
   } else if (options.tier === 'user') {
-    stages.push({ label: 'User-created', title: 'Character from the local NPC Library folder' });
+    stages.push({ label: 'Library file', title: 'Character file in the local NPC Library folder' });
   }
   if (options.retained) {
-    stages.push({ label: options.snapshotEdited ? 'RP edit' : 'RP snapshot',
-      title: 'Character revision retained in this RP and included in future saves, even if its library file is missing' });
+    stages.push({ label: options.snapshotEdited ? 'RP modified' : 'RP copy',
+      title: `${options.tier
+        ? options.snapshotEdited ? 'RP copy differs from the NPC Library version. ' : 'RP copy matches the NPC Library version. '
+        : ''}Character revision retained in this RP and included in future saves, even if its library file is missing` });
   }
   if (options.inStorybook) {
     if (!stages.length) {
-      stages.push({ label: 'Storybook original', title: 'Character exists only in the Storybook' });
+      stages.push({ label: 'Storybook only', title: 'Character exists only in the Storybook' });
     } else {
       stages.push(options.storybookEdited
-        ? { label: 'Storybook edit', title: 'The active Storybook character differs from its library source' }
-        : { label: 'In Storybook', title: 'The active Storybook character matches its library source' });
+        ? { label: 'Storybook modified', title: `The Storybook character differs from ${options.retained ? 'the retained RP copy' : 'the NPC Library version'}` }
+        : { label: 'Storybook copy', title: `The Storybook character matches ${options.retained ? 'the retained RP copy' : 'the NPC Library version'}` });
     }
   }
   return stages;

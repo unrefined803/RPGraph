@@ -35,17 +35,17 @@ describe('edited built-in library entries', () => {
   });
   it('shows resolution layers in priority order with the active layer last', () => {
     expect(characterProvenanceStages({ editedBuiltIn: true, localEdited: true, tier: 'user', inStorybook: true, storybookEdited: true })
-      .map((stage) => stage.label)).toEqual(['Built-in', 'Local edit', 'Storybook edit']);
+      .map((stage) => stage.label)).toEqual(['Built-in', 'Library modified', 'Storybook modified']);
     expect(characterProvenanceStages({ editedBuiltIn: true, localEdited: false, tier: 'user', inStorybook: false, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['Built-in', 'Local copy']);
+      .map((stage) => stage.label)).toEqual(['Built-in', 'Library copy']);
     expect(characterProvenanceStages({ tier: 'bundled', inStorybook: true, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['Built-in', 'In Storybook']);
+      .map((stage) => stage.label)).toEqual(['Built-in', 'Storybook copy']);
     expect(characterProvenanceStages({ inStorybook: true, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['Storybook original']);
+      .map((stage) => stage.label)).toEqual(['Storybook only']);
     expect(characterProvenanceStages({ tier: 'user', inStorybook: true, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['User-created', 'In Storybook']);
+      .map((stage) => stage.label)).toEqual(['Library file', 'Storybook copy']);
     expect(characterProvenanceStages({ tier: 'user', inStorybook: false, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['User-created']);
+      .map((stage) => stage.label)).toEqual(['Library file']);
   });
 });
 

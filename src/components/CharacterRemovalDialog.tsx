@@ -48,7 +48,7 @@ export function CharacterRemovalDialog({ info, blocked, canSave, onRemove, onClo
               <p>Deletes this character from the Storybook and current RP. NPC Library files stay unchanged.</p>
               {info.reasons.length > 0 && (
                 <p className="character-removal-reason">
-                  Cannot delete: {info.reasons.join(' ')} Keep as an NPC to preserve these references.
+                  Cannot delete: {info.reasons.join(' ')} Switch to NPC to preserve these references.
                 </p>
               )}
             </div>
@@ -59,17 +59,16 @@ export function CharacterRemovalDialog({ info, blocked, canSave, onRemove, onClo
           <div className="character-removal-option-card">
             <div className="character-removal-option-details">
               <div className="character-removal-option-title">
-                {info.matchesLibrary ? 'Make NPC' : 'Keep as NPC in this RP'}
+                Switch to NPC in this RP
               </div>
               <p>
-                {info.matchesLibrary
-                  ? 'Removes player control and keeps this version as an NPC in RP and Storybook saves.'
-                  : 'Removes player control and keeps this NPC in RP and Storybook saves, without saving to the NPC Library.'}
+                Removes player control and retains this version as an RP copy, including in RP and Storybook saves.
+                No NPC Library file is created or changed. You can make the character playable again later.
               </p>
             </div>
             <button type="button" className="character-removal-action-button" disabled={busy || blocked}
               onClick={() => void apply('npc')}>
-              {info.matchesLibrary ? 'Make NPC' : 'Keep NPC'}
+              Switch to NPC
             </button>
           </div>
 
@@ -77,17 +76,17 @@ export function CharacterRemovalDialog({ info, blocked, canSave, onRemove, onClo
             <div className="character-removal-option-card">
               <div className="character-removal-option-details">
                 <div className="character-removal-option-title">
-                  {info.localFileName ? 'Overwrite local NPC and remove' : 'Save to NPC Folder and remove'}
+                  {info.localFileName ? 'Overwrite Library File & Switch to NPC' : 'Save Character & Switch to NPC'}
                 </div>
                 <p>
                   {info.localFileName
-                    ? `Updates ${info.localFileName} with this version. The RP copy is also retained.`
-                    : 'Save this version as an NPC character container. The RP copy is also retained.'}
+                    ? `Overwrites ${info.localFileName} in the NPC Library with this version, then switches the character to an NPC in this RP. The RP copy is also retained.`
+                    : 'Saves this version as a character file in the NPC Library, then switches the character to an NPC in this RP. The RP copy is also retained.'}
                 </p>
               </div>
               <button type="button" className="character-removal-action-button primary" disabled={busy || blocked || !canSave}
                 onClick={() => void apply('save', !!info.localFileName)}>
-                {info.localFileName ? 'Overwrite' : 'Save & Remove'}
+                {info.localFileName ? 'Overwrite & Switch to NPC' : 'Save Character & Switch to NPC'}
               </button>
             </div>
           )}
