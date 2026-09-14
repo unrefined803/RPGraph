@@ -1,3 +1,5 @@
+import { characterUsageReasons } from '../characters/lifecycle';
+import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { useMemo, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
@@ -8,6 +10,10 @@ import { characterContentEqual } from '../characters/contentComparison';
 
 type NpcLibraryDialogProps = {
   snapshot: NpcLibrarySnapshot | null;
+  participants?: NpcParticipantSnapshots;
+  activity?: unknown;
+  busy?: boolean;
+  onRemove?: (characterId: string, nodeId: string) => void;
   activeRegistry: EffectiveCharacterRegistry;
   loading: boolean;
   status: string;
@@ -29,10 +35,15 @@ type DisplayEntry = {
   inStorybook: boolean;
   storybookEdited: boolean;
   localEdited: boolean;
+  playable: boolean;
+  nodeId?: string;
+  retained: boolean;
+  hasActivity: boolean;
+  snapshotEdited: boolean;
 };
 
-function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
-  display: DisplayEntry; issues: string[]; canImport: boolean; onImport: () => void; onEdit: () => void;
+function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }: {
+  display: DisplayEntry; issues: string[]; canImport: boolean; onImport: () => void; onEdit: () => void; onRemove?: () => void;
 }) {
   const { character, libraryEntry, inStorybook, storybookEdited, localEdited } = display;
   const { apps, used, unused, initials } = useMemo(() => characterLibrarySummary(character), [character]);
@@ -41,7 +52,7 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
   const [failedPortrait, setFailedPortrait] = useState('');
   const provenance = characterProvenanceStages({
     tier: libraryEntry?.tier, editedBuiltIn: libraryEntry?.editedBuiltIn,
-    localEdited, inStorybook, storybookEdited,
+    localEdited, inStorybook, storybookEdited, retained: display.retained, snapshotEdited: display.snapshotEdited,
   });
   return (
     <li className="npc-library-row">
@@ -62,6 +73,7 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
               </span>
             </span>)}
           </span>
+          {display.hasActivity && <span className="npc-library-muted" title="Referenced by this RP’s history or saved activity">History / activity</span>}
         </div>
       </div>
       <div className="npc-library-accounts">
@@ -86,10 +98,11 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
         <span>Images</span><strong>{used} <small>used</small></strong><strong>{unused} <small>unused</small></strong>
       </div>
       <div className="npc-library-row-actions">
-        <button type="button" onClick={onEdit}>{inStorybook ? 'Open Storybook' : 'View / Edit Character'}</button>
-        <button type="button" className={`primary${inStorybook ? ' playable-active' : ''}`} disabled={!canImport}
-          title={inStorybook ? 'This character is available as a playable Storybook character' : undefined}
-          onClick={onImport}>{inStorybook ? 'Playable' : 'Add as Playable'}</button>
+        <button type="button" onClick={onEdit}>{inStorybook ? 'Open Storybook' : display.retained ? 'View RP Character' : 'View / Edit Character'}</button>
+        <button type="button" className={`primary${display.playable ? ' playable-active' : ''}`} disabled={!canImport}
+          title={display.playable ? 'This character is playable. Use Remove to return it to an NPC.' : undefined}
+          onClick={onImport}>{display.playable ? 'Playable' : 'Make Playable'}</button>
+        {display.playable && onRemove && <button type="button" className="character-delete-button" onClick={onRemove}>Remove</button>}
       </div>
       {issues.length > 0 && <details className="npc-library-row-issues">
         <summary aria-label={`Diagnostics for ${character.name}: ${issues.length}`} title="Show character diagnostics">ⓘ</summary>
@@ -99,7 +112,7 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
   );
 }
 
-export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy = false, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
   const [importStatus, setImportStatus] = useState('');
   const targetNodeId = storybookNodeId ?? '';
   const libraryEntries = useMemo(() => visibleLibraryEntries(snapshot?.entries ?? []), [snapshot]);
@@ -107,28 +120,32 @@ export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, st
     const byId = new Map(libraryEntries.map((entry) => [entry.character.id, entry]));
     const bundledById = new Map((snapshot?.entries ?? []).filter((entry) => entry.tier === 'bundled')
       .map((entry) => [entry.character.id, entry.character]));
-    const storybookCharacters = activeRegistry.characters.filter((entry) => entry.provenance.tier === 'storybook');
-    const storybookIds = new Set(storybookCharacters.map((entry) => entry.character.id));
-    const display: DisplayEntry[] = storybookCharacters.map((entry) => {
-      const libraryEntry = byId.get(entry.character.id);
-      const bundled = bundledById.get(entry.character.id);
-      return {
-        character: entry.character,
-        libraryEntry,
-        inStorybook: true,
-        storybookEdited: !!libraryEntry && !characterContentEqual(entry.character, libraryEntry.character),
-        localEdited: !!libraryEntry?.editedBuiltIn && !!bundled &&
-          !characterContentEqual(libraryEntry.character, bundled),
+    const display: DisplayEntry[] = activeRegistry.characters.map((effective) => {
+      const character = effective.character;
+      const libraryEntry = byId.get(character.id);
+      const bundled = bundledById.get(character.id);
+      const saved = participants[character.id]?.character;
+      const inStorybook = effective.provenance.tier === 'storybook';
+      const source = saved ?? libraryEntry?.character;
+      return { character, libraryEntry, inStorybook,
+        playable: effective.playerSelectable, nodeId: inStorybook ? effective.provenance.source : undefined,
+        retained: !!saved || effective.provenance.tier === 'snapshot',
+        hasActivity: characterUsageReasons(character, effective.aliases, activity).length > 0,
+        snapshotEdited: !!saved && !!libraryEntry && !characterContentEqual(saved, libraryEntry.character),
+        storybookEdited: inStorybook && !!source && !characterContentEqual(character, source),
+        localEdited: !!libraryEntry?.editedBuiltIn && !!bundled && !characterContentEqual(libraryEntry.character, bundled),
       };
     });
-    display.push(...libraryEntries.filter((entry) => !storybookIds.has(entry.character.id)).map((entry) => ({
+    // Keep quarantined files accessible for diagnostics.
+    display.push(...libraryEntries.filter((entry) => !display.some((row) => row.character.id === entry.character.id)).map((entry) => ({
       character: entry.character, libraryEntry: entry, inStorybook: false, storybookEdited: false,
       localEdited: !!entry.editedBuiltIn && !!bundledById.get(entry.character.id) &&
         !characterContentEqual(entry.character, bundledById.get(entry.character.id)!),
+      playable: false, retained: false, hasActivity: false, snapshotEdited: false,
     })));
-    return display.sort((left, right) => Number(right.inStorybook) - Number(left.inStorybook) ||
+    return display.sort((left, right) => Number(right.playable) - Number(left.playable) ||
       left.character.name.localeCompare(right.character.name));
-  }, [activeRegistry, libraryEntries, snapshot]);
+  }, [activeRegistry, libraryEntries, snapshot, participants, activity]);
   const issuesFor = (entry: NpcLibraryEntry) => [
     ...(snapshot?.diagnostics ?? []).filter((item) => item.tier === entry.tier && item.fileName === entry.fileName).map((item) => item.message),
     ...activeRegistry.diagnostics.filter((item) => item.characterIds.includes(entry.character.id)).map((item) => item.message),
@@ -148,13 +165,16 @@ export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, st
           {entries.length ? <ul className="npc-library-list">{entries.map((display) => {
             const entry = display.libraryEntry;
             const effective = activeRegistry.characters.find((item) => item.character.id === display.character.id);
-            const available = entry && effective && effective.provenance.tier !== 'storybook' &&
-              (effective.provenance.tier === 'snapshot' || (effective.provenance.tier === entry.tier && effective.provenance.source === entry.source));
+            const available = effective && !effective.playerSelectable;
+            const target = display.nodeId ?? targetNodeId;
             return <CharacterRow key={`${display.inStorybook ? 'storybook' : entry?.tier}:${display.character.id}`} display={display}
-              onEdit={() => display.inStorybook ? onOpenStorybook() : entry && onEditCharacter(entry)} issues={entry ? issuesFor(entry) : []}
-              canImport={!!available && !loading && !!targetNodeId} onImport={() => {
+              onEdit={() => display.inStorybook ? onOpenStorybook() : onEditCharacter(display.retained
+                ? { character: display.character, tier: 'user', source: `snapshot:${display.character.id}`, fileName: `${display.character.name}.json` }
+                : entry!)} issues={entry ? issuesFor(entry) : []}
+              onRemove={onRemove && display.nodeId && !busy ? () => onRemove(display.character.id, display.nodeId!) : undefined}
+              canImport={!!available && !loading && !busy && !!target} onImport={() => {
                 try {
-                  onAddToStorybook(display.character.id, targetNodeId);
+                  onAddToStorybook(display.character.id, target);
                   setImportStatus(`Added ${display.character.name} as a playable Storybook character. Save the Storybook or RP to keep this change.`);
                 } catch (error) {
                   setImportStatus(`Character import failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -172,7 +192,8 @@ export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, st
           </div>
           <section className="npc-library-statistics"><h3>Statistics</h3>
             <dl>{[
-              ['Characters', entries.length], ['Playable', entries.filter((entry) => entry.inStorybook).length],
+              ['Characters', entries.length], ['Playable', entries.filter((entry) => entry.playable).length],
+              ['RP copies', entries.filter((entry) => entry.retained).length],
               ['Built-in', libraryEntries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
               ['User-created', libraryEntries.filter((entry) => entry.tier === 'user' && !entry.editedBuiltIn).length], ['Ignored files', snapshot?.skipped ?? 0],
             ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}</dl>

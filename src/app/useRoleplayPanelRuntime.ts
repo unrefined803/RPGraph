@@ -299,6 +299,10 @@ export function useRoleplayPanelRuntime({
       )
     );
   }
+  if (selectedCharacterId && selectedCharacterId !== narratorCharacterId &&
+      !playerCharacters.some((character) => character.id === selectedCharacterId)) {
+    setSelectedCharacterId(playerCharacters[0]?.id ?? narratorCharacterId);
+  }
   const selectedCharacter =
     selectedCharacterId === narratorCharacterId
       ? undefined

@@ -25,6 +25,7 @@ type StorybookEditorDialogProps = {
   referenceCharacters?: Character[];
   node: WorkflowNode;
   identityLocked?: boolean;
+  onRemoveCharacter?: (characterId: string) => void;
   onExportCharacter?: (characterId: string) => Promise<void>;
   onImportCharacter?: () => Promise<void>;
   // Returns a blocking error message (e.g. a running-story guard violation), or
@@ -171,7 +172,7 @@ function StorybookFieldsEditor({ draft, onChange, referenceCharacters }: FieldsE
   );
 }
 
-export function StorybookEditorDialog({ referenceCharacters = [], node, identityLocked = false, onExportCharacter, onImportCharacter, onCommit, onClose }: StorybookEditorDialogProps) {
+export function StorybookEditorDialog({ referenceCharacters = [], node, identityLocked = false, onRemoveCharacter, onExportCharacter, onImportCharacter, onCommit, onClose }: StorybookEditorDialogProps) {
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
   // Track parse validity so an Apply can't overwrite unparseable stored JSON
   // with empty/edited content (the fallback would otherwise be silent).
@@ -379,6 +380,7 @@ export function StorybookEditorDialog({ referenceCharacters = [], node, identity
                 const error = onCommit({ ...storybook, characters: storybook.characters.map((entry) => entry.id === next.id ? next : entry) }, 'Character profile saved.');
                 if (error) setStatus(error); return !error;
               }} />
+            {onRemoveCharacter && <button type="button" className="character-delete-button" onClick={() => onRemoveCharacter(character.id)}>Remove</button>}
             {onExportCharacter && <button type="button" onClick={() => void onExportCharacter(character.id)}>Export Character</button>}
           </div>)}
         </details>

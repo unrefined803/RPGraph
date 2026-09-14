@@ -17,6 +17,8 @@ export type CharacterRegistryEntry = {
   /** A filename, saved-snapshot key, or Storybook node ID used for diagnostics only. */
   source: string;
   aliases?: CharacterRegistryAliases;
+  /** Preserve starting-post identities when a Storybook original becomes an NPC. */
+  npcOrigin?: boolean;
 };
 
 type CharacterRegistryDiagnosticCode =
@@ -145,7 +147,9 @@ export function buildCharacterRegistry(entries: CharacterRegistryEntry[]): Effec
       ) },
       provenance: { tier: winner.tier, source: winner.source },
       aliases: winnerAliases(candidates, winner),
-      npcOrigin: winner.tier !== 'storybook' || candidates.some((entry) => entry.tier === 'snapshot'),
+      npcOrigin: winner.tier === 'storybook'
+        ? candidates.some((entry) => entry.tier === 'snapshot' && entry.npcOrigin !== false)
+        : winner.npcOrigin ?? true,
       playerSelectable: winner.tier === 'storybook' && winner.character.playable !== false,
     } satisfies EffectiveCharacter;
   });

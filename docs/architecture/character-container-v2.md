@@ -1331,6 +1331,23 @@ portrait crops, relationships, configuration and initial posts remain meaningful
 changes. Live timeline posts are not compared; exporting them as initial posts
 adds authored content and can therefore produce an edit status.
 
+Playable membership is reversible. Removing a playable character opens a
+choice instead of immediately deleting it. An unused character may be deleted
+from the Storybook without deleting a bundled or local library file. A used
+character can be retired as a non-playable NPC; its exact revision is retained
+in the RP participant archive and in portable Opening History. A changed
+revision may additionally be saved to or overwrite a character container in
+the NPC Library folder. Retired revisions remain available to app histories
+and can later be promoted to playable again without changing their stable
+character, account, image, or initial-post identities.
+
+The NPC Library shows retained participant revisions as **RP snapshot** or
+**RP edit**, separately from playability and detected history/activity. A
+snapshot alone is not evidence of interaction because promotion itself may
+capture a recovery copy. Deletion eligibility therefore inspects references
+owned by the selected character rather than treating any chat or Opening
+History in the story as a global lock.
+
 Formatted Text includes **Contacts & Relationships** by default and allows it to
 be disabled. **Hidden Agency** is independently selectable and defaults to off.
 The other character-context outputs include relationships, and app recipient

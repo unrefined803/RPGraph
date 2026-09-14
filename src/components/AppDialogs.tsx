@@ -3606,19 +3606,11 @@ export function StorybookCreatorDialog({
                                 <button
                                   type="button"
                                   className="character-delete-button nodrag"
-                                  aria-label={`Delete ${character.name || character.id}`}
-                                  title={`Delete ${character.name || character.id}`}
-                                  onClick={() => askConfirm({
-                                    title: 'Delete Character',
-                                    message: `Delete ${character.name || character.id} from this Storybook? This cannot be undone.`,
-                                    confirmLabel: 'Delete Character',
-                                    danger: true,
-                                    action: () => onDeleteCharacter(character.id),
-                                  })}
+                                  aria-label={`Remove ${character.name || character.id}`}
+                                  title={`Remove ${character.name || character.id}`}
+                                  onClick={() => onDeleteCharacter(character.id)}
                                 >
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6" />
-                                  </svg>
+                                  Remove
                                 </button>
                               </div>
                             </article>

@@ -10,7 +10,7 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
   return registry.characters.map(({ character, provenance, aliases, npcOrigin, playerSelectable }) => {
     const portrait = character.images.find((image) => image.id === character.profileImage?.imageId);
     return {
-      id: provenance.tier === 'storybook' ? aliases.characterIds?.[0] ?? character.id : character.id,
+      id: provenance.tier === 'storybook' || provenance.tier === 'snapshot' ? aliases.characterIds?.[0] ?? character.id : character.id,
       sourceId: character.id, storybookNodeId: provenance.tier === 'storybook' ? provenance.source : '',
       libraryNpc: provenance.tier !== 'storybook', npcOrigin, playerSelectable, identityAliases: aliases,
       kind: 'character', name: character.name, label: character.name,

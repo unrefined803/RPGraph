@@ -1,5 +1,5 @@
 import { appCharactersFromRegistry } from './appRuntime';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { MessageRecord, WorkflowNode } from '../types';
 import type { NpcLibrarySnapshot } from './npcLibrary';
 import { buildCharacterRegistry } from './registry';
@@ -16,13 +16,15 @@ import {
 import type { Character } from './character';
 
 export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, library: NpcLibrarySnapshot | null) {
+  const [, setRevision] = useState(0);
   const snapshotsRef = useRef<NpcParticipantSnapshots>({});
   const entries = () => [...(library?.entries ?? []), ...storybookRegistryEntries(nodesRef.current)];
   const registryForStorybook = (nodeId: string, characters: Character[], options?: StorybookRegistryCandidateOptions) =>
     candidateStorybookRegistry(entries(), snapshotsRef.current, nodeId, characters, options);
   const capture = (references: NpcParticipantReference[]) => {
     if (!references.length) return;
-    snapshotsRef.current = captureNpcParticipants(snapshotsRef.current, entries(), references);
+    const next = captureNpcParticipants(snapshotsRef.current, entries(), references);
+    if (next !== snapshotsRef.current) { snapshotsRef.current = next; setRevision((revision) => revision + 1); }
   };
   return {
     current: () => snapshotsRef.current,
@@ -31,7 +33,7 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
     characters: () => appCharactersFromRegistry(buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)])),
     capture,
     captureMessages: (messages: MessageRecord[]) => capture(npcReferencesFromMessages(messages)),
-    restore: (snapshots: NpcParticipantSnapshots) => { snapshotsRef.current = parseNpcParticipantSnapshots(snapshots); },
+    restore: (snapshots: NpcParticipantSnapshots) => { snapshotsRef.current = parseNpcParticipantSnapshots(snapshots); setRevision((revision) => revision + 1); },
     reset: () => { snapshotsRef.current = {}; },
     importOpeningHistory: (nodes: WorkflowNode[], replace: boolean) => {
       const opening = openingHistoryNpcParticipantsFromNodes(nodes);

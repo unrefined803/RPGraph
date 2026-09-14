@@ -37,7 +37,7 @@ export type CharacterProvenanceStage = { label: string; title: string };
 /** Ordered resolution layers for the compact NPC Library provenance chain. */
 export function characterProvenanceStages(options: {
   tier?: 'bundled' | 'user'; editedBuiltIn?: boolean; localEdited?: boolean;
-  inStorybook: boolean; storybookEdited: boolean;
+  inStorybook: boolean; storybookEdited: boolean; retained?: boolean; snapshotEdited?: boolean;
 }): CharacterProvenanceStage[] {
   const stages: CharacterProvenanceStage[] = [];
   if (options.editedBuiltIn) {
@@ -51,6 +51,10 @@ export function characterProvenanceStages(options: {
     stages.push({ label: 'Built-in', title: 'Bundled application character' });
   } else if (options.tier === 'user') {
     stages.push({ label: 'User-created', title: 'Character from the local NPC Library folder' });
+  }
+  if (options.retained) {
+    stages.push({ label: options.snapshotEdited ? 'RP edit' : 'RP snapshot',
+      title: 'Character revision retained in this RP and included in future saves, even if its library file is missing' });
   }
   if (options.inStorybook) {
     if (!stages.length) {

@@ -1,3 +1,5 @@
+import { CharacterRemovalDialog } from './components/CharacterRemovalDialog';
+import { createCharacterContainer } from './characters/creator';
 import { shieldTranslationAccountLinks, restoreTranslationAccountLinks } from './chat/accountLinks';
 import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
@@ -249,6 +251,7 @@ import {
   emptyRpStorybook,
   isEmptyRpStorybook,
   parseRpStorybookJson,
+  parseNodeStorybookJson,
   type RpStorybookCharacterImage,
   type RpStorybook,
 } from './nodes/rp-storybook/model';
@@ -616,6 +619,7 @@ type PreviewImageState = {
 
 function App() {
   const npcLibrary = useNpcLibrary();
+  const [characterRemoval, setCharacterRemoval] = useState<{ nodeId: string; characterId: string } | null>(null);
   const [characterAssistantEntry, setCharacterAssistantEntry] = useState<import('./characters/npcLibrary').NpcLibraryEntry | undefined>();
   const [showCharacterAssistant, setShowCharacterAssistant] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
@@ -868,6 +872,8 @@ function App() {
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot);
+  const lifecycleRunningRef = useRef(isRunning);
+  useEffect(() => { lifecycleRunningRef.current = isRunning; }, [isRunning]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const characterDropdownRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -1509,7 +1515,8 @@ function App() {
     resetStorybook,
     importSillyTavernCharacter,
     exportStorybookCharacter,
-    deleteStorybookCharacter,
+    removeStorybookCharacter,
+    removalInfo,
     importCharacterCard,
     showCharacterFiles,
     characterFiles,
@@ -1547,6 +1554,21 @@ function App() {
     notifySystem,
     usedStorybookImageIds,
     currentNpcParticipants: npcParticipants.current,
+    restoreNpcParticipants: npcParticipants.restore,
+    commitLifecycleNodes: (nextNodes) => commitNodes(nextNodes),
+    currentLibraryEntries: () => npcLibrary.snapshot?.entries ?? [],
+    lifecycleBusy: () => lifecycleRunningRef.current,
+    saveNpcCharacter: async (character, overwrite) => {
+      if (!window.rpgraph?.saveCharacter) throw new Error('Saving requires the desktop application.');
+      const library = await window.rpgraph.reloadNpcLibrary();
+      const matches = library.entries.filter((entry) => entry.tier === 'user' && entry.character.id === character.id);
+      if (matches.length > 1) throw new Error('Multiple local NPC files use this identity. Resolve the duplicate files first.');
+      if (matches.length && !overwrite) throw new Error('A local NPC with this identity now exists. Reopen Remove to review the overwrite option.');
+      const name = matches[0]?.fileName.replace(/\.json$/i, '') ?? character.name;
+      const result = await window.rpgraph.saveCharacter(name, createCharacterContainer(character, true), 'plain', '', !!matches.length && overwrite, 'npc-characters');
+      if (result.conflict) throw new Error('A different NPC file already uses this filename. Save through Export Character with a unique filename first.');
+      await npcLibrary.reload();
+    },
     currentCharacterRegistry: npcParticipants.registry,
     characterRegistryForStorybook: npcParticipants.registryForStorybook,
     currentTimelineMessages: () => messagesRef.current,
@@ -6010,7 +6032,7 @@ function App() {
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
           onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}
-          onDeleteCharacter={(characterId) => deleteStorybookCharacter(storybookCreatorNode.id, characterId)}
+          onDeleteCharacter={(characterId) => setCharacterRemoval({ nodeId: storybookCreatorNode.id, characterId })}
           pendingConversion={
             pendingStorybookConversion?.nodeId === storybookCreatorNode.id
               ? pendingStorybookConversion
@@ -6029,6 +6051,7 @@ function App() {
           referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)}
           node={storybookEditorNode}
           identityLocked={messages.length > 0}
+          onRemoveCharacter={(characterId) => setCharacterRemoval({ nodeId: storybookEditorNode.id, characterId })}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookEditorNode.id, characterId)}
           onImportCharacter={() => importCharacterCard(storybookEditorNode.id)}
           onCommit={(storybook, status) =>
@@ -6424,6 +6447,12 @@ function App() {
           snapshot={npcLibrary.snapshot} onSaved={async () => { await npcLibrary.reload(); }}
           onClose={() => setShowCharacterAssistant(false)} />
       )}
+      {characterRemoval && npcParticipants.registry().characters.some((entry) => entry.character.id === characterRemoval.characterId && entry.provenance.tier === 'storybook' && entry.provenance.source === characterRemoval.nodeId) && <CharacterRemovalDialog
+        key={`${characterRemoval.nodeId}:${characterRemoval.characterId}`}
+        info={removalInfo(characterRemoval.nodeId, characterRemoval.characterId)}
+        blocked={isRunning} canSave={!!window.rpgraph?.saveCharacter}
+        onRemove={(mode, overwrite) => removeStorybookCharacter(characterRemoval.nodeId, characterRemoval.characterId, mode, overwrite)}
+        onClose={() => setCharacterRemoval(null)} />}
       {npcLibrary.open && !showCharacterAssistant && (
         <NpcLibraryDialog
           onCreateCharacter={() => { setCharacterAssistantEntry(undefined); setShowCharacterAssistant(true); }}
@@ -6435,10 +6464,17 @@ function App() {
           }}
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
+          participants={npcParticipants.current()}
+          activity={[messages, turns, socialLikesByAccount, persistedSocialConnectionsByCharacter,
+            phoneNotesByCharacter, chatGpdChatsByCharacter,
+            nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory)]}
+          onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
+          busy={isRunning}
           storybookNodeId={nodes.find(isStorybookSourceNode)?.id}
           onAddToStorybook={(characterId, nodeId) => {
             const previous = npcParticipants.current();
             try {
+              if (isRunning) throw new Error('Wait for the current generation to finish.');
               const card = npcPromotionCard(npcParticipants.registry(), characterId);
               npcParticipants.capture([{ kind: 'character', id: characterId }]);
               applyCharacterCardToNode(nodeId, card, 'NPC Library');

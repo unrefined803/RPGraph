@@ -14906,12 +14906,12 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .character-delete-button {
-  display: grid;
-  width: 30px;
-  height: 30px;
+  display: inline-grid;
+  width: auto;
+  min-height: 30px;
   flex: none;
   place-items: center;
-  padding: 0;
+  padding: 4px 10px;
   border: 1px solid rgba(239, 111, 111, 0.35);
   border-radius: 6px;
   color: #f0a0a0;
@@ -24836,3 +24836,10 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .phone-onlyfriends-monogram { font-size: calc(var(--phone-icon, 52px) * 0.3); font-weight: 700; letter-spacing: -0.04em; }
+
+
+.character-removal-backdrop { z-index: 10050; }
+.character-removal-dialog { width: min(540px, 90vw); max-height: 85vh; overflow: auto; padding: 24px; border: 1px solid #465064; border-radius: 14px; background: #202633; color: #e0e5ef; }
+.character-removal-options { display: grid; gap: 8px; margin: 20px 0; }
+.character-removal-options p { margin: 0 0 12px; color: #aeb8cc; }
+.character-delete-button:disabled { opacity: 0.45; cursor: not-allowed; }

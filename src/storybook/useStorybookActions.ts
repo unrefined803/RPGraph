@@ -1,3 +1,6 @@
+import { characterUsageReasons, characterRemovalInfo, storybookWithRetiredCharacter } from '../characters/lifecycle';
+import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
+import type { NpcLibraryEntry } from '../characters/npcLibrary';
 import { characterReferenceCandidates, hydrateAddedCharacterReferences, relationshipReferenceContext, validateRelationshipTargets } from '../characters/relationships';
 import { planCharacterImportToNode } from '../characters/promotion';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
@@ -12,6 +15,7 @@ import type { StorybookCreatorMessage } from '../components/AppDialogs';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import {
   emptyRpStorybook,
+  normalizeRpStorybookCharacter,
   storybookNeedsUpdate,
   parseRpStorybookAssistantResult,
   parseRpStorybookJson,
@@ -87,9 +91,14 @@ type UseStorybookActionsOptions = {
   turnsRef: MutableRefObject<TurnRecord[]>;
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
   currentNpcParticipants: () => NpcParticipantSnapshots;
+  commitLifecycleNodes?: (nodes: WorkflowNode[]) => void;
+  restoreNpcParticipants?: (snapshots: NpcParticipantSnapshots) => void;
+  currentLibraryEntries?: () => NpcLibraryEntry[];
+  lifecycleBusy?: () => boolean;
+  saveNpcCharacter?: (character: RpStorybook['characters'][number], overwrite: boolean) => Promise<void>;
   currentCharacterRegistry: () => EffectiveCharacterRegistry;
   characterRegistryForStorybook: (nodeId: string, characters: RpStorybook['characters'], options?: {
-    replaceExisting?: boolean; openingSnapshots?: NpcParticipantSnapshots;
+    replaceExisting?: boolean; openingSnapshots?: NpcParticipantSnapshots; participantSnapshots?: NpcParticipantSnapshots;
   }) => EffectiveCharacterRegistry;
   currentTimelineMessages: () => import('../types').MessageRecord[];
   currentSocialLikesByAccount: () => Record<string, string[]>;
@@ -124,6 +133,7 @@ export function useStorybookActions({
   turnsRef,
   turnCheckpointsRef,
   currentNpcParticipants,
+  restoreNpcParticipants, currentLibraryEntries, lifecycleBusy, saveNpcCharacter, commitLifecycleNodes,
   currentCharacterRegistry,
   characterRegistryForStorybook,
   currentTimelineMessages,
@@ -200,7 +210,7 @@ export function useStorybookActions({
     nodeId: string,
     storybook: ReturnType<typeof parseRpStorybookJson>,
     patch: Partial<WorkflowNodeData>,
-    options?: { replaceExisting?: boolean },
+    options?: { replaceExisting?: boolean; participantSnapshots?: NpcParticipantSnapshots; changedParticipantId?: string; dryRun?: boolean },
   ): string | null {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (!node || !isStorybookSourceNode(node)) {
@@ -215,14 +225,16 @@ export function useStorybookActions({
         currentStorybook,
         storybook,
       );
+    let candidateRegistry: EffectiveCharacterRegistry;
     let registryWarnings: ReturnType<typeof validateCandidateCharacterRegistry>;
     try {
       validateCharacterAccountDirectory(committedStorybook.characters);
       committedStorybook.characters.forEach((character) => validateCharacterPayload(characterPayload(character)));
       const currentRegistry = currentCharacterRegistry();
-      const candidateRegistry = characterRegistryForStorybook(nodeId, committedStorybook.characters, {
+      candidateRegistry = characterRegistryForStorybook(nodeId, committedStorybook.characters, {
         replaceExisting: options?.replaceExisting,
         openingSnapshots: committedStorybook.openingHistory.npcParticipants,
+        participantSnapshots: options?.participantSnapshots,
       });
       registryWarnings = validateCandidateCharacterRegistry(currentRegistry, candidateRegistry);
       const openingMessages = committedStorybook.openingHistory.turns.flatMap((turn) =>
@@ -249,9 +261,19 @@ export function useStorybookActions({
       return null;
     }
     if (node && isStorybookSourceNode(node)) {
+      const retained = options?.participantSnapshots
+        ? currentStorybook.characters.filter((character) => !committedStorybook.characters.some((next) => next.id === character.id))
+          .flatMap((character) => options.participantSnapshots?.[character.id]?.character ?? []) : [];
+      const effectiveNext = { ...committedStorybook, characters: [...committedStorybook.characters,
+        ...retained.map((character) => normalizeRpStorybookCharacter(character, 0, new Set()))] };
+      const removed = currentStorybook.characters.filter((character) => !effectiveNext.characters.some((next) => next.id === character.id));
+      for (const character of removed) {
+        const reasons = removalInfo(nodeId, character.id).reasons;
+        if (reasons.length) return `Cannot delete ${character.name}: ${reasons.join(' ')} Use Make NPC to retain this character.`;
+      }
       const removedImageIds = usedStorybookImageIdsRemoved(
         currentStorybook,
-        committedStorybook,
+        effectiveNext,
         usedStorybookImageIds,
       );
       if (removedImageIds.length > 0) {
@@ -261,7 +283,8 @@ export function useStorybookActions({
         return message;
       }
       if (storyHistoryPresent(currentStorybook)) {
-        const violations = rpStorybookIdentityLockViolations(currentStorybook, committedStorybook);
+        const violations = rpStorybookIdentityLockViolations({ ...currentStorybook, characters: currentStorybook.characters.filter((character) =>
+          effectiveNext.characters.some((next) => next.id === character.id)) }, effectiveNext);
         if (violations.length > 0) {
           const message = violations.join(' ');
           updateRuntimeNode(nodeId, { storybookStatus: violations[0] });
@@ -269,6 +292,28 @@ export function useStorybookActions({
           return message;
         }
       }
+    }
+    if (options?.participantSnapshots) {
+      // Commit every portable copy together: intermediate mixed revisions are invalid.
+      const nextNodes = nodesRef.current.map((other): WorkflowNode => {
+        if (other.id === nodeId) return { ...other, data: { ...other.data, ...patch, storybookJson: rpStorybookJsonText(committedStorybook) } as WorkflowNodeData };
+        if (!isStorybookSourceNode(other) || !other.data.storybookJson) return other;
+        const otherBook = parseRpStorybookJson(other.data.storybookJson);
+        const archive = otherBook.openingHistory.npcParticipants ?? {};
+        const id = options.changedParticipantId;
+        if (!id || !archive[id]) return other;
+        const nextArchive = { ...archive };
+        if (options.participantSnapshots![id]) nextArchive[id] = options.participantSnapshots![id];
+        else delete nextArchive[id];
+        return { ...other, data: { ...other.data, storybookJson: rpStorybookJsonText({ ...otherBook,
+          openingHistory: { ...otherBook.openingHistory, npcParticipants: nextArchive } }) } };
+      });
+      openingHistoryNpcParticipantsFromNodes(nextNodes);
+      if (options.dryRun) return null;
+      restoreNpcParticipants?.(options.participantSnapshots);
+      if (commitLifecycleNodes) commitLifecycleNodes(nextNodes);
+      else nextNodes.forEach((next) => { if (next !== nodesRef.current.find((entry) => entry.id === next.id)) updateRuntimeNode(next.id, next.data); });
+      return null;
     }
     updateRuntimeNode(nodeId, {
       ...patch,
@@ -441,29 +486,64 @@ export function useStorybookActions({
     }
   }
 
-  function deleteStorybookCharacter(nodeId: string, characterId: string) {
+  function removalInfo(nodeId: string, characterId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
-      return;
+    if (!node?.data.storybookJson) throw new Error('The Storybook is no longer available.');
+    const book = parseRpStorybookJson(node.data.storybookJson);
+    const character = book.characters.find((entry) => entry.id === characterId);
+    if (!character) throw new Error('The character is no longer in this Storybook.');
+    const effective = currentCharacterRegistry().characters.find((entry) => entry.character.id === characterId);
+    const local = (currentLibraryEntries?.() ?? []).filter((entry) => entry.character.id === characterId);
+    const users = local.filter((entry) => entry.tier === 'user');
+    const library = users.length === 1 ? users[0] : users.length ? undefined : local.find((entry) => entry.tier === 'bundled');
+    const history = [currentTimelineMessages(), turnsRef.current,
+      nodesRef.current.flatMap<unknown>((entry) => isStorybookSourceNode(entry) && entry.data.storybookJson
+        ? [parseRpStorybookJson(entry.data.storybookJson).openingHistory] : entry.data.eventAppointments ?? []),
+      currentSocialLikesByAccount?.(), currentSocialConnectionsByCharacter?.(),
+      currentPhoneNotesByCharacter?.(), currentChatGpdChatsByCharacter?.()];
+    const reasons = characterUsageReasons(character, effective?.aliases ?? {}, history,
+      currentCharacterRegistry().characters.map((entry) => entry.character));
+    return { ...characterRemovalInfo(character, library?.character, reasons),
+      localFileName: users.length === 1 ? users[0].fileName : undefined };
+  }
+
+  async function removeStorybookCharacter(nodeId: string, characterId: string, mode: 'delete' | 'npc' | 'save', overwrite = false) {
+    if (lifecycleBusy?.()) throw new Error('Wait for the current generation to finish.');
+    const node = nodesRef.current.find((entry) => entry.id === nodeId);
+    if (!node || !isStorybookSourceNode(node) || !node.data.storybookJson) throw new Error('The Storybook is no longer available.');
+    const book = parseRpStorybookJson(node.data.storybookJson);
+    const character = book.characters.find((entry) => entry.id === characterId);
+    const effective = currentCharacterRegistry().characters.find((entry) => entry.character.id === characterId);
+    if (!character || !effective || effective.provenance.source !== nodeId) throw new Error('The character is no longer available in this Storybook.');
+    if (mode === 'delete' && removalInfo(nodeId, characterId).reasons.length) throw new Error('This character is in use. Keep it as an NPC instead.');
+    const previousParticipants = currentNpcParticipants?.();
+    const participants = { ...(previousParticipants ?? {}) };
+    let next: RpStorybook;
+    if (mode === 'delete') {
+      next = storybookWithoutCharacter(book, characterId);
+      delete participants[characterId];
+      next.openingHistory = { ...next.openingHistory, npcParticipants: { ...next.openingHistory.npcParticipants } };
+      delete next.openingHistory.npcParticipants![characterId];
+    } else {
+      next = storybookWithRetiredCharacter(book, effective);
+      participants[characterId] = next.openingHistory.npcParticipants![characterId];
     }
-    const storybook = node.data.storybookJson
-      ? parseRpStorybookJson(node.data.storybookJson)
-      : emptyRpStorybook;
-    const character = storybook.characters.find((entry) => entry.id === characterId);
-    if (!character) {
-      return;
+    const patch = { storybookStatus: mode === 'delete'
+      ? `Deleted ${character.name} from the Storybook. Library files are unchanged.`
+      : `${character.name} is now an NPC. Its RP copy is retained in this Storybook and future RP saves.` };
+    const options = { participantSnapshots: participants, changedParticipantId: characterId };
+    const preflightError = commitStorybookToNode(nodeId, next, patch, { ...options, dryRun: true });
+    if (preflightError) throw new Error(preflightError);
+    if (mode === 'save') {
+      if (!saveNpcCharacter) throw new Error('Saving requires the desktop application.');
+      await saveNpcCharacter({ ...character, playable: false }, overwrite);
+      if (lifecycleBusy?.() || nodesRef.current.find((entry) => entry.id === nodeId)?.data.storybookJson !== node.data.storybookJson ||
+          currentNpcParticipants?.() !== previousParticipants) {
+        throw new Error('The NPC file was saved, but the RP changed. Review it before removing the character.');
+      }
     }
-    const commitError = commitStorybookToNode(
-      nodeId,
-      storybookWithoutCharacter(storybook, characterId),
-      { storybookStatus: `Deleted character ${character.name || character.id}.` },
-    );
-    if (commitError) {
-      setStorybookCreatorMessages((current) => [
-        ...current,
-        { role: 'storybook', text: commitError },
-      ]);
-    }
+    const error = commitStorybookToNode(nodeId, next, patch, options);
+    if (error) throw new Error(error);
   }
 
   function applyStorybookToNode(
@@ -675,7 +755,7 @@ export function useStorybookActions({
       : emptyRpStorybook;
     const nextStorybook = {
       ...storybook,
-      openingHistory: emptyRpStorybook.openingHistory,
+      openingHistory: { ...emptyRpStorybook.openingHistory, npcParticipants: storybook.openingHistory.npcParticipants },
     };
     const openingEventIds = new Set(storybook.openingHistory.events.map((event) => event.id));
     if (openingEventIds.size > 0) {
@@ -1086,7 +1166,8 @@ export function useStorybookActions({
     resetStorybook,
     importSillyTavernCharacter,
     exportStorybookCharacter,
-    deleteStorybookCharacter,
+    removeStorybookCharacter,
+    removalInfo,
     importCharacterCard,
     showCharacterFiles,
     characterFiles,

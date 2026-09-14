@@ -11,6 +11,7 @@ export type NpcParticipantSnapshots = Record<string, {
   character: Character;
   source: string;
   aliases?: CharacterRegistryAliases;
+  npcOrigin?: boolean;
 }>;
 
 export type NpcParticipantReference =
@@ -28,7 +29,7 @@ export function parseNpcParticipantSnapshots(value: unknown): NpcParticipantSnap
   if (!isRecord(value)) throw new Error('Invalid saved NPC participant archive.');
   for (const [id, snapshot] of Object.entries(value)) {
     if (!isRecord(snapshot) || !isRecord(snapshot.character) || snapshot.character.id !== id ||
-        typeof snapshot.source !== 'string') throw new Error('Invalid saved NPC participant identity.');
+        typeof snapshot.source !== 'string' || (snapshot.npcOrigin !== undefined && typeof snapshot.npcOrigin !== 'boolean')) throw new Error('Invalid saved NPC participant identity.');
     validateCharacterPayload(snapshot.character);
     const aliases = snapshot.aliases;
     if (aliases !== undefined && (!isRecord(aliases) ||

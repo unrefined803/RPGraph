@@ -8,6 +8,7 @@ import { npcSnapshotEntries, parseNpcParticipantSnapshots, type NpcParticipantSn
 export type StorybookRegistryCandidateOptions = {
   replaceExisting?: boolean;
   openingSnapshots?: NpcParticipantSnapshots;
+  participantSnapshots?: NpcParticipantSnapshots;
 };
 
 /** Model the registry that will exist after the Storybook and session update. */
@@ -22,7 +23,7 @@ export function candidateStorybookRegistry(
     ...entries.filter((entry) => entry.tier !== 'storybook' || entry.source !== nodeId),
     ...storybookRegistryEntriesForCharacters(nodeId, characters),
     ...npcSnapshotEntries({ ...parseNpcParticipantSnapshots(options?.openingSnapshots),
-      ...(options?.replaceExisting ? {} : snapshots) }),
+      ...(options?.participantSnapshots ?? (options?.replaceExisting ? {} : snapshots)) }),
   ]);
 }
 
