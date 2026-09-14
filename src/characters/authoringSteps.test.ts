@@ -33,6 +33,8 @@ describe('edited built-in library entries', () => {
       .map((stage) => stage.label)).toEqual(['Built-in', 'In Storybook']);
     expect(characterProvenanceStages({ inStorybook: true, storybookEdited: false })
       .map((stage) => stage.label)).toEqual(['Storybook original']);
+    expect(characterProvenanceStages({ tier: 'user', inStorybook: true, storybookEdited: false })
+      .map((stage) => stage.label)).toEqual(['User-created', 'In Storybook']);
     expect(characterProvenanceStages({ tier: 'user', inStorybook: false, storybookEdited: false })
       .map((stage) => stage.label)).toEqual(['User-created']);
   });

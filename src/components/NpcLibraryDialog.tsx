@@ -3,8 +3,8 @@ import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { characterLibrarySummary, characterProvenanceStages, visibleLibraryEntries } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
-import { characterPayload, type Character } from '../characters/character';
-import { normalizeRpStorybookCharacter } from '../nodes/rp-storybook/model';
+import type { Character } from '../characters/character';
+import { characterContentEqual } from '../characters/contentComparison';
 
 type NpcLibraryDialogProps = {
   snapshot: NpcLibrarySnapshot | null;
@@ -30,11 +30,6 @@ type DisplayEntry = {
   storybookEdited: boolean;
   localEdited: boolean;
 };
-
-function comparableCharacter(character: Character) {
-  const normalized = normalizeRpStorybookCharacter(structuredClone(character), 0, new Set());
-  return characterPayload({ ...normalized, playable: false }, true);
-}
 
 function CharacterRow({ display, issues, canImport, onImport, onEdit }: {
   display: DisplayEntry; issues: string[]; canImport: boolean; onImport: () => void; onEdit: () => void;
@@ -121,16 +116,15 @@ export function NpcLibraryDialog({ snapshot, activeRegistry, loading, status, st
         character: entry.character,
         libraryEntry,
         inStorybook: true,
-        storybookEdited: !!libraryEntry && JSON.stringify(comparableCharacter(entry.character)) !==
-          JSON.stringify(comparableCharacter(libraryEntry.character)),
+        storybookEdited: !!libraryEntry && !characterContentEqual(entry.character, libraryEntry.character),
         localEdited: !!libraryEntry?.editedBuiltIn && !!bundled &&
-          JSON.stringify(comparableCharacter(libraryEntry.character)) !== JSON.stringify(comparableCharacter(bundled)),
+          !characterContentEqual(libraryEntry.character, bundled),
       };
     });
     display.push(...libraryEntries.filter((entry) => !storybookIds.has(entry.character.id)).map((entry) => ({
       character: entry.character, libraryEntry: entry, inStorybook: false, storybookEdited: false,
       localEdited: !!entry.editedBuiltIn && !!bundledById.get(entry.character.id) &&
-        JSON.stringify(comparableCharacter(entry.character)) !== JSON.stringify(comparableCharacter(bundledById.get(entry.character.id)!)),
+        !characterContentEqual(entry.character, bundledById.get(entry.character.id)!),
     })));
     return display.sort((left, right) => Number(right.inStorybook) - Number(left.inStorybook) ||
       left.character.name.localeCompare(right.character.name));

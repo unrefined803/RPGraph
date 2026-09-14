@@ -1317,12 +1317,19 @@ The NPC Library view includes effective Storybook characters even when no
 library file exists. Playable rows sort before library-only NPCs. A compact
 left-to-right provenance chain shows only existing resolution layers, for
 example **Built-in › Local edit › Storybook edit**. The rightmost, highlighted
-stage is the active definition. A byte-equivalent normalized local override is
+stage is the active definition. A content-equivalent normalized local override is
 shown as **Local copy**; an altered one is **Local edit**. An unchanged playable
 import ends with **In Storybook**, while **Storybook original** means no library
 source exists. Playability is shown by the green disabled **Playable** action
 instead of another badge. Library-only rows use **Add as Playable**; playable
 rows open the Storybook editor instead of a separate library-file editor.
+
+Content comparison ignores JSON object key order, empty optional author notes
+and post lists, playability, cached portrait previews, media access metadata,
+and MatchMe runtime messages and decisions. Authored bios, gallery images,
+portrait crops, relationships, configuration and initial posts remain meaningful
+changes. Live timeline posts are not compared; exporting them as initial posts
+adds authored content and can therefore produce an edit status.
 
 Formatted Text includes **Contacts & Relationships** by default and allows it to
 be disabled. **Hidden Agency** is independently selectable and defaults to off.
