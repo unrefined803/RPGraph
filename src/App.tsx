@@ -456,7 +456,7 @@ function displayStorybookName(
     return 'not loaded';
   }
   if (headerStorybookFileName) {
-    return `${headerStorybookFileName} (file)`;
+    return headerStorybookFileName.replace(/\.json$/i, '');
   }
   try {
     const storybook = parseRpStorybookJson(headerStorybookJson);
@@ -4859,7 +4859,7 @@ function App() {
   const displayedWorkflowName = activeWorkflowFileName
     ? activeWorkflowFileName === 'embedded workflow'
       ? 'Workflow from RP Save'
-      : activeWorkflowFileName
+      : activeWorkflowFileName.replace(/\.json$/i, '')
     : 'not saved';
   const displayedSessionSavedTurn =
     activeSessionFileName && activeSessionSavedTurn !== null
@@ -4876,33 +4876,15 @@ function App() {
     headerStorybookJson,
   );
 
-  const formatEncryptedFileName = (fileName: string | null | undefined) => {
-    if (!fileName) return '';
-    return /\.json$/i.test(fileName) ? fileName : `${fileName}.json`;
-  };
-
   const isSessionEncrypted = activeSessionProtection === 'encrypted';
-  const displayedSessionFileName = isSessionEncrypted && activeSessionFileName
-    ? formatEncryptedFileName(activeSessionFileName)
-    : (activeSessionFileName ?? 'New game · Not saved');
+  const displayedSessionFileName = activeSessionFileName?.replace(/\.json$/i, '')
+    ?? 'New game · Not saved';
 
   const isWorkflowEncrypted = activeWorkflowProtection === 'encrypted' && !!activeWorkflowFileName;
-  const displayedWorkflowNameFormatted = isWorkflowEncrypted
-    ? activeWorkflowFileName === 'embedded workflow'
-      ? displayedWorkflowName
-      : formatEncryptedFileName(activeWorkflowFileName)
-    : displayedWorkflowName;
-
   const isStorybookEncrypted =
     (activeStorybookProtection === 'encrypted' && !!headerStorybookNode?.data.storybookFileName && headerHasStorybook) ||
     (isSessionEncrypted && !headerStorybookNode?.data.storybookFileName && headerHasStorybook) ||
     (activeWorkflowProtection === 'encrypted' && !headerStorybookNode?.data.storybookFileName && headerHasStorybook);
-  const displayedStorybookNameFormatted = isStorybookEncrypted
-    ? headerStorybookNode?.data.storybookFileName
-      ? formatEncryptedFileName(headerStorybookNode.data.storybookFileName)
-      : displayedStorybookName
-    : displayedStorybookName;
-
   const headerLockIcon = (
     <svg
       width="11"
@@ -5058,18 +5040,17 @@ function App() {
       <header className="topbar">
         <div className="brand">
           <h1>
-            <span className="brand-name"><span className="brand-name-rp">RP</span>graph Studio</span>
+            <button
+              className="brand-name"
+              type="button"
+              onClick={() => setShowWelcome(true)}
+              aria-label="RPgraph Studio: open welcome guide"
+            >
+              <span className="brand-name-rp">RP</span>graph Studio
+            </button>
             <span className="app-version">v{packageMetadata.version} Beta</span>
           </h1>
           <div className="header-brand-actions">
-            <button
-              className="connection-button"
-              type="button"
-              onClick={() => setShowWelcome(true)}
-              title="Show first-run welcome and onboarding guide"
-            >
-              Welcome
-            </button>
             <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
               Options
             </button>
@@ -5096,11 +5077,11 @@ function App() {
               Log
               {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
             </button>
-            <button className="connection-button" type="button" onClick={() => void openFiles()}>
-              Files
-            </button>
             <button className="connection-button" type="button" onClick={npcLibrary.show}>
               NPC Library
+            </button>
+            <button className="connection-button" type="button" onClick={() => void openFiles()}>
+              Files
             </button>
           </div>
         </div>
@@ -5120,14 +5101,14 @@ function App() {
             <div className="status-badge">
               <span className="session-label">workflow:</span>
               <span className="session-file">
-                {displayedWorkflowNameFormatted}
+                {displayedWorkflowName}
                 {isWorkflowEncrypted && headerLockIcon}
               </span>
             </div>
             <div className="status-badge">
               <span className="session-label">storybook:</span>
               <span className="session-file">
-                {displayedStorybookNameFormatted}
+                {displayedStorybookName}
                 {isStorybookEncrypted && headerLockIcon}
               </span>
             </div>

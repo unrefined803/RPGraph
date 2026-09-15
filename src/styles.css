@@ -255,6 +255,15 @@ input[type="radio"]:focus-visible {
   white-space: nowrap;
 }
 
+.brand-name {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+
 .brand .app-version {
   color: var(--accent-light);
   font-size: 11.5px;
