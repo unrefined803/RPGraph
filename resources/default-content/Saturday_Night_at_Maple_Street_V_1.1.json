@@ -1,7 +1,7 @@
 {
   "format": "rpgraph-storybook",
   "version": "3.0.0",
-  "title": "Saturday Night at Maple Street",
+  "title": "Saturday Night at Maple Street V 1.1",
   "introduction": "A relaxed romance-drama scenario about the Harper sisters and their friends getting ready for a Saturday night party: one settled couple, one maybe-couple, and an evening that is still wide open.",
   "imageDescriptionPrompt": {
     "mode": "default"
