@@ -521,6 +521,10 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     typeof value.savedAt === 'string' &&
     typeof value.name === 'string' &&
     isRecord(value.metadata) &&
+    (value.metadata.workflowFileName === undefined || typeof value.metadata.workflowFileName === 'string') &&
+    (value.metadata.storybookFileNames === undefined || (
+      isRecord(value.metadata.storybookFileNames) && Object.values(value.metadata.storybookFileNames).every((name) => typeof name === 'string')
+    )) &&
     isRecord(value.metadata.settings) &&
     typeof value.metadata.settings.englishProcessingEnabled === 'boolean' &&
     (

@@ -1,6 +1,6 @@
 import { characterUsageReasons } from '../characters/lifecycle';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { characterLibrarySummary, characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries } from '../characters/librarySummary';
@@ -30,6 +30,38 @@ type NpcLibraryDialogProps = {
 
 const appLabels = { fotogram: 'Fotogram', whatsup: 'WhatsUp', onlyfriends: 'OnlyFriends', matchme: 'MatchMe' } as const;
 
+function UnlockCharactersDialog({ onClose }: {
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement;
+    dialogRef.current?.querySelector('button')?.focus();
+    return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); };
+  }, []);
+  return <div className="dialog-backdrop npc-unlock-backdrop" role="presentation" onClick={onClose}>
+    <section ref={dialogRef} className="npc-unlock-dialog" role="dialog" aria-modal="true" aria-labelledby="npc-unlock-title"
+      onClick={(event) => event.stopPropagation()} onKeyDown={(event) => {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
+        if (event.key === 'Tab') {
+          const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)') ?? []);
+          const first = controls[0]; const last = controls[controls.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }
+      }}>
+      <div className="dialog-header"><h2 id="npc-unlock-title">Encrypted Characters</h2>
+        <button type="button" className="close-button" onClick={onClose}>Close</button></div>
+        <div className="npc-unlock-content">
+          <h3>Automatic unlocking</h3>
+          <p>Save your character with the same password as your Storybook or RP Save. Open that protected game to unlock matching NPC Library characters automatically.</p>
+          <p>Characters cannot be unlocked manually here. A protected game requires encrypted saves and exports using its existing password, including the Storybook and NPCs retained in an RP Save.</p>
+          <p>Only the active game password is used. Starting another game updates which NPCs are unlocked. Passwords stay in memory and original NPC files remain encrypted.</p>
+        </div>
+    </section>
+  </div>;
+}
+
 type DisplayEntry = {
   character: Character;
   libraryEntry?: NpcLibraryEntry & { editedBuiltIn: boolean };
@@ -42,6 +74,7 @@ type DisplayEntry = {
   hasActivity: boolean;
   snapshotEdited: boolean;
   diagnosticOnly?: boolean;
+  unlocked?: boolean;
 };
 
 function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }: {
@@ -64,7 +97,7 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
           : initials}
       </div>
       <div className="npc-library-identity">
-        <h3>{character.name}</h3>
+        <h3>{character.name}{display.unlocked && <span className="npc-library-lock" role="img" aria-label="Unlocked" title="Unlocked">🔓</span>}</h3>
         <div className="npc-library-badges">
           <span className="npc-library-provenance" aria-label={`Active character source: ${provenance.map((stage) => stage.label).join(' then ')}`}>
             {provenance.map((stage, index) => <span className="npc-library-provenance-segment" key={stage.label}>
@@ -132,6 +165,8 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
 
 export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
   const [importStatus, setImportStatus] = useState('');
+  const [showUnlock, setShowUnlock] = useState(false);
+  const lockedFiles = (snapshot?.files ?? []).filter((file) => file.protection === 'encrypted' && !file.unlocked);
   const targetNodeId = storybookNodeId ?? '';
   const libraryEntries = useMemo(() => visibleLibraryEntries(snapshot?.entries ?? []), [snapshot]);
   const entries = useMemo(() => {
@@ -192,21 +227,21 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && dismissOnEscape) {
+      if (event.key === 'Escape' && dismissOnEscape && !showUnlock) {
         event.preventDefault();
         onClose();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dismissOnEscape, onClose]);
+  }, [dismissOnEscape, onClose, showUnlock]);
 
   return (
-    <div className="dialog-backdrop" role="presentation" onClick={onClose}>
-      <section className="npc-library-dialog" role="dialog" aria-modal="true" aria-labelledby="npc-library-title"
+    <div className="dialog-backdrop" role="presentation" onClick={() => { if (!showUnlock) onClose(); }}>
+      <section className="npc-library-dialog" role="dialog" aria-modal={!showUnlock} inert={showUnlock} aria-labelledby="npc-library-title"
         onClick={(event) => event.stopPropagation()}>
         <main className="npc-library-main" aria-label="Library characters" aria-busy={loading}>
-          {entries.length ? (
+          {entries.length || lockedFiles.length ? (
             <ul className="npc-library-list">
               {sections.map((section) => (
                 <Fragment key={section.id}>
@@ -221,7 +256,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
                     return (
                       <CharacterRow
                         key={`${display.diagnosticOnly ? entry?.source : 'effective'}:${display.character.id}`}
-                        display={display}
+                        display={{ ...display, unlocked: !!entry && !!snapshot?.files?.some((file) => file.tier === entry.tier && file.fileName === entry.fileName && file.unlocked) }}
                         onEdit={() => display.inStorybook ? onOpenStorybook(display.nodeId!) : onEditCharacter(display.retained
                           ? { character: display.character, tier: 'user', source: `snapshot:${display.character.id}`, fileName: `${display.character.name}.json` }
                           : entry!)}
@@ -241,6 +276,25 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
                   })}
                 </Fragment>
               ))}
+              {lockedFiles.length > 0 && <li className="npc-library-section-divider"><span>Encrypted Characters · Locked</span></li>}
+              {lockedFiles.map((file) => <li className="npc-library-row npc-library-locked-row" key={`locked:${file.tier}:${file.fileName}`}>
+                <div className="npc-library-avatar" aria-hidden="true">🔒</div>
+                <div className="npc-library-identity">
+                  <h3>{file.characterName || file.name}<span className="npc-library-lock" role="img" aria-label="Locked" title="Locked">🔒</span></h3>
+                  <div className="npc-library-badges"><span className="npc-library-origin">Encrypted</span></div>
+                </div>
+                <div className="npc-library-accounts" aria-label="Encrypted account details">
+                  {Object.entries(appLabels).map(([app, label]) => <div key={app} className="npc-library-account inactive">
+                    <span className="npc-library-account-mark" aria-hidden="true">—</span>
+                    <div><strong>{label}</strong><span className="npc-library-handle">—</span><small>—</small></div>
+                  </div>)}
+                </div>
+                <div className="npc-library-images" aria-label="Encrypted image details">
+                  <span>Images</span><strong>— <small>used</small></strong><strong>— <small>unused</small></strong>
+                </div>
+                <div className="npc-library-row-actions npc-library-locked-actions">
+                  <button type="button" onClick={() => setShowUnlock(true)}>Info</button></div>
+              </li>)}
             </ul>
           ) : (
             <p className="npc-library-empty">{loading ? 'Loading characters…' : 'No characters found. Add character files to your NPC folder and reload the library.'}</p>
@@ -257,6 +311,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
           <section className="npc-library-statistics"><h3>Statistics</h3>
             <dl>{[
               ['Characters', entries.length],
+              ['Locked files', lockedFiles.length],
               ['Playable', entries.filter((entry) => entry.playable).length],
               ['Interacted', entries.filter((entry) => !entry.playable && entry.hasActivity).length],
               ['RP copies', entries.filter((entry) => entry.retained && !entry.inStorybook).length],
@@ -276,6 +331,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
           </dl></details>
         </aside>
       </section>
+      {showUnlock && <UnlockCharactersDialog onClose={() => setShowUnlock(false)} />}
     </div>
   );
 }

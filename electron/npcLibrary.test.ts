@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, it } from 'vitest';
+import { afterEach, describe, it, vi } from 'vitest';
 import {
   createNpcLibraryService,
   npcLibraryRoots,
@@ -38,6 +38,23 @@ function characterCard(id: string, bio = '') {
   };
 }
 
+function encryptedCharacterCard(name: string) {
+  return {
+    format: 'rpgraph-encrypted-character',
+    envelopeFormatVersion: '1.0',
+    payloadFormat: 'rpgraph-character',
+    payloadFormatVersion: '2.0.0',
+    characterName: name,
+    encryption: 'aes-256-gcm',
+    keyDerivation: 'scrypt',
+    keyDerivationParameters: { N: 65536, r: 8, p: 1 },
+    salt: Buffer.alloc(16, 1).toString('base64'),
+    iv: Buffer.alloc(12, 2).toString('base64'),
+    authenticationTag: Buffer.alloc(16, 3).toString('base64'),
+    ciphertext: Buffer.from('encrypted').toString('base64'),
+  };
+}
+
 async function writeJson(directory: string, fileName: string, value: unknown) {
   await fs.mkdir(directory, { recursive: true });
   await fs.writeFile(path.join(directory, fileName), JSON.stringify(value), 'utf8');
@@ -57,6 +74,57 @@ describe('NPC library paths', () => {
 });
 
 describe('NPC library scanning', () => {
+  it('uses only the active game password and locks files when changing games', async () => {
+    const root = await temporaryDirectory();
+    const roots = { bundled: path.join(root, 'bundled'), user: path.join(root, 'user') };
+    await writeJson(roots.user, 'one.json', encryptedCharacterCard('One'));
+    await writeJson(roots.user, 'two.json', encryptedCharacterCard('Two'));
+    const decryptCharacter = vi.fn(async (raw: unknown, password: string) => {
+      const envelope = raw as { characterName: string };
+      if (password !== envelope.characterName) throw new Error('Wrong password');
+      return characterCard(envelope.characterName);
+    });
+    const onChanged = vi.fn();
+    const service = createNpcLibraryService({ roots, openPath: async () => '', decryptCharacter, onChanged });
+    assert.equal((await service.reload()).entries.length, 0);
+    await service.setGamePassword('wrong');
+    assert.equal(decryptCharacter.mock.calls.length, 2);
+    await service.setGamePassword('wrong');
+    await service.reload();
+    assert.equal(decryptCharacter.mock.calls.length, 2);
+    let result = await service.setGamePassword('One');
+    assert.deepEqual(result.entries.map((entry) => entry.character.id), ['One']);
+    assert.deepEqual(result.files.map((file) => file.unlocked), [true, false]);
+    const calls = decryptCharacter.mock.calls.length;
+    await service.reload();
+    assert.equal(decryptCharacter.mock.calls.length, calls);
+    result = await service.setGamePassword('Two');
+    assert.deepEqual(result.entries.map((entry) => entry.character.id), ['Two']);
+    assert.equal(decryptCharacter.mock.calls.length, calls + 2);
+    await writeJson(roots.user, 'new.json', encryptedCharacterCard('Two'));
+    assert.equal((await service.reload()).entries.length, 2);
+    await writeJson(roots.user, 'one.json', encryptedCharacterCard('Changed'));
+    result = await service.reload();
+    assert.equal(result.files.find((file) => file.fileName === 'one.json')?.unlocked, false);
+    assert.equal(result.entries.some((entry) => entry.fileName === 'one.json'), false);
+    assert.ok(onChanged.mock.calls.length > 0);
+    assert.equal(JSON.stringify(result).includes('wrong'), false);
+    assert.equal((await service.setGamePassword('')).entries.length, 0);
+    const restarted = createNpcLibraryService({ roots, openPath: async () => '', decryptCharacter });
+    assert.equal((await restarted.reload()).entries.length, 0);
+  });
+
+  it('keeps invalid decrypted payloads locked and serializes concurrent unlocks', async () => {
+    const root = await temporaryDirectory();
+    const roots = { bundled: path.join(root, 'bundled'), user: path.join(root, 'user') };
+    await writeJson(roots.user, 'bad.json', encryptedCharacterCard('Bad'));
+    const decryptCharacter = vi.fn(async () => ({ format: 'rpgraph-character', version: '2.0.0', character: {} }));
+    const service = createNpcLibraryService({ roots, openPath: async () => '', decryptCharacter });
+    await Promise.all([service.setGamePassword('same'), service.setGamePassword('same'), service.reload()]);
+    assert.equal(decryptCharacter.mock.calls.length, 1);
+    assert.equal(service.current().files[0].unlocked, false);
+    assert.equal(service.current().entries.length, 0);
+  });
   it('loads arbitrary JSON basenames and isolates malformed containers', async () => {
     const root = await temporaryDirectory();
     const bundled = path.join(root, 'bundled');
@@ -72,14 +140,18 @@ describe('NPC library scanning', () => {
 
     const result = await scanNpcLibrary({ bundled, user });
     assert.deepEqual(result.entries.map((entry: { character: { id: string } }) => entry.character.id), ['bundled', 'user']);
+    assert.deepEqual(result.files.map((entry: { tier: string; protection: string; formatVersion?: string }) =>
+      [entry.tier, entry.protection, entry.formatVersion]), [
+      ['bundled', 'plain', '2.0.0'], ['user', 'plain', '2.0.0'], ['user', 'plain', '2.0.0'],
+    ]);
     assert.deepEqual(result.diagnostics.map((entry: { code: string }) => entry.code), ['invalid-json', 'invalid-container']);
   });
 
-  it('silently skips encrypted, unrelated and symlinked files and reports unsupported cards', async () => {
+  it('lists encrypted metadata while excluding locked characters from the active library', async () => {
     const root = await temporaryDirectory();
     const bundled = path.join(root, 'bundled');
     const user = path.join(root, 'user');
-    await writeJson(user, 'encrypted.json', { format: 'rpgraph-encrypted-character', ciphertext: 'opaque' });
+    await writeJson(user, 'encrypted.json', encryptedCharacterCard('Locked NPC'));
     await writeJson(user, 'workflow.json', { format: 'rpgraph-workflow' });
     await writeJson(user, 'future.json', { ...characterCard('future'), version: '99.0.0' });
     await writeJson(root, 'outside.json', characterCard('outside'));
@@ -87,7 +159,12 @@ describe('NPC library scanning', () => {
 
     const result = await scanNpcLibrary({ bundled, user });
     assert.equal(result.entries.length, 0);
-    assert.equal(result.skipped, 2);
+    assert.equal(result.skipped, 1);
+    assert.deepEqual(result.files.map((entry) =>
+      [entry.fileName, entry.name, entry.protection, entry.formatVersion, entry.envelopeFormatVersion, entry.compatible]), [
+      ['encrypted.json', 'Locked NPC', 'encrypted', '2.0.0', '1.0', true],
+      ['future.json', 'Character future', 'plain', '99.0.0', undefined, false],
+    ]);
     assert.deepEqual(result.diagnostics.map((entry: { code: string }) => entry.code), ['unsupported-version']);
   });
 
@@ -120,8 +197,8 @@ describe('NPC library scanning', () => {
     } });
     assert.equal(service.current().entries.length, 0);
     const [first, concurrent] = await Promise.all([service.reload(), service.reload()]);
-    assert.equal(first, concurrent);
-    assert.equal(service.current(), first);
+    assert.deepEqual(first, concurrent);
+    assert.equal(service.current(), concurrent);
     assert.deepEqual(await service.reload(), first);
     assert.deepEqual(await service.openUserDirectory(), { path: roots.user });
     assert.deepEqual(opened, [roots.user]);

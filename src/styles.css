@@ -5576,6 +5576,18 @@ input[type="number"]::-webkit-outer-spin-button {
 .npc-library-general-issues { margin-top: 12px; font-size: 11px; }
 .npc-library-dialog summary { cursor: pointer; }
 .npc-library-status { overflow-wrap: anywhere; }
+.npc-library-locked-row .npc-library-handle,
+.npc-library-locked-row .npc-library-images strong { color: var(--muted); }
+.npc-library-locked-actions { align-self: stretch; align-content: start; }
+.npc-library-lock { margin-left: 8px; font-size: 15px; vertical-align: middle; }
+.npc-unlock-backdrop { z-index: 1; }
+.npc-unlock-dialog { width: min(680px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: #111827; color: var(--text); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55); }
+.npc-unlock-dialog h2 { margin: 0; }
+.npc-unlock-content { display: grid; gap: 18px; padding: 24px; }
+.npc-unlock-content p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.npc-unlock-content h3 { margin: 0; font-size: 16px; }
+.npc-unlock-content label { display: grid; gap: 8px; }
+.npc-unlock-content input { width: 100%; min-width: 0; padding: 12px; color: var(--text); background: #101722; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
 .npc-library-status p { color: var(--warning); }
 .npc-library-roots { margin-top: auto; font-size: 11px; color: var(--muted); }
 .npc-library-roots dl { display: grid; gap: 12px; }
@@ -18247,6 +18259,43 @@ button.message-timeline-row.phone:focus-visible {
   overflow-y: auto;
 }
 
+.character-import-list {
+  gap: 14px;
+}
+
+.character-import-section {
+  display: grid;
+  gap: 6px;
+}
+
+.character-import-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #9ba8c0;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.character-import-section-heading::after {
+  height: 1px;
+  flex: 1;
+  content: '';
+  background: #273247;
+}
+
+.character-import-empty {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px dashed #232d42;
+  border-radius: 10px;
+  color: #65738c;
+  font-size: 12px;
+  text-align: center;
+}
+
 .saved-chat-row {
   display: flex;
   align-items: center;
@@ -18447,6 +18496,40 @@ button.message-timeline-row.phone:focus-visible {
 
 .dialog-actions.chat-files-actions .secondary {
   margin-left: 0;
+}
+
+.character-import-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-right: auto;
+}
+
+.character-import-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border: 1px solid #303a4e;
+  border-radius: 8px;
+  color: #9ba8c0;
+  background: #111a28;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.character-import-filters label:has(input:checked) {
+  border-color: rgba(95, 174, 104, 0.52);
+  color: #e8f5eb;
+  background: rgba(61, 99, 68, 0.4);
+}
+
+.character-import-filters input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: #5fae68;
 }
 
 .file-filter-select-wrapper {

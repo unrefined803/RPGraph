@@ -1,6 +1,6 @@
 import { characterUsageReasons, characterRemovalInfo, storybookWithRetiredCharacter } from '../characters/lifecycle';
 import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
-import type { NpcLibraryEntry } from '../characters/npcLibrary';
+import type { NpcLibraryEntry, NpcLibraryFileSummary, NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { characterReferenceCandidates, hydrateAddedCharacterReferences, relationshipReferenceContext, validateRelationshipTargets } from '../characters/relationships';
 import { planCharacterImportToNode } from '../characters/promotion';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
@@ -62,6 +62,24 @@ import type {
 } from '../chat/socialDirectory';
 
 type FileProtection = 'plain' | 'encrypted';
+type CharacterImportFile = SavedFileSummary | NpcLibraryFileSummary;
+
+export type CharacterImportChoice =
+  | {
+    key: string;
+    source: 'characters' | 'npc-library';
+    name: string;
+    fileName: string;
+    file: CharacterImportFile;
+  }
+  | {
+    key: string;
+    source: 'npc-library' | 'built-in';
+    name: string;
+    fileName: string;
+    file: CharacterImportFile;
+    character: NpcLibraryEntry['character'];
+  };
 
 type PendingStorybookLoad = {
   nodeId: string;
@@ -94,6 +112,9 @@ type UseStorybookActionsOptions = {
   commitLifecycleNodes?: (nodes: WorkflowNode[]) => void;
   restoreNpcParticipants?: (snapshots: NpcParticipantSnapshots) => void;
   currentLibraryEntries?: () => NpcLibraryEntry[];
+  currentLibraryFiles?: () => NpcLibraryFileSummary[];
+  reloadLibrary?: () => Promise<NpcLibrarySnapshot | undefined>;
+  workspacePassword?: () => string;
   lifecycleBusy?: () => boolean;
   saveNpcCharacter?: (character: RpStorybook['characters'][number], overwrite: boolean) => Promise<void>;
   currentCharacterRegistry: () => EffectiveCharacterRegistry;
@@ -133,7 +154,7 @@ export function useStorybookActions({
   turnsRef,
   turnCheckpointsRef,
   currentNpcParticipants,
-  restoreNpcParticipants, currentLibraryEntries, lifecycleBusy, saveNpcCharacter, commitLifecycleNodes,
+  restoreNpcParticipants, currentLibraryEntries, currentLibraryFiles, reloadLibrary, workspacePassword, lifecycleBusy, saveNpcCharacter, commitLifecycleNodes,
   currentCharacterRegistry,
   characterRegistryForStorybook,
   currentTimelineMessages,
@@ -179,11 +200,11 @@ export function useStorybookActions({
     nodeId: string;
     filePath?: string;
     fileName: string;
-    storage?: SavedFileSummary['storage'];
+    storage?: SavedFileSummary['storage'] | 'npc-characters';
   } | null>(null);
   const [showCharacterFiles, setShowCharacterFiles] = useState(false);
-  const [characterFiles, setCharacterFiles] = useState<SavedFileSummary[]>([]);
-  const [selectedCharacterFile, setSelectedCharacterFile] = useState<string | null>(null);
+  const [characterImportChoices, setCharacterImportChoices] = useState<CharacterImportChoice[]>([]);
+  const [selectedCharacterImportKey, setSelectedCharacterImportKey] = useState<string | null>(null);
   const [characterFileStatus, setCharacterFileStatus] = useState('');
   const [characterImportNodeId, setCharacterImportNodeId] = useState<string | null>(null);
 
@@ -853,10 +874,60 @@ export function useStorybookActions({
     }
     try {
       setCharacterImportNodeId(nodeId);
-      setSelectedCharacterFile(null);
+      setSelectedCharacterImportKey(null);
       setCharacterFileStatus('');
       setShowCharacterFiles(true);
-      setCharacterFiles(await window.rpgraph.listCharacterFiles());
+      const refreshedLibrary = await reloadLibrary?.();
+      const libraryEntries = refreshedLibrary?.entries ?? currentLibraryEntries?.() ?? [];
+      const libraryFiles = refreshedLibrary?.files ?? currentLibraryFiles?.() ?? libraryEntries.map((entry) => ({
+        tier: entry.tier,
+        fileName: entry.fileName,
+        name: entry.character.name,
+        updatedAt: '',
+        type: 'character-card' as const,
+        protection: 'plain' as const,
+        compatible: true,
+      }));
+      const libraryChoices: CharacterImportChoice[] = [];
+      for (const file of libraryFiles) {
+        if (file.tier === 'user') {
+          const unlockedEntry = 'unlocked' in file && file.unlocked
+            ? libraryEntries.find((entry) => entry.tier === 'user' && entry.fileName === file.fileName)
+            : undefined;
+          libraryChoices.push({
+            key: `user:${file.fileName}`,
+            source: 'npc-library',
+            name: ('characterName' in file && file.characterName) || file.name,
+            fileName: file.fileName,
+            file: { ...file, storage: 'npc-characters' },
+            ...(unlockedEntry ? { character: unlockedEntry.character } : {}),
+          });
+          continue;
+        }
+        const entry = libraryEntries.find((candidate) => (
+          candidate.tier === 'bundled' && candidate.fileName === file.fileName
+        ));
+        if (entry) {
+          libraryChoices.push({
+            key: `bundled:${file.fileName}`,
+            source: 'built-in',
+            name: entry.character.name,
+            fileName: file.fileName,
+            file,
+            character: entry.character,
+          });
+        }
+      }
+      setCharacterImportChoices(libraryChoices);
+      const files = await window.rpgraph.listCharacterFiles();
+      const characterChoices: CharacterImportChoice[] = files.map((file) => ({
+        key: `characters:${file.fileName}`,
+        source: 'characters',
+        name: file.characterName || file.name,
+        fileName: file.fileName,
+        file,
+      }));
+      setCharacterImportChoices([...characterChoices, ...libraryChoices]);
     } catch (error) {
       const messageText = errorMessage(error);
       setCharacterFileStatus(`Unable to list characters: ${messageText}`);
@@ -865,7 +936,7 @@ export function useStorybookActions({
 
   function closeCharacterFiles() {
     setShowCharacterFiles(false);
-    setSelectedCharacterFile(null);
+    setSelectedCharacterImportKey(null);
     setCharacterFileStatus('');
   }
 
@@ -876,7 +947,7 @@ export function useStorybookActions({
 
   async function beginCharacterCardImport(
     nodeId: string,
-    file: Pick<SavedFileSummary, 'fileName' | 'type' | 'protection' | 'compatible' | 'formatVersion' | 'storage'> & {
+    file: Pick<CharacterImportFile, 'fileName' | 'type' | 'protection' | 'compatible' | 'formatVersion' | 'storage'> & {
       filePath?: string;
     },
   ) {
@@ -891,17 +962,13 @@ export function useStorybookActions({
       return;
     }
     if (file.protection === 'encrypted') {
-      setPendingCharacterLoad({
-        nodeId,
-        fileName: file.fileName,
-        ...(file.filePath ? { filePath: file.filePath } : {}),
-        ...(file.storage ? { storage: file.storage } : {}),
-      });
-      setPendingSessionFilePath(file.filePath ?? null);
-      setSessionPassword('');
-      setFileStorageStatus('This character card is password protected. Enter its password or PIN to import it.');
-      setShowCharacterFiles(false);
-      setSessionPasswordAction('load-character');
+      const password = workspacePassword?.();
+      if (!password) throw new Error('Open a protected Storybook or RP Save with the same password before importing encrypted characters.');
+      const loaded = file.filePath
+        ? await window.rpgraph.loadFilePath(file.filePath, password)
+        : await window.rpgraph.loadFile(file.fileName, password, file.storage);
+      applyCharacterCardToNode(nodeId, loaded.value, loaded.fileName);
+      closeCharacterFiles();
       return;
     }
     const loaded = file.filePath
@@ -911,17 +978,27 @@ export function useStorybookActions({
     closeCharacterFiles();
   }
 
-  async function importSelectedCharacterCard(file?: SavedFileSummary) {
+  async function importSelectedCharacterCard(choice?: CharacterImportChoice) {
     const nodeId = characterImportNodeId;
-    const selected = file ?? characterFiles.find((entry) => entry.fileName === selectedCharacterFile);
+    const selected = choice ?? characterImportChoices.find((entry) => entry.key === selectedCharacterImportKey);
     if (!nodeId || !selected) {
       setCharacterFileStatus('Select a character first.');
       return;
     }
     try {
-      setSelectedCharacterFile(selected.fileName);
+      setSelectedCharacterImportKey(selected.key);
       setCharacterFileStatus('Importing character ...');
-      await beginCharacterCardImport(nodeId, selected);
+      if ('character' in selected && selected.file.protection === 'encrypted') {
+        const stillUnlocked = !!workspacePassword?.() && currentLibraryFiles?.().some((file) =>
+          file.fileName === selected.fileName && file.tier === (selected.source === 'built-in' ? 'bundled' : 'user') && file.unlocked);
+        if (!stillUnlocked) throw new Error('The protected game changed. Reopen the character importer.');
+      }
+      if (!('character' in selected)) {
+        await beginCharacterCardImport(nodeId, selected.file);
+      } else {
+        applyCharacterCardToNode(nodeId, rpCharacterCardForCharacter(selected.character), selected.fileName);
+        closeCharacterFiles();
+      }
     } catch (error) {
       const message = `Character import failed: ${errorMessage(error)}`;
       setCharacterFileStatus(message);
@@ -1171,10 +1248,10 @@ export function useStorybookActions({
     removalInfo,
     importCharacterCard,
     showCharacterFiles,
-    characterFiles,
-    selectedCharacterFile,
+    characterImportChoices,
+    selectedCharacterImportKey,
     characterFileStatus,
-    setSelectedCharacterFile,
+    setSelectedCharacterImportKey,
     closeCharacterFiles,
     cancelCharacterCardUnlock,
     importSelectedCharacterCard,

@@ -18,6 +18,32 @@
       "description": "A 24-year-old woman and Espen Harper's older sister. Helga is confident, affectionate, and a little bossy in the way older sisters can be. She is happily together with Jack Carter. She has noticed that Espen and Ryan like each other, but she mostly stays out of it and just enjoys a good night out.",
       "personality": "Warm, bold, playful, protective, romantic, and direct when someone avoids the obvious.",
       "speechStyle": "Teasing, fast, affectionate, and confident. She says what everyone else is dancing around.",
+      "relationships": [
+        {
+          "characterId": "espen_harper",
+          "description": "My younger sister.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "jack_carter",
+          "description": "My loving boyfriend.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "ryan_parker",
+          "description": "Espen's close friend and crush.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        }
+      ],
       "role": "Character - Espen's older sister, Jack's girlfriend, looking forward to the party",
       "comfyConfig": {
         "loraName": "RLY-thot_shot-KREA2-helga-v1-trigger-rlyhelga.safetensors",
@@ -125,6 +151,32 @@
       "description": "A 21-year-old university student and Helga Harper's younger sister. Espen is easygoing, socially confident, and playful. She has a clear crush on Ryan Parker, but she tries to keep it casual and teasing instead of admitting how much she cares.",
       "personality": "Outgoing, witty, socially confident, romantic, and playful.",
       "speechStyle": "Confident, dryly funny, direct but flirtatious when comfortable.",
+      "relationships": [
+        {
+          "characterId": "helga_harper",
+          "description": "My older sister.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "jack_carter",
+          "description": "Helga's boyfriend and family friend.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "ryan_parker",
+          "description": "The guy I really like.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        }
+      ],
       "role": "Character - Helga's younger sister, likes Ryan but nothing is official",
       "comfyConfig": {
         "loraName": "RLY-thot_shot-KREA2-aspen-v11-trigger-rlyaspen.safetensors",
@@ -242,6 +294,32 @@
       "description": "A 25-year-old man and Helga Harper's boyfriend. Jack is steady, kind, and comfortable around Helga. He gets along well with Espen and Ryan and mostly just wants everyone to have a good night.",
       "personality": "Loyal, patient, grounded, romantic, lightly humorous, and protective without being pushy.",
       "speechStyle": "Calm, sincere, playful with Helga, and gently encouraging with others.",
+      "relationships": [
+        {
+          "characterId": "helga_harper",
+          "description": "My loving girlfriend.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "espen_harper",
+          "description": "Helga's younger sister and friend.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "ryan_parker",
+          "description": "A close friend in our group.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        }
+      ],
       "role": "Character - Helga's boyfriend, easygoing part of the friend group",
       "comfyConfig": {
         "loraName": "",
@@ -309,6 +387,32 @@
       "description": "A 22-year-old university student who has been getting closer to Espen Harper. Ryan is a social person who enjoys parties and flirting. He likes Espen and she seems to like him back, but nothing is official and neither of them is in a hurry to define it.",
       "personality": "Charismatic, thoughtful, loyal, romantic, and socially confident.",
       "speechStyle": "Charming, honest, fluent in banter, and playful.",
+      "relationships": [
+        {
+          "characterId": "helga_harper",
+          "description": "Espen's older sister.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "espen_harper",
+          "description": "The girl I really like.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "jack_carter",
+          "description": "A good friend of mine.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        }
+      ],
       "role": "Character - likes Espen, part of the friend group, nothing official yet",
       "comfyConfig": {
         "loraName": "",

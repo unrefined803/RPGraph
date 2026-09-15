@@ -180,6 +180,91 @@ function reviewBook(id = 'player') {
   return normalizeRpStorybook({ ...emptyRpStorybook, characters: [character] });
 }
 
+it('offers and imports Characters Folder, NPC Library, and built-in characters', async () => {
+  const state = harness();
+  const libraryNpc = reviewBook('library-npc').characters[0];
+  libraryNpc.name = 'Library NPC';
+  const builtIn = reviewBook('built-in').characters[0];
+  builtIn.name = 'Built-in NPC';
+  state.library.push(
+    { character: libraryNpc, source: 'library.json', tier: 'user' },
+    { character: builtIn, source: 'built-in.json', tier: 'bundled' },
+  );
+  vi.stubGlobal('window', { rpgraph: {
+    listCharacterFiles: vi.fn(async () => [{
+      fileName: 'local.json', name: 'Local Character', characterName: 'Local Character',
+      updatedAt: '2026-09-14T12:00:00Z', type: 'character-card', protection: 'plain',
+      formatVersion: '3.0.0', storage: 'characters', compatible: true,
+    }]),
+  } });
+  try {
+    await state.render().importCharacterCard('book');
+    const choices = state.render().characterImportChoices;
+    expect(choices.map((choice) => choice.source)).toEqual(['characters', 'npc-library', 'built-in']);
+    const selected = choices.find((choice) => choice.source === 'built-in');
+    expect(selected).toBeDefined();
+    await state.render().importSelectedCharacterCard(selected);
+    expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters.map((character) => character.name))
+      .toEqual(['Built-in NPC']);
+    expect(state.render().showCharacterFiles).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('imports a session-unlocked NPC without requesting its password again', async () => {
+  const state = harness();
+  state.options.workspacePassword = () => 'game-secret';
+  state.options.currentLibraryEntries = () => [{ tier: 'user', source: 'user:locked.json', fileName: 'locked.json',
+    character: normalizeRpStorybook({ characters: [fixture.character] }).characters[0] }];
+  state.options.currentLibraryFiles = () => [{ tier: 'user', fileName: 'locked.json', name: fixture.character.name,
+    updatedAt: '', type: 'character-card', protection: 'encrypted', compatible: true, unlocked: true }];
+  const loadFile = vi.fn();
+  vi.stubGlobal('window', { rpgraph: { listCharacterFiles: async () => [], loadFile } });
+  try {
+    await state.render().importCharacterCard('book');
+    await state.render().importSelectedCharacterCard(state.render().characterImportChoices[0]);
+    expect(loadFile).not.toHaveBeenCalled();
+    expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0].name).toBe(fixture.character.name);
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it('requires a protected game before importing encrypted NPC files', async () => {
+  const state = harness();
+  state.options.currentLibraryFiles = () => [{
+    tier: 'user', fileName: 'locked.json', name: 'Locked NPC', characterName: 'Locked NPC',
+    updatedAt: '2026-09-15T01:00:00Z', type: 'character-card', protection: 'encrypted',
+    envelopeFormatVersion: '1.0', formatVersion: '2.0.0', storage: 'npc-characters', compatible: true,
+  }];
+  state.options.setPendingSessionFilePath = vi.fn();
+  state.options.setSessionPassword = vi.fn();
+  state.options.setFileStorageStatus = vi.fn();
+  state.options.setSessionPasswordAction = vi.fn();
+  state.options.sessionPassword = '';
+  const loadFile = vi.fn(async () => ({
+    fileName: 'locked.json', name: 'Locked NPC', filePath: '/profile/npc-characters/locked.json',
+    type: 'character-card' as const, protection: 'encrypted' as const, value: fixture,
+  }));
+  vi.stubGlobal('window', { rpgraph: { listCharacterFiles: vi.fn(async () => []), loadFile } });
+  try {
+    await state.render().importCharacterCard('book');
+    const selected = state.render().characterImportChoices[0];
+    expect(selected.source).toBe('npc-library');
+    await state.render().importSelectedCharacterCard(selected);
+    expect(loadFile).not.toHaveBeenCalled();
+    expect(state.render().showCharacterFiles).toBe(true);
+    expect(state.render().characterFileStatus).toContain('Open a protected Storybook');
+
+    state.options.workspacePassword = () => 'secret';
+    await state.render().importSelectedCharacterCard(selected);
+    expect(loadFile).toHaveBeenCalledWith('locked.json', 'secret', 'npc-characters');
+    expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0].name)
+      .toBe(fixture.character.name);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('checks real library identities during editor commits', () => {
   const state = harness();
   const npc = reviewBook('npc').characters[0];

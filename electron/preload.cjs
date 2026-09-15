@@ -156,6 +156,12 @@ contextBridge.exposeInMainWorld('rpgraph', {
   listCharacterFiles: () => ipcRenderer.invoke('character:list'),
   getNpcLibrary: () => ipcRenderer.invoke('npc-library:get'),
   reloadNpcLibrary: () => ipcRenderer.invoke('npc-library:reload'),
+  setWorkspaceProtection: (password) => ipcRenderer.invoke('workspace:protection', password),
+  onNpcLibraryChanged: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('npc-library:changed', listener);
+    return () => ipcRenderer.removeListener('npc-library:changed', listener);
+  },
   openNpcLibraryFolder: () => ipcRenderer.invoke('npc-library:open-folder'),
   saveNamedWorkflow: (name, workflow, protection, password, overwrite = false) =>
     ipcRenderer.invoke('workflow:save-named', { name, workflow, protection, password, overwrite }),

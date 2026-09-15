@@ -153,6 +153,18 @@ describe('saved NPC revisions', () => {
     expect(isRpgraphSessionV2(badStored)).toBe(false);
   });
 
+  it('preserves optional source names in saved JSON and rejects malformed names', () => {
+    const stored = save();
+    stored.metadata.workflowFileName = 'original-workflow.json';
+    stored.metadata.storybookFileNames = { book: 'original-storybook.json' };
+    const restored = JSON.parse(JSON.stringify(stored));
+    expect(isRpgraphSessionV2(restored)).toBe(true);
+    expect(restored.metadata.workflowFileName).toBe('original-workflow.json');
+    expect(restored.metadata.storybookFileNames.book).toBe('original-storybook.json');
+    restored.metadata.storybookFileNames.book = 42;
+    expect(isRpgraphSessionV2(restored)).toBe(false);
+  });
+
   it('loads old saves without snapshots and gives independent stories independent revisions', () => {
     const old = save(); delete old.runtime.current.npcParticipantsJson;
     expect(isRpgraphSessionV2(old)).toBe(true);

@@ -451,7 +451,6 @@ function workflowFileMissing(error: unknown) {
 function displayStorybookName(
   headerStorybookFileName: string | undefined,
   headerStorybookJson: string | undefined,
-  activeSessionFileName: string | null,
 ) {
   if (!headerStorybookJson || isEmptyRpStorybook(headerStorybookJson)) {
     return 'not loaded';
@@ -462,9 +461,9 @@ function displayStorybookName(
   try {
     const storybook = parseRpStorybookJson(headerStorybookJson);
     const title = storybook.title || 'untitled';
-    return `${title} - embedded in ${activeSessionFileName ? 'RP' : 'WF'}`;
+    return title;
   } catch {
-    return `embedded in ${activeSessionFileName ? 'RP' : 'WF'}`;
+    return 'Untitled storybook';
   }
 }
 
@@ -870,6 +869,7 @@ function App() {
   const [isResizing, setIsResizing] = useState(false);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
+  const workflowFromRpSaveRef = useRef(false);
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
@@ -1428,6 +1428,12 @@ function App() {
     restoreDefaultFiles,
     resetWorkflow,
     saveCurrentWorkflow,
+    workspacePasswordRef,
+    workspacePassword,
+    setWorkspacePassword,
+    completeStorybookReplacement,
+    checkImportedPassword,
+    encryptionRequired,
   } = useRpgraphFiles({
     currentWorkflowForSave,
     currentSession,
@@ -1445,6 +1451,9 @@ function App() {
     setActiveWorkflowProtection,
     setActiveStorybookProtection,
     clearWorkspaceForLockedStartup,
+    onWorkspacePasswordChange: npcLibrary.setGamePassword,
+    workflowRequiresProtection: () => activeWorkflowProtection === 'encrypted',
+    workflowFollowsStorybookProtection: () => workflowFromRpSaveRef.current,
   });
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
@@ -1522,10 +1531,10 @@ function App() {
     removalInfo,
     importCharacterCard,
     showCharacterFiles,
-    characterFiles,
-    selectedCharacterFile,
+    characterImportChoices,
+    selectedCharacterImportKey,
     characterFileStatus,
-    setSelectedCharacterFile,
+    setSelectedCharacterImportKey,
     closeCharacterFiles,
     cancelCharacterCardUnlock,
     importSelectedCharacterCard,
@@ -1553,13 +1562,19 @@ function App() {
     sessionPassword,
     setFileStorageStatus,
     setSessionPasswordAction,
-    setActiveStorybookProtection,
+    setActiveStorybookProtection: (protection) => {
+      setActiveStorybookProtection(protection);
+      if (typeof protection === 'string') completeStorybookReplacement(protection);
+    },
     notifySystem,
     usedStorybookImageIds,
     currentNpcParticipants: npcParticipants.current,
     restoreNpcParticipants: npcParticipants.restore,
     commitLifecycleNodes: (nextNodes) => commitNodes(nextNodes),
     currentLibraryEntries: () => npcLibrary.snapshot?.entries ?? [],
+    currentLibraryFiles: () => npcLibrary.snapshot?.files ?? [],
+    reloadLibrary: () => npcLibrary.reload(),
+    workspacePassword: () => workspacePasswordRef.current,
     lifecycleBusy: () => !!activeRunRef.current || lifecycleRunningRef.current,
     saveNpcCharacter: async (character, overwrite) => {
       if (!window.rpgraph?.saveCharacter) throw new Error('Saving requires the desktop application.');
@@ -1568,7 +1583,8 @@ function App() {
       if (matches.length > 1) throw new Error('Multiple local NPC files use this identity. Resolve the duplicate files first.');
       if (matches.length && !overwrite) throw new Error('A local NPC with this identity now exists. Reopen Remove to review the overwrite option.');
       const name = matches[0]?.fileName.replace(/\.json$/i, '') ?? character.name;
-      const result = await window.rpgraph.saveCharacter(name, createCharacterContainer(character, true), 'plain', '', !!matches.length && overwrite, 'npc-characters');
+      const password = workspacePasswordRef.current;
+      const result = await window.rpgraph.saveCharacter(name, createCharacterContainer(character, true), password ? 'encrypted' : 'plain', password, !!matches.length && overwrite, 'npc-characters');
       if (result.conflict) throw new Error('A different NPC file already uses this filename. Save through Export Character with a unique filename first.');
       await npcLibrary.reload();
     },
@@ -2538,12 +2554,17 @@ function App() {
   async function currentSession(name: string): Promise<RpgraphSessionV2> {
     if (activeRunRef.current) throw new Error('Wait for the current run to finish before replacing or saving the RP.');
     const savedAt = new Date().toISOString();
-    return sessionV2FromCurrentState(
+    const session = sessionV2FromCurrentState(
       currentSessionState(name),
       currentWorkflow(),
       nodesRef.current,
       savedAt,
     );
+    session.metadata.workflowFileName = activeWorkflowFileName ?? undefined;
+    session.metadata.storybookFileNames = Object.fromEntries(nodesRef.current
+      .filter((node) => isStorybookSourceNode(node) && node.data.storybookFileName)
+      .map((node) => [node.id, node.data.storybookFileName as string]));
+    return session;
   }
 
   function latestSessionTurnNumber(session: RpgraphSessionV2) {
@@ -2608,8 +2629,8 @@ function App() {
     activeSessionPathRef.current = null;
     setActiveSessionProtection('plain');
     activeSessionPasswordRef.current = '';
-    setActiveWorkflowProtection('plain');
     setActiveStorybookProtection('plain');
+    // Clearing chat history alone must not remove protection from the loaded cast.
     setSessionName('');
     setDraft('');
     nextMessageIdRef.current = 1;
@@ -2652,6 +2673,7 @@ function App() {
         result.fileName,
         result.protection === 'encrypted' ? result.fileName : undefined,
       );
+      setWorkspacePassword(result.protection === 'encrypted' ? password : '');
       setWorkflowNameDraft(result.name);
       setSelectedFile(result.fileName);
       setWorkflowOverwritePending(false);
@@ -2661,6 +2683,7 @@ function App() {
       return;
     }
     if (result.type === 'storybook') {
+      if (result.protection === 'encrypted') checkImportedPassword(password);
       const storybookNode =
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
@@ -2680,6 +2703,7 @@ function App() {
         return;
       }
       setActiveStorybookProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
+      if (result.protection === 'encrypted') setWorkspacePassword(password);
       setSelectedFile(result.fileName);
       setFileStorageStatus(`Loaded storybook: ${result.name}`);
       setSessionPasswordAction(null);
@@ -2687,6 +2711,9 @@ function App() {
       return;
     }
     if (result.type === 'character-card') {
+      if (result.protection === 'encrypted' && (!workspacePasswordRef.current || workspacePasswordRef.current !== password)) {
+        throw new Error('Open a protected Storybook or RP Save with the matching character password first.');
+      }
       const storybookNode =
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
@@ -2725,6 +2752,12 @@ function App() {
     // Prepare everything that can fail before touching any state, so a
     // corrupted session cannot leave a half-loaded mix of old and new data.
     const hydratedWorkflow = prepareLoadedWorkflow(workflowV2ToWorkflowFile(session.workflow), false);
+    hydratedWorkflow.nodes = hydratedWorkflow.nodes.map((node) => {
+      const storybookFileName = session.metadata.storybookFileNames?.[node.id];
+      return isStorybookSourceNode(node) && storybookFileName
+        ? { ...node, data: { ...node.data, storybookFileName } }
+        : node;
+    });
     const sessionState = appStateFromSessionV2(session);
     const canonicalAppointments = normalizedEventAppointments(
       appointmentsFromEventEntities(session.entities.events),
@@ -2759,11 +2792,12 @@ function App() {
       hydratedWorkflow,
       null,
       'Loaded session workflow',
-      'embedded workflow',
-      'embedded workflow',
+      session.metadata.workflowFileName || 'Workflow from RP Save',
+      session.metadata.workflowFileName || 'Workflow from RP Save',
       false,
     );
     npcParticipants.restore(sessionState.npcParticipants);
+    workflowFromRpSaveRef.current = true;
     const openingMessages = sessionState.openingMessages;
     const loadedTurns = sessionState.turns;
     const loadedMessages = [
@@ -2805,6 +2839,7 @@ function App() {
     activeSessionPathRef.current = filePath;
     setActiveSessionProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
     activeSessionPasswordRef.current = protection === 'encrypted' ? password : '';
+    setWorkspacePassword(protection === 'encrypted' ? password : '');
     setSessionName(name);
     setDraft('');
     nextMessageIdRef.current =
@@ -2853,6 +2888,7 @@ function App() {
     // Validate and hydrate before any state is cleared, so a corrupted file
     // cannot wipe the running session.
     const hydratedWorkflow = prepareLoadedWorkflow(workflow, hydrateOpeningHistory);
+    clearCurrentSession();
     commitHydratedWorkflow(
       hydratedWorkflow,
       filePath,
@@ -2861,6 +2897,10 @@ function App() {
       resetSnapshotFileName,
       hydrateOpeningHistory,
     );
+    if (!resetSnapshotFileName) {
+      setActiveWorkflowProtection('plain');
+      setWorkspacePassword('');
+    }
   }
 
   function commitHydratedWorkflow(
@@ -2878,6 +2918,7 @@ function App() {
       clearTurnTraces();
     }
     const loadedNodes = hydratedWorkflow.nodes;
+    workflowFromRpSaveRef.current = false;
     const loadedEdges = hydratedWorkflow.edges;
     commitNodes(loadedNodes);
     commitEdges(loadedEdges);
@@ -4817,7 +4858,7 @@ function App() {
 
   const displayedWorkflowName = activeWorkflowFileName
     ? activeWorkflowFileName === 'embedded workflow'
-      ? 'embedded in RP'
+      ? 'Workflow from RP Save'
       : activeWorkflowFileName
     : 'not saved';
   const displayedSessionSavedTurn =
@@ -4833,7 +4874,6 @@ function App() {
   const displayedStorybookName = displayStorybookName(
     headerStorybookFileName,
     headerStorybookJson,
-    activeSessionFileName,
   );
 
   const formatEncryptedFileName = (fileName: string | null | undefined) => {
@@ -4844,7 +4884,7 @@ function App() {
   const isSessionEncrypted = activeSessionProtection === 'encrypted';
   const displayedSessionFileName = isSessionEncrypted && activeSessionFileName
     ? formatEncryptedFileName(activeSessionFileName)
-    : (activeSessionFileName ?? 'not saved');
+    : (activeSessionFileName ?? 'New game · Not saved');
 
   const isWorkflowEncrypted = activeWorkflowProtection === 'encrypted' && !!activeWorkflowFileName;
   const displayedWorkflowNameFormatted = isWorkflowEncrypted
@@ -6295,6 +6335,7 @@ function App() {
         sessionName={sessionName}
         sessionPassword={sessionPassword}
         fileProtection={fileProtection}
+        encryptionRequired={encryptionRequired}
         workflowSaveScope={workflowSaveScope}
         chooseSaveLocation={chooseSaveLocation}
         characterSaveLocation={characterSaveLocation}
@@ -6369,12 +6410,12 @@ function App() {
           )
         }
         showCharacterFiles={showCharacterFiles}
-        characterFiles={characterFiles}
-        selectedCharacterFile={selectedCharacterFile}
+        characterImportChoices={characterImportChoices}
+        selectedCharacterImportKey={selectedCharacterImportKey}
         characterFileStatus={characterFileStatus}
         onCloseCharacterFiles={closeCharacterFiles}
-        onSelectCharacterFile={(file) => setSelectedCharacterFile(file.fileName)}
-        onImportCharacterFile={(file) => void importSelectedCharacterCard(file)}
+        onSelectCharacterImport={(choice) => setSelectedCharacterImportKey(choice?.key ?? null)}
+        onImportCharacterChoice={(choice) => void importSelectedCharacterCard(choice)}
         onOpenExternalCharacterFile={() => void openExternalCharacterCard()}
         showConnections={showConnections}
         connections={connections}
@@ -6445,6 +6486,7 @@ function App() {
       )}
       {showCharacterAssistant && (
         <CharacterAssistantDialog referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)} initialEntry={characterAssistantEntry} nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
+          requiredPassword={workspacePassword}
           rpBusy={isRunning}
           onApplyToRp={characterAssistantEntry?.source === `snapshot:${characterAssistantEntry?.character.id}` ? (character) => {
             if (activeRunRef.current) throw new Error('Wait for the current run to finish before editing the RP copy.');

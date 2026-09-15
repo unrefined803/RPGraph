@@ -23,6 +23,7 @@ import { createCharacterContainer } from '../characters/creator';
 import './characterAssistant.css';
 
 type Props = {
+  requiredPassword?: string;
   referenceCharacters?: Character[];
   initialEntry?: NpcLibraryEntry;
   onApplyToRp?: (character: Character) => void;
@@ -37,7 +38,7 @@ type Props = {
 type Source = { destination: CharacterDestination; fileName: string; bundled?: boolean };
 type LoadChoice = { key: string; label: string; source: Source; character?: Character; file?: SavedFileSummary };
 
-export function CharacterAssistantDialog({ referenceCharacters = [], initialEntry, onApplyToRp, rpBusy = false, nodeLlm, connections, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
+export function CharacterAssistantDialog({ requiredPassword = '', referenceCharacters = [], initialEntry, onApplyToRp, rpBusy = false, nodeLlm, connections, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
   const [editingRp, setEditingRp] = useState(!!onApplyToRp);
   const [character, setCharacter] = useState<Character>(() => initialEntry ? { ...structuredClone(initialEntry.character), playable: false } : newAssistantCharacter());
   const current = useRef(character);
@@ -50,8 +51,10 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
   const [connectionId, setConnectionId] = useState(defaultConnectionId);
   const [destination, setDestination] = useState<CharacterDestination | 'choose'>('npc-characters');
   const [source, setSource] = useState<Source | undefined>(() => initialEntry && !onApplyToRp ? { destination: 'npc-characters', fileName: initialEntry.fileName, bundled: initialEntry.tier === 'bundled' } : undefined);
-  const [protection, setProtection] = useState<'plain' | 'encrypted'>('plain');
-  const [savePassword, setSavePassword] = useState('');
+  const [protectionDraft, setProtection] = useState<'plain' | 'encrypted'>('plain');
+  const [savePasswordDraft, setSavePassword] = useState('');
+  const protection = requiredPassword ? 'encrypted' : protectionDraft;
+  const savePassword = requiredPassword || savePasswordDraft;
   const [savedCharacter, setSavedCharacter] = useState(character);
   const [undo, setUndo] = useState<Character[]>([]);
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -416,12 +419,12 @@ export function CharacterAssistantDialog({ referenceCharacters = [], initialEntr
           <label className="chat-file-field">CHARACTER NAME<input value={character.name} readOnly /></label>
           <div className="chat-security-info"><strong>Whole-file protection</strong><p>Plain JSON is readable and easy to share. Password encrypted protects the complete character, including images and app setup.</p></div>
           <div className="file-protection-options" role="radiogroup" aria-label="File protection">
-            <label><input type="radio" name="character-save-protection" checked={protection === 'plain'} disabled={ioBusy} onChange={() => setProtection('plain')} /><span><strong>Plain JSON</strong><small>Readable and shareable</small></span></label>
-            <label><input type="radio" name="character-save-protection" checked={protection === 'encrypted'} disabled={ioBusy} onChange={() => setProtection('encrypted')} /><span><strong>Password encrypted</strong><small>Protect the complete file</small></span></label>
+            <label><input type="radio" name="character-save-protection" checked={protection === 'plain'} disabled={ioBusy || !!requiredPassword} onChange={() => setProtection('plain')} /><span><strong>Plain JSON</strong><small>Readable and shareable</small></span></label>
+            <label><input type="radio" name="character-save-protection" checked={protection === 'encrypted'} disabled={ioBusy || !!requiredPassword} onChange={() => setProtection('encrypted')} /><span><strong>Password encrypted</strong><small>Protect the complete file</small></span></label>
           </div>
           <CharacterSaveOptions action="Save" includePosts={includePosts} onIncludePostsChange={setIncludePosts} destination={destination} onDestinationChange={setDestination} disabled={ioBusy}
             destinations={[{ value: 'npc-characters', label: 'NPC Library Folder' }, { value: 'characters', label: 'Characters Folder' }, { value: 'choose', label: 'Choose Save Location…' }]} />
-          {protection === 'encrypted' && <label className="chat-file-field">PASSWORD OR PIN<input autoFocus type="password" autoComplete="new-password" value={savePassword} disabled={ioBusy} onChange={(event) => setSavePassword(event.target.value)} placeholder="Enter password or PIN" /></label>}
+          {requiredPassword ? <p>Encryption is required. The existing game password is used automatically.</p> : protection === 'encrypted' && <label className="chat-file-field">PASSWORD OR PIN<input autoFocus type="password" autoComplete="new-password" value={savePassword} disabled={ioBusy} onChange={(event) => setSavePassword(event.target.value)} placeholder="Enter password or PIN" /></label>}
           {status && <p className="chat-storage-status" role="status">{status}</p>}
         </div>
         <div className="dialog-actions"><button type="button" className="secondary" disabled={ioBusy} onClick={() => setShowSave(false)}>Cancel</button><button type="button" disabled={ioBusy || busy} onClick={() => void save()}>Save Character File</button></div>

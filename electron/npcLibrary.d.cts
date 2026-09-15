@@ -18,6 +18,20 @@ export type NpcLibrarySnapshot = {
       [key: string]: unknown;
     };
   }>;
+  files: Array<{
+    tier: 'bundled' | 'user';
+    fileName: string;
+    name: string;
+    updatedAt: string;
+    storage?: 'npc-characters';
+    type: 'character-card';
+    protection: 'plain' | 'encrypted';
+    envelopeFormatVersion?: string;
+    formatVersion?: string;
+    characterName?: string;
+    compatible: boolean;
+    unlocked?: boolean;
+  }>;
   diagnostics: NpcLibraryDiagnostic[];
   skipped: number;
 };
@@ -32,8 +46,11 @@ export function scanNpcLibrary(roots: NpcLibraryRoots): Promise<NpcLibrarySnapsh
 export function createNpcLibraryService(options: {
   roots: NpcLibraryRoots;
   openPath: (directory: string) => Promise<string>;
+  decryptCharacter?: (envelope: unknown, password: string) => Promise<unknown>;
+  onChanged?: (snapshot: NpcLibrarySnapshot) => void;
 }): {
   current(): NpcLibrarySnapshot;
   reload(): Promise<NpcLibrarySnapshot>;
+  setGamePassword(password: string): Promise<NpcLibrarySnapshot>;
   openUserDirectory(): Promise<{ path: string }>;
 };

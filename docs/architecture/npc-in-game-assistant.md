@@ -137,9 +137,42 @@ confirmation. The dialog does not display filesystem paths or a Save as Copy act
 whole-file encryption code. Encrypted saves require a password or PIN. The optional
 own-posts checkbox defaults to enabled. The portable serializer excludes private
 dating history and runtime media access metadata; API keys and assistant messages
-are never exported. An encrypted file in the NPC folder is currently ignored by
-the scanner and will not become an active NPC override. Encrypted files in the
-Characters Folder can still be opened through Load Character with a password.
+are never exported. Encrypted NPC files appear as locked rows with their public
+name, filename, modification time, container version and encryption status.
+The row offers only **Info**, explaining automatic unlocking. There is no manual
+NPC password entry. Activating a protected game (Storybook, RP Save, or encrypted
+workflow) tries its password against the NPC Library. Reading a file for preview
+or editing a standalone character does not unlock the NPC Library. Unlocking adds
+validated characters to the normal registry with its duplicate and override rules.
+
+The active game password is retained in memory only. The NPC service tries only
+that password, once per unchanged payload, and retains matching unlocks on reload.
+Activating a different game clears old attempts and decrypted library entries;
+an unprotected game exposes no encrypted NPC files as active library characters.
+Closing the application clears this state. IPC library snapshots expose unlock
+status and unlocked characters, never passwords.
+
+Saving or loading a protected Storybook or RP Save establishes mandatory game
+protection. RP Save (including quick save and Save As), Storybook, workflow and
+character exports inherit the same password and cannot select Plain JSON. The
+Electron write handlers reject plain writes and different passwords as a second
+check. A pre-existing plain RP quick-save target is rewritten as an encrypted file.
+Clearing chat history alone does not remove protection. Starting another workflow
+or opening another RP Save establishes that game's protection. Replacing a
+Storybook releases its password when the retained workflow is unprotected; the
+NPC Library immediately drops the old decrypted entries. A workflow loaded from
+an RP Save follows the replacement Storybook's protection, regardless of the
+save's original protection. A plain replacement releases the old game password;
+an encrypted replacement establishes its own password. This affects the current
+game only, not the original RP file. Independently loaded encrypted workflows
+retain their own protection and reject conflicting Storybook passwords. Encrypted character
+imports likewise require a matching protected game first.
+
+RP saves preserve the active workflow and Storybook source names in optional
+metadata. Saving does not rename the workflow to an embedded-container label.
+Older saves without source names display "Workflow from RP Save" and the
+Storybook title. Replacing a workflow or Storybook detaches the previous RP save
+and clears its play history without modifying the saved file.
 
 Saving preserves character, account, image and existing post IDs. A built-in
 revision saved to NPC Library replaces the bundled definition by ID through the

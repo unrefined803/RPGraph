@@ -1,6 +1,7 @@
 import type { Character } from './character';
 import { validateCharacterContainer } from './character';
 import type { CharacterRegistryEntry } from './registry';
+import type { SavedFileSummary } from '../types';
 
 type NpcLibraryTier = 'bundled' | 'user';
 type NpcLibraryDiagnostic = {
@@ -14,9 +15,15 @@ export type NpcLibraryEntry = CharacterRegistryEntry & {
   fileName: string;
   character: Character;
 };
+export type NpcLibraryFileSummary = Omit<SavedFileSummary, 'storage'> & {
+  tier: NpcLibraryTier;
+  storage?: 'npc-characters';
+  unlocked?: boolean;
+};
 export type NpcLibrarySnapshot = {
   roots: { bundled: string; user: string };
   entries: NpcLibraryEntry[];
+  files: NpcLibraryFileSummary[];
   diagnostics: NpcLibraryDiagnostic[];
   skipped: number;
   browserLimited?: boolean;
@@ -32,15 +39,18 @@ const bundledSourceLoaders = import.meta.glob('../../resources/npc-characters/*.
 /** Browser development can read bundled assets, but never arbitrary user-data files. */
 export async function browserNpcLibrarySnapshot(): Promise<NpcLibrarySnapshot> {
   const entries: NpcLibraryEntry[] = [];
+  const files: NpcLibraryFileSummary[] = [];
   const diagnostics: NpcLibraryDiagnostic[] = [];
   for (const [sourcePath, load] of Object.entries(bundledSourceLoaders).sort(([left], [right]) => left.localeCompare(right))) {
     const fileName = sourcePath.split('/').pop() ?? sourcePath;
     try {
       const contents = await load();
-      const container = JSON.parse(contents) as { character?: Character };
+      const container = JSON.parse(contents) as { version?: string; character?: Character };
       validateCharacterContainer(container);
       entries.push({ tier: 'bundled', source: `bundled:${fileName}`, fileName,
         character: container.character! });
+      files.push({ tier: 'bundled', fileName, name: container.character!.name, updatedAt: '',
+        type: 'character-card', protection: 'plain', formatVersion: String(container.version ?? ''), compatible: true });
     } catch (error) {
       diagnostics.push({ tier: 'bundled', fileName, code: 'invalid-container',
         message: error instanceof Error ? error.message : String(error) });
@@ -49,6 +59,7 @@ export async function browserNpcLibrarySnapshot(): Promise<NpcLibrarySnapshot> {
   return {
     roots: { bundled: 'Bundled application resources', user: 'Unavailable in browser mode' },
     entries,
+    files,
     diagnostics,
     skipped: 0,
     browserLimited: true,
