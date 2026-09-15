@@ -47,7 +47,7 @@ export function characterRemovalInfo(character: Character, libraryCharacter: Cha
 }
 
 /** Keep stable aliases and the exact authored revision when retiring a playable character. */
-export function retiredCharacterSnapshot(entry: EffectiveCharacter): NpcParticipantSnapshots[string] {
+function retiredCharacterSnapshot(entry: EffectiveCharacter): NpcParticipantSnapshots[string] {
   return { character: { ...structuredClone(entry.character), playable: false },
     source: entry.provenance.source, aliases: structuredClone(entry.aliases), npcOrigin: entry.npcOrigin };
 }

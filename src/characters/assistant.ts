@@ -195,7 +195,7 @@ export function assignCharacterImage(character: Character, imageId: string, use:
 
 export type CharacterAuthoringStep = 'profile' | 'accounts';
 
-export function characterAuthoringStepPrompt(step: CharacterAuthoringStep, character: Character, instruction: string, attachmentIds: string[]) {
+function characterAuthoringStepPrompt(step: CharacterAuthoringStep, character: Character, instruction: string, attachmentIds: string[]) {
   const projection = characterAssistantProjection(character);
   const { apps: _apps, profileImage: _portrait, ...profile } = projection.character;
   return [
