@@ -4566,8 +4566,8 @@ function App() {
     const entries = migrateDatingHistory(currentOwner, state, messagesRef.current, new Date().toISOString());
     state.matches.push(...entries.flatMap((entry) => entry.matchMeMatch ? [entry.matchMeMatch] : []));
     for (const [id, decision] of Object.entries(profile.decisions)) {
-      if (decision !== 'like' || currentOwner.social.plotTwist?.decisions[id] === 'like') continue;
-      const match = matchMeLikePolicy(datingAccountId(owner), id, state, new Date().toISOString());
+      if ((decision !== 'like' && decision !== 'superlike') || currentOwner.social.plotTwist?.decisions[id] === decision) continue;
+      const match = matchMeLikePolicy(datingAccountId(owner), id, state, new Date().toISOString(), decision);
       if (!match) continue;
       state.matches.push(match);
       entries.push({ role: 'user', includeInHistory: true, matchMeMatch: match,

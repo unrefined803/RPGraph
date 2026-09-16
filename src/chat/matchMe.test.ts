@@ -7,6 +7,7 @@ import type { MessageRecord, TurnRecord, WorkflowFile, WorkflowNode } from '../t
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { sessionV2FromCurrentState, appStateFromSessionV2 } from '../data-management/sessionStore';
 import { isRpgraphSessionV2 } from '../data-management/validation';
+import { normalizeDatingProfile, resetDatingPasses } from './datingProfile';
 import { datingAccountId, datingAccounts, datingNpcProfiles, resolveDatingAccount } from './datingAccounts';
 import { canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
 import { parseSocialDirectMessageOutput, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
@@ -360,5 +361,53 @@ describe('Social app profile labels', () => {
     expect(socialCharacterForPost({ ...post, authorAccountId: undefined, author: owner.name }, [owner])).toBeUndefined();
     expect(socialAccountPresentation(app, undefined, 'Troll872', 'troll872'))
       .toEqual({ name: 'Troll872', handle: 'troll872' });
+  });
+});
+
+
+describe('Reciprocal likes and superlikes', () => {
+  it('persists a unilateral like without opening a conversation, then matches on the reciprocal like', () => {
+    const a = character('a', 'A');
+    const b = character('b', 'B');
+    const aId = datingAccountId(a), bId = datingAccountId(b);
+    a.social.plotTwist!.decisions[bId] = 'like';
+    const state = matchMeState([a, b], []);
+    expect(matchMeLikePolicy(aId, bId, state, now)).toBeUndefined();
+    expect(incomingMatchMeMessage(aId, bId, 'Hello', state, 'blocked', now)).toBeUndefined();
+    const match = matchMeLikePolicy(bId, aId, state, now)!;
+    expect(match).toBeDefined();
+    const history: MessageRecord[] = [{ id: 1, role: 'user', originalText: '', matchMeMatch: match }];
+    const matched = matchMeState([a, b], history);
+    expect(canSendMatchMeMessage(aId, bId, matched)).toBe(true);
+    expect(canSendMatchMeMessage(bId, aId, matched)).toBe(true);
+    expect(matchMeLikePolicy(bId, aId, matched, now)).toBeUndefined();
+  });
+  it('allows a superlike to unlock chat without a reciprocal like and preserves it through normalization', () => {
+    const a = character('a', 'A'), b = character('b', 'B');
+    const aId = datingAccountId(a), bId = datingAccountId(b);
+    b.social.plotTwist!.decisions[aId] = 'pass';
+    const state = matchMeState([a, b], []);
+    expect(matchMeLikePolicy(aId, bId, state, now)).toBeUndefined();
+    const match = matchMeLikePolicy(aId, bId, state, now, 'superlike')!;
+    expect(canSendMatchMeMessage(aId, bId, { ...state, matches: [match] })).toBe(true);
+    a.social.plotTwist!.decisions[bId] = 'superlike';
+    expect(normalizeDatingProfile(a.social.plotTwist)?.decisions[bId]).toBe('superlike');
+    expect(matchMeLikePolicy(aId, aId, state, now, 'superlike')).toBeUndefined();
+    expect(matchMeLikePolicy(aId, 'missing', state, now, 'superlike')).toBeUndefined();
+  });
+  it('resolves reciprocal decisions saved under legacy account aliases', () => {
+    const a = character('a', 'A'), b = character('b', 'B');
+    a.identityAliases = { accountIds: { matchme: ['old-a'] } };
+    b.social.plotTwist!.decisions['old-a'] = 'like';
+    const state = matchMeState([a, b], []);
+    expect(matchMeLikePolicy(datingAccountId(a), datingAccountId(b), state, now)).toBeDefined();
+    b.social.plotTwist!.decisions[datingAccountId(a)] = 'pass';
+    expect(matchMeLikePolicy(datingAccountId(a), datingAccountId(b), state, now)).toBeUndefined();
+  });
+  it('only resets passes when exploring again', () => {
+    const decisions = { a: 'like', b: 'pass', c: 'superlike' } as const;
+    expect(resetDatingPasses(decisions)).toEqual({ a: 'like', c: 'superlike' });
+    expect(decisions.b).toBe('pass');
+    expect(resetDatingPasses(resetDatingPasses(decisions))).toEqual({ a: 'like', c: 'superlike' });
   });
 });

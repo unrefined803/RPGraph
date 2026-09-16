@@ -2,9 +2,17 @@
 
 MatchMe retains its phone layout and dark theme. It uses the shared social DM
 workflow and timeline; UI components never open their own LLM connection.
-Every like immediately creates an active mutual match. This rule lives in
-`chat/matchMe.ts` as `matchMeLikePolicy`, ready to replace with another policy.
-There is no background message timer.
+Normal likes save directed interest and only create a match when the other
+account has already liked the sender. Superlikes immediately create a connection
+that permits messaging in both directions. `chat/matchMe.ts` owns this policy.
+Reciprocal interest comes from saved character profile decisions, including NPC
+profiles; no random background likes or message timer are fabricated. Authored
+starting matches and existing timeline matches remain available.
+
+Discovery excludes saved likes, superlikes and active matches. Explore again
+clears only passes. The Likes tab shows pending interest and supports upgrading
+a pending like to a Superlike. New connections show an animated confirmation
+with a direct chat action and respect reduced-motion preferences.
 
 ## Accounts and persistence
 
@@ -18,7 +26,9 @@ node-scoped `storybook:` IDs remain read aliases and legacy `demo-*` NPC account
 IDs remain stable.
 
 The `plotTwist` profile field and `plottwist` phone layout key remain compatible.
-Profiles store public fields, photo references, decisions and a migration version.
+Profiles store public fields, photo references, directed decisions (`pass`, `like`,
+`superlike`) keyed by account ID, and a migration version. Decisions remain private
+and are excluded from public MatchMe context.
 They no longer maintain live conversation history. Structured `matchMeMatch`
 timeline records contain the deterministic pair ID, both account IDs, timestamp
 and status. Each new match has one readable history event in the same record.

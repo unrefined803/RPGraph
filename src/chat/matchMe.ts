@@ -50,11 +50,19 @@ export function canSendMatchMeMessage(senderId: string, recipientId: string, sta
       match.id === matchMePairId(senderId, recipientId));
 }
 
-/** Replace this policy when reciprocal likes become available. */
-export function matchMeLikePolicy(senderId: string, recipientId: string, state: MatchMeState, now: string): MatchMeMatch | undefined {
+/** Resolve saved decisions through account aliases, with canonical IDs taking precedence. */
+export function matchMeDecision(decisions: DatingAccount['decisions'], recipientId: string, state: MatchMeState) {
+  if (decisions?.[recipientId]) return decisions[recipientId];
+  return Object.entries(decisions ?? {}).find(([id]) => resolveDatingAccount(id, state.accounts)?.id === recipientId)?.[1];
+}
+
+/** Normal likes require reciprocal interest; superlikes immediately unlock messaging. */
+export function matchMeLikePolicy(senderId: string, recipientId: string, state: MatchMeState, now: string, decision: 'like' | 'superlike' = 'like'): MatchMeMatch | undefined {
   senderId = resolveDatingAccount(senderId, state.accounts)?.id ?? senderId;
   recipientId = resolveDatingAccount(recipientId, state.accounts)?.id ?? recipientId;
-  if (senderId === recipientId || ![senderId, recipientId].every((id) => state.accounts.some((a) => a.id === id))) return;
+  if (senderId === recipientId || ![senderId, recipientId].every((id) => state.accounts.filter((a) => a.id === id).length === 1)) return;
+  const reciprocal = matchMeDecision(state.accounts.find((account) => account.id === recipientId)?.decisions, senderId, state);
+  if (decision !== 'superlike' && reciprocal !== 'like' && reciprocal !== 'superlike') return;
   const id = matchMePairId(senderId, recipientId);
   if (state.matches.some((match) => match.id === id && match.status === 'active')) return;
   return { id, accountIds: [senderId, recipientId].sort() as [string, string], matchedAt: now, status: 'active' };
@@ -133,7 +141,7 @@ export function migrateDatingHistory(owner: StorybookCharacter, state: MatchMeSt
   ]);
   for (const recipientId of legacyPartners) {
     const firstMessage = profile.messages?.find((message) => message.matchId === recipientId);
-    const match = matchMeLikePolicy(senderId, recipientId, nextState, firstMessage?.sentAt ?? now);
+    const match = matchMeLikePolicy(senderId, recipientId, nextState, firstMessage?.sentAt ?? now, 'superlike');
     if (!match) continue;
     nextState.matches.push(match);
     additions.push({ role: 'user', originalText: matchMeMatchHistoryText(match, state.accounts), includeInHistory: true, matchMeMatch: match });

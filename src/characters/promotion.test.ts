@@ -47,7 +47,7 @@ describe('Storybook NPC promotion', () => {
     const characters = appCharactersFromRegistry(initialRegistry);
     const initialState = matchMeState(characters, []);
     expect(initialState.accounts.map((account) => account.id)).toContain('player-matchme');
-    const match = matchMeLikePolicy('player-matchme', 'stage4-nova-mm', initialState, now)!;
+    const match = matchMeLikePolicy('player-matchme', 'stage4-nova-mm', initialState, now, 'superlike')!;
     const messages: MessageRecord[] = [{ id: 1, role: 'user', originalText: '', matchMeMatch: match }];
     const outgoing = incomingMatchMeMessage('player-matchme', 'stage4-nova-mm', 'What is your Fotogram?', matchMeState(characters, messages), 'question', now)!;
     messages.push({ id: 2, role: 'user', originalText: '', socialDirectMessage: outgoing });

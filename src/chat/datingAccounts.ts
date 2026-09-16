@@ -2,7 +2,7 @@ import { appAvatarDataUrl } from '../characters/portrait';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import type { ChatImageAttachment, MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
-import type { DatingGender } from './datingProfile';
+import type { DatingGender, DatingProfile } from './datingProfile';
 
 export const datingNpcProfiles = [
   { id: 'demo-alex', name: 'Alex', age: 26, bio: 'Coffee first. Spontaneous road trip second. I will absolutely make you a playlist.', interests: ['Music', 'Road trips', 'Coffee'], gender: 'man' as const, personality: 'Warm, spontaneous and gently playful. Loves sharing music and asks thoughtful questions.', color: 'rose' },
@@ -14,6 +14,7 @@ export const datingNpcProfiles = [
 export type DatingAccount = {
   id: string; characterId?: string; aliases?: string[]; name: string; age: number; gender?: DatingGender;
   avatarDataUrl?: string; photos?: ChatImageAttachment[]; recipientContext?: string; libraryNpc?: boolean;
+  decisions?: DatingProfile['decisions'];
   bio: string; interests: string[]; personality: string; color: string;
 };
 export const datingAccountId = (character: string | StorybookCharacter) => typeof character === 'string'
@@ -51,7 +52,7 @@ export function datingAccounts(characters: StorybookCharacter[], messages: Messa
       avatarDataUrl: appAvatarDataUrl(character, character.images?.find((image) => image.id === character.apps?.matchme?.avatarImageId)),
       recipientContext: recipientCharacterContext(character), libraryNpc: character.libraryNpc,
       aliases: [...(character.identityAliases?.accountIds?.matchme ?? []), ...(character.identityAliases?.characterIds ?? []).map(datingAccountId), datingAccountId(character.id), character.name, character.apps?.matchme?.profileName ?? character.apps?.matchme?.displayName ?? '', ...(character.apps?.matchme?.legacyHandles ?? []), character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
-      name: profile.name, age: profile.age, gender: profile.gender, bio: profile.bio,
+      decisions: profile.decisions, name: profile.name, age: profile.age, gender: profile.gender, bio: profile.bio,
       interests: profile.interests.split(',').map((part) => part.trim()).filter(Boolean),
       personality: [character.profile.personality, character.profile.speechStyle].filter(Boolean).join('\n'), color: 'violet' });
   }

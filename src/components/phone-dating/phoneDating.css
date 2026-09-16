@@ -171,3 +171,13 @@
 @container (max-width: 560px) {
   .pt-match small.pt-match-unread { justify-content: center; white-space: normal; }
 }
+
+.pt-app .pt-decisions .pt-superlike-action { background: linear-gradient(145deg, #63b6ff, #5767de); color: white; border-color: #abd9ff; font-size: 28px; }
+.pt-app .pt-decisions .pt-superlike-action:hover:not(:disabled) { box-shadow: 0 0 24px #63b6ff70; transform: translateY(-2px); }
+.pt-action-help { color: #b6a5b5; font-size: 12px; text-align: center; line-height: 1.6; }
+.pt-main { position: relative; }
+.pt-match-celebration { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; background: #211727f5; }
+.pt-match-celebration h2, .pt-match-celebration p { margin: 0; }
+.pt-celebration-icon { font-size: 76px; color: #f78abb; animation: pt-match-pop 550ms ease-out both; }
+@keyframes pt-match-pop { from { opacity: 0; transform: scale(.3) rotate(-20deg); } 70% { transform: scale(1.15) rotate(5deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .pt-celebration-icon { animation: none; } }

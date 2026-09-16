@@ -165,7 +165,7 @@ describe('inline account links', () => {
     const { characters } = setup();
     expect(resolveWhatsUpRecipient(characters, [], 'Nova Vale Phone').accountId).toBe('nova:whatsup');
     expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity: 'Nova Vale Profile' }).accountId).toBe('nova:fotogram');
-    const match = matchMeLikePolicy('player:matchme', 'nova:matchme', matchMeState(characters, []), now)!;
+    const match = matchMeLikePolicy('player:matchme', 'nova:matchme', matchMeState(characters, []), now, 'superlike')!;
     const history: MessageRecord[] = [{ id: 2, role: 'user', originalText: '', matchMeMatch: match }];
     const outgoing = incomingMatchMeMessage('player:matchme', 'nova:matchme', 'Your account?', matchMeState(characters, history), 'q', now)!;
     const text = JSON.stringify({ matchMeApp: [{ from: 'Nova Vale Profile', to: 'player.matchme', message: '@fotogram:nova.fotogram' }] });

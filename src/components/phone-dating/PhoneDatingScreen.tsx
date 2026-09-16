@@ -1,12 +1,12 @@
 import { CharacterAvatar } from '../CharacterAvatar';
 import { datingAccountId, resolveDatingAccount } from '../../chat/datingAccounts';
-import { matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
+import { matchMeDecision, matchMeLikePolicy, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
 import type { MessageRecord, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
 import { useEffect, useRef, useState } from 'react';
 import type { ChatImageAttachment } from '../../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
-import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
+import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, resetDatingPasses, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
 import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { NodeCustomSelect } from '../../nodes/shared/NodeCustomSelect';
 import './phoneDating.css';
@@ -41,6 +41,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [celebration, setCelebration] = useState<{ id: string; name: string; superlike: boolean }>();
   const [photo, setPhoto] = useState(0);
   const [drag, setDrag] = useState(0);
   const start = useRef<{ x: number; y: number } | null>(null);
@@ -82,10 +83,12 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     finally { sending.current = false; setBusy(false); }
   }
   const selectedMatch = matches.find((entry) => entry.id === resolveDatingAccount(selectedMatchId ?? '', state.accounts)?.id);
-  const linkedCandidate = availableProfiles.find((entry) => entry.id === selectedMatchId);
+  const decisionFor = (id: string) => matchMeDecision(profile?.decisions, id, state);
+  const likedProfiles = availableProfiles.filter((entry) => ['like', 'superlike'].includes(decisionFor(entry.id) ?? ''));
+  const linkedCandidate = availableProfiles.find((entry) => entry.id === selectedMatchId && !decisionFor(entry.id) && !canSendMatchMeMessage(ownerId, entry.id, state));
   const candidate = linkedCandidate ?? availableProfiles.find((entry) =>
     (!profile?.seeking?.length || !!entry.gender && profile.seeking.includes(entry.gender)) &&
-    !profile?.decisions[entry.id] && !entry.aliases?.some((alias) => profile?.decisions[alias]));
+    !decisionFor(entry.id) && !canSendMatchMeMessage(ownerId, entry.id, state));
   const candidatePhotoCount = candidate?.photos?.length ?? 0;
   const allImages = [...images, ...imported];
 
@@ -93,10 +96,18 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     if (!owner || !onSave(owner, next)) { setError('Could not save your profile. Please try again.'); return false; }
     setProfile(next); setDraft(next); setError(''); return true;
   }
-  function decide(decision: 'like' | 'pass') {
-    if (!profile || !candidate || selectedMatch || isRunning || busy) return;
-    if (save({ ...profile, decisions: { ...profile.decisions, [candidate.id]: decision } })) {
-      setSelectedMatchId(undefined); setPhoto(0); setNotice(decision === 'like' ? `You liked ${candidate.name}.` : `Passed on ${candidate.name}.`);
+  function decide(decision: 'like' | 'superlike' | 'pass', target = candidate) {
+    if (!profile || !target || isRunning || busy || celebration) return;
+    const previous = decisionFor(target.id);
+    if (canSendMatchMeMessage(ownerId, target.id, state) ||
+      (previous && !(previous === 'like' && decision === 'superlike'))) return;
+    const match = decision !== 'pass' && matchMeLikePolicy(ownerId, target.id, state, new Date().toISOString(), decision);
+    if (save({ ...profile, decisions: { ...profile.decisions, [target.id]: decision } })) {
+      setSelectedMatchId(undefined); setPhoto(0);
+      setNotice(decision === 'pass' ? `Passed on ${target.name}.` : decision === 'superlike'
+        ? `You superliked ${target.name}. You can chat now.` : match
+          ? `You and ${target.name} matched.` : `You liked ${target.name}. Waiting for a like back.`);
+      if (match) setCelebration({ id: target.id, name: target.name, superlike: decision === 'superlike' });
     }
   }
   function addPhoto(image: ChatImageAttachment) {
@@ -129,7 +140,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     <div className="pt-layout">
       {profile && !profileOnly && <aside className="pt-matches" aria-label="Matches">
         <h2>Matches <span>{matches.length}</span></h2>
-        <p className="pt-subtle">Your mutual connections</p>
+        <p className="pt-subtle">Your connections</p>
         <div className="pt-match-list">
           {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
             onClick={() => { setSelectedMatchId(match.id); setPhoto(0); setTab('discover'); setEditing(false); }}>
@@ -139,7 +150,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
                 : <small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small>}
             </span>
           </button>)}
-          {!matches.length && <p className="pt-subtle pt-match-empty">Like a profile to create a match and start a conversation.</p>}
+          {!matches.length && <p className="pt-subtle pt-match-empty">Match through mutual likes, or send a Superlike to chat immediately.</p>}
         </div>
       </aside>}
     <main className={`pt-main${selectedMatch && !editing ? ' pt-chat-main' : !editing && tab === 'discover' ? ' pt-discover-main' : ''}`}>
@@ -208,17 +219,28 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               {!!drag && <span className="pt-swipe-label">{drag > 0 ? 'LIKE' : 'PASS'}</span>}
               <div className="pt-card-info"><small>{candidate.characterId && !candidate.libraryNpc ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small><h3>{candidate.name} <span>{candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
             </article>
-            <div className="pt-decisions"><button className="pt-pass" type="button" disabled={busy || isRunning} aria-label={`Pass on ${candidate.name}`} title="Pass" onClick={() => decide('pass')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button><span>Find your next connection</span><button className="pt-like-action" type="button" disabled={busy || isRunning} aria-label={`Like ${candidate.name}`} title="Like" onClick={() => decide('like')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg></button></div>
-          </> : <div className="pt-empty"><span className="pt-empty-heart">✧</span><h2>You’re all caught up.</h2><p>You have seen all available profiles. You can explore them again.</p><button type="button" className="pt-primary" onClick={() => { if (profile) save({ ...profile, decisions: {} }); setPhoto(0); }}>Explore again</button></div>}
-        </div> : tab === 'likes' ? <div className="pt-list"><span className="pt-eyebrow">YOUR MAYBES & WHAT-IFS</span><h2>People you like</h2><p className="pt-subtle">Likes are saved for this character. Every like creates a mutual match. Open a match to start chatting.</p>
-          {availableProfiles.filter((entry) => profile?.decisions[entry.id] === 'like').map((entry) => <div className="pt-like" key={entry.id}><span aria-hidden="true">♥</span><div><strong>{entry.name}, {entry.age}</strong><small>Liked by you</small></div></div>)}
-          {!Object.values(profile?.decisions ?? {}).includes('like') && <div className="pt-empty"><h3>A little spark starts here.</h3><p>Like someone in Discover to see them here.</p></div>}
+            <div className="pt-decisions"><button className="pt-pass" type="button" disabled={busy || isRunning} aria-label={`Pass on ${candidate.name}`} title="Pass" onClick={() => decide('pass')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button><button className="pt-like-action" type="button" disabled={busy || isRunning} aria-label={`Like ${candidate.name}`} title="Like · Chat when they like you back" onClick={() => decide('like')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg></button><button className="pt-superlike-action" type="button" disabled={busy || isRunning} aria-label={`Superlike ${candidate.name}`} title="Superlike · Chat immediately" onClick={() => decide('superlike')}><span aria-hidden="true">★</span></button></div><p className="pt-action-help">Pass · Like · Superlike<br />Mutual likes create a match. Superlike unlocks chat immediately.</p>
+          </> : <div className="pt-empty"><span className="pt-empty-heart">✧</span><h2>You’re all caught up.</h2><p>You have seen all available profiles. Explore passed profiles again; your likes stay saved.</p><button type="button" className="pt-primary" onClick={() => { if (profile) save({ ...profile, decisions: resetDatingPasses(profile.decisions) }); setSelectedMatchId(undefined); setPhoto(0); }}>Explore again</button></div>}
+        </div> : tab === 'likes' ? <div className="pt-list"><span className="pt-eyebrow">YOUR MAYBES & WHAT-IFS</span><h2>People you like</h2><p className="pt-subtle">Likes wait for a like back. Send a Superlike to start chatting immediately.</p>
+          {likedProfiles.map((entry) => <div className="pt-like" key={entry.id}><span aria-hidden="true">{decisionFor(entry.id) === 'superlike' ? '★' : '♥'}</span><div><strong>{entry.name}, {entry.age}</strong><small>{canSendMatchMeMessage(ownerId, entry.id, state) ? 'Ready to chat' : 'Waiting for a like back'}</small></div>
+            {canSendMatchMeMessage(ownerId, entry.id, state)
+              ? <button type="button" onClick={() => { setSelectedMatchId(entry.id); setTab('discover'); }}>Chat</button>
+              : <button type="button" disabled={busy || isRunning} onClick={() => decide('superlike', entry)}>★ Superlike</button>}
+          </div>)}
+          {!likedProfiles.length && <div className="pt-empty"><h3>A little spark starts here.</h3><p>Like someone in Discover to see them here.</p></div>}
         </div> : <div className="pt-list"><span className="pt-eyebrow">THE MAIN CHARACTER</span><h2>{profile?.name}, {profile?.age}</h2><div className="pt-profile-photos">{profile?.photoIds.map((id, index) => { const image = allImages.find((entry) => entry.id === id); return image ? <img key={id} src={image.dataUrl} alt={`Your profile photo ${index + 1}`} /> : <span key={id}>Photo unavailable</span>; })}</div><dl className="pt-profile-details"><div><dt>I am</dt><dd>{profile?.gender ? datingGenderLabels[profile.gender] : 'Not specified'}</dd></div>
           <div><dt>I would like to meet</dt><dd>{profile?.seeking?.length ? profile.seeking.map((gender) => datingSeekingLabels[gender]).join(', ') : 'Not specified'}</dd></div></dl>
           <p>{profile?.bio}</p><p className="pt-subtle">{profile?.interests}</p><button type="button" className="pt-primary" onClick={() => { if (profile) setDraft(profile); setEditing(true); }}>Edit profile</button><p className="pt-subtle">Saved in {owner.name}’s Storybook profile.</p></div>}
       {selectedMatch && failedMessages[selectedMatch.id] && <button type="button" disabled={busy || isRunning} onClick={() => { void send(selectedMatch.id, true); }}>Retry reply</button>}
       {error && <p className="pt-error" role="alert">{error}</p>}
-      <span className="pt-sr-only" role="status">{notice}</span>
+      <p className="pt-action-help" role="status">{notice}</p>
+      {celebration && <section className="pt-match-celebration" role="status" aria-label="New connection">
+        <span className="pt-celebration-icon" aria-hidden="true">{celebration.superlike ? '★' : '♥'}</span>
+        <h2>{celebration.superlike ? 'Superlike sent!' : 'It’s a match!'}</h2>
+        <p>{celebration.superlike ? `You can now chat with ${celebration.name}.` : `You and ${celebration.name} liked each other.`}</p>
+        <button type="button" className="pt-primary" autoFocus onClick={() => { setSelectedMatchId(celebration.id); setTab('discover'); setCelebration(undefined); }}>Say hello</button>
+        <button type="button" onClick={() => setCelebration(undefined)}>Keep exploring</button>
+      </section>}
     </main>
     </div>
     {profile && !editing && <nav className="pt-tabs" aria-label="MatchMe navigation">{(['discover', 'likes', 'profile'] as const).map((item) => <button type="button" key={item} className={tab === item ? 'active' : ''} aria-current={tab === item ? 'page' : undefined} onClick={() => { setTab(item); setSelectedMatchId(undefined); setPhoto(0); }}><span aria-hidden="true">{item === 'discover' ? '✧' : item === 'likes' ? '♡' : '◎'}</span>{item === 'discover' ? 'Discover' : item === 'likes' ? 'Likes' : 'My profile'}</button>)}</nav>}

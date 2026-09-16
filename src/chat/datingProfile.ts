@@ -30,7 +30,7 @@ export type DatingProfile = {
   photoIds: string[];
   messages?: DatingMessage[];
   historyVersion?: 1;
-  decisions: Record<string, 'like' | 'pass'>;
+  decisions: Record<string, 'like' | 'superlike' | 'pass'>;
 };
 
 export function normalizeDatingProfile(value: unknown, allowMissingPhoto = false): DatingProfile | undefined {
@@ -52,6 +52,11 @@ export function normalizeDatingProfile(value: unknown, allowMissingPhoto = false
     ...(input.historyVersion === 1 ? { historyVersion: 1 as const } : {}),
     ...(Array.isArray(input.messages) ? { messages: normalizeDatingMessages(input.messages) } : {}),
     decisions: Object.fromEntries(Object.entries(input.decisions && typeof input.decisions === 'object' ? input.decisions : {})
-      .filter((entry) => entry[1] === 'like' || entry[1] === 'pass')),
+      .filter((entry) => entry[1] === 'like' || entry[1] === 'superlike' || entry[1] === 'pass')),
   };
+}
+
+/** Rediscovery resets passes while preserving interest in each account. */
+export function resetDatingPasses(decisions: DatingProfile['decisions']): DatingProfile['decisions'] {
+  return Object.fromEntries(Object.entries(decisions).filter(([, decision]) => decision !== 'pass'));
 }
