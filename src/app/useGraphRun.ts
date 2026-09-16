@@ -1,4 +1,4 @@
-import { accountHandle } from '../characters/character';
+import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
@@ -1296,22 +1296,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
         ? formatCurrentPhoneInput(inputText)
         : withSpeakerPrefix(inputCharacterName, inputText)));
     const socialCatalogApp = socialPost?.app ?? socialThreadAction?.app;
-    const availableSocialAccounts = socialCatalogApp
-      ? appCharacters().flatMap((character) => {
-          const account = character.apps?.[socialCatalogApp];
-          return account?.enabled && accountHandle(account).trim()
-            ? [`- ${character.name} (@${accountHandle(account).replace(/^@/, '')})${character.npcOrigin || character.libraryNpc ? ' [NPC]' : ' [Storybook character]'}`]
-            : [];
-        })
-      : [];
-    const executionOriginalInput = socialCatalogApp
-      ? [originalInput,
-          '[AVAILABLE SOCIAL ACCOUNTS]',
-          'Use these exact existing name and handle pairs for social participants:',
-          ...availableSocialAccounts,
-          'Use only these existing accounts. Never invent social participants or assign a missing app account to a character. If no eligible participant exists, return empty comments and omit optional messages.',
-          'Following is optional: any listed NPC account may react, even without a follow or subscription connection. Choose varied participants from this list.',
-          '[/AVAILABLE SOCIAL ACCOUNTS]'].join('\n')
+    const socialAccountContext = socialCatalogApp
+      ? socialReactionAccountContext(appCharacters(), socialCatalogApp, !!socialPost, socialPost ? {
+          characterId: socialPost.authorCharacterId,
+          accountId: socialPost.authorAccountId,
+          handle: socialPost.authorHandle,
+        } : undefined)
+      : undefined;
+    const executionOriginalInput = socialAccountContext
+      ? [originalInput, socialAccountContext.text].join('\n')
       : originalInput;
     const storedInputGraphText = socialDirectMessage?.app === 'matchme' ? originalInput : directActionOnly
       ? originalInput
@@ -1479,7 +1472,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         translatedHistory,
       };
       updateRuntimeNode(inputNode.id, {
-        preview: availableSocialAccounts.length
+        preview: socialAccountContext
           ? executionOriginalInput
           : (isAutoTurn || isNarratorTurn)
             ? `${narratorSpeakerName}: ${narratorDisplayInput}`

@@ -19,6 +19,7 @@ function bundledCharacters() {
 }
 
 const convertedIds = new Set(['ari_blume', 'eden_moss', 'ivy_rowan', 'jordan_lee', 'kit_harlow', 'lena_ford', 'luna_sky', 'max_power', 'maya_brooks', 'mina_park', 'nova_reyes', 'owen_reed', 'sasha_vale']);
+const convertedOnlyFriendsIds = new Set(['eden_moss', 'ivy_rowan', 'maya_brooks', 'mina_park', 'owen_reed']);
 
 describe('Stage 7 bundled discovery replacement', () => {
   it('bundles exactly the thirteen image-backed legacy Fotogram characters with readable filenames', () => {
@@ -34,7 +35,11 @@ describe('Stage 7 bundled discovery replacement', () => {
       expect(character.speechStyle).not.toBe('');
       expect(character.apps?.fotogram?.bio).not.toBe('');
       expect(character.apps?.fotogram?.initialPosts?.some((post) => !!post.imageId)).toBe(true);
-      expect(character.apps?.onlyfriends).toBeUndefined();
+      if (convertedOnlyFriendsIds.has(character.id)) {
+        expect(character.apps?.onlyfriends).toMatchObject({ enabled: true, showRealName: false });
+      } else {
+        expect(character.apps?.onlyfriends).toBeUndefined();
+      }
       if (!['eden_moss', 'ivy_rowan'].includes(character.id)) expect(character.apps?.matchme).toBeUndefined();
     }
   });

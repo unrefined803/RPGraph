@@ -1,6 +1,6 @@
 # NPC Agency Tags and Social Reactions
 
-Status: phases 1 and 2 implemented. Structured agency support and the revised 20-NPC roster are available. The roster includes 10 OnlyFriends accounts and complete MatchMe preferences. Phases 3–5 remain planned; the additional 30 NPCs, candidate selection and autonomous actions are not implemented.
+Status: phases 1 and 2 and the post-reaction portion of phase 4 are implemented. Structured agency support, the revised 20-NPC roster, and tag-aware Fotogram/OnlyFriends post audiences are available. The additional 30 NPCs, configurable context controls, DM tag behavior and NPC-authored posts remain planned.
 
 ## Objective and agreed direction
 
@@ -75,27 +75,31 @@ OnlyFriends requires a specific correction: the original table gives ordinary-us
 
 Build candidates from the effective character registry, respecting Storybook overrides and pinned NPC revisions. Do not scan raw bundled files independently at runtime.
 
-1. Resolve the app and action, player identity, post or DM target, and relevant text/image context.
-2. Require an enabled account for the target app. For initial public reactions, require `accountRole: user` and exclude the player.
-3. Apply visibility/access policy before prompting. Account ownership is necessary but does not by itself grant access to private or locked content. Public discovery versus follower-only reactions remains a review decision; preserve existing restrictions until that policy is specified.
-4. Intersect the character's app tag assignments with the catalog's app/role/action applicability. Exclude public-reaction candidates without a matching tag. Show only the applicable tags, never unrelated DM-only tags.
-5. Deduplicate by stable character identity, then select up to the configured limit. Proposed selection: prioritize relevant existing interactions and fill remaining slots with a reproducible rotation so the same alphabetical first entries do not always dominate. Preserve the chosen candidate set for regeneration of the same turn.
-6. Serialize the compact lines. Resolve names to stable character/account IDs internally; reject ambiguous names rather than adding unrequested ID columns to the prompt.
-7. The authored workflow prompt receives the event and filtered candidates and chooses zero or more responses. Validate output actors against the selected candidates and allowed actions.
+The implemented Fotogram/OnlyFriends post path builds candidates from the effective character registry, respecting Storybook overrides and pinned NPC revisions:
+
+1. Resolve the post app, author identity, post text and available image context.
+2. Require an enabled account for the target app and exclude the author by stable character/account identity, with exact handle fallback.
+3. For NPCs, require `accountRole: user` and at least one app-assigned tag whose catalog entry supports `react` for that app and role. Creator accounts, unclassified NPCs, disabled accounts, wrong-app accounts and NPCs with only DM tags are omitted.
+4. Show only the applicable reaction tags from that account. Character-level tags assigned to another app and app tags without `react` applicability never appear.
+5. Storybook characters with an enabled user account remain available without invented tags, subject to author exclusion. Their established Storybook characterization remains available elsewhere in the workflow context; Storybook creator accounts are filtered like NPC creators.
+6. The runtime prompt instructs the LLM to use tags as private behavioral guidance for participation, tone, wording and intent. A tag is a tendency, so any listed account may stay silent. Tag labels and instructions must never appear in public comments.
+7. Following remains optional for this authored post-reaction flow. The existing structured-output validator still rejects invented or ambiguous identities.
+
+Comment-thread and DM runs retain their existing identity context. Agency behavior is currently added only when the player creates a new Fotogram or OnlyFriends post.
 
 Example default candidate context:
 
 ```text
-Eli Ward — social_lurker
-Chloe Lane — friendly_regular
-Nika Brooks — loyal_supporter, boundary_setter
+- Chloe Lane (@afterglow.tempo) [NPC] [Agency tags: friendly_regular]
+- Nika Brooks (@silver.margin) [NPC] [Agency tags: boundary_setter]
+- Noah Blake (@quiet.compass) [NPC] [Agency tags: respectful_admirer]
 ```
 
-These are illustrative assignments, not final changes to those characters.
+These lines reflect the implemented OnlyFriends assignments. The public response must use the exact name and handle, while the bracketed metadata remains private prompt guidance.
 
 Do not automatically load biographies or full character profiles after selection: that would bypass the chosen context settings. Relevant event context and existing conversation context remain separate from optional candidate profile fields. Pass the actual post image when supported, or an available image description; do not claim image understanding from an image ID alone.
 
-Keep behavioral and output instructions in authored workflow prompts. Provide a compact definition of the tags used by the selected candidates once per prompt, rather than repeating meanings per NPC or including the entire catalog. Its exact token cost can be reviewed alongside the minimal candidate format.
+The runtime supplies concise behavior instructions beside the account block and does not repeat full biographies or the complete catalog. It includes short examples for subtle tags such as `social_lurker`, `respectful_admirer` and `boundary_setter`; other tag IDs remain compact, readable cues. The authored workflow prompts retain their structured output contract.
 
 DM replies bind to the actual recipient instead of drawing a public audience. A missing applicable DM tag must not make an established recipient disappear; retain the existing recipient flow and omit unavailable tag guidance.
 
@@ -221,11 +225,13 @@ Draft the diverse roster against the remaining account targets, then create and 
 
 Acceptance: 50 total unique bundled characters; no duplicate character/account IDs or conflicting app names; targeted account coverage or a documented media-related MatchMe shortfall; approximately 80–90% ordinary-user social accounts; meaningful character differences beyond tag labels.
 
-### 4. Implement reaction context and settings
+### 4. Implement reaction context and settings — post reactions partially implemented
 
-Add deterministic eligibility filtering, configurable candidate count and optional fields, compact serialization and workflow prompt integration. Integrate with the existing social output validation and NPC revision lifecycle. Update both bundled workflow families through their prompt extraction/merge tools when that phase is authorized.
+Implemented for new Fotogram and OnlyFriends posts: deterministic app/role/action filtering, author exclusion, compact account lines with applicable tags, private tag-use instructions and integration with the existing social identity/output validation. The context is attached by the User Input runtime, so both bundled workflow families receive it without duplicating instructions in workflow JSON. NPC publication and DM tag behavior remain inactive.
 
-Acceptance: wrong-app, disabled, creator and action-incompatible candidates never reach the initial public-reaction prompt; visibility restrictions remain enforced; the default contains only names and applicable tags per candidate; toggles add only the requested fields; limits, empty audiences, identity resolution and regeneration behave predictably. NPC publication remains inactive.
+Still planned: configurable candidate limit, reproducible candidate rotation, and optional description, personality and speech-style fields. Until those controls exist, every eligible account is supplied with name, handle and applicable tags only.
+
+Current acceptance: wrong-app, disabled, creator, author and action-incompatible NPCs never reach the initial public-reaction prompt; empty audiences are explicit; identity resolution remains validated; no descriptions, personalities, speech styles or tag labels enter public output. Remaining acceptance for limits, optional fields and deterministic rotation belongs to the planned settings work. NPC publication remains inactive.
 
 ### 5. Validate and review behavior
 
@@ -233,7 +239,6 @@ Run targeted non-UI tests for catalog rules, serialization, persistence and filt
 
 ## Decisions still open for review
 
-- Decide whether public posts can reach any eligible account through discovery or only existing followers/connections; define paid OnlyFriends content visibility separately.
 - Confirm the proposed default of 20 candidates and rotation strategy. The hard cap and optional context fields are agreed requirements; these specific defaults are proposals.
 - Confirm final roster and media availability before creating the 30 additional NPCs.
 
