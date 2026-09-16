@@ -31,7 +31,7 @@ describe('workflow Storybook selection', () => {
     expect(workflowNeedsStorybookSelection({ nodes: [] })).toBe(false);
   });
 
-  it.each(['default_normal_v29.json', 'default_planning_v29.json'])(
+  it.each(['default_normal_v30.json', 'default_planning_v30.json'])(
     'recognizes the empty Storybook slot in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8'));
