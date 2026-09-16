@@ -59,7 +59,11 @@ export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, 
 
   return <section className="phone-social-dm pt-conversation" aria-label={`Conversation with ${name}`}>
     <header className="phone-social-dm-header conversation">
-      <button type="button" onClick={onBack} aria-label="Back to Discover">‹</button>
+      <button type="button" onClick={onBack} aria-label="Back to Discover">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </button>
       <CharacterAvatar className="pt-match-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
       <div><strong>{name}, {age}</strong><span>Active match · Private conversation</span></div>
     </header>

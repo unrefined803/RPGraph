@@ -5,10 +5,10 @@ export const datingPhotoLimit = 3;
 export const datingGenders = ['woman', 'man', 'nonbinary'] as const;
 export type DatingGender = typeof datingGenders[number];
 export const datingGenderLabels: Record<DatingGender, string> = {
-  woman: 'Woman', man: 'Man', nonbinary: 'Non-binary / diverse',
+  woman: 'Woman', man: 'Man', nonbinary: 'Non-binary',
 };
 export const datingSeekingLabels: Record<DatingGender, string> = {
-  woman: 'Women', man: 'Men', nonbinary: 'Non-binary / diverse people',
+  woman: 'Women', man: 'Men', nonbinary: 'Non-binary',
 };
 
 /** Defaults apply only to an explicit gender change, never to a saved preference. */
