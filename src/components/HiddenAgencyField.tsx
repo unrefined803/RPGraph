@@ -33,18 +33,29 @@ export function HiddenAgencyField({ value = '', disabled, onSave, onChange }: Pr
     <div className="character-field">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span className="field-label" style={{ marginRight: 'auto' }}>Hidden Agency · {value.trim() ? 'Defined' : 'Empty'}</span>
-        <button type="button" className="storybook-inline-action nodrag" aria-expanded={revealed} aria-controls={contentId}
-          onClick={() => { setRevealed(!revealed); setDraft(null); setError(''); }}>
-          {revealed ? 'Hide' : 'View'}
-        </button>
-        {revealed && editable && (draft === null ? (
-          <button type="button" className="storybook-inline-action nodrag" disabled={disabled}
-            onClick={() => { setDraft(value); setBase(value); setError(''); }}>Edit</button>
-        ) : <>
-          <button type="button" className="storybook-inline-action nodrag"
-            onClick={() => { setDraft(null); setError(''); }}>Cancel</button>
-          <button type="button" className="storybook-inline-action nodrag" disabled={disabled || conflict} onClick={save}>Save</button>
-        </>)}
+        {revealed ? (
+          <>
+            {editable && (draft === null ? (
+              <button type="button" className="storybook-inline-action nodrag" disabled={disabled}
+                onClick={() => { setDraft(value); setBase(value); setError(''); }}>Edit</button>
+            ) : <>
+              <button type="button" className="storybook-inline-action nodrag"
+                onClick={() => { setDraft(null); setError(''); }}>Cancel</button>
+              <button type="button" className="storybook-inline-action nodrag" disabled={disabled || conflict} onClick={save}>Save</button>
+            </>)}
+            {draft === null && (
+              <button type="button" className="storybook-inline-action nodrag" aria-expanded={revealed} aria-controls={contentId}
+                onClick={() => { setRevealed(false); setDraft(null); setError(''); }}>
+                Hide
+              </button>
+            )}
+          </>
+        ) : (
+          <button type="button" className="storybook-inline-action nodrag" aria-expanded={revealed} aria-controls={contentId}
+            onClick={() => { setRevealed(true); setDraft(null); setError(''); }}>
+            View
+          </button>
+        )}
       </div>
       <div id={contentId} hidden={!revealed}>
         {revealed && (draft === null ? <p>{value || 'Not defined yet.'}</p> : <>

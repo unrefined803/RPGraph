@@ -24760,6 +24760,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-editor-field input,
+.storybook-editor-field select,
 .storybook-editor-field textarea {
   width: 100%;
   font: inherit;
@@ -24775,6 +24776,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-editor-field input:focus,
+.storybook-editor-field select:focus,
 .storybook-editor-field textarea:focus {
   border-color: var(--accent);
   background: #090d15;
