@@ -18,6 +18,7 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
       profile: { name: character.name, description: character.description,
         personality: character.personality, speechStyle: character.speechStyle, role: character.role },
       relationships: character.relationships,
+      agencyTags: character.agencyTags,
       relationshipContext: runtimeRelationshipContext(character, registry.characters.map((entry) => entry.character)),
       apps: character.apps, social: socialFromCharacterApps(character.apps ?? {}), images: character.images,
       ...(character.profileImage ? { profileImage: { ...character.profileImage, ...(portrait ? { dataUrl: portraitDataUrl(portrait, character.profileImage.crop) } : {}) } } : {}),

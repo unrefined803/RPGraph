@@ -309,3 +309,26 @@ The September 2026 bundled revision normalizes character IDs to lowercase names
 with underscores, updates associated account/image/post references and applies
 explicit image assignments. Historical conversion maps and existing saves retain
 their original identities. Future edits keep the new IDs stable.
+
+## Agency tags and account roles
+
+Character Containers support optional `agencyTags` with up to two distinct IDs
+from `shared/agency-tags.cjs`. Missing or empty tags mean unclassified. When a
+character is tagged, every enabled account requires an explicit nonempty
+`apps.<app>.agencyTags` subset compatible with that app and role. Disabled
+accounts may have empty assignments. Fotogram and OnlyFriends accept optional
+`accountRole: "user" | "creator"`; absent means user. WhatsUp and MatchMe reject
+this field. Tags and account roles do not activate gameplay actions.
+
+Inspect and edit these fields with the same blob-free CLI procedure above.
+Update character tags and app assignments together; validation rejects unknown,
+duplicate, incompatible or dangling tag IDs. Preserve explicit disabled standard
+accounts to prevent default provisioning. Account creation for a tagged character
+must include compatible assignments, including any default WhatsUp/Fotogram
+accounts. Removing all classification requires clearing the app selections too.
+
+The Character Assistant and Storybook editors provide an Agency Tags section
+with transactional tag, app selection and role controls. Assistant patches can
+update the same fields; hiddenAgency remains a separate free-text field.
+See [NPC Agency Tags](npc-agency-tags.md) for the catalog semantics, compatibility
+limits and remaining implementation phases.

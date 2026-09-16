@@ -1463,3 +1463,19 @@ context and output privacy defaults. The existing creator CLI test also covers
 relationship preservation with byte-identical gallery media through inspect/edit.
 Manual interface and provider testing remains with the user; no app or browser
 is launched by these checks.
+
+## Structured agency tags
+
+The additive agency tag contract is implemented in the shared character payload:
+optional `agencyTags` selects up to two central catalog IDs, enabled app accounts
+select compatible nonempty subsets, and Fotogram/OnlyFriends accounts accept
+optional `accountRole` (`user` by default or `creator`). Empty or absent character
+tags preserve unclassified legacy characters. The shared validator checks tag
+IDs, subset membership, role applicability and enabled-account coverage.
+
+Container 2.0.0 and Storybook 3.0.0 version numbers are unchanged. Current
+normalization, export, inspect/edit and saved NPC snapshots retain the fields;
+older builds can discard them when editing. Tags are structured authoring data,
+separate from hiddenAgency; they do not enable autonomous actions or add ordinary
+RP prompt context. See [NPC Agency Tags](npc-agency-tags.md) for the complete
+contract and implementation status.

@@ -1,3 +1,4 @@
+import { CharacterAgencyField } from './CharacterAgencyField';
 import type { Character } from '../characters/character';
 import { characterReferenceCandidates } from '../characters/relationships';
 import { CharacterRelationships } from './CharacterRelationships';
@@ -3556,6 +3557,10 @@ export function StorybookCreatorDialog({
                                 )}
                               <CharacterRelationships character={character} characters={relationshipCharacters} disabled={editingDisabled}
                                 onChange={(relationships) => onUpdateStorybook({ ...storybook, characters: storybook.characters.map((entry) => entry.id === character.id ? { ...entry, relationships } : entry) }, 'Relationships updated.')} />
+                              <CharacterAgencyField character={character} disabled={editingDisabled}
+                                onSave={(next) => onUpdateStorybook({ ...storybook,
+                                  characters: storybook.characters.map((entry) => entry.id === character.id ? next : entry),
+                                }, 'Agency tags updated.')} />
                               <HiddenAgencyField value={character.hiddenAgency} disabled={editingDisabled}
                                 onSave={(hiddenAgency) => onUpdateStorybook({
                                   ...storybook,

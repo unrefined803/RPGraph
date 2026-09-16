@@ -1,3 +1,4 @@
+import { CharacterAgencyField } from './CharacterAgencyField';
 import type { Character } from '../characters/character';
 import { CharacterRelationships } from './CharacterRelationships';
 import { characterReferenceCandidates } from '../characters/relationships';
@@ -146,6 +147,8 @@ function StorybookFieldsEditor({ draft, onChange, referenceCharacters }: FieldsE
           </label>
           <CharacterRelationships character={character} characters={characterReferenceCandidates(draft.characters, referenceCharacters)}
             onChange={(relationships) => setCharacter(index, { relationships })} />
+          <CharacterAgencyField character={character}
+            onSave={(next) => { setCharacter(index, next); return true; }} />
           <HiddenAgencyField value={character.hiddenAgency}
             onChange={(hiddenAgency) => setCharacter(index, { hiddenAgency })} />
           <label className="storybook-editor-field">

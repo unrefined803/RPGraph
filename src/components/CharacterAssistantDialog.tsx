@@ -1,3 +1,4 @@
+import { CharacterAgencyField } from './CharacterAgencyField';
 import { CharacterRelationships } from './CharacterRelationships';
 import { CharacterMentionInput } from './CharacterMentionInput';
 import { characterReferenceCandidates, relationshipReferenceContext, validateRelationshipTargets } from '../characters/relationships';
@@ -328,6 +329,8 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
             </StorybookInlineEditor>
             <CharacterRelationships character={character} characters={relationshipCharacters} disabled={ioBusy}
               onChange={(relationships) => change({ ...character, relationships })} />
+            <CharacterAgencyField key={`tags:${character.id}`} character={character} disabled={ioBusy}
+              onSave={(next) => { change(next); return true; }} />
             <HiddenAgencyField key={`agency:${character.id}`} value={character.hiddenAgency} disabled={ioBusy}
               onSave={(hiddenAgency) => { change({ ...character, hiddenAgency }); return true; }} />
             <div className="section-header"><h4>Accounts & Settings</h4><button className="storybook-inline-action nodrag" type="button" onClick={() => setEditSettings(!editSettings)}>{editSettings ? 'Done' : 'Edit'}</button></div>

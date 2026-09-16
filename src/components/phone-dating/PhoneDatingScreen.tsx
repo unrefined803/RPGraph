@@ -166,7 +166,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
         }}>
           <div className="pt-intro"><span className="pt-eyebrow">A NEW CHAPTER STARTS HERE</span>
             <h2>{profile ? 'Make it you.' : 'Find your match.'}</h2></div>
-          <div className="pt-field-row"><label>Character name<input readOnly value={owner.name} /></label>
+          <div className="pt-field-row"><label>Name<input readOnly value={owner.name} /></label>
             <label>Age<input required type="number" min={18} max={120} value={draft.age || ''} onChange={(e) => setDraft({ ...draft, age: Number(e.target.value) })} /></label></div>
           <div className="pt-gender-field"><label htmlFor="matchme-gender">I am</label>
             <NodeCustomSelect<DatingGender | ''> id="matchme-gender" value={draft.gender ?? ''}

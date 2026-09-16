@@ -1,4 +1,6 @@
+import { agencyAuthoringInstructions } from '../../characters/agency';
 import { validateCharacterRelationships } from '../../../shared/character-container.cjs';
+import { validateCharacterAgency } from '../../../shared/agency-tags.cjs';
 import { relationshipText, relationshipAuthoringInstructions } from '../../characters/relationships';
 import { portraitDataUrl } from '../../characters/portrait';
 import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../../characters/npcParticipants';
@@ -627,6 +629,7 @@ function normalizeCharacter(
   );
   const profileImage = normalizeCharacterProfileImage(character.profileImage, images);
   const apps = normalizeCharacterApps(character.apps, character.social, id, name);
+  validateCharacterAgency({ ...character, apps });
   return {
     id,
     name,
@@ -634,6 +637,7 @@ function normalizeCharacter(
     personality: stringValue(character.personality),
     speechStyle: stringValue(character.speechStyle),
     ...(typeof character.hiddenAgency === 'string' ? { hiddenAgency: character.hiddenAgency } : {}),
+    ...(character.agencyTags !== undefined ? { agencyTags: structuredClone(character.agencyTags) as Character['agencyTags'] } : {}),
     ...(character.relationships !== undefined ? { relationships: structuredClone(character.relationships) as RpStorybookCharacter['relationships'] } : {}),
     role: stringValue(character.role),
     comfyConfig: rpStorybookCharacterComfyConfig(character.comfyConfig),
@@ -1525,6 +1529,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Before returning, check each path against Current JSON and earlier operations. Do not guess missing character indices. If the target is ambiguous, ask a clarification in reply with an empty patch. Never claim a locked or app-managed change was completed.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
     'For character renames when identity is not locked, replace only /characters/{index}/name and keep the character id stable.',
+    `Agency tag authoring: apply the following character rules at /characters/{index} and app rules at /characters/{index}/apps. ${agencyAuthoringInstructions}`,
     'Optional characters[].hiddenAgency is author-only free text for concealed motivations, goals, priorities, boundaries and relationships, especially for NPCs. Add or edit it when the user asks, or when requested character authoring clearly requires concealed motivations. Otherwise leave it absent or empty; do not invent secret goals for every character or duplicate an ordinary role already clear from the story. Preserve existing agency unless asked to change it. Use add at /characters/{index}/hiddenAgency when absent. It is not public profile text, ordinary RP context, or a runtime command. Do not quote or summarize its contents in reply unless the user explicitly asks to reveal them; confirm only that hidden agency was updated.',
     'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, playable: true, banking, relationships: [], apps: {}, comfyConfig, and images: []. Do not invent image data or voice samples.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',

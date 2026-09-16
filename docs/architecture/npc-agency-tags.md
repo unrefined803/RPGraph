@@ -1,0 +1,238 @@
+# NPC Agency Tags and Social Reactions
+
+Status: phase 1 implemented. The catalog, container fields, validation, authoring controls and persistence support are available. Phases 2–5 remain planned; bundled NPC assignments, population expansion, candidate selection and autonomous actions have not been changed.
+
+## Objective and agreed direction
+
+Extend NPC Character Containers with structured agency tags and explicit app account roles, enrich the existing 20 bundled NPCs, then create 30 additional distinct NPCs. A later social game-master workflow receives a filtered, size-limited candidate list and decides who reacts to the player's activity.
+
+- Assign one or two distinct agency tags per character, usually one. Store app-specific applicability explicitly without multiplying the character's total tag vocabulary.
+- Most social accounts are ordinary users: target 80–90% users and 10–20% creators during content authoring. This is a population target, not a runtime random assignment.
+- For the initial player-post reaction flow, only user accounts are candidates. Filter creator accounts before building the LLM context, even if a creator tag supports public interaction for a future flow.
+- Default candidate lines contain only the character name and applicable tag IDs. Do not include account role, biography, handle, description, personality, or speech style by default.
+- Provide an in-app candidate limit and independent toggles for description, personality, and speech style. These settings allow experiments with fewer, richer candidates.
+- NPCs do not autonomously publish posts in the initial scope. Reserve a separate publication action for future support; tagging a creator must not activate posting.
+
+## Current foundation
+
+The inspected bundled collection has 20 NPC containers in `resources/npc-characters`: all have enabled WhatsUp and Fotogram accounts, none has OnlyFriends, and nine have MatchMe accounts. Their `hiddenAgency` strings are empty.
+
+`src/characters/character.ts` defines the shared character and app-account types and normalizes app data. `shared/character-container.cjs` validates containers. Existing accounts have enabled state, identity, biography and optional authored starting posts, but no explicit user/creator role in the shared account type.
+
+`hiddenAgency` is optional author-only free text. Keep it separately for specific concealed motivations; structured agency tags are not a rename or automatic interpretation of that text. Tags guide characterization, not automatic messages, payments, or posts.
+
+See [container architecture](character-container-v2.md) and [safe container authoring](character-creator.md) for persistence, NPC revision pinning and CLI procedures.
+
+## Container representation
+
+The fields below are implemented in phase 1. Use the shared character payload for Storybook characters, library NPCs, exports and saved NPC snapshots, with identical semantics.
+
+```json
+{
+  "agencyTags": ["social_lurker", "loyal_supporter"],
+  "apps": {
+    "fotogram": {
+      "accountRole": "user",
+      "agencyTags": ["social_lurker", "loyal_supporter"]
+    },
+    "onlyfriends": {
+      "accountRole": "user",
+      "agencyTags": ["loyal_supporter"]
+    }
+  }
+}
+```
+
+This is a partial schema illustration, not a complete valid container. Existing account IDs, enabled state, profile names, biographies and media references remain required according to the existing format.
+
+- Character-level `agencyTags` declares the one or two authored tags.
+- Each enabled app's `agencyTags` explicitly selects a nonempty subset of those tags. The central catalog determines whether each selected tag supports that app, role and action. Author tags and accounts together so every enabled app has a compatible assignment.
+- `accountRole` is `user` or `creator` for Fotogram and OnlyFriends. WhatsUp and MatchMe remain ordinary messaging/dating accounts and reject `accountRole`. Creator-style WhatsUp tags describe messaging behavior on an ordinary account; they do not require or grant a social creator account.
+- IDs reference one central tag catalog containing English meanings and applicability rules. Do not duplicate full tag definitions inside containers.
+- Validate unknown IDs, duplicates, more than two character tags, app tags outside the character selection, invalid roles and incompatible app assignments.
+- Legacy untagged containers remain loadable. Compatibility behavior: absent social account roles mean user; absent tags mean unclassified. Do not silently infer tags or creator status from biography or existing posts. The future tag-driven audience will exclude unclassified NPCs until authored; existing direct-message functionality remains available.
+- Container 2.0.0 and Storybook 3.0.0 version numbers remain unchanged, following the existing additive relationships/hidden-agency contract. Current readers accept old untagged data and preserve new optional fields. Older application builds may discard agency fields during normalization or export; lossless editing of tagged content requires this implementation or newer. No backward round-trip guarantee is claimed.
+- Preserve tags through normalization, assistant editing, Storybook editing, runtime projections, inspect/edit, export/import and save/load. Add deliberate authoring controls; tags need not appear in public app profiles.
+
+## Action and role semantics
+
+The original table below combines several meanings under `Post`. Replace that ambiguity in the executable catalog with explicit actions:
+
+| Action | Meaning | Initial scope |
+| --- | --- | --- |
+| `react` | Like or comment on someone else's post | User accounts reacting to player posts |
+| `dm_reply` | Respond within a direct conversation | Apply recipient's relevant tags |
+| `dm_initiate` | Start private contact | Explicitly authorized workflow action; no automatic sending from tags |
+| `publish` | Create an original NPC post | Reserved for later implementation |
+
+A tag describes a tendency, not an obligation. A lurker can remain silent; a shy recipient can answer without becoming an eager initiator. Candidate count is not response count. Do not invent message delays or background scheduling from tags such as `quick_replier` or `sporadic_texter` in the initial implementation.
+
+The executable catalog in `shared/agency-tags.cjs` records app/role/action applicability for all 50 original tags. Original Fotogram `Post` entries support `react`; creator entries with `Post` additionally carry reserved `publish` metadata. `shy_user`, `social_lurker`, `slow_to_trust` and `good_listener` support replies but are not selected as initiators by this catalog. Other DM entries support replies and initiation. These are selection semantics for future tag-driven workflows, not restrictions imposed on existing direct conversations.
+
+OnlyFriends requires a specific correction: the original table gives ordinary-user tags only DM applicability, leaving no user audience for comments. Implemented reaction-capable user tags are `social_lurker`, `loyal_supporter`, `respectful_admirer`, `parasocial_fan`, `genuine_user`, `friendly_regular`, `attention_seeker`, and `boundary_setter`. Other OnlyFriends user tags remain DM-only. Keep creator tags for creator DM behavior and later publication/creator interaction flows.
+
+## Candidate selection and prompt context
+
+Build candidates from the effective character registry, respecting Storybook overrides and pinned NPC revisions. Do not scan raw bundled files independently at runtime.
+
+1. Resolve the app and action, player identity, post or DM target, and relevant text/image context.
+2. Require an enabled account for the target app. For initial public reactions, require `accountRole: user` and exclude the player.
+3. Apply visibility/access policy before prompting. Account ownership is necessary but does not by itself grant access to private or locked content. Public discovery versus follower-only reactions remains a review decision; preserve existing restrictions until that policy is specified.
+4. Intersect the character's app tag assignments with the catalog's app/role/action applicability. Exclude public-reaction candidates without a matching tag. Show only the applicable tags, never unrelated DM-only tags.
+5. Deduplicate by stable character identity, then select up to the configured limit. Proposed selection: prioritize relevant existing interactions and fill remaining slots with a reproducible rotation so the same alphabetical first entries do not always dominate. Preserve the chosen candidate set for regeneration of the same turn.
+6. Serialize the compact lines. Resolve names to stable character/account IDs internally; reject ambiguous names rather than adding unrequested ID columns to the prompt.
+7. The authored workflow prompt receives the event and filtered candidates and chooses zero or more responses. Validate output actors against the selected candidates and allowed actions.
+
+Example default candidate context:
+
+```text
+Eli Ward — social_lurker
+Chloe Lane — friendly_regular
+Nika Brooks — loyal_supporter, boundary_setter
+```
+
+These are illustrative assignments, not final changes to those characters.
+
+Do not automatically load biographies or full character profiles after selection: that would bypass the chosen context settings. Relevant event context and existing conversation context remain separate from optional candidate profile fields. Pass the actual post image when supported, or an available image description; do not claim image understanding from an image ID alone.
+
+Keep behavioral and output instructions in authored workflow prompts. Provide a compact definition of the tags used by the selected candidates once per prompt, rather than repeating meanings per NPC or including the entire catalog. Its exact token cost can be reviewed alongside the minimal candidate format.
+
+DM replies bind to the actual recipient instead of drawing a public audience. A missing applicable DM tag must not make an established recipient disappear; retain the existing recipient flow and omit unavailable tag guidance.
+
+## In-app context controls
+
+Proposed initial defaults, adjustable after experiments:
+
+| Setting | Default | Behavior |
+| --- | --- | --- |
+| Maximum candidates | 20 | Positive integer cap after eligibility filtering; examples: 10, 20, 30 |
+| Name and applicable tags | Always on | Minimal candidate representation |
+| Include speech style | Off | Append authored `speechStyle` |
+| Include personality | Off | Append authored `personality` |
+| Include description | Off | Append authored `description` |
+
+Persist these controls in the application's settings system and expose them together under NPC reaction context. No biography or role column is enabled implicitly. Omit empty optional fields and bound verbose field lengths so a candidate limit remains useful for controlling prompt size. Capture effective settings with the turn for diagnostics and reproducible regeneration. Changing these settings does not modify NPC containers.
+
+## Population plan: 50 distinct NPCs
+
+Apply account percentages to the final 50-character collection, not independently to each batch. Account sets overlap; these percentages are not expected to total 100%.
+
+| App | Final target | Existing enabled accounts | Proposed additions among 30 new NPCs |
+| --- | --- | --- | --- |
+| WhatsUp | 50 / 50 (100%) | 20 | 30 |
+| Fotogram | 35 / 50 (70%) | 20 | 15 |
+| MatchMe | 15 / 50 (30%) | 9 | 6, only with suitable images |
+| OnlyFriends | 25 / 50 (50%) | 0 | 25 |
+
+These are authoring targets, not runtime quotas. Preserve existing accounts rather than removing them to force the new-batch proportions. The heavy OnlyFriends share among new NPCs deliberately fills the current gap.
+
+For example, use 30 users and five creators among the 35 Fotogram accounts, and 22 users and three creators among the 25 OnlyFriends accounts. This gives about 86% ordinary-user social accounts overall. Assign creator roles deliberately from authored character concepts. Review the unique-person distribution too, since one person can own multiple accounts with different roles.
+
+The current normalizer provisions WhatsUp and Fotogram when absent. Author an explicitly disabled Fotogram account for new NPCs without Fotogram, and verify that inspect/edit and normalization preserve that choice. Do not accidentally turn the 70% target into 100%.
+
+Create a roster before writing containers, recording identity, age, interests, background, personality, speech style, accounts, roles, tags and available media. Vary warmth, reserve, humor, confidence, motives and interaction frequency. Avoid cloning biographies or distributing every tag equally: ordinary friendly and quiet users should remain common, with a smaller range of conflict-driven or commercially motivated characters. A second tag should add a compatible dimension.
+
+MatchMe needs suitable existing or newly supplied images and valid photo references. Do not reuse another person's portrait as a new identity or fabricate image availability. If six suitable new image sets are unavailable, report the shortfall and defer those MatchMe activations rather than creating invalid profiles. New media generation or acquisition is a separate decision. The other account targets do not require creating autonomous seed posts.
+
+## Ordered implementation phases
+
+### 1. Finalize the catalog and extend containers — implemented
+
+Implemented boundaries:
+
+- `shared/agency-tags.cjs` and its TypeScript declarations provide the immutable 50-tag catalog, applicability lookup and shared validation used by Node/Electron and the renderer. Packaging already includes shared CJS files.
+- `src/characters/character.ts`, the shared container validator and Storybook normalization preserve tags and roles and reject malformed values before they can be silently dropped. Missing or empty character tags are unclassified; populated tags require compatible explicit assignments on every enabled account. Disabled accounts can retain compatible assignments or an empty selection.
+- `CharacterAgencyField` provides an atomic editor for character tags, per-app subsets and social account roles in the Character Assistant and both Storybook editors, plus a read-only preview. Invalid intermediate selections stay in the form until corrected; cancellation discards them. Concurrent changes to app identity, enablement or agency fields require reopening the editor.
+- Character and Storybook assistants receive the catalog as authoring context. The Character Assistant accounts specialist owns character tags and app assignments together; its profile specialist cannot leave a partial classification. This catalog is not injected into ordinary gameplay prompts.
+- Manual profile creation initializes a new account assignment from compatible tags already authored on the character; it never invents a new character tag. Existing profile edits preserve roles and assignments even when a profile form omits those fields. An explicitly empty incompatible assignment is rejected. The Agency Tags editor can refine the initialized subset.
+- Runtime character projections retain structured fields for later use. Ordinary formatted Storybook context, recipient context and public profile fields do not gain tag instructions. Content comparison treats missing user roles, empty tag lists and tag ordering consistently.
+- Creator/export, CLI inspect/edit and pinned NPC snapshots reuse the same validation and retain the fields. No existing bundled NPC file is rewritten.
+
+Validation includes catalog completeness, malformed assignments, explicit app enablement, transactional assistant/form edits, import/export, Storybook persistence, CLI media preservation, saved NPC archives and legacy compatibility. Interactive form validation remains a manual user check.
+
+Acceptance: valid tags and roles survive create → inspect → edit → import/export → Storybook/save round trips; invalid assignments fail clearly; old untagged characters still load; explicitly disabled apps stay disabled; media references and private-field boundaries remain intact.
+
+### 2. Enrich the existing 20 NPCs
+
+Inspect each source using `npm run character:inspect`, writing distinct blob-free specifications under `/tmp`. Assign mostly one, occasionally two tags based on existing personality, speech style, biographies and accounts. Set app assignments and social account roles explicitly. Rebuild with `npm run character:edit` from untouched source containers.
+
+Acceptance: all 20 have coherent tag assignments; character/account/image IDs and original media bytes are preserved; unrelated authored fields do not change. Report the resulting account and role counts. Existing pinned save revisions remain historical; do not silently rewrite them.
+
+### 3. Author 30 additional NPCs
+
+Draft the diverse roster against the remaining account targets, then create and validate 30 new stable identities with distinct profiles, explicit app enablement and compatible tags. Use the shared creator pipeline and provide a compact roster/count report for review.
+
+Acceptance: 50 total unique bundled characters; no duplicate character/account IDs or conflicting app names; targeted account coverage or a documented media-related MatchMe shortfall; approximately 80–90% ordinary-user social accounts; meaningful character differences beyond tag labels.
+
+### 4. Implement reaction context and settings
+
+Add deterministic eligibility filtering, configurable candidate count and optional fields, compact serialization and workflow prompt integration. Integrate with the existing social output validation and NPC revision lifecycle. Update both bundled workflow families through their prompt extraction/merge tools when that phase is authorized.
+
+Acceptance: wrong-app, disabled, creator and action-incompatible candidates never reach the initial public-reaction prompt; visibility restrictions remain enforced; the default contains only names and applicable tags per candidate; toggles add only the requested fields; limits, empty audiences, identity resolution and regeneration behave predictably. NPC publication remains inactive.
+
+### 5. Validate and review behavior
+
+Run targeted non-UI tests for catalog rules, serialization, persistence and filtering, plus relevant static checks/builds. Use `npm run --silent test -- <filters>`. Verify edited media by hashes and report population counts. The user launches the app and manually evaluates reaction quality, candidate limits and context toggles; do not launch UI/E2E tests as part of routine implementation.
+
+## Decisions still open for review
+
+- Decide whether public posts can reach any eligible account through discovery or only existing followers/connections; define paid OnlyFriends content visibility separately.
+- Confirm the proposed default of 20 candidates and rotation strategy. The hard cap and optional context fields are agreed requirements; these specific defaults are proposals.
+- Confirm final roster and media availability before creating the 30 additional NPCs.
+
+## Original agency tag reference
+
+The following table is preserved from the original proposal. It is a vocabulary/reference draft, not the executable eligibility matrix. In particular, its `Post` terminology and OnlyFriends user restrictions are superseded by the planned explicit-action review above. `Both` means User and Creator, not both action directions; `—` means no authored applicability in this original draft.
+
+| WhatsUp        | Fotogram            | MatchMe     | OnlyFriends         | Tag                  | Short Meaning                                                                                                            |
+| -------------- | ------------------- | ----------- | ------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `casual_chatter`     | Enjoys relaxed everyday conversation without strongly pursuing romance, money, attention, or deeper commitment.          |
+| `Both · DM`    | `User · DM`         | `User · DM` | `User · DM`         | `shy_user`           | Is interested in others but communicates cautiously, hesitates to initiate, and opens up gradually.                      |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `slow_to_trust`      | Keeps personal details private until repeated positive interactions make the other person feel trustworthy.              |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `friendly_regular`   | Frequently interacts in a warm familiar way and gradually develops comfortable recurring online relationships.           |
+| `Both · DM`    | `User · Post+DM`    | `User · DM` | `User · DM`         | `hobby_friend`       | Bonds primarily through shared interests, hobbies, media, games, activities, or other mutual interests.                  |
+| `Both · DM`    | `User · Post+DM`    | `—`         | `User · DM`         | `respectful_admirer` | Shows genuine admiration or attraction while respecting boundaries and avoiding demands for special attention.           |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `good_listener`      | Encourages others to talk about themselves and responds thoughtfully to personal stories and problems.                   |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `loyal_friend`       | Maintains dependable long-term contact and stands by people during conflicts, problems, or difficult moments.            |
+| `—`            | `User · Post+DM`    | `—`         | `User · DM`         | `social_lurker`      | Usually observes quietly and rarely interacts, but occasionally responds when something genuinely interests them.        |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `quick_replier`      | Usually responds rapidly and enthusiastically, making conversations feel active and easy to continue.                    |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `sporadic_texter`    | Communicates sincerely but may take long irregular breaks between messages without intentionally ignoring anyone.        |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `friendship_seeker`  | Primarily wants genuine friendship and companionship rather than romance, money, status, or promotional opportunities.   |
+| `Both · DM`    | `User · DM`         | `User · DM` | `User · DM`         | `commitment_seeker`  | Looks for a serious romantic relationship and openly discusses compatibility, exclusivity, and long-term intentions.     |
+| `Both · DM`    | `User · DM`         | `User · DM` | `User · DM`         | `casual_dater`       | Enjoys flirting and meeting people without immediately expecting exclusivity or a serious long-term relationship.        |
+| `Both · DM`    | `User · Post+DM`    | `User · DM` | `User · DM`         | `mixed_signals`      | Alternates between strong interest and emotional distance, leaving the other person uncertain about their intentions.    |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `boundary_setter`    | Clearly communicates personal limits and directly refuses interactions, requests, or topics they are uncomfortable with. |
+| `Creator · DM` | `Creator · Post+DM` | `—`         | `Creator · Post+DM` | `fan_engager`        | Actively talks with followers, replies sincerely, remembers regulars, and encourages friendly community interaction.     |
+| `Creator · DM` | `Creator · Post+DM` | `—`         | `Creator · Post+DM` | `collab_seeker`      | Approaches other creators to suggest shared posts, promotion, projects, appearances, or mutually useful collaborations.  |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `passive_aggressive` | Expresses irritation indirectly through sarcasm, vague remarks, cold replies, or subtle public comments.                 |
+| `Both · DM`    | `User · DM`         | `User · DM` | `User · DM`         | `guilt_tripper`      | Uses disappointment, sacrifice, or emotional pressure to make another person feel obligated to respond or help.          |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `genuine_user`        | Interacts naturally and sincerely without manipulation, hidden sales tactics, scams, or major ulterior motives.                |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `attention_seeker`    | Actively seeks attention, reactions, compliments, messages, and repeated engagement from other people.                         |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `move_to_private`     | Tries to move conversations toward more private, direct, and personal communication channels.                                  |
+| `User · DM`    | `User · DM`         | `User · DM` | `User · DM`         | `freebie_hunter`      | Tries to obtain free content, favors, access, gifts, or special treatment from others.                                         |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `jealous_attachment`  | Becomes emotionally attached and reacts negatively when others receive competing attention or affection.                       |
+| `Creator · DM` | `Creator · Post+DM` | `—`         | `Creator · Post+DM` | `upseller`            | Regularly encourages paid access, extra content, gifts, money, subscriptions, or other premium interactions.                   |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `gift_fisher`         | Hints at wants, expenses, or personal problems hoping someone voluntarily offers money or gifts.                               |
+| `User · DM`    | `User · Post+DM`    | `—`         | `User · DM`         | `parasocial_fan`      | Develops strong personal attachment to someone despite the relationship being mostly online or one-sided.                      |
+| `Both · DM`    | `User · Post+DM`    | `User · DM` | `Creator · DM`      | `clout_chaser`        | Pursues connections mainly for visibility, status, followers, influential contacts, or access to another audience.             |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `screenshot_drama`    | Quotes, exposes, or threatens to expose private conversations to create conflict or social pressure.                           |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `love_bomber`         | Overwhelms someone with affection, praise, and constant attention to create unusually fast emotional attachment.               |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `breadcrumbing`       | Gives occasional attention or flirtation to maintain someone's interest without offering consistent commitment.                |
+| `User · DM`    | `User · Post+DM`    | `User · DM` | `User · DM`         | `catfish`             | Uses a false identity, misleading photos, or fabricated personal details to deceive and attract others.                        |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `boundary_tester`     | Gradually pushes personal, romantic, financial, or intimate boundaries to discover what another person tolerates.              |
+| `Creator · DM` | `Creator · Post+DM` | `—`         | `Creator · Post+DM` | `promo_spammer`       | Repeatedly promotes their profile, content, offers, links, or subscriptions regardless of the recipient's interest.            |
+| `Creator · DM` | `Creator · Post+DM` | `—`         | `Creator · Post+DM` | `exclusive_teaser`    | Teases supposedly exclusive content or access to encourage private contact, subscriptions, gifts, or payment.                  |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `rebound_seeker`      | Seeks quick emotional or romantic connection shortly after another relationship ended or became unstable.                      |
+| `User · DM`    | `User · Post+DM`    | `User · DM` | `User · DM`         | `loyal_supporter`     | Consistently offers encouragement, companionship, engagement, and support without demanding special treatment in return.       |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Creator · Post+DM` | `status_flexer`       | Highlights wealth, popularity, connections, lifestyle, or achievements to increase their perceived desirability or importance. |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `fake_emergency`      | Invents or exaggerates an urgent personal problem to obtain money, favors, sympathy, or immediate attention.                   |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `ghosting_pattern`    | Frequently disappears from conversations without explanation and later returns when attention or company is wanted.            |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `validation_fisher`   | Makes insecure or self-critical remarks hoping others respond with reassurance, praise, or compliments.                        |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `oversharer`          | Reveals unusually personal information quickly and often encourages others to disclose private details in return.              |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `drama_magnet`        | Regularly becomes involved in arguments, feuds, misunderstandings, and emotionally charged social situations.                  |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `money_borrower`      | Builds personal rapport before asking for money while promising repayment or explaining financial difficulties.                |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `possessive_friend`   | Wants unusually exclusive attention and becomes upset when someone grows closer to other people.                               |
+| `Both · DM`    | `Both · DM`         | `User · DM` | `Both · DM`         | `emotional_supporter` | Regularly listens to problems, checks in, reassures others, and provides sincere emotional support.                            |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `flirty_networker`    | Uses playful flirting to build connections, gain introductions, or expand their online social circle.                          |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `ex_obsessed`         | Frequently discusses, monitors, compares others with, or attempts to reconnect with a former partner.                          |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `rumor_spreader`      | Passes along questionable personal stories or gossip that can create mistrust and conflict between characters.                 |

@@ -7,8 +7,12 @@ function comparableContent(character: ComparableCharacter) {
   const normalized = normalizeRpStorybookCharacter(structuredClone(character), 0, new Set());
   const payload = characterPayload({ ...normalized, playable: false }, true);
   // Export can materialize empty posts; absence and an empty list mean the same thing.
-  for (const account of Object.values(payload.apps)) account.initialPosts ??= [];
-  return { ...payload, hiddenAgency: payload.hiddenAgency ?? '' };
+  for (const [app, account] of Object.entries(payload.apps)) {
+    account.initialPosts ??= [];
+    account.agencyTags = [...(account.agencyTags ?? [])].sort();
+    if (app === 'fotogram' || app === 'onlyfriends') account.accountRole ??= 'user';
+  }
+  return { ...payload, hiddenAgency: payload.hiddenAgency ?? '', agencyTags: [...(payload.agencyTags ?? [])].sort() };
 }
 
 /** Sort object keys recursively, retaining meaningful array order and all authored content. */

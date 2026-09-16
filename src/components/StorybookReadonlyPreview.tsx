@@ -1,3 +1,4 @@
+import { CharacterAgencyField } from './CharacterAgencyField';
 import type { Character } from '../characters/character';
 import { characterReferenceCandidates } from '../characters/relationships';
 import { CharacterRelationships } from './CharacterRelationships';
@@ -97,6 +98,7 @@ export function StorybookReadonlyPreview({
                     </div>
                   ) : null}
                   <CharacterRelationships character={character} characters={characterReferenceCandidates(storybook.characters, referenceCharacters)} />
+                  <CharacterAgencyField character={character} />
                   <HiddenAgencyField value={character.hiddenAgency} />
                   {character.comfyConfig?.appearance ? (
                     <div className="character-field">

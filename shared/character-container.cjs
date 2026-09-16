@@ -1,4 +1,5 @@
 const formatVersions = require('../src/storybook/formatVersions.json');
+const { validateCharacterAgency } = require('./agency-tags.cjs');
 
 const currentCharacterContainerVersion = formatVersions.characterCard;
 const appNames = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'];
@@ -71,6 +72,7 @@ function validateCharacterPayload(value) {
     throw new Error('Character hiddenAgency must be a string when present.');
   }
   validateCharacterRelationships(character.relationships, character.id);
+  validateCharacterAgency(character);
   if (typeof character.playable !== 'boolean') {
     throw new Error('Character Container V2 requires a playable flag.');
   }
