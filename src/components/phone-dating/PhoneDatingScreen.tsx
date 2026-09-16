@@ -48,12 +48,60 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   const [previewPhoto, setPreviewPhoto] = useState(0);
   const start = useRef<{ x: number; y: number } | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const discoverRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLDivElement>(null);
+  const decisionsRef = useRef<HTMLDivElement>(null);
+  const [discoverScale, setDiscoverScale] = useState(1);
+  const [isScrollMode, setIsScrollMode] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState<string | undefined>(openRequest?.participantHandle);
   const [seenOpenRequest, setSeenOpenRequest] = useState(openRequest?.requestId);
   if (openRequest && seenOpenRequest !== openRequest.requestId) {
     setSeenOpenRequest(openRequest.requestId); setSelectedMatchId(openRequest.participantHandle); setEditing(false); setTab('discover');
   }
   useEffect(() => { if (selectedMatchId && !editing && tab === 'discover') onMarkSeen(selectedMatchId); }, [selectedMatchId, editing, tab, history, onMarkSeen]);
+  useEffect(() => {
+    if (editing || selectedMatchId || (tab !== 'discover' && !previewCandidateId)) return;
+    const el = mainRef.current;
+    if (!el) return;
+
+    function evaluateScale() {
+      if (!el) return;
+      const style = window.getComputedStyle(el);
+      const paddingTop = parseFloat(style.paddingTop) || 14;
+      const paddingBottom = parseFloat(style.paddingBottom) || 14;
+      const availContentHeight = el.clientHeight - paddingTop - paddingBottom;
+
+      const headingH = headingRef.current ? headingRef.current.offsetHeight + (parseFloat(window.getComputedStyle(headingRef.current).marginBottom) || 0) : 46;
+      const decisionsH = decisionsRef.current ? decisionsRef.current.offsetHeight : 76;
+      const discoverP = discoverRef.current ? (parseFloat(window.getComputedStyle(discoverRef.current).paddingTop) || 0) + (parseFloat(window.getComputedStyle(discoverRef.current).paddingBottom) || 0) : 12;
+
+      const nonCardHeight = headingH + decisionsH + discoverP;
+      const baseCardHeight = 420 * 1.5; // 630px
+
+      // Available height specifically for the card
+      const availForCard = availContentHeight - nonCardHeight - 2;
+
+      if (availForCard >= baseCardHeight) {
+        setDiscoverScale(1);
+        setIsScrollMode(false);
+      } else {
+        const scaleNeeded = availForCard / baseCardHeight;
+        if (scaleNeeded >= 0.88) {
+          setDiscoverScale(Math.min(1, Math.max(0.88, scaleNeeded)));
+          setIsScrollMode(false);
+        } else {
+          setDiscoverScale(1);
+          setIsScrollMode(true);
+        }
+      }
+    }
+
+    evaluateScale();
+    const ro = new ResizeObserver(evaluateScale);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tab, editing, selectedMatchId, previewCandidateId]);
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
@@ -232,7 +280,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           {!matches.length && <p className="pt-subtle pt-match-empty">Match through mutual likes, or send a Superlike to chat immediately.</p>}
         </div>
       </aside>}
-    <main className={`pt-main${selectedMatch && !editing ? ' pt-chat-main' : !editing && tab === 'discover' ? ' pt-discover-main' : ''}`}>
+    <main ref={mainRef} className={`pt-main${selectedMatch && !editing ? ' pt-chat-main' : !editing && tab === 'discover' ? ` pt-discover-main${isScrollMode ? ' pt-scroll-mode' : ''}` : ''}`}>
       {!owner ? <div className="pt-empty"><h2>Who’s holding the phone?</h2><p>Select a Storybook character to create a profile.</p></div> : editing ?
         <form className="pt-form pt-form-compact" onSubmit={(event) => {
           event.preventDefault();
@@ -271,7 +319,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           <hr className="pt-form-divider" />
 
           <div className="pt-form-section">
-            <label>About you<textarea required maxLength={500} rows={3} placeholder="A little about your character…" value={draft.bio} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} /></label>
+            <label>About you<textarea required maxLength={500} rows={2} placeholder="A little about your character…" value={draft.bio} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} /></label>
             <label>Interests<input maxLength={150} placeholder="Coffee, late-night walks, side quests" value={draft.interests} onChange={(e) => setDraft({ ...draft, interests: e.target.value })} /></label>
           </div>
 
@@ -313,8 +361,8 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           emojiOptions={emojiOptions} recentEmojis={recentEmojis}
           onUseEmoji={(emoji) => setRecentEmojis((current) => [emoji, ...current.filter((entry) => entry !== emoji)].slice(0, 8))}
           onBack={() => { setSelectedMatchId(undefined); setPhoto(0); }}
-          onSend={() => { void send(selectedMatch.id); }} /> : tab === 'discover' ? <div className="pt-discover">
-          <div className="pt-section-heading"><div><span className="pt-eyebrow">A LITTLE CHEMISTRY?</span><h2>Discover</h2></div><span className="pt-preview">Available profiles</span></div>
+          onSend={() => { void send(selectedMatch.id); }} /> : tab === 'discover' ? <div ref={discoverRef} className="pt-discover" style={{ maxWidth: `${Math.round(420 * discoverScale)}px` }}>
+          <div ref={headingRef} className="pt-section-heading"><div><span className="pt-eyebrow">A LITTLE CHEMISTRY?</span><h2>Discover</h2></div><span className="pt-preview">Available profiles</span></div>
           {candidate ? <>
             <article className={`pt-card pt-${candidate.color}`} style={{ transform: `translateX(${drag}px) rotate(${drag / 22}deg)` }}
               onPointerDown={(event) => { if (selectedMatch || (event.target instanceof Element && event.target.closest('button'))) return; start.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }}
@@ -327,7 +375,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               {Math.abs(drag) >= 8 && <span className={`pt-swipe-label ${drag > 0 ? 'like' : 'pass'}`} style={{ opacity: Math.min(1, Math.abs(drag) / 35) }}>{drag > 0 ? 'LIKE' : 'PASS'}</span>}
               <div className="pt-card-info"><small>{candidate.characterId && !candidate.libraryNpc ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small><h3>{datingFirstName(candidate.name)}<span>, {candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
             </article>
-            <div className="pt-decisions">
+            <div ref={decisionsRef} className="pt-decisions">
               <button className="pt-pass" type="button" disabled={busy || isRunning} aria-label={`Pass on ${datingFirstName(candidate.name)}`} title="Pass" onClick={() => decide('pass')}>
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -348,7 +396,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           </> : <div className="pt-empty"><span className="pt-empty-heart">✧</span><h2>You’re all caught up.</h2><p>You have seen all available profiles. Explore passed profiles again; your likes stay saved.</p><button type="button" className="pt-primary" onClick={() => { if (profile) save({ ...profile, decisions: resetDatingPasses(profile.decisions) }); setSelectedMatchId(undefined); setPhoto(0); }}>Explore again</button></div>}
         </div> : tab === 'likes' ? (
           previewCandidate ? (
-            <div className="pt-discover pt-candidate-preview">
+            <div className="pt-discover pt-candidate-preview" style={{ maxWidth: `${Math.round(420 * discoverScale)}px` }}>
               <div className="pt-section-heading">
                 <div>
                   <span className="pt-eyebrow">PROFILE PREVIEW</span>
