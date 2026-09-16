@@ -138,6 +138,38 @@ Create a roster before writing containers, recording identity, age, interests, b
 
 MatchMe needs suitable existing or newly supplied images and valid photo references. Do not reuse another person's portrait as a new identity or fabricate image availability. If six suitable new image sets are unavailable, report the shortfall and defer those MatchMe activations rather than creating invalid profiles. New media generation or acquisition is a separate decision. The other account targets do not require creating autonomous seed posts.
 
+## Regenerating the authoring inventory report
+
+Run `npm run npc:report` to create or refresh `npc-population-report.md` at the
+repository root. The file is intentionally not ignored: it appears as a new file
+in Changes and can be deleted after review. Keep the generator; the report is a
+disposable authoring artifact and need not be committed.
+
+The report reads the current bundled containers through the existing validated,
+blob-free inspection helper. It shows population and enabled-account deficits,
+user/creator counts, unique creator people, and one compact table containing
+every catalog tag with its character count and per-app assignment counts.
+Roster lists, owner names and separate missing/repeated-tag tables are omitted.
+Identity conflicts remain visible in the validation section. Invalid containers stop generation without replacing the
+previous report. It never edits characters or launches the application.
+
+All 50 catalog tags should be represented at least once. Prefer missing tags for
+new characters; repeated tags have lower coverage priority but no numeric maximum.
+The documented social role counts remain examples, while the 80–90% user range
+remains the population guideline. The report's executable population targets live
+in `scripts/report-npc-population.mjs`; update them when changing this plan.
+
+For another container directory or report location:
+
+```sh
+npm run npc:report -- --input resources/npc-characters --output /tmp/npc-review.md
+```
+
+Only a previously generated report may be replaced. Saved revisions, user-library
+overrides, Storybook characters and future image availability are outside this
+bundled authoring inventory. Account/tag compatibility comes from the executable
+catalog, not the original reference table below.
+
 ## Ordered implementation phases
 
 ### 1. Finalize the catalog and extend containers — implemented

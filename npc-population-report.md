@@ -1,0 +1,99 @@
+# NPC Population and Agency Coverage Report
+
+Source: resources/npc-characters. Generated from validated containers and the executable agency catalog.
+
+Scope: bundled authoring inventory only; saved revisions, user-library overrides and Storybook characters are excluded. No containers were modified. Delete this generated file after review; rerun `npm run npc:report` to recreate it.
+
+Targets: `docs/architecture/npc-agency-tags.md`; executable target values: `scripts/report-npc-population.mjs`. Every catalog tag should occur on at least one character. Counts below use enabled accounts only; missing social roles mean user.
+
+## At a glance
+
+| Measure | Current | Target / remaining |
+| --- | --- | --- |
+| Characters | 20 | 50 / 30 still needed; 0 above target |
+| Distinct character tags | 18 | 50 / 32 missing |
+| Tags assigned to enabled apps | 18 | 50 / 32 not active |
+| Unclassified characters | 0 | 0 unclassified |
+| Repeated tags | 7 | Review before reusing; no maximum per tag is specified |
+| Ordinary-user social accounts | 27 / 30 (90.0%) | 80–90% users; 10–20% creators |
+
+## Enabled account targets
+
+| App | Final target | Existing | Still needed | Above target |
+| --- | --- | --- | --- | --- |
+| WhatsUp | 50 / 50 | 20 | 30 | 0 |
+| Fotogram | 35 / 50 | 20 | 15 | 0 |
+| MatchMe | 15 / 50 | 9 | 6 | 0 |
+| OnlyFriends | 25 / 50 | 10 | 15 | 0 |
+
+Accounts overlap across people. Preserve existing accounts. Explicitly disable Fotogram on new characters that should not have it; creation otherwise provisions standard accounts. MatchMe additions require suitable identity-specific images and valid photo references; this report does not establish image suitability or future media availability.
+
+## Social account roles
+
+| App | Users | Creators | User share | Example final users / creators | Needed for example U / C | Above example U / C |
+| --- | --- | --- | --- | --- | --- | --- |
+| Fotogram | 18 | 2 | 90.0% | 30 / 5 | 12 / 3 | 0 / 0 |
+| OnlyFriends | 9 | 1 | 90.0% | 22 / 3 | 13 / 2 | 0 / 0 |
+
+The 30/5 Fotogram and 22/3 OnlyFriends splits are planning examples, not mandatory quotas. At the final account totals, 80–90% users allows 4–7 Fotogram creators and 3–5 OnlyFriends creators. Unique people with a creator account: 2; with both user and creator social roles: 0.
+
+## Complete tag coverage
+
+Character counts count each person once. App columns count explicit assignments on enabled accounts. Prioritize tags with zero characters when authoring new characters. A tag need not appear on every compatible app; zero in an app column is not an additional quota.
+
+| Tag | Characters | WhatsUp | Fotogram | MatchMe | OnlyFriends |
+| --- | --- | --- | --- | --- | --- |
+| casual_chatter | 2 | 2 | 2 | 0 | 0 |
+| shy_user | 1 | 1 | 0 | 1 | 0 |
+| slow_to_trust | 1 | 1 | 0 | 1 | 0 |
+| friendly_regular | 1 | 1 | 1 | 1 | 1 |
+| hobby_friend | 1 | 1 | 1 | 1 | 1 |
+| respectful_admirer | 2 | 2 | 2 | 0 | 2 |
+| good_listener | 1 | 1 | 0 | 0 | 0 |
+| loyal_friend | 0 | 0 | 0 | 0 | 0 |
+| social_lurker | 2 | 0 | 2 | 0 | 0 |
+| quick_replier | 0 | 0 | 0 | 0 | 0 |
+| sporadic_texter | 1 | 1 | 1 | 0 | 0 |
+| friendship_seeker | 1 | 1 | 1 | 0 | 0 |
+| commitment_seeker | 1 | 1 | 0 | 1 | 0 |
+| casual_dater | 1 | 1 | 0 | 1 | 0 |
+| mixed_signals | 0 | 0 | 0 | 0 | 0 |
+| boundary_setter | 2 | 2 | 2 | 2 | 1 |
+| fan_engager | 2 | 2 | 2 | 0 | 1 |
+| collab_seeker | 0 | 0 | 0 | 0 | 0 |
+| passive_aggressive | 0 | 0 | 0 | 0 | 0 |
+| guilt_tripper | 0 | 0 | 0 | 0 | 0 |
+| genuine_user | 2 | 2 | 2 | 1 | 2 |
+| attention_seeker | 1 | 1 | 1 | 0 | 0 |
+| move_to_private | 0 | 0 | 0 | 0 | 0 |
+| freebie_hunter | 0 | 0 | 0 | 0 | 0 |
+| jealous_attachment | 0 | 0 | 0 | 0 | 0 |
+| upseller | 0 | 0 | 0 | 0 | 0 |
+| gift_fisher | 0 | 0 | 0 | 0 | 0 |
+| parasocial_fan | 0 | 0 | 0 | 0 | 0 |
+| clout_chaser | 0 | 0 | 0 | 0 | 0 |
+| screenshot_drama | 0 | 0 | 0 | 0 | 0 |
+| love_bomber | 0 | 0 | 0 | 0 | 0 |
+| breadcrumbing | 0 | 0 | 0 | 0 | 0 |
+| catfish | 0 | 0 | 0 | 0 | 0 |
+| boundary_tester | 0 | 0 | 0 | 0 | 0 |
+| promo_spammer | 0 | 0 | 0 | 0 | 0 |
+| exclusive_teaser | 0 | 0 | 0 | 0 | 0 |
+| rebound_seeker | 0 | 0 | 0 | 0 | 0 |
+| loyal_supporter | 2 | 2 | 2 | 1 | 2 |
+| status_flexer | 0 | 0 | 0 | 0 | 0 |
+| fake_emergency | 0 | 0 | 0 | 0 | 0 |
+| ghosting_pattern | 0 | 0 | 0 | 0 | 0 |
+| validation_fisher | 0 | 0 | 0 | 0 | 0 |
+| oversharer | 0 | 0 | 0 | 0 | 0 |
+| drama_magnet | 0 | 0 | 0 | 0 | 0 |
+| money_borrower | 0 | 0 | 0 | 0 | 0 |
+| possessive_friend | 0 | 0 | 0 | 0 | 0 |
+| emotional_supporter | 0 | 0 | 0 | 0 | 0 |
+| flirty_networker | 1 | 1 | 1 | 0 | 0 |
+| ex_obsessed | 0 | 0 | 0 | 0 | 0 |
+| rumor_spreader | 0 | 0 | 0 | 0 | 0 |
+
+## Validation and planning issues
+
+No inventory conflicts or capacity issues detected. All source containers passed shared validation.
