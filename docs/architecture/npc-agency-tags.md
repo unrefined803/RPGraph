@@ -1,6 +1,6 @@
 # NPC Agency Tags and Social Reactions
 
-Status: phase 1 implemented. The catalog, container fields, validation, authoring controls and persistence support are available. Phases 2–5 remain planned; bundled NPC assignments, population expansion, candidate selection and autonomous actions have not been changed.
+Status: phases 1 and 2 implemented. Structured agency support and the revised 20-NPC roster are available. The roster includes 10 OnlyFriends accounts and complete MatchMe preferences. Phases 3–5 remain planned; the additional 30 NPCs, candidate selection and autonomous actions are not implemented.
 
 ## Objective and agreed direction
 
@@ -15,9 +15,9 @@ Extend NPC Character Containers with structured agency tags and explicit app acc
 
 ## Current foundation
 
-The inspected bundled collection has 20 NPC containers in `resources/npc-characters`: all have enabled WhatsUp and Fotogram accounts, none has OnlyFriends, and nine have MatchMe accounts. Their `hiddenAgency` strings are empty.
+The bundled collection has 20 NPC containers in `resources/npc-characters`: all have enabled WhatsUp and Fotogram accounts, ten have OnlyFriends, and nine have MatchMe accounts. All have explicit agency assignments: 15 characters have one tag and five have two. Their existing `hiddenAgency` strings remain empty.
 
-`src/characters/character.ts` defines the shared character and app-account types and normalizes app data. `shared/character-container.cjs` validates containers. Existing accounts have enabled state, identity, biography and optional authored starting posts, but no explicit user/creator role in the shared account type.
+`src/characters/character.ts` defines the shared character and app-account types and normalizes app data. `shared/character-container.cjs` validates containers. Accounts retain enabled state, identity, biography and optional authored starting posts, plus the agency assignments and social user/creator roles added in phase 1.
 
 `hiddenAgency` is optional author-only free text. Keep it separately for specific concealed motivations; structured agency tags are not a rename or automatic interpretation of that text. Tags guide characterization, not automatic messages, payments, or posts.
 
@@ -122,9 +122,9 @@ Apply account percentages to the final 50-character collection, not independentl
 | WhatsUp | 50 / 50 (100%) | 20 | 30 |
 | Fotogram | 35 / 50 (70%) | 20 | 15 |
 | MatchMe | 15 / 50 (30%) | 9 | 6, only with suitable images |
-| OnlyFriends | 25 / 50 (50%) | 0 | 25 |
+| OnlyFriends | 25 / 50 (50%) | 10 | 15 |
 
-These are authoring targets, not runtime quotas. Preserve existing accounts rather than removing them to force the new-batch proportions. The heavy OnlyFriends share among new NPCs deliberately fills the current gap.
+These are authoring targets, not runtime quotas. Preserve existing accounts rather than removing them to force the new-batch proportions. The 10 OnlyFriends accounts added to the existing roster reduce the remaining requirement to 15 among the 30 new NPCs.
 
 For example, use 30 users and five creators among the 35 Fotogram accounts, and 22 users and three creators among the 25 OnlyFriends accounts. This gives about 86% ordinary-user social accounts overall. Assign creator roles deliberately from authored character concepts. Review the unique-person distribution too, since one person can own multiple accounts with different roles.
 
@@ -146,17 +146,74 @@ Implemented boundaries:
 - Character and Storybook assistants receive the catalog as authoring context. The Character Assistant accounts specialist owns character tags and app assignments together; its profile specialist cannot leave a partial classification. This catalog is not injected into ordinary gameplay prompts.
 - Manual profile creation initializes a new account assignment from compatible tags already authored on the character; it never invents a new character tag. Existing profile edits preserve roles and assignments even when a profile form omits those fields. An explicitly empty incompatible assignment is rejected. The Agency Tags editor can refine the initialized subset.
 - Runtime character projections retain structured fields for later use. Ordinary formatted Storybook context, recipient context and public profile fields do not gain tag instructions. Content comparison treats missing user roles, empty tag lists and tag ordering consistently.
-- Creator/export, CLI inspect/edit and pinned NPC snapshots reuse the same validation and retain the fields. No existing bundled NPC file is rewritten.
+- Creator/export, CLI inspect/edit and pinned NPC snapshots reuse the same validation and retain the fields. Phase 1 did not rewrite existing bundled NPC files; their content revision is recorded in phase 2.
 
 Validation includes catalog completeness, malformed assignments, explicit app enablement, transactional assistant/form edits, import/export, Storybook persistence, CLI media preservation, saved NPC archives and legacy compatibility. Interactive form validation remains a manual user check.
 
 Acceptance: valid tags and roles survive create → inspect → edit → import/export → Storybook/save round trips; invalid assignments fail clearly; old untagged characters still load; explicitly disabled apps stay disabled; media references and private-field boundaries remain intact.
 
-### 2. Enrich the existing 20 NPCs
+### 2. Enrich the existing 20 NPCs — implemented
 
-Inspect each source using `npm run character:inspect`, writing distinct blob-free specifications under `/tmp`. Assign mostly one, occasionally two tags based on existing personality, speech style, biographies and accounts. Set app assignments and social account roles explicitly. Rebuild with `npm run character:edit` from untouched source containers.
+All 20 containers were inspected into distinct blob-free specifications, revised,
+rebuilt with `character:edit` from untouched originals and validated before
+replacement. The 27 gallery records (including exact embedded media), character
+IDs, existing account IDs, portraits and existing posts remain unchanged. The
+creator materialized empty `relationships` arrays where previously absent; no
+relationships were added.
 
-Acceptance: all 20 have coherent tag assignments; character/account/image IDs and original media bytes are preserved; unrelated authored fields do not change. Report the resulting account and role counts. Existing pinned save revisions remain historical; do not silently rewrite them.
+Current enabled accounts: 20 WhatsUp, 20 Fotogram, nine MatchMe and 10 OnlyFriends.
+Fotogram has 18 users and two creators (Ari and Maya Brooks); OnlyFriends has nine
+users and one creator (Maya Brooks). Across both social apps, 27 of 30 accounts
+are ordinary users (90%). New OnlyFriends accounts have no starting posts or new
+media, use unrelated pseudonymous profile names and set `showRealName: false`.
+The other existing social profiles keep real-name display, except Max's
+attention-seeking Fotogram persona: `backstage.static` hides the real name and
+uses a biography without that name. This does not rewrite Max as a scammer.
+
+All nine MatchMe accounts now store the full character name as the canonical
+compatibility `profileName`; no independently authored nickname remains in
+public account/profile fields. Old names remain internal `legacyHandles` for
+routing compatibility. Each dating profile has an explicit gender and seeking
+selection: women seek men and men seek women for this authored roster. Eden
+(man, seeking women) and Ivy (woman, seeking men) previously lacked gender;
+these are explicit fictional authoring choices, not image-derived facts. Existing
+ages, photos, biographies and interests remain unchanged. MatchMe renders first
+name and age through the existing UI contract.
+
+| Character | Character tags | OnlyFriends profile | Assignment rationale |
+| --- | --- | --- | --- |
+| Ari Blume | `fan_engager` | — | Outgoing music-community creator who engages followers. |
+| Avery Hart | `genuine_user` | `velvet.hour` (user) | Sincere, observant and naturally playful. |
+| Chloe Lane | `friendly_regular` | `afterglow.tempo` (user) | Warm recurring contact with an energetic social life. |
+| Eden Moss | `hobby_friend` | `copper.spoon` (user) | Connects through cooking and shared local interests. |
+| Eli Ward | `shy_user`, `social_lurker` | — | Cautious in private; mostly observes the public feed. |
+| Ivy Rowan | `loyal_supporter` | `clover.corner` (user) | Practical, welcoming and encouraging toward familiar people. |
+| Jordan Lee | `casual_chatter` | — | Easygoing everyday conversation about local discoveries. |
+| Kit Harlow | `friendship_seeker` | — | Welcoming neighborhood-oriented friendship seeker. |
+| Lena Ford | `flirty_networker` | — | Playful, sociable connections around music and events. |
+| Luca Reed | `casual_dater`, `respectful_admirer` | `midnight.mileage` (user) | Relaxed dating privately; respectful admiration on social feeds. |
+| Luna Sky | `sporadic_texter` | — | Independent routines and a relaxed, intermittent messaging rhythm. |
+| Max Power | `attention_seeker` | — | Expressive music fan seeking public attention under an alias. |
+| Maya Brooks | `fan_engager` | `paper.lantern` (creator) | Thoughtful art-community creator who engages returning followers. |
+| Maya Quinn | `boundary_setter` | — | Independent and direct about personal limits. |
+| Mina Park | `genuine_user` | `moss.and.clay` (user) | Grounded, candid appreciation without an ulterior motive. |
+| Nika Brooks | `slow_to_trust`, `boundary_setter` | `silver.margin` (user) | Builds trust slowly and states clear public boundaries. |
+| Noah Blake | `commitment_seeker`, `respectful_admirer` | `quiet.compass` (user) | Dependable romantic intentions and respectful public admiration. |
+| Nova Reyes | `casual_chatter` | — | Conversational interest in ordinary local life. |
+| Owen Reed | `loyal_supporter` | `open.road.radio` (user) | Welcoming, practical encouragement and regular support. |
+| Sasha Vale | `good_listener`, `social_lurker` | — | Thoughtful private listener and quiet public observer. |
+
+Per-app subsets avoid unsupported tags: MatchMe uses `casual_dater` for Luca and
+`commitment_seeker` for Noah; their social audience behavior uses
+`respectful_admirer`. Eli and Sasha use `social_lurker` on Fotogram and their
+other tag in messaging/dating. Nika uses `boundary_setter` on social profiles,
+while her private WhatsUp/MatchMe assignments also retain `slow_to_trust`.
+
+Validation: shared container and agency validators, bundled-library discovery,
+MatchMe canonical names and seeking, OnlyFriends name visibility, legacy alias
+preservation, exact media comparisons, and a field-level diff against untouched
+sources. Existing pinned save revisions and user-library overrides are not
+rewritten; reload the library for current bundled discovery.
 
 ### 3. Author 30 additional NPCs
 
