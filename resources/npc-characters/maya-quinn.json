@@ -45,7 +45,7 @@
         "accountId": "character:maya_quinn:fotogram",
         "enabled": true,
         "profileName": "maya.inframe",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "maya.inframe",
           "Maya Quinn"

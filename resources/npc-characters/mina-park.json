@@ -42,7 +42,7 @@
         "accountId": "character:mina_park:fotogram",
         "enabled": true,
         "profileName": "minapark",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "minapark",
           "Mina Park"
@@ -64,11 +64,12 @@
         "accountId": "character:mina_park:onlyfriends",
         "enabled": true,
         "profileName": "moss.and.clay",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "moss.and.clay"
         ],
-        "bio": "Handmade things, unhurried weekends, and honest appreciation."
+        "bio": "Handmade things, unhurried weekends, and honest appreciation.",
+        "initialPosts": []
       }
     },
     "hiddenAgency": "",

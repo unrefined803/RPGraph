@@ -42,7 +42,7 @@
         "accountId": "character:maya_brooks:fotogram",
         "enabled": true,
         "profileName": "mayabrooks",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "mayabrooks",
           "Maya Brooks"
@@ -64,11 +64,12 @@
         "accountId": "character:maya_brooks:onlyfriends",
         "enabled": true,
         "profileName": "paper.lantern",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "paper.lantern"
         ],
-        "bio": "A small creative corner for art, color, and conversations with the people who keep coming back."
+        "bio": "A small creative corner for art, color, and conversations with the people who keep coming back.",
+        "initialPosts": []
       }
     },
     "hiddenAgency": "",

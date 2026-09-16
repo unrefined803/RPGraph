@@ -17,8 +17,8 @@ export type CharacterAppAccount = {
   enabled: boolean;
   /** The only authored app name. WhatsUp has no profile name. */
   profileName?: string;
-  /** Fotogram/OnlyFriends public identity; omitted means show the real name. */
-  showRealName?: boolean;
+  /** Fotogram/OnlyFriends privacy mode; true hides real name and profile photo publicly. */
+  privacyMode?: boolean;
   /** Historical handles retained for saved conversations and account links. */
   legacyHandles?: string[];
   /** Read-only legacy import fields; canonical serialization removes both. */
@@ -121,7 +121,7 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
       accountId: string(account.accountId) || `character:${id}:${app}`,
       enabled: typeof account.enabled === 'boolean' ? account.enabled : app === 'matchme' ? !!profile : app === 'whatsup' || !!profileName,
       ...(profileName !== undefined ? { profileName } : {}),
-      ...((app === 'fotogram' || app === 'onlyfriends') && typeof account.showRealName === 'boolean' ? { showRealName: account.showRealName } : {}),
+      ...((app === 'fotogram' || app === 'onlyfriends') && typeof account.privacyMode === 'boolean' ? { privacyMode: account.privacyMode } : {}),
       ...(legacyHandles.length ? { legacyHandles } : {}),
       bio: string(account.bio) || profile?.bio || '',
       ...(typeof account.avatarImageId === 'string' ? { avatarImageId: account.avatarImageId } : {}),

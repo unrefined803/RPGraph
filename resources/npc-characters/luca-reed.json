@@ -56,7 +56,7 @@
         "accountId": "character:luca_reed:fotogram",
         "enabled": true,
         "profileName": "luca.moving",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "luca.moving",
           "Luca Reed"
@@ -79,11 +79,13 @@
         "accountId": "character:luca_reed:onlyfriends",
         "enabled": true,
         "profileName": "midnight.mileage",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "midnight.mileage"
         ],
-        "bio": "Good conversation, a little playful chemistry, and respect for your space."
+        "bio": "Good conversation, a little playful chemistry, and respect for your space.",
+        "avatarImageId": "luca_reed:image:day-drive",
+        "initialPosts": []
       },
       "matchme": {
         "agencyTags": [

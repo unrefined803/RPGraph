@@ -63,7 +63,7 @@
         "accountId": "character:eden_moss:fotogram",
         "enabled": true,
         "profileName": "edenmoss",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "edenmoss",
           "Eden Moss"
@@ -91,11 +91,13 @@
         "accountId": "character:eden_moss:onlyfriends",
         "enabled": true,
         "profileName": "copper.spoon",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "copper.spoon"
         ],
-        "bio": "Trading kitchen ideas and finding people who care about the things they make."
+        "bio": "Trading kitchen ideas and finding people who care about the things they make.",
+        "avatarImageId": "eden_moss:image:pasta-kitchen-portrait",
+        "initialPosts": []
       },
       "matchme": {
         "agencyTags": [

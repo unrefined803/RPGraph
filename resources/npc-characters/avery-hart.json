@@ -55,7 +55,7 @@
         "accountId": "character:avery_hart:fotogram",
         "enabled": true,
         "profileName": "avery.afterfive",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "avery.afterfive",
           "Avery Hart"
@@ -78,11 +78,13 @@
         "accountId": "character:avery_hart:onlyfriends",
         "enabled": true,
         "profileName": "velvet.hour",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "velvet.hour"
         ],
-        "bio": "Here for thoughtful people, small discoveries, and a little everyday charm."
+        "bio": "Here for thoughtful people, small discoveries, and a little everyday charm.",
+        "avatarImageId": "avery_hart:image:cafe-afternoon",
+        "initialPosts": []
       },
       "matchme": {
         "agencyTags": [

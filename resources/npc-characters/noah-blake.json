@@ -46,7 +46,7 @@
         "accountId": "character:noah_blake:fotogram",
         "enabled": true,
         "profileName": "noah.citynotes",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "noah.citynotes",
           "Noah Blake"
@@ -63,11 +63,13 @@
         "accountId": "character:noah_blake:onlyfriends",
         "enabled": true,
         "profileName": "quiet.compass",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "quiet.compass"
         ],
-        "bio": "Appreciating good stories and thoughtful work. No demands, just a sincere hello."
+        "bio": "Appreciating good stories and thoughtful work. No demands, just a sincere hello.",
+        "avatarImageId": "noah_blake:image:terrace-dinner",
+        "initialPosts": []
       },
       "matchme": {
         "agencyTags": [

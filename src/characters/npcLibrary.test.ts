@@ -77,10 +77,10 @@ it('ships classified NPCs with explicit app roles, private OnlyFriends names and
       expect(account.agencyTags!.every((tag) => character.agencyTags!.includes(tag))).toBe(true);
       if (app === 'fotogram' || app === 'onlyfriends') {
         expect(['user', 'creator']).toContain(account.accountRole);
-        expect(typeof account.showRealName).toBe('boolean');
+        expect(typeof account.privacyMode).toBe('boolean');
       }
       if (app === 'onlyfriends') {
-        expect(account.showRealName).toBe(false);
+        expect(account.privacyMode).toBe(true);
         for (const name of character.name.toLowerCase().split(/\s+/)) {
           expect(account.profileName?.toLowerCase()).not.toContain(name);
           expect(account.bio.toLowerCase()).not.toContain(name);
@@ -95,6 +95,11 @@ it('ships classified NPCs with explicit app roles, private OnlyFriends names and
       expect(matchme.profile?.seeking).toEqual(character.gender === 'woman' ? ['man'] : ['woman']);
       expect(matchme.profile).not.toHaveProperty('name');
       expect(matchme.profile).not.toHaveProperty('username');
+    }
+    if (character.name === 'Ivy Rowan') {
+      expect(character.gender).toBe('man');
+      expect(matchme?.profile?.gender).toBe('man');
+      expect(matchme?.profile?.seeking).toEqual(['woman']);
     }
   }
 });

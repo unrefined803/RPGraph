@@ -42,7 +42,7 @@
         "accountId": "character:max_power:fotogram",
         "enabled": true,
         "profileName": "backstage.static",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "maxpower_official",
           "Max Power",

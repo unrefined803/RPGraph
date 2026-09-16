@@ -4,7 +4,7 @@ import type {
   RpWeekdayLanguage,
   SocialPostRecord,
 } from '../types';
-import { socialAppNames, socialAccountPresentation } from '../chat/socialMedia';
+import { socialAppNames, socialAccountPresentation, isAccountPrivacyMode } from '../chat/socialMedia';
 import { formatRpDateTimeParts } from '../workflow';
 import { CharacterAvatar } from './CharacterAvatar';
 import { formatSocialCount } from './phone-social/socialPostPresentation';
@@ -52,7 +52,7 @@ export function SocialPostCard({
         className="chat-social-post-avatar"
         name={identity.name}
         fallback={identity.name.slice(0, 1).toUpperCase()}
-        profileImageDataUrl={authorCharacter?.profileImage?.dataUrl}
+        profileImageDataUrl={!isAccountPrivacyMode(post.app, authorCharacter) ? authorCharacter?.profileImage?.dataUrl : undefined}
         style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
       />
       <span>

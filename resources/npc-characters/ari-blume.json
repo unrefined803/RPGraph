@@ -53,7 +53,7 @@
         "accountId": "character:ari_blume:fotogram",
         "enabled": true,
         "profileName": "ariblume",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "ariblume",
           "Ari Blume"

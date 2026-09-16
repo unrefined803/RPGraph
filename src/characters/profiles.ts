@@ -31,7 +31,9 @@ export function withCharacterAppProfile(character: Character, app: keyof Charact
   const accountRole = account.accountRole ?? previous?.accountRole;
   const agencyTags = account.agencyTags ?? previous?.agencyTags ?? (character.agencyTags?.length
     ? character.agencyTags.filter((tag) => agencyTagSupports(tag, app, accountRole ?? 'user')) : undefined);
+  const privacyMode = account.privacyMode ?? previous?.privacyMode;
   const updated = { ...account,
+    ...(privacyMode !== undefined ? { privacyMode } : {}),
     ...(accountRole !== undefined ? { accountRole } : {}),
     ...(agencyTags !== undefined ? { agencyTags: [...agencyTags] } : {}),
     legacyHandles: [...new Set([

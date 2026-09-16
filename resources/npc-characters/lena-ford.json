@@ -42,7 +42,7 @@
         "accountId": "character:lena_ford:fotogram",
         "enabled": true,
         "profileName": "lenaford",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "lenaford",
           "Lena Ford"

@@ -80,17 +80,17 @@ User containers are normalized when loaded and written canonically on export;
 this does not overwrite files in the user's library. Use the procedure in
 [character-creator.md](character-creator.md) when revising a packed container.
 
-## Public real-name visibility
+## Public privacy mode and visibility
 
-Fotogram and OnlyFriends accounts may store `showRealName: false`. The shared
-profile editor exposes this as **Show real name**. Omitted or true preserves the
-real-name display for existing containers. When false, app labels and chat cards
-use `profileName` as the primary name; an enabled handle line still shows
-`@profileName`. The chat card option `showProfileNames` controls only that extra
-handle, never whether a hidden real name is revealed. MatchMe and WhatsUp do not
-support this setting. Character names, account IDs and routing aliases stay intact.
-This is a public presentation preference, not anonymization of the character data
-or the narrator's knowledge.
+Fotogram and OnlyFriends accounts may store `privacyMode: true`. The shared
+profile editor exposes this as **Privacy mode**. Omitted or false preserves public
+real-name and avatar photo display for existing containers. When enabled (true), app labels and chat cards use `profileName` as the
+primary name and hide the public avatar photo, showing anonymous fallback initials
+instead; an enabled handle line still shows `@profileName`. The chat card option
+`showProfileNames` controls only that extra handle, never whether a hidden real name is
+revealed. MatchMe and WhatsUp do not support this setting. Character names, account
+IDs and routing aliases stay intact. This is a public presentation preference, not
+anonymization of the character data or the narrator's knowledge.
 
 ## MatchMe character names
 

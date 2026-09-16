@@ -19,9 +19,9 @@ const character = (displayName = 'Helga Harper'): Character => ({
 describe('one app profile name', () => {
   it.each(['fotogram', 'onlyfriends'] as const)('preserves %s real-name visibility through export and presentation', (app) => {
     const old = character();
-    old.apps![app] = { accountId: `helga-${app}`, enabled: true, profileName: 'Hidden Artist', showRealName: false, bio: '' };
+    old.apps![app] = { accountId: `helga-${app}`, enabled: true, profileName: 'Hidden Artist', privacyMode: true, bio: '' };
     const saved = createCharacterContainer(old);
-    expect(saved.character.apps[app]?.showRealName).toBe(false);
+    expect(saved.character.apps[app]?.privacyMode).toBe(true);
     expect(() => validateCharacterContainer(saved)).not.toThrow();
     const cast = appCharactersFromRegistry(buildCharacterRegistry([{ character: { ...old, apps: saved.character.apps }, tier: 'user', source: 'test' }]));
     expect(socialAccountPresentation(app, cast[0], old.name, 'old.handle')).toEqual({ name: 'Hidden Artist', handle: 'Hidden Artist' });
@@ -29,7 +29,8 @@ describe('one app profile name', () => {
       fromAccountId: `helga-${app}`, text: 'Hello' };
     expect(socialDirectMessageParty(message, 'from', cast, false)).toBe('Hidden Artist');
     expect(socialDirectMessageParty(message, 'from', cast, true)).toBe('Hidden Artist (@Hidden Artist)');
-    const visible = withCharacterAppProfile({ ...old, apps: saved.character.apps }, app, { ...saved.character.apps[app]!, showRealName: true });
+    const visible = withCharacterAppProfile({ ...old, apps: saved.character.apps }, app, { ...saved.character.apps[app]!, privacyMode: false });
+    expect(visible.apps![app]?.privacyMode).toBe(false);
     const visibleCast = appCharactersFromRegistry(buildCharacterRegistry([{ character: visible, tier: 'user', source: 'test' }]));
     expect(socialAccountPresentation(app, visibleCast[0], '', '').name).toBe(old.name);
     expect(visible.apps![app]?.accountId).toBe(`helga-${app}`);

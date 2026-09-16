@@ -42,7 +42,7 @@
         "accountId": "character:jordan_lee:fotogram",
         "enabled": true,
         "profileName": "jordansayshi",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "jordansayshi",
           "Jordan Lee"

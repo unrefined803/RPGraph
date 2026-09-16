@@ -1,5 +1,5 @@
 import { accountHandle } from '../../characters/character';
-import { socialAccountPresentation } from '../../chat/socialMedia';
+import { isAccountPrivacyMode, socialAccountPresentation } from '../../chat/socialMedia';
 import { appAvatarDataUrl } from '../../characters/portrait';
 import { postsWithInitialContent } from '../../characters/publications';
 import { SocialProfileEditor } from './SocialProfileEditor';
@@ -1410,7 +1410,7 @@ export function PhoneSocialFeedScreen({
                 className="phone-avatar"
                 name={owner?.name ?? account}
                 fallback={(owner?.name ?? account).slice(0, 1).toUpperCase()}
-                profileImageDataUrl={appAvatarDataUrl(owner, owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId) : undefined)}
+                profileImageDataUrl={!isAccountPrivacyMode(app.id, owner) ? appAvatarDataUrl(owner, owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId) : undefined) : undefined}
                 style={ownerColor ? { borderColor: ownerColor, color: ownerColor } : undefined}
               />
               <span className="phone-social-account-main">
@@ -1437,7 +1437,7 @@ export function PhoneSocialFeedScreen({
                     className="phone-avatar"
                     name={entry.name}
                     fallback={entry.name.slice(0, 1).toUpperCase()}
-                    profileImageDataUrl={appAvatarDataUrl(entry.character, entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!, entry.character.sourceId) : undefined)}
+                    profileImageDataUrl={!isAccountPrivacyMode(app.id, entry.character) ? appAvatarDataUrl(entry.character, entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!, entry.character.sourceId) : undefined) : undefined}
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
@@ -1740,7 +1740,7 @@ export function PhoneSocialFeedScreen({
                       className="phone-avatar"
                       name={post.authorName}
                       fallback={post.authorName.slice(0, 1).toUpperCase()}
-                      profileImageDataUrl={appAvatarDataUrl(postAuthorCharacter, postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!, postAuthorCharacter.sourceId) : undefined)}
+                      profileImageDataUrl={!isAccountPrivacyMode(app.id, postAuthorCharacter) ? appAvatarDataUrl(postAuthorCharacter, postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!, postAuthorCharacter.sourceId) : undefined) : undefined}
                       style={postAuthorColor
                         ? { borderColor: postAuthorColor, color: postAuthorColor }
                         : undefined}

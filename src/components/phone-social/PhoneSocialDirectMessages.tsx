@@ -11,7 +11,7 @@ import type {
   SocialDmUnreadByHandle,
 } from '../../types';
 import { formatBankingAmount } from '../../chat/bankTransfers';
-import { socialIdentityMatches, socialAccountPresentation, socialCharacterForPost } from '../../chat/socialMedia';
+import { isAccountPrivacyMode, socialIdentityMatches, socialAccountPresentation, socialCharacterForPost } from '../../chat/socialMedia';
 import { formatRpDateTimeParts } from '../../workflow';
 import { CharacterAvatar } from '../CharacterAvatar';
 
@@ -211,7 +211,7 @@ export function PhoneSocialDirectMessages({
                   className="phone-avatar large"
                   name={participantIdentity(participant).name}
                   fallback={participant.name.slice(0, 1).toUpperCase()}
-                  profileImageDataUrl={participant.character?.profileImage?.dataUrl}
+                  profileImageDataUrl={!isAccountPrivacyMode(app, participant.character) ? participant.character?.profileImage?.dataUrl : undefined}
                   style={color ? { borderColor: color, color } : undefined}
                 />
                 <span className="phone-social-dm-contact-copy">
@@ -271,7 +271,7 @@ export function PhoneSocialDirectMessages({
           className="phone-avatar"
           name={participantIdentity(selectedParticipant).name}
           fallback={selectedParticipant.name.slice(0, 1).toUpperCase()}
-          profileImageDataUrl={selectedParticipant.character?.profileImage?.dataUrl}
+          profileImageDataUrl={!isAccountPrivacyMode(app, selectedParticipant.character) ? selectedParticipant.character?.profileImage?.dataUrl : undefined}
           style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
         />
         <div>
@@ -312,7 +312,7 @@ export function PhoneSocialDirectMessages({
               className="phone-avatar large"
               name={participantIdentity(selectedParticipant).name}
               fallback={selectedParticipant.name.slice(0, 1).toUpperCase()}
-              profileImageDataUrl={selectedParticipant.character?.profileImage?.dataUrl}
+              profileImageDataUrl={!isAccountPrivacyMode(app, selectedParticipant.character) ? selectedParticipant.character?.profileImage?.dataUrl : undefined}
               style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
             />
             <strong>{participantIdentity(selectedParticipant).name}</strong>

@@ -42,7 +42,7 @@
         "accountId": "character:nova_reyes:fotogram",
         "enabled": true,
         "profileName": "nova.reyes",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "nova.reyes",
           "Nova Reyes"

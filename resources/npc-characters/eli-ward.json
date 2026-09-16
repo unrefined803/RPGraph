@@ -45,7 +45,7 @@
         "accountId": "character:eli_ward:fotogram",
         "enabled": true,
         "profileName": "eli.offgrid",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "eli.offgrid",
           "Eli Ward"

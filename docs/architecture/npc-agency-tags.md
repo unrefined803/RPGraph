@@ -201,9 +201,9 @@ Current enabled accounts: 20 WhatsUp, 20 Fotogram, nine MatchMe and 10 OnlyFrien
 Fotogram has 18 users and two creators (Ari and Maya Brooks); OnlyFriends has nine
 users and one creator (Maya Brooks). Across both social apps, 27 of 30 accounts
 are ordinary users (90%). New OnlyFriends accounts have no starting posts or new
-media, use unrelated pseudonymous profile names and set `showRealName: false`.
+media, use unrelated pseudonymous profile names and set `privacyMode: true`.
 The other existing social profiles keep real-name display, except Max's
-attention-seeking Fotogram persona: `backstage.static` hides the real name and
+attention-seeking Fotogram persona: `backstage.static` sets `privacyMode: true` and
 uses a biography without that name. This does not rewrite Max as a scammer.
 
 All nine MatchMe accounts now store the full character name as the canonical

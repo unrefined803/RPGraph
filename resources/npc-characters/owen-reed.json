@@ -42,7 +42,7 @@
         "accountId": "character:owen_reed:fotogram",
         "enabled": true,
         "profileName": "owenreed",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "owenreed",
           "Owen Reed"
@@ -64,11 +64,12 @@
         "accountId": "character:owen_reed:onlyfriends",
         "enabled": true,
         "profileName": "open.road.radio",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "open.road.radio"
         ],
-        "bio": "Here to encourage the regulars and discover something worth coming back for."
+        "bio": "Here to encourage the regulars and discover something worth coming back for.",
+        "initialPosts": []
       }
     },
     "hiddenAgency": "",

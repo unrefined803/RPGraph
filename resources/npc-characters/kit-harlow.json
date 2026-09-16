@@ -42,7 +42,7 @@
         "accountId": "character:kit_harlow:fotogram",
         "enabled": true,
         "profileName": "kitharlow",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "kitharlow",
           "Kit Harlow"

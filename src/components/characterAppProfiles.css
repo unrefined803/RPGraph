@@ -207,9 +207,126 @@
   .social-profile-actions button { flex: 1; }
 }
 
-.social-profile-editor input[type="checkbox"] { width: auto; padding: 0; accent-color: var(--profile-accent); }
+.social-profile-editor input[type="checkbox"] { width: auto; padding: 0; }
 
 .social-profile-identity-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: end; }
-.social-profile-editor .social-profile-visibility { display: flex; flex-direction: row; align-items: center; gap: 10px; align-self: center; }
-.social-profile-editor .social-profile-visibility input[type="checkbox"] { appearance: auto; flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; padding: 0; margin: 0; }
+.social-profile-visibility-wrap { display: flex; align-items: center; gap: 8px; height: 44px; }
+.social-profile-editor .social-profile-visibility { display: inline-flex; flex-direction: row; align-items: center; gap: 10px; height: 44px; margin: 0; cursor: pointer; user-select: none; font-weight: 600; color: #f4f1f7; }
+.social-profile-editor .social-profile-visibility input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  border: 1.5px solid #ffffff38;
+  border-radius: 6px;
+  background: #0d111be6;
+  display: grid;
+  place-content: center;
+  transition: all 0.15s ease-in-out;
+  position: relative;
+}
+.social-profile-editor .social-profile-visibility:hover input[type="checkbox"] {
+  border-color: var(--profile-accent);
+  background: #ffffff12;
+}
+.social-profile-editor .social-profile-visibility input[type="checkbox"]:checked {
+  background: var(--profile-accent);
+  border-color: var(--profile-accent);
+}
+.social-profile-editor .social-profile-visibility input[type="checkbox"]::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #111521;
+  border-bottom: 2px solid #111521;
+  transform: rotate(-45deg) translate(1px, -1px) scale(0);
+  transition: transform 0.12s ease-in-out;
+}
+.social-profile-editor .social-profile-visibility input[type="checkbox"]:checked::before {
+  transform: rotate(-45deg) translate(1px, -1px) scale(1);
+}
+.social-profile-editor .social-profile-visibility input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--profile-accent);
+  outline-offset: 2px;
+}
+.social-profile-info-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #9aa1b8;
+  cursor: pointer;
+  background: #ffffff0a;
+  border: 1px solid #ffffff1f;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.social-profile-info-trigger:hover,
+.social-profile-info-trigger:focus-visible,
+.social-profile-info-trigger.active {
+  color: var(--profile-accent);
+  border-color: var(--profile-accent);
+  background: #ffffff14;
+  outline: none;
+}
+.social-profile-info-bubble {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: 230px;
+  padding: 10px 12px;
+  background: #181d2c;
+  color: #e2e5f0;
+  border: 1px solid #ffffff29;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+  z-index: 20;
+  text-align: left;
+}
+.social-profile-info-bubble::before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px 6px 0 6px;
+  border-style: solid;
+  border-color: #ffffff29 transparent transparent transparent;
+}
+.social-profile-info-bubble::after {
+  content: "";
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px 5px 0 5px;
+  border-style: solid;
+  border-color: #181d2c transparent transparent transparent;
+}
+.social-profile-info-trigger:hover .social-profile-info-bubble,
+.social-profile-info-trigger:focus-visible .social-profile-info-bubble,
+.social-profile-info-trigger.active .social-profile-info-bubble {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
 @media (max-width: 520px) { .social-profile-identity-row { grid-template-columns: 1fr; gap: 14px; } }
+

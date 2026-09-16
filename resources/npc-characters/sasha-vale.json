@@ -42,7 +42,7 @@
         "accountId": "character:sasha_vale:fotogram",
         "enabled": true,
         "profileName": "sashavale",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "sashavale",
           "Sasha Vale"

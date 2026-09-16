@@ -184,6 +184,15 @@ export function socialCharacterForPost(
   return matches.length === 1 ? matches[0] : undefined;
 }
 
+/** Whether the character's account on Fotogram or OnlyFriends is in privacy mode. */
+export function isAccountPrivacyMode(
+  app: string,
+  character: StorybookCharacter | undefined,
+): boolean {
+  if (app !== 'fotogram' && app !== 'onlyfriends') return false;
+  return character?.apps?.[app]?.privacyMode === true;
+}
+
 /** UI labels only: never use public display names as routing handles. */
 export function socialAccountPresentation(
   app: SocialMessengerAppKind,
@@ -193,7 +202,7 @@ export function socialAccountPresentation(
 ) {
   const account = character?.apps?.[app];
   const handle = (character ? account?.profileName ?? account?.displayName ?? '' : fallbackHandle).trim().replace(/^@/, '');
-  const hideRealName = (app === 'fotogram' || app === 'onlyfriends') && account?.showRealName === false;
+  const hideRealName = isAccountPrivacyMode(app, character);
   return {
     name: hideRealName ? handle || 'Unknown user' : character?.name || fallbackName,
     handle,

@@ -55,7 +55,7 @@
         "accountId": "character:chloe_lane:fotogram",
         "enabled": true,
         "profileName": "chloe.onrepeat",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "chloe.onrepeat",
           "Chloe Lane"
@@ -78,11 +78,13 @@
         "accountId": "character:chloe_lane:onlyfriends",
         "enabled": true,
         "profileName": "afterglow.tempo",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "afterglow.tempo"
         ],
-        "bio": "Good energy, favorite songs, and a friendly hello to the regulars."
+        "bio": "Good energy, favorite songs, and a friendly hello to the regulars.",
+        "avatarImageId": "chloe_lane:image:music-night",
+        "initialPosts": []
       },
       "matchme": {
         "agencyTags": [

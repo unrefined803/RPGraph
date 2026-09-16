@@ -42,7 +42,7 @@
         "accountId": "character:luna_sky:fotogram",
         "enabled": true,
         "profileName": "luna.sky",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "luna.sky",
           "Luna Sky"

@@ -46,7 +46,7 @@
         "accountId": "character:nika_brooks:fotogram",
         "enabled": true,
         "profileName": "nika.lines",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "nika.lines",
           "Nika Brooks"
@@ -63,11 +63,13 @@
         "accountId": "character:nika_brooks:onlyfriends",
         "enabled": true,
         "profileName": "silver.margin",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "silver.margin"
         ],
-        "bio": "Art, unusual details, and conversation without pressure. Please respect my boundaries."
+        "bio": "Art, unusual details, and conversation without pressure. Please respect my boundaries.",
+        "avatarImageId": "nika_brooks:image:studio-selfie",
+        "initialPosts": []
       },
       "matchme": {
         "agencyTags": [

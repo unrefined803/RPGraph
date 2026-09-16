@@ -53,7 +53,7 @@
         "accountId": "character:ivy_rowan:fotogram",
         "enabled": true,
         "profileName": "ivyrowan",
-        "showRealName": true,
+        "privacyMode": false,
         "legacyHandles": [
           "ivyrowan",
           "Ivy Rowan"
@@ -76,11 +76,13 @@
         "accountId": "character:ivy_rowan:onlyfriends",
         "enabled": true,
         "profileName": "clover.corner",
-        "showRealName": false,
+        "privacyMode": true,
         "legacyHandles": [
           "clover.corner"
         ],
-        "bio": "A quiet cheer for good work, kind people, and the little things worth sharing."
+        "bio": "A quiet cheer for good work, kind people, and the little things worth sharing.",
+        "avatarImageId": "ivy_rowan:image:neighborhood-cafe",
+        "initialPosts": []
       },
       "matchme": {
         "agencyTags": [
@@ -99,9 +101,9 @@
           "age": 25,
           "bio": "Ivy Rowan shares food and neighborhood finds, everyday moments and personal recommendations.",
           "interests": "",
-          "gender": "woman",
+          "gender": "man",
           "seeking": [
-            "man"
+            "woman"
           ],
           "photoIds": [
             "ivy_rowan:image:neighborhood-cafe"
@@ -115,7 +117,7 @@
     "agencyTags": [
       "loyal_supporter"
     ],
-    "gender": "woman",
+    "gender": "man",
     "profileImage": {
       "imageId": "ivy_rowan:image:neighborhood-cafe"
     }
