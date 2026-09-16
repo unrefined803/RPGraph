@@ -50,8 +50,8 @@ export function SocialPostCard({
     <span className="chat-social-post-author">
       <CharacterAvatar
         className="chat-social-post-avatar"
-        name={post.author}
-        fallback={post.author.slice(0, 1).toUpperCase()}
+        name={identity.name}
+        fallback={identity.name.slice(0, 1).toUpperCase()}
         profileImageDataUrl={authorCharacter?.profileImage?.dataUrl}
         style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
       />
@@ -68,7 +68,7 @@ export function SocialPostCard({
       type="button"
       style={fontSize ? { fontSize } : undefined}
       onClick={onOpen}
-      aria-label={`Open ${appName} post by ${post.author} with comments`}
+      aria-label={`Open ${appName} post by ${identity.name} with comments`}
     >
       <span className="chat-social-post-accent" aria-hidden="true" />
       <span className="chat-social-post-header">

@@ -206,3 +206,10 @@
   .social-profile-avatar { flex-basis: 60px; height: 60px; }
   .social-profile-actions button { flex: 1; }
 }
+
+.social-profile-editor input[type="checkbox"] { width: auto; padding: 0; accent-color: var(--profile-accent); }
+
+.social-profile-identity-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: end; }
+.social-profile-editor .social-profile-visibility { display: flex; flex-direction: row; align-items: center; gap: 10px; align-self: center; }
+.social-profile-editor .social-profile-visibility input[type="checkbox"] { appearance: auto; flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; padding: 0; margin: 0; }
+@media (max-width: 520px) { .social-profile-identity-row { grid-template-columns: 1fr; gap: 14px; } }

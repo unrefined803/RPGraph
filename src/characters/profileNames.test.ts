@@ -7,6 +7,7 @@ import { appCharactersFromRegistry } from './appRuntime';
 import { buildCharacterRegistry } from './registry';
 import { resolveAccountLink } from '../chat/accountLinks';
 import { buildSocialDirectory, searchSocialDirectory } from '../chat/socialDirectory';
+import { socialAccountPresentation, socialDirectMessageParty } from '../chat/socialMedia';
 
 const character = (displayName = 'Helga Harper'): Character => ({
   id: 'helga', name: 'Helga Harper', description: '', personality: '', speechStyle: '', role: '',
@@ -16,6 +17,24 @@ const character = (displayName = 'Helga Harper'): Character => ({
 });
 
 describe('one app profile name', () => {
+  it.each(['fotogram', 'onlyfriends'] as const)('preserves %s real-name visibility through export and presentation', (app) => {
+    const old = character();
+    old.apps![app] = { accountId: `helga-${app}`, enabled: true, profileName: 'Hidden Artist', showRealName: false, bio: '' };
+    const saved = createCharacterContainer(old);
+    expect(saved.character.apps[app]?.showRealName).toBe(false);
+    expect(() => validateCharacterContainer(saved)).not.toThrow();
+    const cast = appCharactersFromRegistry(buildCharacterRegistry([{ character: { ...old, apps: saved.character.apps }, tier: 'user', source: 'test' }]));
+    expect(socialAccountPresentation(app, cast[0], old.name, 'old.handle')).toEqual({ name: 'Hidden Artist', handle: 'Hidden Artist' });
+    const message = { app, messageId: 'dm', sentAt: '2026-09-16T00:00:00Z', from: old.name, to: 'Other', fromHandle: 'old.handle', toHandle: 'other',
+      fromAccountId: `helga-${app}`, text: 'Hello' };
+    expect(socialDirectMessageParty(message, 'from', cast, false)).toBe('Hidden Artist');
+    expect(socialDirectMessageParty(message, 'from', cast, true)).toBe('Hidden Artist (@Hidden Artist)');
+    const visible = withCharacterAppProfile({ ...old, apps: saved.character.apps }, app, { ...saved.character.apps[app]!, showRealName: true });
+    const visibleCast = appCharactersFromRegistry(buildCharacterRegistry([{ character: visible, tier: 'user', source: 'test' }]));
+    expect(socialAccountPresentation(app, visibleCast[0], '', '').name).toBe(old.name);
+    expect(visible.apps![app]?.accountId).toBe(`helga-${app}`);
+  });
+
   it('restores artist names, preserves customized names and exports one canonical field', () => {
     for (const [displayName, expected] of [['Helga Harper', 'helga.afterhours'], ['Helga Photogram', 'Helga Photogram']]) {
       const old = character(displayName);
@@ -57,11 +76,11 @@ describe('one app profile name', () => {
       displayName: old.name, bio: 'Hello', profile: { name: old.name, username: 'helga.dates',
         age: 25, bio: 'Hello', interests: 'Art', photoIds: [], decisions: {} } };
     const container = createCharacterContainer(old);
-    expect(container.character.apps.matchme?.profileName).toBe('helga.dates');
+    expect(container.character.apps.matchme?.profileName).toBe(old.name);
     expect(container.character.apps.matchme?.profile).not.toHaveProperty('name');
     expect(container.character.apps.matchme?.profile).not.toHaveProperty('username');
     const apps = normalizeCharacterApps(container.character.apps, undefined, old.id, old.name);
-    expect(apps.matchme?.profile?.name).toBe('helga.dates');
+    expect(apps.matchme?.profile?.name).toBe(old.name);
     expect(apps.matchme?.profile?.username).toBeUndefined();
     expect(() => validateCharacterContainer(container)).not.toThrow();
   });

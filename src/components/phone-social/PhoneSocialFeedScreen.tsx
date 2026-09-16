@@ -1484,7 +1484,7 @@ export function PhoneSocialFeedScreen({
                             type="button"
                             onClick={() => addSocialUser(user)}
                             disabled={alreadyAdded}
-                            aria-label={alreadyAdded ? `${user.name} already followed` : `Follow ${user.name}`}
+                            aria-label={alreadyAdded ? `${userIdentity.name} already followed` : `Follow ${userIdentity.name}`}
                             title={alreadyAdded ? 'Already following' : 'Follow user'}
                           >
                             {alreadyAdded ? '✓' : '+'}
@@ -1966,10 +1966,10 @@ export function PhoneSocialFeedScreen({
                           disabled={isOwnComment}
                           aria-label={isOwnComment
                             ? 'Your comment'
-                            : `Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
+                            : `Message ${commentIdentity.name}`}
                           title={isOwnComment
                             ? undefined
-                            : `Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
+                            : `Message ${commentIdentity.name}`}
                         >
                           <strong>{commentIdentity.name}{commentIdentity.handle && ` (@${commentIdentity.handle})`}</strong>
                           <span>{comment.text}</span>

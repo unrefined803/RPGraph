@@ -4,6 +4,9 @@ import type { ChatImageAttachment, MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { DatingGender, DatingProfile } from './datingProfile';
 
+/** Public MatchMe names are derived from the character, never account handles. */
+export const datingFirstName = (name: string) => name.trim().split(/\s+/)[0] || 'Unknown';
+
 export const datingNpcProfiles = [
   { id: 'demo-alex', name: 'Alex', age: 26, bio: 'Coffee first. Spontaneous road trip second. I will absolutely make you a playlist.', interests: ['Music', 'Road trips', 'Coffee'], gender: 'man' as const, personality: 'Warm, spontaneous and gently playful. Loves sharing music and asks thoughtful questions.', color: 'rose' },
   { id: 'demo-jamie', name: 'Jamie', age: 28, bio: 'Collecting little adventures and very big books. Tell me your most unpopular movie opinion.', interests: ['Books', 'Cinema', 'Cooking'], gender: 'woman' as const, personality: 'Thoughtful, sociable and dryly funny. Values honest conversation and lets trust grow gradually.', color: 'violet' },
@@ -51,8 +54,8 @@ export function datingAccounts(characters: StorybookCharacter[], messages: Messa
       photos: (profile.photoIds ?? []).flatMap((id) => character.images?.find((image) => image.id === id) ?? []),
       avatarDataUrl: appAvatarDataUrl(character, character.images?.find((image) => image.id === character.apps?.matchme?.avatarImageId)),
       recipientContext: recipientCharacterContext(character), libraryNpc: character.libraryNpc,
-      aliases: [...(character.identityAliases?.accountIds?.matchme ?? []), ...(character.identityAliases?.characterIds ?? []).map(datingAccountId), datingAccountId(character.id), character.name, character.apps?.matchme?.profileName ?? character.apps?.matchme?.displayName ?? '', ...(character.apps?.matchme?.legacyHandles ?? []), character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
-      decisions: profile.decisions, name: profile.name, age: profile.age, gender: profile.gender, bio: profile.bio,
+      aliases: [...(character.identityAliases?.accountIds?.matchme ?? []), ...(character.identityAliases?.characterIds ?? []).map(datingAccountId), datingAccountId(character.id), character.name, profile.name, character.apps?.matchme?.profileName ?? character.apps?.matchme?.displayName ?? '', ...(character.apps?.matchme?.legacyHandles ?? []), character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
+      decisions: profile.decisions, name: character.name, age: profile.age, gender: profile.gender, bio: profile.bio,
       interests: profile.interests.split(',').map((part) => part.trim()).filter(Boolean),
       personality: [character.profile.personality, character.profile.speechStyle].filter(Boolean).join('\n'), color: 'violet' });
   }

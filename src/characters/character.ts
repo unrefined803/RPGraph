@@ -14,6 +14,8 @@ export type CharacterAppAccount = {
   enabled: boolean;
   /** The only authored app name. WhatsUp has no profile name. */
   profileName?: string;
+  /** Fotogram/OnlyFriends public identity; omitted means show the real name. */
+  showRealName?: boolean;
   /** Historical handles retained for saved conversations and account links. */
   legacyHandles?: string[];
   /** Read-only legacy import fields; canonical serialization removes both. */
@@ -95,10 +97,11 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
     const account = record(source[app]);
     const legacyHandle = app === 'fotogram' ? social.fotogramUsername : app === 'onlyfriends' ? social.onlyfriendsUsername : undefined;
     const rawProfile = app === 'matchme' ? record(account.profile ?? social.plotTwist) : {};
-    const profileName = app === 'whatsup' ? undefined : migratedProfileName(account, name, string(rawProfile.name) || string(legacyHandle));
+    const profileName = app === 'whatsup' ? undefined : app === 'matchme' ? name.trim() : migratedProfileName(account, name, string(rawProfile.name) || string(legacyHandle));
     const legacyHandles = [...new Set([
       ...(Array.isArray(account.legacyHandles) ? account.legacyHandles.filter((entry): entry is string => typeof entry === 'string' && !!entry.trim()) : []),
       string(account.username), string(account.displayName), string(legacyHandle),
+      ...(app === 'matchme' ? [string(account.profileName), string(rawProfile.name), string(rawProfile.username)] : []),
       ...(app !== 'whatsup' && profileName ? [profileName] : []),
     ].filter(Boolean))];
     const profile = app === 'matchme' ? normalizeDatingProfile({ ...rawProfile,
@@ -110,6 +113,7 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
       accountId: string(account.accountId) || `character:${id}:${app}`,
       enabled: typeof account.enabled === 'boolean' ? account.enabled : app === 'matchme' ? !!profile : app === 'whatsup' || !!profileName,
       ...(profileName !== undefined ? { profileName } : {}),
+      ...((app === 'fotogram' || app === 'onlyfriends') && typeof account.showRealName === 'boolean' ? { showRealName: account.showRealName } : {}),
       ...(legacyHandles.length ? { legacyHandles } : {}),
       bio: string(account.bio) || profile?.bio || '',
       ...(typeof account.avatarImageId === 'string' ? { avatarImageId: account.avatarImageId } : {}),

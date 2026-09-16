@@ -67,7 +67,7 @@ describe('MatchMe permissions and identity', () => {
     const second = character('another', 'Renamed');
     const state = matchMeState([owner, second], messages);
     expect(resolveDatingAccount('Renamed', state.accounts)).toBeUndefined();
-    expect(resolveDatingAccount(datingAccountId(owner.id), state.accounts)?.name).toBe('Renamed');
+    expect(resolveDatingAccount(datingAccountId(owner.id), state.accounts)?.name).toBe(owner.name);
     expect(matchMeMessageAllowed(outgoing, state)).toBe(true);
     expect(socialDirectMessageActor([owner, second], second.id, outgoing)).toBeUndefined();
     expect(socialDirectMessageActor([owner, second], owner.id, outgoing)?.id).toBe(owner.id);
@@ -210,7 +210,7 @@ describe('MatchMe prompt slot installation', () => {
 });
 
 describe('MatchMe display identities', () => {
-  it.each(['matchme', 'fotogram', 'onlyfriends'] as const)(
+  it.each(['fotogram', 'onlyfriends'] as const)(
     'uses real character names and app-specific public names separately for %s',
     (app) => {
       const { owner, outgoing } = fixture();
@@ -258,7 +258,16 @@ describe('MatchMe display identities', () => {
     },
   );
 
-  it('resolves configured usernames for new and saved histories without changing identities or bodies', () => {
+  it('derives public MatchMe names from characters and ignores editable legacy names', () => {
+    const { owner, outgoing } = fixture();
+    owner.name = 'Mia Harper';
+    owner.social.plotTwist!.name = 'Old artist name';
+    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Mia, 25 to Alex');
+    expect(socialDirectMessageHistoryText(outgoing, [owner])).not.toContain('@');
+    expect(matchMeState([owner], []).accounts.find((account) => account.id === datingAccountId(owner))?.name).toBe('Mia Harper');
+  });
+
+  it('uses first names and ages in new and saved MatchMe histories without changing identities or bodies', () => {
     const { owner, outgoing, messages } = fixture();
     owner.apps = { matchme: { accountId: datingAccountId(owner), enabled: true,
       username: 'generated.mia', displayName: 'Mia_actual', bio: '', profile: owner.social.plotTwist! } };
@@ -268,25 +277,25 @@ describe('MatchMe display identities', () => {
     const record: MessageRecord = { id: 2, role: 'user', isOpening: true, originalText: legacy,
       translatedText: legacy.replace(body, 'Translated @fotogram:Avery Hart'), socialDirectMessage: direct };
     const before = JSON.stringify(record);
-    expect(socialDirectMessageHistoryText(direct, [owner])).toBe(`[MatchMe DM] Mia (@Mia_actual) to Alex: "${body}"`);
+    expect(socialDirectMessageHistoryText(direct, [owner])).toBe(`[MatchMe DM] Mia, 25 to Alex: "${body}"`);
     expect(socialDirectMessageDisplayText(record, false, [owner])).toBe(socialDirectMessageHistoryText(direct, [owner]));
-    expect(socialDirectMessageDisplayText(record, true, [owner])).toBe('[MatchMe DM] Mia (@Mia_actual) to Alex: "Translated @fotogram:Avery Hart"');
+    expect(socialDirectMessageDisplayText(record, true, [owner])).toBe('[MatchMe DM] Mia, 25 to Alex: "Translated @fotogram:Avery Hart"');
     const outputs = buildHistoryOutputs({ messages: [record], characters: [owner], fallbackOriginalHistory: '',
       fallbackTranslatedHistory: '', lastTurnsCount: 5, rpDateTimeFormat: 'iso', rpWeekdayLanguage: 'en-US' });
-    expect(outputs.originalHistory).toContain('Mia (@Mia_actual) to Alex');
-    expect(outputs.lastTurnsHistory).toContain('Mia (@Mia_actual) to Alex');
+    expect(outputs.originalHistory).toContain('Mia, 25 to Alex');
+    expect(outputs.lastTurnsHistory).toContain('Mia, 25 to Alex');
     expect(outputs.translatedHistory).toContain('Translated @fotogram:Avery Hart');
-    expect(outputs.translatedHistory).toContain('Mia (@Mia_actual) to Alex');
+    expect(outputs.translatedHistory).toContain('Mia, 25 to Alex');
     expect(outputs.rawHistory).toContain(direct.fromAccountId);
     expect(JSON.stringify(record)).toBe(before);
     const nameOnly = { ...record, originalText: `[MatchMe DM] Mia to Alex: "${body}"` };
     expect(socialDirectMessageDisplayText(nameOnly, false, [owner])).toBe(socialDirectMessageHistoryText(direct, [owner]));
     const reversed = { ...direct, from: direct.to, to: direct.from,
       fromAccountId: direct.toAccountId, toAccountId: direct.fromAccountId };
-    expect(socialDirectMessageHistoryText(reversed, [owner])).toContain('Alex to Mia (@Mia_actual)');
+    expect(socialDirectMessageHistoryText(reversed, [owner])).toContain('Alex to Mia, 25');
 
     expect(matchMeMessageAllowed(direct, matchMeState([owner], messages))).toBe(true);
-    expect(socialDirectMessageInputText(direct, messages, [owner])).toContain('Sender: Mia (@Mia_actual)');
+    expect(socialDirectMessageInputText(direct, messages, [owner])).toContain('Sender: Mia, 25');
   });
 
   it('uses explicit historical IDs but never names, guessed handles or ambiguous profiles', () => {
@@ -294,13 +303,13 @@ describe('MatchMe display identities', () => {
     owner.apps = { matchme: { accountId: 'canonical', enabled: true, username: 'generated.mia',
       displayName: '@real.user', bio: '', profile: owner.social.plotTwist! } };
     owner.identityAliases = { accountIds: { matchme: [outgoing.fromAccountId!] } };
-    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Mia (@real.user)');
+    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Mia, 25');
     expect(socialDirectMessageHistoryText(outgoing, [owner, { ...owner, id: 'duplicate' }])).toContain('Mia to Alex');
     expect(socialDirectMessageHistoryText({ ...outgoing, fromAccountId: undefined }, [owner])).toContain('Mia to Alex');
     expect(socialDirectMessageHistoryText({ ...outgoing, fromAccountId: 'Mia' }, [owner])).toContain('Mia to Alex');
     expect(socialDirectMessageHistoryText(outgoing, [])).toContain('Mia to Alex');
     owner.apps.matchme!.displayName = '';
-    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Mia to Alex');
+    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Mia, 25 to Alex');
   });
 
   it.each(['fotogram', 'onlyfriends'] as const)('resolves %s profiles in old and translated histories', (app) => {

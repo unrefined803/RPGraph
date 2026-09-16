@@ -1,5 +1,5 @@
 import { CharacterAvatar } from '../CharacterAvatar';
-import { datingAccountId, resolveDatingAccount } from '../../chat/datingAccounts';
+import { datingAccountId, resolveDatingAccount, datingFirstName } from '../../chat/datingAccounts';
 import { matchMeDecision, matchMeLikePolicy, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
 import type { MessageRecord, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
@@ -104,9 +104,9 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     const match = decision !== 'pass' && matchMeLikePolicy(ownerId, target.id, state, new Date().toISOString(), decision);
     if (save({ ...profile, decisions: { ...profile.decisions, [target.id]: decision } })) {
       setSelectedMatchId(undefined); setPhoto(0);
-      setNotice(decision === 'pass' ? `Passed on ${target.name}.` : decision === 'superlike'
-        ? `You superliked ${target.name}. You can chat now.` : match
-          ? `You and ${target.name} matched.` : `You liked ${target.name}. Waiting for a like back.`);
+      setNotice(decision === 'pass' ? `Passed on ${datingFirstName(target.name)}.` : decision === 'superlike'
+        ? `You superliked ${datingFirstName(target.name)}. You can chat now.` : match
+          ? `You and ${datingFirstName(target.name)} matched.` : `You liked ${datingFirstName(target.name)}. Waiting for a like back.`);
       if (match) setCelebration({ id: target.id, name: target.name, superlike: decision === 'superlike' });
     }
   }
@@ -144,8 +144,8 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
         <div className="pt-match-list">
           {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
             onClick={() => { setSelectedMatchId(match.id); setPhoto(0); setTab('discover'); setEditing(false); }}>
-            <CharacterAvatar className="pt-match-avatar" name={match.name} profileImageDataUrl={match.avatarDataUrl} fallback={match.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
-            <span><strong>{match.name}<span className="pt-match-age">, {match.age}</span></strong>
+            <CharacterAvatar className="pt-match-avatar" name={datingFirstName(match.name)} profileImageDataUrl={match.avatarDataUrl} fallback={datingFirstName(match.name).slice(0, 1)} />
+            <span><strong>{datingFirstName(match.name)}<span className="pt-match-age">, {match.age}</span></strong>
               {unread[match.id]?.count ? <small className="pt-match-unread"><span>New Message</span><span className="pt-match-unread-badge" aria-label={`${unread[match.id].count} unread messages`}>{unread[match.id].count}</span></small>
                 : <small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small>}
             </span>
@@ -160,13 +160,13 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           if (!draft.gender || !draft.seeking?.length) {
             setError('Choose your gender and at least one gender you would like to meet.'); return;
           }
-          const normalized = normalizeDatingProfile(draft);
+          const normalized = normalizeDatingProfile({ ...draft, name: owner.name });
           if (!normalized) { setError('Add a name, age (18–120), bio, and at least one photo.'); return; }
           if (save(normalized)) { setEditing(false); setTab('discover'); }
         }}>
           <div className="pt-intro"><span className="pt-eyebrow">A NEW CHAPTER STARTS HERE</span>
             <h2>{profile ? 'Make it you.' : 'Find your match.'}</h2></div>
-          <div className="pt-field-row"><label>Profile name<input required maxLength={60} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
+          <div className="pt-field-row"><label>Character name<input readOnly value={owner.name} /></label>
             <label>Age<input required type="number" min={18} max={120} value={draft.age || ''} onChange={(e) => setDraft({ ...draft, age: Number(e.target.value) })} /></label></div>
           <div className="pt-gender-field"><label htmlFor="matchme-gender">I am</label>
             <NodeCustomSelect<DatingGender | ''> id="matchme-gender" value={draft.gender ?? ''}
@@ -198,7 +198,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           <button className="pt-primary" disabled={busy} type="submit">{profile ? 'Save profile' : 'Create account & explore'} <span aria-hidden="true">→</span></button>
           {profile && <button type="button" disabled={busy} onClick={() => { setDraft(profile); setEditing(false); }}>Cancel</button>}
         </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id}
-          name={selectedMatch.name} avatarDataUrl={selectedMatch.avatarDataUrl} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
+          name={datingFirstName(selectedMatch.name)} avatarDataUrl={selectedMatch.avatarDataUrl} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
           busy={busy || isRunning}
           draft={chatDrafts[selectedMatch.id] ?? ''}
           onDraftChange={(text) => setChatDrafts((current) => ({ ...current, [selectedMatch.id]: text }))}
@@ -214,21 +214,21 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               onPointerUp={(event) => { const origin = start.current; start.current = null; setDrag(0); if (origin && Math.abs(event.clientY - origin.y) < 90 && Math.abs(event.clientX - origin.x) > 65) decide(event.clientX > origin.x ? 'like' : 'pass'); }}
               onPointerCancel={() => { start.current = null; setDrag(0); }}>
               {candidatePhotoCount > 1 && <div className="pt-photo-progress">{(candidate.photos ?? []).map((_, index) => <button key={index} type="button" aria-label={`Show image ${index + 1}`} aria-pressed={photo === index} className={photo === index ? 'active' : ''} onClick={() => setPhoto(index)} />)}</div>}
-              <div className="pt-placeholder">{candidate.photos?.length ? <img className="pt-discovery-photo" src={candidate.photos[photo % candidate.photos.length].dataUrl} alt={candidate.photos[photo % candidate.photos.length].description || `${candidate.name}, photo ${photo + 1}`} /> : <><span aria-hidden="true">✧</span><small>Photo unavailable</small></>}</div>
+              <div className="pt-placeholder">{candidate.photos?.length ? <img className="pt-discovery-photo" src={candidate.photos[photo % candidate.photos.length].dataUrl} alt={candidate.photos[photo % candidate.photos.length].description || `${datingFirstName(candidate.name)}, photo ${photo + 1}`} /> : <><span aria-hidden="true">✧</span><small>Photo unavailable</small></>}</div>
               {candidatePhotoCount > 1 && <div className="pt-image-nav"><button type="button" aria-label="Previous image" onClick={() => setPhoto((photo + candidatePhotoCount - 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" aria-label="Next image" onClick={() => setPhoto((photo + 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>}
               {!!drag && <span className="pt-swipe-label">{drag > 0 ? 'LIKE' : 'PASS'}</span>}
-              <div className="pt-card-info"><small>{candidate.characterId && !candidate.libraryNpc ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small><h3>{candidate.name} <span>{candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
+              <div className="pt-card-info"><small>{candidate.characterId && !candidate.libraryNpc ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small><h3>{datingFirstName(candidate.name)}<span>, {candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
             </article>
-            <div className="pt-decisions"><button className="pt-pass" type="button" disabled={busy || isRunning} aria-label={`Pass on ${candidate.name}`} title="Pass" onClick={() => decide('pass')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button><button className="pt-like-action" type="button" disabled={busy || isRunning} aria-label={`Like ${candidate.name}`} title="Like · Chat when they like you back" onClick={() => decide('like')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg></button><button className="pt-superlike-action" type="button" disabled={busy || isRunning} aria-label={`Superlike ${candidate.name}`} title="Superlike · Chat immediately" onClick={() => decide('superlike')}><span aria-hidden="true">★</span></button></div><p className="pt-action-help">Pass · Like · Superlike<br />Mutual likes create a match. Superlike unlocks chat immediately.</p>
+            <div className="pt-decisions"><button className="pt-pass" type="button" disabled={busy || isRunning} aria-label={`Pass on ${datingFirstName(candidate.name)}`} title="Pass" onClick={() => decide('pass')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button><button className="pt-like-action" type="button" disabled={busy || isRunning} aria-label={`Like ${datingFirstName(candidate.name)}`} title="Like · Chat when they like you back" onClick={() => decide('like')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg></button><button className="pt-superlike-action" type="button" disabled={busy || isRunning} aria-label={`Superlike ${datingFirstName(candidate.name)}`} title="Superlike · Chat immediately" onClick={() => decide('superlike')}><span aria-hidden="true">★</span></button></div><p className="pt-action-help">Pass · Like · Superlike<br />Mutual likes create a match. Superlike unlocks chat immediately.</p>
           </> : <div className="pt-empty"><span className="pt-empty-heart">✧</span><h2>You’re all caught up.</h2><p>You have seen all available profiles. Explore passed profiles again; your likes stay saved.</p><button type="button" className="pt-primary" onClick={() => { if (profile) save({ ...profile, decisions: resetDatingPasses(profile.decisions) }); setSelectedMatchId(undefined); setPhoto(0); }}>Explore again</button></div>}
         </div> : tab === 'likes' ? <div className="pt-list"><span className="pt-eyebrow">YOUR MAYBES & WHAT-IFS</span><h2>People you like</h2><p className="pt-subtle">Likes wait for a like back. Send a Superlike to start chatting immediately.</p>
-          {likedProfiles.map((entry) => <div className="pt-like" key={entry.id}><span aria-hidden="true">{decisionFor(entry.id) === 'superlike' ? '★' : '♥'}</span><div><strong>{entry.name}, {entry.age}</strong><small>{canSendMatchMeMessage(ownerId, entry.id, state) ? 'Ready to chat' : 'Waiting for a like back'}</small></div>
+          {likedProfiles.map((entry) => <div className="pt-like" key={entry.id}><span aria-hidden="true">{decisionFor(entry.id) === 'superlike' ? '★' : '♥'}</span><div><strong>{datingFirstName(entry.name)}, {entry.age}</strong><small>{canSendMatchMeMessage(ownerId, entry.id, state) ? 'Ready to chat' : 'Waiting for a like back'}</small></div>
             {canSendMatchMeMessage(ownerId, entry.id, state)
               ? <button type="button" onClick={() => { setSelectedMatchId(entry.id); setTab('discover'); }}>Chat</button>
               : <button type="button" disabled={busy || isRunning} onClick={() => decide('superlike', entry)}>★ Superlike</button>}
           </div>)}
           {!likedProfiles.length && <div className="pt-empty"><h3>A little spark starts here.</h3><p>Like someone in Discover to see them here.</p></div>}
-        </div> : <div className="pt-list"><span className="pt-eyebrow">THE MAIN CHARACTER</span><h2>{profile?.name}, {profile?.age}</h2><div className="pt-profile-photos">{profile?.photoIds.map((id, index) => { const image = allImages.find((entry) => entry.id === id); return image ? <img key={id} src={image.dataUrl} alt={`Your profile photo ${index + 1}`} /> : <span key={id}>Photo unavailable</span>; })}</div><dl className="pt-profile-details"><div><dt>I am</dt><dd>{profile?.gender ? datingGenderLabels[profile.gender] : 'Not specified'}</dd></div>
+        </div> : <div className="pt-list"><span className="pt-eyebrow">THE MAIN CHARACTER</span><h2>{datingFirstName(owner.name)}, {profile?.age}</h2><div className="pt-profile-photos">{profile?.photoIds.map((id, index) => { const image = allImages.find((entry) => entry.id === id); return image ? <img key={id} src={image.dataUrl} alt={`Your profile photo ${index + 1}`} /> : <span key={id}>Photo unavailable</span>; })}</div><dl className="pt-profile-details"><div><dt>I am</dt><dd>{profile?.gender ? datingGenderLabels[profile.gender] : 'Not specified'}</dd></div>
           <div><dt>I would like to meet</dt><dd>{profile?.seeking?.length ? profile.seeking.map((gender) => datingSeekingLabels[gender]).join(', ') : 'Not specified'}</dd></div></dl>
           <p>{profile?.bio}</p><p className="pt-subtle">{profile?.interests}</p><button type="button" className="pt-primary" onClick={() => { if (profile) setDraft(profile); setEditing(true); }}>Edit profile</button><p className="pt-subtle">Saved in {owner.name}’s Storybook profile.</p></div>}
       {selectedMatch && failedMessages[selectedMatch.id] && <button type="button" disabled={busy || isRunning} onClick={() => { void send(selectedMatch.id, true); }}>Retry reply</button>}
@@ -237,7 +237,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
       {celebration && <section className="pt-match-celebration" role="status" aria-label="New connection">
         <span className="pt-celebration-icon" aria-hidden="true">{celebration.superlike ? '★' : '♥'}</span>
         <h2>{celebration.superlike ? 'Superlike sent!' : 'It’s a match!'}</h2>
-        <p>{celebration.superlike ? `You can now chat with ${celebration.name}.` : `You and ${celebration.name} liked each other.`}</p>
+        <p>{celebration.superlike ? `You can now chat with ${datingFirstName(celebration.name)}.` : `You and ${datingFirstName(celebration.name)} liked each other.`}</p>
         <button type="button" className="pt-primary" autoFocus onClick={() => { setSelectedMatchId(celebration.id); setTab('discover'); setCelebration(undefined); }}>Say hello</button>
         <button type="button" onClick={() => setCelebration(undefined)}>Keep exploring</button>
       </section>}

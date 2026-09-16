@@ -209,7 +209,7 @@ export function PhoneSocialDirectMessages({
               >
                 <CharacterAvatar
                   className="phone-avatar large"
-                  name={participant.name}
+                  name={participantIdentity(participant).name}
                   fallback={participant.name.slice(0, 1).toUpperCase()}
                   profileImageDataUrl={participant.character?.profileImage?.dataUrl}
                   style={color ? { borderColor: color, color } : undefined}
@@ -260,7 +260,7 @@ export function PhoneSocialDirectMessages({
         : `Comment on @${socialAccountPresentation(app, socialCharacterForPost({ app, postId: origin.postId, author: origin.postAuthor, authorHandle: origin.postAuthorHandle, caption: '' }, characters), origin.postAuthor, origin.postAuthorHandle).handle}'s post`
     : '';
   return (
-    <section className="phone-social-dm" aria-label={`Conversation with ${selectedParticipant.name}`}>
+    <section className="phone-social-dm" aria-label={`Conversation with ${participantIdentity(selectedParticipant).name}`}>
       <header className="phone-social-dm-header conversation">
         <button type="button" onClick={onCloseConversation} aria-label="Back to messages" title="Back to messages">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -269,7 +269,7 @@ export function PhoneSocialDirectMessages({
         </button>
         <CharacterAvatar
           className="phone-avatar"
-          name={selectedParticipant.name}
+          name={participantIdentity(selectedParticipant).name}
           fallback={selectedParticipant.name.slice(0, 1).toUpperCase()}
           profileImageDataUrl={selectedParticipant.character?.profileImage?.dataUrl}
           style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
@@ -310,7 +310,7 @@ export function PhoneSocialDirectMessages({
           <div className="phone-social-dm-empty conversation-empty">
             <CharacterAvatar
               className="phone-avatar large"
-              name={selectedParticipant.name}
+              name={participantIdentity(selectedParticipant).name}
               fallback={selectedParticipant.name.slice(0, 1).toUpperCase()}
               profileImageDataUrl={selectedParticipant.character?.profileImage?.dataUrl}
               style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}

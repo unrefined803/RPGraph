@@ -38,11 +38,13 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
     </header>
     <section className="social-profile-preview" aria-label="Live profile preview">
       <div className="social-profile-avatar">{avatar ? <img src={avatar} alt="Profile preview" /> : <span>{name.slice(0, 1).toUpperCase()}</span>}</div>
-      <div><span className="social-profile-eyebrow">Profile preview</span><h3>{name}</h3><p>@{(draft.profileName ?? '').trim().replace(/^@/, '')}</p><p>{draft.bio || 'Your story starts here.'}</p></div>
+      <div><span className="social-profile-eyebrow">Profile preview</span><h3>{draft.showRealName === false ? draft.profileName : name}</h3><p>@{(draft.profileName ?? '').trim().replace(/^@/, '')}</p><p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>
     <section className="social-profile-section">
       <h3><span aria-hidden="true">01</span> The essentials</h3>
-      <label>Profile name<input required maxLength={60} value={draft.profileName} onChange={(event) => setDraft({ ...draft, profileName: event.target.value })} placeholder="How you appear on your profile" /></label>
+      <div className="social-profile-identity-row"><label>Profile name<input required maxLength={60} value={draft.profileName} onChange={(event) => setDraft({ ...draft, profileName: event.target.value })} placeholder="How you appear on your profile" /></label>
+      <label className="social-profile-visibility"><input type="checkbox" checked={draft.showRealName !== false} onChange={(event) => setDraft({ ...draft, showRealName: event.target.checked })} /> Show real name</label></div>
+      <p>When turned off, your profile name is shown instead of your character name.</p>
       <label>Bio<textarea rows={4} maxLength={500} value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} placeholder="A few words, a little personality…" /><small className="social-profile-count">{draft.bio.length} / 500</small></label>
     </section>
     <section className="social-profile-section">

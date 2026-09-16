@@ -32,7 +32,7 @@ function harness() {
   return { api, library, updateRuntimeNode, owner: options.storyCharacters[0], book, options };
 }
 
-it.each(['fotogram', 'matchme'] as const)('rejects a phone %s username taken by a library NPC', (app) => {
+it.each(['fotogram', 'matchme'] as const)('validates phone %s names against its naming policy', (app) => {
   const { api, library, owner, updateRuntimeNode, book } = harness();
   const npc = structuredClone(book.characters[0]);
   npc.id = 'library-npc';
@@ -46,8 +46,9 @@ it.each(['fotogram', 'matchme'] as const)('rejects a phone %s username taken by 
   const username = npc.apps![app]!.profileName!;
   const saved = app === 'fotogram' ? api.saveSocialUsername(owner, app, username) :
     api.saveDatingProfile(owner, { ...book.characters[0].apps!.matchme!.profile!, name: username });
-  expect(saved).toBe(false);
-  expect(updateRuntimeNode).not.toHaveBeenCalled();
+  expect(saved).toBe(app === 'matchme');
+  if (app === 'fotogram') expect(updateRuntimeNode).not.toHaveBeenCalled();
+  else expect(updateRuntimeNode).toHaveBeenCalled();
 });
 
 it('allows a Storybook profile to override the same library character', () => {

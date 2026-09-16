@@ -127,6 +127,9 @@ function validateCharacterPayload(value) {
         account.profileName.length > 60 || (account.enabled && app !== 'whatsup' && !account.profileName.trim()))) {
       throw new Error('App profile names require 1–60 characters.');
     }
+    if (account.showRealName !== undefined && (typeof account.showRealName !== 'boolean' || !['fotogram', 'onlyfriends'].includes(app))) {
+      throw new Error('showRealName must be a boolean on Fotogram or OnlyFriends accounts.');
+    }
     if (account.legacyHandles !== undefined && (!Array.isArray(account.legacyHandles) ||
         account.legacyHandles.some((alias) => typeof alias !== 'string' || !alias.trim()))) {
       throw new Error('Historical account handles must be non-empty strings.');
