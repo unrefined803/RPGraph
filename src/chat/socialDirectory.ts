@@ -1,7 +1,7 @@
 import { hasAuthoredConnection, relationshipTarget } from '../characters/relationships';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind } from '../types';
-import { socialHandleForName, socialIdentityMatches } from './socialMedia';
+import { socialIdentityMatches } from './socialMedia';
 
 export type SocialDirectoryUser = {
   id: string;
@@ -269,25 +269,6 @@ function nextDynamicUserId(users: Map<string, SocialDirectoryUser>, name: string
   return id;
 }
 
-function uniqueHandle(
-  users: Iterable<SocialDirectoryUser>,
-  app: SocialAppKind,
-  name: string,
-  ownId: string,
-) {
-  const base = socialHandleForName(name);
-  let handle = base;
-  let suffix = 2;
-  const used = () => Array.from(users).some((user) =>
-    user.id !== ownId && socialIdentityMatches(user.handles[app] ?? '', handle)
-  );
-  while (used()) {
-    handle = `${base}.${suffix}`;
-    suffix += 1;
-  }
-  return handle;
-}
-
 export function buildSocialDirectory(options: {
   storyCharacters: StorybookCharacter[];
   messages: MessageRecord[];
@@ -362,19 +343,6 @@ export function buildSocialDirectory(options: {
       register(comment.from, reactions.app, comment.handle);
     });
   });
-
-  for (const user of users.values()) {
-    if (user.source !== 'dynamic') {
-      continue;
-    }
-    users.set(user.id, {
-      ...user,
-      handles: {
-        fotogram: user.handles.fotogram ?? uniqueHandle(users.values(), 'fotogram', user.name, user.id),
-        onlyfriends: user.handles.onlyfriends ?? uniqueHandle(users.values(), 'onlyfriends', user.name, user.id),
-      },
-    });
-  }
 
   const allUsers = Array.from(users.values());
   const dynamicUsers = Object.fromEntries(

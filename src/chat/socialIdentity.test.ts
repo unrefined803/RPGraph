@@ -5,7 +5,7 @@ import type { SocialAppKind, SocialDirectMessageRecord } from '../types';
 import { buildSocialDirectory, searchSocialDirectory, socialHandleAvailable, type SocialDirectoryUser } from './socialDirectory';
 import { canonicalSocialDirectMessage, parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity, validateSocialMessengerAccounts } from './socialMessageValidation';
 import type { MessageRecord } from '../types';
-import { socialDirectMessageActor } from './socialMedia';
+import { parseSocialReactionsOutput, socialDirectMessageActor } from './socialMedia';
 
 function character(
   id: string,
@@ -27,39 +27,54 @@ function character(
 }
 
 describe('social identity resolution', () => {
-  it.each<SocialAppKind>(['fotogram', 'onlyfriends'])('introduces a fictional %s DM user and retains their identity through replies and reload', (app) => {
+  it('accepts an optional empty OnlyFriends inbox while still reporting malformed messages', () => {
+    const target = { app: 'onlyfriends' as const, postId: 'onlyfriends-post-01' };
+    const response = { reactions: { postId: target.postId, likes: 94, comments: [] }, onlyFriendsApp: [] };
+    const parsed = parseSocialReactionsOutput(JSON.stringify(response), target);
+    expect(parsed.warnings).toEqual([]);
+    expect(parsed.reactions?.likes).toBe(94);
+    expect(parsed.directMessages).toEqual([]);
+    for (const invalid of [null, {}, [{ from: 'Fan' }]]) {
+      expect(parseSocialReactionsOutput(JSON.stringify({ ...response, onlyFriendsApp: invalid }), target).warnings)
+        .toContain('A social messenger block has no valid entries (each needs from, to, and message).');
+    }
+  });
+  it.each<SocialAppKind>(['fotogram', 'onlyfriends'])('requires an existing %s account for both DM participants', (app) => {
     const owner = character('helga', 'Helga Harper', { fotogramUsername: 'helga.harper', onlyfriendsUsername: 'helga.private' });
+    const npc = { ...character('npc', 'Real NPC', { fotogramUsername: 'realist_99', onlyfriendsUsername: 'realist_99' }), libraryNpc: true, npcOrigin: true };
     const handle = app === 'fotogram' ? 'helga.harper' : 'helga.private';
     const key = app === 'fotogram' ? 'fotogramApp' : 'onlyFriendsApp';
     const text = JSON.stringify({ [key]: [
       { from: 'Helga Harper', to: 'realist_99', message: 'It is natural light.' },
       { from: 'realist_99', to: 'Helga Harper', message: 'I disagree.' },
     ] });
-    expect(validateSocialMessengerAccounts({ text, characters: [owner], messages: [] }).issues).toEqual([]);
+    expect(validateSocialMessengerAccounts({ text, characters: [owner], messages: [] }).issues).toHaveLength(2);
+    expect(validateSocialMessengerAccounts({ text, characters: [owner, npc], messages: [] }).issues).toEqual([]);
     const outgoing: SocialDirectMessageRecord = { app, messageId: 'first', from: owner.name,
       fromHandle: handle, to: 'realist_99', toHandle: 'realist_99', text: 'It is natural light.', sentAt: '2026-09-07T21:46:00Z' };
-    const first = canonicalSocialDirectMessage(outgoing, [owner], []);
-    expect(first.toAccountId).toBe('dynamic:realist-99');
+    expect(() => canonicalSocialDirectMessage(outgoing, [owner], [])).toThrow();
+    const first = canonicalSocialDirectMessage(outgoing, [owner, npc], []);
+    expect(first.toAccountId).toBe(`character:npc:${app}`);
+    expect(first.to).toBe(npc.name);
     const history: MessageRecord[] = JSON.parse(JSON.stringify([{ id: 1, role: 'output', originalText: '', socialDirectMessage: first }]));
     const reply = canonicalSocialDirectMessage({ ...outgoing, messageId: 'reply', from: first.to,
-      fromHandle: first.toHandle, fromAccountId: first.toAccountId, to: first.from,
-      toHandle: first.fromHandle, text: 'I disagree.' }, [owner], history);
+      fromHandle: first.toHandle, to: first.from, toHandle: first.fromHandle, text: 'I disagree.' }, [owner, npc], history);
     expect(reply.fromAccountId).toBe(first.toAccountId);
-    expect(buildSocialDirectory({ storyCharacters: [owner], messages: history }).dynamicUsers[first.toAccountId!].handles[app]).toBe('realist_99');
-    expect(resolveSocialMessageIdentity({ characters: [owner], messages: [], app, identity: 'realist_99' }).available).toBe(false);
+    expect(buildSocialDirectory({ storyCharacters: [owner, npc], messages: history }).dynamicUsers).toEqual({});
+    expect(resolveSocialMessageIdentity({ characters: [owner], messages: history, app, identity: 'realist_99' }).available).toBe(false);
   });
 
   it('keeps absent known accounts, ambiguous names, cross-app aliases and MatchMe protected', () => {
     const absent = character('known', 'Known Person', { fotogramUsername: '', onlyfriendsUsername: 'private.known' });
     const other = character('other', 'Known Person', { fotogramUsername: 'other', onlyfriendsUsername: '' });
     for (const [characters, identity] of [[[absent], 'Known Person'], [[absent], '@private.known'], [[absent, other], 'Known Person']] as const) {
-      expect(resolveSocialMessageIdentity({ characters: [...characters], messages: [], app: 'fotogram', identity, allowNewNpc: true }).available).toBe(false);
+      expect(resolveSocialMessageIdentity({ characters: [...characters], messages: [], app: 'fotogram', identity }).available).toBe(false);
     }
-    expect(resolveSocialMessageIdentity({ characters: [], messages: [], app: 'matchme', identity: 'realist_99', allowNewNpc: true }).available).toBe(false);
-    expect(resolveSocialMessageIdentity({ characters: [], messages: [], app: 'fotogram', identity: 'character:missing:fotogram', allowNewNpc: true }).available).toBe(false);
+    expect(resolveSocialMessageIdentity({ characters: [], messages: [], app: 'matchme', identity: 'realist_99' }).available).toBe(false);
+    expect(resolveSocialMessageIdentity({ characters: [], messages: [], app: 'fotogram', identity: 'character:missing:fotogram' }).available).toBe(false);
   });
 
-  it('reuses a comment-created user instead of creating another DM identity', () => {
+  it('does not turn a historical invented commenter into an eligible account', () => {
     const owner = character('helga', 'Helga Harper', { fotogramUsername: 'helga.harper', onlyfriendsUsername: '' });
     const history: MessageRecord[] = [{ id: 1, role: 'output', originalText: '', socialReactions: {
       app: 'fotogram', postId: 'post', likes: 0,
@@ -68,8 +83,7 @@ describe('social identity resolution', () => {
     const message: SocialDirectMessageRecord = { app: 'fotogram', messageId: 'dm',
       from: 'Helga Harper', fromHandle: 'helga.harper', to: 'Random Troll', toHandle: 'realist_99',
       text: 'It is real.', sentAt: '2026-09-07T21:46:00Z' };
-    const canonical = canonicalSocialDirectMessage(message, [owner], history);
-    expect(canonical.toAccountId).toBe('dynamic:random-troll');
+    expect(() => canonicalSocialDirectMessage(message, [owner], history)).toThrow();
     expect(() => canonicalSocialDirectMessage({ ...message, toAccountId: 'dynamic:invented' }, [owner], history)).toThrow();
     expect(() => canonicalSocialDirectMessage({ ...message, toHandle: 'someone.else' }, [owner], history)).toThrow();
   });
@@ -105,6 +119,23 @@ describe('social identity resolution', () => {
     });
     expect(resolved.available).toBe(false);
     expect(resolved.character?.id).toBe('alias');
+  });
+
+  it.each(['missing', 'disabled', 'enabled'])('uses the canonical NPC account when it is %s', (state) => {
+    const npc = {
+      ...character('npc', 'Existing NPC', { fotogramUsername: 'public.npc', onlyfriendsUsername: 'stale.private' }),
+      npcOrigin: true,
+      apps: state === 'missing' ? {} : { onlyfriends: {
+        accountId: 'npc-onlyfriends', enabled: state === 'enabled', profileName: 'real.private', bio: 'Existing bio',
+      } },
+    };
+    const resolved = resolveSocialMessageIdentity({ characters: [npc], messages: [], app: 'onlyfriends', identity: npc.name });
+    expect(resolved.available).toBe(state === 'enabled');
+    const parsed = parseValidatedSocialReactionsOutput(JSON.stringify({ reactions: {
+      likes: 0, comments: [{ from: npc.name, handle: 'made.up', text: 'Hello.' }],
+    } }), { app: 'onlyfriends', postId: 'post' }, { characters: [npc], messages: [] });
+    expect(parsed.reactions?.comments).toEqual(state === 'enabled'
+      ? [{ from: npc.name, handle: 'real.private', text: 'Hello.' }] : []);
   });
 });
 
@@ -152,6 +183,15 @@ describe('social account creation', () => {
   it('does not reserve removed catalog handles without a loaded character', () => {
     expect(socialHandleAvailable(directory.users, 'fotogram', 'luna.sky', owner.id)).toBe(true);
     expect(directory.users.some((user) => user.source === 'bundled')).toBe(false);
+  });
+
+  it('does not create OnlyFriends accounts for saved Fotogram users or phone contacts', () => {
+    expect(directory.dynamicUsers['dynamic:npc'].handles.onlyfriends).toBeUndefined();
+    const contacts = buildSocialDirectory({ storyCharacters: [], messages: [{
+      id: 1, role: 'output', originalText: 'Hello', channel: 'phone', phoneFrom: 'Phone Contact', phoneTo: 'Other Contact',
+    }] });
+    expect(searchSocialDirectory(contacts.users, 'onlyfriends', 'Contact')).toEqual([]);
+    expect(searchSocialDirectory(contacts.users, 'fotogram', 'Contact')).toEqual([]);
   });
 
   it('allows the owner to retain its handle and permits independent app namespaces', () => {
@@ -220,13 +260,12 @@ describe('social reaction account validation', () => {
     expect(result.reactions?.comments).toEqual([
       { from: 'Jordan Reed', handle: 'jordan.private', text: 'Use my real account.' },
       { from: 'Jordan Reed', handle: 'jordan.private', text: 'Use my real name.' },
-      { from: 'New NPC', handle: 'new.npc', text: 'Keep this NPC.' },
     ]);
     expect(result.reactions?.likes).toBe(append ? 2 : 7);
     expect(result.reactions?.append).toBe(append || undefined);
-    expect(result.warnings).toHaveLength(2);
+    expect(result.warnings).toHaveLength(4);
     expect(result.historySummary).toBeUndefined();
-    expect(result.directMessages).toHaveLength(1);
+    expect(result.directMessages).toHaveLength(0);
     const directory = buildSocialDirectory({
       storyCharacters: characters,
       messages: [{ id: 1, role: 'output', originalText: '', socialReactions: result.reactions }],
@@ -235,7 +274,7 @@ describe('social reaction account validation', () => {
     expect(directory.users.find((user) => user.characterId === 'no-account')?.handles.onlyfriends).toBeUndefined();
   });
 
-  it('preserves valid summaries and distinct NPC handles sharing a display name', () => {
+  it('preserves valid summaries and existing NPC accounts sharing a display name', () => {
     const result = parseValidatedSocialReactionsOutput(JSON.stringify({
       likes: 1,
       comments: [
@@ -243,7 +282,10 @@ describe('social reaction account validation', () => {
         { from: 'New NPC', handle: 'npc.second', text: 'Second.' },
       ],
       summary: 'Two people commented.',
-    }), { app: 'fotogram', postId: 'post-1', append: true }, { characters, messages: [] });
+    }), { app: 'fotogram', postId: 'post-1', append: true }, { characters: [
+      character('first', 'New NPC', { fotogramUsername: 'npc.first', onlyfriendsUsername: '' }),
+      character('second', 'New NPC', { fotogramUsername: 'npc.second', onlyfriendsUsername: '' }),
+    ], messages: [] });
     expect(result.reactions?.comments.map((comment) => comment.handle)).toEqual(['npc.first', 'npc.second']);
     expect(result.historySummary).toBe('Two people commented.');
     expect(result.warnings).toEqual([]);

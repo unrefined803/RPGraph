@@ -36,8 +36,17 @@ Example:
 
 UI labels use the real character name followed by `@profileName`. IDs, historical
 routing handles and account-link bindings are not rewritten when the name changes.
-Unknown narrator-created users retain their recorded identity. Character lookup
-must be unique; never guess a character from a similar name.
+Historical narrator-created users retain their recorded identity for display.
+New Fotogram and OnlyFriends comments and messages require a loaded character
+or NPC with an enabled account in that app. Catalog names and historical dynamic
+users do not authorize new activity, and phone contacts or accounts in another
+app never create missing social accounts. Character lookup must be unique;
+never guess a character from a similar name.
+
+Post and comment-thread input supplies enabled app accounts and marks NPCs.
+NPC reactions do not require a follow or subscription connection; the model
+chooses participants from the supplied accounts. Following remains a separate
+user action. An empty eligible audience is valid and does not create accounts.
 
 ## Legacy import rule
 

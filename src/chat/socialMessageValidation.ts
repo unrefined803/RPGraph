@@ -3,9 +3,8 @@ import { matchMeState, incomingMatchMeMessage } from './matchMe';
 import { resolveDatingAccount } from './datingAccounts';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind, SocialMessengerAppKind, SocialDirectMessageRecord } from '../types';
-import { buildSocialDirectory } from './socialDirectory';
 import { jsonObjectRanges, messengerAppMessageKeys } from './phoneMessages';
-import { parseSocialReactionsOutput, socialHandleForName, type SocialReactionTarget } from './socialMedia';
+import { parseSocialReactionsOutput, type SocialReactionTarget } from './socialMedia';
 
 function cleanHandle(value: string) {
   return value.trim().replace(/^@/, '');
@@ -16,6 +15,10 @@ function normalizedName(value: string) {
 }
 
 function storedHandle(character: StorybookCharacter, app: SocialAppKind) {
+  if (character.apps) {
+    const account = character.apps[app];
+    return account?.enabled ? cleanHandle(accountHandle(account)) || undefined : undefined;
+  }
   return cleanHandle(app === 'fotogram' ? character.social.fotogramUsername : character.social.onlyfriendsUsername) || undefined;
 }
 
@@ -25,7 +28,7 @@ export type ResolvedSocialMessageIdentity = {
   characterId?: string;
   name: string;
   handle?: string;
-  source: 'storybook' | 'directory' | 'new-npc';
+  source: 'storybook' | 'directory';
   character?: StorybookCharacter;
   reason?: string;
 };
@@ -36,7 +39,6 @@ export function resolveSocialMessageIdentity(options: {
   messages: MessageRecord[];
   app: SocialMessengerAppKind;
   identity: string;
-  allowNewNpc?: boolean;
 }): ResolvedSocialMessageIdentity {
   const identity = options.identity.trim();
   if (options.app === 'matchme') {
@@ -51,60 +53,38 @@ export function resolveSocialMessageIdentity(options: {
     character.apps?.[app]?.accountId === identity || normalizedName(character.name) === normalizedName(identity) ||
     accountHandleMatches(character.apps?.[app], identity) ||
     storedHandle(character, app)?.toLowerCase() === key);
-  const directory = buildSocialDirectory({ storyCharacters: options.characters, messages: options.messages });
-  const users = byAccountId.length ? [] : directory.users.filter((user) => user.source !== 'storybook' &&
-    (user.id === identity || user.handles[app]?.toLowerCase() === key || normalizedName(user.name) === normalizedName(identity)));
-  if (!characters.length && !users.length) {
+  if (!characters.length) {
     const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
     const crossApp = options.characters.filter((entry) => storedHandle(entry, otherApp)?.toLowerCase() === key);
     if (crossApp.length > 0) return { available: false, name: crossApp[0].name, character: crossApp[0], source: 'storybook',
       reason: `${crossApp[0].name} has no matching ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} username. Use the full character name or the username in this app.` };
-    if (options.allowNewNpc && key && !identity.includes(':') && !options.characters.some((entry) =>
-      Object.values(entry.apps ?? {}).some((account) => account.accountId === identity ||
-        !!accountHandle(account) && cleanHandle(accountHandle(account)).toLowerCase() === key))) {
-      const handle = /^[a-zA-Z0-9._-]+$/.test(cleanHandle(identity)) ? key : socialHandleForName(identity);
-      // A derived handle must not silently claim an existing person's account.
-      const occupied = directory.users.some((user) => user.handles[app]?.toLowerCase() === handle);
-      if (!occupied) return { available: true, name: cleanHandle(identity), handle, source: 'new-npc' };
-    }
   }
-  if (characters.length + users.length !== 1) return { available: false, name: identity, source: 'directory',
-    reason: characters.length + users.length > 1 ? `Ambiguous ${app} recipient "${identity}". Use a unique app username or account ID.` : `Unknown ${app} recipient "${identity}". Use an existing full character name or app username.` };
+  if (characters.length !== 1) return { available: false, name: identity, source: 'directory',
+    reason: characters.length > 1 ? `Ambiguous ${app} recipient "${identity}". Use a unique app username or account ID.` : `Unknown ${app} recipient "${identity}". Use an existing full character name or app username.` };
   const character = characters[0];
-  if (character) {
-    const handle = storedHandle(character, app);
-    const accountId = character.apps?.[app]?.accountId;
-    if (accountId && options.characters.filter((entry) => entry.apps?.[app]?.accountId === accountId).length !== 1) {
-      return { available: false, name: character.name, source: 'storybook', reason: `Ambiguous ${app} account ownership.` };
-    }
-    return { available: !!handle, name: character.name, handle, source: 'storybook', character,
-      characterId: character.sourceId, accountId: character.apps?.[app]?.accountId ?? `character:${character.sourceId}:${app}`,
-      ...(!handle ? { reason: `${character.name} has no ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account.` } : {}) };
+  const handle = storedHandle(character, app);
+  const accountId = character.apps?.[app]?.accountId;
+  if (accountId && options.characters.filter((entry) => entry.apps?.[app]?.accountId === accountId).length !== 1) {
+    return { available: false, name: character.name, source: 'storybook', reason: `Ambiguous ${app} account ownership.` };
   }
-  const user = users[0];
-  return { available: !!user.handles[app], name: user.name, handle: user.handles[app], accountId: user.id,
-    source: 'directory', ...(!user.handles[app] ? { reason: `${user.name} has no ${app} account.` } : {}) };
-
+  return { available: !!handle, name: character.name, handle, source: 'storybook', character,
+    characterId: character.sourceId, accountId: character.apps?.[app]?.accountId ?? `character:${character.sourceId}:${app}`,
+    ...(!handle ? { reason: `${character.name} has no ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} account.` } : {}) };
 }
 
-/** Introduce fictional social participants only through a committed structured DM. */
+/** Bind structured DMs only to existing character accounts. */
 export function canonicalSocialDirectMessage(message: SocialDirectMessageRecord, characters: StorybookCharacter[], messages: MessageRecord[]) {
   if (message.app === 'matchme') return message;
-  const resolve = (identity: string, allowNewNpc = false, history = messages) =>
-    resolveSocialMessageIdentity({ characters, messages: history, app: message.app, identity, allowNewNpc });
-  const from = resolve(message.fromAccountId ?? message.from, !message.fromAccountId);
-  const to = resolve(message.toAccountId ?? message.to, !message.toAccountId);
+  const resolve = (identity: string) =>
+    resolveSocialMessageIdentity({ characters, messages, app: message.app, identity });
+  const from = resolve(message.fromAccountId ?? message.from);
+  const to = resolve(message.toAccountId ?? message.to);
   if (!from.available || !to.available) throw new Error(from.reason ?? to.reason ?? 'Unknown or ambiguous social account.');
   if (from.handle?.toLowerCase() !== cleanHandle(message.fromHandle).toLowerCase() ||
       to.handle?.toLowerCase() !== cleanHandle(message.toHandle).toLowerCase()) {
     throw new Error('Social message account IDs and usernames do not match.');
   }
-  const canonical = { ...message, from: from.name, to: to.name };
-  const history = [...messages, { id: -1, role: 'output' as const, originalText: '', socialDirectMessage: canonical }];
-  const registeredFrom = from.source === 'new-npc' ? resolve(from.handle!, false, history) : from;
-  const registeredTo = to.source === 'new-npc' ? resolve(to.handle!, false, history) : to;
-  if (!registeredFrom.available || !registeredTo.available) throw new Error('Ambiguous social account after registration.');
-  return { ...canonical, fromAccountId: registeredFrom.accountId, toAccountId: registeredTo.accountId };
+  return { ...message, from: from.name, to: to.name, fromAccountId: from.accountId, toAccountId: to.accountId };
 }
 
 type SocialMessageValidationIssue = {
@@ -121,6 +101,14 @@ export function parseValidatedSocialReactionsOutput(
   context: { characters: StorybookCharacter[]; messages: MessageRecord[] },
 ) {
   const parsed = parseSocialReactionsOutput(text, target);
+  parsed.directMessages = parsed.directMessages.filter((message) => {
+    const identities = [message.from, message.to ?? ''];
+    const valid = identities.every((identity) => resolveSocialMessageIdentity({
+      ...context, app: message.app, identity,
+    }).available);
+    if (!valid) parsed.warnings.push('A social direct message was ignored because its participants need existing app accounts.');
+    return valid;
+  });
   if (!parsed.reactions) {
     return parsed;
   }
@@ -134,7 +122,6 @@ export function parseValidatedSocialReactionsOutput(
     // A fabricated handle must not create an account for a known character.
     // Conversely, a real character handle must keep its canonical owner name.
     const resolved = byName.character ? byName : byHandle.character ? byHandle : byName;
-    if (!byName.character && !byHandle.character && byName.reason?.startsWith('Unknown ') && byHandle.reason?.startsWith('Unknown ')) return [comment];
     if (!resolved.available) {
       discardedComment = true;
       parsed.warnings.push(`Social Media comment from "${comment.from}" was ignored. ${resolved.reason}`);
@@ -236,7 +223,6 @@ export function validateSocialMessengerAccounts(options: {
             messages: options.messages,
             app,
             identity,
-            allowNewNpc: true,
           });
           if (!resolved.available) {
             rangeIssues.push({ app, identity: identity.trim(), role, resolved });

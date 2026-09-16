@@ -1300,16 +1300,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
       ? appCharacters().flatMap((character) => {
           const account = character.apps?.[socialCatalogApp];
           return account?.enabled && accountHandle(account).trim()
-            ? [`- ${character.name} (@${accountHandle(account).replace(/^@/, '')})`]
+            ? [`- ${character.name} (@${accountHandle(account).replace(/^@/, '')})${character.npcOrigin || character.libraryNpc ? ' [NPC]' : ' [Storybook character]'}`]
             : [];
         })
       : [];
-    const executionOriginalInput = availableSocialAccounts.length
+    const executionOriginalInput = socialCatalogApp
       ? [originalInput,
           '[AVAILABLE SOCIAL ACCOUNTS]',
           'Use these exact existing name and handle pairs for social participants:',
           ...availableSocialAccounts,
-          'Keep these existing identities exact. Additional fictional social users may participate without a character container; never assign a missing app account to a known character.',
+          'Use only these existing accounts. Never invent social participants or assign a missing app account to a character. If no eligible participant exists, return empty comments and omit optional messages.',
+          'Following is optional: any listed NPC account may react, even without a follow or subscription connection. Choose varied participants from this list.',
           '[/AVAILABLE SOCIAL ACCOUNTS]'].join('\n')
       : originalInput;
     const storedInputGraphText = socialDirectMessage?.app === 'matchme' ? originalInput : directActionOnly
@@ -2680,7 +2681,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
             messages: messagesRef.current,
             app: incoming.app,
             identity: recipientName,
-            allowNewNpc: true,
           });
           if (!resolvedRecipient.available) {
             reportRunWarning(
@@ -2703,7 +2703,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
             messages: messagesRef.current,
             app: incoming.app,
             identity: incoming.from,
-            allowNewNpc: true,
           });
           if (!resolvedSender.available) {
             reportRunWarning(

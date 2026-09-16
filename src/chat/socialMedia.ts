@@ -626,7 +626,10 @@ export function parseSocialReactionsOutput(
     const hasDirectMessages = hasIncomingSocialDirectMessagesKey(block);
     if (hasDirectMessages) {
       const blockDirectMessages = parseIncomingSocialDirectMessagesObject(block);
-      if (blockDirectMessages.length === 0) {
+      const onlyEmptyMessageArrays = Object.values(socialDirectMessageJsonKeys)
+        .filter((key) => block[key] !== undefined)
+        .every((key) => Array.isArray(block[key]) && block[key].length === 0);
+      if (blockDirectMessages.length === 0 && !onlyEmptyMessageArrays) {
         warnings.push('A social messenger block has no valid entries (each needs from, to, and message).');
       }
       directMessages.push(...blockDirectMessages);

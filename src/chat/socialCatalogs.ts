@@ -57,18 +57,3 @@ export function socialHandleFromCatalogIdentity(
     normalizedSocialName(identity.name) === normalizedName
   )?.handle;
 }
-
-/** Exact built-in identities the LLM may use for background comments and post DMs. */
-export function bundledSocialIdentityContext(app: SocialAppKind) {
-  return [
-    '[AVAILABLE VIRTUAL SOCIAL USERS]',
-    'Use these exact name and handle pairs for newly introduced background commenters or post-related fans:',
-    ...bundledSocialIdentities[app].map(({ name, handle }) => `- ${name} (@${handle})`),
-    'Do not invent a different background social identity. Existing Storybook characters and established conversation participants may still appear when the app rules allow them.',
-    '[/AVAILABLE VIRTUAL SOCIAL USERS]',
-  ];
-}
-
-export function withBundledSocialIdentityContext(input: string, app: SocialAppKind) {
-  return [input, ...bundledSocialIdentityContext(app)].join('\n');
-}
