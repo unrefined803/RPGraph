@@ -41,7 +41,6 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   const [imported, setImported] = useState<ChatImageAttachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [celebration, setCelebration] = useState<{ id: string; name: string; superlike: boolean }>();
   const [photo, setPhoto] = useState(0);
   const [drag, setDrag] = useState(0);
@@ -88,7 +87,6 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
       if (selectedMatchId) {
         event.preventDefault();
         setSelectedMatchId(undefined);
-        setNotice('');
         setPhoto(0);
         setTab('discover');
         return;
@@ -96,7 +94,6 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
       if (tab === 'likes' || tab === 'profile') {
         event.preventDefault();
         setTab('discover');
-        setNotice('');
         setPhoto(0);
         return;
       }
@@ -165,9 +162,6 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     const match = decision !== 'pass' && matchMeLikePolicy(ownerId, target.id, state, new Date().toISOString(), decision);
     if (save({ ...profile, decisions: { ...profile.decisions, [target.id]: decision } })) {
       setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPhoto(0);
-      setNotice(decision === 'pass' ? `Passed on ${datingFirstName(target.name)}.` : decision === 'superlike'
-        ? `You superliked ${datingFirstName(target.name)}. You can chat now.` : match
-          ? `You and ${datingFirstName(target.name)} matched.` : `You liked ${datingFirstName(target.name)}. Waiting for a like back.`);
       if (match) setCelebration({ id: target.id, name: target.name, superlike: decision === 'superlike' });
     }
   }
@@ -228,7 +222,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
         <p className="pt-subtle">Your connections</p>
         <div className="pt-match-list">
           {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
-            onClick={() => { setSelectedMatchId(match.id); setPreviewCandidateId(undefined); setPreviewPhoto(0); setNotice(''); setPhoto(0); setTab('discover'); setEditing(false); }}>
+            onClick={() => { setSelectedMatchId(match.id); setPreviewCandidateId(undefined); setPreviewPhoto(0); setPhoto(0); setTab('discover'); setEditing(false); }}>
             <CharacterAvatar className="pt-match-avatar" name={datingFirstName(match.name)} profileImageDataUrl={match.avatarDataUrl} fallback={datingFirstName(match.name).slice(0, 1)} />
             <span><strong>{datingFirstName(match.name)}<span className="pt-match-age">, {match.age}</span></strong>
               {unread[match.id]?.count ? <small className="pt-match-unread"><span>New Message</span><span className="pt-match-unread-badge" aria-label={`${unread[match.id].count} unread messages`}>{unread[match.id].count}</span></small>
@@ -318,7 +312,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           onDraftChange={(text) => setChatDrafts((current) => ({ ...current, [selectedMatch.id]: text }))}
           emojiOptions={emojiOptions} recentEmojis={recentEmojis}
           onUseEmoji={(emoji) => setRecentEmojis((current) => [emoji, ...current.filter((entry) => entry !== emoji)].slice(0, 8))}
-          onBack={() => { setSelectedMatchId(undefined); setNotice(''); setPhoto(0); }}
+          onBack={() => { setSelectedMatchId(undefined); setPhoto(0); }}
           onSend={() => { void send(selectedMatch.id); }} /> : tab === 'discover' ? <div className="pt-discover">
           <div className="pt-section-heading"><div><span className="pt-eyebrow">A LITTLE CHEMISTRY?</span><h2>Discover</h2></div><span className="pt-preview">Available profiles</span></div>
           {candidate ? <>
@@ -330,7 +324,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               {candidatePhotoCount > 1 && <div className="pt-photo-progress">{(candidate.photos ?? []).map((_, index) => <button key={index} type="button" aria-label={`Show image ${index + 1}`} aria-pressed={photo === index} className={photo === index ? 'active' : ''} onClick={() => setPhoto(index)} />)}</div>}
               <div className="pt-placeholder">{candidate.photos?.length ? <img className="pt-discovery-photo" src={candidate.photos[photo % candidate.photos.length].dataUrl} alt={candidate.photos[photo % candidate.photos.length].description || `${datingFirstName(candidate.name)}, photo ${photo + 1}`} /> : <><span aria-hidden="true">✧</span><small>Photo unavailable</small></>}</div>
               {candidatePhotoCount > 1 && <div className="pt-image-nav"><button type="button" aria-label="Previous image" onClick={() => setPhoto((photo + candidatePhotoCount - 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" aria-label="Next image" onClick={() => setPhoto((photo + 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>}
-              {!!drag && <span className="pt-swipe-label">{drag > 0 ? 'LIKE' : 'PASS'}</span>}
+              {Math.abs(drag) >= 8 && <span className={`pt-swipe-label ${drag > 0 ? 'like' : 'pass'}`} style={{ opacity: Math.min(1, Math.abs(drag) / 35) }}>{drag > 0 ? 'LIKE' : 'PASS'}</span>}
               <div className="pt-card-info"><small>{candidate.characterId && !candidate.libraryNpc ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small><h3>{datingFirstName(candidate.name)}<span>, {candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
             </article>
             <div className="pt-decisions">
@@ -429,7 +423,6 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
                       setSelectedMatchId(previewCandidate.id);
                       setPreviewCandidateId(undefined);
                       setPreviewPhoto(0);
-                      setNotice('');
                       setTab('discover');
                     }}
                   >
@@ -488,7 +481,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
                         <button
                           type="button"
                           className="pt-like-chat-btn"
-                          onClick={() => { setSelectedMatchId(entry.id); setNotice(''); setTab('discover'); }}
+                          onClick={() => { setSelectedMatchId(entry.id); setTab('discover'); }}
                         >
                           Chat
                         </button>
@@ -575,7 +568,6 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
         </div>}
       {selectedMatch && failedMessages[selectedMatch.id] && <button type="button" disabled={busy || isRunning} onClick={() => { void send(selectedMatch.id, true); }}>Retry reply</button>}
       {error && <p className="pt-error" role="alert">{error}</p>}
-      {!selectedMatch && !editing && tab === 'discover' && notice && <p className="pt-action-help" role="status">{notice}</p>}
       {celebration && <section className="pt-match-celebration" role="status" aria-label="New connection">
         <div className="pt-celebration-particles" aria-hidden="true">
           <span className="pt-sparkle s1">✨</span>
@@ -608,26 +600,26 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           <p>{celebration.superlike ? `You can now chat with ${datingFirstName(celebration.name)}.` : `You and ${datingFirstName(celebration.name)} liked each other.`}</p>
         </div>
         <div className="pt-celebration-buttons">
-          <button type="button" className="pt-primary pt-celebration-primary" autoFocus onClick={() => { setSelectedMatchId(celebration.id); setNotice(''); setTab('discover'); setCelebration(undefined); }}>Say hello <span aria-hidden="true">→</span></button>
+          <button type="button" className="pt-primary pt-celebration-primary" autoFocus onClick={() => { setSelectedMatchId(celebration.id); setTab('discover'); setCelebration(undefined); }}>Say hello <span aria-hidden="true">→</span></button>
           <button type="button" className="pt-celebration-ghost" onClick={() => setCelebration(undefined)}>Keep exploring</button>
         </div>
       </section>}
     </main>
     </div>
     {profile && !editing && <nav className="pt-tabs" aria-label="MatchMe navigation">
-      <button type="button" className={`pt-tab-btn${tab === 'discover' ? ' active' : ''}`} aria-current={tab === 'discover' ? 'page' : undefined} onClick={() => { setTab('discover'); setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPreviewPhoto(0); setNotice(''); setPhoto(0); }}>
+      <button type="button" className={`pt-tab-btn${tab === 'discover' ? ' active' : ''}`} aria-current={tab === 'discover' ? 'page' : undefined} onClick={() => { setTab('discover'); setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPreviewPhoto(0); setPhoto(0); }}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill={tab === 'discover' ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M12 2c.5 3 2.5 5 4.5 7 2 2 3.5 4.5 3.5 7.5a8 8 0 1 1-16 0c0-3.5 2-6.5 5-9 0 2 1.5 3 3 3.5-1-2.5 0-5.5 0-9z"/>
         </svg>
         <span>Discover</span>
       </button>
-      <button type="button" className={`pt-tab-btn${tab === 'likes' ? ' active' : ''}`} aria-current={tab === 'likes' ? 'page' : undefined} onClick={() => { setTab('likes'); setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPreviewPhoto(0); setNotice(''); setPhoto(0); }}>
+      <button type="button" className={`pt-tab-btn${tab === 'likes' ? ' active' : ''}`} aria-current={tab === 'likes' ? 'page' : undefined} onClick={() => { setTab('likes'); setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPreviewPhoto(0); setPhoto(0); }}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill={tab === 'likes' ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
         </svg>
         <span>Likes</span>
       </button>
-      <button type="button" className={`pt-tab-btn${tab === 'profile' ? ' active' : ''}`} aria-current={tab === 'profile' ? 'page' : undefined} onClick={() => { setTab('profile'); setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPreviewPhoto(0); setNotice(''); setPhoto(0); }}>
+      <button type="button" className={`pt-tab-btn${tab === 'profile' ? ' active' : ''}`} aria-current={tab === 'profile' ? 'page' : undefined} onClick={() => { setTab('profile'); setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPreviewPhoto(0); setPhoto(0); }}>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="12" cy="8" r="4"/>
           <path d="M20 21a8 8 0 0 0-16 0"/>

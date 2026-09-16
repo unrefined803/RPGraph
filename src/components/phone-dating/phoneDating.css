@@ -82,7 +82,35 @@
 .pt-app .pt-decisions .pt-like-action:hover:not(:disabled), .pt-app .pt-decisions .pt-like-action:focus-visible { background: linear-gradient(145deg, #fb5580, #e11d48); box-shadow: 0 0 28px rgba(244, 63, 110, 0.65), 0 10px 24px rgba(0, 0, 0, 0.4); transform: translateY(-2px) scale(1.07); }
 .pt-app .pt-decisions .pt-superlike-action { width: 54px; height: 54px; flex: 0 0 54px; background: linear-gradient(145deg, #38bdf8, #2563eb); border: 1.5px solid #93c5fd60; color: #ffffff; box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4); }
 .pt-app .pt-decisions .pt-superlike-action:hover:not(:disabled), .pt-app .pt-decisions .pt-superlike-action:focus-visible { background: linear-gradient(145deg, #60a5fa, #1d4ed8); box-shadow: 0 0 26px rgba(56, 189, 248, 0.65), 0 8px 20px rgba(0, 0, 0, 0.4); transform: translateY(-2px) scale(1.06); }
-.pt-swipe-label { position: absolute; top: 65px; left: 25px; font-size: 32px; border: 3px solid white; padding: 8px; transform: rotate(-12deg); }
+.pt-swipe-label {
+  position: absolute;
+  top: 28%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  font-weight: 850;
+  letter-spacing: 2px;
+  border: 3.5px solid #ffffff;
+  border-radius: 12px;
+  padding: 6px 18px;
+  line-height: 1;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 10;
+  background: rgba(15, 12, 20, 0.6);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.pt-swipe-label.like {
+  color: #4ade80;
+  border-color: #22c55e;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 20px rgba(34, 197, 94, 0.35);
+}
+.pt-swipe-label.pass {
+  color: #ff6b8b;
+  border-color: #ff4d6d;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 20px rgba(255, 77, 109, 0.35);
+}
 
 .pt-tabs { display: flex; justify-content: center; align-items: center; border-top: 1px solid rgba(255, 255, 255, 0.08); background: rgba(20, 21, 29, 0.94); backdrop-filter: blur(16px); padding: 7px 14px; gap: 10px; }
 .pt-app .pt-tabs .pt-tab-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 14px; flex: 1; max-width: 120px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: #9d92a4; font-size: 11px; font-weight: 500; transition: all 180ms ease; cursor: pointer; }
