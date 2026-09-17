@@ -205,4 +205,28 @@ describe('inline account links', () => {
       .toBe('Contact @whatsup:Third Person and @fotogram:Nova Vale.');
   });
 
+  it('parses and resolves @bank: and @banking: account links', () => {
+    const { characters } = setup();
+    const text = 'Send money via @bank:Nova Vale or @banking:Third Person!';
+    const links = parseAccountLinks(text, characters);
+    expect(links).toHaveLength(2);
+    expect(links[0]).toMatchObject({
+      app: 'banking',
+      token: '@bank:Nova Vale',
+      characterId: 'nova',
+      accountId: 'Nova Vale',
+      name: 'Nova Vale',
+    });
+    expect(links[1]).toMatchObject({
+      app: 'banking',
+      token: '@banking:Third Person',
+      characterId: 'third',
+      accountId: 'Third Person',
+      name: 'Third Person',
+    });
+
+    const shield = shieldTranslationAccountLinks('Pay @bank:Nova Vale now', characters);
+    expect(shield.shielded).toBe('Pay [[RPGRAPH_ACCOUNT_LINK_0]] now');
+    expect(restoreTranslationAccountLinks(shield.shielded, shield.tokens)).toBe('Pay @bank:Nova Vale now');
+  });
 });

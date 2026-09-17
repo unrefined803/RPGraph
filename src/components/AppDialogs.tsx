@@ -8,6 +8,7 @@ import { withCharacterPortrait } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { socialFromCharacterApps, type CharacterApps } from '../characters/character';
 import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
+import { formatBankingAmount } from '../chat/bankTransfers';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
 import { LiveRunClock } from './LiveRunClock';
@@ -1390,7 +1391,7 @@ function characterPhoneSummary(character: RpStorybookCharacter) {
   const onlyFriendsCreated = Boolean(character.apps?.onlyfriends?.enabled);
   const matchMeCreated = Boolean(character.apps?.matchme?.enabled);
   return <span className="character-phone-summary">
-    <span>Bank: ${banking.startBalance}</span>
+    <span>Bank: {formatBankingAmount(banking.startBalance)}</span>
     <span className="character-phone-summary-separator" aria-hidden="true">·</span>
     <span>Fotogram {accountStatus(true)}</span>
     <span className="character-phone-summary-separator" aria-hidden="true">·</span>
@@ -2739,92 +2740,216 @@ function CharacterSetupDialog({
                 locked={identityLocked} onChange={(next) => { setAppsDraft(next.apps!); return true; }} />}
             </div>
           ) : activeSetupTab === 'banking' ? (
-            <div className="character-voice-body">
-              <div className="character-voice-card">
-                <span className="character-voice-card-title">BANKING APP</span>
-                <p className="character-voice-hint">
-                  Bank account of this character in the phone Banking app. New characters start
-                  with $1000 unless you or the assistant set a value that fits their life situation.
-                </p>
-                <label className="character-comfy-field">
-                  <span>START BALANCE (USD)</span>
-                  <input
-                    className="node-text-input nodrag"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={bankingDraft.startBalance}
-                    onChange={(event) => {
-                      const startBalance = event.currentTarget.value;
-                      setBankingDraft((current) => ({ ...current, startBalance }));
-                    }}
-                  />
-                </label>
-                <label className="character-comfy-field">
-                  <span>FIXED EXPENSES</span>
-                </label>
-                {bankingDraft.fixedExpenses.map((expense, index) => (
-                  <div className="character-comfy-url-row" key={index}>
-                    <input
-                      className="node-text-input nodrag"
-                      type="text"
-                      value={expense.label}
-                      placeholder="Mobile plan"
-                      onChange={(event) => {
-                        const label = event.currentTarget.value;
-                        setBankingDraft((current) => ({
-                          ...current,
-                          fixedExpenses: current.fixedExpenses.map((entry, entryIndex) =>
-                            entryIndex === index ? { ...entry, label } : entry),
-                        }));
-                      }}
-                    />
-                    <input
-                      className="node-text-input nodrag"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={expense.amount}
-                      placeholder="24.99"
-                      onChange={(event) => {
-                        const amount = event.currentTarget.value;
-                        setBankingDraft((current) => ({
-                          ...current,
-                          fixedExpenses: current.fixedExpenses.map((entry, entryIndex) =>
-                            entryIndex === index ? { ...entry, amount } : entry),
-                        }));
-                      }}
-                    />
+            <div className="character-voice-body character-banking-setup-body">
+              <div className="character-banking-setup-card">
+                <div className="character-banking-setup-header">
+                  <div className="character-banking-setup-title">
+                    <span className="character-voice-card-title">DIGITAL BANKING ACCOUNT</span>
+                    <p className="character-voice-hint">
+                      Bank account of this character in the phone Banking app. Configure starting balance and recurring monthly expenses.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Live Neo-Card Preview */}
+                <div className="character-banking-card-preview-wrapper">
+                  <div className="phone-banking-balance-card mini-preview">
+                    <div className="phone-banking-card-shine" aria-hidden="true" />
+                    <div className="phone-banking-card-top">
+                      <div className="phone-banking-card-brand">
+                        <span className="phone-banking-card-chip" aria-hidden="true" />
+                        <span className="phone-banking-card-type">Premium Checking</span>
+                      </div>
+                      <div className="phone-banking-card-network" aria-hidden="true">
+                        <svg width="24" height="15" viewBox="0 0 28 18" fill="none">
+                          <circle cx="9" cy="9" r="8" fill="rgba(239, 68, 68, 0.75)" />
+                          <circle cx="19" cy="9" r="8" fill="rgba(234, 179, 8, 0.75)" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="phone-banking-card-mid">
+                      <span className="phone-banking-balance-label">Starting Balance</span>
+                      <strong className="phone-banking-balance-amount">
+                        {formatBankingAmount(Number(bankingDraft.startBalance) || 0)}
+                      </strong>
+                    </div>
+                    <div className="phone-banking-card-bottom">
+                      <div className="phone-banking-card-holder">
+                        <small>Cardholder</small>
+                        <span className="phone-banking-balance-owner">
+                          {character?.name || 'Character'}
+                        </span>
+                      </div>
+                      <div className="phone-banking-card-digits">
+                        <span>•••• 2026</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Start Balance Section with Quick Presets */}
+                <div className="character-banking-balance-section">
+                  <label className="character-comfy-field">
+                    <span>START BALANCE (USD)</span>
+                    <div className="character-banking-amount-box">
+                      <span className="character-banking-amount-symbol">$</span>
+                      <input
+                        className="node-text-input nodrag character-banking-balance-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={bankingDraft.startBalance}
+                        onChange={(event) => {
+                          const startBalance = event.currentTarget.value;
+                          setBankingDraft((current) => ({ ...current, startBalance }));
+                        }}
+                      />
+                    </div>
+                  </label>
+
+                  <div className="character-banking-presets-group">
+                    <span className="character-banking-presets-label">Quick Presets:</span>
+                    <div className="character-banking-presets">
+                      {[
+                        { label: '$0 Broke', val: '0' },
+                        { label: '$500 Student', val: '500' },
+                        { label: '$1,000 Standard', val: '1000' },
+                        { label: '$3,500 Comfortable', val: '3500' },
+                        { label: '$10,000 Wealthy', val: '10000' },
+                        { label: '$50,000 Affluent', val: '50000' },
+                      ].map((preset) => (
+                        <button
+                          type="button"
+                          key={preset.val}
+                          className={`character-banking-preset-chip${
+                            bankingDraft.startBalance === preset.val ? ' active' : ''
+                          }`}
+                          onClick={() =>
+                            setBankingDraft((current) => ({ ...current, startBalance: preset.val }))
+                          }
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fixed Expenses Section */}
+                <div className="character-banking-expenses-section">
+                  <div className="character-banking-expenses-header">
+                    <span className="character-banking-section-label">FIXED MONTHLY EXPENSES</span>
+                    <span className="character-banking-expenses-count">
+                      {bankingDraft.fixedExpenses.length} recurring
+                    </span>
+                  </div>
+
+                  <div className="character-banking-expenses-list">
+                    {bankingDraft.fixedExpenses.map((expense, index) => (
+                      <div className="character-banking-expense-row" key={index}>
+                        <input
+                          className="node-text-input nodrag character-banking-expense-name"
+                          type="text"
+                          value={expense.label}
+                          placeholder="e.g. Mobile plan, Rent, Gym"
+                          onChange={(event) => {
+                            const label = event.currentTarget.value;
+                            setBankingDraft((current) => ({
+                              ...current,
+                              fixedExpenses: current.fixedExpenses.map((entry, entryIndex) =>
+                                entryIndex === index ? { ...entry, label } : entry
+                              ),
+                            }));
+                          }}
+                        />
+                        <div className="character-banking-expense-amt-box">
+                          <span className="character-banking-expense-sym">$</span>
+                          <input
+                            className="node-text-input nodrag character-banking-expense-amt"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={expense.amount}
+                            placeholder="24.99"
+                            onChange={(event) => {
+                              const amount = event.currentTarget.value;
+                              setBankingDraft((current) => ({
+                                ...current,
+                                fixedExpenses: current.fixedExpenses.map((entry, entryIndex) =>
+                                  entryIndex === index ? { ...entry, amount } : entry
+                                ),
+                              }));
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="character-banking-remove-btn"
+                          title="Remove expense"
+                          aria-label="Remove expense"
+                          onClick={() =>
+                            setBankingDraft((current) => ({
+                              ...current,
+                              fixedExpenses: current.fixedExpenses.filter(
+                                (_, entryIndex) => entryIndex !== index
+                              ),
+                            }))
+                          }
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add expense presets & action */}
+                  <div className="character-banking-add-controls">
                     <button
                       type="button"
-                      className="contextual-action-button nodrag"
+                      className="contextual-action-button nodrag character-banking-add-btn"
                       onClick={() =>
                         setBankingDraft((current) => ({
                           ...current,
-                          fixedExpenses: current.fixedExpenses.filter((_, entryIndex) => entryIndex !== index),
-                        }))}
+                          fixedExpenses: [...current.fixedExpenses, { label: '', amount: '' }],
+                        }))
+                      }
                     >
-                      Remove
+                      + Add Fixed Expense
                     </button>
+                    <div className="character-banking-quick-adds">
+                      {[
+                        { label: '+ Phone ($30)', name: 'Phone plan', amt: '30' },
+                        { label: '+ Streaming ($15)', name: 'Streaming service', amt: '15' },
+                        { label: '+ Rent ($850)', name: 'Apartment rent', amt: '850' },
+                        { label: '+ Gym ($45)', name: 'Gym membership', amt: '45' },
+                      ].map((preset) => (
+                        <button
+                          type="button"
+                          key={preset.label}
+                          className="character-banking-quick-add-chip"
+                          onClick={() =>
+                            setBankingDraft((current) => ({
+                              ...current,
+                              fixedExpenses: [
+                                ...current.fixedExpenses,
+                                { label: preset.name, amount: preset.amt },
+                              ],
+                            }))
+                          }
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                ))}
-                <div className="character-comfy-actions">
-                  <button
-                    type="button"
-                    className="contextual-action-button nodrag"
-                    onClick={() =>
-                      setBankingDraft((current) => ({
-                        ...current,
-                        fixedExpenses: [...current.fixedExpenses, { label: '', amount: '' }],
-                      }))}
-                  >
-                    Add Fixed Expense
-                  </button>
+
+                  <p className="character-voice-hint">
+                    Recurring payments appear automatically in the character&apos;s Phone Banking transaction history. Everyday spending is generated automatically around these fixed costs.
+                  </p>
                 </div>
-                <p className="character-voice-hint">
-                  Recurring payments shown in the Banking app history (for example a mobile plan).
-                  The app fills the rest of the history with generated everyday spending.
-                </p>
               </div>
             </div>
           ) : activeSetupTab === 'voice' ? (

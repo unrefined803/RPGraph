@@ -236,7 +236,7 @@ export function useRoleplayPanelRuntime({
   const persistedSocialConnectionsByCharacter = useMemo(() => {
     let connections = savedSocialConnectionsByCharacter;
     for (const { owner, link } of automaticAccountLinkGrants(messages, appCharacters)) {
-      if (link.app === 'matchme') continue;
+      if (link.app === 'matchme' || link.app === 'banking') continue;
       const user = socialDirectory.users.find((entry) => entry.characterId === link.character.id);
       const targetId = link.app === 'whatsup' ? link.accountId : user?.id;
       if (targetId) connections = withSocialConnectionAdded(connections, owner.sourceId, link.app, targetId);
@@ -841,7 +841,7 @@ export function useRoleplayPanelRuntime({
   }
 
   function openAccountLink(link: AccountLinkTarget) {
-    const owner = chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter;
+    const owner = (chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter) ?? viewedPhoneCharacter;
     if (!owner || isRunning) return;
     const target = resolveAccountLink(link.app, link.accountId, appCharacters);
     if (!target || target.characterId !== link.characterId) {
@@ -849,15 +849,20 @@ export function useRoleplayPanelRuntime({
       return;
     }
     if (owner.sourceId === target.characterId) return;
-    captureNpcParticipants([{ kind: 'account', app: target.app, id: target.accountId, canonical: true }]);
-    if (target.app === 'whatsup') {
-      setSocialConnectionsByCharacter((current) => withSocialConnectionAdded(current, owner.sourceId, 'whatsup', target.accountId));
-      openPhoneConversation(phoneConversationKey(owner.name, target.character.name), 0,
-        { speakerId: owner.id, contactId: target.character.id, activatePlayer: false });
-    } else if (target.app !== 'matchme') {
-      const user = socialDirectory.users.find((entry) => entry.characterId === target.character.id);
-      if (!user) { notifySystem('warning', 'This shared social account is unavailable.'); return; }
-      addSocialConnection(owner.id, target.app, user.id);
+    if (target.app === 'banking') {
+      captureNpcParticipants([{ kind: 'character', id: target.character.id || target.characterId }]);
+      addBankingContact(owner.id, target.name);
+    } else {
+      captureNpcParticipants([{ kind: 'account', app: target.app, id: target.accountId, canonical: true }]);
+      if (target.app === 'whatsup') {
+        setSocialConnectionsByCharacter((current) => withSocialConnectionAdded(current, owner.sourceId, 'whatsup', target.accountId));
+        openPhoneConversation(phoneConversationKey(owner.name, target.character.name), 0,
+          { speakerId: owner.id, contactId: target.character.id, activatePlayer: false });
+      } else if (target.app !== 'matchme') {
+        const user = socialDirectory.users.find((entry) => entry.characterId === target.character.id);
+        if (!user) { notifySystem('warning', 'This shared social account is unavailable.'); return; }
+        addSocialConnection(owner.id, target.app, user.id);
+      }
     }
     setViewedPhoneCharacterId(owner.id);
     setHighlightedPhoneMessage(undefined);
@@ -1042,14 +1047,34 @@ export function useRoleplayPanelRuntime({
     if (!normalizedName) {
       return;
     }
+    const target = appCharacters.find(
+      (candidate) => normalizePhoneName(candidate.name) === normalizePhoneName(normalizedName),
+    );
+    if (!target) {
+      return;
+    }
+    captureNpcParticipants([{ kind: 'character', id: target.sourceId || target.id }]);
     setBankingContactsByCharacter((current) => {
       const contacts = current[characterId] ?? [];
-      if (contacts.some((name) => normalizePhoneName(name) === normalizePhoneName(normalizedName))) {
+      if (contacts.some((name) => normalizePhoneName(name) === normalizePhoneName(target.name))) {
         return current;
       }
-      return { ...current, [characterId]: [...contacts, normalizedName] };
+      return { ...current, [characterId]: [...contacts, target.name] };
     });
   }
+
+  function removeBankingContact(characterId: string, contactName: string) {
+    const normalizedTarget = normalizePhoneName(contactName);
+    setBankingContactsByCharacter((current) => {
+      const contacts = current[characterId] ?? [];
+      const nextContacts = contacts.filter((name) => normalizePhoneName(name) !== normalizedTarget);
+      if (nextContacts.length === contacts.length) {
+        return current;
+      }
+      return { ...current, [characterId]: nextContacts };
+    });
+  }
+
 
   function selectChatPanelView(view: ChatPanelView) {
     setAccountLinkOpenRequest(undefined);
@@ -1503,8 +1528,9 @@ export function useRoleplayPanelRuntime({
     bankingContactsByCharacter,
     setBankingContactsByCharacter,
     addBankingContact,
+    removeBankingContact,
     markSelectedPhoneConversationSeen,
-    accountLinkContext: { characters: appCharacters, owner: chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter,
+    accountLinkContext: { characters: appCharacters, owner: (chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter) ?? viewedPhoneCharacter,
       disabled: isRunning, open: openAccountLink, request: accountLinkOpenRequest },
     phoneHomeRequestId,
     phoneDividerAfterByConversation,

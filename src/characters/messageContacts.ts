@@ -8,7 +8,7 @@ import { appCharactersFromRegistry } from './appRuntime';
 import { buildCharacterRegistry, type CharacterRegistryEntry } from './registry';
 import { captureNpcParticipants, npcReferencesFromMessages, npcSnapshotEntries, type NpcParticipantSnapshots } from './npcParticipants';
 
-type ContactApp = Exclude<AccountLinkApp, 'matchme'>;
+type ContactApp = Exclude<AccountLinkApp, 'matchme' | 'banking'>;
 type ContactGrant = { ownerId: string; targetId: string; app: ContactApp };
 
 /** A delivered DM connects its endpoints; a shared account belongs only to its recipient. */
@@ -34,7 +34,7 @@ export function messageContactGrants(messages: MessageRecord[], characters: Stor
     add(recipient.characterId, sender.characterId, app);
   }
   for (const { owner, link } of automaticAccountLinkGrants(messages, characters)) {
-    if (link.app !== 'matchme') add(owner.sourceId, link.characterId, link.app);
+    if (link.app !== 'matchme' && link.app !== 'banking') add(owner.sourceId, link.characterId, link.app);
   }
   return grants;
 }

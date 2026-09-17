@@ -1,9 +1,10 @@
 import { accountHandle, migratedProfileName } from '../characters/character';
 import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
+import { normalizePhoneName } from './phoneMessages';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
 
-const accountLinkApps = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const;
+const accountLinkApps = ['whatsup', 'fotogram', 'onlyfriends', 'matchme', 'banking'] as const;
 export type AccountLinkApp = typeof accountLinkApps[number];
 export type AccountLink = { token: string; app: AccountLinkApp; accountId: string; characterId: string };
 export type AccountLinkTarget = AccountLink & { name: string; username: string; character: StorybookCharacter };
@@ -11,11 +12,16 @@ export type ParsedAccountLink = AccountLinkTarget & { start: number; end: number
 const appAliases: Record<string, AccountLinkApp> = {
   whatsup: 'whatsup', whatsapp: 'whatsup', fotogram: 'fotogram', photogram: 'fotogram',
   onlyfriends: 'onlyfriends', matchme: 'matchme',
+  bank: 'banking', banking: 'banking',
 };
 const key = (text: string) => text.trim().replace(/^@/, '').replace(/\s+/g, ' ').toLowerCase();
 
 function accountLinkTargets(characters: StorybookCharacter[]) {
   return characters.flatMap((character) => accountLinkApps.flatMap<AccountLinkTarget>((app) => {
+    if (app === 'banking') {
+      return [{ token: '', app, accountId: character.name, characterId: character.sourceId,
+        name: character.name, username: character.name, character }];
+    }
     const account = character.apps?.[app];
     if (app === 'whatsup') {
       try {
@@ -38,6 +44,18 @@ export function resolveAccountLink(app: AccountLinkApp, identity: string, charac
         target.accountId === phone.accountId && target.characterId === phone.characterId);
     } catch { return undefined; }
   }
+  if (app === 'banking') {
+    const trimmed = identity.trim().replace(/^@/, '');
+    const canonical = characters.filter((character) =>
+      normalizePhoneName(character.name) === normalizePhoneName(trimmed) ||
+      character.id === trimmed || character.sourceId === trimmed ||
+      character.identityAliases?.characterIds?.includes(trimmed)
+    );
+    if (canonical.length !== 1) return undefined;
+    const character = canonical[0];
+    return { token: '', app: 'banking' as const, accountId: character.name, characterId: character.sourceId,
+      name: character.name, username: character.name, character };
+  }
   const canonical = characters.filter((character) => character.apps?.[app]?.accountId === identity.trim());
   const owners = canonical.length ? canonical : characters.filter((character) =>
     [character.name, character.apps?.[app]?.profileName, accountHandle(character.apps?.[app]),
@@ -52,7 +70,7 @@ export function resolveAccountLink(app: AccountLinkApp, identity: string, charac
 export function parseAccountLinks(text: string, characters: StorybookCharacter[], bindings?: AccountLink[]): ParsedAccountLink[] {
   const links: ParsedAccountLink[] = [];
   const targets = accountLinkTargets(characters);
-  const prefix = /@(whatsup|whatsapp|fotogram|photogram|onlyfriends|matchme):/gi;
+  const prefix = /@(whatsup|whatsapp|fotogram|photogram|onlyfriends|matchme|banking|bank):/gi;
   for (const match of text.matchAll(prefix)) {
     const start = match.index;
     if (start > 0 && /[\p{L}\p{N}_@]/u.test(text[start - 1])) continue;
@@ -60,8 +78,9 @@ export function parseAccountLinks(text: string, characters: StorybookCharacter[]
     const app = appAliases[match[1].toLowerCase()];
     const tail = text.slice(start + match[0].length);
     const candidates = targets.filter((target) => target.app === app).flatMap((target) =>
-      [target.accountId, target.character.name, target.name, target.username, ...(target.character.apps?.[app]?.legacyHandles ?? []),
-        ...(target.character.identityAliases?.accountIds?.[app] ?? [])]);
+      [target.accountId, target.character.name, target.name, target.username,
+        ...(app !== 'banking' ? (target.character.apps?.[app]?.legacyHandles ?? []) : []),
+        ...(app !== 'banking' ? (target.character.identityAliases?.accountIds?.[app] ?? []) : [])]);
     const bound = bindings?.filter((link) => link.app === app && text.startsWith(link.token, start))
       .sort((a, b) => b.token.length - a.token.length)[0];
     if (bound) {
@@ -73,7 +92,7 @@ export function parseAccountLinks(text: string, characters: StorybookCharacter[]
     // tokens too (older saves can have empty or incomplete binding lists).
     const aliases = [...new Set(candidates.filter(Boolean))].sort((a, b) => b.length - a.length);
     for (const alias of aliases) {
-      const escaped = alias.trim().replace(/^@/, '').split(/\s+/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[ \\t]+');
+      const escaped = alias.trim().replace(/^@/, '').split(/\s+/).map((part: string) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[ \\t]+');
       const identity = new RegExp(`^@?${escaped}(?![\\p{L}\\p{N}_:@-]|[.][\\p{L}\\p{N}_])`, 'iu').exec(tail)?.[0];
       if (!identity) continue;
       const target = resolveAccountLink(app, identity, characters);
@@ -98,7 +117,8 @@ export function resolveMessageAccount(app: AccountLinkApp, accountId: string | u
   const value = accountId ?? identity;
   if (!value) return undefined;
   const target = resolveAccountLink(app, value, characters);
-  if (accountId && target?.accountId !== accountId && !target?.character.identityAliases?.accountIds?.[app]?.includes(accountId)) return undefined;
+  if (accountId && target?.accountId !== accountId &&
+    (app === 'banking' || !target?.character.identityAliases?.accountIds?.[app]?.includes(accountId))) return undefined;
   return target;
 }
 
