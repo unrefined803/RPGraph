@@ -140,8 +140,8 @@ MatchMe needs suitable existing or newly supplied images and valid photo referen
 
 ## Regenerating the authoring inventory report
 
-Run `npm run npc:report` to create or refresh `npc-population-report.md` at the
-repository root. The file is intentionally not ignored: it appears as a new file
+Run `npm run npc:report` to create or refresh `docs/npc-population-report.md`.
+The file is intentionally not ignored: it appears as a new file
 in Changes and can be deleted after review. Keep the generator; the report is a
 disposable authoring artifact and need not be committed.
 

@@ -104,7 +104,7 @@ export function renderPopulationReport(entries, source = 'resources/npc-characte
 async function main() {
   const { values } = parseArgs({ options: { input: { type: 'string' }, output: { type: 'string' } } });
   const input = resolve(values.input ?? resolve(root, 'resources/npc-characters'));
-  const output = resolve(values.output ?? resolve(root, 'npc-population-report.md'));
+  const output = resolve(values.output ?? resolve(root, 'docs/npc-population-report.md'));
   if (!output.endsWith('.md')) throw new Error('The report output must be a Markdown (.md) file.');
   const entries = [];
   for (const file of (await readdir(input)).filter(name => name.endsWith('.json')).sort()) {
