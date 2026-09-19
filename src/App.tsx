@@ -1041,7 +1041,6 @@ function App() {
     bankingContactsByCharacter,
     setBankingContactsByCharacter,
     addBankingContact,
-    removeBankingContact,
     markSelectedPhoneConversationSeen,
     phoneHomeRequestId,
     phoneDividerAfterByConversation,
@@ -5886,7 +5885,6 @@ function App() {
                 ? bankingContactsByCharacter[viewedPhoneCharacter.id] ?? []
                 : []}
               onAddBankingContact={addBankingContact}
-              onRemoveBankingContact={removeBankingContact}
               onSendBankTransfer={submitBankTransfer}
               onTransferOnlyFriendsWallet={submitOnlyFriendsWalletTransfer}
               connections={connections}

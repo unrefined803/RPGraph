@@ -7,6 +7,7 @@ import {
   bankingRecipientNamesForCharacter,
   formatBankingAmount,
 } from '../chat/bankTransfers';
+import { bankingRecipientByName, bankingRecipientCandidates } from '../chat/bankingRecipients';
 import { dummyBankTransactions } from '../chat/bankingDummyTransactions';
 import { normalizePhoneName } from '../chat/phoneMessages';
 import { formatRpDateTimeParts } from '../workflow';
@@ -25,9 +26,9 @@ type PhoneBankingScreenProps = {
   sendLocked: boolean;
   isRunning: boolean;
   initialRecipientName?: string;
+  recipientRequestId?: number;
   onBack: () => void;
   onAddBankingContact: (characterId: string, contactName: string) => void;
-  onRemoveBankingContact?: (characterId: string, contactName: string) => void;
   onSendBankTransfer: (request: {
     from: StorybookCharacter;
     to: string;
@@ -49,6 +50,7 @@ export function PhoneBankingScreen({
   sendLocked,
   isRunning,
   initialRecipientName,
+  recipientRequestId,
   onBack,
   onAddBankingContact,
   onSendBankTransfer,
@@ -57,14 +59,19 @@ export function PhoneBankingScreen({
   const [recipientKey, setRecipientKey] = useState<string | undefined>(() =>
     initialRecipientName ? normalizePhoneName(initialRecipientName) : undefined
   );
-  useEffect(() => {
-    if (initialRecipientName) {
-      setRecipientKey(normalizePhoneName(initialRecipientName));
-    }
-  }, [initialRecipientName]);
+  const [seenRecipientRequest, setSeenRecipientRequest] = useState({ name: initialRecipientName, id: recipientRequestId });
+  if (seenRecipientRequest.name !== initialRecipientName || seenRecipientRequest.id !== recipientRequestId) {
+    setSeenRecipientRequest({ name: initialRecipientName, id: recipientRequestId });
+    if (initialRecipientName) setRecipientKey(normalizePhoneName(initialRecipientName));
+  }
 
   const [showBalance, setShowBalance] = useState(true);
   const [copiedCard, setCopiedCard] = useState(false);
+  useEffect(() => {
+    if (!copiedCard) return;
+    const timeout = window.setTimeout(() => setCopiedCard(false), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [copiedCard]);
   const [transactionFilter, setTransactionFilter] = useState<'all' | 'sent' | 'received'>('all');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,9 +85,7 @@ export function PhoneBankingScreen({
 
   const recipient = recipientKey
     ? (() => {
-        const match = allCharacters.find(
-          (c) => normalizePhoneName(c.name) === recipientKey,
-        );
+        const match = bankingRecipientByName(recipientKey, allCharacters, owner);
         if (match) {
           return {
             key: recipientKey,
@@ -148,7 +153,6 @@ export function PhoneBankingScreen({
   }
 
   // Characters currently in the user's banking / story list (excluding owner)
-  const ownerNormalized = owner ? normalizePhoneName(owner.name) : '';
   const currentRecipientNames = owner
     ? bankingRecipientNamesForCharacter(
         owner,
@@ -158,68 +162,7 @@ export function PhoneBankingScreen({
       )
     : storyCharacters.map((c) => c.name);
 
-  const currentListCharacters: StorybookCharacter[] = [];
-  const currentKeySet = new Set<string>();
-
-  for (const name of currentRecipientNames) {
-    const key = normalizePhoneName(name);
-    if (!key || key === ownerNormalized || currentKeySet.has(key)) continue;
-    const match = allCharacters.find((c) => normalizePhoneName(c.name) === key);
-    if (match) {
-      currentKeySet.add(key);
-      currentListCharacters.push(match);
-    }
-  }
-
-  // Ensure any playable story characters are present if not already added
-  for (const sc of storyCharacters) {
-    const key = normalizePhoneName(sc.name);
-    if (!key || key === ownerNormalized || currentKeySet.has(key)) continue;
-    currentKeySet.add(key);
-    currentListCharacters.push(sc);
-  }
-
-  const trimmedQuery = searchQuery.trim().toLowerCase();
-
-  let candidatesToShow: StorybookCharacter[] = [];
-  if (!trimmedQuery) {
-    // 1. Wenn nichts eingegeben wird: aktuelle Charaktere der Schnellliste anzeigen (max 9 = 3x3)
-    candidatesToShow = currentListCharacters.slice(0, 9);
-  } else if (trimmedQuery.length < 3) {
-    // 2. Erster und zweiter Buchstabe: Nur Charaktere filtern, die bereits in der eigenen Liste sind
-    candidatesToShow = currentListCharacters
-      .filter((c) => {
-        const lowerName = c.name.toLowerCase();
-        const nameParts = lowerName.split(/\s+/);
-        return (
-          lowerName.includes(trimmedQuery) ||
-          nameParts.some((part) => part.startsWith(trimmedQuery))
-        );
-      })
-      .slice(0, 9);
-  } else {
-    // 3. Ab 3 Buchstaben: Suche auf gesamte NPC Library erweitern, eigene Liste vorrangig (max 9 = 3x3)
-    candidatesToShow = allCharacters
-      .filter((c) => {
-        if (owner && normalizePhoneName(c.name) === normalizePhoneName(owner.name)) {
-          return false;
-        }
-        const lowerName = c.name.toLowerCase();
-        const nameParts = lowerName.split(/\s+/);
-        return (
-          lowerName.includes(trimmedQuery) ||
-          nameParts.some((part) => part.startsWith(trimmedQuery))
-        );
-      })
-      .sort((a, b) => {
-        const aIsCurrent = currentKeySet.has(normalizePhoneName(a.name));
-        const bIsCurrent = currentKeySet.has(normalizePhoneName(b.name));
-        if (aIsCurrent && !bIsCurrent) return -1;
-        if (!aIsCurrent && bIsCurrent) return 1;
-        return a.name.localeCompare(b.name);
-      })
-      .slice(0, 9);
-  }
+  const candidatesToShow = bankingRecipientCandidates(searchQuery, currentRecipientNames, allCharacters, owner);
 
   const cardNumber = owner
     ? Math.abs(
@@ -227,12 +170,15 @@ export function PhoneBankingScreen({
       )
     : '0000';
 
-  function copyCardNumber() {
+  async function copyCardNumber() {
     if (!owner) return;
     const ibanText = `RPB-${cardNumber}-${owner.name.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4)}`;
-    navigator.clipboard.writeText(ibanText).catch(() => {});
-    setCopiedCard(true);
-    setTimeout(() => setCopiedCard(false), 2000);
+    try {
+      await navigator.clipboard.writeText(ibanText);
+      setCopiedCard(true);
+    } catch {
+      setCopiedCard(false);
+    }
   }
 
   return (

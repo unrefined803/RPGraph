@@ -247,7 +247,6 @@ type PhonePanelProps = {
   bankTransferMessages: MessageRecord[];
   bankingContactNames: string[];
   onAddBankingContact: (characterId: string, contactName: string) => void;
-  onRemoveBankingContact?: (characterId: string, contactName: string) => void;
   onSendBankTransfer: (request: {
     from: StorybookCharacter;
     to: string;
@@ -403,7 +402,6 @@ export function PhonePanel({
   bankTransferMessages,
   bankingContactNames,
   onAddBankingContact,
-  onRemoveBankingContact,
   onSendBankTransfer,
   onTransferOnlyFriendsWallet,
   socialMediaMessages,
@@ -814,12 +812,12 @@ export function PhonePanel({
         sendLocked={inputLocked}
         isRunning={isRunning}
         initialRecipientName={bankingRecipientRequest}
+        recipientRequestId={bankingRecipientRequest ? accountLinkRequest?.requestId : undefined}
         onBack={() => {
           setDismissedBankingRequestId(accountLinkRequest?.requestId);
           setScreen('desktop');
         }}
         onAddBankingContact={onAddBankingContact}
-        onRemoveBankingContact={onRemoveBankingContact}
         onSendBankTransfer={onSendBankTransfer}
       />
     );

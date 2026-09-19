@@ -14,6 +14,7 @@ const appAliases: Record<string, AccountLinkApp> = {
   onlyfriends: 'onlyfriends', matchme: 'matchme',
   bank: 'banking', banking: 'banking',
 };
+const identityContinuation = /^[\p{L}\p{N}_:@-]|^[.][\p{L}\p{N}_]/u;
 const key = (text: string) => text.trim().replace(/^@/, '').replace(/\s+/g, ' ').toLowerCase();
 
 function accountLinkTargets(characters: StorybookCharacter[]) {
@@ -46,9 +47,9 @@ export function resolveAccountLink(app: AccountLinkApp, identity: string, charac
   }
   if (app === 'banking') {
     const trimmed = identity.trim().replace(/^@/, '');
-    const canonical = characters.filter((character) =>
+    const byId = characters.filter((character) => character.id === trimmed || character.sourceId === trimmed);
+    const canonical = byId.length ? byId : characters.filter((character) =>
       normalizePhoneName(character.name) === normalizePhoneName(trimmed) ||
-      character.id === trimmed || character.sourceId === trimmed ||
       character.identityAliases?.characterIds?.includes(trimmed)
     );
     if (canonical.length !== 1) return undefined;
@@ -81,10 +82,11 @@ export function parseAccountLinks(text: string, characters: StorybookCharacter[]
       [target.accountId, target.character.name, target.name, target.username,
         ...(app !== 'banking' ? (target.character.apps?.[app]?.legacyHandles ?? []) : []),
         ...(app !== 'banking' ? (target.character.identityAliases?.accountIds?.[app] ?? []) : [])]);
-    const bound = bindings?.filter((link) => link.app === app && text.startsWith(link.token, start))
+    const bound = bindings?.filter((link) => link.app === app && text.startsWith(link.token, start) &&
+      !identityContinuation.test(text.slice(start + link.token.length)))
       .sort((a, b) => b.token.length - a.token.length)[0];
     if (bound) {
-      const target = resolveAccountLink(app, bound.accountId, characters);
+      const target = resolveAccountLink(app, app === 'banking' ? bound.characterId : bound.accountId, characters);
       if (target && target.characterId === bound.characterId) links.push({ ...target, token: bound.token, start, end: start + bound.token.length });
       continue;
     }

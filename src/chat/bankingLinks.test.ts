@@ -6,9 +6,8 @@ import type { Character } from '../characters/character';
 import fixture from '../characters/fixtures/stage4-npc.json';
 import { captureNpcParticipants, npcReferencesFromMessages } from '../characters/npcParticipants';
 import { bankingRecipientNamesForCharacter } from './bankTransfers';
-import { normalizePhoneName } from './phoneMessages';
+import { bankingRecipientByName, bankingRecipientCandidates } from './bankingRecipients';
 import type { MessageRecord } from '../types';
-import type { StorybookCharacter } from '../storybook/runtime';
 
 function entry(id: string, name: string, tier: CharacterRegistryEntry['tier'] = 'user'): CharacterRegistryEntry {
   const character = structuredClone(fixture.character) as Character;
@@ -100,20 +99,10 @@ describe('banking account links and recipients', () => {
     );
     expect(recipientNames).toContain('Evelyn Reed');
 
-    // In PhoneBankingScreen, recipients are matched against appCharacters (including library NPCs)
-    const resolvedRecipients = recipientNames
-      .map((name) => ({
-        key: normalizePhoneName(name),
-        name,
-        character: appCharacters.find(
-          (c) => normalizePhoneName(c.name) === normalizePhoneName(name),
-        ),
-      }))
-      .filter((entry): entry is typeof entry & { character: StorybookCharacter } => !!entry.character);
-
-    const evelynEntry = resolvedRecipients.find((entry) => entry.name === 'Evelyn Reed');
+    const evelynEntry = bankingRecipientCandidates('', recipientNames, appCharacters, player)
+      .find((entry) => entry.name === 'Evelyn Reed');
     expect(evelynEntry).toBeDefined();
-    expect(evelynEntry?.character.profileImage?.dataUrl).toMatch(/^data:image\//);
+    expect(evelynEntry?.profileImage?.dataUrl).toMatch(/^data:image\//);
   });
 
   it('filters out unknown names so non-existent characters do not appear in Send Money', () => {
@@ -129,15 +118,7 @@ describe('banking account links and recipients', () => {
       contactNames,
     );
 
-    const resolvedRecipients = recipientNames
-      .map((name) => ({
-        key: normalizePhoneName(name),
-        name,
-        character: appCharacters.find(
-          (c) => normalizePhoneName(c.name) === normalizePhoneName(name),
-        ),
-      }))
-      .filter((entry): entry is typeof entry & { character: StorybookCharacter } => !!entry.character);
+    const resolvedRecipients = bankingRecipientCandidates('', recipientNames, appCharacters, player);
 
     expect(resolvedRecipients.some((r) => r.name === 'Ghost Unknown')).toBe(false);
     expect(resolvedRecipients.some((r) => r.name === 'Evelyn Reed')).toBe(true);
@@ -147,16 +128,7 @@ describe('banking account links and recipients', () => {
     const { appCharacters, storyCharacters } = setup();
     const player = storyCharacters[0];
 
-    const matchCandidate = (input: string) => {
-      const trimmed = input.trim().replace(/\s+/g, ' ');
-      return trimmed
-        ? appCharacters.find(
-            (candidate) =>
-              normalizePhoneName(candidate.name) === normalizePhoneName(trimmed) &&
-              normalizePhoneName(candidate.name) !== normalizePhoneName(player.name),
-          )
-        : undefined;
-    };
+    const matchCandidate = (input: string) => bankingRecipientByName(input, appCharacters, player);
 
     expect(matchCandidate('Evelyn Reed')).toBeDefined();
     expect(matchCandidate('evelyn reed')?.id).toBe('npc1');
@@ -168,7 +140,7 @@ describe('banking account links and recipients', () => {
     const { appCharacters, storyCharacters } = setup();
     const player = storyCharacters[0];
     const playableStoryCharacters = storyCharacters.filter(
-      (c) => normalizePhoneName(c.name) !== normalizePhoneName(player.name),
+      (c) => c.sourceId !== player.sourceId,
     );
 
     const getCandidates = (query: string, savedContactNames: string[] = []) => {
@@ -178,31 +150,7 @@ describe('banking account links and recipients', () => {
         [],
         savedContactNames,
       );
-      const currentListCharacters = recipientNames
-        .map((name) => appCharacters.find((c) => normalizePhoneName(c.name) === normalizePhoneName(name)))
-        .filter((c): c is StorybookCharacter => !!c);
-
-      const trimmed = query.trim().toLowerCase();
-      if (!trimmed) {
-        return currentListCharacters.slice(0, 9);
-      }
-      if (trimmed.length < 3) {
-        return currentListCharacters
-          .filter((c) => {
-            const lowerName = c.name.toLowerCase();
-            const nameParts = lowerName.split(/\s+/);
-            return lowerName.includes(trimmed) || nameParts.some((part) => part.startsWith(trimmed));
-          })
-          .slice(0, 9);
-      }
-      return appCharacters
-        .filter((c) => {
-          if (normalizePhoneName(c.name) === normalizePhoneName(player.name)) return false;
-          const lowerName = c.name.toLowerCase();
-          const nameParts = lowerName.split(/\s+/);
-          return lowerName.includes(trimmed) || nameParts.some((part) => part.startsWith(trimmed));
-        })
-        .slice(0, 9);
+      return bankingRecipientCandidates(query, recipientNames, appCharacters, player);
     };
 
     // When empty: only current list characters appear (max 9)
@@ -222,4 +170,43 @@ describe('banking account links and recipients', () => {
     // Player themselves is never included
     expect(getCandidates('alex')).toEqual([]);
   });
+  it('keeps stored banking links attached to their character after a rename', () => {
+    const { appCharacters } = setup();
+    const text = '@bank:Evelyn Reed';
+    const bindings = bindAccountLinks(text, appCharacters);
+    appCharacters.find((character) => character.sourceId === 'npc1')!.name = 'Evelyn Stone';
+    appCharacters.find((character) => character.sourceId === 'npc2')!.name = 'Evelyn Reed';
+    expect(parseAccountLinks(text, appCharacters, bindings)).toMatchObject([
+      { characterId: 'npc1', name: 'Evelyn Stone', token: text },
+    ]);
+    expect(parseAccountLinks(text, appCharacters.filter((character) => character.sourceId !== 'npc1'), bindings)).toEqual([]);
+  });
+
+  it('does not apply stored bindings to a longer token with the same prefix', () => {
+    const { appCharacters } = setup();
+    const bindings = bindAccountLinks('@bank:Evelyn Reed', appCharacters);
+    expect(parseAccountLinks('@bank:Evelyn Reed-extra', appCharacters, bindings)).toEqual([]);
+    expect(parseAccountLinks('@bank:Evelyn Reed.extra', appCharacters, bindings)).toEqual([]);
+    expect(parseAccountLinks('@bank:Evelyn Reed.', appCharacters, bindings)).toHaveLength(1);
+  });
+
+  it('rejects ambiguous recipients in links, selection, and library searches', () => {
+    const { appCharacters, storyCharacters } = setup();
+    appCharacters.find((character) => character.sourceId === 'npc2')!.name = 'Evelyn Reed';
+    expect(parseAccountLinks('@bank:Evelyn Reed', appCharacters)).toEqual([]);
+    expect(bankingRecipientByName('Evelyn Reed', appCharacters)).toBeUndefined();
+    expect(bankingRecipientCandidates('eve', ['Evelyn Reed'], appCharacters, storyCharacters[0])).toEqual([]);
+  });
+
+  it('prioritizes saved contacts in library search and limits results to nine', () => {
+    const { appCharacters, storyCharacters } = setup();
+    const candidates = Array.from({ length: 12 }, (_, index) => ({
+      ...appCharacters[1], id: `contact-${index}`, sourceId: `contact-${index}`, name: `Contact ${index}`,
+    }));
+    const results = bankingRecipientCandidates('contact', ['Contact 9'], candidates, storyCharacters[0]);
+    expect(results).toHaveLength(9);
+    expect(results[0].name).toBe('Contact 9');
+    expect(bankingRecipientCandidates('', ['Contact 9', 'contact 9', 'Unknown'], candidates)).toEqual([candidates[9]]);
+  });
+
 });
