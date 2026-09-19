@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SetStateAction } from 'react';
 import { useRoleplayPanelRuntime } from './useRoleplayPanelRuntime';
 import { emptyRpStorybook, normalizeRpStorybook, rpStorybookJsonText } from '../nodes/rp-storybook/model';
@@ -31,6 +31,39 @@ vi.mock('react', async (importOriginal) => ({
 }));
 
 beforeEach(() => { hooks.slots = []; hooks.index = 0; });
+afterEach(() => vi.unstubAllGlobals());
+
+it('stops following at the bottom during generation and resumes when content grows', () => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  const tick = (time: number) => {
+    const pending = [...frames.values()];
+    frames.clear();
+    pending.forEach((callback) => callback(time));
+  };
+  const { render, options } = harness();
+  options.isRunning = true;
+  options.smoothChatAutoScrollEnabled = true;
+  options.smoothChatAutoScrollMinSpeed = 42;
+  const runtime = render();
+  const thread = { scrollHeight: 500, clientHeight: 300, scrollTop: 200 };
+  runtime.chatThreadRef.current = thread as HTMLDivElement;
+  runtime.scrollChatThreadToBottomIfFollowing();
+  tick(0); tick(16); tick(32);
+  expect(frames.size).toBe(0);
+  thread.scrollHeight = 510;
+  runtime.scrollChatThreadToBottomIfFollowing();
+  tick(48); tick(64); tick(80);
+  expect(thread.scrollTop).toBeGreaterThan(200);
+  for (let time = 96; time <= 1000 && frames.size; time += 16) tick(time);
+  expect(thread.scrollTop).toBe(210);
+  expect(frames.size).toBe(0);
+});
 
 function harness() {
   const book = normalizeRpStorybook({ ...emptyRpStorybook, characters: [

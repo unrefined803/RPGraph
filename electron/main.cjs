@@ -4140,18 +4140,23 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
   const abort = createLlmAbortController(request);
   const reasoningChannel = `llm:chat-stream-reasoning:${request.requestId}`;
   let liveReasoningTokens = 0;
+  let sentReasoningTokens = 0;
+  let lastReasoningSendMs = -Infinity;
   const sendReasoningToken = () => {
     liveReasoningTokens += 1;
+    const now = performance.now();
+    if (now - lastReasoningSendMs < 100) return;
+    lastReasoningSendMs = now;
+    sentReasoningTokens = liveReasoningTokens;
     event.sender.send(reasoningChannel, liveReasoningTokens);
   };
   const sendFinalReasoningTokens = (usage) => {
     const finalTokens = usageReasoningTokens(usage);
-    if (
-      liveReasoningTokens > 0 &&
-      finalTokens !== undefined &&
-      finalTokens !== liveReasoningTokens
-    ) {
-      liveReasoningTokens = finalTokens;
+    if (liveReasoningTokens > 0) {
+      liveReasoningTokens = finalTokens ?? liveReasoningTokens;
+    }
+    if (liveReasoningTokens !== sentReasoningTokens) {
+      sentReasoningTokens = liveReasoningTokens;
       event.sender.send(reasoningChannel, liveReasoningTokens);
     }
   };

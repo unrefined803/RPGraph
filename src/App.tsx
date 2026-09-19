@@ -4929,8 +4929,8 @@ function App() {
   const nodeAssistantNode = nodeViewNodes.find((node) => node.id === nodeAssistantNodeId);
   const nodeAssistantMessages = nodeAssistantNodeId ? (nodeAssistantHistories[nodeAssistantNodeId] || []) : [];
   const workflowAssistantSnapshotJson = useMemo(
-    () => createWorkflowAssistantSnapshotJson(nodeViewNodes, edges),
-    [edges, nodeViewNodes],
+    () => workflowAssistantOpen ? createWorkflowAssistantSnapshotJson(nodeViewNodes, edges) : '',
+    [edges, nodeViewNodes, workflowAssistantOpen],
   );
   const [assistantDebugSnapshotSections, setAssistantDebugSnapshotSections] =
     useState<DebugSnapshotAssistantSection[]>([]);
@@ -4939,6 +4939,7 @@ function App() {
       // Building the debug snapshot reads refs and serializes large parts of the app
       // state, so it must not run during render; recompute only when the serialized
       // inputs change instead of on every render.
+      if (!nodeAssistantNode && !workflowAssistantOpen) return;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAssistantDebugSnapshotSections(
         nodeAssistantNode || workflowAssistantOpen ? createAssistantDebugSnapshotSections() : [],

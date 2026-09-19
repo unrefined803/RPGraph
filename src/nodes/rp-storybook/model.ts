@@ -946,16 +946,25 @@ export const starterRpStorybook: RpStorybook = normalizeRpStorybook({
 
 const storybookParseCacheMaxEntries = 1;
 const storybookParseCache: Array<{ text: string; storybook: RpStorybook }> = [];
+const storybookUpdateCache = new Map<string, boolean>();
 
 /** Inspect stored data without normalizing or migrating it. */
 export function storybookNeedsUpdate(text: string | undefined): boolean {
-  if (!text?.trim()) return false;
+  if (!text) return false;
+  const cached = storybookUpdateCache.get(text);
+  if (cached !== undefined) return cached;
+  let needsUpdate = false;
   try {
     const value = JSON.parse(text);
-    return value.format === 'rpgraph-storybook' && rpStorybookVersionStatus(value.version) === 'legacy';
+    needsUpdate = value.format === 'rpgraph-storybook' && rpStorybookVersionStatus(value.version) === 'legacy';
   } catch {
-    return false;
+    // Invalid documents are handled by the parser, not the upgrade indicator.
   }
+  // Node cards query this during streaming too. Avoid reparsing embedded media
+  // just to inspect the version, without retaining an unbounded edit history.
+  if (storybookUpdateCache.size >= 4) storybookUpdateCache.delete(storybookUpdateCache.keys().next().value!);
+  storybookUpdateCache.set(text, needsUpdate);
+  return needsUpdate;
 }
 
 export function parseRpStorybookJson(text: string): RpStorybook {

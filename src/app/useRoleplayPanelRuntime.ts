@@ -202,11 +202,6 @@ export function useRoleplayPanelRuntime({
   const chatAutoFollowAnimatingRef = useRef(false);
   const chatAutoFollowProgrammaticScrollRef = useRef(false);
   const chatAutoFollowProgrammaticClearFrameRef = useRef(0);
-  const isRunningRef = useRef(isRunning);
-
-  useEffect(() => {
-    isRunningRef.current = isRunning;
-  }, [isRunning]);
   const phoneImageInputRef = useRef<HTMLInputElement | null>(null);
   const phoneEmojiPickerRef = useRef<HTMLDivElement | null>(null);
   const phoneThreadRef = useRef<HTMLDivElement | null>(null);
@@ -1296,14 +1291,9 @@ export function useRoleplayPanelRuntime({
       const targetTop = Math.max(0, currentThread.scrollHeight - currentThread.clientHeight);
       const distance = targetTop - currentThread.scrollTop;
       if (distance <= 1) {
+        cancelChatAutoFollowAnimation();
         markChatProgrammaticScroll();
         currentThread.scrollTop = targetTop;
-        if (isRunningRef.current) {
-          chatAutoFollowAnimationTimeRef.current = timestamp;
-          chatAutoFollowAnimationFrameRef.current = requestAnimationFrame(step);
-          return;
-        }
-        cancelChatAutoFollowAnimation();
         return;
       }
 

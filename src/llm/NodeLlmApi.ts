@@ -141,13 +141,13 @@ export class NodeLlmApi {
           }
         : { temperature: request.temperature };
       let latestReasoningTokens = 0;
-      let lastReasoningUpdateMs = 0;
+      let lastReasoningUpdateMs = -Infinity;
       const onReasoningTokens = request.nodeId
         ? (tokenCount: number) => {
             if (signal?.aborted) return;
             latestReasoningTokens = tokenCount;
             const now = performance.now();
-            if (now - lastReasoningUpdateMs >= 50) {
+            if (now - lastReasoningUpdateMs >= 200) {
               lastReasoningUpdateMs = now;
               this.options.onReasoningTokens?.(request.nodeId!, tokenCount);
             }

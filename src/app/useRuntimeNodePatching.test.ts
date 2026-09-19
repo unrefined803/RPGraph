@@ -7,6 +7,22 @@ vi.mock('react', async (importOriginal) => ({ ...await importOriginal<typeof imp
 }));
 afterEach(() => vi.useRealTimers());
 
+it('skips unchanged runtime patches without suppressing changed token counts', () => {
+  const nodesRef = { current: [{ id: 'llm', data: { nodeType: 'llm-prompt', llmActiveReasoningTokens: 10 } }] as WorkflowNode[] };
+  const commitNodes = vi.fn((nodes: WorkflowNode[]) => { nodesRef.current = nodes; });
+  const { updateRuntimeNode } = useRuntimeNodePatching({ nodesRef, commitNodes,
+    activeRunRef: { current: null }, activeRunLlmReportRef: { current: null }, setRunLlmReport: vi.fn(),
+    openingHistorySignature: () => '', onStorybookOpeningHistoryChanged: vi.fn(),
+    replaceCurrentChatWithOpeningHistoryRef: { current: false },
+  });
+  updateRuntimeNode('llm', { llmActiveReasoningTokens: 10 });
+  updateRuntimeNode('missing', { llmActiveReasoningTokens: 20 });
+  expect(commitNodes).not.toHaveBeenCalled();
+  updateRuntimeNode('llm', { llmActiveReasoningTokens: 20 });
+  expect(commitNodes).toHaveBeenCalledTimes(1);
+  expect(nodesRef.current[0].data.llmActiveReasoningTokens).toBe(20);
+});
+
 it('does not replay runtime data after Undo while ending the delayed active indicator', () => {
   vi.useFakeTimers();
   const nodesRef = { current: [{ id: 'memory', data: { nodeType: 'memory-slot', memorySlotText: 'Before' } }] as WorkflowNode[] };
