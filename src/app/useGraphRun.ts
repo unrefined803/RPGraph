@@ -101,6 +101,7 @@ import {
   socialPostTextFromInput,
   socialReactionsHistoryText,
   socialThreadActionInputText,
+  socialThreadRunContextFromInput,
   socialThreadCommentTextFromInput,
   socialThreadHistoryText,
   type SocialThreadRunContext,
@@ -1293,6 +1294,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
           characterId: socialPost.authorCharacterId,
           accountId: socialPost.authorAccountId,
           handle: socialPost.authorHandle,
+        } : undefined, socialThreadAction ? {
+          authorHandle: socialThreadAction.postAuthorHandle,
+          participantHandles: (socialThreadContext ?? socialThreadRunContextFromInput(originalInput)).existingComments.map((comment) => comment.handle),
         } : undefined)
       : undefined;
     const executionOriginalInput = socialAccountContext

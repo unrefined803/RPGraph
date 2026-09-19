@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { socialReactionAccountContext } from './socialReactionAccounts';
+import { agencyTagCatalog } from '../../shared/agency-tags.cjs';
+import { socialReactionAccountContext, socialAgencyTone } from './socialReactionAccounts';
 import { appCharactersFromRegistry } from './appRuntime';
 import { buildCharacterRegistry } from './registry';
 import { browserNpcLibrarySnapshot } from './npcLibrary';
@@ -24,7 +25,7 @@ function cast(people: Character[], storybook?: Character) {
 }
 
 describe.each(['fotogram', 'onlyfriends'] as const)('%s post agency context', (app: SocialAppKind) => {
-  it('shows only app-specific reaction tags for eligible NPCs, with no additional profile context', () => {
+  it('shows authored character tags for eligible NPCs, with no additional profile context', () => {
     const regular = person('Regular', ['friendly_regular', 'slow_to_trust']);
     const lurker = person('Lurker', ['social_lurker', 'good_listener']);
     const disabled = person('Disabled'); disabled.apps![app]!.enabled = false;
@@ -36,16 +37,16 @@ describe.each(['fotogram', 'onlyfriends'] as const)('%s post agency context', (a
     legacy.agencyTags = undefined; legacy.apps![app]!.agencyTags = undefined;
     const { lines, text } = socialReactionAccountContext(characters, app, true);
     expect(lines).toEqual([
-      `- Regular (@Regular.${app}) [NPC] [Agency tags: friendly_regular]`,
-      `- Lurker (@Lurker.${app}) [NPC] [Agency tags: social_lurker]`,
+      `- Regular (@Regular.${app}) [NPC] [Agency tags: friendly_regular, slow_to_trust]`,
+      `- Lurker (@Lurker.${app}) [NPC] [Agency tags: social_lurker, good_listener]`,
       `- Author (@Author.${app}) [Storybook character]`,
     ]);
     expect(text).toContain('tone, wording and intent');
     expect(text).toContain('Never print agency tag labels');
     expect(text).toContain('not private messages');
     expect(text).not.toContain('PRIVATE_');
-    expect(text).not.toContain('slow_to_trust');
-    expect(text).not.toContain('good_listener');
+    expect(text).toContain('slow_to_trust');
+    expect(text).toContain('good_listener');
   });
 
   it('does not borrow another app assignment or a character-level-only tag', () => {
@@ -85,15 +86,15 @@ describe.each(['fotogram', 'onlyfriends'] as const)('%s post agency context', (a
     expect(socialReactionAccountContext(characters, app, true).lines).toEqual([]);
   });
 
-  it('preserves the existing untagged account context for comment-thread runs', () => {
+  it('shows tags for comment-thread participants including creators and DM-oriented characters', () => {
     const characters = cast([person('Creator', ['fan_engager'], 'creator'), person('PrivateOnly', ['shy_user'])]);
     const context = socialReactionAccountContext(characters, app, false);
     expect(context.lines).toEqual([
-      `- Creator (@Creator.${app}) [NPC]`, `- PrivateOnly (@PrivateOnly.${app}) [NPC]`,
+      `- Creator (@Creator.${app}) [NPC] [Agency tags: fan_engager]`, `- PrivateOnly (@PrivateOnly.${app}) [NPC] [Agency tags: shy_user]`,
     ]);
-    expect(context.text).not.toContain('Agency tags');
-    expect(context.text).not.toContain('fan_engager');
-    expect(context.text).not.toContain('private messages');
+    expect(context.text).toContain('Agency tags');
+    expect(context.text).toContain('fan_engager');
+    expect(context.text).toContain('not private messages');
   });
 
   it('emits explicit empty-audience instructions without inventing participants', () => {
@@ -109,9 +110,59 @@ it('uses real bundled OnlyFriends assignments rather than adding creator or DM-o
   const characters = appCharactersFromRegistry(buildCharacterRegistry(library.entries));
   const context = socialReactionAccountContext(characters, 'onlyfriends', true);
   expect(context.lines).toContain('- Chloe Lane (@afterglow.tempo) [NPC] [Agency tags: friendly_regular]');
-  expect(context.lines).toContain('- Nika Brooks (@silver.margin) [NPC] [Agency tags: boundary_setter]');
-  expect(context.lines).toContain('- Noah Blake (@quiet.compass) [NPC] [Agency tags: respectful_admirer]');
+  expect(context.lines).toContain(`- Nika Brooks (@silver.margin) [NPC] [Agency tags: ${characters.find((character) => character.name === 'Nika Brooks')!.agencyTags!.join(', ')}]`);
+  expect(context.lines).toContain(`- Noah Blake (@quiet.compass) [NPC] [Agency tags: ${characters.find((character) => character.name === 'Noah Blake')!.agencyTags!.join(', ')}]`);
   expect(context.text).not.toContain('paper.lantern');
   expect(context.text).not.toContain('copper.spoon');
-  expect(context.text).not.toContain('slow_to_trust');
+
+});
+
+describe('balanced social audiences', () => {
+  it('classifies every catalog tag', () => {
+    expect(Object.keys(socialAgencyTone).sort()).toEqual(agencyTagCatalog.map((tag) => tag.id).sort());
+  });
+
+  const population = () => cast([
+    ...Array.from({ length: 25 }, (_, i) => person(`Positive${i}`)),
+    ...Array.from({ length: 12 }, (_, i) => person(`Neutral${i}`, ['social_lurker'])),
+    ...Array.from({ length: 12 }, (_, i) => person(`Negative${i}`, ['catfish'])),
+  ], person('Story', ['emotional_supporter', 'quick_replier']));
+
+  it('caps NPCs at twenty with a 10/5/5 mix and adds tagged Storybook characters', () => {
+    const context = socialReactionAccountContext(population(), 'fotogram', false, undefined, undefined, () => 0.4);
+    expect(context.lines).toHaveLength(21);
+    expect(context.lines.filter((line) => line.includes('- Positive'))).toHaveLength(10);
+    expect(context.lines.filter((line) => line.includes('- Neutral'))).toHaveLength(5);
+    expect(context.lines.filter((line) => line.includes('- Negative'))).toHaveLength(5);
+    expect(context.lines).toContain('- Story (@Story.fotogram) [Storybook character] [Agency tags: emotional_supporter, quick_replier]');
+    expect(socialReactionAccountContext(population(), 'fotogram', false, undefined, undefined, () => 0.9).lines)
+      .not.toEqual(context.lines);
+  });
+
+  it('keeps the author and previous participants while honoring the cap', () => {
+    const context = socialReactionAccountContext(population(), 'fotogram', false, undefined, {
+      authorHandle: '@negative11.fotogram',
+      participantHandles: ['Positive24.fotogram', 'Positive24.fotogram', 'missing'],
+    }, () => 0);
+    expect(context.lines).toHaveLength(21);
+    expect(context.text).toContain('- Negative11 ');
+    expect(context.text).toContain('- Positive24 ');
+    const crowded = socialReactionAccountContext(population(), 'fotogram', false, undefined, {
+      authorHandle: 'Negative11.fotogram',
+      participantHandles: Array.from({ length: 25 }, (_, i) => `Positive${i}.fotogram`),
+    });
+    expect(crowded.lines).toHaveLength(21);
+    expect(crowded.text).toContain('- Negative11 ');
+  });
+
+  it('fills shortages from other categories and counts mixed negative tags as negative', () => {
+    const characters = cast(Array.from({ length: 30 }, (_, i) => person(`Mixed${i}`, ['friendly_regular', 'catfish'])));
+    const context = socialReactionAccountContext(characters, 'fotogram', true);
+    expect(context.lines).toHaveLength(20);
+    const mixed = population();
+    mixed.filter((character) => character.name.startsWith('Negative')).forEach((character) => {
+      character.agencyTags = ['friendly_regular', 'catfish'];
+    });
+    expect(socialReactionAccountContext(mixed, 'fotogram', false).lines.filter((line) => line.includes('- Negative'))).toHaveLength(5);
+  });
 });
