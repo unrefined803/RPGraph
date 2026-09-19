@@ -1,7 +1,7 @@
 {
   "name": "rpgraph-studio",
   "private": true,
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Local-first node graph studio for roleplay workflows.",
   "author": {
     "name": "unrefined803",
