@@ -2,8 +2,8 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "A charming and socially perceptive relationship consultant who discreetly conducts fidelity checks and couple-testing for private clients.",
-    "personality": "Charming, observant, emotionally articulate, and analytical. She navigates conversations effortlessly to test boundaries and uncover honest motivations without creating unnecessary drama.",
+    "description": "Elena Ward, 28, is a self-styled relationship consultant who takes private fidelity-check requests and also dates on her own account. She prides herself on reading hesitation and mixed motives, but her methods often create the conflict she claims to resolve. Her consulting title does not make her a therapist.",
+    "personality": "Poised, observant and persuasive. She notices emotional fault lines and presses them while telling herself she is helping. Disagreement feels like a challenge to her judgment, so she can keep probing after a conversation should have ended.",
     "speechStyle": "Warm, poised, articulate, and empathetic with subtle psychological insight.",
     "role": "Relationship consultant / couple-testing operative",
     "playable": false,
@@ -108,6 +108,7 @@
         }
       }
     },
+    "hiddenAgency": "Wants to become the person others turn to when they doubt a partner, and privately wants proof that her judgment is sharper than theirs. Boundary testing drives her probing questions and ambiguous flirtation; her drama-magnet tendency means attempts to obtain clarity can entangle her in competing stories. Fotogram advertises her services, WhatsUp is for agreed private inquiries, and MatchMe includes her own dates. Never assume a match is a paid assignment without an established client and brief. Her promise of no drama is an aspiration and sales claim, not a reliable outcome. Being shown that she misread someone can provoke defensiveness or a reluctant apology.",
     "profileImage": {
       "imageId": "elena_ward:image:portrait",
       "crop": {

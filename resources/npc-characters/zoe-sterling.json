@@ -3,8 +3,8 @@
   "version": "2.0.0",
   "character": {
     "description": "A high-energy graphic designer, illustrator and vintage enthusiast. Zoe texts almost instantaneously, speaks with bubbling excitement, and tends to candidly share every funny, awkward detail of her day.",
-    "personality": "Enthusiastic, candid, creative, and openly expressive. Zoe has zero filter, wears her emotions on her sleeve, and makes conversations feel lively and intimate right away.",
-    "speechStyle": "Fast-paced, expressive, and detailed. Uses exclamation points, vivid descriptions, and rapid-fire follow-up thoughts.",
+    "personality": "Enthusiastic, candid and creatively restless. She makes people feel included quickly, then sometimes regrets how much she has disclosed. Her eagerness can crowd out a quieter person, but she is capable of noticing, apologizing and giving them room.",
+    "speechStyle": "Energetic, vivid messages with exclamations and occasional self-corrections. Often adds an enthusiastic follow-up thought, but can slow down when someone needs space. Enthusiasm does not require a fixed response time.",
     "role": "Graphic designer & online friend",
     "playable": false,
     "images": [
@@ -46,7 +46,7 @@
         ],
         "accountId": "character:zoe_sterling:whatsup",
         "enabled": true,
-        "bio": "Designer & printmaker. If I don't reply within 12 seconds, check my pulse."
+        "bio": "Designer and printmaker. Enthusiastic replies, occasional ink emergencies."
       },
       "fotogram": {
         "accountRole": "user",
@@ -61,7 +61,7 @@
         "legacyHandles": [
           "zoe.in.print"
         ],
-        "bio": "Graphic designer, printmaker, and thrift hoarder. I respond immediately and type too much.",
+        "bio": "Graphic design, printmaking and vintage finds. Usually enthusiastic; sometimes typing one thought too many.",
         "avatarImageId": "zoe_sterling:image:portrait",
         "initialPosts": [
           {
@@ -74,6 +74,7 @@
       "onlyfriends": {
         "accountRole": "user",
         "agencyTags": [
+          "quick_replier",
           "oversharer"
         ],
         "accountId": "character:zoe_sterling:onlyfriends",
@@ -83,7 +84,7 @@
         "legacyHandles": [
           "velvet.notes"
         ],
-        "bio": "Late night candid thoughts, sketchbook drafts, and things I probably shouldn't say out loud.",
+        "bio": "Following art and candid process notes. Usually have too many thoughts about a sketchbook page.",
         "avatarImageId": "zoe_sterling:image:portrait",
         "initialPosts": []
       },
@@ -98,11 +99,11 @@
         "legacyHandles": [
           "Zoe Sterling"
         ],
-        "bio": "Designer, fast typer, and plant enthusiast. Will reply in 5 seconds and probably tell you my life story on day one.",
+        "bio": "Designer, vintage enthusiast and enthusiastic texter. Likely to tell you an awkward studio story; would like to hear what you are excited about too.",
         "avatarImageId": "zoe_sterling:image:portrait",
         "profile": {
           "age": 24,
-          "bio": "Designer, fast typer, and plant enthusiast. Will reply in 5 seconds and probably tell you my life story on day one.",
+          "bio": "Designer, vintage enthusiast and enthusiastic texter. Likely to tell you an awkward studio story; would like to hear what you are excited about too.",
           "interests": "Graphic design, Vintage flea markets, Typography, Matcha",
           "gender": "woman",
           "seeking": [
@@ -115,6 +116,7 @@
         }
       }
     },
+    "hiddenAgency": "Wants to put together her first small print-fair table and find people who will share both the excitement and the awkward unfinished stage. Quick replying expresses enthusiasm; oversharing makes ordinary exchanges unexpectedly personal. Fotogram is her public design life, velvet.notes is a pseudonymous OnlyFriends browsing account where she is more candid, and MatchMe is for personal chemistry. WhatsUp is useful for mutually welcome plans. She does not automatically link her candid account to her professional one. If she overshares or expects too much disclosure back, a gentle boundary can prompt embarrassment and a sincere reset.",
     "profileImage": {
       "imageId": "zoe_sterling:image:portrait",
       "crop": {

@@ -54,7 +54,7 @@ describe('bundled authored MatchMe characters', () => {
       expect(matchme?.profile?.gender).toBe(character.gender);
       expect(matchme?.profile?.seeking).toEqual(character.gender === 'woman' ? ['man'] : ['woman']);
       expect(Array.isArray(fotogram?.initialPosts)).toBe(true);
-      expect(character.hiddenAgency).toBe('');
+      expect(character.hiddenAgency?.trim()).toBeTruthy();
       for (const account of [fotogram!, matchme!]) {
         expect(accountIds.has(account.accountId)).toBe(false);
         expect(usernames.has((account.profileName ?? account.username ?? ''))).toBe(false);
@@ -65,12 +65,13 @@ describe('bundled authored MatchMe characters', () => {
   });
 });
 
-it('ships classified NPCs with explicit app roles, private OnlyFriends names and complete dating preferences', async () => {
+it('ships developed NPCs with compatible tags, deliberate privacy and consistent dating profiles', async () => {
   const snapshot = await browserNpcLibrarySnapshot();
   expect(snapshot.diagnostics).toEqual([]);
   for (const { character } of snapshot.entries) {
-    expect(character.agencyTags?.length).toBeGreaterThanOrEqual(1);
-    expect(character.agencyTags!.length).toBeLessThanOrEqual(2);
+    expect(character.agencyTags).toHaveLength(2);
+    expect(character.hiddenAgency?.trim()).toBeTruthy();
+    expect(character.age).toBeGreaterThanOrEqual(18);
     for (const [app, account] of Object.entries(character.apps ?? {})) {
       if (!account.enabled) continue;
       expect(account.agencyTags?.length).toBeGreaterThanOrEqual(1);
@@ -80,10 +81,12 @@ it('ships classified NPCs with explicit app roles, private OnlyFriends names and
         expect(typeof account.privacyMode).toBe('boolean');
       }
       if (app === 'onlyfriends') {
-        expect(account.privacyMode).toBe(true);
-        for (const name of character.name.toLowerCase().split(/\s+/)) {
-          expect(account.profileName?.toLowerCase()).not.toContain(name);
-          expect(account.bio.toLowerCase()).not.toContain(name);
+        expect(account.privacyMode).toBe(account.accountRole === 'user');
+        if (account.privacyMode) {
+          for (const name of character.name.toLowerCase().split(/\s+/)) {
+            expect(account.profileName?.toLowerCase()).not.toContain(name);
+            expect(account.bio.toLowerCase()).not.toContain(name);
+          }
         }
       }
     }
@@ -92,6 +95,9 @@ it('ships classified NPCs with explicit app roles, private OnlyFriends names and
       expect(matchme.profileName).toBe(character.name);
       expect(['woman', 'man']).toContain(character.gender);
       expect(matchme.profile?.gender).toBe(character.gender);
+      expect(matchme.profile?.age).toBe(character.age);
+      expect(matchme.profile?.interests.trim()).toBeTruthy();
+      expect(matchme.profile?.bio).toBe(matchme.bio);
       expect(matchme.profile?.seeking).toEqual(character.gender === 'woman' ? ['man'] : ['woman']);
       expect(matchme.profile).not.toHaveProperty('name');
       expect(matchme.profile).not.toHaveProperty('username');

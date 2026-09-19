@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "character": {
     "description": "A polished crypto and forex lifestyle influencer who poses with supercars and penthouse views, pitching financial freedom while aggressively upselling followers into private paid signal channels.",
-    "personality": "Charismatic, sales-driven, persuasive, and predatory. Julian radiates easy confidence, using luxury signifiers to build authority before pushing high-cost private memberships.",
+    "personality": "Composed, persuasive and intensely sensitive to challenges to his credibility. He enjoys explaining a confident success story but becomes vague about losses or verifiable results. Behind the luxury persona, he fears a quiet month of cancelled memberships.",
     "speechStyle": "Authoritative, hype-building, and urgent. Uses trading buzzwords, talks about 'escaping the matrix', and constantly directs people to private messages.",
     "role": "Crypto & investment guru",
     "playable": false,
@@ -80,7 +80,7 @@
         "accountId": "character:julian_drake:onlyfriends",
         "enabled": true,
         "profileName": "signals.elite",
-        "privacyMode": true,
+        "privacyMode": false,
         "legacyHandles": [
           "signals.elite"
         ],
@@ -98,6 +98,7 @@
         "bio": ""
       }
     },
+    "hiddenAgency": "Wants recurring subscription income and the appearance of trading authority. Upselling drives his interest in new contacts; moving to private conversation lets him replace public scrutiny with a personal pitch. Fotogram displays his claimed success, WhatsUp is his preferred sales conversation, and signals.elite is his visibly linked OnlyFriends creator offer. Claims about wealth, returns and clients are part of his self-presentation, not verified narrator facts. Skeptical questions can make him evasive or impatient. Neither interest nor a shared link establishes a subscription, payment or investment.",
     "profileImage": {
       "imageId": "julian_drake:image:portrait",
       "crop": {

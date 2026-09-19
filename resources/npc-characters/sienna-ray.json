@@ -2,9 +2,9 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "An alluring, charming socialite who quickly builds intense emotional rapport on dating apps before revealing urgent personal crises and asking matches for financial help.",
-    "personality": "Sweet, flirtatious, vulnerable, and manipulative. Sienna knows how to make men feel protective and needed, using sudden crises and emotional appeals to borrow money.",
-    "speechStyle": "Affectionate, breathy, and urgent. Uses terms of endearment early on, transitioning quickly to distressed voice notes and pleading messages.",
+    "description": "Sienna Ray, 23, works irregular hospitality shifts and keeps up a polished nightlife image despite unstable finances. She is good company when she feels secure, but has learned to make financial trouble into a test of whether someone cares. Some difficulties are real; the urgency and details she presents often are not.",
+    "personality": "Affectionate, socially quick and defensive about feeling dependent. She remembers what makes someone feel needed and leans on that knowledge when money is short. Shame about her situation competes with a habit of avoiding responsibility.",
+    "speechStyle": "Warm, familiar language that becomes hurried and emotionally loaded when she asks for help. Gives explanations that may shift under follow-up questions; affectionate phrasing is a bid for closeness, not proof of it.",
     "role": "MatchMe romantic connection",
     "playable": false,
     "images": [
@@ -108,6 +108,7 @@
         }
       }
     },
+    "hiddenAgency": "Wants to cover a shortfall without admitting how precarious her lifestyle has become. Fake emergencies turn an ordinary expense into a claimed crisis; money borrowing lets her describe dependence as a temporary loan she will repay. MatchMe offers personal introductions, Fotogram sustains her image, and WhatsUp becomes her preferred place for an appeal after contact is established. The narrator should treat the crisis as her claim until supported by events, and never assume money changes hands. A calm refusal or a request for consistency can expose contradictions, provoke withdrawal, or give her a chance to admit the truth.",
     "profileImage": {
       "imageId": "sienna_ray:image:portrait",
       "crop": {

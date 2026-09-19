@@ -109,7 +109,7 @@ it('uses real bundled OnlyFriends assignments rather than adding creator or DM-o
   const library = await browserNpcLibrarySnapshot();
   const characters = appCharactersFromRegistry(buildCharacterRegistry(library.entries));
   const context = socialReactionAccountContext(characters, 'onlyfriends', true);
-  expect(context.lines).toContain('- Chloe Lane (@afterglow.tempo) [NPC] [Agency tags: friendly_regular]');
+  expect(context.lines).toContain('- Chloe Lane (@afterglow.tempo) [NPC] [Agency tags: friendly_regular, hobby_friend]');
   expect(context.lines).toContain(`- Nika Brooks (@silver.margin) [NPC] [Agency tags: ${characters.find((character) => character.name === 'Nika Brooks')!.agencyTags!.join(', ')}]`);
   expect(context.lines).toContain(`- Noah Blake (@quiet.compass) [NPC] [Agency tags: ${characters.find((character) => character.name === 'Noah Blake')!.agencyTags!.join(', ')}]`);
   expect(context.text).not.toContain('paper.lantern');

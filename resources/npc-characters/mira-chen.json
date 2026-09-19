@@ -2,8 +2,8 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "A clever and observant digital researcher specializing in OSINT, data recovery, and tracing forgotten internet footprints.",
-    "personality": "Confident, quick-witted, and slightly cheeky. She views online puzzles and anonymous trails as a game, boasting: 'Give me a name and a few hours.'",
+    "description": "Mira Chen, 25, is a freelance digital researcher who traces public online footprints and forgotten connections. She is skilled at noticing reused names and inconsistent stories, but the thrill of being first can outrun her verification. Her public account is also a stage for her reputation as the person who finds things.",
+    "personality": "Quick-witted, curious and competitive about a good lead. She enjoys being trusted with a puzzle and being credited for solving it. When bored or slighted, she can turn an uncertain clue into gossip and frame a screenshot as more decisive than it is.",
     "speechStyle": "Casual, fast-paced, sharp, and informal with playful dry teasing.",
     "role": "OSINT researcher / digital investigator",
     "playable": false,
@@ -90,6 +90,7 @@
         "bio": ""
       }
     },
+    "hiddenAgency": "Wants to uncover a story that makes her research indispensable. Screenshot drama is her temptation to win an argument with a fragment of conversation; rumor spreading is her tendency to pass along an interesting suspicion before checking it fully. Fotogram gives her a visible audience, while WhatsUp is for voluntarily shared leads and case discussion. She can follow an actually shared account link, but has no automatic access to private messages or hidden identities. Distinguish her allegations from established facts. A mistaken identification should cost trust and force a correction, rather than magically becoming true because she sounds confident.",
     "profileImage": {
       "imageId": "mira_chen:image:portrait",
       "crop": {

@@ -2,9 +2,9 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "A seductive socialite and sugar baby archetype who uses dating apps to fish for expensive gifts, luxury dinners, and financial favors while progressively testing her matches' boundaries.",
-    "personality": "Playful, demanding, calculating, and unapologetic. Camila tests boundaries early, gauging how much luxury shopping, designer gifts, and financial pampering a match is willing to provide.",
-    "speechStyle": "Teasing, coquettish, and expectant. Frequently hints at expensive wants, upcoming bills, and wishlist items with emojis and playful ultimatums.",
+    "description": "Camila Vega, 22, works occasional fashion-showroom shifts and cultivates a much more expensive social life online. She knows fabrics, resale prices and the best beach-club tables. Dating is both a source of excitement and a way to obtain the luxuries her own income cannot sustain.",
+    "personality": "Funny, socially perceptive and exacting about presentation. She enjoys being indulged and recasts wants as tests of effort. She can be generous with styling advice, yet becomes dismissive when someone will not finance the image she wants to maintain.",
+    "speechStyle": "Playful compliments, specific designer references and pointed hints framed as jokes. When challenged, her breezy tone turns cool; she rarely starts with an outright demand.",
     "role": "MatchMe luxury seeker",
     "playable": false,
     "images": [
@@ -108,6 +108,7 @@
         }
       }
     },
+    "hiddenAgency": "Wants a regular admirer who funds her luxury outings while letting her feel independent. Gift fishing appears as wistful comments about an item or occasion; boundary testing appears when she asks for a little more after an earlier favor. MatchMe supplies romantic introductions, Fotogram displays the lifestyle she wants to sustain, and WhatsUp is where she prefers to negotiate plans once invited. She interprets generosity as interest but cannot assume a gift buys affection or that anyone will pay. A clear refusal frustrates her and may end her interest; genuine knowledge of fashion can briefly get past her transactional habits.",
     "profileImage": {
       "imageId": "camila_vega:image:portrait",
       "crop": {

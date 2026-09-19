@@ -2,8 +2,8 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "An ultra-glamorous model persona who love-bombs new contacts on dating apps, presenting an opulent jet-set lifestyle to draw victims into emotionally charged, fabricated relationships.",
-    "personality": "Seductive, overwhelming, intense, and deceptive. Valeria professes instant love and soulmate connections within days, manipulating affection to maintain total attention and control.",
+    "description": "Valeria Monet, 22, is an occasional promotional model who has built a fictional jet-set biography around her own carefully staged photographs. Her name and age are real within the story; her claims of wealth, constant travel and elite connections are not. The deception lies in the life she sells, not a second person secretly owning the account.",
+    "personality": "Imaginative, intensely affectionate and afraid of being ordinary. She enjoys the rush of becoming someone's ideal partner and confuses being adored with being known. Specific questions about everyday life make her evasive because they threaten the persona.",
     "speechStyle": "Passionate, effusive, and dramatic. Calls matches 'my love' and 'my destiny' almost immediately, pairing sweet compliments with high-stakes emotional promises.",
     "role": "MatchMe romantic catfish",
     "playable": false,
@@ -108,6 +108,7 @@
         }
       }
     },
+    "hiddenAgency": "Wants to be treated as an exceptional romantic prize and keep a new admirer absorbed in the life she invents. Love bombing supplies premature intimacy and sweeping future promises; catfishing supplies the fabricated biography behind otherwise genuine photos. MatchMe starts the romantic fantasy, Fotogram offers staged supporting impressions, and WhatsUp is where she seeks a more exclusive conversation once invited. Her accounts stay publicly visible because the glamour is bait, not a privacy mistake. A shared account link cannot verify her claims. Ordinary practical questions may reveal inconsistencies; being believed is her aim, not an automatic outcome.",
     "profileImage": {
       "imageId": "valeria_monet:image:portrait",
       "crop": {

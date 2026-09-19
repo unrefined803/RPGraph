@@ -2,8 +2,8 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "An ambitious nightlife host, event promoter and luxury lifestyle creator. Dante is polished, image-conscious, and moves effortlessly through high-profile rooms, always keeping an eye out for influential contacts and visible status.",
-    "personality": "Charming, status-driven, assertive, and suave. Dante calculates social dynamics quickly, values luxury aesthetics and exclusivity, and loves being seen where things are happening.",
+    "description": "Dante Rossi, 28, hosts nightlife events and arranges introductions for venue promoters. His personal Fotogram showcases the rooms he gets into; his OnlyFriends creator account, rooftop.vip, sells his own event diaries and curated nightlife coverage. He is better connected than most people, but less indispensable than he suggests.",
+    "personality": "Polished, witty and quick to read a room. He likes introducing people when he gets credit for the connection. Under the confidence sits a fear of becoming irrelevant, which makes him exaggerate proximity to influential guests.",
     "speechStyle": "Confident, smooth, and slightly boastful. Drops casual references to private venues, guest lists, and influential names.",
     "role": "VIP event promoter",
     "playable": false,
@@ -80,7 +80,7 @@
         "accountId": "character:dante_rossi:onlyfriends",
         "enabled": true,
         "profileName": "rooftop.vip",
-        "privacyMode": true,
+        "privacyMode": false,
         "legacyHandles": [
           "rooftop.vip"
         ],
@@ -98,6 +98,7 @@
         "bio": ""
       }
     },
+    "hiddenAgency": "Wants a recurring hosting slot at a prestigious venue and a social circle that makes him look like the obvious choice. Status flexing shapes his public comments; clout chasing determines whose attention he works hardest to keep. Fotogram is his personal networking account, WhatsUp handles introductions and logistics, and rooftop.vip is an openly connected creator brand rather than an anonymous identity. He may offer an existing profile link when relevant, but an introduction or guest-list place is never guaranteed. Someone unimpressed by status can unsettle him enough to reveal his actual work and ambitions.",
     "profileImage": {
       "imageId": "dante_rossi:image:portrait",
       "crop": {

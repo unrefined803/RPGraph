@@ -36,7 +36,7 @@ describe('Stage 7 bundled discovery replacement', () => {
       expect(character.apps?.fotogram?.bio).not.toBe('');
       expect(character.apps?.fotogram?.initialPosts?.some((post) => !!post.imageId)).toBe(true);
       if (convertedOnlyFriendsIds.has(character.id)) {
-        expect(character.apps?.onlyfriends).toMatchObject({ enabled: true, privacyMode: true });
+        expect(character.apps?.onlyfriends).toMatchObject({ enabled: true, privacyMode: character.id !== 'maya_brooks' });
       } else {
         expect(character.apps?.onlyfriends).toBeUndefined();
       }

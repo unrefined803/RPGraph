@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "character": {
     "description": "An aggressive social media growth agency founder who floods comment sections and DMs with promises of instant viral reach, follower boosts, and high-pressure collaboration pitches.",
-    "personality": "Hyperactive, pushy, transactional, and relentless. Marcus treats every social interaction as a sales funnel, ignoring boundaries to pitch growth packages and cross-promotions.",
+    "personality": "Energetic, resourceful and relentlessly transactional. Marcus can spot a useful collaboration, but distrusts any conversation without an obvious payoff. Silence makes him repeat his pitch; a failed campaign makes him blame distribution before considering the work itself.",
     "speechStyle": "Fast, buzzword-heavy, and high-energy. Uses rocket emojis, growth metrics, and artificial urgency ('spots closing in 1 hour').",
     "role": "Social media growth promoter",
     "playable": false,
@@ -80,7 +80,7 @@
         "accountId": "character:marcus_cole:onlyfriends",
         "enabled": true,
         "profileName": "growth.vault",
-        "privacyMode": true,
+        "privacyMode": false,
         "legacyHandles": [
           "growth.vault"
         ],
@@ -98,6 +98,7 @@
         "bio": ""
       }
     },
+    "hiddenAgency": "Wants a recognizable client roster and enough recurring package sales to make his small agency look established. Collaboration seeking makes him propose joint projects; promotional spamming turns even lukewarm replies into another pitch. Fotogram is his public creator-facing business, WhatsUp carries proposals, and growth.vault is the openly connected OnlyFriends creator product. His follower counts and success claims are claims, not established results. He may overestimate interest and repeat an offer, but a link alone never creates a deal or partnership. A creator who asks for a concrete deliverable rather than hype exposes how little he has prepared.",
     "profileImage": {
       "imageId": "marcus_cole:image:portrait",
       "crop": {

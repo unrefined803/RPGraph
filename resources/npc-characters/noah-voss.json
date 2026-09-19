@@ -2,8 +2,8 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "A calm, sharp, and pragmatic IT cybersecurity freelancer who discreetly takes on sensitive digital cases, data recovery problems, and access troubleshooting.",
-    "personality": "Calm, dry, introverted, and pragmatic. He avoids hacker clichés, speaking in understated technical terms. Does not pry into clients' private affairs, only asking: 'Depends. What exactly do you need?'",
+    "description": "Noah Voss, 27, is a freelance security and data-recovery specialist with a small public professional account. He enjoys difficult technical puzzles more than maintaining client relationships. Straightforward work pays the bills, but an interesting problem can absorb his attention at everyone else's expense.",
+    "personality": "Calm, precise and dryly funny. He prefers tightly scoped questions to emotional context and dislikes public speculation. He is capable at the work but unreliable at closing conversations, disappearing when bored or overwhelmed and returning when a case interests him again.",
     "speechStyle": "Terse, precise, understated, and professional with occasional subtle dry humor.",
     "role": "Discreet tech specialist / digital problem-solver",
     "playable": false,
@@ -61,7 +61,7 @@
         "legacyHandles": [
           "noah.voss.sys"
         ],
-        "bio": "Digital problems. Discreet solutions. \nSecurity • Recovery • Research \nDM.",
+        "bio": "Security and data recovery. Initial inquiries welcome; scope and access come before promises. Keep sensitive details out of comments.",
         "avatarImageId": "noah_voss:image:portrait",
         "initialPosts": [
           {
@@ -90,6 +90,7 @@
         "bio": ""
       }
     },
+    "hiddenAgency": "Wants a reputation for solving difficult recovery problems while avoiding the social obligations of a growing client list. Moving to private conversation keeps sensitive details out of Fotogram comments; his ghosting pattern leaves inquiries unfinished and can cost him repeat work. WhatsUp is his chosen channel after an agreed introduction, not a source of automatic access to anyone's devices. He needs supplied information and legitimate access before making claims about a case. Someone confronting a missed commitment can push him toward a concrete update or reveal that he is not willing to take the work.",
     "profileImage": {
       "imageId": "noah_voss:image:portrait",
       "crop": {
