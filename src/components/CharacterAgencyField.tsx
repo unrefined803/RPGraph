@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { agencyTagCatalog, agencyTagSupports, type AgencyAccountRole, type AgencyTagId } from '../../shared/agency-tags.cjs';
 import { characterAgencyDraft, withCharacterAgency, type CharacterAgencyDraft } from '../characters/agency';
 import type { Character, CharacterApps } from '../characters/character';
+import { AgencyTagSelect } from './AgencyTagSelect';
+import { useAgencyTagHoverTooltip, AGENCY_TAG_TOOLTIP_DELAY_MS } from './AgencyTagTooltip';
 import './characterAgencyField.css';
 
 /** Transactional authoring controls shared by NPC and Storybook editors. */
@@ -55,6 +57,15 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
   const summaryText = count === 0 ? 'Empty' : count === 1 ? '1 Tag' : `${count} Tags`;
   const appEntries = Object.entries(character.apps ?? {}) as [keyof CharacterApps, NonNullable<CharacterApps[keyof CharacterApps]>][];
 
+  const {
+    handleTagMouseEnter,
+    handleTagMouseLeave,
+    handleTagClick,
+    showTooltipForElement,
+    hideTooltip,
+    TooltipPortal,
+  } = useAgencyTagHoverTooltip(AGENCY_TAG_TOOLTIP_DELAY_MS);
+
   return (
     <div className={`character-agency-field character-field${isEditing ? ' is-editing' : ''}${!revealed ? ' is-collapsed' : ''}`}>
       <div className="character-agency-header">
@@ -81,7 +92,15 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
                 <div className="character-agency-tag-chips">
                   {characterTags.length > 0 ? (
                     characterTags.map((tag) => (
-                      <span key={tag} className="character-agency-badge">{tag}</span>
+                      <span
+                        key={tag}
+                        className="character-agency-badge character-agency-hoverable"
+                        onMouseEnter={handleTagMouseEnter(tag)}
+                        onMouseLeave={handleTagMouseLeave}
+                        onClick={handleTagClick}
+                      >
+                        {tag}
+                      </span>
                     ))
                   ) : (
                     <span className="character-agency-empty-label">Empty</span>
@@ -159,7 +178,15 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
                   <div className="character-agency-app-tags">
                     {tags.length > 0 ? (
                       tags.map((tag) => (
-                        <span key={tag} className="character-agency-app-tag-pill">{tag}</span>
+                        <span
+                          key={tag}
+                          className="character-agency-app-tag-pill character-agency-hoverable"
+                          onMouseEnter={handleTagMouseEnter(tag)}
+                          onMouseLeave={handleTagMouseLeave}
+                          onClick={handleTagClick}
+                        >
+                          {tag}
+                        </span>
                       ))
                     ) : (
                       <span className="character-agency-tag-none">Unclassified</span>
@@ -182,25 +209,18 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
                 return (
                   <label className="character-agency-select-field" key={index}>
                     <span className="field-label">{index === 0 ? 'Primary Agency Tag' : 'Second Tag (Optional)'}</span>
-                    <div className="character-agency-select-wrap">
-                      <select
-                        value={selectedId}
-                        disabled={disabled || (index === 1 && !draft.agencyTags[0])}
-                        onChange={(event) => selectTag(index, event.target.value)}
-                        className="character-agency-select nodrag"
-                      >
-                        <option value="">{index === 0 ? 'None' : 'None (Single tag)'}</option>
-                        {agencyTagCatalog.map((tag) => (
-                          <option
-                            key={tag.id}
-                            value={tag.id}
-                            disabled={draft.agencyTags.includes(tag.id) && selectedId !== tag.id}
-                          >
-                            {tag.id}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <AgencyTagSelect
+                      value={selectedId}
+                      disabled={disabled || (index === 1 && !draft.agencyTags[0])}
+                      placeholder={index === 0 ? 'None' : 'None (Single tag)'}
+                      options={agencyTagCatalog.map((tag) => ({
+                        id: tag.id,
+                        disabled: draft.agencyTags.includes(tag.id) && selectedId !== tag.id,
+                      }))}
+                      onChange={(value) => selectTag(index, value)}
+                      onShowTooltip={showTooltipForElement}
+                      onHideTooltip={hideTooltip}
+                    />
                     {meaning && <span className="character-agency-tag-meaning">{meaning}</span>}
                   </label>
                 );
@@ -255,11 +275,16 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
                         draft.agencyTags.map((tag) => {
                           const compatible = agencyTagSupports(tag, key, assignment.accountRole ?? 'user');
                           const isChecked = assignment.agencyTags.includes(tag);
+                          const extra = !compatible
+                            ? `${tag} is not compatible with ${assignment.accountRole ?? 'user'} role on ${appName}`
+                            : undefined;
                           return (
                             <label
                               key={tag}
                               className={`character-agency-pill-toggle nodrag${isChecked ? ' is-active' : ''}${!compatible ? ' is-incompatible' : ''}`}
-                              title={!compatible ? `${tag} is not compatible with ${assignment.accountRole ?? 'user'} role on ${appName}` : undefined}
+                              onMouseEnter={handleTagMouseEnter(tag, extra)}
+                              onMouseLeave={handleTagMouseLeave}
+                              onClick={handleTagClick}
                             >
                               <input
                                 type="checkbox"
@@ -332,6 +357,7 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
           </fieldset>
         )
       )}
+      {TooltipPortal}
     </div>
   );
 }
