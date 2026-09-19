@@ -252,7 +252,7 @@
 .pt-match small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 @container (max-width: 560px) {
   .pt-conversation .phone-social-dm-composer { flex-wrap: wrap; padding: 8px; }
-  .pt-conversation .phone-social-dm-composer input { flex-basis: 100%; }
+  .pt-conversation .phone-social-dm-composer .account-link-input { flex-basis: 100%; }
   .pt-conversation .phone-social-dm-emoji-menu { margin-left: auto; }
   .pt-match small { max-width: 75px; }
 }

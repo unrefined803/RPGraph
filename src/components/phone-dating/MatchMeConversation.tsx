@@ -1,3 +1,4 @@
+import { AccountLinkInput } from '../AccountLinkInput';
 import { AccountLinkText } from '../AccountLinkText';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { useEffect, useRef, useState } from 'react';
@@ -78,10 +79,11 @@ export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, 
         </div>
       </div>)}
     </div>
-    <AccountLinkText text={draft} preview />
     <form className="phone-social-dm-composer" onSubmit={(event) => { event.preventDefault(); if (draft.trim() && !busy) onSend(); }}>
-      <input ref={inputRef} type="text" aria-label={`Message ${name}`} placeholder="Message…" maxLength={4000} value={draft}
-        onChange={(event) => onDraftChange(event.target.value)} autoFocus />
+      <AccountLinkInput value={draft}>
+        <input ref={inputRef} type="text" aria-label={`Message ${name}`} placeholder="Message…" maxLength={4000} value={draft}
+          onChange={(event) => onDraftChange(event.target.value)} autoFocus />
+      </AccountLinkInput>
       <div className="phone-social-dm-emoji-menu" ref={emojiRef}>
         <button type="button" className="phone-social-dm-emoji-button" aria-label="Open emoji picker" aria-expanded={emojiOpen} onClick={() => setEmojiOpen(!emojiOpen)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

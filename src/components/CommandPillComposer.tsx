@@ -1,4 +1,4 @@
-import { AccountLinkText } from './AccountLinkText';
+import { AccountLinkInput } from './AccountLinkInput';
 import {
   forwardRef,
   type FormEvent,
@@ -330,6 +330,7 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
   };
 
   const textareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) return;
     if (menuOpen) {
       if (event.key === 'ArrowDown') {
         event.preventDefault();
@@ -398,17 +399,18 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
             ))}
           </div>
         )}
-        <AccountLinkText text={value} preview />
-        <textarea
-          ref={textareaRef}
-          id={id}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => changeValue(event.target.value, event.target.selectionStart)}
-          onKeyDown={textareaKeyDown}
-          placeholder={placeholder}
-          rows={rows}
-        />
+        <AccountLinkInput value={value}>
+          <textarea
+            ref={textareaRef}
+            id={id}
+            value={value}
+            disabled={disabled}
+            onChange={(event) => changeValue(event.target.value, event.target.selectionStart)}
+            onKeyDown={textareaKeyDown}
+            placeholder={placeholder}
+            rows={rows}
+          />
+        </AccountLinkInput>
       </div>
     </div>
   );

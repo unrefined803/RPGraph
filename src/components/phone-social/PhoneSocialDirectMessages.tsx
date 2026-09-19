@@ -1,3 +1,4 @@
+import { AccountLinkInput } from '../AccountLinkInput';
 import { AccountLinkText } from '../AccountLinkText';
 import { npcSeedPostAccountId } from '../../characters/npcParticipants';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -357,16 +358,17 @@ export function PhoneSocialDirectMessages({
           );
         })}
       </div>
-      <AccountLinkText text={draft} preview />
       <form className="phone-social-dm-composer" onSubmit={submitMessage}>
-        <input
-          type="text"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Message..."
-          disabled={disabled}
-          autoFocus
-        />
+        <AccountLinkInput value={draft}>
+          <input
+            type="text"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Message..."
+            disabled={disabled}
+            autoFocus
+          />
+        </AccountLinkInput>
         <div className="phone-social-dm-emoji-menu" ref={emojiMenuRef}>
           <button
             type="button"

@@ -17,10 +17,32 @@
   cursor: default;
 }
 .account-link:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-.account-link-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  font-size: 12px;
-  padding: 4px 8px;
+.account-link-input {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+.account-link-input > input { width: 100%; box-sizing: border-box; }
+.account-link-input-viewport {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+  display: none;
+}
+.account-link-input.has-links > .account-link-input-viewport { display: block; }
+.account-link-input.has-links > :is(input, textarea) {
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--account-input-caret);
+}
+.account-link-input-mirror { box-sizing: border-box; }
+.account-link-input-mirror > span { flex: none; }
+.account-link-recognized {
+  color: #72b9ff;
+  background: rgba(114, 185, 255, 0.12);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (forced-colors: active) {
+  .account-link-recognized { color: LinkText; }
 }
