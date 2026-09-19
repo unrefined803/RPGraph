@@ -913,6 +913,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         translated
           ? { originalText, translatedText: text, ...extraFields }
           : { originalText: text, ...extraFields },
+        { streaming: true },
       );
     };
     const clearLiveOutputFlush = () => {

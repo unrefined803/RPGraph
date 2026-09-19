@@ -230,7 +230,7 @@ export function useTurnRecordState({
     return id;
   }
 
-  function updateMessage(messageId: number, patch: Partial<MessageRecord>) {
+  function updateMessage(messageId: number, patch: Partial<MessageRecord>, options?: { streaming?: boolean }) {
     if (patch.socialDirectMessage) {
       const previous = messagesRef.current.find((entry) => entry.id === messageId)?.socialDirectMessage;
       patch = { ...patch, socialDirectMessage: { ...patch.socialDirectMessage,
@@ -244,31 +244,32 @@ export function useTurnRecordState({
     }
 
     const patchMessages = (current: MessageRecord[]) =>
-      current.map((message) =>
+      current.some((message) => message.id === messageId) ? current.map((message) =>
         message.id === messageId ? { ...message, ...patch } : message,
-      );
+      ) : current;
     const collector = activeTurnCollectorRef.current;
     if (collector) {
       collector.inputMessages = patchMessages(collector.inputMessages);
       collector.outputMessages = patchMessages(collector.outputMessages);
     }
-    const nextTurns = turnsRef.current.map((turn) => ({
-      ...turn,
-      input: {
-        ...turn.input,
-        messages: patchMessages(turn.input.messages),
-      },
-      output: {
-        ...turn.output,
-        messages: patchMessages(turn.output.messages),
-      },
-    }));
+    // Live output belongs to the active collector. Persist contacts and update
+    // completed turns only when the final message is applied, not per preview.
+    if (!options?.streaming) {
+      const nextTurns = turnsRef.current.map((turn) => {
+        const input = patchMessages(turn.input.messages);
+        const output = patchMessages(turn.output.messages);
+        return input === turn.input.messages && output === turn.output.messages ? turn : {
+          ...turn, input: { ...turn.input, messages: input }, output: { ...turn.output, messages: output },
+        };
+      });
+      if (nextTurns.some((turn, index) => turn !== turnsRef.current[index])) setTurns(nextTurns);
+    }
     const nextMessages = patchMessages(messagesRef.current);
     const updatedMessage = nextMessages.find((message) => message.id === messageId);
-    if (updatedMessage) captureNpcMessages([updatedMessage]);
-    setTurns(nextTurns);
+    if (updatedMessage && !options?.streaming) captureNpcMessages([updatedMessage]);
     messagesRef.current = nextMessages;
-    setMessages(messagesRef.current);
+    if (options?.streaming) setMessagesState(nextMessages);
+    else setMessages(nextMessages);
   }
 
   function updateHistoryMessageTimes(patches: Array<{ id: number; rpDateTime: string }>) {

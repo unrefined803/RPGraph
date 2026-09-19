@@ -9,6 +9,7 @@ const http = require('node:http');
 const https = require('node:https');
 const os = require('node:os');
 const path = require('node:path');
+const { createTextStreamBatch } = require('./streamBatch.cjs');
 const { currentScryptParameters } = require('./encryptionFormat.cjs');
 const {
   currentEncryptedSessionEnvelopeFormatVersion,
@@ -4139,6 +4140,11 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   const reasoningChannel = `llm:chat-stream-reasoning:${request.requestId}`;
+  const textBatch = createTextStreamBatch((text) => {
+    if (!abort.signal.aborted && !event.sender.isDestroyed()) {
+      event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, text);
+    }
+  });
   let liveReasoningTokens = 0;
   let sentReasoningTokens = 0;
   let lastReasoningSendMs = -Infinity;
@@ -4202,7 +4208,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
         const deltaText = textFromGeminiCandidate(candidate);
         if (deltaText) {
           content += deltaText;
-          event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, deltaText);
+          textBatch.push(deltaText);
         }
         if (typeof candidate?.finishReason === 'string') {
           finishReason = candidate.finishReason;
@@ -4242,7 +4248,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
       const result = await streamLmStudioChat(
         request,
         abort,
-        (text) => event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, text),
+        (text) => textBatch.push(text),
         sendReasoningToken,
       );
       sendFinalReasoningTokens(result.usage);
@@ -4307,7 +4313,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
         (!content ? textFromChatChoice(choice) : '');
       if (deltaText) {
         content += deltaText;
-        event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, deltaText);
+        textBatch.push(deltaText);
       }
       if (typeof choice?.finish_reason === 'string') {
         finishReason = choice.finish_reason;
@@ -4346,6 +4352,8 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
     }
     throw normalizeLlmError(error);
   } finally {
+    if (abort.signal.aborted) textBatch.cancel();
+    else textBatch.flush();
     abort.dispose();
   }
 });

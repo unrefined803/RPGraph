@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { useStableNodeActions } from './useStableNodeActions';
 import type { Edge } from '@xyflow/react';
 import { executeGraph } from '../graph/executeGraph';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
@@ -915,7 +916,7 @@ export function useNodeActionsController({
     );
   }
 
-  const nodeActions: NodeActions = {
+  const nodeActions: NodeActions = useStableNodeActions({
     updateData: (nodeId, patch) => updateRuntimeNode(nodeId, patch as Partial<WorkflowNodeData>),
     changeConnection: changePromptConnection,
     changeOutputOption,
@@ -963,7 +964,7 @@ export function useNodeActionsController({
     changeSettingsValueLabel,
     clearCharacterStatsState,
     clearHistoryTimeState,
-  };
+  });
 
   return {
     nodeActions,
