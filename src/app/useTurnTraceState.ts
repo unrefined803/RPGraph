@@ -32,7 +32,9 @@ export function useTurnTraceState() {
 
   function recordTurnTrace(input: CreateTurnTraceInput) {
     const trace = createTurnTrace(input);
-    const retained = turnTracesRef.current.filter((entry) => entry.traceId !== trace.traceId);
+    const retained = turnTracesRef.current.filter(
+      (entry) => entry.turnId !== trace.turnId && entry.traceId !== trace.traceId,
+    );
     setTurnTraces(pruneToRecentTurns([...retained, trace]));
     return trace;
   }
