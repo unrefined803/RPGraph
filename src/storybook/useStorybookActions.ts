@@ -1,4 +1,4 @@
-import { characterUsageReasons, characterRemovalInfo, storybookWithRetiredCharacter } from '../characters/lifecycle';
+import { characterUsageReasons, characterRemovalInfo, characterStoryTextWarnings, storybookWithRetiredCharacter } from '../characters/lifecycle';
 import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
 import type { NpcLibraryEntry, NpcLibraryFileSummary, NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { characterReferenceCandidates, hydrateAddedCharacterReferences, relationshipReferenceContext, validateRelationshipTargets } from '../characters/relationships';
@@ -524,9 +524,8 @@ export function useStorybookActions({
         ? [parseRpStorybookJson(entry.data.storybookJson).openingHistory] : entry.data.eventAppointments ?? []),
       currentSocialLikesByAccount?.(), currentSocialConnectionsByCharacter?.(),
       currentPhoneNotesByCharacter?.(), currentChatGpdChatsByCharacter?.()];
-    const reasons = characterUsageReasons(character, effective?.aliases ?? {}, history,
-      currentCharacterRegistry().characters.map((entry) => entry.character));
-    return { ...characterRemovalInfo(character, library?.character, reasons),
+    const reasons = characterUsageReasons(character, effective?.aliases ?? {}, history);
+    return { ...characterRemovalInfo(character, library?.character, reasons, characterStoryTextWarnings(book, character.name)),
       localFileName: users.length === 1 ? users[0].fileName : undefined };
   }
 
@@ -538,7 +537,8 @@ export function useStorybookActions({
     const character = book.characters.find((entry) => entry.id === characterId);
     const effective = currentCharacterRegistry().characters.find((entry) => entry.character.id === characterId);
     if (!character || !effective || effective.provenance.source !== nodeId) throw new Error('The character is no longer available in this Storybook.');
-    if (mode === 'delete' && removalInfo(nodeId, characterId).reasons.length) throw new Error('This character is in use. Keep it as an NPC instead.');
+    const info = removalInfo(nodeId, characterId);
+    if (mode === 'delete' && info.reasons.length) throw new Error('This character is in use. Keep it as an NPC instead.');
     const previousParticipants = currentNpcParticipants?.();
     const participants = { ...(previousParticipants ?? {}) };
     let next: RpStorybook;
@@ -567,6 +567,12 @@ export function useStorybookActions({
     }
     const error = commitStorybookToNode(nodeId, next, patch, options);
     if (error) throw new Error(error);
+    if (mode === 'delete' && info.warnings.length > 0) {
+      setStorybookCreatorMessages((current) => [...current, {
+        role: 'assistant',
+        text: `Deleted ${character.name}. Warning: ${info.warnings.join(' ')}`,
+      }]);
+    }
   }
 
   function applyStorybookToNode(

@@ -6,7 +6,7 @@ import type { NpcParticipantSnapshots } from './npcParticipants';
 import type { RpStorybook } from '../nodes/rp-storybook/model';
 
 /** Inspect historical values only, never the character definitions or snapshot archive itself. */
-export function characterUsageReasons(character: Character, aliases: CharacterRegistryAliases, history: unknown, others: Character[] = []): string[] {
+export function characterUsageReasons(character: Character, aliases: CharacterRegistryAliases, history: unknown): string[] {
   // Social directories persist prefixed character/account IDs, including legacy aliases.
   const directoryIds = [character.id, ...(aliases.characterIds ?? []),
     ...Object.values(character.apps ?? {}).map((account) => account.accountId),
@@ -31,20 +31,43 @@ export function characterUsageReasons(character: Character, aliases: CharacterRe
   };
   const reasons: string[] = [];
   if (references(history)) reasons.push('Referenced by chat, Opening History or saved app activity.');
-  if (others.some((other) => other.id !== character.id && other.relationships?.some((relationship) => relationship.characterId === character.id))) {
-    reasons.push('Referenced by another character’s relationships.');
-  }
   return reasons;
 }
 
 export type CharacterRemovalInfo = {
   name: string;
   reasons: string[];
+  warnings: string[];
   matchesLibrary: boolean;
 };
 
-export function characterRemovalInfo(character: Character, libraryCharacter: Character | undefined, reasons: string[]): CharacterRemovalInfo {
-  return { name: character.name, reasons, matchesLibrary: !!libraryCharacter && characterContentEqual(character, libraryCharacter) };
+export function characterStoryTextWarnings(storybook: RpStorybook, characterName: string): string[] {
+  const nameParts = (characterName.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu) ?? [])
+    .filter((part, index, parts) => parts.findIndex((candidate) => candidate.localeCompare(part, undefined, { sensitivity: 'base' }) === 0) === index);
+  const fields = [
+    ['Introduction', storybook.introduction],
+    ['Scenario Summary', storybook.scenario.summary],
+    ['Opening Situation', storybook.scenario.openingSituation],
+    ['Current Situation', storybook.scenario.currentSituation],
+  ];
+  return nameParts.flatMap((namePart) => {
+    const escapedName = namePart.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const namePattern = new RegExp(`(^|[^\\p{L}\\p{N}_])${escapedName}($|[^\\p{L}\\p{N}_])`, 'iu');
+    const matches = fields.flatMap(([label, text]) => namePattern.test(text) ? label : []);
+    return matches.length > 0
+      ? `“${namePart}” is still mentioned in ${matches.join(', ')}. Review the story text with “Check Story Logic” in the Storybook assistant.`
+      : [];
+  });
+}
+
+export function characterRemovalInfo(
+  character: Character,
+  libraryCharacter: Character | undefined,
+  reasons: string[],
+  warnings: string[] = [],
+): CharacterRemovalInfo {
+  return { name: character.name, reasons, warnings,
+    matchesLibrary: !!libraryCharacter && characterContentEqual(character, libraryCharacter) };
 }
 
 /** Keep stable aliases and the exact authored revision when retiring a playable character. */

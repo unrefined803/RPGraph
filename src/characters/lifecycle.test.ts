@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { characterUsageReasons, characterRemovalInfo, storybookWithRetiredCharacter } from './lifecycle';
+import { characterUsageReasons, characterRemovalInfo, characterStoryTextWarnings, storybookWithRetiredCharacter } from './lifecycle';
 import { normalizeRpStorybook, parseRpStorybookJson, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 import { buildCharacterRegistry, resolveRegistryAccount, type CharacterRegistryEntry } from './registry';
 import { npcSnapshotEntries, parseNpcParticipantSnapshots } from './npcParticipants';
@@ -31,6 +31,19 @@ it('allows an unused character despite unrelated chat, generated context and a p
   expect(characterRemovalInfo({ ...character, description: 'Changed' }, character, []).matchesLibrary).toBe(false);
 });
 
+it('warns for individual character name parts without matching partial words', () => {
+  const storybook = book();
+  storybook.introduction = 'Ari arrives with a suitcase.';
+  storybook.scenario.summary = 'Ari Blumenthal owns the hotel.';
+  storybook.scenario.openingSituation = 'BLUME waits in the lobby.';
+  storybook.scenario.currentSituation = 'The lobby is quiet.';
+
+  expect(characterStoryTextWarnings(storybook, 'Ari Blume')).toEqual([
+    '“Ari” is still mentioned in Introduction, Scenario Summary. Review the story text with “Check Story Logic” in the Storybook assistant.',
+    '“Blume” is still mentioned in Opening Situation. Review the story text with “Check Story Logic” in the Storybook assistant.',
+  ]);
+});
+
 it.each([
   { phoneToAccountId: 'character:ari:whatsup' },
   { socialDirectMessage: { toAccountId: 'ari-fg' } },
@@ -46,9 +59,9 @@ it.each([
   expect(characterUsageReasons(book().characters[0], { characterIds: ['book:character:ari'] }, history)).toHaveLength(1);
 });
 
-it('blocks relationships without treating an unreferenced snapshot as activity', () => {
+it('does not treat authored relationships as retained activity', () => {
   const character = book().characters[0];
-  expect(characterUsageReasons(character, {}, [], [{ ...character, id: 'other', relationships: [{ characterId: 'ari', description: 'Friend', apps: {} }] }])).toHaveLength(1);
+  expect(characterUsageReasons(character, {}, [])).toEqual([]);
 });
 
 describe.each([false, true])('retiring a character with NPC origin %s', (npcOrigin) => {

@@ -51,6 +51,11 @@ export function CharacterRemovalDialog({ info, blocked, canSave, onRemove, onClo
                   Cannot delete: {info.reasons.join(' ')} Switch to NPC to preserve these references.
                 </p>
               )}
+              {info.warnings.length > 0 && (
+                <div className="character-removal-warning">
+                  {info.warnings.map((warning) => <p key={warning}>Warning: {warning}</p>)}
+                </div>
+              )}
             </div>
             <button type="button" className="character-delete-button" disabled={deleteBlocked}
               onClick={() => void apply('delete')}>Delete</button>

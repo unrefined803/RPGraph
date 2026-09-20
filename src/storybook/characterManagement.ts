@@ -10,7 +10,14 @@ export function storybookWithoutCharacter(
 ): RpStorybook {
   return {
     ...storybook,
-    characters: storybook.characters.filter((character) => character.id !== characterId),
+    characters: storybook.characters
+      .filter((character) => character.id !== characterId)
+      .map((character) => character.relationships?.some((relationship) => relationship.characterId === characterId)
+        ? {
+          ...character,
+          relationships: character.relationships.filter((relationship) => relationship.characterId !== characterId),
+        }
+        : character),
     phoneContacts: {
       blocked: storybook.phoneContacts.blocked.filter(
         (pair) => pair.owner !== characterId && pair.contact !== characterId,

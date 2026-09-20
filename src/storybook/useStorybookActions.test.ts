@@ -375,6 +375,48 @@ it.each(['rp-storybook', 'rp-storybook-editor'])('deletes an unused character de
   expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters).toHaveLength(0);
 });
 
+it('deletes an unused character and removes relationships pointing to it', async () => {
+  const state = harness();
+  const book = normalizeRpStorybook({ characters: [fixture.character, {
+    ...fixture.character,
+    id: 'other-character',
+    name: 'Other Character',
+    relationships: [
+      { characterId: fixture.character.id, description: 'A former friend.', apps: { whatsup: true } },
+      { characterId: 'external-character', description: 'A colleague.', apps: { fotogram: true } },
+    ],
+  }] });
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+
+  expect(state.render().removalInfo('book', fixture.character.id).reasons).toEqual([]);
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'delete');
+
+  const characters = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters;
+  expect(characters.map((character) => character.id)).toEqual(['other-character']);
+  expect(characters[0].relationships).toEqual([
+    { characterId: 'external-character', description: 'A colleague.', apps: { fotogram: true } },
+  ]);
+});
+
+it('warns about story text mentions without blocking character deletion', async () => {
+  const state = harness();
+  const book = normalizeRpStorybook({
+    introduction: `${fixture.character.name} has just arrived.`,
+    scenario: { summary: '', openingSituation: '', currentSituation: `Everyone is waiting for ${fixture.character.name}.` },
+    characters: [fixture.character],
+  });
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+
+  const info = state.render().removalInfo('book', fixture.character.id);
+  expect(info.reasons).toEqual([]);
+  expect(info.warnings.length).toBeGreaterThan(0);
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'delete');
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters).toHaveLength(0);
+  expect(hooks.slots.flatMap((slot) => Array.isArray(slot) ? slot : [])).toContainEqual(expect.objectContaining({
+    role: 'assistant', text: expect.stringContaining('Check Story Logic'),
+  }));
+});
+
 it('blocks direct and raw JSON deletion of a used character but retains an edited NPC with its history', async () => {
   const state = harness();
   const book = normalizeRpStorybook({ characters: [fixture.character] });
