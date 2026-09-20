@@ -30,7 +30,9 @@ const cases = (['fotogram', 'onlyfriends'] as const).flatMap((app) =>
   [true, false].map((textOnly) => ({ app, textOnly, key: app === 'fotogram' ? 'fotogramPost' : 'onlyFriendsPost' })));
 
 describe('social publication commands', () => {
-  it.each(cases)('runs and resolves $app publication (textOnly=$textOnly)', async ({ app, textOnly, key }) => {
+  it.each(cases.flatMap((entry) => ['normal', 'autoplay'].flatMap((mode) =>
+    [true, false].map((withProse) => ({ ...entry, mode, withProse })),
+  )))('runs and resolves $app publication (textOnly=$textOnly, mode=$mode, withProse=$withProse)', async ({ app, textOnly, key, mode, withProse }) => {
     const command = `${app}_${textOnly ? 'text' : 'image'}_post`;
     const commentKey = app === 'fotogram' ? 'fotogramPostComment' : 'onlyFriendsPostComment';
     const payload = JSON.stringify({ [key]: { postRef: 'evening-photo', from: 'Alex Rivera', text: 'A lovely evening.', textOnly,
@@ -43,13 +45,13 @@ describe('social publication commands', () => {
       reportWarning: warning, reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
       llm: { supportsVision: async () => false, complete: async ({ prompt }: { prompt: string }) => {
         prompts.push(prompt);
-        return { text: prompts.length === 1 ? `Alex publishes a post. [${command}: Alex posts about the evening${textOnly ? '' : ', photo-1'}, postRef evening-photo] [${app}_post_comment: Alex comments on new:evening-photo]` : payload,
+        return { text: prompts.length === 1 ? `${withProse ? 'Alex publishes a post. ' : ''}[${command}: Alex posts about the evening${textOnly ? '' : ', photo-1'}, postRef evening-photo] [${app}_post_comment: Alex comments on new:evening-photo]` : payload,
           connection: { label: 'Test' } };
       } },
     } as unknown as ExecuteContext;
     const result = await runActionAwarePrompt({
       node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode,
-      context, inputValue: 'Alex publishes.', images: [], referenceImages: [],
+      context, inputValue: mode === 'autoplay' ? '[AUTOPLAY]\nPlayer-controlled character: Narrator' : 'Alex publishes.', images: [], referenceImages: [],
       promptBefore: '', promptAfter: `Write the scene.\n@command: ${command}\n@command: ${app}_post_comment`,
       actionConfigs: [], streamsVisibleOutput: false, contributesToTokenCalibration: false,
       callLabel: () => 'Narrator',
@@ -57,9 +59,10 @@ describe('social publication commands', () => {
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain(`"${key}"`);
     expect(prompts[1]).toContain('prefixing the exact postRef value');
+    expect(prompts[1]).toContain(`Alex posts about the evening${textOnly ? '' : ', photo-1'}, postRef evening-photo`);
     expect(warning).not.toHaveBeenCalled();
     const parsed = parseEmbeddedPhoneMessagesFromRpOutput(parseRpOutput(result.generatedText).story);
-    expect(parsed.text).toBe('Alex publishes a post.');
+    expect(parsed.text).toBe(withProse ? 'Alex publishes a post.' : '');
     expect(parsed.socialPosts).toHaveLength(1);
     expect(parsed.invalidSocialPostCount).toBe(0);
     const resolved = resolveSocialPostCommand(parsed.socialPosts[0], [character()], [], [`${app}-post-07`]);

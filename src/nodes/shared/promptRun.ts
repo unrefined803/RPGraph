@@ -1005,7 +1005,9 @@ export async function runActionAwarePrompt({
         });
       }, new Map<PromptCommandId, PromptCommandPassRequest>()).values(),
     );
-    if (uniqueRequests.length && visibleReply) {
+    // A command-only beat (for example in Autoplay) still needs its command
+    // pass even when removing the inline markers leaves no narration.
+    if (uniqueRequests.length) {
       const commandNames = uniqueRequests
         .map((request) => readableRuntimeName(request.config.commandId))
         .join(', ');
