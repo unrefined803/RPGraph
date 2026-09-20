@@ -56,7 +56,7 @@ describe('social publication commands', () => {
     });
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain(`"${key}"`);
-    expect(prompts[1]).toContain('new:<postRef>');
+    expect(prompts[1]).toContain('prefixing the exact postRef value');
     expect(warning).not.toHaveBeenCalled();
     const parsed = parseEmbeddedPhoneMessagesFromRpOutput(parseRpOutput(result.generatedText).story);
     expect(parsed.text).toBe('Alex publishes a post.');
@@ -151,14 +151,14 @@ describe('social publication commands', () => {
   });
 
   it.each(['normal', 'planning'])('places publication commands before comments in the %s workflow', (name) => {
-    const workflow = JSON.parse(readFileSync(`resources/default-content/default_${name}_v31.json`, 'utf8'));
+    const workflow = JSON.parse(readFileSync(`resources/default-content/default_${name}_v32.json`, 'utf8'));
     const switches = workflow.nodes.filter((node: WorkflowNode) => node.data.nodeType === 'llm-prompt-switch');
     let checked = 0;
     for (const node of switches) {
       for (const text of node.data.llmPromptSwitchPromptAftersByOutput.flat()) {
         if (!text.includes('@command: Fotogram_post_comment')) continue;
         checked++;
-        expect(text).toContain('new:<postRef>');
+        expect(text).toContain('prefixing the exact postRef value');
         expect(text).toContain('postRef');
         expect(text).not.toContain('always with an exact known postId');
         for (const command of ['Fotogram_text_post', 'Fotogram_image_post', 'OnlyFriends_text_post', 'OnlyFriends_image_post']) {

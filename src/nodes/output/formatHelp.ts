@@ -112,7 +112,7 @@ Both apps support both variants. Use an existing enabled author account. Text po
 Normal RP can also comment on an existing social post. Add one standalone JSON object with the post id from the chat history:
 {"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
 {"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
-For a post published by a command in this same reply, add a unique postRef such as "evening-photo" to the publication object and use postId "new:evening-photo" in the comment. The app substitutes the assigned post ID; never guess it. References are scoped to this reply and this app, and failed or ambiguous publications receive no comment. The comment appears under that post in the social app. Use it only when the story clearly has someone comment on that specific post.
+For a post published by a command in this same reply, add a unique postRef to the publication object and form the comment postId by prefixing its exact value with "new:". The app substitutes the assigned post ID; never guess it. References are scoped to this reply and this app, and failed or ambiguous publications receive no comment. The comment appears under that post in the social app. Use it only when the story clearly has someone comment on that specific post.
 
 Output Actions UI commands such as buttons, info boxes, progress bars, context capacity bars, setTab, and setPlayer only work through the Output Actions input, not through Normal RP.`;
 
@@ -148,7 +148,7 @@ Both apps support both variants. Use an existing enabled author account. Text po
 A messenger reply can also comment on an existing social post. Add one extra standalone JSON object after the reply, with the post id from the chat history:
 {"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
 {"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
-For a post published by a command in this same reply, add a unique postRef such as "evening-photo" to the publication object and use postId "new:evening-photo" in the comment. The app substitutes the assigned post ID; never guess it. References are scoped to this reply and this app, and failed or ambiguous publications receive no comment. The comment appears under that post in the social app.
+For a post published by a command in this same reply, add a unique postRef to the publication object and form the comment postId by prefixing its exact value with "new:". The app substitutes the assigned post ID; never guess it. References are scoped to this reply and this app, and failed or ambiguous publications receive no comment. The comment appears under that post in the social app.
 
 Messenger Apps is not for prose narration. It should produce the message payload that appears in the selected messenger app.`;
 

@@ -216,7 +216,7 @@ function socialPostInstruction(app: 'fotogram' | 'onlyfriends', image: boolean) 
     '',
     'Output exactly one JSON object in this format:',
     JSON.stringify({ [key]: {
-      postRef: 'evening-photo',
+      postRef: 'unique_post_reference',
       from: 'author name or exact app account ID',
       text: 'the complete post caption',
       textOnly: !image,
@@ -225,7 +225,7 @@ function socialPostInstruction(app: 'fotogram' | 'onlyfriends', image: boolean) 
     '',
     'Use this command only when the finished reply establishes that the character publishes this post now. Take the author and post content from the plan, context, and finished reply. Write the actual post in the author’s voice, without surrounding narration. Merely planning a future post is not enough. Do not duplicate a post already published by the current phone-app input.',
     `from must resolve to exactly one existing, enabled ${appName} account. Use an exact full character name, app profile name, or account ID belonging to this app. Never use a MatchMe or other app account ID here; use the full character name if unsure. Never invent an author, account, username, or postId; the application assigns the postId. text must be nonempty.`,
-    'postRef is an optional local label using only letters, digits, underscores, or hyphens (for example evening-photo). When a comment targets this new post in the same reply, set postRef and use exactly new:evening-photo as the comment postId. Use the same label in both command plans and JSON objects. Each new post in an app needs a unique label. This label is not a persistent post ID.',
+    'postRef is an optional local label using only letters, digits, underscores, or hyphens. When a comment targets this new post in the same reply, set postRef and form the comment postId by prefixing the exact postRef value with "new:". Use the same label in both command plans and JSON objects. Each new post in an app needs a unique label. This label is not a persistent post ID.',
     image
       ? 'Set textOnly to false and include one exact imageId from the author’s stored phone gallery or a completed image action for that author. Never invent image IDs or substitute an image description, URL, or Base64 data. If the author or image is unavailable, omit the action; do not fall back to a text post.'
       : 'Set textOnly to true and omit imageId. This publishes only text, without an image. Do not use this command for an intended image post.',
@@ -244,7 +244,7 @@ const fotogramPostCommentInstruction = [
   '  }',
   '}',
   '',
-  'When a plan is noted with the request, take the post, commenter, and comment gist from it. For an existing post, copy postId exactly from chat history. For a post published by a command in this same reply, use postId "new:<postRef>" and give that publication the matching postRef, for example postRef "evening-photo" and postId "new:evening-photo". Never guess a numeric post ID or use "latest". The reference must identify exactly one new post in this app; failed or ambiguous publications receive no comment. Use an existing commenter account in this app, never a MatchMe or other app account ID. The comment appears under the resolved post in the social app.',
+  'When a plan is noted with the request, take the post, commenter, and comment gist from it. For an existing post, copy postId exactly from chat history. For a post published by a command in this same reply, form postId by prefixing the exact postRef value with "new:". Give the publication that matching postRef. This is a literal reference, not a prompt variable. Never guess a numeric post ID or use "latest". The reference must identify exactly one new post in this app; failed or ambiguous publications receive no comment. Use an existing commenter account in this app, never a MatchMe or other app account ID. The comment appears under the resolved post in the social app.',
 ].join('\n');
 
 const onlyFriendsPostCommentInstruction = [
@@ -259,7 +259,7 @@ const onlyFriendsPostCommentInstruction = [
   '  }',
   '}',
   '',
-  'When a plan is noted with the request, take the post, commenter, and comment gist from it. For an existing post, copy postId exactly from chat history. For a post published by a command in this same reply, use postId "new:<postRef>" and give that publication the matching postRef, for example postRef "evening-photo" and postId "new:evening-photo". Never guess a numeric post ID or use "latest". The reference must identify exactly one new post in this app; failed or ambiguous publications receive no comment. Use an existing commenter account in this app, never a MatchMe or other app account ID. The comment appears under the resolved post in the social app.',
+  'When a plan is noted with the request, take the post, commenter, and comment gist from it. For an existing post, copy postId exactly from chat history. For a post published by a command in this same reply, form postId by prefixing the exact postRef value with "new:". Give the publication that matching postRef. This is a literal reference, not a prompt variable. Never guess a numeric post ID or use "latest". The reference must identify exactly one new post in this app; failed or ambiguous publications receive no comment. Use an existing commenter account in this app, never a MatchMe or other app account ID. The comment appears under the resolved post in the social app.',
 ].join('\n');
 
 export function defaultPromptCommandInstructionTemplate(commandId: PromptCommandId) {

@@ -33,14 +33,14 @@ describe('workflow Storybook selection', () => {
     expect(workflowNeedsStorybookSelection({ nodes: [] })).toBe(false);
   });
 
-  it.each(['default_normal_v31.json', 'default_planning_v31.json'])(
+  it.each(['default_normal_v32.json', 'default_planning_v32.json'])(
     'recognizes the empty Storybook slot in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8'));
       expect(workflowNeedsStorybookSelection(workflow)).toBe(true);
     },
   );
-  it.each(['default_normal_v31.json', 'default_planning_v31.json'])(
+  it.each(['default_normal_v32.json', 'default_planning_v32.json'])(
     'explains account links once in every independent app and RP pass in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
