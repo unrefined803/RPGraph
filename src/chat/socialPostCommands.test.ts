@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolveSocialPostCommand, resolveSocialPostCommentTarget, type SocialPostCommandBinding } from './socialPostCommands';
+import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCommandBinding } from './socialPostCommands';
 import { embeddedPhoneMessagesLivePreview, parseEmbeddedPhoneMessagesFromRpOutput } from './phoneMessages';
 import { parseRpOutput } from './rpOutput';
 import { socialPostHistoryText } from './socialMedia';
@@ -66,7 +66,7 @@ describe('social publication commands', () => {
     expect(resolved.post).toMatchObject({ app, author: 'Alex Rivera', authorCharacterId: 'author',
       authorAccountId: app === 'fotogram' ? 'alex-f' : 'alex-o', postId: `${app}-post-08`, caption: 'A lovely evening.' });
     const comment = parsed.socialPostComments[0];
-    const target = resolveSocialPostCommentTarget(app, comment.postId, [
+    const target = resolveSocialPostReference(app, comment.postId, [
       { app, postRef: parsed.socialPosts[0].postRef, post: resolved.post },
     ], []);
     expect(target?.postId).toBe(`${app}-post-08`);
@@ -134,20 +134,38 @@ describe('social publication commands', () => {
       { app, postRef: 'failed' },
     ];
     const history: MessageRecord[] = [{ id: 1, role: 'output', originalText: '', socialPost: first }];
-    expect(resolveSocialPostCommentTarget(app, 'new:first', bindings, history)).toBe(first);
-    expect(resolveSocialPostCommentTarget(app, 'new:second', bindings, history)).toBe(second);
-    expect(resolveSocialPostCommentTarget(app, 'new:failed', bindings, history)).toBeUndefined();
-    expect(resolveSocialPostCommentTarget(app, 'new:missing', bindings, history)).toBeUndefined();
-    expect(resolveSocialPostCommentTarget(app, 'new:', bindings, history)).toBeUndefined();
-    expect(resolveSocialPostCommentTarget(app, 'new:first', [], history)).toBeUndefined();
-    expect(resolveSocialPostCommentTarget(app, first.postId, [], history)).toBe(first);
+    expect(resolveSocialPostReference(app, 'new:first', bindings, history)).toBe(first);
+    expect(resolveSocialPostReference(app, 'new:second', bindings, history)).toBe(second);
+    expect(resolveSocialPostReference(app, 'new:failed', bindings, history)).toBeUndefined();
+    expect(resolveSocialPostReference(app, 'new:missing', bindings, history)).toBeUndefined();
+    expect(resolveSocialPostReference(app, 'new:', bindings, history)).toBeUndefined();
+    expect(resolveSocialPostReference(app, 'new:first', [], history)).toBeUndefined();
+    expect(resolveSocialPostReference(app, first.postId, [], history)).toBe(first);
     const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
-    expect(resolveSocialPostCommentTarget(otherApp, 'new:first', bindings, history)).toBeUndefined();
-    expect(resolveSocialPostCommentTarget(otherApp, first.postId, bindings, history)).toBeUndefined();
+    expect(resolveSocialPostReference(otherApp, 'new:first', bindings, history)).toBeUndefined();
+    expect(resolveSocialPostReference(otherApp, first.postId, bindings, history)).toBeUndefined();
     bindings.push({ app, postRef: 'first' });
-    expect(resolveSocialPostCommentTarget(app, 'new:first', bindings, history)).toBeUndefined();
+    expect(resolveSocialPostReference(app, 'new:first', bindings, history)).toBeUndefined();
     bindings[bindings.length - 1].post = second;
-    expect(resolveSocialPostCommentTarget(app, 'new:first', bindings, history)).toBeUndefined();
+    expect(resolveSocialPostReference(app, 'new:first', bindings, history)).toBeUndefined();
+  });
+
+  it.each(cases)('resolves a $app DM emitted before its new post (textOnly=$textOnly)', ({ app, key, textOnly }) => {
+    const messageKey = app === 'fotogram' ? 'fotogramApp' : 'onlyFriendsApp';
+    const output = JSON.stringify({ [messageKey]: [{ from: 'Reader', to: 'Alex Rivera',
+      message: 'Nice post!', postId: 'new:publication' }] }) + '\n' +
+      JSON.stringify({ [key]: { from: 'Alex Rivera', postRef: 'publication', text: 'A lovely evening.',
+        textOnly, ...(!textOnly ? { imageId: 'photo-1' } : {}) } });
+    const parsed = parseEmbeddedPhoneMessagesFromRpOutput(output);
+    const dm = parsed.socialDirectMessages[0];
+    expect(dm.postId).toBe('new:publication');
+    const post = resolveSocialPostCommand(parsed.socialPosts[0], [character()], [], [`${app}-post-07`]).post!;
+    const bindings: SocialPostCommandBinding[] = [{ app, postRef: parsed.socialPosts[0].postRef, post }];
+    const origin = resolveSocialPostReference(app, dm.postId!, bindings, []);
+    expect(origin).toMatchObject({ postId: `${app}-post-08`, author: 'Alex Rivera', caption: 'A lovely evening.' });
+    expect(origin?.imageId).toBe(textOnly ? undefined : 'photo-1');
+    expect(origin?.imageDescription).toBe(textOnly ? undefined : 'Sunset over the bay.');
+    expect(resolveSocialPostReference(app, dm.postId!, [{ ...bindings[0], post: undefined }], [])).toBeUndefined();
   });
 
   it.each(['normal', 'planning'])('places publication commands before comments in the %s workflow', (name) => {

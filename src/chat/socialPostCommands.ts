@@ -42,7 +42,7 @@ export type SocialPostCommandBinding = {
 };
 
 /** Local references never fall back to history or another app when publication fails. */
-export function resolveSocialPostCommentTarget(
+export function resolveSocialPostReference(
   app: SocialAppKind,
   postId: string,
   bindings: SocialPostCommandBinding[],

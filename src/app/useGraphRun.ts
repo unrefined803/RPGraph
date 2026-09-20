@@ -1,4 +1,4 @@
-import { resolveSocialPostCommand, resolveSocialPostCommentTarget, type SocialPostCommandBinding } from '../chat/socialPostCommands';
+import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCommandBinding } from '../chat/socialPostCommands';
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
@@ -2616,7 +2616,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         // A social post comment command appends one comment to an existing
         // post via the same append-reactions record the comment thread uses.
         for (const postComment of parsedSocialPostComments) {
-          const targetPost = resolveSocialPostCommentTarget(
+          const targetPost = resolveSocialPostReference(
             postComment.app, postComment.postId, postBindings,
             postsWithInitialContent(appCharacters(), messagesRef.current),
           );
@@ -2754,13 +2754,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
             );
             return undefined;
           }
-          let originPost = runPost && runPost.postId === incoming.postId ? runPost : undefined;
+          let originPost = runPost?.app === incoming.app && runPost.postId === incoming.postId ? runPost : undefined;
           if (!originPost && incoming.postId) {
-            originPost = postsWithInitialContent(appCharacters(), messagesRef.current).find(
-              (message) =>
-                message.socialPost?.app === incoming.app &&
-                message.socialPost.postId === incoming.postId,
-            )?.socialPost;
+            originPost = resolveSocialPostReference(
+              incoming.app, incoming.postId, postBindings,
+              postsWithInitialContent(appCharacters(), messagesRef.current),
+            );
             if (!originPost) {
               reportRunWarning(
                 `${socialAppNames[incoming.app]} direct message references unknown post "${incoming.postId}"; it was delivered without the post context.`,
