@@ -25,8 +25,19 @@ export function socialTimelineGroups(messages: MessageRecord[], englishProcessin
   let currentDay: string | undefined;
   for (const message of messages) {
     const direct = message.socialDirectMessage;
+    const standaloneEmbedded = message.embeddedSocialMessages?.length &&
+      !direct &&
+      isEmptySocialTimelineBridge({ ...message, embeddedSocialMessages: undefined }, englishProcessingEnabled);
+    const links = direct ? [{
+      socialMessageId: message.id,
+      app: direct.app,
+      from: direct.from,
+      to: direct.to,
+      message: direct.text,
+      translatedMessage: direct.displayText,
+    }] : standaloneEmbedded ? message.embeddedSocialMessages : undefined;
     const day = message.rpDateTime?.slice(0, 10);
-    if (!direct) {
+    if (!links) {
       if (!isEmptySocialTimelineBridge(message, englishProcessingEnabled) ||
         (day && currentDay && day !== currentDay)) {
         current = undefined;
@@ -41,14 +52,7 @@ export function socialTimelineGroups(messages: MessageRecord[], englishProcessin
       skippedIds.add(message.id);
       currentDay ??= day;
     }
-    current.push({
-      socialMessageId: message.id,
-      app: direct.app,
-      from: direct.from,
-      to: direct.to,
-      message: direct.text,
-      translatedMessage: direct.displayText,
-    });
+    current.push(...links);
   }
   return { groups, skippedIds };
 }
