@@ -9,11 +9,19 @@ export function whatsUpMessageInputText(
   message: string,
   recipient?: StorybookCharacter,
   context?: string,
+  characters: StorybookCharacter[] = [],
 ) {
   return [
     '[WHATSUP MESSAGE]', 'App: WhatsUp', `Sender: ${from}`, `Recipient: ${to}`,
     `Reply as: ${to} to ${from}`, '',
-    ...(recipient ? [recipientCharacterContext(recipient), ''] : []),
+    ...(recipient ? [recipientCharacterContext(recipient, {
+      app: 'whatsup',
+      sender: characters.filter((character) => character.name === from).length === 1
+        ? characters.find((character) => character.name === from)
+        : undefined,
+      messageText: message,
+      characters,
+    }), ''] : []),
     ...(context ? [context, ''] : []),
     'New message:', `${from}: ${message.trim()}`,
   ].join('\n');

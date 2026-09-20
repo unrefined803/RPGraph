@@ -1188,7 +1188,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             },
           ) : undefined;
       return whatsUpMessageInputText(
-        inputCharacterName, phoneRecipientName ?? 'Unknown', message, phoneContextRecipient, context,
+        inputCharacterName, phoneRecipientName ?? 'Unknown', message, phoneContextRecipient, context, appCharacters(),
       );
     };
     const promptSlot = turnModeOverrideValue ?? (

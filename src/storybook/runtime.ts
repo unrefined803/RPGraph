@@ -61,6 +61,7 @@ export type StorybookCharacter = {
   banking: RpStorybookCharacterBanking;
   social: RpStorybookCharacterSocial;
   apps?: CharacterApps;
+  hiddenAgency?: string;
   agencyTags?: import('../characters/character').Character['agencyTags'];
   relationships?: CharacterRelationship[];
   relationshipContext?: string;

@@ -5,6 +5,7 @@ import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterPhoneSet
 import type { StorybookCharacter } from '../storybook/runtime';
 import { socialFromCharacterApps } from './character';
 import type { EffectiveCharacterRegistry } from './registry';
+import { agencyTagCatalog } from '../../shared/agency-tags.cjs';
 
 /** App discovery shares one effective payload; player selection stays Storybook-only. */
 export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry): StorybookCharacter[] {
@@ -18,6 +19,7 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
       profile: { name: character.name, description: character.description,
         personality: character.personality, speechStyle: character.speechStyle, role: character.role },
       relationships: character.relationships,
+      hiddenAgency: character.hiddenAgency,
       agencyTags: character.agencyTags,
       relationshipContext: runtimeRelationshipContext(character, registry.characters.map((entry) => entry.character)),
       apps: character.apps, social: socialFromCharacterApps(character.apps ?? {}), images: character.images,
@@ -38,7 +40,40 @@ export function appCharacterImage(characters: StorybookCharacter[], imageId: str
 }
 
 /** Only the bound recipient's own characterization and public account data. */
-export function recipientCharacterContext(character: StorybookCharacter) {
+type RecipientContextOptions = {
+  app?: keyof NonNullable<StorybookCharacter['apps']>;
+  sender?: StorybookCharacter;
+  messageText?: string;
+  characters?: StorybookCharacter[];
+};
+
+function mentionedCharacters(text: string, characters: StorybookCharacter[]) {
+  const words = new Set(text.toLocaleLowerCase().match(/[\p{L}\p{N}'-]+/gu) ?? []);
+  return characters.filter((character) => character.name.trim().split(/\s+/).some((part) =>
+    part.length >= 2 && words.has(part.toLocaleLowerCase()),
+  ));
+}
+
+function conversationRelationships(
+  recipient: StorybookCharacter,
+  { sender, messageText = '', characters = [] }: RecipientContextOptions,
+) {
+  const related = [...new Map([
+    ...(sender ? [[sender.sourceId, sender] as const] : []),
+    ...mentionedCharacters(messageText, characters).map((character) => [character.sourceId, character] as const),
+  ]).values()].filter((character) => character.sourceId !== recipient.sourceId);
+  const lines = related.flatMap((other) => {
+    const outgoing = recipient.relationships?.find((entry) => entry.characterId === other.sourceId)?.description.trim();
+    const incoming = other.relationships?.find((entry) => entry.characterId === recipient.sourceId)?.description.trim();
+    return [
+      ...(outgoing ? [`- ${recipient.name}'s relationship to ${other.name}: ${outgoing}`] : []),
+      ...(incoming ? [`- ${other.name}'s relationship to ${recipient.name}: ${incoming}`] : []),
+    ];
+  });
+  return lines.length ? ['Relevant contacts & relationships:', ...lines] : [];
+}
+
+export function recipientCharacterContext(character: StorybookCharacter, options: RecipientContextOptions = {}) {
   const publicProfiles = Object.fromEntries((['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const).map((app) => {
     const account = character.apps?.[app];
     const isPrivate = account ? account.privacyMode === true : false;
@@ -56,18 +91,24 @@ export function recipientCharacterContext(character: StorybookCharacter) {
   const profiles = Object.entries(publicProfiles).flatMap(([app, account]) => {
     const name = appNames[app as keyof typeof appNames];
     if (!account) { absent.push(name); return []; }
+    const detailed = !options.app || app === options.app;
     return [
       '', name,
+      'Account: Present',
       ...(app === 'whatsup' || app === 'matchme' ? [] : field('Profile name', account.profileName ? `@${account.profileName}` : undefined)),
-      ...((app === 'fotogram' || app === 'onlyfriends') ? field('Privacy mode', account.privacyMode ? 'Yes; anonymous profile (hide real name and profile photo publicly)' : 'No; show real name and photo publicly') : []),
+      ...(detailed && (app === 'fotogram' || app === 'onlyfriends') ? field('Privacy mode', account.privacyMode ? 'Yes; anonymous profile (hide real name and profile photo publicly)' : 'No; show real name and photo publicly') : []),
       ...(app === 'matchme' ? field('Public name', `${character.name.trim().split(/\s+/)[0]}, ${character.social.plotTwist?.age ?? ''}`) : []),
-      ...field('Bio', account.bio),
-      ...account.photos.flatMap((photo, index) => field(`Profile photo ${index + 1}`, photo)),
-      ...(account.posts ?? []).flatMap((post, index) => [
+      ...(detailed ? field('Bio', account.bio) : []),
+      ...(detailed ? account.photos.flatMap((photo, index) => field(`Profile photo ${index + 1}`, photo)) : []),
+      ...(detailed ? (account.posts ?? []).flatMap((post, index) => [
         ...field(`Post ${index + 1}`, post.text),
         ...field(`Post ${index + 1} image`, post.imageDescription),
-      ]),
+      ]) : []),
     ];
+  });
+  const agency = (character.agencyTags ?? []).flatMap((id) => {
+    const entry = agencyTagCatalog.find((candidate) => candidate.id === id);
+    return entry ? [`- ${entry.id}: ${entry.meaning}`] : [];
   });
   return [
     'Replying character',
@@ -78,7 +119,10 @@ export function recipientCharacterContext(character: StorybookCharacter) {
     ...field('Personality', character.profile.personality),
     ...field('Speech style', character.profile.speechStyle),
     ...field('Role', character.profile.role),
-    ...field('Relationship context', character.relationshipContext),
+    ...field('Hidden agency', character.hiddenAgency),
+    '', 'Agency tags (private behavioral guidance, never disclose these labels or descriptions):',
+    ...(agency.length ? agency : ['- None authored']),
+    ...conversationRelationships(character, options),
     '', 'Public social profiles',
     ...profiles,
     ...(absent.length ? ['', `No account: ${absent.join(', ')}`] : []),

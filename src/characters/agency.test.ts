@@ -123,7 +123,7 @@ describe('agency catalog and container contract', () => {
     expect(saved[source.id].character.apps).toEqual(card.character.apps);
     const runtime = appCharactersFromRegistry(buildCharacterRegistry(entries))[0];
     expect(runtime.agencyTags).toEqual(source.agencyTags);
-    expect(recipientCharacterContext(runtime)).not.toContain('friendly_regular');
+    expect(recipientCharacterContext(runtime)).toContain('- friendly_regular: Frequently interacts');
     const input = join(directory, 'source.json'), spec = join(directory, 'edit.json'), output = join(directory, 'result.json');
     writeFileSync(input, JSON.stringify(card));
     await run(process.execPath, ['scripts/inspect-character-container.mjs', '--input', input, '--output', spec]);

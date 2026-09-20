@@ -41,7 +41,7 @@ describe('shared container creator', () => {
     const card = createAuthoredCharacter({ ...fixture.character, hiddenAgency: agency, relationships }, () => '');
     const imported = planCharacterCardImport(card, structuredClone(emptyRpStorybook));
     const runtime = appCharactersFromRegistry(buildCharacterRegistry([{ tier: 'bundled', source: 'test', character: imported.character }]));
-    expect(recipientCharacterContext(runtime[0])).not.toContain(agency);
+    expect(recipientCharacterContext(runtime[0])).toContain(`Hidden agency: ${agency}`);
     expect(rpCharacterCardForCharacter(imported.character).character.hiddenAgency).toBe(agency);
     const input = join(directory, 'agency.json');
     const spec = join(directory, 'agency-edit.json');

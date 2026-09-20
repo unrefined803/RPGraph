@@ -156,13 +156,15 @@ describe('authored character relationships', () => {
     expect(canSendMatchMeMessage(a, b, matchMeState(characters, []))).toBe(true);
   });
 
-  it('includes attributed relationships in recipient context and keeps hidden agency opt-in', () => {
+  it('includes only conversation-relevant relationships and keeps Storybook hidden agency opt-in', () => {
     const a = person('a', [link('b', { whatsup: true }, 'B is her older sister.')]);
     const b = person('b');
     const characters = runtime(a, b);
-    expect(recipientCharacterContext(characters[1])).toContain("Person a's relationship to Person b: B is her older sister.");
-    expect(recipientCharacterContext(characters[0])).toContain('Person b [b]');
-    expect(recipientCharacterContext(characters[0])).not.toContain('NEVER_IN_CONTEXT');
+    expect(recipientCharacterContext(characters[1], { sender: characters[0], characters }))
+      .toContain("Person a's relationship to Person b: B is her older sister.");
+    expect(recipientCharacterContext(characters[0], { sender: characters[1], characters }))
+      .toContain("Person a's relationship to Person b: B is her older sister.");
+    expect(recipientCharacterContext(characters[0])).toContain('Hidden agency: NEVER_IN_CONTEXT');
     const story = normalizeRpStorybook({ ...emptyRpStorybook, characters: [a, b] });
     expect(rpStorybookFormattedText(story)).toContain('B is her older sister.');
     expect(rpStorybookFormattedText(story)).not.toContain('NEVER_IN_CONTEXT');

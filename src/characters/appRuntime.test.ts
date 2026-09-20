@@ -68,7 +68,7 @@ describe('shared NPC app discovery', () => {
     expect(context).toContain('Private characterization\nName: Nova Vale');
     expect(context).toContain(fixture.character.personality);
     expect(context).toContain('Public social profiles\n\n');
-    expect(context).toContain('Fotogram\nProfile name: @nova.vale.art');
+    expect(context).toContain('Fotogram\nAccount: Present\nProfile name: @nova.vale.art');
     expect(context).toContain('No account: OnlyFriends');
     expect(context).not.toContain('Existing conversation');
     expect(context).toContain(`New message:\nPlayer: ${message.text}`);
@@ -90,6 +90,39 @@ describe('shared NPC app discovery', () => {
     expect(phoneInput).toContain(fixture.character.personality);
     expect(phoneInput).toContain('New message:\nPlayer: What is your Fotogram account?');
     expect(phoneInput).not.toContain('Existing conversation');
+  });
+
+  it('adds full agency guidance, filters unrelated profiles and selects mentioned relationships', () => {
+    const player = npc('player'); player.name = 'Player Hart';
+    player.relationships = [{ characterId: 'stage4-nova', description: 'Trusts Nova with practical plans.', apps: { whatsup: true } }];
+    const recipient = npc();
+    recipient.hiddenAgency = 'Wants dependable follow-through.';
+    recipient.agencyTags = ['friendly_regular'];
+    recipient.apps!.whatsup = { accountId: 'stage4-nova-wu', enabled: true, username: '', displayName: 'Nova Vale', bio: '', agencyTags: ['friendly_regular'] };
+    recipient.apps!.fotogram!.agencyTags = ['friendly_regular'];
+    recipient.apps!.matchme!.agencyTags = ['friendly_regular'];
+    recipient.relationships = [
+      { characterId: 'player', description: 'Likes the player but watches reliability.', apps: { whatsup: true } },
+      { characterId: 'mentioned', description: 'Used to organize events with Jordan.', apps: { whatsup: true } },
+    ];
+    const mentioned = npc('mentioned'); mentioned.name = 'Jordan Lee';
+    const unrelated = npc('unrelated'); unrelated.name = 'Taylor Stone';
+    recipient.relationships.push({ characterId: 'unrelated', description: 'An unrelated contact.', apps: { whatsup: true } });
+    const characters = appCharactersFromRegistry(buildCharacterRegistry([
+      entry(player, 'storybook'), entry(recipient), entry(mentioned), entry(unrelated),
+    ]));
+    const recipientRuntime = characters.find((character) => character.sourceId === recipient.id)!;
+    const playerRuntime = characters.find((character) => character.sourceId === player.id)!;
+    const input = whatsUpMessageInputText('Player Hart', recipient.name, 'Did Lee confirm?', recipientRuntime, undefined, characters);
+    expect(input).toContain('Hidden agency: Wants dependable follow-through.');
+    expect(input).toContain('- friendly_regular: Frequently interacts in a warm familiar way');
+    expect(input).toContain("Nova Vale's relationship to Player Hart: Likes the player but watches reliability.");
+    expect(input).toContain("Player Hart's relationship to Nova Vale: Trusts Nova with practical plans.");
+    expect(input).toContain("Nova Vale's relationship to Jordan Lee: Used to organize events with Jordan.");
+    expect(input).not.toContain('An unrelated contact.');
+    expect(input).toContain('MatchMe\nAccount: Present\nPublic name: Nova, 27');
+    expect(input).not.toContain('Looking for good conversation and small adventures.');
+    expect(playerRuntime.name).toBe('Player Hart');
   });
 
   it('validates the portable fixture and uses its real gallery photos in MatchMe', () => {

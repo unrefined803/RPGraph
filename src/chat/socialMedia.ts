@@ -239,6 +239,15 @@ export function socialDirectMessageInputText(
   const recipients = characters.filter((character) => message.toAccountId
     ? character.apps?.[message.app]?.accountId === message.toAccountId
     : character.apps?.[message.app]?.enabled && socialIdentityMatches(accountHandle(character.apps[message.app]), message.toHandle));
+  const senders = characters.filter((character) => message.fromAccountId
+    ? character.apps?.[message.app]?.accountId === message.fromAccountId
+    : character.apps?.[message.app]?.enabled && socialIdentityMatches(accountHandle(character.apps[message.app]), message.fromHandle));
+  const recipientContext = recipients.length === 1 ? recipientCharacterContext(recipients[0], {
+    app: message.app,
+    sender: senders.length === 1 ? senders[0] : undefined,
+    messageText: message.text,
+    characters,
+  }) : undefined;
   return [
     socialDirectMessageInputHeaders[message.app],
     `App: ${socialAppNames[message.app]}`,
@@ -247,8 +256,8 @@ export function socialDirectMessageInputText(
     `Reply as: ${message.to} to ${message.from}`,
     '',
     ...(message.app === 'matchme'
-      ? [matchMeContext(matchMeState(characters, historyMessages), message), '']
-      : recipients.length === 1 ? [recipientCharacterContext(recipients[0]), ''] : []),
+      ? [matchMeContext(matchMeState(characters, historyMessages), message, recipientContext), '']
+      : recipientContext ? [recipientContext, ''] : []),
     ...(message.origin
       ? [
           message.origin.commentText
