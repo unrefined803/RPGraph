@@ -12127,6 +12127,8 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .chat-phone-card {
+  --chat-social-accent: #25d366;
+  --chat-social-accent-soft: rgba(37, 211, 102, 0.24);
   display: flex;
   width: 100%;
   flex-direction: column;

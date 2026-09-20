@@ -1275,10 +1275,10 @@ export function ChatConversationPanel({
                   const anchorSender = segment[0]?.from.trim().toLocaleLowerCase() ?? '';
                   return (
                     <section
-                      className="chat-phone-card"
+                      className="chat-phone-card whatsup"
                       key={`${segment[0]?.phoneMessageId ?? 'segment'}-${segmentIndex}`}
                     >
-                      <header className="chat-social-message-header"><strong>[WhatsUp]</strong></header>
+                      <header className="chat-social-message-header"><strong>WhatsUp</strong></header>
                       {phoneBubbleHeadersEnabled && segment[0] && phoneConversationCardTitle(segment[0])}
                       <div className="chat-phone-card-messages">
                         {segment.map((phoneMessage, messageIndex) =>
