@@ -84,7 +84,10 @@ function validateAccountAgency(app, account) {
   validateTags(account.agencyTags, app);
   for (const id of account.agencyTags ?? []) {
     if (!agencyTagSupports(id, app, account.accountRole ?? 'user')) {
-      throw new Error(`${app} agencyTags: ${id} does not support this app and account role.`);
+      const role = account.accountRole ?? 'user';
+      const supportedRoles = Object.keys(byId.get(id)?.apps[app] ?? {});
+      const alternatives = agencyTagCatalog.filter((tag) => agencyTagSupports(tag.id, app, role)).slice(0, 3).map((tag) => tag.id);
+      throw new Error(`${app} agencyTags: ${id} does not support this app and account role. Effective accountRole: ${role}${account.accountRole === undefined ? ' (default)' : ''}. ${id} supports ${app} roles: ${supportedRoles.join(', ') || 'none'}. Choose a compatible character tag and app subset; compatible examples for this role: ${alternatives.join(', ') || 'none'}. Preserve the intended account role; do not change it just to fit a tag. Update character tags and all enabled app assignments together.`);
     }
   }
 }

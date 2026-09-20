@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { storybookAssistantConversationContext } from '../../storybook/assistantConversation';
 import { characterPayload, validateCharacterPayload } from '../../characters/character';
 import { normalizeDatingProfile } from '../../chat/datingProfile';
 import {
@@ -122,6 +123,23 @@ describe('assistant app profile lifecycle', () => {
     expect(rpStorybookIdentityLockViolations(created, edited)).toEqual([]);
   });
 
+  it.each([false, true])('activates photo-less OnlyFriends with privacyMode=%s through storage', (privacyMode) => {
+    const book = normalizeRpStorybook({ ...starterRpStorybook, characters: [{
+      ...starterRpStorybook.characters[0], images: [], profileImage: undefined,
+    }] });
+    const created = apply([{ op: 'add', path: '/characters/0/apps/onlyfriends', value: {
+      accountId: account('onlyfriends').accountId, enabled: true,
+      profileName: 'nova.private', bio: '', privacyMode,
+    } }], book).storybook;
+    const character = parseRpStorybookJson(rpStorybookJsonText(created)).characters[0];
+    expect(character.apps?.onlyfriends).toMatchObject({ enabled: true, privacyMode, profileName: 'nova.private' });
+    expect(character.apps?.onlyfriends?.avatarImageId).toBeUndefined();
+    expect(character.images).toEqual([]);
+    expect(character.profileImage).toBeUndefined();
+    expect(character.social?.onlyfriendsUsername).toBe('nova.private');
+    expect(() => validateCharacterPayload(characterPayload(character))).not.toThrow();
+  });
+
   it('creates and updates MatchMe with gallery references, then removes its runtime projection', () => {
     const book = normalizeRpStorybook({ ...starterRpStorybook, characters: [{
       ...starterRpStorybook.characters[0],
@@ -212,4 +230,47 @@ it('explicitly requires activation with one photo, including existing drafts', (
   expect(prompt).toContain('explicitly set apps.matchme.enabled to true in the same patch');
   expect(prompt).toContain('Also set enabled to true when completing an existing disabled draft');
   expect(prompt).toContain('there are ZERO usable images');
+});
+
+
+it('keeps story creation valid across base, accounts and agency stages', () => {
+  const base = apply([{ op: 'add', path: '/characters/-', value: {
+    id: 'student', name: 'Morgan', age: 21, gender: 'woman', description: 'Student',
+    personality: 'Outgoing', speechStyle: 'Informal', role: 'Friend', apps: {}, images: [],
+  } }]).storybook;
+  const index = base.characters.length - 1;
+  const path = `/characters/${index}`;
+  expect(base.characters[index].apps?.whatsup?.enabled).toBe(true);
+  expect(base.characters[index].apps?.fotogram?.enabled).toBe(true);
+  const accounts = apply([{ op: 'add', path: `${path}/apps/onlyfriends`, value: {
+    accountId: 'character:student:onlyfriends', enabled: true, profileName: 'morgan',
+    bio: '', accountRole: 'creator', privacyMode: true,
+  } }], base).storybook;
+  const before = rpStorybookJsonText(accounts);
+  expect(() => apply([{ op: 'add', path: `${path}/agencyTags`, value: ['fan_engager'] }], accounts))
+    .toThrow('requires an explicit compatible agencyTags selection');
+  expect(rpStorybookJsonText(accounts)).toBe(before);
+  const tagged = apply([
+    { op: 'add', path: `${path}/agencyTags`, value: ['fan_engager', 'casual_chatter'] },
+    { op: 'add', path: `${path}/apps/whatsup/agencyTags`, value: ['fan_engager'] },
+    { op: 'add', path: `${path}/apps/fotogram/agencyTags`, value: ['casual_chatter'] },
+    { op: 'add', path: `${path}/apps/onlyfriends/agencyTags`, value: ['fan_engager'] },
+  ], accounts).storybook;
+  const saved = parseRpStorybookJson(rpStorybookJsonText(tagged)).characters[index];
+  expect(() => validateCharacterPayload(characterPayload(saved))).not.toThrow();
+  expect(saved).toMatchObject({ name: 'Morgan', age: 21, gender: 'woman', agencyTags: ['fan_engager', 'casual_chatter'] });
+});
+
+it('includes stage confirmations and application errors in the next request context', () => {
+  const context = storybookAssistantConversationContext([
+    { role: 'user', text: 'Create a student story with OnlyFriends.' },
+    { role: 'assistant', text: 'Base created. Configure OnlyFriends next?' },
+    { role: 'user', text: 'Yes.' },
+    { role: 'error', text: 'Invalid account role.' },
+  ]);
+  const prompt = rpStorybookEditPrompt(rpStorybookPromptJsonText(starterRpStorybook), `${context}\nCurrent user message: Retry.`);
+  expect(prompt).toContain('ASSISTANT: Base created. Configure OnlyFriends next?');
+  expect(prompt).toContain('USER: Yes.');
+  expect(prompt).toContain('APP ERROR: Invalid account role.');
+  expect(prompt).toContain('Current user message: Retry.');
 });

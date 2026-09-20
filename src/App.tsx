@@ -1525,6 +1525,8 @@ function App() {
     openStorybookCreator,
     ensureCurrentStorybook,
     submitStorybookCreatorMessage,
+    clearStorybookCreatorChat,
+    retryStorybookCreatorMessage,
     updateStorybook,
     commitStorybookToNode,
     applyStorybookToNode,
@@ -6051,6 +6053,8 @@ function App() {
           workflowNodes={nodeViewNodes}
           promptActionSettings={promptActionSettings}
           identityLocked={messages.length > 0}
+          onClearChat={clearStorybookCreatorChat}
+          onRetry={retryStorybookCreatorMessage}
           messages={storybookCreatorMessages}
           isSubmitting={storybookCreatorSubmitting}
           connections={connections}

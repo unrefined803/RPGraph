@@ -1,3 +1,4 @@
+import { parseStorybookContinuation } from '../storybook/assistantConversation';
 import { CharacterAgencyField } from './CharacterAgencyField';
 import type { Character } from '../characters/character';
 import { characterReferenceCandidates } from '../characters/relationships';
@@ -105,6 +106,8 @@ import {
 export type StorybookCreatorMessage = {
   role: 'user' | 'assistant' | 'storybook' | 'error';
   text: string;
+  failedResponse?: string;
+  retryRequest?: { message: string; visibleMessage: string; referenceIds: string[] };
 };
 
 export type CustomNodeAssistantMessage = {
@@ -1064,6 +1067,8 @@ type StorybookCreatorDialogProps = {
   workflowNodes: WorkflowNode[];
   promptActionSettings: PromptActionRuntimeSettings;
   messages: StorybookCreatorMessage[];
+  onRetry: (index: number) => Promise<void>;
+  onClearChat: () => void;
   isSubmitting: boolean;
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
@@ -3140,6 +3145,21 @@ function CharacterSetupDialog({
   );
 }
 
+function CopyFailedStorybookResponse({ message }: { message: StorybookCreatorMessage }) {
+  const [status, setStatus] = useState('');
+  return <>
+    <button type="button" className="storybook-copy-error-link" onClick={async () => {
+      try {
+        await copyTextToClipboard(`App error:\n${message.text}\n\nRaw assistant response:\n${message.failedResponse}`);
+        setStatus('Copied.');
+      } catch {
+        setStatus('Could not copy. Please try again.');
+      }
+    }}>Copy failed response</button>
+    <span role="status" className="storybook-copy-error-status">{status}</span>
+  </>;
+}
+
 export function StorybookCreatorDialog({
   referenceCharacters = [],
   node,
@@ -3150,6 +3170,8 @@ export function StorybookCreatorDialog({
   connections,
   providerHealthById,
   onSubmit,
+  onClearChat,
+  onRetry,
   onLoad,
   onSaveStorybook,
   promptTextCustomPresets,
@@ -3878,7 +3900,9 @@ export function StorybookCreatorDialog({
                     </ul>
                   </div>
                 ) : (
-                  messages.map((message, index) => (
+                  messages.map((message, index) => {
+                    const continuation = message.role === 'assistant' ? parseStorybookContinuation(message.text) : { text: message.text, nextPhase: undefined };
+                    return (
                     <div className={`chat-message-row ${message.role}`} key={`${message.role}-${index}`}>
                       <div className="message-sender-avatar">
                         {message.role === 'user'
@@ -3888,10 +3912,20 @@ export function StorybookCreatorDialog({
                             : message.role === 'storybook' ? 'SB' : '!'}
                       </div>
                       <div className="chat-message-bubble">
-                        <p>{message.text}</p>
+                        <p>{continuation.text}</p>
+                        {message.role === 'error' && message.failedResponse !== undefined && <CopyFailedStorybookResponse message={message} />}
+                        {message.role === 'error' && message.retryRequest && <button type="button"
+                          className="storybook-copy-error-link storybook-retry-link"
+                          disabled={isSubmitting || index !== messages.length - 1}
+                          onClick={() => void onRetry(index)}>Retry</button>}
+                        {continuation.nextPhase && <button type="button" className="storybook-continue-button"
+                          disabled={isSubmitting || index !== messages.length - 1}
+                          onClick={() => void onSubmit(`Continue with the next phase: ${continuation.nextPhase}`)}>
+                          <span>{continuation.nextPhase}</span><strong>Continue →</strong>
+                        </button>}
                       </div>
                     </div>
-                  ))
+                  ); })
                 )}
                 {isSubmitting && (
                   <div className="chat-message-row assistant thinking">
@@ -3910,9 +3944,13 @@ export function StorybookCreatorDialog({
               <form className="storybook-chat-form" onSubmit={submit}>
                 <CharacterMentionInput value={draft} onChange={setDraft} characters={relationshipCharacters}
                   selectedIds={referenceIds} onSelectedIdsChange={setReferenceIds} onSubmit={submitDraft} disabled={isSubmitting} />
+                <div className="storybook-chat-actions">
+                  <button type="button" className="send-message-button" disabled={isSubmitting || messages.length === 0}
+                    title="Clear assistant conversation" onClick={onClearChat}>Clear</button>
                 <button type="submit" className="send-message-button" disabled={isSubmitting || !draft.trim()}>
                   {isSubmitting ? 'Sending...' : 'Send'}
                 </button>
+                </div>
               </form>
             </div>
           </div>

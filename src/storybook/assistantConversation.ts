@@ -22,3 +22,11 @@ export function storybookAssistantConversationContext(
     ...messages.map((message) => `${conversationRoleLabels[message.role]}: ${message.text}`),
   ].join('\n');
 }
+
+/** Only a trailing, explicit continuation marker becomes an action. */
+export function parseStorybookContinuation(text: string) {
+  const match = /\[NEXT: ([^\[\]\r\n]{1,200})\]\s*$/.exec(text);
+  return match
+    ? { text: text.slice(0, match.index).trimEnd(), nextPhase: match[1].trim() }
+    : { text, nextPhase: undefined };
+}

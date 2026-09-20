@@ -378,6 +378,11 @@ export function useStorybookActions({
     return true;
   }
 
+  function clearStorybookCreatorChat() {
+    if (creatorRequestActiveRef.current) return;
+    setStorybookCreatorMessages([]);
+  }
+
   function openStorybookCreator(nodeId: string) {
     if (!ensureCurrentStorybook(nodeId)) return;
     setStorybookCreatorNodeId(nodeId);
@@ -390,7 +395,7 @@ export function useStorybookActions({
     storybookCreatorMessageNodeIdRef.current = nodeId;
   }
 
-  async function submitStorybookCreatorMessage(message: string, visibleMessage = message, referenceIds: string[] = []) {
+  async function submitStorybookCreatorMessage(message: string, visibleMessage = message, referenceIds: string[] = [], retryError?: string) {
     const nodeId = storybookCreatorNodeId;
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (creatorRequestActiveRef.current || !nodeId || !node || node.data.nodeType !== 'rp-storybook') {
@@ -405,6 +410,8 @@ export function useStorybookActions({
       llmCallStats: [],
     });
 
+    const retryRequest = { message, visibleMessage, referenceIds: [...referenceIds] };
+    let failedResponse: string | undefined;
     try {
       const conversion = pendingStorybookConversion?.nodeId === nodeId && pendingStorybookConversion.phase === 'review'
         ? pendingStorybookConversion
@@ -429,14 +436,17 @@ export function useStorybookActions({
         conversationContext,
         referenceContext,
         `Current user message:\n${message}`,
+        retryError ? `This is an explicit retry of the failed request above. The previous attempt was rejected with: ${retryError}\nCorrect the cause of this error before returning a new patch. Do not repeat the rejected assignment. Current JSON is unchanged by the failed attempt.` : '',
       ].filter(Boolean).join('\n\n');
       const currentJson = rpStorybookPromptJsonText(currentStorybook);
       const completion = await nodeLlm.complete({
         connectionId: node.data.connectionId,
         nodeId,
         label: 'Storybook Chat',
+        useConnectionSampling: true,
         prompt: rpStorybookEditPrompt(currentJson, instruction, storyHistoryPresent(currentStorybook)),
       });
+      failedResponse = completion.text;
       const latestNode = nodesRef.current.find((entry) => entry.id === nodeId);
       if (
         !latestNode || latestNode.data.nodeType !== 'rp-storybook' ||
@@ -486,7 +496,7 @@ export function useStorybookActions({
         if (commitError) {
           setStorybookCreatorMessages((current) => [
             ...current,
-            { role: 'error', text: commitError },
+            { role: 'error', text: commitError, failedResponse, retryRequest },
           ]);
           return;
         }
@@ -502,11 +512,19 @@ export function useStorybookActions({
     } catch (error) {
       const messageText = errorMessage(error);
       updateRuntimeNode(nodeId, { storybookStatus: `Error: ${messageText}` });
-      setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText }]);
+      setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText, failedResponse, retryRequest }]);
     } finally {
       creatorRequestActiveRef.current = false;
       setStorybookCreatorSubmitting(false);
     }
+  }
+
+  async function retryStorybookCreatorMessage(index: number) {
+    const failed = storybookCreatorMessages[index];
+    if (creatorRequestActiveRef.current || index !== storybookCreatorMessages.length - 1 ||
+        failed?.role !== 'error' || !failed.retryRequest) return;
+    const { message, visibleMessage, referenceIds } = failed.retryRequest;
+    await submitStorybookCreatorMessage(message, visibleMessage, referenceIds, failed.text);
   }
 
   function removalInfo(nodeId: string, characterId: string) {
@@ -1242,6 +1260,8 @@ export function useStorybookActions({
     openStorybookCreator,
     ensureCurrentStorybook,
     submitStorybookCreatorMessage,
+    clearStorybookCreatorChat,
+    retryStorybookCreatorMessage,
     updateStorybook,
     commitStorybookToNode,
     applyStorybookToNode,

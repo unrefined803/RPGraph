@@ -75,6 +75,7 @@ function harness() {
   render().openStorybookCreator('book');
   return {
     nodesRef, complete, clearCurrentSession, options, render, library, snapshots, messages,
+    rawReply: (text: string) => resolve({ text, connection: { label: 'Test' } }),
     reply: () => resolve({ text: JSON.stringify({ reply: 'Updated.', patch: [{ op: 'replace', path: '/title', value: 'AI title' }] }), connection: { label: 'Test' } }),
   };
 }
@@ -536,4 +537,46 @@ it('resets events and character stats only after a valid Storybook replacement',
   expect(state.nodesRef.current[2].data.characterStatsLastRpDateTime).toBeUndefined();
   expect(state.nodesRef.current[2].data.characterStatsContextText).toBe('');
   expect(state.options.replaceCurrentChatWithOpeningHistoryRef.current).toBe(true);
+});
+
+
+it('retains the exact failed model response for copying without applying partial edits', async () => {
+  const state = harness();
+  const original = state.nodesRef.current[0].data.storybookJson;
+  const request = state.render().submitStorybookCreatorMessage('Create a story');
+  const raw = '{"reply":"Done","patch":[{"op":"replace","path":"/title","value":"Broken"}]} {"reply":"Another object"}';
+  state.rawReply(raw);
+  await request;
+  const error = state.render().storybookCreatorMessages.slice(-1)[0];
+  expect(error).toMatchObject({ role: 'error', failedResponse: raw });
+  expect(error?.text).toContain('JSON');
+  expect(state.nodesRef.current[0].data.storybookJson).toBe(original);
+  state.render().clearStorybookCreatorChat();
+  expect(state.render().storybookCreatorMessages).toEqual([]);
+});
+
+it('retries the latest failed request with provider sampling and preserved request details', async () => {
+  const state = harness();
+  const request = state.render().submitStorybookCreatorMessage('Change the title', 'Rename story', ['external-character']);
+  state.rawReply('{"reply":"broken","patch":[]}]}');
+  await request;
+  const index = state.render().storybookCreatorMessages.length - 1;
+  expect(state.render().storybookCreatorMessages[index].retryRequest).toEqual({
+    message: 'Change the title', visibleMessage: 'Rename story', referenceIds: ['external-character'],
+  });
+  const retry = state.render().retryStorybookCreatorMessage(index);
+  await state.render().retryStorybookCreatorMessage(index);
+  expect(state.complete).toHaveBeenCalledTimes(2);
+  expect(state.complete).toHaveBeenLastCalledWith(expect.objectContaining({
+    useConnectionSampling: true,
+    prompt: expect.stringContaining('This is an explicit retry of the failed request above.'),
+  }));
+  expect(state.complete).toHaveBeenLastCalledWith(expect.objectContaining({
+    prompt: expect.stringContaining('Current user message:\nChange the title'),
+  }));
+  state.reply();
+  await retry;
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).title).toBe('AI title');
+  await state.render().retryStorybookCreatorMessage(index);
+  expect(state.complete).toHaveBeenCalledTimes(2);
 });

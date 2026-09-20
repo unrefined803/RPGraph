@@ -129,9 +129,8 @@ export class NodeLlmApi {
           startedAtMs,
         });
       }
-      // Connection sampling settings are opt-in: only the story prompt
-      // (LLM Prompt / LLM Prompt Switch) follows them. Every other call keeps
-      // its fixed internal temperature so parsing-sensitive helpers stay stable.
+      // Connection sampling settings are opt-in for story prompts and the Storybook
+      // assistant. Other helpers retain their request temperature or backend default.
       const sampling = request.useConnectionSampling
         ? {
             temperature: request.temperature ?? connection.temperature,
