@@ -102,12 +102,17 @@ All three messenger apps use the same array shape:
 {"fotogramApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
 {"onlyFriendsApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
 
-from, to, and message are required. isVoiceMessage and sendImageId currently work only in whatsUpApp and are ignored by Fotogram and OnlyFriends. Use displayImageId only for showing one stored image in Normal RP. Do not use imageId for outgoing attachments; imageId is reserved for image action commands in the Messenger Apps channel.
+from, to, and message are required. isVoiceMessage and sendImageId currently work only in whatsUpApp and are ignored by Fotogram and OnlyFriends. Use displayImageId only for showing one stored image in Normal RP. Use sendImageId for outgoing WhatsUp attachments. Social image posts use imageId inside their post object.
+
+Publish a new social post with one standalone object:
+{"fotogramPost":{"from":"author name","text":"post text","textOnly":true}}
+{"onlyFriendsPost":{"from":"author name","text":"photo caption","textOnly":false,"imageId":"stored_image_id"}}
+Both apps support both variants. Use an existing enabled author account. Text posts require textOnly:true and no imageId; image posts require textOnly:false and an exact imageId from the author's gallery. The application assigns the postId. Never duplicate a post already published by the current phone input.
 
 Normal RP can also comment on an existing social post. Add one standalone JSON object with the post id from the chat history:
 {"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
 {"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
-The comment appears under that post in the social app. Use it only when the story clearly has someone comment on a specific existing post.
+For a post published by a command in this same reply, add a unique postRef such as "evening-photo" to the publication object and use postId "new:evening-photo" in the comment. The app substitutes the assigned post ID; never guess it. References are scoped to this reply and this app, and failed or ambiguous publications receive no comment. The comment appears under that post in the social app. Use it only when the story clearly has someone comment on that specific post.
 
 Output Actions UI commands such as buttons, info boxes, progress bars, context capacity bars, setTab, and setPlayer only work through the Output Actions input, not through Normal RP.`;
 
@@ -131,14 +136,19 @@ When the latest incoming WhatsUp message includes an attached image, the output 
 When no incoming image is present, the second object is optional and should only be used for updating an existing stored image when recent phone/chat context clearly establishes a new fact about it:
 {"imageId":"existing_image_id","imageAction":"update","caption":"full replacement 20 to 30 word RP image caption"}
 
-Keep these concepts separate: sendImageId is an outgoing WhatsUp attachment. imageId belongs only to image action objects. imageAction objects update/create/no-change captions and are not visible messages.
+Keep these concepts separate: sendImageId is an outgoing WhatsUp attachment. imageId belongs to image action objects or to a social image post object. imageAction objects update/create/no-change captions and are not visible messages.
 
 The from field is the sender and the to field is the recipient. Use exact Storybook or known contact names when they exist. For event-like messages, an outside contact can also be used when sensible.
+
+Publish a new social post with one standalone object:
+{"fotogramPost":{"from":"author name","text":"post text","textOnly":true}}
+{"onlyFriendsPost":{"from":"author name","text":"photo caption","textOnly":false,"imageId":"stored_image_id"}}
+Both apps support both variants. Use an existing enabled author account. Text posts require textOnly:true and no imageId; image posts require textOnly:false and an exact imageId from the author's gallery. The application assigns the postId. Never duplicate a post already published by the current phone input.
 
 A messenger reply can also comment on an existing social post. Add one extra standalone JSON object after the reply, with the post id from the chat history:
 {"fotogramPostComment":{"postId":"fotogram-post-01","from":"commenter name","text":"comment text"}}
 {"onlyFriendsPostComment":{"postId":"onlyfriends-post-01","from":"commenter name","text":"comment text"}}
-The comment appears under that post in the social app.
+For a post published by a command in this same reply, add a unique postRef such as "evening-photo" to the publication object and use postId "new:evening-photo" in the comment. The app substitutes the assigned post ID; never guess it. References are scoped to this reply and this app, and failed or ambiguous publications receive no comment. The comment appears under that post in the social app.
 
 Messenger Apps is not for prose narration. It should produce the message payload that appears in the selected messenger app.`;
 

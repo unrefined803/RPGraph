@@ -1,3 +1,4 @@
+import { resolveSocialPostCommand, resolveSocialPostCommentTarget, type SocialPostCommandBinding } from '../chat/socialPostCommands';
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
@@ -1689,6 +1690,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
               phoneMessages: [],
               phoneImageActions: [],
               bankTransfers: [],
+              socialPosts: [],
+              invalidSocialPostCount: 0,
               socialPostComments: [],
               socialDirectMessages: [],
               simulatedAiChats: [],
@@ -1707,6 +1710,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
         phoneOutputBankResult &&
         (phoneOutputBankResult.phoneImageActions.length > 0 ||
           phoneOutputBankResult.bankTransfers.length > 0 ||
+          phoneOutputBankResult.socialPosts.length > 0 ||
+          phoneOutputBankResult.invalidSocialPostCount > 0 ||
           phoneOutputBankResult.socialPostComments.length > 0 ||
           phoneOutputBankResult.socialDirectMessages.length > 0 ||
           phoneOutputBankResult.simulatedAiChats.length > 0 ||
@@ -1722,6 +1727,18 @@ export function useGraphRun(options: UseGraphRunOptions) {
           status: 'ok',
           detail: `${embeddedPhoneResult.phoneMessages.length} embedded phone message(s) parsed.`,
         });
+      }
+      const parsedSocialPosts = [
+        ...embeddedPhoneResult.socialPosts,
+        ...(phoneOutputBankResult?.socialPosts ?? []),
+      ];
+      const invalidSocialPostCount = embeddedPhoneResult.invalidSocialPostCount +
+        (phoneOutputBankResult?.invalidSocialPostCount ?? 0);
+      if (invalidSocialPostCount > 0) {
+        reportRunWarning(
+          `${invalidSocialPostCount} social post command(s) ignored: require from, nonempty text, and textOnly (true without imageId, or false with an exact imageId).`,
+          outputNodeTraceInfo,
+        );
       }
       const parsedSocialPostComments = [
         ...embeddedPhoneResult.socialPostComments,
@@ -2572,17 +2589,40 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
+        // Reserve the current phone publication's ID because it is persisted below.
+        const reservedPostIds = socialPost ? [socialPost.postId] : [];
+        const postBindings: SocialPostCommandBinding[] = [];
+        for (const command of parsedSocialPosts) {
+          const result = resolveSocialPostCommand(command, appCharacters(), messagesRef.current, reservedPostIds);
+          const binding: SocialPostCommandBinding = { app: command.app, postRef: command.postRef };
+          postBindings.push(binding);
+          if (!result.post) {
+            reportRunWarning(`${socialAppNames[command.app]} post was ignored. ${result.error}`, outputNodeTraceInfo);
+            continue;
+          }
+          reservedPostIds.push(result.post.postId);
+          const historyText = socialPostHistoryText(result.post);
+          const translatedText = await translateOutputActionText(historyText, { text: historyText });
+          appendMessage({
+            role: 'output',
+            originalText: historyText,
+            translatedText,
+            includeInHistory: true,
+            socialPost: result.post,
+          });
+          binding.post = result.post;
+        }
+
         // A social post comment command appends one comment to an existing
         // post via the same append-reactions record the comment thread uses.
         for (const postComment of parsedSocialPostComments) {
-          const targetPost = postsWithInitialContent(appCharacters(), messagesRef.current).find(
-            (message) =>
-              message.socialPost?.app === postComment.app &&
-              message.socialPost.postId === postComment.postId,
-          )?.socialPost;
+          const targetPost = resolveSocialPostCommentTarget(
+            postComment.app, postComment.postId, postBindings,
+            postsWithInitialContent(appCharacters(), messagesRef.current),
+          );
           if (!targetPost) {
             reportRunWarning(
-              `${socialAppNames[postComment.app]} post comment was ignored because post "${postComment.postId}" does not exist.`,
+              `${socialAppNames[postComment.app]} post comment was ignored because post "${postComment.postId}" is missing, failed, or ambiguous.`,
               outputNodeTraceInfo,
             );
             continue;
@@ -2609,7 +2649,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               ? socialHandleForCharacter(resolvedCommenter.character, postComment.app)
               : establishedSocialHandle(messagesRef.current, postComment.app, from) ??
                 socialHandleForName(from));
-          const historyText = `[${socialAppNames[postComment.app]}] ${from} (@${handle}) commented on ${postComment.postId}: "${postComment.text}"`;
+          const historyText = `[${socialAppNames[postComment.app]}] ${from} (@${handle}) commented on ${targetPost.postId}: "${postComment.text}"`;
           const translatedText = await translateOutputActionText(historyText, { text: historyText });
           appendMessage({
             role: 'output',
@@ -2618,7 +2658,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             includeInHistory: true,
             socialReactions: {
               app: postComment.app,
-              postId: postComment.postId,
+              postId: targetPost.postId,
               likes: 0,
               comments: [{ from, handle, text: postComment.text }],
               append: true,

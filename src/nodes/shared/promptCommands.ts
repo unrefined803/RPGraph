@@ -5,6 +5,10 @@ export type PromptCommandId =
   | 'messenger_message'
   | 'messenger_conversation'
   | 'display_image'
+  | 'fotogram_text_post'
+  | 'fotogram_image_post'
+  | 'onlyfriends_text_post'
+  | 'onlyfriends_image_post'
   | 'fotogram_post_comment'
   | 'onlyfriends_post_comment';
 
@@ -32,6 +36,10 @@ export const promptCommandIds: PromptCommandId[] = [
   'messenger_message',
   'messenger_conversation',
   'display_image',
+  'fotogram_text_post',
+  'fotogram_image_post',
+  'onlyfriends_text_post',
+  'onlyfriends_image_post',
   'fotogram_post_comment',
   'onlyfriends_post_comment',
 ];
@@ -43,6 +51,10 @@ const promptCommandDisplayNames: Record<PromptCommandId, string> = {
   messenger_message: 'Messenger_message',
   messenger_conversation: 'Messenger_conversation',
   display_image: 'Display_image',
+  fotogram_text_post: 'Fotogram_text_post',
+  fotogram_image_post: 'Fotogram_image_post',
+  onlyfriends_text_post: 'OnlyFriends_text_post',
+  onlyfriends_image_post: 'OnlyFriends_image_post',
   fotogram_post_comment: 'Fotogram_post_comment',
   onlyfriends_post_comment: 'OnlyFriends_post_comment',
 };
@@ -196,8 +208,32 @@ const displayImageInstruction = [
   'When an imageId is noted with the request, use it as displayImageId. Use only an exact imageId from an action result or recent phone/photo history. Do not invent image IDs. Do not display more than one image per reply.',
 ].join('\n');
 
+function socialPostInstruction(app: 'fotogram' | 'onlyfriends', image: boolean) {
+  const appName = app === 'fotogram' ? 'Fotogram' : 'OnlyFriends';
+  const key = app === 'fotogram' ? 'fotogramPost' : 'onlyFriendsPost';
+  return [
+    `Command ${app}_${image ? 'image' : 'text'}_post: publish a new ${image ? 'image' : 'text-only'} post in ${appName}.`,
+    '',
+    'Output exactly one JSON object in this format:',
+    JSON.stringify({ [key]: {
+      postRef: 'evening-photo',
+      from: 'author name or exact app account ID',
+      text: 'the complete post caption',
+      textOnly: !image,
+      ...(image ? { imageId: 'stored_image_id' } : {}),
+    } }, null, 2),
+    '',
+    'Use this command only when the finished reply establishes that the character publishes this post now. Take the author and post content from the plan, context, and finished reply. Write the actual post in the author’s voice, without surrounding narration. Merely planning a future post is not enough. Do not duplicate a post already published by the current phone-app input.',
+    `from must resolve to exactly one existing, enabled ${appName} account. Use an exact full character name, app profile name, or account ID belonging to this app. Never use a MatchMe or other app account ID here; use the full character name if unsure. Never invent an author, account, username, or postId; the application assigns the postId. text must be nonempty.`,
+    'postRef is an optional local label using only letters, digits, underscores, or hyphens (for example evening-photo). When a comment targets this new post in the same reply, set postRef and use exactly new:evening-photo as the comment postId. Use the same label in both command plans and JSON objects. Each new post in an app needs a unique label. This label is not a persistent post ID.',
+    image
+      ? 'Set textOnly to false and include one exact imageId from the author’s stored phone gallery or a completed image action for that author. Never invent image IDs or substitute an image description, URL, or Base64 data. If the author or image is unavailable, omit the action; do not fall back to a text post.'
+      : 'Set textOnly to true and omit imageId. This publishes only text, without an image. Do not use this command for an intended image post.',
+  ].join('\n');
+}
+
 const fotogramPostCommentInstruction = [
-  'Command fotogram_post_comment: write a comment under an existing Fotogram post.',
+  'Command fotogram_post_comment: write a comment under an existing Fotogram post or one published by a command in this reply.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -208,11 +244,11 @@ const fotogramPostCommentInstruction = [
   '  }',
   '}',
   '',
-  'When a plan is noted with the request, take the post, commenter, and comment gist from it. Copy postId exactly from the chat history. The comment appears under that post in the social app.',
+  'When a plan is noted with the request, take the post, commenter, and comment gist from it. For an existing post, copy postId exactly from chat history. For a post published by a command in this same reply, use postId "new:<postRef>" and give that publication the matching postRef, for example postRef "evening-photo" and postId "new:evening-photo". Never guess a numeric post ID or use "latest". The reference must identify exactly one new post in this app; failed or ambiguous publications receive no comment. Use an existing commenter account in this app, never a MatchMe or other app account ID. The comment appears under the resolved post in the social app.',
 ].join('\n');
 
 const onlyFriendsPostCommentInstruction = [
-  'Command onlyfriends_post_comment: write a comment under an existing OnlyFriends post.',
+  'Command onlyfriends_post_comment: write a comment under an existing OnlyFriends post or one published by a command in this reply.',
   '',
   'Output exactly one JSON object in this format:',
   '{',
@@ -223,7 +259,7 @@ const onlyFriendsPostCommentInstruction = [
   '  }',
   '}',
   '',
-  'When a plan is noted with the request, take the post, commenter, and comment gist from it. Copy postId exactly from the chat history. The comment appears under that post in the social app.',
+  'When a plan is noted with the request, take the post, commenter, and comment gist from it. For an existing post, copy postId exactly from chat history. For a post published by a command in this same reply, use postId "new:<postRef>" and give that publication the matching postRef, for example postRef "evening-photo" and postId "new:evening-photo". Never guess a numeric post ID or use "latest". The reference must identify exactly one new post in this app; failed or ambiguous publications receive no comment. Use an existing commenter account in this app, never a MatchMe or other app account ID. The comment appears under the resolved post in the social app.',
 ].join('\n');
 
 export function defaultPromptCommandInstructionTemplate(commandId: PromptCommandId) {
@@ -240,6 +276,14 @@ export function defaultPromptCommandInstructionTemplate(commandId: PromptCommand
       return messengerConversationInstruction;
     case 'display_image':
       return displayImageInstruction;
+    case 'fotogram_text_post':
+      return socialPostInstruction('fotogram', false);
+    case 'fotogram_image_post':
+      return socialPostInstruction('fotogram', true);
+    case 'onlyfriends_text_post':
+      return socialPostInstruction('onlyfriends', false);
+    case 'onlyfriends_image_post':
+      return socialPostInstruction('onlyfriends', true);
     case 'fotogram_post_comment':
       return fotogramPostCommentInstruction;
     default:
@@ -374,8 +418,12 @@ const promptCommandPlanPlaceholders: Record<PromptCommandId, string> = {
   messenger_message: 'rough plan (app, sender, recipient, and message gist)',
   messenger_conversation: 'rough plan (app, both people, and what the exchange covers)',
   display_image: 'stored_image_id',
-  fotogram_post_comment: 'rough plan (which post, who comments, and the comment gist)',
-  onlyfriends_post_comment: 'rough plan (which post, who comments, and the comment gist)',
+  fotogram_text_post: 'rough plan (who publishes, the post text, and a unique postRef if commented on in this reply)',
+  fotogram_image_post: 'rough plan (who publishes, the post text, the exact stored imageId, and a unique postRef if commented on in this reply)',
+  onlyfriends_text_post: 'rough plan (who publishes, the post text, and a unique postRef if commented on in this reply)',
+  onlyfriends_image_post: 'rough plan (who publishes, the post text, the exact stored imageId, and a unique postRef if commented on in this reply)',
+  fotogram_post_comment: 'rough plan (exact known postId or new:postRef matching a publication in this reply, who comments, and the comment gist)',
+  onlyfriends_post_comment: 'rough plan (exact known postId or new:postRef matching a publication in this reply, who comments, and the comment gist)',
 };
 
 export function promptCommandHintText(commandId: PromptCommandId) {

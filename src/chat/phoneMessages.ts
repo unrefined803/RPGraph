@@ -66,6 +66,13 @@ export function phoneImageActionMatchesMessage(
   return messageImageIds.includes(requestedImageId);
 }
 
+export type ParsedSocialPost = {
+  app: SocialAppKind;
+  postRef?: string;
+  from: string;
+  text: string;
+} & ({ textOnly: true; imageId?: never } | { textOnly: false; imageId: string });
+
 /** A "comment on an existing social post" command emitted next to any output. */
 type ParsedSocialPostComment = {
   app: SocialAppKind;
@@ -98,6 +105,8 @@ export type EmbeddedPhoneMessagesResult = {
   phoneMessages: ParsedPhoneMessage[];
   phoneImageActions: ParsedPhoneImageAction[];
   bankTransfers: BankTransferRecord[];
+  socialPosts: ParsedSocialPost[];
+  invalidSocialPostCount: number;
   socialPostComments: ParsedSocialPostComment[];
   socialDirectMessages: ParsedIncomingSocialDirectMessage[];
   simulatedAiChats: SimulatedAiChat[];
@@ -480,6 +489,34 @@ export function parseEmbeddedBankTransfersObject(value: unknown): BankTransferRe
   });
 }
 
+const socialPostKeysByApp = { fotogram: 'fotogramPost', onlyfriends: 'onlyFriendsPost' } as const;
+
+function parseEmbeddedSocialPostsObject(value: unknown) {
+  const posts: ParsedSocialPost[] = [];
+  let invalidCount = 0;
+  if (!isRecord(value)) return { posts, invalidCount };
+  for (const app of Object.keys(socialPostKeysByApp) as SocialAppKind[]) {
+    const key = socialPostKeysByApp[app];
+    if (!(key in value)) continue;
+    const entry = value[key];
+    if (!isRecord(entry) || typeof entry.from !== 'string' || !entry.from.trim() ||
+      typeof entry.text !== 'string' || !entry.text.trim() ||
+      (entry.postRef !== undefined && (typeof entry.postRef !== 'string' || !/^[A-Za-z0-9_-]+$/.test(entry.postRef))) ||
+      (entry.textOnly !== true && entry.textOnly !== false) ||
+      (entry.textOnly === true && entry.imageId !== undefined) ||
+      (entry.textOnly === false && (typeof entry.imageId !== 'string' || !entry.imageId.trim()))) {
+      invalidCount += 1;
+      continue;
+    }
+    const common = { app, from: entry.from.trim(), text: entry.text.trim(),
+      ...(typeof entry.postRef === 'string' ? { postRef: entry.postRef } : {}) };
+    posts.push(entry.textOnly
+      ? { ...common, textOnly: true }
+      : { ...common, textOnly: false, imageId: (entry.imageId as string).trim() });
+  }
+  return { posts, invalidCount };
+}
+
 const socialPostCommentKeysByApp: Record<SocialAppKind, string> = {
   fotogram: 'fotogramPostComment',
   onlyfriends: 'onlyFriendsPostComment',
@@ -637,6 +674,8 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     phoneMessages: ParsedPhoneMessage[];
     phoneImageActions: ParsedPhoneImageAction[];
     bankTransfers: BankTransferRecord[];
+    socialPosts: ParsedSocialPost[];
+    invalidSocialPostCount: number;
     socialPostComments: ParsedSocialPostComment[];
     socialDirectMessages: ParsedIncomingSocialDirectMessage[];
     simulatedAiChats: SimulatedAiChat[];
@@ -660,6 +699,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
         : undefined;
       const phoneImageActions = phoneImageAction ? [phoneImageAction] : [];
       const bankTransfers = parseEmbeddedBankTransfersObject(parsed);
+      const socialPostsResult = parseEmbeddedSocialPostsObject(parsed);
       const socialPostComments = parseEmbeddedSocialPostCommentsObject(parsed);
       const socialDirectMessages = messengerMessages.socialDirectMessages;
       const claimsSimulatedAiChat = isRecord(parsed) && parsed.aiAssistantChat !== undefined;
@@ -676,6 +716,8 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
         phoneMessages.length > 0 ||
         phoneImageActions.length > 0 ||
         bankTransfers.length > 0 ||
+        socialPostsResult.posts.length > 0 ||
+        socialPostsResult.invalidCount > 0 ||
         socialPostComments.length > 0 ||
         socialDirectMessages.length > 0 ||
         claimsSimulatedAiChat ||
@@ -686,6 +728,8 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
           phoneMessages,
           phoneImageActions,
           bankTransfers,
+          socialPosts: socialPostsResult.posts,
+          invalidSocialPostCount: socialPostsResult.invalidCount,
           socialPostComments,
           socialDirectMessages,
           simulatedAiChats,
@@ -735,6 +779,8 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       phoneMessages,
       phoneImageActions,
       bankTransfers,
+      socialPosts: parsedRanges.flatMap((range) => range.socialPosts),
+      invalidSocialPostCount: parsedRanges.reduce((count, range) => count + range.invalidSocialPostCount, 0),
       socialPostComments,
       socialDirectMessages,
       simulatedAiChats,
@@ -756,6 +802,8 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     phoneMessages: [],
     phoneImageActions: [],
     bankTransfers: [],
+    socialPosts: [],
+    invalidSocialPostCount: 0,
     socialPostComments: [],
     socialDirectMessages: [],
     simulatedAiChats: [],
@@ -779,6 +827,8 @@ function stripIncompleteEmbeddedJsonTail(value: string) {
       tail.includes('"matchMeApp"') ||
       tail.includes('"matchmeApp"') ||
       tail.includes('"bankTransfers"') ||
+      tail.includes('"fotogramPost"') ||
+      tail.includes('"onlyFriendsPost"') ||
       tail.includes('"fotogramPostComment"') ||
       tail.includes('"onlyFriendsPostComment"') ||
       tail.includes('"aiAssistantChat"') ||
