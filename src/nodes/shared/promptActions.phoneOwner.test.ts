@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { MessageRecord } from '../../types';
 import type { ExecuteContext } from '../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
-import { defaultPromptActionConfig, executePromptAction, getImagesLlmInstruction, normalizePromptActionConfig, parsePromptActionCall } from './promptActions';
+import { defaultPromptActionConfig, executePromptAction, getImagesLlmInstruction, normalizePromptActionConfig, parsePromptActionCall, previousPromptActionDefaultsForValidation } from './promptActions';
 
 const image = (id: string, description: string) => ({
   id, name: id, description, mimeType: 'image/png', size: 1, dataUrl: `data:image/png;base64,${id}`,
@@ -14,9 +15,9 @@ const characters = [
   character('Eli Ward', [image('npc-player', 'Player poses outside in a blue outfit.'), image('npc-selfie', 'Eli Ward takes a mirror selfie.')]),
   character('Player', [image('player-selfie', 'Player takes a mirror selfie in a blue outfit.')]),
 ];
-async function search(phoneOwner: string, subjects = 'Player', appCharacters = characters) {
-  return executePromptAction({ nodes: [], historyMessages: [], appCharacters } as unknown as ExecuteContext,
-    config, { action: 'getImageId', phoneOwner, characters: subjects, tags: 'outfit, mirror, selfie' }, { visionEnabled: true });
+async function search(phoneOwner: string, subjects = 'Player', appCharacters = characters, historyMessages: MessageRecord[] = [], searchConfig = config) {
+  return executePromptAction({ nodes: [], historyMessages, appCharacters } as unknown as ExecuteContext,
+    searchConfig, { action: 'getImageId', phoneOwner, characters: subjects, tags: 'outfit, mirror, selfie' }, { visionEnabled: true });
 }
 
 describe('phone image search ownership', () => {
@@ -45,5 +46,59 @@ describe('phone image search ownership', () => {
     for (const owner of ['', 'Unknown', 'Eli']) expect((await search(owner)).images).toEqual([]);
     expect((await search('Eli Ward', '', [...characters, character('Eli Ward', [])])).images).toEqual([]);
     expect((await search('Empty', '', [...characters, character('Empty', [])])).images).toEqual([]);
+  });
+});
+
+
+describe('phone image publication history', () => {
+  const post = (app: 'fotogram' | 'onlyfriends', imageId = 'npc-selfie'): MessageRecord => ({
+    id: 1, role: 'output', originalText: '', socialPost: {
+      app, imageId, postId: `${app}-post`, author: 'Eli Ward', authorHandle: 'eli', caption: 'A selfie.',
+    },
+  });
+
+  it.each([false, true])('shows direct recipients and deduplicated social apps with hidden captions: %s', async (hideImageTextWhenSendingToLlm) => {
+    const result = await search('Eli Ward', 'Eli Ward', characters, [
+      { id: 2, role: 'output', originalText: '', channel: 'phone', phoneTo: 'Player', phoneImageIds: ['npc-selfie'] },
+      post('fotogram'), post('fotogram'), post('onlyfriends'),
+    ], { ...config, hideImageTextWhenSendingToLlm });
+    const line = result.text.split('\n').find((line) => line.includes(': npc-selfie :'))!;
+    expect(line).toContain('Image shown to: Player; Social media posts: Fotogram (public), OnlyFriends (restricted access)');
+    expect(line.match(/Fotogram/g)).toHaveLength(1);
+    expect(result.text).toContain('assume everyone has likely seen them');
+    expect(result.text).toContain('judge whether the intended recipient likely had access');
+    expect(result.text.split('\n').find((line) => line.includes(': npc-player :'))).not.toContain('Social media posts');
+  });
+
+  it('does not describe a published image as unseen when no private receipt is recorded', async () => {
+    const result = await search('Eli Ward', '', characters, [post('onlyfriends')]);
+    expect(result.text).toContain('Image shown to: No direct recipients recorded; Social media posts: OnlyFriends (restricted access)');
+    expect(result.text).not.toContain('Social media posts: Fotogram');
+  });
+
+  it('includes initial container posts without timeline messages', async () => {
+    const owners = structuredClone(characters);
+    owners[0].apps = { fotogram: {
+      accountId: 'eli-fotogram', enabled: true, profileName: 'eli', bio: '',
+      initialPosts: [{ id: 'seed-selfie', text: 'A selfie.', imageId: 'npc-selfie' }],
+    } };
+    const result = await search('Eli Ward', '', owners);
+    expect(result.text).toContain('Social media posts: Fotogram (public)');
+  });
+
+  it('ignores text posts and posts of other images', async () => {
+    const textPost = post('fotogram');
+    textPost.socialPost!.textOnly = true;
+    const result = await search('Eli Ward', '', characters, [textPost, post('onlyfriends', 'unrelated')]);
+    expect(result.text.split('\n').filter((line) => line.startsWith('* ')).join('\n')).not.toContain('Social media posts');
+  });
+
+  it('upgrades prior default result templates while preserving custom text', () => {
+    const previous = previousPromptActionDefaultsForValidation().filter((entry) => entry.id.startsWith('get-images-result-'));
+    for (const entry of previous) {
+      expect(normalizePromptActionConfig({ ...config, resultTemplate: entry.text })?.resultTemplate).toBe(config.resultTemplate);
+    }
+    const custom = 'My gallery: {{imageShownTo}}';
+    expect(normalizePromptActionConfig({ ...config, resultTemplate: custom })?.resultTemplate).toBe(custom);
   });
 });

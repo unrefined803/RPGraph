@@ -1,7 +1,8 @@
-import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, WorkflowNode } from '../../types';
+import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, SocialAppKind, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { createComfyImageForCharacter } from '../runScratch';
-import { storybookImageListsFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
+import { postsWithInitialContent } from '../../characters/publications';
+import { storyCharactersFromNodes, storybookImageListsFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
 
 export type PromptActionId = 'getImageId' | 'updatePhoneImageCaption' | 'describeInputImage' | 'createImage';
 
@@ -61,6 +62,7 @@ type ActionImageResult = {
   caption: string;
   characterName: string;
   shownTo: string[];
+  postedOn: SocialAppKind[];
   score: number;
   attachment: ChatImageAttachment;
 };
@@ -640,7 +642,7 @@ export const defaultGetImagesResultTemplate = [
   'Found images for tags: {{tags}}',
   defaultGetImagesResultLineTemplate,
   '',
-  'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
+  'Do not send a returned image again to people named under "Image shown to"; they have already seen or received it. "Social media posts" lists prior publications: treat Fotogram posts as public and assume everyone has likely seen them, so do not present them as new or private discoveries. OnlyFriends posts have restricted access; use the story context to judge whether the intended recipient likely had access and saw the image. Choose another fitting image or omit sendImageId when it would repeat something the recipient already knows.',
   'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
   'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
 ].join('\n');
@@ -775,6 +777,15 @@ const previousGetImagesResultTemplates = new Set([
     'Found images:',
     '',
     '{{images}}',
+  ].join('\n'),
+  [
+    'Action executed: get character phone image list.',
+    'Found images for tags: {{tags}}',
+    defaultGetImagesResultLineTemplate,
+    '',
+    'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
+    'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
+    'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
   ].join('\n'),
 ]);
 
@@ -1798,6 +1809,20 @@ function imageRecipientsById(
   );
 }
 
+function imagePublicationsById(context: ExecuteContext) {
+  const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
+  const publications = new Map<string, Set<SocialAppKind>>();
+  for (const message of postsWithInitialContent(characters, context.historyMessages)) {
+    const post = message.socialPost;
+    const imageId = post?.imageId?.trim();
+    if (!post || !imageId || post.textOnly) continue;
+    const apps = publications.get(imageId) ?? new Set<SocialAppKind>();
+    apps.add(post.app);
+    publications.set(imageId, apps);
+  }
+  return publications;
+}
+
 function findGetImagesResults(
   context: ExecuteContext,
   call: ParsedPromptActionCall,
@@ -1815,6 +1840,7 @@ function findGetImagesResults(
       }))
     : storybookImageListsFromNodes(context.nodes);
   const recipientsByImageId = imageRecipientsById(imageLists, context.historyMessages);
+  const publicationsByImageId = imagePublicationsById(context);
   const lists = imageLists.filter((imageList) =>
     normalizedSearchText(imageList.name) === normalizedSearchText(call.phoneOwner ?? ''),
   );
@@ -1828,6 +1854,7 @@ function findGetImagesResults(
         caption: image.description,
         characterName: imageList.name,
         shownTo: recipientsByImageId.get(image.id) ?? [],
+        postedOn: [...(publicationsByImageId.get(image.id) ?? [])].sort(),
         score: tagScore(image.description, words),
         subjectScore: tagScore(image.description, subjectWords),
         attachment: {
@@ -1873,7 +1900,10 @@ function imageTextValue(result: ActionImageResult, hideImageText: boolean) {
 }
 
 function imageShownToValue(result: ActionImageResult) {
-  return result.shownTo.length ? result.shownTo.join(', ') : 'No one yet';
+  const recipients = result.shownTo.length ? result.shownTo.join(', ')
+    : result.postedOn.length ? 'No direct recipients recorded' : 'No one yet';
+  const publications = result.postedOn.map((app) => app === 'fotogram' ? 'Fotogram (public)' : 'OnlyFriends (restricted access)');
+  return publications.length ? `${recipients}; Social media posts: ${publications.join(', ')}` : recipients;
 }
 
 function formatImageLine(result: ActionImageResult, index: number, includeImageOrderLabels: boolean, hideImageText: boolean) {
