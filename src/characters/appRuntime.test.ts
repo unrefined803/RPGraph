@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fixture from './fixtures/stage4-npc.json';
-import { appCharacterImage, appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
+import { phoneImageSource, appCharacterImage, appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
 import { validateCharacterContainer, type Character } from './character';
 import { buildCharacterRegistry, type CharacterRegistryEntry } from './registry';
 import { captureNpcParticipants, npcReferencesFromMessages, npcSeedPostKey, npcSnapshotEntries, parseNpcParticipantSnapshots } from './npcParticipants';
@@ -295,4 +295,22 @@ describe('NPC prompt execution boundary', () => {
     expect(prompts[0]).not.toContain('SENDER SECRET');
     expect(result).toContain('stage4-nova-mm');
   });
+});
+
+it('resolves foreign phone images and repeated links without accepting conflicting IDs', () => {
+  const owner = npc();
+  const sender = npc('sender');
+  sender.images = [];
+  const characters = () => appCharactersFromRegistry(buildCharacterRegistry([
+    { character: owner, tier: 'user', source: 'owner' },
+    { character: sender, tier: 'user', source: 'sender' },
+  ]));
+  const image = owner.images[0];
+  expect(phoneImageSource(characters(), image.id, sender.id)?.ownerName).toBe(owner.name);
+  sender.images = [{ ...image, receivedFrom: owner.name }];
+  expect(phoneImageSource(characters(), image.id, 'third-party')?.ownerName).toBe(owner.name);
+  sender.images = [{ ...image, dataUrl: 'data:image/jpeg;base64,conflict' }];
+  expect(phoneImageSource(characters(), image.id, 'third-party')).toBeUndefined();
+  expect(phoneImageSource(characters(), 'missing', sender.id)).toBeUndefined();
+  expect(phoneImageSource(characters(), image.id, sender.id)?.image.dataUrl).toBe(sender.images[0].dataUrl);
 });

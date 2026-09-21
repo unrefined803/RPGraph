@@ -153,7 +153,7 @@ const messengerMessageInstruction = [
   '  ]',
   '}',
   '',
-  'from, to, and message are required. isVoiceMessage and sendImageId are optional and work only with whatsUpApp. For WhatsUp, set isVoiceMessage to true only for a spoken TTS voice message and use sendImageId only with an exact known imageId. Use exact full names, app usernames or stable account IDs for existing participants. Fotogram and OnlyFriends may introduce fictional users without character containers; use a consistent name or username throughout the conversation. Never invent a missing app account for a known character, guess a partial name or borrow another app’s username. WhatsUp requires a known recipient; MatchMe requires existing matched accounts.',
+  'from, to, and message are required. isVoiceMessage and sendImageId are optional and work only with whatsUpApp. For WhatsUp, set isVoiceMessage to true only for a spoken TTS voice message and use sendImageId only with an exact known imageId. The image may come from another character’s gallery when the story calls for sharing it; the sender and recipient receive gallery links automatically. Use exact full names, app usernames or stable account IDs for existing participants. Fotogram and OnlyFriends may introduce fictional users without character containers; use a consistent name or username throughout the conversation. Never invent a missing app account for a known character, guess a partial name or borrow another app’s username. WhatsUp requires a known recipient; MatchMe requires existing matched accounts.',
   '',
   socialDirectMessagePostReferenceInstruction,
 ].join('\n');
@@ -198,7 +198,7 @@ const messengerConversationInstruction = [
   '',
   'Write both sides of the conversation yourself. Do not invent extra messages only to reach a longer pattern. Use messenger_message instead when only one message is sent.',
   '',
-  'Each entry requires from, to, and message. isVoiceMessage and sendImageId work only with whatsUpApp. For WhatsUp, omit isVoiceMessage for typed messages and use sendImageId only with an exact known imageId. Use exact full names, app usernames or stable account IDs for existing participants. Fotogram and OnlyFriends may introduce fictional users without character containers; use a consistent name or username throughout the conversation. Never invent a missing app account for a known character, guess a partial name or borrow another app’s username. WhatsUp requires a known recipient; MatchMe requires existing matched accounts.',
+  'Each entry requires from, to, and message. isVoiceMessage and sendImageId work only with whatsUpApp. For WhatsUp, omit isVoiceMessage for typed messages and use sendImageId only with an exact known imageId. The image may come from another character’s gallery when the story calls for sharing it; the sender and recipient receive gallery links automatically. Use exact full names, app usernames or stable account IDs for existing participants. Fotogram and OnlyFriends may introduce fictional users without character containers; use a consistent name or username throughout the conversation. Never invent a missing app account for a known character, guess a partial name or borrow another app’s username. WhatsUp requires a known recipient; MatchMe requires existing matched accounts.',
   '',
   socialDirectMessagePostReferenceInstruction,
 ].join('\n');

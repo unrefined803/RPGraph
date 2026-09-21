@@ -102,7 +102,7 @@ All three messenger apps use the same array shape:
 {"fotogramApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
 {"onlyFriendsApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
 
-from, to, and message are required. isVoiceMessage and sendImageId currently work only in whatsUpApp and are ignored by Fotogram and OnlyFriends. Use displayImageId only for showing one stored image in Normal RP. Use sendImageId for outgoing WhatsUp attachments. Social image posts use imageId inside their post object.
+from, to, and message are required. isVoiceMessage and sendImageId currently work only in whatsUpApp and are ignored by Fotogram and OnlyFriends. Use displayImageId only for showing one stored image in Normal RP. Use sendImageId for outgoing WhatsUp attachments. An exact known image ID may refer to another character’s gallery; sending it adds gallery links for the sender and recipient. Social image posts use imageId inside their post object.
 
 Publish a new social post with one standalone object:
 {"fotogramPost":{"from":"author name","text":"post text","textOnly":true}}

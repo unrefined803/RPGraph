@@ -50,6 +50,15 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
     registryForStorybook,
     characters: () => runtime().characters,
     capture,
+    updateImages: (characterId: string, images: Character['images']) => {
+      capture([{ kind: 'character', id: characterId }]);
+      const snapshot = snapshotsRef.current[characterId];
+      if (!snapshot) return;
+      snapshotsRef.current = { ...snapshotsRef.current, [characterId]: {
+        ...snapshot, character: { ...snapshot.character, images },
+      } };
+      setRevision((revision) => revision + 1);
+    },
     reconcileMessages: (messages: MessageRecord[]) => {
       commitContacts({ nodes: nodesRef.current, participants: reconcileNpcMessageContacts(snapshotsRef.current, entries(), messages) });
     },

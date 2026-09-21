@@ -39,6 +39,19 @@ export function appCharacterImage(characters: StorybookCharacter[], imageId: str
   return images.length === 1 ? images[0] : undefined;
 }
 
+/** Resolve outgoing attachments across galleries, rejecting conflicting image IDs. */
+export function phoneImageSource(characters: StorybookCharacter[], imageId: string, senderId: string) {
+  const id = imageId.trim();
+  if (!id) return undefined;
+  const ownImage = appCharacterImage(characters, id, senderId);
+  const sources = characters.flatMap((character) => (character.images ?? [])
+    .filter((image) => image.id === id)
+    .map((image) => ({ image, ownerName: character.name })));
+  if (ownImage) return sources.find((source) => source.image === ownImage);
+  if (!sources.length || sources.some((source) => source.image.dataUrl !== sources[0].image.dataUrl)) return undefined;
+  return sources.find(({ image }) => !image.receivedFrom && !image.imageAccess) ?? sources[0];
+}
+
 /** Only the bound recipient's own characterization and public account data. */
 type RecipientContextOptions = {
   app?: keyof NonNullable<StorybookCharacter['apps']>;

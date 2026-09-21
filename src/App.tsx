@@ -6,7 +6,7 @@ import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
 import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
-import { appCharacterImage } from './characters/appRuntime';
+import { phoneImageSource } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
 import { useMatchMeMigration } from './chat/useMatchMeMigration';
@@ -1497,6 +1497,7 @@ function App() {
     messages,
     messagesRef,
     nodesRef,
+    updateNpcImages: npcParticipants.updateImages,
     currentCharacterRegistry: npcParticipants.registry,
     characterRegistryForStorybook: npcParticipants.registryForStorybook,
     currentTurnInputMessages: () => activeTurnCollectorRef.current?.inputMessages ?? [],
@@ -3686,21 +3687,20 @@ function App() {
   function phoneImageAttachment(
     message: Pick<ParsedPhoneMessage, 'imageId'>,
     ownerId: string,
-    ownerName: string,
   ) {
     const imageId = message.imageId?.trim();
     if (!imageId) {
       return undefined;
     }
-    const image = appCharacterImage(npcParticipants.characters(), imageId, ownerId);
-    if (!image) {
-      notifySystem('warning', `Phone image ${imageId} was not found in ${ownerName}'s image library.`);
+    const source = phoneImageSource(npcParticipants.characters(), imageId, ownerId);
+    if (!source) {
+      notifySystem('warning', `Phone image ${imageId} was not found or is ambiguous in the available image libraries.`);
       return undefined;
     }
     return {
-      attachment: chatAttachmentFromStorybookImage(image),
-      description: image.description.trim() || undefined,
-      ownerName,
+      attachment: chatAttachmentFromStorybookImage(source.image),
+      description: source.image.description.trim() || undefined,
+      ownerName: source.ownerName,
     };
   }
 
@@ -3723,7 +3723,7 @@ function App() {
     };
     const storedImage = canonicalMessage.imageAttachments?.length
       ? undefined
-      : phoneImageAttachment(canonicalMessage, participants.from.accountId, participants.from.name);
+      : phoneImageAttachment(canonicalMessage, participants.from.accountId);
     const sourceImageAttachments = canonicalMessage.imageAttachments?.length
       ? canonicalMessage.imageAttachments
       : storedImage

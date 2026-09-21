@@ -17,6 +17,7 @@ import {
   type ParsedPhoneImageAction,
 } from '../chat/phoneMessages';
 import {
+  emptyRpStorybook,
   parseRpStorybookJson,
   rpStorybookJsonText,
   withRpStorybookCharacterPhoneWallpaper,
@@ -46,6 +47,7 @@ type UseStorybookPhoneImagesOptions = {
   messages: MessageRecord[];
   messagesRef: { current: MessageRecord[] };
   nodesRef: { current: WorkflowNode[] };
+  updateNpcImages?: (characterId: string, images: RpStorybook['characters'][number]['images']) => void;
   currentCharacterRegistry: () => EffectiveCharacterRegistry;
   characterRegistryForStorybook: (nodeId: string, characters: RpStorybook['characters']) => EffectiveCharacterRegistry;
   currentTurnInputMessages: () => MessageRecord[];
@@ -57,12 +59,12 @@ type UseStorybookPhoneImagesOptions = {
 
 export function useStorybookPhoneImages({
   storybooksByNodeId,
-  storyCharacters,
   dynamicSocialUsers,
   messages,
   messagesRef,
   nodesRef,
   currentCharacterRegistry,
+  updateNpcImages,
   characterRegistryForStorybook,
   currentTurnInputMessages,
   updateRuntimeNode,
@@ -141,7 +143,7 @@ export function useStorybookPhoneImages({
 
   function characterByPhoneName(name: string) {
     const key = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase();
-    const matches = storyCharacters.filter((character) => key(character.name) === key(name));
+    const matches = appCharactersFromRegistry(currentCharacterRegistry()).filter((character) => key(character.name) === key(name));
     return matches.length === 1 ? matches[0] : undefined;
   }
 
@@ -268,7 +270,15 @@ export function useStorybookPhoneImages({
       (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
     );
     if (!storybookNode?.data.storybookJson) {
-      return undefined;
+      const entry = currentCharacterRegistry().characters.find((entry) => entry.character.id === character.sourceId);
+      if (!entry || !updateNpcImages) return undefined;
+      const result = withImagesEnsuredForStorybookCharacter(
+        { ...emptyRpStorybook, characters: [entry.character] }, character.sourceId, images, description ?? '', options,
+      );
+      if (result.addedCount + result.updatedCount > 0) {
+        updateNpcImages(character.sourceId, result.storybook.characters[0].images);
+      }
+      return result.images.map(chatAttachmentFromStorybookImage);
     }
     const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
     const result = withImagesEnsuredForStorybookCharacter(
@@ -423,8 +433,7 @@ export function useStorybookPhoneImages({
     if (
       !sender ||
       !recipient ||
-      sender.id === recipient.id ||
-      sender.storybookNodeId !== recipient.storybookNodeId
+      sender.id === recipient.id
     ) {
       return;
     }
@@ -464,9 +473,9 @@ export function useStorybookPhoneImages({
           description,
           (addedCount, updatedCount) =>
             addedCount > 0
-              ? `Added ${addedCount} phone image${addedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}${senderNeedsImageAccess ? ' with Image Access' : ''}.`
+              ? `Added ${addedCount} phone image${addedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}${senderNeedsImageAccess ? ` from ${sourceOwnerName}` : ''}.`
               : `Updated ${updatedCount} phone image description${updatedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}.`,
-          senderNeedsImageAccess ? { imageAccess: true } : undefined,
+          senderNeedsImageAccess ? { receivedFrom: sourceOwnerName } : undefined,
         );
     const ensuredAttachments = senderAttachments?.length ? senderAttachments : images;
     addImagesToRecipientStorybook(fromName, toName, ensuredAttachments, description);
