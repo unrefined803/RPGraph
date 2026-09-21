@@ -4084,7 +4084,7 @@ function App() {
         ? socialThreadRunContextFromInput(turn.input.graphText)
         : undefined;
       const displayText = socialPost
-        ? socialPostInputText(socialPost)
+        ? socialPostInputText(socialPost, npcParticipants.characters())
         : socialThreadAction
           ? socialThreadActionInputText(
               socialThreadAction,
@@ -4474,7 +4474,7 @@ function App() {
       return false;
     }
     return runGraph(
-      socialPostInputText(request.post),
+      socialPostInputText(request.post, npcParticipants.characters()),
       request.image ? [request.image] : [],
       undefined,
       messagesRef.current,

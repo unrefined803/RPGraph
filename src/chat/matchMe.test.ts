@@ -10,7 +10,7 @@ import { isRpgraphSessionV2 } from '../data-management/validation';
 import { normalizeDatingProfile, resetDatingPasses } from './datingProfile';
 import { datingAccountId, datingAccounts, datingNpcProfiles, resolveDatingAccount } from './datingAccounts';
 import { canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
-import { parseSocialDirectMessageOutput, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
+import { parseSocialDirectMessageOutput, socialPostInputText, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
 import { parseMessengerAppMessagesObject, parseEmbeddedPhoneMessagesFromRpOutput, embeddedPhoneMessagesLivePreview } from './phoneMessages';
 import { validateSocialMessengerAccounts } from './socialMessageValidation';
 import { prepareMatchMePromptSlots, defaultMatchMeDmPrompt } from './matchMePrompt';
@@ -379,6 +379,28 @@ describe('MatchMe display identities', () => {
     const ui = socialDirectMessageHistoryText(direct, characters, false);
     expect(ui).not.toContain('Privacy Mode:');
     expect(ui).not.toContain('Mia');
+  });
+
+  it.each(['fotogram', 'onlyfriends'] as const)('explains private post authors for %s photo and text posts', (app) => {
+    const { owner } = fixture();
+    owner.apps = { [app]: { accountId: 'author-account', enabled: true,
+      profileName: 'quiet.artist', privacyMode: true, bio: '' } };
+    const post = { app, postId: 'post-1', author: 'Old Name', authorHandle: 'old.handle',
+      authorAccountId: 'author-account', caption: 'Hello!', imageId: 'photo-1' };
+    for (const textOnly of [false, true]) {
+      const input = socialPostInputText({ ...post, textOnly }, [owner]);
+      expect(input).toContain('Author: Mia (@quiet.artist; private) — Privacy Mode:');
+      expect(input).toContain('only the nickname is public');
+      expect(input).toContain('such as a familiar face in the post');
+      expect(input).toContain('Post text: Hello!');
+    }
+    expect(socialPostInputText({ ...post, caption: 'Translated caption' }, [owner]))
+      .toContain('(@quiet.artist; private) — Privacy Mode:');
+    owner.apps[app]!.privacyMode = false;
+    expect(socialPostInputText(post, [owner])).toContain('Author: Mia (@quiet.artist)');
+    expect(socialPostInputText(post, [owner])).not.toContain('Privacy Mode:');
+    expect(socialPostInputText(post, [])).toContain('Author: Old Name (@old.handle)');
+    expect(socialPostInputText(post, [])).not.toContain('Privacy Mode:');
   });
 
   it('derives public MatchMe names from characters and ignores editable legacy names', () => {

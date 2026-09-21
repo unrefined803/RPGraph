@@ -26360,34 +26360,6 @@ button.message-timeline-row.phone:focus-visible {
   white-space: nowrap;
 }
 
-.phone-social-tip-dialog {
-  width: min(360px, 100%);
-  box-sizing: border-box;
-  max-height: 100%;
-  overflow: auto;
-  padding: 20px;
-  border: 1px solid var(--social-accent);
-  border-radius: 18px;
-  background: #241b27;
-  color: #edf1ff;
-}
-
-
-.phone-social-tip-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  pointer-events: none;
-}
-
-.phone-social-tip-dialog {
-  pointer-events: auto;
-  box-shadow: 0 12px 36px #0005;
-}
-
 .phone-social-dm-input-field {
   display: flex;
   align-items: center;
@@ -26427,43 +26399,308 @@ button.message-timeline-row.phone:focus-visible {
   cursor: pointer;
 }
 
-.phone-social-tip-dialog p {
-  overflow-wrap: anywhere;
-}
-
-.phone-social-tip-options,
-.phone-social-tip-actions {
+.phone-social-tip-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(11, 7, 16, 0.72);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  pointer-events: auto;
+  animation: phone-social-tip-overlay-fade-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes phone-social-tip-overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.phone-social-tip-dialog {
+  width: min(320px, calc(100% - 24px));
+  box-sizing: border-box;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 18px 16px;
+  border: 1px solid color-mix(in srgb, var(--social-accent) 45%, rgba(255, 255, 255, 0.12));
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% -20%, color-mix(in srgb, var(--social-accent) 18%, transparent), transparent 70%),
+    linear-gradient(165deg, #251727 0%, #170f1a 100%);
+  color: #edf1ff;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 28px color-mix(in srgb, var(--social-accent) 18%, transparent);
+  pointer-events: auto;
+  animation: phone-social-tip-pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes phone-social-tip-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.phone-social-tip-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.phone-social-tip-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.phone-social-tip-dialog h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.phone-social-tip-recipient {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--social-accent) 75%, #ffffff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-social-tip-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.phone-social-tip-close:hover,
+.phone-social-tip-close:focus-visible {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  outline: none;
+}
+
+.phone-social-tip-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin-top: 16px;
-}
-
-.phone-social-tip-actions {
-  justify-content: flex-end;
-}
-
-.phone-social-tip-dialog button,
-.phone-social-tip-amount input {
   padding: 8px 12px;
-  border: 1px solid #ffffff40;
-  border-radius: 8px;
-  background: #ffffff0c;
-  color: inherit;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.phone-social-tip-dialog button[aria-pressed="true"] {
+.phone-social-tip-balance strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.phone-social-tip-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phone-social-tip-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.phone-social-tip-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.phone-social-tip-options button {
+  padding: 8px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.phone-social-tip-options button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.phone-social-tip-options button[aria-pressed="true"] {
   border-color: var(--social-accent);
   background: var(--social-accent-soft);
+  color: #ffffff;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--social-accent) 40%, transparent);
+}
+
+.phone-social-tip-options button:focus-visible {
+  outline: 2px solid var(--social-accent);
+  outline-offset: 1px;
+}
+
+.phone-social-tip-options button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .phone-social-tip-amount {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 16px;
 }
 
-.phone-social-tip-dialog [role="alert"] {
-  color: #ff9cad;
+.phone-social-tip-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(14, 10, 18, 0.7);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.phone-social-tip-input-wrap:focus-within {
+  border-color: var(--social-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--social-accent) 25%, transparent);
+}
+
+.phone-social-tip-currency-symbol {
+  padding-left: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--social-accent);
+  user-select: none;
+}
+
+.phone-social-tip-amount input {
+  width: 100%;
+  padding: 8px 12px 8px 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+
+.phone-social-tip-amount input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.phone-social-tip-amount input:disabled {
+  opacity: 0.5;
+}
+
+.phone-social-tip-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  background: rgba(244, 63, 94, 0.14);
+  color: #fda4af;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.phone-social-tip-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.phone-social-tip-cancel {
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.phone-social-tip-cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.phone-social-tip-submit {
+  padding: 8px 16px;
+  border: 1px solid color-mix(in srgb, var(--social-accent) 50%, #ffffff22);
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--social-accent), var(--social-accent-strong));
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--social-accent) 35%, transparent);
+  transition: all 0.15s ease;
+}
+
+.phone-social-tip-submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--social-accent) 45%, transparent);
+}
+
+.phone-social-tip-submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.phone-social-tip-submit:disabled {
+  opacity: 0.45;
+  cursor: default;
+  filter: none;
+  transform: none;
+  box-shadow: none;
 }

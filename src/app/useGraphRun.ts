@@ -1077,7 +1077,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           inputText = socialPostInputText({
             ...socialPost,
             caption: translatedCaption || socialPost.caption,
-          });
+          }, appCharacters());
         } else if (socialThreadAction && socialThreadContext) {
           const translatedComment = socialThreadAction.action === 'comment'
             ? await translateSocialText(socialThreadAction.commentText ?? '')

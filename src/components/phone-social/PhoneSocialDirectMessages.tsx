@@ -324,39 +324,107 @@ export function PhoneSocialDirectMessages({
         </div>
       </header>
       {tipDialogKey === draftKey && tipHost && createPortal(
-        <div className="phone-social-tip-overlay" onKeyDown={(event) => {
-          if (event.key === 'Escape') { event.stopPropagation(); closeTipPicker(); }
-        }}>
-          <div className="phone-social-tip-dialog" role="dialog" aria-labelledby="social-tip-title">
-            <h3 id="social-tip-title">Attach a tip</h3>
-            <p>To @{participantIdentity(selectedParticipant).handle}</p>
-            <p>OnlyFriends Balance: {formatBankingAmount(walletBalance)}</p>
-            <div className="phone-social-tip-options">
-              {[10, 15, 25, 50].map((amount) => (
-                <button type="button" key={amount} aria-pressed={tipAmount === amount} disabled={sending}
-                  onClick={() => { setTipAmountText(String(amount)); setTipError(''); }}>{formatOnlyFriendsTip(amount)}</button>
-              ))}
+        <div
+          className="phone-social-tip-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeTipPicker();
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              closeTipPicker();
+            }
+          }}
+        >
+          <div className="phone-social-tip-dialog" role="dialog" aria-modal="true" aria-labelledby="social-tip-title">
+            <div className="phone-social-tip-header">
+              <div className="phone-social-tip-header-text">
+                <h3 id="social-tip-title">Attach a Tip</h3>
+                <span className="phone-social-tip-recipient">
+                  To @{participantIdentity(selectedParticipant).handle}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="phone-social-tip-close"
+                onClick={closeTipPicker}
+                aria-label="Close tip dialog"
+                title="Close"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="phone-social-tip-balance">
+              <span>OnlyFriends Balance</span>
+              <strong>{formatBankingAmount(walletBalance)}</strong>
+            </div>
+            <div className="phone-social-tip-section">
+              <span className="phone-social-tip-label">Select tip amount</span>
+              <div className="phone-social-tip-options">
+                {[10, 15, 25, 50].map((amount) => (
+                  <button
+                    type="button"
+                    key={amount}
+                    aria-pressed={tipAmount === amount}
+                    disabled={sending}
+                    onClick={() => {
+                      setTipAmountText(String(amount));
+                      setTipError('');
+                    }}
+                  >
+                    {formatOnlyFriendsTip(amount)}
+                  </button>
+                ))}
+              </div>
             </div>
             <label className="phone-social-tip-amount">
-              Amount ($)
-              <input type="text" inputMode="numeric" pattern="[0-9]{1,4}" maxLength={4}
-                value={tipAmountText} disabled={sending} autoFocus
-                onChange={(event) => {
-                  if (/^\d{0,4}$/.test(event.target.value)) {
-                    setTipAmountText(event.target.value);
-                    setTipError('');
-                  }
-                }} />
+              <span className="phone-social-tip-label">Custom amount ($)</span>
+              <div className="phone-social-tip-input-wrap">
+                <span className="phone-social-tip-currency-symbol">$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{1,4}"
+                  maxLength={4}
+                  placeholder="10"
+                  value={tipAmountText}
+                  disabled={sending}
+                  autoFocus
+                  onChange={(event) => {
+                    if (/^\d{0,4}$/.test(event.target.value)) {
+                      setTipAmountText(event.target.value);
+                      setTipError('');
+                    }
+                  }}
+                />
+              </div>
             </label>
-            {tipError && <p role="alert">{tipError}</p>}
+            {tipError && <p className="phone-social-tip-error" role="alert">{tipError}</p>}
             <div className="phone-social-tip-actions">
-              <button type="button" onClick={closeTipPicker}>Cancel</button>
-              <button type="button" disabled={disabled || sending || !tipAmountValid} onClick={attachTip}>
+              <button
+                type="button"
+                className="phone-social-tip-cancel"
+                onClick={closeTipPicker}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="phone-social-tip-submit"
+                disabled={disabled || sending || !tipAmountValid}
+                onClick={attachTip}
+              >
                 {`Attach ${formatOnlyFriendsTip(tipAmount)}`}
               </button>
             </div>
           </div>
-        </div>, tipHost,
+        </div>,
+        tipHost,
       )}
       {origin && (
         <button

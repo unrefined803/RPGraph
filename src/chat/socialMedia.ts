@@ -359,13 +359,20 @@ export function socialDirectMessageDisplayText(
 }
 
 /** LLM-facing input text for a "user posted something" turn (Message Format 2). */
-export function socialPostInputText(post: SocialPostRecord) {
+export function socialPostInputText(post: SocialPostRecord, characters: StorybookCharacter[] = []) {
+  const author = socialCharacterForPost(post, characters);
+  const privateAccount = isAccountPrivacyMode(post.app, author);
+  const profileName = author?.apps?.[post.app]?.profileName ?? author?.apps?.[post.app]?.displayName;
+  const handle = profileName?.trim().replace(/^@/, '') || post.authorHandle;
+  const privacyNote = privateAccount
+    ? ' — Privacy Mode: only the nickname is public; the real name here is for model identification. Recognize the owner only from established story knowledge or plausible visible clues, such as a familiar face in the post.'
+    : '';
   return [
     '[SOCIAL MEDIA POST]',
     `App: ${socialAppNames[post.app]}`,
     `Post ID: ${post.postId}`,
     ...(!post.textOnly && post.imageId ? [`Image ID: ${post.imageId}`] : []),
-    `Author: ${post.author} (@${post.authorHandle})`,
+    `Author: ${author?.name ?? post.author} (@${handle}${privateAccount ? '; private' : ''})${privacyNote}`,
     `Post text: ${singleLine(post.caption)}`,
     ...(post.textOnly
       ? ['Content: text-only post, no image']
