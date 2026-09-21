@@ -93,15 +93,19 @@ export function planCharacterCardImport(
   const replacesIndex = matchingIdIndex >= 0 ? matchingIdIndex : matchingNameIndex;
 
   const usedImageIds = new Set<string>();
+  const usedImageDataUrls = new Map<string, string>();
   storybook.characters.forEach((existing, index) => {
     if (index === replacesIndex) {
       return;
     }
-    existing.images.forEach((image) => usedImageIds.add(image.id));
+    existing.images.forEach((image) => {
+      usedImageIds.add(image.id);
+      usedImageDataUrls.set(image.id, image.dataUrl);
+    });
   });
 
   const targetIndex = replacesIndex >= 0 ? replacesIndex : storybook.characters.length;
-  const character = normalizeRpStorybookCharacter({ ...sourceCharacter, relationships: sourceCharacter.relationships ?? [], playable: true }, targetIndex, usedImageIds);
+  const character = normalizeRpStorybookCharacter({ ...sourceCharacter, relationships: sourceCharacter.relationships ?? [], playable: true }, targetIndex, usedImageIds, usedImageDataUrls);
 
   const existingAccount = replacesIndex >= 0 ? storybook.characters[replacesIndex].apps?.matchme : undefined;
   const importedAccount = character.apps?.matchme;

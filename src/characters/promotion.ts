@@ -15,7 +15,9 @@ export function npcPromotionCard(registry: EffectiveCharacterRegistry, character
   const entry = registry.characters.find((entry) => entry.character.id === characterId);
   if (!entry) throw new Error(`NPC ${characterId} is no longer available. Reload the library and retry.`);
   return { format: 'rpgraph-character', version: versions.characterCard,
-    character: characterPayload(entry.character, true) };
+    character: { ...characterPayload(entry.character, true),
+      // Promotion stays inside the RP and must retain shared-gallery ownership.
+      images: structuredClone(entry.character.images) } };
 }
 
 /** Shared preflight for file imports and library promotion, before any runtime mutation. */

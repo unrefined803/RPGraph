@@ -39,6 +39,26 @@ function playerBook(): RpStorybook {
 }
 
 describe('Storybook NPC promotion', () => {
+  it.each(['receivedFrom', 'imageAccess'] as const)('preserves shared images with %s during promotion and reload', (access) => {
+    const book = playerBook();
+    const source = library();
+    const shared = { ...structuredClone(book.characters[0].images[0]),
+      ...(access === 'receivedFrom' ? { receivedFrom: 'Player' } : { imageAccess: true as const }) };
+    source.character.images.push(shared);
+    const snapshots = captureNpcParticipants({}, [source], [{ kind: 'character', id: source.character.id }]);
+    const registry = buildCharacterRegistry([...storybookRegistryEntries([node(book)]), ...npcSnapshotEntries(snapshots)]);
+    const card = npcPromotionCard(registry, source.character.id);
+    const options = { nodes: [node(book)], nodeId: 'book', snapshots, registry };
+    const plan = planCharacterImportToNode({ ...options, card });
+    expect(plan.character.images).toContainEqual(shared);
+    const restored = parseRpStorybookJson(rpStorybookJsonText(plan.storybook));
+    expect(restored.characters.find((character) => character.id === source.character.id)?.images).toContainEqual(shared);
+    expect(snapshots[source.character.id].character.images).toContainEqual(shared);
+    const conflicting = structuredClone(card);
+    conflicting.character.images.find((image) => image.id === shared.id)!.dataUrl = 'data:image/jpeg;base64,YWJj';
+    expect(() => planCharacterImportToNode({ ...options, card: conflicting })).toThrow('Conflicting gallery image ID');
+  });
+
   it.each(['rp-storybook', 'rp-storybook-editor'])('preserves the full app/save round trip through %s', (nodeType) => {
     const nodes = [node(playerBook(), nodeType)];
     parseRpStorybookJson(nodes[0].data.storybookJson!);

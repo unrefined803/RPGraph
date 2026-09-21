@@ -663,12 +663,13 @@ export function normalizeRpStorybookCharacter(
   value: unknown,
   index: number,
   usedImageIds: Set<string>,
+  usedImageDataUrls = new Map([...usedImageIds].map((imageId) => [imageId, ''])),
 ): RpStorybookCharacter {
   return normalizeCharacter(
     value,
     index,
     usedImageIds,
-    new Map([...usedImageIds].map((imageId) => [imageId, ''])),
+    usedImageDataUrls,
   );
 }
 
