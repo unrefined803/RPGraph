@@ -141,6 +141,7 @@ import {
 } from '../chat/bankTransfers';
 import {
   onlyFriendsWalletBalance,
+  formatOnlyFriendsTip,
   onlyFriendsWalletName,
 } from '../chat/onlyFriendsWallet';
 import {
@@ -439,6 +440,34 @@ export function verifyWorkflowValidationFixtures() {
       { 'onlyfriends-post-1': 9.99 },
     ) === 75.51,
     'OnlyFriends balance must combine bank funding, withdrawals, received DM tips, and internal post purchases',
+  );
+
+  const outgoingTip: MessageRecord = {
+    id: 16, role: 'user', originalText: 'Sent a tip',
+    socialDirectMessage: {
+      app: 'onlyfriends', messageId: 'outgoing-tip',
+      from: bankingCharacter.name, fromHandle: 'banking.character',
+      to: 'Generous Fan', toHandle: 'generous.fan',
+      text: 'Sent you a tip!', tip: 25, sentAt: '2026-06-01T12:01:00.000Z',
+    },
+  };
+  assertFixture(
+    onlyFriendsWalletBalance(bankingCharacter, [...onlyFriendsWalletMessages, outgoingTip],
+      { 'onlyfriends-post-1': 9.99 }) === 50.51,
+    'Sent tips must debit the sender wallet alongside purchases and received tips',
+  );
+  assertFixture(
+    onlyFriendsWalletBalance(bankingCharacter, [outgoingTip], undefined) === -25,
+    'Outgoing tips must be accounted for from persisted message history',
+  );
+  assertFixture(
+    onlyFriendsWalletBalance(bankingCharacter, onlyFriendsWalletMessages,
+      { 'onlyfriends-post-1': 9.99 }) === 75.51,
+    'Removing a sent tip from history must restore its wallet debit',
+  );
+  assertFixture(
+    formatOnlyFriendsTip(15) === '$15' && formatOnlyFriendsTip(15.5) === '$15.5',
+    'Compact tip badges must omit the plus sign and unnecessary decimal places',
   );
 
   const socialThreadAction = {

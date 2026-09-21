@@ -251,7 +251,7 @@ export function formatLastMessageForContext(
   includeRpDateTime = false,
   characters: StorybookCharacter[] = [],
 ) {
-  const text = socialDirectMessageDisplayText(message, translated, characters);
+  const text = socialDirectMessageDisplayText(message, translated, characters, true);
   const withOptionalRpDateTime = (value: string) =>
     includeRpDateTime
       ? withRpDateTime(value, message.rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
@@ -588,8 +588,8 @@ export function formatChatHistorySegments(
 ): FormattedChatHistorySegment[] {
   messages = messages.map((message) => message.socialDirectMessage
     ? { ...message,
-        originalText: socialDirectMessageDisplayText(message, false, characters),
-        translatedText: message.translatedText === undefined ? undefined : socialDirectMessageDisplayText(message, true, characters) }
+        originalText: socialDirectMessageDisplayText(message, false, characters, true),
+        translatedText: message.translatedText === undefined ? undefined : socialDirectMessageDisplayText(message, true, characters, true) }
     : message);
   const isIncludedHistoryMessage = (message: MessageRecord) =>
     message.includeInHistory !== false &&

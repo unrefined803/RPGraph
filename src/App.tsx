@@ -1,3 +1,4 @@
+import { onlyFriendsWalletBalance } from './chat/onlyFriendsWallet';
 import { planNpcCopyEdit } from './characters/editNpcCopy';
 import { CharacterRemovalDialog } from './components/CharacterRemovalDialog';
 import { createCharacterContainer } from './characters/creator';
@@ -4603,6 +4604,13 @@ function App() {
     const actor = socialDirectMessageActor(storyCharacters, characterId, message);
     if (!actor) {
       notifySystem('warning', 'The selected character no longer owns this social account. Reopen the app before sending a message.');
+      return false;
+    }
+    if (message.app === 'onlyfriends' && message.tip !== undefined && (
+      !Number.isFinite(message.tip) || message.tip <= 0 ||
+      message.tip > onlyFriendsWalletBalance(actor, messagesRef.current, onlyFriendsPurchasesByCharacter[actor.id])
+    )) {
+      notifySystem('warning', 'Cannot send tip. Check the amount and top up your OnlyFriends balance first.');
       return false;
     }
     let slot = { fotogram: 4, onlyfriends: 5, matchme: 6 }[message.app];

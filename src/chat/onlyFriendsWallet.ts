@@ -33,24 +33,20 @@ function onlyFriendsWalletFundingBalance(
   return roundedMoney(balance);
 }
 
-/** DM tips received by the character; tips are wallet credits, not bank transfers. */
+/** DM tips transfer wallet funds between the sender and recipient. */
 function onlyFriendsTipTotal(character: StorybookCharacter, messages: MessageRecord[]) {
   const characterHandle = socialHandleForCharacter(character, 'onlyfriends');
   return roundedMoney(
     messages.reduce((total, message) => {
       const directMessage = message.socialDirectMessage;
-      if (
-        directMessage?.app === 'onlyfriends' &&
-        typeof directMessage.tip === 'number' &&
-        directMessage.tip > 0 &&
-        (
-          socialIdentityMatches(directMessage.toHandle, characterHandle) ||
-          normalizePhoneName(directMessage.to) === normalizePhoneName(character.name)
-        )
-      ) {
-        return total + directMessage.tip;
-      }
-      return total;
+      if (directMessage?.app !== 'onlyfriends' ||
+        typeof directMessage.tip !== 'number' || !Number.isFinite(directMessage.tip) ||
+        directMessage.tip <= 0) return total;
+      const received = socialIdentityMatches(directMessage.toHandle, characterHandle) ||
+        normalizePhoneName(directMessage.to) === normalizePhoneName(character.name);
+      const sent = socialIdentityMatches(directMessage.fromHandle, characterHandle) ||
+        normalizePhoneName(directMessage.from) === normalizePhoneName(character.name);
+      return total + (received ? directMessage.tip : 0) - (sent ? directMessage.tip : 0);
     }, 0),
   );
 }
@@ -71,4 +67,10 @@ export function onlyFriendsWalletBalance(
       onlyFriendsTipTotal(character, messages) -
       onlyFriendsPurchaseTotal(purchases),
   );
+}
+
+export function formatOnlyFriendsTip(amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2,
+  }).format(amount);
 }

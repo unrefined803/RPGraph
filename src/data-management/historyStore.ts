@@ -70,7 +70,7 @@ export function formatHistoryMessageForAnalysis(message: MessageRecord, characte
     channel: message.channel ?? 'rp',
     from: message.phoneFrom ?? message.speakerName,
     to: message.phoneTo,
-    text: socialDirectMessageDisplayText(message, false, characters),
+    text: socialDirectMessageDisplayText(message, false, characters, true),
     rpDateTime: message.rpDateTime,
   };
 }

@@ -27,6 +27,7 @@ import { formatRpDateTimeParts } from '../../workflow';
 import { bankingBalanceForCharacter, formatBankingAmount } from '../../chat/bankTransfers';
 import {
   onlyFriendsWalletBalance,
+  formatOnlyFriendsTip,
   type OnlyFriendsPurchasesByCharacter,
 } from '../../chat/onlyFriendsWallet';
 import type {
@@ -1459,7 +1460,7 @@ export function PhoneSocialFeedScreen({
                     <span className="phone-social-dm-badges">
                       {app.id === 'onlyfriends' && unread.tipTotal > 0 && (
                         <span className="phone-social-tip-badge">
-                          +{formatBankingAmount(unread.tipTotal)}
+                          {formatOnlyFriendsTip(unread.tipTotal)}
                         </span>
                       )}
                       <span className="phone-contact-badge">{unread.count}</span>
@@ -1652,6 +1653,7 @@ export function PhoneSocialFeedScreen({
               setDirectMessageParticipant(undefined);
               setDirectMessagesOpen(false);
             }}
+            walletBalance={walletBalance}
             onSend={(message) => onSendDirectMessage(message, owner.id)}
           />
         ) : (

@@ -251,8 +251,8 @@ export function socialDirectMessageInputText(
   return [
     socialDirectMessageInputHeaders[message.app],
     `App: ${socialAppNames[message.app]}`,
-    `Sender: ${socialDirectMessageParty(message, 'from', characters)}`,
-    `Recipient: ${socialDirectMessageParty(message, 'to', characters)}`,
+    `Sender: ${socialDirectMessageParty(message, 'from', characters, true, true)}`,
+    `Recipient: ${socialDirectMessageParty(message, 'to', characters, true, true)}`,
     `Reply as: ${message.to} to ${message.from}`,
     '',
     ...(message.app === 'matchme'
@@ -278,7 +278,7 @@ export function socialDirectMessageInputText(
         ]
       : []),
     '', 'New message:',
-    `${message.from}: ${message.text.trim()}`,
+    `${message.from}: ${message.text.trim()}${socialDirectMessageTipSuffix(message)}`,
   ].join('\n');
 }
 
@@ -288,6 +288,7 @@ export function socialDirectMessageParty(
   side: 'from' | 'to',
   characters: StorybookCharacter[],
   showProfileNames = true,
+  showRealNames = false,
 ) {
   const storedHandle = message[side === 'from' ? 'fromHandle' : 'toHandle'];
   const id = message[side === 'from' ? 'fromAccountId' : 'toAccountId'];
@@ -301,7 +302,9 @@ export function socialDirectMessageParty(
       : !!storedHandle && accountHandleMatches(account, storedHandle));
   });
   const character = matches.length === 1 ? matches[0] : undefined;
-  const name = socialAccountPresentation(message.app, character, message[side], storedHandle).name;
+  const name = showRealNames && message.app !== 'matchme'
+    ? character?.name || message[side]
+    : socialAccountPresentation(message.app, character, message[side], storedHandle).name;
   if (message.app === 'matchme') {
     const age = character?.social.plotTwist?.age;
     return `${datingFirstName(name)}${age ? `, ${age}` : ''}`;
@@ -312,29 +315,41 @@ export function socialDirectMessageParty(
   return `${name}${showProfileNames && handle ? ` (@${handle})` : ''}`;
 }
 
+function socialDirectMessageTipSuffix(message: SocialDirectMessageRecord) {
+  if (message.app !== 'onlyfriends' || typeof message.tip !== 'number' ||
+    !Number.isFinite(message.tip) || message.tip <= 0) return '';
+  const amount = new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2,
+  }).format(message.tip);
+  return ` [Tip: ${amount}]`;
+}
+
 export function socialDirectMessageHistoryText(
   message: SocialDirectMessageRecord,
   characters: StorybookCharacter[] = [],
+  showRealNames = true,
 ) {
-  return `[${socialAppNames[message.app]} DM] ${socialDirectMessageParty(message, 'from', characters)} to ${socialDirectMessageParty(message, 'to', characters)}: "${message.text}"`;
+  return `[${socialAppNames[message.app]} DM] ${socialDirectMessageParty(message, 'from', characters, true, showRealNames)} to ${socialDirectMessageParty(message, 'to', characters, true, showRealNames)}: "${message.text}"${socialDirectMessageTipSuffix(message)}`;
 }
 
-/** Reformat only a structured DM's authored header; preserve its original or translated body verbatim. */
+/** Refresh structured DM headers and tips while preserving the authored or translated body. */
 export function socialDirectMessageDisplayText(
   message: MessageRecord,
   translated: boolean,
   characters: StorybookCharacter[] = [],
+  showRealNames = false,
 ) {
   const text = translated ? message.translatedText ?? message.originalText : message.originalText;
   const direct = message.socialDirectMessage;
   if (!direct) return text;
   const header = text.match(new RegExp(`^\\[${socialAppNames[direct.app]} DM(?: Demo)?\\] [^\\n]*? to [^\\n]*?: "`));
   if (!header) return text;
-  const formatted = socialDirectMessageHistoryText({ ...direct, text: '' }, characters);
+  const formatted = socialDirectMessageHistoryText({ ...direct, text: '', tip: undefined }, characters, showRealNames);
   const prefix = text.startsWith('[MatchMe DM Demo]')
     ? formatted.replace('[MatchMe DM]', '[MatchMe DM Demo]')
     : formatted;
-  return prefix.slice(0, -1) + text.slice(header[0].length);
+  const body = text.slice(header[0].length).replace(/" \[Tip: \$[\d,.]+\]$/, '"');
+  return prefix.slice(0, -1) + body + socialDirectMessageTipSuffix(direct);
 }
 
 /** LLM-facing input text for a "user posted something" turn (Message Format 2). */

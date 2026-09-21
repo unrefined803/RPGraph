@@ -300,6 +300,44 @@ describe('MatchMe display identities', () => {
     },
   );
 
+  it('keeps private account owners and attached tips in LLM history, including legacy and translated records', () => {
+    const { owner, outgoing } = fixture();
+    const partner = character('alex', 'Alex Realname');
+    owner.name = 'Mia Realname';
+    owner.apps = { onlyfriends: { accountId: outgoing.fromAccountId!, username: 'mia.handle',
+      enabled: true, privacyMode: true, displayName: 'midnight.mileage', bio: '' } };
+    partner.apps = { onlyfriends: { accountId: outgoing.toAccountId!, username: 'alex.handle',
+      enabled: true, privacyMode: true, displayName: 'open.road.radio', bio: '' } };
+    const characters = [owner, partner];
+    const direct = { ...outgoing, app: 'onlyfriends' as const, from: 'midnight.mileage',
+      to: 'open.road.radio', text: 'Thank you!', tip: 5.5 };
+    const parties = 'Mia Realname (@midnight.mileage) to Alex Realname (@open.road.radio)';
+    for (const alreadyFormatted of [false, true]) {
+      const record: MessageRecord = {
+        id: 2, role: 'user', isOpening: true, socialDirectMessage: direct,
+        originalText: socialDirectMessageHistoryText({ ...direct, tip: alreadyFormatted ? direct.tip : undefined }),
+        translatedText: socialDirectMessageHistoryText({ ...direct, text: 'Translated thank you!',
+          tip: alreadyFormatted ? direct.tip : undefined }),
+      };
+      const before = JSON.stringify(record);
+      const outputs = buildHistoryOutputs({ messages: [record], characters, fallbackOriginalHistory: '',
+        fallbackTranslatedHistory: '', lastTurnsCount: 5, rpDateTimeFormat: 'iso', rpWeekdayLanguage: 'en-US' });
+      for (const history of [outputs.originalHistory, outputs.translatedHistory, outputs.lastTurnsHistory]) {
+        expect(history).toContain(parties);
+        expect(history.match(/\[Tip: \$5.5\]/g)).toHaveLength(1);
+      }
+      expect(outputs.originalHistory).toContain('"Thank you!" [Tip: $5.5]');
+      expect(outputs.translatedHistory).toContain('"Translated thank you!" [Tip: $5.5]');
+      expect(socialDirectMessageDisplayText(record, false, characters)).not.toContain('Realname');
+      expect(JSON.stringify(record)).toBe(before);
+    }
+    expect(socialDirectMessageInputText(direct, [], characters)).toContain(`Sender: Mia Realname (@midnight.mileage)`);
+    expect(socialDirectMessageInputText(direct, [], characters)).toContain('[Tip: $5.5]');
+    expect(socialDirectMessageHistoryText({ ...direct, tip: 5 }, characters)).toContain('"Thank you!" [Tip: $5]');
+    expect(socialDirectMessageHistoryText({ ...direct, tip: undefined }, characters)).not.toContain('[Tip:');
+    expect(socialDirectMessageHistoryText({ ...direct, app: 'fotogram' }, characters)).not.toContain('[Tip:');
+  });
+
   it('derives public MatchMe names from characters and ignores editable legacy names', () => {
     const { owner, outgoing } = fixture();
     owner.name = 'Mia Harper';
