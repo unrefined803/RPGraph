@@ -145,7 +145,7 @@ type UseStorybookActionsOptions = {
   requestSaveCharacter: (
     nodeId: string,
     characterCard: ReturnType<typeof rpCharacterCardForCharacter>,
-    characterCardWithOwnPosts?: ReturnType<typeof rpCharacterCardForCharacter>,
+    createCard: (includePosts: boolean, includeReceivedImages: boolean) => ReturnType<typeof rpCharacterCardForCharacter>,
   ) => void;
 };
 
@@ -884,11 +884,10 @@ export function useStorybookActions({
       }
       const posts = [...storybook.openingHistory.turns, ...turnsRef.current].flatMap((turn) =>
         [...turn.input.messages, ...turn.output.messages].flatMap((message) => message.socialPost ? [message.socialPost] : []));
-      const card = rpCharacterCardForCharacter(character, { includePosts: false, posts,
-        gallery: storybook.characters.flatMap((entry) => entry.images) });
-      const cardWithOwnPosts = rpCharacterCardForCharacter(character, { includePosts: true, posts,
-        gallery: storybook.characters.flatMap((entry) => entry.images) });
-      requestSaveCharacter(nodeId, card, cardWithOwnPosts);
+      const createCard = (includePosts: boolean, includeReceivedImages: boolean) =>
+        rpCharacterCardForCharacter(character, { includePosts, includeReceivedImages, posts,
+          gallery: storybook.characters.flatMap((entry) => entry.images) });
+      requestSaveCharacter(nodeId, createCard(false, false), createCard);
     } catch (error) {
       const messageText = errorMessage(error);
       updateRuntimeNode(nodeId, { storybookStatus: `Character export failed: ${messageText}` });

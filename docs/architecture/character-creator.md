@@ -6,6 +6,21 @@ Stage 6 uses `src/characters/creator.ts` for authored payloads and UI character
 exports. Both produce plain `rpgraph-character` 2.0.0 documents validated by
 `shared/character-container.cjs`. Storybook and node versions remain 3.0.0.
 
+## Received images in character exports
+
+The standalone character save dialog and Storybook export dialog offer **Include
+Received Images**, disabled whenever the save dialog opens. By default, exports
+omit gallery entries marked `receivedFrom` or `imageAccess`, including external
+images added for the character's own posts. Enabling the option embeds those
+images in the portable container and removes the RP-only access metadata.
+
+When images are excluded, posts retain their text without the image reference;
+portraits and app avatars referencing those images are cleared. MatchMe retains
+its remaining photos and becomes disabled if none remain. Export preparation
+never changes the active character or RP gallery. RP saves continue to preserve
+shared media through their media pool; promotion to playable retains RP access
+metadata and does not apply this portable-export filter.
+
 ## Create and revise
 
 From the repository root, with development dependencies installed:

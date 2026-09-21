@@ -5,7 +5,7 @@ const run = promisify(execFile);
 import { mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { createAuthoredCharacter } from './creator';
+import { createAuthoredCharacter, createCharacterContainer } from './creator';
 import { buildCharacterRegistry } from './registry';
 import { appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
 import { validateCharacterContainer } from './character';
@@ -286,4 +286,28 @@ describe('shared container creator', () => {
     expect(files).toContain('luna-sky.json');
     expect(files.every((file) => /^[a-z0-9]+(?:-[a-z0-9]+)*\.json$/.test(file))).toBe(true);
   }, 30000);
+});
+
+
+it.each(['receivedFrom', 'imageAccess'] as const)('excludes %s images by default and embeds them only on request', (access) => {
+  const source = structuredClone(fixture.character);
+  Object.assign(source.images[0], access === 'receivedFrom' ? { receivedFrom: 'Sender' } : { imageAccess: true });
+  const before = structuredClone(source);
+  const excluded = createCharacterContainer(source, true);
+  expect(excluded.character.images).toEqual([]);
+  expect(excluded.character.profileImage).toBeUndefined();
+  expect(excluded.character.apps.fotogram?.avatarImageId).toBeUndefined();
+  expect(excluded.character.apps.fotogram?.initialPosts?.[0]).toMatchObject({ text: source.apps.fotogram.initialPosts[0].text });
+  expect(excluded.character.apps.fotogram?.initialPosts?.[0]).not.toHaveProperty('imageId');
+  expect(excluded.character.apps.matchme?.enabled).toBe(false);
+  expect(excluded.character.apps.matchme?.profile?.photoIds).toEqual([]);
+  validateCharacterContainer(excluded);
+  const included = createCharacterContainer(source, true, true);
+  expect(included.character.images[0].dataUrl).toBe(source.images[0].dataUrl);
+  expect(included.character.images[0]).not.toHaveProperty('receivedFrom');
+  expect(included.character.images[0]).not.toHaveProperty('imageAccess');
+  expect(included.character.apps.matchme?.enabled).toBe(true);
+  expect(included.character.apps.fotogram?.initialPosts?.[0].imageId).toBe(source.images[0].id);
+  validateCharacterContainer(included);
+  expect(source).toEqual(before);
 });

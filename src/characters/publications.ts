@@ -29,7 +29,7 @@ export function withPublicationSnapshot(character: Character, posts: SocialPostR
       if (post.imageId && !copy.images.some((image) => image.id === post.imageId)) {
         const image = gallery.find((entry) => entry.id === post.imageId);
         if (!image) throw new Error(`Cannot export post ${post.postId}: missing gallery image ${post.imageId}.`);
-        copy.images.push(structuredClone(image));
+        copy.images.push({ ...structuredClone(image), imageAccess: true });
       }
       const seedId = sourceSeedId(post.postId, account.accountId);
       seeds.set(seedId, { id: seedId, text: post.caption, ...(post.imageId ? { imageId: post.imageId } : {}) });

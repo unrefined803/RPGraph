@@ -135,6 +135,7 @@ export function useRpgraphFiles({
   const [chooseSaveLocation, setChooseSaveLocation] = useState(false);
   const [characterSaveLocation, setCharacterSaveLocation] = useState<CharacterSaveLocation>('npc-characters');
   const [includeCharacterOwnPosts, setIncludeCharacterOwnPosts] = useState(true);
+  const [includeCharacterReceivedImages, setIncludeCharacterReceivedImages] = useState(false);
   const returnToFilesAfterSaveRef = useRef(false);
   const [pendingSessionFilePath, setPendingSessionFilePath] = useState<string | null>(null);
   const [pendingStorybookLoad, setPendingStorybookLoad] = useState<{
@@ -145,7 +146,7 @@ export function useRpgraphFiles({
   const [pendingCharacterSave, setPendingCharacterSave] = useState<{
     nodeId: string;
     characterCard: RpCharacterCard;
-    characterCardWithOwnPosts: RpCharacterCard;
+    createCard: (includePosts: boolean, includeReceivedImages: boolean) => RpCharacterCard;
   } | null>(null);
   const [activeWorkflowPath, setActiveWorkflowPath] = useState<string | null>(null);
   const activeWorkflowPathRef = useRef<string | null>(null);
@@ -375,11 +376,11 @@ export function useRpgraphFiles({
   function requestSaveCharacter(
     nodeId: string,
     characterCard: RpCharacterCard,
-    characterCardWithOwnPosts: RpCharacterCard = characterCard,
+    createCard: (includePosts: boolean, includeReceivedImages: boolean) => RpCharacterCard,
     returnToFilesAfterSave = false,
   ) {
     const name = characterCard.character.name || characterCard.character.id;
-    setPendingCharacterSave({ nodeId, characterCard, characterCardWithOwnPosts });
+    setPendingCharacterSave({ nodeId, characterCard, createCard });
     setCharacterNameDraft(name);
     setShowFiles(false);
     setSessionPassword('');
@@ -388,6 +389,7 @@ export function useRpgraphFiles({
     setChooseSaveLocation(false);
     setCharacterSaveLocation('npc-characters');
     setIncludeCharacterOwnPosts(true);
+    setIncludeCharacterReceivedImages(false);
     setFileStorageStatus('');
     returnToFilesAfterSaveRef.current = returnToFilesAfterSave;
     setSessionPasswordAction('save-character');
@@ -410,9 +412,7 @@ export function useRpgraphFiles({
         : 'Saving character card as plain JSON ...',
     );
     try {
-      const characterCard = includeCharacterOwnPosts
-        ? pending.characterCardWithOwnPosts
-        : pending.characterCard;
+      const characterCard = pending.createCard(includeCharacterOwnPosts, includeCharacterReceivedImages);
       const result = characterSaveLocation === 'choose'
         ? await window.rpgraph.saveRpgraphFileToPath({
             kind: 'character',
@@ -1158,6 +1158,8 @@ export function useRpgraphFiles({
     setChooseSaveLocation,
     characterSaveLocation,
     setCharacterSaveLocation,
+    includeCharacterReceivedImages,
+    setIncludeCharacterReceivedImages,
     includeCharacterOwnPosts,
     setIncludeCharacterOwnPosts,
     returnToFilesAfterSaveRef,

@@ -98,7 +98,11 @@ describe('portable publication snapshots', () => {
     const external = { ...image, id: 'external', receivedFrom: 'Private sender', imageAccess: true as const };
     const posts = [{ ...ownPost(), imageId: 'external' }, { ...ownPost(), postId: 'second', imageId: 'external' }];
     expect(() => rpCharacterCardForCharacter(character, { includePosts: true, posts })).toThrow('missing gallery image');
-    const card = rpCharacterCardForCharacter(character, { includePosts: true, posts, gallery: [external] });
+    const excluded = rpCharacterCardForCharacter(character, { includePosts: true, posts, gallery: [external] });
+    expect(excluded.character.images.some((entry) => entry.id === 'external')).toBe(false);
+    expect(excluded.character.apps.fotogram?.initialPosts).toEqual(posts.map((post) => ({ id: post.postId, text: post.caption })));
+    validateCharacterPayload(excluded.character);
+    const card = rpCharacterCardForCharacter(character, { includePosts: true, includeReceivedImages: true, posts, gallery: [external] });
     expect(card.character.images.filter((entry) => entry.id === 'external')).toHaveLength(1);
     expect(card.character.images[1]).not.toHaveProperty('receivedFrom');
     expect(card.character.images[1]).not.toHaveProperty('imageAccess');

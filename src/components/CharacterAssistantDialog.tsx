@@ -70,6 +70,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
   const [editSettings, setEditSettings] = useState(false);
   const [showSave, setShowSave] = useState(false);
   const [includePosts, setIncludePosts] = useState(true);
+  const [includeReceivedImages, setIncludeReceivedImages] = useState(false);
   const imageInput = useRef<HTMLInputElement>(null);
   const chatEnd = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -157,7 +158,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     setIoBusy(true); setStatus('');
     try {
       validateAssistantCharacter(character);
-      const container = createCharacterContainer({ ...character, playable: false }, includePosts);
+      const container = createCharacterContainer({ ...character, playable: false }, includePosts, includeReceivedImages);
       if (protection === 'encrypted' && !savePassword.trim()) throw new Error('Enter a password or PIN.');
       let name = preparedName ?? (source?.destination === destination && !source.bundled
         ? source.fileName.replace(/\.json$/i, '') : character.name);
@@ -287,7 +288,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         <div className="storybook-title-row"><h2 id="character-assistant-title">Character Assistant</h2><p>{dirty ? 'Unsaved changes' : 'Ready'} · {editingRp ? 'Editing: RP copy · Used in this RP' : source ? `${source.bundled ? 'Built-in' : 'Local'} · ${source.fileName}` : 'New character'}</p></div>
         <div className="storybook-header-actions">
           {editingRp && <button className="inspect-button nodrag primary" type="button" disabled={ioBusy || busy || rpBusy || !dirty} onClick={applyToRp}>Apply to RP</button>}
-          <button className="inspect-button nodrag" type="button" disabled={ioBusy || busy} onClick={() => { setStatus(''); setShowSave(true); }}>Save Character File…</button>
+          <button className="inspect-button nodrag" type="button" disabled={ioBusy || busy} onClick={() => { setStatus(''); setIncludeReceivedImages(false); setShowSave(true); }}>Save Character File…</button>
           <button className="close-button danger" type="button" disabled={ioBusy} onClick={close}>Close</button>
         </div>
       </header>
@@ -425,7 +426,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
             <label><input type="radio" name="character-save-protection" checked={protection === 'plain'} disabled={ioBusy || !!requiredPassword} onChange={() => setProtection('plain')} /><span><strong>Plain JSON</strong><small>Readable and shareable</small></span></label>
             <label><input type="radio" name="character-save-protection" checked={protection === 'encrypted'} disabled={ioBusy || !!requiredPassword} onChange={() => setProtection('encrypted')} /><span><strong>Password encrypted</strong><small>Protect the complete file</small></span></label>
           </div>
-          <CharacterSaveOptions action="Save" includePosts={includePosts} onIncludePostsChange={setIncludePosts} destination={destination} onDestinationChange={setDestination} disabled={ioBusy}
+          <CharacterSaveOptions action="Save" includeReceivedImages={includeReceivedImages} onIncludeReceivedImagesChange={setIncludeReceivedImages} includePosts={includePosts} onIncludePostsChange={setIncludePosts} destination={destination} onDestinationChange={setDestination} disabled={ioBusy}
             destinations={[{ value: 'npc-characters', label: 'NPC Library Folder' }, { value: 'characters', label: 'Characters Folder' }, { value: 'choose', label: 'Choose Save Location…' }]} />
           {requiredPassword ? <p>Encryption is required. The existing game password is used automatically.</p> : protection === 'encrypted' && <label className="chat-file-field">PASSWORD OR PIN<input autoFocus type="password" autoComplete="new-password" value={savePassword} disabled={ioBusy} onChange={(event) => setSavePassword(event.target.value)} placeholder="Enter password or PIN" /></label>}
           {status && <p className="chat-storage-status" role="status">{status}</p>}

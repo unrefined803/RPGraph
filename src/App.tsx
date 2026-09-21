@@ -1392,6 +1392,8 @@ function App() {
     setChooseSaveLocation,
     characterSaveLocation,
     setCharacterSaveLocation,
+    includeCharacterReceivedImages,
+    setIncludeCharacterReceivedImages,
     includeCharacterOwnPosts,
     setIncludeCharacterOwnPosts,
     returnToFilesAfterSaveRef,
@@ -6357,6 +6359,8 @@ function App() {
         workflowSaveScope={workflowSaveScope}
         chooseSaveLocation={chooseSaveLocation}
         characterSaveLocation={characterSaveLocation}
+        includeCharacterReceivedImages={includeCharacterReceivedImages}
+        onIncludeCharacterReceivedImagesChange={setIncludeCharacterReceivedImages}
         includeCharacterOwnPosts={includeCharacterOwnPosts}
         onCloseSessionPassword={() => {
           if (sessionPasswordAction === 'load-character') {

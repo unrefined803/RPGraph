@@ -26,12 +26,12 @@ export type RpCharacterCard = {
 };
 
 export function rpCharacterCardForCharacter(character: RpStorybookCharacter, options?: {
-  includePosts?: boolean; posts?: SocialPostRecord[]; gallery?: RpStorybookCharacter['images'];
+  includePosts?: boolean; includeReceivedImages?: boolean; posts?: SocialPostRecord[]; gallery?: RpStorybookCharacter['images'];
 }): RpCharacterCard {
   const exported = options?.includePosts
     ? withPublicationSnapshot(character, options.posts ?? [], options.gallery ?? character.images)
     : structuredClone(character);
-  return createCharacterContainer(exported, options?.includePosts);
+  return createCharacterContainer(exported, options?.includePosts, options?.includeReceivedImages);
 }
 
 export type CharacterCardImportPlan = {

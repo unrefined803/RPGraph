@@ -223,6 +223,8 @@ type StudioDialogsProps = {
   workflowSaveScope: 'workflow' | 'workflow-storybook';
   chooseSaveLocation: boolean;
   characterSaveLocation: CharacterSaveLocation;
+  includeCharacterReceivedImages: boolean;
+  onIncludeCharacterReceivedImagesChange: (value: boolean) => void;
   includeCharacterOwnPosts: boolean;
   onCloseSessionPassword: () => void;
   onSessionNameChange: (name: string) => void;
@@ -874,6 +876,8 @@ export function StudioDialogs({
   workflowSaveScope,
   chooseSaveLocation,
   characterSaveLocation,
+  includeCharacterReceivedImages,
+  onIncludeCharacterReceivedImagesChange,
   includeCharacterOwnPosts,
   onCloseSessionPassword,
   onSessionNameChange,
@@ -3089,7 +3093,7 @@ export function StudioDialogs({
                     </div>
                   )}
                   {isSavingCharacter && (
-                    <CharacterSaveOptions includePosts={includeCharacterOwnPosts} onIncludePostsChange={onIncludeCharacterOwnPostsChange}
+                    <CharacterSaveOptions includeReceivedImages={includeCharacterReceivedImages} onIncludeReceivedImagesChange={onIncludeCharacterReceivedImagesChange} includePosts={includeCharacterOwnPosts} onIncludePostsChange={onIncludeCharacterOwnPostsChange}
                       destination={characterSaveLocation} onDestinationChange={onCharacterSaveLocationChange}
                       destinations={[
                         { value: 'npc-characters', label: 'NPC Library Folder' },
