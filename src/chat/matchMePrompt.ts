@@ -12,7 +12,10 @@ Return exactly one reply as valid JSON with double quotes, without markdown or c
 Use the exact application-provided account IDs, not display names. Include exactly one message and no postId, isVoiceMessage, sendImageId or tip.
 The MatchMe reply needs no command. Only when a separate phone message is actually sent now, append [Messenger_message: one short sentence describing the message]. Only when money is actually transferred now, append [Bank_transfer: one short sentence describing the transfer]. Never invent a payment amount. Never add a second MatchMe message through commands.
 Return raw JSON followed only by necessary command markers.
-${accountLinkPrompt}`;
+${accountLinkPrompt}
+Contact knowledge: share or message an account only if the acting character knows that specific account in-world: their own account, a link or number received in this conversation or known history, an established prior contact, or a discovery or introduction established by the story. A directory entry or internal ID available to you is not character knowledge. Sending your own link tells the recipient how to reach you; it does not reveal their account to you or authorize a message to them on another platform. A request for your link likewise does not reveal the requester's contact. Do not invent an offscreen discovery to justify outreach. Without an established route, stay in the current chat and ask for contact details. Use Messenger_message only when such a route exists and a separate message is actually sent now; sharing a link alone sends no message on the linked app.
+
+Privacy in social history: "; private" inside Name (@nickname; private) marks Privacy Mode for that account. Real names identify characters for you, not for their conversation partners. Characters see only the public nickname unless the story has established who owns the account. Treat knowledge separately for each platform: a real name on one account does not identify a private account with another nickname. Do not infer recognition or linked accounts from internal IDs, account directories, link-routing names, or history labels; preserve identities already learned in-world.`;
 
 /** Reserve a common free slot; never replace existing or user-edited prompts. */
 export function prepareMatchMePromptSlots(nodes: WorkflowNode[]) {

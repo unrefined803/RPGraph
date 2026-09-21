@@ -312,7 +312,9 @@ export function socialDirectMessageParty(
   // Social profile editors expose Display name; usernames remain internal account identities.
   const publicName = character?.apps?.[message.app]?.profileName ?? character?.apps?.[message.app]?.displayName;
   const handle = publicName?.trim().replace(/^@/, '') ?? '';
-  return `${name}${showProfileNames && handle ? ` (@${handle})` : ''}`;
+  const privateAccount = showRealNames && isAccountPrivacyMode(message.app, character);
+  const accountLabel = [showProfileNames && handle ? `@${handle}` : '', privateAccount ? 'private' : ''].filter(Boolean).join('; ');
+  return `${name}${accountLabel ? ` (${accountLabel})` : ''}`;
 }
 
 function socialDirectMessageTipSuffix(message: SocialDirectMessageRecord) {
