@@ -8,8 +8,8 @@ describe('Storybook continuation markers', () => {
     });
   });
 
-  it.each(['Done.', '[NEXT: ]', '[NEXT: Profiles] More text', '[Other text]', '[NEXT: Profiles\nand tags]'])
-    ('preserves text without a valid trailing action: %s', (text) => {
+  it.each(['Done.', '[NEXT: ]', '[NEXT: Profiles] More text', '[Other text]', '[NEXT: Profiles\nand tags]'])(
+    'preserves text without a valid trailing action: %s', (text) => {
       expect(parseStorybookContinuation(text)).toEqual({ text, nextPhase: undefined });
     });
 });

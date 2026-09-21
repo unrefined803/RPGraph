@@ -10,7 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import { agencyTagCatalog, type AgencyTagId } from '../../shared/agency-tags.cjs';
 
-export type AgencyTagSelectOption = {
+type AgencyTagSelectOption = {
   id: AgencyTagId | '';
   disabled?: boolean;
 };

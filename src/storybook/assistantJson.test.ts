@@ -18,8 +18,8 @@ it('preserves escaped backslashes while repairing a separate invalid escape', ()
   expect(parseStorybookAssistantJson(String.raw`{"a":"keep\\_","b":"fix\_"}`)).toEqual({ a: 'keep\\_', b: 'fix_' });
 });
 
-it.each(['{"patch":[]} {"patch":[]}', '{"patch":[}', String.raw`{"reply":"bad\q","patch":[]}`])
-  ('rejects other malformed responses: %s', (raw) => {
+it.each(['{"patch":[]} {"patch":[]}', '{"patch":[}', String.raw`{"reply":"bad\q","patch":[]}`])(
+  'rejects other malformed responses: %s', (raw) => {
     expect(() => parseStorybookAssistantJson(raw)).toThrow();
   });
 
