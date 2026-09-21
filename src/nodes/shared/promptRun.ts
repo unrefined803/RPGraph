@@ -832,8 +832,8 @@ export async function runActionAwarePrompt({
       );
       const requestedAction = commandStyleRequest?.requests
         .map((request) => ({ plan: request.plan, actionId: knownPromptActionId(request.name) }))
-        .find((entry): entry is { plan: string; actionId: 'getImageId' | 'createImage' } =>
-          (entry.actionId === 'getImageId' || entry.actionId === 'createImage') &&
+        .find((entry): entry is { plan: string; actionId: 'getImageId' | 'createImage' | 'getCharacterList' } =>
+          (entry.actionId === 'getImageId' || entry.actionId === 'createImage' || entry.actionId === 'getCharacterList') &&
           preReplyActionConfigs.some(
             (candidate) =>
               candidate.actionId === entry.actionId &&

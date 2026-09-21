@@ -68,6 +68,9 @@ function promptActionTemplateVariableStatuses(
   config: PromptActionConfig,
   visionEnabled = true,
 ): Record<string, TemplateVariableStatus> {
+  if (config.actionId === 'getCharacterList') {
+    return { actionId: 'active', query: 'active', returnedCount: 'active', characterList: 'active' };
+  }
   if (config.actionId === 'updatePhoneImageCaption') {
     return {
       actionId: 'active',
@@ -121,8 +124,11 @@ function promptActionInstructionVariableStatuses(
   config: PromptActionConfig,
 ): Record<string, TemplateVariableStatus> | undefined {
   const statuses: Record<string, TemplateVariableStatus> = {};
-  if (!config.runAfterReply && (config.actionId === 'getImageId' || config.actionId === 'createImage')) {
+  if (!config.runAfterReply && (config.actionId === 'getImageId' || config.actionId === 'createImage' || config.actionId === 'getCharacterList')) {
     statuses.plan = 'active';
+  }
+  if (config.actionId === 'getCharacterList') {
+    statuses.agencyTags = 'active';
   }
   if (config.actionId === 'createImage') {
     statuses.availableCharacters = 'active';
@@ -595,6 +601,24 @@ export function PromptActionModal({
                 Globally linked in this node: {usageCount} {usageCount === 1 ? 'use' : 'uses'}.
               </span>
             </div>
+
+            {draft.actionId === 'getCharacterList' ? (
+              <div className="prompt-action-field">
+                <label className="node-field-label" htmlFor={`${id}-action-max-characters`}>MAX RETURNED CHARACTERS</label>
+                <input
+                  id={`${id}-action-max-characters`}
+                  className="node-text-input node-number-input nodrag nowheel"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={draft.maxReturnedCharacters}
+                  onChange={(event) => updateRuntimeConfig({ maxReturnedCharacters: Number(event.currentTarget.value) })}
+                  onBlur={() => updateRuntimeConfig({
+                    maxReturnedCharacters: Math.min(20, Math.max(1, Math.trunc(Number(draft.maxReturnedCharacters) || 5))),
+                  })}
+                />
+              </div>
+            ) : null}
 
             {draft.actionId === 'getImageId' ? (
               <div className="prompt-action-field">

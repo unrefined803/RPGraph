@@ -20,6 +20,8 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
         personality: character.personality, speechStyle: character.speechStyle, role: character.role },
       relationships: character.relationships,
       hiddenAgency: character.hiddenAgency,
+      age: character.age,
+      gender: character.gender,
       agencyTags: character.agencyTags,
       relationshipContext: runtimeRelationshipContext(character, registry.characters.map((entry) => entry.character)),
       apps: character.apps, social: socialFromCharacterApps(character.apps ?? {}), images: character.images,

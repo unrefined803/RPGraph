@@ -61,6 +61,8 @@ export type StorybookCharacter = {
   banking: RpStorybookCharacterBanking;
   social: RpStorybookCharacterSocial;
   apps?: CharacterApps;
+  age?: number;
+  gender?: import('../characters/character').Character['gender'];
   hiddenAgency?: string;
   agencyTags?: import('../characters/character').Character['agencyTags'];
   relationships?: CharacterRelationship[];
@@ -140,6 +142,9 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         banking: character.banking ?? defaultRpStorybookCharacterBanking(),
         apps: character.apps,
         agencyTags: character.agencyTags,
+        hiddenAgency: character.hiddenAgency,
+        age: character.age,
+        gender: character.gender,
         relationships: character.relationships,
         relationshipContext: runtimeRelationshipContext(character, storybook.characters),
         images: character.images,

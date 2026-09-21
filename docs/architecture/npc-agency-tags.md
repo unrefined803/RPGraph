@@ -85,31 +85,11 @@ The implemented Fotogram/OnlyFriends post path builds candidates from the effect
 6. The runtime prompt instructs the LLM to use tags as private behavioral guidance for participation, tone, wording and intent. A tag is a tendency, so any listed account may stay silent. Tag labels and instructions must never appear in public comments.
 7. Following remains optional for this authored post-reaction flow. The existing structured-output validator still rejects invented or ambiguous identities.
 
-Comment threads also receive authored character tags. Their existing enabled-account eligibility is retained, including creator accounts and characters without public-reaction tags. DM context is unchanged.
+Post reactions randomly sample at most five eligible characters, including eligible Storybook characters within the same cap. There is no forced positive/neutral/negative mix. Each selected entry includes description, personality, speech style, hidden agency, character agency tags and their catalog meanings, the current account bio, and privacy mode. Empty authored fields are omitted. These are private authoring data, never public character knowledge or executable instructions. The guidance applies to both comments and post-triggered private messages; platform alone does not imply sexual interest or directness.
 
-Both post and thread prompts sample at most 20 eligible NPCs, plus eligible Storybook characters. The target mix is 10 positive, 5 neutral and 5 negative. `socialAgencyTone` in `src/characters/socialReactionAccounts.ts` explicitly classifies every catalog tag by its authored meaning: supportive traits are positive, manipulative/deceptive/conflict-oriented traits are negative, and other tendencies are neutral. A negative tag takes precedence over a positive tag; otherwise positive takes precedence over neutral. Untagged characters are neutral.
+Comment threads keep enabled existing commenters, including creator accounts and characters without public-reaction tags. They retain up to six distinct commenters by most recent appearance in the supplied comment history, then randomly add at most two new eligible accounts while keeping the commenter total at six. Once six have commented, no newcomers are selected. Old threads already exceeding six use the six most recently active distinct commenters. The enabled post author is provided separately, outside the six-commenter cap, so the author can answer. Disabled or missing accounts are never reintroduced. Selection changes membership; presentation retains registry order.
 
-The thread author and existing commenters are retained first, within the 20-NPC limit. If more than 20 are already involved, the author takes precedence followed by commenters in context order. Remaining candidates are randomly sampled toward the category targets; shortages are filled from any remaining eligible NPCs. Returning participants can therefore outweigh the target proportions. Sampling changes membership, while prompt presentation preserves registry order. Tags remain private LLM guidance, never public comment labels.
-
-Example default candidate context:
-
-```text
-- Chloe Lane (@afterglow.tempo) [NPC] [Agency tags: friendly_regular]
-- Nika Brooks (@silver.margin) [NPC] [Agency tags: boundary_setter]
-- Noah Blake (@quiet.compass) [NPC] [Agency tags: respectful_admirer]
-```
-
-These lines reflect the implemented OnlyFriends assignments. The public response must use the exact name and handle, while the bracketed metadata remains private prompt guidance.
-
-Do not automatically load biographies or full character profiles after selection: that would bypass the chosen context settings. Relevant event context and existing conversation context remain separate from optional candidate profile fields. Pass the actual post image when supported, or an available image description; do not claim image understanding from an image ID alone.
-
-The runtime supplies concise behavior instructions beside the account block and does not repeat full biographies or the complete catalog. It includes short examples for subtle tags such as `social_lurker`, `respectful_admirer` and `boundary_setter`; other tag IDs remain compact, readable cues. The authored workflow prompts retain their structured output contract.
-
-DM replies bind to the actual recipient instead of drawing a public audience. All one-to-one WhatsUp, Fotogram, OnlyFriends and MatchMe inputs include the recipient's description, personality, speech style, hidden agency, and authored character-level agency tags with their complete catalog meanings. These fields are private behavioral guidance and must not be disclosed in the reply. A character without authored tags remains a valid recipient and is identified as unclassified in this context.
-
-The account section is scoped to the active conversation app. Its public profile may be shown in full; other enabled apps are summarized only by account presence and their public name or handle, without unrelated biographies, posts, or photos. MatchMe still supplies both participants' public dating profiles because those profiles establish the dating conversation itself.
-
-Relationship context is selected per message rather than copying the recipient's complete contact directory. It includes authored descriptions in both directions between sender and recipient. It also includes both directions between the recipient and any uniquely resolved character whose first or last name appears as a complete word in the new message; a shared surname can intentionally select multiple characters. Unrelated relationships stay out of the prompt. Missing relationships are not invented.
+One-to-one DM context remains unchanged. The richer candidate data is supplied through the social action's input text by `socialReactionAccountContext`, not by an extra LLM search. The existing identity validator still rejects invented or ambiguous accounts. Public wording and DM initiation should follow each character's private characterization without disclosing it. Pass the actual post image when supported, or an available image description; do not claim image understanding from an image ID alone.
 
 ## In-app context controls
 
@@ -279,7 +259,7 @@ Run targeted non-UI tests for catalog rules, serialization, persistence and filt
 
 ## Decisions still open for review
 
-- Confirm the proposed default of 20 candidates and rotation strategy. The hard cap and optional context fields are agreed requirements; these specific defaults are proposals.
+- Future configurable context controls must preserve the implemented five-candidate post sample and six-commenter thread default unless explicitly changed.
 - Confirm final roster and media availability before creating the 30 additional NPCs.
 
 ## Original agency tag reference
