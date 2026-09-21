@@ -251,8 +251,8 @@ export function socialDirectMessageInputText(
   return [
     socialDirectMessageInputHeaders[message.app],
     `App: ${socialAppNames[message.app]}`,
-    `Sender: ${socialDirectMessageParty(message, 'from', characters, true, true)}`,
-    `Recipient: ${socialDirectMessageParty(message, 'to', characters, true, true)}`,
+    `Sender: ${socialDirectMessageParty(message, 'from', characters, true, true, 'explained')}`,
+    `Recipient: ${socialDirectMessageParty(message, 'to', characters, true, true, 'explained')}`,
     `Reply as: ${message.to} to ${message.from}`,
     '',
     ...(message.app === 'matchme'
@@ -289,6 +289,7 @@ export function socialDirectMessageParty(
   characters: StorybookCharacter[],
   showProfileNames = true,
   showRealNames = false,
+  privacyDetail: 'compact' | 'explained' = 'compact',
 ) {
   const storedHandle = message[side === 'from' ? 'fromHandle' : 'toHandle'];
   const id = message[side === 'from' ? 'fromAccountId' : 'toAccountId'];
@@ -314,7 +315,10 @@ export function socialDirectMessageParty(
   const handle = publicName?.trim().replace(/^@/, '') ?? '';
   const privateAccount = showRealNames && isAccountPrivacyMode(message.app, character);
   const accountLabel = [showProfileNames && handle ? `@${handle}` : '', privateAccount ? 'private' : ''].filter(Boolean).join('; ');
-  return `${name}${accountLabel ? ` (${accountLabel})` : ''}`;
+  const privacyExplanation = privateAccount && privacyDetail === 'explained'
+    ? ' — Privacy Mode: this account shows only the public nickname, not the real name or character photo. The real name here is for model identification only; the other character knows the owner only if established in the story, not from these labels or accounts on other apps.'
+    : '';
+  return `${name}${accountLabel ? ` (${accountLabel})` : ''}${privacyExplanation}`;
 }
 
 function socialDirectMessageTipSuffix(message: SocialDirectMessageRecord) {

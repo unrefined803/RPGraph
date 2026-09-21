@@ -354,6 +354,33 @@ describe('MatchMe display identities', () => {
     expect(socialDirectMessageHistoryText({ ...direct, app: otherApp }, [owner])).not.toContain('; private');
   });
 
+  it.each(['fotogram', 'onlyfriends'] as const)('explains private sender and recipient identities only in the %s input block', (app) => {
+    const { owner, outgoing } = fixture();
+    const partner = character('alex', 'Alex Realname');
+    owner.apps = { [app]: { accountId: outgoing.fromAccountId!, enabled: true,
+      profileName: 'quiet.artist', privacyMode: true, bio: '' } };
+    partner.apps = { [app]: { accountId: outgoing.toAccountId!, enabled: true,
+      profileName: 'public.artist', privacyMode: false, bio: '' } };
+    const direct = { ...outgoing, app };
+    const characters = [owner, partner];
+    const input = socialDirectMessageInputText(direct, [], characters);
+    const sender = input.split('\n').find((line) => line.startsWith('Sender:'))!;
+    const recipient = input.split('\n').find((line) => line.startsWith('Recipient:'))!;
+    expect(sender).toContain('Mia (@quiet.artist; private) — Privacy Mode:');
+    expect(sender).toContain('not the real name or character photo');
+    expect(sender).toContain('only if established in the story');
+    expect(recipient).toBe('Recipient: Alex Realname (@public.artist)');
+    partner.apps[app]!.privacyMode = true;
+    expect(socialDirectMessageInputText(direct, [], characters).split('\n')
+      .find((line) => line.startsWith('Recipient:'))).toContain('(@public.artist; private) — Privacy Mode:');
+    const history = socialDirectMessageHistoryText(direct, characters);
+    expect(history).toContain('(@quiet.artist; private)');
+    expect(history).not.toContain('Privacy Mode:');
+    const ui = socialDirectMessageHistoryText(direct, characters, false);
+    expect(ui).not.toContain('Privacy Mode:');
+    expect(ui).not.toContain('Mia');
+  });
+
   it('derives public MatchMe names from characters and ignores editable legacy names', () => {
     const { owner, outgoing } = fixture();
     owner.name = 'Mia Harper';
