@@ -5,7 +5,7 @@ import type { StorybookCharacter } from '../../storybook/runtime';
 import { defaultPromptActionConfig, executePromptAction, getImagesLlmInstruction, normalizePromptActionConfig, parsePromptActionCall, previousPromptActionDefaultsForValidation } from './promptActions';
 
 const image = (id: string, description: string) => ({
-  id, name: id, description, mimeType: 'image/png', size: 1, dataUrl: `data:image/png;base64,${id}`,
+  id, name: id, description, mimeType: 'image/jpeg' as const, size: 1, dataUrl: `data:image/jpeg;base64,${id}`,
 });
 const character = (name: string, images: ReturnType<typeof image>[]) => ({
   id: name, sourceId: name, name, label: name, kind: 'character', storybookNodeId: '', libraryNpc: true, images,
@@ -100,5 +100,54 @@ describe('phone image publication history', () => {
     }
     const custom = 'My gallery: {{imageShownTo}}';
     expect(normalizePromptActionConfig({ ...config, resultTemplate: custom })?.resultTemplate).toBe(custom);
+  });
+});
+
+
+describe('phone image MatchMe profile visibility', () => {
+  function matchMeCharacters(enabled = true) {
+    const owners = structuredClone(characters);
+    owners[0].images!.push(image('unused', 'Another mirror selfie.'));
+    owners[0].apps = { matchme: {
+      accountId: 'eli-matchme', enabled, profileName: 'Eli', bio: 'Hello.', avatarImageId: 'unused',
+      profile: { name: 'Eli', age: 25, bio: 'Hello.', interests: 'Art', decisions: {},
+        photoIds: ['npc-selfie', 'npc-player'] },
+    } };
+    return owners;
+  }
+
+  it.each([false, true])('marks all assigned profile photos with hidden captions: %s', async (hideImageTextWhenSendingToLlm) => {
+    const result = await search('Eli Ward', '', matchMeCharacters(), [], { ...config, hideImageTextWhenSendingToLlm });
+    const lines = result.text.split('\n');
+    for (const id of ['npc-selfie', 'npc-player']) {
+      expect(lines.find((line) => line.includes(`: ${id} :`))).toContain(
+        'Image shown to: No direct recipients recorded; MatchMe profile photo: Eli Ward',
+      );
+    }
+    expect(lines.find((line) => line.includes(': unused :'))).not.toContain('MatchMe profile photo');
+    expect(result.text).toContain('Use the chat history, established matches, and story context');
+    expect(result.text).toContain('do not treat profile photos as new pictures');
+  });
+
+  it('retains profile attribution when the same image is found in a recipient gallery', async () => {
+    const owners = matchMeCharacters();
+    owners[1].images!.push({ ...owners[0].images![0], receivedFrom: 'Eli Ward' });
+    const result = await search('Player', '', owners);
+    expect(result.text.split('\n').find((line) => line.includes(': npc-player :'))).toContain(
+      'Image shown to: Player; MatchMe profile photo: Eli Ward',
+    );
+  });
+
+  it('combines MatchMe profile use with social publications', async () => {
+    const result = await search('Eli Ward', '', matchMeCharacters(), [{
+      id: 1, role: 'output', originalText: '', socialPost: { app: 'fotogram', postId: 'selfie',
+        author: 'Eli Ward', authorHandle: 'eli', caption: 'Selfie', imageId: 'npc-selfie' },
+    }]);
+    expect(result.text).toContain('Social media posts: Fotogram (public); MatchMe profile photo: Eli Ward');
+  });
+
+  it('does not mark photos in a disabled MatchMe profile', async () => {
+    const result = await search('Eli Ward', '', matchMeCharacters(false));
+    expect(result.text.split('\n').filter((line) => line.startsWith('* ')).join('\n')).not.toContain('MatchMe profile photo');
   });
 });

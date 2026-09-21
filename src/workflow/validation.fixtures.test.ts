@@ -304,6 +304,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-result-5:558:8938fbf8',
   'get-images-result-6:54:c3c52fe9',
   'get-images-result-7:766:fbd0ca9e',
+  'get-images-result-8:1131:f210876a',
 ];
 
 export function verifyWorkflowValidationFixtures() {

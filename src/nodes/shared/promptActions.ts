@@ -63,6 +63,7 @@ type ActionImageResult = {
   characterName: string;
   shownTo: string[];
   postedOn: SocialAppKind[];
+  matchMeProfiles: string[];
   score: number;
   attachment: ChatImageAttachment;
 };
@@ -642,7 +643,7 @@ export const defaultGetImagesResultTemplate = [
   'Found images for tags: {{tags}}',
   defaultGetImagesResultLineTemplate,
   '',
-  'Do not send a returned image again to people named under "Image shown to"; they have already seen or received it. "Social media posts" lists prior publications: treat Fotogram posts as public and assume everyone has likely seen them, so do not present them as new or private discoveries. OnlyFriends posts have restricted access; use the story context to judge whether the intended recipient likely had access and saw the image. Choose another fitting image or omit sendImageId when it would repeat something the recipient already knows.',
+  'Do not send a returned image again to people named under "Image shown to"; they have already seen or received it. "Social media posts" lists prior publications: treat Fotogram posts as public and assume everyone has likely seen them, so do not present them as new or private discoveries. OnlyFriends posts have restricted access; use the story context to judge whether the intended recipient likely had access and saw the image. "MatchMe profile photo" identifies images used in a dating profile. Use the chat history, established matches, and story context to judge whether the recipient has likely seen that profile; do not treat profile photos as new pictures for someone who already knows them. Choose another fitting image or omit sendImageId when it would repeat something the recipient already knows.',
   'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
   'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
 ].join('\n');
@@ -784,6 +785,15 @@ const previousGetImagesResultTemplates = new Set([
     defaultGetImagesResultLineTemplate,
     '',
     'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
+    'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
+    'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
+  ].join('\n'),
+  [
+    'Action executed: get character phone image list.',
+    'Found images for tags: {{tags}}',
+    defaultGetImagesResultLineTemplate,
+    '',
+    'Do not send a returned image again to people named under "Image shown to"; they have already seen or received it. "Social media posts" lists prior publications: treat Fotogram posts as public and assume everyone has likely seen them, so do not present them as new or private discoveries. OnlyFriends posts have restricted access; use the story context to judge whether the intended recipient likely had access and saw the image. Choose another fitting image or omit sendImageId when it would repeat something the recipient already knows.',
     'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
     'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
   ].join('\n'),
@@ -1823,6 +1833,21 @@ function imagePublicationsById(context: ExecuteContext) {
   return publications;
 }
 
+function imageMatchMeProfilesById(context: ExecuteContext) {
+  const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
+  const profilesByImageId = new Map<string, Set<string>>();
+  for (const character of characters) {
+    const account = character.apps?.matchme;
+    if (!account?.enabled) continue;
+    for (const imageId of account.profile?.photoIds ?? []) {
+      const profiles = profilesByImageId.get(imageId) ?? new Set<string>();
+      profiles.add(character.name);
+      profilesByImageId.set(imageId, profiles);
+    }
+  }
+  return profilesByImageId;
+}
+
 function findGetImagesResults(
   context: ExecuteContext,
   call: ParsedPromptActionCall,
@@ -1841,6 +1866,7 @@ function findGetImagesResults(
     : storybookImageListsFromNodes(context.nodes);
   const recipientsByImageId = imageRecipientsById(imageLists, context.historyMessages);
   const publicationsByImageId = imagePublicationsById(context);
+  const matchMeProfilesByImageId = imageMatchMeProfilesById(context);
   const lists = imageLists.filter((imageList) =>
     normalizedSearchText(imageList.name) === normalizedSearchText(call.phoneOwner ?? ''),
   );
@@ -1855,6 +1881,7 @@ function findGetImagesResults(
         characterName: imageList.name,
         shownTo: recipientsByImageId.get(image.id) ?? [],
         postedOn: [...(publicationsByImageId.get(image.id) ?? [])].sort(),
+        matchMeProfiles: [...(matchMeProfilesByImageId.get(image.id) ?? [])].sort(),
         score: tagScore(image.description, words),
         subjectScore: tagScore(image.description, subjectWords),
         attachment: {
@@ -1901,9 +1928,12 @@ function imageTextValue(result: ActionImageResult, hideImageText: boolean) {
 
 function imageShownToValue(result: ActionImageResult) {
   const recipients = result.shownTo.length ? result.shownTo.join(', ')
-    : result.postedOn.length ? 'No direct recipients recorded' : 'No one yet';
+    : result.postedOn.length || result.matchMeProfiles.length ? 'No direct recipients recorded' : 'No one yet';
   const publications = result.postedOn.map((app) => app === 'fotogram' ? 'Fotogram (public)' : 'OnlyFriends (restricted access)');
-  return publications.length ? `${recipients}; Social media posts: ${publications.join(', ')}` : recipients;
+  return [recipients,
+    ...(publications.length ? [`Social media posts: ${publications.join(', ')}`] : []),
+    ...(result.matchMeProfiles.length ? [`MatchMe profile photo: ${result.matchMeProfiles.join(', ')}`] : []),
+  ].join('; ');
 }
 
 function formatImageLine(result: ActionImageResult, index: number, includeImageOrderLabels: boolean, hideImageText: boolean) {
