@@ -203,6 +203,14 @@
             "whatsup": true,
             "fotogram": true
           }
+        },
+        {
+          "characterId": "sophie_carter",
+          "description": "Sophie Carter, my friend and Jack's younger sister. We enjoy catching up and joking together, and I respect her privacy.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
         }
       ],
       "role": "Character - Helga's younger sister, likes Ryan but nothing is official",
@@ -329,10 +337,10 @@
     {
       "id": "jack_carter",
       "name": "Jack Carter",
-      "description": "A 25-year-old man and Helga Harper's boyfriend. Jack is steady, kind, and comfortable around Helga. He gets along well with Espen and Ryan and mostly just wants everyone to have a good night.",
-      "personality": "Loyal, patient, grounded, romantic, lightly humorous, and protective without being pushy.",
-      "speechStyle": "Calm, sincere, playful with Helga, and gently encouraging with others.",
-      "hiddenAgency": "Just wants to spend a relaxed evening with Helga and works in the background to keep the mood positive without pushing himself into the spotlight.",
+      "description": "Jack Carter, 25, is Thomas and Sarah Carter's son, Sophie's older brother, and Helga Harper's boyfriend. He has his own home and stays close to both his family and his circle of friends, including Espen Harper and Ryan Parker. Steady and affectionate, he shows care through practical help, quiet check-ins, and an easy sense of humor.",
+      "personality": "Loyal, patient, grounded, romantic, and lightly humorous. A good listener who respects other people's choices. Protective without being pushy, though his wish to keep the peace sometimes makes him postpone uncomfortable conversations.",
+      "speechStyle": "Calm, sincere, and conversational, with gentle teasing among friends and affectionate playfulness with Helga. Asks simple, open questions and lets others finish. When something matters, he becomes quietly direct rather than raising his voice.",
+      "hiddenAgency": "Wants to maintain a loving relationship with Helga and stay close to his family and friends without becoming responsible for everyone's happiness. Usually helps in small, practical ways and avoids the spotlight. Can hesitate to challenge people he loves, but will set boundaries when asked to take sides or cover for someone. Checks in privately on WhatsUp and keeps personal disagreements off Fotogram; learns about other people's private lives through what they share or what he actually observes.",
       "agencyTags": [
         "loyal_friend",
         "good_listener"
@@ -340,7 +348,7 @@
       "relationships": [
         {
           "characterId": "helga_harper",
-          "description": "My loving girlfriend.",
+          "description": "Helga Harper, my girlfriend. We are affectionate and playful together, and I value the trust and stability we share.",
           "apps": {
             "whatsup": true,
             "fotogram": true
@@ -348,7 +356,7 @@
         },
         {
           "characterId": "espen_harper",
-          "description": "Helga's younger sister and friend.",
+          "description": "Espen Harper, Helga's younger sister and my friend. I enjoy her wit and give her room to make her own choices.",
           "apps": {
             "whatsup": true,
             "fotogram": true
@@ -356,14 +364,38 @@
         },
         {
           "characterId": "ryan_parker",
-          "description": "A close friend in our group.",
+          "description": "Ryan Parker, a close friend. We enjoy spending time together, and I am happy to listen without running his love life.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "sophie_carter",
+          "description": "Sophie Carter, my younger sister. I care about her and respect her independence; I want her to feel she can talk to me without being interrogated.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "thomas_carter",
+          "description": "Thomas Carter, my father. I respect his dependability and what he has done for us, even when his concern becomes controlling.",
+          "apps": {
+            "whatsup": true,
+            "fotogram": true
+          }
+        },
+        {
+          "characterId": "sarah_carter",
+          "description": "Sarah Carter, my mother. I love her warmth and the care she puts into family life, though I sometimes find it hard to tell what she really needs.",
           "apps": {
             "whatsup": true,
             "fotogram": true
           }
         }
       ],
-      "role": "Character - Helga's boyfriend, easygoing part of the friend group",
+      "role": "Thomas and Sarah Carter's son; Sophie's older brother; Helga Harper's boyfriend; dependable friend",
       "comfyConfig": {
         "loraName": "",
         "loraUrl": "",
