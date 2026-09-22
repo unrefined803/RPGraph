@@ -1,4 +1,42 @@
 import { normalizeCharacterApps, type Character } from './character';
+import { withPublicationSnapshot } from './publications';
+import { characterContentEqual } from './contentComparison';
+import type { SocialPostRecord } from '../types';
+
+/** Collect actual message publications, excluding embedded character and recovery snapshots. */
+export function libraryActivityPosts(activity: unknown): SocialPostRecord[] {
+  const posts: SocialPostRecord[] = [];
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (!value || typeof value !== 'object') return;
+    for (const [key, entry] of Object.entries(value)) {
+      if (key === 'socialPost' && entry && typeof entry === 'object') {
+        const post = entry as SocialPostRecord;
+        if ((post.app === 'fotogram' || post.app === 'onlyfriends') && typeof post.postId === 'string' &&
+          typeof post.author === 'string' && typeof post.authorHandle === 'string' && typeof post.caption === 'string') posts.push(post);
+      } else if (!['npcParticipants', 'characters', 'voiceMedia', 'dataUrl', 'graphText', 'nodeSnapshots'].includes(key)) visit(entry);
+    }
+  };
+  visit(activity);
+  return posts;
+}
+
+/** A display-only publication view; keep timeline activity out of the stored character. */
+export function libraryCharacterWithPosts(character: Character, posts: SocialPostRecord[]): Character {
+  return withPublicationSnapshot(character, posts, [], { copyExternalImages: false });
+}
+
+/** Compare the active publication view to the saved file, allowing export ordering differences. */
+export function libraryCharacterContentEqual(active: Parameters<typeof characterContentEqual>[0], saved: Parameters<typeof characterContentEqual>[0]): boolean {
+  const ordered = (character: Parameters<typeof characterContentEqual>[0]) => {
+    const copy = structuredClone(character);
+    for (const account of Object.values(copy.apps ?? {})) {
+      account.initialPosts?.sort((a, b) => a.id.localeCompare(b.id));
+    }
+    return copy;
+  };
+  return characterContentEqual(ordered(active), ordered(saved));
+}
 
 /** Count distinct gallery images referenced by the authored portrait and enabled apps. */
 export function characterLibrarySummary(character: Character) {

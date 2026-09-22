@@ -6540,9 +6540,9 @@ function App() {
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
-          activity={[messages, turns, socialLikesByAccount, persistedSocialConnectionsByCharacter,
-            phoneNotesByCharacter, chatGpdChatsByCharacter,
-            nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory)]}
+          activity={[nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory),
+            turns, messages, socialLikesByAccount, persistedSocialConnectionsByCharacter,
+            phoneNotesByCharacter, chatGpdChatsByCharacter]}
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
           dismissOnEscape={!characterRemoval}

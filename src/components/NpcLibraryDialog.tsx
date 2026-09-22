@@ -4,7 +4,7 @@ import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
-import { characterLibrarySummary, characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries } from '../characters/librarySummary';
+import { characterLibrarySummary, characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 import type { Character } from '../characters/character';
 import { characterContentEqual } from '../characters/contentComparison';
@@ -129,7 +129,7 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
           </div>;
         })}
       </div>
-      <div className="npc-library-images" title="Distinct images in this character file. Used includes the portrait, enabled app avatars, initial posts and MatchMe profile photos. Unused images are available for future sharing or posts.">
+      <div className="npc-library-images" title="Distinct images in this character file. Used includes the portrait, enabled app avatars, published posts and MatchMe profile photos. Unused images are available for future sharing or posts.">
         <span>Images</span><strong>{used} <small>used</small></strong><strong>{unused} <small>unused</small></strong>
       </div>
       <div className="npc-library-row-actions">
@@ -170,11 +170,12 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
   const lockedFiles = (snapshot?.files ?? []).filter((file) => file.protection === 'encrypted' && !file.unlocked);
   const targetNodeId = storybookNodeId ?? '';
   const libraryEntries = useMemo(() => visibleLibraryEntries(snapshot?.entries ?? []), [snapshot]);
+  const posts = useMemo(() => libraryActivityPosts(activity), [activity]);
   const entries = useMemo(() => {
     const bundledById = new Map((snapshot?.entries ?? []).filter((entry) => entry.tier === 'bundled')
       .map((entry) => [entry.character.id, entry.character]));
     const display: DisplayEntry[] = activeRegistry.characters.map((effective) => {
-      const character = effective.character;
+      const character = libraryCharacterWithPosts(effective.character, posts);
       const libraryEntry = effectiveLibraryEntry(libraryEntries, character.id);
       const bundled = bundledById.get(character.id);
       const saved = participants[character.id]?.character;
@@ -184,8 +185,8 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
         playable: effective.playerSelectable, nodeId: inStorybook ? effective.provenance.source : undefined,
         retained: !!saved || effective.provenance.tier === 'snapshot',
         hasActivity: characterUsageReasons(character, effective.aliases, activity).length > 0,
-        snapshotEdited: !!saved && !!libraryEntry && !characterContentEqual(saved, libraryEntry.character),
-        storybookEdited: inStorybook && !!source && !characterContentEqual(character, source),
+        snapshotEdited: !!saved && !!libraryEntry && !libraryCharacterContentEqual(character, libraryEntry.character),
+        storybookEdited: inStorybook && !!source && !libraryCharacterContentEqual(character, source),
         localEdited: !!libraryEntry?.editedBuiltIn && !!bundled && !characterContentEqual(libraryEntry.character, bundled),
       };
     });
@@ -201,7 +202,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
       const rightGroup = right.playable ? 0 : right.hasActivity ? 1 : 2;
       return leftGroup - rightGroup || left.character.name.localeCompare(right.character.name);
     });
-  }, [activeRegistry, libraryEntries, snapshot, participants, activity]);
+  }, [activeRegistry, libraryEntries, snapshot, participants, activity, posts]);
 
   const sections = useMemo(() => {
     const playable = entries.filter((entry) => entry.playable);

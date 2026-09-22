@@ -16,7 +16,8 @@ export function initialCharacterPosts(characters: StorybookCharacter[]): SocialP
 }
 
 /** Whitelist own publication fields. Never copy messages, reactions, likes or match history. */
-export function withPublicationSnapshot(character: Character, posts: SocialPostRecord[], gallery: Character['images']): Character {
+export function withPublicationSnapshot(character: Character, posts: SocialPostRecord[], gallery: Character['images'],
+  options: { copyExternalImages?: boolean } = {}): Character {
   const copy = structuredClone(character);
   for (const app of ['fotogram', 'onlyfriends'] as const) {
     const account = copy.apps?.[app];
@@ -26,7 +27,7 @@ export function withPublicationSnapshot(character: Character, posts: SocialPostR
       if (post.app !== app || (post.authorAccountId ? post.authorAccountId !== account.accountId :
         post.authorCharacterId ? post.authorCharacterId !== character.id :
         post.authorHandle.toLowerCase() !== accountHandle(account).toLowerCase() || post.author !== character.name)) continue;
-      if (post.imageId && !copy.images.some((image) => image.id === post.imageId)) {
+      if (options.copyExternalImages !== false && post.imageId && !copy.images.some((image) => image.id === post.imageId)) {
         const image = gallery.find((entry) => entry.id === post.imageId);
         if (!image) throw new Error(`Cannot export post ${post.postId}: missing gallery image ${post.imageId}.`);
         copy.images.push({ ...structuredClone(image), imageAccess: true });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Character, CharacterAppAccount } from './character';
-import { characterLibrarySummary } from './librarySummary';
+import { characterLibrarySummary, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from './librarySummary';
+import { rpCharacterCardForCharacter } from '../storybook/characterCard';
+import type { SocialPostRecord } from '../types';
 
 const account = (extra: Partial<CharacterAppAccount> = {}): CharacterAppAccount => ({
   accountId: 'account', enabled: true, username: 'alex', displayName: 'Alex', bio: '', ...extra,
@@ -8,8 +10,63 @@ const account = (extra: Partial<CharacterAppAccount> = {}): CharacterAppAccount 
 const character = (): Character => ({
   id: 'alex', name: 'Alex Morgan', description: '', personality: '', speechStyle: '', role: '',
   images: ['portrait', 'post', 'dating', 'reserve'].map((id) => ({
-    id, name: id, mimeType: 'image/jpeg', size: 0, dataUrl: '', description: '',
+    id, name: id, mimeType: 'image/jpeg', size: 3, dataUrl: 'data:image/jpeg;base64,YWJj', description: '',
   })),
+});
+
+describe('NPC library publication view', () => {
+  const post = (extra: Partial<SocialPostRecord> = {}): SocialPostRecord => ({
+    app: 'fotogram', postId: 'published', author: 'Alex Morgan', authorHandle: 'alex',
+    authorAccountId: 'account', authorCharacterId: 'alex', caption: 'Hello', imageId: 'post', ...extra,
+  });
+  const source = () => ({ ...character(), apps: { fotogram: account() } });
+
+  it('recognizes an own-post export as the same Storybook content and counts opening and live posts once', () => {
+    const npc = source();
+    const before = structuredClone(npc);
+    const message = { socialPost: post() };
+    const posts = libraryActivityPosts([{ turns: [{ input: { messages: [message] }, output: { messages: [] } }] },
+      [message, { socialPost: post({ authorAccountId: 'someone-else', postId: 'foreign' }) }]]);
+    const view = libraryCharacterWithPosts(npc, posts);
+    const exported = rpCharacterCardForCharacter(npc, { includePosts: true, posts }).character;
+    expect(characterLibrarySummary(view).apps.fotogram?.initialPosts).toHaveLength(1);
+    expect(characterLibrarySummary(view).used).toBe(1);
+    expect(libraryCharacterContentEqual(view, exported)).toBe(true);
+    expect(npc).toEqual(before);
+    expect(characterLibrarySummary(npc).apps.fotogram?.initialPosts ?? []).toHaveLength(0);
+  });
+
+  it('keeps actual profile edits and additional publications different from the saved export', () => {
+    const npc = source();
+    const exported = rpCharacterCardForCharacter(npc, { includePosts: true, posts: [post()] }).character;
+    const view = libraryCharacterWithPosts(npc, [post()]);
+    expect(libraryCharacterContentEqual({ ...view, description: 'Changed' }, exported)).toBe(false);
+    expect(libraryCharacterContentEqual(libraryCharacterWithPosts(npc, [post(), post({ postId: 'second' })]), exported)).toBe(false);
+  });
+
+  it('deduplicates NPC seed IDs, uses the latest caption and ignores publication ordering', () => {
+    const npc = source();
+    npc.apps.fotogram.initialPosts = [{ id: 'published', text: 'Old', imageId: 'post' }, { id: 'another', text: 'Other' }];
+    const view = libraryCharacterWithPosts(npc, [post({ postId: 'npc-seed:["account","published"]' }), post({ caption: 'Latest' })]);
+    expect(view.apps?.fotogram?.initialPosts).toHaveLength(2);
+    expect(view.apps?.fotogram?.initialPosts?.[0].text).toBe('Latest');
+    const reversed = structuredClone(view);
+    reversed.apps!.fotogram!.initialPosts!.reverse();
+    expect(libraryCharacterContentEqual(view, reversed)).toBe(true);
+  });
+
+  it('handles text-only OnlyFriends posts and external media without copying unavailable images', () => {
+    const npc = { ...source(), apps: { onlyfriends: account() } };
+    const view = libraryCharacterWithPosts(npc, [post({ app: 'onlyfriends', imageId: undefined }),
+      post({ app: 'onlyfriends', postId: 'external', imageId: 'external-image' })]);
+    expect(characterLibrarySummary(view).apps.onlyfriends?.initialPosts).toHaveLength(2);
+    expect(view.images).toEqual(npc.images);
+  });
+
+  it('ignores posts inside archived participants and node snapshots', () => {
+    expect(libraryActivityPosts({ npcParticipants: { x: { socialPost: post() } },
+      nodeSnapshots: [{ socialPost: post() }], turns: [{ input: { messages: [{ socialPost: post() }] } }] })).toEqual([post()]);
+  });
 });
 
 describe('NPC library image inventory', () => {
