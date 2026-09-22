@@ -92,6 +92,12 @@ revealed. MatchMe and WhatsUp do not support this setting. Character names, acco
 IDs and routing aliases stay intact. This is a public presentation preference, not
 anonymization of the character data or the narrator's knowledge.
 
+In the Fotogram/OnlyFriends profile editor, **Portrait** uses the character's
+portrait crop. Selecting an album photo stores `avatarImageId` and uses that
+full image, including when it is also the portrait source. Both render in a
+fixed circular viewport without stretching. Privacy mode still hides either
+choice publicly.
+
 ## MatchMe public identity
 
 MatchMe accepts an optional `apps.matchme.profileName`. An explicit value wins,

@@ -214,11 +214,12 @@ The profile picker supports **Apply**, **Use Full Image**, and **Clear Profile
 Pic** in the gallery. Crops survive Character Container V2 exports, Storybook V3
 saves/imports and NPC snapshot projections. The runtime derives an SVG viewport
 around the embedded JPEG for avatar consumers; this generated preview is never
-stored in the portable container. App avatars that reference the same gallery
-image inherit the character crop. A different explicitly selected app image
-remains uncropped. Changing or clearing the character portrait also updates app
-avatar references that followed its previous image; independently selected app
-images are retained. Gallery images, feed photos and MatchMe discovery photos remain
+stored in the portable container. Fotogram and OnlyFriends distinguish the portrait fallback (no `avatarImageId`)
+from an explicit album selection. The fallback uses the character crop; an album
+selection uses the full image, even when it is the same source photo. Explicit
+social album references remain unchanged when the character portrait changes or
+is cleared. Other app avatars using the portrait source inherit its crop and
+continue following portrait changes. Gallery images, feed photos and MatchMe discovery photos remain
 full images. MatchMe match and conversation avatars use the explicit MatchMe avatar or first dating photo; they inherit the portrait crop only when that same image is selected.
 
 Install the authoring-only detector once (Python with `venv` and pip required):

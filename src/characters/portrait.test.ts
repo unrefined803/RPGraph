@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { appAvatarDataUrl, portraitDataUrl, withCharacterPortrait } from './portrait';
+import { appAvatarDataUrl, socialAvatarDataUrl, portraitDataUrl, withCharacterPortrait } from './portrait';
 import { characterPayload, validateCharacterPayload } from './character';
 import { normalizeRpStorybook, parseRpStorybookJson, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 import { planCharacterCardImport, rpCharacterCardForCharacter } from '../storybook/characterCard';
@@ -63,19 +63,19 @@ describe('portable character portrait crops', () => {
     expect(appAvatarDataUrl({ profileImage: { imageId: 'another', crop: { x: 0, y: 0, size: 10 } } }, image)).toBe(image.dataUrl);
   });
 
-  it('updates apps following the portrait and preserves independent app images', () => {
+  it('keeps explicit social album selections when the portrait changes or is cleared', () => {
     const character = normalizeRpStorybook({ characters: [container.character] }).characters[0];
     const original = structuredClone(character);
     character.apps!.onlyfriends = { ...character.apps!.fotogram!, accountId: 'separate', avatarImageId: 'scenery' };
     const next = { imageId: character.images[1].id, dataUrl: character.images[1].dataUrl, crop: { x: 5, y: 5, size: 30 } };
     const changed = withCharacterPortrait(character, next);
-    expect(changed.apps?.fotogram?.avatarImageId).toBe(next.imageId);
+    expect(changed.apps?.fotogram?.avatarImageId).toBe(original.apps?.fotogram?.avatarImageId);
     expect(changed.apps?.matchme?.avatarImageId).toBe(next.imageId);
     expect(changed.apps?.onlyfriends?.avatarImageId).toBe('scenery');
     expect(character.profileImage).toEqual(original.profileImage);
     const cleared = withCharacterPortrait(changed, undefined);
     expect(cleared.profileImage).toBeUndefined();
-    expect(cleared.apps?.fotogram?.avatarImageId).toBeUndefined();
+    expect(cleared.apps?.fotogram?.avatarImageId).toBe(original.apps?.fotogram?.avatarImageId);
     expect(cleared.apps?.onlyfriends?.avatarImageId).toBe('scenery');
   });
 
@@ -109,4 +109,16 @@ it('reuses avatar encoding and invalidates for crop, dimensions and source edits
     expect(encode).toHaveBeenCalledTimes(4);
     expect(portraitDataUrl(image)).toBe(image.dataUrl);
   } finally { encode.mockRestore(); }
+});
+
+
+it('distinguishes the social portrait crop from an explicit selection of the same album image', () => {
+  const image = { id: 'photo', dataUrl: 'data:image/jpeg;base64,YQ==', width: 800, height: 1200 };
+  const crop = { x: 20, y: 10, size: 40 };
+  const portrait = portraitDataUrl(image, crop);
+  const character = { profileImage: { imageId: image.id, crop, dataUrl: portrait } };
+  expect(socialAvatarDataUrl(character)).toBe(portrait);
+  expect(socialAvatarDataUrl(character, image)).toBe(image.dataUrl);
+  expect(socialAvatarDataUrl(undefined, image)).toBe(image.dataUrl);
+  expect(socialAvatarDataUrl(undefined)).toBeUndefined();
 });

@@ -48,7 +48,7 @@
         "accountId": "character:simon_drake:fotogram",
         "enabled": true,
         "profileName": "simon.drake.critique",
-        "privacyMode": false,
+        "privacyMode": true,
         "legacyHandles": [
           "simon.drake.critique"
         ],

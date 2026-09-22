@@ -95,6 +95,10 @@ describe('independent MatchMe identity', () => {
     for (const id of ['chloe_bella_vance', 'tyler_briggs', 'felix_miller', 'simon_drake']) {
       const character = library.entries.find((entry) => entry.character.id === id)!.character;
       expect(character.profileImage?.imageId).toBe(`${id}:image:portrait`);
+      expect(character.apps?.fotogram?.privacyMode).toBe(true);
+      expect(character.apps?.onlyfriends?.privacyMode).toBe(true);
+      expect(character.apps?.whatsup).not.toHaveProperty('privacyMode');
+      expect(character.apps?.matchme).not.toHaveProperty('privacyMode');
       expect(phoneCharacterAvatarDataUrl(runtime(character))).toBeTruthy();
     }
     const joel = library.entries.find((entry) => entry.character.id === 'chloe_bella_vance')!.character;

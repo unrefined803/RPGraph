@@ -47,7 +47,7 @@
         "accountId": "character:felix_miller:fotogram",
         "enabled": true,
         "profileName": "felix.cat.exe",
-        "privacyMode": false,
+        "privacyMode": true,
         "legacyHandles": [
           "felix.cat.exe"
         ],

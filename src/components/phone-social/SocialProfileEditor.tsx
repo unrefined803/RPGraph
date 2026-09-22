@@ -1,6 +1,6 @@
 import { migratedProfileName } from '../../characters/character';
 import { useState } from 'react';
-import { appAvatarDataUrl } from '../../characters/portrait';
+import { portraitDataUrl, socialAvatarDataUrl } from '../../characters/portrait';
 import type { RpStorybookCharacterProfileImage } from '../../nodes/rp-storybook/model';
 import type { CharacterAppAccount } from '../../characters/character';
 import { profileIdentityError } from '../../characters/profiles';
@@ -11,15 +11,17 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
   account?: CharacterAppAccount; accountId: string; name: string;
   app?: 'fotogram' | 'onlyfriends';
   profileImage?: RpStorybookCharacterProfileImage;
-  images: Array<{ id: string; name: string; dataUrl: string }>;
+  images: Array<{ id: string; name: string; dataUrl: string; width?: number; height?: number }>;
   locked: boolean; onSave: (account: CharacterAppAccount) => boolean; onCancel: () => void;
 }) {
   const [draft, setDraft] = useState<CharacterAppAccount>(() => ({
     ...account, accountId: account?.accountId ?? accountId, enabled: true,
     profileName: account ? migratedProfileName(account, name) : name, bio: account?.bio ?? '',
   }));
-  const avatar = appAvatarDataUrl({ profileImage }, images.find((image) => image.id === draft.avatarImageId));
-  const portrait = appAvatarDataUrl({ profileImage });
+  const portraitImage = images.find((image) => image.id === profileImage?.imageId);
+  const portrait = portraitImage ? portraitDataUrl(portraitImage, profileImage?.crop) : profileImage?.dataUrl;
+  const avatar = socialAvatarDataUrl({ profileImage: profileImage && { ...profileImage, dataUrl: portrait } },
+    images.find((image) => image.id === draft.avatarImageId));
   const [error, setError] = useState('');
   const creating = !account?.enabled && app === 'onlyfriends';
   const appName = app === 'fotogram' ? 'Photogram' : 'OnlyFriends';

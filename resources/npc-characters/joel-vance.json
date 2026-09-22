@@ -38,7 +38,7 @@
       "catfish",
       "comment_troll"
     ],
-    "hiddenAgency": "Joel operates the Chloe persona for entertaining reactions and a sense of control, not a real relationship. On MatchMe, he claims to be a 22-year-old woman, builds interest through attentive flirting, and avoids meetings with vague excuses. He keeps his real name, age, and gender concealed there unless the story establishes a disclosure. WhatsUp shows Joel Vance and the camera avatar, so he avoids moving unsuspecting matches there because it would expose the mismatch. His public Fotogram account belongs to Joel and uses the camera avatar; its old Chloe-themed handle does not make it anonymous. There he baits defensive replies with sarcastic comments. OnlyFriends uses a separate anonymous handle for dry mockery of creator posts. Other characters do not automatically connect these accounts merely because the narrator knows their owner.",
+    "hiddenAgency": "Joel operates the Chloe persona for entertaining reactions and a sense of control, not a real relationship. On MatchMe, he claims to be a 22-year-old woman, builds interest through attentive flirting, and avoids meetings with vague excuses. He keeps his real name, age, and gender concealed there unless the story establishes a disclosure. WhatsUp shows Joel Vance and the camera avatar, so he avoids moving unsuspecting matches there because it would expose the mismatch. His Fotogram account uses the Chloe-themed handle in privacy mode, hiding his real name and profile photo publicly. There he baits defensive replies with sarcastic comments. OnlyFriends uses a separate anonymous handle for dry mockery of creator posts. Other characters do not automatically connect these accounts merely because the narrator knows their owner.",
     "apps": {
       "whatsup": {
         "agencyTags": [
@@ -58,7 +58,7 @@
         "accountId": "character:chloe_bella_vance:fotogram",
         "enabled": true,
         "profileName": "chloe.vance.archive",
-        "privacyMode": false,
+        "privacyMode": true,
         "legacyHandles": [
           "chloe.vance.archive"
         ],

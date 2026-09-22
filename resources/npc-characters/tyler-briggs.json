@@ -48,7 +48,7 @@
         "accountId": "character:tyler_briggs:fotogram",
         "enabled": true,
         "profileName": "rex.garage.707",
-        "privacyMode": false,
+        "privacyMode": true,
         "legacyHandles": [
           "rex.garage.707"
         ],
