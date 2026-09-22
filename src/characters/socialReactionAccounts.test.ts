@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { socialReactionAccountContext } from './socialReactionAccounts';
-import { appCharactersFromRegistry } from './appRuntime';
+import { appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
+import { agencyTagCatalog } from '../../shared/agency-tags.cjs';
 import { buildCharacterRegistry } from './registry';
 import { browserNpcLibrarySnapshot } from './npcLibrary';
 import type { Character } from './character';
@@ -24,6 +25,24 @@ function cast(people: Character[], storybook?: Character) {
 }
 
 describe.each(['fotogram', 'onlyfriends'] as const)('%s post agency context', (app: SocialAppKind) => {
+  it.each(['comment_troll', 'rage_baiter', 'contrarian_debater', 'shitposter'] as const)(
+    'integrates %s into reaction eligibility and private prompt context', (tag) => {
+      const characters = cast([person('Troll', [tag])]);
+      const meaning = agencyTagCatalog.find((entry) => entry.id === tag)!.meaning;
+      const context = socialReactionAccountContext(characters, app, true);
+      if (app === 'onlyfriends' && tag === 'contrarian_debater') {
+        expect(context.lines).toEqual([]);
+        expect(context.text).not.toContain(meaning);
+      } else {
+        expect(context.lines).toEqual([`- Troll (@Troll.${app}) [NPC] [Agency tags: ${tag}]`]);
+        expect(context.text).toContain(`Agency meaning (${tag}): ${meaning}`);
+      }
+      expect(recipientCharacterContext(characters[0])).toContain(`- ${tag}: ${meaning}`);
+      characters[0].apps![app]!.accountRole = 'creator';
+      expect(socialReactionAccountContext(characters, app, true).lines).toEqual([]);
+    },
+  );
+
   it('shows authored character tags for eligible NPCs, with private profile context', () => {
     const regular = person('Regular', ['friendly_regular', 'slow_to_trust']);
     const lurker = person('Lurker', ['social_lurker', 'good_listener']);

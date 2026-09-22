@@ -10,21 +10,21 @@ Targets: `docs/architecture/npc-agency-tags.md`; executable target values: `scri
 
 | Measure | Current | Target / remaining |
 | --- | --- | --- |
-| Characters | 37 | 50 / 13 still needed; 0 above target |
-| Distinct character tags | 44 | 50 / 6 missing |
-| Tags assigned to enabled apps | 44 | 50 / 6 not active |
+| Characters | 41 | 50 / 9 still needed; 0 above target |
+| Distinct character tags | 49 | 54 / 5 missing |
+| Tags assigned to enabled apps | 49 | 54 / 5 not active |
 | Unclassified characters | 0 | 0 unclassified |
-| Repeated tags | 17 | Review before reusing; no maximum per tag is specified |
-| Ordinary-user social accounts | 42 / 51 (82.4%) | 80–90% users; 10–20% creators |
+| Repeated tags | 18 | Review before reusing; no maximum per tag is specified |
+| Ordinary-user social accounts | 50 / 59 (84.7%) | 80–90% users; 10–20% creators |
 
 ## Enabled account targets
 
 | App | Final target | Existing | Still needed | Above target |
 | --- | --- | --- | --- | --- |
-| WhatsUp | 50 / 50 | 37 | 13 | 0 |
-| Fotogram | 35 / 50 | 37 | 0 | 2 |
-| MatchMe | 15 / 50 | 31 | 0 | 16 |
-| OnlyFriends | 25 / 50 | 14 | 11 | 0 |
+| WhatsUp | 50 / 50 | 41 | 9 | 0 |
+| Fotogram | 35 / 50 | 41 | 0 | 6 |
+| MatchMe | 15 / 50 | 32 | 0 | 17 |
+| OnlyFriends | 25 / 50 | 18 | 7 | 0 |
 
 Accounts overlap across people. Preserve existing accounts. Explicitly disable Fotogram on new characters that should not have it; creation otherwise provisions standard accounts. MatchMe additions require suitable identity-specific images and valid photo references; this report does not establish image suitability or future media availability.
 
@@ -32,8 +32,8 @@ Accounts overlap across people. Preserve existing accounts. Explicitly disable F
 
 | App | Users | Creators | User share | Example final users / creators | Needed for example U / C | Above example U / C |
 | --- | --- | --- | --- | --- | --- | --- |
-| Fotogram | 32 | 5 | 86.5% | 30 / 5 | 0 / 0 | 2 / 0 |
-| OnlyFriends | 10 | 4 | 71.4% | 22 / 3 | 12 / 0 | 0 / 1 |
+| Fotogram | 36 | 5 | 87.8% | 30 / 5 | 0 / 0 | 6 / 0 |
+| OnlyFriends | 14 | 4 | 77.8% | 22 / 3 | 8 / 0 | 0 / 1 |
 
 The 30/5 Fotogram and 22/3 OnlyFriends splits are planning examples, not mandatory quotas. At the final account totals, 80–90% users allows 4–7 Fotogram creators and 3–5 OnlyFriends creators. Unique people with a creator account: 6; with both user and creator social roles: 1.
 
@@ -51,7 +51,7 @@ Character counts count each person once. App columns count explicit assignments 
 | respectful_admirer | 2 | 2 | 2 | 0 | 2 |
 | good_listener | 2 | 2 | 2 | 1 | 0 |
 | loyal_friend | 1 | 1 | 1 | 1 | 0 |
-| social_lurker | 2 | 0 | 2 | 0 | 0 |
+| social_lurker | 3 | 0 | 3 | 0 | 1 |
 | quick_replier | 1 | 1 | 1 | 1 | 1 |
 | sporadic_texter | 1 | 1 | 1 | 1 | 0 |
 | friendship_seeker | 1 | 1 | 1 | 1 | 0 |
@@ -61,7 +61,7 @@ Character counts count each person once. App columns count explicit assignments 
 | boundary_setter | 3 | 3 | 3 | 2 | 1 |
 | fan_engager | 2 | 2 | 2 | 0 | 1 |
 | collab_seeker | 1 | 1 | 1 | 0 | 1 |
-| passive_aggressive | 0 | 0 | 0 | 0 | 0 |
+| passive_aggressive | 1 | 1 | 1 | 0 | 1 |
 | guilt_tripper | 0 | 0 | 0 | 0 | 0 |
 | genuine_user | 2 | 2 | 2 | 2 | 2 |
 | attention_seeker | 1 | 1 | 1 | 1 | 0 |
@@ -75,8 +75,8 @@ Character counts count each person once. App columns count explicit assignments 
 | screenshot_drama | 1 | 1 | 1 | 0 | 0 |
 | love_bomber | 1 | 1 | 1 | 1 | 0 |
 | breadcrumbing | 1 | 1 | 1 | 1 | 0 |
-| catfish | 1 | 1 | 1 | 1 | 0 |
-| boundary_tester | 3 | 3 | 3 | 3 | 0 |
+| catfish | 2 | 2 | 2 | 2 | 0 |
+| boundary_tester | 4 | 4 | 4 | 3 | 1 |
 | promo_spammer | 1 | 1 | 1 | 0 | 1 |
 | exclusive_teaser | 0 | 0 | 0 | 0 | 0 |
 | rebound_seeker | 1 | 1 | 1 | 1 | 0 |
@@ -93,6 +93,10 @@ Character counts count each person once. App columns count explicit assignments 
 | flirty_networker | 1 | 1 | 1 | 1 | 0 |
 | ex_obsessed | 1 | 1 | 1 | 1 | 0 |
 | rumor_spreader | 1 | 1 | 1 | 0 | 0 |
+| comment_troll | 1 | 1 | 1 | 1 | 1 |
+| rage_baiter | 1 | 1 | 1 | 0 | 1 |
+| contrarian_debater | 1 | 1 | 1 | 0 | 1 |
+| shitposter | 1 | 1 | 1 | 0 | 1 |
 
 ## Validation and planning issues
 

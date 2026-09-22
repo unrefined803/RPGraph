@@ -13,7 +13,19 @@ Extend NPC Character Containers with structured agency tags and explicit app acc
 - Provide an in-app candidate limit and independent toggles for description, personality, and speech style. These settings allow experiments with fewer, richer candidates.
 - NPCs do not autonomously publish posts in the initial scope. Reserve a separate publication action for future support; tagging a creator must not activate posting.
 
-## Current foundation
+## Troll roster extension
+
+Four characters from the eight-character troll plan are currently bundled:
+Chloe Vance (`catfish`, `comment_troll`), Tyler Briggs (`rage_baiter`,
+`boundary_tester`), Felix Miller (`shitposter`, `social_lurker`), and Simon
+Drake (`contrarian_debater`, `passive_aggressive`). Their enabled WhatsUp,
+Fotogram, and anonymous OnlyFriends accounts have explicit compatible tags.
+Only Chloe has an active MatchMe profile. Tyler's MatchMe account remains
+disabled pending a suitable dating photo. The other four planned trolls and
+their images are not included. See the generated population report for current
+library totals.
+
+## Original foundation
 
 The bundled collection has 20 NPC containers in `resources/npc-characters`: all have enabled WhatsUp and Fotogram accounts, ten have OnlyFriends, and nine have MatchMe accounts. All have explicit agency assignments: 15 characters have one tag and five have two. Their existing `hiddenAgency` strings remain empty.
 
@@ -67,9 +79,9 @@ The original table below combines several meanings under `Post`. Replace that am
 
 A tag describes a tendency, not an obligation. A lurker can remain silent; a shy recipient can answer without becoming an eager initiator. Candidate count is not response count. Do not invent message delays or background scheduling from tags such as `quick_replier` or `sporadic_texter` in the initial implementation.
 
-The executable catalog in `shared/agency-tags.cjs` records app/role/action applicability for all 50 original tags. Original Fotogram `Post` entries support `react`; creator entries with `Post` additionally carry reserved `publish` metadata. `shy_user`, `social_lurker`, `slow_to_trust` and `good_listener` support replies but are not selected as initiators by this catalog. Other DM entries support replies and initiation. These are selection semantics for future tag-driven workflows, not restrictions imposed on existing direct conversations.
+The executable catalog in `shared/agency-tags.cjs` records app/role/action applicability for all 54 tags: the 50 original entries plus `comment_troll`, `rage_baiter`, `contrarian_debater`, and `shitposter`. Original Fotogram `Post` entries support `react`; creator entries with `Post` additionally carry reserved `publish` metadata. `shy_user`, `social_lurker`, `slow_to_trust` and `good_listener` support replies but are not selected as initiators by this catalog. Other DM entries support replies and initiation. These are selection semantics for future tag-driven workflows, not restrictions imposed on existing direct conversations.
 
-OnlyFriends requires a specific correction: the original table gives ordinary-user tags only DM applicability, leaving no user audience for comments. Implemented reaction-capable user tags are `social_lurker`, `loyal_supporter`, `respectful_admirer`, `parasocial_fan`, `genuine_user`, `friendly_regular`, `attention_seeker`, and `boundary_setter`. Other OnlyFriends user tags remain DM-only. Keep creator tags for creator DM behavior and later publication/creator interaction flows.
+OnlyFriends requires a specific correction: the original table gives ordinary-user tags only DM applicability, leaving no user audience for comments. Implemented reaction-capable user tags are `social_lurker`, `loyal_supporter`, `respectful_admirer`, `parasocial_fan`, `genuine_user`, `friendly_regular`, `attention_seeker`, `boundary_setter`, `comment_troll`, `rage_baiter`, and `shitposter`. Other OnlyFriends user tags, including `contrarian_debater`, remain DM-only. Keep creator tags for creator DM behavior and later publication/creator interaction flows.
 
 ## Candidate selection and prompt context
 
@@ -141,7 +153,7 @@ Roster lists, owner names and separate missing/repeated-tag tables are omitted.
 Identity conflicts remain visible in the validation section. Invalid containers stop generation without replacing the
 previous report. It never edits characters or launches the application.
 
-All 50 catalog tags should be represented at least once. Prefer missing tags for
+All 54 catalog tags should be represented at least once. Prefer missing tags for
 new characters; repeated tags have lower coverage priority but no numeric maximum.
 The documented social role counts remain examples, while the 80–90% user range
 remains the population guideline. The report's executable population targets live
@@ -318,3 +330,7 @@ The following table is preserved from the original proposal. It is a vocabulary/
 | `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `flirty_networker`    | Uses playful flirting to build connections, gain introductions, or expand their online social circle.                          |
 | `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `ex_obsessed`         | Frequently discusses, monitors, compares others with, or attempts to reconnect with a former partner.                          |
 | `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `rumor_spreader`      | Passes along questionable personal stories or gossip that can create mistrust and conflict between characters.                 |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `comment_troll`       | Deliberately posts mocking, sarcastic, or disruptive comments under public posts to derail discussions and mock others.         |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `rage_baiter`         | Intentionally drops provocative, absurd, or offensive hot takes designed to trigger angry replies and high-friction debates.   |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `User · DM`         | `contrarian_debater`  | Constantly contradicts others and initiates exhausting, pedantic arguments to prove intellectual superiority.                   |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `shitposter`          | Derails conversations and posts with absurd humor, sarcastic memes, copypastas, or low-effort nonsense.                         |

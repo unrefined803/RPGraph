@@ -28,7 +28,7 @@ describe('NPC population report CLI', () => {
     await cli(input, output);
     const report = readFileSync(output, 'utf8');
     expect(report).toContain('| Characters | 1 | 50 / 49 still needed; 0 above target |');
-    expect(report).toContain('| Distinct character tags | 2 | 50 / 48 missing |');
+    expect(report).toContain('| Distinct character tags | 2 | 54 / 52 missing |');
     expect(report).toContain('| Fotogram | 35 / 50 | 0 | 35 | 0 |');
     expect(report).toContain('| OnlyFriends | 1 | 0 | 100.0% |');
     expect(report).not.toContain('data:image');
@@ -79,6 +79,6 @@ describe('NPC population report CLI', () => {
     await cli(input, output);
     const report = readFileSync(output, 'utf8');
     expect(report).toContain('| Unclassified characters | 1 | 0 unclassified |');
-    expect(report).toContain('| Distinct character tags | 0 | 50 / 50 missing |');
+    expect(report).toContain('| Distinct character tags | 0 | 54 / 54 missing |');
   });
 });

@@ -48,7 +48,11 @@ export type AgencyTagId =
   | 'emotional_supporter'
   | 'flirty_networker'
   | 'ex_obsessed'
-  | 'rumor_spreader';
+  | 'rumor_spreader'
+  | 'comment_troll'
+  | 'rage_baiter'
+  | 'contrarian_debater'
+  | 'shitposter';
 export type AgencyApp = 'whatsup' | 'fotogram' | 'onlyfriends' | 'matchme';
 export type AgencyAccountRole = 'user' | 'creator';
 export type AgencyAction = 'react' | 'dm_reply' | 'dm_initiate' | 'publish';

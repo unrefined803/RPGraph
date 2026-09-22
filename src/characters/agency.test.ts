@@ -43,12 +43,12 @@ const patchFor = (character: Character) => [
 ];
 
 describe('agency catalog and container contract', () => {
-  it('defines every original tag exactly once with supported role/action combinations', () => {
+  it('defines every documented tag exactly once with supported role/action combinations', () => {
     const document = readFileSync('docs/architecture/npc-agency-tags.md', 'utf8');
     const original = document.slice(document.indexOf('## Original agency tag reference'));
     const ids = original.split('\n').filter((line) => line.startsWith('| `')).map((line) => line.split('|')[5].trim().replace(/`/g, ''));
     expect(agencyTagCatalog.map((tag) => tag.id)).toEqual(ids);
-    expect(new Set(ids).size).toBe(50);
+    expect(new Set(ids).size).toBe(54);
     for (const tag of agencyTagCatalog) {
       expect(tag.meaning).not.toBe('');
       for (const [app, roles] of Object.entries(tag.apps)) {
@@ -78,6 +78,19 @@ describe('agency catalog and container contract', () => {
     expect(agencyTagSupports('fan_engager', 'whatsup', 'user', 'dm_initiate')).toBe(true);
     expect(agencyTagSupports('__proto__', 'fotogram')).toBe(false);
   });
+
+  it.each(['comment_troll', 'rage_baiter', 'contrarian_debater', 'shitposter'] as const)(
+    'supports the intended messaging and reaction actions for %s', (tag) => {
+      for (const app of ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const) {
+        expect(agencyTagSupports(tag, app, 'user', 'dm_reply')).toBe(true);
+        expect(agencyTagSupports(tag, app, 'user', 'dm_initiate')).toBe(true);
+        expect(agencyTagSupports(tag, app, 'user', 'publish')).toBe(false);
+        expect(agencyTagSupports(tag, app, 'user', 'react')).toBe(
+          app === 'fotogram' || (app === 'onlyfriends' && tag !== 'contrarian_debater'),
+        );
+      }
+    },
+  );
 
   it.each([
     { agencyTags: ['missing'] }, { agencyTags: 'shy_user' }, { agencyTags: null },
