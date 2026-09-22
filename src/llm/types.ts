@@ -9,6 +9,8 @@ import type {
 export type NodeLlmRequest = {
   connectionId?: string;
   prompt: string;
+  /** Compact diagnostic representation only; never sent to the provider or used for token calibration. */
+  diagnosticPrompt?: string;
   images?: ChatImageAttachment[];
   label: string;
   stage?: LlmCallStage;

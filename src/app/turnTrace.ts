@@ -276,7 +276,7 @@ export function turnTraceCopyPayload(traces: TurnTrace[], textMetrics = new Text
     compression: {
       textPreviewCharacters: 2400,
       references: 'JSON Pointer within this payload; identical sources or excerpts only',
-      notes: 'Long texts show bounded excerpts. Request prompts are captured before dispatch; dispatched records bridge invocation, not provider receipt. Pass and node order is preserved. Usage tokens are provider-reported when available. Monotonic millisecond times share the application clock. Pending calls had not settled at capture. Report-only helpers have no captured prompt.',
+      notes: 'Long texts show bounded excerpts. Request prompts are captured before dispatch; explicitly summarized contexts show counts and token estimates instead of their full content. Dispatched records bridge invocation, not provider receipt. Pass and node order is preserved. Usage tokens are provider-reported when available. Monotonic millisecond times share the application clock. Pending calls had not settled at capture. Report-only helpers have no captured prompt.',
     },
     privacy: 'memory-only',
     range: {
@@ -311,9 +311,10 @@ export function createTurnTraceRecorder(getNode: (id: string) => WorkflowNode | 
     const debug = promptDebugForNode(node);
     const latestPass = debug?.promptPasses?.[debug.promptPasses.length - 1];
     const imageSources = new Map(latestPass?.images?.map((image) => [image.id, image.source]));
-    const requestText = sanitizeDataUrlsInText(request.prompt);
-    // Sections are annotations only when they reconstruct this exact request.
-    const sectionsMatch = latestPass?.sections?.map((section) => section.text).filter(Boolean).join('\n\n') === request.prompt;
+    const diagnosticPrompt = request.diagnosticPrompt ?? request.prompt;
+    const requestText = sanitizeDataUrlsInText(diagnosticPrompt);
+    // Sections must reconstruct the captured representation, including explicit context summaries.
+    const sectionsMatch = latestPass?.sections?.map((section) => section.text).filter(Boolean).join('\n\n') === diagnosticPrompt;
     const switchDebug = node?.data.kind === undefined && node?.data.nodeType === 'llm-prompt-switch'
       ? node.data.llmPromptSwitchDebug : undefined;
     const step = sanitizeDebugSnapshotValue({

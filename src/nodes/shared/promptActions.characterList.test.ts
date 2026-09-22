@@ -1,144 +1,136 @@
+import { TextMetricsApi } from '../../llm/tokenMetrics';
 import { describe, expect, it, vi } from 'vitest';
-import { agencyTagCatalog } from '../../../shared/agency-tags.cjs';
-import { rankCharacters } from '../../characters/search';
+import { characterSearchDirectory, characterSearchPrompt, characterSearchResult,
+  previousCharacterSearchInstruction, previousCharacterSearchResultTemplate } from '../../characters/search';
 import { appCharactersFromRegistry } from '../../characters/appRuntime';
 import { buildCharacterRegistry } from '../../characters/registry';
 import type { Character } from '../../characters/character';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import type { MessageRecord, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
-import { defaultPromptActionConfig, executePromptAction, normalizePromptActionConfig, parsePromptActionCall,
-  parsePromptActionRequest, promptActionInstructionText, promptActionRuntimeSettings, promptActionSaveConfigs,
-  withPromptActionRuntimeSettings, configForPromptActionToken } from './promptActions';
+import { defaultPromptActionConfig, normalizePromptActionConfig, parsePromptActionCall,
+  parsePromptActionRequest, promptActionSaveConfigs, configForPromptActionToken } from './promptActions';
 import { runActionAwarePrompt } from './promptRun';
 
 const config = defaultPromptActionConfig('', 'getCharacterList');
-const character = (name: string, changes: Partial<StorybookCharacter> = {}): StorybookCharacter => ({
-  id: name, sourceId: name, name, label: name, kind: 'character', storybookNodeId: '', libraryNpc: true,
-  profile: { name, description: 'Character details', personality: 'Curious', speechStyle: 'Dry humor', role: 'Neighbor' },
-  hiddenAgency: 'Seeks attention', gender: 'man', agencyTags: [],
-  phoneSettings: { wallpaperId: '' }, banking: { balance: 0 }, social: {},
-  apps: { fotogram: { enabled: true, accountId: `account-${name}`, profileName: `profile-${name}`, bio: 'Photography', privacyMode: true } },
-  ...changes,
-} as StorybookCharacter);
-const cast = [character('Partial'), character('Best', { agencyTags: ['drama_magnet'] }), character('Absent', { apps: {} })];
-const query = { app: 'fotogram', privacyMode: true, agencyTags: ['drama_magnet'] } as const;
-const searchQuery = { ...query, agencyTags: [...query.agencyTags] };
+const cast = appCharactersFromRegistry(buildCharacterRegistry(['Avery', 'Blake', 'Casey', 'Dana', 'Eli', 'Fran'].map((name, index) => ({
+  tier: 'bundled' as const, source: name,
+  character: {
+    id: name, name, description: `${name} description`, personality: `${name} personality`, speechStyle: 'Dry humor',
+    hiddenAgency: 'Wants attention', agencyTags: ['drama_magnet'], role: 'Neighbor', gender: 'man', age: 30,
+    images: [{ id: 'image', name: 'image', dataUrl: 'SECRET_IMAGE_DATA', mimeType: 'image/jpeg', size: 1, description: 'Photo' }],
+    relationships: index === 0 ? [{ characterId: 'Blake', description: 'Close friend', apps: { fotogram: true } }] : [],
+    apps: { fotogram: { accountId: `account-${name}`, profileName: `profile-${name}`, enabled: true, privacyMode: true, bio: 'Photography' },
+      onlyfriends: { accountId: `disabled-${name}`, enabled: false, bio: 'DISABLED_BIO' } },
+  } as Character,
+}))));
 
-it('ranks partial matches and reports missing criteria without inventing accounts', () => {
-  const results = rankCharacters(cast, [], searchQuery);
-  expect(results.map((entry) => [entry.name, entry.score])).toEqual([['Best', 3], ['Partial', 2], ['Absent', 0]]);
-  expect(results[1].unmatchedCriteria).toEqual(['agencyTag:drama_magnet']);
-  expect(results[0]).toMatchObject({ hiddenAgency: 'Seeks attention', speechStyle: 'Dry humor', totalCriteria: 3 });
-  expect(results[2].accounts).toEqual([]);
+it('provides every character, authored relationships, and enabled accounts as text without containers or history', () => {
+  const history = [{ id: 1, role: 'user', originalText: 'SECRET_CHAT_HISTORY' }] as MessageRecord[];
+  const directory = characterSearchDirectory(cast, history);
+  for (const character of cast) expect(directory).toContain(`Character: ${character.name}`);
+  for (const text of ['Avery personality', 'Dry humor', 'Wants attention', 'drama_magnet', 'Blake [Blake]: Close friend',
+    'outgoing contacts/follows: fotogram', 'account-Avery', 'profile-Avery', 'Photography', 'anonymous', 'Age: 30']) expect(directory).toContain(text);
+  for (const text of ['SECRET_CHAT_HISTORY', 'SECRET_IMAGE_DATA', 'DISABLED_BIO', 'disabled-Avery', 'dataUrl']) expect(directory).not.toContain(text);
+  expect(directory.trimStart()).not.toMatch(/^[{[]/);
+  expect(characterSearchDirectory([], [])).toContain('No existing characters');
 });
 
-it('keeps missing and disabled accounts from matching false privacy or no-post criteria', () => {
-  const disabled = character('Disabled');
-  disabled.apps!.fotogram!.enabled = false;
-  const results = rankCharacters([cast[2], disabled, character('Public', {
-    apps: { fotogram: { enabled: true, accountId: 'public', bio: '' } },
-  })], [], { app: 'fotogram', privacyMode: false, hasPosts: false });
-  expect(results.map((entry) => entry.score)).toEqual([3, 0, 0]);
-});
-
-it('uses account-scoped agency tags and does not infer unknown gender', () => {
-  const person = character('Person', { gender: undefined, apps: {
-    whatsup: { accountId: 'chat', enabled: true, bio: '', agencyTags: ['drama_magnet'] },
-    fotogram: { accountId: 'photo', enabled: true, bio: '' },
-    onlyfriends: { accountId: 'disabled', enabled: false, bio: '', agencyTags: ['catfish'] },
+it('counts authored and live posts without copying their text or confusing account ownership', () => {
+  const characters = structuredClone(cast);
+  characters[0].apps!.fotogram!.initialPosts = [{ id: 'seed', text: 'SECRET_POST_TEXT' }];
+  const post = (account: string, id: string): MessageRecord => ({ id: 1, role: 'output', originalText: 'SECRET_CHAT', socialPost: {
+    app: 'fotogram', postId: id, author: 'Avery', authorHandle: 'profile-Avery', authorAccountId: account, caption: 'SECRET_POST_TEXT',
   } });
-  expect(rankCharacters([person], [], { ...searchQuery, gender: 'man' })[0].matchedCriteria).toEqual(['app:fotogram']);
-  expect(rankCharacters([person], [], { agencyTags: ['drama_magnet', 'catfish'] })[0].matchedCriteria).toEqual(['agencyTag:drama_magnet']);
+  const directory = characterSearchDirectory(characters.slice(0, 1), [post('account-Avery', 'live'), post('account-Avery', 'live'), post('wrong', 'other')]);
+  expect(directory).toContain('posts: 2');
+  expect(directory).not.toContain('SECRET_');
 });
 
-it('counts seeded and live text posts using account ownership, not another account with the same name', () => {
-  const person = character('Author');
-  person.apps!.fotogram!.initialPosts = [{ id: 'seed', text: 'Starting post' }];
-  const post = (accountId: string, postId: string): MessageRecord => ({ id: 1, role: 'output', originalText: '', socialPost: {
-    app: 'fotogram', postId, author: 'Author', authorHandle: 'profile-Author', authorAccountId: accountId, caption: 'Live post', textOnly: true,
-  } });
-  const results = rankCharacters([person], [post('account-Author', 'live'), post('account-Author', 'live'), post('other', 'unrelated')], { app: 'fotogram', hasPosts: true });
-  expect(results[0].score).toBe(2);
-  expect(results[0].accounts[0].postCount).toBe(2);
+it('migrates old ranking templates and retains custom assistant templates', () => {
+  const restored = normalizePromptActionConfig({ ...config, instructionTemplate: previousCharacterSearchInstruction,
+    resultTemplate: previousCharacterSearchResultTemplate, maxReturnedCharacters: 15 })!;
+  expect(restored.instructionTemplate).toBe(config.instructionTemplate);
+  expect(restored.resultTemplate).toBe(config.resultTemplate);
+  expect(restored).not.toHaveProperty('maxReturnedCharacters');
+  expect(normalizePromptActionConfig(promptActionSaveConfigs([config])[0])).toEqual(config);
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: 'Custom {{plan}}', resultTemplate: 'Answer: {{answer}}' }))
+    .toMatchObject({ instructionTemplate: 'Custom {{plan}}', resultTemplate: 'Answer: {{answer}}' });
+  expect(configForPromptActionToken([], 'Get character list').actionId).toBe('getCharacterList');
+  expect(parsePromptActionRequest('{"action":"get_character_list","plan":"Find two friends of Avery"}'))
+    .toEqual({ action: 'getCharacterList', plan: 'Find two friends of Avery' });
+  expect(parsePromptActionCall('{"action":"get_character_list","query":{"app":"fotogram"}}')).toBeUndefined();
 });
 
-it('uses deterministic ties and applies the configured limit (default five)', () => {
-  const characters = ['G', 'F', 'E', 'D', 'C', 'B', 'A'].map((name) => character(name));
-  expect(rankCharacters(characters, [], {}).map((entry) => entry.name)).toEqual(['A', 'B', 'C', 'D', 'E']);
-  expect(rankCharacters(characters, [], {}, 2).map((entry) => entry.name)).toEqual(['A', 'B']);
+it('renders custom templates without recursively interpreting character data', () => {
+  expect(characterSearchPrompt('{{plan}}\n{{characterDirectory}}', 'Find {{characterDirectory}}', 'Name {{plan}}'))
+    .toBe('Find {{characterDirectory}}\nName {{plan}}');
+  expect(characterSearchPrompt('Custom instructions', 'Request', 'Directory')).toContain('Character directory:\nDirectory');
+  expect(characterSearchResult('Result: {{answer}}', 'Literal {{answer}}')).toBe('Result: Literal {{answer}}');
+  expect(characterSearchResult('Custom header', 'No match.')).toContain('No match.');
 });
 
-describe('character list action integration', () => {
-  it('restores action templates and runtime limits independently', () => {
-    expect(config.maxReturnedCharacters).toBe(5);
-    expect(configForPromptActionToken([], 'Get character list').actionId).toBe('getCharacterList');
-    const saved = promptActionSaveConfigs([config]);
-    const restored = normalizePromptActionConfig(saved[0])!;
-    const runtime = promptActionRuntimeSettings(JSON.parse(JSON.stringify({ getCharacterList: { maxReturnedCharacters: 2 } })));
-    expect(withPromptActionRuntimeSettings(restored, runtime).maxReturnedCharacters).toBe(2);
-    expect(normalizePromptActionConfig({ ...config, maxReturnedCharacters: 100 })?.maxReturnedCharacters).toBe(20);
-    expect(normalizePromptActionConfig({ ...config, maxReturnedCharacters: null })?.maxReturnedCharacters).toBe(5);
+async function run(planning: boolean, answer: string, characters: StorybookCharacter[] = cast) {
+  const calls: Array<{ prompt: string; images?: unknown[] }> = [];
+  const request = 'Find existing troll-like Fotogram accounts with anonymous profiles; return the exact account ID and a reason.';
+  const replies = [JSON.stringify({ action: 'get_character_list', plan: request }), answer, 'Avery is the candidate.', 'The story continues.'];
+  const context = { textMetrics: new TextMetricsApi(), nodes: [], historyMessages: [{ id: 1, role: 'user', originalText: 'SECRET_CHAT_HISTORY' }], appCharacters: characters,
+    reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
+    llm: { supportsVision: async () => true, complete: async (call: { prompt: string; images?: unknown[] }) => {
+      calls.push(call);
+      return { text: replies[calls.length - 1], connection: { label: 'Test' } };
+    } },
+  } as unknown as ExecuteContext;
+  const result = await runActionAwarePrompt({
+    node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode, context,
+    inputValue: 'SECRET_INPUT_AND_HISTORY',
+    images: [{ id: 'input', name: 'input', mimeType: 'image/png', size: 1, dataUrl: 'SECRET_INPUT_IMAGE' }], referenceImages: [],
+    promptBefore: 'SECRET_STORY_PROMPT',
+    promptAfter: planning ? '@step:planning\nPlan.\n@action:Get character list\n@step:main\n@output:planning\nWrite.\n@action:Get character list' : 'Write.\n@action:Get character list',
+    actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator',
   });
+  return { result, calls, context, request };
+}
 
-  it('parses plans and validates explicit query criteria', () => {
-    expect(parsePromptActionRequest('{"action":"get_character_list","plan":"Find an anonymous troll"}')?.action).toBe('getCharacterList');
-    expect(parsePromptActionCall('{"action":"get_character_list","plan":"Find someone"}')).toBeUndefined();
-    expect(parsePromptActionCall('{"action":"get_character_list","query":{}}')).toEqual({ action: 'getCharacterList', query: {} });
-    expect(parsePromptActionCall(JSON.stringify({ action: 'get_character_list', query: { agencyTags: ['drama_magnet', 'drama_magnet'] } }))?.query?.agencyTags).toEqual(['drama_magnet']);
-    for (const invalid of [{ app: 'invented' }, { gender: 'unknown' }, { privacyMode: true }, { app: 'matchme', hasPosts: false },
-      { app: 'fotogram', privacyMode: 'false' }, { agencyTags: ['made_up'] }, { extra: true }]) {
-      expect(parsePromptActionCall(JSON.stringify({ action: 'get_character_list', query: invalid }))).toBeUndefined();
-    }
-    const instruction = promptActionInstructionText(config, {}, 'Find someone');
-    expect(instruction).toContain('Find someone');
-    for (const tag of agencyTagCatalog) expect(instruction).toContain(`${tag.id}: ${tag.meaning}`);
-    expect(instruction).not.toContain('{{agencyTags}}');
-  });
-
-  it('returns compact character data and no media even with attachments and no vision', async () => {
-    const result = await executePromptAction({ nodes: [], historyMessages: [], appCharacters: cast } as unknown as ExecuteContext,
-      { ...config, maxReturnedCharacters: 1, resultTemplate: '{{characterList}}' }, { action: 'getCharacterList', query: searchQuery },
-      { hasImageInput: true, visionEnabled: false });
-    expect(JSON.parse(result.text)).toHaveLength(1);
-    expect(JSON.parse(result.text)[0].name).toBe('Best');
-    expect(result.text).not.toContain('dataUrl');
-    expect(result.images).toEqual([]);
-    const empty = await executePromptAction({ nodes: [], historyMessages: [], appCharacters: [] } as unknown as ExecuteContext,
-      config, { action: 'getCharacterList', query: {} });
-    expect(empty.text).toContain('No existing characters are available.');
-  });
-
-  it('preserves authored demographics through the library runtime projection', () => {
-    const payload = { id: 'npc', name: 'NPC', description: '', personality: '', speechStyle: '', role: '',
-      images: [], gender: 'woman', age: 30, hiddenAgency: 'Private motivation' } as Character;
-    const runtime = appCharactersFromRegistry(buildCharacterRegistry([{ character: payload, tier: 'bundled', source: 'test' }]));
-    expect(rankCharacters(runtime, [], { gender: 'woman' })[0]).toMatchObject({ score: 1, age: 30, hiddenAgency: 'Private motivation' });
-  });
-
-  it.each([false, true])('executes plan, follow-up, result insertion and replay (planning step=%s)', async (planning) => {
-    const prompts: string[] = [];
-    const replies = [JSON.stringify({ action: 'get_character_list', plan: 'Find a private Fotogram troll' }),
-      JSON.stringify({ action: 'get_character_list', query: searchQuery }), 'Best is the existing candidate.', 'The story continues.'];
-    const context = { nodes: [], historyMessages: [], appCharacters: cast,
-      reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
-      llm: { supportsVision: async () => false, complete: async ({ prompt }: { prompt: string }) => {
-        prompts.push(prompt);
-        return { text: replies[prompts.length - 1], connection: { label: 'Test' } };
-      } },
-    } as unknown as ExecuteContext;
-    const result = await runActionAwarePrompt({
-      node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode, context,
-      inputValue: 'Narrator: An anonymous account sends a DM.', images: [], referenceImages: [], promptBefore: '',
-      promptAfter: planning ? '@step:planning\nPlan.\n@action:Get character list\n@step:main\n@output:planning\nWrite.\n@action:Get character list' : 'Write.\n@action:Get character list',
-      actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator',
-    });
-    expect(prompts).toHaveLength(planning ? 4 : 3);
-    expect(prompts[0]).toContain('"action":"get_character_list","plan"');
-    expect(prompts[1]).toContain('drama_magnet:');
-    expect(prompts[2]).toContain('"accountId": "account-Best"');
-    expect(prompts[2]).toContain('"score": 3');
-    expect(result.generatedText).toBe(planning ? 'The story continues.' : 'Best is the existing candidate.');
+describe('isolated character search assistant', () => {
+  it.each([false, true])('replays with prose only and keeps the directory isolated (planning=%s)', async (planning) => {
+    const answer = 'Avery fits: his attention-seeking motives suit the request. Fotogram account ID: account-Avery; profile: profile-Avery. His profile hides his real identity.';
+    const { result, calls, context, request } = await run(planning, answer);
+    expect(calls).toHaveLength(planning ? 4 : 3);
+    const assistant = calls[1];
+    expect(assistant.prompt).toContain(request);
+    expect(assistant.prompt).toContain('Character: Fran');
+    expect(assistant.prompt).toContain('at most three characters');
+    expect(assistant.prompt).toContain('50–100 words total');
+    expect(assistant.prompt).not.toContain('SECRET_');
+    expect(assistant.images).toEqual([]);
+    expect(calls[2].prompt).toContain(answer);
+    expect(calls[2].prompt).not.toContain('Fran description');
+    expect(calls[2].prompt).not.toContain('"score"');
+    expect(result.generatedText).toBe(planning ? 'The story continues.' : 'Avery is the candidate.');
+    const debug = result.debug.promptPasses.find((pass) => pass.sections?.some((section) => section.label === 'Character search assistant'))!;
+    expect(debug.images).toEqual([]);
+    expect(debug.sections).toHaveLength(1);
+    expect(debug.sections![0].text).toContain(request);
+    expect(debug.sections![0].text).toContain('6 characters searched');
+    const tokens = new TextMetricsApi().measure(characterSearchDirectory(cast, [])).tokens;
+    expect(debug.sections![0].text).toContain(`approximately ${tokens.toLocaleString('en-US')} tokens`);
+    expect(debug.sections![0].text).not.toContain('Fran description');
+    expect(JSON.stringify(result.debug)).not.toContain('Fran description');
     expect(context.reportWarning).not.toHaveBeenCalled();
+  });
+
+  it('passes a no-match answer back without manufacturing candidates', async () => {
+    const { calls, context } = await run(false, 'No existing character fits the request.', []);
+    expect(calls[1].prompt).toContain('No existing characters are available.');
+    expect(calls[2].prompt).toContain('No existing character fits the request.');
+    expect(context.reportWarning).not.toHaveBeenCalled();
+  });
+
+  it('reports an empty assistant response instead of exposing the action request', async () => {
+    const { result, calls, context } = await run(false, '');
+    expect(calls).toHaveLength(2);
+    expect(result.generatedText).toBe('');
+    expect(context.reportWarning).toHaveBeenCalledWith(expect.stringContaining('empty answer'));
   });
 });

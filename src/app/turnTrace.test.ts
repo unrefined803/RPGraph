@@ -66,6 +66,22 @@ function checkReferences(value: unknown) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('turn trace request capture', () => {
+  it('captures compact diagnostics while dispatching the complete prompt', async () => {
+    const diagnosticPrompt = 'Instructions\nRequest: Find a friend\n(6 characters searched; character context: approximately 20,000 tokens; directory omitted)';
+    const prompt = 'Instructions\nRequest: Find a friend\nPRIVATE_CHARACTER_DIRECTORY';
+    const { api, recorder, completion } = setup(nodeWithPass(diagnosticPrompt));
+    await api.complete({ nodeId: 'prompt', label: 'Character search', prompt, diagnosticPrompt });
+    expect(completion.mock.calls[0][0].prompt).toBe(prompt);
+    expect(completion.mock.calls[0][0]).not.toHaveProperty('diagnosticPrompt');
+    expect(recorder.steps[0].promptPasses![0].prompt).toBe(diagnosticPrompt);
+    expect(recorder.steps[0].promptPasses![0].sections![0].text).toBe(diagnosticPrompt);
+    const trace = createTurnTrace({ turn, run, status: 'completed', capturedSteps: recorder.steps, completedAt });
+    expect(JSON.stringify(trace)).not.toContain('PRIVATE_CHARACTER_DIRECTORY');
+    const copied = JSON.stringify(turnTraceCopyPayload([trace], metrics));
+    expect(copied).not.toContain('PRIVATE_CHARACTER_DIRECTORY');
+    expect(copied).toContain('20,000 tokens');
+  });
+
   it('captures requests and raw responses independently of later node changes and preparation', async () => {
     const { node, recorder, api } = setup();
     await api.complete({ nodeId: node.id, label: 'Planning', prompt: 'First input', images: [image] });

@@ -1,4 +1,4 @@
-import { characterSearchInstruction, characterSearchResultTemplate, characterSearchAgencyTagsText, parseCharacterSearchQuery, rankCharacters, type CharacterSearchQuery } from '../../characters/search';
+import { characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate } from '../../characters/search';
 import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, SocialAppKind, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { createComfyImageForCharacter } from '../runScratch';
@@ -11,7 +11,6 @@ export type PromptActionConfig = {
   title: string;
   actionId: PromptActionId;
   maxReturnedImages: number;
-  maxReturnedCharacters: number;
   sendImagesToLlm: boolean;
   hideImageTextWhenSendingToLlm: boolean;
   disableWhenImageAttached: boolean;
@@ -25,7 +24,7 @@ export type PromptActionConfig = {
 
 export type PromptActionRuntimeConfig = Pick<
   PromptActionConfig,
-  'maxReturnedCharacters' | 'maxReturnedImages' | 'sendImagesToLlm' | 'hideImageTextWhenSendingToLlm' | 'disableWhenImageAttached' | 'manageModelMemoryForComfy' | 'comfyProviderId'
+  'maxReturnedImages' | 'sendImagesToLlm' | 'hideImageTextWhenSendingToLlm' | 'disableWhenImageAttached' | 'manageModelMemoryForComfy' | 'comfyProviderId'
 >;
 
 export type PromptActionRuntimeSettings = Partial<Record<PromptActionId, Partial<PromptActionRuntimeConfig>>>;
@@ -45,7 +44,6 @@ export type PromptActionToken = {
 
 export type ParsedPromptActionCall = {
   action: PromptActionId;
-  query?: CharacterSearchQuery;
   characters?: string;
   phoneOwner?: string;
   loraCharacter?: string;
@@ -107,8 +105,8 @@ export function promptActionHintText(actionId: PromptActionId) {
   switch (actionId) {
     case 'getCharacterList':
       return [
-        'Before introducing an unspecified person or account, search existing Storybook and NPC library characters. Do not invent identities or accounts. Request ranked candidates with exactly one JSON object and nothing else:',
-        '{"action":"get_character_list","plan":"briefly describe the app, privacy, posts, gender, and behavior needed; omit irrelevant preferences"}',
+        'Before introducing an unspecified person or account, search existing Storybook and NPC library characters. Do not invent identities or accounts. Output exactly one JSON object with a self-contained search request and nothing else:',
+        '{"action":"get_character_list","plan":"Describe who or what is needed, why, relevant names and relationships, account/app requirements, desired number (at most 3), and information to return. Include necessary scene facts: the search assistant sees no chat history."}',
       ].join('\n');
     case 'getImageId':
       return [
@@ -901,7 +899,6 @@ export function defaultPromptActionConfig(
   return {
     title: canonicalTitle || title,
     actionId,
-    maxReturnedCharacters: 5,
     maxReturnedImages: actionId === 'getImageId' ? 3 : 5,
     sendImagesToLlm: sendsImagesByDefault,
     hideImageTextWhenSendingToLlm: false,
@@ -915,11 +912,6 @@ export function defaultPromptActionConfig(
   };
 }
 
-function normalizedMaxReturnedCharacters(value: unknown) {
-  const count = typeof value === 'number' || typeof value === 'string' && value.trim() ? Number(value) : NaN;
-  return Number.isFinite(count) ? Math.min(20, Math.max(1, Math.trunc(count))) : 5;
-}
-
 function normalizedPromptActionRuntimeConfig(
   actionId: PromptActionId,
   value: Partial<PromptActionRuntimeConfig> | undefined,
@@ -929,7 +921,6 @@ function normalizedPromptActionRuntimeConfig(
     ? value.sendImagesToLlm
     : actionId === 'getImageId';
   return {
-    maxReturnedCharacters: normalizedMaxReturnedCharacters(value?.maxReturnedCharacters),
     maxReturnedImages: Number.isFinite(maxReturnedImages)
       ? Math.min(20, Math.max(1, Math.trunc(maxReturnedImages)))
       : actionId === 'getImageId' ? 3 : 5,
@@ -1055,7 +1046,6 @@ export function normalizePromptActionConfig(
   return {
     title,
     actionId,
-    maxReturnedCharacters: normalizedMaxReturnedCharacters(record.maxReturnedCharacters),
     maxReturnedImages: Number.isFinite(maxReturnedImages)
       ? Math.min(20, Math.max(1, Math.trunc(maxReturnedImages)))
       : actionId === 'getImageId' ? 3 : 5,
@@ -1075,7 +1065,9 @@ export function normalizePromptActionConfig(
     comfyProviderId: typeof record.comfyProviderId === 'string'
       ? record.comfyProviderId.trim()
       : '',
-    instructionTemplate: actionId === 'getImageId'
+    instructionTemplate: actionId === 'getCharacterList'
+      ? currentOrCustomTemplate(record.instructionTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction]))
+      : actionId === 'getImageId'
       ? currentOrCustomTemplate(
           record.instructionTemplate,
           getImagesLlmInstruction,
@@ -1096,7 +1088,9 @@ export function normalizePromptActionConfig(
       : (typeof record.instructionTemplate === 'string' && record.instructionTemplate.trim()
         ? record.instructionTemplate
         : defaultPromptActionInstructionTemplate(actionId)),
-    afterReplyTemplate: actionId === 'updatePhoneImageCaption'
+    afterReplyTemplate: actionId === 'getCharacterList'
+      ? currentOrCustomTemplate(record.afterReplyTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction]))
+      : actionId === 'updatePhoneImageCaption'
       ? currentOrCustomTemplate(
           record.afterReplyTemplate,
           updatePhoneImageCaptionAfterReplyInstruction,
@@ -1105,7 +1099,9 @@ export function normalizePromptActionConfig(
       : typeof record.afterReplyTemplate === 'string' && record.afterReplyTemplate.trim()
         ? record.afterReplyTemplate
         : defaultPromptActionAfterReplyTemplate(actionId),
-    resultTemplate: actionId === 'getImageId'
+    resultTemplate: actionId === 'getCharacterList'
+      ? currentOrCustomTemplate(record.resultTemplate, characterSearchResultTemplate, new Set([previousCharacterSearchResultTemplate]))
+      : actionId === 'getImageId'
       ? currentOrCustomTemplate(
           record.resultTemplate,
           defaultGetImagesResultTemplate,
@@ -1401,12 +1397,6 @@ export function promptActionInstructionText(
   const withPlan = template.includes('{{plan}}')
     ? template.split('{{plan}}').join(planText)
     : `${template.trim()}\n\nFirst-pass plan:\n${planText}`;
-  if (config.actionId === 'getCharacterList') {
-    const tags = characterSearchAgencyTagsText();
-    return withPlan.includes('{{agencyTags}}')
-      ? withPlan.split('{{agencyTags}}').join(tags)
-      : `${withPlan}\n\nAvailable agency tags:\n${tags}`;
-  }
   if (config.actionId !== 'createImage') {
     return withInputImageTargetInstruction(withPlan, config.actionId, imageNumber);
   }
@@ -1508,10 +1498,6 @@ function parsePromptActionRecord(parsed: unknown): ParsedPromptActionCall | unde
     return undefined;
   }
   const record = parsed as Record<string, unknown>;
-  if (record.action === 'get_character_list' || record.action === 'getCharacterList') {
-    const query = parseCharacterSearchQuery(record.query);
-    return query ? { action: 'getCharacterList', query } : undefined;
-  }
   if (record.action === 'get_image_id' || record.action === 'getImageId' || record.action === 'getImages') {
     const phoneOwner = typeof record.phoneOwner === 'string' ? record.phoneOwner.trim() : '';
     const characters = typeof record.characters === 'string' ? record.characters.trim() : '';
@@ -2149,18 +2135,6 @@ export async function executePromptAction(
 ) {
   if (!promptActionAvailable(config, options)) {
     return { text: '', images: [] };
-  }
-  if (call.action === 'getCharacterList') {
-    const query = call.query ?? {};
-    const results = rankCharacters(context.appCharacters ?? storyCharactersFromNodes(context.nodes), context.historyMessages, query, config.maxReturnedCharacters);
-    const values: Record<string, string> = {
-      actionId: config.actionId, query: JSON.stringify(query), returnedCount: String(results.length),
-      characterList: results.length ? JSON.stringify(results, null, 2) : 'No existing characters are available.',
-    };
-    return {
-      text: config.resultTemplate.replace(/\{\{(actionId|query|returnedCount|characterList)\}\}/g, (_match, key: string) => values[key]).trim(),
-      images: [],
-    };
   }
   if (call.action === 'describeInputImage') {
     const imageJson = JSON.stringify({ image: call.caption ?? '' }, null, 2);

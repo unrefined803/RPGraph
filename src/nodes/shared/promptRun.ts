@@ -1,3 +1,4 @@
+import { characterSearchDirectory, characterSearchPrompt, characterSearchResult } from '../../characters/search';
 import {
   promptWithImageAttachmentMarkers,
   promptWithReferenceImageMarkers,
@@ -482,6 +483,36 @@ export async function runActionAwarePrompt({
       name: image.name,
       source,
     }));
+  const runCharacterSearch = async (config: PromptActionConfig, plan: string, label: string) => {
+    const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
+    const directory = characterSearchDirectory(characters, context.historyMessages);
+    const prompt = characterSearchPrompt(config.instructionTemplate, plan, directory);
+    const summary = `(${characters.length} characters searched; character context: approximately ${context.textMetrics.measure(directory).tokens.toLocaleString('en-US')} tokens; directory omitted)`;
+    const diagnosticPrompt = characterSearchPrompt(config.instructionTemplate, plan, summary);
+    recordPromptPass({
+      label, images: [],
+      sections: [{ label: 'Character search assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }],
+    });
+    context.updateRuntimeData(node.id, { preview: 'Searching existing characters ...' });
+    // This assistant is intentionally isolated from story prompts, chat history, and images.
+    const response = await context.llm.complete({
+      connectionId: node.data.connectionId, nodeId: node.id, label,
+      stage: { kind: 'action', name: config.title }, prompt, diagnosticPrompt, images: [],
+      contributesToTokenCalibration, useConnectionSampling: true,
+    });
+    recordOutputPass({ label: `${label} output`, text: response.text });
+    const answer = response.text.trim();
+    if (!answer) {
+      context.reportWarning(`${node.data.label}: Character search assistant returned an empty answer.`);
+      return false;
+    }
+    const result = characterSearchResult(config.resultTemplate, answer);
+    actionResults.set(promptActionKey(config.title), result);
+    actionResultTexts.push(result);
+    context.updateRuntimeData(node.id, { preview: 'Character search resolved; replaying prompt ...' });
+    return true;
+  };
+
   const currentImagePass = () => promptImagePass({
     actionReplay: actionImages.length > 0,
     actionImages,
@@ -629,6 +660,10 @@ export async function runActionAwarePrompt({
       if (stepPassIndex === maxStepPasses) {
         context.reportWarning(`${node.data.label}: Step ${step.name} action replay limit reached.`);
         break;
+      }
+      if (actionConfig.actionId === 'getCharacterList') {
+        if (!await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} character search`)) break;
+        continue;
       }
       const followUpInstruction = promptActionInstructionText(
         actionConfig,
@@ -866,6 +901,17 @@ export async function runActionAwarePrompt({
         );
         generatedText = '';
         break;
+      }
+
+      if (actionConfig.actionId === 'getCharacterList') {
+        const resolved = await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(actionReplayCount)} / Character search`);
+        generatedText = '';
+        if (!resolved) break;
+        if (passIndex === maxActionPasses) {
+          context.reportWarning(`${node.data.label}: Prompt action replay limit reached.`);
+          break;
+        }
+        continue;
       }
 
       const followUpImagePass = currentImagePass();

@@ -69,7 +69,7 @@ function promptActionTemplateVariableStatuses(
   visionEnabled = true,
 ): Record<string, TemplateVariableStatus> {
   if (config.actionId === 'getCharacterList') {
-    return { actionId: 'active', query: 'active', returnedCount: 'active', characterList: 'active' };
+    return { answer: 'active' };
   }
   if (config.actionId === 'updatePhoneImageCaption') {
     return {
@@ -128,7 +128,7 @@ function promptActionInstructionVariableStatuses(
     statuses.plan = 'active';
   }
   if (config.actionId === 'getCharacterList') {
-    statuses.agencyTags = 'active';
+    statuses.characterDirectory = 'active';
   }
   if (config.actionId === 'createImage') {
     statuses.availableCharacters = 'active';
@@ -602,24 +602,6 @@ export function PromptActionModal({
               </span>
             </div>
 
-            {draft.actionId === 'getCharacterList' ? (
-              <div className="prompt-action-field">
-                <label className="node-field-label" htmlFor={`${id}-action-max-characters`}>MAX RETURNED CHARACTERS</label>
-                <input
-                  id={`${id}-action-max-characters`}
-                  className="node-text-input node-number-input nodrag nowheel"
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={draft.maxReturnedCharacters}
-                  onChange={(event) => updateRuntimeConfig({ maxReturnedCharacters: Number(event.currentTarget.value) })}
-                  onBlur={() => updateRuntimeConfig({
-                    maxReturnedCharacters: Math.min(20, Math.max(1, Math.trunc(Number(draft.maxReturnedCharacters) || 5))),
-                  })}
-                />
-              </div>
-            ) : null}
-
             {draft.actionId === 'getImageId' ? (
               <div className="prompt-action-field">
                 <label className="node-field-label" htmlFor={`${id}-action-max-images`}>MAX RETURNED IMAGES</label>
@@ -793,7 +775,7 @@ export function PromptActionModal({
             </div>
             <div className="prompt-action-template-panel instruction-panel">
               <div className="prompt-action-template-header">
-                <label htmlFor={`${id}-action-instruction-template`}>LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)</label>
+                <label htmlFor={`${id}-action-instruction-template`}>{draft.actionId === 'getCharacterList' ? 'CHARACTER SEARCH ASSISTANT PROMPT' : 'LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)'}</label>
               </div>
               <JsonSyntaxTextarea
                 id={`${id}-action-instruction-template`}
@@ -806,7 +788,7 @@ export function PromptActionModal({
             </div>
             <div className="prompt-action-template-panel result-panel">
               <div className="prompt-action-template-header">
-                <label htmlFor={`${id}-action-template`}>RESULT INSERTION TEMPLATE</label>
+                <label htmlFor={`${id}-action-template`}>{draft.actionId === 'getCharacterList' ? 'ASSISTANT ANSWER INSERTION TEMPLATE' : 'RESULT INSERTION TEMPLATE'}</label>
               </div>
               <JsonSyntaxTextarea
                 id={`${id}-action-template`}

@@ -1,34 +1,30 @@
 # Character search action
 
-`Get character list` (`getCharacterList`, LLM name `get_character_list`) is an opt-in prompt action. Its editor exposes the standard first-pass hint, editable follow-up instruction and result insertion template, plus a global runtime setting `maxReturnedCharacters` (default 5, range 1–20). Bundled normal and planning workflows enable it in output channel 0 for RP Prompt Normal, RP AutoTurn, RP Narrator, and RP Narrator AutoTurn. Planning workflows expose the result to both planning and main passes. Event, WhatsUp, Social Media, and Autoplay slots do not enable it.
+`Get character list` (`getCharacterList`, LLM request `get_character_list`) uses a dedicated character-selection assistant. It does not use criteria scoring or return JSON profiles. The phone image search action keeps its existing implementation.
+
+Bundled normal and planning v34 workflows enable character discovery in output channel 0 for RP Prompt Normal, RP AutoTurn, RP Narrator, and RP Narrator AutoTurn. Planning workflows expose the answer to planning and main passes. Event, WhatsUp, Social Media, and Autoplay slots do not enable it.
 
 ## Execution
 
-1. An authored `@action:Get character list` marker inserts a hint requesting `{"action":"get_character_list","plan":"..."}`.
-2. The follow-up receives the plan and the canonical agency tag catalog with meanings. It returns `{"action":"get_character_list","query":{...}}`.
-3. `rankCharacters` in `src/characters/search.ts` searches `ExecuteContext.appCharacters`, the effective registry projection including Storybook characters and NPC library entries. When this projection is unavailable, it uses Storybook node characters. The action does not create characters or change participant state.
-4. Results replace the action marker during prompt replay. Both planning steps and main output use the existing action loop.
+1. An authored `@action:Get character list` marker inserts a hint requesting `{"action":"get_character_list","plan":"..."}`. The plan is a self-contained request: desired people, scene facts, app/account requirements, relationships, number of results, and information needed. Necessary context must be included because the assistant does not receive history.
+2. `runCharacterSearch` inside `runActionAwarePrompt` makes a separate, non-streamed LLM request using the calling node's connection. Its prompt consists only of the configured assistant instructions, the request, and the directory of all effective characters. It receives no story instructions, raw user input, conversation history, prior action results, or images. Prompt Route and prompt logs retain the assistant instructions and request but replace the directory with the character count and its estimated token size, measured with the run’s TextMetricsApi settings. The request carries this diagnostic representation separately for Turn Trace capture and export; provider dispatch and token calibration still use the complete prompt. No automatic context splitting is performed.
+3. The assistant compares the request with the authored data and answers in prose, about 50–100 words total, with at most three fitting characters. These are prompt-level output limits. The answer includes only relevant facts, exact names and applicable account identifiers, a brief reason, and uncertainty where needed. It reports no match or fewer matches rather than inventing characters or relationships. There is no second parameter JSON or deterministic ranking step.
+4. The answer insertion template wraps this text, which replaces the action marker on replay. The full directory is never inserted into the planning or main story pass. Empty assistant responses report a warning rather than exposing the request as story output.
 
-## Query and ranking
+## Directory data
 
-All fields are optional; `{}` lists characters without preferences. Invalid keys, tag IDs, enum values, or boolean types are rejected.
+`characterSearchDirectory` in `src/characters/search.ts` reads `ExecuteContext.appCharacters`, the effective registry including Storybook characters, library NPCs and saved overrides. If this projection is unavailable, it reads Storybook nodes. It formats a text directory containing:
 
-| Field | Values | Match |
-| --- | --- | --- |
-| `app` | `whatsup`, `fotogram`, `onlyfriends`, `matchme` | Enabled account exists |
-| `privacyMode` | Boolean | Selected social account has this privacy setting |
-| `hasPosts` | Boolean | Selected social account has or has no authored/live posts |
-| `gender` | `woman`, `man`, `nonbinary` | Authored character gender; never inferred |
-| `agencyTags` | Array of canonical tag IDs | Character tag or selected enabled account tag; without `app`, any enabled account |
+- Character ID, name, authored age/gender, description, personality, speech style, role, hidden agency, agency tags and meanings.
+- Enabled accounts with exact account IDs, profile names, roles, bios, account tags, social privacy mode and post counts. Counts include seeded and live posts, resolved by owner, without copying post content.
+- Authored outgoing relationships with target names/IDs, relationship descriptions and app contact/follow flags. Missing or one-sided data never proves mutual friendship.
 
-`privacyMode` and `hasPosts` require `app` to be `fotogram` or `onlyfriends`. Privacy hides the real name and profile photo publicly; it does not indicate locked posts. A missing or disabled account never matches either boolean, including `false`. Posts include text-only posts, seeded container posts and timeline publications, matched by account identity before legacy identity fields. Repeated post IDs on the same account count once.
+No image blobs, complete containers, banking data, or chat text are serialized. Hidden agency and anonymous identities are author context, not public character knowledge. The assistant treats directory content as data rather than instructions.
 
-Each criterion and each distinct requested tag contributes one point. No criterion is a hard filter. Partial and zero matches remain eligible, ordered by descending score, then name and character ID for stable ties. Results expose matched and unmatched criteria so the writer cannot mistake a partial match for an exact match.
+## Configuration and compatibility
 
-## Result data
+The action editor labels are **Character Search Assistant Prompt** and **Assistant Answer Insertion Template**. The first-pass hint stays read-only. Assistant variables are `{{plan}}` and `{{characterDirectory}}`; insertion uses `{{answer}}`. Missing placeholders append the required request, directory, or answer. Substitution is single-pass so data containing template tokens cannot expand further content.
 
-Results contain character ID, name, score, total criteria, matched/unmatched criteria, authored gender/age, description, personality, role, speech style, hidden agency, character tags and enabled accounts. Account summaries include IDs, profile names, bios, privacy, post counts, roles and account tags. Unsupported privacy/post fields are `null`. No images, binary data, banking details, or complete containers are inserted.
+The previous maximum-results setting is removed; the assistant prompt specifies at most three characters. Stored default ranking instructions and result templates migrate to the new defaults, while custom templates remain editable. Legacy query-only calls are no longer executable.
 
-Template variables: `{{plan}}` and `{{agencyTags}}` in the follow-up; `{{actionId}}`, `{{query}}`, `{{returnedCount}}`, and `{{characterList}}` in the result. Hidden agency and anonymous identity are author context, not public character knowledge.
-
-Validation: `src/nodes/shared/promptActions.characterList.test.ts` covers ranking, ownership, account state, persistence, parsing and the full action loop in planning and main output.
+Validation: `src/nodes/shared/promptActions.characterList.test.ts` covers directory fields, post ownership, template migration, relationship context, prompt isolation, prose replay in planning and main output, no matches and empty responses. Existing phone-image action tests cover the unchanged image path.

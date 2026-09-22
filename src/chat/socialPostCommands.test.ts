@@ -172,7 +172,7 @@ describe('social publication commands', () => {
   });
 
   it.each(['normal', 'planning'])('places publication commands before comments in the %s workflow', (name) => {
-    const workflow = JSON.parse(readFileSync(`resources/default-content/default_${name}_v33.json`, 'utf8'));
+    const workflow = JSON.parse(readFileSync(`resources/default-content/default_${name}_v34.json`, 'utf8'));
     const switches = workflow.nodes.filter((node: WorkflowNode) => node.data.nodeType === 'llm-prompt-switch');
     let checked = 0;
     for (const node of switches) {
