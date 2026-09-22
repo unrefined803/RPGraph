@@ -79,6 +79,9 @@
         ],
         "bio": ""
       }
+    },
+    "profileImage": {
+      "imageId": "felix_miller:image:portrait"
     }
   }
 }

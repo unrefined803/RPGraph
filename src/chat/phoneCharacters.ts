@@ -12,14 +12,13 @@ export type PhoneRuntimeCharacter = StorybookCharacter & {
   temporaryPhone?: boolean;
 };
 
-/** Prefer the character portrait, then the app avatars carried by the same container. */
+/** Prefer the character portrait, then social avatars; a dating persona is never a WhatsUp fallback. */
 export function phoneCharacterAvatarDataUrl(character: StorybookCharacter | undefined) {
   if (!character) return undefined;
   const imageIds = [
     character.profileImage?.imageId,
     character.apps?.whatsup?.avatarImageId,
     character.apps?.fotogram?.avatarImageId,
-    character.apps?.matchme?.avatarImageId,
     character.apps?.onlyfriends?.avatarImageId,
   ].filter((id): id is string => !!id);
   const image = imageIds.flatMap((id) => character.images?.find((entry) => entry.id === id) ?? [])[0];

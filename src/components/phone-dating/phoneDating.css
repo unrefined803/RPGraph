@@ -25,7 +25,6 @@
 .pt-form label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; color: #ded1df; }
 .pt-form input:not([type=file]):not([type=checkbox]), .pt-form textarea, .pt-form select { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #4a3e52; border-radius: 12px; background: #24212f; padding: 10px 13px; color: #f3edf2; font: inherit; resize: vertical; font-size: 13.5px; }
 .pt-form textarea { min-height: 52px; }
-.pt-form input[readonly], .pt-form input.pt-readonly-name { background: #1a1723; border-color: #383040; color: #9f91a3; cursor: not-allowed; }
 .pt-field-row { display: grid; grid-template-columns: 1fr 90px; gap: 10px; }
 .pt-trio-row { display: grid; grid-template-columns: minmax(95px, 0.82fr) minmax(140px, 1.88fr) minmax(65px, 0.65fr); gap: 10px; align-items: end; }
 .pt-photo-section { margin-top: 4px; }

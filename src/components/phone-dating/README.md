@@ -14,6 +14,14 @@ clears only passes. The Likes tab shows pending interest and supports upgrading
 a pending like to a Superlike. New connections show an animated confirmation
 with a direct chat action and respect reduced-motion preferences.
 
+## Public identity
+
+The editable dating name is `apps.matchme.profileName`, defaulting to the real
+character name when omitted. Dating age and gender are independent profile
+fields. Public labels and conversation history use the dating identity.
+Avatars use the explicit dating avatar or first dating photo; WhatsUp keeps the
+real character name and portrait. Renames never change account or match IDs.
+
 ## Accounts and persistence
 
 `chat/datingAccounts.ts` contains four stable fictional NPC accounts with public

@@ -32,6 +32,7 @@ function playerBook(): RpStorybook {
   delete player.profileImage;
   for (const [app, account] of Object.entries(player.apps!)) {
     account.accountId = `player-${app}`; account.username = `player.${app}`;
+    if (app === 'matchme') account.profileName = player.name;
     delete account.avatarImageId; delete account.initialPosts;
   }
   player.apps!.matchme!.profile!.photoIds = ['player-lake'];

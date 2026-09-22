@@ -148,13 +148,14 @@ describe('assistant app profile lifecycle', () => {
     const photoId = book.characters[0].images[0].id;
     const profile = { name: 'Nova online', age: 25, bio: 'Hello there', interests: 'Music', photoIds: [photoId], decisions: {} };
     const created = apply([{ op: 'add', path: '/characters/0/apps/matchme', value: { ...account('matchme'), profile } }], book).storybook;
-    expect(created.characters[0].social?.plotTwist).toMatchObject({ ...profile, name: book.characters[0].name });
+    expect(created.characters[0].social?.plotTwist).toMatchObject(profile);
     const edited = apply([
       { op: 'replace', path: '/characters/0/apps/matchme/displayName', value: 'New display' },
       { op: 'replace', path: '/characters/0/apps/matchme/profile/name', value: 'New display' },
       { op: 'add', path: '/characters/0/apps/fotogram/avatarImageId', value: photoId },
     ], created).storybook;
-    expect(edited.characters[0].social?.plotTwist?.name).toBe(book.characters[0].name);
+    expect(edited.characters[0].social?.plotTwist?.name).toBe('New display');
+    expect(edited.characters[0].name).toBe(book.characters[0].name);
     expect(edited.characters[0].images).toEqual(book.characters[0].images);
     expect(edited.characters[0].apps?.fotogram?.avatarImageId).toBe(photoId);
     const deleted = apply([
@@ -184,10 +185,10 @@ it('preserves a photo-less MatchMe draft through patches and storage until activ
   } }]).storybook;
   const reloaded = parseRpStorybookJson(rpStorybookJsonText(result));
   const character = reloaded.characters[0];
-  expect(character.apps?.matchme?.profile).toMatchObject({ ...profile, name: character.name });
+  expect(character.apps?.matchme?.profile).toMatchObject(profile);
   expect(character.social?.plotTwist).toBeUndefined();
   expect(() => validateCharacterPayload(characterPayload(character))).not.toThrow();
-  expect(normalizeDatingProfile(character.apps?.matchme?.profile, true)).toMatchObject({ ...profile, name: character.name });
+  expect(normalizeDatingProfile(character.apps?.matchme?.profile, true)).toMatchObject(profile);
   expect(normalizeDatingProfile(character.apps?.matchme?.profile)).toBeUndefined();
   expect(() => validateCharacterPayload({ ...characterPayload(character), apps: {
     ...character.apps, matchme: { ...character.apps!.matchme!, enabled: true },

@@ -92,13 +92,14 @@ it('ships developed NPCs with compatible tags, deliberate privacy and consistent
     }
     const matchme = character.apps?.matchme;
     if (matchme?.enabled) {
-      expect(matchme.profileName).toBe(character.name);
+      const catfish = character.id === 'chloe_bella_vance';
+      expect(matchme.profileName).toBe(catfish ? 'Chloe Vance' : character.name);
       expect(['woman', 'man']).toContain(character.gender);
-      expect(matchme.profile?.gender).toBe(character.gender);
-      expect(matchme.profile?.age).toBe(character.age);
+      expect(matchme.profile?.gender).toBe(catfish ? 'woman' : character.gender);
+      expect(matchme.profile?.age).toBe(catfish ? 22 : character.age);
       expect(matchme.profile?.interests.trim()).toBeTruthy();
       expect(matchme.profile?.bio).toBe(matchme.bio);
-      expect(matchme.profile?.seeking).toEqual(character.gender === 'woman' ? ['man'] : ['woman']);
+      expect(matchme.profile?.seeking).toEqual(matchme.profile?.gender === 'woman' ? ['man'] : ['woman']);
       expect(matchme.profile).not.toHaveProperty('name');
       expect(matchme.profile).not.toHaveProperty('username');
     }

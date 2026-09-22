@@ -47,9 +47,8 @@ it.each(['fotogram', 'matchme'] as const)('validates phone %s names against its 
   const username = npc.apps![app]!.profileName!;
   const saved = app === 'fotogram' ? api.saveSocialUsername(owner, app, username) :
     api.saveDatingProfile(owner, { ...book.characters[0].apps!.matchme!.profile!, name: username });
-  expect(saved).toBe(app === 'matchme');
-  if (app === 'fotogram') expect(updateRuntimeNode).not.toHaveBeenCalled();
-  else expect(updateRuntimeNode).toHaveBeenCalled();
+  expect(saved).toBe(false);
+  expect(updateRuntimeNode).not.toHaveBeenCalled();
 });
 
 it('allows a Storybook profile to override the same library character', () => {
@@ -130,4 +129,20 @@ it('keeps an unbound social post image visible after forwarding it to another ga
   expect(appCharacterImage(characters(), image.id)).toEqual(original);
   expect(appCharacterImage(characters(), image.id, owner.id)).toEqual(original);
   expect(appCharacterImage(characters(), image.id, 'unknown-owner')).toBeUndefined();
+});
+
+
+it('saves a separate dating identity from the phone without renaming the character', () => {
+  const { api, owner, book, updateRuntimeNode } = harness();
+  const original = book.characters[0];
+  const profile = { ...original.apps!.matchme!.profile!, name: 'Dating Persona', age: 29, gender: 'nonbinary' as const };
+  expect(api.saveDatingProfile(owner, profile)).toBe(true);
+  const saved = parseRpStorybookJson(updateRuntimeNode.mock.calls[0][1].storybookJson).characters[0];
+  expect(saved.name).toBe(original.name);
+  expect(saved.age).toBe(original.age);
+  expect(saved.gender).toBe(original.gender);
+  expect(saved.apps!.matchme!.accountId).toBe(original.apps!.matchme!.accountId);
+  expect(saved.apps!.matchme!.profileName).toBe('Dating Persona');
+  expect(saved.social!.plotTwist).toMatchObject({ name: 'Dating Persona', age: 29, gender: 'nonbinary' });
+  expect(saved.images).toEqual(original.images);
 });

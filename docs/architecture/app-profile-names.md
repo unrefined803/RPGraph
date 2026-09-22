@@ -92,13 +92,23 @@ revealed. MatchMe and WhatsUp do not support this setting. Character names, acco
 IDs and routing aliases stay intact. This is a public presentation preference, not
 anonymization of the character data or the narrator's knowledge.
 
-## MatchMe character names
+## MatchMe public identity
 
-MatchMe is an exception to editable app profile names: its name is derived from
-`character.name`. The editor shows the full **Character name** read-only; discovery,
-matches, conversations and history labels show **First name, age** without a handle.
-The first whitespace-separated part of the character name is used as the first
-name. Age remains part of the dating profile. Existing `profileName` values and
-other old dating names remain routing aliases; normalized `profileName` is the
-full character name as a compatibility projection, not a separately editable name.
-No account IDs, matches or saved message identities change.
+MatchMe accepts an optional `apps.matchme.profileName`. An explicit value wins,
+including a name identical to the real character name. If omitted, the real
+`character.name` is the default; existing containers need no batch migration.
+Normalization and saving may materialize this default in the canonical account.
+Legacy dating display names and nested profile names remain readable.
+The profile editor exposes **Name**, **Age**, and **I am** independently of the
+real character identity. New profiles default to the real name, adult age and
+gender when available. Discovery, matches, conversations and history labels show
+the dating identity's **First name, age**, without a handle.
+
+`character.name`, `character.age` and `character.gender` always describe the real
+person. A dating persona can differ in all three fields. Private model context
+explains the distinction without making the real identity public knowledge.
+WhatsUp continues to use the real character name and character portrait.
+MatchMe avatars use an explicit dating avatar or the first dating photo, never
+an unrelated character portrait. Dating photos remain gallery references;
+no media is duplicated. Account IDs, aliases, matches and saved messages remain
+stable when either name changes.

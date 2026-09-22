@@ -103,7 +103,10 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
     validateAccountAgency(app, account);
     const legacyHandle = app === 'fotogram' ? social.fotogramUsername : app === 'onlyfriends' ? social.onlyfriendsUsername : undefined;
     const rawProfile = app === 'matchme' ? record(account.profile ?? social.plotTwist) : {};
-    const profileName = app === 'whatsup' ? undefined : app === 'matchme' ? name.trim() : migratedProfileName(account, name, string(rawProfile.name) || string(legacyHandle));
+    const profileName = app === 'whatsup' ? undefined : app === 'matchme'
+      ? (typeof account.profileName === 'string' ? account.profileName.trim()
+        : string(account.displayName).trim() || string(rawProfile.name).trim() || name.trim())
+      : migratedProfileName(account, name, string(rawProfile.name) || string(legacyHandle));
     const legacyHandles = [...new Set([
       ...(Array.isArray(account.legacyHandles) ? account.legacyHandles.filter((entry): entry is string => typeof entry === 'string' && !!entry.trim()) : []),
       string(account.username), string(account.displayName), string(legacyHandle),

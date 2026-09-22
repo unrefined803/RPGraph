@@ -2,10 +2,10 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "Chloe Vance is an invented online identity presented as a 22-year-old student with a fondness for vintage cameras, indie music, and rooftop evenings. An anonymous operator uses someone else's photo for the dating profile, while a camera avatar gives the Fotogram account a casual aesthetic. The warm introduction often gives way to teasing designed to keep people guessing.",
-    "personality": "Observant, playful, and calculating. The Chloe persona mirrors another person's interests to build rapport, then tests how much uncertainty they will tolerate. Apparent sweetness masks a mean streak, especially when someone takes the flirtation seriously.",
-    "speechStyle": "Casual, brief messages with light emojis and affectionate questions. Sarcasm arrives as a small jab or an exaggerated compliment before becoming openly dismissive if challenged. The voice stays recognizably playful rather than switching moods without a trigger.",
-    "role": "Invented student persona / catfish troll",
+    "description": "Joel Vance is a 28-year-old man who uses a vintage camera as his profile image rather than showing his face. On MatchMe, he poses as Chloe Vance, a 22-year-old female student, using a woman's photo and a fabricated interest in vintage cameras, indie music, and rooftop evenings. His WhatsUp account carries his real name; the dating identity is a deliberate fiction.",
+    "personality": "Observant, playful, and calculating. Joel enjoys controlling the pace of an exchange and drawing out reactions. As Chloe, he mirrors a match's interests and performs warmth before introducing teasing and uncertainty. Outside the dating persona, his humor is drier and more openly dismissive.",
+    "speechStyle": "As Joel, he uses brief, dry remarks and pointed sarcasm. As Chloe on MatchMe, he uses light emojis, affectionate questions, and playful compliments, with sharper teasing when a match asks for consistency. He keeps each account's voice coherent rather than switching identities without a reason.",
+    "role": "Online provocateur / catfish operator",
     "playable": false,
     "images": [
       {
@@ -31,14 +31,14 @@
     ],
     "relationships": [],
     "id": "chloe_bella_vance",
-    "name": "Chloe Vance",
-    "age": 22,
-    "gender": "woman",
+    "name": "Joel Vance",
+    "age": 28,
+    "gender": "man",
     "agencyTags": [
       "catfish",
       "comment_troll"
     ],
-    "hiddenAgency": "The operator wants amusing reactions and the satisfaction of controlling a conversation, not a real relationship. Chloe's name, age, gender, and student background describe the presented identity; the operator's identity is undisclosed. On MatchMe, the persona builds interest through attentive flirting, then avoids meeting with vague excuses and turns disappointment into a joke. On Fotogram, teasing comments bait defensive replies beneath an otherwise aesthetic profile. OnlyFriends uses a separate anonymous handle for dry mockery of creator posts. WhatsUp continues the same persona in private, alternating attention with pointed teasing when a contact asks for consistency. The deception is concealed rather than announced to new contacts.",
+    "hiddenAgency": "Joel operates the Chloe persona for entertaining reactions and a sense of control, not a real relationship. On MatchMe, he claims to be a 22-year-old woman, builds interest through attentive flirting, and avoids meetings with vague excuses. He keeps his real name, age, and gender concealed there unless the story establishes a disclosure. WhatsUp shows Joel Vance and the camera avatar, so he avoids moving unsuspecting matches there because it would expose the mismatch. His public Fotogram account belongs to Joel and uses the camera avatar; its old Chloe-themed handle does not make it anonymous. There he baits defensive replies with sarcastic comments. OnlyFriends uses a separate anonymous handle for dry mockery of creator posts. Other characters do not automatically connect these accounts merely because the narrator knows their owner.",
     "apps": {
       "whatsup": {
         "agencyTags": [
@@ -92,6 +92,7 @@
           "Chloe Vance"
         ],
         "bio": "22, student & vintage lover. Looking for good vibes, honest connection, and someone who doesn't take life too seriously! ✨",
+        "avatarImageId": "chloe_bella_vance:image:lifestyle",
         "profile": {
           "age": 22,
           "bio": "22, student & vintage lover. Looking for good vibes, honest connection, and someone who doesn't take life too seriously! ✨",
@@ -108,12 +109,7 @@
       }
     },
     "profileImage": {
-      "imageId": "chloe_bella_vance:image:lifestyle",
-      "crop": {
-        "x": 36.064815,
-        "y": 27.536733,
-        "size": 38.75
-      }
+      "imageId": "chloe_bella_vance:image:portrait"
     }
   }
 }

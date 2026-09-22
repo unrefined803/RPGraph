@@ -5,8 +5,20 @@ import type { ChatImageAttachment, MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { DatingGender, DatingProfile } from './datingProfile';
 
-/** Public MatchMe names are derived from the character, never account handles. */
+/** MatchMe labels show the first name of the public dating identity. */
 export const datingFirstName = (name: string) => name.trim().split(/\s+/)[0] || 'Unknown';
+
+/** Public dating identity is independent of the private character identity. */
+export function datingProfileName(character: StorybookCharacter) {
+  return character.apps?.matchme?.profileName ?? character.social.plotTwist?.name ?? character.name;
+}
+
+/** Use an explicit dating avatar, then the first dating photo; never leak another app portrait. */
+export function datingAvatarDataUrl(character: StorybookCharacter | undefined, images: ChatImageAttachment[] = character?.images ?? [], profile = character?.social.plotTwist) {
+  const ids = [character?.apps?.matchme?.avatarImageId, ...(profile?.photoIds ?? [])];
+  const image = ids.flatMap((id) => images.find((entry) => entry.id === id) ?? [])[0];
+  return image ? appAvatarDataUrl(character, image) : undefined;
+}
 
 export const datingNpcProfiles = [
   { id: 'demo-alex', name: 'Alex', age: 26, bio: 'Coffee first. Spontaneous road trip second. I will absolutely make you a playlist.', interests: ['Music', 'Road trips', 'Coffee'], gender: 'man' as const, personality: 'Warm, spontaneous and gently playful. Loves sharing music and asks thoughtful questions.', color: 'rose' },
@@ -53,10 +65,10 @@ export function datingAccounts(characters: StorybookCharacter[], messages: Messa
     if (!profile) continue;
     accounts.push({ id: datingAccountId(character), characterId: character.id,
       photos: (profile.photoIds ?? []).flatMap((id) => character.images?.find((image) => image.id === id) ?? []),
-      avatarDataUrl: appAvatarDataUrl(character, character.images?.find((image) => image.id === character.apps?.matchme?.avatarImageId)),
+      avatarDataUrl: datingAvatarDataUrl(character),
       recipientContext: recipientCharacterContext(character), libraryNpc: character.libraryNpc,
       aliases: [...characterMessageAliases(character), ...(character.identityAliases?.accountIds?.matchme ?? []), ...(character.identityAliases?.characterIds ?? []).map(datingAccountId), datingAccountId(character.id), character.name, profile.name, character.apps?.matchme?.profileName ?? character.apps?.matchme?.displayName ?? '', ...(character.apps?.matchme?.legacyHandles ?? []), character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
-      decisions: profile.decisions, name: character.name, age: profile.age, gender: profile.gender, bio: profile.bio,
+      decisions: profile.decisions, name: datingProfileName(character), age: profile.age, gender: profile.gender, bio: profile.bio,
       interests: profile.interests.split(',').map((part) => part.trim()).filter(Boolean),
       personality: [character.profile.personality, character.profile.speechStyle].filter(Boolean).join('\n'), color: 'violet' });
   }

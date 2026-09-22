@@ -50,7 +50,10 @@ export function createAuthoredCharacter(specification: CharacterSpecification, n
     apps[app as keyof CharacterApps] = {
       enabled: true, bio: '',
       ...account,
-      ...(app !== 'whatsup' ? { profileName: migratedProfileName(account, source.name, account.profile?.name ?? '') } : {}), accountId: account.accountId ?? `character:${id}:${app}`,
+      ...(app !== 'whatsup' ? { profileName: app === 'matchme'
+        ? account.profileName ?? account.displayName ?? account.profile?.name ?? source.name
+        : migratedProfileName(account, source.name, account.profile?.name ?? '') } : {}),
+      accountId: account.accountId ?? `character:${id}:${app}`,
     };
   }
   const character = { description: '', personality: '', speechStyle: '', role: '', playable: false,

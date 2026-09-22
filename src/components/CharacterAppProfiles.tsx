@@ -68,7 +68,7 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
     </div>}
     {selectedApp === 'matchme' && <div id="character-account-panel-matchme" role="tabpanel"><PhoneDatingScreen key="profile" profileOnly
       owner={{ id: character.id, sourceId: character.id, storybookNodeId: '', kind: 'character', name: character.name,
-        label: character.name, profile: character, apps, social: socialFromCharacterApps(apps),
+        label: character.name, age: character.age, gender: character.gender, profile: character, apps, social: socialFromCharacterApps(apps),
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(), banking: character.banking ?? defaultRpStorybookCharacterBanking() }}
       characters={[]} history={[]} unread={{}} onMarkSeen={() => {}} isRunning={false}
       onSendMessage={async () => false} emojiOptions={[]} recentlyUsedEmojis={[]}

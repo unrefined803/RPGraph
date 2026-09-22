@@ -109,7 +109,7 @@ describe('MatchMe permissions and identity', () => {
     const second = character('another', 'Renamed');
     const state = matchMeState([owner, second], messages);
     expect(resolveDatingAccount('Renamed', state.accounts)).toBeUndefined();
-    expect(resolveDatingAccount(datingAccountId(owner.id), state.accounts)?.name).toBe(owner.name);
+    expect(resolveDatingAccount(datingAccountId(owner.id), state.accounts)?.name).toBe('Renamed');
     expect(matchMeMessageAllowed(outgoing, state)).toBe(true);
     expect(socialDirectMessageActor([owner, second], second.id, outgoing)).toBeUndefined();
     expect(socialDirectMessageActor([owner, second], owner.id, outgoing)?.id).toBe(owner.id);
@@ -403,13 +403,13 @@ describe('MatchMe display identities', () => {
     expect(socialPostInputText(post, [])).not.toContain('Privacy Mode:');
   });
 
-  it('derives public MatchMe names from characters and ignores editable legacy names', () => {
+  it('uses the dating persona in public MatchMe names and history', () => {
     const { owner, outgoing } = fixture();
     owner.name = 'Mia Harper';
-    owner.social.plotTwist!.name = 'Old artist name';
-    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Mia, 25 to Alex');
+    owner.social.plotTwist!.name = 'Dating Persona';
+    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Dating, 25 to Alex');
     expect(socialDirectMessageHistoryText(outgoing, [owner])).not.toContain('@');
-    expect(matchMeState([owner], []).accounts.find((account) => account.id === datingAccountId(owner))?.name).toBe('Mia Harper');
+    expect(matchMeState([owner], []).accounts.find((account) => account.id === datingAccountId(owner))?.name).toBe('Dating Persona');
   });
 
   it('uses first names and ages in new and saved MatchMe histories without changing identities or bodies', () => {

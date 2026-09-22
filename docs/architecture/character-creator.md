@@ -219,7 +219,7 @@ image inherit the character crop. A different explicitly selected app image
 remains uncropped. Changing or clearing the character portrait also updates app
 avatar references that followed its previous image; independently selected app
 images are retained. Gallery images, feed photos and MatchMe discovery photos remain
-full images. MatchMe match and conversation avatars use the portrait too.
+full images. MatchMe match and conversation avatars use the explicit MatchMe avatar or first dating photo; they inherit the portrait crop only when that same image is selected.
 
 Install the authoring-only detector once (Python with `venv` and pip required):
 

@@ -1,7 +1,7 @@
 import { accountHandle, accountHandleMatches } from '../characters/character';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import { matchMeContext, matchMeState } from './matchMe';
-import { datingFirstName, datingAccountId, datingAccountMatches, datingAccounts, resolveDatingAccount } from './datingAccounts';
+import { datingFirstName, datingProfileName, datingAccountId, datingAccountMatches, datingAccounts, resolveDatingAccount } from './datingAccounts';
 import type {
   MessageRecord,
   SocialAppKind,
@@ -205,7 +205,7 @@ export function socialAccountPresentation(
   const handle = (character ? account?.profileName ?? account?.displayName ?? '' : fallbackHandle).trim().replace(/^@/, '');
   const hideRealName = isAccountPrivacyMode(app, character);
   return {
-    name: hideRealName ? handle || 'Unknown user' : character?.name || fallbackName,
+    name: app === 'matchme' && character ? datingProfileName(character) : hideRealName ? handle || 'Unknown user' : character?.name || fallbackName,
     handle,
   };
 }

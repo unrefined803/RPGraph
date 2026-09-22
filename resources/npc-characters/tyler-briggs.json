@@ -80,6 +80,9 @@
         ],
         "bio": ""
       }
+    },
+    "profileImage": {
+      "imageId": "tyler_briggs:image:portrait"
     }
   }
 }

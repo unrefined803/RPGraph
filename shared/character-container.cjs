@@ -120,7 +120,7 @@ function validateCharacterPayload(value) {
     const account = record(raw);
     if (!nonEmptyString(account.accountId) || accountIds.has(account.accountId) ||
         typeof account.enabled !== 'boolean' ||
-        (app !== 'whatsup' && typeof account.profileName !== 'string' &&
+        (app !== 'whatsup' && app !== 'matchme' && typeof account.profileName !== 'string' &&
           !(typeof account.username === 'string' && typeof account.displayName === 'string')) ||
         typeof account.bio !== 'string') {
       throw new Error('App accounts require stable IDs, profile strings and an enabled flag.');
@@ -151,7 +151,7 @@ function validateCharacterPayload(value) {
       if (post.imageId !== undefined) requireImage(post.imageId);
     }
     if (app === 'matchme' && account.profile !== undefined) {
-      validateDatingProfile({ ...account.profile, name: account.profileName ?? account.profile.name }, requireImage, account.enabled === false);
+      validateDatingProfile({ ...account.profile, name: account.profileName ?? account.displayName ?? account.profile.name ?? character.name }, requireImage, account.enabled === false);
     }
   }
   return character;

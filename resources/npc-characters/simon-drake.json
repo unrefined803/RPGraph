@@ -80,6 +80,14 @@
         ],
         "bio": ""
       }
+    },
+    "profileImage": {
+      "imageId": "simon_drake:image:portrait",
+      "crop": {
+        "x": 33,
+        "y": 23,
+        "size": 38
+      }
     }
   }
 }

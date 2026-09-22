@@ -16,11 +16,11 @@ Extend NPC Character Containers with structured agency tags and explicit app acc
 ## Troll roster extension
 
 Four characters from the eight-character troll plan are currently bundled:
-Chloe Vance (`catfish`, `comment_troll`), Tyler Briggs (`rage_baiter`,
+Joel Vance, posing as Chloe Vance on MatchMe (`catfish`, `comment_troll`), Tyler Briggs (`rage_baiter`,
 `boundary_tester`), Felix Miller (`shitposter`, `social_lurker`), and Simon
 Drake (`contrarian_debater`, `passive_aggressive`). Their enabled WhatsUp,
 Fotogram, and anonymous OnlyFriends accounts have explicit compatible tags.
-Only Chloe has an active MatchMe profile. Tyler's MatchMe account remains
+Only Joel has an active MatchMe profile, presenting Chloe as a 22-year-old woman. Joel is a 28-year-old man whose character portrait is the vintage camera. Tyler's MatchMe account remains
 disabled pending a suitable dating photo. The other four planned trolls and
 their images are not included. See the generated population report for current
 library totals.
