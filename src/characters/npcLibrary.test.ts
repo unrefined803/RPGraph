@@ -118,7 +118,7 @@ it('provides Eli Ward with a stable authored WhatsUp account', async () => {
   const registry = buildCharacterRegistry([entry]);
   const characters = appCharactersFromRegistry(registry);
   const context = recipientCharacterContext(characters[0]);
-  expect(context).toContain('WhatsUp\nAccount: Present\nProfile photo');
+  expect(context).toContain('WhatsUp\nAccount: Present\nAccount name: @Eli Ward\nLink: @whatsup:Eli Ward\nProfile photo');
   expect(context).toContain('No account: OnlyFriends');
   expect(resolveRegistryAccount(registry, 'whatsup', 'Eli Ward').status).toBe('found');
   expect(resolveWhatsUpRecipient(characters, [], 'Eli Ward').accountId).toBe('character:eli_ward:whatsup');

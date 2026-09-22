@@ -90,6 +90,9 @@ describe('shared NPC app discovery', () => {
     expect(phoneInput).toContain(fixture.character.personality);
     expect(phoneInput).toContain('New message:\nPlayer: What is your Fotogram account?');
     expect(phoneInput).not.toContain('Existing conversation');
+    for (const input of [context, onlyFriendsInput, phoneInput]) {
+      expect(input).toContain('WhatsUp\nAccount: Present\nAccount name: @Nova Vale\nLink: @whatsup:Nova Vale');
+    }
   });
 
   it('adds full agency guidance, filters unrelated profiles and selects mentioned relationships', () => {

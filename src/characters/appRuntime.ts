@@ -113,6 +113,10 @@ export function recipientCharacterContext(character: StorybookCharacter, options
     return [
       '', name,
       'Account: Present',
+      ...(app === 'whatsup' ? [
+        ...field('Account name', `@${character.name.trim()}`),
+        ...field('Link', `@whatsup:${character.name.trim()}`),
+      ] : []),
       ...(app === 'whatsup' || app === 'matchme' ? [] : field('Profile name', account.profileName ? `@${account.profileName}` : undefined)),
       ...(detailed && (app === 'fotogram' || app === 'onlyfriends') ? field('Privacy mode', account.privacyMode ? 'Yes; anonymous profile (hide real name and profile photo publicly)' : 'No; show real name and photo publicly') : []),
       ...(app === 'matchme' ? field('Public name', `${(account.profileName ?? character.name).trim().split(/\s+/)[0]}, ${character.social.plotTwist?.age ?? ''}`) : []),
