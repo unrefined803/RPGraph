@@ -105,8 +105,9 @@ export function promptActionHintText(actionId: PromptActionId) {
   switch (actionId) {
     case 'getCharacterList':
       return [
-        'Ask about existing Storybook or NPC characters, accounts, relationships, or suitable people. Return only:',
-        '{"action":"ask_character_information","plan":"Self-contained question with relevant names, scene facts, requirements, and information needed; the assistant sees no chat history."}',
+        'Look up existing Storybook or NPC characters: ask about a specific name or account, missing facts, relationships, or a suitable person for the scene. If a needed identity, account ID, or fact is missing, call this action before planning or writing the activity; do not invent characters, handles, accounts, IDs, or relationships to fill the gap.',
+        'For app activity, ask for the exact account IDs and profile names for the relevant app. Request only the facts and number of people needed. The assistant sees the character directory but no chat history. Its concise answer replaces this action instruction; then continue using the confirmed details. If no suitable person or account is found, omit activity requiring it. To ask, return exactly one JSON object and nothing else, before any plan or story:',
+        '{"action":"ask_character_information","plan":"Self-contained question: relevant known names or account IDs, scene facts, selection requirements, target app, and specific information needed, including exact app account IDs when applicable."}',
       ].join('\n');
     case 'getImageId':
       return [
