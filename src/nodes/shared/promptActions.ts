@@ -1,4 +1,4 @@
-import { characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterAssistantInstruction, previousCharacterAssistantResultTemplate } from '../../characters/search';
+import { characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousCharacterAssistantResultTemplate } from '../../characters/search';
 import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, SocialAppKind, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { createComfyImageForCharacter } from '../runScratch';
@@ -106,7 +106,7 @@ export function promptActionHintText(actionId: PromptActionId) {
     case 'getCharacterList':
       return [
         'Look up existing Storybook or NPC characters: ask about a specific name or account, missing facts, relationships, or a suitable person for the scene. If a needed identity, account ID, or fact is missing, call this action before planning or writing the activity; do not invent characters, handles, accounts, IDs, or relationships to fill the gap.',
-        'For app activity, ask for the exact account IDs and profile names for the relevant app. Request only the facts and number of people needed. The assistant sees the character directory but no chat history. Its concise answer replaces this action instruction; then continue using the confirmed details. If no suitable person or account is found, omit activity requiring it. To ask, return exactly one JSON object and nothing else, before any plan or story:',
+        'For app activity, specify the required app and ask for exact account IDs and profile names only on that app. Distinguish an established identity or past interaction from a request for suitable candidates. Ask for the closest plausible existing candidates if no exact match is recorded; do not require a prior relationship merely to find someone suitable for a new interaction. Include relevant established context in the request instead of asking the assistant to consult history or invent a placeholder. Request only the facts and number of people needed. The assistant sees the character directory but no chat history. Its concise answer replaces this action instruction; then continue using the returned account details, treating suggested candidates as alternatives rather than proof of past interactions. If no suitable person or account is found, omit activity requiring it. To ask, return exactly one JSON object and nothing else, before any plan or story:',
         '{"action":"ask_character_information","plan":"Self-contained question: relevant known names or account IDs, scene facts, selection requirements, target app, and specific information needed, including exact app account IDs when applicable."}',
       ].join('\n');
     case 'getImageId':
@@ -1070,7 +1070,7 @@ export function normalizePromptActionConfig(
       ? record.comfyProviderId.trim()
       : '',
     instructionTemplate: actionId === 'getCharacterList'
-      ? currentOrCustomTemplate(record.instructionTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction]))
+      ? currentOrCustomTemplate(record.instructionTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction, previousCharacterInformationInstruction]))
       : actionId === 'getImageId'
       ? currentOrCustomTemplate(
           record.instructionTemplate,
@@ -1093,7 +1093,7 @@ export function normalizePromptActionConfig(
         ? record.instructionTemplate
         : defaultPromptActionInstructionTemplate(actionId)),
     afterReplyTemplate: actionId === 'getCharacterList'
-      ? currentOrCustomTemplate(record.afterReplyTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction]))
+      ? currentOrCustomTemplate(record.afterReplyTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction, previousCharacterInformationInstruction]))
       : actionId === 'updatePhoneImageCaption'
       ? currentOrCustomTemplate(
           record.afterReplyTemplate,

@@ -1,7 +1,7 @@
 import { TextMetricsApi } from '../../llm/tokenMetrics';
 import { describe, expect, it, vi } from 'vitest';
 import { characterSearchDirectory, characterSearchPrompt, characterSearchResult,
-  previousCharacterSearchInstruction, previousCharacterSearchResultTemplate } from '../../characters/search';
+  previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterInformationInstruction } from '../../characters/search';
 import { appCharactersFromRegistry } from '../../characters/appRuntime';
 import { buildCharacterRegistry } from '../../characters/registry';
 import type { Character } from '../../characters/character';
@@ -51,6 +51,10 @@ it('migrates old ranking templates and retains custom assistant templates', () =
   const restored = normalizePromptActionConfig({ ...config, instructionTemplate: previousCharacterSearchInstruction,
     resultTemplate: previousCharacterSearchResultTemplate, maxReturnedCharacters: 15 })!;
   expect(restored.instructionTemplate).toBe(config.instructionTemplate);
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: previousCharacterInformationInstruction,
+    afterReplyTemplate: previousCharacterInformationInstruction })).toMatchObject({
+    instructionTemplate: config.instructionTemplate, afterReplyTemplate: config.instructionTemplate,
+  });
   expect(restored.resultTemplate).toBe(config.resultTemplate);
   expect(restored).not.toHaveProperty('maxReturnedCharacters');
   expect(normalizePromptActionConfig(promptActionSaveConfigs([config])[0])).toEqual(config);
@@ -101,8 +105,8 @@ describe('isolated character search assistant', () => {
     const assistant = calls[1];
     expect(assistant.prompt).toContain(request);
     expect(assistant.prompt).toContain('Character: Fran');
-    expect(assistant.prompt).toContain('at most three characters');
-    expect(assistant.prompt).toContain('50–100 words total');
+    expect(assistant.prompt).not.toContain('at most three characters');
+    expect(assistant.prompt).not.toContain('50–100 words total');
     expect(assistant.prompt).not.toContain('SECRET_');
     expect(assistant.images).toEqual([]);
     expect(calls[2].prompt).toContain(answer);
