@@ -1,4 +1,4 @@
-import { characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate } from '../../characters/search';
+import { characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterAssistantInstruction, previousCharacterAssistantResultTemplate } from '../../characters/search';
 import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, SocialAppKind, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { createComfyImageForCharacter } from '../runScratch';
@@ -71,7 +71,7 @@ type ActionImageResult = {
 };
 
 export const promptActionIds: PromptActionId[] = ['getCharacterList', 'getImageId', 'updatePhoneImageCaption', 'describeInputImage', 'createImage'];
-export const getCharacterListActionTitle = 'Get character list';
+export const getCharacterListActionTitle = 'Ask character information';
 export const defaultPromptActionTitle = 'Get character phone image list';
 export const updatePhoneImageCaptionActionTitle = 'Update phone image caption';
 export const describeInputImageActionTitle = 'Describe input image';
@@ -105,12 +105,14 @@ export function promptActionHintText(actionId: PromptActionId) {
   switch (actionId) {
     case 'getCharacterList':
       return [
-        'Before introducing an unspecified person or account, search existing Storybook and NPC library characters. Do not invent identities or accounts. Output exactly one JSON object with a self-contained search request and nothing else:',
-        '{"action":"get_character_list","plan":"Describe who or what is needed, why, relevant names and relationships, account/app requirements, desired number (at most 3), and information to return. Include necessary scene facts: the search assistant sees no chat history."}',
+        'Ask about existing Storybook or NPC characters, accounts, relationships, or suitable people. Return only:',
+        '{"action":"ask_character_information","plan":"Self-contained question with relevant names, scene facts, requirements, and information needed; the assistant sees no chat history."}',
       ].join('\n');
     case 'getImageId':
       return [
-        'When a character photo is requested or needed, search their phone gallery before replying, even if history contains image IDs. Check returned recipients and publications to avoid repeats. An explicitly supplied image needs no search. Request the search with exactly one JSON object and nothing else:',
+        'Before finding, showing, sending, or posting a character photo, search the owner’s phone gallery, even if history contains image IDs. Use an explicitly supplied image directly, including RP_Picture_ IDs; never substitute it or share it unless the scene calls for it.',
+        'Check returned recipients and publication history; choose a fitting image not already shared with that audience. Never assume no image exists or reuse an old ID without searching. If no result fits, omit the attachment. After the result, continue without repeating the search.',
+        'Only WhatsUp supports image messages: use the exact selected ID in sendImageId. Fotogram, OnlyFriends, and MatchMe DMs are text-only. Return exactly one JSON object and nothing else:',
         '{"action":"get_image_id","plan":"brief plan stating whose phone gallery to search and who or what the image should show"}',
       ].join('\n');
     case 'createImage':
@@ -124,6 +126,7 @@ export function promptActionHintText(actionId: PromptActionId) {
 }
 
 const legacyPromptActionTitleKeys = new Map<string, string>([
+  ['get character list', 'ask character information'],
   ['get character image list', 'get character phone image list'],
   ['update incoming image caption', 'update phone image caption'],
   ['create image', 'create character phone image'],
@@ -1023,7 +1026,7 @@ export function normalizePromptActionConfig(
   }
   const record = value as Record<string, unknown>;
   const actionId =
-    record.actionId === 'getCharacterList' || record.actionId === 'get_character_list'
+    record.actionId === 'getCharacterList' || record.actionId === 'get_character_list' || record.actionId === 'askCharacterInformation' || record.actionId === 'ask_character_information'
       ? 'getCharacterList'
       : record.actionId === 'getImageId' || record.actionId === 'getImages'
       ? 'getImageId'
@@ -1066,7 +1069,7 @@ export function normalizePromptActionConfig(
       ? record.comfyProviderId.trim()
       : '',
     instructionTemplate: actionId === 'getCharacterList'
-      ? currentOrCustomTemplate(record.instructionTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction]))
+      ? currentOrCustomTemplate(record.instructionTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction]))
       : actionId === 'getImageId'
       ? currentOrCustomTemplate(
           record.instructionTemplate,
@@ -1089,7 +1092,7 @@ export function normalizePromptActionConfig(
         ? record.instructionTemplate
         : defaultPromptActionInstructionTemplate(actionId)),
     afterReplyTemplate: actionId === 'getCharacterList'
-      ? currentOrCustomTemplate(record.afterReplyTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction]))
+      ? currentOrCustomTemplate(record.afterReplyTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction]))
       : actionId === 'updatePhoneImageCaption'
       ? currentOrCustomTemplate(
           record.afterReplyTemplate,
@@ -1100,7 +1103,7 @@ export function normalizePromptActionConfig(
         ? record.afterReplyTemplate
         : defaultPromptActionAfterReplyTemplate(actionId),
     resultTemplate: actionId === 'getCharacterList'
-      ? currentOrCustomTemplate(record.resultTemplate, characterSearchResultTemplate, new Set([previousCharacterSearchResultTemplate]))
+      ? currentOrCustomTemplate(record.resultTemplate, characterSearchResultTemplate, new Set([previousCharacterSearchResultTemplate, previousCharacterAssistantResultTemplate]))
       : actionId === 'getImageId'
       ? currentOrCustomTemplate(
           record.resultTemplate,
@@ -1653,6 +1656,8 @@ export function unwrapJsonCodeFence(text: string) {
 
 export function knownPromptActionId(actionName: string): PromptActionId | undefined {
   switch (actionName) {
+    case 'ask_character_information':
+    case 'askCharacterInformation':
     case 'get_character_list':
     case 'getCharacterList':
       return 'getCharacterList';

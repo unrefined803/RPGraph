@@ -57,6 +57,7 @@ it('migrates old ranking templates and retains custom assistant templates', () =
   expect(normalizePromptActionConfig({ ...config, instructionTemplate: 'Custom {{plan}}', resultTemplate: 'Answer: {{answer}}' }))
     .toMatchObject({ instructionTemplate: 'Custom {{plan}}', resultTemplate: 'Answer: {{answer}}' });
   expect(configForPromptActionToken([], 'Get character list').actionId).toBe('getCharacterList');
+  expect(configForPromptActionToken([], 'Ask character information').title).toBe('Ask character information');
   expect(parsePromptActionRequest('{"action":"get_character_list","plan":"Find two friends of Avery"}'))
     .toEqual({ action: 'getCharacterList', plan: 'Find two friends of Avery' });
   expect(parsePromptActionCall('{"action":"get_character_list","query":{"app":"fotogram"}}')).toBeUndefined();
@@ -73,7 +74,7 @@ it('renders custom templates without recursively interpreting character data', (
 async function run(planning: boolean, answer: string, characters: StorybookCharacter[] = cast) {
   const calls: Array<{ prompt: string; images?: unknown[] }> = [];
   const request = 'Find existing troll-like Fotogram accounts with anonymous profiles; return the exact account ID and a reason.';
-  const replies = [JSON.stringify({ action: 'get_character_list', plan: request }), answer, 'Avery is the candidate.', 'The story continues.'];
+  const replies = [JSON.stringify({ action: 'ask_character_information', plan: request }), answer, 'Avery is the candidate.', 'The story continues.'];
   const context = { textMetrics: new TextMetricsApi(), nodes: [], historyMessages: [{ id: 1, role: 'user', originalText: 'SECRET_CHAT_HISTORY' }], appCharacters: characters,
     reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
     llm: { supportsVision: async () => true, complete: async (call: { prompt: string; images?: unknown[] }) => {
@@ -86,7 +87,7 @@ async function run(planning: boolean, answer: string, characters: StorybookChara
     inputValue: 'SECRET_INPUT_AND_HISTORY',
     images: [{ id: 'input', name: 'input', mimeType: 'image/png', size: 1, dataUrl: 'SECRET_INPUT_IMAGE' }], referenceImages: [],
     promptBefore: 'SECRET_STORY_PROMPT',
-    promptAfter: planning ? '@step:planning\nPlan.\n@action:Get character list\n@step:main\n@output:planning\nWrite.\n@action:Get character list' : 'Write.\n@action:Get character list',
+    promptAfter: planning ? '@step:planning\nPlan.\n@action:Ask character information\n@step:main\n@output:planning\nWrite.\n@action:Ask character information' : 'Write.\n@action:Ask character information',
     actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator',
   });
   return { result, calls, context, request };
@@ -108,7 +109,7 @@ describe('isolated character search assistant', () => {
     expect(calls[2].prompt).not.toContain('Fran description');
     expect(calls[2].prompt).not.toContain('"score"');
     expect(result.generatedText).toBe(planning ? 'The story continues.' : 'Avery is the candidate.');
-    const debug = result.debug.promptPasses.find((pass) => pass.sections?.some((section) => section.label === 'Character search assistant'))!;
+    const debug = result.debug.promptPasses.find((pass) => pass.sections?.some((section) => section.label === 'Character information assistant'))!;
     expect(debug.images).toEqual([]);
     expect(debug.sections).toHaveLength(1);
     expect(debug.sections![0].text).toContain(request);

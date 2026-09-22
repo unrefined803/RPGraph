@@ -6,7 +6,7 @@ Component-level design references for RPGraph Studio. Strict and declarative —
 
 | Document | Scope |
 | --- | --- |
-| [character-search.md](character-search.md) | Isolated LLM character discovery through the Get character list prompt action. |
+| [character-search.md](character-search.md) | Isolated LLM character discovery through the Ask character information prompt action. |
 | [app-profile-names.md](app-profile-names.md) | Canonical app profile names, terminology, legacy migration and container persistence. |
 | [overview.md](overview.md) | Full architecture map: UI shell, prompt routing, node system, execution runtime, data model, providers. |
 | [npc-agency-tags.md](npc-agency-tags.md) | Implemented agency tag schema and app roles; planned reaction context and phased expansion to 50 NPCs. |

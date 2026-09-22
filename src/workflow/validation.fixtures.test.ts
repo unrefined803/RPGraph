@@ -6102,9 +6102,9 @@ async function verifyPromptRunFixtures() {
     'a prose reply must stream live even while a pre-reply action is still pending',
   );
   assertFixture(
-    proseScenario.promptsForCalls[0]?.includes('When a character photo is requested or needed') &&
+    proseScenario.promptsForCalls[0]?.includes('Before finding, showing, sending, or posting a character photo') &&
       !proseScenario.promptsForCalls[0]?.includes('Action follow-up: search stored character phone images'),
-    'pending pre-reply actions must show only their compact first-pass hint',
+    'pending pre-reply actions must show their first-pass hint without follow-up instructions',
   );
   const actionCallScenario = await runStreamingScenario([
     '{"action":"get_image_id","plan":"Find a stored Espen party selfie that shows her outfit."}',
@@ -6118,12 +6118,12 @@ async function verifyPromptRunFixtures() {
   );
   assertFixture(
     actionCallScenario.promptsForCalls.length === 3 &&
-      actionCallScenario.promptsForCalls[0]?.includes('When a character photo is requested or needed') &&
+      actionCallScenario.promptsForCalls[0]?.includes('Before finding, showing, sending, or posting a character photo') &&
       actionCallScenario.promptsForCalls[1]?.includes('Action follow-up: search stored character phone images') &&
       actionCallScenario.promptsForCalls[1]?.includes('Find a stored Espen party selfie that shows her outfit.') &&
       !actionCallScenario.promptsForCalls[1]?.includes('Write the story.') &&
       actionCallScenario.promptsForCalls[2]?.includes('Action executed: get character phone image list.') &&
-      !actionCallScenario.promptsForCalls[2]?.includes('When a character photo is requested or needed'),
+      !actionCallScenario.promptsForCalls[2]?.includes('Before finding, showing, sending, or posting a character photo'),
     'pre-reply image actions must run as compact request, focused follow-up, and result replay passes',
   );
 

@@ -491,9 +491,9 @@ export async function runActionAwarePrompt({
     const diagnosticPrompt = characterSearchPrompt(config.instructionTemplate, plan, summary);
     recordPromptPass({
       label, images: [],
-      sections: [{ label: 'Character search assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }],
+      sections: [{ label: 'Character information assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }],
     });
-    context.updateRuntimeData(node.id, { preview: 'Searching existing characters ...' });
+    context.updateRuntimeData(node.id, { preview: 'Looking up character information ...' });
     // This assistant is intentionally isolated from story prompts, chat history, and images.
     const response = await context.llm.complete({
       connectionId: node.data.connectionId, nodeId: node.id, label,
@@ -503,13 +503,13 @@ export async function runActionAwarePrompt({
     recordOutputPass({ label: `${label} output`, text: response.text });
     const answer = response.text.trim();
     if (!answer) {
-      context.reportWarning(`${node.data.label}: Character search assistant returned an empty answer.`);
+      context.reportWarning(`${node.data.label}: Character information assistant returned an empty answer.`);
       return false;
     }
     const result = characterSearchResult(config.resultTemplate, answer);
     actionResults.set(promptActionKey(config.title), result);
     actionResultTexts.push(result);
-    context.updateRuntimeData(node.id, { preview: 'Character search resolved; replaying prompt ...' });
+    context.updateRuntimeData(node.id, { preview: 'Character information resolved; replaying prompt ...' });
     return true;
   };
 
@@ -662,7 +662,7 @@ export async function runActionAwarePrompt({
         break;
       }
       if (actionConfig.actionId === 'getCharacterList') {
-        if (!await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} character search`)) break;
+        if (!await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} character information`)) break;
         continue;
       }
       const followUpInstruction = promptActionInstructionText(
@@ -904,7 +904,7 @@ export async function runActionAwarePrompt({
       }
 
       if (actionConfig.actionId === 'getCharacterList') {
-        const resolved = await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(actionReplayCount)} / Character search`);
+        const resolved = await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(actionReplayCount)} / Character information`);
         generatedText = '';
         if (!resolved) break;
         if (passIndex === maxActionPasses) {

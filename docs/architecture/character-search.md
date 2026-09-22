@@ -1,12 +1,12 @@
-# Character search action
+# Character information action
 
-`Get character list` (`getCharacterList`, LLM request `get_character_list`) uses a dedicated character-selection assistant. It does not use criteria scoring or return JSON profiles. The phone image search action keeps its existing implementation.
+`Ask character information` (`getCharacterList`, LLM request `ask_character_information`) uses a dedicated assistant for questions about known characters, accounts, relationships, and suitable people. It does not use criteria scoring or return JSON profiles. The phone image search action keeps its existing implementation.
 
 Bundled normal and planning v34 workflows enable character discovery in output channel 0 for RP Prompt Normal, RP AutoTurn, RP Narrator, and RP Narrator AutoTurn. Planning workflows expose the answer to planning and main passes. Event, WhatsUp, Social Media, and Autoplay slots do not enable it.
 
 ## Execution
 
-1. An authored `@action:Get character list` marker inserts a hint requesting `{"action":"get_character_list","plan":"..."}`. The plan is a self-contained request: desired people, scene facts, app/account requirements, relationships, number of results, and information needed. Necessary context must be included because the assistant does not receive history.
+1. An authored `@action:Ask character information` marker inserts a hint requesting `{"action":"ask_character_information","plan":"..."}`. The plan is a self-contained request: desired people, scene facts, app/account requirements, relationships, number of results, and information needed. Necessary context must be included because the assistant does not receive history.
 2. `runCharacterSearch` inside `runActionAwarePrompt` makes a separate, non-streamed LLM request using the calling node's connection. Its prompt consists only of the configured assistant instructions, the request, and the directory of all effective characters. It receives no story instructions, raw user input, conversation history, prior action results, or images. Prompt Route and prompt logs retain the assistant instructions and request but replace the directory with the character count and its estimated token size, measured with the run’s TextMetricsApi settings. The request carries this diagnostic representation separately for Turn Trace capture and export; provider dispatch and token calibration still use the complete prompt. No automatic context splitting is performed.
 3. The assistant compares the request with the authored data and answers in prose, about 50–100 words total, with at most three fitting characters. These are prompt-level output limits. The answer includes only relevant facts, exact names and applicable account identifiers, a brief reason, and uncertainty where needed. It reports no match or fewer matches rather than inventing characters or relationships. There is no second parameter JSON or deterministic ranking step.
 4. The answer insertion template wraps this text, which replaces the action marker on replay. The full directory is never inserted into the planning or main story pass. Empty assistant responses report a warning rather than exposing the request as story output.
@@ -23,7 +23,9 @@ No image blobs, complete containers, banking data, or chat text are serialized. 
 
 ## Configuration and compatibility
 
-The action editor labels are **Character Search Assistant Prompt** and **Assistant Answer Insertion Template**. The first-pass hint stays read-only. Assistant variables are `{{plan}}` and `{{characterDirectory}}`; insertion uses `{{answer}}`. Missing placeholders append the required request, directory, or answer. Substitution is single-pass so data containing template tokens cannot expand further content.
+The stable internal ID remains `getCharacterList`. Legacy `Get character list` markers and `get_character_list` requests resolve to the renamed action. The short workflow introduction explains its purpose; the first-pass hint specifies the self-contained question format.
+
+The action editor labels are **Character Information Assistant Prompt** and **Assistant Answer Insertion Template**. The first-pass hint stays read-only. Assistant variables are `{{plan}}` and `{{characterDirectory}}`; insertion uses `{{answer}}`. Missing placeholders append the required request, directory, or answer. Substitution is single-pass so data containing template tokens cannot expand further content.
 
 The previous maximum-results setting is removed; the assistant prompt specifies at most three characters. Stored default ranking instructions and result templates migrate to the new defaults, while custom templates remain editable. Legacy query-only calls are no longer executable.
 

@@ -775,7 +775,7 @@ export function PromptActionModal({
             </div>
             <div className="prompt-action-template-panel instruction-panel">
               <div className="prompt-action-template-header">
-                <label htmlFor={`${id}-action-instruction-template`}>{draft.actionId === 'getCharacterList' ? 'CHARACTER SEARCH ASSISTANT PROMPT' : 'LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)'}</label>
+                <label htmlFor={`${id}-action-instruction-template`}>{draft.actionId === 'getCharacterList' ? 'CHARACTER INFORMATION ASSISTANT PROMPT' : 'LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)'}</label>
               </div>
               <JsonSyntaxTextarea
                 id={`${id}-action-instruction-template`}

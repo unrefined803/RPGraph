@@ -54,12 +54,18 @@ describe('workflow Storybook selection', () => {
       for (const after of [...rows[0].slice(1), ...rows[1]]) {
         expect(after).toContain('its supplied ID (including RP_Picture_ IDs) can be forwarded');
         expect(after).toContain('@action:Get character phone image list');
-        expect(after).toContain('request the phone gallery search before continuing');
-        expect(after).toContain("Check the results' recipients and publication history");
+        expect(after).toContain('Use the gallery action below to find a stored character photo');
+        expect(after).not.toContain("Check the results' recipients and publication history");
         expect(after).not.toContain('reuse a suitable known image ID');
         expect(after).not.toContain('from the plan or history');
-        if (fileName.includes('normal')) expect(after).toContain('Do not answer from memory or skip it with an excuse.');
+        expect(after).not.toContain('Do not answer from memory or skip it with an excuse.');
       }
+      for (const index of [1, 2, 4, 5]) {
+        expect(rows[0][index]).toContain('Character information:');
+        expect(rows[0][index]).toContain('@action:Ask character information');
+      }
+      expect(rows[0][3]).not.toContain('@action:Ask character information');
+      expect(rows.slice(1).flat().join('\n')).not.toContain('@action:Ask character information');
       expect(rows[0][1]).toContain('@action:Describe input image (After Reply Action)');
       expect(rows[1][0]).toContain('attached image');
     },
