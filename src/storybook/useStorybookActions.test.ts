@@ -13,6 +13,8 @@ import { useRuntimeNodePatching } from '../app/useRuntimeNodePatching';
 import { openingHistoryTurnsFromNodes } from './openingHistoryRuntime';
 import { appCharactersFromRegistry } from '../characters/appRuntime';
 import { buildSocialDirectory } from '../chat/socialDirectory';
+import { initialCharacterPosts } from '../characters/publications';
+import { characterLibrarySummary } from '../characters/librarySummary';
 
 // Exercise delayed model replies without launching a UI or provider.
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
@@ -181,7 +183,7 @@ function reviewBook(id = 'player') {
   return normalizeRpStorybook({ ...emptyRpStorybook, characters: [character] });
 }
 
-it('offers and imports Characters Folder, NPC Library, and built-in characters', async () => {
+it.each(['npc-library', 'built-in'] as const)('preserves starting posts when importing from %s', async (source) => {
   const state = harness();
   const libraryNpc = reviewBook('library-npc').characters[0];
   libraryNpc.name = 'Library NPC';
@@ -192,6 +194,7 @@ it('offers and imports Characters Folder, NPC Library, and built-in characters',
     { character: builtIn, source: 'built-in.json', tier: 'bundled' },
   );
   vi.stubGlobal('window', { rpgraph: {
+    loadFile: vi.fn(async () => ({ fileName: 'npc.json', value: { ...fixture, character: libraryNpc } })),
     listCharacterFiles: vi.fn(async () => [{
       fileName: 'local.json', name: 'Local Character', characterName: 'Local Character',
       updatedAt: '2026-09-14T12:00:00Z', type: 'character-card', protection: 'plain',
@@ -202,11 +205,21 @@ it('offers and imports Characters Folder, NPC Library, and built-in characters',
     await state.render().importCharacterCard('book');
     const choices = state.render().characterImportChoices;
     expect(choices.map((choice) => choice.source)).toEqual(['characters', 'npc-library', 'built-in']);
-    const selected = choices.find((choice) => choice.source === 'built-in');
+    const selected = choices.find((choice) => choice.source === source);
     expect(selected).toBeDefined();
     await state.render().importSelectedCharacterCard(selected);
-    expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters.map((character) => character.name))
-      .toEqual(['Built-in NPC']);
+    const imported = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0];
+    const original = source === 'built-in' ? builtIn : libraryNpc;
+    expect(imported.name).toBe(original.name);
+    expect(original.apps?.fotogram?.initialPosts?.length).toBeGreaterThan(0);
+    expect(characterLibrarySummary(imported).apps.fotogram?.initialPosts)
+      .toEqual(original.apps?.fotogram?.initialPosts);
+    const runtime = appCharactersFromRegistry(state.options.currentCharacterRegistry!());
+    expect(initialCharacterPosts(runtime)).toEqual(expect.arrayContaining(
+      original.apps!.fotogram!.initialPosts!.map((post) => expect.objectContaining({
+        app: 'fotogram', postId: post.id, caption: post.text, imageId: post.imageId,
+      })),
+    ));
     expect(state.render().showCharacterFiles).toBe(false);
   } finally {
     vi.unstubAllGlobals();
@@ -226,7 +239,9 @@ it('imports a session-unlocked NPC without requesting its password again', async
     await state.render().importCharacterCard('book');
     await state.render().importSelectedCharacterCard(state.render().characterImportChoices[0]);
     expect(loadFile).not.toHaveBeenCalled();
-    expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0].name).toBe(fixture.character.name);
+    const imported = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0];
+    expect(imported.name).toBe(fixture.character.name);
+    expect(imported.apps?.fotogram?.initialPosts).toEqual(fixture.character.apps.fotogram.initialPosts);
   } finally { vi.unstubAllGlobals(); }
 });
 

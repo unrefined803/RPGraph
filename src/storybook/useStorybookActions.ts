@@ -1024,7 +1024,7 @@ export function useStorybookActions({
       if (!('character' in selected)) {
         await beginCharacterCardImport(nodeId, selected.file);
       } else {
-        applyCharacterCardToNode(nodeId, rpCharacterCardForCharacter(selected.character), selected.fileName);
+        applyCharacterCardToNode(nodeId, rpCharacterCardForCharacter(selected.character, { includePosts: true }), selected.fileName);
         closeCharacterFiles();
       }
     } catch (error) {

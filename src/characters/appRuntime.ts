@@ -118,8 +118,10 @@ export function recipientCharacterContext(character: StorybookCharacter, options
         ...field('Link', `@whatsup:${character.name.trim()}`),
       ] : []),
       ...(app === 'whatsup' || app === 'matchme' ? [] : field('Profile name', account.profileName ? `@${account.profileName}` : undefined)),
-      ...(detailed && (app === 'fotogram' || app === 'onlyfriends') ? field('Privacy mode', account.privacyMode ? 'Yes; anonymous profile (hide real name and profile photo publicly)' : 'No; show real name and photo publicly') : []),
       ...(app === 'matchme' ? field('Public name', `${(account.profileName ?? character.name).trim().split(/\s+/)[0]}, ${character.social.plotTwist?.age ?? ''}`) : []),
+      ...(app === 'matchme' ? field('Profile name', account.profileName ? `@${account.profileName}` : undefined) : []),
+      ...(app !== 'whatsup' ? field('Link', account.profileName ? `@${app}:${account.profileName}` : undefined) : []),
+      ...(detailed && (app === 'fotogram' || app === 'onlyfriends') ? field('Privacy mode', account.privacyMode ? 'Yes; anonymous profile (hide real name and profile photo publicly)' : 'No; show real name and photo publicly') : []),
       ...(detailed ? field('Bio', account.bio) : []),
       ...(detailed ? account.photos.flatMap((photo, index) => field(`Profile photo ${index + 1}`, photo)) : []),
       ...(detailed ? (account.posts ?? []).flatMap((post, index) => [
@@ -148,5 +150,7 @@ export function recipientCharacterContext(character: StorybookCharacter, options
     '', 'Public social profiles',
     ...profiles,
     ...(absent.length ? ['', `No account: ${absent.join(', ')}`] : []),
+    '', 'Banking',
+    ...field('Link', `@bank:${character.name.trim()}`),
   ].join('\n');
 }

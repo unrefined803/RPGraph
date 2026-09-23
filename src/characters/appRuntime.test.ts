@@ -16,6 +16,7 @@ import { parseSocialDirectMessageOutput, recommendedSocialPostIdentities, social
 import { resolveSocialMessageIdentity, validateSocialMessengerAccounts } from '../chat/socialMessageValidation';
 import { phoneRuntimeCharactersFromMessages } from '../chat/phoneCharacters';
 import { whatsUpMessageInputText } from '../chat/phoneReplies';
+import { parseAccountLinks } from '../chat/accountLinks';
 import type { MessageRecord } from '../types';
 
 const now = '2026-09-07T12:00:00Z';
@@ -44,6 +45,33 @@ function setup(extra: CharacterRegistryEntry[] = []) {
 }
 
 describe('shared NPC app discovery', () => {
+  it('supplies resolvable profile and bank links in every DM input and WhatsUp', () => {
+    const { characters, outgoing, messages } = setup();
+    const recipient = characters.find((character) => character.sourceId === 'stage4-nova')!;
+    recipient.apps!.onlyfriends = { ...recipient.apps!.fotogram!, accountId: 'nova-of', profileName: 'nova.private' };
+    recipient.apps!.matchme!.profileName = 'Nova Dating';
+    const inputs = [
+      whatsUpMessageInputText('Player', recipient.name, 'Send your links.', recipient),
+      ...(['fotogram', 'onlyfriends', 'matchme'] as const).map((app) =>
+        socialDirectMessageInputText({ ...outgoing, app, toAccountId: recipient.apps![app]!.accountId }, messages, characters)),
+    ];
+    for (const input of inputs) {
+      for (const [app, profileName] of [['fotogram', 'nova.vale.art'], ['onlyfriends', 'nova.private'], ['matchme', 'Nova Dating']]) {
+        expect(input).toContain(`Profile name: @${profileName}\nLink: @${app}:${profileName}`);
+        expect(input).not.toContain(`Link: @${app}:Nova Vale`);
+      }
+      expect(input).toContain('Banking\nLink: @bank:Nova Vale');
+      const links = parseAccountLinks(input, characters);
+      expect(links.map((link) => link.app).sort()).toEqual(['banking', 'fotogram', 'matchme', 'onlyfriends', 'whatsup']);
+      expect(links.every((link) => link.characterId === recipient.sourceId)).toBe(true);
+    }
+    recipient.apps!.onlyfriends.enabled = false;
+    const context = recipientCharacterContext(recipient);
+    expect(context).toContain('No account: OnlyFriends');
+    expect(context).not.toContain('@onlyfriends:');
+    expect(context).toContain('Link: @bank:Nova Vale');
+  });
+
   it('recommends public NPC-container posts in Fotogram without exposing OnlyFriends', () => {
     const { characters } = setup();
     const libraryNpc = characters.find((character) => character.sourceId === 'stage4-nova')!;
