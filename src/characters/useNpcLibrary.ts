@@ -63,7 +63,9 @@ export function useNpcLibrary() {
       setSnapshot(next);
       const unlocked = next.files.filter((file) => file.protection === 'encrypted' && file.unlocked).length;
       const locked = next.files.filter((file) => file.protection === 'encrypted' && !file.unlocked).length;
-      setStatus(`${unlocked} encrypted character file(s) unlocked for the protected game. ${locked} remain locked.`);
+      setStatus(unlocked > 0 || locked > 0
+        ? `${unlocked} encrypted character file(s) unlocked for the protected game. ${locked} remain locked.`
+        : '');
     } catch (error) {
       setStatus(`Unable to unlock NPC library: ${error instanceof Error ? error.message : String(error)}`);
     } finally { if (revision === transition.current) { transitioning.current = false; setLoading(false); } }
@@ -71,8 +73,8 @@ export function useNpcLibrary() {
 
   const show = useCallback(() => {
     setOpen(true);
-    if (!snapshot) void load();
-  }, [load, snapshot]);
+    void load(true);
+  }, [load]);
 
   const openFolder = useCallback(async () => {
     try {
