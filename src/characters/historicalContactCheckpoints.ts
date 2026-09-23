@@ -30,7 +30,8 @@ export function historicalContactCheckpoints(beforeNodes: WorkflowNode[], afterN
     cursor = before;
   }
   const inTurns = new Set(turns.flatMap((turn) => [...turn.input.messages, ...turn.output.messages].map((message) => message.id)));
-  let acquired = messageContactGrants(messages.filter((message) => !inTurns.has(message.id)), characters).filter((grant) => allowed.has(key(grant)));
+  const seenMessages = messages.filter((message) => !inTurns.has(message.id));
+  let acquired = messageContactGrants(seenMessages, characters).filter((grant) => allowed.has(key(grant)));
   const nextByTurn = new Map(oldByTurn);
   const augment = (json: string, additions: typeof grants) => {
     const book = JSON.parse(json) as { characters?: Character[] };
@@ -43,8 +44,8 @@ export function historicalContactCheckpoints(beforeNodes: WorkflowNode[], afterN
   });
   for (const turn of turns) {
     const previous = acquired;
-    acquired = [...acquired, ...messageContactGrants([...turn.input.messages, ...turn.output.messages], characters)
-      .filter((grant) => allowed.has(key(grant)))];
+    seenMessages.push(...turn.input.messages, ...turn.output.messages);
+    acquired = messageContactGrants(seenMessages, characters).filter((grant) => allowed.has(key(grant)));
     const original = oldByTurn.get(turn.id);
     let checkpoint = original ?? { turnId: turn.id, createdTimelineEntryIds: [], nodeSnapshots: {} };
     const state = states.get(turn.id)!;

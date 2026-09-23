@@ -58,7 +58,7 @@ it('updates live text and its collector without rebuilding saved turns or changi
   expect(captureNpcMessages).not.toHaveBeenCalled();
   expect(reconcileNpcMessages).not.toHaveBeenCalled();
   state.updateMessage(id, { originalText: 'A new answer.', includeInHistory: true });
-  expect(captureNpcMessages).toHaveBeenCalledWith([expect.objectContaining({ originalText: 'A new answer.', includeInHistory: true })]);
+  expect(captureNpcMessages).toHaveBeenCalledWith([oldMessage, expect.objectContaining({ originalText: 'A new answer.', includeInHistory: true })]);
   expect(reconcileNpcMessages).toHaveBeenCalledTimes(1);
   expect(hooks.writes).toBeGreaterThan(stateWrites);
   expect(state.messageStream.getSnapshot()[1].includeInHistory).toBe(true);
@@ -134,7 +134,7 @@ it('captures appended phone contacts without reconciling all previous messages',
   reconcileNpcMessages.mockClear();
   const id = state.appendMessage({ role: 'output', originalText: 'Hello', phoneMessage: true,
     phoneFromAccountId: 'alice', phoneToAccountId: 'bob' });
-  expect(captureNpcMessages).toHaveBeenCalledWith([expect.objectContaining({ id, phoneMessage: true })]);
+  expect(captureNpcMessages).toHaveBeenCalledWith([expect.objectContaining({ id: 10 }), expect.objectContaining({ id, phoneMessage: true })]);
   expect(reconcileNpcMessages).not.toHaveBeenCalled();
   expect(state.messageStream.getSnapshot()).toBe(state.messagesRef.current);
   state.removeMessage(id);

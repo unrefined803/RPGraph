@@ -14,7 +14,7 @@ export type NpcParticipantSnapshots = Record<string, {
   aliases?: CharacterRegistryAliases;
   npcOrigin?: boolean;
   /** Original app flags for contacts acquired from messages, scoped to this RP. */
-  messageContacts?: Array<{ characterId: string; app: 'whatsup' | 'fotogram' | 'onlyfriends'; previous?: boolean; createdRelationship: boolean }>;
+  messageContacts?: Array<{ characterId: string; app: 'whatsup' | 'fotogram' | 'onlyfriends' | 'matchme'; previous?: boolean; createdRelationship: boolean }>;
 }>;
 
 export type NpcParticipantReference =
@@ -35,7 +35,7 @@ export function parseNpcParticipantSnapshots(value: unknown): NpcParticipantSnap
         typeof snapshot.source !== 'string' || (snapshot.npcOrigin !== undefined && typeof snapshot.npcOrigin !== 'boolean')) throw new Error('Invalid saved NPC participant identity.');
     validateCharacterPayload(snapshot.character);
     if (snapshot.messageContacts !== undefined && (!Array.isArray(snapshot.messageContacts) || snapshot.messageContacts.some((entry) =>
-      !isRecord(entry) || typeof entry.characterId !== 'string' || !['whatsup', 'fotogram', 'onlyfriends'].includes(String(entry.app)) ||
+      !isRecord(entry) || typeof entry.characterId !== 'string' || !['whatsup', 'fotogram', 'onlyfriends', 'matchme'].includes(String(entry.app)) ||
       typeof entry.createdRelationship !== 'boolean' || (entry.previous !== undefined && typeof entry.previous !== 'boolean')))) {
       throw new Error('Invalid saved NPC message contact origins.');
     }

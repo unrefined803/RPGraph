@@ -222,15 +222,14 @@ export function useTurnRecordState({
       message.socialDirectMessage = { ...message.socialDirectMessage,
         accountLinks: bindAccountLinks(message.socialDirectMessage.text, appCharacters()) };
     }
-    captureNpcMessages([message]);
+    captureNpcMessages([...messagesRef.current, message]);
     if (collector) {
       const collectedMessages =
         collector.part === 'input' ? collector.inputMessages : collector.outputMessages;
       collectedMessages.push(message);
     }
     messagesRef.current = [...messagesRef.current, message];
-    // Capturing above acquires this message's contacts. Appending cannot retract
-    // old contacts, so do not rescan the entire history for every delivered DM.
+    // Appending can establish reciprocal contacts but cannot retract existing ones.
     setMessagesState(messagesRef.current);
     messageStream.publish(messagesRef.current);
     return id;
@@ -272,7 +271,7 @@ export function useTurnRecordState({
     }
     const nextMessages = patchMessages(messagesRef.current);
     const updatedMessage = nextMessages.find((message) => message.id === messageId);
-    if (updatedMessage && !options?.streaming) captureNpcMessages([updatedMessage]);
+    if (updatedMessage && !options?.streaming) captureNpcMessages(nextMessages);
     messagesRef.current = nextMessages;
     // Stream only to the chat subscriber. App and its graph/phone/social
     // derivations consume committed state, while refs and the collector stay live.
@@ -416,7 +415,7 @@ export function useTurnRecordState({
     }
     // Regeneration keeps input records without appending them again. Their
     // contacts must be reacquired after restoring the turn's before state.
-    captureNpcMessages([...collector.inputMessages, ...collector.outputMessages]);
+    captureNpcMessages([...messagesRef.current, ...collector.inputMessages, ...collector.outputMessages]);
     const turn: TurnRecord = {
       id: collector.turnId,
       number: collector.turnNumber,

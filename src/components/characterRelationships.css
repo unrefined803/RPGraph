@@ -30,6 +30,11 @@
   display: grid;
   gap: 8px;
   min-width: 0;
+  /* Four names with two description lines, card padding, borders and three gaps. */
+  max-height: calc(4 * (16.2px + 34.8px + 7px + 18px) + 24px);
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  scrollbar-width: thin;
 }
 
 .character-relationship-card {
@@ -40,6 +45,12 @@
   border: 1px solid rgba(255, 255, 255, 0.02);
   border-radius: 6px;
   background: rgba(9, 13, 20, 0.4);
+}
+
+.character-relationships:not(.is-editing) .character-relationship-card {
+  min-height: 76px;
+  align-content: start;
+  box-sizing: border-box;
 }
 
 .character-relationship-summary {
