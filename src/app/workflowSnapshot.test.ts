@@ -65,7 +65,16 @@ describe('workflow Storybook selection', () => {
         expect(rows[0][index]).toContain('@action:Ask character information');
       }
       expect(rows[0][3]).not.toContain('@action:Ask character information');
-      expect(rows.slice(1).flat().join('\n')).not.toContain('@action:Ask character information');
+      for (const after of [...rows[1], ...rows[2]]) {
+        for (const step of buildPromptStepChain('', after)) {
+          expect(step.after.match(/@action:Ask character information/g)).toHaveLength(1);
+          expect(step.after).toContain('Character information:');
+          expect(step.after).toContain('#keywords');
+          expect(step.after).toContain('private author context, not automatic character knowledge');
+          expect(step.after).toContain('do not invent a conversation, observation or access');
+        }
+      }
+      expect(rows[3].join('\n')).not.toContain('@action:Ask character information');
       expect(rows[0][1]).toContain('@action:Describe input image (After Reply Action)');
       expect(rows[1][0]).toContain('attached image');
     },

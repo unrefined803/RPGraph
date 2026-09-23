@@ -1,4 +1,4 @@
-import { characterSearchDirectory, characterSearchPrompt, characterSearchResult } from '../../characters/search';
+import { maximumCharacterSearchCandidates, selectCharacterSearchCandidates, characterSearchDirectory, characterSearchPrompt, characterSearchResult } from '../../characters/search';
 import {
   promptWithImageAttachmentMarkers,
   promptWithReferenceImageMarkers,
@@ -488,10 +488,14 @@ export async function runActionAwarePrompt({
     }));
   const runCharacterSearch = async (config: PromptActionConfig, plan: string, label: string) => {
     const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
-    const directory = characterSearchDirectory(characters, context.historyMessages);
-    const prompt = characterSearchPrompt(config.instructionTemplate, plan, directory);
-    const summary = `(${characters.length} characters searched; character context: approximately ${context.textMetrics.measure(directory).tokens.toLocaleString('en-US')} tokens; directory omitted)`;
-    const diagnosticPrompt = characterSearchPrompt(config.instructionTemplate, plan, summary);
+    const selected = selectCharacterSearchCandidates(characters, plan);
+    const directory = selected.length
+      ? characterSearchDirectory(selected, context.historyMessages, characters)
+      : 'No characters matched the name/profile or #keyword selectors. This is an empty selection, not proof that no such character exists.';
+    const instructions = `${config.instructionTemplate}\nThe directory contains at most ${maximumCharacterSearchCandidates} ranked characters: explicit identities first, then more matching distinct #keywords. Lower-ranked matches may be omitted; absence is not proof that no such character exists.`;
+    const prompt = characterSearchPrompt(instructions, plan, directory);
+    const summary = `(${selected.length} characters searched; selected from ${characters.length} available; character context: approximately ${context.textMetrics.measure(directory).tokens.toLocaleString('en-US')} tokens; directory omitted)`;
+    const diagnosticPrompt = characterSearchPrompt(instructions, plan, summary);
     recordPromptPass({
       label, images: [],
       sections: [{ label: 'Character information assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }],

@@ -1,7 +1,7 @@
 import { TextMetricsApi } from '../../llm/tokenMetrics';
 import { describe, expect, it, vi } from 'vitest';
 import { characterSearchDirectory, characterSearchPrompt, characterSearchResult,
-  previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterInformationInstruction } from '../../characters/search';
+  previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction } from '../../characters/search';
 import { appCharactersFromRegistry } from '../../characters/appRuntime';
 import { buildCharacterRegistry } from '../../characters/registry';
 import type { Character } from '../../characters/character';
@@ -52,7 +52,11 @@ it('migrates old ranking templates and retains custom assistant templates', () =
     resultTemplate: previousCharacterSearchResultTemplate, maxReturnedCharacters: 15 })!;
   expect(restored.instructionTemplate).toBe(config.instructionTemplate);
   expect(normalizePromptActionConfig({ ...config, instructionTemplate: previousCharacterInformationInstruction,
-    afterReplyTemplate: previousCharacterInformationInstruction })).toMatchObject({
+    afterReplyTemplate: previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction })).toMatchObject({
+    instructionTemplate: config.instructionTemplate, afterReplyTemplate: config.instructionTemplate,
+  });
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: previousFullDirectoryCharacterSearchInstruction,
+    afterReplyTemplate: previousFullDirectoryCharacterSearchInstruction })).toMatchObject({
     instructionTemplate: config.instructionTemplate, afterReplyTemplate: config.instructionTemplate,
   });
   expect(restored.resultTemplate).toBe(config.resultTemplate);
@@ -75,9 +79,9 @@ it('renders custom templates without recursively interpreting character data', (
   expect(characterSearchResult('Custom header', 'No match.')).toContain('No match.');
 });
 
-async function run(planning: boolean, answer: string, characters: StorybookCharacter[] = cast) {
+async function run(planning: boolean, answer: string, characters: StorybookCharacter[] = cast,
+  request = 'Find existing #drama_magnet Fotogram accounts with anonymous profiles; return the exact account ID and a reason.') {
   const calls: Array<{ prompt: string; images?: unknown[] }> = [];
-  const request = 'Find existing troll-like Fotogram accounts with anonymous profiles; return the exact account ID and a reason.';
   const replies = [JSON.stringify({ action: 'ask_character_information', plan: request }), answer, 'Avery is the candidate.', 'The story continues.'];
   const context = { textMetrics: new TextMetricsApi(), nodes: [], historyMessages: [{ id: 1, role: 'user', originalText: 'SECRET_CHAT_HISTORY' }], appCharacters: characters,
     reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
@@ -127,7 +131,7 @@ describe('isolated character search assistant', () => {
 
   it('passes a no-match answer back without manufacturing candidates', async () => {
     const { calls, context } = await run(false, 'No existing character fits the request.', []);
-    expect(calls[1].prompt).toContain('No existing characters are available.');
+    expect(calls[1].prompt).toContain('No characters matched the name/profile or #keyword selectors.');
     expect(calls[2].prompt).toContain('No existing character fits the request.');
     expect(context.reportWarning).not.toHaveBeenCalled();
   });
@@ -138,4 +142,37 @@ describe('isolated character search assistant', () => {
     expect(result.generatedText).toBe('');
     expect(context.reportWarning).toHaveBeenCalledWith(expect.stringContaining('empty answer'));
   });
+});
+
+
+it.each([false, true])('sends only named profiles and direct relationships to the assistant (planning=%s)', async (planning) => {
+  const { calls, result } = await run(planning, 'Avery lists Blake as a close friend; reciprocal friendship is not confirmed.',
+    cast, 'Who is Avery friends with?');
+  expect(calls[1].prompt).toContain('Character: Avery');
+  expect(calls[1].prompt).toContain('Character: Blake');
+  for (const name of ['Casey', 'Dana', 'Eli', 'Fran']) expect(calls[1].prompt).not.toContain(`Character: ${name}`);
+  expect(calls[2].prompt).toContain('reciprocal friendship is not confirmed');
+  expect(JSON.stringify(result.debug)).toContain('2 characters searched; selected from 6 available');
+});
+
+it('keeps an unmatched selector empty instead of loading the registry', async () => {
+  const { calls } = await run(false, 'No match in this selection.', cast, 'Find #astronaut candidates.');
+  expect(calls[1].prompt).toContain('empty selection');
+  expect(calls[1].prompt).not.toContain('Character: Avery');
+  expect(calls[2].prompt).toContain('No match in this selection.');
+});
+
+
+it('limits the dispatched character directory to twenty ranked profiles', async () => {
+  const characters = Array.from({ length: 35 }, (_, index) => ({
+    ...cast[0], id: `capped-${index}`, sourceId: `capped-${index}`, name: `Candidate${index} Person${index}`,
+    apps: {}, relationships: [], gender: 'woman' as const,
+    profile: { ...cast[0].profile, personality: index === 34 ? 'Enjoys trolling.' : 'Quiet.' },
+  }));
+  const { calls, result } = await run(false, 'Candidate34 Person34 fits.', characters, 'Find #woman #troll candidates.');
+  expect(calls[1].prompt.match(/^Character:/gm)).toHaveLength(20);
+  expect(calls[1].prompt.indexOf('Character: Candidate34')).toBeLessThan(calls[1].prompt.indexOf('Character: Candidate0'));
+  expect(calls[1].prompt).not.toContain('Character: Candidate19');
+  expect(calls[1].prompt).toContain('at most 20 ranked characters');
+  expect(JSON.stringify(result.debug)).toContain('20 characters searched; selected from 35 available');
 });
