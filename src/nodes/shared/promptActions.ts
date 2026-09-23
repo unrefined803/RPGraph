@@ -2003,7 +2003,7 @@ export function phoneImageSearchContext(context: ExecuteContext, plan: string) {
   return { directory, candidates, characterCount: characters.length };
 }
 
-export function phoneImageSearchResult(config: PromptActionConfig, candidates: ActionImageResult[], response: string, visionEnabled: boolean) {
+export function phoneImageSearchResult(config: PromptActionConfig, candidates: ActionImageResult[], response: string, visionEnabled: boolean, plan: string) {
   let parsed: { imageIds?: unknown; answer?: unknown };
   try { parsed = JSON.parse(unwrapJsonCodeFence(response)); } catch { return undefined; }
   if (!parsed || !Array.isArray(parsed.imageIds) || typeof parsed.answer !== 'string' || !parsed.answer.trim()) return undefined;
@@ -2019,7 +2019,10 @@ export function phoneImageSearchResult(config: PromptActionConfig, candidates: A
     if (key === 'tags') return '';
     return [...new Set(selected.map((image) => image.characterName))].join(', ');
   });
-  return { text: config.resultTemplate.includes('{{answer}}') ? text : `${text}\nImage selection: ${parsed.answer}`,
+  const heading = 'Action executed: get character phone image list.';
+  const body = text.startsWith(heading) ? text.slice(heading.length).trimStart() : text;
+  const requestAndAnswer = `${heading}\nRequest:\n${plan}\n\nAssistant answer:\n${parsed.answer}`;
+  return { text: `${requestAndAnswer}\n\n${body}`,
     images: sendImages ? selected.map((image) => image.attachment) : [] };
 }
 

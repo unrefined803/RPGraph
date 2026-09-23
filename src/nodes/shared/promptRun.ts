@@ -360,7 +360,7 @@ export async function runActionAwarePrompt({
   };
   const socialCharacters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
   // Direct replies already carry their conversation-scoped context in the input.
-  const matchContext = context.matchMeDirectMessage ? ''
+  const matchContext = context.phoneMessage || context.messageFormat === 1 || context.matchMeDirectMessage ? ''
     : matchMeContext(matchMeState(socialCharacters, context.historyMessages));
   const matchContextSections = matchContext ? [{
     label: 'MatchMe Application Context',
@@ -541,7 +541,7 @@ export async function runActionAwarePrompt({
       contributesToTokenCalibration, useConnectionSampling: true,
     });
     recordOutputPass({ label: `${label} output`, text: response.text });
-    const result = phoneImageSearchResult(config, candidates, response.text, visionEnabled);
+    const result = phoneImageSearchResult(config, candidates, response.text, visionEnabled, plan);
     if (!result) {
       context.reportWarning(`${node.data.label}: Image search assistant returned an invalid selection.`);
       return false;

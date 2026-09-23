@@ -31,13 +31,17 @@ it('resolves exact character/account identities without matching substrings or f
   for (const plan of ['Find account-Blakely photos', 'Get my picture', 'disabled-Blake'])
     expect(phoneImageSearchContext(context, plan).candidates).toEqual([]);
   const { candidates } = phoneImageSearchContext(context, 'Avery and Blake');
-  expect(phoneImageSearchResult(config, candidates, '{"imageIds":["invented"],"answer":"Yes"}', true)).toBeUndefined();
-  expect(phoneImageSearchResult(config, candidates, '', true)).toBeUndefined();
-  const selected = phoneImageSearchResult(config, candidates, '{"imageIds":["image-Blake","image-Blake","image-Avery"],"answer":"Both fit."}', true)!;
+  expect(phoneImageSearchResult(config, candidates, '{"imageIds":["invented"],"answer":"Yes"}', true, 'Find Avery and Blake photos.')).toBeUndefined();
+  expect(phoneImageSearchResult(config, candidates, '', true, 'Find Avery and Blake photos.')).toBeUndefined();
+  const selected = phoneImageSearchResult(config, candidates, '{"imageIds":["image-Blake","image-Blake","image-Avery"],"answer":"Both fit."}', true, 'Find Avery and Blake photos.')!;
   expect(selected.images.map((image) => image.id)).toEqual(['image-Blake', 'image-Avery']);
   expect(selected.text).toContain('Both fit.');
+  expect(selected.text.indexOf('Request:')).toBeLessThan(selected.text.indexOf('Assistant answer:'));
+  expect(selected.text.indexOf('Assistant answer:')).toBeLessThan(selected.text.indexOf('Selected existing images:'));
+  expect(selected.text).toContain('Find Avery and Blake photos.');
+  expect(selected.text).not.toContain('Image selection:');
   expect(selected.text).toContain('Image shown to:');
-  expect(phoneImageSearchResult(config, candidates, '{"imageIds":[],"answer":"No suitable images."}', false)?.text).toContain('No suitable images.');
+  expect(phoneImageSearchResult(config, candidates, '{"imageIds":[],"answer":"No suitable images."}', false, 'Find Avery and Blake photos.')?.text).toContain('No suitable images.');
 });
 
 it.each(['main', 'planning', 'later-planning'] as const)('keeps image selections and rationale through %s', async (mode) => {
@@ -64,6 +68,9 @@ it.each(['main', 'planning', 'later-planning'] as const)('keeps image selections
   for (const call of calls.slice(2)) {
     expect(call.prompt.split('Blake is the requested target, Avery only retrieves it.')).toHaveLength(2);
     expect(call.prompt).toContain('image-Blake');
+    expect(call.prompt).toContain('Request:\nAvery is the hacker retrieving photos');
+    expect(call.prompt.indexOf('Request:\nAvery')).toBeLessThan(call.prompt.indexOf('Assistant answer:'));
+    expect(call.prompt.indexOf('Assistant answer:')).toBeLessThan(call.prompt.indexOf('Selected existing images:'));
   }
   if (mode === 'later-planning') {
     expect(JSON.stringify(result.debug.promptPasses?.find((pass) => pass.label === 'Step planning'))).toContain('Blake is the requested target');

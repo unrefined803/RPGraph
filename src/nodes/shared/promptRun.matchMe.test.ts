@@ -21,10 +21,11 @@ const messages: MessageRecord[] = [{
 }];
 const reply = JSON.stringify({ matchMeApp: [{ from: 'account-Ryan', to: 'account-Avery', message: 'Hello!' }] });
 
-async function run(history: MessageRecord[], command = false, direct = false) {
+async function run(history: MessageRecord[], command = false, direct = false, phone: Partial<ExecuteContext> = {}) {
   const prompts: string[] = [];
   const warning = vi.fn();
   const context = {
+    ...phone,
     nodes: [], historyMessages: history, appCharacters: characters,
     matchMeDirectMessage: direct ? { app: 'matchme', fromAccountId: 'account-Avery', toAccountId: 'account-Ryan' } : undefined,
     reportWarning: warning, reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
@@ -71,6 +72,14 @@ describe('Narrator MatchMe context', () => {
     expect(prompts.every((prompt) => !prompt.includes('[MATCHME APPLICATION CONTEXT]'))).toBe(true);
     expect(result.generatedText).not.toContain('matchMeApp');
     expect(warning).toHaveBeenCalled();
+  });
+
+  it.each([{ phoneMessage: true }, { messageFormat: 1 }])('omits global dating context from WhatsUp runs (%j)', async (phone) => {
+    const { prompts, result } = await run(messages, false, false, phone);
+    expect(prompts).toHaveLength(2);
+    for (const prompt of prompts) expect(prompt).not.toContain('[MATCHME APPLICATION CONTEXT]');
+    for (const pass of result.debug.promptPasses)
+      expect(pass.sections?.some((section) => section.label === 'MatchMe Application Context')).toBe(false);
   });
 
   it('leaves direct replies scoped to their existing input context', async () => {
