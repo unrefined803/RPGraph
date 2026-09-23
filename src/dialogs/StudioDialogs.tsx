@@ -75,6 +75,7 @@ import { copyTextToClipboard } from '../utils/clipboard';
 import { StorybookReadonlyPreview } from '../components/StorybookReadonlyPreview';
 import { normalizeRpStorybook, type RpStorybook } from '../nodes/rp-storybook/model';
 import type { CharacterImportChoice } from '../storybook/useStorybookActions';
+import { storybookDisplayName } from '../storybook/displayName';
 
 type ComfyModelLists = {
   checkpoints: string[];
@@ -2589,7 +2590,7 @@ export function StudioDialogs({
                       <span className="saved-file-summary">
                         <strong className="saved-file-name-container">
                           <span className="file-type-badge storybook">Storybook</span>
-                          <span className="saved-file-name-text">{file.name}</span>
+                          <span className="saved-file-name-text">{storybookDisplayName(file.name)}</span>
                           {file.protection === 'encrypted' && (
                             <svg
                               width="12"

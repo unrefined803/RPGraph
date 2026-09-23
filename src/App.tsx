@@ -170,6 +170,7 @@ import {
 import { useStorybookActions } from './storybook/useStorybookActions';
 import { storybookImageIdsUsedByMessages } from './storybook/imageUsage';
 import storybookFormatVersions from './storybook/formatVersions.json';
+import { storybookDisplayName } from './storybook/displayName';
 import {
   openingHistoryEventsFromNodes,
   openingHistoryChatGpdChatsFromNodes,
@@ -463,12 +464,12 @@ function displayStorybookName(
     return 'not loaded';
   }
   if (headerStorybookFileName) {
-    return headerStorybookFileName.replace(/\.json$/i, '');
+    return storybookDisplayName(headerStorybookFileName);
   }
   try {
     const storybook = parseRpStorybookJson(headerStorybookJson);
     const title = storybook.title || 'untitled';
-    return title;
+    return storybookDisplayName(title);
   } catch {
     return 'Untitled storybook';
   }
