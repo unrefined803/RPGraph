@@ -44,13 +44,6 @@
           "whatsup": true,
           "fotogram": true
         }
-      },
-      {
-        "characterId": "luca_reed",
-        "description": "",
-        "apps": {
-          "onlyfriends": true
-        }
       }
     ],
     "role": "Daughter / Secret Creator",
@@ -106,8 +99,8 @@
         "initialPosts": [
           {
             "id": "fotogram-post-01",
-            "text": "How do you like my new outfit?",
-            "imageId": "sophie_carter_lena_weber_image_02"
+            "text": "Bought a new dress, how do you like it?",
+            "imageId": "sophie_carter_lena_weber_image_01"
           }
         ]
       },
@@ -130,7 +123,7 @@
         "initialPosts": [
           {
             "id": "onlyfriends-post-01",
-            "text": "New swimsuit, I hope you like it.",
+            "text": "New bikini, how do you like it?",
             "imageId": "sophie_carter_lena_weber_image_04"
           }
         ]
