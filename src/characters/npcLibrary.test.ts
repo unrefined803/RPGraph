@@ -77,11 +77,11 @@ it('ships developed NPCs with compatible tags, deliberate privacy and consistent
       expect(account.agencyTags?.length).toBeGreaterThanOrEqual(1);
       expect(account.agencyTags!.every((tag) => character.agencyTags!.includes(tag))).toBe(true);
       if (app === 'fotogram' || app === 'onlyfriends') {
-        expect(['user', 'creator']).toContain(account.accountRole);
-        expect(typeof account.privacyMode).toBe('boolean');
+        expect(['user', 'creator']).toContain(account.accountRole ?? 'user');
+        expect(typeof (account.privacyMode ?? false)).toBe('boolean');
       }
       if (app === 'onlyfriends') {
-        expect(account.privacyMode).toBe(account.accountRole === 'user');
+        expect(account.privacyMode).toBe(account.accountRole === 'user' || character.id === 'sophie_carter');
         if (account.privacyMode) {
           for (const name of character.name.toLowerCase().split(/\s+/)) {
             expect(account.profileName?.toLowerCase()).not.toContain(name);

@@ -2,107 +2,11 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "id": "helga_harper",
-    "name": "Helga Harper",
     "description": "A 24-year-old woman and Espen Harper's older sister. Helga is confident, affectionate, and a little bossy in the way older sisters can be. She is happily together with Jack Carter. She has noticed that Espen and Ryan like each other, but she mostly stays out of it and just enjoys a good night out.",
     "personality": "Warm, bold, playful, protective, romantic, and direct when someone avoids the obvious.",
     "speechStyle": "Teasing, fast, affectionate, and confident. She says what everyone else is dancing around.",
-    "hiddenAgency": "Will subtly push Espen and Ryan together by creating situations where they are forced to flirt; enjoys having control over how the evening unfolds.",
-    "agencyTags": [
-      "friendly_regular",
-      "emotional_supporter"
-    ],
-    "relationships": [
-      {
-        "characterId": "espen_harper",
-        "description": "My younger sister.",
-        "apps": {
-          "whatsup": true,
-          "fotogram": true
-        }
-      },
-      {
-        "characterId": "jack_carter",
-        "description": "My loving boyfriend.",
-        "apps": {
-          "whatsup": true,
-          "fotogram": true
-        }
-      },
-      {
-        "characterId": "ryan_parker",
-        "description": "Espen's close friend and crush.",
-        "apps": {
-          "whatsup": true,
-          "fotogram": true
-        }
-      },
-      {
-        "characterId": "chloe_bella_vance",
-        "description": "",
-        "apps": {
-          "fotogram": true
-        }
-      }
-    ],
     "role": "Character - Espen's older sister, Jack's girlfriend, looking forward to the party",
-    "comfyConfig": {
-      "loraName": "RLY-thot_shot-KREA2-helga-v1-trigger-rlyhelga.safetensors",
-      "loraUrl": "https://civitai.red/models/2641178/rly-thot-shot-helga-krea-2-ideogram-4-zibzit",
-      "appearance": "Helga is a 24-year-old woman with a confident and radiant presence. She has blonde hair that is bleached throughout but retains natural dark roots at the crown. Her face is oval-shaped with high cheekbones, a bright smile showing white teeth, and expressive eyes accentuated by winged eyeliner. She has a slender yet healthy build, fair skin, and carries herself with an air of playful authority."
-    },
-    "voiceConfig": {
-      "sampleName": "",
-      "sampleMimeType": "",
-      "sampleDataUrl": ""
-    },
-    "phoneSettings": {
-      "wallpaperId": "helga_harper_image_03"
-    },
-    "banking": {
-      "startBalance": 2600,
-      "fixedExpenses": [
-        {
-          "label": "Mobile plan",
-          "amount": 24.99
-        }
-      ]
-    },
     "playable": true,
-    "apps": {
-      "whatsup": {
-        "agencyTags": [
-          "friendly_regular",
-          "emotional_supporter"
-        ],
-        "accountId": "character:helga_harper:whatsup",
-        "enabled": true,
-        "legacyHandles": [
-          "Helga Harper"
-        ],
-        "bio": ""
-      },
-      "fotogram": {
-        "agencyTags": [
-          "friendly_regular"
-        ],
-        "accountId": "character:helga_harper:fotogram",
-        "enabled": true,
-        "profileName": "helga.harper",
-        "legacyHandles": [
-          "helga.harper",
-          "Helga Harper"
-        ],
-        "bio": "",
-        "initialPosts": [
-          {
-            "id": "fotogram-post-01",
-            "text": "Ready for the party tonight.",
-            "imageId": "helga_harper_image_01"
-          }
-        ]
-      }
-    },
     "images": [
       {
         "id": "helga_harper_image_01",
@@ -155,6 +59,103 @@
         "description": "Helga Harper takes a mirror selfie in her bedroom while getting ready for the party. She wears a chic olive-brown dress and smiles confidently at her reflection."
       }
     ],
+    "relationships": [
+      {
+        "characterId": "espen_harper",
+        "description": "My younger sister.",
+        "apps": {
+          "whatsup": true,
+          "fotogram": true
+        }
+      },
+      {
+        "characterId": "jack_carter",
+        "description": "My loving boyfriend.",
+        "apps": {
+          "whatsup": true,
+          "fotogram": true
+        }
+      },
+      {
+        "characterId": "ryan_parker",
+        "description": "Espen's close friend and crush.",
+        "apps": {
+          "whatsup": true,
+          "fotogram": true
+        }
+      },
+      {
+        "characterId": "chloe_bella_vance",
+        "description": "",
+        "apps": {
+          "fotogram": true
+        }
+      }
+    ],
+    "id": "helga_harper",
+    "name": "Helga Harper",
+    "hiddenAgency": "Will subtly push Espen and Ryan together by creating situations where they are forced to flirt; enjoys having control over how the evening unfolds.",
+    "agencyTags": [
+      "friendly_regular",
+      "emotional_supporter"
+    ],
+    "comfyConfig": {
+      "loraName": "RLY-thot_shot-KREA2-helga-v1-trigger-rlyhelga.safetensors",
+      "loraUrl": "https://civitai.red/models/2641178/rly-thot-shot-helga-krea-2-ideogram-4-zibzit",
+      "appearance": "Helga is a 24-year-old woman with a confident and radiant presence. She has blonde hair that is bleached throughout but retains natural dark roots at the crown. Her face is oval-shaped with high cheekbones, a bright smile showing white teeth, and expressive eyes accentuated by winged eyeliner. She has a slender yet healthy build, fair skin, and carries herself with an air of playful authority."
+    },
+    "voiceConfig": {
+      "sampleName": "",
+      "sampleMimeType": "",
+      "sampleDataUrl": ""
+    },
+    "phoneSettings": {
+      "wallpaperId": "helga_harper_image_03"
+    },
+    "banking": {
+      "startBalance": 2600,
+      "fixedExpenses": [
+        {
+          "label": "Mobile plan",
+          "amount": 24.99
+        }
+      ]
+    },
+    "apps": {
+      "whatsup": {
+        "agencyTags": [
+          "friendly_regular",
+          "emotional_supporter"
+        ],
+        "accountId": "character:helga_harper:whatsup",
+        "enabled": true,
+        "legacyHandles": [
+          "Helga Harper"
+        ],
+        "bio": ""
+      },
+      "fotogram": {
+        "agencyTags": [
+          "friendly_regular"
+        ],
+        "accountId": "character:helga_harper:fotogram",
+        "enabled": true,
+        "profileName": "helga.harper",
+        "legacyHandles": [
+          "helga.harper",
+          "Helga Harper"
+        ],
+        "bio": "",
+        "initialPosts": [
+          {
+            "id": "fotogram-post-01",
+            "text": "Ready for the party tonight.",
+            "imageId": "helga_harper_image_01"
+          }
+        ]
+      }
+    },
+    "age": 24,
     "profileImage": {
       "imageId": "helga_harper_image_02",
       "crop": {

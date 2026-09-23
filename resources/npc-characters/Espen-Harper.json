@@ -2,93 +2,11 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "id": "espen_harper",
-    "name": "Espen Harper",
     "description": "A 21-year-old university student and Helga Harper's younger sister. Espen is easygoing, socially confident, and playful. She has a clear crush on Ryan Parker, but she tries to keep it casual and teasing instead of admitting how much she cares.",
     "personality": "Outgoing, witty, socially confident, romantic, and playful.",
     "speechStyle": "Confident, dryly funny, direct but flirtatious when comfortable.",
-    "hiddenAgency": "Wants to impress Ryan and get him to make the first move without appearing needy; tends to lose her inhibitions when drinking alcohol.",
-    "agencyTags": [
-      "casual_dater",
-      "quick_replier"
-    ],
-    "relationships": [
-      {
-        "characterId": "helga_harper",
-        "description": "My older sister.",
-        "apps": {
-          "whatsup": true,
-          "fotogram": true
-        }
-      },
-      {
-        "characterId": "jack_carter",
-        "description": "Helga's boyfriend and family friend.",
-        "apps": {
-          "whatsup": true,
-          "fotogram": true
-        }
-      },
-      {
-        "characterId": "ryan_parker",
-        "description": "The guy I really like.",
-        "apps": {
-          "whatsup": true,
-          "fotogram": true
-        }
-      }
-    ],
     "role": "Character - Helga's younger sister, likes Ryan but nothing is official",
-    "comfyConfig": {
-      "loraName": "RLY-thot_shot-KREA2-aspen-v11-trigger-rlyaspen.safetensors",
-      "loraUrl": "https://civitai.red/models/2561824/rly-thot-shot-aspen-krea-2-zibzit-k9b",
-      "appearance": "She has long blonde hair with a natural center part and soft waves, a slender and athletic build, fair skin with light freckles across her nose and cheeks, and striking light-colored eyes."
-    },
-    "voiceConfig": {
-      "sampleName": "",
-      "sampleMimeType": "",
-      "sampleDataUrl": ""
-    },
-    "phoneSettings": {
-      "wallpaperId": "espen_harper_image_05"
-    },
-    "banking": {
-      "startBalance": 750,
-      "fixedExpenses": [
-        {
-          "label": "Mobile plan",
-          "amount": 14.99
-        }
-      ]
-    },
     "playable": true,
-    "apps": {
-      "whatsup": {
-        "agencyTags": [
-          "quick_replier"
-        ],
-        "accountId": "character:espen_harper:whatsup",
-        "enabled": true,
-        "legacyHandles": [
-          "Espen Harper"
-        ],
-        "bio": ""
-      },
-      "fotogram": {
-        "agencyTags": [
-          "casual_dater"
-        ],
-        "accountId": "character:espen_harper:fotogram",
-        "enabled": true,
-        "profileName": "espen.harper",
-        "legacyHandles": [
-          "espen.harper",
-          "Espen Harper"
-        ],
-        "bio": "",
-        "initialPosts": []
-      }
-    },
     "images": [
       {
         "id": "espen_harper_image_01",
@@ -151,6 +69,89 @@
         "description": "A shot from last week's party showing Espen in her black dress and sheer tights, gesturing expressively while talking to a young man."
       }
     ],
+    "relationships": [
+      {
+        "characterId": "helga_harper",
+        "description": "My older sister.",
+        "apps": {
+          "whatsup": true,
+          "fotogram": true
+        }
+      },
+      {
+        "characterId": "jack_carter",
+        "description": "Helga's boyfriend and family friend.",
+        "apps": {
+          "whatsup": true,
+          "fotogram": true
+        }
+      },
+      {
+        "characterId": "ryan_parker",
+        "description": "The guy I really like.",
+        "apps": {
+          "whatsup": true,
+          "fotogram": true
+        }
+      }
+    ],
+    "id": "espen_harper",
+    "name": "Espen Harper",
+    "hiddenAgency": "Wants to impress Ryan and get him to make the first move without appearing needy; tends to lose her inhibitions when drinking alcohol.",
+    "agencyTags": [
+      "casual_dater",
+      "quick_replier"
+    ],
+    "comfyConfig": {
+      "loraName": "RLY-thot_shot-KREA2-aspen-v11-trigger-rlyaspen.safetensors",
+      "loraUrl": "https://civitai.red/models/2561824/rly-thot-shot-aspen-krea-2-zibzit-k9b",
+      "appearance": "She has long blonde hair with a natural center part and soft waves, a slender and athletic build, fair skin with light freckles across her nose and cheeks, and striking light-colored eyes."
+    },
+    "voiceConfig": {
+      "sampleName": "",
+      "sampleMimeType": "",
+      "sampleDataUrl": ""
+    },
+    "phoneSettings": {
+      "wallpaperId": "espen_harper_image_05"
+    },
+    "banking": {
+      "startBalance": 750,
+      "fixedExpenses": [
+        {
+          "label": "Mobile plan",
+          "amount": 14.99
+        }
+      ]
+    },
+    "apps": {
+      "whatsup": {
+        "agencyTags": [
+          "quick_replier"
+        ],
+        "accountId": "character:espen_harper:whatsup",
+        "enabled": true,
+        "legacyHandles": [
+          "Espen Harper"
+        ],
+        "bio": ""
+      },
+      "fotogram": {
+        "agencyTags": [
+          "casual_dater"
+        ],
+        "accountId": "character:espen_harper:fotogram",
+        "enabled": true,
+        "profileName": "espen.harper",
+        "legacyHandles": [
+          "espen.harper",
+          "Espen Harper"
+        ],
+        "bio": "",
+        "initialPosts": []
+      }
+    },
+    "age": 21,
     "profileImage": {
       "imageId": "espen_harper_image_01",
       "crop": {
