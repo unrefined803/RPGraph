@@ -145,6 +145,10 @@ type StudioDialogsProps = {
   settingsValues: Record<string, string>;
   chatTextBrightness: number;
   chatColorIntensity: number;
+  chatMessageAvatarSize: number;
+  onChatMessageAvatarSizeChange: (value: number) => void;
+  chatMessageAvatarsEnabled: boolean;
+  onChatMessageAvatarsEnabledChange: (enabled: boolean) => void;
   chatTextSize: number;
   phoneChatTextSize: number;
   smoothChatAutoScrollEnabled: boolean;
@@ -798,6 +802,10 @@ export function StudioDialogs({
   settingsValues,
   chatTextBrightness,
   chatColorIntensity,
+  chatMessageAvatarSize,
+  onChatMessageAvatarSizeChange,
+  chatMessageAvatarsEnabled,
+  onChatMessageAvatarsEnabledChange,
   chatTextSize,
   phoneChatTextSize,
   smoothChatAutoScrollEnabled,
@@ -1887,6 +1895,29 @@ export function StudioDialogs({
                       <p>Normal Chat + Phone Chat formatting and interface scaling</p>
                     </div>
                     <div className="options-tab-body">
+                      <label className="option-toggle">
+                        <input
+                          type="checkbox"
+                          checked={chatMessageAvatarsEnabled}
+                          onChange={(event) => onChatMessageAvatarsEnabledChange(event.target.checked)}
+                        />
+                        <span>Character faces beside chat messages</span>
+                      </label>
+                      <label className="option-avatar-size" htmlFor="chat-message-avatar-size">
+                        <span>Face size</span>
+                        <input
+                          id="chat-message-avatar-size"
+                          type="range"
+                          min={70}
+                          max={130}
+                          step={1}
+                          value={chatMessageAvatarSize}
+                          disabled={!chatMessageAvatarsEnabled}
+                          onChange={(event) => onChatMessageAvatarSizeChange(Number(event.target.value))}
+                          aria-valuetext={`${chatMessageAvatarSize}%`}
+                        />
+                        <output htmlFor="chat-message-avatar-size">{chatMessageAvatarSize}%</output>
+                      </label>
                       <label className="option-field chat-text-size-field" htmlFor="ui-scale">
                         <span className="option-label-row">
                           UI SCALE

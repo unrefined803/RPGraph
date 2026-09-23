@@ -956,6 +956,8 @@ export type AppSettings = {
     promptTextCustomPresets?: Record<string, string>;
     chatTextBrightness?: number;
     chatColorIntensity?: number;
+    chatMessageAvatarSize?: number;
+    chatMessageAvatarsEnabled?: boolean;
     chatTextSize?: number;
     phoneChatTextSize?: number;
     smoothChatAutoScrollEnabled?: boolean;

@@ -664,6 +664,10 @@ function App() {
     setChatTextBrightness,
     chatColorIntensity,
     setChatColorIntensity,
+    chatMessageAvatarSize,
+    setChatMessageAvatarSize,
+    chatMessageAvatarsEnabled,
+    setChatMessageAvatarsEnabled,
     chatTextSize,
     setChatTextSize,
     phoneChatTextSize,
@@ -5686,6 +5690,8 @@ function App() {
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
               chatTextBrightness={chatTextBrightness}
               chatColorIntensity={chatColorIntensity}
+              chatMessageAvatarSize={chatMessageAvatarSize}
+              chatMessageAvatarsEnabled={chatMessageAvatarsEnabled}
               chatTextSize={chatTextSize}
               onChatTextSizeChange={setChatTextSize}
               phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}
@@ -6212,6 +6218,8 @@ function App() {
         settingsValues={resolvedWorkflowSettingsValues}
         chatTextBrightness={chatTextBrightness}
         chatColorIntensity={chatColorIntensity}
+        chatMessageAvatarSize={chatMessageAvatarSize}
+        chatMessageAvatarsEnabled={chatMessageAvatarsEnabled}
         chatTextSize={chatTextSize}
         phoneChatTextSize={phoneChatTextSize}
         smoothChatAutoScrollEnabled={smoothChatAutoScrollEnabled}
@@ -6241,6 +6249,8 @@ function App() {
         onSettingsValueRemove={removeWorkflowSettingsValue}
         onChatTextBrightnessChange={setChatTextBrightness}
         onChatColorIntensityChange={setChatColorIntensity}
+        onChatMessageAvatarSizeChange={setChatMessageAvatarSize}
+        onChatMessageAvatarsEnabledChange={setChatMessageAvatarsEnabled}
         onChatTextSizeChange={setChatTextSize}
         onPhoneChatTextSizeChange={setPhoneChatTextSize}
         onSmoothChatAutoScrollEnabledChange={setSmoothChatAutoScrollEnabled}
