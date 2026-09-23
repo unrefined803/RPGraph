@@ -41,4 +41,4 @@ The assistant returns `{"imageIds":["existing-id"],"answer":"selection rationale
 
 Subsequent planning and main steps retain the full image selection result, including the assistant answer, even without repeating the consumed action marker. When a marker already inserts that result, no additional copy is added. Prompt diagnostics show the carried result as an Image selection result section.
 
-Image selection results begin with the executed action, the verbatim request plan, and the assistant answer, followed by the selected image list and usage guidance. WhatsUp runs do not receive the unrelated global MatchMe application context.
+Image selection results begin with the executed action, the verbatim request plan, and the assistant answer, followed by the selected image list and usage guidance. The shared LLM prompt runner never injects global MatchMe application context. MatchMe context reaches prompts through the workflow text input; action and command result insertion remains supported.

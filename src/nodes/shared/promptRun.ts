@@ -63,7 +63,6 @@ import {
 } from '../../chat/socialMessageValidation';
 import { stripPlanBlocks, stripPlanBlocksFromStream } from '../../chat/messageFormats';
 import { readableRuntimeName } from '../../llm/callDisplay';
-import { matchMeContext, matchMeState } from '../../chat/matchMe';
 
 export type PromptPreviewPart = {
   text: string;
@@ -359,14 +358,6 @@ export async function runActionAwarePrompt({
     stepOutputInsertions.set(step, insertions);
   };
   const socialCharacters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
-  // Direct replies already carry their conversation-scoped context in the input.
-  const matchContext = context.phoneMessage || context.messageFormat === 1 || context.matchMeDirectMessage ? ''
-    : matchMeContext(matchMeState(socialCharacters, context.historyMessages));
-  const matchContextSections = matchContext ? [{
-    label: 'MatchMe Application Context',
-    text: matchContext,
-    parts: [{ text: matchContext }],
-  }] : [];
   const promptSectionValue = (value: string) =>
     replacePromptCommandTokensWithHints(
       replacePromptActionTokensWithInstructions(
@@ -459,7 +450,6 @@ export async function runActionAwarePrompt({
     const after = promptSectionValue(promptAfter);
     const historySegments = cachedHistorySegments(textInput);
     return [
-      ...matchContextSections,
       ...imageResultSections(before, after),
       {
         label: 'Prompt Before Input',
@@ -480,7 +470,6 @@ export async function runActionAwarePrompt({
     ];
   };
   const buildCombinedPrompt = (textInput = inputValue) => [
-    matchContext,
     ...imageResultSections(promptSectionValue(promptBefore), promptSectionValue(promptAfter)).map((section) => section.text),
     promptSectionValue(promptBefore),
     textInput,
@@ -641,7 +630,6 @@ export async function runActionAwarePrompt({
         label: passLabel,
         images: previewImagesForPass(stepImagePass),
         sections: [
-          ...matchContextSections,
           ...imageResultSections(stepBefore, stepAfter),
           ...(stepBefore
             ? [{
@@ -675,7 +663,7 @@ export async function runActionAwarePrompt({
         nodeId: node.id,
         label: `${callLabel(0)} / ${passLabel}`,
         stage: { kind: 'step', name: step.name, replay: stepReplayCount || undefined },
-        prompt: [matchContext, ...imageResultSections(stepBefore, stepAfter).map((section) => section.text), stepBefore, stepTextInput, stepAfter].filter(Boolean).join('\n\n'),
+        prompt: [...imageResultSections(stepBefore, stepAfter).map((section) => section.text), stepBefore, stepTextInput, stepAfter].filter(Boolean).join('\n\n'),
         images: stepImagePass.images,
         contributesToTokenCalibration,
         useConnectionSampling: true,
@@ -1126,7 +1114,6 @@ export async function runActionAwarePrompt({
         label: `Command: ${commandNames}`,
         images: previewImagesForPass(commandImagePass),
         sections: [
-          ...matchContextSections,
           {
             label: 'Text Input',
             text: commandTextInput,
@@ -1148,7 +1135,7 @@ export async function runActionAwarePrompt({
         nodeId: node.id,
         label: `${callLabel(0)} / Command: ${commandNames}`,
         stage: { kind: 'command', name: commandNames },
-        prompt: [matchContext, commandTextInput, instruction].filter(Boolean).join('\n\n'),
+        prompt: [commandTextInput, instruction].filter(Boolean).join('\n\n'),
         images: commandImagePass.images,
         onChunk: streamCommandOutput,
         contributesToTokenCalibration,

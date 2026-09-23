@@ -3,7 +3,7 @@ import { runActionAwarePrompt } from './promptRun';
 import type { ExecuteContext } from '../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import type { WorkflowNode, MessageRecord } from '../../types';
-import { matchMePairId } from '../../chat/matchMe';
+import { matchMeContext, matchMeState, matchMePairId } from '../../chat/matchMe';
 
 const characters = ['Ryan', 'Avery'].map((name) => ({
   id: name.toLowerCase(), sourceId: name.toLowerCase(), name,
@@ -21,7 +21,7 @@ const messages: MessageRecord[] = [{
 }];
 const reply = JSON.stringify({ matchMeApp: [{ from: 'account-Ryan', to: 'account-Avery', message: 'Hello!' }] });
 
-async function run(history: MessageRecord[], command = false, direct = false, phone: Partial<ExecuteContext> = {}) {
+async function run(history: MessageRecord[], command = false, direct = false, phone: Partial<ExecuteContext> = {}, inputValue = 'Narrator: Ryan texts Avery.') {
   const prompts: string[] = [];
   const warning = vi.fn();
   const context = {
@@ -41,7 +41,7 @@ async function run(history: MessageRecord[], command = false, direct = false, ph
   } as unknown as ExecuteContext;
   const result = await runActionAwarePrompt({
     node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode,
-    context, inputValue: 'Narrator: Ryan texts Avery.', images: [], referenceImages: [],
+    context, inputValue, images: [], referenceImages: [],
     promptBefore: '', promptAfter: '@step:planning\nPlan the scene.\n@step:main\n@output:planning\nWrite the scene.'
       + (command ? '\n@command:messenger_message' : ''),
     actionConfigs: [], streamsVisibleOutput: false, contributesToTokenCalibration: false,
@@ -50,20 +50,27 @@ async function run(history: MessageRecord[], command = false, direct = false, ph
   return { result, prompts, warning };
 }
 
-describe('Narrator MatchMe context', () => {
-  it.each([false, true])('supplies matched account IDs to planning, output and commands (command=%s)', async (command) => {
+describe('Workflow-routed MatchMe context', () => {
+  it.each([false, true])('does not inject global matches into planning, output or commands (command=%s)', async (command) => {
     const { result, prompts, warning } = await run(messages, command);
     expect(prompts).toHaveLength(command ? 3 : 2);
     for (const prompt of prompts) {
-      expect(prompt).toContain('[MATCHME APPLICATION CONTEXT]');
-      expect(prompt).toContain('account-Ryan');
-      expect(prompt).toContain('account-Avery');
+      expect(prompt).not.toContain('[MATCHME APPLICATION CONTEXT]');
       expect(prompt).not.toContain('Private secret');
     }
     expect(result.generatedText).toContain(reply);
     expect(warning).not.toHaveBeenCalled();
     for (const pass of result.debug.promptPasses) {
-      expect(pass.sections?.some((section) => section.label === 'MatchMe Application Context')).toBe(true);
+      expect(pass.sections?.some((section) => section.label === 'MatchMe Application Context')).toBe(false);
+    }
+  });
+
+  it.each([false, true])('preserves MatchMe context received through the text input (command=%s)', async (command) => {
+    const input = matchMeContext(matchMeState(characters, messages));
+    const { prompts } = await run(messages, command, false, {}, input);
+    for (const prompt of prompts) {
+      expect(prompt).toContain(input);
+      expect(prompt.split('[MATCHME APPLICATION CONTEXT]')).toHaveLength(2);
     }
   });
 
