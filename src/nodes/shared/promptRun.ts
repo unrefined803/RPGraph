@@ -518,15 +518,20 @@ export async function runActionAwarePrompt({
 
   const runImageSearch = async (config: PromptActionConfig, plan: string, label: string) => {
     const { directory, candidates, characterCount } = phoneImageSearchContext(context, plan);
-    const instructions = `${config.instructionTemplate}\nMaximum selection count: ${config.maxReturnedImages}`;
+    const searchImages = visionEnabled ? candidates.slice(0, 8).map((image) => image.attachment) : [];
+    const imageMapping = searchImages.length
+      ? 'Attached candidate images (attachment order):\n' + searchImages.map((image, index) =>
+        `Image ${index + 1}: ${image.id}`).join('\n')
+      : 'No candidate images are attached. Select using the captions and recorded usage.';
+    const instructions = `${config.instructionTemplate}\nMaximum selection count: ${config.maxReturnedImages}\n${imageMapping}`;
     const prompt = characterSearchPrompt(instructions, plan, directory);
     const diagnosticPrompt = characterSearchPrompt(instructions, plan,
       `(${characterCount} characters; ${candidates.length} images; approximately ${context.textMetrics.measure(directory).tokens} tokens; directory omitted)`);
-    recordPromptPass({ label, images: [], sections: [{ label: 'Image search assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }] });
+    recordPromptPass({ label, images: imagePreviewItems(searchImages.map((image) => ({ image, source: 'action' }))), sections: [{ label: 'Image search assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }] });
     context.updateRuntimeData(node.id, { preview: 'Selecting character images ...' });
     const response = await context.llm.complete({
       connectionId: node.data.connectionId, nodeId: node.id, label,
-      stage: { kind: 'action', name: config.title }, prompt, diagnosticPrompt, images: [],
+      stage: { kind: 'action', name: config.title }, prompt, diagnosticPrompt, images: searchImages,
       contributesToTokenCalibration, useConnectionSampling: true,
     });
     recordOutputPass({ label: `${label} output`, text: response.text });

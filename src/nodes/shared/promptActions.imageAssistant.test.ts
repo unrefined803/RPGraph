@@ -5,7 +5,7 @@ import { buildCharacterRegistry } from '../../characters/registry';
 import type { Character } from '../../characters/character';
 import type { WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
-import { defaultPromptActionConfig, phoneImageSearchContext, phoneImageSearchResult } from './promptActions';
+import { defaultPromptActionConfig, phoneImageSearchContext, phoneImageSearchResult, getImagesLlmInstruction, normalizePromptActionConfig, previousPromptActionDefaultsForValidation } from './promptActions';
 import { runActionAwarePrompt } from './promptRun';
 const config = { ...defaultPromptActionConfig('', 'getImageId'), disableWhenImageAttached: false };
 const cast = appCharactersFromRegistry(buildCharacterRegistry(['Avery', 'Blake', 'Casey', 'Dana', 'Eli', 'Fran'].map((name, index) => ({
@@ -61,7 +61,7 @@ it.each(['main', 'planning', 'later-planning'] as const)('keeps image selections
   expect(calls[1].prompt).toContain('image-Blake');
   expect(calls[1].prompt).toContain('account-Blake');
   for (const secret of ['SECRET_RAW_HISTORY', 'SECRET_STORY_INSTRUCTIONS', 'SECRET_IMAGE_DATA', 'Fran description']) expect(calls[1].prompt).not.toContain(secret);
-  expect(calls[1].images).toEqual([]);
+  expect(calls[1].images).toMatchObject([{ id: 'image-Avery' }, { id: 'image-Blake' }]);
   expect(calls[2].prompt).toContain('Blake is the requested target');
   expect(calls[2].images).toMatchObject([{ id: 'image-Blake' }]);
   expect(calls[2].prompt).not.toContain('Blake personality');
@@ -76,4 +76,62 @@ it.each(['main', 'planning', 'later-planning'] as const)('keeps image selections
     expect(JSON.stringify(result.debug.promptPasses?.find((pass) => pass.label === 'Step planning'))).toContain('Blake is the requested target');
   }
   expect(context.reportWarning).not.toHaveBeenCalled();
+});
+
+
+it('ranks distinct visual caption matches before partial matches without discarding alternatives', () => {
+  const captions = ['Avery smiles.', 'Standing by a tree.', 'Standing against a wall.',
+    'Standing against a wall in a dress.', 'Standing standing standing.', 'A wallet and dressing room.'];
+  const character = { ...cast[0], images: captions.map((description, index) => ({
+    ...cast[0].images![0], id: `rank-${index}`, description,
+  })) };
+  const found = phoneImageSearchContext({ nodes: [], appCharacters: [character], historyMessages: [] } as unknown as ExecuteContext,
+    'Find a photo of Avery on WhatsUp standing against a wall in a dress.');
+  expect(found.candidates.map((image) => image.imageId)).toEqual(['rank-3', 'rank-2', 'rank-1', 'rank-4', 'rank-0', 'rank-5']);
+  expect(found.directory.indexOf('rank-3')).toBeLessThan(found.directory.indexOf('rank-2'));
+});
+
+it.each([{ vision: true, count: 20, expected: 8 }, { vision: true, count: 5, expected: 5 },
+  { vision: false, count: 20, expected: 0 }, { vision: true, count: 0, expected: 0 }])(
+  'sends $expected ranked candidates for vision=$vision and count=$count', async ({ vision, count, expected }) => {
+    const character = { ...cast[0], images: Array.from({ length: count }, (_, index) => ({
+      ...cast[0].images![0], id: `candidate-${index}`,
+      description: index === count - 1 ? 'Standing against a wall in a skirt.' : 'Portrait.',
+    })) };
+    const calls: Array<{ prompt: string; images: Array<{ id: string }> }> = [];
+    const replies = [JSON.stringify({ action: 'get_image_id', plan: 'Find Avery standing against a wall in a dress to send on WhatsUp.' }),
+      JSON.stringify({ imageIds: count ? [`candidate-${count - 1}`] : [], answer: count ? 'Close alternative: a skirt, not a dress.' : 'No candidates.' }),
+      'Final reply.'];
+    const context = { textMetrics: new TextMetricsApi(), nodes: [], appCharacters: [character], historyMessages: [],
+      reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
+      llm: { supportsVision: async () => vision, complete: vi.fn(async (call) => {
+        calls.push(call); return { text: replies.shift() ?? '', connection: { label: 'Test' } };
+      }) },
+    } as unknown as ExecuteContext;
+    const result = await runActionAwarePrompt({ node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode,
+      context, inputValue: '', images: [], referenceImages: [], promptBefore: '',
+      promptAfter: '@action:Get character phone image list', actionConfigs: [{ ...config, sendImagesToLlm: false }],
+      streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator' });
+    expect(calls[1].images).toHaveLength(expected);
+    if (expected) {
+      expect(calls[1].images[0].id).toBe(`candidate-${count - 1}`);
+      calls[1].images.forEach((image, index) => expect(calls[1].prompt).toContain(`Image ${index + 1}: ${image.id}`));
+    } else expect(calls[1].prompt).toContain('No candidate images are attached');
+    expect(result.debug.promptPasses?.find((pass) => pass.sections?.some((section) => section.label === 'Image search assistant'))?.images).toHaveLength(expected);
+    if (count) {
+      expect(calls[2].prompt).toContain(`candidate-${count - 1}`);
+      expect(calls[2].prompt).toContain('Close alternative: a skirt, not a dress.');
+    }
+    expect(calls[2].images).toEqual([]);
+    expect(context.reportWarning).not.toHaveBeenCalled();
+  },
+);
+
+it('upgrades the former caption-only default while preserving custom instructions', () => {
+  const previous = previousPromptActionDefaultsForValidation().find((entry) =>
+    entry.text.startsWith('Select existing images for the self-contained request below.')
+    && entry.text.includes('but no chat history.'))!;
+  expect(previous).toBeDefined();
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: previous.text })?.instructionTemplate).toBe(getImagesLlmInstruction);
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: 'Custom search rules' })?.instructionTemplate).toBe('Custom search rules');
 });

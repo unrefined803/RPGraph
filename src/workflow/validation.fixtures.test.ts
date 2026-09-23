@@ -293,6 +293,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-instruction-4:605:9ce7d20e',
   'get-images-instruction-5:522:fa4e3343',
   'get-images-instruction-6:1172:9e0fb75c',
+  'get-images-instruction-7:1232:d84b8431',
   'create-image-result-1:243:e4845c8c',
   'create-image-result-2:240:be37f41b',
   'create-image-result-3:209:a11ab164',
