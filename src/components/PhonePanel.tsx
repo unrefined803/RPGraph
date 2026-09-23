@@ -787,6 +787,7 @@ export function PhonePanel({
       unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
       openRequest={directMessageRequest?.app === 'matchme' ? directMessageRequest : undefined}
       emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
+      rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
       images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
       onBack={() => setScreen('desktop')} />;
   }

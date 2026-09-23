@@ -5,6 +5,7 @@ export type DatingMessage = {
   sender: 'owner' | 'match';
   text: string;
   sentAt: string;
+  rpDateTime?: string;
   demo?: boolean;
 };
 
@@ -21,6 +22,8 @@ export function normalizeDatingMessages(value: unknown): DatingMessage[] {
         typeof message.sentAt !== 'string' || !Number.isFinite(Date.parse(message.sentAt))) return [];
     seen.add(message.id);
     return [{ id: message.id, matchId: message.matchId, sender: message.sender,
-      text: message.text.slice(0, 4000), sentAt: message.sentAt, ...(message.demo ? { demo: true } : {}) }];
+      text: message.text.slice(0, 4000), sentAt: message.sentAt,
+      ...(typeof message.rpDateTime === 'string' ? { rpDateTime: message.rpDateTime } : {}),
+      ...(message.demo ? { demo: true } : {}) }];
   });
 }

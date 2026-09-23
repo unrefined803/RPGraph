@@ -1,7 +1,7 @@
 import { CharacterAvatar } from '../CharacterAvatar';
 import { datingAccountId, resolveDatingAccount, datingFirstName, datingAvatarDataUrl } from '../../chat/datingAccounts';
 import { matchMeDecision, matchMeLikePolicy, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
-import type { MessageRecord, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
+import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
 import { useEffect, useRef, useState } from 'react';
 import type { ChatImageAttachment } from '../../types';
@@ -23,13 +23,16 @@ type Props = {
   onSendMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
   emojiOptions: string[];
   recentlyUsedEmojis: string[];
+  rpTimeTrackingEnabled?: boolean;
+  rpDateTimeFormat?: RpDateTimeFormat;
+  rpWeekdayLanguage?: RpWeekdayLanguage;
   images: ChatImageAttachment[];
   onImportImage: (request: { owner: StorybookCharacter; image: ChatImageAttachment }) => Promise<ChatImageAttachment | undefined>;
   onSave: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
   onBack: () => void;
 };
 
-export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis }: Props) {
+export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis, rpTimeTrackingEnabled = false, rpDateTimeFormat = 'eu', rpWeekdayLanguage = 'system' }: Props) {
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
   const [editing, setEditing] = useState(profileOnly || !profile);
   const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
@@ -168,7 +171,8 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     if (message?.app !== 'matchme' || !((message.fromAccountId === ownerId && message.toAccountId === id) ||
       (message.toAccountId === ownerId && message.fromAccountId === id))) return [];
     return [{ id: message.messageId, matchId: id, sender: message.fromAccountId === ownerId ? 'owner' as const : 'match' as const,
-      text: message.displayText ?? message.text, accountLinks: message.accountLinks, sentAt: message.sentAt, demo: message.demo }];
+      text: message.displayText ?? message.text, accountLinks: message.accountLinks, sentAt: message.sentAt,
+      rpDateTime: entry.rpDateTime, demo: message.demo }];
   });
   async function send(id: string, retry = false) {
     if (!owner || isRunning || sending.current) return;
@@ -358,6 +362,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           draft={chatDrafts[selectedMatch.id] ?? ''}
           onDraftChange={(text) => setChatDrafts((current) => ({ ...current, [selectedMatch.id]: text }))}
           emojiOptions={emojiOptions} recentEmojis={recentEmojis}
+          rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
           onUseEmoji={(emoji) => setRecentEmojis((current) => [emoji, ...current.filter((entry) => entry !== emoji)].slice(0, 8))}
           onBack={() => { setSelectedMatchId(undefined); setPhoto(0); }}
           onSend={() => { void send(selectedMatch.id); }} /> : tab === 'discover' ? <div ref={discoverRef} className="pt-discover" style={{ maxWidth: `${Math.round(420 * discoverScale)}px` }}>

@@ -481,9 +481,9 @@ export function PhoneSocialDirectMessages({
           const rpTimeParts = rpTimeTrackingEnabled && rpDateTime
             ? formatRpDateTimeParts(rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
             : undefined;
-          const timeLabel = rpTimeTrackingEnabled
-            ? rpTimeParts?.time
-            : new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const timeLabel = !rpTimeTrackingEnabled
+            ? new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : undefined;
           const highlighted = message.messageId === highlightedMessageId;
           return (
             <div
@@ -499,7 +499,13 @@ export function PhoneSocialDirectMessages({
                   {message.app === 'onlyfriends' && message.tip !== undefined && (
                     <span className="phone-social-dm-tip">{outgoing ? '−' : '+'}{formatBankingAmount(message.tip)} tip</span>
                   )}
-                  {timeLabel && <time dateTime={rpDateTime ?? message.sentAt}>{timeLabel}</time>}
+                  {rpTimeParts ? (
+                    <time dateTime={rpDateTime}>
+                      <span className="rp-time-date">{rpTimeParts.date}</span>
+                      {'   '}
+                      <span className="rp-time-clock">{rpTimeParts.time}</span>
+                    </time>
+                  ) : timeLabel ? <time dateTime={message.sentAt}>{timeLabel}</time> : null}
                 </div>
               </div>
             </div>

@@ -3,6 +3,8 @@ import { AccountLinkText } from '../AccountLinkText';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { useEffect, useRef, useState } from 'react';
 import type { DatingMessage } from '../../chat/datingMessages';
+import type { RpDateTimeFormat, RpWeekdayLanguage } from '../../types';
+import { formatRpDateTimeParts } from '../../workflow';
 
 type Props = {
   name: string;
@@ -14,12 +16,15 @@ type Props = {
   onDraftChange: (text: string) => void;
   emojiOptions: string[];
   recentEmojis: string[];
+  rpTimeTrackingEnabled: boolean;
+  rpDateTimeFormat: RpDateTimeFormat;
+  rpWeekdayLanguage: RpWeekdayLanguage;
   onUseEmoji: (emoji: string) => void;
   onSend: () => void;
   onBack: () => void;
 };
 
-export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, onUseEmoji, onSend, onBack }: Props) {
+export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage, onUseEmoji, onSend, onBack }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -73,11 +78,19 @@ export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, 
         <CharacterAvatar className="pt-match-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
         <strong>You matched with {name}</strong><small>Say hello or break the ice with an emoji.</small>
       </div>}
-      {messages.map((message) => <div key={message.id} className={`phone-social-dm-message-row ${message.sender === 'owner' ? 'outgoing' : 'incoming'}`}>
-        <div className="phone-social-dm-bubble"><span><AccountLinkText text={message.text} bindings={message.accountLinks} /></span>
-          <time dateTime={message.sentAt}>{message.demo ? 'Demo reply · ' : ''}{new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-        </div>
-      </div>)}
+      {messages.map((message) => {
+        const rpTimeParts = rpTimeTrackingEnabled && message.rpDateTime
+          ? formatRpDateTimeParts(message.rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
+          : undefined;
+        return <div key={message.id} className={`phone-social-dm-message-row ${message.sender === 'owner' ? 'outgoing' : 'incoming'}`}>
+          <div className="phone-social-dm-bubble"><span><AccountLinkText text={message.text} bindings={message.accountLinks} /></span>
+            <time dateTime={message.rpDateTime ?? message.sentAt}>
+              {message.demo ? 'Demo reply · ' : ''}
+              {rpTimeParts ? <><span className="rp-time-date">{rpTimeParts.date}</span>{'   '}<span className="rp-time-clock">{rpTimeParts.time}</span></> : new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </time>
+          </div>
+        </div>;
+      })}
     </div>
     <form className="phone-social-dm-composer" onSubmit={(event) => { event.preventDefault(); if (draft.trim() && !busy) onSend(); }}>
       <AccountLinkInput value={draft}>

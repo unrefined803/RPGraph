@@ -12144,33 +12144,6 @@ button.message-timeline-row.phone:focus-visible {
     0 10px 28px rgba(0, 0, 0, 0.2);
 }
 
-.chat-phone-card-title {
-  display: inline-flex;
-  align-self: center;
-  max-width: 100%;
-  min-width: 0;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  padding: 5px 14px;
-  border: 1px solid rgba(34, 211, 238, 0.16);
-  border-radius: 999px;
-  color: #b8c7da;
-  background: rgba(8, 18, 28, 0.76);
-  font-size: 10px;
-  font-weight: 850;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-}
-
-.chat-phone-card-title span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .chat-phone-card-messages {
   display: flex;
   width: 100%;
@@ -12305,7 +12278,15 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .chat-social-message-bubble strong {
-  font-size: 11px;
+  font-size: calc(1em - 1px);
+  font-weight: 700;
+}
+
+.chat-phone-bubble .phone-bubble-sender {
+  font-size: calc(1em - 1px);
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .chat-phone-bubble {
@@ -12319,6 +12300,11 @@ button.message-timeline-row.phone:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   gap: 0 5px;
+}
+
+.chat-message-route-verb {
+  color: rgba(255, 255, 255, 0.48);
+  font-weight: 400;
 }
 
 .chat-phone-bubble.incoming {
@@ -26351,6 +26337,14 @@ button.message-timeline-row.phone:focus-visible {
 .phone-social-dm-footer time {
   margin-left: auto;
   white-space: nowrap;
+}
+
+.phone-social-dm-bubble time .rp-time-date {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.phone-social-dm-bubble time .rp-time-clock {
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .phone-social-dm-header > div strong,
