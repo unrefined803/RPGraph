@@ -105,7 +105,8 @@ function promptActionTemplateVariableStatuses(
   return {
     actionId: 'active',
     characters: 'active',
-    tags: 'active',
+    tags: 'inactive',
+    answer: 'active',
     images: 'active',
     imageId: 'active',
     imageReference: imageReferenceStatus,
@@ -127,7 +128,7 @@ function promptActionInstructionVariableStatuses(
   if (!config.runAfterReply && (config.actionId === 'getImageId' || config.actionId === 'createImage' || config.actionId === 'getCharacterList')) {
     statuses.plan = 'active';
   }
-  if (config.actionId === 'getCharacterList') {
+  if (config.actionId === 'getCharacterList' || config.actionId === 'getImageId') {
     statuses.characterDirectory = 'active';
   }
   if (config.actionId === 'createImage') {
@@ -775,7 +776,7 @@ export function PromptActionModal({
             </div>
             <div className="prompt-action-template-panel instruction-panel">
               <div className="prompt-action-template-header">
-                <label htmlFor={`${id}-action-instruction-template`}>{draft.actionId === 'getCharacterList' ? 'CHARACTER INFORMATION ASSISTANT PROMPT' : 'LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)'}</label>
+                <label htmlFor={`${id}-action-instruction-template`}>{draft.actionId === 'getCharacterList' ? 'CHARACTER INFORMATION ASSISTANT PROMPT' : draft.actionId === 'getImageId' ? 'IMAGE SEARCH ASSISTANT PROMPT' : 'LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)'}</label>
               </div>
               <JsonSyntaxTextarea
                 id={`${id}-action-instruction-template`}

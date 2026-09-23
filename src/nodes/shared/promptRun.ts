@@ -16,6 +16,8 @@ import {
 } from '../../data-management/historyStore';
 import type { ExecuteContext } from '../types';
 import {
+  phoneImageSearchContext,
+  phoneImageSearchResult,
   configForPromptActionToken,
   executePromptAction,
   knownPromptActionId,
@@ -442,12 +444,23 @@ export async function runActionAwarePrompt({
     }
     return historySegmentsCache.get(textInput);
   };
+  // Images persist across steps; keep their selection rationale and metadata with them,
+  // even when a later authored step has no copy of the consumed action marker.
+  const imageResultSections = (before: string, after: string) => actionConfigs
+    .filter((config) => config.actionId === 'getImageId')
+    .flatMap((config) => {
+      const result = actionResults.get(promptActionKey(config.title));
+      return result && !before.includes(result) && !after.includes(result)
+        ? [{ label: 'Image selection result', text: result, parts: [{ text: result, actionInserted: true }] }]
+        : [];
+    });
   const buildPromptSections = (textInput = inputValue) => {
     const before = promptSectionValue(promptBefore);
     const after = promptSectionValue(promptAfter);
     const historySegments = cachedHistorySegments(textInput);
     return [
       ...matchContextSections,
+      ...imageResultSections(before, after),
       {
         label: 'Prompt Before Input',
         text: before,
@@ -468,6 +481,7 @@ export async function runActionAwarePrompt({
   };
   const buildCombinedPrompt = (textInput = inputValue) => [
     matchContext,
+    ...imageResultSections(promptSectionValue(promptBefore), promptSectionValue(promptAfter)).map((section) => section.text),
     promptSectionValue(promptBefore),
     textInput,
     promptSectionValue(promptAfter),
@@ -510,6 +524,31 @@ export async function runActionAwarePrompt({
     actionResults.set(promptActionKey(config.title), result);
     actionResultTexts.push(result);
     context.updateRuntimeData(node.id, { preview: 'Character information resolved; replaying prompt ...' });
+    return true;
+  };
+
+  const runImageSearch = async (config: PromptActionConfig, plan: string, label: string) => {
+    const { directory, candidates, characterCount } = phoneImageSearchContext(context, plan);
+    const instructions = `${config.instructionTemplate}\nMaximum selection count: ${config.maxReturnedImages}`;
+    const prompt = characterSearchPrompt(instructions, plan, directory);
+    const diagnosticPrompt = characterSearchPrompt(instructions, plan,
+      `(${characterCount} characters; ${candidates.length} images; approximately ${context.textMetrics.measure(directory).tokens} tokens; directory omitted)`);
+    recordPromptPass({ label, images: [], sections: [{ label: 'Image search assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }] });
+    context.updateRuntimeData(node.id, { preview: 'Selecting character images ...' });
+    const response = await context.llm.complete({
+      connectionId: node.data.connectionId, nodeId: node.id, label,
+      stage: { kind: 'action', name: config.title }, prompt, diagnosticPrompt, images: [],
+      contributesToTokenCalibration, useConnectionSampling: true,
+    });
+    recordOutputPass({ label: `${label} output`, text: response.text });
+    const result = phoneImageSearchResult(config, candidates, response.text, visionEnabled);
+    if (!result) {
+      context.reportWarning(`${node.data.label}: Image search assistant returned an invalid selection.`);
+      return false;
+    }
+    actionResults.set(promptActionKey(config.title), result.text);
+    actionResultTexts.push(result.text);
+    actionImages.push(...result.images);
     return true;
   };
 
@@ -603,6 +642,7 @@ export async function runActionAwarePrompt({
         images: previewImagesForPass(stepImagePass),
         sections: [
           ...matchContextSections,
+          ...imageResultSections(stepBefore, stepAfter),
           ...(stepBefore
             ? [{
                 label: 'Step Prompt Before Input',
@@ -635,7 +675,7 @@ export async function runActionAwarePrompt({
         nodeId: node.id,
         label: `${callLabel(0)} / ${passLabel}`,
         stage: { kind: 'step', name: step.name, replay: stepReplayCount || undefined },
-        prompt: [matchContext, stepBefore, stepTextInput, stepAfter].filter(Boolean).join('\n\n'),
+        prompt: [matchContext, ...imageResultSections(stepBefore, stepAfter).map((section) => section.text), stepBefore, stepTextInput, stepAfter].filter(Boolean).join('\n\n'),
         images: stepImagePass.images,
         contributesToTokenCalibration,
         useConnectionSampling: true,
@@ -660,6 +700,10 @@ export async function runActionAwarePrompt({
       if (stepPassIndex === maxStepPasses) {
         context.reportWarning(`${node.data.label}: Step ${step.name} action replay limit reached.`);
         break;
+      }
+      if (actionConfig.actionId === 'getImageId') {
+        if (!await runImageSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} image search`)) break;
+        continue;
       }
       if (actionConfig.actionId === 'getCharacterList') {
         if (!await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} character information`)) break;
@@ -903,8 +947,9 @@ export async function runActionAwarePrompt({
         break;
       }
 
-      if (actionConfig.actionId === 'getCharacterList') {
-        const resolved = await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(actionReplayCount)} / Character information`);
+      if (actionConfig.actionId === 'getCharacterList' || actionConfig.actionId === 'getImageId') {
+        const search = actionConfig.actionId === 'getImageId' ? runImageSearch : runCharacterSearch;
+        const resolved = await search(actionConfig, actionRequest.plan, `${callLabel(actionReplayCount)} / ${actionConfig.title}`);
         generatedText = '';
         if (!resolved) break;
         if (passIndex === maxActionPasses) {

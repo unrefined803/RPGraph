@@ -292,6 +292,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-instruction-3:389:ed7ed76f',
   'get-images-instruction-4:605:9ce7d20e',
   'get-images-instruction-5:522:fa4e3343',
+  'get-images-instruction-6:1172:9e0fb75c',
   'create-image-result-1:243:e4845c8c',
   'create-image-result-2:240:be37f41b',
   'create-image-result-3:209:a11ab164',
@@ -306,6 +307,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-result-6:54:c3c52fe9',
   'get-images-result-7:766:fbd0ca9e',
   'get-images-result-8:1131:f210876a',
+  'get-images-result-9:1401:341cdf18',
 ];
 
 export function verifyWorkflowValidationFixtures() {
@@ -5239,6 +5241,7 @@ async function verifyPromptRunFixtures() {
   const sentImageId = 'sarah_miller_image_01';
   const sentImageDataUrl = 'data:image/jpeg;base64,a';
   const imageListContext = {
+    textMetrics: new TextMetricsApi(),
     nodes: [{
       id: 'fixture-storybook-images',
       type: 'workflow',
@@ -5348,7 +5351,7 @@ async function verifyPromptRunFixtures() {
   }> = [];
   const combinedCaptionOutputs = [
     '{"action":"get_image_id","plan":"Find Sarah Miller\'s party selfie before replying."}',
-    '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Sarah Miller","tags":"mirror, selfie, party, outfit, smiling, indoor, portrait, evening, phone, bedroom"}',
+    JSON.stringify({ imageIds: [sentImageId], answer: "Sarah’s requested party photo." }),
     '{"whatsUpApp":[{"from":"Espen Harper","to":"Helga Harper","message":"I found the picture."}]}',
     `{"action":"update_phone_image_caption","imageId":"${combinedCaptionImageId}","imageAction":"no_change"}`,
   ];
@@ -6050,6 +6053,7 @@ async function verifyPromptRunFixtures() {
     const streamedChunks: string[] = [];
     const promptsForCalls: string[] = [];
     const streamContext = {
+      textMetrics: new TextMetricsApi(),
       nodes: [],
       edges: [],
       historyMessages: [],
@@ -6108,7 +6112,7 @@ async function verifyPromptRunFixtures() {
   );
   const actionCallScenario = await runStreamingScenario([
     '{"action":"get_image_id","plan":"Find a stored Espen party selfie that shows her outfit."}',
-    '{"action":"get_image_id","phoneOwner":"Espen Harper","characters":"Espen Harper","tags":"selfie, mirror, party, outfit, bedroom, phone, smiling, evening, indoor, portrait"}',
+    '{"imageIds":[],"answer":"No matching images."}',
     'Espen scrolls to the party photo and smirks.',
   ]);
   assertFixture(
@@ -6119,7 +6123,7 @@ async function verifyPromptRunFixtures() {
   assertFixture(
     actionCallScenario.promptsForCalls.length === 3 &&
       actionCallScenario.promptsForCalls[0]?.includes('Before finding, showing, sending, or posting a character photo') &&
-      actionCallScenario.promptsForCalls[1]?.includes('Action follow-up: search stored character phone images') &&
+      actionCallScenario.promptsForCalls[1]?.includes('Select existing images for the self-contained request') &&
       actionCallScenario.promptsForCalls[1]?.includes('Find a stored Espen party selfie that shows her outfit.') &&
       !actionCallScenario.promptsForCalls[1]?.includes('Write the story.') &&
       actionCallScenario.promptsForCalls[2]?.includes('Action executed: get character phone image list.') &&

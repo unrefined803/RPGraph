@@ -1,6 +1,6 @@
 # Character information action
 
-`Ask character information` (`getCharacterList`, LLM request `ask_character_information`) uses a dedicated assistant for questions about known characters, accounts, relationships, and suitable people. It does not use criteria scoring or return JSON profiles. The phone image search action keeps its existing implementation.
+`Ask character information` (`getCharacterList`, LLM request `ask_character_information`) uses a dedicated assistant for questions about known characters, accounts, relationships, and suitable people. It does not use criteria scoring or return JSON profiles. The phone image action uses the related plan-driven assistant described below.
 
 Bundled normal and planning v34 workflows enable character discovery in output channel 0 for RP Prompt Normal, RP AutoTurn, RP Narrator, and RP Narrator AutoTurn. Planning workflows expose the answer to planning and main passes. Event, WhatsUp, Social Media, and Autoplay slots do not enable it.
 
@@ -29,4 +29,14 @@ The action editor labels are **Character Information Assistant Prompt** and **As
 
 The previous maximum-results setting is removed; the request determines the desired result count. Stored default ranking and assistant instructions (including the former 50–100-word information prompt) and result templates migrate to the new defaults, while custom templates remain editable. Legacy query-only calls are no longer executable.
 
-Validation: `src/nodes/shared/promptActions.characterList.test.ts` covers directory fields, post ownership, template migration, relationship context, prompt isolation, prose replay in planning and main output, no matches and empty responses. Existing phone-image action tests cover the unchanged image path.
+Validation: `src/nodes/shared/promptActions.characterList.test.ts` covers directory fields, post ownership, template migration, relationship context, prompt isolation, prose replay in planning and main output, no matches and empty responses. Phone-image tests also cover legacy direct-call compatibility.
+
+## Phone image assistant
+
+`Get character phone image list` (`getImageId`, request `get_image_id`) now takes a self-contained plan directly to an isolated image selection assistant in both planning and main passes. There is no intermediate phone-owner/tag parameter request or caption scoring in this path. The plan must name the target character or exact enabled social account ID, platform, desired content, purpose, audience and count, distinguishing any intermediary from the target.
+
+Only characters explicitly mentioned by name, character ID, or enabled account ID are included. Matching ignores case and respects identifier boundaries. Missing identities do not fall back to the active speaker. Their character/account directory and all gallery captions are supplied with recorded direct recipients, social publications (including account ownership), and MatchMe profile usage. Image blobs and raw conversation history are excluded. Diagnostics summarize the directory size rather than copying it.
+
+The assistant returns `{"imageIds":["existing-id"],"answer":"selection rationale"}`. IDs are validated against candidates, deduplicated and capped by the action's maximum image count. Invalid or empty assistant output reports a warning. The replay receives the explanation and existing image result fields (`imageReference`, `imageId`, `imageText`, `imageShownTo`); `{{answer}}` can position the explanation in custom result templates. Existing image attachment and caption visibility settings still apply. The assistant prompt supports `{{plan}}` and `{{characterDirectory}}`. Stored default owner/tag instructions migrate automatically; custom instructions remain editable. Legacy direct owner/tag calls remain supported for compatibility.
+
+Subsequent planning and main steps retain the full image selection result, including the assistant answer, even without repeating the consumed action marker. When a marker already inserts that result, no additional copy is added. Prompt diagnostics show the carried result as an Image selection result section.
