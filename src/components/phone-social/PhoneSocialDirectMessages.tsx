@@ -1,3 +1,4 @@
+import { AppMessageAvatar } from '../AppMessageAvatars';
 import { createPortal } from 'react-dom';
 import { AccountLinkInput } from '../AccountLinkInput';
 import { AccountLinkText } from '../AccountLinkText';
@@ -469,6 +470,9 @@ export function PhoneSocialDirectMessages({
         )}
         {origin?.commentText && (
           <div className={`phone-social-dm-message-row ${originOutgoing ? 'outgoing' : 'incoming'} origin-comment`}>
+            <AppMessageAvatar name={originOutgoing ? owner.name : participantIdentity(selectedParticipant).name}
+              character={originOutgoing ? owner : selectedParticipant.character}
+              hidePortrait={isAccountPrivacyMode(app, originOutgoing ? owner : selectedParticipant.character)} />
             <div className="phone-social-dm-bubble">
               <span>{origin.commentText}</span>
               <time>{originLabel}</time>
@@ -493,6 +497,9 @@ export function PhoneSocialDirectMessages({
               data-social-message-id={message.messageId}
               key={`${message.messageId}-${highlighted ? highlightedMessagePulseKey : 'idle'}`}
             >
+              <AppMessageAvatar name={outgoing ? owner.name : participantIdentity(selectedParticipant).name}
+                character={outgoing ? owner : selectedParticipant.character}
+                hidePortrait={isAccountPrivacyMode(app, outgoing ? owner : selectedParticipant.character)} />
               <div className="phone-social-dm-bubble">
                 <span><AccountLinkText text={message.displayText ?? message.text} bindings={message.accountLinks} /></span>
                 <div className="phone-social-dm-footer">

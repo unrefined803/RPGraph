@@ -1,3 +1,4 @@
+import { AppMessageAvatar } from './AppMessageAvatars';
 import { AccountLinkContext } from '../chat/accountLinkContext';
 import { AccountLinkText } from './AccountLinkText';
 import type { CharacterAppAccount } from '../characters/character';
@@ -1545,20 +1546,23 @@ export function PhonePanel({
                             </span>
                           )}
                         </div>
-                        {!inputLocked && message.replyToMessageId === undefined && (
-                          <button
-                            className="phone-reply-action"
-                            type="button"
-                            onClick={() => onReplyToMessage(message)}
-                            aria-label={`Reply to ${view.senderName}`}
-                            title="Reply to message"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <polyline points="9 17 4 12 9 7" />
-                              <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-                            </svg>
-                          </button>
-                        )}
+                        <div className="phone-message-side">
+                          {!inputLocked && message.replyToMessageId === undefined && (
+                            <button
+                              className="phone-reply-action"
+                              type="button"
+                              onClick={() => onReplyToMessage(message)}
+                              aria-label={`Reply to ${view.senderName}`}
+                              title="Reply to message"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <polyline points="9 17 4 12 9 7" />
+                                <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+                              </svg>
+                            </button>
+                          )}
+                          <AppMessageAvatar name={view.senderName} character={matchingPhoneName(appCharacters, view.senderName)} />
+                        </div>
                       </div>
                       </div>
                     </Fragment>

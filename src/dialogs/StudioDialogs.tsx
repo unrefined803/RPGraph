@@ -147,6 +147,8 @@ type StudioDialogsProps = {
   chatColorIntensity: number;
   chatMessageAvatarSize: number;
   onChatMessageAvatarSizeChange: (value: number) => void;
+  appMessageAvatarsEnabled: boolean;
+  onAppMessageAvatarsEnabledChange: (enabled: boolean) => void;
   chatMessageAvatarsEnabled: boolean;
   onChatMessageAvatarsEnabledChange: (enabled: boolean) => void;
   chatTextSize: number;
@@ -804,6 +806,8 @@ export function StudioDialogs({
   chatColorIntensity,
   chatMessageAvatarSize,
   onChatMessageAvatarSizeChange,
+  appMessageAvatarsEnabled,
+  onAppMessageAvatarsEnabledChange,
   chatMessageAvatarsEnabled,
   onChatMessageAvatarsEnabledChange,
   chatTextSize,
@@ -1903,6 +1907,11 @@ export function StudioDialogs({
                         />
                         <span>Character faces beside chat messages</span>
                       </label>
+                      <label className="option-toggle">
+                        <input type="checkbox" checked={appMessageAvatarsEnabled}
+                          onChange={(event) => onAppMessageAvatarsEnabledChange(event.target.checked)} />
+                        <span>Character faces beside app messages</span>
+                      </label>
                       <label className="option-avatar-size" htmlFor="chat-message-avatar-size">
                         <span>Face size</span>
                         <input
@@ -1912,7 +1921,7 @@ export function StudioDialogs({
                           max={130}
                           step={1}
                           value={chatMessageAvatarSize}
-                          disabled={!chatMessageAvatarsEnabled}
+                          disabled={!chatMessageAvatarsEnabled && !appMessageAvatarsEnabled}
                           onChange={(event) => onChatMessageAvatarSizeChange(Number(event.target.value))}
                           aria-valuetext={`${chatMessageAvatarSize}%`}
                         />

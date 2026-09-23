@@ -356,7 +356,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
             <button className="pt-primary pt-save-btn" disabled={busy} type="submit">{profile ? 'Save profile' : 'Create account & explore'} <span aria-hidden="true">→</span></button>
             {profile && <button type="button" className="pt-cancel-btn" disabled={busy} onClick={() => { setDraft(profile); setEditing(false); }}>Cancel</button>}
           </div>
-        </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id}
+        </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id} owner={owner} partner={characters.find((character) => character.id === selectedMatch.characterId)}
           name={datingFirstName(selectedMatch.name)} avatarDataUrl={selectedMatch.avatarDataUrl} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
           busy={busy || isRunning}
           draft={chatDrafts[selectedMatch.id] ?? ''}

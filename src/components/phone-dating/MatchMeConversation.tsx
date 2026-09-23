@@ -1,3 +1,5 @@
+import { AppMessageAvatar } from '../AppMessageAvatars';
+import type { StorybookCharacter } from '../../storybook/runtime';
 import { AccountLinkInput } from '../AccountLinkInput';
 import { AccountLinkText } from '../AccountLinkText';
 import { CharacterAvatar } from '../CharacterAvatar';
@@ -7,6 +9,8 @@ import type { RpDateTimeFormat, RpWeekdayLanguage } from '../../types';
 import { formatRpDateTimeParts } from '../../workflow';
 
 type Props = {
+  owner?: StorybookCharacter;
+  partner?: StorybookCharacter;
   name: string;
   avatarDataUrl?: string;
   busy: boolean;
@@ -24,7 +28,7 @@ type Props = {
   onBack: () => void;
 };
 
-export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage, onUseEmoji, onSend, onBack }: Props) {
+export function MatchMeConversation({ owner, partner, busy, name, avatarDataUrl, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage, onUseEmoji, onSend, onBack }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -83,6 +87,7 @@ export function MatchMeConversation({ busy, name, avatarDataUrl, age, messages, 
           ? formatRpDateTimeParts(message.rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
           : undefined;
         return <div key={message.id} className={`phone-social-dm-message-row ${message.sender === 'owner' ? 'outgoing' : 'incoming'}`}>
+          <AppMessageAvatar character={message.sender === 'owner' ? owner : partner} name={message.sender === 'owner' ? owner?.name ?? 'You' : name} />
           <div className="phone-social-dm-bubble"><span><AccountLinkText text={message.text} bindings={message.accountLinks} /></span>
             <time dateTime={message.rpDateTime ?? message.sentAt}>
               {message.demo ? 'Demo reply · ' : ''}

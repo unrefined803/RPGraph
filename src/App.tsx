@@ -1,3 +1,4 @@
+import { AppMessageAvatars } from './components/AppMessageAvatars';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
 import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
@@ -666,6 +667,8 @@ function App() {
     setChatColorIntensity,
     chatMessageAvatarSize,
     setChatMessageAvatarSize,
+    appMessageAvatarsEnabled,
+    setAppMessageAvatarsEnabled,
     chatMessageAvatarsEnabled,
     setChatMessageAvatarsEnabled,
     chatTextSize,
@@ -5762,6 +5765,7 @@ function App() {
               onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('auto')}
             />
           ) : chatPanelView === 'phone' ? (
+            <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
@@ -6019,6 +6023,7 @@ function App() {
               onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
+            </AppMessageAvatars>
           ) : (
             <EventsPanel
               key={panelSessionRevision}
@@ -6250,6 +6255,8 @@ function App() {
         onChatTextBrightnessChange={setChatTextBrightness}
         onChatColorIntensityChange={setChatColorIntensity}
         onChatMessageAvatarSizeChange={setChatMessageAvatarSize}
+        appMessageAvatarsEnabled={appMessageAvatarsEnabled}
+        onAppMessageAvatarsEnabledChange={setAppMessageAvatarsEnabled}
         onChatMessageAvatarsEnabledChange={setChatMessageAvatarsEnabled}
         onChatTextSizeChange={setChatTextSize}
         onPhoneChatTextSizeChange={setPhoneChatTextSize}

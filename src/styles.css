@@ -26782,3 +26782,44 @@ button.message-timeline-row.phone:focus-visible {
   min-width: 4ch;
   font-variant-numeric: tabular-nums;
 }
+
+.phone-message-side {
+  display: contents;
+}
+
+.app-message-avatars-enabled .phone-message-side {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-message-avatars-enabled .phone-message-content .phone-bubble {
+  min-width: 0;
+  max-width: calc(100% - 52px * var(--chat-message-avatar-scale, 1) - 16px);
+}
+
+.app-message-avatars-enabled .phone-social-dm-message-row {
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.app-message-avatars-enabled .phone-social-dm-message-row.incoming > .chat-message-avatar {
+  order: 1;
+}
+
+.app-message-avatars-enabled .phone-social-dm-bubble {
+  min-width: 0;
+  max-width: min(86%, calc(100% - 52px * var(--chat-message-avatar-scale, 1) - 16px), 520px);
+}
+
+.app-message-avatars-enabled .phone-message-content.incoming .phone-bubble,
+.app-message-avatars-enabled .phone-social-dm-message-row.incoming .phone-social-dm-bubble {
+  border-radius: 18px 18px 6px 18px;
+}
+
+.app-message-avatars-enabled .phone-message-content.outgoing .phone-bubble,
+.app-message-avatars-enabled .phone-social-dm-message-row.outgoing .phone-social-dm-bubble {
+  border-radius: 18px 18px 18px 6px;
+}

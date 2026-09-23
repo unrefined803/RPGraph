@@ -957,6 +957,7 @@ export type AppSettings = {
     chatTextBrightness?: number;
     chatColorIntensity?: number;
     chatMessageAvatarSize?: number;
+    appMessageAvatarsEnabled?: boolean;
     chatMessageAvatarsEnabled?: boolean;
     chatTextSize?: number;
     phoneChatTextSize?: number;
