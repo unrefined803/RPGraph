@@ -21,9 +21,11 @@ needs it. See the [global-agent release notes](https://github.com/gajus/global-a
 
 ## Remaining deprecations
 
-electron-builder 26.15.3 still brings in these dependencies:
+electron-builder 26.15.3 still brings in these dependencies. The stage 6
+investigation below reconfirmed them; no warning has been resolved yet:
 
 - `@electron/asar@3.4.1` uses `glob@7`, which uses `inflight`.
+- `@electron/universal@2.0.3` also requires ASAR 3.
 - The Squirrel Windows packaging dependency uses `electron-winstaller`, then
   `temp@0.9.4`, then `rimraf@2`, which also uses `glob@7` and `inflight`.
 
@@ -274,3 +276,79 @@ For Node Assistant users, also inspect the node-source context. The application,
 Electron, browser, and UI/E2E tests were not launched. AppImage build/test stays
 deferred. Remaining work is compatible upstream packaging updates for the three
 deprecations, and TypeScript 7 once typescript-eslint supports it.
+
+## Investigation, stage 6: packaging deprecations
+
+Checked on September 26, 2026. The working tree was clean at the start; earlier
+upgrade stages were already committed locally relative to `origin/main`.
+`npm explain inflight glob rimraf` and `npm ls` confirmed both dependency chains
+above, including the additional ASAR consumer `@electron/universal`.
+The only explicitly configured packaging target is Linux AppImage x64 in
+`config/electron-builder.yml` and `package:linux`. Windows scripts launch the
+application; they do not configure a Windows installer. Squirrel is nevertheless
+installed through app-builder-lib's peer dependency. No target was removed.
+
+Registry queries checked exact versions and dist-tags, not just `latest`:
+
+| Package | Installed (retained) | Stable release checked | Remaining obstacle |
+| --- | --- | --- | --- |
+| electron-builder / app-builder-lib | 26.15.3 | 26.17.0 | app-builder-lib still pins ASAR 3.4.1 and universal 2.0.3 |
+| @electron/asar | 3.4.1 | 4.3.1 | Outside all installed consumers' declared ranges; 3.4.1 is the last published 3.x version |
+| @electron/universal | 2.0.3 | 3.0.6 | Uses ASAR 4, but is outside app-builder-lib's exact pin |
+| electron-winstaller | 5.4.0 | 5.4.4 | Still requires ASAR ^3.2.1 and temp ^0.9.0 |
+| temp | 0.9.4 | 0.9.4 | Still requires rimraf ~2.6.2 |
+
+electron-builder's `latest` tag remains 26.15.3, while its `v26` tag and the
+official [release list](https://github.com/electron-userland/electron-builder/releases)
+identify stable 26.17.0. The `next` tag is 27.0.0-alpha.9 and was not considered
+an eligible upgrade. Updating to 26.17.0 alone cannot meet this stage's goal.
+
+### Compatibility and alternatives
+
+The installed ASAR crawler promisifies `glob.glob`; temp invokes rimraf as a
+function with a callback and also uses `rimraf.sync`, passing `maxBusyTries`.
+These are concrete reasons not to override glob/rimraf with modern major versions.
+electron-winstaller's `lib/temp-utils.js` calls `temp.track()` and promisifies
+`temp.mkdir`; replacing directory creation alone would lose automatic cleanup.
+
+[ASAR 4's migration notes](https://github.com/electron/asar/releases/tag/v4.0.0)
+describe ESM-only exports, removal of default exports, and Node >=22.12.
+Host Node 24 meets the engine requirement, but that does not establish consumer
+compatibility. app-builder-lib dynamically imports `createPackageFromStreams`
+and archive inspection APIs; electron-winstaller uses CommonJS to read archived
+package metadata. universal 2's ESM `asar-utils.js` imports ASAR's default export.
+A global ASAR override therefore needs consumer-specific validation and potentially
+additional changes, and would still leave temp/rimraf installed.
+
+- A postinstall source patch cannot remove installation warnings: npm has already
+  resolved and installed the deprecated dependencies before that patch runs.
+- A complete local fix would need reproducible replacement packages with changed
+  dependency manifests, plus compatible ASAR traversal and temporary-directory
+  cleanup implementations (or coordinated consumer upgrades). Maintaining those
+  forks includes licenses, security updates, symlink/glob behavior, Windows file
+  locking/retries, and exit cleanup. This is more than a small application patch.
+- Replacing electron-builder would require reproducing ASAR handling, AppImage
+  generation, resource inclusion, icons, desktop integration, and artifact naming.
+  Keeping the `.AppImage` extension would not itself prove equivalent behavior;
+  Windows installer support would need a separate decision and validation.
+
+Decision: retain the current dependencies and visible warnings. No supported
+stable update resolves both chains, and introducing maintained forks or a new
+packaging tool solely for clean install output is disproportionate here. This is
+an investigation outcome, not a completed deprecation fix. Revisit when stable
+consumer releases support modern ASAR and replace temp's rimraf dependency.
+
+Validation for this documentation-only stage: installed dependency inspection
+passed and a fresh `npm audit` reported zero vulnerabilities. No dependency,
+lockfile, override, install-script permission, or application code changed, so
+`npm ci`, build, lint, Knip, and unit tests were not repeated. Node 24.21.0,
+@types/node 24.19.0, TypeScript 6.0.3, and Electron 44.4.5 remain unchanged.
+AppImage building/testing remains explicitly deferred; obtain the user's approval
+before that step. No application, Electron process, browser, or UI test was run,
+and Windows packaging compatibility was not validated.
+
+When a packaging fix is available, validate a clean install without these notices,
+the complete dependency tree, audit, build, lint, Knip, and non-UI tests. Then,
+after approval to build the AppImage, have the user launch the new artifact and
+check workflow loading/saving, bundled characters and Storybooks, images/audio,
+provider streaming, file dialogs, and clean shutdown.
