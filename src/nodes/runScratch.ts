@@ -30,7 +30,7 @@ export type CreateComfyImageForCharacterRequest = {
   manageModelMemory?: boolean;
 };
 
-export type CreateComfyImageForCharacterResult = {
+type CreateComfyImageForCharacterResult = {
   phoneOwnerName: string;
   loraCharacterName?: string;
   imageIds: string[];

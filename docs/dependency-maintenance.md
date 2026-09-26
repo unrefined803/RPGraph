@@ -34,11 +34,9 @@ upstream updates or a separately validated packaging migration resolve them.
 
 ## Deferred migrations
 
-Knip is pinned to 6.24.0. Version 6.38.0 reports 41 unused exports and 16 unused
-exported types with the existing configuration; evaluate those findings in a
-separate cleanup before raising the pin.
+Knip is pinned to 6.38.0 after the individually reviewed cleanup in stage 5.
 
-The TOON major upgrade remains to be evaluated.
+TOON 4 compatibility is completed in stage 4 below.
 TypeScript 7 is deferred pending compatible typescript-eslint support; stage 2
 uses the supported TypeScript 6 line.
 Migrate these separately, checking release notes and the affected workflows.
@@ -195,3 +193,84 @@ zooming, then close the app and check that development processes terminate.
 No Electron process, browser, or UI/E2E test was started. AppImage build and
 validation are explicitly deferred at the user's request; any existing AppImage
 is from the previous Electron version. Next stages are TOON and Knip.
+
+
+## Major upgrade, stage 4: TOON
+
+Updated `@toon-format/toon` from 2.3.1 to stable 4.1.1. Reviewed the official
+[TOON 4 breaking changes](https://github.com/toon-format/toon/releases/tag/v4.0.0)
+and [subsequent fixes](https://github.com/toon-format/toon/releases).
+TOON 4 removes key folding and path expansion. Context and diagnostic exports
+now encode nested data directly, and their roundtrip tests use the default
+decoder. New exports may use keyed tables and nested field groups; token counts
+and prompt text can therefore differ. Existing saved workflows and structured
+Character Stats state require no migration. Old diagnostic exports are not an
+application import format; external consumers of folded TOON 2 exports still
+need a compatible decoder for those historical files.
+
+All direct encode/decode callers were reviewed: context formatting, diagnostics,
+speaker prompts/results, and Character Stats initialization/patching. Added
+regressions for nested context, literal dotted keys, comment-like strings,
+legacy speaker arrays and fences, empty dialogue, malformed row counts, and
+Character Stats init/patch/keep across persisted state, including keyed tables.
+The existing empty-dialogue compatibility handling remains in place.
+
+Regression testing also exposed a pre-existing speaker JSON fallback bug:
+both TOON 2.3.1 and 4.1.1 decode a JSON object as a literal TOON key rather than
+throwing. Object-shaped responses now try JSON first, preserving the intended
+fallback without relaxing TOON validation.
+
+Validation: clean `npm ci`, production build, lint, Knip 6.24.0, all non-UI tests,
+and `npm audit` (zero vulnerabilities) passed. Initial sandbox registry access
+failed; approved network-enabled installation succeeded. The three packaging
+deprecations remain. No application, browser, UI/E2E test, or AppImage was run.
+The user reported a successful application test during this stage and authorized
+continuing to Knip. That report preceded the final automated checks and should
+not be treated as a dedicated test of every new regression case.
+
+Manual follow-up: run speaker highlighting in TOON mode, initialize and update
+Character Stats, reload a saved workflow, and inspect/copy TOON in Debug Snapshot
+and Turn Trace. AppImage validation remains deferred.
+
+
+## Upgrade, stage 5: Knip and unused exports
+
+Updated the exact Knip pin from 6.24.0 to stable 6.38.0 after checking registry
+metadata and the official [release notes](https://github.com/webpro-nl/knip/releases).
+Its Node requirement (`^20.19.0 || >=22.12.0`) includes the unchanged Node 24
+baseline. Lockfile changes also update Knip's parser/resolver and related tooling
+dependencies; other direct dependencies remain unchanged in this stage.
+
+The initial report reproduced 41 unused value exports and 16 unused exported
+types. Each name was checked for references across application code, scripts,
+tests, Electron, and shared modules. Reviewed the registry and raw-source loader:
+`codeResolver.ts` loads source as text for the Node Assistant, not as executable
+exports. No dynamic API needed an exemption or removal.
+
+- Keep 34 value declarations and seven types as module-private implementation
+  details, including prompt templates, Storybook normalizers, layout constants,
+  rendering helpers, and custom-node request types. Their behavior is unchanged.
+- Remove seven unused value declarations: three obsolete Storybook wrappers,
+  the unused registry predicate, the speaker prompt wrapper, and both exports
+  of the unused WorkflowVariablePicker file. Remove that file and its now-unused
+  `workflowVariableToken` helper; other workflow-variable parsing remains.
+- Remove nine unused types, including the obsolete parallel generic node model.
+  The active `NodeCreationDefinition`, `WorkflowNodeData`, and placeholder types
+  remain. Update the node architecture reference accordingly.
+- Remove the now-redundant `src/electron.d.ts` Knip ignore entry after Knip's
+  configuration hint; retain the declaration file. Remove two obsolete ESLint
+  suppressions now that the affected TSX modules only export components.
+
+Validation after clean `npm ci`: production build, lint without warnings,
+Knip without findings or configuration hints, and all non-UI tests passed.
+`npm audit` reports zero vulnerabilities. Node 24, @types/node 24.19.0,
+TypeScript 6.0.3, Electron, and packaging tools remain unchanged. Existing
+inflight/glob/rimraf installation warnings persist; no warnings were hidden and
+no incompatible overrides or peer bypasses were added.
+
+Manual follow-up: open a saved workflow, check node cards and previews, open
+Storybook settings and prompt-action configuration, and run a familiar workflow.
+For Node Assistant users, also inspect the node-source context. The application,
+Electron, browser, and UI/E2E tests were not launched. AppImage build/test stays
+deferred. Remaining work is compatible upstream packaging updates for the three
+deprecations, and TypeScript 7 once typescript-eslint supports it.

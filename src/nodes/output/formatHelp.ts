@@ -7,7 +7,7 @@ export type OutputFormatHelpKind =
   | 'user-input'
   | 'rp-output';
 
-export const userInputOverview = `USER INPUT OUTPUTS
+const userInputOverview = `USER INPUT OUTPUTS
 
 Text
 The current user, Narrator, AutoTurn, event, phone, or app input as text. This is the normal content sent through the story workflow.
@@ -48,7 +48,7 @@ Info box example:
 
 Direct actions are still recorded as a normal turn, so their changes can be undone or regenerated. The User Input Direct Actions output must be connected to the RP Output Direct Actions input for app-triggered direct runs.`;
 
-export const rpOutputOverview = `RP OUTPUT INPUTS
+const rpOutputOverview = `RP OUTPUT INPUTS
 
 Normal RP
 Visible story prose and dialogue for the Chat tab. It can also contain embedded WhatsUp, Fotogram, or OnlyFriends messenger objects, bankTransfers, or one displayImageId when the generated story requires them.
@@ -82,7 +82,7 @@ ChatGPD chat commit example:
 
 Direct-only app actions remain full turns with normal validation, history, undo, and regeneration.`;
 
-export const rpOutputPrompt = `Normal RP is the main story output for the Chat tab.
+const rpOutputPrompt = `Normal RP is the main story output for the Chat tab.
 
 Use it for visible prose, dialogue, narration, and the normal RP response. This text becomes the chat bubble.
 
@@ -116,7 +116,7 @@ For a post published by a command in this same reply, add a unique postRef to th
 
 Output Actions UI commands such as buttons, info boxes, progress bars, context capacity bars, setTab, and setPlayer only work through the Output Actions input, not through Normal RP.`;
 
-export const phoneOutputPrompt = `Messenger Apps is the dedicated private-message channel.
+const phoneOutputPrompt = `Messenger Apps is the dedicated private-message channel.
 
 Use it when the graph generates private messages instead of a normal RP scene. Select exactly one app key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends.
 
@@ -152,7 +152,7 @@ For a post published by a command in this same reply, add a unique postRef to th
 
 Messenger Apps is not for prose narration. It should produce the message payload that appears in the selected messenger app.`;
 
-export const outputActionsPrompt = `Return Output Actions JSON only when the app should show extra UI or timeline actions.
+const outputActionsPrompt = `Return Output Actions JSON only when the app should show extra UI or timeline actions.
 
 Return either {"actions":[...]} or an empty string if no extra action is needed.
 
@@ -180,7 +180,7 @@ For contextCapacity, source.index selects the first, second, etc. Context Compre
 Always use valid JSON with double quotes.
 Do not wrap the JSON in markdown.`;
 
-export const socialMediaOutputPrompt = `Social Media is the channel for reactions inside the phone social apps (Fotogram, OnlyFriends).
+const socialMediaOutputPrompt = `Social Media is the channel for reactions inside the phone social apps (Fotogram, OnlyFriends).
 
 It is used by Message Format 2 runs. Post slots are Turn Mode 0 = Fotogram and 1 = OnlyFriends. Comment-thread slots are Turn Mode 2 = Fotogram and 3 = OnlyFriends. Direct-message slots are Turn Mode 4 = Fotogram and 5 = OnlyFriends.
 

@@ -64,7 +64,7 @@ Turn Trace's UI shows captured text. The export-preview tab shows the exact JSON
 or TOON copied by the clipboard action, including truncation and references. Its
 total token estimate measures that formatted string with the configured estimator.
 Per-turn estimates represent independent exports and need not add up to the range
-estimate. TOON roundtrips use `expandPaths: 'safe'` to match safe key folding.
+estimate. TOON 4 exports preserve nested objects without key folding or path expansion.
 
 ## Limits and manual verification
 

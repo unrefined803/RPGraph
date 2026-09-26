@@ -16,9 +16,6 @@
     "test/e2e/**/*.ts",
     "scripts/**/*.mjs"
   ],
-  "ignore": [
-    "src/electron.d.ts"
-  ],
   "vite": {
     "config": "config/vite.config.mts"
   },

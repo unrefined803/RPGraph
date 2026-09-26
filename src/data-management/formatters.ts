@@ -64,7 +64,7 @@ export function formatContextValue(value: unknown, encoding: ContextEncoding) {
   }
   if (encoding === 'toon') {
     try {
-      return encode(jsonDataModelValue(sanitizedValue), { keyFolding: 'safe' });
+      return encode(jsonDataModelValue(sanitizedValue));
     } catch {
       return compactJson(sanitizedValue);
     }

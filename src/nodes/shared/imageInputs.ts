@@ -7,7 +7,7 @@ export const promptBeforeInputHandle = 'prompt-before';
 export const promptAfterInputHandle = 'prompt-after';
 
 // Target handles that must never be mistaken for a node's main Text Input.
-export const nonTextInputHandles = new Set<string>([
+const nonTextInputHandles = new Set<string>([
   imageInputHandle,
   promptBeforeInputHandle,
   promptAfterInputHandle,

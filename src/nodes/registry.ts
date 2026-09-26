@@ -3,7 +3,6 @@ import { isNamespacedPluginTypeId } from './extensions/typeIdPolicy';
 import { isNodeVersion } from './nodeVersion';
 import type {
   CoreNodeCreationDefinition,
-  CoreNodeType,
   NodeCreationDefinition,
   NodeTypeId,
 } from './types';
@@ -23,7 +22,7 @@ export function registerNode(definition: NodeCreationDefinition) {
   nodeRegistry.set(definition.type, definition);
 }
 
-export function registerCoreNodes() {
+function registerCoreNodes() {
   if (coreNodeDefinitions.every((definition) => nodeRegistry.has(definition.type))) {
     return;
   }
@@ -40,10 +39,6 @@ export function getRegisteredCoreNode(type: string) {
 
 export function getRegisteredCoreNodes() {
   return coreNodeDefinitions.map((definition) => getRegisteredCoreNode(definition.type) ?? definition);
-}
-
-export function isRegisteredCoreNodeType(value: string): value is CoreNodeType {
-  return coreNodeDefinitions.some((definition) => definition.type === value);
 }
 
 registerCoreNodes();

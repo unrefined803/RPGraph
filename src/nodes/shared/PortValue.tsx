@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import type { WorkflowNodeData } from '../../types';
 import { TextMetricsApi } from '../../llm/tokenMetrics';
 import { useNodeView } from '../NodeViewContext';
@@ -30,7 +29,7 @@ function formatNumericText(value: string) {
   return Number.isInteger(numberValue) ? String(numberValue) : String(numberValue);
 }
 
-export function formatRuntimePortValue(value: string, valueType: string, bytesPerToken: number) {
+function formatRuntimePortValue(value: string, valueType: string, bytesPerToken: number) {
   if (valueType === 'image') {
     return imageText(value);
   }

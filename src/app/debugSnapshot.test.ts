@@ -120,7 +120,7 @@ describe('debug snapshot compaction', () => {
     expect(both.createdAt).toBe(source.createdAt);
     expect(both.promptSwitch?.inputValue).toEqual({ $ref: '#/lastRun/originalInput' });
     checkReferences(both);
-    expect(decode(formatContextValue(both, 'toon'), { expandPaths: 'safe' })).toEqual(JSON.parse(JSON.stringify(both)));
+    expect(decode(formatContextValue(both, 'toon'))).toEqual(JSON.parse(JSON.stringify(both)));
     const onlyPrompt = createDebugSnapshotCopy(source, [{ id: 'prompt', snapshotKey: 'promptSwitch' }], textMetrics, true);
     expect(onlyPrompt.lastRun).toBeUndefined();
     expect(onlyPrompt.promptSwitch?.inputValue).not.toHaveProperty('$ref');
@@ -184,7 +184,7 @@ describe('debug snapshot compaction', () => {
     expect(result).toHaveProperty('eventEntities.entries.entries.status', 'upcoming');
     expect(result).toHaveProperty('eventEntities.entries.omittedItems.status', 'upcoming');
     checkReferences(result);
-    expect(decode(formatContextValue(result, 'toon'), { expandPaths: 'safe' }))
+    expect(decode(formatContextValue(result, 'toon')))
       .toEqual(JSON.parse(JSON.stringify(result)));
     expect(Object.keys(eventEntities)).toHaveLength(110);
   });

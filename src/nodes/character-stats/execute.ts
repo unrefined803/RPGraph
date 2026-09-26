@@ -18,11 +18,6 @@ import {
 } from '../../workflow';
 import { storyCharacterRefsFromNodes } from '../../storybook/runtime';
 
-export type CharacterStatsExecutionResult = {
-  stateText: string;
-  contextText: string;
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }

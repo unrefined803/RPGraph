@@ -71,11 +71,11 @@ type ActionImageResult = {
 };
 
 export const promptActionIds: PromptActionId[] = ['getCharacterList', 'getImageId', 'updatePhoneImageCaption', 'describeInputImage', 'createImage'];
-export const getCharacterListActionTitle = 'Ask character information';
+const getCharacterListActionTitle = 'Ask character information';
 export const defaultPromptActionTitle = 'Get character phone image list';
-export const updatePhoneImageCaptionActionTitle = 'Update phone image caption';
-export const describeInputImageActionTitle = 'Describe input image';
-export const createImageActionTitle = 'Create character phone image';
+const updatePhoneImageCaptionActionTitle = 'Update phone image caption';
+const describeInputImageActionTitle = 'Describe input image';
+const createImageActionTitle = 'Create character phone image';
 
 export function promptActionTitle(actionId: PromptActionId) {
   switch (actionId) {
@@ -92,7 +92,7 @@ export function promptActionTitle(actionId: PromptActionId) {
   }
 }
 
-export const afterReplyPromptActionSuffix = ' (After Reply Action)';
+const afterReplyPromptActionSuffix = ' (After Reply Action)';
 
 export function promptActionPromptTitle(actionId: PromptActionId) {
   const title = promptActionTitle(actionId);
@@ -200,7 +200,7 @@ export const getImagesLlmInstruction = [
   'Request:', '{{plan}}', 'Character and image directory:', '{{characterDirectory}}',
 ].join('\n');
 
-export const updatePhoneImageCaptionInstruction = [
+const updatePhoneImageCaptionInstruction = [
   'Available action: update phone image caption',
   '',
   'Use this action once, before the final visible phone reply, when the latest phone input includes an attached incoming image.',
@@ -227,7 +227,7 @@ export const updatePhoneImageCaptionInstruction = [
   'After this action is accepted, do not write this caption action again in the final reply. Continue with the normal phone message or the next available action.',
 ].join('\n');
 
-export const describeInputImageInstruction = [
+const describeInputImageInstruction = [
   'Available action: describe input image',
   '',
   'The latest input includes an attached image. Call this action once, before writing the final visible RP story.',
@@ -247,7 +247,7 @@ export const describeInputImageInstruction = [
   'After this action is accepted, do not write it again. Continue with the normal RP story and react to the attached image content in the visible prose.',
 ].join('\n');
 
-export const describeInputImageAfterReplyInstruction = [
+const describeInputImageAfterReplyInstruction = [
   'Internal caption task: describe input image',
   '',
   'The chat context above is the story so far, ending with the latest input that includes an attached image. The visible RP reply has already been written and sent:',
@@ -327,7 +327,7 @@ const updatePhoneImageCaptionAfterReplyExample = [
   'Use the create or update shapes only when the strict rules below require them.',
 ].join('\n');
 
-export const updatePhoneImageCaptionAfterReplyInstruction = [
+const updatePhoneImageCaptionAfterReplyInstruction = [
   'Internal caption task: update phone image caption',
   '',
   'The phone context above ends with the latest phone input that includes an attached incoming image. The visible phone reply has already been written and sent:',
@@ -433,7 +433,7 @@ const previousPhoneOwnerSubjectCreateImageInstruction = [
 const finishedImageViewRule =
   '- Write the prompt from the finished image\'s point of view. Describe only what the camera captures. Do not narrate who takes the photo, how they approach, why the photo is discreet, or what happens outside the frame. The photographer is invisible unless their body or reflection must actually appear in the final image.';
 
-export const createImageInstruction = [
+const createImageInstruction = [
   'Action follow-up: generate a character phone image',
   '',
   'The first pass requested this action with the following plan:',
@@ -685,11 +685,11 @@ const previousOwnerImagesResultTemplate = [
   'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
 ].join('\n');
 
-export const defaultGetImagesResultTemplate = previousOwnerImagesResultTemplate
+const defaultGetImagesResultTemplate = previousOwnerImagesResultTemplate
   .replace('Found images for tags: {{tags}}', 'Selected existing images:')
   + '\nWhen the request explicitly asks to retrieve an existing published image, return a suitable recorded image even if it was published before. Do not generate a replacement or treat it as a new/private discovery. Publication alone does not prove that a particular recipient saw it.';
 
-export const defaultUpdatePhoneImageCaptionResultTemplate = [
+const defaultUpdatePhoneImageCaptionResultTemplate = [
   'Incoming image caption action recorded:',
   '',
   '{{imageActionJson}}',
@@ -697,7 +697,7 @@ export const defaultUpdatePhoneImageCaptionResultTemplate = [
   'Do not repeat this caption action in the final reply.',
 ].join('\n');
 
-export const defaultDescribeInputImageResultTemplate = [
+const defaultDescribeInputImageResultTemplate = [
   'Attached input image caption recorded:',
   '',
   '{{caption}}',
@@ -881,7 +881,7 @@ export function defaultPromptActionRunAfterReply(actionId: PromptActionId) {
   return actionId === 'describeInputImage' || actionId === 'updatePhoneImageCaption';
 }
 
-export function defaultPromptActionInstructionTemplate(actionId: PromptActionId) {
+function defaultPromptActionInstructionTemplate(actionId: PromptActionId) {
   switch (actionId) {
     case 'getCharacterList':
       return characterSearchInstruction;
@@ -911,7 +911,7 @@ function defaultResultTemplate(actionId: PromptActionId) {
   }
 }
 
-export function defaultPromptActionAfterReplyTemplate(actionId: PromptActionId) {
+function defaultPromptActionAfterReplyTemplate(actionId: PromptActionId) {
   switch (actionId) {
     case 'updatePhoneImageCaption':
       return updatePhoneImageCaptionAfterReplyInstruction;

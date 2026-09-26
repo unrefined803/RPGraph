@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { Edge, Node, NodeProps, XYPosition } from '@xyflow/react';
+import type { Edge, NodeProps, XYPosition } from '@xyflow/react';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import type { TextMetricsApi } from '../llm/tokenMetrics';
 import type {
@@ -7,8 +7,6 @@ import type {
   ChatImageAttachment,
   MessageRecord,
   TurnRecord,
-  LlmCallStage,
-  NodeLlmCallStats,
   RpDateTimeFormat,
   RpWeekdayLanguage,
   SettingsValueDefinition,
@@ -29,35 +27,7 @@ export type { CoreNodeType } from './coreNodeTypes';
 
 export type NodeTypeId = string;
 
-export type SharedNodeData<TType extends NodeTypeId = NodeTypeId> = {
-  nodeType: TType;
-  label: string;
-  description: string;
-  preview: string;
-  runActive?: boolean;
-  runActiveStartedAtMs?: number;
-  runVisionActive?: boolean;
-  runReasoningActive?: boolean;
-  llmActiveCallLabel?: string;
-  llmActiveCallStage?: LlmCallStage;
-  llmActiveCallStartedAtMs?: number;
-  runCompleted?: boolean;
-  runPrepared?: boolean;
-  runError?: string;
-  displayTokenBytesPerToken?: number;
-  llmCallStats?: NodeLlmCallStats[];
-};
-
 export type PortDefinition = PortSnapshot;
-
-export type StoredNodeData<TType extends NodeTypeId, TConfig extends object> = {
-  nodeType: TType;
-  nodeDataVersion: NodeVersion;
-  portsSnapshot?: PortDefinition[];
-  label: string;
-  description: string;
-  preview: string;
-} & TConfig;
 
 export type CreateNodeContext = {
   defaultConnectionId: string;
@@ -141,47 +111,6 @@ export type ExecuteContext<TLlm = NodeLlmApi, TTextMetrics = TextMetricsApi> = {
   blockPostOutput: (message: string) => never;
 };
 
-export type NodeCardProps<TData extends SharedNodeData = SharedNodeData> = {
-  id: string;
-  data: TData;
-  selected?: boolean;
-};
-
-export type NodeDefinition<
-  TType extends NodeTypeId,
-  TConfig extends object,
-  TData extends SharedNodeData<TType> & TConfig,
-> = {
-  type: TType;
-  dataVersion: NodeVersion;
-  label: string;
-  description: string;
-  origin: 'core' | 'plugin';
-  singleton?: boolean;
-  usesLlm?: boolean;
-  contributesToTokenCalibration?: boolean;
-  requiresPostOutputPermission?: boolean;
-  passiveRuntime?: boolean;
-  requiresPreparedInputEdge?: boolean;
-  hydrateStyle?: (node: Node<TData>) => Node<TData>['style'];
-  ports: (data: TData) => PortDefinition[];
-  create: (context: CreateNodeContext) => Node<TData>;
-  Component: ComponentType<NodeCardProps<TData>>;
-  execute: (node: Node<TData>, context: ExecuteContext) => Promise<string>;
-  saveData: (data: TData) => StoredNodeData<TType, TConfig>;
-  hydrateData: (data: StoredNodeData<TType, TConfig>, context: HydrateContext) => TData;
-  migrateStoredData?: (data: Record<string, unknown>) => Record<string, unknown>;
-  validateStoredData: (
-    data: Record<string, unknown>,
-  ) => data is StoredNodeData<TType, TConfig>;
-};
-
-export type AnyNodeDefinition = NodeDefinition<
-  string,
-  Record<string, unknown>,
-  SharedNodeData<string> & Record<string, unknown>
->;
-
 export type NodeCreationDefinition = {
   type: NodeTypeId;
   dataVersion: NodeVersion;
@@ -207,19 +136,6 @@ export type NodeCreationDefinition = {
 export type CoreNodeCreationDefinition = NodeCreationDefinition & {
   type: CoreNodeType;
   origin: 'core';
-};
-
-export type MissingNodeData = SharedNodeData & {
-  kind: 'missing-plugin-node';
-  storedData: Record<string, unknown>;
-  portsSnapshot: PortDefinition[];
-};
-
-export type IncompatibleCoreNodeData = SharedNodeData<CoreNodeType> & {
-  kind: 'incompatible-core-node';
-  nodeDataVersion: NodeVersion;
-  currentNodeVersion: NodeVersion;
-  storedData: Record<string, unknown>;
 };
 
 export type NodeActions = {

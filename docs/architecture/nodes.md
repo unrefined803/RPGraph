@@ -40,7 +40,7 @@ Core definitions are object literals in `coreNodeCreationDefinitions` (`src/node
   - `origin: 'plugin'` without a namespaced `owner/name` type id.
   - Duplicate `type` id.
 - `registerCoreNodes()` is idempotent; registers `coreNodeDefinitions` at module load.
-- Lookups: `getRegisteredNode`, `getRegisteredCoreNode`, `getRegisteredCoreNodes`, `isRegisteredCoreNodeType`.
+- Lookups: `getRegisteredNode`, `getRegisteredCoreNode`, `getRegisteredCoreNodes`.
 
 ## Instance
 
@@ -77,7 +77,8 @@ Full union:
 WorkflowNodeData = ConcreteCoreWorkflowNodeData | MissingNodeWorkflowData | IncompatibleCoreNodeWorkflowData
 ```
 
-Parallel typing: `src/nodes/types.ts` defines generic `SharedNodeData<TType>`, `StoredNodeData<TType, TConfig>`, `NodeDefinition<TType, TConfig, TData>`. The runtime React Flow store holds the flat `WorkflowNodeData` (`src/types.ts`), not the generic form.
+`NodeCreationDefinition` uses the runtime `WorkflowNodeData` (`src/types.ts`)
+for creation, rendering, execution, and persistence.
 
 ## Ports
 

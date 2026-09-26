@@ -108,7 +108,7 @@ import type { CoreNodeCreationDefinition, PortDefinition } from './types';
 import { corePersistence } from './corePersistence';
 import { currentCoreNodeVersions } from './nodeVersion';
 
-export const coreNodeLayout = {
+const coreNodeLayout = {
   standardWidth: 365,
   rpStorybookWidth: 365,
   contextCompressionWidth: 365,

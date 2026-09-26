@@ -1,13 +1,13 @@
 import type { PortSnapshot } from '../../types';
 
-export type CustomNodeLayout = {
+type CustomNodeLayout = {
   x: number;
   y: number;
   w: number;
   h: number;
 };
 
-export type CustomNodeElementType =
+type CustomNodeElementType =
   | 'button'
   | 'checkbox'
   | 'slider'
@@ -71,7 +71,7 @@ type CustomNodeDefinitionPatch = {
   codePrepend?: string;
 };
 
-export const defaultCustomNodeInfoText =
+const defaultCustomNodeInfoText =
   'Custom Node can be shaped by the Node Assistant. Select an LLM provider, describe the node you want, run checks, then apply the generated definition. It can later define controls, display boxes, connector ports, small state, JavaScript logic, and controlled LLM calls.';
 
 export function defaultCustomNodeDefinition(): CustomNodeDefinition {

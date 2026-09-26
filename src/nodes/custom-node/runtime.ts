@@ -8,7 +8,7 @@ export type CustomNodeRunResult = {
   state: Record<string, unknown>;
 };
 
-export type CustomNodeLlmRequest =
+type CustomNodeLlmRequest =
   | string
   | {
       prompt: string;

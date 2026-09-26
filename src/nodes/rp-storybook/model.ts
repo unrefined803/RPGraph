@@ -5,7 +5,6 @@ import { validateCharacterAgency } from '../../../shared/agency-tags.cjs';
 import { relationshipText, relationshipAuthoringInstructions } from '../../characters/relationships';
 import { portraitDataUrl } from '../../characters/portrait';
 import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../../characters/npcParticipants';
-import { withCharacterAppProfile } from '../../characters/profiles';
 import { normalizeCharacterApps, socialFromCharacterApps, characterPayload, type Character } from '../../characters/character';
 import { normalizeDatingProfile, type DatingProfile } from '../../chat/datingProfile';
 import type { MessageRecord, RpAppointment, TurnRecord } from '../../types';
@@ -41,10 +40,6 @@ export type RpStorybookCharacterImage = {
   imageAccess?: true;
 };
 
-export type RpStorybookCharacterImageOwner = {
-  images: RpStorybookCharacterImage[];
-};
-
 export type RpStorybookCharacterProfileImage = {
   imageId: string;
   dataUrl: string;
@@ -71,7 +66,7 @@ export type RpStorybookCharacterPhoneSettings = {
   wallpaperId: string;
 };
 
-export type RpStorybookBankingFixedExpense = {
+type RpStorybookBankingFixedExpense = {
   label: string;
   amount: number;
 };
@@ -91,7 +86,7 @@ export type RpStorybookCharacterSocial = {
 
 export type RpStorybookCharacter = Character;
 
-export type RpStorybookPhoneContactBlock = {
+type RpStorybookPhoneContactBlock = {
   owner: string;
   contact: string;
 };
@@ -256,7 +251,7 @@ export function rpStorybookImageDescriptionPromptSettings(
     : defaultRpStorybookImageDescriptionPromptSettings();
 }
 
-export function rpStorybookImageDescriptionPromptSaveSettings(
+function rpStorybookImageDescriptionPromptSaveSettings(
   value: unknown,
 ): RpStorybookImageDescriptionPromptSettings {
   const settings = rpStorybookImageDescriptionPromptSettings(value);
@@ -333,7 +328,7 @@ export function storybookCharacterImageOwnerIdBase(name: string, sourceId: strin
     .join('_');
 }
 
-export function formatStorybookCharacterImageId(ownerBase: string, number: number) {
+function formatStorybookCharacterImageId(ownerBase: string, number: number) {
   return `${ownerBase || 'character'}_image_${String(Math.max(1, number)).padStart(2, '0')}`;
 }
 
@@ -485,7 +480,7 @@ export function defaultRpStorybookCharacterComfyConfig(): RpStorybookCharacterCo
   };
 }
 
-export function rpStorybookCharacterComfyConfig(value: unknown): RpStorybookCharacterComfyConfig {
+function rpStorybookCharacterComfyConfig(value: unknown): RpStorybookCharacterComfyConfig {
   const config = recordValue(value);
   return {
     loraName: stringValue(config.loraName),
@@ -506,7 +501,7 @@ export function defaultRpStorybookCharacterPhoneSettings(): RpStorybookCharacter
   return { wallpaperId: 'wallpaper-1' };
 }
 
-export const defaultRpStorybookCharacterStartBalance = 1000;
+const defaultRpStorybookCharacterStartBalance = 1000;
 
 export function defaultRpStorybookCharacterBanking(): RpStorybookCharacterBanking {
   return { startBalance: defaultRpStorybookCharacterStartBalance, fixedExpenses: [] };
@@ -548,7 +543,7 @@ export function rpStorybookCharacterSocial(value: unknown): RpStorybookCharacter
   };
 }
 
-export function rpStorybookCharacterPhoneSettings(
+function rpStorybookCharacterPhoneSettings(
   value: unknown,
 ): RpStorybookCharacterPhoneSettings {
   const settings = recordValue(value);
@@ -557,7 +552,7 @@ export function rpStorybookCharacterPhoneSettings(
   };
 }
 
-export function rpStorybookCharacterVoiceConfig(value: unknown): RpStorybookCharacterVoiceConfig {
+function rpStorybookCharacterVoiceConfig(value: unknown): RpStorybookCharacterVoiceConfig {
   const config = recordValue(value);
   const sampleDataUrl = stringValue(config.sampleDataUrl);
   if (!sampleDataUrl.startsWith('data:audio/')) {
@@ -1352,15 +1347,7 @@ export function rpStorybookFormattedText(
   ].filter((line, index, lines) => line || lines[index - 1]).join('\n').trim();
 }
 
-export function rpStorybookPhoneContactCharacters(storybook: RpStorybook) {
-  return storybook.characters.map((character, index) => ({
-    ref: character.id || `character-${index + 1}`,
-    name: character.name || character.id || `Character ${index + 1}`,
-    kind: 'character' as const,
-  }));
-}
-
-export function rpStorybookPhoneContactBlocked(
+function rpStorybookPhoneContactBlocked(
   storybook: RpStorybook,
   ownerRef: string,
   contactRef: string,
@@ -1407,14 +1394,6 @@ export function withRpStorybookPhoneContactPairBlocked(
   };
 }
 
-export function withRpStorybookPhoneContactPairAllowed(
-  storybook: RpStorybook,
-  leftRef: string,
-  rightRef: string,
-): RpStorybook {
-  return withRpStorybookPhoneContactPairBlocked(storybook, leftRef, rightRef, false);
-}
-
 export function withRpStorybookCharacterPhoneWallpaper(
   storybook: RpStorybook,
   characterId: string,
@@ -1429,23 +1408,6 @@ export function withRpStorybookCharacterPhoneWallpaper(
         : character,
     ),
   };
-}
-
-export function withRpStorybookCharacterSocialUsername(
-  storybook: RpStorybook,
-  characterId: string,
-  app: 'fotogram' | 'onlyfriends',
-  username: string,
-): RpStorybook {
-
-  return { ...storybook, characters: storybook.characters.map((character) => character.id === characterId
-    ? withCharacterAppProfile(character, app, {
-        accountId: character.apps?.[app]?.accountId ?? `character:${character.id}:${app}`,
-        bio: '', ...character.apps?.[app],
-        profileName: username.trim(), enabled: !!username.trim(),
-      })
-    : character) };
-
 }
 
 /**

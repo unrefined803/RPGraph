@@ -463,7 +463,7 @@ const promptCommandListPattern = /\[\s*commands?\s*:\s*([^\]\n\r]+)\]/gi;
 // The optional leading blank keeps mid-sentence text seamless after stripping.
 const inlinePromptCommandPattern = /[ \t]?\[\s*([A-Za-z][A-Za-z0-9_]*)\s*(?::\s*([^\][]*?))?\s*\]/g;
 
-export type PromptCommandRequestEntry = {
+type PromptCommandRequestEntry = {
   name: string;
   plan: string;
 };

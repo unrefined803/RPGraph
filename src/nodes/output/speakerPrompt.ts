@@ -97,13 +97,6 @@ export function outputSpeakerFormatInstructions(
   ].join('\n');
 }
 
-export function buildOutputSpeakerPrompt(
-  settings: OutputSpeakerPromptSettings | undefined,
-  variables: Record<string, string>,
-) {
-  return buildOutputSpeakerPromptPreview(settings, variables).prompt;
-}
-
 export function buildOutputSpeakerPromptPreview(
   settings: OutputSpeakerPromptSettings | undefined,
   variables: Record<string, string>,
@@ -159,7 +152,9 @@ function parseJsonObject(text: string) {
 }
 
 export function parseOutputSpeakerResponse(text: string, preferredFormat: OutputSpeakerResponseFormat) {
-  const parsers = preferredFormat === 'json'
+  // TOON can interpret a JSON object's first colon as a literal key separator.
+  // Try JSON first for object-shaped responses so the fallback retains meaning.
+  const parsers = preferredFormat === 'json' || stripStructuredResponse(text).startsWith('{')
     ? [parseJsonObject, parseToonObject]
     : [parseToonObject, parseJsonObject];
   let lastError: unknown;

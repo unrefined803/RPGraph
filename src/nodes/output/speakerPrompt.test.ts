@@ -1,6 +1,22 @@
 import { expect, it } from 'vitest';
 import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../../llm/fastTaskPrompt';
-import { buildOutputSpeakerPromptPreview } from './speakerPrompt';
+import { buildOutputSpeakerPromptPreview, parseOutputSpeakerResponse, speakerDataForFormat } from './speakerPrompt';
+
+it.each([
+  ['dialogue[1]{quoteId,speakerId}:\n  1,2', { dialogue: [{ quoteId: 1, speakerId: 2 }] }],
+  ['```toon\nspeakers[2]: 1,2\n```', { speakers: [1, 2] }],
+  ['dialogue[0]{quoteId,speakerId}:', { dialogue: [] }],
+  ['dialogue[]{quoteId,speakerId}', { dialogue: [] }],
+  ['{"speakers":[2]}', { speakers: [2] }],
+])('keeps existing speaker responses compatible: %s', (text, expected) => {
+  expect(parseOutputSpeakerResponse(text, 'toon')).toEqual(expected);
+});
+
+it('roundtrips generated speaker examples and rejects truncated rows', () => {
+  const value = { dialogue: [{ quoteId: 1, speakerId: 2 }] };
+  expect(parseOutputSpeakerResponse(speakerDataForFormat('toon', value), 'toon')).toEqual(value);
+  expect(() => parseOutputSpeakerResponse('dialogue[2]{quoteId,speakerId}:\n  1,2', 'toon')).toThrow();
+});
 
 it('records the actual custom prompt without unused input data', () => {
   const preview = buildOutputSpeakerPromptPreview(

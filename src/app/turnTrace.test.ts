@@ -218,7 +218,7 @@ describe('turn trace exports and retention', () => {
       expect(JSON.stringify(payload)).toContain('actionInserted');
       expect(JSON.stringify(payload)).toContain('outputChannelValue');
       expect(JSON.stringify(payload)).toContain('omittedCharacters');
-      expect(decode(formatContextValue(payload, 'toon'), { expandPaths: 'safe' })).toEqual(JSON.parse(JSON.stringify(payload)));
+      expect(decode(formatContextValue(payload, 'toon'))).toEqual(JSON.parse(JSON.stringify(payload)));
     }
     expect(metrics.measure(JSON.stringify(together, null, 2)).tokens)
       .toBeLessThan(metrics.measure(JSON.stringify({ traces: [trace, later] }, null, 2)).tokens / 2);

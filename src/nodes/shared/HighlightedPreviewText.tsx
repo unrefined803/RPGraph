@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import type { ReactNode } from 'react';
 import type { FormattedChatHistorySegment } from '../../workflow';
 import { coloredDialogueParts, dialogueColors } from '../../chat/textRendering';
@@ -23,7 +22,7 @@ function previewTokenClass(match: string, stringMatch?: string, keySuffix?: stri
   return 'json-token-punctuation';
 }
 
-export function highlightedPreviewText(text: string) {
+function highlightedPreviewText(text: string) {
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   text.replace(previewJsonTokenPattern, (match, stringMatch: string | undefined, keySuffix: string | undefined, offset: number) => {

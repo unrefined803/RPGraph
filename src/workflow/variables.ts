@@ -43,10 +43,6 @@ export function defaultWorkflowVariableValue(key: string) {
   return '';
 }
 
-export function workflowVariableToken(label: string) {
-  return `${workflowVariableOpen}${label.trim()}${workflowVariableClose}`;
-}
-
 function isStrictNumberText(value: string) {
   return /^-?(?:\d+|\d*\.\d+)$/.test(value.trim());
 }
