@@ -20,10 +20,10 @@
     "src/electron.d.ts"
   ],
   "vite": {
-    "config": "config/vite.config.ts"
+    "config": "config/vite.config.mts"
   },
   "vitest": {
-    "config": "config/vitest.config.ts"
+    "config": "config/vitest.config.mts"
   },
   "playwright": {
     "config": "config/playwright.config.ts"
