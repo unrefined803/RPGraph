@@ -20602,9 +20602,43 @@ button.message-timeline-row.phone:focus-visible {
 
 .provider-presets .provider-model-switch {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
+  width: 18px;
+  height: 18px;
   color: #7eb9c5;
-  cursor: help;
+  cursor: default;
+}
+
+.provider-model-switch:focus-visible {
+  outline: 1px solid #7eb9c5;
+  border-radius: 3px;
+}
+
+.provider-model-switch-tooltip {
+  position: fixed;
+  z-index: 100060;
+  box-sizing: border-box;
+  width: min(300px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border: 1px solid #36445c;
+  border-radius: 9px;
+  background: #151e2d;
+  color: #c5d1e5;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.provider-model-switch-tooltip strong {
+  color: #e4edfb;
+  font-size: 12px;
+}
+
+.provider-model-switch-tooltip p {
+  margin: 7px 0 0;
 }
 
 .provider-presets strong {

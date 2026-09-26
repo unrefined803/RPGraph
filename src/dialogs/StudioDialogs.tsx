@@ -1,3 +1,5 @@
+import { ProviderBaseUrlInput } from '../components/ProviderBaseUrlInput';
+import { ProviderModelSwitchIndicator } from '../components/ProviderModelSwitchIndicator';
 import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../llm/fastTaskPrompt';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { useSliderPreview } from './useSliderPreview';
@@ -3409,10 +3411,11 @@ export function StudioDialogs({
                     <label htmlFor="base-url">BASE URL</label>
                     {isComfyConnection ? (
                       <div className="comfy-workflow-row">
-                        <input
-                          id="base-url"
+                        <ProviderBaseUrlInput
+                          key={editingConnection.id + ':' + editingConnection.kind}
                           value={editingConnection.baseUrl}
-                          onChange={(event) => onEditConnection('baseUrl', event.target.value)}
+                          onChange={(value) => onEditConnection('baseUrl', value)}
+                          onCheck={onConnectComfyProvider}
                         />
                         <button
                           type="button"
@@ -3424,10 +3427,11 @@ export function StudioDialogs({
                         </button>
                       </div>
                     ) : (
-                      <input
-                        id="base-url"
+                      <ProviderBaseUrlInput
+                        key={editingConnection.id + ':' + editingProviderKind}
                         value={editingConnection.baseUrl}
-                        onChange={(event) => onEditConnection('baseUrl', event.target.value)}
+                        onChange={(value) => onEditConnection('baseUrl', value)}
+                        onCheck={onCheckConnectionModels}
                       />
                     )}
                   </div>
@@ -4300,16 +4304,7 @@ export function StudioDialogs({
                         <strong className="provider-preset-heading">
                           {provider.label}
                           {(provider.kind === 'comfyui' || ['lm-studio', 'ollama', 'llama-cpp'].includes(provider.providerKind ?? '')) && (
-                            <span
-                              className="provider-model-switch"
-                              data-tooltip="Automatic model loading / unloading: RPGraph frees local LLM memory for ComfyUI image and voice generation, and frees ComfyUI memory when switching back to a supported local LLM. Supported providers: LM Studio, Ollama, and llama.cpp (router mode)."
-                              aria-label="Supports automatic model loading and unloading with ComfyUI"
-                              tabIndex={0}
-                            >
-                              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                <path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4" />
-                              </svg>
-                            </span>
+                            <ProviderModelSwitchIndicator />
                           )}
                         </strong>
                         <span>{provider.description}</span>
