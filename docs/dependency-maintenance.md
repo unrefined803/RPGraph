@@ -38,8 +38,10 @@ Knip is pinned to 6.24.0. Version 6.38.0 reports 41 unused exports and 16 unused
 exported types with the existing configuration; evaluate those findings in a
 separate cleanup before raising the pin.
 
-New major versions remain to be evaluated for Electron, TypeScript, TOON,
+New major versions remain to be evaluated for Electron, TOON,
 concurrently, and wait-on.
+TypeScript 7 is deferred pending compatible typescript-eslint support; stage 2
+uses the supported TypeScript 6 line.
 Migrate these separately, checking release notes and the affected workflows.
 Keep Node type definitions aligned with the project's Node 24 baseline.
 
@@ -104,3 +106,38 @@ with another AppImage check; TOON compatibility; then the individual Knip
 findings. Recheck electron-builder upstream updates with the Electron stage.
 Its existing glob/inflight/rimraf deprecations remain visible during `npm ci`;
 no incompatible transitive major overrides were introduced.
+
+## Major upgrade, stage 2: TypeScript
+
+The user confirmed that stage 1 works in the interface. Stage 2 updates
+TypeScript from 5.9.3 to 6.0.3, using `~6.0.3` to stay within the supported
+minor line. Node 24 and @types/node 24.19.0 remain unchanged.
+
+Registry metadata lists 7.0.2 as the latest stable TypeScript, but the latest
+stable typescript-eslint and its parser (8.70.1) require
+`typescript >=4.8.4 <6.1.0`. TypeScript 6.0.3 is the latest stable release within
+that range. Keep TypeScript 7 deferred until the lint tools support it; do not
+bypass peer checks or suppress unsupported-version warnings. The existing
+typescript-eslint version needs no update.
+
+Reviewed the official [TypeScript 6 release notes](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html)
+and [typescript-eslint dependency requirements](https://typescript-eslint.io/users/dependency-versions/).
+TypeScript 6 defaults `types` to an empty list. Add `types: ["node"]` to
+`tsconfig.app.json` because its existing `src` include also checks Node-based
+unit tests. This fixes unresolved Node built-ins and globals and the resulting
+inference errors without weakening checks. The Electron test project already
+declares Node types. Project references, `tsc -b`, strict checking, and
+`noEmit` remain in place; no application code changes were needed.
+
+Validation after clean `npm ci`: `npm run build` (all three referenced
+TypeScript projects and Vite production build), `npm run lint`,
+`npm run check:unused`, and `npm run --silent test` passed. `npm ls typescript`
+confirms one deduplicated 6.0.3 compiler across the lint tools. `npm audit`
+reports zero vulnerabilities. The existing packaging deprecation warnings
+remain unchanged. No application, browser, or UI/E2E tests were started, and
+the AppImage was not rebuilt in this compiler-only stage.
+
+An optional manual smoke check is to open an existing workflow and run it.
+This stage does not claim a runtime performance improvement. Next is the
+Electron and start-tool migration, including a fresh Linux AppImage build and
+manual runtime validation.
