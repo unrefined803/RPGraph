@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.on('panel:navigate', listener);
     return () => ipcRenderer.removeListener('panel:navigate', listener);
   },
+  listCompatibleModels: (connection, onAbort) =>
+    abortableLlmInvoke('llm:list-models', { connection, includeCapabilities: true }, onAbort).then(throwIfRpgraphIpcError),
   listModels: (connection, onAbort) =>
     abortableLlmInvoke('llm:list-models', { connection }, onAbort),
   listLmStudioModels: (connection, onAbort) =>

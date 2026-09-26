@@ -6,6 +6,7 @@ const llmProviderKinds = [
   'ollama',
   'openrouter',
   'gemini',
+  'openai-compatible',
 ] as const satisfies readonly LlmProviderKind[];
 
 export function validLlmProviderKind(value: unknown): LlmProviderKind | undefined {

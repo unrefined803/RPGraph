@@ -1,3 +1,4 @@
+import type { CompatibleModelInfo } from '../shared/compatibleModels.cjs';
 import type {
   AppSettings,
   ChatImageAttachment,
@@ -26,6 +27,7 @@ type SelectedImageFile = {
 declare global {
   interface Window {
     rpgraph: {
+      listCompatibleModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<CompatibleModelInfo[]>;
       listModels: (
         connection: ConnectionPreset,
         onAbort?: (cancel: () => void) => void,

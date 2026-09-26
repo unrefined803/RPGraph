@@ -20593,6 +20593,20 @@ button.message-timeline-row.phone:focus-visible {
   background: #142235;
 }
 
+.provider-preset-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.provider-presets .provider-model-switch {
+  display: inline-flex;
+  flex: none;
+  color: #7eb9c5;
+  cursor: help;
+}
+
 .provider-presets strong {
   font-size: 13px;
 }

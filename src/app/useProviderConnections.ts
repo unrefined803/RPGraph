@@ -1,3 +1,5 @@
+import type { CompatibleModelInfo } from '../../shared/compatibleModels.cjs';
+import { normalizeReasoningEffort } from '../../shared/reasoning.cjs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ComfyGeneratedImage } from '../comfy/api';
@@ -623,7 +625,45 @@ export function useProviderConnections({
     setLlamaCppModelsByConnectionId(llamaCppModelsByConnectionIdRef.current);
   }
 
+  const [compatibleModels, setCompatibleModels] = useState<Record<string, CompatibleModelInfo[]>>({});
+  const compatibleModelsRef = useRef(compatibleModels);
+  const compatibleRequestsRef = useRef<Record<string, number>>({});
+
+  function compatibleCacheKey(connection: ConnectionPreset) {
+    return JSON.stringify([connection.id, connection.baseUrl, connection.apiKey]);
+  }
+
+  function compatibleDetails(connection: ConnectionPreset) {
+    return compatibleModelsRef.current[compatibleCacheKey(connection)]?.find((model) => model.id === connection.model);
+  }
+
+  function connectionWithCompatibleCapabilities(connection: ConnectionPreset): ConnectionPreset {
+    const detail = compatibleDetails(connection);
+    return {
+      ...connection,
+      ...(detail?.capabilities.vision !== undefined ? { vision: detail.capabilities.vision } : {}),
+      reasoningCapabilities: detail?.reasoning,
+      reasoningEffort: normalizeReasoningEffort(connection.reasoningEffort, detail?.reasoning),
+      compatibleReasoningFormat: detail?.reasoningFormat,
+    };
+  }
+
+  async function listGenericModels(connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) {
+    if (connection.providerKind !== 'openai-compatible') return window.rpgraph.listModels(connection, onAbort);
+    const key = compatibleCacheKey(connection);
+    const version = (compatibleRequestsRef.current[key] ?? 0) + 1;
+    compatibleRequestsRef.current[key] = version;
+    const details = await window.rpgraph.listCompatibleModels(connection, onAbort);
+    if (compatibleRequestsRef.current[key] === version) {
+      compatibleModelsRef.current = { ...compatibleModelsRef.current, [key]: details };
+      setCompatibleModels(compatibleModelsRef.current);
+      applyDetectedConnectionCapabilities(connection);
+    }
+    return details.map((model) => model.id);
+  }
+
   function connectionWithReasoning(connection: ConnectionPreset) {
+    if (connection.providerKind === 'openai-compatible') return connectionWithCompatibleCapabilities(connection);
     if (isGeminiConnection(connection)) {
       return { ...connection, reasoningEffort: 'auto' as const, reasoningCapabilities: undefined };
     }
@@ -672,6 +712,7 @@ export function useProviderConnections({
   }
 
   function connectionWithDetectedCapabilities(connection: ConnectionPreset): ConnectionPreset {
+    if (connection.providerKind === 'openai-compatible') return connectionWithCompatibleCapabilities(connection);
     if (isLmStudioConnection(connection)) return connectionWithLmStudioCapabilities(connection);
     if (isLlamaCppConnection(connection)) return connectionWithLlamaCppCapabilities(connection);
     if (isOllamaConnection(connection)) return connectionWithOllamaCapabilities(connection);
@@ -684,11 +725,12 @@ export function useProviderConnections({
     // A model may have changed while the provider request was in flight.
     // Resolve capabilities against each current selection, including saved presets.
     const update = (current: ConnectionPreset) => {
-      if (current.id !== connection.id || current.baseUrl !== connection.baseUrl ||
+      if (current.id !== connection.id || current.baseUrl !== connection.baseUrl || current.apiKey !== connection.apiKey ||
           llmProviderKind(current) !== llmProviderKind(connection)) return current;
       const updated = connectionWithDetectedCapabilities(current);
       return updated.vision === current.vision && updated.ttsVoice === current.ttsVoice
         && updated.reasoningEffort === current.reasoningEffort
+        && updated.compatibleReasoningFormat === current.compatibleReasoningFormat
         && JSON.stringify(updated.reasoningCapabilities) === JSON.stringify(current.reasoningCapabilities)
         ? current
         : updated;
@@ -915,18 +957,21 @@ export function useProviderConnections({
           checkedAt: providerCheckedAt(),
         };
       } else {
-        const models = await window.rpgraph.listModels(connection);
+        const models = await listGenericModels(connection);
         const fallbackModel = models.includes(connection.model)
           ? connection.model
           : options.selectFallbackModel
             ? models[0] ?? connection.model
             : connection.model;
         if (options.selectFallbackModel && fallbackModel !== connection.model) {
-          const updatedConnection = { ...connection, model: fallbackModel };
-          setEditingConnection(updatedConnection);
-          setConnections((current) =>
-            current.map((entry) => (entry.id === updatedConnection.id ? updatedConnection : entry)),
-          );
+          const update = (current: ConnectionPreset) => {
+            if (current.id !== connection.id || current.model !== connection.model ||
+                compatibleCacheKey(current) !== compatibleCacheKey(connection) ||
+                current.providerKind !== connection.providerKind) return current;
+            return connectionWithDetectedCapabilities({ ...current, model: fallbackModel });
+          };
+          setEditingConnection(update);
+          setConnections((current) => current.map(update));
         }
         if (editingConnection.id === connection.id) {
           setAvailableConnectionModels(models);
@@ -936,7 +981,9 @@ export function useProviderConnections({
           detail: models.length > 0
             ? providerModelCountDetail(models.length)
             : 'Connection succeeded, but no models were returned.',
-          capabilities: { text: models.length > 0 },
+          capabilities: connection.providerKind === 'openai-compatible'
+            ? compatibleDetails({ ...connection, model: fallbackModel })?.capabilities
+            : { text: models.length > 0 },
           checkedAt: providerCheckedAt(),
         };
       }
@@ -1225,7 +1272,7 @@ export function useProviderConnections({
           ? openRouterModels.map((model) => model.id)
         : geminiModels
           ? geminiModels.map((model) => model.id)
-        : await window.rpgraph.listModels(editingConnection);
+        : await listGenericModels(editingConnection);
       if (models.length === 0) {
         setAvailableConnectionModels([]);
         updateProviderHealth(editingConnection.id, {
@@ -1274,6 +1321,7 @@ export function useProviderConnections({
       } else if (geminiModels) {
         connection = connectionWithGeminiCapabilities(connection, geminiModels);
       }
+      if (connection.providerKind === 'openai-compatible') connection = connectionWithCompatibleCapabilities(connection);
       const capabilities = lmStudioModels
         ? lmStudioCapabilitiesForConnection(connection, lmStudioModels)
         : ollamaModels
@@ -1284,9 +1332,17 @@ export function useProviderConnections({
           ? openRouterCapabilitiesForConnection(connection, openRouterModels)
         : geminiModels
           ? geminiCapabilitiesForConnection(connection, geminiModels)
-        : { text: true };
+        : connection.providerKind === 'openai-compatible'
+          ? compatibleDetails(connection)?.capabilities ?? {}
+          : { text: true };
       setAvailableConnectionModels(models);
-      setEditingConnection(connection);
+      setEditingConnection((current) => {
+        if (connection.providerKind !== 'openai-compatible') return connection;
+        if (current.providerKind !== connection.providerKind || compatibleCacheKey(current) !== compatibleCacheKey(connection)) return current;
+        return connectionWithCompatibleCapabilities({
+          ...current, model: current.model === editingConnection.model ? connection.model : current.model,
+        });
+      });
       // See checkProviderConnection: the public OpenRouter model list also
       // loads without an API key, but generation would fail with 401.
       const missingOpenRouterApiKey =
@@ -1872,9 +1928,9 @@ export function useProviderConnections({
     comfyProviderId?: string;
   }) {
     const llmConnection = connections.find((entry) => entry.id === request.llmProviderId);
-    if (!llmConnection || !isLocalProviderConnection(llmConnection)) {
-      // API providers do not compete with ComfyUI for local VRAM,
-      // so the ComfyUI model can stay loaded.
+    if (!llmConnection || !isLocalProviderConnection(llmConnection) ||
+      !(isLmStudioConnection(llmConnection) || isOllamaConnection(llmConnection) || isLlamaCppConnection(llmConnection))) {
+      // Only supported local providers participate in automatic model switching.
       return;
     }
     const comfyConnection = connections.find(
@@ -2266,6 +2322,7 @@ export function useProviderConnections({
     }
 
     if (connection.model.trim() &&
+        (connection.providerKind !== 'openai-compatible' || compatibleModelsRef.current[compatibleCacheKey(connection)]) &&
         (!isOpenRouterConnection(connection) || openRouterModelsByConnectionIdRef.current[connection.id]) &&
         (!isLmStudioConnection(connection) || lmStudioModelsByConnectionIdRef.current[connection.id]) &&
         (!isOllamaConnection(connection) || ollamaModelsByConnectionIdRef.current[connection.id])) {
@@ -2306,8 +2363,14 @@ export function useProviderConnections({
         updateGeminiModelCache(connection.id, details);
         models = details.map((model) => model.id);
       } else {
-        models = await window.rpgraph.listModels(connection, onAbort);
+        models = await listGenericModels(connection, onAbort);
       }
+    } catch (error) {
+      // Metadata discovery is optional when a custom API has a manually configured model.
+      if (connection.providerKind === 'openai-compatible' && connection.model.trim() && !signal?.aborted) {
+        return connectionWithCompatibleCapabilities(connection);
+      }
+      throw error;
     } finally {
       cleanupAbort?.();
     }
@@ -2359,6 +2422,9 @@ export function useProviderConnections({
 
   function editConnection(field: keyof ConnectionPreset, value: ConnectionPreset[keyof ConnectionPreset]) {
     let nextConnection = { ...editingConnection, [field]: value };
+    if (nextConnection.providerKind === 'openai-compatible') {
+      nextConnection = connectionWithCompatibleCapabilities(nextConnection);
+    }
     if (field === 'model' && isLmStudioConnection(nextConnection)) {
       const modelDetails = lmStudioModelsByConnectionIdRef.current[nextConnection.id] ?? [];
       nextConnection = connectionWithLmStudioCapabilities(nextConnection, modelDetails);
@@ -2437,7 +2503,12 @@ export function useProviderConnections({
     }
   }
 
-  const editingConnectionCapabilities = isLmStudioConnection(editingConnection)
+  const editingCompatibleModel = editingConnection.providerKind === 'openai-compatible'
+    ? compatibleModels[compatibleCacheKey(editingConnection)]?.find((model) => model.id === editingConnection.model)
+    : undefined;
+  const editingConnectionCapabilities = editingConnection.providerKind === 'openai-compatible'
+    ? editingCompatibleModel?.capabilities
+    : isLmStudioConnection(editingConnection)
     ? lmStudioCapabilitiesForConnection(editingConnection, lmStudioModelsByConnectionId[editingConnection.id] ?? [])
     : isLlamaCppConnection(editingConnection)
       ? llamaCppCapabilitiesForConnection(editingConnection, llamaCppModelsByConnectionId[editingConnection.id] ?? [])
@@ -2461,7 +2532,9 @@ export function useProviderConnections({
   const editingConnectionSupportedVoices = editingConnectionVoiceModels
         ?.find((model) => model.id === editingConnection.model)
         ?.supportedVoices ?? [];
-  const editingConnectionReasoning = isOpenRouterConnection(editingConnection)
+  const editingConnectionReasoning = editingConnection.providerKind === 'openai-compatible'
+    ? editingCompatibleModel?.reasoning
+    : isOpenRouterConnection(editingConnection)
     ? editingConnectionVoiceModels?.find((model) => model.id === editingConnection.model)?.reasoning
     : isLmStudioConnection(editingConnection)
       ? lmStudioModelsByConnectionId[editingConnection.id]?.find((model) => model.id === editingConnection.model)?.reasoning
@@ -2476,7 +2549,9 @@ export function useProviderConnections({
   const comfyWorkflowRepairInspection = pendingComfyWorkflowRepair?.workflowPath === editingComfyWorkflowPath
     ? pendingComfyWorkflowRepair.inspection
     : null;
-  const modelCapabilitiesSourceLabel = isLmStudioConnection(editingConnection)
+  const modelCapabilitiesSourceLabel = editingCompatibleModel && Object.keys(editingCompatibleModel.capabilities).length
+    ? 'model metadata'
+    : isLmStudioConnection(editingConnection)
     ? 'LM Studio'
     : isLlamaCppConnection(editingConnection)
       ? 'llama.cpp'

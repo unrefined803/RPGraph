@@ -27,7 +27,8 @@ export type LlmProviderKind =
   | 'llama-cpp'
   | 'ollama'
   | 'openrouter'
-  | 'gemini';
+  | 'gemini'
+  | 'openai-compatible';
 
 export type ComfyConnectionRole = 'image' | 'voice';
 
@@ -69,6 +70,7 @@ export type ConnectionPreset = {
   comfyLoraSlots?: ComfyLoraSlot[];
   reasoningEffort?: ConnectionReasoningEffort;
   reasoningCapabilities?: ReasoningCapabilities;
+  compatibleReasoningFormat?: 'reasoning' | 'reasoning_effort';
   vision?: boolean;
   temperature?: number;
   topP?: number;

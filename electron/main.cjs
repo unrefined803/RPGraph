@@ -1,3 +1,4 @@
+const { compatibleModel, compatibleReasoningOptions, mergeCompatibleNativeModels } = require('../shared/compatibleModels.cjs');
 const { normalizeReasoningCapabilities, normalizeReasoningEffort, normalizeLmStudioReasoning, normalizeOllamaReasoning, ollamaReasoningOptions } = require('../shared/reasoning.cjs');
 const { safeWorkflowBaseName, safeStorybookBaseName, safeCharacterCardBaseName } = require('./fileNames.cjs');
 const { bundledJsonFilesByFormat } = require('./bundledJsonFiles.cjs');
@@ -1900,6 +1901,7 @@ const supportedReasoningEfforts = new Set([
 ]);
 
 function chatCompletionReasoningOptions(connection) {
+  if (connection?.providerKind === 'openai-compatible') return compatibleReasoningOptions(connection);
   if (connection?.providerKind === 'ollama') {
     return ollamaReasoningOptions(connection.reasoningEffort, connection.reasoningCapabilities);
   }
@@ -3044,7 +3046,7 @@ async function freeComfyMemoryForLocalLlm(connection) {
     providerKind === 'lm-studio' ||
     providerKind === 'ollama' ||
     providerKind === 'llama-cpp' ||
-    isLocalLlmBaseUrl(connection?.baseUrl);
+    (!providerKind && isLocalLlmBaseUrl(connection?.baseUrl));
   if (!comfyBaseUrl || !shouldFreeBeforeLlm) {
     return;
   }
@@ -4076,6 +4078,28 @@ ipcMain.handle('llm:list-models', async (_event, request) => {
     }
 
     const result = await response.json();
+    if (request?.includeCapabilities) {
+      const models = Array.isArray(result.data) ? result.data.map(compatibleModel).filter(Boolean) : [];
+      // LM Studio exposes richer metadata outside its OpenAI-compatible endpoint.
+      // Probe only the same origin, without redirects, and bound optional discovery.
+      const base = new URL(connection.baseUrl);
+      if (base.pathname.replace(/\/+$/, '') === '/v1') {
+        const nativeUrl = new URL('/api/v1/models', base);
+        try {
+          const nativeResponse = await fetch(nativeUrl, {
+            headers: requestHeaders(connection), redirect: 'error',
+            signal: AbortSignal.any([abort.signal, AbortSignal.timeout(1500)]),
+          });
+          if (nativeResponse.ok) {
+            mergeCompatibleNativeModels(models, await nativeResponse.json());
+          }
+        } catch {
+          if (abort.signal.aborted) return cancelledLlmIpcResult();
+          // Optional metadata must never make a working model list fail.
+        }
+      }
+      return models;
+    }
     return Array.isArray(result.data)
       ? result.data.map((model) => model.id).filter((id) => typeof id === 'string')
       : [];

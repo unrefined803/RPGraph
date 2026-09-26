@@ -17,7 +17,7 @@ function bridge(invoke: ReturnType<typeof vi.fn>) {
 }
 
 describe.each([
-  ['listLmStudioModels', 'lmstudio'], ['listLlamaCppModels', 'llamacpp'],
+  ['listCompatibleModels', 'llm'], ['listLmStudioModels', 'lmstudio'], ['listLlamaCppModels', 'llamacpp'],
   ['listOllamaModels', 'ollama'], ['listOpenRouterModels', 'openrouter'], ['listGeminiModels', 'gemini'],
 ] as const)('%s IPC', (method, channel) => {
   it('cancels an in-flight model lookup', async () => {

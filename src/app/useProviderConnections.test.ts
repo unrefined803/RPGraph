@@ -142,3 +142,71 @@ describe.each([
     expect(state.render().editingConnection).toEqual(selected);
   });
 });
+
+
+describe('OpenAI-compatible providers', () => {
+  it('updates capabilities and reasoning when selecting a different model', async () => {
+    vi.stubGlobal('window', { rpgraph: { listCompatibleModels: vi.fn().mockResolvedValue([
+      { id: 'text-model', capabilities: { vision: false, reasoning: false }, reasoning: { supportedEfforts: [] } },
+      { id: 'vision-model', capabilities: { vision: true, reasoning: true }, reasoning: { supportedEfforts: ['low', 'high'], mandatory: true } },
+      { id: 'unknown-model', capabilities: {} },
+    ]) } });
+    const state = harness('openai-compatible');
+    state.render().setEditingConnection(state.connections[0]);
+    await state.render().checkProviderConnectionById('provider');
+    expect(state.render().editingConnectionCapabilities).toEqual({ vision: false, reasoning: false });
+    state.render().editConnection('model', 'vision-model');
+    expect(state.render().editingConnection).toMatchObject({ vision: true, reasoningEffort: 'auto' });
+    expect(state.render().editingConnectionReasoning).toMatchObject({ supportedEfforts: ['low', 'high'] });
+    state.render().editConnection('model', 'unknown-model');
+    expect(state.render().modelCapabilitiesSourceLabel).toBeUndefined();
+    expect(state.render().editingConnectionReasoning).toBeUndefined();
+  });
+
+  it('ignores old metadata after the endpoint changes', async () => {
+    const pending = deferred<[{ id: string; capabilities: { vision: boolean } }]>();
+    vi.stubGlobal('window', { rpgraph: { listCompatibleModels: vi.fn(() => pending.promise) } });
+    const state = harness('openai-compatible');
+    state.render().setEditingConnection(state.connections[0]);
+    const check = state.render().checkProviderConnectionById('provider');
+    state.render().editConnection('baseUrl', 'http://localhost:9999/v1');
+    pending.resolve([{ id: 'text-model', capabilities: { vision: true } }]);
+    await check;
+    expect(state.render().editingConnectionCapabilities).toBeUndefined();
+    expect(state.render().editingConnection.vision).toBe(false);
+  });
+
+  it('allows a configured model when optional discovery is unavailable', async () => {
+    vi.stubGlobal('window', { rpgraph: { listCompatibleModels: vi.fn().mockRejectedValue(new Error('Not found')) } });
+    expect(await harness('openai-compatible').render().resolveConnection()).toMatchObject({ model: 'text-model' });
+  });
+
+  it('uses the generic model API and selects a returned model', async () => {
+    const listModels = vi.fn().mockResolvedValue([{ id: 'custom-model', capabilities: {} }]);
+    vi.stubGlobal('window', { rpgraph: { listCompatibleModels: listModels } });
+    const state = harness('openai-compatible', '');
+    const resolved = await state.render().resolveConnection();
+    expect(listModels).toHaveBeenCalledOnce();
+    expect(resolved).toMatchObject({ providerKind: 'openai-compatible', model: 'custom-model' });
+  });
+
+  it('checks generic API health without provider-specific endpoints', async () => {
+    const listModels = vi.fn().mockResolvedValue([{ id: 'text-model', capabilities: {} }]);
+    vi.stubGlobal('window', { rpgraph: { listCompatibleModels: listModels } });
+    const state = harness('openai-compatible');
+    await state.render().checkProviderConnectionById('provider');
+    expect(state.render().providerHealthById.provider).toMatchObject({ status: 'online' });
+    expect(listModels).toHaveBeenCalledOnce();
+  });
+
+  it('does not automatically load models or free ComfyUI for a custom local API', async () => {
+    const freeComfyMemory = vi.fn();
+    vi.stubGlobal('window', { rpgraph: { freeComfyMemory } });
+    const state = harness('openai-compatible');
+    state.setConnections([...state.connections, {
+      ...defaultConnection, id: 'comfy', kind: 'comfyui',
+    }]);
+    await state.render().prepareImageAssistantLlmProvider({ llmProviderId: 'provider', comfyProviderId: 'comfy' });
+    expect(freeComfyMemory).not.toHaveBeenCalled();
+  });
+});
