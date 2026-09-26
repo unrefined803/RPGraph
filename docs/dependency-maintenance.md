@@ -38,8 +38,7 @@ Knip is pinned to 6.24.0. Version 6.38.0 reports 41 unused exports and 16 unused
 exported types with the existing configuration; evaluate those findings in a
 separate cleanup before raising the pin.
 
-New major versions remain to be evaluated for Electron, TOON,
-concurrently, and wait-on.
+The TOON major upgrade remains to be evaluated.
 TypeScript 7 is deferred pending compatible typescript-eslint support; stage 2
 uses the supported TypeScript 6 line.
 Migrate these separately, checking release notes and the affected workflows.
@@ -141,3 +140,58 @@ An optional manual smoke check is to open an existing workflow and run it.
 This stage does not claim a runtime performance improvement. Next is the
 Electron and start-tool migration, including a fresh Linux AppImage build and
 manual runtime validation.
+
+## Major upgrade, stage 3: Electron and launch tools
+
+The user confirmed stage 2 works and deferred AppImage building and testing.
+
+| Package | Previous installed version | Stage 3 version |
+| --- | --- | --- |
+| Electron | 41.10.7 | 44.4.5 |
+| concurrently | 9.2.4 | 10.0.5 |
+| wait-on | 8.0.5 | 9.1.0 |
+
+Registry metadata confirms stable releases compatible with host Node 24:
+Electron requires Node >=22.12, concurrently >=22, and wait-on >=20.
+Node type definitions remain on the 24 line.
+
+Reviewed [Electron breaking changes for 42–44](https://www.electronjs.org/docs/latest/breaking-changes),
+[concurrently 10 changes](https://github.com/open-cli-tools/concurrently/releases/tag/v10.0.0),
+and [wait-on releases](https://github.com/jeffbski/wait-on/releases).
+The main process and preload do not use the removed Electron clipboard APIs,
+offscreen rendering, extension frames, or Node-integrated subframe workers.
+Existing context isolation, IPC wrappers, window controls, and the launcher
+remain compatible at the source level; runtime validation is still required.
+Linux frameless windows can now have rounded corners, and file dialogs without
+an explicit default path start in Downloads. Existing explicit image/workflow/
+character dialog paths remain in place. Electron 44 requires macOS 13+ and
+no longer supplies Windows ia32 or Linux armv7l binaries.
+
+Electron no longer has a postinstall script. Remove its obsolete `allowScripts`
+entry; keep the esbuild and electron-winstaller entries. The existing launcher
+imports Electron's executable path, whose resolver now downloads the binary
+when needed. After clean installation, `node node_modules/electron/install.js`
+successfully downloaded the binary without launching it; its installed version
+file confirms 44.4.5. Future clean installs may download it on first launch.
+concurrently is ESM-only, but this project uses its CLI; the existing `-k` and
+wait-on TCP command syntax remain supported.
+
+Validation: clean `npm ci`, `npm audit` (zero vulnerabilities), production build,
+lint, Knip, and the complete non-UI tests passed. Launcher/main/preload syntax
+checks passed. An isolated concurrently CLI check verified that one completed
+Node child terminates its sibling via `-k`; wait-on successfully detected an
+existing file. These checks did not start the application or a development
+server and do not replace the user's desktop startup test.
+
+electron-builder 26.15.3 is still the latest stable release. It still requires
+the scoped @electron/get 3.1.0/global-agent 4.1.3 override, while Electron itself
+now uses @electron/get 5.1.0. The existing glob/inflight/rimraf warnings remain.
+Recheck compatible electron-builder updates before the deferred packaging
+validation; do not force incompatible transitive major versions.
+
+Manual checkpoint: restart the desktop app, load and save a workflow, check
+provider requests/streaming, file dialogs, window controls, graph dragging and
+zooming, then close the app and check that development processes terminate.
+No Electron process, browser, or UI/E2E test was started. AppImage build and
+validation are explicitly deferred at the user's request; any existing AppImage
+is from the previous Electron version. Next stages are TOON and Knip.
