@@ -100,10 +100,15 @@ export function imageGenerationAssistantPrompt(
   messages: ImageGenerationAssistantMessage[],
   userMessage: string,
   describeImage = false,
+  describeFromPromptOnly = false,
 ) {
   return [
     imageGenerationAssistantInstructions,
-    ...(describeImage ? ['The Describe Image button was pressed. This is strictly a selected-image description task, not a prompt-editing task. Inspect the attached image, interpret it in the context of the last four RP turns, and name matching characters, places, and events. Return exactly this update shape: {"reply":"Short confirmation","prompt":null,"settings":null,"imageDescription":"20 to 40 word description"}.'] : []),
+    ...(describeImage
+      ? [describeFromPromptOnly
+        ? 'The Describe Image button was pressed, but the selected assistant provider cannot see images. Write the description from the current image prompt below and the last four RP turns instead: infer matching characters, places, and events from the prompt text. Do not claim to have viewed the image. Return exactly this update shape: {"reply":"Short confirmation","prompt":null,"settings":null,"imageDescription":"20 to 40 word description"}.'
+        : 'The Describe Image button was pressed. This is strictly a selected-image description task, not a prompt-editing task. Inspect the attached image, interpret it in the context of the last four RP turns, and name matching characters, places, and events. Return exactly this update shape: {"reply":"Short confirmation","prompt":null,"settings":null,"imageDescription":"20 to 40 word description"}.']
+      : []),
     '',
     `Current image prompt:\n${currentPrompt.trim() || '(empty)'}`,
     '',

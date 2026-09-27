@@ -5989,12 +5989,14 @@ function App() {
                 messages,
                 userMessage,
                 describeImage,
+                describeFromPromptOnly,
               }) => {
                 await prepareImageAssistantLlmProvider({
                   llmProviderId: connectionId,
                   comfyProviderId: imageProviderId,
                 });
-                if (currentImage) {
+                const attachImage = !!currentImage && !describeFromPromptOnly;
+                if (attachImage) {
                   const visionEnabled = await nodeLlm.supportsVision(
                     connectionId,
                     'Image Generation Assistant',
@@ -6016,8 +6018,9 @@ function App() {
                     messages,
                     userMessage,
                     describeImage,
+                    describeFromPromptOnly,
                   ),
-                  images: currentImage ? [{
+                  images: attachImage ? [{
                     id: 'image-generation-assistant-current',
                     name: 'Currently selected generated image',
                     mimeType: /^data:([^;,]+)/.exec(currentImage.dataUrl)?.[1] ?? 'image/png',
