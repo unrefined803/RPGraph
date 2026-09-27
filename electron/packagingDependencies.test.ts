@@ -55,7 +55,7 @@ describe('packaging dependency compatibility', () => {
     expect(existsSync(directory)).toBe(false);
   });
 
-  it('creates archives readable by builder, installer, and universal consumers', async () => {
+  it('creates archives readable by builder and installer consumers', async () => {
     const directory = mkdtempSync(path.join(tmpdir(), 'rpgraph-asar-'));
     directories.push(directory);
     const source = path.join(directory, 'app');
@@ -70,10 +70,32 @@ describe('packaging dependency compatibility', () => {
     expect(installerRequire('@electron/asar').extractFile(archive, 'package.json').toString())
       .toBe(metadata);
     const universalRequire = createRequire(builderRequire.resolve('@electron/universal'));
-    const { generateAsarIntegrity, mergeASARs } = universalRequire('./asar-utils');
+    const { generateAsarIntegrity } = universalRequire('./asar-utils');
     expect(generateAsarIntegrity(archive).hash).toMatch(/^[a-f0-9]{64}$/);
-    const merged = path.join(directory, 'merged.asar');
-    await mergeASARs({ x64AsarPath: archive, arm64AsarPath: archive, outputAsarPath: merged });
-    expect(asar.extractFile(merged, 'package.json').toString()).toBe(metadata);
   });
+
+  // @electron/universal's mergeASARs joins archive-relative entry paths with
+  // path.sep before looking them up in the asar filesystem, which is only
+  // ever POSIX-separated. On win32 that produces a leading "\" the archive
+  // never had, so the lookup fails even though the merge itself is a
+  // macOS-only (universal x64+arm64 binary) packaging step that never runs
+  // on Windows in practice.
+  it.skipIf(process.platform === 'win32')(
+    'merges universal (x64+arm64) archives readable by installer consumers',
+    async () => {
+      const directory = mkdtempSync(path.join(tmpdir(), 'rpgraph-asar-'));
+      directories.push(directory);
+      const source = path.join(directory, 'app');
+      mkdirSync(source);
+      const metadata = JSON.stringify({ name: 'packaging-fixture', version: '1.0.0' });
+      writeFileSync(path.join(source, 'package.json'), metadata);
+      const archive = path.join(directory, 'app.asar');
+      await asar.createPackage(source, archive);
+      const universalRequire = createRequire(builderRequire.resolve('@electron/universal'));
+      const { mergeASARs } = universalRequire('./asar-utils');
+      const merged = path.join(directory, 'merged.asar');
+      await mergeASARs({ x64AsarPath: archive, arm64AsarPath: archive, outputAsarPath: merged });
+      expect(asar.extractFile(merged, 'package.json').toString()).toBe(metadata);
+    },
+  );
 });
