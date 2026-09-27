@@ -24,10 +24,13 @@ export type ConnectionReasoningEffort = ReasoningEffort;
 
 export type LlmProviderKind =
   | 'lm-studio'
+  | 'unsloth'
   | 'llama-cpp'
   | 'ollama'
   | 'openrouter'
   | 'gemini'
+  | 'composite'
+  | 'venice'
   | 'openai-compatible';
 
 export type ComfyConnectionRole = 'image' | 'voice';
@@ -68,6 +71,10 @@ export type ConnectionPreset = {
   comfyVaeName?: string;
   comfyTextEncoderName?: string;
   comfyLoraSlots?: ComfyLoraSlot[];
+  comfySteps?: number;
+  comfyCfg?: number;
+  comfySampler?: string;
+  comfyScheduler?: string;
   reasoningEffort?: ConnectionReasoningEffort;
   reasoningCapabilities?: ReasoningCapabilities;
   compatibleReasoningFormat?: 'reasoning' | 'reasoning_effort';
@@ -141,6 +148,12 @@ export type OpenRouterModelInfo = {
 
 export type GeminiModelInfo = OpenRouterModelInfo & {
   supportedGenerationMethods: string[];
+};
+
+export type CompositeModelInfo = OpenRouterModelInfo;
+
+export type VeniceModelInfo = OpenRouterModelInfo & {
+  type?: string;
 };
 
 export type ComfyLoraSlot = {

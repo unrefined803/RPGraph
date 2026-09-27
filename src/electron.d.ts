@@ -2,6 +2,7 @@ import type { CompatibleModelInfo } from '../shared/compatibleModels.cjs';
 import type {
   AppSettings,
   ChatImageAttachment,
+  CompositeModelInfo,
   ConnectionPreset,
   GeminiModelInfo,
   LmStudioModelInfo,
@@ -9,6 +10,7 @@ import type {
   LlmCompletionResult,
   OllamaModelInfo,
   OpenRouterModelInfo,
+  VeniceModelInfo,
   SavedFileSummary,
   WorkflowFile,
 } from './types';
@@ -34,10 +36,15 @@ declare global {
       ) => Promise<string[]>;
       listLmStudioModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<LmStudioModelInfo[]>;
       listLlamaCppModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<LlamaCppModelInfo[]>;
+      listUnslothModels: (connection: ConnectionPreset) => Promise<LlamaCppModelInfo[]>;
+      loadUnslothModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
+      isUnslothModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: string }>;
+      unloadUnslothModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
       loadLlamaCppModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
       isLlamaCppModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: LlamaCppModelInfo['status'] }>;
       unloadLlamaCppModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
       listOpenRouterModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<OpenRouterModelInfo[]>;
+      listCompositeModels: (connection: ConnectionPreset) => Promise<CompositeModelInfo[]>;
       generateOpenRouterSpeech: (request: {
         connection: ConnectionPreset;
         input: string;
@@ -47,6 +54,17 @@ declare global {
         input: string;
       }, onChunk?: (base64PcmChunk: string) => void) => Promise<{ dataUrl: string; filename: string }>;
       listGeminiModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<GeminiModelInfo[]>;
+      listVeniceModels: (connection: ConnectionPreset) => Promise<VeniceModelInfo[]>;
+      generateVeniceSpeech: (request: {
+        connection: ConnectionPreset;
+        input: string;
+      }) => Promise<{ dataUrl: string; filename: string }>;
+      generateVeniceImages: (request: {
+        connection: ConnectionPreset;
+        prompt: string;
+        width: number;
+        height: number;
+      }) => Promise<{ images: string[] }>;
       loadLmStudioModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
         method?: 'rest' | 'cli' | 'already-loaded';
@@ -278,6 +296,9 @@ declare global {
           | 'controlnet'
           | 'upscale_models';
       }) => Promise<string[]>;
+      listComfySamplersAndSchedulers: (request: {
+        baseUrl: string;
+      }) => Promise<{ samplers: string[]; schedulers: string[] }>;
       inspectComfyWorkflow: (request: {
         workflowPath: string;
         role?: 'image' | 'voice';
@@ -344,6 +365,10 @@ declare global {
         diffusionModelName?: string;
         vaeName?: string;
         textEncoderName?: string;
+        steps?: number;
+        cfg?: number;
+        sampler?: string;
+        scheduler?: string;
         loraSlots?: Array<{
           name: string;
           strength: number;

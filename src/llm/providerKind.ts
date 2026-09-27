@@ -2,10 +2,13 @@ import type { ConnectionPreset, LlmProviderKind } from '../types';
 
 const llmProviderKinds = [
   'lm-studio',
+  'unsloth',
   'llama-cpp',
   'ollama',
   'openrouter',
   'gemini',
+  'composite',
+  'venice',
   'openai-compatible',
 ] as const satisfies readonly LlmProviderKind[];
 
@@ -43,6 +46,7 @@ function matchesLocalDefaultPort(connection: ConnectionPreset, port: string): bo
 export function inferredProviderKind(connection: ConnectionPreset): LlmProviderKind {
   const label = connection.label.toLowerCase();
   const isLocal = isLocalProviderConnection(connection);
+  if ((label.includes('unsloth') && isLocal) || matchesLocalDefaultPort(connection, '8888')) return 'unsloth';
   if ((label.includes('lm studio') && isLocal) || matchesLocalDefaultPort(connection, '1234')) {
     return 'lm-studio';
   }
@@ -59,6 +63,12 @@ export function inferredProviderKind(connection: ConnectionPreset): LlmProviderK
   }
   if (baseUrl.includes('generativelanguage.googleapis.com')) {
     return 'gemini';
+  }
+  if (label.includes('composite') || hostname === 'composite.lucidity.sh' || baseUrl.includes('composite.lucidity.sh')) {
+    return 'composite';
+  }
+  if (label.includes('venice') || hostname === 'api.venice.ai' || baseUrl.includes('venice.ai')) {
+    return 'venice';
   }
   return 'lm-studio';
 }
@@ -82,10 +92,22 @@ export function isLlamaCppConnection(connection: ConnectionPreset): boolean {
   return llmProviderKind(connection) === 'llama-cpp';
 }
 
+export function isManagedLocalConnection(connection: ConnectionPreset): boolean {
+  return isLlamaCppConnection(connection) || llmProviderKind(connection) === 'unsloth';
+}
+
 export function isOpenRouterConnection(connection: ConnectionPreset): boolean {
   return llmProviderKind(connection) === 'openrouter';
 }
 
 export function isGeminiConnection(connection: ConnectionPreset): boolean {
   return llmProviderKind(connection) === 'gemini';
+}
+
+export function isCompositeConnection(connection: ConnectionPreset): boolean {
+  return llmProviderKind(connection) === 'composite';
+}
+
+export function isVeniceConnection(connection: ConnectionPreset): boolean {
+  return llmProviderKind(connection) === 'venice';
 }

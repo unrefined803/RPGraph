@@ -1,0 +1,153 @@
+{
+  "21": {
+    "inputs": {
+      "lora_01": "{{lora_01}}",
+      "strength_01": "{{lora_strength_01}}",
+      "lora_02": "{{lora_02}}",
+      "strength_02": "{{lora_strength_02}}",
+      "lora_03": "{{lora_03}}",
+      "strength_03": "{{lora_strength_03}}",
+      "lora_04": "{{lora_04}}",
+      "strength_04": "{{lora_strength_04}}",
+      "model": [
+        "451",
+        0
+      ],
+      "clip": [
+        "453",
+        0
+      ]
+    },
+    "class_type": "Lora Loader Stack (rgthree)",
+    "_meta": {
+      "title": "Lora Loader Stack (rgthree)"
+    }
+  },
+  "451": {
+    "inputs": {
+      "unet_name": "{{diffusion_model}}",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "452": {
+    "inputs": {
+      "clip": [
+        "21",
+        1
+      ],
+      "prompt": "{{prompt}}",
+      "negative_prompt": "",
+      "resolution": 1024
+    },
+    "class_type": "TextEncodeQwenImage21",
+    "_meta": {
+      "title": "Text Encode Qwen Image 2.1"
+    }
+  },
+  "453": {
+    "inputs": {
+      "clip_name": "{{text_encoder}}",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "454": {
+    "inputs": {
+      "vae_name": "{{vae}}"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "456": {
+    "inputs": {
+      "width": "{{width}}",
+      "height": "{{height}}",
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "457": {
+    "inputs": {
+      "samples": [
+        "458",
+        0
+      ],
+      "vae": [
+        "454",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "458": {
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "positive": [
+        "452",
+        0
+      ],
+      "negative": [
+        "452",
+        1
+      ],
+      "latent_image": [
+        "456",
+        0
+      ],
+      "seed": [
+        "31",
+        0
+      ],
+      "steps": "{{steps}}",
+      "cfg": "{{cfg}}",
+      "sampler_name": "{{sampler}}",
+      "scheduler": "{{scheduler}}",
+      "denoise": 1
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "31": {
+    "inputs": {
+      "seed": -1
+    },
+    "class_type": "Seed (rgthree)",
+    "_meta": {
+      "title": "🌱 Scene's Sampler"
+    }
+  },
+  "19": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "457",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

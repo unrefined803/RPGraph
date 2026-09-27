@@ -11,6 +11,7 @@ const http = require('node:http');
 const https = require('node:https');
 const os = require('node:os');
 const path = require('node:path');
+const { createUnslothApi } = require('./unslothApi.cjs');
 const { createTextStreamBatch } = require('./streamBatch.cjs');
 const { currentScryptParameters } = require('./encryptionFormat.cjs');
 const {
@@ -51,6 +52,25 @@ const {
   lmStudioChatBody,
   lmStudioResponseText,
 } = require('./lmStudioChat.cjs');
+const {
+  lmStudioCliCommand,
+  lmStudioCliExecOptions,
+} = require('./lmStudioCli.cjs');
+const {
+  compositeDefaultBaseUrl,
+  compositeEndpoint,
+  compositeModelEntries,
+  compositeNormalizedModel,
+} = require('./compositeApi.cjs');
+const {
+  veniceChatBody,
+  veniceDefaultBaseUrl,
+  veniceEndpoint,
+  veniceModelEntries,
+  veniceNormalizedModel,
+  veniceResponseText,
+} = require('./veniceApi.cjs');
+const { chat: lmStudioAdapterChat } = require('./providers/lmStudioAdapter.cjs');
 const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
 const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
 const workspaceProtection = require('./workspaceProtection.cjs').createWorkspaceProtection();
@@ -59,8 +79,8 @@ const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
 function sortComfyWorkflowPaths(paths) {
   return [...paths].sort((left, right) => {
-    const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Krea2.json');
-    const rightDefault = right.includes('/higgs_audio_v3-tts.json') || right.includes('/Krea2.json');
+    const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Flux2-Klein-9B.json');
+    const rightDefault = right.includes('/higgs_audio_v3-tts.json') || right.includes('/Flux2-Klein-9B.json');
     if (leftDefault !== rightDefault) {
       return leftDefault ? -1 : 1;
     }
@@ -1668,29 +1688,13 @@ async function lmStudioModelLoadedState(connection, model, abort) {
   }
 }
 
-function lmStudioCliName() {
-  return process.platform === 'win32' ? 'lms.cmd' : 'lms';
-}
-
-// With a shell, cmd.exe would expand %VAR% inside quotes and an embedded
-// quote would break out of the argument, so those characters are rejected.
-function quotedWindowsCliArgument(value) {
-  if (/["%\r\n]/.test(value)) {
-    throw new Error(`Unsupported character in LM Studio CLI argument: ${value}`);
-  }
-  return `"${value}"`;
-}
-
 function runLmStudioCli(args) {
-  // Node refuses to spawn .cmd files without a shell (CVE-2024-27980
-  // hardening), so Windows runs the CLI through a shell with each argument
-  // quoted; other platforms execute the binary directly.
-  const useShell = process.platform === 'win32';
+  const cli = lmStudioCliExecOptions(lmStudioCliCommand(), args);
   return new Promise((resolve, reject) => {
     execFile(
-      lmStudioCliName(),
-      useShell ? args.map(quotedWindowsCliArgument) : args,
-      { timeout: 60 * 1000, windowsHide: true, shell: useShell },
+      cli.command,
+      cli.args,
+      cli.options,
       (error, stdout, stderr) => {
         if (error) {
           const message = stderr || stdout || error.message;
@@ -1917,6 +1921,9 @@ function chatCompletionReasoningOptions(connection) {
   if (!supportedReasoningEfforts.has(effort)) {
     return {};
   }
+  if (connection?.providerKind === 'unsloth') {
+    return { enable_thinking: effort !== 'none', reasoning_effort: effort };
+  }
   if (connection?.providerKind === 'llama-cpp') {
     if (effort === 'none') {
       return {
@@ -2108,6 +2115,13 @@ function createLlmAbortController(request) {
   return handle;
 }
 
+function abortActiveLlmRequests(reason = 'cancelled') {
+  for (const handle of activeLlmRequests.values()) {
+    handle.abort(reason);
+  }
+  activeLlmRequests.clear();
+}
+
 function cancelledLlmError() {
   return new Error('The LLM request was cancelled.');
 }
@@ -2125,12 +2139,70 @@ function failedLlmIpcResult(error) {
   };
 }
 
+// ComfyUI's /prompt validation failures put the actionable detail (which node
+// and which input is invalid) in `node_errors`, separate from the generic
+// top-level `error.message` ("Prompt outputs failed validation"). Without
+// this, the app only ever surfaces that generic message and the specific
+// cause is lost.
+function comfyNodeErrorDetails(nodeErrors) {
+  if (!nodeErrors || typeof nodeErrors !== 'object') {
+    return '';
+  }
+  const parts = [];
+  for (const [nodeId, nodeError] of Object.entries(nodeErrors)) {
+    const classType = typeof nodeError?.class_type === 'string' ? nodeError.class_type : '';
+    const label = classType ? `${classType} (node ${nodeId})` : `node ${nodeId}`;
+    const errors = Array.isArray(nodeError?.errors) ? nodeError.errors : [];
+    for (const err of errors) {
+      const message = typeof err?.message === 'string' ? err.message.trim() : '';
+      const details = typeof err?.details === 'string' ? err.details.trim() : '';
+      const text = [message, details].filter(Boolean).join(' - ');
+      if (text) {
+        parts.push(`${label}: ${text}`);
+      }
+    }
+  }
+  return parts.join('; ');
+}
+
+function providerJsonErrorMessage(message) {
+  const trimmed = String(message ?? '').trim();
+  if (!trimmed.startsWith('{')) {
+    return '';
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    const baseMessage = typeof parsed?.error?.message === 'string'
+      ? parsed.error.message.trim()
+      : '';
+    if (!baseMessage) {
+      return '';
+    }
+    const nodeErrorDetails = comfyNodeErrorDetails(parsed?.node_errors);
+    return nodeErrorDetails ? `${baseMessage}: ${nodeErrorDetails}` : baseMessage;
+  } catch {
+    return '';
+  }
+}
+
 function normalizeLlmError(error) {
   if (error instanceof Error && error.name === 'AbortError') {
     return cancelledLlmError();
   }
   if (error instanceof TypeError && String(error.message).includes('aborted')) {
     return cancelledLlmError();
+  }
+  if (error instanceof Error) {
+    const providerMessage = providerJsonErrorMessage(error.message);
+    if (providerMessage) {
+      if (/model unloaded/i.test(providerMessage)) {
+        return new Error('LM Studio model is unloaded. Load the selected model in LM Studio, then run again.');
+      }
+      if (/failed to load model/i.test(providerMessage)) {
+        return new Error(`LM Studio could not load the selected model. ${providerMessage}`);
+      }
+      return new Error(providerMessage);
+    }
   }
   return error;
 }
@@ -2308,7 +2380,9 @@ async function requestLmStudioChat(request, abort) {
   const result = await response.json();
   const text = lmStudioResponseText(result);
   if (!text) {
-    throw new Error('The LM Studio response does not contain any message text.');
+    throw new Error(
+      'LM Studio returned a response without message text. The model may have emitted only reasoning/tool data, stopped early, or been interrupted. Try the request again after confirming the model is loaded.',
+    );
   }
   return { text, usage: result.stats };
 }
@@ -2440,6 +2514,10 @@ async function waitForLlamaCppStatus(connection, modelId, expected, abort) {
 }
 
 async function ensureLlamaCppModelLoaded(connection, abort) {
+  if (connection?.providerKind === 'unsloth') {
+    await unslothApi.load(connection, abort);
+    return;
+  }
   if (connection?.providerKind !== 'llama-cpp') return;
   const modelId = typeof connection?.model === 'string' ? connection.model.trim() : '';
   if (!modelId) throw new Error('Choose a model ID before loading a llama.cpp model.');
@@ -2949,6 +3027,14 @@ function comfyWorkflowVariables(request) {
     diffusion_model: typeof request?.diffusionModelName === 'string' ? request.diffusionModelName.trim() : '',
     vae: typeof request?.vaeName === 'string' ? request.vaeName.trim() : '',
     text_encoder: typeof request?.textEncoderName === 'string' ? request.textEncoderName.trim() : '',
+    steps: typeof request?.steps === 'number' && Number.isFinite(request.steps) && request.steps > 0
+      ? Math.min(150, Math.max(1, Math.round(request.steps)))
+      : 4,
+    cfg: typeof request?.cfg === 'number' && Number.isFinite(request.cfg) && request.cfg > 0
+      ? Math.min(30, Math.max(0.1, Math.round(request.cfg * 10) / 10))
+      : 1,
+    sampler: typeof request?.sampler === 'string' && request.sampler.trim() ? request.sampler.trim() : 'euler',
+    scheduler: typeof request?.scheduler === 'string' && request.scheduler.trim() ? request.scheduler.trim() : 'simple',
     ...loraVariables,
   };
 }
@@ -3046,6 +3132,7 @@ async function freeComfyMemoryForLocalLlm(connection) {
     providerKind === 'lm-studio' ||
     providerKind === 'ollama' ||
     providerKind === 'llama-cpp' ||
+    providerKind === 'unsloth' ||
     (!providerKind && isLocalLlmBaseUrl(connection?.baseUrl));
   if (!comfyBaseUrl || !shouldFreeBeforeLlm) {
     return;
@@ -3071,6 +3158,18 @@ function isGeminiProviderConnection(connection) {
   const providerKind = typeof connection?.providerKind === 'string' ? connection.providerKind : '';
   const baseUrl = typeof connection?.baseUrl === 'string' ? connection.baseUrl.toLowerCase() : '';
   return providerKind === 'gemini' || baseUrl.includes('generativelanguage.googleapis.com');
+}
+
+function isCompositeProviderConnection(connection) {
+  const providerKind = typeof connection?.providerKind === 'string' ? connection.providerKind : '';
+  const baseUrl = typeof connection?.baseUrl === 'string' ? connection.baseUrl.toLowerCase() : '';
+  return providerKind === 'composite' || baseUrl.includes('composite.lucidity.sh');
+}
+
+function isVeniceProviderConnection(connection) {
+  const providerKind = typeof connection?.providerKind === 'string' ? connection.providerKind : '';
+  const baseUrl = typeof connection?.baseUrl === 'string' ? connection.baseUrl.toLowerCase() : '';
+  return providerKind === 'venice' || baseUrl.includes('venice.ai');
 }
 
 function isComfyConnectionUnavailable(error) {
@@ -3512,7 +3611,7 @@ ipcMain.handle('lmstudio:load-model', async (_event, request) => {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
     }
-    throw normalizeLlmError(error);
+    return failedLlmIpcResult(error);
   } finally {
     abort.dispose();
   }
@@ -3531,7 +3630,7 @@ ipcMain.handle('lmstudio:model-loaded', async (_event, request) => {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
     }
-    throw normalizeLlmError(error);
+    return failedLlmIpcResult(error);
   } finally {
     abort.dispose();
   }
@@ -3590,6 +3689,33 @@ ipcMain.handle('lmstudio:list-models', async (_event, request) => {
     abort.dispose();
   }
 });
+
+const unslothApi = createUnslothApi(async (url, connection, body, abort) => {
+  const response = await requestLlmResponse(url, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: requestHeaders(connection),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  }, abort);
+  if (!response.ok) throw new Error(`Unsloth (${response.status}): ${await readError(response)}`);
+  return JSON.parse(await response.text());
+});
+
+for (const operation of ['list', 'load', 'probe', 'unload']) {
+  ipcMain.handle(`unsloth:${operation}`, async (_event, request) => {
+    const connection = request?.connection;
+    const abort = createLlmAbortController(request);
+    try {
+      if (connection?.providerKind !== 'unsloth') throw new Error('Expected an Unsloth connection.');
+      if (operation === 'load') await freeComfyMemoryForLocalLlm(connection);
+      return await unslothApi[operation](connection, abort);
+    } catch (error) {
+      if (abort.signal.aborted) return cancelledLlmIpcResult();
+      return failedLlmIpcResult(error);
+    } finally {
+      abort.dispose();
+    }
+  });
+}
 
 ipcMain.handle('llamacpp:list-models', async (_event, request) => {
   const connection = request?.connection ?? request;
@@ -3674,6 +3800,82 @@ ipcMain.handle('openrouter:list-models', async (_event, request) => {
       : [];
     openRouterReasoningByEndpoint.set(endpoint(connection.baseUrl, 'models'),
       new Map(models.map((model) => [model.id, model.reasoning])));
+    const seen = new Set();
+    return models.filter((model) => {
+      if (seen.has(model.id)) {
+        return false;
+      }
+      seen.add(model.id);
+      return true;
+    });
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('composite:list-models', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    const baseConnection = {
+      ...connection,
+      baseUrl: typeof connection?.baseUrl === 'string' && connection.baseUrl.trim()
+        ? connection.baseUrl
+        : compositeDefaultBaseUrl,
+    };
+    const response = await requestLlmResponse(compositeEndpoint(baseConnection, 'models'), {
+      headers: requestHeaders(baseConnection),
+    }, abort);
+
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+
+    const result = await response.json();
+    const models = compositeModelEntries(result).map(compositeNormalizedModel).filter(Boolean);
+    const seen = new Set();
+    return models.filter((model) => {
+      if (seen.has(model.id)) {
+        return false;
+      }
+      seen.add(model.id);
+      return true;
+    });
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('venice:list-models', async (_event, request) => {
+  const connection = request?.connection ?? request;
+  const abort = createLlmAbortController(request);
+  try {
+    const baseConnection = {
+      ...connection,
+      baseUrl: typeof connection?.baseUrl === 'string' && connection.baseUrl.trim()
+        ? connection.baseUrl
+        : veniceDefaultBaseUrl,
+    };
+    const response = await requestLlmResponse(`${veniceEndpoint(baseConnection, 'models')}?type=all`, {
+      headers: requestHeaders(baseConnection),
+    }, abort);
+
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+
+    const result = await response.json();
+    const models = veniceModelEntries(result).map(veniceNormalizedModel).filter(Boolean);
     const seen = new Set();
     return models.filter((model) => {
       if (seen.has(model.id)) {
@@ -3880,6 +4082,110 @@ ipcMain.handle('gemini:generate-speech', async (event, request) => {
       dataUrl: `data:audio/wav;base64,${audio.toString('base64')}`,
       filename: `gemini-tts-${Date.now()}.wav`,
     };
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('venice:generate-speech', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  const connection = request?.connection;
+  const input = typeof request?.input === 'string' ? request.input.trim() : '';
+  if (!connection?.model?.trim()) {
+    throw new Error('Choose a Venice TTS model first.');
+  }
+  if (!connection?.ttsVoice?.trim()) {
+    throw new Error('Choose a TTS voice first.');
+  }
+  if (!input) {
+    throw new Error('Enter text to speak first.');
+  }
+  const body = {
+    model: connection.model.trim(),
+    input,
+    voice: connection.ttsVoice.trim(),
+    response_format: 'mp3',
+    streaming: false,
+    speed: Number.isFinite(connection.ttsSpeed) ? connection.ttsSpeed : 1,
+    ...(Number.isFinite(connection.ttsTemperature)
+      ? { temperature: connection.ttsTemperature }
+      : {}),
+  };
+  try {
+    const response = await requestLlmResponse(veniceEndpoint(connection, 'audio/speech'), {
+      method: 'POST',
+      headers: requestHeaders(connection),
+      body: JSON.stringify(body),
+    }, abort);
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    const audio = await response.buffer();
+    if (audio.length === 0) {
+      throw new Error('Venice returned an empty audio response.');
+    }
+    const rawContentType = response.headers['content-type'];
+    const responseContentType = (Array.isArray(rawContentType) ? rawContentType[0] : rawContentType)
+      ?.split(';')[0]?.trim();
+    return {
+      dataUrl: `data:${responseContentType || 'audio/mpeg'};base64,${audio.toString('base64')}`,
+      filename: `venice-tts-${Date.now()}.mp3`,
+    };
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('venice:generate-images', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  const connection = request?.connection;
+  const prompt = typeof request?.prompt === 'string' ? request.prompt.trim() : '';
+  const width = Number.isInteger(request?.width) ? Math.min(1280, Math.max(64, request.width)) : 1024;
+  const height = Number.isInteger(request?.height) ? Math.min(1280, Math.max(64, request.height)) : 1024;
+  if (!connection?.model?.trim()) {
+    throw new Error('Choose a Venice image model first.');
+  }
+  if (!prompt) {
+    throw new Error('Enter an image prompt first.');
+  }
+  try {
+    const response = await requestLlmResponse(veniceEndpoint(connection, 'image/generate'), {
+      method: 'POST',
+      headers: requestHeaders(connection),
+      body: JSON.stringify({
+        model: connection.model.trim(),
+        prompt,
+        width,
+        height,
+        format: 'png',
+        return_binary: false,
+        safe_mode: false,
+        variants: 1,
+      }),
+    }, abort);
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    const result = await response.json();
+    const images = Array.isArray(result?.images)
+      ? result.images
+        .filter((image) => typeof image === 'string' && image.trim())
+        .map((image) => {
+          const trimmed = image.trim();
+          return trimmed.startsWith('data:')
+            ? trimmed
+            : `data:image/png;base64,${trimmed}`;
+        })
+      : [];
+    if (images.length === 0) {
+      throw new Error('Venice finished without returning an image.');
+    }
+    return { images };
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    throw normalizeLlmError(error);
   } finally {
     abort.dispose();
   }
@@ -4144,9 +4450,66 @@ ipcMain.handle('llm:chat-completion', async (_event, request) => {
     }
 
     if (isLmStudioProviderConnection(request.connection)) {
-      const result = await requestLmStudioChat(request, abort);
+      const result = await lmStudioAdapterChat(request, { requestLmStudioChat }, abort);
       return {
         text: result.text,
+        stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)),
+      };
+    }
+
+    if (isCompositeProviderConnection(request.connection)) {
+      const response = await requestLlmResponse(compositeEndpoint(request.connection, 'chat/completions'), {
+        method: 'POST',
+        headers: requestHeaders(request.connection),
+        body: JSON.stringify({
+          model: request.connection.model,
+          messages: [{
+            role: 'user',
+            content: chatMessageContent(request.prompt, request.images),
+          }],
+          ...chatCompletionSamplingOptions(request),
+          ...(Number.isInteger(request.maxTokens) && request.maxTokens > 0
+            ? { max_tokens: request.maxTokens }
+            : {}),
+        }),
+      }, abort);
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+
+      const result = await response.json();
+      const choice = result.choices?.[0];
+      const content = textFromChatChoice(choice);
+      if (!content) {
+        throw emptyChatCompletionTextError(choice);
+      }
+
+      return {
+        text: content,
+        stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)),
+      };
+    }
+
+    if (isVeniceProviderConnection(request.connection)) {
+      const response = await requestLlmResponse(veniceEndpoint(request.connection, 'chat/completions'), {
+        method: 'POST',
+        headers: requestHeaders(request.connection),
+        body: JSON.stringify(veniceChatBody(request)),
+      }, abort);
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+
+      const result = await response.json();
+      const content = veniceResponseText(result);
+      if (!content) {
+        throw emptyChatCompletionTextError(result.choices?.[0]);
+      }
+
+      return {
+        text: content,
         stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)),
       };
     }
@@ -4315,6 +4678,163 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
       };
     }
 
+    if (isCompositeProviderConnection(request.connection)) {
+      const response = await requestLlmResponse(compositeEndpoint(request.connection, 'chat/completions'), {
+        method: 'POST',
+        headers: requestHeaders(request.connection),
+        body: JSON.stringify({
+          model: request.connection.model,
+          messages: [{
+            role: 'user',
+            content: chatMessageContent(request.prompt, request.images),
+          }],
+          ...chatCompletionSamplingOptions(request),
+          ...(Number.isInteger(request.maxTokens) && request.maxTokens > 0
+            ? { max_tokens: request.maxTokens }
+            : {}),
+          stream: true,
+          stream_options: { include_usage: true },
+        }),
+      }, abort);
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+      if (!response.body) {
+        throw new Error('The Composite streaming response does not contain a body.');
+      }
+
+      const decoder = new TextDecoder();
+      let buffered = '';
+      let content = '';
+      let usage;
+      let finishReason = '';
+
+      function consumeCompositeLine(line) {
+        if (!line.startsWith('data:')) {
+          return;
+        }
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') {
+          return;
+        }
+        let chunk;
+        try {
+          chunk = JSON.parse(data);
+        } catch {
+          return;
+        }
+        const choice = chunk.choices?.[0];
+        const deltaText = textFromChatMessage(choice?.delta) ||
+          (!content ? textFromChatChoice(choice) : '');
+        if (deltaText) {
+          content += deltaText;
+          event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, deltaText);
+        }
+        if (typeof choice?.finish_reason === 'string') {
+          finishReason = choice.finish_reason;
+        }
+        if (chunk.usage) {
+          usage = chunk.usage;
+        }
+      }
+
+      for await (const bytes of limitedResponseChunks(response.body)) {
+        if (abort.signal.aborted) {
+          throw cancelledLlmError();
+        }
+        buffered += decoder.decode(bytes, { stream: true });
+        const lines = buffered.split(/\r?\n/);
+        buffered = lines.pop() ?? '';
+        lines.forEach(consumeCompositeLine);
+      }
+      buffered += decoder.decode();
+      if (buffered) {
+        consumeCompositeLine(buffered);
+      }
+
+      if (!content) {
+        throw emptyChatCompletionTextError({ finish_reason: finishReason });
+      }
+
+      return {
+        text: content,
+        stats: llmStatsFromUsage(usage, Math.round(performance.now() - startedAt)),
+      };
+    }
+
+    if (isVeniceProviderConnection(request.connection)) {
+      const response = await requestLlmResponse(veniceEndpoint(request.connection, 'chat/completions'), {
+        method: 'POST',
+        headers: requestHeaders(request.connection),
+        body: JSON.stringify(veniceChatBody(request, true)),
+      }, abort);
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+      if (!response.body) {
+        throw new Error('The Venice streaming response does not contain a body.');
+      }
+
+      const decoder = new TextDecoder();
+      let buffered = '';
+      let content = '';
+      let usage;
+      let finishReason = '';
+
+      function consumeVeniceLine(line) {
+        if (!line.startsWith('data:')) {
+          return;
+        }
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') {
+          return;
+        }
+        let chunk;
+        try {
+          chunk = JSON.parse(data);
+        } catch {
+          return;
+        }
+        const choice = chunk.choices?.[0];
+        const deltaText = veniceResponseText({ choices: [choice] });
+        if (deltaText) {
+          content += deltaText;
+          event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, deltaText);
+        }
+        if (typeof choice?.finish_reason === 'string') {
+          finishReason = choice.finish_reason;
+        }
+        if (chunk.usage) {
+          usage = chunk.usage;
+        }
+      }
+
+      for await (const bytes of limitedResponseChunks(response.body)) {
+        if (abort.signal.aborted) {
+          throw cancelledLlmError();
+        }
+        buffered += decoder.decode(bytes, { stream: true });
+        const lines = buffered.split(/\r?\n/);
+        buffered = lines.pop() ?? '';
+        lines.forEach(consumeVeniceLine);
+      }
+      buffered += decoder.decode();
+      if (buffered) {
+        consumeVeniceLine(buffered);
+      }
+
+      if (!content) {
+        throw emptyChatCompletionTextError({ finish_reason: finishReason });
+      }
+
+      return {
+        text: content,
+        stats: llmStatsFromUsage(usage, Math.round(performance.now() - startedAt)),
+      };
+    }
+
     const response = await requestLlmResponse(endpoint(request.connection.baseUrl, 'chat/completions'), {
       method: 'POST',
       headers: requestHeaders(request.connection),
@@ -4470,7 +4990,7 @@ ipcMain.handle('app:resolve-project-path', async (_event, relativePath) => ({
 function defaultComfyWorkflowPathForRole(role) {
   return comfyWorkflowRole(role) === 'voice'
     ? 'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json'
-    : 'comfy-workflows/api-workflows-with-variables/image/Krea2.json';
+    : 'comfy-workflows/api-workflows-with-variables/image/Flux2-Klein-9B.json';
 }
 
 ipcMain.handle('comfy:inspect-workflow', async (_event, request) => {
@@ -4637,6 +5157,32 @@ ipcMain.handle('comfy:list-models', async (_event, request) => {
   }
 });
 
+ipcMain.handle('comfy:list-sampler-schedulers', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  try {
+    // KSampler's node schema enumerates every sampler/scheduler ComfyUI supports as the
+    // first element of its input options tuple, e.g. { sampler_name: [["euler", ...]] }.
+    const result = await requestComfyJson(request?.baseUrl, 'object_info/KSampler', {}, abort);
+    const required = result?.KSampler?.input?.required ?? {};
+    const samplerOptions = Array.isArray(required.sampler_name?.[0]) ? required.sampler_name[0] : [];
+    const schedulerOptions = Array.isArray(required.scheduler?.[0]) ? required.scheduler[0] : [];
+    return {
+      samplers: samplerOptions.filter((name) => typeof name === 'string'),
+      schedulers: schedulerOptions.filter((name) => typeof name === 'string'),
+    };
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    if (isComfyConnectionUnavailable(error)) {
+      return { samplers: [], schedulers: [] };
+    }
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
 ipcMain.handle('comfy:free-memory', async (_event, request) => {
   const abort = createLlmAbortController(request);
   try {
@@ -4647,6 +5193,15 @@ ipcMain.handle('comfy:free-memory', async (_event, request) => {
         free_memory: true,
       }),
     }, abort);
+    // ComfyUI's /free responds as soon as the unload is *queued*, not once the
+    // model is actually out of VRAM (same reasoning as comfyFreeSettleMs in
+    // freeComfyMemoryForLocalLlm above, which frees Comfy in the other
+    // direction — before loading a local LLM). Callers of this handler
+    // (comfyImageRunner.ts's reloadLocalLlmModelsAfterComfy) immediately try
+    // to load the LLM back afterward; without this wait, that reload could
+    // start while ComfyUI is still releasing memory, and both models briefly
+    // resident at once was causing OOM.
+    await new Promise((resolve) => setTimeout(resolve, comfyFreeSettleMs));
     // Only clear the lazy voice-unload marker when this request freed the
     // ComfyUI instance the voice model was loaded on.
     if ((await pendingComfyFree()) === String(request?.baseUrl || '')) {
@@ -5446,12 +6001,14 @@ async function createWindow() {
   window.on('close', (event) => {
     saveWindowState(window);
     if (windowCloseCleanupCompleted.has(window) || window.webContents.isDestroyed()) {
+      abortActiveLlmRequests('window-close');
       return;
     }
     event.preventDefault();
     if (windowCloseCleanupTimeouts.has(window)) {
       return;
     }
+    abortActiveLlmRequests('window-close');
     window.webContents.send('window:cleanup-before-close');
     const timeout = setTimeout(() => {
       windowCloseCleanupTimeouts.delete(window);

@@ -63,6 +63,10 @@ import {
   defaultComfyHeight,
   defaultComfyLoraSlots,
   defaultComfyPrompt,
+  defaultComfyCfg,
+  defaultComfySampler,
+  defaultComfyScheduler,
+  defaultComfySteps,
   defaultComfyTextEncoderName,
   defaultComfyVaeName,
   defaultComfyWidth,
@@ -93,6 +97,8 @@ type ComfyModelLists = {
   vae: string[];
   text_encoders: string[];
   diffusion_models: string[];
+  samplers: string[];
+  schedulers: string[];
 };
 
 type ComfyOnboardingMemoryInfo = {
@@ -283,7 +289,7 @@ type StudioDialogsProps = {
   onSelectConnection: (connection: ConnectionPreset) => void;
   onNewConnection: () => void;
   onApplyProviderPreset: (
-    preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'>,
+    preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfySteps' | 'comfyCfg' | 'comfySampler' | 'comfyScheduler' | 'comfyLoraSlots' | 'reasoningEffort'>,
   ) => void;
   onApplyComfyConnectionRole: (role: 'image' | 'voice') => void;
   onEditConnection: (field: keyof ConnectionPreset, value: ConnectionPreset[keyof ConnectionPreset]) => void;
@@ -572,6 +578,17 @@ const providerPresets = [
     description: 'Local llama-server router',
   },
   {
+    label: 'Unsloth',
+    kind: 'llm',
+    providerKind: 'unsloth',
+    baseUrl: 'http://localhost:8888/v1',
+    apiKey: '',
+    model: '',
+    reasoningEffort: 'none',
+    models: [''],
+    description: 'Local Unsloth server',
+  },
+  {
     label: 'OpenRouter',
     kind: 'llm',
     providerKind: 'openrouter',
@@ -595,6 +612,29 @@ const providerPresets = [
     description: 'Google Gemini API',
   },
   {
+    label: 'Composite',
+    kind: 'llm',
+    providerKind: 'composite',
+    baseUrl: 'https://composite.lucidity.sh/v1',
+    apiKey: '',
+    model: 'composite/gemini-router',
+    reasoningEffort: 'none',
+    models: ['composite/gemini-router', 'composite/gpt-router'],
+    description: 'Composite OpenAI-compatible roleplay API',
+  },
+  {
+    label: 'Venice AI',
+    kind: 'llm',
+    providerKind: 'venice',
+    baseUrl: 'https://api.venice.ai/api/v1',
+    apiKey: '',
+    model: 'venice-uncensored',
+    ttsStreamAudio: false,
+    reasoningEffort: 'none',
+    models: ['venice-uncensored'],
+    description: 'Venice text, vision, image, and speech API',
+  },
+  {
     label: 'ComfyUI Image + Voice',
     kind: 'comfyui',
     baseUrl: 'http://127.0.0.1:8188',
@@ -608,6 +648,10 @@ const providerPresets = [
     comfyDiffusionModelName: defaultComfyDiffusionModelName,
     comfyVaeName: defaultComfyVaeName,
     comfyTextEncoderName: defaultComfyTextEncoderName,
+    comfySteps: defaultComfySteps,
+    comfyCfg: defaultComfyCfg,
+    comfySampler: defaultComfySampler,
+    comfyScheduler: defaultComfyScheduler,
     comfyLoraSlots: defaultComfyLoraSlots,
     reasoningEffort: 'none',
     models: [''],
@@ -625,7 +669,7 @@ const providerPresets = [
     description: 'Custom API; manual model loading',
   },
 ] satisfies Array<
-  Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'> & {
+  Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfySteps' | 'comfyCfg' | 'comfySampler' | 'comfyScheduler' | 'comfyLoraSlots' | 'reasoningEffort'> & {
     models: string[];
     description: string;
   }
@@ -3774,6 +3818,62 @@ export function StudioDialogs({
                               )}
                               onOpenOptions={() => undefined}
                               placeholder="Type or select a text encoder"
+                            />
+                          </div>
+                          <div className="connection-field">
+                            <label htmlFor="comfy-steps">
+                              STEPS <span>{editingConnection.comfySteps ? editingConnection.comfySteps : 'Workflow default'}</span>
+                            </label>
+                            <input
+                              id="comfy-steps"
+                              type="range"
+                              min={0}
+                              max={150}
+                              step={1}
+                              value={editingConnection.comfySteps || 0}
+                              onChange={(event) => onEditConnection('comfySteps', Number(event.target.value))}
+                            />
+                          </div>
+                          <div className="connection-field">
+                            <label htmlFor="comfy-cfg">
+                              CFG <span>{editingConnection.comfyCfg ? editingConnection.comfyCfg.toFixed(1) : 'Workflow default'}</span>
+                            </label>
+                            <input
+                              id="comfy-cfg"
+                              type="range"
+                              min={0}
+                              max={30}
+                              step={0.1}
+                              value={editingConnection.comfyCfg || 0}
+                              onChange={(event) => onEditConnection('comfyCfg', Number(event.target.value))}
+                            />
+                          </div>
+                          <div className="connection-field">
+                            <label htmlFor="comfy-sampler">SAMPLER</label>
+                            <ModelIdPicker
+                              id="comfy-sampler"
+                              value={editingConnection.comfySampler ?? defaultComfySampler}
+                              onChange={(name) => onEditConnection('comfySampler', String(name))}
+                              options={comfyModelOptions(
+                                editingConnection.comfySampler ?? defaultComfySampler,
+                                availableComfyModels.samplers,
+                              )}
+                              onOpenOptions={() => undefined}
+                              placeholder="Workflow default (e.g. euler)"
+                            />
+                          </div>
+                          <div className="connection-field">
+                            <label htmlFor="comfy-scheduler">SCHEDULER</label>
+                            <ModelIdPicker
+                              id="comfy-scheduler"
+                              value={editingConnection.comfyScheduler ?? defaultComfyScheduler}
+                              onChange={(name) => onEditConnection('comfyScheduler', String(name))}
+                              options={comfyModelOptions(
+                                editingConnection.comfyScheduler ?? defaultComfyScheduler,
+                                availableComfyModels.schedulers,
+                              )}
+                              onOpenOptions={() => undefined}
+                              placeholder="Workflow default (e.g. simple)"
                             />
                           </div>
                           <div className="comfy-lora-grid">

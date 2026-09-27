@@ -50,7 +50,8 @@ function abortableLlmInvoke(channel, request, onAbort) {
   return Promise.race([
     ipcRenderer
       .invoke(channel, { ...requestWithoutSignal, requestId })
-      .then(throwIfLlmCancelled),
+      .then(throwIfLlmCancelled)
+      .then(throwIfRpgraphIpcError),
     abortPromise,
   ]);
 }
@@ -71,6 +72,10 @@ contextBridge.exposeInMainWorld('rpgraph', {
     abortableLlmInvoke('lmstudio:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   listLlamaCppModels: (connection, onAbort) =>
     abortableLlmInvoke('llamacpp:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  listUnslothModels: (connection) => ipcRenderer.invoke('unsloth:list', { connection }).then(throwIfRpgraphIpcError),
+  loadUnslothModel: (connection) => ipcRenderer.invoke('unsloth:load', { connection }).then(throwIfRpgraphIpcError),
+  isUnslothModelLoaded: (connection) => ipcRenderer.invoke('unsloth:probe', { connection }).then(throwIfRpgraphIpcError),
+  unloadUnslothModels: (connection) => ipcRenderer.invoke('unsloth:unload', { connection }).then(throwIfRpgraphIpcError),
   loadLlamaCppModel: (connection) =>
     ipcRenderer.invoke('llamacpp:load-model', { connection }),
   isLlamaCppModelLoaded: (connection) =>
@@ -79,6 +84,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('llamacpp:unload-models', { connection }),
   listOpenRouterModels: (connection, onAbort) =>
     abortableLlmInvoke('openrouter:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  listCompositeModels: (connection) =>
+    ipcRenderer.invoke('composite:list-models', { connection }),
   generateOpenRouterSpeech: (request, onChunk) => {
     const requestId = nextLlmRequestId();
     const channel = `openrouter:speech-chunk:${requestId}`;
@@ -99,6 +106,12 @@ contextBridge.exposeInMainWorld('rpgraph', {
   },
   listGeminiModels: (connection, onAbort) =>
     abortableLlmInvoke('gemini:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  listVeniceModels: (connection) =>
+    ipcRenderer.invoke('venice:list-models', { connection }),
+  generateVeniceSpeech: (request) =>
+    ipcRenderer.invoke('venice:generate-speech', request),
+  generateVeniceImages: (request) =>
+    ipcRenderer.invoke('venice:generate-images', request),
   loadLmStudioModel: (connection) =>
     ipcRenderer.invoke('lmstudio:load-model', { connection }),
   isLmStudioModelLoaded: (connection) =>
@@ -152,7 +165,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
             'llm:chat-completion-stream',
             { ...requestWithoutSignal, requestId },
           )
-          .then(throwIfLlmCancelled),
+          .then(throwIfLlmCancelled)
+          .then(throwIfRpgraphIpcError),
         abortPromise,
       ]);
     } finally {
@@ -198,6 +212,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
   freeComfyMemory: (request) => ipcRenderer.invoke('comfy:free-memory', request),
   checkComfyConnection: (request) => ipcRenderer.invoke('comfy:check-connection', request),
   listComfyModels: (request) => ipcRenderer.invoke('comfy:list-models', request),
+  listComfySamplersAndSchedulers: (request) => ipcRenderer.invoke('comfy:list-sampler-schedulers', request),
   inspectComfyWorkflow: (request) => ipcRenderer.invoke('comfy:inspect-workflow', request),
   repairComfyWorkflow: (request) => ipcRenderer.invoke('comfy:repair-workflow', request),
   applyComfyWorkflowRepair: (request) => ipcRenderer.invoke('comfy:apply-workflow-repair', request),
