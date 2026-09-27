@@ -2289,7 +2289,15 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
               onClick={onSelectDraftImages}
               title={!imageUploadEnabled ? imageUploadDisabledReason ?? 'Image upload requires a vision-capable provider.' : undefined}
             >
-              Attach Image
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <span>Attach Image</span>
+              {draftImages.length > 0 && (
+                <span className="composer-attach-count">{draftImages.length}</span>
+              )}
             </button>
             <div className="phone-display-menu" ref={outsidePhoneMenuRef}>
               <button
@@ -2419,7 +2427,10 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                 onClick={onStopVoiceReadAloud}
                 title="Stop the automatic voice read-aloud"
               >
-                Stop Voices
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                </svg>
+                <span>Stop Voices</span>
               </button>
             )}
           </div>
@@ -2442,6 +2453,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             />
             <button
               type="submit"
+              className={`composer-submit-btn${isRunning ? ' is-running' : ''}`}
               disabled={!canRunChat}
               title={
                 canRunChat || isRunning
@@ -2450,7 +2462,17 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                     'Add a Storybook with one player and at least one actor to run the chat.'
               }
             >
-              {isRunning ? 'Cancel' : 'Run Chat'}
+              <span>{isRunning ? 'Cancel' : 'Run Chat'}</span>
+              {isRunning ? (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              )}
             </button>
           </div>
         </div>
