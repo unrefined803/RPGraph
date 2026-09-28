@@ -13081,70 +13081,110 @@ button.message-timeline-row.phone:focus-visible {
   left: 0;
   bottom: calc(100% + 8px);
   z-index: 30;
-  width: min(280px, calc(100vw - 48px));
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.98);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+  width: min(230px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-top-color: rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(18, 27, 43, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 16px 36px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(138, 115, 201, 0.15);
 }
 
 .command-menu button {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   width: 100%;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   color: #e2e8f0;
   text-align: left;
   background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .command-menu button:disabled {
   cursor: not-allowed;
-  opacity: 0.48;
+  opacity: 0.38;
 }
 
-.command-menu button:hover,
-.command-menu button:focus-visible,
-.command-menu button.active {
-  background: rgba(56, 189, 248, 0.14);
+.command-menu button:hover:not(:disabled),
+.command-menu button:focus-visible:not(:disabled) {
+  outline: none;
+  color: #fff;
+  background: rgba(138, 115, 201, 0.14);
+  border-color: rgba(167, 139, 250, 0.25);
+  border-top-color: rgba(255, 255, 255, 0.18);
 }
 
-.command-menu button.active {
-  box-shadow: inset 3px 0 0 rgba(125, 211, 252, 0.8);
+.command-menu button.active:not(:disabled) {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(138, 115, 201, 0.28) 0%, rgba(98, 72, 162, 0.35) 100%);
+  border-color: rgba(178, 156, 227, 0.45);
+  border-top-color: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 8px rgba(138, 115, 201, 0.22);
 }
 
 .command-menu-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
 }
 
 .command-menu-title span {
   min-width: 0;
   overflow: hidden;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 750;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .command-menu kbd {
   flex: none;
-  border: 1px solid rgba(125, 211, 252, 0.28);
-  border-radius: 5px;
-  padding: 1px 6px 2px;
-  color: #bfdbfe;
-  background: rgba(14, 165, 233, 0.12);
-  font: 700 11px var(--rpgraph-ui-font);
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(178, 156, 227, 0.35);
+  border-top-color: rgba(255, 255, 255, 0.25);
+  color: #ddd6fe;
+  background: rgba(138, 115, 201, 0.18);
+  font: 750 9.5px var(--rpgraph-ui-font);
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.command-menu button.active:not(:disabled) kbd {
+  border-color: rgba(216, 180, 254, 0.55);
+  background: rgba(138, 115, 201, 0.32);
+  color: #f5f3ff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 6px rgba(167, 139, 250, 0.3);
 }
 
 .command-menu small {
-  color: #94a3b8;
-  font-size: 11px;
+  color: #8899b5;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.command-menu button.active:not(:disabled) small {
+  color: #c4b5fd;
 }
 
 .command-pill-list {
@@ -13195,12 +13235,12 @@ button.message-timeline-row.phone:focus-visible {
   border: 0;
   color: inherit;
   background: transparent;
-  font: inherit;
+  font-family: inherit;
+  font-size: 15px;
 }
 
 .command-pill-label {
   padding: 0 7px 0 9px;
-  font-size: 9.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -13219,7 +13259,6 @@ button.message-timeline-row.phone:focus-visible {
   overflow: hidden;
   padding: 0 9px 0 7px;
   color: var(--soft-white);
-  font-size: 10px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -13230,7 +13269,6 @@ button.message-timeline-row.phone:focus-visible {
   min-width: 54px;
   padding: 0 9px 0 7px;
   outline: none;
-  font-size: 10px;
   color: var(--soft-white);
 }
 

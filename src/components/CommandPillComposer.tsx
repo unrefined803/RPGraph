@@ -347,18 +347,8 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
     if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
       lastEmptyEnter.current = null;
     }
-    if (onEmptyDoubleEnter && !value.trim() && !commands.length && event.key === 'Enter'
-      && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
-      event.preventDefault();
-      if (event.repeat) return;
-      const now = performance.now();
-      if (lastEmptyEnter.current !== null && now - lastEmptyEnter.current <= 400) {
-        lastEmptyEnter.current = null;
-        onEmptyDoubleEnter();
-      } else lastEmptyEnter.current = now;
-      return;
-    }
     if (menuOpen) {
+      lastEmptyEnter.current = null;
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         moveMenuSelection(1);
@@ -382,6 +372,17 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
       if (event.key === 'Tab') {
         setMenuOpen(false);
       }
+    }
+    if (onEmptyDoubleEnter && !value.trim() && !commands.length && event.key === 'Enter'
+      && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      if (event.repeat) return;
+      const now = performance.now();
+      if (lastEmptyEnter.current !== null && now - lastEmptyEnter.current <= 400) {
+        lastEmptyEnter.current = null;
+        onEmptyDoubleEnter();
+      } else lastEmptyEnter.current = now;
+      return;
     }
     if (event.key === 'Backspace' && !value && commands.length > 0) {
       event.preventDefault();
