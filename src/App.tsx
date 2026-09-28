@@ -5176,7 +5176,7 @@ function App() {
             >
               <span className="brand-name-rp">RP</span>graph Studio
             </button>
-            <span className="app-version">Update v{packageMetadata.version} - AI Initiative</span>
+            <span className="app-version">v{packageMetadata.version} Beta</span>
           </h1>
           <div className="header-brand-actions">
             <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>

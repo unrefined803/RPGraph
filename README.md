@@ -2,7 +2,7 @@
 
 > **Your personal roleplay studio — build your world, shape your workflows, and bring your characters to life.**
 
-![RPGraph Studio main screen](docs/main-screen.png)
+![RPGraph Studio v0.6.2 main screen](docs/main-screen.png)
 
 🎬 **[Watch the demo](https://youtu.be/nweut7o-qnA)**
 
