@@ -1,3 +1,4 @@
+import { useUserQuestion } from './app/useUserQuestion';
 import { imageModelContext } from './images/loraCompatibility';
 import { supportsImageGenerationReferences } from './images/providers';
 import { imageReferenceAttachments } from './images/references';
@@ -815,6 +816,8 @@ function App() {
   const {
     isRunning,
     setIsRunning,
+    isPaused,
+    setIsPaused,
     runLlmReport,
     setRunLlmReport,
     showRunLlmReport,
@@ -3897,7 +3900,9 @@ function App() {
       }];
     });
   }
+  const { pendingQuestion, askUser, answerUserQuestion } = useUserQuestion();
   const { runGraph } = useGraphRun({
+    askUser,
     appCharacters: npcParticipants.characters,
     messages,
     setMessages,
@@ -3991,6 +3996,7 @@ function App() {
     activeRun: activeRunRef,
     setActiveRunId,
     setIsRunning,
+    setIsPaused,
     setRunDurationMs,
     setRunStartTimeMs,
     runStartTimeRef,
@@ -4188,6 +4194,18 @@ function App() {
       );
       return;
     }
+    if (turn.messageFormat === 0 && turn.promptSlot === 6) {
+      const player = phoneCharacters.find((character) => character.id === turn.playerCharacterId);
+      if (!player) {
+        notifySystem('warning', 'The original player character is no longer available for this initiative turn.');
+        return;
+      }
+      void runGraph('', [], undefined,
+        messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
+        replacedMessageIds, player, false, undefined, { turn, replaceInput: true },
+        'user', undefined, undefined, undefined, false, 0, 6);
+      return;
+    }
     if (turn.messageFormat === autoplayMessageFormat) {
       void runGraph(
         turn.input.graphText,
@@ -4382,6 +4400,18 @@ function App() {
       { turn, replaceInput: true },
       inputMessage.speakerName === narratorSpeakerName ? 'narrator' : 'user',
     );
+  }
+
+  function startInitiativeTurn() {
+    if (isRunning || narratorSelected || !selectedCharacter || draft.trim() || draftImages.length || draftCommands.length) return;
+    const switches = nodesRef.current.filter((node) => node.data.nodeType === 'llm-prompt-switch');
+    if (!switches.some((node) => node.data.llmPromptSwitchPromptAftersByOutput?.[0]?.[6]?.trim())) {
+      notifySystem('warning', 'This workflow needs Normal RP slot 6 (AI Action / User Reaction). Load an updated default workflow or add the prompt slot.');
+      return;
+    }
+    rememberChatCharacter(selectedCharacter.id);
+    void runGraph('', [], undefined, messagesRef.current, undefined, selectedCharacter,
+      false, undefined, undefined, 'user', undefined, undefined, undefined, false, 0, 6);
   }
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
@@ -5132,6 +5162,7 @@ function App() {
           currentDurationMs={runDurationMs}
           history={runHistory}
           isRunning={isRunning && activeRunId === runLlmReport.runId}
+          isPaused={isPaused}
           runStartTimeMs={runStartTimeMs}
           onClose={() => setShowRunLlmReport(false)}
         />
@@ -5300,7 +5331,7 @@ function App() {
                 disabled={!runLlmReport}
                 title="Show LLM calls for the current or last run"
               >
-                Runtime: <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+                Runtime: <LiveRunClock isRunning={isRunning} isPaused={isPaused} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
               </button>
               <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
               {visibleLogEntry && (
@@ -5702,6 +5733,7 @@ function App() {
               editingDraft={editingDraft}
               editableUserMessageId={editableUserMessageId}
               isRunning={isRunning}
+              isPaused={isPaused}
               runStartTimeMs={runStartTimeMs}
               onCancelRun={cancelRunOrUndoLastTurn}
               englishProcessingEnabled={englishProcessingEnabled}
@@ -5821,6 +5853,9 @@ function App() {
               socialImageById={socialImageById}
               socialLikesByAccount={socialLikesByAccount}
               onOutputActionChoice={submitOutputActionChoice}
+              pendingQuestion={pendingQuestion}
+              onAnswerUserQuestion={answerUserQuestion}
+              onStartInitiativeTurn={startInitiativeTurn}
               onSubmitMessage={submitMessage}
               onDraftChange={setDraft}
               onDraftCommandsChange={setDraftCommands}

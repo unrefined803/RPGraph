@@ -11,6 +11,7 @@ import type {
 
 export function useRunLifecycle() {
   const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [runLlmReport, setRunLlmReport] = useState<RunLlmReport | null>(null);
   const [showRunLlmReport, setShowRunLlmReport] = useState(false);
   const [runDurationMs, setRunDurationMs] = useState<number>(0);
@@ -60,6 +61,8 @@ export function useRunLifecycle() {
   return {
     isRunning,
     setIsRunning,
+    isPaused,
+    setIsPaused,
     runLlmReport,
     setRunLlmReport,
     showRunLlmReport,

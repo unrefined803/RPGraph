@@ -208,6 +208,7 @@ export function RunLlmReportDialog({
   currentDurationMs,
   history,
   isRunning,
+  isPaused = false,
   runStartTimeMs,
   onClose,
 }: {
@@ -215,6 +216,7 @@ export function RunLlmReportDialog({
   currentDurationMs: number;
   history: LlmRunHistoryEntry[];
   isRunning: boolean;
+  isPaused?: boolean;
   runStartTimeMs: number | null;
   onClose: () => void;
 }) {
@@ -228,14 +230,14 @@ export function RunLlmReportDialog({
       <div className={`run-llm-card ${isCurrent ? 'current' : ''}`}>
         <div className="run-llm-card-header">
           <h4>{title}</h4>
-          {isCurrent && isRunning && <span className="run-llm-card-badge">Running</span>}
+          {isCurrent && isRunning && <span className={`run-llm-card-badge${isPaused ? ' run-clock-paused' : ''}`}>{isPaused ? 'Paused' : 'Running'}</span>}
         </div>
         <div className="run-llm-card-body">
           <div className="run-llm-card-row">
             <span className="run-llm-card-label">Duration</span>
             <span className="run-llm-card-value font-mono">
               {isCurrent && isRunning
-                ? <><LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={durationMs ?? 0} /> s</>
+                ? <><LiveRunClock isRunning={isRunning} isPaused={isPaused} startTimeMs={runStartTimeMs} finalMs={durationMs ?? 0} /> s</>
                 : durationMs !== undefined ? `${formatRuntimeSeconds(durationMs)} s` : '-'}
             </span>
           </div>

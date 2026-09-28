@@ -60,6 +60,7 @@ type ExecuteGraphOptions = {
     events: Record<string, EventEntity>,
     status?: string,
   ) => void;
+  askUser?: (question: string) => Promise<string>;
   streamOutput?: (text: string) => void;
   trackRunCompletion?: boolean;
   postOutputRun?: boolean;
@@ -155,6 +156,7 @@ export async function executeGraph({
   updateRuntimeNode,
   updateEventEntities,
   streamOutput,
+  askUser,
   trackRunCompletion = false,
   postOutputRun = false,
   postOutputNodeIds,
@@ -410,6 +412,7 @@ export async function executeGraph({
             sourceHandle,
             directActionOnly: outputSourceHandle === 'direct-actions',
             streamOutput,
+            askUser,
             llm: graphLlm,
             textMetrics,
             settingsValues: runtimeSettingsValues,

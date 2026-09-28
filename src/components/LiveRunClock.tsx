@@ -15,25 +15,28 @@ function formatRuntimeSeconds(durationMs: number) {
  * back-to-back and pegged the main thread for the whole run — freezing the UI,
  * worst during long no-stream waits (e.g. a custom node's internal LLM call).
  *
- * The elapsed time is always derived from `startTimeMs` (the run's real start
- * on the `performance.now()` clock), never from this component's mount time.
+ * The elapsed time is derived from `startTimeMs` (the run's effective start
+ * on the `performance.now()` clock, shifted after pauses), never mount time.
  * That keeps every instance in sync and correct even when one mounts mid-run,
  * e.g. inside the run report dialog. When not running, it shows the final
- * duration passed in `finalMs`.
+ * duration passed in `finalMs`. While `isPaused`, the display freezes at
+ * `finalMs` and turns yellow without ending the active run.
  */
 export function LiveRunClock({
   isRunning,
+  isPaused = false,
   startTimeMs,
   finalMs,
 }: {
   isRunning: boolean;
+  isPaused?: boolean;
   startTimeMs: number | null;
   finalMs: number;
 }) {
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
-    if (!isRunning || startTimeMs === null) {
+    if (!isRunning || isPaused || startTimeMs === null) {
       return;
     }
     const update = () => setElapsedMs(performance.now() - startTimeMs);
@@ -45,7 +48,11 @@ export function LiveRunClock({
       window.clearTimeout(timeoutId);
       window.clearInterval(intervalId);
     };
-  }, [isRunning, startTimeMs]);
+  }, [isRunning, isPaused, startTimeMs]);
 
-  return <>{formatRuntimeSeconds(isRunning ? elapsedMs : finalMs)}</>;
+  const duration = isRunning && !isPaused && startTimeMs !== null ? elapsedMs : finalMs;
+  return <span className={isPaused ? 'run-clock-paused' : undefined}
+    title={isPaused ? 'Paused — waiting for your answer' : undefined}>
+    {formatRuntimeSeconds(duration)}
+  </span>;
 }

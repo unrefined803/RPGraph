@@ -88,6 +88,8 @@ export type TimelineTurnMetadata = {
   messageFormat?: number;
   promptSlot?: number;
   directAction?: boolean;
+  playerCharacterId?: string;
+  userInteractions?: import('../types').UserInteraction[];
   inputGraphText?: string;
   outputGraphText?: string;
 };

@@ -42,6 +42,8 @@ function turnMetadata(turn: TurnRecord): TimelineTurnMetadata {
     ...(turn.messageFormat !== undefined ? { messageFormat: turn.messageFormat } : {}),
     ...(turn.promptSlot !== undefined ? { promptSlot: turn.promptSlot } : {}),
     ...(turn.directAction ? { directAction: true } : {}),
+    ...(turn.playerCharacterId ? { playerCharacterId: turn.playerCharacterId } : {}),
+    ...(turn.userInteractions?.length ? { userInteractions: turn.userInteractions } : {}),
     ...(turn.input.graphText ? { inputGraphText: turn.input.graphText } : {}),
     ...(turn.output.graphText ? { outputGraphText: turn.output.graphText } : {}),
   };

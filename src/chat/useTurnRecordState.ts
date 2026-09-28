@@ -429,7 +429,7 @@ export function useTurnRecordState({
     checkpointBeforeWorkflowVariables: Record<string, string>,
     replacement?: TurnReplacement,
     mode: TurnRecordMode = 'user',
-    metadata: Pick<TurnRecord, 'messageFormat' | 'promptSlot' | 'directAction'> = {},
+    metadata: Pick<TurnRecord, 'messageFormat' | 'promptSlot' | 'directAction' | 'playerCharacterId' | 'userInteractions'> = {},
   ) {
     const collector = activeTurnCollectorRef.current;
     if (!collector) {
@@ -447,6 +447,8 @@ export function useTurnRecordState({
       messageFormat: metadata.messageFormat,
       promptSlot: metadata.promptSlot,
       directAction: metadata.directAction || undefined,
+      playerCharacterId: metadata.playerCharacterId,
+      userInteractions: metadata.userInteractions?.length ? metadata.userInteractions : undefined,
       input: {
         graphText: inputGraphText,
         messages: collector.inputMessages,

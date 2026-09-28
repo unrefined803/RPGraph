@@ -9,7 +9,7 @@ function harness(check: Options['checkProviderConnections']) {
     nodesRef: { current: nodes }, messages: [], activeRun: { current: null },
     characterStorybookNodes: [{}], phoneCharacters: [], selectedCharacter: { id: 'ari' },
     referenceImageOptionsForRun: () => [], nodeHasVision: () => false,
-    setActiveRunId: vi.fn(), setIsRunning: vi.fn(), setRunHistory: vi.fn(),
+    setActiveRunId: vi.fn(), setIsRunning: vi.fn(), setIsPaused: vi.fn(), setRunHistory: vi.fn(),
     setRunStartTimeMs: vi.fn(), setRunDurationMs: vi.fn(),
     activeRunLlmReport: { current: null }, setRunLlmReport: vi.fn(), activeRunCancelReason: { current: 'cancel' },
     checkProviderConnections: check, connections: [{ id: 'provider', label: 'Provider' }],

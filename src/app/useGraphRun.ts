@@ -1,3 +1,4 @@
+import { askUserWithTranslation } from './askUserTranslation';
 import type { HighlightingSpeakerContext } from '../nodes/output/speakerSelection';
 import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCommandBinding } from '../chat/socialPostCommands';
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
@@ -132,6 +133,7 @@ import {
   stripPlanBlocks,
 } from '../chat/messageFormats';
 import { executeGraph } from '../graph/executeGraph';
+import { createRunClock } from './runClock';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import {
@@ -205,6 +207,7 @@ type UseGraphRunOptions = Pick<
   | 'applyTurnCheckpointRuntime'
   | 'commitCollectedTurn'
 > & {
+  askUser?: (question: string, signal: AbortSignal) => Promise<string>;
   recordTurnTrace: ReturnType<typeof useTurnTraceState>['recordTurnTrace'];
   referenceImageOptionsForRun: ReturnType<typeof useNextTurnReferenceImages>['optionsForRun'];
   clearTemporaryReferenceImages: ReturnType<typeof useNextTurnReferenceImages>['clearSelectedImages'];
@@ -320,6 +323,7 @@ type UseGraphRunOptions = Pick<
   activeRun: Ref<ActiveRun | null>;
   setActiveRunId: (runId: string | null) => void;
   setIsRunning: (running: boolean) => void;
+  setIsPaused: (paused: boolean) => void;
   setRunDurationMs: (ms: number) => void;
   setRunStartTimeMs: (ms: number | null) => void;
   runStartTimeRef: Ref<number | null>;
@@ -382,6 +386,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     applyTurnCheckpointRuntime,
     commitCollectedTurn,
     recordTurnTrace,
+    askUser,
     referenceImageOptionsForRun,
     clearTemporaryReferenceImages,
     selectPhoneReply,
@@ -449,6 +454,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     activeRun,
     setActiveRunId,
     setIsRunning,
+    setIsPaused,
     setRunDurationMs,
     setRunStartTimeMs,
     runStartTimeRef,
@@ -495,10 +501,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
       return false;
     }
     onRunStarting?.();
+    const isInitiativeRun = messageFormatOverride === 0 && turnModeOverride === 6;
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
     const shouldRestoreCancelledInput =
       !directActionOnly &&
+      !isInitiativeRun &&
       !isAutoTurn &&
       !narratorAutoTurn &&
       messageFormatOverride !== socialMediaMessageFormat &&
@@ -559,6 +567,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const runId = createRunId();
     const runController = new AbortController();
     const runSignal = runController.signal;
+    const runClock = createRunClock(runClockNow);
     const retryRun = () => {
       void runGraph(
         displayText,
@@ -589,15 +598,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
     let stopObservingRequests: () => void = () => {};
     const finishRun = () => {
       stopObservingRequests();
+      // Release a pending user question if another graph branch failed.
+      runController.abort();
       if (activeRun.current?.id !== runId) {
         return;
       }
       runEndTimeRef.current = runClockNow();
-      if (runStartTimeRef.current !== null) {
-        setRunDurationMs(runEndTimeRef.current - runStartTimeRef.current);
-      }
+      setRunDurationMs(runClock.elapsedMs());
       activeRun.current = null;
       setActiveRunId(null);
+      setIsPaused(false);
       setIsRunning(false);
       const restart = pendingRunRestart.current;
       if (restart) {
@@ -611,10 +621,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
       retry: retryRun,
     };
     setActiveRunId(runId);
-    runStartTimeRef.current = runClockNow();
+    runStartTimeRef.current = runClock.startTimeMs();
     setRunStartTimeMs(runStartTimeRef.current);
     runEndTimeRef.current = null;
     setRunDurationMs(0);
+    setIsPaused(false);
     setIsRunning(true);
     if (runLlmReport) {
       setRunHistory((prev) =>
@@ -851,6 +862,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     let lastLiveOutputFlushMs = 0;
     let autoTurnInputMessageId: number | undefined;
     const responseWorkflowVariableSetCommands: WorkflowVariableSetCommand[] = [];
+    const userInteractions: import('../types').UserInteraction[] = [];
     const runWarnings: string[] = [];
     const runTraceEvents: TurnTraceEvent[] = [];
     let tracePhase: 'response' | 'prepare-next-turn' = 'response';
@@ -1048,6 +1060,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     if (
       (runEnglishProcessing || translateInputOnly) &&
       !isAutoplayRun &&
+      !isInitiativeRun &&
       !directInput &&
       !isAutoTurn &&
       !narratorAutoTurn &&
@@ -1283,6 +1296,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
       directActionOnly,
       isAutoTurn,
     );
+    if (isInitiativeRun) {
+      inputText = `AI initiative roleplay. The user is currently playing ${inputCharacterName}. ${runEnglishProcessing || translateInputOnly ? 'Processing language: English. ' : ''}Present this character with a situation that invites their reaction. Ask the user how they respond before completing the scene. Do not decide their reaction for them.`;
+    }
     const originalInput = socialDirectMessage?.app === 'matchme' ? inputText : replacementInputText ??
       ((existingInputMessage && isPhoneMessage && phoneRecipientName
         ? formatCurrentPhoneInput(inputText)
@@ -1401,6 +1417,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     if (
       shouldAppendInputMessage &&
       !directActionOnly &&
+      !isInitiativeRun &&
       !isAutoTurn &&
       !isPhoneMessage &&
       messageFormat !== socialMediaMessageFormat &&
@@ -1596,6 +1613,37 @@ export function useGraphRun(options: UseGraphRunOptions) {
         onComfyGenerationActive: updateWorkflowComfyGenerationActive,
         settingsValues: workflowSettingsValuesForGraph(),
         settingsValueDefinitions: settingsValueDefinitionsRef.current,
+        askUser: askUser ? async (question) => {
+          selectChatPanelView('chat');
+          const interaction = await askUserWithTranslation({
+            question,
+            context: turnContext,
+            signal: runSignal,
+            translate: (text, direction) => translateText(
+              text, direction, inputNode.data.connectionId ?? defaultConnectionId, inputNode.id,
+              undefined, turnContext.displayLanguage, runSignal,
+              direction === 'to-english' ? question : inputHistoryContext,
+              direction === 'to-english' ? 'Ask User: translate answer' : 'Ask User: translate question',
+            ),
+            ask: async (displayQuestion) => {
+              runClock.pause();
+              setRunDurationMs(runClock.elapsedMs());
+              setIsPaused(true);
+              try {
+                return await askUser(displayQuestion, runSignal);
+              } finally {
+                if (activeRun.current?.id === runId) {
+                  runClock.resume();
+                  runStartTimeRef.current = runClock.startTimeMs();
+                  setRunStartTimeMs(runStartTimeRef.current);
+                  setIsPaused(false);
+                }
+              }
+            },
+          });
+          userInteractions.push(interaction);
+          return interaction.translatedAnswer ?? interaction.answer;
+        } : undefined,
         promptActionSettings,
         onWorkflowVariablesSet: setWorkflowVariablesForResponseRun,
         rpDateTimeFormat,
@@ -3103,7 +3151,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
         checkpointBeforeWorkflowVariables,
         replacement,
         turnMode,
-        { messageFormat, promptSlot, directAction: directActionOnly },
+        { messageFormat, promptSlot, directAction: directActionOnly,
+          playerCharacterId: isInitiativeRun ? inputCharacter?.id : undefined, userInteractions },
       );
       if (committedTurn) {
         onRunCommitted?.({

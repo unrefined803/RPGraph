@@ -1,3 +1,4 @@
+import type { UserQuestion } from '../app/userQuestion';
 import { measureUiWork, countChatRowRender } from '../diagnostics/uiPerformance';
 import { createRowTimelineSelector } from '../chat/rowTimeline';
 import { gradientPhaseStyle } from '../chat/gradientPhase';
@@ -1530,6 +1531,7 @@ type ChatConversationPanelProps = RunProgress & {
   editingDraft: string;
   editableUserMessageId?: number;
   isRunning: boolean;
+  isPaused?: boolean;
   runStartTimeMs: number | null;
   onCancelRun: () => void;
   englishProcessingEnabled: boolean;
@@ -1604,6 +1606,9 @@ type ChatConversationPanelProps = RunProgress & {
   socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   socialLikesByAccount: Record<string, string[]>;
   onOutputActionChoice: (selection: InputActionSelection) => void;
+  pendingQuestion?: UserQuestion | null;
+  onAnswerUserQuestion?: (id: number, answer: string) => boolean;
+  onStartInitiativeTurn?: () => void;
   onSubmitMessage: (event: FormEvent<HTMLFormElement>) => void;
   onDraftChange: (value: string) => void;
   onDraftCommandsChange: (commands: CommandInputCommand[]) => void;
@@ -1643,6 +1648,8 @@ export function ChatConversationPanel(props: ChatConversationPanelProps) {
     onOpenEmbeddedSocialMessage: props.onOpenEmbeddedSocialMessage,
     onOpenSocialPost: props.onOpenSocialPost,
     onOutputActionChoice: props.onOutputActionChoice,
+    onAnswerUserQuestion: (id: number, answer: string) => props.onAnswerUserQuestion?.(id, answer) ?? false,
+    onStartInitiativeTurn: () => props.onStartInitiativeTurn?.(),
     onSubmitMessage: props.onSubmitMessage,
     onDraftChange: props.onDraftChange,
     onDraftCommandsChange: props.onDraftCommandsChange,
@@ -1673,6 +1680,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   editingDraft,
   editableUserMessageId,
   isRunning,
+  isPaused = false,
   runStartTimeMs,
   onCancelRun,
   englishProcessingEnabled,
@@ -1739,6 +1747,9 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   socialImageById,
   socialLikesByAccount,
   onOutputActionChoice,
+  pendingQuestion,
+  onAnswerUserQuestion,
+  onStartInitiativeTurn,
   onSubmitMessage,
   onDraftChange,
   onDraftCommandsChange,
@@ -1751,6 +1762,11 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
     onStreamContentChange();
   }, [messages, onStreamContentChange]);
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
+  const [questionAnswer, setQuestionAnswer] = useState({ id: 0, text: '' });
+  const answerText = pendingQuestion?.id === questionAnswer.id ? questionAnswer.text : '';
+  useEffect(() => {
+    if (pendingQuestion) commandComposerRef.current?.focusMessage();
+  }, [pendingQuestion]);
   const [selectRowTimelines] = useState(() => createRowTimelineSelector<PhoneTimelineGroup>());
   const [selectTimeline] = useState(() => createStableDerivedValueSelector<Pick<MessageRowProps,
     'phoneMessagesById' | 'socialMessagesById' | 'socialMessageRpDateTimeById' |
@@ -1883,6 +1899,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   }, [chatThreadRef, editingMessageId, focusComposerInput]);
 
   const isExpanded =
+    !!pendingQuestion ||
     !composerAutoCollapseEnabled ||
     isComposerFocused ||
     (!scrollCollapsed && draftImages.length > 0);
@@ -1893,6 +1910,11 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
       : 'collapsed';
 
   const submitMessage = (event: FormEvent<HTMLFormElement>) => {
+    if (pendingQuestion) {
+      event.preventDefault();
+      onAnswerUserQuestion?.(pendingQuestion.id, answerText);
+      return;
+    }
     setIsComposerFocused(false);
     setIsComposerHovered(false);
     setScrollCollapsed(true);
@@ -2184,7 +2206,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
           />
         ))}
       </div>
-      {isRunning ? (
+      {isRunning && !isPaused && !pendingQuestion ? (
         <RunProgressCard
           isRunning
           activity={activity}
@@ -2195,7 +2217,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
       ) : (
       <form
         ref={composerRef}
-        className={`composer ${composerModeClass}`}
+        className={`composer ${composerModeClass}${pendingQuestion ? ' awaiting-answer' : ''}`}
         onSubmit={submitMessage}
         onPointerDownCapture={(event) => {
           if (isTextEntryTarget(event.target)) {
@@ -2232,20 +2254,31 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             <CharacterName color={!isNarratorSelected && selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{(isNarratorSelected ? 'Narrator' : selectedCharacter?.name ?? 'CHARACTER').toUpperCase()}</CharacterName> INPUT
           </label>
         </div>
+        {pendingQuestion && (
+          <div className="composer-user-question" role="status" aria-live="polite">
+            <strong>Your input is needed</strong>
+            <div id="user-question-text">{pendingQuestion.question}</div>
+          </div>
+        )}
         <CommandPillComposer
           ref={commandComposerRef}
           id="chat-prompt"
-          value={draft}
-          commands={draftCommands}
-          commandsEnabled={rpTimeTrackingEnabled}
+          describedBy={pendingQuestion ? 'user-question-text' : undefined}
+          value={pendingQuestion ? answerText : draft}
+          commands={pendingQuestion ? [] : draftCommands}
+          commandsEnabled={!pendingQuestion && rpTimeTrackingEnabled}
           disabled={false}
-          onValueChange={onDraftChange}
+          onValueChange={pendingQuestion
+            ? (text) => setQuestionAnswer({ id: pendingQuestion.id, text })
+            : onDraftChange}
+          onEmptyDoubleEnter={!pendingQuestion && !isRunning && !isNarratorSelected && selectedCharacter && !draftImages.length && !draftCommands.length
+            ? onStartInitiativeTurn : undefined}
           onCommandsChange={onDraftCommandsChange}
           onSubmit={submitMessage}
-          placeholder="Click here or press Enter to write. Type /cmd for commands"
-          rows={3}
+          placeholder={pendingQuestion ? 'Write your answer and press Enter' : 'Write a message, or press Enter twice when empty for AI initiative. Type /cmd for commands'}
+          rows={pendingQuestion ? 5 : 3}
         />
-        {!!draftImages.length && (
+        {!pendingQuestion && !!draftImages.length && (
           <div className="composer-images">
             {draftImages.map((image) => (
               <div className="composer-image" key={image.id}>
@@ -2434,7 +2467,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
               </button>
             )}
           </div>
-          {draftCommands.length > 0 && (
+          {!pendingQuestion && draftCommands.length > 0 && (
             <CommandPillList
               className="chat-command-pill-list"
               commands={draftCommands}
@@ -2443,6 +2476,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             />
           )}
           <div className="composer-run-actions">
+            {pendingQuestion && <button type="button" onClick={onCancelRun}>Cancel</button>}
             <AutoplayControl
               enabled={autoplayEnabled}
               mode={autoplayMode}
@@ -2453,8 +2487,8 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             />
             <button
               type="submit"
-              className={`composer-submit-btn${isRunning ? ' is-running' : ''}`}
-              disabled={!canRunChat}
+              className={`composer-submit-btn${isRunning && !pendingQuestion ? ' is-running' : ''}`}
+              disabled={pendingQuestion ? !answerText.trim() : !canRunChat}
               title={
                 canRunChat || isRunning
                   ? undefined
@@ -2462,8 +2496,8 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                     'Add a Storybook with one player and at least one actor to run the chat.'
               }
             >
-              <span>{isRunning ? 'Cancel' : 'Run Chat'}</span>
-              {isRunning ? (
+              <span>{pendingQuestion ? 'Send Answer' : isRunning ? 'Cancel' : 'Run Chat'}</span>
+              {isRunning && !pendingQuestion ? (
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>

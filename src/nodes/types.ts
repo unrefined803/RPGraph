@@ -78,6 +78,7 @@ export type ExecuteContext<TLlm = NodeLlmApi, TTextMetrics = TextMetricsApi> = {
   outputNodeId: string;
   sourceHandle?: string | null;
   directActionOnly?: boolean;
+  askUser?: (question: string) => Promise<string>;
   streamOutput?: (text: string) => void;
   llm: TLlm;
   textMetrics: TTextMetrics;

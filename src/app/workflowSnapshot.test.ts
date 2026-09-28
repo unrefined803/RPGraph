@@ -33,14 +33,14 @@ describe('workflow Storybook selection', () => {
     expect(workflowNeedsStorybookSelection({ nodes: [] })).toBe(false);
   });
 
-  it.each(['default_normal_v35.json', 'default_planning_v35.json'])(
+  it.each(['default_normal_v37.json', 'default_planning_v37.json'])(
     'recognizes the empty Storybook slot in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8'));
       expect(workflowNeedsStorybookSelection(workflow)).toBe(true);
     },
   );
-  it.each(['default_normal_v35.json', 'default_planning_v35.json'])(
+  it.each(['default_normal_v37.json', 'default_planning_v37.json'])(
     'uses one RP input prompt and no image generation in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
@@ -79,13 +79,13 @@ describe('workflow Storybook selection', () => {
       expect(rows[1][0]).toContain('attached image');
     },
   );
-  it.each(['default_normal_v35.json', 'default_planning_v35.json'])(
+  it.each(['default_normal_v37.json', 'default_planning_v37.json'])(
     'explains account links once in every independent app and RP pass in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
       const promptSwitch = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!;
       const rows = promptSwitch.data.llmPromptSwitchPromptAftersByOutput!;
-      expect(rows.flat()).toHaveLength(23);
+      expect(rows.flat()).toHaveLength(24);
       for (const after of rows.flat().filter(Boolean)) {
         for (const step of buildPromptStepChain('', after)) {
           expect(step.after.match(/Account links:/g)).toHaveLength(1);
@@ -99,3 +99,20 @@ describe('workflow Storybook selection', () => {
   );
 
 });
+
+
+it.each(['default_normal_v37.json', 'default_planning_v37.json'])(
+  'authors initiative and user interaction only in slot 6 of %s', (fileName) => {
+    const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
+    const data = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!.data;
+    expect(data.llmPromptSwitchPromptTitlesByOutput![0][6]).toBe('AI Action / User Reaction');
+    expect(data.llmPromptSwitchPromptBeforesByOutput![0][6]).toBe('');
+    const steps = buildPromptStepChain('', data.llmPromptSwitchPromptAftersByOutput![0][6]);
+    expect(steps.map((step) => step.name)).toEqual(['planning', 'main']);
+    expect(steps[0].after).toContain('@action:Ask User');
+    expect(steps[0].after).toContain('MUST call Ask User once');
+    expect(steps[1].after).toContain('@output:planning');
+    expect(steps[1].after).toContain('@action:Ask User');
+    expect(data.llmPromptSwitchOutputTitles).toHaveLength(4);
+  },
+);

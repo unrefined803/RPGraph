@@ -5,7 +5,7 @@ import { createComfyImageForCharacter } from '../runScratch';
 import { postsWithInitialContent } from '../../characters/publications';
 import { storyCharactersFromNodes, storybookImageListsFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
 
-export type PromptActionId = 'getCharacterList' | 'getImageId' | 'updatePhoneImageCaption' | 'describeInputImage' | 'createImage';
+export type PromptActionId = 'askUser' | 'getCharacterList' | 'getImageId' | 'updatePhoneImageCaption' | 'describeInputImage' | 'createImage';
 
 export type PromptActionConfig = {
   title: string;
@@ -55,7 +55,7 @@ export type ParsedPromptActionCall = {
 };
 
 export type ParsedPromptActionRequest = {
-  action: 'getImageId' | 'createImage' | 'getCharacterList';
+  action: 'getImageId' | 'createImage' | 'getCharacterList' | 'askUser';
   plan: string;
 };
 
@@ -70,7 +70,7 @@ type ActionImageResult = {
   attachment: ChatImageAttachment;
 };
 
-export const promptActionIds: PromptActionId[] = ['getCharacterList', 'getImageId', 'updatePhoneImageCaption', 'describeInputImage', 'createImage'];
+export const promptActionIds: PromptActionId[] = ['askUser', 'getCharacterList', 'getImageId', 'updatePhoneImageCaption', 'describeInputImage', 'createImage'];
 const getCharacterListActionTitle = 'Ask character information';
 export const defaultPromptActionTitle = 'Get character phone image list';
 const updatePhoneImageCaptionActionTitle = 'Update phone image caption';
@@ -79,6 +79,7 @@ const createImageActionTitle = 'Create character phone image';
 
 export function promptActionTitle(actionId: PromptActionId) {
   switch (actionId) {
+    case 'askUser': return 'Ask User';
     case 'getCharacterList':
       return getCharacterListActionTitle;
     case 'updatePhoneImageCaption':
@@ -103,6 +104,8 @@ export function promptActionPromptTitle(actionId: PromptActionId) {
 
 export function promptActionHintText(actionId: PromptActionId) {
   switch (actionId) {
+    case 'askUser':
+      return 'Ask the human user for a clarification, decision, or reaction before continuing. Include all context the user needs in the question, using the workflow processing language when specified, otherwise the ongoing scene language. Do not answer for them. Return exactly one JSON object and nothing else: {"action":"ask_user","question":"Your question or visible situation followed by a question"}. The run waits for the user; their answer replaces this action hint when this prompt is replayed. Continue using that answer without asking again.';
     case 'getCharacterList':
       return [
         'Look up existing Storybook or NPC characters: ask about a specific name or account, missing facts, relationships, or a suitable person for the scene. If a needed identity, account ID, or fact is missing, call this action before planning or writing the activity; do not invent characters, handles, accounts, IDs, or relationships to fill the gap.',
@@ -883,6 +886,7 @@ export function defaultPromptActionRunAfterReply(actionId: PromptActionId) {
 
 function defaultPromptActionInstructionTemplate(actionId: PromptActionId) {
   switch (actionId) {
+    case 'askUser': return promptActionHintText('askUser');
     case 'getCharacterList':
       return characterSearchInstruction;
     case 'updatePhoneImageCaption':
@@ -898,6 +902,7 @@ function defaultPromptActionInstructionTemplate(actionId: PromptActionId) {
 
 function defaultResultTemplate(actionId: PromptActionId) {
   switch (actionId) {
+    case 'askUser': return 'User question: {{question}}\nUser answer: {{answer}}';
     case 'getCharacterList':
       return characterSearchResultTemplate;
     case 'updatePhoneImageCaption':
@@ -1055,6 +1060,7 @@ export function normalizePromptActionConfig(
   }
   const record = value as Record<string, unknown>;
   const actionId =
+    record.actionId === 'askUser' || record.actionId === 'ask_user' ? 'askUser' :
     record.actionId === 'getCharacterList' || record.actionId === 'get_character_list' || record.actionId === 'askCharacterInformation' || record.actionId === 'ask_character_information'
       ? 'getCharacterList'
       : record.actionId === 'getImageId' || record.actionId === 'getImages'
@@ -1263,6 +1269,7 @@ export function configForPromptActionToken(
     (action) => promptActionKey(action.title) === normalizedTitle,
   ) ?? defaultPromptActionConfig(
     title,
+    normalizedTitle === 'ask user' ? 'askUser' :
     normalizedTitle === promptActionKey(getCharacterListActionTitle)
       ? 'getCharacterList'
       : normalizedTitle === promptActionKey(updatePhoneImageCaptionActionTitle)
@@ -1695,6 +1702,9 @@ export function unwrapJsonCodeFence(text: string) {
 
 export function knownPromptActionId(actionName: string): PromptActionId | undefined {
   switch (actionName) {
+    case 'ask_user':
+    case 'askUser':
+      return 'askUser';
     case 'ask_character_information':
     case 'askCharacterInformation':
     case 'get_character_list':
@@ -1725,8 +1735,9 @@ function parsePromptActionRequestRecord(parsed: unknown): ParsedPromptActionRequ
   const record = parsed as Record<string, unknown>;
   const actionName = typeof record.action === 'string' ? record.action : '';
   const action = knownPromptActionId(actionName);
-  const plan = typeof record.plan === 'string' ? record.plan.trim() : '';
-  if ((action !== 'getImageId' && action !== 'createImage' && action !== 'getCharacterList') || !plan) {
+  const requestText = action === 'askUser' ? record.question : record.plan;
+  const plan = typeof requestText === 'string' ? requestText.trim() : '';
+  if ((action !== 'getImageId' && action !== 'createImage' && action !== 'getCharacterList' && action !== 'askUser') || !plan) {
     return undefined;
   }
   return { action, plan };

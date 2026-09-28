@@ -68,6 +68,7 @@ function promptActionTemplateVariableStatuses(
   config: PromptActionConfig,
   visionEnabled = true,
 ): Record<string, TemplateVariableStatus> {
+  if (config.actionId === 'askUser') return { question: 'active', answer: 'active' };
   if (config.actionId === 'getCharacterList') {
     return { answer: 'active' };
   }
@@ -774,7 +775,7 @@ export function PromptActionModal({
                 readOnly
               />
             </div>
-            <div className="prompt-action-template-panel instruction-panel">
+            {draft.actionId !== 'askUser' && <div className="prompt-action-template-panel instruction-panel">
               <div className="prompt-action-template-header">
                 <label htmlFor={`${id}-action-instruction-template`}>{draft.actionId === 'getCharacterList' ? 'CHARACTER INFORMATION ASSISTANT PROMPT' : draft.actionId === 'getImageId' ? 'IMAGE SEARCH ASSISTANT PROMPT' : 'LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)'}</label>
               </div>
@@ -786,7 +787,7 @@ export function PromptActionModal({
                 templateVariableStatuses={instructionVariableStatuses}
                 onChange={(value) => setDraft({ ...draft, instructionTemplate: value })}
               />
-            </div>
+            </div>}
             <div className="prompt-action-template-panel result-panel">
               <div className="prompt-action-template-header">
                 <label htmlFor={`${id}-action-template`}>{draft.actionId === 'getCharacterList' ? 'ASSISTANT ANSWER INSERTION TEMPLATE' : 'RESULT INSERTION TEMPLATE'}</label>

@@ -487,6 +487,20 @@ export async function runActionAwarePrompt({
       name: image.name,
       source,
     }));
+  const runAskUser = async (config: PromptActionConfig, question: string, label: string) => {
+    if (!context.askUser) throw new Error('Ask User is unavailable in this execution context.');
+    context.updateRuntimeData(node.id, { preview: 'Waiting for your answer ...' });
+    const answer = await context.askUser(question);
+    if (!answer.trim()) throw new Error('Ask User requires a non-empty answer.');
+    const result = config.resultTemplate.replace(/\{\{(question|answer)\}\}/g,
+      (_, key: string) => key === 'question' ? question : answer);
+    recordOutputPass({ label, text: result });
+    actionResults.set(promptActionKey(config.title), result);
+    actionResultTexts.push(result);
+    context.updateRuntimeData(node.id, { preview: 'User answered; replaying prompt ...' });
+    return true;
+  };
+
   const runCharacterSearch = async (config: PromptActionConfig, plan: string, label: string) => {
     const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
     const selected = selectCharacterSearchCandidates(characters, plan);
@@ -701,6 +715,10 @@ export async function runActionAwarePrompt({
       }
       if (actionConfig.actionId === 'getImageId') {
         if (!await runImageSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} image search`)) break;
+        continue;
+      }
+      if (actionConfig.actionId === 'askUser') {
+        await runAskUser(actionConfig, actionRequest.plan, `Step ${step.name} / Ask User`);
         continue;
       }
       if (actionConfig.actionId === 'getCharacterList') {
@@ -945,8 +963,8 @@ export async function runActionAwarePrompt({
         break;
       }
 
-      if (actionConfig.actionId === 'getCharacterList' || actionConfig.actionId === 'getImageId') {
-        const search = actionConfig.actionId === 'getImageId' ? runImageSearch : runCharacterSearch;
+      if (actionConfig.actionId === 'askUser' || actionConfig.actionId === 'getCharacterList' || actionConfig.actionId === 'getImageId') {
+        const search = actionConfig.actionId === 'askUser' ? runAskUser : actionConfig.actionId === 'getImageId' ? runImageSearch : runCharacterSearch;
         const resolved = await search(actionConfig, actionRequest.plan, `${callLabel(actionReplayCount)} / ${actionConfig.title}`);
         generatedText = '';
         if (!resolved) break;

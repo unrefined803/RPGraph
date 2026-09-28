@@ -457,6 +457,8 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
         messageFormat: turnMeta?.messageFormat,
         promptSlot: turnMeta?.promptSlot,
         directAction: turnMeta?.directAction || undefined,
+        playerCharacterId: turnMeta?.playerCharacterId,
+        userInteractions: turnMeta?.userInteractions,
         input: {
           graphText: turnMeta?.inputGraphText
             ?? inputMessages.map((message) => message.originalText).join('\n\n'),

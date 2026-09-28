@@ -27885,3 +27885,32 @@ button.message-timeline-row.phone:focus-visible {
   background: rgba(160, 45, 45, 0.2);
   opacity: 1;
 }
+
+.composer.awaiting-answer {
+  border-color: #a5b4fc;
+  box-shadow: 0 0 18px rgba(129, 140, 248, 0.4);
+}
+
+.composer-user-question {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(129, 140, 248, 0.12);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 35vh;
+  overflow-y: auto;
+}
+
+.composer-user-question strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #c7d2fe;
+}
+
+.composer.awaiting-answer .command-composer textarea {
+  min-height: 110px;
+}
+
+.run-clock-paused {
+  color: #facc15;
+}

@@ -925,6 +925,13 @@ type TurnRecordPart = {
   messages: MessageRecord[];
 };
 
+export type UserInteraction = {
+  question: string;
+  answer: string;
+  displayedQuestion?: string;
+  translatedAnswer?: string;
+};
+
 export type TurnRecord = {
   id: string;
   number: number;
@@ -934,6 +941,8 @@ export type TurnRecord = {
   messageFormat?: number;
   promptSlot?: number;
   directAction?: boolean;
+  playerCharacterId?: string;
+  userInteractions?: UserInteraction[];
   input: TurnRecordPart;
   output: TurnRecordPart;
 };
