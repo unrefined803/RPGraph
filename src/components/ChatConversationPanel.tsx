@@ -5,6 +5,7 @@ import { gradientPhaseStyle } from '../chat/gradientPhase';
 import { isNpcCharacterColor } from '../chat/characterColors';
 import { ChatBubbleText } from './ChatBubbleText';
 import { CharacterName } from './CharacterName';
+import { EmojiText } from './EmojiText';
 import { accountHandleMatches } from '../characters/character';
 import { datingAccountMatches } from '../chat/datingAccounts';
 import { CharacterAvatar } from './CharacterAvatar';
@@ -1912,6 +1913,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   const submitMessage = (event: FormEvent<HTMLFormElement>) => {
     if (pendingQuestion) {
       event.preventDefault();
+      if (!answerText.trim()) return;
       onAnswerUserQuestion?.(pendingQuestion.id, answerText);
       return;
     }
@@ -2218,6 +2220,9 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
       <form
         ref={composerRef}
         className={`composer ${composerModeClass}${pendingQuestion ? ' awaiting-answer' : ''}`}
+        style={{
+          '--chat-input-font-size': `${chatTextSize || defaultChatTextSize}px`,
+        } as CSSProperties}
         onSubmit={submitMessage}
         onPointerDownCapture={(event) => {
           if (isTextEntryTarget(event.target)) {
@@ -2256,8 +2261,23 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
         </div>
         {pendingQuestion && (
           <div className="composer-user-question" role="status" aria-live="polite">
-            <strong>Your input is needed</strong>
-            <div id="user-question-text">{pendingQuestion.question}</div>
+            <div className="composer-user-question-header">
+              <span className="composer-user-question-badge">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <strong>Your input is needed</strong>
+              </span>
+            </div>
+            <div
+              id="user-question-text"
+              style={gradientPhaseStyle(pendingQuestion.question)}
+              className="composer-user-question-text dialogue-text-gradient narration-text-gradient"
+            >
+              <EmojiText text={pendingQuestion.question} />
+            </div>
           </div>
         )}
         <CommandPillComposer
@@ -2476,15 +2496,27 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             />
           )}
           <div className="composer-run-actions">
-            {pendingQuestion && <button type="button" onClick={onCancelRun}>Cancel</button>}
-            <AutoplayControl
-              enabled={autoplayEnabled}
-              mode={autoplayMode}
-              replayDisabled={autoplayReplayDisabled}
-              onEnabledChange={onAutoplayEnabledChange}
-              onModeChange={onAutoplayModeChange}
-              onRunModeNow={onAutoplayRunModeNow}
-            />
+            {pendingQuestion ? (
+              <button
+                type="button"
+                className="composer-cancel-btn"
+                onClick={onCancelRun}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+                <span>Cancel</span>
+              </button>
+            ) : (
+              <AutoplayControl
+                enabled={autoplayEnabled}
+                mode={autoplayMode}
+                replayDisabled={autoplayReplayDisabled}
+                onEnabledChange={onAutoplayEnabledChange}
+                onModeChange={onAutoplayModeChange}
+                onRunModeNow={onAutoplayRunModeNow}
+              />
+            )}
             <button
               type="submit"
               className={`composer-submit-btn${isRunning && !pendingQuestion ? ' is-running' : ''}`}
