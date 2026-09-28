@@ -737,6 +737,8 @@ function App() {
     setDialogueCloneVoiceProviderId,
     edgeCharacterPickerHintSeen,
     setEdgeCharacterPickerHintSeen,
+    aiInitiativeUsed,
+    setAiInitiativeUsed,
     phoneNotificationSwitchHintSeen,
     setPhoneNotificationSwitchHintSeen,
   } = useAppSettings();
@@ -849,9 +851,6 @@ function App() {
   const autoplay = useAutoplay({
     isRunning,
     runAutoplay: requestAutoplayRun,
-    cancelAutoplayRun: () => {
-      cancelCurrentRun('cancel');
-    },
   });
   const [characterDropdownOpen, setCharacterDropdownOpen] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
@@ -3929,8 +3928,6 @@ function App() {
     nodeHasVision,
     checkProviderConnections,
     notifySystem,
-    onRunStarting: autoplay.cancelPendingAutoplay,
-    onRunCommitted: autoplay.onRunCommitted,
     onRpOutputReady:
       dialogueVoiceMode === 'narrator-only' && !englishProcessingEnabled
         ? (text) => { void readTextAsApiNarratorEarly(text); }
@@ -4409,6 +4406,7 @@ function App() {
       notifySystem('warning', 'This workflow needs Normal RP slot 6 (AI Action / User Reaction). Load an updated default workflow or add the prompt slot.');
       return;
     }
+    setAiInitiativeUsed(true);
     rememberChatCharacter(selectedCharacter.id);
     void runGraph('', [], undefined, messagesRef.current, undefined, selectedCharacter,
       false, undefined, undefined, 'user', undefined, undefined, undefined, false, 0, 6);
@@ -5178,7 +5176,7 @@ function App() {
             >
               <span className="brand-name-rp">RP</span>graph Studio
             </button>
-            <span className="app-version">v{packageMetadata.version} Beta</span>
+            <span className="app-version">Update v{packageMetadata.version} - AI Initiative</span>
           </h1>
           <div className="header-brand-actions">
             <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
@@ -5824,11 +5822,7 @@ function App() {
                       ? 'Type a message or attach an image to run the chat.'
                       : undefined
               }
-              autoplayEnabled={autoplay.enabled}
-              autoplayMode={autoplay.mode}
               autoplayReplayDisabled={isRunning || (!narratorSelected && !selectedCharacter)}
-              onAutoplayEnabledChange={autoplay.setEnabled}
-              onAutoplayModeChange={autoplay.setMode}
               onAutoplayRunModeNow={(mode) => autoplay.runModeNow(
                 mode,
                 narratorSelected
@@ -5855,6 +5849,7 @@ function App() {
               onOutputActionChoice={submitOutputActionChoice}
               pendingQuestion={pendingQuestion}
               onAnswerUserQuestion={answerUserQuestion}
+              aiInitiativeUsed={aiInitiativeUsed}
               onStartInitiativeTurn={startInitiativeTurn}
               onSubmitMessage={submitMessage}
               onDraftChange={setDraft}

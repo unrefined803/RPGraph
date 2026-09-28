@@ -24,6 +24,10 @@ type CommandPillComposerProps = {
   commandsEnabled: boolean;
   disabled?: boolean;
   placeholder: string;
+  initiativeGuidance?: boolean;
+  guidanceCollapsed?: boolean;
+  showInitiativeHint?: boolean;
+  highlightInitiative?: boolean;
   rows: number;
   className?: string;
   disabledReason?: string;
@@ -197,6 +201,10 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
   commandsEnabled,
   disabled = false,
   placeholder,
+  initiativeGuidance = false,
+  guidanceCollapsed = false,
+  showInitiativeHint = true,
+  highlightInitiative = false,
   rows,
   className,
   disabledReason = 'Enable RP Time Tracking in Chat History to use commands.',
@@ -428,9 +436,27 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
             disabled={disabled}
             onChange={(event) => changeValue(event.target.value, event.target.selectionStart)}
             onKeyDown={textareaKeyDown}
-            placeholder={placeholder}
+            aria-label={initiativeGuidance ? (guidanceCollapsed ? 'Click or press Enter to write text' : placeholder) : undefined}
+            placeholder={initiativeGuidance ? '' : placeholder}
             rows={rows}
           />
+          {initiativeGuidance && !value && (
+            <div className="composer-guidance" aria-hidden="true">
+              {guidanceCollapsed ? (
+                <span>Click or press Enter to write text</span>
+              ) : (
+                <>
+                  <span>Write a message and press Enter</span>
+                  {showInitiativeHint && (
+                    <span className={highlightInitiative ? 'composer-initiative-highlight' : undefined}>
+                      Press Enter twice while empty for AI Initiative
+                    </span>
+                  )}
+                  <span>Type /cmd for commands</span>
+                </>
+              )}
+            </div>
+          )}
         </AccountLinkInput>
       </div>
     </div>

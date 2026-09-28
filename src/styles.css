@@ -13887,7 +13887,7 @@ button.message-timeline-row.phone:focus-visible {
   position: relative;
 }
 
-.autoplay-split-button {
+.autoplay-pill {
   display: flex;
   height: 30px;
   overflow: hidden;
@@ -13903,7 +13903,7 @@ button.message-timeline-row.phone:focus-visible {
   transition: all 0.15s ease;
 }
 
-.autoplay-split-button:hover {
+.autoplay-pill:hover {
   background: rgba(45, 59, 84, 0.72);
   border-color: rgba(167, 139, 250, 0.45);
   border-top-color: rgba(255, 255, 255, 0.28);
@@ -13912,8 +13912,7 @@ button.message-timeline-row.phone:focus-visible {
     0 2px 8px rgba(138, 115, 201, 0.22);
 }
 
-.composer .autoplay-menu-trigger,
-.composer .autoplay-state-toggle {
+.composer .autoplay-menu-trigger {
   position: relative;
   display: grid;
   height: 100%;
@@ -13934,59 +13933,14 @@ button.message-timeline-row.phone:focus-visible {
   font-weight: 700;
 }
 
-.composer .autoplay-state-toggle {
-  width: 28px;
-  border-left: 1px solid rgba(148, 163, 184, 0.2);
-}
-
 .composer .autoplay-menu-trigger:hover,
-.composer .autoplay-menu-trigger[aria-expanded="true"],
-.composer .autoplay-state-toggle:hover {
+.composer .autoplay-menu-trigger[aria-expanded="true"] {
   color: #fff;
   background: rgba(255, 255, 255, 0.08);
 }
 
-.autoplay-split-button.enabled {
-  background: rgba(22, 101, 52, 0.65);
-  border-color: rgba(74, 222, 128, 0.45);
-  border-top-color: rgba(255, 255, 255, 0.25);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 2px 6px rgba(34, 197, 94, 0.25);
-}
-
-.autoplay-split-button.enabled .autoplay-menu-trigger,
-.autoplay-split-button.enabled .autoplay-state-toggle {
-  color: #bbf7d0;
-}
-
-.autoplay-split-button.enabled .autoplay-state-toggle {
-  border-left-color: rgba(74, 222, 128, 0.3);
-}
-
-.autoplay-split-button.enabled:hover {
-  background: rgba(21, 128, 61, 0.78);
-  border-color: rgba(74, 222, 128, 0.6);
-  border-top-color: rgba(255, 255, 255, 0.35);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 2px 8px rgba(34, 197, 94, 0.35);
-}
-
-.autoplay-split-button.enabled .autoplay-menu-trigger:hover,
-.autoplay-split-button.enabled .autoplay-state-toggle:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
 .autoplay-label {
   line-height: 1;
-}
-
-.autoplay-state-toggle svg {
-  width: 12px;
-  height: 12px;
-  fill: currentColor;
 }
 
 .autoplay-menu {
@@ -14080,7 +14034,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .composer .autoplay-menu-option {
   display: grid;
-  grid-template-columns: 15px 1fr;
+  grid-template-columns: max-content 14px;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -14095,61 +14049,26 @@ button.message-timeline-row.phone:focus-visible {
   cursor: pointer;
 }
 
-.composer .autoplay-menu-option:hover,
-.composer .autoplay-menu-option:focus-visible,
-.composer .autoplay-menu-option.active {
+.composer .autoplay-menu-option:hover:not(:disabled),
+.composer .autoplay-menu-option:focus-visible {
   outline: none;
   color: var(--soft-white);
   background: #1a2536;
 }
 
-.autoplay-menu-check {
-  display: grid;
-  width: 15px;
-  height: 15px;
-  place-items: center;
-  color: #4ade80;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.autoplay-menu-option.active .autoplay-menu-check {
-  text-shadow: 0 0 8px rgba(74, 222, 128, 0.45);
-}
-
 .autoplay-menu-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 17px 30px;
+  grid-template-columns: 17px minmax(0, 1fr);
   align-items: center;
   gap: 3px;
 }
 
-.composer .autoplay-menu-play {
-  display: grid;
-  width: 30px;
-  min-height: 34px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  color: #9fb0ca;
-  background: transparent;
-  cursor: pointer;
-}
-
-.composer .autoplay-menu-play:hover:not(:disabled),
-.composer .autoplay-menu-play:focus-visible {
-  outline: none;
-  color: #dcfce7;
-  background: rgba(34, 197, 94, 0.16);
-}
-
-.composer .autoplay-menu-play:disabled {
+.composer .autoplay-menu-option:disabled {
   opacity: 0.35;
   cursor: default;
 }
 
-.autoplay-menu-play svg {
+.autoplay-menu-option svg {
   width: 14px;
   height: 14px;
   fill: currentColor;
@@ -28036,4 +27955,47 @@ button.message-timeline-row.phone:focus-visible {
 
 .run-clock-paused {
   color: #facc15;
+}
+
+.composer-guidance {
+  position: absolute;
+  inset: 0;
+  padding: 0 4px 0 calc(4px + 3ch);
+  overflow: hidden;
+  font-style: italic;
+  font-weight: 300;
+  pointer-events: none;
+  color: #64748b;
+  font-size: var(--chat-input-font-size, 14px);
+  line-height: 1.5;
+}
+
+.composer-guidance > span {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+
+@supports (background-clip: text) {
+  .composer-initiative-highlight {
+    background-image: linear-gradient(110deg, #64748b 35%, #8c8574 44%, #d2bd87 50%, #8c8574 56%, #64748b 65%);
+    background-size: 300% 100%;
+    background-position: 100% 0;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: composer-initiative-sweep 9s ease-in-out infinite;
+  }
+}
+
+@keyframes composer-initiative-sweep {
+  0% { background-position: 75% 0; }
+  28%, 100% { background-position: 0% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-initiative-highlight {
+    animation: none;
+    background-position: 50% 0;
+  }
 }

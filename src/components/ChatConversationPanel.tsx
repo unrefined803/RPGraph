@@ -1581,11 +1581,7 @@ type ChatConversationPanelProps = RunProgress & {
   selectedReferenceImageIds: ReadonlySet<string>;
   canRunChat: boolean;
   runChatDisabledReason?: string;
-  autoplayEnabled: boolean;
-  autoplayMode: AutoplayMode;
   autoplayReplayDisabled: boolean;
-  onAutoplayEnabledChange: (enabled: boolean) => void;
-  onAutoplayModeChange: (mode: AutoplayMode) => void;
   onAutoplayRunModeNow: (mode: AutoplayMode) => void;
   imageUploadEnabled?: boolean;
   imageUploadDisabledReason?: string;
@@ -1609,6 +1605,7 @@ type ChatConversationPanelProps = RunProgress & {
   onOutputActionChoice: (selection: InputActionSelection) => void;
   pendingQuestion?: UserQuestion | null;
   onAnswerUserQuestion?: (id: number, answer: string) => boolean;
+  aiInitiativeUsed?: boolean;
   onStartInitiativeTurn?: () => void;
   onSubmitMessage: (event: FormEvent<HTMLFormElement>) => void;
   onDraftChange: (value: string) => void;
@@ -1634,8 +1631,6 @@ export function ChatConversationPanel(props: ChatConversationPanelProps) {
     onChatTextSizeChange: props.onChatTextSizeChange,
     onPhoneAuthorBadgesEnabledChange: props.onPhoneAuthorBadgesEnabledChange,
     onChatReadsPhoneAppsEnabledChange: props.onChatReadsPhoneAppsEnabledChange,
-    onAutoplayEnabledChange: props.onAutoplayEnabledChange,
-    onAutoplayModeChange: props.onAutoplayModeChange,
     onAutoplayRunModeNow: props.onAutoplayRunModeNow,
     onBeginEditMessage: props.onBeginEditMessage,
     onCancelEditMessage: props.onCancelEditMessage,
@@ -1722,11 +1717,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   selectedReferenceImageIds,
   canRunChat,
   runChatDisabledReason,
-  autoplayEnabled,
-  autoplayMode,
   autoplayReplayDisabled,
-  onAutoplayEnabledChange,
-  onAutoplayModeChange,
   onAutoplayRunModeNow,
   imageUploadEnabled = true,
   imageUploadDisabledReason,
@@ -1750,6 +1741,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   onOutputActionChoice,
   pendingQuestion,
   onAnswerUserQuestion,
+  aiInitiativeUsed = false,
   onStartInitiativeTurn,
   onSubmitMessage,
   onDraftChange,
@@ -2295,7 +2287,13 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             ? onStartInitiativeTurn : undefined}
           onCommandsChange={onDraftCommandsChange}
           onSubmit={submitMessage}
-          placeholder={pendingQuestion ? 'Write your answer and press Enter' : 'Write a message, or press Enter twice when empty for AI initiative. Type /cmd for commands'}
+          initiativeGuidance={!pendingQuestion}
+          guidanceCollapsed={!isExpanded}
+          showInitiativeHint={!isNarratorSelected}
+          highlightInitiative={!aiInitiativeUsed && !isRunning && !isNarratorSelected && !!selectedCharacter && !draftImages.length && !draftCommands.length}
+          placeholder={pendingQuestion ? 'Write your answer and press Enter' : isNarratorSelected
+            ? 'Write a message and press Enter\nType /cmd for commands'
+            : 'Write a message and press Enter\nPress Enter twice while empty for AI Initiative\nType /cmd for commands'}
           rows={pendingQuestion ? 5 : 3}
         />
         {!pendingQuestion && !!draftImages.length && (
@@ -2509,11 +2507,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
               </button>
             ) : (
               <AutoplayControl
-                enabled={autoplayEnabled}
-                mode={autoplayMode}
                 replayDisabled={autoplayReplayDisabled}
-                onEnabledChange={onAutoplayEnabledChange}
-                onModeChange={onAutoplayModeChange}
                 onRunModeNow={onAutoplayRunModeNow}
               />
             )}

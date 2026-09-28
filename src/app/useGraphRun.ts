@@ -224,8 +224,6 @@ type UseGraphRunOptions = Pick<
   ) => Promise<Record<string, ProviderConnectionHealth>>;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
   onRpOutputReady?: (text: string) => void;
-  onRunStarting?: () => void;
-  onRunCommitted?: (run: { messageFormat: number; playerCharacterName: string }) => void;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   clearAllRunActiveTimers: () => void;
   updateWorkflowComfyGenerationActive: (active: boolean) => void;
@@ -400,8 +398,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
     checkProviderConnections,
     notifySystem,
     onRpOutputReady,
-    onRunStarting,
-    onRunCommitted,
     updateRuntimeNode,
     clearAllRunActiveTimers,
     updateWorkflowComfyGenerationActive,
@@ -500,7 +496,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
       notifySystem('warning', 'MatchMe message blocked: the accounts need an active match.');
       return false;
     }
-    onRunStarting?.();
     const isInitiativeRun = messageFormatOverride === 0 && turnModeOverride === 6;
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
@@ -3154,12 +3149,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
         { messageFormat, promptSlot, directAction: directActionOnly,
           playerCharacterId: isInitiativeRun ? inputCharacter?.id : undefined, userInteractions },
       );
-      if (committedTurn) {
-        onRunCommitted?.({
-          messageFormat,
-          playerCharacterName: inputCharacter?.name ?? narratorSpeakerName,
-        });
-      }
       const completedRunReport = activeRunLlmReport.current;
       if (committedTurn && completedRunReport) {
         recordTurnTrace({
