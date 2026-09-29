@@ -17,6 +17,7 @@ import {
   type RefObject,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -135,6 +136,21 @@ const phoneDesktopIconSizePx: Record<PhoneDesktopIconSize, number> = {
   large: 68,
 };
 const phoneDesktopIconLabelHeight = 18;
+
+function PhoneInitiativeHint({ isRunning }: { isRunning: boolean }) {
+  const tooltipId = useId();
+  return (
+    <span className="phone-initiative-hint">
+      {isRunning ? 'Phone activity in progress…' : 'Press Enter twice for Phone Initiative'}
+      <button type="button" className="phone-initiative-info" aria-label="About Phone Initiative" aria-describedby={tooltipId}>
+        <span aria-hidden="true">i</span>
+      </button>
+      <span id={tooltipId} className="phone-initiative-tooltip" role="tooltip">
+        Let the AI take the next step in your phone apps. Select your character, click an empty area of the Phone desktop, and press Enter twice quickly. The AI introduces an incoming message or app activity based on your character and their connections, giving you something to respond to. You decide how your character reacts.
+      </span>
+    </span>
+  );
+}
 
 function phoneReplySizeClass(text: string) {
   if (text.length > 120) {
@@ -953,9 +969,7 @@ export function PhonePanel({
       <div className="phone-desktop" style={desktopStyle} aria-label="Phone desktop">
         <div className="phone-desktop-scrim" />
         {selectedCharacter && selectedCharacterPlayable && !inputLocked && onStartInitiativeTurn && (
-          <span className="phone-initiative-hint">
-            {isRunning ? 'Phone activity in progress…' : 'Press Enter twice for Phone Initiative'}
-          </span>
+          <PhoneInitiativeHint isRunning={isRunning} />
         )}
         <PhoneImagePicker
           hideLauncher
@@ -1019,9 +1033,7 @@ export function PhonePanel({
       >
         <div className="phone-desktop-scrim" />
         {selectedCharacter && selectedCharacterPlayable && !inputLocked && onStartInitiativeTurn && (
-          <span className="phone-initiative-hint">
-            {isRunning ? 'Phone activity in progress…' : 'Press Enter twice for Phone Initiative'}
-          </span>
+          <PhoneInitiativeHint isRunning={isRunning} />
         )}
         <div
           className="phone-clock-widget"
