@@ -1014,7 +1014,7 @@ export function PhonePanel({
             onClick={() => {
               if (suppressAppClickRef.current) { suppressAppClickRef.current = false; return; }
               setScreen('plottwist');
-            }} aria-label="Open MatchMe">
+            }} aria-label={phoneAppNotificationCounts.matchme > 0 ? `Open MatchMe, ${phoneAppNotificationCounts.matchme} unread` : 'Open MatchMe'}>
             <span className="phone-matchme-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />

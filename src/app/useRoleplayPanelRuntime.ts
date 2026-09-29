@@ -9,7 +9,8 @@ import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget 
 import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
 import { appCharacterImage } from '../characters/appRuntime';
 import type { NpcParticipantReference } from '../characters/npcParticipants';
-import { datingAccountMatches } from '../chat/datingAccounts';
+import { matchMeState, unreadMatchMeMatches } from '../chat/matchMe';
+import { datingAccountId, datingAccountMatches } from '../chat/datingAccounts';
 import {
   useCallback,
   useEffect,
@@ -376,6 +377,7 @@ export function useRoleplayPanelRuntime({
             message.embeddedSocialMessages?.map((link) => link.socialMessageId) ?? [])
         : [],
     );
+    const datingState = matchMeState(storyCharacters, messages);
     storyCharacters.forEach((character) => {
       const seen = (app: string) => phoneAppSeenByCharacter[`${character.id}:${app}`] ?? 0;
       const count = (app: string, matches: (message: MessageRecord) => boolean) =>
@@ -426,6 +428,12 @@ export function useRoleplayPanelRuntime({
       const fotogram = socialApp('fotogram');
       const onlyfriends = socialApp('onlyfriends');
       const matchme = socialApp('matchme');
+      const newMatches = unreadMatchMeMatches(datingAccountId(character), datingState, messages,
+        (partnerId) => phoneAppSeenByCharacter[`${character.id}:matchme:dm:${partnerId}`] ?? 0);
+      for (const [partnerId, newMatchId] of Object.entries(newMatches)) {
+        if (!matchme.unreadDms[partnerId]) matchme.count += 1;
+        matchme.unreadDms[partnerId] = { ...(matchme.unreadDms[partnerId] ?? { count: 0, tipTotal: 0 }), newMatchId };
+      }
       byCharacter.set(character.id, {
         counts: {
           notes: count('notes', (message) => message.createdPhoneNote?.characterId === character.id),

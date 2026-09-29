@@ -41,6 +41,31 @@ export function matchMeState(characters: StorybookCharacter[], messages: Message
 
 }
 
+/** Latest active match events, independently acknowledged by each phone owner. */
+export function unreadMatchMeMatches(ownerId: string, state: MatchMeState, messages: MessageRecord[], seen: (partnerId: string) => number): Record<string, number> {
+  const latest = new Map<string, MessageRecord>();
+  for (const message of messages) {
+    if (!isMatchMeMatch(message.matchMeMatch)) continue;
+    const ids = message.matchMeMatch.accountIds.map((id) => resolveDatingAccount(id, state.accounts)?.id ?? id);
+    if (!ids.includes(ownerId)) continue;
+    const partnerId = ids.find((id) => id !== ownerId);
+    if (partnerId) latest.set(partnerId, message);
+  }
+  const latestConversation = new Map<string, number>();
+  for (const message of messages) {
+    const dm = message.socialDirectMessage;
+    if (dm?.app !== 'matchme') continue;
+    const from = resolveDatingAccount(dm.fromAccountId ?? '', state.accounts)?.id;
+    const to = resolveDatingAccount(dm.toAccountId ?? '', state.accounts)?.id;
+    const partnerId = from === ownerId ? to : to === ownerId ? from : undefined;
+    if (partnerId) latestConversation.set(partnerId, Math.max(latestConversation.get(partnerId) ?? 0, message.id));
+  }
+  return Object.fromEntries([...latest].flatMap(([partnerId, message]) =>
+    !message.isOpening && message.matchMeMatch?.status === 'active' && message.id > seen(partnerId) &&
+    (latestConversation.get(partnerId) ?? 0) < message.id &&
+    canSendMatchMeMessage(ownerId, partnerId, state) ? [[partnerId, message.id]] : []));
+}
+
 export function canSendMatchMeMessage(senderId: string, recipientId: string, state: MatchMeState) {
   senderId = resolveDatingAccount(senderId, state.accounts)?.id ?? senderId;
   recipientId = resolveDatingAccount(recipientId, state.accounts)?.id ?? recipientId;

@@ -9,7 +9,7 @@ import { sessionV2FromCurrentState, appStateFromSessionV2 } from '../data-manage
 import { isRpgraphSessionV2 } from '../data-management/validation';
 import { normalizeDatingProfile, resetDatingPasses } from './datingProfile';
 import { datingAccountId, datingAccounts, datingNpcProfiles, resolveDatingAccount } from './datingAccounts';
-import { canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
+import { unreadMatchMeMatches, canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
 import { parseSocialDirectMessageOutput, socialPostInputText, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
 import { parseMessengerAppMessagesObject, parseEmbeddedPhoneMessagesFromRpOutput, embeddedPhoneMessagesLivePreview } from './phoneMessages';
 import { validateSocialMessengerAccounts } from './socialMessageValidation';
@@ -564,4 +564,49 @@ describe('Reciprocal likes and superlikes', () => {
     expect(decisions.b).toBe('pass');
     expect(resetDatingPasses(resetDatingPasses(decisions))).toEqual({ a: 'like', c: 'superlike' });
   });
+});
+
+
+describe('MatchMe match notifications', () => {
+  it('notifies both phones and acknowledges each owner independently', () => {
+    const characters = [character('mia', 'Mia'), character('alex', 'Alex')];
+    const ownerId = datingAccountId(characters[0]);
+    const partnerId = datingAccountId(characters[1]);
+    const match = matchMeLikePolicy(ownerId, partnerId, matchMeState(characters, []), now, 'superlike')!;
+    const messages: MessageRecord[] = [{ id: 12, role: 'user', originalText: '', matchMeMatch: match }];
+    const state = matchMeState(characters, messages);
+    expect(unreadMatchMeMatches(ownerId, state, messages, () => 0)).toEqual({ [partnerId]: 12 });
+    expect(unreadMatchMeMatches(ownerId, state, messages, () => 12)).toEqual({});
+    expect(unreadMatchMeMatches(partnerId, state, messages, () => 0)).toEqual({ [ownerId]: 12 });
+    expect(unreadMatchMeMatches('unrelated', state, messages, () => 0)).toEqual({});
+  });
+
+  it('ignores inactive and opening matches and notifies again for a rematch', () => {
+    const { characters, messages, match, owner } = fixture();
+    const pending = (history: MessageRecord[], seen = 0) => unreadMatchMeMatches(
+      datingAccountId(owner), matchMeState(characters, history), history, () => seen);
+    expect(pending([{ ...messages[0], isOpening: true }])).toEqual({});
+    const inactive: MessageRecord = { ...messages[0], id: 2, matchMeMatch: { ...match, status: 'inactive' } };
+    expect(pending([...messages, inactive])).toEqual({});
+    expect(pending([...messages, inactive, { ...messages[0], id: 3 }], 1)).toEqual({ 'demo-alex': 3 });
+  });
+
+  it('resolves historical account IDs to the current phone identity', () => {
+    const { characters, messages, owner } = fixture();
+    owner.apps = { matchme: { accountId: 'current-mia', enabled: true, bio: '' } };
+    expect(unreadMatchMeMatches('current-mia', matchMeState(characters, messages), messages, () => 0))
+      .toEqual({ 'demo-alex': 1 });
+  });
+});
+
+
+it('suppresses new matches on both phones once either participant sends a message', () => {
+  const { characters, messages, outgoing, owner } = fixture();
+  const history: MessageRecord[] = [...messages, { id: 2, role: 'user', originalText: '', socialDirectMessage: outgoing }];
+  const state = matchMeState(characters, history);
+  expect(unreadMatchMeMatches(datingAccountId(owner), state, history, () => 0)).toEqual({});
+  expect(unreadMatchMeMatches('demo-alex', state, history, () => 0)).toEqual({});
+  const rematch = [...history, { ...messages[0], id: 3 }];
+  expect(unreadMatchMeMatches(datingAccountId(owner), matchMeState(characters, rematch), rematch, () => 0))
+    .toEqual({ 'demo-alex': 3 });
 });

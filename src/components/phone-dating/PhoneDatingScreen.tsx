@@ -66,7 +66,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   if (openRequest && seenOpenRequest !== openRequest.requestId) {
     setSeenOpenRequest(openRequest.requestId); setSelectedMatchId(openRequest.participantHandle); setEditing(false); setTab('discover');
   }
-  useEffect(() => { if (selectedMatchId && !editing && tab === 'discover') onMarkSeen(selectedMatchId); }, [selectedMatchId, editing, tab, history, onMarkSeen]);
+  useEffect(() => { if (selectedMatchId && !editing && !celebration && !unread[selectedMatchId]?.newMatchId && tab === 'discover') onMarkSeen(selectedMatchId); }, [selectedMatchId, editing, tab, history, onMarkSeen, celebration, unread]);
   useEffect(() => {
     if (editing || selectedMatchId || (tab !== 'discover' && !previewCandidateId)) return;
     const el = mainRef.current;
@@ -165,6 +165,23 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const state = matchMeState(characters, history);
   const ownerId = owner ? datingAccountId(owner) : '';
   const availableProfiles = state.accounts.filter((account) => account.id !== ownerId);
+  const presentedMatches = useRef(new Set<number>());
+  useEffect(() => {
+    if (celebration) {
+      const eventId = unread[celebration.id]?.newMatchId;
+      if (eventId) presentedMatches.current.add(eventId);
+      return;
+    }
+    if (profileOnly || editing || gallery) return;
+    const pending = Object.entries(unread).find(([, entry]) => entry.newMatchId && !presentedMatches.current.has(entry.newMatchId));
+    if (!pending) return;
+    const [id, entry] = pending;
+    const partner = state.accounts.find((account) => account.id === id);
+    if (!partner) return;
+    presentedMatches.current.add(entry.newMatchId!);
+    setCelebration({ id, name: partner.name, superlike: false });
+  }, [profileOnly, editing, gallery, celebration, unread, state.accounts]);
+
   const matches = availableProfiles.filter((entry) => canSendMatchMeMessage(ownerId, entry.id, state));
   const [failedMessages, setFailedMessages] = useState<Record<string, SocialDirectMessageRecord>>({});
   const sending = useRef(false);
@@ -278,11 +295,12 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
         <p className="pt-subtle">Your connections</p>
         <div className="pt-match-list">
           {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
-            onClick={() => { setSelectedMatchId(match.id); setPreviewCandidateId(undefined); setPreviewPhoto(0); setPhoto(0); setTab('discover'); setEditing(false); }}>
+            onClick={() => { onMarkSeen(match.id); if (celebration?.id === match.id) setCelebration(undefined); setSelectedMatchId(match.id); setPreviewCandidateId(undefined); setPreviewPhoto(0); setPhoto(0); setTab('discover'); setEditing(false); }}>
             <CharacterAvatar ringColor={profileColor(match.characterId)} className="pt-match-avatar" name={datingFirstName(match.name)} profileImageDataUrl={match.avatarDataUrl} fallback={datingFirstName(match.name).slice(0, 1)} />
             <span><strong>{datingFirstName(match.name)}<span className="pt-match-age">, {match.age}</span></strong>
+              {unread[match.id]?.newMatchId && <small className="pt-match-unread"><span>New Match</span><span className="pt-match-unread-badge" aria-label="1 new match">1</span></small>}
               {unread[match.id]?.count ? <small className="pt-match-unread"><span>New Message</span><span className="pt-match-unread-badge" aria-label={`${unread[match.id].count} unread messages`}>{unread[match.id].count}</span></small>
-                : <small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small>}
+                : !unread[match.id]?.newMatchId && <small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small>}
             </span>
           </button>)}
           {!matches.length && <p className="pt-subtle pt-match-empty">Match through mutual likes, or send a Superlike to chat immediately.</p>}
@@ -476,7 +494,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
                     type="button"
                     className="pt-preview-chat-btn"
                     onClick={() => {
-                      setSelectedMatchId(previewCandidate.id);
+                      onMarkSeen(previewCandidate.id); setSelectedMatchId(previewCandidate.id);
                       setPreviewCandidateId(undefined);
                       setPreviewPhoto(0);
                       setTab('discover');
@@ -537,7 +555,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
                         <button
                           type="button"
                           className="pt-like-chat-btn"
-                          onClick={() => { setSelectedMatchId(entry.id); setTab('discover'); }}
+                          onClick={() => { onMarkSeen(entry.id); setSelectedMatchId(entry.id); setTab('discover'); }}
                         >
                           Chat
                         </button>
@@ -624,7 +642,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
         </div>}
       {selectedMatch && failedMessages[selectedMatch.id] && <button type="button" disabled={busy || isRunning} onClick={() => { void send(selectedMatch.id, true); }}>Retry reply</button>}
       {error && <p className="pt-error" role="alert">{error}</p>}
-      {celebration && <section className="pt-match-celebration" role="status" aria-label="New connection">
+      {celebration && <section key={celebration.id} className="pt-match-celebration" role="status" aria-label="New connection">
         <div className="pt-celebration-particles" aria-hidden="true">
           <span className="pt-sparkle s1">✨</span>
           <span className="pt-sparkle s2">💖</span>
@@ -656,7 +674,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
           <p>{celebration.superlike ? `You can now chat with ${datingFirstName(celebration.name)}.` : `You and ${datingFirstName(celebration.name)} liked each other.`}</p>
         </div>
         <div className="pt-celebration-buttons">
-          <button type="button" className="pt-primary pt-celebration-primary" autoFocus onClick={() => { setSelectedMatchId(celebration.id); setTab('discover'); setCelebration(undefined); }}>Say hello <span aria-hidden="true">→</span></button>
+          <button type="button" className="pt-primary pt-celebration-primary" autoFocus onClick={() => { onMarkSeen(celebration.id); setSelectedMatchId(celebration.id); setTab('discover'); setCelebration(undefined); }}>Say hello <span aria-hidden="true">→</span></button>
           <button type="button" className="pt-celebration-ghost" onClick={() => setCelebration(undefined)}>Keep exploring</button>
         </div>
       </section>}

@@ -710,7 +710,7 @@ export type MatchMeMatch = {
 };
 
 /** Unread incoming DM count and tip sum per lowercased partner handle. */
-export type SocialDmUnreadByHandle = Record<string, { count: number; tipTotal: number }>;
+export type SocialDmUnreadByHandle = Record<string, { count: number; tipTotal: number; newMatchId?: number }>;
 
 /** A direct message sent inside one social app; persisted on the timeline message. */
 export type SocialDirectMessageRecord = {
