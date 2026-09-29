@@ -125,7 +125,19 @@ it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
     expect(data.llmPromptSwitchPromptTitlesByOutput![2][7]).toBe('Phone Initiative');
     expect(data.llmPromptSwitchPromptBeforesByOutput![2][7]).toBe('');
     const prompt = data.llmPromptSwitchPromptAftersByOutput![2][7];
-    expect(buildPromptStepChain('', prompt)).toHaveLength(1);
+    const steps = buildPromptStepChain('', prompt);
+    expect(steps.map((step) => step.name)).toEqual(['planning', 'main']);
+    expect(steps[0].after).toContain('call Ask character information');
+    expect(steps[0].after).toContain('execute no app actions');
+    expect(steps[0].after).not.toContain('@command:');
+    expect(steps[0].after).toContain('@action:Get character phone image list');
+    expect(steps[0].after).toContain('(chance: NN%)');
+    expect(steps[1].after).toContain('@output:planning');
+    expect(steps[1].after).toContain('Planning has sent nothing');
+    expect(steps[1].after).toContain('If the plan is {}');
+    for (const step of steps) {
+      expect(step.after).toContain('Never send two consecutive messages from the same person');
+    }
     expect(prompt).not.toContain('@action:Ask User');
     expect(prompt).toContain("Never include the player's response");
     expect(prompt).toContain('@action:Get character phone image list');

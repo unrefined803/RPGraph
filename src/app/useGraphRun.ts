@@ -76,6 +76,7 @@ import {
   type WorkflowVariableSetCommand,
 } from '../workflow';
 import { formatPhoneInput, formatPhoneReplyQuote, whatsUpMessageInputText } from '../chat/phoneReplies';
+import { phoneInitiativeCharacterContext } from '../chat/phoneInitiativeInput';
 import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import { nodesPreparedAfterOutput } from '../graph/edges';
 import {
@@ -1298,6 +1299,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
     );
     if (isPhoneInitiativeRun) {
       inputText = `AI phone initiative. The user is currently playing ${inputCharacterName}. ${runEnglishProcessing || translateInputOnly ? 'Processing language: English. ' : ''}Continue the established situation through phone apps and leave the player response to the user in those apps.`;
+      const characterContext = phoneInitiativeCharacterContext(inputCharacter, appCharacters(), historyMessages);
+      if (characterContext) inputText += `\n\n${characterContext}`;
     } else if (isInitiativeRun) {
       inputText = `AI initiative roleplay. The user is currently playing ${inputCharacterName}. ${runEnglishProcessing || translateInputOnly ? 'Processing language: English. ' : ''}Present this character with a situation that invites their reaction. Ask the user how they respond before completing the scene. Do not decide their reaction for them.`;
     }
