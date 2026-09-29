@@ -14,7 +14,7 @@ export function TextEffectOptions({ value, onChange }: {
     <div className="option-info">
       <strong>Text wave effects</strong>
       <p>100% is the current default, at the center of each slider. Shorter waves repeat more often. While adjusting a slider, the backdrop clears so you can see the chat.</p>
-      <p>Above 100% intensity, neutral text also gains brighter highlights. Character names and avatar rings keep their fixed appearance.</p>
+      <p>Above 100% intensity, neutral text also gains brighter highlights. Character names and avatar rings are independent of these sliders. Name waves repeat continuously every three seconds with random starting offsets and freeze only while Smooth Chat Auto-Scroll is moving the chat. Other text waves stay static.</p>
     </div>
     {sections.map(({ id, label, description }) => <fieldset className="text-effect-group" key={id}>
       <legend>{label}</legend>

@@ -422,17 +422,17 @@ export function PhoneSocialFeedScreen({
 
   // Close the post source menu when clicking anywhere outside it.
   useEffect(() => {
-    if (postStage !== 'menu') {
+    if (postStage !== 'menu' || galleryOpen || cameraOpen) {
       return;
     }
     const closeMenu = (event: PointerEvent) => {
-      if (event.target instanceof Node && !postMenuRef.current?.contains(event.target)) {
+      if (postMenuRef.current && event.target instanceof Node && !postMenuRef.current.contains(event.target)) {
         setPostStage(undefined);
       }
     };
     document.addEventListener('pointerdown', closeMenu);
     return () => document.removeEventListener('pointerdown', closeMenu);
-  }, [postStage, setPostStage]);
+  }, [cameraOpen, galleryOpen, postStage, setPostStage]);
 
   // Each app uses its own directed authored and acquired follows. Real DM
   // partners surface separately without granting access to another app.

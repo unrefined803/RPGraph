@@ -58,12 +58,15 @@ it('stops following at the bottom during generation and resumes when content gro
   runtime.scrollChatThreadToBottomIfFollowing();
   tick(0); tick(16); tick(32);
   expect(frames.size).toBe(0);
+  expect(render().smoothChatAutoScrollActive).toBe(false);
   thread.scrollHeight = 510;
   runtime.scrollChatThreadToBottomIfFollowing();
   tick(48); tick(64); tick(80);
   expect(thread.scrollTop).toBeGreaterThan(200);
+  expect(render().smoothChatAutoScrollActive).toBe(true);
   for (let time = 96; time <= 1000 && frames.size; time += 16) tick(time);
   expect(thread.scrollTop).toBe(210);
+  expect(render().smoothChatAutoScrollActive).toBe(false);
   expect(frames.size).toBe(0);
 });
 
@@ -169,6 +172,10 @@ it('positions restored history immediately before smoothly following later media
   expect(thread.scrollTop).toBeGreaterThan(4700);
   expect(thread.scrollTop).toBeLessThan(4900);
   expect(thread.scrollTo).toHaveBeenCalledTimes(1);
+  expect(render().smoothChatAutoScrollActive).toBe(true);
+  const wheelHandler = thread.addEventListener.mock.calls.find(([type]) => type === 'wheel')?.[1] as () => void;
+  wheelHandler();
+  expect(render().smoothChatAutoScrollActive).toBe(false);
   cleanups.forEach((cleanup) => cleanup?.());
   expect(frames.size).toBe(0);
 });

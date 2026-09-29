@@ -10955,6 +10955,19 @@ input[type="number"]::-webkit-outer-spin-button {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-position: var(--character-gradient-position, 32%) 50%;
+    animation: character-name-wave 3s linear infinite;
+    animation-play-state: var(--character-name-animation-state, running);
+  }
+}
+
+@keyframes character-name-wave {
+  0% { background-position: 100% 50%; }
+  100% { background-position: -100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-name-gradient {
+    animation: none;
   }
 }
 

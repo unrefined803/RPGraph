@@ -143,6 +143,7 @@ export function useRoleplayPanelRuntime({
   notifySystem,
 }: UseRoleplayPanelRuntimeOptions) {
   const [panelSessionRevision, setPanelSessionRevision] = useState(0);
+  const [smoothChatAutoScrollActive, setSmoothChatAutoScrollActive] = useState(false);
   const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
   const [chatPanelView, setChatPanelView] = usePanelNavigationState<ChatPanelView>('panel.chatPanelView', 'chat');
   const [selectedCharacterId, setSelectedCharacterId] = usePanelNavigationState('panel.selectedCharacterId', '');
@@ -1291,6 +1292,7 @@ export function useRoleplayPanelRuntime({
     }
     chatAutoFollowProgrammaticScrollRef.current = false;
     chatAutoFollowAnimatingRef.current = false;
+    setSmoothChatAutoScrollActive(false);
     chatAutoFollowAnimationTimeRef.current = null;
   }, []);
 
@@ -1351,6 +1353,7 @@ export function useRoleplayPanelRuntime({
     if (!chatAutoFollowAnimationFrameRef.current) {
       markUiEvent('scroll.animationStarted');
       chatAutoFollowAnimatingRef.current = true;
+      setSmoothChatAutoScrollActive(true);
       chatAutoFollowAnimationFrameRef.current = requestAnimationFrame(step);
     }
   }, [cancelChatAutoFollowAnimation, markChatProgrammaticScroll, smoothChatAutoScrollMinSpeed]);
@@ -1605,6 +1608,7 @@ export function useRoleplayPanelRuntime({
     phoneThreadRef,
     scrollPhoneThreadToBottom,
     scrollChatThreadToBottomIfFollowing,
+    smoothChatAutoScrollActive,
     selectPhoneReplyFromComposer,
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,

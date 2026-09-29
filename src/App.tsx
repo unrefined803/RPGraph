@@ -1092,6 +1092,7 @@ function App() {
     phoneThreadRef,
     scrollPhoneThreadToBottom,
     scrollChatThreadToBottomIfFollowing,
+    smoothChatAutoScrollActive,
     selectPhoneReplyFromComposer,
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,
@@ -5150,6 +5151,7 @@ function App() {
       style={{
         ...textEffectsStyle(textEffects),
         ...characterColorStyle,
+        '--character-name-animation-state': smoothChatAutoScrollActive ? 'paused' : 'running',
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
       } as React.CSSProperties}
