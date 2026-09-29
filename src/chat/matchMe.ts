@@ -132,7 +132,7 @@ export function matchMeLikePolicy(senderId: string, recipientId: string, state: 
   return { id, accountIds: [senderId, recipientId].sort() as [string, string], matchedAt: now, status: 'active' };
 }
 
-export function matchMeMatchHistoryText(match: MatchMeMatch, accounts: DatingAccount[]) {
+function matchMeMatchHistoryText(match: MatchMeMatch, accounts: DatingAccount[]) {
   return `[MatchMe Match] ${match.accountIds.map((id) => accounts.find((a) => a.id === id)?.name ?? id).join(' and ')} matched.`;
 }
 

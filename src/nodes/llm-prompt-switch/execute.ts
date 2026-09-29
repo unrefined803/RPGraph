@@ -72,6 +72,9 @@ async function runPromptSwitch(node: WorkflowNode, context: ExecuteContext) {
   if (outputChannel === 0 && promptSlotSelection.requested === 6 && promptSlotSelection.fallback) {
     throw new Error('Normal RP slot 6 (AI Action / User Reaction) is missing from this Prompt Switch.');
   }
+  if (outputChannel === 2 && promptSlotSelection.requested === 7 && promptSlotSelection.fallback) {
+    throw new Error('Social Media slot 7 (Phone Initiative) is missing from this Prompt Switch.');
+  }
   if (promptSlotSelection.fallback) {
     context.reportWarning(
       `${node.data.label}: Prompt slot ${promptSlotSelection.requested} does not exist; using Default Prompt.`,

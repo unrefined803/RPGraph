@@ -4083,7 +4083,7 @@ function App() {
       );
       return;
     }
-    if (turn.messageFormat === socialMediaMessageFormat) {
+    if (turn.messageFormat === socialMediaMessageFormat && turn.promptSlot !== 7) {
       const turnMessages = [...turn.input.messages, ...turn.output.messages];
       const socialPost = turnMessages.find((message) => message.socialPost)?.socialPost;
       const socialThreadAction = turnMessages.find(
@@ -4192,7 +4192,8 @@ function App() {
       );
       return;
     }
-    if (turn.messageFormat === 0 && turn.promptSlot === 6) {
+    if ((turn.messageFormat === 0 && turn.promptSlot === 6) ||
+      (turn.messageFormat === socialMediaMessageFormat && turn.promptSlot === 7)) {
       const player = phoneCharacters.find((character) => character.id === turn.playerCharacterId);
       if (!player) {
         notifySystem('warning', 'The original player character is no longer available for this initiative turn.');
@@ -4201,7 +4202,7 @@ function App() {
       void runGraph('', [], undefined,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
         replacedMessageIds, player, false, undefined, { turn, replaceInput: true },
-        'user', undefined, undefined, undefined, false, 0, 6);
+        'user', undefined, undefined, undefined, false, turn.messageFormat, turn.promptSlot);
       return;
     }
     if (turn.messageFormat === autoplayMessageFormat) {
@@ -4398,6 +4399,18 @@ function App() {
       { turn, replaceInput: true },
       inputMessage.speakerName === narratorSpeakerName ? 'narrator' : 'user',
     );
+  }
+
+  function startPhoneInitiativeTurn() {
+    if (isRunning || narratorSelected || !selectedCharacter) return;
+    const switches = nodesRef.current.filter((node) => node.data.nodeType === 'llm-prompt-switch');
+    if (!switches.some((node) => node.data.llmPromptSwitchPromptAftersByOutput?.[socialMediaMessageFormat]?.[7]?.trim())) {
+      notifySystem('warning', 'This workflow needs Social Media slot 7 (Phone Initiative). Load an updated default workflow or add the prompt slot.');
+      return;
+    }
+    rememberChatCharacter(selectedCharacter.id);
+    void runGraph('', [], undefined, messagesRef.current, undefined, selectedCharacter,
+      false, undefined, undefined, 'user', undefined, undefined, undefined, false, socialMediaMessageFormat, 7);
   }
 
   function startInitiativeTurn() {
@@ -5856,6 +5869,7 @@ function App() {
           ) : chatPanelView === 'phone' ? (
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
+              onStartInitiativeTurn={startPhoneInitiativeTurn}
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
               phoneContacts={phoneContacts}

@@ -497,7 +497,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       notifySystem('warning', 'MatchMe message blocked: the accounts need an active match.');
       return false;
     }
-    const isInitiativeRun = messageFormatOverride === 0 && turnModeOverride === 6;
+    const isPhoneInitiativeRun = messageFormatOverride === socialMediaMessageFormat && turnModeOverride === 7;
+    const isInitiativeRun = (messageFormatOverride === 0 && turnModeOverride === 6) || isPhoneInitiativeRun;
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
     const shouldRestoreCancelledInput =
@@ -1295,7 +1296,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
       directActionOnly,
       isAutoTurn,
     );
-    if (isInitiativeRun) {
+    if (isPhoneInitiativeRun) {
+      inputText = `AI phone initiative. The user is currently playing ${inputCharacterName}. ${runEnglishProcessing || translateInputOnly ? 'Processing language: English. ' : ''}Continue the established situation through phone apps and leave the player response to the user in those apps.`;
+    } else if (isInitiativeRun) {
       inputText = `AI initiative roleplay. The user is currently playing ${inputCharacterName}. ${runEnglishProcessing || translateInputOnly ? 'Processing language: English. ' : ''}Present this character with a situation that invites their reaction. Ask the user how they respond before completing the scene. Do not decide their reaction for them.`;
     }
     const originalInput = socialDirectMessage?.app === 'matchme' ? inputText : replacementInputText ??
@@ -1695,9 +1698,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
       });
       const graphOutput = directActionOnly
         ? ''
-        : isAutoplayRun
-          ? stripPlanBlocks(autoplayOutputText)
-          : executedOutput;
+        : isPhoneInitiativeRun
+          ? (socialMediaOutputText.trim() === '{}' ? '' : socialMediaOutputText)
+          : isAutoplayRun
+            ? stripPlanBlocks(autoplayOutputText)
+            : executedOutput;
       if (socialDirectMessage && !socialDirectMessageOutputPromise && socialMediaOutputText) {
         socialDirectMessageOutputPromise = processSocialDirectMessageOutput(socialMediaOutputText);
       }

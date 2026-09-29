@@ -85,7 +85,7 @@ describe('workflow Storybook selection', () => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
       const promptSwitch = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!;
       const rows = promptSwitch.data.llmPromptSwitchPromptAftersByOutput!;
-      expect(rows.flat()).toHaveLength(24);
+      expect(rows.flat()).toHaveLength(25);
       for (const after of rows.flat().filter(Boolean)) {
         for (const step of buildPromptStepChain('', after)) {
           expect(step.after.match(/Account links:/g)).toHaveLength(1);
@@ -114,5 +114,30 @@ it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
     expect(steps[1].after).toContain('@output:planning');
     expect(steps[1].after).toContain('@action:Ask User');
     expect(data.llmPromptSwitchOutputTitles).toHaveLength(4);
+  },
+);
+
+
+it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
+  'routes autonomous phone events through Social Media slot 7 in %s', (fileName) => {
+    const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
+    const data = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!.data;
+    expect(data.llmPromptSwitchPromptTitlesByOutput![2][7]).toBe('Phone Initiative');
+    expect(data.llmPromptSwitchPromptBeforesByOutput![2][7]).toBe('');
+    const prompt = data.llmPromptSwitchPromptAftersByOutput![2][7];
+    expect(buildPromptStepChain('', prompt)).toHaveLength(1);
+    expect(prompt).not.toContain('@action:Ask User');
+    expect(prompt).toContain("Never include the player's response");
+    expect(prompt).toContain('@action:Get character phone image list');
+    expect(prompt).toContain('@command: MatchMe_action');
+    for (const key of ['whatsUpApp', 'fotogramApp', 'onlyFriendsApp', 'matchMeApp']) {
+      expect(prompt).toContain(key);
+    }
+    for (const command of ['Fotogram_text_post', 'OnlyFriends_text_post', 'Fotogram_image_post',
+      'OnlyFriends_image_post', 'Fotogram_post_comment', 'OnlyFriends_post_comment',
+      'Bank_transfer', 'Create_Note', 'Simulate_ChatGPD']) {
+      expect(prompt).toContain(`@command: ${command}`);
+    }
+    expect(prompt).toContain('only an already active matched pair');
   },
 );

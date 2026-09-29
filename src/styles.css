@@ -6424,6 +6424,20 @@ input[type="number"]::-webkit-outer-spin-button {
   background: #050505 center / cover no-repeat;
 }
 
+.phone-initiative-hint {
+  position: absolute;
+  left: 14px;
+  right: 66px;
+  bottom: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #f8fafc;
+  font-size: 12px;
+  width: fit-content;
+  pointer-events: none;
+}
+
 .phone-desktop-scrim {
   position: absolute;
   z-index: -1;

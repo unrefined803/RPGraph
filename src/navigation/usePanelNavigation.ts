@@ -16,11 +16,6 @@ export function usePanelNavigationState<T = undefined>(key: string, initial?: T 
   return [value, setValue] as const;
 }
 
-export function usePanelNavigationBack() {
-  const history = useContext(NavigationContext);
-  return (fallback: () => void) => { if (!history?.move(-1)) fallback(); };
-}
-
 export function usePanelNavigationOverlay(close: () => void, enabled = true) {
   const history = useContext(NavigationContext);
   const closeRef = useRef(close);

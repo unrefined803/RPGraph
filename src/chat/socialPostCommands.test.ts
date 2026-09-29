@@ -188,6 +188,6 @@ describe('social publication commands', () => {
         }
       }
     }
-    expect(checked).toBe(16);
+    expect(checked).toBe(17);
   });
 });
