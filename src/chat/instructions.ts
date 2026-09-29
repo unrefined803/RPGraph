@@ -23,7 +23,15 @@ export const autoTurnInstructionDefinitions: AutoTurnInstructionDefinition[] = [
   {
     key: 'character-phone',
     title: 'Character Phone AutoTurn',
-    defaultText: '<Sender> texts <Recipient>.',
+    defaultText: [
+      'This is a character phone AutoTurn.',
+      'The player-selected character is <Sender>; the conversation partner is <Recipient>.',
+      'Generate the next message in this conversation, normally from <Sender> to <Recipient>.',
+      'This instruction is not a message that <Sender> has already sent.',
+      'Choose <Recipient> as the sender only when the established conversation clearly calls for their reply and another message from <Sender> would be redundant or disrupt the exchange—for example, when <Sender> has already asked an unanswered question or sent consecutive messages awaiting a response.',
+      'Consider the relevant conversation across apps, not unrelated recent messages. Message count alone does not require switching speakers.',
+      'Write exactly one in-character message.',
+    ].join('\n'),
     variables: ['<Sender>', '<Recipient>'],
   },
   {
