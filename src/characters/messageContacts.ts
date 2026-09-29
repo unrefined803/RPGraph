@@ -1,4 +1,5 @@
-import { automaticAccountLinkGrants, resolveMessageAccount, type AccountLinkApp } from '../chat/accountLinks';
+import { interactedNpcIds, reciprocalMessageContacts, type MessageContactGrant as ContactGrant } from './messageExchanges';
+import { automaticAccountLinkGrants } from '../chat/accountLinks';
 import type { MessageRecord, WorkflowNode } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { isStorybookSourceNode } from '../storybook/runtime';
@@ -6,35 +7,16 @@ import { storybookNeedsUpdate } from '../nodes/rp-storybook/model';
 import type { Character } from './character';
 import { appCharactersFromRegistry } from './appRuntime';
 import { buildCharacterRegistry, type CharacterRegistryEntry } from './registry';
-import { captureNpcParticipants, npcReferencesFromMessages, npcSnapshotEntries, type NpcParticipantSnapshots } from './npcParticipants';
-
-type ContactApp = Exclude<AccountLinkApp, 'banking'>;
-type ContactGrant = { ownerId: string; targetId: string; app: ContactApp };
+import { captureNpcParticipants, npcSnapshotEntries, type NpcParticipantSnapshots } from './npcParticipants';
 
 /** Reciprocal DMs connect their endpoints; a shared account belongs only to its recipient. */
 export function messageContactGrants(messages: MessageRecord[], characters: StorybookCharacter[]): ContactGrant[] {
-  const grants: ContactGrant[] = [];
-  const directions = new Set<string>();
-  const add = (ownerId: string, targetId: string, app: ContactApp) => {
+  const grants = reciprocalMessageContacts(messages, characters);
+  const add = (ownerId: string, targetId: string, app: ContactGrant['app']) => {
     if (ownerId !== targetId && !grants.some((entry) => entry.ownerId === ownerId && entry.targetId === targetId && entry.app === app)) {
       grants.push({ ownerId, targetId, app });
     }
   };
-  for (const message of messages) {
-    if (message.role !== 'user' && message.role !== 'output') continue;
-    const dm = message.socialDirectMessage;
-    if (!dm && !message.phoneMessage) continue;
-    const app = dm?.app ?? 'whatsup';
-    const sender = resolveMessageAccount(app, dm?.fromAccountId ?? message.phoneFromAccountId,
-      dm?.fromHandle || dm?.from || message.phoneFrom, characters);
-    const recipient = resolveMessageAccount(app, dm?.toAccountId ?? message.phoneToAccountId,
-      dm?.toHandle || dm?.to || message.phoneTo, characters);
-    if (!sender || !recipient || sender.characterId === recipient.characterId) continue;
-    directions.add(JSON.stringify([app, sender.accountId, recipient.accountId]));
-    if (!directions.has(JSON.stringify([app, recipient.accountId, sender.accountId]))) continue;
-    add(sender.characterId, recipient.characterId, app);
-    add(recipient.characterId, sender.characterId, app);
-  }
   for (const { owner, link } of automaticAccountLinkGrants(messages, characters)) {
     if (link.app !== 'matchme' && link.app !== 'banking') add(owner.sourceId, link.characterId, link.app);
   }
@@ -58,13 +40,10 @@ export function withMessageContacts(character: Character, grants: ContactGrant[]
 export function acquireMessageContacts(nodes: WorkflowNode[], snapshots: NpcParticipantSnapshots,
   registryEntries: CharacterRegistryEntry[], messages: MessageRecord[]) {
   const registry = buildCharacterRegistry([...registryEntries, ...npcSnapshotEntries(snapshots)]);
-  const grants = messageContactGrants(messages, appCharactersFromRegistry(registry));
-  let participants = captureNpcParticipants(snapshots, registryEntries, [
-    ...npcReferencesFromMessages(messages),
-    ...grants.flatMap((grant) => [
-      { kind: 'character' as const, id: grant.ownerId }, { kind: 'character' as const, id: grant.targetId },
-    ]),
-  ]);
+  const characters = appCharactersFromRegistry(registry);
+  const grants = messageContactGrants(messages, characters);
+  let participants = captureNpcParticipants(snapshots, registryEntries,
+    interactedNpcIds(messages, characters).map((id) => ({ kind: 'character', id })));
   if (!grants.length) return { nodes, participants };
   const storybookIds = new Set(registry.characters.filter((entry) => entry.provenance.tier === 'storybook').map((entry) => entry.character.id));
   for (const [id, snapshot] of Object.entries(participants)) {

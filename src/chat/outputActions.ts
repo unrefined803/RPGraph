@@ -1,9 +1,11 @@
 import type {
+  MatchMeAction,
   BankTransferRecord,
   OutputActionChoiceGroup,
   OutputActionInfoBox,
   OutputActionProgressBar,
 } from '../types';
+import { isMatchMeAction } from './matchMeActions';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { isRecord } from '../utils/records';
 import { phoneNamesMatch, phoneVoiceMessageFlag } from './phoneMessages';
@@ -53,6 +55,7 @@ export type OutputActionUiItem =
 export type ParsedOutputActions = {
   phoneMessages: OutputActionPhoneMessage[];
   bankTransfers: BankTransferRecord[];
+  matchMeActions: MatchMeAction[];
   chatMessages: OutputActionChatMessage[];
   choiceGroups: OutputActionChoiceGroup[];
   infoBoxes: OutputActionInfoBox[];
@@ -88,6 +91,7 @@ export function findOutputActionPlayer<T extends Pick<StorybookCharacter, 'id' |
 const emptyOutputActions = (): ParsedOutputActions => ({
   phoneMessages: [],
   bankTransfers: [],
+  matchMeActions: [],
   chatMessages: [],
   choiceGroups: [],
   infoBoxes: [],
@@ -418,6 +422,12 @@ function parseAction(entry: unknown, result: ParsedOutputActions, options: Parse
     return;
   }
 
+  if (type === 'matchmeaction') {
+    if (isMatchMeAction(entry)) result.matchMeActions.push({ from: entry.from, to: entry.to, decision: entry.decision });
+    else result.warnings.push('MatchMe actions need distinct from/to accounts and a like or superlike decision.');
+    return;
+  }
+
   if (type === 'banktransfer' || type === 'sendmoney' || type === 'moneytransfer' || typelessBankTransfer) {
     const from = stringValue(entry, ['from', 'sender']);
     const to = stringValue(entry, ['to', 'recipient', 'target']);
@@ -636,6 +646,7 @@ function parseOutputActionsRoot(
     Array.isArray(parsed.actions) ||
     Array.isArray(parsed.phoneMessages) ||
     Array.isArray(parsed.bankTransfers) ||
+    Array.isArray(parsed.matchMeActions) ||
     Array.isArray(parsed.chatMessages) ||
     Array.isArray(parsed.choices) ||
     Array.isArray(parsed.infoBoxes) ||
@@ -664,6 +675,10 @@ function parseOutputActionsRoot(
         result.warnings.push('Output Actions phone message is missing from, to, or message.');
       }
     });
+  }
+
+  if (Array.isArray(parsed.matchMeActions)) {
+    parsed.matchMeActions.forEach((entry) => parseAction({ ...(isRecord(entry) ? entry : {}), type: 'matchMeAction' }, result, options));
   }
 
   if (Array.isArray(parsed.bankTransfers)) {

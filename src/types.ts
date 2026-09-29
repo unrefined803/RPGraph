@@ -808,6 +808,8 @@ export type SocialReactionsRecord = {
   append?: boolean;
 };
 
+export type MatchMeAction = { from: string; to: string; decision: 'like' | 'superlike' };
+
 export type MessageRecord = {
   accountLinks?: import('./chat/accountLinks').AccountLink[];
   id: number;
@@ -865,6 +867,7 @@ export type MessageRecord = {
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
   matchMeMatch?: MatchMeMatch;
+  matchMeAction?: MatchMeAction;
   createdPhoneNote?: CreatedPhoneNoteCommit;
   deletedPhoneNote?: DeletedPhoneNoteCommit;
   simulatedAiChat?: SimulatedAiChatCommit;

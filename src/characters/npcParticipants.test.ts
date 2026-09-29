@@ -249,3 +249,15 @@ it('round-trips stable character color slots through RP saves and accepts older 
   expect(isRpgraphSessionV2(session)).toBe(true);
   expect(appStateFromSessionV2(session).characterColorSlots).toEqual({});
 });
+
+
+it('keeps unilateral likes lightweight and captures participants only once matched', () => {
+  const action: MessageRecord = { id: 1, role: 'output', originalText: '[MatchMe] Player liked Nova.',
+    matchMeAction: { from: 'player-mm', to: 'nova-mm', decision: 'like' } };
+  expect(npcReferencesFromMessages([action])).toEqual([]);
+  expect(captureNpcParticipants({}, [entry()], npcReferencesFromMessages([action]))).toEqual({});
+  for (const decision of ['like', 'superlike'] as const) {
+    const matched = { ...action, matchMeAction: { ...action.matchMeAction!, decision }, matchMeMatch: match.matchMeMatch };
+    expect(captureNpcParticipants({}, [entry()], npcReferencesFromMessages([matched]))).toHaveProperty('nova');
+  }
+});

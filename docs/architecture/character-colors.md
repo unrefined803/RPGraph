@@ -2,17 +2,16 @@
 
 ## Stable slots
 
-`useCharacterColors` owns a session-local `CharacterColorSlots` record keyed by canonical `StorybookCharacter.sourceId`. Initial playable characters reserve slots in Storybook order. Only NPCs classified as interacted by `characterUsageReasons` reserve slots next. The roleplay runtime and NPC Library share the same history/activity input, covering loaded messages, Opening History and saved app activity. Rendering or opening the catalog never reserves slots. Inactive NPCs receive no color, even if an older save contains a previously reserved slot.
+`useCharacterColors` owns a session-local `CharacterColorSlots` record keyed by canonical `StorybookCharacter.sourceId`. Initial playable characters reserve slots in Storybook order. Only NPCs returned by `interactedNpcIds` reserve slots next. The roleplay runtime and NPC Library share this exact classification from the canonical message timeline, including loaded messages and Opening History. A playable character and the NPC must each have sent a private message to the other in the same messenger (WhatsUp, Fotogram, OnlyFriends or MatchMe). Comments, reactions, prose mentions, shared accounts, likes, superlikes, matches, one-way messages and NPC-only exchanges do not qualify. Rendering or opening the catalog never reserves slots. Inactive NPCs receive no color, even if an older save contains a previously reserved slot.
 
 Slots are never reassigned when characters are sorted, renamed, promoted, demoted or removed. A new character receives the next unused slot. `runtime.current.characterColorSlots` persists the record in RP Saves. Older saves initialize the record from their playable characters and interacted participants. Starting a new RP resets it. Undo does not recycle slots. Standalone character and Storybook files do not carry RP-specific slot assignments.
 
-The roleplay runtime uses a session-local `createCharacterUsageSelector` for this
-classification. Matchers prepare identity prefixes, quoted IDs and name patterns
-once per identity signature. Weak object caches reuse results for immutable
-history branches; a bounded string cache reuses field-name and text comparisons.
-History edits and undo replace branches, and identity changes replace the matcher,
-so removed references can make an NPC inactive again. Starting a new RP drops the
-selector. Callers must replace history objects when their content changes.
+`reciprocalMessageContacts` resolves both directions through canonical accounts and
+legacy aliases. The contact system and interaction classification use the same
+pairing logic; shared-account contact grants do not establish interaction.
+Removing the only reply through undo retracts the status and color. Saved color
+slots and retained NPC snapshots alone do not confer Interacted status.
+`characterUsageReasons` remains a separate broad reference check for safe removal.
 
 Color maps and CSS token dictionaries retain their references when their contents
 are unchanged, even if equivalent character or activity arrays are recreated.

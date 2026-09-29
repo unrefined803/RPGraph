@@ -1,3 +1,5 @@
+import { MatchMeActivityCard } from './MatchMeActivityCard';
+import { groupMatchMeHistory, type MatchMeHistoryRow } from '../chat/matchMe';
 import type { UserQuestion } from '../app/userQuestion';
 import { measureUiWork, countChatRowRender } from '../diagnostics/uiPerformance';
 import { createRowTimelineSelector } from '../chat/rowTimeline';
@@ -328,7 +330,7 @@ function badgeClassName(badge: string) {
 type MessageRowProps = {
   chatMessageAvatarsEnabled: boolean;
   socialMessageRpDateTimeById: Map<number, string>;
-  message: MessageRecord;
+  message: MatchMeHistoryRow;
   previousDay: string | undefined;
   englishProcessingEnabled: boolean;
   appCharacters: StorybookCharacter[];
@@ -1249,6 +1251,14 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
     );
   }
 
+  if (message.matchMeAction) {
+    return <Fragment key={message.id}>
+      {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+      <MatchMeActivityCard characterColors={characterColors} messages={message.matchMeActivities ?? [message]} characters={appCharacters}
+        fontSize={chatTextSize || defaultChatTextSize} />
+    </Fragment>;
+  }
+
   if (message.bankTransfer) {
     return (
       <Fragment key={message.id}>
@@ -1982,12 +1992,12 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
     );
     const effectiveRpDateTime = (message: MessageRecord) =>
       messageEffectiveRpDateTime(message, phoneMessagesById);
-    const visibleMessages = visibleMessageRecords(messages, {
+    const visibleMessages = groupMatchMeHistory(visibleMessageRecords(messages, {
       hideMessage: (message) =>
         isNarratorPhoneAutoTurnInstruction(message) ||
         !!message.outputActionsHidden ||
         socialMessageHiddenFromChat(message),
-    });
+    }));
     const socialTimeline = socialTimelineGroups(visibleMessages, englishProcessingEnabled);
     const outsidePhoneEntriesByMessageId = new Map<number, PhoneTimelineEntry[]>();
 

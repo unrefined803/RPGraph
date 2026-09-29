@@ -290,3 +290,36 @@ The runtime:
 - [`src/comfy`](../../src/comfy): ComfyUI API and workflow compatibility helpers.
 - [`src/llm`](../../src/llm): LLM API wrapper and token metrics.
 - [`electron`](../../electron): desktop main process, preload bridge, file formats, encryption, and OS/provider integrations.
+
+
+## MatchMe Workflow Actions
+
+MatchMe likes and superlikes use `matchMeActions` JSON with `from`, `to`, and
+`decision` (`like` or `superlike`). The phone UI sends one action per turn through
+User Input **Direct Actions** to RP Output **Direct Actions**, using the same
+execution path as Banking. The `@command: MatchMe_action` prompt token exposes a
+planning hint and an instruction-follower JSON template. Authored prompts can
+opt into it; the runtime does not inject narrator instructions or account lists.
+Generated actions are accepted through Output Actions or embedded command JSON.
+
+Both routes validate existing accounts and apply the same reciprocal-like and
+immediate-superlike policy. Timeline messages store the directed decision and,
+when established, the match. Decisions are overlaid on legacy profile decisions
+when reading the timeline, so removing a turn removes its like and match without
+writing those decisions into Storybook profiles. RP saves preserve both fields.
+Adjacent action messages appear in a compact, wrapping MatchMe activity card in
+the Chat panel, with canonical character colors for both sender and recipients:
+playable characters use animated colors, interacted NPCs use flat muted colors,
+and unassigned accounts use the static rose MatchMe accent. Hearts mark likes, stars mark superlikes,
+and a double-heart match label. Plus signs separate recipients; consecutive
+actions by the same sender share the sender label. A different sender starts a
+separate card. Likes, superlikes and matches store lightweight timeline records;
+none alone mark an NPC as Interacted or automatically capture its full container.
+Automatic message-driven capture waits for a private conversation in both
+directions with a playable character in the same app. Comments and one-way DMs
+remain visible without promoting their authors. The Library, colors and known
+speaker selection share that classification. Existing archived containers and
+explicit editing/promotion snapshots remain retained independently of status. An intervening history
+message or a new RP day starts a new group. Text previews retain individual
+canonical history records. Each underlying turn remains
+independently undoable. Profile editing and passes retain their existing behavior.

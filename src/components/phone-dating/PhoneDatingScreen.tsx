@@ -2,7 +2,7 @@ import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { datingAccountId, resolveDatingAccount, datingFirstName, datingAvatarDataUrl } from '../../chat/datingAccounts';
-import { matchMeDecision, matchMeLikePolicy, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
+import { matchMeDecision, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
 import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
 import { useEffect, useRef, useState } from 'react';
@@ -31,11 +31,12 @@ type Props = {
   rpWeekdayLanguage?: RpWeekdayLanguage;
   images: ChatImageAttachment[];
   onImportImage: (request: { owner: StorybookCharacter; image: ChatImageAttachment }) => Promise<ChatImageAttachment | undefined>;
+  onDecision?: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
   onSave: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
   onBack: () => void;
 };
 
-export function PhoneDatingScreen({ characterColors, profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis, rpTimeTrackingEnabled = false, rpDateTimeFormat = 'eu', rpWeekdayLanguage = 'system' }: Props) {
+export function PhoneDatingScreen({ characterColors, profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onDecision, onBack, emojiOptions, recentlyUsedEmojis, rpTimeTrackingEnabled = false, rpDateTimeFormat = 'eu', rpWeekdayLanguage = 'system' }: Props) {
   const profileColor = (characterId: string | undefined) =>
     characterColors?.get(characters.find((character) => character.id === characterId)?.name ?? '');
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
@@ -179,8 +180,8 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
     const partner = state.accounts.find((account) => account.id === id);
     if (!partner) return;
     presentedMatches.current.add(entry.newMatchId!);
-    setCelebration({ id, name: partner.name, superlike: false });
-  }, [profileOnly, editing, gallery, celebration, unread, state.accounts]);
+    setCelebration({ id, name: partner.name, superlike: matchMeDecision(state.accounts.find((account) => account.id === ownerId)?.decisions, id, state) === 'superlike' });
+  }, [profileOnly, editing, gallery, celebration, unread, state, ownerId]);
 
   const matches = availableProfiles.filter((entry) => canSendMatchMeMessage(ownerId, entry.id, state));
   const [failedMessages, setFailedMessages] = useState<Record<string, SocialDirectMessageRecord>>({});
@@ -211,7 +212,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
     finally { sending.current = false; setBusy(false); }
   }
   const selectedMatch = matches.find((entry) => entry.id === resolveDatingAccount(selectedMatchId ?? '', state.accounts)?.id);
-  const decisionFor = (id: string) => matchMeDecision(profile?.decisions, id, state);
+  const decisionFor = (id: string) => matchMeDecision({ ...profile?.decisions, ...state.accounts.find((account) => account.id === ownerId)?.decisions }, id, state);
   const likedProfiles = availableProfiles.filter((entry) => ['like', 'superlike'].includes(decisionFor(entry.id) ?? ''));
   const linkedCandidate = availableProfiles.find((entry) => entry.id === selectedMatchId && !decisionFor(entry.id) && !canSendMatchMeMessage(ownerId, entry.id, state));
   const candidate = linkedCandidate ?? availableProfiles.find((entry) =>
@@ -232,12 +233,17 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
     const previous = decisionFor(target.id);
     if (canSendMatchMeMessage(ownerId, target.id, state) ||
       (previous && !(previous === 'like' && decision === 'superlike'))) return;
-    const match = decision !== 'pass' && matchMeLikePolicy(ownerId, target.id, state, new Date().toISOString(), decision);
-    if (save({ ...profile, decisions: { ...profile.decisions, [target.id]: decision } })) {
+    if (decision === 'pass') {
+      if (save({ ...profile, decisions: { ...profile.decisions, [target.id]: decision } })) {
+        setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPhoto(0);
+      }
+      return;
+    }
+    if (owner && onDecision?.(owner, target.id, decision)) {
       setSelectedMatchId(undefined); setPreviewCandidateId(undefined); setPhoto(0);
-      if (match) setCelebration({ id: target.id, name: target.name, superlike: decision === 'superlike' });
     }
   }
+
   function addPhoto(image: ChatImageAttachment) {
     setDraft((current) => ({ ...current, photoIds: [...new Set([...current.photoIds, image.id])].slice(0, datingPhotoLimit) }));
   }

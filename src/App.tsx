@@ -25,8 +25,7 @@ import { phoneImageSource } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
 import { useMatchMeMigration } from './chat/useMatchMeMigration';
-import { datingAccountId } from './chat/datingAccounts';
-import { matchMeState, matchMeMessageAllowed, migrateDatingHistory, matchMeLikePolicy, matchMeMatchHistoryText } from './chat/matchMe';
+import { matchMeState, matchMeMessageAllowed, migrateDatingHistory } from './chat/matchMe';
 import { prepareMatchMePromptSlots } from './chat/matchMePrompt';
 import type { DatingProfile } from './chat/datingProfile';
 import {
@@ -4519,6 +4518,7 @@ function App() {
 
   const {
     submitBankTransfer,
+    submitMatchMeAction,
     submitOnlyFriendsWalletTransfer,
     commitCreatedPhoneNote,
     updatePhoneNoteColor,
@@ -4651,15 +4651,6 @@ function App() {
     if (!currentOwner) return false;
     const state = matchMeState(characters, messagesRef.current);
     const entries = migrateDatingHistory(currentOwner, state, messagesRef.current, new Date().toISOString());
-    state.matches.push(...entries.flatMap((entry) => entry.matchMeMatch ? [entry.matchMeMatch] : []));
-    for (const [id, decision] of Object.entries(profile.decisions)) {
-      if ((decision !== 'like' && decision !== 'superlike') || currentOwner.social.plotTwist?.decisions[id] === decision) continue;
-      const match = matchMeLikePolicy(datingAccountId(owner), id, state, new Date().toISOString(), decision);
-      if (!match) continue;
-      state.matches.push(match);
-      entries.push({ role: 'user', includeInHistory: true, matchMeMatch: match,
-        originalText: matchMeMatchHistoryText(match, state.accounts) });
-    }
     return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }));
   }
 
@@ -5988,12 +5979,13 @@ function App() {
                   !!message.socialPost ||
                   !!message.socialThreadAction ||
                   !!message.socialReactions ||
-                  !!message.socialDirectMessage || !!message.matchMeMatch,
+                  !!message.socialDirectMessage || !!message.matchMeMatch || !!message.matchMeAction,
               )}
               onSubmitSocialPost={submitSocialPost}
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onSaveDatingProfile={saveMatchMeProfile}
+              onMatchMeAction={submitMatchMeAction}
               onCreateSocialAccount={saveStorybookSocialUsername}
               onImportSocialPostImage={importSocialPostImage}
               socialImageById={socialImageById}
@@ -6670,6 +6662,7 @@ function App() {
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
           activity={characterActivity}
+          interactedCharacterIds={interactedCharacterIds}
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
           dismissOnEscape={!characterRemoval}

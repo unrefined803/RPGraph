@@ -170,6 +170,7 @@ function messageToTimelineEntry(
     accountLinks: message.accountLinks,
     socialDirectMessage: message.socialDirectMessage,
     matchMeMatch: message.matchMeMatch,
+    matchMeAction: message.matchMeAction,
     createdPhoneNote: message.createdPhoneNote,
     deletedPhoneNote: message.deletedPhoneNote,
     simulatedAiChat: message.simulatedAiChat,

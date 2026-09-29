@@ -1,4 +1,5 @@
 export type PromptCommandId =
+  | 'matchme_action'
   | 'bank_transfer'
   | 'create_note'
   | 'simulate_ai_chat'
@@ -30,6 +31,7 @@ export type PromptCommandToken = {
 };
 
 export const promptCommandIds: PromptCommandId[] = [
+  'matchme_action',
   'bank_transfer',
   'create_note',
   'simulate_ai_chat',
@@ -45,6 +47,7 @@ export const promptCommandIds: PromptCommandId[] = [
 ];
 
 const promptCommandDisplayNames: Record<PromptCommandId, string> = {
+  matchme_action: 'MatchMe_action',
   bank_transfer: 'Bank_transfer',
   create_note: 'Create_Note',
   simulate_ai_chat: 'Simulate_ChatGPD',
@@ -270,6 +273,12 @@ const onlyFriendsPostCommentInstruction = [
 
 export function defaultPromptCommandInstructionTemplate(commandId: PromptCommandId) {
   switch (commandId) {
+    case 'matchme_action':
+      return [
+        'Command matchme_action: send likes or superlikes between existing MatchMe accounts.',
+        'Output exactly one JSON object: {"matchMeActions":[{"from":"sender account ID","to":"recipient account ID","decision":"like"}]}',
+        'Follow the requested plan for who likes whom. Use exact existing MatchMe account IDs from context. decision must be like or superlike. A like only creates a match when the recipient already likes the sender; a superlike immediately creates a match. Never invent accounts or bypass this policy. Multiple directed actions may share the array. Do not send chat messages with this command.',
+      ].join('\n');
     case 'bank_transfer':
       return bankTransferInstruction;
     case 'create_note':
@@ -418,6 +427,7 @@ export function countPromptCommandUses(values: string[], name: string) {
 // author; the token itself only expands to the marker template for this
 // command, with a placeholder sketching what the plan should cover.
 const promptCommandPlanPlaceholders: Record<PromptCommandId, string> = {
+  matchme_action: 'rough plan (who likes whom, using like or superlike)',
   bank_transfer: 'rough plan (who sends how much to whom and why)',
   create_note: 'rough plan (whose note and what it will contain)',
   simulate_ai_chat: 'rough plan (who chats with ChatGPD and about what)',

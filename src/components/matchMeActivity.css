@@ -1,0 +1,86 @@
+.matchme-activity {
+  display: flex;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35em 0.7em;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.45em 0.7em;
+  border: 1px solid #ef9dbd36;
+  border-left: 3px solid #e86e99;
+  border-radius: 10px;
+  color: #ef9dbd;
+  background: linear-gradient(115deg, #77364f33, #29232fdb);
+  box-shadow: inset 0 1px 0 #ffffff06;
+  line-height: 1.5;
+}
+
+.matchme-activity-brand {
+  flex: 0 0 auto;
+  font-size: 0.78em;
+  letter-spacing: 0.025em;
+}
+
+.matchme-activity-items {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3em 0.45em;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.84em;
+}
+
+.matchme-activity-entry {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3em;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.matchme-activity-entry strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.matchme-activity-plus,
+.matchme-activity-arrow {
+  color: #b48d9e;
+  font-size: 0.9em;
+}
+
+.matchme-activity-symbol {
+  color: #fb718f;
+}
+
+.matchme-activity-symbol.superlike {
+  color: #7dd3fc;
+}
+
+.matchme-activity-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0 0.45em;
+  border: 1px solid #fb718f44;
+  border-radius: 999px;
+  background: #e8467222;
+  color: #ffc3d5;
+  font-size: 0.8em;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.matchme-activity-match > span {
+  letter-spacing: -0.2em;
+  padding-right: 0.2em;
+  color: #fb718f;
+}

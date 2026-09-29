@@ -391,6 +391,7 @@ function chatMessageFromTimelineEntry(
     accountLinks: entry.accountLinks,
     socialDirectMessage: entry.socialDirectMessage,
     matchMeMatch: entry.matchMeMatch,
+    matchMeAction: entry.matchMeAction,
     createdPhoneNote: entry.createdPhoneNote,
     deletedPhoneNote: entry.deletedPhoneNote,
     simulatedAiChat: entry.simulatedAiChat,

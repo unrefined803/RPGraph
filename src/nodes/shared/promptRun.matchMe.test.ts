@@ -95,3 +95,30 @@ describe('Workflow-routed MatchMe context', () => {
     expect(warning).not.toHaveBeenCalled();
   });
 });
+
+
+it('runs the MatchMe action command follower with its plan and returns action JSON', async () => {
+  const prompts: string[] = [];
+  const actionJson = JSON.stringify({ matchMeActions: [{ from: 'account-Ryan', to: 'account-Avery', decision: 'superlike' }] });
+  const context = {
+    nodes: [], historyMessages: [], appCharacters: characters,
+    reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
+    llm: { supportsVision: async () => false, complete: async ({ prompt }: { prompt: string }) => {
+      prompts.push(prompt);
+      return { text: prompts.length === 1 ? 'Ryan opens MatchMe. [matchme_action: Ryan superlikes Avery]' : actionJson,
+        connection: { label: 'Test' } };
+    } },
+  } as unknown as ExecuteContext;
+  const result = await runActionAwarePrompt({
+    node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode,
+    context, inputValue: 'Ryan: account-Ryan; Avery: account-Avery', images: [], referenceImages: [],
+    promptBefore: '', promptAfter: 'Write the scene. @command: MatchMe_action', actionConfigs: [],
+    streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator',
+  });
+  expect(prompts).toHaveLength(2);
+  expect(prompts[0]).toContain('who likes whom');
+  expect(prompts[1]).toContain('Ryan superlikes Avery');
+  expect(prompts[1]).toContain('matchMeActions');
+  expect(result.generatedText).toContain(actionJson);
+  expect(result.generatedText).not.toContain('[matchme_action:');
+});

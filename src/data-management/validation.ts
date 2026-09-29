@@ -1,3 +1,4 @@
+import { isMatchMeAction } from '../chat/matchMeActions';
 import { validCharacterColorSlots } from '../chat/characterColors';
 import { validAccountLinkBindings } from '../chat/accountLinks';
 import { parseNpcParticipantSnapshots } from '../characters/npcParticipants';
@@ -294,6 +295,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       validSocialDirectMessage &&
       validAccountLinkBindings(value.accountLinks) &&
       (value.matchMeMatch === undefined || isMatchMeMatch(value.matchMeMatch)) &&
+      (value.matchMeAction === undefined || isMatchMeAction(value.matchMeAction)) &&
       validCreatedPhoneNote &&
       validDeletedPhoneNote &&
       validSimulatedAiChat

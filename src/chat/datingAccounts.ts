@@ -46,6 +46,9 @@ function referencedLegacyDatingIds(characters: StorybookCharacter[], messages: M
     profile?.messages?.forEach((message) => { if (knownIds.has(message.matchId)) referenced.add(message.matchId); });
   });
   messages.forEach((message) => {
+    if (message.matchMeAction) {
+      [message.matchMeAction.from, message.matchMeAction.to].forEach((id) => { if (knownIds.has(id)) referenced.add(id); });
+    }
     message.matchMeMatch?.accountIds.forEach((id) => { if (knownIds.has(id)) referenced.add(id); });
     const direct = message.socialDirectMessage;
     if (direct?.app === 'matchme') {

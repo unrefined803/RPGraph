@@ -6,7 +6,8 @@ import { applyTurnCheckpointToNodes, createTurnCheckpointFromNodesForTurnRecord 
 import { openingHistoryCheckpointsFromNodes, openingHistoryTurnsFromNodes } from '../storybook/openingHistoryRuntime';
 import { appCharactersFromRegistry } from './appRuntime';
 import { buildCharacterRegistry, type CharacterRegistryEntry } from './registry';
-import { npcSnapshotEntries } from './npcParticipants';
+import { interactedNpcIds } from './messageExchanges';
+import { captureNpcParticipants, npcSnapshotEntries } from './npcParticipants';
 import { openingHistoryNpcParticipantsFromNodes, storybookRegistryEntries } from './npcParticipantRuntime';
 import { npcPromotionCard } from './promotion';
 import { planCharacterCardImport } from '../storybook/characterCard';
@@ -52,7 +53,7 @@ describe('contacts acquired through private messages', () => {
     expect(messageContactGrants([first, { ...first, id: 3 }], characters)).toEqual([]);
     const pending = acquireMessageContacts(nodes, {}, entries, [first]);
     expect(pending.nodes).toBe(nodes);
-    expect(pending.participants.npc.character.relationships).toEqual([]);
+    expect(pending.participants).toEqual({});
     const answered = acquireMessageContacts(nodes, pending.participants, entries, [first, reply]);
     expect(parseRpStorybookJson(answered.nodes[0].data.storybookJson!).characters[0].relationships).toEqual([contact('npc', app)]);
     expect(answered.participants.npc.character.relationships).toEqual([contact('player', app)]);
@@ -139,7 +140,8 @@ describe('contacts acquired through private messages', () => {
     const { nodes, entries } = setup();
     entries.find((entry) => entry.character.id === 'npc')!.character.relationships = [contact('player', 'onlyfriends', 'An old friend.')];
     const original = dm('whatsup', 'player', 'npc', '@fotogram:Person third');
-    const acquired = acquireMessageContacts(nodes, {}, entries, [original]);
+    const pinned = captureNpcParticipants({}, entries, [{ kind: 'character', id: 'npc' }]);
+    const acquired = acquireMessageContacts(nodes, pinned, entries, [original]);
     const retained = { ...dm('whatsup', 'player', 'npc'), id: 2 };
     const withoutLink = reconcileNpcMessageContacts(acquired.participants, entries, [retained]);
     expect(withoutLink.npc.character.relationships).toEqual([{ characterId: 'player', description: 'An old friend.', apps: { onlyfriends: true } }]);
@@ -186,8 +188,7 @@ describe('contacts acquired through private messages', () => {
     const result = acquireMessageContacts(nodes, {}, entries, [message]);
     const player = parseRpStorybookJson(result.nodes[0].data.storybookJson!).characters[0];
     expect(player.relationships).toEqual([contact('third', app)]);
-    expect(result.participants.npc.character.relationships).toEqual([]);
-    expect(result.participants.third.character.relationships).toEqual([]);
+    expect(result.participants).toEqual({});
   });
 
   it.each(['user', 'output'] as const)('stores a shared personal account for a %s message without connecting unrelated apps', (role) => {
@@ -197,10 +198,15 @@ describe('contacts acquired through private messages', () => {
     const message = { ...dm('whatsup', from, to, `@fotogram:Person ${from}`), role };
     const result = acquireMessageContacts(nodes, {}, entries, [message]);
     const player = parseRpStorybookJson(result.nodes[0].data.storybookJson!).characters[0];
-    const sender = from === 'player' ? player : result.participants.npc.character;
-    const recipient = to === 'player' ? player : result.participants.npc.character;
-    expect(sender.relationships).toEqual([]);
-    expect(recipient.relationships).toEqual([{ characterId: from, description: '', apps: { fotogram: true } }]);
+    expect(result.participants).toEqual({});
+    expect(player.relationships).toEqual(role === 'output' ? [contact('npc', 'fotogram')] : []);
+    // The NPC gets its earlier shared contact once a reply makes it an interacted participant.
+    const answered = acquireMessageContacts(result.nodes, {}, entries,
+      [message, { ...dm('whatsup', to, from), id: 2 }]);
+    const npcContacts = answered.participants.npc.character.relationships;
+    expect(npcContacts).toEqual([{ characterId: 'player', description: '',
+      apps: { whatsup: true, ...(role === 'user' ? { fotogram: true } : {}) } }]);
+
   });
 
   it('supports NPC-to-NPC messages, legacy handles and renamed bound accounts', () => {
@@ -211,8 +217,9 @@ describe('contacts acquired through private messages', () => {
     delete message.socialDirectMessage!.fromAccountId;
     delete message.socialDirectMessage!.toAccountId;
     const result = acquireMessageContacts(nodes, {}, entries, [message]);
-    expect(result.participants.npc.character.relationships).toEqual([]);
-    expect(result.participants.third.character.relationships).toEqual([contact('player', 'onlyfriends')]);
+    expect(result.participants).toEqual({});
+    expect(messageContactGrants([message], appCharactersFromRegistry(buildCharacterRegistry(entries))))
+      .toContainEqual({ ownerId: 'third', targetId: 'player', app: 'onlyfriends' });
   });
 
   it('does not create personal contacts from public text, errors, unknown accounts, self-DMs or unanswered MatchMe messages', () => {
@@ -239,15 +246,22 @@ describe('contacts acquired through private messages', () => {
   it('round-trips acquired containers through RP saves and Opening History and keeps promotion edits', () => {
     const { nodes, entries, library } = setup();
     const message = dm('onlyfriends', 'npc', 'player', '@fotogram:Person third');
-    const acquired = acquireMessageContacts(nodes, {}, entries, [message, dm('onlyfriends', 'player', 'npc')]);
+    const reply = { ...dm('onlyfriends', 'player', 'npc'), id: 2 };
+    const acquired = acquireMessageContacts(nodes, {}, entries, [message, reply]);
     const turn: TurnRecord = { id: 'turn', number: 1, createdAt: now,
-      input: { graphText: '', messages: [] }, output: { graphText: '', messages: [message] } };
+      input: { graphText: '', messages: [] }, output: { graphText: '', messages: [message, reply] } };
     const session = sessionV2FromCurrentState({ name: 'Contacts', settings: { englishProcessingEnabled: true, displayLanguage: 'en' },
       workflowVariables: {}, turns: [turn], turnCheckpoints: [], openingMessages: [], npcParticipants: acquired.participants,
     }, { format: 'rpgraph-workflow', formatVersion: currentWorkflowFormatVersion, savedAt: now, nodes: acquired.nodes, edges: [] }, acquired.nodes, now);
     expect(isRpgraphSessionV2(session)).toBe(true);
     const restored = appStateFromSessionV2(JSON.parse(JSON.stringify(session)));
     expect(restored.npcParticipants).toEqual(acquired.participants);
+    const restoredCharacters = appCharactersFromRegistry(buildCharacterRegistry([
+      ...storybookRegistryEntries(acquired.nodes), ...npcSnapshotEntries(restored.npcParticipants),
+    ]));
+    const restoredMessages = restored.turns.flatMap((entry) => [...entry.input.messages, ...entry.output.messages]);
+    expect(interactedNpcIds(restoredMessages, restoredCharacters)).toEqual(['npc']);
+    expect(interactedNpcIds(restoredMessages.slice(0, 1), restoredCharacters)).toEqual([]);
     const book = parseRpStorybookJson(acquired.nodes[0].data.storybookJson!);
     expect(parseRpStorybookJson(restored.currentRuntime.nodes.book.storybookJson as string).characters[0].relationships)
       .toEqual(book.characters[0].relationships);
@@ -292,4 +306,67 @@ it('does not parse or serialize the storybook again for an established phone con
   expect(added.nodes).not.toBe(first.nodes);
   expect(parseRpStorybookJson(added.nodes[0].data.storybookJson!).characters[0].relationships)
     .toEqual(expect.arrayContaining([expect.objectContaining({ characterId: 'third', apps: expect.objectContaining({ whatsup: true }) })]));
+});
+
+
+describe('interacted NPCs require a playable conversation partner', () => {
+  it.each(['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const)('waits for both directions on %s and retracts status on undo', (app) => {
+    const { nodes, entries, characters } = setup();
+    const incoming = dm(app, 'npc', 'player');
+    const outgoing = { ...dm(app, 'player', 'npc'), id: 2 };
+    for (const history of [[incoming], [outgoing], [incoming, { ...incoming, id: 3 }]]) {
+      expect(interactedNpcIds(history, characters)).toEqual([]);
+      expect(acquireMessageContacts(nodes, {}, entries, history).participants).toEqual({});
+    }
+    for (const history of [[incoming, outgoing], [outgoing, incoming]]) {
+      expect(interactedNpcIds(history, characters)).toEqual(['npc']);
+      expect(Object.keys(acquireMessageContacts(nodes, {}, entries, history).participants)).toEqual(['npc']);
+    }
+    expect(interactedNpcIds([incoming], characters)).toEqual([]);
+  });
+
+  it('ignores comments, post likes, shared accounts, prose, matches and superlikes', () => {
+    const { nodes, entries, characters } = setup();
+    const publicActivity: MessageRecord[] = [
+      { id: 1, role: 'output', originalText: 'Person npc commented.', socialReactions: {
+        app: 'fotogram', postId: 'post', likes: 10, comments: [{ from: 'Person npc', handle: 'npc.fotogram', text: 'Nice!' }],
+      } },
+      { id: 2, role: 'output', originalText: 'Person npc matched.', matchMeAction: {
+        from: 'player:matchme', to: 'npc:matchme', decision: 'superlike',
+      }, matchMeMatch: { id: 'matchme:["npc:matchme","player:matchme"]', accountIds: ['npc:matchme', 'player:matchme'], matchedAt: now, status: 'active' } },
+      { id: 3, role: 'output', originalText: 'Person npc enters the room.' },
+      dm('whatsup', 'npc', 'player', '@fotogram:Person third'),
+    ];
+    expect(interactedNpcIds(publicActivity, characters)).toEqual([]);
+    expect(acquireMessageContacts(nodes, {}, entries, publicActivity).participants).toEqual({});
+  });
+
+  it('does not combine unrelated players, different apps, errors, or NPC-only exchanges', () => {
+    const { nodes, entries, characters } = setup();
+    const histories = [
+      [dm('fotogram'), dm('onlyfriends', 'npc', 'player')],
+      [dm('fotogram'), dm('fotogram', 'npc', 'third')],
+      [dm('fotogram', 'npc', 'third'), dm('fotogram', 'third', 'npc')],
+      [dm(), { ...dm('fotogram', 'npc', 'player'), role: 'error' as const }],
+      [dm(), { ...dm('fotogram', 'npc', 'player'), socialDirectMessage: { ...dm('fotogram', 'npc', 'player').socialDirectMessage!, demo: true } }],
+    ];
+    for (const history of histories) {
+      expect(interactedNpcIds(history, characters)).toEqual([]);
+      expect(acquireMessageContacts(nodes, {}, entries, history).participants).toEqual({});
+    }
+    const secondPlayer = { ...characters.find((character) => character.sourceId === 'third')!, playerSelectable: true };
+    expect(interactedNpcIds([dm(), dm('fotogram', 'npc', 'third')],
+      characters.map((character) => character.sourceId === 'third' ? secondPlayer : character))).toEqual([]);
+  });
+
+  it('resolves renamed legacy account aliases for both conversation directions', () => {
+    const { characters } = setup();
+    const npc = characters.find((character) => character.sourceId === 'npc')!;
+    npc.identityAliases = { accountIds: { fotogram: ['old-npc'] } };
+    const incoming = dm('fotogram', 'npc', 'player');
+    incoming.socialDirectMessage!.fromAccountId = 'old-npc';
+    expect(interactedNpcIds([incoming, dm()], characters)).toEqual(['npc']);
+    const duplicate = structuredClone(npc);
+    expect(interactedNpcIds([incoming, dm()], [...characters, duplicate])).toEqual([]);
+  });
 });

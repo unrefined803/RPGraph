@@ -57,21 +57,6 @@ export function characterUsageReasons(character: UsageCharacter, aliases: Charac
     ? ['Referenced by chat, Opening History or saved app activity.'] : [];
 }
 
-/** Session-local selector for immutable history. Removed history can retract usage. */
-export function createCharacterUsageSelector() {
-  const matchers = new Map<string, { signature: string; references: (value: unknown) => boolean }>();
-  return (character: UsageCharacter, aliases: CharacterRegistryAliases, history: unknown): boolean => {
-    const identity = usageIdentity(character, aliases);
-    const signature = JSON.stringify(identity);
-    let matcher = matchers.get(character.id);
-    if (matcher?.signature !== signature) {
-      matcher = { signature, references: createUsageMatcher(identity, true) };
-      matchers.set(character.id, matcher);
-    }
-    return matcher.references(history);
-  };
-}
-
 export type CharacterRemovalInfo = {
   name: string;
   reasons: string[];

@@ -280,6 +280,7 @@ type PhonePanelProps = {
     likeCount: number;
   }) => Promise<boolean>;
   onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
+  onMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
   onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
   onCreateSocialAccount: (
     character: StorybookCharacter,
@@ -419,6 +420,7 @@ export function PhonePanel({
   onSubmitSocialDirectMessage,
   onCreateSocialAccount,
   onSaveDatingProfile,
+  onMatchMeAction,
   onImportSocialPostImage,
   socialImageById,
   socialLikesByAccount,
@@ -795,7 +797,7 @@ export function PhonePanel({
       openRequest={directMessageRequest?.app === 'matchme' ? directMessageRequest : undefined}
       emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
       rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
-      images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
+      images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile} onDecision={onMatchMeAction}
       onBack={() => navigateBack(() => setScreen('desktop'))} />;
   }
 

@@ -4,7 +4,7 @@ import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCo
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
-import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
+import { applyMatchMeAction, matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
 import { socialMessagePreviewLinks } from '../chat/socialMessagePreview';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
 // Pure move: all component-scope dependencies arrive via the options object; the run
@@ -175,6 +175,7 @@ function mergeOutputActions(
   return {
     phoneMessages: [...primary.phoneMessages, ...direct.phoneMessages],
     bankTransfers: [...primary.bankTransfers, ...direct.bankTransfers],
+    matchMeActions: [...primary.matchMeActions, ...direct.matchMeActions],
     chatMessages: [...primary.chatMessages, ...direct.chatMessages],
     choiceGroups: [...primary.choiceGroups, ...direct.choiceGroups],
     infoBoxes: [...primary.infoBoxes, ...direct.infoBoxes],
@@ -1746,6 +1747,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               phoneMessages: [],
               phoneImageActions: [],
               bankTransfers: [],
+              matchMeActions: [],
               socialPosts: [],
               invalidSocialPostCount: 0,
               socialPostComments: [],
@@ -2220,6 +2222,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         if (!isPhoneMessage) {
           flushLiveOutput();
           const earlyOutput = {
+            outputActionsHidden: (directActionOnly && !rpOutput.trim()) || undefined,
             originalText: rpOutput,
             imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
             includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
@@ -2374,6 +2377,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : undefined;
       flushLiveOutput();
       const completedOutput: Partial<MessageRecord> = {
+        outputActionsHidden: (directActionOnly && !rpOutput.trim()) || undefined,
         originalText: rpOutput,
         translatedText: translatedOutput,
         imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
@@ -2394,6 +2398,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       if (!isPhoneMessage && liveOutputMessageId === undefined) {
         liveOutputMessageId = appendMessage({
           role: 'output',
+          outputActionsHidden: (directActionOnly && !rpOutput.trim()) || undefined,
           originalText: rpOutput,
           translatedText: translatedOutput,
           imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
@@ -2582,6 +2587,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
             index === 0 ? 'received' : undefined,
             'output',
           );
+        }
+
+        for (const action of [...appliedActions.matchMeActions, ...embeddedPhoneResult.matchMeActions,
+          ...(phoneOutputBankResult?.matchMeActions ?? [])]) {
+          const result = applyMatchMeAction(action, matchMeState(appCharacters(), messagesRef.current), new Date().toISOString());
+          if (!result) {
+            reportRunWarning('MatchMe action ignored: unknown accounts, an existing match, or a duplicate decision.', outputNodeTraceInfo);
+            continue;
+          }
+          appendMessage({ role: 'output', originalText: result.text, includeInHistory: true,
+            matchMeAction: result.action, matchMeMatch: result.match });
         }
 
         for (const bankTransfer of [

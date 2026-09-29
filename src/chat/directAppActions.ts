@@ -11,6 +11,7 @@ import type {
 } from './phoneAppsSessions';
 
 export type DirectAppActionPayload =
+  | { kind: 'matchMeAction'; action: import('../types').MatchMeAction }
   | {
       kind: 'bankTransfer';
       transfer: { from: string; to: string; amount: number; note: string };
@@ -20,6 +21,7 @@ export type DirectAppActionPayload =
   | { kind: 'simulatedAiChat'; commit: SimulatedAiChatCommit };
 
 export function directAppActionJson(payload: DirectAppActionPayload): string {
+  if (payload.kind === 'matchMeAction') return JSON.stringify({ matchMeActions: [payload.action] });
   if (payload.kind === 'bankTransfer') {
     const { transfer } = payload;
     return JSON.stringify({

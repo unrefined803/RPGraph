@@ -322,12 +322,19 @@ it('invalidates panel state and clears drafts when the same cast starts another 
   expect(render().panelSessionRevision).toBe(after.panelSessionRevision + 1);
 });
 
-it('colors loaded and newly contacted NPCs using the same activity as the library', () => {
+it('colors NPCs only after reciprocal messages and shares that classification with the library', () => {
   const { render, options, npc, player } = harness();
   expect(render().characterColors.has(npc.name)).toBe(false);
-  options.messages = [{ id: 1, role: 'user', channel: 'phone', originalText: 'Hello',
+  for (const character of [npc, player]) character.apps = { ...character.apps,
+    whatsup: { accountId: `${character.sourceId}:whatsup`, enabled: true, bio: '' } };
+  options.messages = [{ id: 1, role: 'user', channel: 'phone', phoneMessage: true, originalText: 'Hello',
     phoneFrom: player.name, phoneTo: npc.name }];
+  expect(render().interactedCharacterIds).toEqual([]);
+  expect(render().characterColors.has(npc.name)).toBe(false);
+  options.messages = [...options.messages, { id: 2, role: 'output', channel: 'phone', phoneMessage: true,
+    originalText: 'Hi', phoneFrom: npc.name, phoneTo: player.name }];
   const contacted = render();
+  expect(contacted.interactedCharacterIds).toEqual([npc.sourceId]);
   expect(contacted.characterColors.get(npc.name)).toMatch(/^var\(--rp-npc-/);
   expect(contacted.characterColorSlots[npc.sourceId]).toBe(1);
   const slots = contacted.characterColorSlots;
@@ -337,4 +344,7 @@ it('colors loaded and newly contacted NPCs using the same activity as the librar
   // Modern saves preserve the assigned family.
   render().setCharacterColorSlots(slots);
   expect(render().characterColorSlots[npc.sourceId]).toBe(1);
+  options.messages = options.messages.slice(0, 1);
+  expect(render().interactedCharacterIds).toEqual([]);
+  expect(render().characterColors.has(npc.name)).toBe(false);
 });

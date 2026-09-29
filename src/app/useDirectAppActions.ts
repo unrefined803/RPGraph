@@ -3,6 +3,7 @@
 // graph run, so it becomes a real turn with history, trace, undo, and
 // regeneration instead of a silent app-state write.
 
+import { datingAccountId } from '../chat/datingAccounts';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, TurnRecord } from '../types';
 import { directAppActionJson, type DirectAppActionPayload } from '../chat/directAppActions';
@@ -275,6 +276,8 @@ export function useDirectAppActions({
   }
 
   return {
+    submitMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') =>
+      runDirectAppAction(owner, { kind: 'matchMeAction', action: { from: datingAccountId(owner), to, decision } }),
     submitBankTransfer,
     submitOnlyFriendsWalletTransfer,
     commitCreatedPhoneNote,

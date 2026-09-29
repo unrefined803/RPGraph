@@ -42,6 +42,7 @@ Carries already-complete app-action JSON. A direct-only run evaluates only this 
 
 Bank transfer example:
 {"bankTransfers":[{"from":"Mia","to":"Alex","amount":20,"note":"Dinner"}]}
+{"matchMeActions":[{"from":"sender account ID","to":"recipient account ID","decision":"like"}]}
 
 Info box example:
 {"infoBoxes":[{"title":"Purchase complete","text":"The item was added to the account.","tone":"success"}]}
@@ -73,6 +74,7 @@ Already-complete app-action JSON that does not need an LLM. It accepts the same 
 
 Bank transfer example:
 {"bankTransfers":[{"from":"Mia","to":"Alex","amount":20,"note":"Dinner"}]}
+{"matchMeActions":[{"from":"sender account ID","to":"recipient account ID","decision":"like"}]}
 
 Manual phone note example:
 {"createdPhoneNotes":[{"characterId":"c1","characterName":"Mia","operation":"create","note":{"id":"note-1","title":"Groceries","text":"Milk, bread","dayLabel":"Sun 12 July","color":"mint"}}]}
