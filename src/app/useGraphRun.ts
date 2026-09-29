@@ -308,7 +308,7 @@ type UseGraphRunOptions = Pick<
   resolveOutputActionContextCapacityBars: (
     requests: OutputActionContextCapacityRequest[],
   ) => OutputActionContextCapacityBar[];
-  pruneStorybookExternalImagesForMessages: () => void;
+  pruneStorybookExternalImagesForMessages: () => (() => void) | void;
   selectChatPanelView: (view: 'chat' | 'phone' | 'events') => void;
   selectChatCharacter: (characterId: string) => void;
   setSelectedCharacterId: (characterId: string) => void;
@@ -808,6 +808,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     nodesRef.current = resetRunNodes;
     setNodes(resetRunNodes);
     removeReplacedMessages();
+    const restorePrunedNpcImages = replacement ? pruneStorybookExternalImagesForMessages() : undefined;
     runtimeNodes
       .filter((node) =>
         node.data.kind === undefined &&
@@ -1026,6 +1027,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         restoreReplacedMessages();
         if (replacement) {
           applyTurnRuntime(runtimeBeforeReplacement);
+          restorePrunedNpcImages?.();
         } else {
           applyTurnRuntime(runtimeBeforeAttempt);
         }
@@ -1112,6 +1114,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         restoreReplacedMessages();
         if (replacement) {
           applyTurnRuntime(runtimeBeforeReplacement);
+          restorePrunedNpcImages?.();
         } else {
           applyTurnRuntime(runtimeBeforeAttempt);
         }
@@ -3191,6 +3194,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       setMessages(messagesRef.current);
       if (replacement) {
         applyTurnRuntime(runtimeBeforeReplacement);
+        restorePrunedNpcImages?.();
+        pruneStorybookExternalImagesForMessages();
       } else {
         applyTurnRuntime(runtimeBeforeAttempt);
         pruneStorybookExternalImagesForMessages();

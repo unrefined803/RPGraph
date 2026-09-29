@@ -536,7 +536,7 @@ export async function runActionAwarePrompt({
   };
 
   const runImageSearch = async (config: PromptActionConfig, plan: string, label: string) => {
-    const { directory, candidates, characterCount } = phoneImageSearchContext(context, plan);
+    const { directory, candidates, characterCount, usageSummary } = phoneImageSearchContext(context, plan);
     const searchImages = visionEnabled ? candidates.slice(0, 8).map((image) => image.attachment) : [];
     const imageMapping = searchImages.length
       ? 'Attached candidate images (attachment order):\n' + searchImages.map((image, index) =>
@@ -545,7 +545,7 @@ export async function runActionAwarePrompt({
     const instructions = `${config.instructionTemplate}\nMaximum selection count: ${config.maxReturnedImages}\n${imageMapping}`;
     const prompt = characterSearchPrompt(instructions, plan, directory);
     const diagnosticPrompt = characterSearchPrompt(instructions, plan,
-      `(${characterCount} characters; ${candidates.length} images; approximately ${context.textMetrics.measure(directory).tokens} tokens; directory omitted)`);
+      `(${characterCount} characters; ${candidates.length} images; approximately ${context.textMetrics.measure(directory).tokens} tokens; directory omitted)\nCandidate image usage:\n${usageSummary}`);
     recordPromptPass({ label, images: imagePreviewItems(searchImages.map((image) => ({ image, source: 'action' }))), sections: [{ label: 'Image search assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }] });
     context.updateRuntimeData(node.id, { preview: 'Selecting character images ...' });
     const response = await context.llm.complete({

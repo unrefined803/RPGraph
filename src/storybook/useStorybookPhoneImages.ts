@@ -406,6 +406,17 @@ export function useStorybookPhoneImages({
   }
 
   function pruneExternalImagesForMessages(activeMessages = messagesRef.current) {
+    const previousNpcImages: Array<{ id: string; images: RpStorybook['characters'][number]['images'] }> = [];
+    for (const entry of currentCharacterRegistry().characters) {
+      if (entry.provenance.tier !== 'snapshot' || !updateNpcImages) continue;
+      const result = withStorybookExternalImagesPruned(
+        { ...emptyRpStorybook, characters: [entry.character] }, activeMessages,
+      );
+      if (result.removedCount) {
+        previousNpcImages.push({ id: entry.character.id, images: entry.character.images });
+        updateNpcImages(entry.character.id, result.storybook.characters[0].images);
+      }
+    }
     nodesRef.current.forEach((node) => {
       if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
         return;
@@ -420,6 +431,7 @@ export function useStorybookPhoneImages({
         storybookStatus: `Removed ${result.removedCount} inactive received image${result.removedCount === 1 ? '' : 's'}.`,
       });
     });
+    return () => previousNpcImages.forEach(({ id, images }) => updateNpcImages?.(id, images));
   }
 
   function addImagesToRecipientStorybook(

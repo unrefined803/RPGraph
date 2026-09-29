@@ -49,7 +49,10 @@ it.each(['main', 'planning', 'later-planning'] as const)('keeps image selections
   const calls: Array<{ prompt: string; images: unknown[] }> = [];
   const replies = [JSON.stringify({ action: 'get_image_id', plan: 'Avery is the hacker retrieving photos of Blake from account-Blake for the player. Choose one appropriate photo; Avery is only the intermediary.' }),
     '{"imageIds":["image-Blake"],"answer":"Blake is the requested target, Avery only retrieves it."}', 'Selected the target photo.', 'Story continues.', 'Final reply.'];
-  const context = { textMetrics: new TextMetricsApi(), nodes: [], appCharacters: cast, historyMessages: [],
+  const context = { textMetrics: new TextMetricsApi(), nodes: [], appCharacters: cast, historyMessages: [{ id: 1, role: 'output', originalText: '',
+      socialDirectMessage: { app: 'onlyfriends', messageId: 'dm', from: 'Casey', fromHandle: 'casey',
+        to: 'Blake', toHandle: 'blake', text: 'Nice photo.', sentAt: '',
+        origin: { postId: 'post', postAuthor: 'Blake', postAuthorHandle: 'blake', postCaption: '', postImageId: 'image-Blake' } } }],
     reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
     llm: { supportsVision: async () => true, complete: vi.fn(async (call) => { calls.push(call); return { text: replies.shift() ?? '', connection: { label: 'Test' } }; }) },
   } as unknown as ExecuteContext;
@@ -60,6 +63,9 @@ it.each(['main', 'planning', 'later-planning'] as const)('keeps image selections
   expect(calls).toHaveLength(mode === 'later-planning' ? 5 : planning ? 4 : 3);
   expect(calls[1].prompt).toContain('image-Blake');
   expect(calls[1].prompt).toContain('account-Blake');
+  expect(calls[1].prompt).toContain('Casey (seen via social post)');
+  const searchTrace = result.debug.promptPasses?.find((pass) => pass.sections?.some((section) => section.label === 'Image search assistant'));
+  expect(JSON.stringify(searchTrace)).toContain('Casey (seen via social post)');
   for (const secret of ['SECRET_RAW_HISTORY', 'SECRET_STORY_INSTRUCTIONS', 'SECRET_IMAGE_DATA', 'Fran description']) expect(calls[1].prompt).not.toContain(secret);
   expect(calls[1].images).toMatchObject([{ id: 'image-Avery' }, { id: 'image-Blake' }]);
   expect(calls[2].prompt).toContain('Blake is the requested target');
@@ -134,4 +140,19 @@ it('upgrades the former caption-only default while preserving custom instruction
   expect(previous).toBeDefined();
   expect(normalizePromptActionConfig({ ...config, instructionTemplate: previous.text })?.instructionTemplate).toBe(getImagesLlmInstruction);
   expect(normalizePromptActionConfig({ ...config, instructionTemplate: 'Custom search rules' })?.instructionTemplate).toBe('Custom search rules');
+});
+
+
+it('upgrades the previous visual search prompt and retains multiple proposed images', () => {
+  const previous = previousPromptActionDefaultsForValidation().find((entry) =>
+    entry.text.includes('Prefer the best visual match.'))!;
+  expect(previous).toBeDefined();
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: previous.text })?.instructionTemplate)
+    .toBe(getImagesLlmInstruction);
+  expect(getImagesLlmInstruction).toContain('Suggest at least two distinct eligible images when possible');
+  expect(getImagesLlmInstruction).toContain('exclude candidates already seen or received by the intended recipient');
+  const { candidates } = phoneImageSearchContext({ nodes: [], appCharacters: cast, historyMessages: [] } as unknown as ExecuteContext, 'Avery and Blake');
+  const result = phoneImageSearchResult({ ...config, sendImagesToLlm: true }, candidates,
+    JSON.stringify({ imageIds: ['image-Avery', 'image-Blake'], answer: 'Two suitable options.' }), true, 'Find photos');
+  expect(result?.images.map((image) => image.id)).toEqual(['image-Avery', 'image-Blake']);
 });

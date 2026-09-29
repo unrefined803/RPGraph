@@ -6,7 +6,7 @@ import { emptyRpStorybook, parseRpStorybookJson, normalizeRpStorybook, rpStorybo
 import { candidateStorybookRegistry, storybookRegistryEntries } from '../characters/npcParticipantRuntime';
 import { buildCharacterRegistry, type CharacterRegistryEntry } from '../characters/registry';
 import fixture from '../characters/fixtures/stage4-npc.json';
-import type { WorkflowNode } from '../types';
+import type { MessageRecord, WorkflowNode } from '../types';
 
 vi.mock('react', async (importOriginal) => ({
   ...await importOriginal<typeof import('react')>(),
@@ -70,8 +70,8 @@ it('reports an invalid profile avatar without throwing or mutating the Storybook
 it.each([false, true])('links foreign phone images through sender and recipient (library: %s)', (inLibrary) => {
   const { options, book, library } = harness();
   const original = book.characters[0];
-  const sender = { ...structuredClone(original), id: 'sender', name: 'Noah Voss', images: [], apps: {} };
-  const recipient = { ...structuredClone(original), id: 'recipient', name: 'Espen Harper', images: [], apps: {} };
+  const sender = { ...structuredClone(original), id: 'sender', name: 'Noah Voss', images: [], apps: {}, social: undefined, profileImage: undefined };
+  const recipient = { ...structuredClone(original), id: 'recipient', name: 'Espen Harper', images: [], apps: {}, social: undefined, profileImage: undefined };
   const snapshots = new Map<string, typeof original>();
   if (inLibrary) {
     library.push({ character: sender, tier: 'user', source: 'sender' },
@@ -108,6 +108,29 @@ it.each([false, true])('links foreign phone images through sender and recipient 
     expect.objectContaining({ id: image.id, dataUrl: image.dataUrl, receivedFrom: sender.name }),
   ]);
   expect(original.images[0].receivedFrom).toBeUndefined();
+  const retainedPost: MessageRecord = { id: 1, role: 'output', originalText: '', socialPost: {
+    app: 'onlyfriends', postId: 'original-post', author: original.name, authorHandle: 'original',
+    caption: '', imageId: image.id,
+  } };
+  const retainedSend: MessageRecord = { id: 2, role: 'output', originalText: '', channel: 'phone',
+    phoneFrom: sender.name, phoneTo: recipient.name, phoneImageIds: [image.id] };
+  const gallery = (id: string) => currentCharacterRegistry().characters.find((entry) => entry.character.id === id)!.character.images;
+  // An earlier surviving delivery (or the retained regeneration input) keeps both copies.
+  api.pruneExternalImagesForMessages([retainedPost, retainedSend]);
+  expect(gallery(recipient.id)).toHaveLength(1);
+  expect(gallery(sender.id)).toHaveLength(1);
+  // Undo/regeneration removes the delivery; an unrelated original post must not retain it.
+  const restorePruned = api.pruneExternalImagesForMessages([retainedPost]);
+  expect(gallery(recipient.id).map((image) => image.id)).toEqual([]);
+  expect(gallery(sender.id).map((image) => image.id)).toEqual([]);
+  expect(gallery(original.id)).toEqual(original.images);
+  if (inLibrary) {
+    // A failed regeneration must be able to restore the former NPC album.
+    restorePruned();
+    expect(gallery(recipient.id)).toHaveLength(1);
+    expect(gallery(sender.id)).toHaveLength(1);
+  }
+
 });
 
 it('keeps an unbound social post image visible after forwarding it to another gallery', () => {

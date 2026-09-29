@@ -1,4 +1,5 @@
 import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
+import { phoneNamesMatch } from '../chat/phoneMessages';
 import { isRpPictureGalleryId } from '../chat/rpPictures';
 import {
   nextStorybookCharacterImageId,
@@ -178,33 +179,38 @@ export function withStorybookExternalImagesPruned(
   storybook: RpStorybook,
   messages: readonly MessageRecord[],
 ) {
-  const usedImageIds = new Set<string>();
-  const usedDataUrls = new Set<string>();
-  messages.forEach((message) => {
-    message.imageAttachments?.forEach((image) => {
-      const imageId = image.id.trim();
-      if (imageId) {
-        usedImageIds.add(imageId);
-      }
-      if (image.dataUrl) {
-        usedDataUrls.add(image.dataUrl);
-      }
-    });
-    message.phoneImageIds?.forEach((imageId) => {
-      const normalizedImageId = imageId.trim();
-      if (normalizedImageId) {
-        usedImageIds.add(normalizedImageId);
-      }
-    });
-    // Social photo posts keep their linked Gallery image alive.
-    const socialImageId = message.socialPost?.imageId?.trim();
-    if (socialImageId) {
-      usedImageIds.add(socialImageId);
-    }
-  });
-
   let removedCount = 0;
   const characters = storybook.characters.map((character) => {
+    const usedImageIds = new Set<string>();
+    const usedDataUrls = new Set<string>();
+    messages.forEach((message) => {
+      // A reference keeps an external copy only in the participating gallery.
+      const participants = [message.phoneFrom, message.phoneTo,
+        message.socialDirectMessage?.from, message.socialDirectMessage?.to,
+        message.socialPost?.author, message.speakerName];
+      if (!participants.some((name) => name && phoneNamesMatch(name, character.name))) return;
+      message.imageAttachments?.forEach((image) => {
+        const imageId = image.id.trim();
+        if (imageId) {
+          usedImageIds.add(imageId);
+        }
+        if (image.dataUrl) {
+          usedDataUrls.add(image.dataUrl);
+        }
+      });
+      message.phoneImageIds?.forEach((imageId) => {
+        const normalizedImageId = imageId.trim();
+        if (normalizedImageId) {
+          usedImageIds.add(normalizedImageId);
+        }
+      });
+      message.socialDirectMessage?.imageIds?.forEach((id) => usedImageIds.add(id.trim()));
+      // Social photo posts keep their linked Gallery image alive.
+      const socialImageId = message.socialPost?.imageId?.trim();
+      if (socialImageId) {
+        usedImageIds.add(socialImageId);
+      }
+    });
     const profileImageIds = new Set([
       character.profileImage?.imageId,
       ...Object.values(character.apps ?? {}).flatMap((account) => [
