@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { currentCoreNodeVersions } from '../../src/nodes/nodeVersion';
+import { currentCoreNodeVersions } from '../../../src/nodes/nodeVersion';
 
-const repoRoot = path.resolve(__dirname, '..', '..');
+const repoRoot = path.resolve(__dirname, '..', '..', '..');
 
 export type WorkflowFixture = {
   format: 'rpgraph-workflow';

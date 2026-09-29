@@ -8,5 +8,5 @@
     "strict": true,
     "noEmit": true
   },
-  "include": ["config/vite.config.mts", "config/vitest.config.mts"]
+  "include": ["dev/config/vite.config.mts", "dev/config/vitest.config.mts"]
 }

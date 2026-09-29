@@ -284,7 +284,7 @@ upgrade stages were already committed locally relative to `origin/main`.
 `npm explain inflight glob rimraf` and `npm ls` confirmed both dependency chains
 above, including the additional ASAR consumer `@electron/universal`.
 The only explicitly configured packaging target is Linux AppImage x64 in
-`config/electron-builder.yml` and `package:linux`. Windows scripts launch the
+`dev/config/electron-builder.yml` and `package:linux`. Windows scripts launch the
 application; they do not configure a Windows installer. Squirrel is nevertheless
 installed through app-builder-lib's peer dependency. No target was removed.
 

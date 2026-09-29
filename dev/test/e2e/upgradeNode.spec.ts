@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { currentCoreNodeVersions } from '../../src/nodes/nodeVersion';
+import { currentCoreNodeVersions } from '../../../src/nodes/nodeVersion';
 import {
   launchAppWithWorkflow,
   cleanup,

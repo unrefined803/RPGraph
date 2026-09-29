@@ -441,7 +441,7 @@ Paths below are relative to the repository root.
 | Social directory | `src/chat/{socialDirectory,socialCatalogs}.ts` and `src/chat/catalogs/`: bundled names/handles and dynamic identities are not full character containers. |
 | Fotogram/OnlyFriends feeds | `src/components/phone-social/PhoneSocialFeedScreen.tsx`: saved posts reference gallery image IDs; cosmetic `dummySocialPosts` are still mixed into the feed. |
 | Runtime wiring | `src/App.tsx`, `src/app/{useGraphRun,useRoleplayPanelRuntime}.ts`, `src/chat/useTurnRecordState.ts`, `src/graph/executeGraph.ts`, `src/nodes/shared/promptRun.ts`. |
-| Packaging | `config/electron-builder.yml` packages `resources/npc-characters/` into the application resource directory and includes the shared CommonJS validator. Development and packaged roots are resolved explicitly by `electron/npcLibrary.cjs`. |
+| Packaging | `dev/config/electron-builder.yml` packages `resources/npc-characters/` into the application resource directory and includes the shared CommonJS validator. Development and packaged roots are resolved explicitly by `electron/npcLibrary.cjs`. |
 
 Preserve existing work and inspect `git status` before implementation. The earlier
 `bilder/` reference is historical; no such directory was present at the latest
@@ -575,7 +575,7 @@ parse every base64 payload. The renderer uses an IPC-backed service, not direct
 arbitrary filesystem access. Document behavior when the desktop bridge is absent:
 the browser fallback can use bundled resources but cannot scan AppData.
 
-Package built-in containers explicitly in `config/electron-builder.yml`. Resolve the
+Package built-in containers explicitly in `dev/config/electron-builder.yml`. Resolve the
 source path in development and the packaged resource location in the desktop
 build. Application updates may replace built-ins but never user-installed files.
 
@@ -767,7 +767,7 @@ New paths below are proposed; existing paths are integration targets.
 | Phone/MatchMe/social UI and `src/App.tsx` | Display real NPC photos/profiles, library refresh/promotion controls and ID-based navigation. Remove cosmetic dummy posts after real seeded posts exist. |
 | `src/data-management/`, version manifests | Persist NPC snapshots, IDs and pooled media; migrate old sessions, opening history and checkpoints. |
 | `scripts/create-character-container.mjs`, `package.json` | Creation CLI using the shared service; no independent schema. |
-| `resources/npc-characters/`, `config/electron-builder.yml` | Built-in V2 plain JSON containers and packaging. |
+| `resources/npc-characters/`, `dev/config/electron-builder.yml` | Built-in V2 plain JSON containers and packaging. |
 
 ## 12. Ordered next implementation stages
 
