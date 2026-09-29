@@ -39,7 +39,7 @@ type Props = {
   onSaved: () => Promise<unknown>;
   onClose: () => void;
 };
-type Source = { destination: CharacterDestination; fileName: string; bundled?: boolean };
+type Source = { destination: CharacterDestination; fileName: string; bundled?: boolean; storybook?: boolean };
 type LoadChoice = { key: string; label: string; source: Source; character?: Character; file?: SavedFileSummary };
 
 export function CharacterAssistantDialog({ requiredPassword = '', referenceCharacters = [], initialEntry, onApplyToRp, rpBusy = false, nodeLlm, connections, providerHealthById, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
@@ -54,7 +54,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
   const relationshipCharacters = characterReferenceCandidates([character], referenceCharacters.length ? referenceCharacters : visibleLibraryEntries(snapshot?.entries ?? []).map((entry) => entry.character));
   const [connectionId, setConnectionId] = useState(defaultConnectionId);
   const [destination, setDestination] = useState<CharacterDestination | 'choose'>('npc-characters');
-  const [source, setSource] = useState<Source | undefined>(() => initialEntry && !onApplyToRp ? { destination: 'npc-characters', fileName: initialEntry.fileName, bundled: initialEntry.tier === 'bundled' } : undefined);
+  const [source, setSource] = useState<Source | undefined>(() => initialEntry && !onApplyToRp ? { destination: 'npc-characters', fileName: initialEntry.fileName, bundled: initialEntry.tier === 'bundled', storybook: initialEntry.tier === 'saved-storybook' } : undefined);
   const [protectionDraft, setProtection] = useState<'plain' | 'encrypted'>('plain');
   const [savePasswordDraft, setSavePassword] = useState('');
   const protection = requiredPassword ? 'encrypted' : protectionDraft;
@@ -139,8 +139,8 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         const library = window.rpgraph?.reloadNpcLibrary ? await window.rpgraph.reloadNpcLibrary() : snapshot;
         if (!library) throw new Error('The NPC library has not loaded yet.');
         available = visibleLibraryEntries(library.entries).map((entry) => ({
-          key: `${entry.tier}:${entry.fileName}`, label: `${entry.character.name} · ${entry.editedBuiltIn ? 'Built-in → Edited' : entry.tier === 'bundled' ? 'Built-in' : 'User-created'} · ${entry.fileName}`,
-          source: { destination: target, fileName: entry.fileName, bundled: entry.tier === 'bundled' }, character: entry.character,
+          key: `${entry.tier}:${entry.fileName}`, label: `${entry.character.name} · ${entry.editedBuiltIn ? 'Built-in → Local override' : entry.tier === 'bundled' ? 'Built-in' : entry.tier === 'saved-storybook' ? 'From Storybook' : 'Local NPC'} · ${entry.fileName}`,
+          source: { destination: target, fileName: entry.fileName, bundled: entry.tier === 'bundled', storybook: entry.tier === 'saved-storybook' }, character: entry.character,
         }));
       }
       available.sort((a, b) => a.label.localeCompare(b.label));
@@ -171,7 +171,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
       validateAssistantCharacter(character);
       const container = createCharacterContainer({ ...character, playable: false }, includePosts, includeReceivedImages);
       if (protection === 'encrypted' && !savePassword.trim()) throw new Error('Enter a password or PIN.');
-      let name = preparedName ?? (source?.destination === destination && !source.bundled
+      let name = preparedName ?? (source?.destination === destination && !source.bundled && !source.storybook
         ? source.fileName.replace(/\.json$/i, '') : character.name);
       if (destination === 'npc-characters' && !preparedName) {
         const library = await window.rpgraph.reloadNpcLibrary();
@@ -296,7 +296,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         }
       }}>
       <header inert={showSave || !!choices || !!confirm} className="dialog-header storybook-creator-header">
-        <div className="storybook-title-row"><h2 id="character-assistant-title">Character Assistant</h2><p>{dirty ? 'Unsaved changes' : 'Ready'} · {editingRp ? 'Editing: RP copy · Used in this RP' : source ? `${source.bundled ? 'Built-in' : 'Local'} · ${source.fileName}` : 'New character'}</p></div>
+        <div className="storybook-title-row"><h2 id="character-assistant-title">Character Assistant</h2><p>{dirty ? 'Unsaved changes' : 'Ready'} · {editingRp ? 'Editing: Story NPC · Used in this RP' : source ? `${source.bundled ? 'Built-in' : source.storybook ? 'From Storybook' : source.destination === 'npc-characters' ? 'Local NPC' : 'Local'} · ${source.fileName}` : 'New character'}</p></div>
         <div className="storybook-header-actions">
           {editingRp && <button className="inspect-button nodrag primary" type="button" disabled={ioBusy || busy || rpBusy || !dirty} onClick={applyToRp}>Apply to RP</button>}
           <button className="inspect-button nodrag" type="button" disabled={ioBusy || busy} onClick={() => { setStatus(''); setIncludeReceivedImages(false); setShowSave(true); }}>Save Character File…</button>
@@ -310,7 +310,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         <button className="contextual-action-button nodrag" type="button" disabled={!undo.length || ioBusy} onClick={() => {
           const previous = undo[undo.length - 1]; if (previous) { change(previous, false); setUndo((history) => history.slice(0, -1)); }
         }}>Undo</button>
-        <span className="character-assistant-source">{editingRp ? 'Editing: RP copy · Used in this RP' : source ? `${source.bundled ? 'Built-in' : 'Local'} · ${source.fileName}` : 'New container'}</span>
+        <span className="character-assistant-source">{editingRp ? 'Editing: Story NPC · Used in this RP' : source ? `${source.bundled ? 'Built-in' : source.storybook ? 'From Storybook' : source.destination === 'npc-characters' ? 'Local NPC' : 'Local'} · ${source.fileName}` : 'New container'}</span>
       </div>
       <div inert={showSave || !!choices || !!confirm} className="storybook-creator-body"><div className="storybook-main-workspace character-assistant-workspace">
         <div className="storybook-document-panel">

@@ -3,7 +3,7 @@ import { normalizeCharacterApps } from './character';
 import type { Character, CharacterAppAccount, CharacterApps } from './character';
 
 export type CharacterApp = keyof CharacterApps;
-type CharacterRegistryTier = 'bundled' | 'user' | 'snapshot' | 'storybook';
+type CharacterRegistryTier = 'bundled' | 'saved-storybook' | 'user' | 'snapshot' | 'storybook';
 
 export type CharacterRegistryAliases = {
   /** Previously issued stable or node-scoped runtime character IDs. */
@@ -66,6 +66,7 @@ export type EffectiveCharacterAccount = {
 
 const tierRank: Record<CharacterRegistryTier, number> = {
   bundled: 0,
+  'saved-storybook': 0.5,
   user: 1,
   snapshot: 2,
   storybook: 3,

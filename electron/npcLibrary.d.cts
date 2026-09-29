@@ -1,6 +1,6 @@
-export type NpcLibraryRoots = { bundled: string; user: string };
+export type NpcLibraryRoots = { bundled: string; user: string; storybooks?: string };
 export type NpcLibraryDiagnostic = {
-  tier: 'bundled' | 'user';
+  tier: 'bundled' | 'saved-storybook' | 'user';
   fileName: string;
   code: 'directory-error' | 'invalid-json' | 'invalid-container' | 'unsupported-version';
   message: string;
@@ -8,7 +8,7 @@ export type NpcLibraryDiagnostic = {
 export type NpcLibrarySnapshot = {
   roots: NpcLibraryRoots;
   entries: Array<{
-    tier: 'bundled' | 'user';
+    tier: 'bundled' | 'saved-storybook' | 'user';
     source: string;
     fileName: string;
     character: {
@@ -19,7 +19,7 @@ export type NpcLibrarySnapshot = {
     };
   }>;
   files: Array<{
-    tier: 'bundled' | 'user';
+    tier: 'bundled' | 'saved-storybook' | 'user';
     fileName: string;
     name: string;
     updatedAt: string;

@@ -1,10 +1,11 @@
+import { buildCharacterRegistry } from './registry';
 import { describe, expect, it } from 'vitest';
 import { newAssistantCharacter, parseCharacterAssistantResult, runCharacterAuthoringSteps } from './assistant';
-import { characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries } from './librarySummary';
+import { characterProvenanceStages, characterStorageBadge, effectiveLibraryEntry, visibleLibraryEntries } from './librarySummary';
 import type { NpcLibraryEntry } from './npcLibrary';
 
 const response = (patch: unknown[], extra = {}) => JSON.stringify({ reply: 'Done.', patch, ...extra });
-const entry = (tier: 'user' | 'bundled', id = 'same', fileName = `${tier}.json`): NpcLibraryEntry => ({
+const entry = (tier: 'user' | 'bundled' | 'saved-storybook', id = 'same', fileName = `${tier}.json`): NpcLibraryEntry => ({
   tier, fileName, source: `${tier}:${fileName}`, character: { ...newAssistantCharacter(), id, name: 'Alex' },
 });
 
@@ -42,21 +43,21 @@ describe('edited built-in library entries', () => {
       }
     }
     expect(characterProvenanceStages({ inStorybook: false, storybookEdited: false, retained: true })
-      .map((stage) => stage.label)).toEqual(['RP copy']);
+      .map((stage) => stage.label)).toEqual(['Story NPC']);
   });
   it('shows resolution layers in priority order with the active layer last', () => {
     expect(characterProvenanceStages({ editedBuiltIn: true, localEdited: true, tier: 'user', inStorybook: true, storybookEdited: true })
-      .map((stage) => stage.label)).toEqual(['Built-in', 'Library modified', 'Storybook modified']);
+      .map((stage) => stage.label)).toEqual(['Built-in', 'Local NPC', 'Storybook']);
     expect(characterProvenanceStages({ editedBuiltIn: true, localEdited: false, tier: 'user', inStorybook: false, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['Built-in', 'Library copy']);
+      .map((stage) => stage.label)).toEqual(['Built-in', 'Local NPC']);
     expect(characterProvenanceStages({ tier: 'bundled', inStorybook: true, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['Built-in', 'Storybook copy']);
+      .map((stage) => stage.label)).toEqual(['Built-in', 'Storybook']);
     expect(characterProvenanceStages({ inStorybook: true, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['Storybook only']);
+      .map((stage) => stage.label)).toEqual(['Storybook']);
     expect(characterProvenanceStages({ tier: 'user', inStorybook: true, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['Library file', 'Storybook copy']);
+      .map((stage) => stage.label)).toEqual(['Local NPC', 'Storybook']);
     expect(characterProvenanceStages({ tier: 'user', inStorybook: false, storybookEdited: false })
-      .map((stage) => stage.label)).toEqual(['Library file']);
+      .map((stage) => stage.label)).toEqual(['Local NPC']);
   });
 });
 
@@ -99,4 +100,41 @@ describe('sequential character specialists', () => {
     const initial = parseCharacterAssistantResult(response([], { steps: ['profile'] }), character);
     await expect(runCharacterAuthoringSteps(initial, 'Create', [], async () => response([], { steps: ['accounts'] }))).rejects.toThrow('delegate');
   });
+});
+
+
+it('resolves saved Storybook sources between bundled characters and local overrides', () => {
+  const bundled = entry('bundled');
+  const saved = entry('saved-storybook');
+  saved.character.playable = true;
+  const user = entry('user');
+  expect(visibleLibraryEntries([bundled, saved])).toEqual([{ ...saved, editedBuiltIn: false }]);
+  expect(effectiveLibraryEntry([bundled, saved], 'same')).toBe(saved);
+  expect(buildCharacterRegistry([bundled, saved]).characters[0]).toMatchObject({
+    provenance: { tier: 'saved-storybook' }, playerSelectable: false,
+  });
+  expect(buildCharacterRegistry([bundled, saved, user]).characters[0].provenance.tier).toBe('user');
+  expect(buildCharacterRegistry([bundled, saved, user, { ...saved, tier: 'storybook' }]).characters[0])
+    .toMatchObject({ provenance: { tier: 'storybook' }, playerSelectable: true });
+  expect(characterProvenanceStages({ tier: 'saved-storybook', inStorybook: false, storybookEdited: false })[0].label)
+    .toBe('From Storybook');
+});
+
+
+it('does not present a scanned Storybook copy as an import path for active Storybook characters', () => {
+  expect(characterProvenanceStages({ tier: 'saved-storybook', inStorybook: true, storybookEdited: true })
+    .map((stage) => stage.label)).toEqual(['Storybook']);
+  expect(characterProvenanceStages({ tier: 'bundled', inStorybook: false, storybookEdited: false, retained: true, snapshotEdited: true })
+    .map((stage) => stage.label)).toEqual(['Built-in', 'Story NPC']);
+});
+
+it('distinguishes current Opening History NPC versions from RP-only revisions', () => {
+  const character = entry('bundled').character;
+  const options = { inStorybook: false, retained: false, character };
+  expect(characterStorageBadge(options)).toBeUndefined();
+  expect(characterStorageBadge({ ...options, inStorybook: true })?.label).toBe('SB');
+  expect(characterStorageBadge({ ...options, retained: true })?.label).toBe('RP');
+  expect(characterStorageBadge({ ...options, retained: true, openingCharacter: structuredClone(character) })?.label).toBe('SB');
+  expect(characterStorageBadge({ ...options, retained: true, openingCharacter: { ...character, description: 'Older revision' } })?.label).toBe('RP');
+  expect(characterStorageBadge({ ...options, inStorybook: true, retained: true, openingCharacter: { ...character, description: 'Older revision' } })?.label).toBe('SB');
 });

@@ -85,16 +85,18 @@ export function characterMatchesLibrarySearch(character: Character, query: strin
 /** Display the same whole-container winner as the registry; retain ambiguous files for diagnostics. */
 export function visibleLibraryEntries(entries: import('./npcLibrary').NpcLibraryEntry[]) {
   const bundledIds = new Set(entries.filter((entry) => entry.tier === 'bundled').map((entry) => entry.character.id));
-  const userCounts = new Map<string, number>();
-  for (const entry of entries) if (entry.tier === 'user') userCounts.set(entry.character.id, (userCounts.get(entry.character.id) ?? 0) + 1);
-  return entries.filter((entry) => entry.tier !== 'bundled' || userCounts.get(entry.character.id) !== 1)
+  return entries.filter((entry) => {
+    const winner = effectiveLibraryEntry(entries, entry.character.id);
+    const rank = { bundled: 0, 'saved-storybook': 1, user: 2 };
+    return !winner || rank[entry.tier] >= rank[winner.tier];
+  })
     .map((entry) => ({ ...entry, editedBuiltIn: entry.tier === 'user' && bundledIds.has(entry.character.id) }))
     .sort((a, b) => a.character.name.localeCompare(b.character.name) || a.fileName.localeCompare(b.fileName));
 }
 
 /** Select the same library tier as the registry without choosing an ambiguous file. */
 export function effectiveLibraryEntry<T extends import('./npcLibrary').NpcLibraryEntry>(entries: T[], characterId: string): T | undefined {
-  for (const tier of ['user', 'bundled'] as const) {
+  for (const tier of ['user', 'saved-storybook', 'bundled'] as const) {
     const matches = entries.filter((entry) => entry.character.id === characterId && entry.tier === tier);
     if (matches.length === 1) return matches[0];
   }
@@ -104,7 +106,7 @@ export type CharacterProvenanceStage = { label: string; title: string };
 
 /** Ordered resolution layers for the compact NPC Library provenance chain. */
 export function characterProvenanceStages(options: {
-  tier?: 'bundled' | 'user'; editedBuiltIn?: boolean; localEdited?: boolean;
+  tier?: 'bundled' | 'saved-storybook' | 'user'; editedBuiltIn?: boolean; localEdited?: boolean;
   inStorybook: boolean; storybookEdited: boolean; retained?: boolean; snapshotEdited?: boolean;
 }): CharacterProvenanceStage[] {
   const stages: CharacterProvenanceStage[] = [];
@@ -112,28 +114,50 @@ export function characterProvenanceStages(options: {
     stages.push(
       { label: 'Built-in', title: 'Bundled application character' },
       options.localEdited
-        ? { label: 'Library modified', title: 'Local NPC Library file differs from the built-in character' }
-        : { label: 'Library copy', title: 'Local NPC Library file matches the built-in character' },
+        ? { label: 'Local NPC', title: 'Local NPC Library file differs from the built-in character' }
+        : { label: 'Local NPC', title: 'Local NPC Library file matches the built-in character' },
     );
   } else if (options.tier === 'bundled') {
     stages.push({ label: 'Built-in', title: 'Bundled application character' });
+  } else if (options.tier === 'saved-storybook' && !options.inStorybook) {
+    stages.push({ label: 'From Storybook', title: 'Automatically loaded from a saved, unencrypted Storybook. No separate NPC file is created.' });
   } else if (options.tier === 'user') {
-    stages.push({ label: 'Library file', title: 'Character file in the local NPC Library folder' });
+    stages.push({ label: 'Local NPC', title: 'Character file in the local NPC Library folder' });
   }
   if (options.retained && !options.inStorybook) {
-    stages.push({ label: options.snapshotEdited ? 'RP modified' : 'RP copy',
+    stages.push({ label: 'Story NPC',
       title: `${options.tier
         ? options.snapshotEdited ? 'RP copy differs from the NPC Library version. ' : 'RP copy matches the NPC Library version. '
         : ''}Character revision retained in this RP and included in future saves, even if its library file is missing` });
   }
   if (options.inStorybook) {
     if (!stages.length) {
-      stages.push({ label: 'Storybook only', title: 'Active Storybook character without a corresponding NPC Library file' });
+      stages.push({ label: 'Storybook', title: 'Character version from the active Storybook. Takes priority over automatically scanned saved Storybook copies.' });
     } else {
       stages.push(options.storybookEdited
-        ? { label: 'Storybook modified', title: 'The Storybook character differs from the NPC Library version' }
-        : { label: 'Storybook copy', title: 'The Storybook character matches the NPC Library version' });
+        ? { label: 'Storybook', title: 'The active Storybook version takes priority and differs from the NPC Library source' }
+        : { label: 'Storybook', title: 'The active Storybook version takes priority and matches the NPC Library source' });
     }
   }
   return stages;
+}
+
+
+/** Describe where the current character payload is included, not whether it was saved to disk. */
+export function characterStorageBadge(options: {
+  inStorybook: boolean;
+  retained: boolean;
+  character: Character;
+  openingCharacter?: Character;
+}): CharacterProvenanceStage | undefined {
+  if (options.inStorybook) return {
+    label: 'SB', title: 'Included when saving the Storybook. Also carried by RP saves. This badge does not indicate unsaved changes.',
+  };
+  if (!options.retained) return undefined;
+  if (options.openingCharacter && characterContentEqual(options.character, options.openingCharacter)) return {
+    label: 'SB', title: 'This NPC version is included in the Storybook Opening History and is saved with the Storybook. Also carried by RP saves. This badge does not indicate unsaved changes.',
+  };
+  return { label: 'RP', title: options.openingCharacter
+    ? 'Save the RP to preserve the current NPC version. The Storybook Opening History contains a different version; update it to include this version in Storybook saves.'
+    : 'Included when saving the RP. Import the current session into Opening History to include this NPC version in Storybook saves.' };
 }

@@ -1,3 +1,4 @@
+import { effectiveLibraryEntry } from '../characters/librarySummary';
 import { characterUsageReasons, characterRemovalInfo, characterStoryTextWarnings, storybookWithRetiredCharacter } from '../characters/lifecycle';
 import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
 import type { NpcLibraryEntry, NpcLibraryFileSummary, NpcLibrarySnapshot } from '../characters/npcLibrary';
@@ -536,7 +537,7 @@ export function useStorybookActions({
     const effective = currentCharacterRegistry().characters.find((entry) => entry.character.id === characterId);
     const local = (currentLibraryEntries?.() ?? []).filter((entry) => entry.character.id === characterId);
     const users = local.filter((entry) => entry.tier === 'user');
-    const library = users.length === 1 ? users[0] : users.length ? undefined : local.find((entry) => entry.tier === 'bundled');
+    const library = users.length > 1 ? undefined : effectiveLibraryEntry(local, characterId);
     const history = [currentTimelineMessages(), turnsRef.current,
       nodesRef.current.flatMap<unknown>((entry) => isStorybookSourceNode(entry) && entry.data.storybookJson
         ? [parseRpStorybookJson(entry.data.storybookJson).openingHistory] : entry.data.eventAppointments ?? []),
@@ -933,12 +934,12 @@ export function useStorybookActions({
           continue;
         }
         const entry = libraryEntries.find((candidate) => (
-          candidate.tier === 'bundled' && candidate.fileName === file.fileName
+          candidate.tier === file.tier && candidate.fileName === file.fileName
         ));
         if (entry) {
           libraryChoices.push({
-            key: `bundled:${file.fileName}`,
-            source: 'built-in',
+            key: `${file.tier}:${file.fileName}`,
+            source: file.tier === 'bundled' ? 'built-in' : 'npc-library',
             name: entry.character.name,
             fileName: file.fileName,
             file,

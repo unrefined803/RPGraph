@@ -204,3 +204,50 @@ describe('NPC library scanning', () => {
     assert.deepEqual(opened, [roots.user]);
   });
 });
+
+
+describe('saved Storybook NPC sources', () => {
+  it('preserves media and identities, resolves source priority and skips protected Storybooks', async () => {
+    const root = await temporaryDirectory();
+    const roots = { bundled: path.join(root, 'bundled'), user: path.join(root, 'user'), storybooks: path.join(root, 'files') };
+    const character = characterCard('shared', 'storybook').character;
+    await writeJson(roots.storybooks, 'story.json', { format: 'rpgraph-storybook', version: '3.0.0', characters: [character] });
+    await writeJson(roots.storybooks, 'protected.json', { format: 'rpgraph-encrypted-storybook', characters: [characterCard('secret').character] });
+    await writeJson(roots.storybooks, 'future.json', { format: 'rpgraph-storybook', version: '99.0.0', characters: [characterCard('future').character] });
+    await writeJson(roots.storybooks, 'workflow.json', { format: 'rpgraph-workflow', characters: [characterCard('workflow').character] });
+    await writeJson(roots.bundled, 'base.json', characterCard('shared', 'bundled'));
+    let result = await scanNpcLibrary(roots);
+    assert.deepEqual(result.entries.find((entry) => entry.tier === 'saved-storybook')?.character, character);
+    assert.equal(result.entries.length, 2);
+    await writeJson(roots.user, 'edited.json', characterCard('shared', 'local'));
+    result = await scanNpcLibrary(roots);
+    assert.equal(result.entries.find((entry) => entry.tier === 'user')?.character.apps?.fotogram?.bio, 'local');
+    assert.deepEqual(await fs.readdir(roots.user), ['edited.json']);
+  });
+
+  it('refreshes changed and removed characters and deterministically resolves repeated IDs', async () => {
+    const root = await temporaryDirectory();
+    const roots = { bundled: path.join(root, 'bundled'), user: path.join(root, 'user'), storybooks: path.join(root, 'files') };
+    const book = (bio: string) => ({ format: 'rpgraph-storybook', version: '3.0.0', characters: [characterCard('shared', bio).character] });
+    await writeJson(roots.storybooks, 'a.json', book('older'));
+    await writeJson(roots.storybooks, 'b.json', book('newer'));
+    await fs.utimes(path.join(roots.storybooks, 'a.json'), 100, 100);
+    await fs.utimes(path.join(roots.storybooks, 'b.json'), 200, 200);
+    const service = createNpcLibraryService({ roots, openPath: async () => '' });
+    let result = await service.reload();
+    assert.equal(result.entries.length, 1);
+    assert.equal(result.entries[0].character.apps?.fotogram?.bio, 'newer');
+    await fs.utimes(path.join(roots.storybooks, 'a.json'), 200, 200);
+    result = await service.reload();
+    assert.equal(result.entries[0].character.apps?.fotogram?.bio, 'older');
+    await writeJson(roots.storybooks, 'a.json', { ...book('updated'), characters: [null, characterCard('new').character] });
+    result = await service.reload();
+    assert.deepEqual(result.entries.map((entry) => entry.character.id).sort(), ['new', 'shared']);
+    assert.equal(result.diagnostics.length, 1);
+    await fs.unlink(path.join(roots.storybooks, 'b.json'));
+    result = await service.reload();
+    assert.deepEqual(result.entries.map((entry) => entry.character.id), ['new']);
+    await writeJson(roots.storybooks, 'a.json', { format: 'rpgraph-encrypted-storybook' });
+    assert.equal((await service.setGamePassword('password')).entries.length, 0);
+  });
+});

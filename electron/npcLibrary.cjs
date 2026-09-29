@@ -4,11 +4,14 @@ const { createHash } = require('node:crypto');
 const {
   currentCharacterContainerVersion,
   validateCharacterContainer,
+  validateCharacterPayload,
 } = require('../shared/character-container.cjs');
 const {
   characterCardMetadata,
   encryptedCharacterCardMetadata,
 } = require('./characterCardFormat.cjs');
+
+const { storybookMetadata } = require('./storybookFormat.cjs');
 
 function npcLibraryRoots({ isPackaged, resourcesPath, projectRootPath, userDataPath }) {
   return {
@@ -96,15 +99,69 @@ async function scanNpcDirectory(directory, tier, unlock) {
   return { entries, files, diagnostics, skipped };
 }
 
+// Storybooks are read-only sources: rebuilding the scan also removes deleted characters.
+async function scanStorybookDirectory(directory) {
+  const result = { entries: [], files: [], diagnostics: [], skipped: 0 };
+  if (!directory) return result;
+  let candidates;
+  try {
+    candidates = (await fs.readdir(directory, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.json'))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') result.diagnostics.push(diagnostic('saved-storybook', '', 'directory-error', String(error)));
+    return result;
+  }
+  const byId = new Map();
+  for (const file of candidates) {
+    try {
+      const filePath = path.join(directory, file.name);
+      const [value, stats] = await Promise.all([fs.readFile(filePath, 'utf8').then(JSON.parse), fs.stat(filePath)]);
+      // Never attempt to decrypt Storybooks, even when a game password is available.
+      if (value?.format !== 'rpgraph-storybook') continue;
+      if (!storybookMetadata(value).compatible || !Array.isArray(value.characters)) {
+        result.diagnostics.push(diagnostic('saved-storybook', file.name, 'invalid-container', 'Unsupported or malformed Storybook.'));
+        continue;
+      }
+      for (const character of value.characters) {
+        try {
+          validateCharacterPayload(character);
+          // A character can occur in several saved Storybooks. Prefer the newest
+          // file, with sorted filenames providing a stable tie-breaker.
+          if ((byId.get(character.id)?.mtime ?? -Infinity) >= stats.mtimeMs) continue;
+          const fileName = `${file.name}#${character.id}`;
+          byId.set(character.id, {
+            mtime: stats.mtimeMs,
+            entry: { tier: 'saved-storybook', source: `saved-storybook:${fileName}`, fileName, character },
+            file: { tier: 'saved-storybook', fileName, name: character.name, updatedAt: stats.mtime.toISOString(),
+              type: 'character-card', protection: 'plain', formatVersion: currentCharacterContainerVersion, compatible: true },
+          });
+        } catch (error) {
+          result.diagnostics.push(diagnostic('saved-storybook', file.name, 'invalid-container',
+            `Invalid Storybook character: ${error instanceof Error ? error.message : String(error)}`));
+        }
+      }
+    } catch (error) {
+      result.diagnostics.push(diagnostic('saved-storybook', file.name, 'invalid-json', String(error)));
+    }
+  }
+  for (const { entry, file } of byId.values()) {
+    result.entries.push(entry);
+    result.files.push(file);
+  }
+  return result;
+}
+
 async function scanNpcLibrary(roots, unlock) {
   // Serialize decryptions across both tiers, including identical encrypted copies.
   const bundled = await scanNpcDirectory(roots.bundled, 'bundled', unlock);
   const user = await scanNpcDirectory(roots.user, 'user', unlock);
+  const storybooks = await scanStorybookDirectory(roots.storybooks);
   return {
     roots,
-    entries: [...bundled.entries, ...user.entries],
-    files: [...bundled.files, ...user.files],
-    diagnostics: [...bundled.diagnostics, ...user.diagnostics],
+    entries: [...bundled.entries, ...storybooks.entries, ...user.entries],
+    files: [...bundled.files, ...storybooks.files, ...user.files],
+    diagnostics: [...bundled.diagnostics, ...storybooks.diagnostics, ...user.diagnostics],
     skipped: bundled.skipped + user.skipped,
   };
 }

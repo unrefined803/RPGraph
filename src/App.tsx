@@ -1,3 +1,4 @@
+import { openingHistoryNpcParticipantsFromNodes } from './characters/npcParticipantRuntime';
 import { useUserQuestion } from './app/useUserQuestion';
 import { imageModelContext } from './images/loraCompatibility';
 import { supportsImageGenerationReferences } from './images/providers';
@@ -6661,6 +6662,7 @@ function App() {
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
+          openingParticipants={openingHistoryNpcParticipantsFromNodes(nodes)}
           activity={characterActivity}
           interactedCharacterIds={interactedCharacterIds}
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}

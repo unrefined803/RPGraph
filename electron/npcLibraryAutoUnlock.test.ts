@@ -7,6 +7,7 @@ const main = readFileSync('electron/main.cjs', 'utf8');
 const source = main.slice(main.indexOf('async function readRpgraphFile('), main.indexOf('\nfunction endpoint('));
 
 function harness(type: string, protection: string, reject = false) {
+  const reload = vi.fn(async () => {});
   const unlock = vi.fn(async () => {});
   const decrypt = vi.fn(async () => {
     if (reject) throw new Error('Incorrect password');
@@ -16,20 +17,23 @@ function harness(type: string, protection: string, reject = false) {
     fs: { readFile: async () => '{}' },
     storedFileMetadata: () => ({ type, protection, compatible: true }),
     decryptWorkflow: decrypt, decryptStorybook: decrypt, decryptSession: decrypt, decryptCharacterCard: decrypt,
-    npcLibraryService: { unlock },
+    npcLibraryService: { unlock, reload },
   };
   const read = runInNewContext(`${source}\nreadRpgraphFile`, context) as (path: string, password: string) => Promise<unknown>;
-  return { read, unlock, decrypt };
+  return { read, unlock, decrypt, reload };
 }
 
 it.each(['workflow', 'storybook', 'session', 'character-card'])('does not unlock NPCs merely by reading a %s file', async (type) => {
   const valid = harness(type, 'encrypted');
   await valid.read('file.json', 'secret');
   expect(valid.unlock).not.toHaveBeenCalled();
+  expect(valid.reload).toHaveBeenCalledTimes(type === 'storybook' ? 1 : 0);
   const invalid = harness(type, 'encrypted', true);
   await expect(invalid.read('file.json', 'wrong')).rejects.toThrow('Incorrect password');
   expect(invalid.unlock).not.toHaveBeenCalled();
+  expect(invalid.reload).not.toHaveBeenCalled();
   const plain = harness(type, 'plain');
   await plain.read('file.json', 'unused');
   expect(plain.unlock).not.toHaveBeenCalled();
+  expect(plain.reload).toHaveBeenCalledTimes(type === 'storybook' ? 1 : 0);
 });

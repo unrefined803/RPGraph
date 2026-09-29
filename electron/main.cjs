@@ -222,12 +222,12 @@ if (process.platform === 'win32') {
 }
 
 const npcLibraryService = createNpcLibraryService({
-  roots: npcLibraryRoots({
+  roots: { ...npcLibraryRoots({
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     projectRootPath,
     userDataPath: app.getPath('userData'),
-  }),
+  }), storybooks: filesDirectory() },
   openPath: (directory) => shell.openPath(directory),
   decryptCharacter: (envelope, password) => decryptCharacterCard(envelope, password),
   onChanged: () => {
@@ -1312,7 +1312,9 @@ async function decryptCharacterCard(envelope, password) {
 }
 
 async function readRpgraphFile(filePath, password) {
-  return readRpgraphFileContents(filePath, password);
+  const result = await readRpgraphFileContents(filePath, password);
+  if (result.metadata.type === 'storybook') await npcLibraryService.reload();
+  return result;
 }
 
 async function readRpgraphFileContents(filePath, password) {
@@ -5370,6 +5372,7 @@ ipcMain.handle('storybook:save', async (_event, request) => {
     }
     throw error;
   }
+  await npcLibraryService.reload();
   approveFilePath(filePath);
   return { fileName, name: baseName, filePath };
 });

@@ -348,3 +348,44 @@ with transactional tag, app selection and role controls. Assistant patches can
 update the same fields; hiddenAgency remains a separate free-text field.
 See [NPC Agency Tags](npc-agency-tags.md) for the catalog semantics, compatibility
 limits and remaining implementation phases.
+
+
+## Saved Storybook NPC sources
+
+The desktop NPC library scans plain `rpgraph-storybook` JSON files directly in
+`<Electron userData>/files` alongside its character-container directories.
+`electron/npcLibrary.cjs` validates each character independently and exposes it
+as a read-only `saved-storybook` entry, including its authored media and accounts.
+Encrypted Storybooks are excluded even when a workspace password is available.
+Unsupported Storybooks and invalid characters produce diagnostics without
+blocking other sources. External directories are not scanned.
+
+Priority by stable character ID is active Storybook, retained RP snapshot,
+local NPC file, saved Storybook, then bundled NPC file. Multiple saved Storybooks
+with the same character ID resolve to the file with the newest modification
+time; equal timestamps use filename order. The source is labeled “From Storybook” in the library and character editor. Editing and saving creates a
+local NPC override, leaving the source Storybook intact.
+
+The scan runs during library reloads (including startup and opening the library),
+Storybook loads, Storybook saves, and workspace-protection changes. Each scan
+replaces the previous discovered entries, so deletions, changed characters, and
+new encryption take effect on the next scan. No automatic character export
+files are written. Browser development retains its bundled-only fallback.
+
+
+### Library provenance and storage badges
+
+The final gold provenance badge identifies the effective version: `Built-in`,
+`Local NPC`, `From Storybook`, `Story NPC`, or `Storybook`. Known library
+sources precede retained NPC or active Storybook versions. A scanned saved
+Storybook copy does not add an import stage to an active Storybook character.
+Payload differences remain in tooltips rather than modification labels.
+
+A separate disk badge describes serialization of the current character payload:
+`SB` for direct Storybook characters or retained NPC versions matching the
+active Opening History, and `RP` for other retained NPC versions. Comparison
+uses the effective character payload before display-only activity posts are
+added. A divergent Opening History copy does not qualify the current NPC for
+`SB`. Both can also be carried by RP saves; the badge is neither an exclusive
+storage location nor an indication that changes have already been written to
+disk. Library-only characters have no SB/RP storage badge.
