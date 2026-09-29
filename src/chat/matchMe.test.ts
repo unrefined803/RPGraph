@@ -42,6 +42,31 @@ function fixture(partner = 'demo-alex') {
 const replyJson = (from = 'demo-alex', to = datingAccountId('mia')) => JSON.stringify({ matchMeApp: [{ from, to, message: 'Hi!' }] });
 
 describe('MatchMe permissions and identity', () => {
+  it.each(['Chloe Lane', 'chloe_lane', 'chloe.lane', 'chloelane', 'chloe-lane', 'CHLOE._ LANE']
+    .flatMap((name) => [name, `@${name}`]))('delivers matched messages using name variant %s', (from) => {
+    const characters = [character('chloe', 'Chloe Lane'), character('ryan', 'Ryan Parker')];
+    const accountIds: [string, string] = characters.map(datingAccountId) as [string, string];
+    const messages: MessageRecord[] = [{ id: 1, role: 'user', originalText: '', matchMeMatch: {
+      id: matchMePairId(...accountIds), accountIds, matchedAt: now, status: 'active',
+    } }];
+    const text = JSON.stringify({ matchMeApp: [{ from, to: '@ryan_parker', message: '@whatsup:Chloe Lane' }] });
+    expect(validateSocialMessengerAccounts({ text, characters, messages }).issues).toEqual([]);
+    expect(incomingMatchMeMessage(from, '@ryan_parker', 'Hello', matchMeState(characters, messages), 'test', now))
+      .toMatchObject({ fromAccountId: accountIds[0], toAccountId: accountIds[1] });
+    expect(validateSocialMessengerAccounts({ text, characters, messages: [] }).issues.length).toBeGreaterThan(0);
+  });
+
+  it('preserves exact nicknames and IDs while rejecting ambiguous or invented variants', () => {
+    const accounts = datingAccounts([character('chloe', 'Chloe Lane'), character('other', 'chloe.lane')]);
+    expect(resolveDatingAccount('@chloe.lane', accounts)?.characterId).toBe('other');
+    expect(resolveDatingAccount('@Chloe Lane', accounts)?.characterId).toBe('chloe');
+    expect(resolveDatingAccount('@storybook:chloe', accounts)?.characterId).toBe('chloe');
+    for (const identity of ['chloe_lane', 'chloelane', '@._-', 'Chloe', 'chloe_lanee', 'storybook:ch_loe']) {
+      expect(resolveDatingAccount(identity, accounts)).toBeUndefined();
+    }
+    expect(resolveDatingAccount('storybook:chloe', [...accounts, accounts[0]])).toBeUndefined();
+  });
+
   it.each(['matchMeApp', 'matchmeApp'])('streams %s bubbles before JSON completion and keeps conversation identity', (key) => {
     const { state, messages } = fixture();
     const before = 'She checks her phone.\n';

@@ -1,4 +1,4 @@
-import { characterMessageAliasMatches, messageAliasKey } from '../characters/messageAliases';
+import { characterMessageAliases, matchingMessageAliases, messageAliasKey } from '../characters/messageAliases';
 import { accountHandle, accountHandleMatches } from '../characters/character';
 import { matchMeState, incomingMatchMeMessage } from './matchMe';
 import { resolveDatingAccount } from './datingAccounts';
@@ -55,7 +55,7 @@ export function resolveSocialMessageIdentity(options: {
     accountHandleMatches(character.apps?.[app], identity) ||
     storedHandle(character, app)?.toLowerCase() === key);
   const characters = localCharacters.length ? localCharacters
-    : options.characters.filter((character) => characterMessageAliasMatches(character, identity));
+    : matchingMessageAliases(options.characters, identity, characterMessageAliases);
   if (characters.length !== 1) return { available: false, name: identity, source: 'directory',
     reason: characters.length > 1 ? `Ambiguous ${app} recipient "${identity}". Use a unique app username or account ID.` : `Unknown ${app} recipient "${identity}". Use an existing full character name or app username.` };
   const character = characters[0];

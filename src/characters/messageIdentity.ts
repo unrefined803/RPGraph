@@ -1,4 +1,4 @@
-import { characterMessageAliasMatches, messageAliasKey } from './messageAliases';
+import { characterMessageAliases, matchingMessageAliases, messageAliasKey } from './messageAliases';
 import { accountHandleMatches } from './character';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
@@ -12,6 +12,7 @@ export function whatsUpAccountId(character: StorybookCharacter) {
 
 /** WhatsUp recipients must be exact identities, never fuzzy name guesses. */
 export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messages: MessageRecord[], identity: string) {
+  identity = identity.trim().replace(/^@/, '').trim();
   // Temporary UI contacts are projections of history, not newly provisioned accounts.
   characters = characters.filter((character) => !(character as StorybookCharacter & { temporaryPhone?: boolean }).temporaryPhone);
   const canonical = characters.filter((character) => whatsUpAccountId(character) === identity);
@@ -22,7 +23,7 @@ export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messag
     key(character.name) === key(identity) ||
     accountHandleMatches(character.apps?.whatsup, identity));
   const identityCharacters = localCharacters.length ? localCharacters
-    : characters.filter((character) => characterMessageAliasMatches(character, identity));
+    : matchingMessageAliases(characters, identity, characterMessageAliases);
   if (identityCharacters.length > 1) {
     throw new Error(`Ambiguous WhatsUp recipient "${identity}". Use a unique account ID.`);
   }
@@ -45,7 +46,7 @@ export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messag
     ...contact, accountId: contact.accountId ?? `whatsup:contact:${encodeURIComponent(contact.name)}`,
   }));
   const byId = known.filter((contact) => contact.accountId === identity);
-  const distinct = new Map((byId.length ? byId : known.filter((contact) => key(contact.name) === key(identity)))
+  const distinct = new Map((byId.length ? byId : matchingMessageAliases(known, identity, (contact) => [contact.name]))
     .map((contact) => [contact.accountId, contact]));
   if (distinct.size === 1) {
     const contact = [...distinct.values()][0];

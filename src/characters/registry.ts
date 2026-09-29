@@ -1,4 +1,5 @@
-import { accountHandle, accountHandleMatches } from './character';
+import { matchingMessageAliases } from './messageAliases';
+import { accountHandle } from './character';
 import { normalizeCharacterApps } from './character';
 import type { Character, CharacterAppAccount, CharacterApps } from './character';
 
@@ -264,9 +265,10 @@ export function resolveRegistryAccount(
   if (byStableId.length) return availableResolution(byStableId);
   const byLegacyId = accounts.filter((entry) => entry.character.aliases.accountIds?.[app]?.includes(identity));
   if (byLegacyId.length) return availableResolution(byLegacyId);
-  const key = normalizedAlias(identity);
-  return availableResolution(accounts.filter((entry) => accountHandleMatches(entry.account, identity) ||
-    normalizedAlias(entry.character.character.name) === key));
+  return availableResolution(matchingMessageAliases(accounts, identity, (entry) => [
+    entry.character.character.name, entry.account.profileName ?? '', entry.account.displayName ?? '',
+    entry.account.username ?? '', ...(entry.account.legacyHandles ?? []),
+  ]));
 }
 
 /** Image IDs are intentionally scoped to their stable character owner. */

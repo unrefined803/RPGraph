@@ -1,3 +1,4 @@
+import { matchingMessageAliases } from '../characters/messageAliases';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { normalizePhoneName } from './phoneMessages';
 
@@ -5,8 +6,9 @@ import { normalizePhoneName } from './phoneMessages';
 export function bankingRecipientByName(name: string, characters: StorybookCharacter[], owner?: StorybookCharacter) {
   const key = normalizePhoneName(name);
   if (!key || (owner && key === normalizePhoneName(owner.name))) return undefined;
-  const matches = characters.filter((character) => normalizePhoneName(character.name) === key);
-  return matches.length === 1 ? matches[0] : undefined;
+  const exact = characters.filter((character) => normalizePhoneName(character.name) === key);
+  const matches = exact.length ? exact : matchingMessageAliases(characters, name, (character) => [character.name]);
+  return matches.length === 1 && matches[0] !== owner ? matches[0] : undefined;
 }
 
 export function bankingRecipientCandidates(

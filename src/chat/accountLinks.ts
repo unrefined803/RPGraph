@@ -1,3 +1,4 @@
+import { matchingMessageAliases } from '../characters/messageAliases';
 import { accountHandle, migratedProfileName } from '../characters/character';
 import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
 import { normalizePhoneName } from './phoneMessages';
@@ -15,7 +16,6 @@ const appAliases: Record<string, AccountLinkApp> = {
   bank: 'banking', banking: 'banking',
 };
 const identityContinuation = /^[\p{L}\p{N}_:@-]|^[.][\p{L}\p{N}_]/u;
-const key = (text: string) => text.trim().replace(/^@/, '').replace(/\s+/g, ' ').toLowerCase();
 
 function accountLinkTargets(characters: StorybookCharacter[]) {
   return characters.flatMap((character) => accountLinkApps.flatMap<AccountLinkTarget>((app) => {
@@ -48,20 +48,21 @@ export function resolveAccountLink(app: AccountLinkApp, identity: string, charac
   if (app === 'banking') {
     const trimmed = identity.trim().replace(/^@/, '');
     const byId = characters.filter((character) => character.id === trimmed || character.sourceId === trimmed);
-    const canonical = byId.length ? byId : characters.filter((character) =>
+    const exact = byId.length ? byId : characters.filter((character) =>
       normalizePhoneName(character.name) === normalizePhoneName(trimmed) ||
       character.identityAliases?.characterIds?.includes(trimmed)
     );
+    const canonical = exact.length ? exact : matchingMessageAliases(characters, identity, (character) => [character.name]);
     if (canonical.length !== 1) return undefined;
     const character = canonical[0];
     return { token: '', app: 'banking' as const, accountId: character.name, characterId: character.sourceId,
       name: character.name, username: character.name, character };
   }
-  const canonical = characters.filter((character) => character.apps?.[app]?.accountId === identity.trim());
-  const owners = canonical.length ? canonical : characters.filter((character) =>
+  const canonical = characters.filter((character) => character.apps?.[app]?.accountId === identity.trim().replace(/^@/, ''));
+  const owners = canonical.length ? canonical : matchingMessageAliases(characters, identity, (character) =>
     [character.name, character.apps?.[app]?.profileName, accountHandle(character.apps?.[app]),
       ...(character.apps?.[app]?.legacyHandles ?? []),
-      ...(character.identityAliases?.accountIds?.[app] ?? [])].some((alias) => !!alias && key(alias) === key(identity)));
+      ...(character.identityAliases?.accountIds?.[app] ?? [])].filter((alias): alias is string => !!alias));
   if (owners.length !== 1) return undefined;
   const target = accountLinkTargets(owners).find((entry) => entry.app === app);
   if (target && characters.filter((character) => character.apps?.[app]?.accountId === target.accountId).length === 1) return target;
@@ -99,7 +100,8 @@ export function parseAccountLinks(text: string, characters: StorybookCharacter[]
     const aliases = [...new Set(candidates.filter(Boolean))].sort((a, b) => b.length - a.length);
     for (const alias of aliases) {
       const escaped = alias.trim().replace(/^@/, '').split(/\s+/).map((part: string) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[ \\t]+');
-      const identity = new RegExp(`^@?${escaped}(?![\\p{L}\\p{N}_:@-]|[.][\\p{L}\\p{N}_])`, 'iu').exec(tail)?.[0];
+      const flexible = alias.includes(':') ? escaped : [...alias.trim().replace(/^@/, '').replace(/[\s._-]+/g, '')].map((char) => char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[ \\t._-]*');
+      const identity = new RegExp(`^@?${flexible}(?![\\p{L}\\p{N}_:@-]|[.][\\p{L}\\p{N}_])`, 'iu').exec(tail)?.[0];
       if (!identity) continue;
       const target = resolveAccountLink(app, identity, characters);
       if (target) {

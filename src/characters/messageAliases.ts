@@ -12,7 +12,15 @@ export function characterMessageAliases(character: StorybookCharacter): string[]
     character.social.plotTwist?.name ?? ''] : [])].filter((alias): alias is string => !!alias?.trim());
 }
 
-export function characterMessageAliasMatches(character: StorybookCharacter, identity: string) {
+/** Exact presentation aliases win; relaxed separators must still identify one owner. */
+export function matchingMessageAliases<T>(entries: T[], identity: string, aliases: (entry: T) => string[]): T[] {
   const key = messageAliasKey(identity);
-  return !!key && characterMessageAliases(character).some((alias) => messageAliasKey(alias) === key);
+  if (!key) return [];
+  const exact = entries.filter((entry) => aliases(entry).some((alias) => messageAliasKey(alias) === key));
+  if (exact.length) return exact;
+  const compact = (value: string) => messageAliasKey(value).replace(/[\s._-]+/g, '');
+  const compactKey = compact(identity);
+  if (!compactKey || key.includes(':')) return [];
+  return entries.filter((entry) => aliases(entry).some((alias) =>
+    !!alias && !alias.includes(':') && compact(alias) === compactKey));
 }

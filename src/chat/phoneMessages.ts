@@ -1,3 +1,4 @@
+import { matchingMessageAliases } from '../characters/messageAliases';
 import type {
   MatchMeAction,
   BankTransferRecord,
@@ -213,6 +214,8 @@ export function canonicalPhoneName<T extends { name: string }>(
   characters: T[],
   name: string,
 ) {
+  const aliases = matchingMessageAliases(characters, name, (character) => [character.name]);
+  if (aliases.length) return aliases.length === 1 ? aliases[0].name : name;
   const scoredMatches = characters
     .map((character) => ({
       character,
