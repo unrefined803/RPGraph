@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { MessageRecord } from '../../types';
 import type { ExecuteContext } from '../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
-import { defaultPromptActionConfig, executePromptAction, getImagesLlmInstruction, normalizePromptActionConfig, parsePromptActionCall, previousPromptActionDefaultsForValidation } from './promptActions';
+import { defaultPromptActionConfig, executePromptAction, getImagesLlmInstruction, normalizePromptActionConfig, parsePromptActionCall, phoneImageSearchContext, phoneImageSearchResult, previousPromptActionDefaultsForValidation } from './promptActions';
 
 const image = (id: string, description: string) => ({
   id, name: id, description, mimeType: 'image/jpeg' as const, size: 1, dataUrl: `data:image/jpeg;base64,${id}`,
 });
 const character = (name: string, images: ReturnType<typeof image>[]) => ({
   id: name, sourceId: name, name, label: name, kind: 'character', storybookNodeId: '', libraryNpc: true, images,
+  profile: { description: '', personality: '', speechStyle: '', role: '' },
 }) as StorybookCharacter;
 const config = defaultPromptActionConfig('Get character phone image list', 'getImageId');
 const characters = [
@@ -149,5 +150,79 @@ describe('phone image MatchMe profile visibility', () => {
   it('does not mark photos in a disabled MatchMe profile', async () => {
     const result = await search('Eli Ward', '', matchMeCharacters(false));
     expect(result.text.split('\n').filter((line) => line.startsWith('* ')).join('\n')).not.toContain('MatchMe profile photo');
+  });
+});
+
+
+describe('social image viewers', () => {
+  const post: MessageRecord = { id: 1, role: 'output', originalText: '', socialPost: {
+    app: 'onlyfriends', postId: 'post', author: 'Eli Ward', authorHandle: 'eli',
+    caption: 'Selfie', imageId: 'npc-selfie',
+  } };
+  const reactions: MessageRecord = { id: 2, role: 'output', originalText: '', socialReactions: {
+    app: 'onlyfriends', postId: 'post', likes: 4,
+    comments: [{ from: 'Luca Reed', handle: 'luca', text: 'Nice photo.' }],
+  } };
+  const comment: MessageRecord = { id: 3, role: 'user', originalText: '', socialThreadAction: {
+    actionId: 'comment', action: 'comment', app: 'onlyfriends', postId: 'post',
+    postAuthor: 'Eli Ward', postAuthorHandle: 'eli', postCaption: 'Selfie',
+    actor: 'Player', actorHandle: 'player', commentText: 'Hello.',
+  } };
+  const dm: MessageRecord = { id: 4, role: 'output', originalText: '', socialDirectMessage: {
+    app: 'onlyfriends', messageId: 'dm', from: 'Avery Hart', fromHandle: 'avery',
+    to: 'Eli Ward', toHandle: 'eli', text: 'Nice photo.', sentAt: '',
+    origin: { postId: 'post', postAuthor: 'Eli Ward', postAuthorHandle: 'eli',
+      postCaption: 'Selfie', postImageId: 'npc-selfie' },
+  } };
+
+  it('marks commenters and post DM senders before selection and in the result without transferring images', async () => {
+    const historyMessages = [post, reactions, comment, dm, reactions];
+    const before = structuredClone({ characters, historyMessages });
+    const context = { nodes: [], appCharacters: characters, historyMessages } as unknown as ExecuteContext;
+    const found = phoneImageSearchContext(context, 'Find a selfie of Eli Ward for Luca Reed');
+    expect(found.directory).toContain('Image shown to: Avery Hart, Luca Reed, Player');
+    expect(found.directory).toContain('Direct recipients: None recorded');
+    expect(found.directory).toContain('viewing does not imply receipt');
+    const selected = phoneImageSearchResult(config, found.candidates,
+      JSON.stringify({ imageIds: ['npc-selfie'], answer: 'Already known.' }), false, 'Find a selfie');
+    expect(selected?.text).toContain('Image shown to: Avery Hart, Luca Reed, Player');
+    const legacy = await search('Eli Ward', '', characters, historyMessages);
+    expect(legacy.text).toContain('Image shown to: Avery Hart, Luca Reed, Player');
+    expect({ characters, historyMessages }).toEqual(before);
+  });
+
+  it('uses retained DM image origins even when the source post is absent', async () => {
+    expect((await search('Eli Ward', '', characters, [dm])).text)
+      .toContain('Image shown to: Avery Hart; Direct recipients: None recorded');
+  });
+
+  it('does not infer viewers from likes, unrelated DMs, load-more actions, other apps or text posts', async () => {
+    const likes = structuredClone(reactions);
+    likes.socialReactions!.comments = [];
+    const unrelated = structuredClone(dm);
+    delete unrelated.socialDirectMessage!.origin;
+    const loadMore = structuredClone(comment);
+    loadMore.socialThreadAction!.action = 'load-more';
+    const otherApp = structuredClone(reactions);
+    otherApp.socialReactions!.app = 'fotogram';
+    const textPost = structuredClone(post);
+    textPost.socialPost!.textOnly = true;
+    for (const history of [[post, likes, unrelated, loadMore, otherApp], [textPost, reactions, comment, dm]]) {
+      const result = await search('Eli Ward', '', characters, history);
+      expect(result.text).not.toContain('Seen via social posts');
+    }
+  });
+
+  it('resolves comments on initial posts and avoids ambiguous post IDs', async () => {
+    const owners = structuredClone(characters);
+    owners[0].libraryNpc = false;
+    owners[0].apps = { onlyfriends: { accountId: 'eli', enabled: true, profileName: 'eli', bio: '',
+      initialPosts: [{ id: 'post', text: 'Selfie', imageId: 'npc-selfie' }] } };
+    expect((await search('Eli Ward', '', owners, [reactions])).text).toContain('Image shown to: Luca Reed');
+    const conflict = structuredClone(post);
+    conflict.socialPost!.author = 'Another author';
+    conflict.socialPost!.imageId = 'npc-player';
+    expect((await search('Eli Ward', '', characters, [post, conflict, reactions])).text)
+      .not.toContain('Seen via social posts');
   });
 });

@@ -64,6 +64,7 @@ type ActionImageResult = {
   caption: string;
   characterName: string;
   shownTo: string[];
+  socialViewers: string[];
   postedOn: SocialAppKind[];
   matchMeProfiles: string[];
   score: number;
@@ -1925,6 +1926,44 @@ function imagePublicationsById(context: ExecuteContext) {
   return publications;
 }
 
+/** Social engagement establishes viewing, without transferring a gallery image. */
+function imageSocialViewersById(context: ExecuteContext) {
+  const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
+  const posts = postsWithInitialContent(characters, context.historyMessages)
+    .flatMap((message) => message.socialPost ? [message.socialPost] : []);
+  const viewers = new Map<string, Map<string, string>>();
+  const resolvePost = (app: SocialAppKind, postId: string, author?: string) => {
+    const matches = posts.filter((post) => post.app === app && post.postId === postId &&
+      (!author || normalizedSearchText(post.author) === normalizedSearchText(author)));
+    const imageIds = new Set(matches.map((post) => post.textOnly ? undefined : post.imageId));
+    return imageIds.size === 1 ? [...imageIds][0] : undefined;
+  };
+  for (const message of context.historyMessages) {
+    const reactions = message.socialReactions;
+    if (reactions) {
+      const imageId = resolvePost(reactions.app, reactions.postId);
+      if (imageId) reactions.comments.forEach((comment) => addImageRecipient(viewers, imageId, comment.from));
+    }
+    const action = message.socialThreadAction;
+    if (action?.action === 'comment') {
+      const imageId = resolvePost(action.app, action.postId, action.postAuthor);
+      if (imageId) addImageRecipient(viewers, imageId, action.actor);
+    }
+    const dm = message.socialDirectMessage;
+    if (dm?.origin && dm.app !== 'matchme') {
+      const origin = dm.origin;
+      const matchingPosts = posts.filter((post) => post.app === dm.app && post.postId === origin.postId &&
+        normalizedSearchText(post.author) === normalizedSearchText(origin.postAuthor));
+      // Retained DM origins can outlive their source post in the supplied history.
+      const imageId = matchingPosts.length
+        ? resolvePost(dm.app, origin.postId, origin.postAuthor) : origin.postImageId;
+      if (imageId) addImageRecipient(viewers, imageId, dm.from);
+    }
+  }
+  return new Map([...viewers].map(([id, names]) => [id,
+    [...names.values()].sort((left, right) => left.localeCompare(right))]));
+}
+
 function imageMatchMeProfilesById(context: ExecuteContext) {
   const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
   const profilesByImageId = new Map<string, Set<string>>();
@@ -1958,6 +1997,7 @@ function findGetImagesResults(
     : storybookImageListsFromNodes(context.nodes);
   const recipientsByImageId = imageRecipientsById(imageLists, context.historyMessages);
   const publicationsByImageId = imagePublicationsById(context);
+  const socialViewersByImageId = imageSocialViewersById(context);
   const matchMeProfilesByImageId = imageMatchMeProfilesById(context);
   const lists = imageLists.filter((imageList) =>
     normalizedSearchText(imageList.name) === normalizedSearchText(call.phoneOwner ?? ''),
@@ -1972,6 +2012,7 @@ function findGetImagesResults(
         caption: image.description,
         characterName: imageList.name,
         shownTo: recipientsByImageId.get(image.id) ?? [],
+        socialViewers: socialViewersByImageId.get(image.id) ?? [],
         postedOn: [...(publicationsByImageId.get(image.id) ?? [])].sort(),
         matchMeProfiles: [...(matchMeProfilesByImageId.get(image.id) ?? [])].sort(),
         score: tagScore(image.description, words),
@@ -2034,10 +2075,12 @@ export function phoneImageSearchContext(context: ExecuteContext, plan: string) {
   const lists = all.map((character) => ({ ...character, images: character.images ?? [] }));
   const recipients = imageRecipientsById(lists, context.historyMessages);
   const publications = imagePublicationsById(context);
+  const socialViewers = imageSocialViewersById(context);
   const profiles = imageMatchMeProfilesById(context);
   const candidates: ActionImageResult[] = characters.flatMap((character) => (character.images ?? []).map((image) => ({
     imageId: image.id, caption: image.description, characterName: character.name,
     shownTo: recipients.get(image.id) ?? [], postedOn: [...(publications.get(image.id) ?? [])].sort(),
+    socialViewers: socialViewers.get(image.id) ?? [],
     matchMeProfiles: [...(profiles.get(image.id) ?? [])].sort(),
     score: words.filter((word) => new Set(splitSearchWords(image.description)).has(word)).length, attachment: image,
   })));
@@ -2094,10 +2137,16 @@ function imageTextValue(result: ActionImageResult, hideImageText: boolean) {
 }
 
 function imageShownToValue(result: ActionImageResult) {
-  const recipients = result.shownTo.length ? result.shownTo.join(', ')
+  const knownViewers = new Map([...result.shownTo, ...result.socialViewers]
+    .map((name) => [normalizedSearchText(name), name]));
+  const recipients = knownViewers.size ? [...knownViewers.values()].join(', ')
     : result.postedOn.length || result.matchMeProfiles.length ? 'No direct recipients recorded' : 'No one yet';
   const publications = result.postedOn.map((app) => app === 'fotogram' ? 'Fotogram (public)' : 'OnlyFriends (restricted access)');
   return [recipients,
+    ...(result.socialViewers.length ? [
+      `Direct recipients: ${result.shownTo.join(', ') || 'None recorded'}`,
+      `Seen via social posts (comments or post-related DMs; viewing does not imply receipt): ${result.socialViewers.join(', ')}`,
+    ] : []),
     ...(publications.length ? [`Social media posts: ${publications.join(', ')}`] : []),
     ...(result.matchMeProfiles.length ? [`MatchMe profile photo: ${result.matchMeProfiles.join(', ')}`] : []),
   ].join('; ');
