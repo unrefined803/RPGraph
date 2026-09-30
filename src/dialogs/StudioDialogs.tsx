@@ -1,4 +1,6 @@
 import { isTextGenerationConnection } from '../llm/textProvider';
+import { getAccountPassword } from '../accounts/accountSession';
+import { AccountControlsContext } from '../accounts/accountControls';
 import { UiPerformanceDiagnostics } from '../components/UiPerformanceDiagnostics';
 import { ProviderBaseUrlInput } from '../components/ProviderBaseUrlInput';
 import { ProviderModelSwitchIndicator } from '../components/ProviderModelSwitchIndicator';
@@ -11,6 +13,7 @@ import { reasoningActivation, normalizeReasoningEffort, supportsReasoningEffort,
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
   useCallback,
+  useContext,
   useEffect,
   useId,
   useRef,
@@ -190,6 +193,9 @@ type StudioDialogsProps = {
   maxUiScale: number;
   retryFormatErrorsEnabled: boolean;
   onCloseOptions: () => void;
+  accountActivationDisabled?: boolean;
+  defaultCharacterExportDestination: 'npc-characters' | 'account-npc-characters';
+  onDefaultCharacterExportDestinationChange: (destination: 'npc-characters' | 'account-npc-characters') => void;
   onEnglishProcessingChange: (enabled: boolean) => void;
   onInputTranslationOnlyChange: (enabled: boolean) => void;
   onDisplayLanguageChange: (language: string) => void;
@@ -369,6 +375,15 @@ function ChatUiIcon() {
   );
 }
 
+function AccountIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
+  );
+}
+
 function TranslationIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -438,6 +453,7 @@ function RetryIcon() {
 }
 
 const OPTIONS_TABS = [
+  { id: 'accounts', label: 'Accounts', desc: 'Local accounts and character storage' },
   { id: 'chat', label: 'Chat & UI', desc: 'Avatars, scrolling, UI scale and date/time' },
   { id: 'text', label: 'Text', desc: 'Sizes, colors, brightness and wave effects' },
   { id: 'translation', label: 'Translation', desc: 'English processing and display language' },
@@ -999,6 +1015,7 @@ export function StudioDialogs({
   maxUiScale,
   retryFormatErrorsEnabled,
   onCloseOptions,
+  accountActivationDisabled = false,
   onEnglishProcessingChange,
   onInputTranslationOnlyChange,
   onDisplayLanguageChange,
@@ -1025,6 +1042,8 @@ export function StudioDialogs({
   onNodeTextSizeChange,
   onUiScaleChange,
   onRetryFormatErrorsChange,
+  defaultCharacterExportDestination,
+  onDefaultCharacterExportDestinationChange,
   showFiles,
   showStorybookPicker,
   savedFiles,
@@ -1146,6 +1165,12 @@ export function StudioDialogs({
   const [storybookInfoStatus, setStorybookInfoStatus] = useState('');
   const textEffectPreview = useSliderPreview(showOptions);
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
+  const accountControls = useContext(AccountControlsContext);
+  const [accountFolderStatus, setAccountFolderStatus] = useState('');
+  const [deleteAccountVisible, setDeleteAccountVisible] = useState(false);
+  const [deleteAccountPassword, setDeleteAccountPassword] = useState('');
+  const [deleteAccountStatus, setDeleteAccountStatus] = useState('');
+  const [deleteAccountBusy, setDeleteAccountBusy] = useState(false);
   const [developerOptionsVisible, setDeveloperOptionsVisible] = useState(false);
   useEffect(() => {
     if (developerOptionsVisible) return;
@@ -1209,6 +1234,36 @@ export function StudioDialogs({
   const isSavingStorybook = sessionPasswordAction === 'save-storybook';
   const isSavingCharacter = sessionPasswordAction === 'save-character';
   const isSavingFile = isSavingWorkflow || isSavingSession || isSavingStorybook || isSavingCharacter;
+  const accountEncryption = !!getAccountPassword();
+
+  async function openAccountFolder() {
+    setAccountFolderStatus('Opening account folder…');
+    try {
+      await accountControls.openFolder();
+      setAccountFolderStatus('Account folder opened.');
+    } catch (error) {
+      setAccountFolderStatus(
+        `Unable to open account folder: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  async function deleteCurrentAccount() {
+    if (deleteAccountBusy || accountActivationDisabled) return;
+    if (!deleteAccountPassword) {
+      setDeleteAccountStatus('Enter the current account password.');
+      return;
+    }
+    if (!window.confirm('Delete this account and all files in its account folder? This cannot be undone.')) return;
+    setDeleteAccountBusy(true);
+    setDeleteAccountStatus('Deleting account…');
+    try {
+      await accountControls.deleteAccount(deleteAccountPassword);
+    } catch (error) {
+      setDeleteAccountStatus(error instanceof Error ? error.message : String(error));
+      setDeleteAccountBusy(false);
+    }
+  }
   const savingKindLabel = isSavingWorkflow ? 'Workflow' : isSavingStorybook ? 'Storybook' : isSavingCharacter ? 'Character' : 'RP';
   const hasStoredWorkflow = savedFiles.some((file) => file.type === 'workflow');
   const hasStoredStorybook = savedFiles.some((file) => file.type === 'storybook');
@@ -2093,6 +2148,7 @@ export function StudioDialogs({
                 {OPTIONS_TABS.filter((tab) => tab.id !== 'reliability' || developerOptionsVisible).map((tab) => {
                   const isActive = activeOptionsTab === tab.id;
                   let Icon = ChatUiIcon;
+                  if (tab.id === 'accounts') Icon = AccountIcon;
                   if (tab.id === 'translation') Icon = TranslationIcon;
                   if (tab.id === 'nodes') Icon = NodesIcon;
                   if (tab.id === 'variables') Icon = VariablesIcon;
@@ -2118,6 +2174,91 @@ export function StudioDialogs({
               </aside>
 
               <main className="options-panel">
+                {activeOptionsTab === 'accounts' && <div className="options-tab-content">
+                  <div className="options-tab-header"><h3>Accounts</h3><p>Manage how you use local accounts.</p></div>
+                  <div className="options-tab-body account-options">
+                    <section className="account-options-card">
+                      <div className="account-options-card-copy">
+                        <span className="account-options-eyebrow">WORKSPACE</span>
+                        <h4>{accountEncryption ? 'Account workspace active' : 'Local workspace active'}</h4>
+                        <p>{accountEncryption
+                          ? 'Files use the current account folder and account encryption by default. Log out to select or create another account.'
+                          : accountControls.hasAccounts
+                            ? 'You are using RPGraph without an account. Log in to open one of the accounts stored on this computer.'
+                            : 'You are using RPGraph without an account. Create an account to separate and protect its files.'}</p>
+                      </div>
+                      <p className="account-options-note">Save your work first. Changing the active workspace closes the current one.</p>
+                      <div className="account-options-actions">
+                        <button className="account-options-action primary" type="button" disabled={accountActivationDisabled || deleteAccountBusy} onClick={accountControls.openAccountEntry}>
+                          {accountEncryption ? 'Log Out' : accountControls.hasAccounts ? 'Log In' : 'Create Account'}
+                        </button>
+                        {accountEncryption && <button className="account-options-action danger" type="button" disabled={accountActivationDisabled || deleteAccountBusy} onClick={() => {
+                          setDeleteAccountVisible(visible => !visible);
+                          setDeleteAccountPassword('');
+                          setDeleteAccountStatus('');
+                        }}>
+                          Delete Account
+                        </button>}
+                      </div>
+                      {accountEncryption && deleteAccountVisible && <div className="account-delete-confirm">
+                        <strong>Delete the current account</strong>
+                        <p>This permanently deletes its workflows, RP saves, Storybooks, characters, NPC characters and settings. Back up the account folder first if you may need it later.</p>
+                        <label htmlFor="delete-account-password">
+                          <span>CURRENT ACCOUNT PASSWORD</span>
+                          <input
+                            id="delete-account-password"
+                            type="password"
+                            autoComplete="current-password"
+                            value={deleteAccountPassword}
+                            disabled={deleteAccountBusy}
+                            onChange={(event) => setDeleteAccountPassword(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') void deleteCurrentAccount();
+                            }}
+                          />
+                        </label>
+                        <button className="account-options-action danger" type="button" disabled={accountActivationDisabled || deleteAccountBusy || !deleteAccountPassword} onClick={() => void deleteCurrentAccount()}>
+                          {deleteAccountBusy ? 'Deleting Account…' : 'Delete Account Permanently'}
+                        </button>
+                        {deleteAccountStatus && <p className="account-options-status" role="status">{deleteAccountStatus}</p>}
+                      </div>}
+                    </section>
+
+                    {accountEncryption && <section className="account-options-card">
+                      <div className="account-options-card-copy">
+                        <span className="account-options-eyebrow">BACKUP</span>
+                        <h4>Back up the complete account</h4>
+                        <p>Close RPGraph before copying the complete account folder to a safe location. The folder is named after the account and contains Files (workflows, RP saves and Storybooks), Characters, NPC Characters, settings and account metadata.</p>
+                      </div>
+                      <button className="account-options-action" type="button" onClick={() => void openAccountFolder()}>
+                        Open Account Folder
+                      </button>
+                      {accountFolderStatus && <p className="account-options-status" role="status">{accountFolderStatus}</p>}
+                    </section>}
+
+                    <section className="account-options-card">
+                      <div className="account-options-card-copy">
+                        <span className="account-options-eyebrow">CHARACTER EXPORTS</span>
+                        <h4>Default export location</h4>
+                        <p>This only preselects a destination when a character export window opens. You can still choose another location for each export.</p>
+                      </div>
+                      <div className="option-field">
+                        <span>DEFAULT LOCATION</span>
+                        <NodeCustomSelect<'npc-characters' | 'account-npc-characters'>
+                          id="default-character-export-location"
+                          value={accountEncryption ? defaultCharacterExportDestination : 'npc-characters'}
+                          disabled={!accountEncryption}
+                          options={[
+                            { value: 'npc-characters', label: 'NPC Library Folder' },
+                            { value: 'account-npc-characters', label: 'Account NPC Library' },
+                          ]}
+                          onChange={onDefaultCharacterExportDestinationChange}
+                        />
+                      </div>
+                      {!accountEncryption && <p className="account-options-note">Sign in to an account to use Account NPC Library as the default.</p>}
+                    </section>
+                  </div>
+                </div>}
                 {activeOptionsTab === 'chat' && (
                   <div className="options-tab-content">
                     <div className="options-tab-header">
@@ -3348,7 +3489,7 @@ export function StudioDialogs({
                         disabled={encryptionRequired}
                         onChange={() => onFileProtectionChange('encrypted')}
                       />
-                      <span><strong>Password encrypted</strong><small>Protect the complete file</small></span>
+                      <span><strong>{accountEncryption ? 'Account encrypted' : 'Password encrypted'}</strong><small>{accountEncryption ? 'Use your account password automatically' : 'Protect the complete file'}</small></span>
                     </label>
                   </div>
                   {isSavingWorkflow && (
@@ -3378,6 +3519,7 @@ export function StudioDialogs({
                       destination={characterSaveLocation} onDestinationChange={onCharacterSaveLocationChange}
                       destinations={[
                         { value: 'npc-characters', label: 'NPC Library Folder' },
+                        ...(accountEncryption ? [{ value: 'account-npc-characters' as const, label: 'Account NPC Library' }] : []),
                         { value: 'characters', label: 'Characters Folder' },
                         { value: 'choose', label: 'Choose Save Location…' },
                       ]} />
@@ -3395,7 +3537,8 @@ export function StudioDialogs({
                 </div>
               )}
               {isSavingFile && encryptionRequired && <p className="chat-security-info">Encryption is required. The existing game password is used automatically.</p>}
-              {(!isSavingFile || (fileProtection === 'encrypted' && !encryptionRequired)) && (
+              {isSavingFile && accountEncryption && fileProtection === 'encrypted' && <p className="chat-security-info">Your account password is used automatically.</p>}
+              {(!isSavingFile || (fileProtection === 'encrypted' && !encryptionRequired && !accountEncryption)) && (
                 <label className="chat-file-field" htmlFor="chat-password">
                   PASSWORD OR PIN
                   <input

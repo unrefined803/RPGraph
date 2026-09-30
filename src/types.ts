@@ -961,7 +961,7 @@ export type SavedFileSummary = {
   workflowFormatVersion?: string;
   latestTurnNumber?: number;
   characterName?: string;
-  storage?: 'files' | 'characters';
+  storage?: 'files' | 'characters' | 'npc-characters' | 'account-npc-characters';
   compatible: boolean;
 };
 
@@ -1017,6 +1017,7 @@ export type AppSettings = {
     edgeCharacterPickerHintSeen?: boolean;
     aiInitiativeUsed?: boolean;
     phoneNotificationSwitchHintSeen?: boolean;
+    defaultCharacterExportDestination?: 'npc-characters' | 'account-npc-characters';
   };
   layout?: {
     chatPanelWidth: number;

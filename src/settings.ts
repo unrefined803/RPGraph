@@ -1,4 +1,5 @@
 import { normalizeTextEffects, type TextEffectsSettings } from './chat/textEffects';
+import { getAccountPassword } from './accounts/accountSession';
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type {
   AppSettings,
@@ -108,6 +109,12 @@ const defaultRetryFormatErrorsEnabled = true;
 const defaultGlassDesignOpacity = 0.6;
 const defaultDialogueVoiceMode: DialogueVoiceMode = 'click';
 const dialogueVoiceModes = ['click', 'preload', 'read-aloud', 'narrator-only'] as const satisfies readonly DialogueVoiceMode[];
+type CharacterExportDestination = 'npc-characters' | 'account-npc-characters';
+const fallbackCharacterExportDestination: CharacterExportDestination = 'npc-characters';
+
+function validCharacterExportDestination(value: unknown): CharacterExportDestination {
+  return value === 'account-npc-characters' ? value : fallbackCharacterExportDestination;
+}
 
 function validDialogueVoiceMode(value: unknown): DialogueVoiceMode {
   return dialogueVoiceModes.includes(value as DialogueVoiceMode)
@@ -615,6 +622,7 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
 }
 
 function loadLegacyConnections(): ConnectionPreset[] {
+  if (getAccountPassword()) return [defaultConnection];
   try {
     const stored = localStorage.getItem(connectionStorageKey);
     if (!stored) {
@@ -847,6 +855,9 @@ function isAppSettings(value: unknown): value is AppSettings {
       typeof settings.options.aiInitiativeUsed === 'boolean') &&
     (settings.options.phoneNotificationSwitchHintSeen === undefined ||
       typeof settings.options.phoneNotificationSwitchHintSeen === 'boolean') &&
+    (settings.options.defaultCharacterExportDestination === undefined ||
+      settings.options.defaultCharacterExportDestination === 'npc-characters' ||
+      settings.options.defaultCharacterExportDestination === 'account-npc-characters') &&
     (!settings.layout || validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined)
   );
 }
@@ -944,6 +955,8 @@ type AppSettingsState = {
   setAiInitiativeUsed: Dispatch<SetStateAction<boolean>>;
   phoneNotificationSwitchHintSeen: boolean;
   setPhoneNotificationSwitchHintSeen: Dispatch<SetStateAction<boolean>>;
+  defaultCharacterExportDestination: CharacterExportDestination;
+  setDefaultCharacterExportDestination: Dispatch<SetStateAction<CharacterExportDestination>>;
 };
 
 export function useAppSettings(): AppSettingsState {
@@ -1016,6 +1029,8 @@ export function useAppSettings(): AppSettingsState {
   const [edgeCharacterPickerHintSeen, setEdgeCharacterPickerHintSeen] = useState(false);
   const [aiInitiativeUsed, setAiInitiativeUsed] = useState(false);
   const [phoneNotificationSwitchHintSeen, setPhoneNotificationSwitchHintSeen] = useState(false);
+  const [defaultCharacterExportDestination, setDefaultCharacterExportDestination] =
+    useState<CharacterExportDestination>(fallbackCharacterExportDestination);
   const [settingsLoadComplete, setSettingsLoadComplete] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState('');
@@ -1120,6 +1135,9 @@ export function useAppSettings(): AppSettingsState {
         setPhoneNotificationSwitchHintSeen(
           result.settings.options.phoneNotificationSwitchHintSeen ?? false,
         );
+        setDefaultCharacterExportDestination(
+          validCharacterExportDestination(result.settings.options.defaultCharacterExportDestination),
+        );
         setChatPanelWidth(
           validChatPanelWidth(result.settings.layout?.chatPanelWidth) ?? defaultChatPanelWidth,
         );
@@ -1197,6 +1215,7 @@ export function useAppSettings(): AppSettingsState {
         edgeCharacterPickerHintSeen,
         aiInitiativeUsed,
         phoneNotificationSwitchHintSeen,
+        defaultCharacterExportDestination,
       },
       layout: {
         chatPanelWidth,
@@ -1210,7 +1229,7 @@ export function useAppSettings(): AppSettingsState {
           setApiKeyDecryptionUnavailable(false);
         }
         setSettingsStatus(settingsRecoveryNotice || apiKeyStorageNotice);
-        localStorage.removeItem(connectionStorageKey);
+        if (!getAccountPassword()) localStorage.removeItem(connectionStorageKey);
       })
       .catch((error) => {
         setSettingsStatus(
@@ -1263,6 +1282,7 @@ export function useAppSettings(): AppSettingsState {
     edgeCharacterPickerHintSeen,
     aiInitiativeUsed,
     phoneNotificationSwitchHintSeen,
+    defaultCharacterExportDestination,
     settingsLoaded,
     settingsRecoveryNotice,
     apiKeyStorageNotice,
@@ -1361,5 +1381,7 @@ export function useAppSettings(): AppSettingsState {
     setEdgeCharacterPickerHintSeen,
     setAiInitiativeUsed,
     setPhoneNotificationSwitchHintSeen,
+    defaultCharacterExportDestination,
+    setDefaultCharacterExportDestination,
   };
 }

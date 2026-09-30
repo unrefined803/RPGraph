@@ -74,6 +74,35 @@ describe('NPC library paths', () => {
 });
 
 describe('NPC library scanning', () => {
+  it('keeps global and account files distinct even when their filenames match', async () => {
+    const root = await temporaryDirectory();
+    const roots = { bundled: path.join(root, 'bundled'), user: path.join(root, 'global'), account: path.join(root, 'account') };
+    await writeJson(roots.user, 'same.json', characterCard('Global'));
+    await writeJson(roots.account, 'same.json', characterCard('Private'));
+    const result = await scanNpcLibrary(roots);
+    assert.deepEqual(result.files.map(file => [file.tier, file.storage]), [
+      ['user', 'npc-characters'], ['account', 'account-npc-characters'],
+    ]);
+    assert.deepEqual(result.entries.map(entry => entry.source), ['user:same.json', 'account:same.json']);
+  });
+
+  it('retains the account password when opening a game with another password', async () => {
+    const root = await temporaryDirectory();
+    const roots = { bundled: path.join(root, 'bundled'), user: path.join(root, 'user') };
+    await writeJson(roots.user, 'account.json', encryptedCharacterCard('Account'));
+    await writeJson(roots.user, 'foreign.json', encryptedCharacterCard('Foreign'));
+    const service = createNpcLibraryService({ roots, openPath: async () => '', accountPassword: 'Account',
+      decryptCharacter: async (raw, password) => {
+        const envelope = raw as { characterName: string };
+        if (password !== envelope.characterName) throw new Error('Wrong password');
+        return characterCard(envelope.characterName);
+      },
+    });
+    assert.deepEqual((await service.reload()).entries.map(entry => entry.character.id), ['Account']);
+    assert.deepEqual((await service.setGamePassword('Foreign')).entries.map(entry => entry.character.id), ['Account', 'Foreign']);
+    assert.deepEqual((await service.setGamePassword('')).entries.map(entry => entry.character.id), ['Account']);
+  });
+
   it('uses only the active game password and locks files when changing games', async () => {
     const root = await temporaryDirectory();
     const roots = { bundled: path.join(root, 'bundled'), user: path.join(root, 'user') };

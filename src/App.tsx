@@ -1,4 +1,5 @@
 import { openingHistoryNpcParticipantsFromNodes } from './characters/npcParticipantRuntime';
+import { getAccountPassword } from './accounts/accountSession';
 import { useUserQuestion } from './app/useUserQuestion';
 import { imageModelContext } from './images/loraCompatibility';
 import { supportsImageGenerationReferences } from './images/providers';
@@ -741,6 +742,8 @@ function App() {
     setAiInitiativeUsed,
     phoneNotificationSwitchHintSeen,
     setPhoneNotificationSwitchHintSeen,
+    defaultCharacterExportDestination,
+    setDefaultCharacterExportDestination,
   } = useAppSettings();
   const {
     appliedUiScale,
@@ -1487,6 +1490,7 @@ function App() {
     onWorkspacePasswordChange: npcLibrary.setGamePassword,
     workflowRequiresProtection: () => activeWorkflowProtection === 'encrypted',
     workflowFollowsStorybookProtection: () => workflowFromRpSaveRef.current,
+    defaultCharacterExportDestination,
   });
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
@@ -1614,6 +1618,7 @@ function App() {
     currentLibraryFiles: () => npcLibrary.snapshot?.files ?? [],
     reloadLibrary: () => npcLibrary.reload(),
     workspacePassword: () => workspacePasswordRef.current,
+    setWorkspacePassword,
     lifecycleBusy: () => !!activeRunRef.current || lifecycleRunningRef.current,
     saveNpcCharacter: async (character, overwrite) => {
       if (!window.rpgraph?.saveCharacter) throw new Error('Saving requires the desktop application.');
@@ -1622,7 +1627,7 @@ function App() {
       if (matches.length > 1) throw new Error('Multiple local NPC files use this identity. Resolve the duplicate files first.');
       if (matches.length && !overwrite) throw new Error('A local NPC with this identity now exists. Reopen Remove to review the overwrite option.');
       const name = matches[0]?.fileName.replace(/\.json$/i, '') ?? character.name;
-      const password = workspacePasswordRef.current;
+      const password = getAccountPassword() || workspacePasswordRef.current;
       const result = await window.rpgraph.saveCharacter(name, createCharacterContainer(character, true), password ? 'encrypted' : 'plain', password, !!matches.length && overwrite, 'npc-characters');
       if (result.conflict) throw new Error('A different NPC file already uses this filename. Save through Export Character with a unique filename first.');
       await npcLibrary.reload();
@@ -2774,7 +2779,7 @@ function App() {
       return;
     }
     if (result.type === 'character-card') {
-      if (result.protection === 'encrypted' && (!workspacePasswordRef.current || workspacePasswordRef.current !== password)) {
+      if (!getAccountPassword() && result.protection === 'encrypted' && (!workspacePasswordRef.current || workspacePasswordRef.current !== password)) {
         throw new Error('Open a protected Storybook or RP Save with the matching character password first.');
       }
       const storybookNode =
@@ -6359,6 +6364,9 @@ function App() {
         minUiScale={minimumAllowedUiScale}
         maxUiScale={allowedUiScale}
         onCloseOptions={() => setShowOptions(false)}
+        accountActivationDisabled={isRunning}
+        defaultCharacterExportDestination={defaultCharacterExportDestination}
+        onDefaultCharacterExportDestinationChange={setDefaultCharacterExportDestination}
         onEnglishProcessingChange={changeEnglishProcessing}
         onInputTranslationOnlyChange={changeInputTranslationOnly}
         onDisplayLanguageChange={setDisplayLanguage}
@@ -6644,6 +6652,7 @@ function App() {
       {showCharacterAssistant && (
         <CharacterAssistantDialog providerHealthById={providerHealthById} referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)} initialEntry={characterAssistantEntry} nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
           requiredPassword={workspacePassword}
+          defaultExportDestination={defaultCharacterExportDestination}
           rpBusy={isRunning}
           onApplyToRp={characterAssistantEntry?.source === `snapshot:${characterAssistantEntry?.character.id}` ? (character) => {
             if (activeRunRef.current) throw new Error('Wait for the current run to finish before editing the RP copy.');

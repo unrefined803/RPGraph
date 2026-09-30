@@ -20240,6 +20240,184 @@ button.message-timeline-row.phone:focus-visible {
   margin-top: 4px;
 }
 
+.account-options {
+  gap: 16px;
+}
+
+.account-options-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #1f2a3c;
+  border-radius: 10px;
+  background: rgba(16, 23, 34, 0.6);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.account-options-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-options-card h4,
+.account-options-card p {
+  margin: 0;
+}
+
+.account-options-card h4 {
+  color: #edf1ff;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.account-options-card p {
+  color: #8da2c0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.account-options-eyebrow {
+  color: #7d8ba6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-options-action {
+  justify-self: start;
+  min-height: 32px;
+  border: 1px solid #43516b;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #f6f8ff;
+  background: linear-gradient(180deg, #253149, #1a2435);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 5px rgba(0, 0, 0, 0.2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.account-options-action.primary {
+  border-color: #9d87d9;
+  color: #ffffff;
+  background: linear-gradient(180deg, #8a73c9, #745bb8);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 2px 6px rgba(138, 115, 201, 0.3);
+}
+
+.account-options-action.primary:hover:not(:disabled) {
+  border-color: #b5a2ee;
+  background: linear-gradient(180deg, #9983d8, #8067c7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 10px rgba(138, 115, 201, 0.4);
+}
+
+.account-options-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.account-options-action.danger {
+  border-color: rgba(239, 103, 116, 0.45);
+  color: #ffd4d9;
+  background: linear-gradient(180deg, rgba(109, 39, 52, 0.75), rgba(73, 25, 36, 0.85));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.account-options-action.danger:hover:not(:disabled) {
+  border-color: rgba(239, 103, 116, 0.7);
+  background: linear-gradient(180deg, rgba(139, 49, 66, 0.85), rgba(93, 31, 46, 0.95));
+  color: #ffffff;
+}
+
+.account-options-action:hover:not(:disabled) {
+  color: #ffffff;
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(138, 115, 201, 0.28), rgba(31, 40, 58, 0.96));
+  transform: translateY(-1px);
+}
+
+.account-options-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.account-options .account-options-note {
+  color: #6c7d98;
+  font-size: 11.5px;
+}
+
+.account-options .account-options-status {
+  color: #b8a7ef;
+  font-size: 11.5px;
+}
+
+.account-delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(239, 103, 116, 0.3);
+  border-radius: 8px;
+  background: rgba(45, 18, 26, 0.5);
+  margin-top: 4px;
+}
+
+.account-delete-confirm > strong {
+  color: #ffd4d9;
+  font-size: 12.5px;
+}
+
+.account-delete-confirm p {
+  color: #cf929c;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.account-delete-confirm label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #cf929c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.account-delete-confirm input {
+  min-height: 32px;
+  height: 32px;
+  border: 1px solid rgba(239, 103, 116, 0.45);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #f7edf0;
+  background: #0f141f;
+  font: inherit;
+  font-size: 13px;
+}
+
+.account-delete-confirm input:focus {
+  outline: none;
+  border-color: rgba(239, 103, 116, 0.8);
+  box-shadow: 0 0 0 2px rgba(239, 103, 116, 0.25);
+}
+
 /* Mobile & narrow screen responsiveness */
 @media (max-width: 768px) {
   .options-layout {

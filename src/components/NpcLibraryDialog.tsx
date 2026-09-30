@@ -218,7 +218,7 @@ export function NpcLibraryDialog({ characterColors, snapshot, participants = {},
       const rightGroup = right.playable ? 0 : right.hasActivity ? 1 : 2;
       return leftGroup - rightGroup || left.character.name.localeCompare(right.character.name);
     });
-  }, [activeRegistry, libraryEntries, snapshot, participants, openingParticipants, activity, posts, interactedIds]);
+  }, [activeRegistry, libraryEntries, snapshot, participants, openingParticipants, posts, interactedIds]);
 
   const filteredEntries = useMemo(
     () => entries.filter((entry) => characterMatchesLibrarySearch(entry.character, searchQuery)),
@@ -355,6 +355,7 @@ export function NpcLibraryDialog({ characterColors, snapshot, participants = {},
               ['Built-in', libraryEntries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
               ['From Storybook', libraryEntries.filter((entry) => entry.tier === 'saved-storybook').length],
               ['Local NPCs', libraryEntries.filter((entry) => entry.tier === 'user').length],
+              ['Account NPCs', libraryEntries.filter((entry) => entry.tier === 'account').length],
               ['Ignored files', snapshot?.skipped ?? 0],
             ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}</dl>
             <span className={diagnosticCount ? 'npc-library-warning' : 'npc-library-muted'}>{diagnosticCount} diagnostic{diagnosticCount === 1 ? '' : 's'}{diagnosticCount > 0 ? ' · Check the info icons' : ''}</span>

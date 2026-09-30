@@ -6,7 +6,7 @@ import { createCharacterContainer } from './creator';
 import { validateCharacterAccountDirectory } from './profiles';
 import { withCharacterPortrait } from './portrait';
 
-export type CharacterDestination = 'characters' | 'npc-characters';
+export type CharacterDestination = 'characters' | 'npc-characters' | 'account-npc-characters';
 export type CharacterAssistantMessage = { role: 'user' | 'assistant' | 'error'; text: string };
 function assertNoEmbeddedMedia(value: unknown): void {
   if (!value || typeof value !== 'object') return;

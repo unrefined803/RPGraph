@@ -1,4 +1,5 @@
 import { isTextGenerationConnection } from '../llm/textProvider';
+import { getAccountPassword } from '../accounts/accountSession';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { CharacterAgencyField } from './CharacterAgencyField';
 import { CharacterRelationships } from './CharacterRelationships';
@@ -36,13 +37,15 @@ type Props = {
   providerHealthById: Record<string, ProviderConnectionHealth>;
   defaultConnectionId: string;
   snapshot: NpcLibrarySnapshot | null;
+  defaultExportDestination?: 'npc-characters' | 'account-npc-characters';
   onSaved: () => Promise<unknown>;
   onClose: () => void;
 };
 type Source = { destination: CharacterDestination; fileName: string; bundled?: boolean; storybook?: boolean };
 type LoadChoice = { key: string; label: string; source: Source; character?: Character; file?: SavedFileSummary };
 
-export function CharacterAssistantDialog({ requiredPassword = '', referenceCharacters = [], initialEntry, onApplyToRp, rpBusy = false, nodeLlm, connections, providerHealthById, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
+export function CharacterAssistantDialog({ requiredPassword = '', referenceCharacters = [], initialEntry, onApplyToRp, rpBusy = false, nodeLlm, connections, providerHealthById, defaultConnectionId, snapshot, defaultExportDestination = 'npc-characters', onSaved, onClose }: Props) {
+  const accountPassword = getAccountPassword();
   const [editingRp, setEditingRp] = useState(!!onApplyToRp);
   const [character, setCharacter] = useState<Character>(() => initialEntry ? { ...structuredClone(initialEntry.character), playable: false } : newAssistantCharacter());
   const current = useRef(character);
@@ -53,12 +56,14 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
   const [referenceIds, setReferenceIds] = useState<string[]>([]);
   const relationshipCharacters = characterReferenceCandidates([character], referenceCharacters.length ? referenceCharacters : visibleLibraryEntries(snapshot?.entries ?? []).map((entry) => entry.character));
   const [connectionId, setConnectionId] = useState(defaultConnectionId);
-  const [destination, setDestination] = useState<CharacterDestination | 'choose'>('npc-characters');
-  const [source, setSource] = useState<Source | undefined>(() => initialEntry && !onApplyToRp ? { destination: 'npc-characters', fileName: initialEntry.fileName, bundled: initialEntry.tier === 'bundled', storybook: initialEntry.tier === 'saved-storybook' } : undefined);
-  const [protectionDraft, setProtection] = useState<'plain' | 'encrypted'>('plain');
+  const defaultDestination = accountPassword ? defaultExportDestination : 'npc-characters';
+  const [destination, setDestination] = useState<CharacterDestination | 'choose'>(defaultDestination);
+  const [source, setSource] = useState<Source | undefined>(() => initialEntry && !onApplyToRp ? { destination: initialEntry.tier === 'account' ? 'account-npc-characters' : 'npc-characters', fileName: initialEntry.fileName, bundled: initialEntry.tier === 'bundled', storybook: initialEntry.tier === 'saved-storybook' } : undefined);
+  const gamePassword = accountPassword ? '' : requiredPassword;
+  const [protectionDraft, setProtection] = useState<'plain' | 'encrypted'>(accountPassword ? 'encrypted' : 'plain');
   const [savePasswordDraft, setSavePassword] = useState('');
-  const protection = requiredPassword ? 'encrypted' : protectionDraft;
-  const savePassword = requiredPassword || savePasswordDraft;
+  const protection = gamePassword ? 'encrypted' : protectionDraft;
+  const savePassword = accountPassword || gamePassword || savePasswordDraft;
   const [savedCharacter, setSavedCharacter] = useState(character);
   const [undo, setUndo] = useState<Character[]>([]);
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -120,8 +125,8 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     setSavedCharacter(next);
     setEditingRp(false);
     setUndo([]); setMessages([]); setDraft(''); setAttachments([]); setReferenceIds([]);
-    setSource(nextSource); setProtection('plain'); setSavePassword('');
-    setDestination('npc-characters');
+    setSource(nextSource); setProtection(accountPassword ? 'encrypted' : 'plain'); setSavePassword('');
+    setDestination(defaultDestination);
     setChoices(null); setPassword(''); setEditSettings(false);
   }
   async function showLoad(target: CharacterDestination) {
@@ -139,8 +144,8 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         const library = window.rpgraph?.reloadNpcLibrary ? await window.rpgraph.reloadNpcLibrary() : snapshot;
         if (!library) throw new Error('The NPC library has not loaded yet.');
         available = visibleLibraryEntries(library.entries).map((entry) => ({
-          key: `${entry.tier}:${entry.fileName}`, label: `${entry.character.name} · ${entry.editedBuiltIn ? 'Built-in → Local override' : entry.tier === 'bundled' ? 'Built-in' : entry.tier === 'saved-storybook' ? 'From Storybook' : 'Local NPC'} · ${entry.fileName}`,
-          source: { destination: target, fileName: entry.fileName, bundled: entry.tier === 'bundled', storybook: entry.tier === 'saved-storybook' }, character: entry.character,
+          key: `${entry.tier}:${entry.fileName}`, label: `${entry.character.name} · ${entry.editedBuiltIn ? entry.tier === 'account' ? 'Built-in → Account override' : 'Built-in → Local override' : entry.tier === 'bundled' ? 'Built-in' : entry.tier === 'saved-storybook' ? 'From Storybook' : entry.tier === 'account' ? 'Account NPC' : 'Local NPC'} · ${entry.fileName}`,
+          source: { destination: entry.tier === 'account' ? 'account-npc-characters' : target, fileName: entry.fileName, bundled: entry.tier === 'bundled', storybook: entry.tier === 'saved-storybook' }, character: entry.character,
         }));
       }
       available.sort((a, b) => a.label.localeCompare(b.label));
@@ -155,7 +160,14 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     try {
       let next = choice.character;
       if (!next) {
-        const file = await window.rpgraph.loadFile(choice.source.fileName, password, 'characters');
+        const automatic = accountPassword && !password && choice.file?.protection === 'encrypted'
+          ? await window.rpgraph.tryLoadFile(choice.source.fileName, accountPassword, 'characters')
+          : null;
+        if (accountPassword && !password && choice.file?.protection === 'encrypted' && !automatic) {
+          setStatus('Enter the password used to encrypt this character.');
+          return;
+        }
+        const file = automatic ?? await window.rpgraph.loadFile(choice.source.fileName, password, 'characters');
         validateCharacterContainer(file.value);
         next = (file.value as { character: Character }).character;
       }
@@ -170,12 +182,12 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     try {
       validateAssistantCharacter(character);
       const container = createCharacterContainer({ ...character, playable: false }, includePosts, includeReceivedImages);
-      if (protection === 'encrypted' && !savePassword.trim()) throw new Error('Enter a password or PIN.');
+      if (protection === 'encrypted' && !savePassword) throw new Error('Enter a password or PIN.');
       let name = preparedName ?? (source?.destination === destination && !source.bundled && !source.storybook
         ? source.fileName.replace(/\.json$/i, '') : character.name);
-      if (destination === 'npc-characters' && !preparedName) {
+      if ((destination === 'npc-characters' || destination === 'account-npc-characters') && !preparedName) {
         const library = await window.rpgraph.reloadNpcLibrary();
-        const matches = library.entries.filter((entry) => entry.tier === 'user' && entry.character.id === character.id);
+        const matches = library.entries.filter((entry) => entry.tier === (destination === 'account-npc-characters' ? 'account' : 'user') && entry.character.id === character.id);
         if (matches.length > 1) throw new Error('Multiple local NPC files have this identity. Resolve them before saving.');
         if (matches[0]) name = matches[0].fileName.replace(/\.json$/i, '');
       }
@@ -434,12 +446,12 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
           <label className="chat-file-field">CHARACTER NAME<input value={character.name} readOnly /></label>
           <div className="chat-security-info"><strong>Whole-file protection</strong><p>Plain JSON is readable and easy to share. Password encrypted protects the complete character, including images and app setup.</p></div>
           <div className="file-protection-options" role="radiogroup" aria-label="File protection">
-            <label><input type="radio" name="character-save-protection" checked={protection === 'plain'} disabled={ioBusy || !!requiredPassword} onChange={() => setProtection('plain')} /><span><strong>Plain JSON</strong><small>Readable and shareable</small></span></label>
-            <label><input type="radio" name="character-save-protection" checked={protection === 'encrypted'} disabled={ioBusy || !!requiredPassword} onChange={() => setProtection('encrypted')} /><span><strong>Password encrypted</strong><small>Protect the complete file</small></span></label>
+            <label><input type="radio" name="character-save-protection" checked={protection === 'plain'} disabled={ioBusy || !!gamePassword} onChange={() => setProtection('plain')} /><span><strong>Plain JSON</strong><small>Readable and shareable</small></span></label>
+            <label><input type="radio" name="character-save-protection" checked={protection === 'encrypted'} disabled={ioBusy || !!gamePassword} onChange={() => setProtection('encrypted')} /><span><strong>{accountPassword ? 'Account encrypted' : 'Password encrypted'}</strong><small>Protect the complete file</small></span></label>
           </div>
           <CharacterSaveOptions action="Save" includeReceivedImages={includeReceivedImages} onIncludeReceivedImagesChange={setIncludeReceivedImages} includePosts={includePosts} onIncludePostsChange={setIncludePosts} destination={destination} onDestinationChange={setDestination} disabled={ioBusy}
-            destinations={[{ value: 'npc-characters', label: 'NPC Library Folder' }, { value: 'characters', label: 'Characters Folder' }, { value: 'choose', label: 'Choose Save Location…' }]} />
-          {requiredPassword ? <p>Encryption is required. The existing game password is used automatically.</p> : protection === 'encrypted' && <label className="chat-file-field">PASSWORD OR PIN<input autoFocus type="password" autoComplete="new-password" value={savePassword} disabled={ioBusy} onChange={(event) => setSavePassword(event.target.value)} placeholder="Enter password or PIN" /></label>}
+            destinations={[{ value: 'npc-characters', label: 'NPC Library Folder' }, ...(accountPassword ? [{ value: 'account-npc-characters' as const, label: 'Account NPC Library' }] : []), { value: 'characters', label: 'Characters Folder' }, { value: 'choose', label: 'Choose Save Location…' }]} />
+          {accountPassword ? protection === 'encrypted' && <p>Your account password is used automatically.</p> : gamePassword ? <p>Encryption is required. The existing game password is used automatically.</p> : protection === 'encrypted' && <label className="chat-file-field">PASSWORD OR PIN<input autoFocus type="password" autoComplete="new-password" value={savePassword} disabled={ioBusy} onChange={(event) => setSavePassword(event.target.value)} placeholder="Enter password or PIN" /></label>}
           {status && <p className="chat-storage-status" role="status">{status}</p>}
         </div>
         <div className="dialog-actions"><button type="button" className="secondary" disabled={ioBusy} onClick={() => setShowSave(false)}>Cancel</button><button type="button" disabled={ioBusy || busy} onClick={() => void save()}>Save Character File</button></div>

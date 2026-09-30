@@ -57,6 +57,15 @@ function abortableLlmInvoke(channel, request, onAbort) {
 }
 
 contextBridge.exposeInMainWorld('rpgraph', {
+  accounts: {
+    prepare: () => ipcRenderer.invoke('accounts:prepare'),
+    list: () => ipcRenderer.invoke('accounts:list'),
+    create: (username, password) => ipcRenderer.invoke('accounts:create', { username, password }),
+    unlock: (username, password) => ipcRenderer.invoke('accounts:unlock', { username, password }),
+    useLocal: () => ipcRenderer.invoke('accounts:local'),
+    openFolder: () => ipcRenderer.invoke('accounts:open-folder'),
+    delete: (password) => ipcRenderer.invoke('accounts:delete', { password }),
+  },
   onPanelNavigate: (callback) => {
     const listener = (_event, direction) => {
       if (direction === -1 || direction === 1) callback(direction);
@@ -198,8 +207,12 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('file:save-to-path', request),
   loadFile: (fileName, password = '', storage = 'files') =>
     ipcRenderer.invoke('file:load', { fileName, password, storage }),
+  tryLoadFile: (fileName, password = '', storage = 'files') =>
+    ipcRenderer.invoke('file:try-load', { fileName, password, storage }),
   loadFilePath: (filePath, password = '') =>
     ipcRenderer.invoke('file:load-file', { filePath, password }),
+  tryLoadFilePath: (filePath, password = '') =>
+    ipcRenderer.invoke('file:try-load-file', { filePath, password }),
   selectFile: () => ipcRenderer.invoke('file:select'),
   selectCharacterFile: () => ipcRenderer.invoke('character:select'),
   selectImages: (multiple = true) => ipcRenderer.invoke('image:select', { multiple }),

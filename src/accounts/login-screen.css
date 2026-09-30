@@ -1,0 +1,342 @@
+/* This locked entry view deliberately uses neutral, theme-independent colors. */
+body:has(.login-screen) {
+  min-width: 0;
+}
+
+.login-screen {
+  --login-bg: #101218;
+  --login-surface: #1b202c;
+  --login-input: #101218;
+  --login-text: #f0ede6;
+  --login-muted: #b5c0cc;
+  --login-border: #536071;
+  --login-primary: #c4b5fd;
+  --login-primary-text: #1b1531;
+
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  overflow: auto;
+  background: var(--login-bg);
+  color: var(--login-text);
+  font-family: Ubuntu, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.login-titlebar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 18px;
+  color: var(--login-muted);
+  font-size: 12px;
+  -webkit-app-region: drag;
+}
+
+.login-window-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.login-window-controls button {
+  position: relative;
+  width: 46px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--login-text);
+  cursor: pointer;
+}
+
+.login-window-controls button:hover {
+  background: #ffffff14;
+}
+
+.login-window-controls .login-close-button:hover {
+  background: #c42b1c;
+}
+
+.login-minimize-icon,
+.login-close-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+}
+
+.login-minimize-icon::before {
+  position: absolute;
+  right: 1px;
+  bottom: 2px;
+  left: 1px;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.login-close-icon::before,
+.login-close-icon::after {
+  position: absolute;
+  top: 5px;
+  left: 0;
+  width: 12px;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.login-close-icon::before {
+  transform: rotate(45deg);
+}
+
+.login-close-icon::after {
+  transform: rotate(-45deg);
+}
+
+.login-art {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 100%;
+  overflow: hidden;
+  border-right: 1px solid #121a24;
+  background: #0e1722;
+}
+
+.login-art > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.login-art-copy {
+  position: absolute;
+  top: 64px;
+  right: 24px;
+  left: clamp(24px, 4vw, 64px);
+  z-index: 1;
+  max-width: 360px;
+  padding: 22px 24px;
+  border: 1px solid #c4b5fd26;
+  border-radius: 10px;
+  background: #101218d9;
+  color: #efe8db;
+}
+
+.login-art-copy p {
+  margin: 0 0 15px;
+  font-size: 11px;
+  letter-spacing: .18em;
+}
+
+.login-art-copy span {
+  font-size: clamp(22px, 2.3vw, 30px);
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+
+.login-entry {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+  max-width: 450px;
+  margin: auto;
+  padding: 70px 32px 40px;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #e6e6e6;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.login-brand img {
+  width: 45px;
+  height: 45px;
+  object-fit: contain;
+}
+
+.login-brand strong {
+  color: var(--login-primary);
+}
+
+.login-entry h1 {
+  margin: 8px 0 12px;
+  color: var(--login-text);
+  font-size: clamp(25px, 2.2vw, 32px);
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+
+.login-entry p {
+  margin: 0;
+}
+
+.login-eyebrow {
+  color: var(--login-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .17em;
+}
+
+.login-muted,
+.login-caption {
+  color: var(--login-muted);
+}
+
+.login-caption {
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.login-entry form,
+.login-entry fieldset,
+.login-choice-actions {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-choice-actions {
+  align-items: flex-start;
+}
+
+.login-setup-actions button {
+  width: min(240px, 100%);
+}
+
+.login-entry fieldset { border: 0; padding: 0; margin: 0; }
+.login-entry button:disabled { opacity: .6; cursor: wait; }
+
+.login-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.login-entry input {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--login-border);
+  border-radius: 7px;
+  background: var(--login-input);
+  color: var(--login-text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.login-account-select .node-custom-select-button {
+  min-height: 48px;
+  padding: 11px 14px;
+  border-color: #536071;
+  border-radius: 9px;
+  color: var(--login-text);
+  background: linear-gradient(180deg, #202735, #171c27);
+  box-shadow: inset 0 1px 0 #ffffff0d, 0 6px 18px #00000024;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.login-account-select .node-custom-select-button:hover,
+.login-account-select .node-custom-select-button[aria-expanded="true"] {
+  border-color: var(--login-primary);
+  background: linear-gradient(180deg, #292f42, #1b2030);
+}
+
+.login-account-select .node-custom-select-arrow {
+  color: var(--login-primary);
+  font-size: 14px;
+}
+
+.login-entry button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--login-border);
+  border-radius: 7px;
+  background: var(--login-surface);
+  color: var(--login-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.login-entry button:hover {
+  filter: brightness(1.12);
+}
+
+.login-screen :focus-visible {
+  outline: 3px solid var(--login-primary);
+  outline-offset: 3px;
+}
+
+.login-password {
+  display: flex;
+  gap: 8px;
+}
+
+.login-password input {
+  flex: 1;
+}
+
+.login-password button {
+  min-width: 62px;
+  flex-shrink: 0;
+}
+
+.login-entry .login-primary {
+  width: min(190px, 100%);
+  border-color: var(--login-primary);
+  background: var(--login-primary);
+  color: var(--login-primary-text);
+}
+
+@media (max-width: 800px) {
+  .login-screen {
+    display: block;
+  }
+
+  .login-entry {
+    gap: 24px;
+    padding: 62px 24px 26px;
+  }
+
+  .login-art {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .login-entry {
+    padding: 62px 16px 24px;
+  }
+}

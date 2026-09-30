@@ -3,7 +3,7 @@ import { validateCharacterContainer } from './character';
 import type { CharacterRegistryEntry } from './registry';
 import type { SavedFileSummary } from '../types';
 
-type NpcLibraryTier = 'bundled' | 'saved-storybook' | 'user';
+type NpcLibraryTier = 'bundled' | 'saved-storybook' | 'user' | 'account';
 type NpcLibraryDiagnostic = {
   tier: NpcLibraryTier;
   fileName: string;
@@ -17,11 +17,11 @@ export type NpcLibraryEntry = CharacterRegistryEntry & {
 };
 export type NpcLibraryFileSummary = Omit<SavedFileSummary, 'storage'> & {
   tier: NpcLibraryTier;
-  storage?: 'npc-characters';
+  storage?: 'npc-characters' | 'account-npc-characters';
   unlocked?: boolean;
 };
 export type NpcLibrarySnapshot = {
-  roots: { bundled: string; user: string; storybooks?: string };
+  roots: { bundled: string; user: string; storybooks?: string; account?: string };
   entries: NpcLibraryEntry[];
   files: NpcLibraryFileSummary[];
   diagnostics: NpcLibraryDiagnostic[];

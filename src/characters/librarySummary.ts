@@ -87,16 +87,16 @@ export function visibleLibraryEntries(entries: import('./npcLibrary').NpcLibrary
   const bundledIds = new Set(entries.filter((entry) => entry.tier === 'bundled').map((entry) => entry.character.id));
   return entries.filter((entry) => {
     const winner = effectiveLibraryEntry(entries, entry.character.id);
-    const rank = { bundled: 0, 'saved-storybook': 1, user: 2 };
+    const rank = { bundled: 0, 'saved-storybook': 1, user: 2, account: 3 };
     return !winner || rank[entry.tier] >= rank[winner.tier];
   })
-    .map((entry) => ({ ...entry, editedBuiltIn: entry.tier === 'user' && bundledIds.has(entry.character.id) }))
+    .map((entry) => ({ ...entry, editedBuiltIn: (entry.tier === 'user' || entry.tier === 'account') && bundledIds.has(entry.character.id) }))
     .sort((a, b) => a.character.name.localeCompare(b.character.name) || a.fileName.localeCompare(b.fileName));
 }
 
 /** Select the same library tier as the registry without choosing an ambiguous file. */
 export function effectiveLibraryEntry<T extends import('./npcLibrary').NpcLibraryEntry>(entries: T[], characterId: string): T | undefined {
-  for (const tier of ['user', 'saved-storybook', 'bundled'] as const) {
+  for (const tier of ['account', 'user', 'saved-storybook', 'bundled'] as const) {
     const matches = entries.filter((entry) => entry.character.id === characterId && entry.tier === tier);
     if (matches.length === 1) return matches[0];
   }
@@ -106,7 +106,7 @@ export type CharacterProvenanceStage = { label: string; title: string };
 
 /** Ordered resolution layers for the compact NPC Library provenance chain. */
 export function characterProvenanceStages(options: {
-  tier?: 'bundled' | 'saved-storybook' | 'user'; editedBuiltIn?: boolean; localEdited?: boolean;
+  tier?: 'bundled' | 'saved-storybook' | 'user' | 'account'; editedBuiltIn?: boolean; localEdited?: boolean;
   inStorybook: boolean; storybookEdited: boolean; retained?: boolean; snapshotEdited?: boolean;
 }): CharacterProvenanceStage[] {
   const stages: CharacterProvenanceStage[] = [];
@@ -121,6 +121,8 @@ export function characterProvenanceStages(options: {
     stages.push({ label: 'Built-in', title: 'Bundled application character' });
   } else if (options.tier === 'saved-storybook' && !options.inStorybook) {
     stages.push({ label: 'From Storybook', title: 'Automatically loaded from a saved, unencrypted Storybook. No separate NPC file is created.' });
+  } else if (options.tier === 'account') {
+    stages.push({ label: 'Account NPC', title: 'Character file in your account NPC Library folder' });
   } else if (options.tier === 'user') {
     stages.push({ label: 'Local NPC', title: 'Character file in the local NPC Library folder' });
   }

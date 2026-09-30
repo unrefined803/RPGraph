@@ -26,9 +26,27 @@ type SelectedImageFile = {
   dataUrl: string;
 };
 
+type LoadedRpgraphFile = {
+  fileName: string;
+  name: string;
+  filePath: string;
+  type: SavedFileSummary['type'];
+  protection: SavedFileSummary['protection'];
+  value: unknown;
+};
+
 declare global {
   interface Window {
     rpgraph: {
+      accounts?: {
+        prepare: () => Promise<void>;
+        list: () => Promise<{ username: string }[]>;
+        create: (username: string, password: string) => Promise<{ username: string }>;
+        unlock: (username: string, password: string) => Promise<{ username: string }>;
+        useLocal: () => Promise<void>;
+        openFolder: () => Promise<{ path: string }>;
+        delete: (password: string) => Promise<{ username: string }>;
+      };
       listCompatibleModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<CompatibleModelInfo[]>;
       listModels: (
         connection: ConnectionPreset,
@@ -175,22 +193,10 @@ declare global {
         fileName?: string;
         name?: string;
       }>;
-      loadFile: (fileName: string, password?: string, storage?: 'files' | 'characters' | 'npc-characters') => Promise<{
-        fileName: string;
-        name: string;
-        filePath: string;
-        type: SavedFileSummary['type'];
-        protection: SavedFileSummary['protection'];
-        value: unknown;
-      }>;
-      loadFilePath: (filePath: string, password?: string) => Promise<{
-        fileName: string;
-        name: string;
-        filePath: string;
-        type: SavedFileSummary['type'];
-        protection: SavedFileSummary['protection'];
-        value: unknown;
-      }>;
+      loadFile: (fileName: string, password?: string, storage?: 'files' | 'characters' | 'npc-characters' | 'account-npc-characters') => Promise<LoadedRpgraphFile>;
+      tryLoadFile: (fileName: string, password?: string, storage?: 'files' | 'characters' | 'npc-characters' | 'account-npc-characters') => Promise<LoadedRpgraphFile | null>;
+      loadFilePath: (filePath: string, password?: string) => Promise<LoadedRpgraphFile>;
+      tryLoadFilePath: (filePath: string, password?: string) => Promise<LoadedRpgraphFile | null>;
       selectFile: () => Promise<{
         canceled: boolean;
         filePath?: string;
@@ -219,7 +225,7 @@ declare global {
         canceled: boolean;
         images: SelectedImageFile[];
       }>;
-      deleteFile: (fileName: string, storage?: 'files' | 'characters') => Promise<{ fileName: string }>;
+      deleteFile: (fileName: string, storage?: 'files' | 'characters' | 'npc-characters' | 'account-npc-characters') => Promise<{ fileName: string }>;
       loadTextFile: () => Promise<{
         canceled: boolean;
         fileName?: string;
@@ -466,7 +472,7 @@ declare global {
         protection: 'plain' | 'encrypted',
         password: string,
         overwrite?: boolean,
-        destination?: 'characters' | 'npc-characters',
+        destination?: 'characters' | 'npc-characters' | 'account-npc-characters',
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
       saveCurrentSession: (
         filePath: string,

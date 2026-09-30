@@ -15,6 +15,7 @@ import { appCharactersFromRegistry } from '../characters/appRuntime';
 import { buildSocialDirectory } from '../chat/socialDirectory';
 import { initialCharacterPosts } from '../characters/publications';
 import { characterLibrarySummary } from '../characters/librarySummary';
+import { setAccountSession } from '../accounts/accountSession';
 
 // Exercise delayed model replies without launching a UI or provider.
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
@@ -83,6 +84,27 @@ function harness() {
 }
 
 beforeEach(() => { hooks.slots = []; hooks.index = 0; });
+
+it('replaces the previous game password after automatically opening an account Storybook', async () => {
+  const state = harness();
+  setAccountSession('account-secret');
+  state.options.setActiveStorybookProtection = vi.fn();
+  state.options.setWorkspacePassword = vi.fn();
+  state.options.refreshFiles = vi.fn(async () => {});
+  state.options.setFileStorageStatus = vi.fn();
+  const file = { canceled: false, filePath: '/files/book.json', fileName: 'book.json',
+    type: 'storybook', protection: 'encrypted', compatible: true };
+  const tryLoadFilePath = vi.fn(async () => ({ ...file, value: emptyRpStorybook }));
+  vi.stubGlobal('window', { rpgraph: { selectFile: async () => file, tryLoadFilePath } });
+  try {
+    expect(await state.render().loadStorybookFile('book')).toBe(true);
+    expect(tryLoadFilePath).toHaveBeenCalledWith(file.filePath, 'account-secret');
+    expect(state.options.setWorkspacePassword).toHaveBeenCalledWith('account-secret');
+  } finally {
+    setAccountSession('');
+    vi.unstubAllGlobals();
+  }
+});
 
 it('preserves a manual update made while the assistant is working', async () => {
   const state = harness();

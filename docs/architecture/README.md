@@ -6,6 +6,7 @@ Component-level design references for RPGraph Studio. Strict and declarative —
 
 | Document | Scope |
 | --- | --- |
+| [local-accounts.md](local-accounts.md) | Account creation, workspace roots, sign-in, and automatic file encryption. |
 | [character-colors.md](character-colors.md) | Stable per-RP color slots, paired playable/NPC palettes and promotion behavior. |
 | [character-search.md](character-search.md) | Isolated LLM character discovery through the Ask character information prompt action. |
 | [app-profile-names.md](app-profile-names.md) | Canonical app profile names, terminology, legacy migration and container persistence. |

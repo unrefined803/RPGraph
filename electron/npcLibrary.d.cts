@@ -1,6 +1,6 @@
-export type NpcLibraryRoots = { bundled: string; user: string; storybooks?: string };
+export type NpcLibraryRoots = { bundled: string; user: string; storybooks?: string; account?: string };
 export type NpcLibraryDiagnostic = {
-  tier: 'bundled' | 'saved-storybook' | 'user';
+  tier: 'bundled' | 'saved-storybook' | 'user' | 'account';
   fileName: string;
   code: 'directory-error' | 'invalid-json' | 'invalid-container' | 'unsupported-version';
   message: string;
@@ -8,7 +8,7 @@ export type NpcLibraryDiagnostic = {
 export type NpcLibrarySnapshot = {
   roots: NpcLibraryRoots;
   entries: Array<{
-    tier: 'bundled' | 'saved-storybook' | 'user';
+    tier: 'bundled' | 'saved-storybook' | 'user' | 'account';
     source: string;
     fileName: string;
     character: {
@@ -19,11 +19,11 @@ export type NpcLibrarySnapshot = {
     };
   }>;
   files: Array<{
-    tier: 'bundled' | 'saved-storybook' | 'user';
+    tier: 'bundled' | 'saved-storybook' | 'user' | 'account';
     fileName: string;
     name: string;
     updatedAt: string;
-    storage?: 'npc-characters';
+    storage?: 'npc-characters' | 'account-npc-characters';
     type: 'character-card';
     protection: 'plain' | 'encrypted';
     envelopeFormatVersion?: string;
@@ -47,6 +47,7 @@ export function createNpcLibraryService(options: {
   roots: NpcLibraryRoots;
   openPath: (directory: string) => Promise<string>;
   decryptCharacter?: (envelope: unknown, password: string) => Promise<unknown>;
+  accountPassword?: string;
   onChanged?: (snapshot: NpcLibrarySnapshot) => void;
 }): {
   current(): NpcLibrarySnapshot;

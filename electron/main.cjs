@@ -221,20 +221,78 @@ if (process.platform === 'win32') {
   app.setDesktopName('rpgraph-studio.desktop');
 }
 
-const npcLibraryService = createNpcLibraryService({
-  roots: { ...npcLibraryRoots({
-    isPackaged: app.isPackaged,
-    resourcesPath: process.resourcesPath,
-    projectRootPath,
-    userDataPath: app.getPath('userData'),
-  }), storybooks: filesDirectory() },
-  openPath: (directory) => shell.openPath(directory),
-  decryptCharacter: (envelope, password) => decryptCharacterCard(envelope, password),
-  onChanged: () => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send('npc-library:changed');
-    }
-  },
+const localAccounts = require('./localAccounts.cjs').createLocalAccounts(app.getPath('userData'));
+let npcLibraryService;
+
+function makeNpcLibraryService(root) {
+  return createNpcLibraryService({
+    roots: { ...npcLibraryRoots({
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      projectRootPath,
+      userDataPath: app.getPath('userData'),
+    }), storybooks: path.join(root, 'files'),
+      ...(localAccounts.active ? { account: path.join(root, 'npc-characters') } : {}),
+    },
+    openPath: (directory) => shell.openPath(directory),
+    accountPassword: localAccounts.password,
+    decryptCharacter: (envelope, password) => decryptCharacterCard(envelope, password),
+    onChanged: () => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.webContents.send('npc-library:changed');
+      }
+    },
+  });
+}
+
+async function initializeAccountWorkspace() {
+  approvedFilePaths.clear();
+  approvedWorkflowPaths.clear();
+  workspaceProtection.activate('');
+  npcLibraryService = makeNpcLibraryService(localAccounts.root);
+  await npcLibraryService.setGamePassword(localAccounts.password);
+}
+
+ipcMain.handle('accounts:list', () => localAccounts.list());
+ipcMain.handle('accounts:prepare', async () => {
+  abortActiveLlmRequests('account-setup');
+  await settingsWriteQueue.catch(() => {});
+  localAccounts.prepare();
+  approvedFilePaths.clear();
+  approvedWorkflowPaths.clear();
+  workspaceProtection.activate('');
+  npcLibraryService = undefined;
+});
+ipcMain.handle('accounts:create', async (_event, request) => {
+  const account = await localAccounts.create(request?.username, request?.password);
+  await initializeAccountWorkspace();
+  return account;
+});
+ipcMain.handle('accounts:unlock', async (_event, request) => {
+  const account = await localAccounts.unlock(request?.username, request?.password);
+  await initializeAccountWorkspace();
+  return account;
+});
+ipcMain.handle('accounts:local', async () => {
+  await localAccounts.useLocal();
+  await initializeAccountWorkspace();
+});
+ipcMain.handle('accounts:open-folder', async () => {
+  if (!localAccounts.active) throw new Error('Sign in to open an account folder.');
+  const directory = localAccounts.root;
+  const error = await shell.openPath(directory);
+  if (error) throw new Error(`Unable to open the account folder: ${error}`);
+  return { path: directory };
+});
+ipcMain.handle('accounts:delete', async (_event, request) => {
+  abortActiveLlmRequests('account-delete');
+  await settingsWriteQueue.catch(() => {});
+  const result = await localAccounts.delete(request?.password);
+  approvedFilePaths.clear();
+  approvedWorkflowPaths.clear();
+  workspaceProtection.activate('');
+  npcLibraryService = undefined;
+  return result;
 });
 
 function normalizedWorkflowPath(filePath) {
@@ -290,7 +348,7 @@ function validateFilePath(filePath) {
 }
 
 function settingsFilePath() {
-  return path.join(app.getPath('userData'), 'settings.json');
+  return path.join(localAccounts.root, 'settings.json');
 }
 
 function apiKeyEncryptionAvailable() {
@@ -391,20 +449,24 @@ function imageDialogStateFilePath() {
 }
 
 function workflowStateFilePath() {
-  return path.join(app.getPath('userData'), 'workflow-state.json');
+  return path.join(localAccounts.root, 'workflow-state.json');
 }
 
 function filesDirectory() {
-  return path.join(app.getPath('userData'), 'files');
+  return path.join(localAccounts.root, 'files');
 }
 
 function charactersDirectory() {
-  return path.join(app.getPath('userData'), 'characters');
+  return path.join(localAccounts.root, 'characters');
 }
 
 function storedFileDirectory(storage) {
   if (storage === 'characters') return charactersDirectory();
   if (storage === 'npc-characters') return npcLibraryService.current().roots.user;
+  if (storage === 'account-npc-characters') {
+    if (!localAccounts.active) throw new Error('Sign in to use the account NPC folder.');
+    return path.join(localAccounts.root, 'npc-characters');
+  }
   return filesDirectory();
 }
 
@@ -1356,6 +1418,10 @@ async function readRpgraphFileContents(filePath, password) {
     };
   }
   throw new Error('This is not a supported RPGraph file.');
+}
+
+function isFilePasswordMismatch(error) {
+  return error instanceof Error && /^Unable to unlock (session|workflow|storybook|character card)\./.test(error.message);
 }
 
 function endpoint(baseUrl, route) {
@@ -5303,8 +5369,8 @@ ipcMain.handle('npc-library:get', async () => npcLibraryService.current());
 
 ipcMain.handle('npc-library:reload', async () => npcLibraryService.reload());
 ipcMain.handle('workspace:protection', async (_event, password) => {
-  workspaceProtection.activate(password);
-  return npcLibraryService.setGamePassword(password);
+  workspaceProtection.activate(localAccounts.active ? '' : password);
+  return npcLibraryService.setGamePassword(password || localAccounts.password);
 });
 
 ipcMain.handle('npc-library:open-folder', async () => npcLibraryService.openUserDirectory());
@@ -5393,12 +5459,10 @@ ipcMain.handle('character:detect-face', async (_event, image) => {
 ipcMain.handle('character:save', async (_event, request) => {
   workspaceProtection.require(request);
   const destination = request?.destination ?? 'characters';
-  if (destination !== 'characters' && destination !== 'npc-characters') {
+  if (destination !== 'characters' && destination !== 'npc-characters' && destination !== 'account-npc-characters') {
     throw new Error('Choose a valid character export location.');
   }
-  const directory = destination === 'npc-characters'
-    ? npcLibraryService.current().roots.user
-    : charactersDirectory();
+  const directory = storedFileDirectory(destination);
   await fs.mkdir(directory, { recursive: true });
   const card = request?.characterCard;
   if (
@@ -5436,7 +5500,7 @@ ipcMain.handle('character:save', async (_event, request) => {
     throw error;
   }
   approveFilePath(filePath);
-  if (destination === 'npc-characters') {
+  if (destination === 'npc-characters' || destination === 'account-npc-characters') {
     await npcLibraryService.reload();
   }
   return { fileName, name: baseName, filePath };
@@ -5509,7 +5573,7 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
 
   const result = await dialog.showSaveDialog({
     title,
-    defaultPath: defaultFileName,
+    defaultPath: path.join(filesDirectory(), defaultFileName),
     filters: [{ name: 'RPGraph JSON', extensions: ['json'] }],
   });
   if (result.canceled || !result.filePath) {
@@ -5868,7 +5932,7 @@ ipcMain.handle('character:select', async () => {
   };
 });
 
-ipcMain.handle('file:load', async (_event, request) => {
+async function loadStoredFileRequest(request) {
   const fileName = validatedStoredFileName(request.fileName);
   const filePath = approveFilePath(path.join(storedFileDirectory(request.storage), fileName));
   const { metadata, value } = await readRpgraphFile(filePath, request.password);
@@ -5885,6 +5949,17 @@ ipcMain.handle('file:load', async (_event, request) => {
     ...metadata,
     value,
   };
+}
+
+ipcMain.handle('file:load', async (_event, request) => loadStoredFileRequest(request));
+
+ipcMain.handle('file:try-load', async (_event, request) => {
+  try {
+    return await loadStoredFileRequest(request);
+  } catch (error) {
+    if (isFilePasswordMismatch(error)) return null;
+    throw error;
+  }
 });
 
 ipcMain.handle('session:save-current', async (_event, request) => {
@@ -5900,7 +5975,7 @@ ipcMain.handle('session:save-current', async (_event, request) => {
   return { filePath, fileName: path.basename(filePath) };
 });
 
-ipcMain.handle('file:load-file', async (_event, request) => {
+async function loadFilePathRequest(request) {
   const filePath = validateFilePath(request.filePath);
   const fileName = path.basename(filePath);
   const { metadata, value } = await readRpgraphFile(filePath, request.password);
@@ -5917,6 +5992,17 @@ ipcMain.handle('file:load-file', async (_event, request) => {
     ...metadata,
     value,
   };
+}
+
+ipcMain.handle('file:load-file', async (_event, request) => loadFilePathRequest(request));
+
+ipcMain.handle('file:try-load-file', async (_event, request) => {
+  try {
+    return await loadFilePathRequest(request);
+  } catch (error) {
+    if (isFilePasswordMismatch(error)) return null;
+    throw error;
+  }
 });
 
 ipcMain.handle('file:delete', async (_event, request) => {
@@ -6070,7 +6156,6 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  await npcLibraryService.reload();
   await createWindow();
 
   app.on('activate', () => {

@@ -66,7 +66,7 @@ async function scanNpcDirectory(directory, tier, unlock) {
         fileName: file.name,
         name: metadata.characterName || path.basename(file.name, path.extname(file.name)),
         updatedAt: stats.mtime.toISOString(),
-        storage: tier === 'user' ? 'npc-characters' : undefined,
+        storage: tier === 'account' ? 'account-npc-characters' : tier === 'user' ? 'npc-characters' : undefined,
         ...metadata,
         unlocked: !!character,
       });
@@ -84,7 +84,7 @@ async function scanNpcDirectory(directory, tier, unlock) {
         ? value.character.name
         : path.basename(file.name, path.extname(file.name)),
       updatedAt: stats.mtime.toISOString(),
-      storage: tier === 'user' ? 'npc-characters' : undefined,
+      storage: tier === 'account' ? 'account-npc-characters' : tier === 'user' ? 'npc-characters' : undefined,
       ...metadata,
     });
     try {
@@ -156,21 +156,23 @@ async function scanNpcLibrary(roots, unlock) {
   // Serialize decryptions across both tiers, including identical encrypted copies.
   const bundled = await scanNpcDirectory(roots.bundled, 'bundled', unlock);
   const user = await scanNpcDirectory(roots.user, 'user', unlock);
+  const account = roots.account ? await scanNpcDirectory(roots.account, 'account', unlock)
+    : { entries: [], files: [], diagnostics: [], skipped: 0 };
   const storybooks = await scanStorybookDirectory(roots.storybooks);
   return {
     roots,
-    entries: [...bundled.entries, ...storybooks.entries, ...user.entries],
-    files: [...bundled.files, ...storybooks.files, ...user.files],
-    diagnostics: [...bundled.diagnostics, ...storybooks.diagnostics, ...user.diagnostics],
-    skipped: bundled.skipped + user.skipped,
+    entries: [...bundled.entries, ...storybooks.entries, ...user.entries, ...account.entries],
+    files: [...bundled.files, ...storybooks.files, ...user.files, ...account.files],
+    diagnostics: [...bundled.diagnostics, ...storybooks.diagnostics, ...user.diagnostics, ...account.diagnostics],
+    skipped: bundled.skipped + user.skipped + account.skipped,
   };
 }
 
-function createNpcLibraryService({ roots, openPath, decryptCharacter, onChanged = () => {} }) {
+function createNpcLibraryService({ roots, openPath, decryptCharacter, accountPassword = '', onChanged = () => {} }) {
   let cached = { roots, entries: [], files: [], diagnostics: [], skipped: 0 };
   let queue = Promise.resolve();
   // Application-session memory only. Never serialize passwords or attempt records.
-  const passwords = new Set();
+  const passwords = new Set(accountPassword ? [accountPassword] : []);
   let gamePassword = '';
   const attempts = new Map();
   async function unlock(envelope) {
@@ -203,6 +205,7 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, onChanged 
       return enqueue(async () => {
         if (password !== gamePassword) {
           passwords.clear();
+          if (accountPassword) passwords.add(accountPassword);
           attempts.clear();
           gamePassword = password;
           if (password) passwords.add(password);

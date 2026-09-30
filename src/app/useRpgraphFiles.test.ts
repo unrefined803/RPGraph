@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SetStateAction } from 'react';
 import { useRpgraphFiles } from './useRpgraphFiles';
 import { emptyRpStorybook } from '../nodes/rp-storybook/model';
+import { setAccountSession } from '../accounts/accountSession';
 
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
 vi.mock('react', async (original) => ({
@@ -20,7 +21,7 @@ vi.mock('react', async (original) => ({
   },
 }));
 beforeEach(() => { hooks.slots = []; hooks.index = 0; });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); setAccountSession(''); });
 
 function harness() {
   const result = { fileName: 'game.json', name: 'Game', filePath: '/files/game.json' };
@@ -29,7 +30,11 @@ function harness() {
     saveCurrentSession: vi.fn(async () => result),
     saveRpgraphFileToPath: vi.fn(async () => ({ ...result, canceled: false })),
     listFiles: vi.fn(async () => []),
+    loadStartupWorkflow: vi.fn(async () => ({ requiresPassword: true, fileName: 'game.json', name: 'Game' })),
+    loadFile: vi.fn(async () => ({ ...result, type: 'session', protection: 'encrypted', value: {} })),
+    tryLoadFile: vi.fn(async (): ReturnType<Window['rpgraph']['tryLoadFile']> => ({ ...result, type: 'session', protection: 'encrypted', value: {} })),
     loadFilePath: vi.fn(async () => ({ ...result, type: 'storybook', protection: 'encrypted', value: emptyRpStorybook })),
+    tryLoadFilePath: vi.fn(async () => ({ ...result, type: 'storybook', protection: 'encrypted', value: emptyRpStorybook })),
   };
   vi.stubGlobal('window', { rpgraph: bridge });
   const options = {
@@ -39,6 +44,7 @@ function harness() {
     updateRuntimeNode: vi.fn(), notifySystem: vi.fn(), errorMessage: String,
     setActiveStorybookProtection: vi.fn(), setActiveWorkflowProtection: vi.fn(),
     applyStorybookToNode: vi.fn(() => true), onWorkspacePasswordChange: vi.fn(async () => {}),
+    applyLoadedRpgraphFile: vi.fn(),
   } as unknown as Parameters<typeof useRpgraphFiles>[0];
   function render() {
     hooks.index = 0;
@@ -47,6 +53,85 @@ function harness() {
   }
   return { render, bridge, options };
 }
+
+it('uses the account password by default but permits explicitly plain saves', async () => {
+  setAccountSession('account-secret');
+  const { render, bridge } = harness();
+  render().requestSaveSession();
+  expect(render().fileProtection).toBe('encrypted');
+  expect(render().sessionPassword).toBe('account-secret');
+  await render().saveSession();
+  expect(bridge.saveSession).toHaveBeenLastCalledWith('Game', {}, 'encrypted', 'account-secret', false);
+  render().requestSaveSession();
+  render().setFileProtection('plain');
+  expect(render().encryptionRequired).toBe(false);
+  await render().saveSession();
+  expect(bridge.saveSession).toHaveBeenLastCalledWith('Game', {}, 'plain', 'account-secret', false);
+  await render().saveCurrentSession();
+  expect(bridge.saveCurrentSession).toHaveBeenLastCalledWith('/files/game.json', {}, 'plain', 'account-secret');
+});
+
+it('offers account encryption when saving an existing plain workflow', async () => {
+  setAccountSession('account-secret');
+  const { render } = harness();
+  render().setWorkspacePassword('');
+  render().activateWorkflowPath('/files/workflow.json', 'workflow.json');
+  await render().saveCurrentWorkflow();
+  expect(render().sessionPasswordAction).toBe('save-workflow');
+  expect(render().fileProtection).toBe('encrypted');
+  expect(render().sessionPassword).toBe('account-secret');
+});
+
+it.each([
+  { signedIn: true, preference: 'account-npc-characters', expected: 'account-npc-characters' },
+  { signedIn: true, preference: 'npc-characters', expected: 'npc-characters' },
+  { signedIn: false, preference: 'account-npc-characters', expected: 'npc-characters' },
+] as const)('preselects the configured character export destination: $expected', ({ signedIn, preference, expected }) => {
+  if (signedIn) setAccountSession('account-secret');
+  const { render, options } = harness();
+  options.defaultCharacterExportDestination = preference;
+  const card = { character: { id: 'alice', name: 'Alice' } } as Parameters<ReturnType<typeof useRpgraphFiles>['requestSaveCharacter']>[1];
+
+  render().requestSaveCharacter('storybook', card, () => card);
+
+  expect(render().characterSaveLocation).toBe(expected);
+});
+
+it('automatically unlocks matching files and requests a password after a mismatch', async () => {
+  setAccountSession('account-secret');
+  const { render, bridge, options } = harness();
+  const file = { fileName: 'game.json', name: 'Game', type: 'session', protection: 'encrypted', compatible: true } as const;
+  await render().requestUnlockStoredFile(file as Parameters<ReturnType<typeof useRpgraphFiles>['requestUnlockStoredFile']>[0]);
+  expect(options.applyLoadedRpgraphFile).toHaveBeenCalledWith(expect.anything(), 'account-secret');
+  bridge.tryLoadFile.mockResolvedValueOnce(null);
+  await render().requestUnlockStoredFile(file as Parameters<ReturnType<typeof useRpgraphFiles>['requestUnlockStoredFile']>[0]);
+  expect(render().sessionPasswordAction).toBe('load');
+  expect(render().sessionPassword).toBe('');
+});
+
+it('preserves file read errors instead of requesting another password', async () => {
+  setAccountSession('account-secret');
+  const { render, bridge } = harness();
+  bridge.tryLoadFile.mockRejectedValueOnce(new Error('File no longer exists'));
+  const file = { fileName: 'game.json', name: 'Game', type: 'session', protection: 'encrypted', compatible: true } as const;
+
+  await render().requestUnlockStoredFile(file as Parameters<ReturnType<typeof useRpgraphFiles>['requestUnlockStoredFile']>[0]);
+
+  expect(render().sessionPasswordAction).toBeNull();
+  expect(render().fileStorageStatus).toBe('Load failed: File no longer exists');
+});
+
+it('refreshes the file picker after automatically unlocking the startup workflow', async () => {
+  setAccountSession('account-secret');
+  const { render, bridge } = harness();
+  bridge.tryLoadFile.mockResolvedValueOnce({ fileName: 'game.json', name: 'Game', filePath: '/files/game.json',
+    type: 'workflow', protection: 'encrypted', value: { nodes: [] } });
+
+  await render().loadStartupWorkflow();
+
+  expect(bridge.listFiles).toHaveBeenCalledOnce();
+  expect(render().sessionPasswordAction).toBeNull();
+});
 
 it.each([false, true])('inherits an encrypted Storybook password for RP saves (chosen path: %s)', async (choosePath) => {
   const { render, bridge } = harness();
