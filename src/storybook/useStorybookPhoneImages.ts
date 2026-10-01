@@ -86,9 +86,9 @@ export function useStorybookPhoneImages({
       appCharactersFromRegistry(current), appCharactersFromRegistry(candidate), messagesRef.current,
     );
   }
-  const imageDescriptionSignature = JSON.stringify(
+  const imageDescriptionSignature = useMemo(() => JSON.stringify(
     [...imageDescriptionById].sort(([left], [right]) => left.localeCompare(right)),
-  );
+  ), [imageDescriptionById]);
   const imageDescriptionByIdRef = useRef(imageDescriptionById);
   const updatePhoneImageDescriptionsRef = useRef(updatePhoneImageDescriptions);
 

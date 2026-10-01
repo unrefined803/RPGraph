@@ -219,3 +219,143 @@ No further runtime changes, tests or instrumentation were added for this
 recording. The existing test suite was not expanded or rerun for this analysis.
 The user considers the current behavior nearly sufficient; retain the measured
 speaker-selection improvement and stop broadening the investigation for now.
+
+## Follow-up recording: 2026-10-01 19:33:20 export
+
+Source: `rpgraph-ui-performance-2026-10-01T19-33-20-684Z.json`, version 0.6.3.
+Duration: 31.589 seconds; no overwritten samples; no React Profiler callbacks.
+The chat contains ten rendered rows; the run appends two social messages and
+patches three timestamps.
+
+| Window | Longest frame gap | Triggering updates |
+| --- | --- | --- |
+| Speaker result and social publication, 21.270 s | 118.2 ms | Two committed message updates |
+| Run start, 2.672 s | 76.4 ms, then 27.8 + 27.7 ms | Restored messages and character runtime |
+| Speaker selection, 20.062 s | 69.5 ms | Runtime node update and stream chunk |
+| Run end, 26.096 s | 41.6 + 48.6 ms | `isRunning` and history preparation |
+| Timestamps, 24.318 s | 3 × 27.8 ms | Timestamp patch |
+
+Five gaps reach 34 ms. All measured data work is short: speaker selection takes
+2.1 ms, the completion patches 4.1 and 4.0 ms, and each phone projection at most
+0.5 ms. The stalls instead coincide with complete application renders. In every
+committed update, 17.6–19.2 ms pass without samples between `images.contextualIds`
+in the App body and `chat.timeline` in the chat panel. At 20.092 s, about 22 ms
+follow the row execution before browser rendering starts, although only one row
+executes. Browser rendering then takes 17–20 ms. One application render therefore
+blocks roughly 45 ms plus rendering, largely independently of the row count. The
+existing probes cannot separate the App body from the subtrees rendered before
+and after the chat panel.
+
+The largest stall contains two such renders in one task. The completed output
+patch renders the application (21.271–21.303 s). The embedded social records and
+their parent links follow about 33 ms later and render it again. The second patch
+is issued for every completed live output, even without social messages. Only
+microtasks separate the two patches unless translation is active.
+
+### Correction
+
+The completed output patch now defers its publication. Refs, the active turn
+collector, completed turns and NPC contact capture still update immediately. The
+following parent-link patch publishes both changes in one commit. A zero-delay
+task publishes the deferred patch alone when the run awaits real asynchronous
+work, fails, or never reaches the second patch. Any other committed publication
+cancels that task and includes the patch. This removes one application render
+from the largest stall; it does not make an individual render faster.
+
+### Remaining work
+
+- Attribute the application render cost. New `app.render`, `render.mark` and
+  `app.commit` markers split the App body, graph, chat panel, dialogs and commit
+  in standard builds. Record the same generation again before optimizing a
+  subtree; the cause of the roughly 18 ms before the chat panel is not established.
+- Run start, run end and timestamps each cause two or three consecutive
+  application renders. The new markers show how many occur and which phase
+  dominates; the triggering state updates still need to be identified.
+- All rows execute when `appCharacters`, `characterColors` and `socialImageById`
+  change (a new contact) and when `isRunning` changes (every run start and end).
+  With ten rows this is a minor part of the stall, but the row list is not
+  windowed, so the cost grows with chat length.
+
+`npm run perf:summary` produced the stall timelines used here. No application
+or UI test was launched; the unit test suite passes with the deferred
+publication test added.
+
+## Follow-up recording: 2026-10-01 19:45:19 export
+
+Source: `rpgraph-ui-performance-2026-10-01T19-45-19-100Z.json`, the same turn
+regenerated with the deferred completion publication and the render markers.
+Duration: 34.8 seconds; no overwritten samples; no React Profiler callbacks.
+
+| Observation | 19:33 export | 19:45 export |
+| --- | --- | --- |
+| Largest frame gap (completion and social publication) | 118.2 ms | 104.3 ms |
+| Run start | 76.4 ms | 83.4 ms |
+| Timestamp update | 3 × 27.8 ms | 76.3 ms |
+| Speaker selection | 69.5 ms | 69.4 ms |
+| Gaps of at least 34 ms | 5 | 10 |
+| Sum of recorded frame gaps | 576 ms | 784 ms |
+
+The completion and its social records now publish in one commit as intended, but
+smoothness did not improve: the largest gap is slightly shorter while other
+windows are equal or worse. Treat the differences as run-to-run variation.
+
+The markers attribute the cost. The App function body takes 14.6–26.8 ms per
+render (median 16.6 ms). Graph, chat panel and dialogs together take about 4 ms,
+and commit under 1 ms. App renders 51 times in the recording, 32 of them during
+the run, for about 936 ms of body time. Each stall also contains three or four
+consecutive App renders: one for the triggering update and further ones that
+follow its effects. The state updates behind those follow-up renders are not
+identified.
+
+### Correction
+
+`isEmptyRpStorybook` serialized the complete storybook, including embedded
+images, on every call, and the App body calls it twice per render for the header.
+Serializing either bundled storybook (5.0 and 5.7 MB) takes about 6 ms in Node,
+so roughly 12 ms of each App render is consistent with this work. That is a
+separate synthetic measurement, not a browser timing. The result is now
+remembered per parsed storybook object; the parse cache already shares that
+object while the storybook text is unchanged. The phone image description
+signature is also memoized instead of being sorted and serialized per render.
+
+Additional `app.render` phases (`chatRuntimeEnd`, `graphRunStart`, `headerStart`)
+split the App body for the next recording. Expect the span from `headerStart` to
+`bodyEnd` to shrink; whatever remains before it is the next candidate. The
+consecutive follow-up renders remain, but each should now be cheaper.
+
+## Follow-up recording: 2026-10-01 19:50:08 export
+
+Source: `rpgraph-ui-performance-2026-10-01T19-50-08-433Z.json`, the same turn
+regenerated with the cached storybook emptiness result. Duration: 33.8 seconds;
+no overwritten samples; no React Profiler callbacks.
+
+| Observation | 19:33 export | 19:45 export | 19:50 export |
+| --- | --- | --- | --- |
+| Largest frame gap | 118.2 ms | 104.3 ms | 48.6 ms (run start) |
+| Completion and social publication | 118.2 ms | 104.3 ms | 34.8 ms |
+| Speaker selection | 69.5 ms | 69.4 ms | below the 24 ms threshold |
+| Timestamp update | 3 × 27.8 ms | 76.3 ms | at most 27.8 ms |
+| Recorded frame gaps (at least 24 ms) | 13 | 18 | 5 |
+| Gaps of at least 34 ms | 5 | 10 | 2 |
+| Sum of recorded frame gaps | 576 ms | 784 ms | 167 ms |
+| Browser long tasks (50 ms or more) | 2 | 3 | 0 |
+| App body time, all renders | not measured | 936 ms (51 renders) | 128 ms (44 renders) |
+
+The App body now takes 0.3–10 ms per render. The header section that contained
+the storybook serialization takes at most 0.4 ms. The remaining body time lies
+before `chatRuntimeEnd`, in renders where committed messages change and the chat
+and phone projections recompute. The user reports that the chat now scrolls
+smoothly with no noticeable stutter.
+
+Not addressed, and not currently needed: each update is still followed by two or
+three further App renders, and all rows execute when a contact is added or
+`isRunning` changes. Both are cheap at this chat length; revisit them if long
+chats stutter. The run-start gap contains about 14 ms before the first App
+render that the current probes do not attribute.
+
+## Conclusion
+
+The investigation is closed with the 19:50 recording. The exported reports were
+deleted after analysis; the tables above retain their measurements. The current
+status and the before/after summary are in
+[UI performance diagnostics](ui-performance-diagnostics.md).

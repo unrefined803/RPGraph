@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { storybookNeedsUpdate } from './model';
+import { emptyRpStorybook, isEmptyRpStorybook, starterRpStorybook, storybookNeedsUpdate } from './model';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -12,4 +12,17 @@ it('does not parse unchanged Storybook media for each upgrade indicator render',
     expect(storybookNeedsUpdate(legacy)).toBe(true);
   }
   expect(parse).toHaveBeenCalledTimes(2);
+});
+
+it('does not serialize an unchanged Storybook for each emptiness check', () => {
+  const starter = JSON.stringify(starterRpStorybook);
+  const empty = JSON.stringify(emptyRpStorybook);
+  expect(isEmptyRpStorybook(starter)).toBe(false);
+  const stringify = vi.spyOn(JSON, 'stringify');
+  for (let index = 0; index < 20; index += 1) expect(isEmptyRpStorybook(starter)).toBe(false);
+  expect(stringify).not.toHaveBeenCalled();
+  expect(isEmptyRpStorybook(empty)).toBe(true);
+  expect(isEmptyRpStorybook(starter)).toBe(false);
+  expect(isEmptyRpStorybook(emptyRpStorybook)).toBe(true);
+  expect(isEmptyRpStorybook('not json')).toBe(false);
 });

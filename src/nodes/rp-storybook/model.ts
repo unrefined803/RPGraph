@@ -893,12 +893,22 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
   };
 }
 
+// Serializing an image-bearing storybook takes milliseconds, and render code asks
+// repeatedly. Parsed storybooks are shared immutable objects, so remember the answer.
+const emptyStorybookResults = new WeakMap<RpStorybook, boolean>();
+let emptyRpStorybookJson: string | undefined;
+
 export function isEmptyRpStorybook(value: unknown): boolean {
   try {
     const storybook = typeof value === 'string'
       ? parseRpStorybookJson(value)
       : normalizeRpStorybook(value);
-    return JSON.stringify(storybook) === JSON.stringify(emptyRpStorybook);
+    const cached = emptyStorybookResults.get(storybook);
+    if (cached !== undefined) return cached;
+    emptyRpStorybookJson ??= JSON.stringify(emptyRpStorybook);
+    const result = JSON.stringify(storybook) === emptyRpStorybookJson;
+    emptyStorybookResults.set(storybook, result);
+    return result;
   } catch {
     return false;
   }
