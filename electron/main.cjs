@@ -2249,8 +2249,10 @@ function usageReasoningTokens(usage) {
   );
 }
 
-function llmStatsFromUsage(usage, durationMs, includeCachedInput = false) {
+function llmStatsFromUsage(usage, durationMs) {
   const inputTokens = firstFiniteNumber(usage?.prompt_tokens, usage?.input_tokens, usage?.promptTokenCount);
+  const cachedInputTokens = usage?.prompt_tokens_details?.cached_tokens ?? usage?.input_tokens_details?.cached_tokens
+    ?? usage?.cachedContentTokenCount;
   const rawOutputTokens = firstFiniteNumber(
     usage?.completion_tokens,
     usage?.output_tokens,
@@ -2270,9 +2272,8 @@ function llmStatsFromUsage(usage, durationMs, includeCachedInput = false) {
         : undefined;
   return {
     inputTokens,
-    ...(includeCachedInput && Number.isSafeInteger(usage?.input_tokens_details?.cached_tokens) &&
-      usage.input_tokens_details.cached_tokens >= 0
-      ? { cachedInputTokens: usage.input_tokens_details.cached_tokens } : {}),
+    ...(Number.isSafeInteger(cachedInputTokens) && cachedInputTokens >= 0
+      ? { cachedInputTokens } : {}),
     outputTokens,
     reasoningTokens: usageReasoningTokens(usage),
     totalTokens,
@@ -4692,7 +4693,7 @@ handleWorkspace('llm:chat-completion', async (_event, request) => {
   try {
     if (request.connection?.providerKind === 'chatgpt') {
       const result = await chatgptChat(chatgptAuth, localAccounts.root, request, abort.signal);
-      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt), true) };
+      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)) };
     }
     await freeComfyMemoryForLocalLlm(request.connection);
     await ensureLlamaCppModelLoaded(request.connection, abort);
@@ -4862,7 +4863,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
     if (request.connection?.providerKind === 'chatgpt') {
       const result = await chatgptChat(chatgptAuth, localAccounts.root, request, abort.signal, text => textBatch.push(text));
       sendFinalReasoningTokens(result.usage);
-      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt), true) };
+      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)) };
     }
     await freeComfyMemoryForLocalLlm(request.connection);
     await ensureLlamaCppModelLoaded(request.connection, abort);
