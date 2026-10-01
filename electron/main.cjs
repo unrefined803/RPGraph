@@ -2249,10 +2249,20 @@ function usageReasoningTokens(usage) {
   );
 }
 
+// Cache hits are a subset of the input tokens. A missing or malformed count
+// stays undefined (unknown); a reported zero means no cache hit.
+function usageCachedInputTokens(usage) {
+  return [
+    usage?.prompt_tokens_details?.cached_tokens,
+    usage?.input_tokens_details?.cached_tokens,
+    usage?.cachedContentTokenCount,
+    usage?.prompt_cache_hit_tokens,
+  ].find((value) => Number.isSafeInteger(value) && value >= 0);
+}
+
 function llmStatsFromUsage(usage, durationMs) {
   const inputTokens = firstFiniteNumber(usage?.prompt_tokens, usage?.input_tokens, usage?.promptTokenCount);
-  const cachedInputTokens = usage?.prompt_tokens_details?.cached_tokens ?? usage?.input_tokens_details?.cached_tokens
-    ?? usage?.cachedContentTokenCount;
+  const cachedInputTokens = usageCachedInputTokens(usage);
   const rawOutputTokens = firstFiniteNumber(
     usage?.completion_tokens,
     usage?.output_tokens,
@@ -2272,8 +2282,7 @@ function llmStatsFromUsage(usage, durationMs) {
         : undefined;
   return {
     inputTokens,
-    ...(Number.isSafeInteger(cachedInputTokens) && cachedInputTokens >= 0
-      ? { cachedInputTokens } : {}),
+    ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
     outputTokens,
     reasoningTokens: usageReasoningTokens(usage),
     totalTokens,

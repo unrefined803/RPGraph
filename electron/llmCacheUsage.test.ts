@@ -40,3 +40,13 @@ it.each([2048, 0, undefined, null, -1, 0.5, '2048', Infinity])(
     expect(result.cachedInputTokens).toBe(value === 2048 || value === 0 ? value : undefined);
   },
 );
+
+it('reads DeepSeek-style cache hits and skips malformed counts for the next valid field', () => {
+  expect(stats({ prompt_tokens: 4096, prompt_cache_hit_tokens: 1024, prompt_cache_miss_tokens: 3072 }, 1))
+    .toMatchObject({ inputTokens: 4096, cachedInputTokens: 1024 });
+  expect(stats({ prompt_tokens: 4096, prompt_cache_hit_tokens: 0 }, 1).cachedInputTokens).toBe(0);
+  expect(stats({ prompt_tokens: 4096, prompt_tokens_details: { cached_tokens: null }, prompt_cache_hit_tokens: 1024 }, 1)
+    .cachedInputTokens).toBe(1024);
+  expect(stats({ prompt_tokens: 4096, prompt_tokens_details: { cached_tokens: 512 }, prompt_cache_hit_tokens: 1024 }, 1)
+    .cachedInputTokens).toBe(512);
+});
