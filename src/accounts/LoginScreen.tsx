@@ -189,7 +189,7 @@ export function LoginScreen(props: LoginScreenProps) {
           </fieldset>
         </form>}
 
-        {(props.error || error) && <p role="alert">{props.error || error}</p>}
+        {(error || props.error) && <p role="alert">{error || props.error}</p>}
 
         <p className="login-caption">
           {props.mode === 'setup'

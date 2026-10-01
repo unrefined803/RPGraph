@@ -1522,6 +1522,8 @@ async function readRpgraphFile(filePath, password) {
 async function readRpgraphFileContents(filePath, password) {
   const value = JSON.parse(await fs.readFile(filePath, 'utf8'));
   const metadata = storedFileMetadata(value);
+  // The filename header belongs to the stored file, not to plain payloads.
+  if (metadata.protection === 'plain') delete value.filenameEncryption;
   if (!metadata.compatible) {
     throw unsupportedStoredFileError(value, metadata);
   }
@@ -5937,7 +5939,7 @@ handleWorkspace('workflow:save-current', async (_event, request) => {
   workspaceProtection.require({ protection: 'plain' });
   const validatedPath = validateWorkflowPath(request?.filePath);
   await assertOverwriteType(validatedPath, 'workflow');
-  await writeTextFileAtomically(validatedPath, `${JSON.stringify(request.workflow, null, 2)}\n`);
+  await writeTextFileAtomically(validatedPath, await storedPayloadContents(request.workflow, validatedPath));
   await saveLastWorkflowFileName(path.basename(validatedPath));
   return { filePath: validatedPath };
 });

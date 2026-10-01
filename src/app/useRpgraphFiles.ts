@@ -18,7 +18,7 @@ import storybookFormatVersions from '../storybook/formatVersions.json';
 import { rpStorybookJsonText, type RpStorybook } from '../nodes/rp-storybook/model';
 import type { RpCharacterCard } from '../storybook/characterCard';
 import { workflowNeedsStorybookSelection } from './workflowSnapshot';
-import { readableFileName } from './fileDisplayNames';
+import { fileNameLabel, readableFileName } from './fileDisplayNames';
 
 export type WorkflowSaveScope = 'workflow' | 'workflow-storybook';
 export type CharacterSaveLocation = 'characters' | 'npc-characters' | 'account-npc-characters' | 'choose';
@@ -362,7 +362,7 @@ export function useRpgraphFiles({
       }
       setActiveWorkflowProtection(fileProtection);
       if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
-      notifySystem('info', `Saved workflow file: ${result.fileName ?? workflowName(result.filePath ?? '')}`);
+      notifySystem('info', `Saved workflow file: ${fileNameLabel(result.fileName ?? workflowName(result.filePath ?? ''), result.name ?? name)}`);
       setFileStorageStatus(`Saved workflow file: ${result.filePath}`);
       setSessionPasswordAction(null);
       setShowFiles(returnToFilesAfterSaveRef.current);
@@ -464,12 +464,13 @@ export function useRpgraphFiles({
         return;
       }
       const fileName = result.fileName ?? `${name.trim().replace(/\s+/g, '-')}.json`;
+      const label = fileNameLabel(fileName, result.name ?? name);
       updateRuntimeNode(pending.nodeId, {
         storybookStatus: fileProtection === 'encrypted'
-          ? `Exported encrypted character: ${fileName}`
-          : `Exported character: ${fileName}`,
+          ? `Exported encrypted character: ${label}`
+          : `Exported character: ${label}`,
       });
-      notifySystem('info', `Exported character ${pending.characterCard.character.name || pending.characterCard.character.id}: ${fileName}`);
+      notifySystem('info', `Exported character ${pending.characterCard.character.name || pending.characterCard.character.id}: ${label}`);
       setCharacterNameDraft(result.name ?? name);
       setPendingCharacterSave(null);
       setSessionOverwritePending(false);
@@ -556,7 +557,7 @@ export function useRpgraphFiles({
       await loadStoredFile(summary.fileName, '', summary.storage);
       return;
     }
-    requestUnlockStoredFile(summary);
+    await requestUnlockStoredFile(summary);
   }
 
   async function deleteStoredFile(file: SavedFileSummary) {
@@ -830,8 +831,8 @@ export function useRpgraphFiles({
       }
       updateRuntimeNode(current.nodeId, {
         storybookStatus: fileProtection === 'encrypted'
-          ? `Saved encrypted storybook: ${result.fileName}`
-          : `Saved storybook: ${result.fileName}`,
+          ? `Saved encrypted storybook: ${fileNameLabel(result.fileName, result.name)}`
+          : `Saved storybook: ${fileNameLabel(result.fileName, result.name)}`,
         storybookFileName: result.fileName,
         storybookFilePath: result.filePath,
       });
@@ -874,8 +875,8 @@ export function useRpgraphFiles({
       }
       updateRuntimeNode(current.nodeId, {
         storybookStatus: fileProtection === 'encrypted'
-          ? `Saved encrypted storybook: ${result.fileName}`
-          : `Saved storybook: ${result.fileName}`,
+          ? `Saved encrypted storybook: ${fileNameLabel(result.fileName ?? name, result.name ?? name)}`
+          : `Saved storybook: ${fileNameLabel(result.fileName ?? name, result.name ?? name)}`,
         storybookFileName: result.fileName,
         storybookFilePath: result.filePath,
       });
@@ -918,7 +919,7 @@ export function useRpgraphFiles({
     }
     try {
       setFileStorageStatus('Unlocking storybook ...');
-      updateRuntimeNode(pending.nodeId, { storybookStatus: `Unlocking encrypted storybook: ${pending.fileName}` });
+      updateRuntimeNode(pending.nodeId, { storybookStatus: `Unlocking encrypted storybook: ${fileDisplayName(pending.fileName) ?? 'protected file'}` });
       const result = await window.rpgraph.loadFilePath(pending.filePath, sessionPassword);
       checkImportedPassword(sessionPassword);
       if (result.type !== 'storybook') {
@@ -1009,7 +1010,7 @@ export function useRpgraphFiles({
       await refreshFiles(result.fileName);
       notifySystem(
         'info',
-        `Saved RP: ${activeSessionFileName} at Turn ${latestSessionTurnNumber(session)}${protection === 'encrypted' ? ' (password encrypted)' : ''}`,
+        `Saved RP: ${fileNameLabel(activeSessionFileName, fileDisplayName(activeSessionFileName) ?? name)} at Turn ${latestSessionTurnNumber(session)}${protection === 'encrypted' ? ' (password encrypted)' : ''}`,
       );
     } catch (error) {
       notifySystem('error', `Save RP failed: ${errorMessage(error)}`);

@@ -21,8 +21,23 @@ function validatePassword(password) {
   }
 }
 
+function validRecord(record, username) {
+  return record?.version === 1 && record.username === username &&
+    /^[a-f0-9]{64}$/.test(record.salt) && /^[a-f0-9]{64}$/.test(record.verifier);
+}
+
+async function verifiedRecord(root, username, password, mismatch) {
+  const record = JSON.parse(await fs.readFile(path.join(root, 'account.json'), 'utf8'));
+  if (!validRecord(record, username)) throw new Error('Invalid account record.');
+  const verifier = await derive(password, Buffer.from(record.salt, 'hex'), 32, parameters);
+  if (!timingSafeEqual(verifier, Buffer.from(record.verifier, 'hex'))) throw new Error(mismatch);
+  return record;
+}
+
 function createLocalAccounts(userData) {
   const accountsRoot = path.join(userData, 'accounts');
+  // Not a valid username, so staged deletions are never offered for login.
+  const deletedPrefix = '.deleted-';
   let selected;
   let pending = false;
   const unlockedNames = new Map();
@@ -58,10 +73,15 @@ function createLocalAccounts(userData) {
       const accounts = [];
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith(deletedPrefix)) {
+          // Finish a deletion whose purge was interrupted or failed earlier.
+          await fs.rm(path.join(accountsRoot, entry.name), { recursive: true, force: true }).catch(() => {});
+          continue;
+        }
         try {
           const root = await directory(entry.name);
           const record = JSON.parse(await fs.readFile(path.join(root, 'account.json'), 'utf8'));
-          if (record.version === 1 && record.username === entry.name) accounts.push({ username: record.username });
+          if (validRecord(record, entry.name)) accounts.push({ username: record.username });
         } catch { /* Incomplete or unsupported accounts are not offered for login. */ }
       }
       return accounts.sort((a, b) => a.username.localeCompare(b.username));
@@ -97,13 +117,7 @@ function createLocalAccounts(userData) {
       return exclusive(async () => {
         validatePassword(password);
         const root = await directory(username);
-        const record = JSON.parse(await fs.readFile(path.join(root, 'account.json'), 'utf8'));
-        if (record.version !== 1 || record.username !== accountName(username) ||
-            !/^[a-f0-9]{64}$/.test(record.salt) || !/^[a-f0-9]{64}$/.test(record.verifier)) {
-          throw new Error('Invalid account record.');
-        }
-        const verifier = await derive(password, Buffer.from(record.salt, 'hex'), 32, parameters);
-        if (!timingSafeEqual(verifier, Buffer.from(record.verifier, 'hex'))) throw new Error('Incorrect username or password.');
+        const record = await verifiedRecord(root, accountName(username), password, 'Incorrect username or password.');
         select(record, root, password);
         return { username: record.username };
       }, selected?.username === accountName(username));
@@ -162,16 +176,12 @@ function createLocalAccounts(userData) {
         const username = selected.username;
         const root = await directory(username);
         if (root !== selected.root) throw new Error('Invalid account directory.');
-        const record = JSON.parse(await fs.readFile(path.join(root, 'account.json'), 'utf8'));
-        if (record.version !== 1 || record.username !== username ||
-            !/^[a-f0-9]{64}$/.test(record.salt) || !/^[a-f0-9]{64}$/.test(record.verifier)) {
-          throw new Error('Invalid account record.');
-        }
-        const verifier = await derive(password, Buffer.from(record.salt, 'hex'), 32, parameters);
-        if (!timingSafeEqual(verifier, Buffer.from(record.verifier, 'hex'))) {
-          throw new Error('Incorrect account password.');
-        }
-        await fs.rm(root, { recursive: true });
+        await verifiedRecord(root, username, password, 'Incorrect account password.');
+        // The rename is the removal boundary: a failure leaves the account intact,
+        // and an incomplete purge can no longer leave a half-deleted workspace.
+        const staged = path.join(accountsRoot, `${deletedPrefix}${username}-${randomBytes(8).toString('hex')}`);
+        await fs.rename(root, staged);
+        await fs.rm(staged, { recursive: true, force: true }).catch(() => {});
         selected.filenameCipher.dispose();
         unlockedNames.clear();
         filenameMetadata.clear();

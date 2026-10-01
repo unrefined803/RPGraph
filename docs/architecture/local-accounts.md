@@ -10,6 +10,9 @@ settings operations and wait for active operations before changing or deleting t
 root, including pending encryption, native file dialogs, and library reloads.
 Deletion removes the selected account's
 complete directory; exports in the shared NPC folder or external locations remain.
+The directory is first renamed to a `.deleted-<username>-<id>` staging name, which
+is never a valid username. A failed rename leaves the account unchanged; a failed
+or interrupted purge is finished the next time accounts are listed.
 
 The existing `userData/files`, `characters`, and `npc-characters` directories remain
 the local workspace. No existing files are moved or converted. Named workspaces use

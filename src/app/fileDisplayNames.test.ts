@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { SavedFileSummary } from '../types';
-import { readableFileName } from './fileDisplayNames';
+import { fileNameLabel, readableFileName } from './fileDisplayNames';
 
 it.each(['WF', 'RP', 'SB', 'CH'])('displays unlocked %s names for both filename formats', prefix => {
   for (const version of [1, 2]) {
@@ -21,4 +21,9 @@ it('retains readable legacy filenames and unsaved placeholders', () => {
   expect(readableFileName(null, {}, [])).toBeUndefined();
   expect(readableFileName('constructor', {}, [])).toBe('constructor');
   expect(readableFileName('__proto__', {}, [])).toBe('__proto__');
+});
+
+it('labels protected files by display name and readable files by filename', () => {
+  expect(fileNameLabel('RP2xQAbCd1234.json', 'Private title')).toBe('Private title');
+  expect(fileNameLabel('Old save.json', 'Old save')).toBe('Old save.json');
 });

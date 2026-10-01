@@ -85,6 +85,7 @@ export function AppEntry() {
     setMode('loading');
     setError('');
     let workspaceClosed = false;
+    const previousPreference = loadAccountFeaturePreference();
     try {
       if (!saveAccountFeaturePreference('enabled')) throw new Error('Unable to remember the account preference.');
       await window.rpgraph?.accounts?.prepare();
@@ -99,6 +100,8 @@ export function AppEntry() {
         setError(message);
         setMode(accounts.length ? 'login' : 'setup');
       } else {
+        // The workspace stays open, so the next start must reopen it as before.
+        if (previousPreference) saveAccountFeaturePreference(previousPreference);
         window.alert(message);
         setMode('ready');
       }
