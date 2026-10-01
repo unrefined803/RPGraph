@@ -1,3 +1,4 @@
+import { chatgptReasoningEffort } from '../../shared/chatgptCapabilities.cjs';
 import { reasoningActivation, fastTaskReasoningEffort, normalizeReasoningEffort } from '../../shared/reasoning.cjs';
 import { isOpenRouterConnection, isLmStudioConnection, isOllamaConnection, isGeminiConnection } from './providerKind';
 import type { ConnectionPreset, LlmCallStage, LlmCallStats } from '../types';
@@ -128,7 +129,8 @@ export class NodeLlmApi {
       if (signal?.aborted) throw new Error('The LLM request was cancelled.');
       const requestConnection = {
         ...connection,
-        reasoningEffort: isGeminiConnection(connection) || connection.providerKind === 'chatgpt' ? 'auto' as const
+        reasoningEffort: connection.providerKind === 'chatgpt' ? chatgptReasoningEffort(connection.reasoningEffort)
+          : isGeminiConnection(connection) ? 'auto' as const
           : isOpenRouterConnection(connection) || isOllamaConnection(connection) ||
           (isLmStudioConnection(connection) && !!connection.reasoningCapabilities)
           ? request.fastTask
@@ -136,7 +138,7 @@ export class NodeLlmApi {
             : normalizeReasoningEffort(connection.reasoningEffort, connection.reasoningCapabilities)
           : request.fastTask ? 'none' as const : connection.reasoningEffort,
       };
-      const images = connection.vision ? request.images : undefined;
+      const images = connection.vision || connection.providerKind === 'chatgpt' ? request.images : undefined;
       if (request.nodeId) {
         this.options.onCallStart?.(request.nodeId, {
           hasImages: (images?.length ?? 0) > 0,

@@ -294,7 +294,11 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
       let listener;
       try {
         const workspace = await load(root);
-        const existing = profileId ? profileFor(workspace, profileId) : undefined;
+        const existing = profileId ? profileFor(workspace, profileId)
+          : workspace.profiles.find(profile => profile.id === workspace.lastProfileId) ?? workspace.profiles[0];
+        if (workspace.profiles.some(profile => profile !== existing && (profile.tokens || profile.storageLocked))) {
+          throw new Error('Sign out of the current ChatGPT account before signing in to another account.');
+        }
         if (existing?.signingOut) throw new Error('Wait for ChatGPT sign-out to finish.');
         await existing?.refresh;
         const state = crypto.randomBytes(32).toString('base64url');
@@ -328,10 +332,13 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
         const data = await tokenRequest({ grant_type: 'authorization_code', client_id: clientId,
           code: callback.code, code_verifier: verifier, redirect_uri: redirectUri, resource }, abort.signal);
         const identity = await verifyIdentity(data.id_token, clientId, nonce, abort.signal);
-        if (existing?.identity && (existing.identity.issuer !== identity.issuer || existing.identity.subject !== identity.subject)) {
-          throw new Error('The ChatGPT account does not match this saved profile. Add a separate account instead.');
+        if ((existing?.tokens || existing?.storageLocked) && existing?.identity && (existing.identity.issuer !== identity.issuer || existing.identity.subject !== identity.subject)) {
+          throw new Error('Sign out of the current ChatGPT account before signing in to another account.');
         }
         abort.signal.throwIfAborted();
+        if (profile.identity?.subject !== identity.subject || profile.identity?.issuer !== identity.issuer) {
+          profile.usageConfirmed = false;
+        }
         profile.identity = identity;
         profile.tokens = tokenSet(data);
         delete profile.encrypted;
@@ -418,8 +425,19 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
       delete profile.tokens;
       delete profile.encrypted;
       profile.storageLocked = false;
+      delete profile.identity;
+      profile.usageConfirmed = false;
+      delete profile.persistedTokens;
+      // Explicit sign-out also forgets the workspace-bound client registration.
+      // A subsequent login may belong to a different ChatGPT account.
+      workspace.profiles = workspace.profiles.filter(entry => entry !== profile);
+      if (workspace.lastProfileId === id) delete workspace.lastProfileId;
       try { await save(root, workspace); }
-      finally { profile.signingOut = false; }
+      catch (error) {
+        // Keep a token-free entry available so the user can retry forgetting it.
+        workspace.profiles.push(profile);
+        throw error;
+      } finally { profile.signingOut = false; }
       return { ...await api.state(root), remoteRevocationConfirmed };
     },
     cancelPending() { for (const abort of controllers) abort.abort(); },

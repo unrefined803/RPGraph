@@ -1,5 +1,7 @@
 const { chatgptError } = require('../chatgptErrors.cjs');
 
+const { chatgptReasoningEffort } = require('../../shared/chatgptCapabilities.cjs');
+
 const baseUrl = 'https://api.openai.com/v1';
 
 async function listModels(auth, root, profileId, signal, fetchRequest = fetch) {
@@ -19,12 +21,16 @@ async function chat(auth, root, request, signal, onDelta, fetchRequest = fetch) 
   const token = await auth.accessToken(root, request.connection.chatgptProfileId, signal);
   if (!request.connection.model?.trim()) throw new Error('Select a ChatGPT model first.');
   // This route accepts only a subset of Responses fields. Do not forward generic
-  // sampling, reasoning, token-limit or provider URL settings to it.
+  // sampling, token-limit or provider URL settings to it.
   const response = await fetchRequest(`${baseUrl}/responses`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     redirect: 'error', signal,
     body: JSON.stringify({ model: request.connection.model, store: false, stream: true,
-      input: [{ role: 'user', content: [{ type: 'input_text', text: request.prompt }] }] }),
+      input: [{ role: 'user', content: [
+        { type: 'input_text', text: request.prompt },
+        ...(request.images ?? []).map(image => ({ type: 'input_image', image_url: image.dataUrl })),
+      ] }],
+      reasoning: { effort: chatgptReasoningEffort(request.connection.reasoningEffort) } }),
   });
   if (!response.ok) {
     throw chatgptError(response.status, await response.json().catch(() => null), response.headers.get('x-request-id'));

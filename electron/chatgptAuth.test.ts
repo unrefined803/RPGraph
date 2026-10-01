@@ -68,7 +68,7 @@ async function fixture(options: { secure?: boolean; claims?: Record<string, unkn
   const openBrowser = vi.fn(async (value: string) => {
     const url = new URL(value);
     const header = Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'test-key' })).toString('base64url');
-    const payload = Buffer.from(JSON.stringify({ iss: issuer, aud: url.searchParams.get('client_id') === 'dynamic_agent_client' ? 'oaiapp_test' : url.searchParams.get('client_id'),
+    const payload = Buffer.from(JSON.stringify({ iss: issuer, aud: url.searchParams.get('client_id') === 'dynamic_agent_client' ? options.callbackClient ?? 'oaiapp_test' : url.searchParams.get('client_id'),
       sub: 'account-subject', email: 'person@example.com', nonce: url.searchParams.get('nonce'), exp: timestamp / 1000 + 3600, ...options.claims })).toString('base64url');
     identityToken = `${header}.${payload}.${sign('sha256', Buffer.from(`${header}.${payload}`), keys.privateKey).toString('base64url')}`;
     callback(url);
@@ -127,14 +127,14 @@ it('serializes concurrent refreshes and persists the replacement token', async (
   expect(await restarted.accessToken(f.root, state.lastProfileId!)).toBe('access-secret-2');
 });
 
-it('retains registration but revokes and removes tokens on explicit sign-out', async () => {
+it('revokes the session and forgets the local registration on explicit sign-out', async () => {
   const f = await fixture();
   const state = await f.auth.signIn(f.root);
-  await expect(f.auth.signOut(f.root, state.lastProfileId!)).resolves.toMatchObject({ remoteRevocationConfirmed: true, profiles: [{ connected: false }] });
-  await expect(f.auth.accessToken(f.root, state.lastProfileId!)).rejects.toThrow('Sign in');
+  await expect(f.auth.signOut(f.root, state.lastProfileId!)).resolves.toMatchObject({ remoteRevocationConfirmed: true, profiles: [] });
+  await expect(f.auth.accessToken(f.root, state.lastProfileId!)).rejects.toThrow('Select a saved');
   const disk = JSON.parse(await readFile(path.join(f.root, 'chatgpt-profiles.json'), 'utf8'));
-  expect(disk.profiles[0].clientId).toBe('oaiapp_test');
-  expect(disk.profiles[0].encrypted).toBeUndefined();
+  expect(disk.profiles).toEqual([]);
+  expect(disk.lastProfileId).toBeUndefined();
   const revoke = f.fetchMock.mock.calls.find(([url]) => String(url).endsWith('/revoke'))!;
   expect(new URLSearchParams(revoke[1]?.body as URLSearchParams).get('token')).toBe('refresh-secret-1');
 });
@@ -208,7 +208,7 @@ it('does not confirm remote revocation when saved credentials cannot be decrypte
   await writeFile(path.join(f.root, 'chatgpt-profiles.json'), JSON.stringify({ version: 1,
     profiles: [{ id: 'profile', clientId: 'client', encrypted: 'unreadable' }] }));
   await expect(f.auth.signOut(f.root, 'profile')).resolves.toMatchObject({
-    remoteRevocationConfirmed: false, profiles: [{ connected: false, storageLocked: false }],
+    remoteRevocationConfirmed: false, profiles: [],
   });
 });
 
@@ -291,4 +291,62 @@ it('claims the Electron runtime once, blocks competing processes, and releases o
   expect(f.configuration.runtime.claim).toHaveBeenCalledTimes(2);
   f.auth.dispose();
   expect(f.configuration.runtime.release).toHaveBeenCalledTimes(1);
+});
+
+it('registers another account after sign-out and restart without reusing the old workspace client', async () => {
+  const claims = { sub: 'first-account', email: 'first@example.com' };
+  const options = { claims, callbackClient: 'oaiapp_test' };
+  const f = await fixture(options);
+  const first = await f.auth.signIn(f.root);
+  await f.auth.signIn(f.root);
+  expect((await f.auth.state(f.root)).profiles).toHaveLength(1);
+  claims.sub = 'second-account';
+  claims.email = 'second@example.com';
+  await expect(f.auth.signIn(f.root)).rejects.toThrow('Sign out of the current ChatGPT account');
+  expect((await f.auth.state(f.root)).profiles[0].label).toBe('first@example.com');
+  await f.auth.signOut(f.root, first.lastProfileId!);
+  const record = JSON.parse(await readFile(path.join(f.root, 'chatgpt-profiles.json'), 'utf8'));
+  expect(record.profiles).toEqual([]);
+  options.callbackClient = 'oaiapp_second';
+  const restarted = createChatGPTAuth(f.configuration);
+  const signedIn = await restarted.signIn(f.root);
+  const firstUrl = new URL(f.openBrowser.mock.calls[0][0]);
+  const nextUrl = new URL(f.openBrowser.mock.calls.at(-1)![0]);
+  expect(nextUrl.searchParams.get('client_id')).toBe('dynamic_agent_client');
+  expect(nextUrl.searchParams.get('login_hint')).toBeNull();
+  expect(nextUrl.searchParams.get('id_token_hint')).toBeNull();
+  expect(nextUrl.searchParams.get('ext_agent_host_id')).toBe(firstUrl.searchParams.get('ext_agent_host_id'));
+  expect(signedIn.lastProfileId).not.toBe(first.lastProfileId);
+  const saved = JSON.parse(await readFile(path.join(f.root, 'chatgpt-profiles.json'), 'utf8'));
+  expect(saved.profiles[0].clientId).toBe('oaiapp_second');
+  expect(signedIn.profiles).toHaveLength(1);
+  expect(signedIn.profiles[0]).toMatchObject({ connected: true, usageConfirmed: false, label: 'second@example.com' });
+});
+
+it('forgets local registration even when remote revocation fails', async () => {
+  const f = await fixture();
+  const state = await f.auth.signIn(f.root);
+  f.fetchMock.mockResolvedValueOnce(Response.json({ error: 'unavailable' }, { status: 503 }));
+  await expect(f.auth.signOut(f.root, state.lastProfileId!)).resolves.toMatchObject({
+    remoteRevocationConfirmed: false, profiles: [],
+  });
+  const restarted = createChatGPTAuth(f.configuration);
+  expect((await restarted.state(f.root)).profiles).toEqual([]);
+  await restarted.signIn(f.root);
+  expect(new URL(f.openBrowser.mock.calls.at(-1)![0]).searchParams.get('client_id')).toBe('dynamic_agent_client');
+});
+
+it('allows retrying sign-out when removing the saved registration fails', async () => {
+  const f = await fixture();
+  const state = await f.auth.signIn(f.root);
+  const file = path.join(f.root, 'chatgpt-profiles.json');
+  await rm(file);
+  await mkdir(file);
+  await expect(f.auth.signOut(f.root, state.lastProfileId!)).rejects.toThrow();
+  expect((await f.auth.state(f.root)).profiles[0]).toMatchObject({ connected: false });
+  await expect(f.auth.accessToken(f.root, state.lastProfileId!)).rejects.toThrow('Sign in');
+  await rm(file, { recursive: true });
+  await expect(f.auth.signOut(f.root, state.lastProfileId!)).resolves.toMatchObject({ profiles: [] });
+  const restarted = createChatGPTAuth(f.configuration);
+  expect((await restarted.state(f.root)).profiles).toEqual([]);
 });

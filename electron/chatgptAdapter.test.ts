@@ -19,7 +19,7 @@ it('uses the selected profile and sends only the supported Responses fields', as
   const chunks: string[] = [];
   const fetchMock = vi.fn(async () => streamResponse(event({ type: 'response.output_text.delta', delta: 'Héllo' }) +
     event({ type: 'response.completed', response: { usage: { input_tokens: 12, output_tokens: 4 } } })));
-  const request = { connection, prompt: 'Prompt', temperature: 0.2, maxTokens: 12, images: [{ dataUrl: 'ignored' }] };
+  const request = { connection, prompt: 'Prompt', temperature: 0.2, maxTokens: 12, images: [{ dataUrl: 'data:image/png;base64,aGVsbG8=' }] };
   const result = await chat(auth, '/workspace', request, signal(), chunk => chunks.push(chunk), fetchMock);
   expect(result).toEqual({ text: 'Héllo', usage: { input_tokens: 12, output_tokens: 4 } });
   expect(chunks).toEqual(['Héllo']);
@@ -27,7 +27,9 @@ it('uses the selected profile and sends only the supported Responses fields', as
   expect(fetchMock).toHaveBeenCalledWith('https://api.openai.com/v1/responses', expect.objectContaining({
     redirect: 'error', headers: { Authorization: 'Bearer oauth-token', 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: 'selected-model', store: false, stream: true,
-      input: [{ role: 'user', content: [{ type: 'input_text', text: 'Prompt' }] }] }),
+      input: [{ role: 'user', content: [{ type: 'input_text', text: 'Prompt' },
+        { type: 'input_image', image_url: 'data:image/png;base64,aGVsbG8=' }] }],
+      reasoning: { effort: 'low' } }),
   }));
 });
 
@@ -77,4 +79,13 @@ it('preserves admission status and request ID without leaking response details',
   const fetchMock = vi.fn(async () => Response.json({ detail: 'private diagnostic' }, { status: 403, headers: { 'x-request-id': 'request-123' } }));
   await expect(listModels(auth, '/workspace', 'profile', signal(), fetchMock)).rejects.toMatchObject({ status: 403, requestId: 'request-123' });
   await expect(listModels(auth, '/workspace', 'profile', signal(), fetchMock)).rejects.not.toThrow('private diagnostic');
+});
+
+it.each(['low', 'medium', 'high'] as const)('sends the selected thinking effort: %s', async effort => {
+  const fetchMock = vi.fn(async () => streamResponse(event({ type: 'response.completed', response: {
+    output: [{ content: [{ type: 'output_text', text: 'Result' }] }],
+  } })));
+  await chat(auth, '/workspace', { connection: { ...connection, reasoningEffort: effort }, prompt: 'Prompt' }, signal(), undefined, fetchMock);
+  const body = JSON.parse((fetchMock.mock.calls as unknown as [string, RequestInit][])[0][1].body as string);
+  expect(body.reasoning).toEqual({ effort });
 });

@@ -1,3 +1,4 @@
+import { chatgptCapabilities, chatgptReasoningCapabilities, chatgptReasoningEffort } from '../../shared/chatgptCapabilities.cjs';
 import { isTextGenerationConnection } from '../llm/textProvider';
 import type { ImageGenerationReference } from '../images/references';
 import { generateApiImages, isImageGenerationConnection, supportsImageGenerationReferences } from '../images/providers';
@@ -430,8 +431,8 @@ export function useProviderConnections({
       : undefined;
     if (preset.providerKind === 'chatgpt') {
       nextConnection.apiKey = '';
-      nextConnection.vision = false;
-      nextConnection.reasoningEffort = 'auto';
+      nextConnection.vision = true;
+      nextConnection.reasoningEffort = 'low';
       delete nextConnection.apiKeyEncrypted;
     }
     if (
@@ -753,7 +754,7 @@ export function useProviderConnections({
   }
 
   function connectionWithReasoning(connection: ConnectionPreset) {
-    if (connection.providerKind === 'chatgpt') return { ...connection, reasoningEffort: 'auto' as const, reasoningCapabilities: undefined };
+    if (connection.providerKind === 'chatgpt') return { ...connection, vision: true, reasoningEffort: chatgptReasoningEffort(connection.reasoningEffort), reasoningCapabilities: chatgptReasoningCapabilities };
     if (connection.providerKind === 'openai-compatible') return connectionWithCompatibleCapabilities(connection);
     if (isGeminiConnection(connection)) {
       return { ...connection, reasoningEffort: 'auto' as const, reasoningCapabilities: undefined };
@@ -871,7 +872,7 @@ export function useProviderConnections({
           }
           health = { status: models.length && prepared.model && models.includes(prepared.model) ? 'online' : 'warning',
             detail: models.length ? !prepared.model || !models.includes(prepared.model) ? 'Select a model available to this ChatGPT account.' : providerModelCountDetail(models.length) : 'No ChatGPT models are available.',
-            checkedAt: providerCheckedAt() };
+            capabilities: chatgptCapabilities, checkedAt: providerCheckedAt() };
         }
       } else if (connection.kind === 'comfyui') {
         const result = await window.rpgraph.checkComfyConnection({ baseUrl: connection.baseUrl });
@@ -2913,7 +2914,8 @@ export function useProviderConnections({
   const editingCompatibleModel = editingConnection.providerKind === 'openai-compatible'
     ? compatibleModels[compatibleCacheKey(editingConnection)]?.find((model) => model.id === editingConnection.model)
     : undefined;
-  const editingConnectionCapabilities = editingConnection.providerKind === 'openai-compatible'
+  const editingConnectionCapabilities = editingConnection.providerKind === 'chatgpt' ? chatgptCapabilities
+    : editingConnection.providerKind === 'openai-compatible'
     ? editingCompatibleModel?.capabilities
     : isLmStudioConnection(editingConnection)
     ? lmStudioCapabilitiesForConnection(editingConnection, lmStudioModelsByConnectionId[editingConnection.id] ?? [])
@@ -2947,7 +2949,8 @@ export function useProviderConnections({
   const editingConnectionSupportedVoices = editingConnectionVoiceModels
         ?.find((model) => model.id === editingConnection.model)
         ?.supportedVoices ?? [];
-  const editingConnectionReasoning = editingConnection.providerKind === 'openai-compatible'
+  const editingConnectionReasoning = editingConnection.providerKind === 'chatgpt' ? chatgptReasoningCapabilities
+    : editingConnection.providerKind === 'openai-compatible'
     ? editingCompatibleModel?.reasoning
     : isOpenRouterConnection(editingConnection)
     ? editingConnectionVoiceModels?.find((model) => model.id === editingConnection.model)?.reasoning
@@ -2964,7 +2967,8 @@ export function useProviderConnections({
   const comfyWorkflowRepairInspection = pendingComfyWorkflowRepair?.workflowPath === editingComfyWorkflowPath
     ? pendingComfyWorkflowRepair.inspection
     : null;
-  const modelCapabilitiesSourceLabel = editingCompatibleModel && Object.keys(editingCompatibleModel.capabilities).length
+  const modelCapabilitiesSourceLabel = editingConnection.providerKind === 'chatgpt' ? 'ChatGPT'
+    : editingCompatibleModel && Object.keys(editingCompatibleModel.capabilities).length
     ? 'model metadata'
     : isLmStudioConnection(editingConnection)
     ? 'LM Studio'

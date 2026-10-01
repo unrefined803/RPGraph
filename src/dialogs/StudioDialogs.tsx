@@ -1,9 +1,10 @@
+import { chatgptReasoningEffort } from '../../shared/chatgptCapabilities.cjs';
 import { isTextGenerationConnection } from '../llm/textProvider';
 import { getAccountPassword } from '../accounts/accountSession';
 import { AccountControlsContext } from '../accounts/accountControls';
 import { UiPerformanceDiagnostics } from '../components/UiPerformanceDiagnostics';
 import { ProviderBaseUrlInput } from '../components/ProviderBaseUrlInput';
-import { ChatGPTProviderSettings } from '../components/ChatGPTProviderSettings';
+import { useChatGPTProviderSettings } from '../components/ChatGPTProviderSettings';
 import { ProviderModelSwitchIndicator } from '../components/ProviderModelSwitchIndicator';
 import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../llm/fastTaskPrompt';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
@@ -539,7 +540,7 @@ function ProviderCapabilityBadges({
   showInactive?: boolean;
   reasoningEnabled?: boolean;
 }) {
-  const badges = kinds.flatMap((kind) => {
+  const badges = kinds.filter(kind => kind !== 'tools').flatMap((kind) => {
     const active = capabilities?.[kind] === true;
     if (!active && !showInactive) {
       return [];
@@ -574,11 +575,13 @@ function ProviderPresetCapabilityBadge({
   title,
   description,
   ariaLabel,
+  active = true,
 }: {
   kind: ProviderCapabilityKind;
   title: string;
   description: string;
   ariaLabel?: string;
+  active?: boolean;
 }) {
   const id = useId();
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -597,7 +600,7 @@ function ProviderPresetCapabilityBadge({
   return (
     <>
       <span
-        className="provider-capability-badge active"
+        className={`provider-capability-badge ${active ? 'active' : 'inactive'}`}
         tabIndex={0}
         aria-label={ariaLabel || `${title}: ${description}`}
         aria-describedby={anchor ? id : undefined}
@@ -648,7 +651,7 @@ const providerPresets = [
     baseUrl: 'https://api.openai.com/v1',
     apiKey: '',
     model: '',
-    reasoningEffort: 'auto',
+    reasoningEffort: 'low',
     models: [],
     description: 'Use your eligible ChatGPT plan',
   },
@@ -743,7 +746,7 @@ const providerPresets = [
     description: 'Venice text, vision, image, and speech API',
   },
   {
-    label: 'ComfyUI Image + Voice',
+    label: 'ComfyUI',
     kind: 'comfyui',
     baseUrl: 'http://127.0.0.1:8188',
     apiKey: '',
@@ -808,14 +811,13 @@ const PRESET_CAPABILITY_INFO: Record<
 function getProviderPresetBadges(
   provider: (typeof providerPresets)[number],
 ): Array<'text' | 'vision' | 'image' | 'voice'> {
-  if (provider.providerKind === 'chatgpt') return ['text'];
+  if (provider.providerKind === 'chatgpt') return ['text', 'vision'];
   if (provider.kind === 'comfyui') {
     return ['image', 'voice'];
   }
   if (
     provider.providerKind === 'openrouter' ||
-    provider.providerKind === 'gemini' ||
-    provider.providerKind === 'venice'
+    provider.providerKind === 'gemini'
   ) {
     return ['text', 'vision', 'image', 'voice'];
   }
@@ -1364,6 +1366,13 @@ export function StudioDialogs({
   );
   const isComfyConnection = editingConnection.kind === 'comfyui';
   const isChatGPTConnection = editingConnection.providerKind === 'chatgpt';
+  const chatgptSettings = useChatGPTProviderSettings({
+    connection: editingConnection,
+    enabled: showConnections && isChatGPTConnection,
+    connectionStatus,
+    onSelectProfile: profileId => onSelectChatGPTProfile(profileId, editingConnection.id),
+    onRefresh: onRefreshChatGPTConnections,
+  });
   const chatgptModelOptions = chatgptModelsByProfileId[editingConnection.chatgptProfileId ?? ''] ?? [];
   const isImageModel = editingConnectionCapabilities?.image === true;
   const isVoiceOnlyModel =
@@ -1401,14 +1410,16 @@ export function StudioDialogs({
       /muse[-_ ]glimmer/i.test(editingConnection.model)
     );
   const museGlimmerReasoningEfforts = ['low', 'medium', 'high', 'xhigh'] as const;
-  const reasoningEfforts = isMuseGlimmerReasoning
+  const reasoningEfforts = isChatGPTConnection ? ['low', 'medium', 'high'] as const
+    : isMuseGlimmerReasoning
     ? museGlimmerReasoningEfforts
     : editingProviderKind === 'gemini' ? ['auto'] as const
     : connectionReasoningEfforts.filter((effort) =>
       (editingProviderKind === 'lm-studio' || editingProviderKind === 'ollama' || editingProviderKind === 'openai-compatible') && editingConnectionReasoning
         ? supportsReasoningEffort(effort, editingConnectionReasoning)
         : effort !== 'on');
-  const selectedReasoningEffort = isMuseGlimmerReasoning
+  const selectedReasoningEffort = isChatGPTConnection ? chatgptReasoningEffort(editingConnection.reasoningEffort)
+    : isMuseGlimmerReasoning
     ? editingConnection.reasoningEffort === 'medium' ||
       editingConnection.reasoningEffort === 'high' ||
       editingConnection.reasoningEffort === 'xhigh'
@@ -3726,7 +3737,7 @@ export function StudioDialogs({
                 </div>
                 ) : (
                 <>
-                <div className="connection-form">
+                <div className={`connection-form${isChatGPTConnection ? ' connection-form-chatgpt' : ''}`}>
                   <div className="connection-field">
                     <label htmlFor="connection-label">PRESET NAME</label>
                     <input
@@ -3763,12 +3774,7 @@ export function StudioDialogs({
                       />
                     )}
                   </div>}
-                  {isChatGPTConnection && <ChatGPTProviderSettings
-                    key={editingConnection.id}
-                    connection={editingConnection}
-                    onSelectProfile={profileId => onSelectChatGPTProfile(profileId, editingConnection.id)}
-                    onRefresh={onRefreshChatGPTConnections}
-                  />}
+                  {isChatGPTConnection && chatgptSettings.accountField}
                   {isComfyConnection ? (
                     <>
                       <div className="connection-field comfy-workflow-field">
@@ -4266,10 +4272,11 @@ export function StudioDialogs({
                               capabilities={editingConnectionCapabilities}
                               reasoningEnabled={reasoningActivation(selectedReasoningEffort, editingConnectionReasoning)}
                               kinds={
-                                editingProviderKind === 'openai-compatible'
-                                  ? (['text', 'reasoning', 'vision', 'tools', 'image', 'voice'] as const).filter((kind) => editingConnectionCapabilities?.[kind] !== undefined)
+                                isChatGPTConnection ? ['text', 'reasoning', 'vision']
+                                : editingProviderKind === 'openai-compatible'
+                                  ? (['text', 'reasoning', 'vision', 'image', 'voice'] as const).filter((kind) => editingConnectionCapabilities?.[kind] !== undefined)
                                   : lmStudioToolsAvailable || ollamaToolsAvailable
-                                  ? ['text', 'reasoning', 'vision', 'tools']
+                                  ? ['text', 'reasoning', 'vision']
                                   : llamaCppToolsAvailable
                                     ? ['text', 'vision']
                                   : editingProviderKind === 'openrouter'
@@ -4279,7 +4286,7 @@ export function StudioDialogs({
                               showInactive
                             />
                             <span>
-                              {editingConnection.model.trim()
+                              {isChatGPTConnection ? 'Text, vision and thinking' : editingConnection.model.trim()
                                 ? `Detected from ${modelCapabilitiesSourceLabel}`
                                 : 'Select a model to detect'}
                             </span>
@@ -4306,6 +4313,7 @@ export function StudioDialogs({
                           </span>
                         </div>
                       )}
+                      {isChatGPTConnection && chatgptSettings.authenticationField}
                       {!isChatGPTConnection && <div className="connection-field connection-field-api-key">
                         <label htmlFor="api-key">API KEY (OPTIONAL)</label>
                         <div className="secret-input-row">
@@ -4327,7 +4335,7 @@ export function StudioDialogs({
                           </button>
                         </div>
                       </div>}
-                      {!isChatGPTConnection && !isVoiceOnlyModel && !(editingProviderKind === 'openai-compatible' && editingConnectionCapabilities?.reasoning === false) && <div className="connection-field connection-field-reasoning">
+                      {!isVoiceOnlyModel && !(editingProviderKind === 'openai-compatible' && editingConnectionCapabilities?.reasoning === false) && <div className="connection-field connection-field-reasoning">
                         <div className="connection-field-label-row">
                           <label htmlFor="reasoning-effort">
                             {isMuseGlimmerReasoning ? 'REASONING (MUSE GLIMMER)' : 'REASONING'}
@@ -4629,13 +4637,13 @@ export function StudioDialogs({
                     </>
                   )}
                 </div>
-                <p className="connection-status">
+                {!isChatGPTConnection && <p className="connection-status">
                   {connectionStatus || (
                     isComfyConnection
                       ? 'Check the local ComfyUI server settings. Changes are saved automatically.'
                       : 'Adjust the settings, paste an API key if needed. Changes are saved automatically.'
                   )}
-                </p>
+                </p>}
                 <div className="dialog-actions">
                   <div className="dialog-action-group">
                     <button type="button" className="danger" onClick={onDeleteConnection}>
@@ -4681,6 +4689,10 @@ export function StudioDialogs({
                     const hasModelSwitch =
                       provider.kind === 'comfyui' ||
                       ['lm-studio', 'ollama', 'llama-cpp'].includes(provider.providerKind ?? '');
+                    const isHosted = ['chatgpt', 'openrouter', 'gemini', 'composite', 'venice'].includes(provider.providerKind ?? '');
+                    const hostingLabel = isHosted
+                      ? 'Online provider — models are managed remotely; automatic local model switching is not needed.'
+                      : 'Custom or local server — automatic model switching is not supported.';
                     return (
                       <button
                         type="button"
@@ -4698,19 +4710,33 @@ export function StudioDialogs({
                         <strong className="provider-preset-heading">
                           <span>{provider.label}</span>
                           <span className="provider-capability-badges">
-                            {presetBadges.map((badgeKind) => {
+                            {(['text', 'vision', 'image', 'voice'] as const).map((badgeKind) => {
                               const info = PRESET_CAPABILITY_INFO[badgeKind];
                               return (
                                 <ProviderPresetCapabilityBadge
                                   key={badgeKind}
                                   kind={badgeKind}
-                                  title={info.title}
-                                  description={info.description}
-                                  ariaLabel={info.title}
+                                  active={presetBadges.includes(badgeKind)}
+                                  title={presetBadges.includes(badgeKind) ? info.title : `${providerCapabilityLabels[badgeKind]} not supported`}
+                                  description={presetBadges.includes(badgeKind) ? info.description : 'This provider type does not support this capability.'}
                                 />
                               );
                             })}
-                            {hasModelSwitch && <ProviderModelSwitchIndicator />}
+                            {hasModelSwitch ? <ProviderModelSwitchIndicator /> : (
+                              <span className="provider-capability-badge active" title={hostingLabel} aria-label={hostingLabel} tabIndex={0}>
+                                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  {isHosted ? <>
+                                    <circle cx="8" cy="8" r="6" />
+                                    <ellipse cx="8" cy="8" rx="2.5" ry="6" />
+                                    <path d="M2 8h12" />
+                                  </> : <>
+                                    <rect x="2" y="2" width="12" height="5" rx="1" />
+                                    <rect x="2" y="9" width="12" height="5" rx="1" />
+                                    <path d="M4.5 4.5h.01M4.5 11.5h.01M8 4.5h3M8 11.5h3" />
+                                  </>}
+                                </svg>
+                              </span>
+                            )}
                           </span>
                         </strong>
                       </button>

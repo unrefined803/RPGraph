@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { ChatGPTState, ConnectionPreset } from '../types';
-import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 
-export function ChatGPTProviderSettings({ connection, onSelectProfile, onRefresh }: {
+export function useChatGPTProviderSettings({ connection, enabled, connectionStatus, onSelectProfile, onRefresh }: {
   connection: ConnectionPreset;
+  enabled: boolean;
+  connectionStatus: string;
   onSelectProfile: (profileId: string) => void;
   onRefresh: () => void;
 }) {
@@ -11,22 +12,25 @@ export function ChatGPTProviderSettings({ connection, onSelectProfile, onRefresh
   const [busy, setBusy] = useState<'sign-in' | 'sign-out' | null>(null);
   const [message, setMessage] = useState('');
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     void window.rpgraph.chatgpt.state().then(result => {
       if (active) setState(result);
     }).catch(error => { if (active) setMessage(error instanceof Error ? error.message : String(error)); });
     return () => { active = false; };
-  }, [connection.id, connection.chatgptProfileId]);
+  }, [enabled, connection.id, connection.chatgptProfileId]);
 
-  const profile = state.profiles.find(profile => profile.id === connection.chatgptProfileId);
-  async function signIn(newProfile: boolean) {
+  const profile = state.profiles.find(profile => profile.connected)
+    ?? state.profiles.find(profile => profile.id === connection.chatgptProfileId)
+    ?? state.profiles[0];
+  async function signIn() {
     setBusy('sign-in');
     setMessage('Complete sign-in in your browser.');
     try {
-      const result = await window.rpgraph.chatgpt.signIn(newProfile ? undefined : profile?.id);
+      const result = await window.rpgraph.chatgpt.signIn(profile?.id);
       setState(result);
       if (result.lastProfileId) onSelectProfile(result.lastProfileId);
-      setMessage('ChatGPT account connected.');
+      setMessage('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
       const result = await window.rpgraph.chatgpt.state().catch(() => null);
@@ -46,7 +50,7 @@ export function ChatGPTProviderSettings({ connection, onSelectProfile, onRefresh
     try {
       const result = await window.rpgraph.chatgpt.signOut(profile.id);
       setState(result);
-      setMessage(result.remoteRevocationConfirmed ? 'ChatGPT account signed out.'
+      setMessage(result.remoteRevocationConfirmed ? ''
         : 'Signed out locally. Remote revocation was not confirmed; you can disconnect this app in ChatGPT settings.');
       onRefresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
@@ -56,49 +60,35 @@ export function ChatGPTProviderSettings({ connection, onSelectProfile, onRefresh
     try { await action(); }
     catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
   };
-  return (
-    <div className="connection-field chatgpt-account-settings">
+  const accountField = (
+    <div className="connection-field">
       <label htmlFor="chatgpt-profile">CHATGPT ACCOUNT</label>
-      <NodeCustomSelect
-        id="chatgpt-profile"
-        value={connection.chatgptProfileId ?? ''}
-        disabled={!!busy || state.profiles.length === 0}
-        options={[
-          { value: '', label: state.profiles.length ? 'Select a saved account' : 'No saved accounts', disabled: true },
-          ...state.profiles.map((entry, index) => ({
-            value: entry.id,
-            label: `${entry.label} · Connection ${index + 1}${entry.connected ? '' : ' (signed out)'}`,
-          })),
-        ]}
-        onChange={profileId => {
-          onSelectProfile(profileId);
-          setMessage('');
-        }}
-      />
-      <span className="connection-field-hint">
-        {profile?.connected ? profile.sharing ? 'Using ChatGPT plan' : 'Connected. ChatGPT plan usage is not enabled.'
-          : profile?.storageLocked ? 'Saved credentials could not be unlocked. Sign in again.' : 'Connect your ChatGPT account to use your eligible plan.'}
-      </span>
-      {!state.secureStorage && <span className="connection-field-hint">
-        Secure storage is unavailable. Sign-in is kept for this app session only.
-      </span>}
-      <div className="connection-provider-actions chatgpt-account-actions">
-        {(!profile?.connected || !profile.sharing) && <button type="button" disabled={!!busy} onClick={() => void signIn(false)}>
-          {busy === 'sign-in' ? 'Signing in…' : 'Sign in with ChatGPT'}
-        </button>}
-        {state.profiles.length > 0 && <button type="button" disabled={!!busy} onClick={() => void signIn(true)}>{busy === 'sign-in' ? 'Signing in…' : 'Add account'}</button>}
-        {profile?.connected && <button type="button" className="danger" disabled={!!busy} onClick={() => void signOut()}>{busy === 'sign-out' ? 'Signing out…' : 'Sign out'}</button>}
-        <button type="button" disabled={!!busy} onClick={() => void invoke(() => window.rpgraph.chatgpt.openUsage())}>Manage usage</button>
-        {busy === 'sign-in' && <button type="button" onClick={() => void invoke(() => window.rpgraph.chatgpt.cancelSignIn())}>Cancel sign-in</button>}
-      </div>
-      {profile?.connected && profile.sharing && !profile.usageConfirmed && <div className="comfy-workflow-onboarding chatgpt-plan-confirmation" role="status">
-        <p>Eligible AI requests use your ChatGPT plan or available credits. Review app usage and limits in ChatGPT settings.</p>
-        <div className="connection-provider-actions chatgpt-account-actions">
-          <button type="button" disabled={!!busy} onClick={() => void invoke(async () => setState(await window.rpgraph.chatgpt.confirmUsage(profile.id)))}>Got it</button>
-        </div>
-      </div>}
-      {profile?.connected && <span className="connection-field-hint">Sign out disconnects all provider presets using this account.</span>}
-      {message && <span className="connection-field-hint" role="status">{message}</span>}
+      <input id="chatgpt-profile" readOnly value={profile?.connected ? profile.label : 'Not signed in'} />
     </div>
   );
+  const information = (
+    <aside className="chatgpt-account-info" aria-label="ChatGPT account information">
+      <p>Eligible AI requests count toward the connected ChatGPT account’s plan allowance or available credits. Use Manage usage to see how much this app has used and adjust its usage limits in ChatGPT settings.</p>
+      {profile?.connected && !profile.sharing && <p role="status">ChatGPT plan usage is not enabled. Sign in to authorize it.</p>}
+      {profile?.storageLocked && <p role="status">Saved credentials could not be unlocked. Sign out to reset the connection or sign in again.</p>}
+      {!state.secureStorage && <p>Secure storage is unavailable. Sign-in is kept for this app session only.</p>}
+      {message && <p role="status">{message}</p>}
+      {!message && connectionStatus && <p className="chatgpt-connection-status" role="status">{connectionStatus}</p>}
+    </aside>
+  );
+  const authenticationField = (
+    <div className="connection-field chatgpt-authentication">
+      <label>ACCOUNT CONNECTION</label>
+      <div className="connection-provider-actions chatgpt-account-actions">
+        {(!profile?.connected || !profile.sharing) && <button type="button" disabled={!!busy} onClick={() => void signIn()}>
+          {busy === 'sign-in' ? 'Signing in…' : 'Sign in with ChatGPT'}
+        </button>}
+        {profile && <button type="button" className="danger" disabled={!!busy} onClick={() => void signOut()}>{busy === 'sign-out' ? 'Signing out…' : 'Sign out'}</button>}
+        {profile?.connected && <button type="button" disabled={!!busy} onClick={() => void invoke(() => window.rpgraph.chatgpt.openUsage())}>Manage usage</button>}
+        {busy === 'sign-in' && <button type="button" onClick={() => void invoke(() => window.rpgraph.chatgpt.cancelSignIn())}>Cancel sign-in</button>}
+      </div>
+      {information}
+    </div>
+  );
+  return { accountField, authenticationField };
 }

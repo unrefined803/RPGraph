@@ -84,7 +84,7 @@ it('reuses the saved ChatGPT profile when creating another model connection', as
   await state.render().checkProviderConnectionById('provider');
   expect(state.connections[0].chatgptProfileId).toBe('saved-profile');
   const resolved = await state.render().resolveConnection();
-  expect(resolved).toMatchObject({ chatgptProfileId: 'saved-profile', model: 'selected-model', reasoningEffort: 'auto' });
+  expect(resolved).toMatchObject({ chatgptProfileId: 'saved-profile', model: 'selected-model', reasoningEffort: 'low', vision: true });
   expect(ipc.listModels).toHaveBeenCalledTimes(1);
   expect(state.render().chatgptModelsByProfileId['saved-profile'][0].name).toBe('Selected model');
 });
