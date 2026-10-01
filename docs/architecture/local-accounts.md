@@ -5,7 +5,10 @@ first-run setup, account creation, and password-verified sign-in. The Accounts
 options provide account creation, login, logout, and password-confirmed deletion.
 Switching workspaces closes the studio after confirmation to save pending work,
 then opens account selection without restarting. Account setup waits for pending
-settings writes and cancels LLM requests. Deletion removes the selected account's
+settings writes and cancels LLM requests. Workspace transitions block new file and
+settings operations and wait for active operations before changing or deleting the
+root, including pending encryption, native file dialogs, and library reloads.
+Deletion removes the selected account's
 complete directory; exports in the shared NPC folder or external locations remain.
 
 The existing `userData/files`, `characters`, and `npc-characters` directories remain
@@ -19,6 +22,9 @@ the same character ID. Source tiers and storage identifiers keep identical filen
 in different folders distinct. Bundled content is shared source data
 and is imported independently into each workspace. Native file selection starts
 inside the selected workspace; explicitly selected external files remain supported.
+Saving a Storybook character while switching it to an NPC updates an existing
+account NPC first, then an existing global NPC. New NPC files use the configured
+default export destination.
 
 `electron/localAccounts.cjs` validates portable usernames, rejects path traversal,
 normalizes names to lowercase, and verifies passwords using scrypt with random salts

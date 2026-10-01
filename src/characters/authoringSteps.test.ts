@@ -1,12 +1,19 @@
 import { buildCharacterRegistry } from './registry';
 import { describe, expect, it } from 'vitest';
 import { newAssistantCharacter, parseCharacterAssistantResult, runCharacterAuthoringSteps } from './assistant';
-import { characterProvenanceStages, characterStorageBadge, effectiveLibraryEntry, visibleLibraryEntries } from './librarySummary';
+import { characterProvenanceStages, characterStorageBadge, effectiveLibraryEntry, npcSaveDestination, visibleLibraryEntries } from './librarySummary';
 import type { NpcLibraryEntry } from './npcLibrary';
 
 const response = (patch: unknown[], extra = {}) => JSON.stringify({ reply: 'Done.', patch, ...extra });
-const entry = (tier: 'user' | 'bundled' | 'saved-storybook', id = 'same', fileName = `${tier}.json`): NpcLibraryEntry => ({
+const entry = (tier: 'user' | 'bundled' | 'saved-storybook' | 'account', id = 'same', fileName = `${tier}.json`): NpcLibraryEntry => ({
   tier, fileName, source: `${tier}:${fileName}`, character: { ...newAssistantCharacter(), id, name: 'Alex' },
+});
+
+it('saves NPC revisions to the existing writable tier or the preferred folder', () => {
+  expect(npcSaveDestination([entry('bundled')], 'same', 'account-npc-characters')).toBe('account-npc-characters');
+  expect(npcSaveDestination([entry('user')], 'same', 'account-npc-characters')).toBe('npc-characters');
+  expect(npcSaveDestination([entry('user'), entry('account')], 'same', 'npc-characters')).toBe('account-npc-characters');
+  expect(npcSaveDestination([entry('account'), entry('account', 'same', 'duplicate.json')], 'same', 'npc-characters')).toBe('account-npc-characters');
 });
 
 describe('edited built-in library entries', () => {

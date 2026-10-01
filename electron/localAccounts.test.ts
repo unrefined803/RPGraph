@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile, symlink } from 'node:
 import path from 'node:path';
 import os from 'node:os';
 import { createLocalAccounts } from './localAccounts.cjs';
+import { createWorkspaceOperations } from './workspaceOperations.cjs';
 import { runInNewContext } from 'node:vm';
 
 const temporary: string[] = [];
@@ -131,6 +132,7 @@ it.each(['accounts:prepare', 'accounts:delete'])('%s releases cached characters 
   const context = {
     ipcMain: { handle: (name: string, handler: typeof handlers[string]) => { handlers[name] = handler; } },
     localAccounts,
+    workspaceOperations: createWorkspaceOperations(),
     settingsWriteQueue: Promise.resolve(),
     abortActiveLlmRequests: vi.fn(),
     approvedFilePaths: new Set(['private-file']),
@@ -138,13 +140,35 @@ it.each(['accounts:prepare', 'accounts:delete'])('%s releases cached characters 
     workspaceProtection: { activate: vi.fn() },
     npcLibraryService: { decryptedCharacters: ['private-character'] } as unknown,
   };
-  runInNewContext(main.slice(main.indexOf("ipcMain.handle('accounts:list'"), main.indexOf('\nfunction normalizedWorkflowPath')), context);
+  const wrappers = main.slice(main.indexOf('function handleWorkspace('), main.indexOf('function makeNpcLibraryService('));
+  runInNewContext(wrappers + main.slice(main.indexOf("ipcMain.handle('accounts:list'"), main.indexOf('\nfunction normalizedWorkflowPath')), context);
 
-  await handlers[channel]({}, { password: 'secret' });
+  let finish!: () => void;
+  const originalRoot = localAccounts.root;
+  const delayedWrite = vi.fn(async () => {
+    await new Promise<void>(resolve => { finish = resolve; });
+    expect(localAccounts.root).toBe(originalRoot);
+    await writeFile(path.join(localAccounts.root, 'files', 'pending.json'), 'pending data');
+    context.approvedFilePaths.add('completed-write');
+  });
+  runInNewContext("handleWorkspace('test:write', delayedWrite)", { ...context, delayedWrite });
+  const write = handlers['test:write']();
+  await vi.waitFor(() => expect(delayedWrite).toHaveBeenCalledOnce());
+  const transition = handlers[channel]({}, { password: 'secret' });
+  await expect(handlers['test:write']()).rejects.toThrow('workspace change');
+  expect(localAccounts.active).toBe(true);
+  finish();
+  await write;
+  await transition;
 
   expect(localAccounts.password).toBe('');
   expect(context.npcLibraryService).toBeUndefined();
   expect(context.workspaceProtection.activate).toHaveBeenCalledWith('');
   expect(context.approvedFilePaths.size).toBe(0);
   expect(context.approvedWorkflowPaths.size).toBe(0);
+  if (channel === 'accounts:delete') {
+    await expect(readFile(path.join(originalRoot, 'files', 'pending.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+  } else {
+    expect(await readFile(path.join(originalRoot, 'files', 'pending.json'), 'utf8')).toBe('pending data');
+  }
 });

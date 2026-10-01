@@ -70,8 +70,8 @@ export function AppEntry() {
     setBusy(true);
     setError('');
     try {
-      await window.rpgraph?.accounts?.useLocal();
       if (!saveAccountFeaturePreference('disabled')) throw new Error('Unable to remember your choice. Check local storage permissions.');
+      await window.rpgraph?.accounts?.useLocal();
       setAccountSession('');
       setMode('ready');
     } catch (error) { setError(error instanceof Error ? error.message : String(error)); }

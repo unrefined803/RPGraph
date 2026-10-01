@@ -1,5 +1,6 @@
 import { openingHistoryNpcParticipantsFromNodes } from './characters/npcParticipantRuntime';
 import { getAccountPassword } from './accounts/accountSession';
+import { npcSaveDestination } from './characters/librarySummary';
 import { useUserQuestion } from './app/useUserQuestion';
 import { imageModelContext } from './images/loraCompatibility';
 import { supportsImageGenerationReferences } from './images/providers';
@@ -1618,17 +1619,20 @@ function App() {
     currentLibraryFiles: () => npcLibrary.snapshot?.files ?? [],
     reloadLibrary: () => npcLibrary.reload(),
     workspacePassword: () => workspacePasswordRef.current,
+    preferredNpcDestination: () => getAccountPassword() ? defaultCharacterExportDestination : 'npc-characters',
     setWorkspacePassword,
     lifecycleBusy: () => !!activeRunRef.current || lifecycleRunningRef.current,
     saveNpcCharacter: async (character, overwrite) => {
       if (!window.rpgraph?.saveCharacter) throw new Error('Saving requires the desktop application.');
       const library = await window.rpgraph.reloadNpcLibrary();
-      const matches = library.entries.filter((entry) => entry.tier === 'user' && entry.character.id === character.id);
+      const destination = npcSaveDestination(library.entries, character.id,
+        getAccountPassword() ? defaultCharacterExportDestination : 'npc-characters');
+      const matches = library.entries.filter((entry) => entry.tier === (destination === 'account-npc-characters' ? 'account' : 'user') && entry.character.id === character.id);
       if (matches.length > 1) throw new Error('Multiple local NPC files use this identity. Resolve the duplicate files first.');
       if (matches.length && !overwrite) throw new Error('A local NPC with this identity now exists. Reopen Remove to review the overwrite option.');
       const name = matches[0]?.fileName.replace(/\.json$/i, '') ?? character.name;
       const password = getAccountPassword() || workspacePasswordRef.current;
-      const result = await window.rpgraph.saveCharacter(name, createCharacterContainer(character, true), password ? 'encrypted' : 'plain', password, !!matches.length && overwrite, 'npc-characters');
+      const result = await window.rpgraph.saveCharacter(name, createCharacterContainer(character, true), password ? 'encrypted' : 'plain', password, !!matches.length && overwrite, destination);
       if (result.conflict) throw new Error('A different NPC file already uses this filename. Save through Export Character with a unique filename first.');
       await npcLibrary.reload();
     },

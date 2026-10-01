@@ -85,6 +85,17 @@ function harness() {
 
 beforeEach(() => { hooks.slots = []; hooks.index = 0; });
 
+it('offers overwrite for an account NPC instead of saving a global copy', () => {
+  const state = harness();
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(normalizeRpStorybook({ characters: [fixture.character] }));
+  const character = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0];
+  state.library.push({ tier: 'user', source: 'global.json', character: { ...character, description: 'Global revision' } },
+    { tier: 'account', source: 'account.json', character: { ...character, description: 'Account revision' } });
+  const info = state.render().removalInfo('book', fixture.character.id);
+  expect(info.matchesLibrary).toBe(false);
+  expect(info.localFileName).toBe('npc.json');
+});
+
 it('replaces the previous game password after automatically opening an account Storybook', async () => {
   const state = harness();
   setAccountSession('account-secret');

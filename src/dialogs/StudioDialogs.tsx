@@ -2240,7 +2240,7 @@ export function StudioDialogs({
                       <div className="account-options-card-copy">
                         <span className="account-options-eyebrow">CHARACTER EXPORTS</span>
                         <h4>Default export location</h4>
-                        <p>This only preselects a destination when a character export window opens. You can still choose another location for each export.</p>
+                        <p>Used for new character exports and new NPC files saved from a Storybook. Existing NPC files stay in their current folder. You can choose another location in each export window.</p>
                       </div>
                       <div className="option-field">
                         <span>DEFAULT LOCATION</span>

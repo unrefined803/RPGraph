@@ -223,6 +223,19 @@ if (process.platform === 'win32') {
 
 const localAccounts = require('./localAccounts.cjs').createLocalAccounts(app.getPath('userData'));
 let npcLibraryService;
+const workspaceOperations = require('./workspaceOperations.cjs').createWorkspaceOperations();
+
+function handleWorkspace(channel, handler) {
+  ipcMain.handle(channel, (...args) => workspaceOperations.run(() => {
+    // Keep the selected root and path approvals stable for the complete operation.
+    localAccounts.root;
+    return handler(...args);
+  }));
+}
+
+function handleAccountTransition(channel, handler) {
+  ipcMain.handle(channel, (...args) => workspaceOperations.transition(() => handler(...args)));
+}
 
 function makeNpcLibraryService(root) {
   return createNpcLibraryService({
@@ -254,7 +267,7 @@ async function initializeAccountWorkspace() {
 }
 
 ipcMain.handle('accounts:list', () => localAccounts.list());
-ipcMain.handle('accounts:prepare', async () => {
+handleAccountTransition('accounts:prepare', async () => {
   abortActiveLlmRequests('account-setup');
   await settingsWriteQueue.catch(() => {});
   localAccounts.prepare();
@@ -263,28 +276,28 @@ ipcMain.handle('accounts:prepare', async () => {
   workspaceProtection.activate('');
   npcLibraryService = undefined;
 });
-ipcMain.handle('accounts:create', async (_event, request) => {
+handleAccountTransition('accounts:create', async (_event, request) => {
   const account = await localAccounts.create(request?.username, request?.password);
   await initializeAccountWorkspace();
   return account;
 });
-ipcMain.handle('accounts:unlock', async (_event, request) => {
+handleAccountTransition('accounts:unlock', async (_event, request) => {
   const account = await localAccounts.unlock(request?.username, request?.password);
   await initializeAccountWorkspace();
   return account;
 });
-ipcMain.handle('accounts:local', async () => {
+handleAccountTransition('accounts:local', async () => {
   await localAccounts.useLocal();
   await initializeAccountWorkspace();
 });
-ipcMain.handle('accounts:open-folder', async () => {
+handleWorkspace('accounts:open-folder', async () => {
   if (!localAccounts.active) throw new Error('Sign in to open an account folder.');
   const directory = localAccounts.root;
   const error = await shell.openPath(directory);
   if (error) throw new Error(`Unable to open the account folder: ${error}`);
   return { path: directory };
 });
-ipcMain.handle('accounts:delete', async (_event, request) => {
+handleAccountTransition('accounts:delete', async (_event, request) => {
   abortActiveLlmRequests('account-delete');
   await settingsWriteQueue.catch(() => {});
   const result = await localAccounts.delete(request?.password);
@@ -5344,7 +5357,7 @@ ipcMain.handle('system:resource-stats', async () => ({
   updatedAt: new Date().toISOString(),
 }));
 
-ipcMain.handle('file:list', async () => {
+handleWorkspace('file:list', async () => {
   const files = await listedFilesInDirectory(filesDirectory(), 'files');
   return files.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
@@ -5358,24 +5371,24 @@ ipcMain.on('character:confirm-v3-migration', (event, summary) => {
   }) === 0;
 });
 
-ipcMain.handle('character:list', async () => {
+handleWorkspace('character:list', async () => {
   const files = await listedFilesInDirectory(charactersDirectory(), 'characters');
   return files
     .filter((file) => file.type === 'character-card')
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
-ipcMain.handle('npc-library:get', async () => npcLibraryService.current());
+handleWorkspace('npc-library:get', async () => npcLibraryService.current());
 
-ipcMain.handle('npc-library:reload', async () => npcLibraryService.reload());
-ipcMain.handle('workspace:protection', async (_event, password) => {
+handleWorkspace('npc-library:reload', async () => npcLibraryService.reload());
+handleWorkspace('workspace:protection', async (_event, password) => {
   workspaceProtection.activate(localAccounts.active ? '' : password);
   return npcLibraryService.setGamePassword(password || localAccounts.password);
 });
 
-ipcMain.handle('npc-library:open-folder', async () => npcLibraryService.openUserDirectory());
+handleWorkspace('npc-library:open-folder', async () => npcLibraryService.openUserDirectory());
 
-ipcMain.handle('workflow:save-named', async (_event, request) => {
+handleWorkspace('workflow:save-named', async (_event, request) => {
   workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
@@ -5410,7 +5423,7 @@ ipcMain.handle('workflow:save-named', async (_event, request) => {
   return { fileName, name: baseName, filePath };
 });
 
-ipcMain.handle('storybook:save', async (_event, request) => {
+handleWorkspace('storybook:save', async (_event, request) => {
   workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
@@ -5456,7 +5469,7 @@ ipcMain.handle('character:detect-face', async (_event, image) => {
   return { faces: result.faces, crop: result.crop };
 });
 
-ipcMain.handle('character:save', async (_event, request) => {
+handleWorkspace('character:save', async (_event, request) => {
   workspaceProtection.require(request);
   const destination = request?.destination ?? 'characters';
   if (destination !== 'characters' && destination !== 'npc-characters' && destination !== 'account-npc-characters') {
@@ -5506,7 +5519,7 @@ ipcMain.handle('character:save', async (_event, request) => {
   return { fileName, name: baseName, filePath };
 });
 
-ipcMain.handle('file:save-to-path', async (_event, request) => {
+handleWorkspace('file:save-to-path', async (_event, request) => {
   workspaceProtection.require(request);
   const kind = request?.kind;
   const protection = request?.protection;
@@ -5645,7 +5658,7 @@ ipcMain.handle('json-file:load', async (_event, options) => {
   return { canceled: false, fileName: path.basename(filePath), contents };
 });
 
-ipcMain.handle('workflow:load-default', async () => {
+handleWorkspace('workflow:load-default', async () => {
   const restored = await restoreDefaultWorkflowFile();
   const contents = await fs.readFile(restored.filePath, 'utf8');
   return {
@@ -5655,9 +5668,9 @@ ipcMain.handle('workflow:load-default', async () => {
   };
 });
 
-ipcMain.handle('defaults:restore-files', async () => restoreMissingBundledDefaultFiles());
+handleWorkspace('defaults:restore-files', async () => restoreMissingBundledDefaultFiles());
 
-ipcMain.handle('workflow:load-startup', async () => {
+handleWorkspace('workflow:load-startup', async () => {
   try {
     await importMissingBundledDefaultContent();
   } catch (error) {
@@ -5699,13 +5712,13 @@ ipcMain.handle('workflow:load-startup', async () => {
   return { ...loaded, workflow: loaded.value };
 });
 
-ipcMain.handle('workflow:reload', async (_event, filePath) => {
+handleWorkspace('workflow:reload', async (_event, filePath) => {
   const validatedPath = validateWorkflowPath(filePath);
   const contents = await fs.readFile(validatedPath, 'utf8');
   return { filePath: validatedPath, workflow: JSON.parse(contents) };
 });
 
-ipcMain.handle('workflow:save-current', async (_event, request) => {
+handleWorkspace('workflow:save-current', async (_event, request) => {
   workspaceProtection.require({ protection: 'plain' });
   const validatedPath = validateWorkflowPath(request?.filePath);
   await assertOverwriteType(validatedPath, 'workflow');
@@ -5714,7 +5727,7 @@ ipcMain.handle('workflow:save-current', async (_event, request) => {
   return { filePath: validatedPath };
 });
 
-ipcMain.handle('settings:load', async () => {
+handleWorkspace('settings:load', async () => {
   const filePath = settingsFilePath();
   try {
     const contents = await fs.readFile(filePath, 'utf8');
@@ -5738,7 +5751,7 @@ ipcMain.handle('settings:load', async () => {
   }
 });
 
-ipcMain.handle('settings:save', async (_event, settings) => {
+handleWorkspace('settings:save', async (_event, settings) => {
   const filePath = settingsFilePath();
   settingsWriteQueue = settingsWriteQueue.catch(() => {}).then(async () => {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -5751,7 +5764,7 @@ ipcMain.handle('settings:save', async (_event, settings) => {
   };
 });
 
-ipcMain.handle('session:save', async (_event, request) => {
+handleWorkspace('session:save', async (_event, request) => {
   workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
@@ -5876,7 +5889,7 @@ ipcMain.handle('audio:select', async () => {
   };
 });
 
-ipcMain.handle('file:select', async () => {
+handleWorkspace('file:select', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open RPGraph File',
     defaultPath: filesDirectory(),
@@ -5905,7 +5918,7 @@ ipcMain.handle('file:select', async () => {
   };
 });
 
-ipcMain.handle('character:select', async () => {
+handleWorkspace('character:select', async () => {
   await fs.mkdir(charactersDirectory(), { recursive: true });
   const result = await dialog.showOpenDialog({
     title: 'Open RPGraph Character Card',
@@ -5951,9 +5964,9 @@ async function loadStoredFileRequest(request) {
   };
 }
 
-ipcMain.handle('file:load', async (_event, request) => loadStoredFileRequest(request));
+handleWorkspace('file:load', async (_event, request) => loadStoredFileRequest(request));
 
-ipcMain.handle('file:try-load', async (_event, request) => {
+handleWorkspace('file:try-load', async (_event, request) => {
   try {
     return await loadStoredFileRequest(request);
   } catch (error) {
@@ -5962,7 +5975,7 @@ ipcMain.handle('file:try-load', async (_event, request) => {
   }
 });
 
-ipcMain.handle('session:save-current', async (_event, request) => {
+handleWorkspace('session:save-current', async (_event, request) => {
   workspaceProtection.require(request);
   const filePath = validateFilePath(request.filePath);
   await assertOverwriteType(filePath, 'session');
@@ -5994,9 +6007,9 @@ async function loadFilePathRequest(request) {
   };
 }
 
-ipcMain.handle('file:load-file', async (_event, request) => loadFilePathRequest(request));
+handleWorkspace('file:load-file', async (_event, request) => loadFilePathRequest(request));
 
-ipcMain.handle('file:try-load-file', async (_event, request) => {
+handleWorkspace('file:try-load-file', async (_event, request) => {
   try {
     return await loadFilePathRequest(request);
   } catch (error) {
@@ -6005,7 +6018,7 @@ ipcMain.handle('file:try-load-file', async (_event, request) => {
   }
 });
 
-ipcMain.handle('file:delete', async (_event, request) => {
+handleWorkspace('file:delete', async (_event, request) => {
   const validatedFileName = validatedStoredFileName(request.fileName);
   try {
     await fs.unlink(path.join(storedFileDirectory(request.storage), validatedFileName));

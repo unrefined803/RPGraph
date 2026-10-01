@@ -1,4 +1,4 @@
-import { effectiveLibraryEntry } from '../characters/librarySummary';
+import { effectiveLibraryEntry, npcSaveDestination } from '../characters/librarySummary';
 import { getAccountPassword } from '../accounts/accountSession';
 import { characterUsageReasons, characterRemovalInfo, characterStoryTextWarnings, storybookWithRetiredCharacter } from '../characters/lifecycle';
 import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
@@ -117,6 +117,7 @@ type UseStorybookActionsOptions = {
   currentLibraryFiles?: () => NpcLibraryFileSummary[];
   reloadLibrary?: () => Promise<NpcLibrarySnapshot | undefined>;
   workspacePassword?: () => string;
+  preferredNpcDestination?: () => 'npc-characters' | 'account-npc-characters';
   setWorkspacePassword?: (password: string) => void;
   lifecycleBusy?: () => boolean;
   saveNpcCharacter?: (character: RpStorybook['characters'][number], overwrite: boolean) => Promise<void>;
@@ -157,7 +158,7 @@ export function useStorybookActions({
   turnsRef,
   turnCheckpointsRef,
   currentNpcParticipants,
-  restoreNpcParticipants, currentLibraryEntries, currentLibraryFiles, reloadLibrary, workspacePassword, setWorkspacePassword, lifecycleBusy, saveNpcCharacter, commitLifecycleNodes,
+  restoreNpcParticipants, currentLibraryEntries, currentLibraryFiles, reloadLibrary, workspacePassword, preferredNpcDestination, setWorkspacePassword, lifecycleBusy, saveNpcCharacter, commitLifecycleNodes,
   currentCharacterRegistry,
   characterRegistryForStorybook,
   currentTimelineMessages,
@@ -538,7 +539,8 @@ export function useStorybookActions({
     if (!character) throw new Error('The character is no longer in this Storybook.');
     const effective = currentCharacterRegistry().characters.find((entry) => entry.character.id === characterId);
     const local = (currentLibraryEntries?.() ?? []).filter((entry) => entry.character.id === characterId);
-    const users = local.filter((entry) => entry.tier === 'user');
+    const destination = npcSaveDestination(local, characterId, preferredNpcDestination?.() ?? 'npc-characters');
+    const users = local.filter((entry) => entry.tier === (destination === 'account-npc-characters' ? 'account' : 'user'));
     const library = users.length > 1 ? undefined : effectiveLibraryEntry(local, characterId);
     const history = [currentTimelineMessages(), turnsRef.current,
       nodesRef.current.flatMap<unknown>((entry) => isStorybookSourceNode(entry) && entry.data.storybookJson

@@ -102,6 +102,14 @@ export function effectiveLibraryEntry<T extends import('./npcLibrary').NpcLibrar
   }
 }
 
+/** Update the existing writable tier before using the preferred export destination. */
+export function npcSaveDestination(entries: import('./npcLibrary').NpcLibraryEntry[], characterId: string,
+  preferred: 'npc-characters' | 'account-npc-characters') {
+  if (entries.some((entry) => entry.character.id === characterId && entry.tier === 'account')) return 'account-npc-characters';
+  if (entries.some((entry) => entry.character.id === characterId && entry.tier === 'user')) return 'npc-characters';
+  return preferred;
+}
+
 export type CharacterProvenanceStage = { label: string; title: string };
 
 /** Ordered resolution layers for the compact NPC Library provenance chain. */

@@ -117,6 +117,19 @@ it('does not close the main-process workspace when saving the preference fails',
   expect(getAccountPassword()).toBe('secret');
 });
 
+it('does not select the local workspace if remembering the startup choice fails', async () => {
+  const state = harness(null, []);
+  await vi.waitFor(() => expect(state.login().mode).toBe('setup'));
+  state.setItem.mockImplementation(() => { throw new Error('Storage unavailable'); });
+  state.login().onContinueWithoutAccount();
+  await vi.waitFor(() => expect(state.login().error).toContain('Unable to remember'));
+  expect(state.accounts.useLocal).not.toHaveBeenCalled();
+  state.login().onCreateAccount();
+  state.login().onSubmit('alice', 'secret');
+  await vi.waitFor(() => state.controls());
+  expect(state.accounts.create).toHaveBeenCalledWith('alice', 'secret');
+});
+
 it('keeps the active account after a rejected deletion and closes it after success', async () => {
   const state = harness('disabled');
   await vi.waitFor(() => state.controls());
