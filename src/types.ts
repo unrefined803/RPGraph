@@ -249,6 +249,7 @@ export type CharacterStatsTimelineEntry = {
 
 export type LlmCallStats = {
   inputTokens?: number;
+  cachedInputTokens?: number;
   outputTokens?: number;
   reasoningTokens?: number;
   totalTokens?: number;

@@ -2249,7 +2249,7 @@ function usageReasoningTokens(usage) {
   );
 }
 
-function llmStatsFromUsage(usage, durationMs) {
+function llmStatsFromUsage(usage, durationMs, includeCachedInput = false) {
   const inputTokens = firstFiniteNumber(usage?.prompt_tokens, usage?.input_tokens, usage?.promptTokenCount);
   const rawOutputTokens = firstFiniteNumber(
     usage?.completion_tokens,
@@ -2270,6 +2270,9 @@ function llmStatsFromUsage(usage, durationMs) {
         : undefined;
   return {
     inputTokens,
+    ...(includeCachedInput && Number.isSafeInteger(usage?.input_tokens_details?.cached_tokens) &&
+      usage.input_tokens_details.cached_tokens >= 0
+      ? { cachedInputTokens: usage.input_tokens_details.cached_tokens } : {}),
     outputTokens,
     reasoningTokens: usageReasoningTokens(usage),
     totalTokens,
@@ -4689,7 +4692,7 @@ handleWorkspace('llm:chat-completion', async (_event, request) => {
   try {
     if (request.connection?.providerKind === 'chatgpt') {
       const result = await chatgptChat(chatgptAuth, localAccounts.root, request, abort.signal);
-      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)) };
+      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt), true) };
     }
     await freeComfyMemoryForLocalLlm(request.connection);
     await ensureLlamaCppModelLoaded(request.connection, abort);
@@ -4859,7 +4862,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
     if (request.connection?.providerKind === 'chatgpt') {
       const result = await chatgptChat(chatgptAuth, localAccounts.root, request, abort.signal, text => textBatch.push(text));
       sendFinalReasoningTokens(result.usage);
-      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)) };
+      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt), true) };
     }
     await freeComfyMemoryForLocalLlm(request.connection);
     await ensureLlamaCppModelLoaded(request.connection, abort);

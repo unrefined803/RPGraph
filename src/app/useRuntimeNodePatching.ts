@@ -161,6 +161,7 @@ export function useRuntimeNodePatching({
           nodeLabel: node?.data.label ?? nodeId,
           label,
           inputTokens: stats.inputTokens,
+          cachedInputTokens: stats.cachedInputTokens,
           outputTokens: stats.outputTokens,
           reasoningTokens: stats.reasoningTokens,
           totalTokens: stats.totalTokens,

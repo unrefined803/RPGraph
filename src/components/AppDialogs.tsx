@@ -152,6 +152,7 @@ export type RunLlmCallReport = {
   nodeLabel: string;
   label: string;
   inputTokens?: number;
+  cachedInputTokens?: number;
   outputTokens?: number;
   reasoningTokens?: number;
   totalTokens?: number;
@@ -186,6 +187,8 @@ function runLlmReportTotals(report: RunLlmReport) {
   return report.calls.reduce(
     (totals, call) => ({
       inputTokens: totals.inputTokens + (call.inputTokens ?? 0),
+      cachedInputTokens: totals.cachedInputTokens + (call.cachedInputTokens ?? 0),
+      hasCachedInputTokens: totals.hasCachedInputTokens || call.cachedInputTokens !== undefined,
       outputTokens: totals.outputTokens + (call.outputTokens ?? 0),
       reasoningTokens: totals.reasoningTokens + (call.reasoningTokens ?? 0),
       hasReasoningTokens: totals.hasReasoningTokens || call.reasoningTokens !== undefined,
@@ -194,6 +197,8 @@ function runLlmReportTotals(report: RunLlmReport) {
     }),
     {
       inputTokens: 0,
+      cachedInputTokens: 0,
+      hasCachedInputTokens: false,
       outputTokens: 0,
       reasoningTokens: 0,
       hasReasoningTokens: false,
@@ -254,6 +259,12 @@ export function RunLlmReportDialog({
             </span>
           </div>
           <div className="run-llm-card-row">
+            <span className="run-llm-card-label" title="Included in input tokens; reported calls only.">Cached Input</span>
+            <span className="run-llm-card-value font-mono">
+              {totals ? tokenCell(totals.hasCachedInputTokens ? totals.cachedInputTokens : undefined) : '-'}
+            </span>
+          </div>
+          <div className="run-llm-card-row">
             <span className="run-llm-card-label">Output Tokens</span>
             <span className="run-llm-card-value font-mono">
               {totals ? tokenCell(totals.outputTokens) : '-'}
@@ -289,7 +300,7 @@ export function RunLlmReportDialog({
           <div>
             <h2 id="run-llm-report-title">LLM Runtime</h2>
             <p>
-              Overview and call history comparison.
+              Overview and call history comparison. Cached input is included in input tokens; cache totals cover reported calls only.
             </p>
           </div>
           <button className="close-button" type="button" onClick={onClose}>
@@ -321,6 +332,7 @@ export function RunLlmReportDialog({
                     <th>Node</th>
                     <th>Call</th>
                     <th>In</th>
+                    <th title="Cached input tokens, included in In">Cached In</th>
                     <th>Out</th>
                     <th>RSN</th>
                     <th>Total</th>
@@ -334,6 +346,7 @@ export function RunLlmReportDialog({
                       <td title={call.nodeId}>{call.nodeLabel}</td>
                       <td>{call.label}</td>
                       <td>{tokenCell(call.inputTokens)}</td>
+                      <td>{tokenCell(call.cachedInputTokens)}</td>
                       <td>{tokenCell(call.outputTokens)}</td>
                       <td>{tokenCell(call.reasoningTokens)}</td>
                       <td>{tokenCell(callTotalTokens(call))}</td>
@@ -347,6 +360,7 @@ export function RunLlmReportDialog({
                     <td>Total</td>
                     <td></td>
                     <td>{currentTotals.inputTokens.toLocaleString()}</td>
+                    <td>{tokenCell(currentTotals.hasCachedInputTokens ? currentTotals.cachedInputTokens : undefined)}</td>
                     <td>{currentTotals.outputTokens.toLocaleString()}</td>
                     <td>{tokenCell(currentTotals.hasReasoningTokens ? currentTotals.reasoningTokens : undefined)}</td>
                     <td>{currentTotals.totalTokens.toLocaleString()}</td>

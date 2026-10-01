@@ -95,7 +95,10 @@ ChatGPT connections to this adapter. Non-streaming callers collect the internal
 stream; streaming callers receive the existing accumulated-text callback format.
 Success requires `response.completed` and nonempty text. Failed, incomplete,
 cancelled and truncated streams fail the call. Reported usage feeds the existing
-token metrics. The built-in assistant and ComfyUI workflow repair use the same
+token metrics. ChatGPT cached input tokens are retained in call statistics and
+run reports, and displayed only in LLM Runtime summaries and call details. Missing
+cache usage remains unknown; a reported zero means no cache hit. Cached tokens
+are a subset of input tokens and are not added to totals again. The built-in assistant and ComfyUI workflow repair use the same
 adapter. Error codes, HTTP status, parameter and request IDs survive structured
 IPC errors. No automatic fallback to another provider or billing path occurs.
 

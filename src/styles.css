@@ -14668,7 +14668,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .run-llm-report-dialog {
-  width: min(920px, calc(100vw - 40px));
+  width: min(1080px, calc(100vw - 40px));
   max-height: min(720px, calc(100vh - 40px));
   display: flex;
   flex-direction: column;
@@ -15114,7 +15114,9 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .run-llm-report-table th:nth-child(8),
-.run-llm-report-table td:nth-child(8) {
+.run-llm-report-table td:nth-child(8),
+.run-llm-report-table th:nth-child(9),
+.run-llm-report-table td:nth-child(9) {
   width: 82px;
   text-align: right;
   font-family: monospace;

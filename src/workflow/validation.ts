@@ -157,6 +157,8 @@ function isLlmCallStatsArray(value: unknown) {
         typeof call.durationMs === 'number' &&
         Number.isFinite(call.durationMs) &&
         isOptionalFiniteNumber(call.inputTokens) &&
+        (call.cachedInputTokens === undefined ||
+          (Number.isSafeInteger(call.cachedInputTokens) && (call.cachedInputTokens as number) >= 0)) &&
         isOptionalFiniteNumber(call.outputTokens) &&
         isOptionalFiniteNumber(call.reasoningTokens) &&
         isOptionalFiniteNumber(call.totalTokens),
