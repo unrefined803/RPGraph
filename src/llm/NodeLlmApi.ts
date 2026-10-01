@@ -128,7 +128,7 @@ export class NodeLlmApi {
       if (signal?.aborted) throw new Error('The LLM request was cancelled.');
       const requestConnection = {
         ...connection,
-        reasoningEffort: isGeminiConnection(connection) ? 'auto' as const
+        reasoningEffort: isGeminiConnection(connection) || connection.providerKind === 'chatgpt' ? 'auto' as const
           : isOpenRouterConnection(connection) || isOllamaConnection(connection) ||
           (isLmStudioConnection(connection) && !!connection.reasoningCapabilities)
           ? request.fastTask

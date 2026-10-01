@@ -52,6 +52,8 @@ export function ModelIdPicker({
   placeholder = 'Type a model ID or load models',
   favoritesStorageKey = defaultFavoriteModelsStorageKey,
   disabled = false,
+  optionLabels,
+  selectionOnly = false,
 }: {
   id?: string;
   value: string;
@@ -62,6 +64,8 @@ export function ModelIdPicker({
   placeholder?: string;
   favoritesStorageKey?: string;
   disabled?: boolean;
+  optionLabels?: Record<string, string>;
+  selectionOnly?: boolean;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -80,7 +84,7 @@ export function ModelIdPicker({
   const normalizedOptions = Array.from(
     new Set(options.map((model) => model.trim()).filter((model) => model.length > 0)),
   );
-  const query = value.trim().toLowerCase();
+  const query = selectionOnly ? '' : value.trim().toLowerCase();
   const favoriteOptions = favoriteModels.filter((model) => normalizedOptions.includes(model));
   const matchedOptions = normalizedOptions.filter(
     (model) => !favoriteModelSet.has(model) && query.length > 0 && model.toLowerCase().includes(query),
@@ -223,7 +227,7 @@ export function ModelIdPicker({
                       setIsOpen(false);
                     }}
                   >
-                    {model}
+                    {optionLabels?.[model] ?? model}
                   </button>
                 </div>
               );
@@ -244,7 +248,8 @@ export function ModelIdPicker({
       <div className="model-id-input-row">
         <input
           id={id}
-          value={value}
+          value={selectionOnly ? optionLabels?.[value] ?? value : value}
+          readOnly={selectionOnly}
           onChange={(event) => {
             onChange(event.target.value);
             openOptions();

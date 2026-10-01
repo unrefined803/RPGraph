@@ -21046,15 +21046,15 @@ button.message-timeline-row.phone:focus-visible {
 .provider-presets {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   padding: 0;
 }
 
 .provider-presets button {
-  display: grid;
-  gap: 5px;
-  min-height: 74px;
-  padding: 12px;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
   text-align: left;
   border: 1px solid #2c374d;
   border-radius: 8px;
@@ -21073,6 +21073,7 @@ button.message-timeline-row.phone:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  width: 100%;
 }
 
 .provider-presets .provider-model-switch {
@@ -21150,12 +21151,33 @@ button.message-timeline-row.phone:focus-visible {
 
 .provider-presets strong {
   font-size: 13px;
+  font-weight: 600;
 }
 
-.provider-presets span {
-  color: #8794b1;
-  font-size: 11px;
-  line-height: 1.35;
+.provider-preset-heading > span:first-child {
+  color: #dbe4f7;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.connection-field.chatgpt-account-settings {
+  grid-column: 1 / -1;
+}
+
+.connection-provider-actions.chatgpt-account-actions {
+  justify-content: flex-start;
+}
+
+.chatgpt-account-actions button:focus-visible {
+  outline: 2px solid #7eb9c5;
+  outline-offset: 2px;
+}
+
+.chatgpt-plan-confirmation p {
+  margin: 0;
+  color: #9dabc3;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .presets-sidebar-hint {

@@ -164,6 +164,7 @@ it.each(['accounts:prepare', 'accounts:delete'])('%s releases cached characters 
     workspaceOperations: createWorkspaceOperations(),
     settingsWriteQueue: Promise.resolve(),
     abortActiveLlmRequests: vi.fn(),
+    chatgptAuth: { cancelPending: vi.fn(), forgetWorkspace: vi.fn() },
     approvedFilePaths: new Set(['private-file']),
     approvedWorkflowPaths: new Set(['private-workflow']),
     workspaceProtection: { activate: vi.fn() },

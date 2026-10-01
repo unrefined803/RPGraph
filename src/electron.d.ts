@@ -1,6 +1,8 @@
 import type { CompatibleModelInfo } from '../shared/compatibleModels.cjs';
 import type {
   AppSettings,
+  ChatGPTState,
+  ChatGPTModelInfo,
   ChatImageAttachment,
   CompositeModelInfo,
   ConnectionPreset,
@@ -38,6 +40,16 @@ type LoadedRpgraphFile = {
 declare global {
   interface Window {
     rpgraph: {
+      chatgpt: {
+        state: () => Promise<ChatGPTState>;
+        signIn: (profileId?: string) => Promise<ChatGPTState>;
+        cancelSignIn: () => Promise<void>;
+        selectProfile: (profileId: string) => Promise<ChatGPTState>;
+        signOut: (profileId: string) => Promise<ChatGPTState & { remoteRevocationConfirmed: boolean }>;
+        confirmUsage: (profileId: string) => Promise<ChatGPTState>;
+        openUsage: () => Promise<void>;
+        listModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<ChatGPTModelInfo[]>;
+      };
       accounts?: {
         prepare: () => Promise<void>;
         list: () => Promise<{ username: string }[]>;

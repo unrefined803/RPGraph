@@ -31,7 +31,25 @@ export type LlmProviderKind =
   | 'gemini'
   | 'composite'
   | 'venice'
+  | 'chatgpt'
   | 'openai-compatible';
+
+type ChatGPTProfileState = {
+  id: string;
+  label: string;
+  connected: boolean;
+  sharing: boolean;
+  storageLocked: boolean;
+  usageConfirmed: boolean;
+};
+
+export type ChatGPTState = {
+  lastProfileId?: string;
+  secureStorage: boolean;
+  profiles: ChatGPTProfileState[];
+};
+
+export type ChatGPTModelInfo = { id: string; name: string };
 
 export type ComfyConnectionRole = 'image' | 'voice';
 
@@ -47,6 +65,7 @@ export type ConnectionPreset = {
   kind?: 'llm' | 'comfyui';
   comfyRole?: ComfyConnectionRole;
   providerKind?: LlmProviderKind;
+  chatgptProfileId?: string;
   label: string;
   baseUrl: string;
   apiKey: string;

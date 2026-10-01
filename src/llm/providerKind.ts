@@ -9,6 +9,7 @@ const llmProviderKinds = [
   'gemini',
   'composite',
   'venice',
+  'chatgpt',
   'openai-compatible',
 ] as const satisfies readonly LlmProviderKind[];
 

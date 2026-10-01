@@ -1186,6 +1186,9 @@ function App() {
     editingConnection,
     connectionDraftPending,
     availableConnectionModels,
+    chatgptModelsByProfileId,
+    selectChatGPTProfile,
+    refreshChatGPTConnections,
     availableComfyModels,
     comfyWorkflowInspection,
     connectionStatus,
@@ -6618,6 +6621,9 @@ function App() {
         editingConnectionSupportedParameters={editingConnectionSupportedParameters}
         providerHealthById={providerHealthById}
         availableConnectionModels={availableConnectionModels}
+        chatgptModelsByProfileId={chatgptModelsByProfileId}
+        onSelectChatGPTProfile={selectChatGPTProfile}
+        onRefreshChatGPTConnections={refreshChatGPTConnections}
         availableComfyModels={availableComfyModels}
         comfyWorkflowInspection={comfyWorkflowInspection}
         comfyWorkflowRepairStatus={comfyWorkflowRepairStatus}

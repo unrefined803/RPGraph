@@ -107,6 +107,13 @@ automatic settings writes until the file is repaired and the app restarted.
 Atomic settings and authored-file writes use mode `0600` on POSIX systems;
 Windows access control remains subject to the enclosing directory's ACLs.
 
+ChatGPT provider registrations and OS-encrypted OAuth credentials are also scoped
+to the selected root, in `chatgpt-profiles.json`. Switching local workspaces leaves
+saved sessions intact and cancels pending requests and browser sign-in operations.
+Multiple model presets reuse a profile without another sign-in. The installation's
+opaque host ID remains shared in the main user-data directory. See
+[ChatGPT provider](chatgpt-provider.md).
+
 See [the password and privacy review](../local-accounts-privacy-review.md) for the
 reviewed data paths, fixes, and remaining design limits.
 
