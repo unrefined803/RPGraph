@@ -1,4 +1,4 @@
-import { characterSearchDirectory, characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction, previousCharacterAssistantResultTemplate } from '../../characters/search';
+import { characterSearchDirectory, resolveCharacterMentions, characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction, previousCharacterAssistantResultTemplate } from '../../characters/search';
 import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, SocialAppKind, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { createComfyImageForCharacter } from '../runScratch';
@@ -204,10 +204,15 @@ const previousVisualImagesInstruction = [
   'Request:', '{{plan}}', 'Character and image directory:', '{{characterDirectory}}',
 ].join('\n');
 
-export const getImagesLlmInstruction = previousVisualImagesInstruction
+const previousRestrictedAccessImagesInstruction = previousVisualImagesInstruction
   .replace('Prefer the best visual match.', 'First check each candidate’s "Image shown to" list. For a new image to send, exclude candidates already seen or received by the intended recipient, including social-post viewers. This restriction takes priority over visual similarity. Restricted OnlyFriends access does not override a recorded viewer. Allow a known image only when the request explicitly asks to retrieve or resend that existing image; never describe it as new or exclusive. Prefer the best visual matches among the remaining eligible candidates. Suggest at least two distinct eligible images when possible, even when the scene will send only one photo. Return one if only one is suitable, and none if none are eligible. Honor an explicit request to return only one candidate and the maximum selection count.')
   .replace('If no exact match exists, include at least one useful near match', 'If no exact match exists, include useful eligible near matches')
   .replace('or access requirements rule out the candidates.', 'or access or recipient-visibility restrictions rule out the candidates. Never include a known image merely to reach two suggestions.');
+
+// "Restricted access" made smaller models rule out the very posts a request was looking for.
+export const getImagesLlmInstruction = previousRestrictedAccessImagesInstruction
+  .replace('Restricted OnlyFriends access does not override a recorded viewer.', 'An OnlyFriends post is a real publication for subscribers of that account, not a restriction that rules the image out; it does not override a recorded viewer.')
+  .replace('Never invent publication history.', 'When the request concerns what a person posts or sells on a platform, or needs proof of it, prefer candidates with a recorded post on that platform over unpublished gallery images, and say so when none exists. Never invent publication history.');
 
 const updatePhoneImageCaptionInstruction = [
   'Available action: update phone image caption',
@@ -681,6 +686,7 @@ const previousGetImagesLlmInstructions = new Set([
   previousOwnerImageInstruction,
   previousCaptionOnlyImagesInstruction,
   previousVisualImagesInstruction,
+  previousRestrictedAccessImagesInstruction,
 ]);
 
 const defaultGetImagesResultLineTemplate = '* {{imageReference}}: {{imageId}} : {{imageText}} : Image shown to: {{imageShownTo}}';
@@ -695,9 +701,14 @@ const previousOwnerImagesResultTemplate = [
   'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
 ].join('\n');
 
-const defaultGetImagesResultTemplate = previousOwnerImagesResultTemplate
+const previousRestrictedAccessImagesResultTemplate = previousOwnerImagesResultTemplate
   .replace('Found images for tags: {{tags}}', 'Selected existing images:')
   + '\nWhen the request explicitly asks to retrieve an existing published image, return a suitable recorded image even if it was published before. Do not generate a replacement or treat it as a new/private discovery. Publication alone does not prove that a particular recipient saw it.';
+
+const defaultGetImagesResultTemplate = previousRestrictedAccessImagesResultTemplate.replace(
+  'OnlyFriends posts have restricted access; use the story context to judge whether the intended recipient likely had access and saw the image.',
+  'OnlyFriends posts are published to subscribers of that account; use the story context to judge whether the intended recipient is likely a subscriber and saw the image.',
+);
 
 const defaultUpdatePhoneImageCaptionResultTemplate = [
   'Incoming image caption action recorded:',
@@ -849,6 +860,7 @@ const previousGetImagesResultTemplates = new Set([
     'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
   ].join('\n'),
   previousOwnerImagesResultTemplate,
+  previousRestrictedAccessImagesResultTemplate,
 ]);
 
 export function previousPromptActionDefaultsForValidation() {
@@ -2054,22 +2066,9 @@ const imageSearchStopWords = new Set(
 /** Resolve only identities explicitly mentioned in the plan, never the active speaker by default. */
 export function phoneImageSearchContext(context: ExecuteContext, plan: string) {
   const all = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
-  const normalized = plan.normalize('NFKC').toLocaleLowerCase();
-  const mentioned = (value: string | undefined) => {
-    if (!value?.trim()) return false;
-    const needle = value.trim().normalize('NFKC').toLocaleLowerCase();
-    let offset = normalized.indexOf(needle);
-    while (offset >= 0) {
-      const before = normalized.slice(0, offset).slice(-1);
-      const after = normalized.slice(offset + needle.length, offset + needle.length + 1);
-      if (!/[\p{L}\p{N}_-]/u.test(before) && !/[\p{L}\p{N}_-]/u.test(after)) return true;
-      offset = normalized.indexOf(needle, offset + 1);
-    }
-    return false;
-  };
-  const characters = all.filter((character) => [character.name, character.id, character.sourceId,
-    ...Object.values(character.apps ?? {}).filter((account) => account?.enabled).map((account) => account?.accountId),
-  ].some(mentioned));
+  // "Sophie" includes every Sophie; "Sophie Carter" only her. Image plans describe scenery, so a
+  // standalone name part must be capitalized: "in the park" must not add Mina Park's gallery.
+  const characters = resolveCharacterMentions(all, plan, true).map(({ character }) => character);
   // Identity and app words route the search; visual caption words rank its candidates.
   const identityWords = new Set(searchWords(characters.flatMap((character) => [
     character.name, character.id, character.sourceId ?? '',
@@ -2102,17 +2101,50 @@ export function phoneImageSearchContext(context: ExecuteContext, plan: string) {
     usageSummary: candidates.map((image) => `imageId: ${image.imageId} : Image shown to: ${imageShownToValue(image)}`).join('\n') };
 }
 
-export function phoneImageSearchResult(config: PromptActionConfig, candidates: ActionImageResult[], response: string, visionEnabled: boolean, plan: string) {
-  let parsed: { imageIds?: unknown; answer?: unknown };
-  try { parsed = JSON.parse(unwrapJsonCodeFence(response)); } catch { return undefined; }
-  if (!parsed || !Array.isArray(parsed.imageIds) || typeof parsed.answer !== 'string' || !parsed.answer.trim()) return undefined;
-  if (parsed.imageIds.some((id) => typeof id !== 'string' || !candidates.some((image) => image.imageId === id))) return undefined;
-  const selected = [...new Set(parsed.imageIds as string[])].slice(0, config.maxReturnedImages)
-    .map((id) => candidates.find((image) => image.imageId === id)!);
+/** Assistants may wrap the selection in prose; prefer the whole reply, then the last embedded object. */
+function parsedImageSelection(response: string) {
+  const text = unwrapJsonCodeFence(response);
+  const sources = [text, ...jsonObjectRanges(text).reverse().map((range) => text.slice(range.start, range.end))];
+  for (const source of sources) {
+    try {
+      const parsed = JSON.parse(source) as { imageIds?: unknown; answer?: unknown } | null;
+      if (parsed && Array.isArray(parsed.imageIds)) return { imageIds: parsed.imageIds as unknown[], answer: parsed.answer };
+    } catch {
+      // Not a usable selection object; try the next source.
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Keep every valid selection and drop unknown IDs instead of rejecting the whole reply.
+ * `attachedImageIds` resolves "Image N" labels from the attachment order sent to the assistant.
+ */
+export function phoneImageSearchResult(
+  config: PromptActionConfig, candidates: ActionImageResult[], response: string, visionEnabled: boolean, plan: string,
+  attachedImageIds: string[] = [],
+) {
+  const selection = parsedImageSelection(response);
+  if (!selection) return undefined;
+  const ignoredImageIds: string[] = [];
+  const resolved = selection.imageIds.flatMap((value) => {
+    const id = typeof value === 'string' ? value.trim() : '';
+    const attachmentNumber = id.match(/^image\s*(\d+)$/i)?.[1];
+    const candidate = candidates.find((image) => image.imageId === id)
+      ?? candidates.find((image) => !!id && image.imageId.toLocaleLowerCase() === id.toLocaleLowerCase())
+      ?? (attachmentNumber
+        ? candidates.find((image) => image.imageId === attachedImageIds[Number(attachmentNumber) - 1])
+        : undefined);
+    if (!candidate) ignoredImageIds.push(typeof value === 'string' ? value : JSON.stringify(value));
+    return candidate ? [candidate] : [];
+  });
+  const selected = [...new Set(resolved)].slice(0, config.maxReturnedImages);
+  const answer = typeof selection.answer === 'string' && selection.answer.trim()
+    ? selection.answer.trim() : 'No explanation was provided.';
   const sendImages = visionEnabled && config.sendImagesToLlm;
   const template = expandImageTemplateRows(config.resultTemplate, selected, sendImages, sendImages && config.hideImageTextWhenSendingToLlm);
   const text = template.replace(/\{\{(answer|images|phoneOwner|characters|tags|actionId)\}\}/g, (_match, key: string) => {
-    if (key === 'answer') return parsed.answer as string;
+    if (key === 'answer') return answer;
     if (key === 'images') return formatImages(selected, sendImages, sendImages && config.hideImageTextWhenSendingToLlm);
     if (key === 'actionId') return config.actionId;
     if (key === 'tags') return '';
@@ -2120,9 +2152,12 @@ export function phoneImageSearchResult(config: PromptActionConfig, candidates: A
   });
   const heading = 'Action executed: get character phone image list.';
   const body = text.startsWith(heading) ? text.slice(heading.length).trimStart() : text;
-  const requestAndAnswer = `${heading}\nRequest:\n${plan}\n\nAssistant answer:\n${parsed.answer}`;
+  const ignoredNote = ignoredImageIds.length
+    ? `\n\nThe assistant also named image IDs that do not exist; they were ignored: ${ignoredImageIds.join(', ')}. Use only the image IDs listed below.`
+    : '';
+  const requestAndAnswer = `${heading}\nRequest:\n${plan}\n\nAssistant answer:\n${answer}${ignoredNote}`;
   return { text: `${requestAndAnswer}\n\n${body}`,
-    images: sendImages ? selected.map((image) => image.attachment) : [] };
+    images: sendImages ? selected.map((image) => image.attachment) : [], ignoredImageIds };
 }
 
 const imageTemplateTokenPattern =
@@ -2152,7 +2187,7 @@ function imageShownToValue(result: ActionImageResult) {
       ? `${name} (${directRecipients.has(key) ? 'received directly' : 'seen via social post'})`
       : name).join(', ')
     : result.postedOn.length || result.matchMeProfiles.length ? 'No direct recipients recorded' : 'No one yet';
-  const publications = result.postedOn.map((app) => app === 'fotogram' ? 'Fotogram (public)' : 'OnlyFriends (restricted access)');
+  const publications = result.postedOn.map((app) => app === 'fotogram' ? 'Fotogram (public)' : 'OnlyFriends (subscriber post)');
   return [recipients,
     ...(publications.length ? [`Social media posts: ${publications.join(', ')}`] : []),
     ...(result.matchMeProfiles.length ? [`MatchMe profile photo: ${result.matchMeProfiles.join(', ')}`] : []),

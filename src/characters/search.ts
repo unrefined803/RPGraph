@@ -54,8 +54,49 @@ function mentionsIdentity(text: string, identity: string) {
   return identityOffsets(text, identity).length > 0;
 }
 
-function nameSelectors(character: StorybookCharacter) {
-  return [character.name, ...character.name.split(/\s+/).filter(Boolean)];
+/**
+ * Resolve characters written in free text, in registry order. Full names, character IDs, enabled
+ * account IDs and profile names match exactly; a standalone first name or surname selects every
+ * character sharing it. With `capitalizedNameParts`, a standalone part must be written like a
+ * name, so "in the park" never selects Mina Park.
+ */
+export function resolveCharacterMentions(characters: StorybookCharacter[], text: string, capitalizedNameParts = false) {
+  const cased = text.normalize('NFKC');
+  const lowered = cased.toLocaleLowerCase();
+  // Case folding can change the length of rare characters; offsets then no longer align.
+  const checkCase = capitalizedNameParts && lowered.length === cased.length;
+  const exact = new Set<StorybookCharacter>();
+  // A full name such as Espen Harper must not also trigger every other Harper.
+  // Mask recognized identities before checking standalone first names and surnames.
+  const masked = lowered.split('');
+  for (const character of characters) {
+    const aliases = [
+      character.name, character.id, character.sourceId,
+      ...Object.values(character.apps ?? {}).flatMap((account) => account?.enabled
+        ? [account.accountId, migratedProfileName(account, character.name)] : []),
+    ].filter((identity): identity is string => !!identity?.trim());
+    for (const alias of aliases) {
+      const length = normalizedSearchValue(alias.trim()).length;
+      for (const offset of identityOffsets(lowered, alias)) {
+        exact.add(character);
+        for (let index = offset; index < offset + length; index += 1) masked[index] = ' ';
+      }
+    }
+  }
+  const remaining = masked.join('');
+  const writtenAsName = (offset: number) => {
+    const char = cased[offset] ?? '';
+    return char !== char.toLocaleLowerCase() || char === char.toLocaleUpperCase();
+  };
+  return characters.flatMap((character) => {
+    if (exact.has(character)) return [{ character, exact: true }];
+    const parts = character.name.split(/\s+/).filter((part) => capitalizedNameParts
+      // Initials such as "J." are too short to identify anyone on their own.
+      ? (part.match(/[\p{L}\p{N}]/gu)?.length ?? 0) >= 2 : !!part);
+    const partial = parts.some((part) => identityOffsets(remaining, part)
+      .some((offset) => !checkCase || writtenAsName(offset)));
+    return partial ? [{ character, exact: false }] : [];
+  });
 }
 
 function keywordWords(value: string) {
@@ -77,27 +118,10 @@ export function selectCharacterSearchCandidates(characters: StorybookCharacter[]
       if (!keywords.some((existing) => existing.join(' ') === words.join(' '))) keywords.push(words);
       return prefix;
     });
-  const identities = characters.map((character) => ({ character, aliases: [
-    character.name, character.id, character.sourceId,
-    ...Object.values(character.apps ?? {}).flatMap((account) => account?.enabled
-      ? [account.accountId, migratedProfileName(account, character.name)] : []),
-  ].filter((identity): identity is string => !!identity?.trim()) }));
-  const exact = identities.filter(({ aliases }) => aliases.some((identity) => mentionsIdentity(identityPlan, identity)));
-  // A full name such as Espen Harper must not also trigger every other Harper.
-  // Mask recognized identities before checking standalone first names and surnames.
-  const masked = identityPlan.split('');
-  for (const { aliases } of exact) for (const alias of aliases) {
-    for (const offset of identityOffsets(identityPlan, alias)) {
-      for (let index = offset; index < offset + normalizedSearchValue(alias.trim()).length; index += 1) masked[index] = ' ';
-    }
-  }
-  const remainingPlan = masked.join('');
-  const named = [...new Set([
-    ...exact.map(({ character }) => character),
-    ...characters.filter((character) => nameSelectors(character).some((name) => mentionsIdentity(remainingPlan, name))),
-  ])];
+  const mentions = resolveCharacterMentions(characters, identityPlan);
+  const named = mentions.map(({ character }) => character);
   const namedSet = new Set(named);
-  const exactSet = new Set(exact.map(({ character }) => character));
+  const exactSet = new Set(mentions.filter(({ exact }) => exact).map(({ character }) => character));
   const ranked: Array<{ character: StorybookCharacter; namePriority: number; score: number }> = [];
   const namedIds = new Set(named.flatMap((character) => [character.id, character.sourceId]));
   const outgoingIds = new Set(named.flatMap((character) =>

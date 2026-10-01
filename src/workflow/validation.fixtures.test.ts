@@ -295,6 +295,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-instruction-6:1172:9e0fb75c',
   'get-images-instruction-7:1232:d84b8431',
   'get-images-instruction-8:2244:97b5ffe3',
+  'get-images-instruction-9:3073:0c522da4',
   'create-image-result-1:243:e4845c8c',
   'create-image-result-2:240:be37f41b',
   'create-image-result-3:209:a11ab164',
@@ -310,6 +311,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-result-7:766:fbd0ca9e',
   'get-images-result-8:1131:f210876a',
   'get-images-result-9:1401:341cdf18',
+  'get-images-result-10:1674:d7f5b6f3',
 ];
 
 export function verifyWorkflowValidationFixtures() {

@@ -523,10 +523,11 @@ export async function runActionAwarePrompt({
       contributesToTokenCalibration, useConnectionSampling: true,
     });
     recordOutputPass({ label: `${label} output`, text: response.text });
-    const answer = response.text.trim();
+    let answer = response.text.trim();
     if (!answer) {
-      context.reportWarning(`${node.data.label}: Character information assistant returned an empty answer.`);
-      return false;
+      // A failed lookup must not discard the whole turn; the replay continues without the information.
+      context.reportWarning(`${node.data.label}: Character information assistant returned an empty answer; continuing without it.`);
+      answer = 'The character information lookup returned no answer. Use only identities, accounts and facts already established in this prompt; do not invent any, and do not request this action again.';
     }
     const result = characterSearchResult(config.resultTemplate, answer);
     actionResults.set(promptActionKey(config.title), result);
@@ -554,11 +555,18 @@ export async function runActionAwarePrompt({
       contributesToTokenCalibration, useConnectionSampling: true,
     });
     recordOutputPass({ label: `${label} output`, text: response.text });
-    const result = phoneImageSearchResult(config, candidates, response.text, visionEnabled, plan);
-    if (!result) {
-      context.reportWarning(`${node.data.label}: Image search assistant returned an invalid selection.`);
-      return false;
+    const selection = phoneImageSearchResult(config, candidates, response.text, visionEnabled, plan,
+      searchImages.map((image) => image.id));
+    if (!selection) {
+      context.reportWarning(`${node.data.label}: Image search assistant returned an invalid selection; continuing without an image.`);
+    } else if (selection.ignoredImageIds.length) {
+      context.reportWarning(`${node.data.label}: Image search assistant named unknown image IDs, which were ignored: ${selection.ignoredImageIds.join(', ')}.`);
     }
+    // A failed search must not discard the whole turn; the replay continues without an image.
+    const result = selection ?? {
+      text: `Action executed: get character phone image list.\nRequest:\n${plan}\n\nThe image search failed and returned no usable selection. Continue without an attached image, do not invent or reuse an image ID, and do not request this action again.`,
+      images: [],
+    };
     actionResults.set(promptActionKey(config.title), result.text);
     actionResultTexts.push(result.text);
     actionImages.push(...result.images);

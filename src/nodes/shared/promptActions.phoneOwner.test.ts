@@ -64,16 +64,16 @@ describe('phone image publication history', () => {
       post('fotogram'), post('fotogram'), post('onlyfriends'),
     ], { ...config, hideImageTextWhenSendingToLlm });
     const line = result.text.split('\n').find((line) => line.includes(': npc-selfie :'))!;
-    expect(line).toContain('Image shown to: Player; Social media posts: Fotogram (public), OnlyFriends (restricted access)');
+    expect(line).toContain('Image shown to: Player; Social media posts: Fotogram (public), OnlyFriends (subscriber post)');
     expect(line.match(/Fotogram/g)).toHaveLength(1);
     expect(result.text).toContain('assume everyone has likely seen them');
-    expect(result.text).toContain('judge whether the intended recipient likely had access');
+    expect(result.text).toContain('judge whether the intended recipient is likely a subscriber');
     expect(result.text.split('\n').find((line) => line.includes(': npc-player :'))).not.toContain('Social media posts');
   });
 
   it('does not describe a published image as unseen when no private receipt is recorded', async () => {
     const result = await search('Eli Ward', '', characters, [post('onlyfriends')]);
-    expect(result.text).toContain('Image shown to: No direct recipients recorded; Social media posts: OnlyFriends (restricted access)');
+    expect(result.text).toContain('Image shown to: No direct recipients recorded; Social media posts: OnlyFriends (subscriber post)');
     expect(result.text).not.toContain('Social media posts: Fotogram');
   });
 

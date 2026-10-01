@@ -136,10 +136,12 @@ describe('isolated character search assistant', () => {
     expect(context.reportWarning).not.toHaveBeenCalled();
   });
 
-  it('reports an empty assistant response instead of exposing the action request', async () => {
+  it('reports an empty assistant response and continues without exposing the action request', async () => {
     const { result, calls, context } = await run(false, '');
-    expect(calls).toHaveLength(2);
-    expect(result.generatedText).toBe('');
+    expect(calls).toHaveLength(3);
+    expect(calls[2].prompt).toContain('The character information lookup returned no answer.');
+    expect(calls[2].prompt).not.toContain('"action":"ask_character_information"');
+    expect(result.generatedText).toBe('Avery is the candidate.');
     expect(context.reportWarning).toHaveBeenCalledWith(expect.stringContaining('empty answer'));
   });
 });

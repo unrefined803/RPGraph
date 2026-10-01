@@ -31,7 +31,11 @@ it('resolves exact character/account identities without matching substrings or f
   for (const plan of ['Find account-Blakely photos', 'Get my picture', 'disabled-Blake'])
     expect(phoneImageSearchContext(context, plan).candidates).toEqual([]);
   const { candidates } = phoneImageSearchContext(context, 'Avery and Blake');
-  expect(phoneImageSearchResult(config, candidates, '{"imageIds":["invented"],"answer":"Yes"}', true, 'Find Avery and Blake photos.')).toBeUndefined();
+  const invented = phoneImageSearchResult(config, candidates, '{"imageIds":["invented"],"answer":"Yes"}', true, 'Find Avery and Blake photos.')!;
+  expect(invented.images).toEqual([]);
+  expect(invented.ignoredImageIds).toEqual(['invented']);
+  expect(invented.text).toContain('they were ignored: invented');
+  expect(invented.text).toContain('No matching stored phone images');
   expect(phoneImageSearchResult(config, candidates, '', true, 'Find Avery and Blake photos.')).toBeUndefined();
   const selected = phoneImageSearchResult(config, candidates, '{"imageIds":["image-Blake","image-Blake","image-Avery"],"answer":"Both fit."}', true, 'Find Avery and Blake photos.')!;
   expect(selected.images.map((image) => image.id)).toEqual(['image-Blake', 'image-Avery']);
@@ -155,4 +159,66 @@ it('upgrades the previous visual search prompt and retains multiple proposed ima
   const result = phoneImageSearchResult({ ...config, sendImagesToLlm: true }, candidates,
     JSON.stringify({ imageIds: ['image-Avery', 'image-Blake'], answer: 'Two suitable options.' }), true, 'Find photos');
   expect(result?.images.map((image) => image.id)).toEqual(['image-Avery', 'image-Blake']);
+});
+
+it('keeps valid selections from imperfect assistant replies', () => {
+  const context = { nodes: [], appCharacters: cast, historyMessages: [] } as unknown as ExecuteContext;
+  const { candidates } = phoneImageSearchContext(context, 'Avery and Blake');
+  const select = (response: string, attached: string[] = []) =>
+    phoneImageSearchResult(config, candidates, response, true, 'Find photos', attached);
+  const mixed = select('{"imageIds":["image-Blake","invented",7],"answer":"One fits."}')!;
+  expect(mixed.images.map((image) => image.id)).toEqual(['image-Blake']);
+  expect(mixed.ignoredImageIds).toEqual(['invented', '7']);
+  expect(select('Here is my selection:\n{"imageIds":["IMAGE-AVERY"],"answer":"Fits."}\nDone.')!.images.map((image) => image.id))
+    .toEqual(['image-Avery']);
+  const labelled = select('{"imageIds":["Image 2","Image 9"],"answer":"Second attachment."}', ['image-Avery', 'image-Blake'])!;
+  expect(labelled.images.map((image) => image.id)).toEqual(['image-Blake']);
+  expect(labelled.ignoredImageIds).toEqual(['Image 9']);
+  expect(select('{"imageIds":["image-Avery"]}')!.text).toContain('No explanation was provided.');
+  expect(select('{"answer":"No list."}')).toBeUndefined();
+  expect(select('I could not decide.')).toBeUndefined();
+});
+
+it('includes every character sharing a capitalized first name unless a full name narrows it', () => {
+  const named = (id: string, name: string) => ({ ...cast[0], id, sourceId: id, name, apps: {}, relationships: [],
+    images: [{ ...cast[0].images![0], id: `${id}-image` }] });
+  const characters = [named('sophie_carter', 'Sophie Carter'), named('sophie_reed', 'Sophie Reed'), named('mina_park', 'Mina Park')];
+  const owners = (plan: string) => phoneImageSearchContext(
+    { nodes: [], appCharacters: characters, historyMessages: [] } as unknown as ExecuteContext, plan,
+  ).candidates.map((image) => image.characterName);
+  expect(owners('Find a photo of Sophie in a dress.')).toEqual(['Sophie Carter', 'Sophie Reed']);
+  expect(owners('Find a photo of Sophie Carter in a dress.')).toEqual(['Sophie Carter']);
+  expect(owners('Find a photo of sophie carter in the park.')).toEqual(['Sophie Carter']);
+  expect(owners('Find a photo of Sophie Carter for the other Sophie.')).toEqual(['Sophie Carter', 'Sophie Reed']);
+  expect(owners('Find a photo of sophie in the park.')).toEqual([]);
+  expect(owners('Find a photo taken by Park.')).toEqual(['Mina Park']);
+});
+
+it('continues the turn without an image after an unusable image search reply', async () => {
+  const calls: Array<{ prompt: string }> = [];
+  const replies = [JSON.stringify({ action: 'get_image_id', plan: 'Find a photo of Blake.' }), 'I could not decide.', 'Reply without image.'];
+  const context = { textMetrics: new TextMetricsApi(), nodes: [], appCharacters: cast, historyMessages: [],
+    reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
+    llm: { supportsVision: async () => false, complete: vi.fn(async (call) => { calls.push(call); return { text: replies.shift() ?? '', connection: { label: 'Test' } }; }) },
+  } as unknown as ExecuteContext;
+  const result = await runActionAwarePrompt({ node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode, context,
+    inputValue: '', images: [], referenceImages: [], promptBefore: '', promptAfter: 'Write.\n@action:Get character phone image list',
+    actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator' });
+  expect(result.generatedText).toBe('Reply without image.');
+  expect(calls).toHaveLength(3);
+  expect(calls[2].prompt).toContain('The image search failed');
+  expect(calls[2].prompt).not.toContain('"action":"get_image_id"');
+  expect(context.reportWarning).toHaveBeenCalledTimes(1);
+  expect(context.reportWarning).toHaveBeenCalledWith(expect.stringContaining('continuing without an image'));
+});
+
+it('describes OnlyFriends posts as publications and upgrades the restricted-access defaults', () => {
+  const previous = previousPromptActionDefaultsForValidation().filter((entry) => entry.text.includes('restricted access')
+    || entry.text.includes('Restricted OnlyFriends access'));
+  const instruction = previous.find((entry) => entry.text.includes('Suggest at least two distinct eligible images'))!;
+  const template = previous.find((entry) => entry.text.includes('Selected existing images:'))!;
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: instruction.text })?.instructionTemplate).toBe(getImagesLlmInstruction);
+  expect(normalizePromptActionConfig({ ...config, resultTemplate: template.text })?.resultTemplate).toBe(config.resultTemplate);
+  for (const text of [getImagesLlmInstruction, config.resultTemplate]) expect(text.toLocaleLowerCase()).not.toContain('restricted');
+  expect(getImagesLlmInstruction).toContain('prefer candidates with a recorded post on that platform');
 });
