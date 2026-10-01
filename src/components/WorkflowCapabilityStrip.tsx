@@ -7,10 +7,9 @@ function WorkflowCapabilityIcon({
 }) {
   if (kind === 'reasoning') {
     return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 5a3 3 0 0 0-5.8-1A4 4 0 0 0 3 10a4 4 0 0 0 1 7.5A4 4 0 0 0 12 19V5Z" />
-        <path d="M12 5a3 3 0 0 1 5.8-1A4 4 0 0 1 21 10a4 4 0 0 1-1 7.5A4 4 0 0 1 12 19M7 4v3M3 10h4l2 2M4 17.5 8 16M17 4v3M21 10h-4l-2 2M20 17.5 16 16" />
-      </svg>
+      <span className="workflow-capability-text-mark" aria-hidden="true">
+        RSN
+      </span>
     );
   }
   if (kind === 'text') {
