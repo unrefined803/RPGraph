@@ -4629,7 +4629,7 @@ for (const [channel, method] of [
   });
 }
 ipcMain.handle('chatgpt:cancel-sign-in', () => { chatgptAuth.cancelSignIn(); });
-ipcMain.handle('chatgpt:open-usage', () => shell.openExternal('https://chatgpt.com/#settings/Usage'));
+ipcMain.handle('chatgpt:open-usage', () => shell.openExternal('https://chatgpt.com/settings/usage'));
 handleWorkspace('chatgpt:list-models', async (_event, request) => {
   const abort = createLlmAbortController(request);
   try {

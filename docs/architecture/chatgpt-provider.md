@@ -7,7 +7,8 @@ usage. A `ConnectionPreset` stores a `chatgptProfileId`, model slug and label.
 Multiple presets reference one reusable profile and can select different models
 for different nodes. Creating a new ChatGPT preset selects the workspace's last
 used profile without starting another OAuth flow. Removing a preset or changing
-its provider type does not sign out its profile.
+its provider type does not sign out its profile. A preset whose profile no longer
+exists after sign-out adopts the workspace's current profile and keeps its model.
 
 `useChatGPTProviderSettings` supplies the account and authentication fields for
 the shared provider form. Preset name, model, capabilities and reasoning keep
@@ -21,9 +22,13 @@ so another ChatGPT account can connect; the installation host ID stays stable. A
 exposed. Model selection displays the account catalog's `display_name` and
 stores its `slug`. Only catalog entries with `visibility: "list"` are offered.
 The integration supports text and image input with fixed text, vision and
-thinking capabilities. Thinking offers Low (default), Medium and High and sends
-`reasoning.effort` in Responses requests. Image and voice generation are not
-supported. Unsupported saved thinking values normalize to Low.
+thinking capabilities. Thinking levels come from the selected model's catalog
+entry (`supported_reasoning_levels`, `default_reasoning_level`), including Off
+when the model reports `none`; levels RPGraph does not know are not offered. A
+model without reported levels offers Low (default), Medium and High. The selected
+level is sent as `reasoning.effort` in Responses requests. A saved level the
+model does not support normalizes to the model default, otherwise Low. Image and
+voice generation are not supported.
 Generic API key, endpoint and sampling controls are hidden for this provider.
 
 ## OAuth and storage
@@ -58,8 +63,12 @@ session; terminal refresh errors (`invalid_grant`, `invalid_refresh_token`,
 `token_expired`, `refresh_token_expired`, `refresh_token_invalidated` and
 `refresh_token_reused`) clear unusable credentials and require sign-in with the
 saved registration. Access tokens without a refresh token remain usable until
-their actual expiry. Explicit sign-out attempts
-refresh-token revocation and removes the local profile and its registration.
+their actual expiry. A refresh in flight is never aborted by cancellation or a
+workspace transition, because the rotated refresh token would be lost. A token
+response's `earliest_refresh_at` (epoch seconds or ISO timestamp) delays renewal;
+an expired session that cannot be renewed yet asks for a retry, not a new sign-in.
+Explicit sign-out attempts refresh-token revocation, retrying one network or
+server failure, and removes the local profile and its registration.
 It does not clear system-browser cookies or delete the registered app at OpenAI.
 Failure to confirm remote revocation is shown to the user, including when saved
 credentials cannot be decrypted for revocation.
@@ -100,7 +109,9 @@ run reports, and displayed only in LLM Runtime summaries and call details. Missi
 cache usage remains unknown; a reported zero means no cache hit. Cached tokens
 are a subset of input tokens and are not added to totals again. The built-in assistant and ComfyUI workflow repair use the same
 adapter. Error codes, HTTP status, parameter and request IDs survive structured
-IPC errors. No automatic fallback to another provider or billing path occurs.
+IPC errors. Failures without a dedicated message name the received HTTP status,
+the server's error code, the rejected parameter and its `error.message`;
+unstructured admission `detail` text is not shown. No automatic fallback to another provider or billing path occurs.
 
 Manage usage opens ChatGPT usage settings. RPGraph does not estimate remaining
 plan allowance or scrape an undocumented usage endpoint.

@@ -1,6 +1,6 @@
 const { chatgptError } = require('../chatgptErrors.cjs');
 
-const { chatgptReasoningEffort } = require('../../shared/chatgptCapabilities.cjs');
+const { chatgptModelReasoning, chatgptReasoningEffort } = require('../../shared/chatgptCapabilities.cjs');
 
 const baseUrl = 'https://api.openai.com/v1';
 
@@ -14,7 +14,11 @@ async function listModels(auth, root, profileId, signal, fetchRequest = fetch) {
   if (!response.ok) throw chatgptError(response.status, data, response.headers.get('x-request-id'));
   if (!Array.isArray(data?.models)) throw new Error('ChatGPT returned an invalid model catalog.');
   return data.models.filter(model => model.visibility === 'list' && typeof model.slug === 'string' && model.slug)
-    .map(model => ({ id: model.slug, name: typeof model.display_name === 'string' ? model.display_name : model.slug }));
+    .map(model => {
+      const reasoning = chatgptModelReasoning(model);
+      return { id: model.slug, name: typeof model.display_name === 'string' ? model.display_name : model.slug,
+        ...(reasoning ? { reasoning } : {}) };
+    });
 }
 
 async function chat(auth, root, request, signal, onDelta, fetchRequest = fetch) {
@@ -30,7 +34,7 @@ async function chat(auth, root, request, signal, onDelta, fetchRequest = fetch) 
         { type: 'input_text', text: request.prompt },
         ...(request.images ?? []).map(image => ({ type: 'input_image', image_url: image.dataUrl })),
       ] }],
-      reasoning: { effort: chatgptReasoningEffort(request.connection.reasoningEffort) } }),
+      reasoning: { effort: chatgptReasoningEffort(request.connection.reasoningEffort, request.connection.reasoningCapabilities) } }),
   });
   if (!response.ok) {
     throw chatgptError(response.status, await response.json().catch(() => null), response.headers.get('x-request-id'));
@@ -46,12 +50,18 @@ async function chat(auth, root, request, signal, onDelta, fetchRequest = fetch) 
   const consume = block => {
     const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
     if (!data || data === '[DONE]') return;
-    const event = JSON.parse(data);
+    let event;
+    try { event = JSON.parse(data); }
+    catch { throw new Error('ChatGPT returned an invalid stream event. Please retry.'); }
+    if (!event || typeof event !== 'object') return;
     if (event.type === 'response.failed' || event.type === 'error') {
       throw chatgptError(undefined, event.type === 'error' ? { error: event } : event.response,
         response.headers.get('x-request-id'));
     }
-    if (event.type === 'response.incomplete') throw new Error('The ChatGPT response was incomplete. Please retry.');
+    if (event.type === 'response.incomplete') {
+      const reason = event.response?.incomplete_details?.reason;
+      throw new Error(`The ChatGPT response was incomplete${/^[a-z_]{1,60}$/.test(reason) ? ` (${reason})` : ''}. Please retry.`);
+    }
     if (event.type === 'response.output_text.delta' && !completed && typeof event.delta === 'string') {
       text += event.delta;
       onDelta?.(event.delta);

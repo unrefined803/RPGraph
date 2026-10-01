@@ -81,7 +81,7 @@ export function useChatGPTProviderSettings({ connection, enabled, connectionStat
       <label>ACCOUNT CONNECTION</label>
       <div className="connection-provider-actions chatgpt-account-actions">
         {(!profile?.connected || !profile.sharing) && <button type="button" disabled={!!busy} onClick={() => void signIn()}>
-          {busy === 'sign-in' ? 'Signing in…' : 'Sign in with ChatGPT'}
+          {busy === 'sign-in' ? 'Signing in…' : 'Continue with ChatGPT'}
         </button>}
         {profile && <button type="button" className="danger" disabled={!!busy} onClick={() => void signOut()}>{busy === 'sign-out' ? 'Signing out…' : 'Sign out'}</button>}
         {profile?.connected && <button type="button" disabled={!!busy} onClick={() => void invoke(() => window.rpgraph.chatgpt.openUsage())}>Manage usage</button>}

@@ -81,6 +81,52 @@ it('preserves admission status and request ID without leaking response details',
   await expect(listModels(auth, '/workspace', 'profile', signal(), fetchMock)).rejects.not.toThrow('private diagnostic');
 });
 
+it('names the rejected parameter and the reason for an incomplete response', async () => {
+  const rejected = vi.fn(async () => Response.json({ error: { code: 'subscription_sharing_unsupported_capability',
+    param: 'reasoning.effort', message: 'private diagnostic' } }, { status: 400 }));
+  const failure = chat(auth, '/workspace', { connection, prompt: 'Prompt' }, signal(), undefined, rejected);
+  await expect(failure).rejects.toMatchObject({ param: 'reasoning.effort', message: expect.stringContaining('reasoning.effort') });
+  await expect(failure).rejects.not.toThrow('private diagnostic');
+  const unmapped = vi.fn(async () => Response.json({ error: { code: 'unsupported_value', param: 'reasoning.effort',
+    message: "Unsupported value: 'minimal'." } }, { status: 400 }));
+  await expect(chat(auth, '/workspace', { connection, prompt: 'Prompt' }, signal(), undefined, unmapped))
+    .rejects.toThrow("ChatGPT request failed (HTTP 400, unsupported_value, parameter reasoning.effort). Unsupported value: 'minimal'.");
+  const streamed = vi.fn(async () => streamResponse(event({ type: 'error', code: 'server_error', message: 'Try again.' })));
+  await expect(chat(auth, '/workspace', { connection, prompt: 'Prompt' }, signal(), undefined, streamed))
+    .rejects.toThrow('ChatGPT request failed (server_error). Try again.');
+  const incomplete = vi.fn(async () => streamResponse(event({ type: 'response.incomplete',
+    response: { incomplete_details: { reason: 'content_filter' } } })));
+  await expect(chat(auth, '/workspace', { connection, prompt: 'Prompt' }, signal(), undefined, incomplete))
+    .rejects.toThrow('incomplete (content_filter)');
+  await expect(chat(auth, '/workspace', { connection, prompt: 'Prompt' }, signal(), undefined,
+    vi.fn(async () => streamResponse('data: {broken\n\n')))).rejects.toThrow('invalid stream event');
+});
+
+it('reads per-model thinking levels from the catalog and sends a level only that model supports', async () => {
+  const catalog = vi.fn(async () => Response.json({ models: [
+    { slug: 'deep', visibility: 'list', default_reasoning_level: 'medium', supported_reasoning_levels: [
+      { effort: 'none', description: 'Off' }, { effort: 'xhigh', description: 'Deep' }, { effort: 'medium' }, { effort: 'future-level' },
+    ] },
+    { slug: 'unreported', visibility: 'list' }, { slug: 'empty', visibility: 'list', supported_reasoning_levels: [] },
+  ] }));
+  const models = await listModels(auth, '/workspace', 'profile', signal(), catalog);
+  expect(models).toEqual([
+    { id: 'deep', name: 'deep', reasoning: { mandatory: false, supportedEfforts: ['none', 'medium', 'xhigh'], defaultEffort: 'medium', defaultEnabled: true } },
+    { id: 'unreported', name: 'unreported' }, { id: 'empty', name: 'empty' },
+  ]);
+  const sent = async (reasoningEffort: string, reasoningCapabilities: typeof models[0]['reasoning']) => {
+    const fetchMock = vi.fn(async () => streamResponse(event({ type: 'response.completed', response: {
+      output: [{ content: [{ type: 'output_text', text: 'Result' }] }],
+    } })));
+    await chat(auth, '/workspace', { connection: { ...connection, reasoningEffort, reasoningCapabilities }, prompt: 'Prompt' }, signal(), undefined, fetchMock);
+    return JSON.parse((fetchMock.mock.calls as unknown as [string, RequestInit][])[0][1].body as string).reasoning.effort;
+  };
+  expect(await sent('xhigh', models[0].reasoning)).toBe('xhigh');
+  expect(await sent('none', models[0].reasoning)).toBe('none');
+  expect(await sent('low', models[0].reasoning)).toBe('medium');
+  expect(await sent('xhigh', undefined)).toBe('low');
+});
+
 it.each(['low', 'medium', 'high'] as const)('sends the selected thinking effort: %s', async effort => {
   const fetchMock = vi.fn(async () => streamResponse(event({ type: 'response.completed', response: {
     output: [{ content: [{ type: 'output_text', text: 'Result' }] }],

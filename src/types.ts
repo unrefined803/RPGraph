@@ -49,7 +49,7 @@ export type ChatGPTState = {
   profiles: ChatGPTProfileState[];
 };
 
-export type ChatGPTModelInfo = { id: string; name: string };
+export type ChatGPTModelInfo = { id: string; name: string; reasoning?: ReasoningCapabilities };
 
 export type ComfyConnectionRole = 'image' | 'voice';
 

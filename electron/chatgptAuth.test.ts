@@ -12,7 +12,7 @@ afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, {
 const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const issuer = 'https://auth.openai.com';
 
-async function fixture(options: { secure?: boolean; claims?: Record<string, unknown>; scope?: string; callbackClient?: string; rejectExchange?: boolean; refreshFailure?: 'temporary' | 'terminal'; idToken?: string } = {}) {
+async function fixture(options: { secure?: boolean; claims?: Record<string, unknown>; scope?: string; callbackClient?: string; rejectExchange?: boolean; refreshFailure?: 'temporary' | 'terminal'; idToken?: string; earliestRefreshAt?: string | number } = {}) {
   const root = await mkdtemp(path.join(tmpdir(), 'rpgraph-chatgpt-'));
   roots.push(root);
   let timestamp = Date.now();
@@ -55,6 +55,7 @@ async function fixture(options: { secure?: boolean; claims?: Record<string, unkn
     }
     return Response.json({ access_token: `access-secret-${++sequence}`, refresh_token: `refresh-secret-${sequence}`,
       token_type: 'Bearer', expires_in: 3600, id_token: options.idToken ?? identityToken,
+      earliest_refresh_at: options.earliestRefreshAt,
       scope: options.scope ?? 'openid email profile offline_access resource.invoke chatgpt.tokens.use.direct' });
   });
   function callback(url: URL, changes: Record<string, string> = {}) {
@@ -326,7 +327,8 @@ it('registers another account after sign-out and restart without reusing the old
 it('forgets local registration even when remote revocation fails', async () => {
   const f = await fixture();
   const state = await f.auth.signIn(f.root);
-  f.fetchMock.mockResolvedValueOnce(Response.json({ error: 'unavailable' }, { status: 503 }));
+  f.fetchMock.mockResolvedValueOnce(Response.json({ error: 'unavailable' }, { status: 503 }))
+    .mockResolvedValueOnce(Response.json({ error: 'unavailable' }, { status: 503 }));
   await expect(f.auth.signOut(f.root, state.lastProfileId!)).resolves.toMatchObject({
     remoteRevocationConfirmed: false, profiles: [],
   });
@@ -334,6 +336,46 @@ it('forgets local registration even when remote revocation fails', async () => {
   expect((await restarted.state(f.root)).profiles).toEqual([]);
   await restarted.signIn(f.root);
   expect(new URL(f.openBrowser.mock.calls.at(-1)![0]).searchParams.get('client_id')).toBe('dynamic_agent_client');
+});
+
+it('retries revocation once after a temporary failure', async () => {
+  const f = await fixture();
+  const state = await f.auth.signIn(f.root);
+  f.fetchMock.mockResolvedValueOnce(Response.json({ error: 'unavailable' }, { status: 503 }));
+  await expect(f.auth.signOut(f.root, state.lastProfileId!)).resolves.toMatchObject({ remoteRevocationConfirmed: true });
+  expect(f.fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/revoke'))).toHaveLength(1);
+});
+
+it('finishes a token rotation when pending operations are cancelled', async () => {
+  const f = await fixture();
+  const state = await f.auth.signIn(f.root);
+  f.advance(3600000);
+  const token = f.auth.accessToken(f.root, state.lastProfileId!);
+  await vi.waitFor(() => expect(f.fetchMock.mock.calls.some(([, init]) =>
+    new URLSearchParams(init?.body as URLSearchParams).get('grant_type') === 'refresh_token')).toBe(true));
+  f.auth.cancelPending();
+  expect(f.fetchMock.mock.calls.at(-1)![1]?.signal?.aborted).toBe(false);
+  expect(await token).toBe('access-secret-2');
+});
+
+it('waits for the earliest refresh time instead of requesting a new sign-in', async () => {
+  const f = await fixture({ earliestRefreshAt: new Date(Date.now() + 2 * 3600000).toISOString() });
+  const state = await f.auth.signIn(f.root);
+  f.advance(3600000);
+  await expect(f.auth.accessToken(f.root, state.lastProfileId!)).rejects.toThrow('cannot be renewed yet');
+  expect((await f.auth.state(f.root)).profiles[0].connected).toBe(true);
+  f.advance(3600000);
+  expect(await f.auth.accessToken(f.root, state.lastProfileId!)).toBe('access-secret-2');
+});
+
+it('reports a sign-in timeout and a provider error distinctly from cancellation', async () => {
+  const f = await fixture();
+  const slow = createChatGPTAuth({ ...f.configuration, signInTimeoutMs: 10, openBrowser: vi.fn(async () => {}) });
+  await expect(slow.signIn(f.root)).rejects.toThrow('timed out');
+  f.openBrowser.mockImplementationOnce(async value => { f.callback(new URL(value), { error: 'server_error' }); });
+  await expect(f.auth.signIn(f.root)).rejects.toThrow('sign-in failed (server_error)');
+  f.openBrowser.mockImplementationOnce(async value => { f.callback(new URL(value), { error: 'access_denied' }); });
+  await expect(f.auth.signIn(f.root)).rejects.toThrow('declined');
 });
 
 it('allows retrying sign-out when removing the saved registration fails', async () => {

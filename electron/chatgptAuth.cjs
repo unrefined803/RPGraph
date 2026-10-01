@@ -41,8 +41,11 @@ function callbackListener(state, signal, createServer = http.createServer) {
       return;
     }
     if (url.searchParams.has('error')) {
-      response.writeHead(400).end('ChatGPT sign-in was declined. You can return to RPGraph.');
-      rejectResult(new Error('ChatGPT sign-in was declined.'));
+      const code = url.searchParams.get('error');
+      const message = code === 'access_denied' ? 'ChatGPT sign-in was declined.'
+        : `ChatGPT sign-in failed${/^[a-z_]{1,60}$/.test(code) ? ` (${code})` : ''}.`;
+      response.writeHead(400).end(`${message} You can return to RPGraph.`);
+      rejectResult(new Error(message));
       return;
     }
     if (url.searchParams.getAll('code').length !== 1 || !url.searchParams.get('code') ||
@@ -54,7 +57,8 @@ function callbackListener(state, signal, createServer = http.createServer) {
     response.end('ChatGPT authorization received. Return to RPGraph to finish connecting.');
     resolveResult({ code: url.searchParams.get('code'), clientId: url.searchParams.get('client_id') });
   });
-  const abort = () => rejectResult(new Error('ChatGPT sign-in was cancelled.'));
+  const abort = () => rejectResult(signal.reason instanceof Error && signal.reason.name !== 'AbortError'
+    ? signal.reason : new Error('ChatGPT sign-in was cancelled.'));
   signal.addEventListener('abort', abort, { once: true });
   if (signal.aborted) abort();
   server.on('error', rejectResult);
@@ -237,6 +241,8 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
         !Number.isFinite(data.expires_in) || data.expires_in <= 0 ||
         (data.refresh_token !== undefined && typeof data.refresh_token !== 'string') ||
         (!previous && typeof data.id_token !== 'string')) throw new Error('Invalid ChatGPT credentials.');
+    const earliestRefreshAt = typeof data.earliest_refresh_at === 'number' ? data.earliest_refresh_at * 1000
+      : typeof data.earliest_refresh_at === 'string' ? Date.parse(data.earliest_refresh_at) : undefined;
     return { accessToken: data.access_token,
       refreshToken: data.refresh_token ?? previous?.refreshToken,
       // Only retain the ID token verified during sign-in. An expired verified
@@ -244,7 +250,7 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
       idToken: previous?.idToken ?? data.id_token,
       scopes: typeof data.scope === 'string' ? data.scope.split(/\s+/) : previous?.scopes ?? [],
       expiresAt: now() + data.expires_in * 1000,
-      earliestRefreshAt: typeof data.earliest_refresh_at === 'number' ? data.earliest_refresh_at * 1000 : undefined };
+      earliestRefreshAt: Number.isFinite(earliestRefreshAt) ? earliestRefreshAt : undefined };
   }
 
   async function tokenRequest(parameters, signal) {
@@ -290,7 +296,7 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
       signInPending = true;
       const abort = controller();
       signInController = abort;
-      const timeout = setTimeout(() => abort.abort(), signInTimeoutMs);
+      const timeout = setTimeout(() => abort.abort(new Error('ChatGPT sign-in timed out. Try again.')), signInTimeoutMs);
       let listener;
       try {
         const workspace = await load(root);
@@ -369,11 +375,12 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
           (!profile.tokens.earliestRefreshAt || profile.tokens.earliestRefreshAt <= now())) {
         if (!profile.refresh) {
           const previous = profile.tokens;
-          const abort = controller();
           profile.refresh = (async () => {
             try {
+              // Finish and persist a rotation even when pending operations are
+              // cancelled; aborting could discard the only valid replacement token.
               const data = await tokenRequest({ grant_type: 'refresh_token', client_id: profile.clientId,
-                refresh_token: previous.refreshToken, resource }, abort.signal);
+                refresh_token: previous.refreshToken, resource }, new AbortController().signal);
               if (profile.tokens !== previous) throw new Error('The ChatGPT session changed during renewal.');
               profile.tokens = tokenSet(data, previous);
               delete profile.encrypted;
@@ -385,12 +392,15 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
                 await save(root, workspace);
               }
               throw error;
-            } finally { controllers.delete(abort); profile.refresh = undefined; }
+            } finally { profile.refresh = undefined; }
           })();
         }
         await profile.refresh;
       }
       signal?.throwIfAborted();
+      if (profile.tokens?.refreshToken && profile.tokens.expiresAt <= now() && profile.tokens.earliestRefreshAt > now()) {
+        throw new Error('The ChatGPT session cannot be renewed yet. Please retry shortly.');
+      }
       if (!profile.tokens || profile.tokens.expiresAt <= now()) throw new Error('The ChatGPT session expired. Sign in again.');
       if (!profile.tokens.scopes?.includes('chatgpt.tokens.use.direct')) throw new Error('ChatGPT plan usage is not enabled. Continue with ChatGPT to authorize it.');
       // If an earlier atomic write failed, retry saving the replacement before
@@ -411,17 +421,21 @@ function createChatGPTAuth({ userDataPath, storage, runtime, openBrowser, fetch:
       const abort = controller();
       let remoteRevocationConfirmed = !profile.storageLocked && !tokens?.refreshToken;
       try {
-        if (tokens?.refreshToken) {
-          const metadata = await discover(abort.signal);
-          const response = await fetchRequest(trustedAuthUrl(metadata.revocation_endpoint), {
-            method: 'POST', redirect: 'error', signal: AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ token: tokens.refreshToken, token_type_hint: 'refresh_token', client_id: profile.clientId }),
-          });
-          remoteRevocationConfirmed = response.status === 200;
+        // Retry one network or server failure while the refresh token is still available.
+        for (let attempt = 0; tokens?.refreshToken && attempt < 2 && !abort.signal.aborted; attempt += 1) {
+          if (attempt) await new Promise(resolve => setTimeout(resolve, 300));
+          try {
+            const metadata = await discover(abort.signal);
+            const response = await fetchRequest(trustedAuthUrl(metadata.revocation_endpoint), {
+              method: 'POST', redirect: 'error', signal: AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]),
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({ token: tokens.refreshToken, token_type_hint: 'refresh_token', client_id: profile.clientId }),
+            });
+            remoteRevocationConfirmed = response.status === 200;
+            if (response.status < 500) break;
+          } catch (error) { if (error.status < 500) break; }
         }
-      } catch { remoteRevocationConfirmed = false; }
-      finally { controllers.delete(abort); }
+      } finally { controllers.delete(abort); }
       delete profile.tokens;
       delete profile.encrypted;
       profile.storageLocked = false;

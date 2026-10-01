@@ -1410,7 +1410,8 @@ export function StudioDialogs({
       /muse[-_ ]glimmer/i.test(editingConnection.model)
     );
   const museGlimmerReasoningEfforts = ['low', 'medium', 'high', 'xhigh'] as const;
-  const reasoningEfforts = isChatGPTConnection ? ['low', 'medium', 'high'] as const
+  const reasoningEfforts = isChatGPTConnection
+    ? connectionReasoningEfforts.filter((effort) => effort !== 'auto' && effort !== 'on' && supportsReasoningEffort(effort, editingConnectionReasoning))
     : isMuseGlimmerReasoning
     ? museGlimmerReasoningEfforts
     : editingProviderKind === 'gemini' ? ['auto'] as const
@@ -1418,7 +1419,7 @@ export function StudioDialogs({
       (editingProviderKind === 'lm-studio' || editingProviderKind === 'ollama' || editingProviderKind === 'openai-compatible') && editingConnectionReasoning
         ? supportsReasoningEffort(effort, editingConnectionReasoning)
         : effort !== 'on');
-  const selectedReasoningEffort = isChatGPTConnection ? chatgptReasoningEffort(editingConnection.reasoningEffort)
+  const selectedReasoningEffort = isChatGPTConnection ? chatgptReasoningEffort(editingConnection.reasoningEffort, editingConnectionReasoning)
     : isMuseGlimmerReasoning
     ? editingConnection.reasoningEffort === 'medium' ||
       editingConnection.reasoningEffort === 'high' ||

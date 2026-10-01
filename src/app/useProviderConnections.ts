@@ -753,8 +753,17 @@ export function useProviderConnections({
     return details.map((model) => model.id);
   }
 
+  function chatgptReasoningFor(connection: ConnectionPreset, catalog: Record<string, ChatGPTModelInfo[]>) {
+    return catalog[connection.chatgptProfileId ?? '']?.find(model => model.id === connection.model)?.reasoning
+      ?? chatgptReasoningCapabilities;
+  }
+
   function connectionWithReasoning(connection: ConnectionPreset) {
-    if (connection.providerKind === 'chatgpt') return { ...connection, vision: true, reasoningEffort: chatgptReasoningEffort(connection.reasoningEffort), reasoningCapabilities: chatgptReasoningCapabilities };
+    if (connection.providerKind === 'chatgpt') {
+      const reasoningCapabilities = chatgptReasoningFor(connection, chatgptModelsRef.current);
+      return { ...connection, vision: true, reasoningCapabilities,
+        reasoningEffort: chatgptReasoningEffort(connection.reasoningEffort, reasoningCapabilities) };
+    }
     if (connection.providerKind === 'openai-compatible') return connectionWithCompatibleCapabilities(connection);
     if (isGeminiConnection(connection)) {
       return { ...connection, reasoningEffort: 'auto' as const, reasoningCapabilities: undefined };
@@ -2766,12 +2775,15 @@ export function useProviderConnections({
   }
 
   async function prepareChatGPTConnection(connection: ConnectionPreset): Promise<ConnectionPreset> {
-    if (connection.chatgptProfileId) return connection;
     const state = await window.rpgraph.chatgpt.state();
-    const id = state.lastProfileId ?? state.profiles.find(profile => profile.connected)?.id ?? state.profiles[0]?.id;
+    // Sign-out forgets the profile. Presets that still reference it follow the
+    // workspace's current account instead of staying bound to a removed ID.
+    if (state.profiles.some(profile => profile.id === connection.chatgptProfileId)) return connection;
+    const id = state.profiles.find(profile => profile.id === state.lastProfileId)?.id
+      ?? state.profiles.find(profile => profile.connected)?.id ?? state.profiles[0]?.id;
     if (!id) return connection;
-    const update = (current: ConnectionPreset) => current.id === connection.id && current.providerKind === 'chatgpt' && !current.chatgptProfileId
-      ? { ...current, chatgptProfileId: id } : current;
+    const update = (current: ConnectionPreset) => current.id === connection.id && current.providerKind === 'chatgpt' &&
+      current.chatgptProfileId === connection.chatgptProfileId ? { ...current, chatgptProfileId: id } : current;
     setConnections(current => current.map(update));
     setEditingConnection(update);
     return { ...connection, chatgptProfileId: id };
@@ -2810,6 +2822,11 @@ export function useProviderConnections({
     }
     if (nextConnection.providerKind === 'openai-compatible') {
       nextConnection = connectionWithCompatibleCapabilities(nextConnection);
+    }
+    if (field === 'model' && nextConnection.providerKind === 'chatgpt') {
+      // Keep the selected thinking level when the new model supports it.
+      nextConnection.reasoningEffort = chatgptReasoningEffort(
+        nextConnection.reasoningEffort, chatgptReasoningFor(nextConnection, chatgptModelsRef.current));
     }
     if (field === 'model' && isLmStudioConnection(nextConnection)) {
       const modelDetails = lmStudioModelsByConnectionIdRef.current[nextConnection.id] ?? [];
@@ -2949,7 +2966,7 @@ export function useProviderConnections({
   const editingConnectionSupportedVoices = editingConnectionVoiceModels
         ?.find((model) => model.id === editingConnection.model)
         ?.supportedVoices ?? [];
-  const editingConnectionReasoning = editingConnection.providerKind === 'chatgpt' ? chatgptReasoningCapabilities
+  const editingConnectionReasoning = editingConnection.providerKind === 'chatgpt' ? chatgptReasoningFor(editingConnection, chatgptModelsByProfileId)
     : editingConnection.providerKind === 'openai-compatible'
     ? editingCompatibleModel?.reasoning
     : isOpenRouterConnection(editingConnection)
