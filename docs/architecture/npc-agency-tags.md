@@ -2,6 +2,8 @@
 
 Status: phases 1 and 2, direct-message context, and the post-reaction portion of phase 4 are implemented. Structured agency support, the revised 20-NPC roster, tag-aware one-to-one conversations, and Fotogram/OnlyFriends post audiences are available. The additional 30 NPCs, configurable context controls, and NPC-authored posts remain planned.
 
+> Current model: agency tags are character-level only. Per-app tag subsets, `accountRole` and creator accounts described in the planning sections below were removed; older files that contain them still load and the fields are dropped. The catalog's app/role/action entries remain as descriptive metadata. See "Implemented boundaries".
+
 ## Objective and agreed direction
 
 Extend NPC Character Containers with structured agency tags and explicit app account roles, enrich the existing 20 bundled NPCs, then create 30 additional distinct NPCs. A later social game-master workflow receives a filtered, size-limited candidate list and decides who reacts to the player's activity.
@@ -59,7 +61,7 @@ The fields below are implemented in phase 1. Use the shared character payload fo
 This is a partial schema illustration, not a complete valid container. Existing account IDs, enabled state, profile names, biographies and media references remain required according to the existing format.
 
 - Character-level `agencyTags` declares the one or two authored tags.
-- Each enabled app's `agencyTags` explicitly selects a nonempty subset of those tags. The central catalog determines whether each selected tag supports that app, role and action. Author tags and accounts together so every enabled app has a compatible assignment.
+- Superseded: tags are no longer assigned per app and `accountRole` no longer exists; see Implemented boundaries. Original plan: Each enabled app's `agencyTags` explicitly selects a nonempty subset of those tags. The central catalog determines whether each selected tag supports that app, role and action. Author tags and accounts together so every enabled app has a compatible assignment.
 - `accountRole` is `user` or `creator` for Fotogram and OnlyFriends. WhatsUp and MatchMe remain ordinary messaging/dating accounts and reject `accountRole`. Creator-style WhatsUp tags describe messaging behavior on an ordinary account; they do not require or grant a social creator account.
 - IDs reference one central tag catalog containing English meanings and applicability rules. Do not duplicate full tag definitions inside containers.
 - Validate unknown IDs, duplicates, more than two character tags, app tags outside the character selection, invalid roles and incompatible app assignments.
@@ -92,7 +94,7 @@ The implemented Fotogram/OnlyFriends post path builds candidates from the effect
 
 1. Resolve the post app, author identity, post text and available image context.
 2. Require an enabled account for the target app and exclude the author by stable character/account identity, with exact handle fallback.
-3. For NPCs, require `accountRole: user` and at least one app-assigned tag whose catalog entry supports `react` for that app and role. Creator accounts, unclassified NPCs, disabled accounts, wrong-app accounts and NPCs with only DM tags are omitted.
+3. Every character with an enabled account on the target app is a candidate, tagged or not. Tags do not gate eligibility: the prompt passes each candidate's character tags and meanings, and the model decides whether and how that character reacts. Accounts have no role.
 4. Show all authored character agency tags after `[NPC]` or `[Storybook character]`. Eligibility still uses app-specific reaction assignments for new posts; displaying additional traits does not grant new actions.
 5. Storybook characters with an enabled user account remain available without invented tags, subject to author exclusion. Their established Storybook characterization remains available elsewhere in the workflow context; Storybook creator accounts are filtered like NPC creators.
 6. The runtime prompt instructs the LLM to use tags as private behavioral guidance for participation, tone, wording and intent. A tag is a tendency, so any listed account may stay silent. Tag labels and instructions must never appear in public comments.
@@ -178,11 +180,11 @@ catalog, not the original reference table below.
 Implemented boundaries:
 
 - `shared/agency-tags.cjs` and its TypeScript declarations provide the immutable 50-tag catalog, applicability lookup and shared validation used by Node/Electron and the renderer. Packaging already includes shared CJS files.
-- `src/characters/character.ts`, the shared container validator and Storybook normalization preserve tags and roles and reject malformed values before they can be silently dropped. Missing or empty character tags are unclassified; populated tags require compatible explicit assignments on every enabled account. Disabled accounts can retain compatible assignments or an empty selection.
-- `CharacterAgencyField` provides an atomic editor for character tags, per-app subsets and social account roles in the Character Assistant and both Storybook editors, plus a read-only preview. Invalid intermediate selections stay in the form until corrected; cancellation discards them. Concurrent changes to app identity, enablement or agency fields require reopening the editor.
-- Character and Storybook assistants receive the catalog as authoring context. The Character Assistant accounts specialist owns character tags and app assignments together; its profile specialist cannot leave a partial classification. This catalog is not injected into ordinary gameplay prompts.
-- Manual profile creation initializes a new account assignment from compatible tags already authored on the character; it never invents a new character tag. Existing profile edits preserve roles and assignments even when a profile form omits those fields. An explicitly empty incompatible assignment is rejected. The Agency Tags editor can refine the initialized subset.
-- Runtime character projections retain structured fields for later use. Ordinary formatted Storybook context, recipient context and public profile fields do not gain tag instructions. Content comparison treats missing user roles, empty tag lists and tag ordering consistently.
+- Tags are character-level only. `src/characters/character.ts`, the shared container validator and Storybook normalization preserve `agencyTags` and reject unknown IDs, duplicates and more than two tags. Any catalog tag is valid whichever accounts exist; accounts can be created, enabled or disabled without touching the tags. Per-account `agencyTags` and `accountRole` from earlier files are ignored by validation and dropped on normalization. There is no creator account type.
+- `CharacterAgencyField` edits the one or two character tags in the Character Assistant and both Storybook editors, plus a read-only preview. Cancellation discards the draft; a concurrent tag change requires reopening the editor.
+- Character and Storybook assistants receive the catalog as a flat `id: meaning` list through `agencyAuthoringInstructions` and patch only the character-level field. In the Character Assistant the accounts stage sets the tags after the profile is committed. This catalog is not injected into ordinary gameplay prompts.
+- Catalog `apps[app][role]` entries are descriptive metadata: `user` is audience-side behavior and `creator` is publisher-side behavior. They indicate where a tag's behavior typically shows and feed the population report; they restrict neither authoring nor runtime eligibility.
+- Runtime character projections retain structured fields for later use. Ordinary formatted Storybook context, recipient context and public profile fields do not gain tag instructions. Content comparison treats empty tag lists and tag ordering consistently.
 - Creator/export, CLI inspect/edit and pinned NPC snapshots reuse the same validation and retain the fields. Phase 1 did not rewrite existing bundled NPC files; their content revision is recorded in phase 2.
 
 Validation includes catalog completeness, malformed assignments, explicit app enablement, transactional assistant/form edits, import/export, Storybook persistence, CLI media preservation, saved NPC archives and legacy compatibility. Interactive form validation remains a manual user check.

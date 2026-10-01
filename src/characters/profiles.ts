@@ -1,5 +1,4 @@
 import { accountHandle, migratedProfileName } from './character';
-import { agencyTagSupports, validateCharacterAgency } from '../../shared/agency-tags.cjs';
 import type { DatingProfile } from '../chat/datingProfile';
 import { normalizeCharacterApps, socialFromCharacterApps, type Character, type CharacterAppAccount, type CharacterApps } from './character';
 import type { CharacterRegistryDiagnostic, EffectiveCharacterRegistry } from './registry';
@@ -28,19 +27,13 @@ export function validateCandidateCharacterRegistry(
 export function withCharacterAppProfile(character: Character, app: keyof CharacterApps, account: CharacterAppAccount & { profile?: DatingProfile }): Character {
   const current = normalizeCharacterApps(character.apps, character.social, character.id, character.name);
   const previous = current[app];
-  const accountRole = account.accountRole ?? previous?.accountRole;
-  const agencyTags = account.agencyTags ?? previous?.agencyTags ?? (character.agencyTags?.length
-    ? character.agencyTags.filter((tag) => agencyTagSupports(tag, app, accountRole ?? 'user')) : undefined);
   const privacyMode = account.privacyMode ?? previous?.privacyMode;
   const updated = { ...account,
     ...(privacyMode !== undefined ? { privacyMode } : {}),
-    ...(accountRole !== undefined ? { accountRole } : {}),
-    ...(agencyTags !== undefined ? { agencyTags: [...agencyTags] } : {}),
     legacyHandles: [...new Set([
     ...(previous?.legacyHandles ?? []), accountHandle(previous), ...(account.legacyHandles ?? []),
   ].filter(Boolean))] };
   const apps = normalizeCharacterApps({ ...current, [app]: updated }, undefined, character.id, character.name);
-  validateCharacterAgency({ ...character, apps });
   if (account.avatarImageId && !character.images.some((image) => image.id === account.avatarImageId)) {
     throw new Error('Choose an avatar from this character’s gallery.');
   }

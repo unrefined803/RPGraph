@@ -259,20 +259,40 @@ restores the bundled entry.
 
 The provider preset selector sits to the right of the assistant heading.
 
-Authoring uses three prompt roles: the main conversational editor, a profile
-specialist, and an accounts/media/posts specialist. The main response can include
-`steps: ["profile", "accounts"]` (or just one of them), normally with an empty
-patch, to create a new character in smaller requests. Targeted edits and questions
-continue to use the main prompt directly. Profile steps cannot edit accounts or
-media; account steps cannot change the character identity texts. Each specialist
-receives its own smaller instructions, current draft and selected attachments.
-The accounts step receives the completed profile from the preceding step.
+Authoring uses four prompt roles: the main conversational editor and three
+specialists for the profile, the image descriptions, and the accounts with image
+assignments and agency tags. Creating a character is staged: the main response
+returns `steps: ["profile"]` with an empty patch, the profile specialist writes
+identity and personality, and that result is committed as its own undoable
+change. Each following stage starts from a Continue action on the assistant
+reply and is committed separately. Targeted edits and questions continue to use
+the main prompt directly. Each specialist receives its own smaller instructions,
+the current draft and images, and may only patch its own fields (`stepScopes`).
 
-The sequence is bounded to two specialist calls, with no recursive delegation.
-An empty specialist patch pauses for clarification. All steps run on an isolated
-draft; a later validation failure, cancellation or concurrent edit prevents the
-sequence from being committed. A successful sequence is applied as one undoable
-change. The UI reports the active step; no model stage saves files automatically.
+`nextCharacterAuthoringStage` picks the stage to offer after a reply:
+
+1. `images` when the character has a profile, the provider supports vision and
+   gallery images lack a description. The stage attaches up to
+   `imageStageBatchSize` undescribed images itself and writes their name and
+   description with the profile as context, so it can say who is shown. It is
+   offered again until all images are described, but not after a run that made
+   no progress. It is also offered after ordinary replies.
+2. `accounts` when the main response requested it or a changed draft still has
+   its generated Fotogram profile name (`accountsStagePending`). The stage sees
+   the ticked images plus further gallery images up to the batch size and
+   chooses portrait, Fotogram and MatchMe images itself unless the user named
+   one. For a new character it must replace the placeholder name and, when the
+   conversation never addressed the optional accounts or the agency tags, ask
+   with an empty patch instead of guessing. With an empty gallery it still
+   creates the accounts, says that images are missing and keeps a requested
+   MatchMe profile as a disabled draft.
+
+Ticked image attachments persist across replies until the user unticks them. A
+stage question or a failed stage attempt keeps the next user message inside
+that stage, and errors offer a Retry action for the same request and stage.
+There is no recursive delegation; a validation failure, cancellation or
+concurrent edit discards only the running stage. The UI reports the active
+step; no model stage saves files automatically.
 `authoringSteps.test.ts` covers ordering, scope restrictions, clarification,
 transactional failures, and effective library rows.
 

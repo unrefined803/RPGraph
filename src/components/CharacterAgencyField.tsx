@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { agencyTagCatalog, agencyTagSupports, type AgencyAccountRole, type AgencyTagId } from '../../shared/agency-tags.cjs';
-import { characterAgencyDraft, withCharacterAgency, type CharacterAgencyDraft } from '../characters/agency';
-import type { Character, CharacterApps } from '../characters/character';
+import { agencyTagCatalog, type AgencyTagId } from '../../shared/agency-tags.cjs';
+import { withCharacterAgencyTags } from '../characters/agency';
+import type { Character } from '../characters/character';
 import { AgencyTagSelect } from './AgencyTagSelect';
 import { useAgencyTagHoverTooltip, AGENCY_TAG_TOOLTIP_DELAY_MS } from './AgencyTagTooltip';
 import './characterAgencyField.css';
@@ -11,36 +11,24 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
   character: Character; disabled?: boolean; onSave?: (character: Character) => boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
-  const [draft, setDraft] = useState<CharacterAgencyDraft | null>(null);
+  const [draft, setDraft] = useState<AgencyTagId[] | null>(null);
   const [base, setBase] = useState('');
   const [error, setError] = useState('');
-  const fingerprint = JSON.stringify([character.id, characterAgencyDraft(character),
-    Object.entries(character.apps ?? {}).map(([app, account]) => [app, account.accountId, account.enabled])]);
+  const fingerprint = JSON.stringify([character.id, character.agencyTags ?? []]);
   const conflict = draft !== null && base !== fingerprint;
-  const appNames: Record<keyof CharacterApps, string> = {
-    whatsup: 'WhatsUp',
-    fotogram: 'Fotogram',
-    onlyfriends: 'OnlyFriends',
-    matchme: 'MatchMe',
-  };
 
   function selectTag(index: number, value: string) {
     if (!draft) return;
-    const tags = [...draft.agencyTags];
+    const tags = [...draft];
     if (value) tags[index] = value as AgencyTagId;
     else tags.splice(index, 1);
-    // Remove dangling selections, but leave deliberate app assignment to the author.
-    setDraft({
-      agencyTags: tags,
-      apps: Object.fromEntries(Object.entries(draft.apps).map(([app, account]) =>
-        [app, { ...account, agencyTags: account.agencyTags.filter((tag) => tags.includes(tag)) }])),
-    });
+    setDraft(tags);
   }
 
   function save() {
     if (!draft || disabled || conflict) return;
     try {
-      if (!onSave?.(withCharacterAgency(character, draft))) {
+      if (!onSave?.(withCharacterAgencyTags(character, draft))) {
         setError('Agency tags could not be saved. Check the editor notice.');
         return;
       }
@@ -55,7 +43,6 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
   const characterTags = character.agencyTags ?? [];
   const count = characterTags.length;
   const summaryText = count === 0 ? 'Empty' : count === 1 ? '1 Tag' : `${count} Tags`;
-  const appEntries = Object.entries(character.apps ?? {}) as [keyof CharacterApps, NonNullable<CharacterApps[keyof CharacterApps]>][];
 
   const {
     handleTagMouseEnter,
@@ -136,7 +123,7 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
                       disabled={disabled}
                       onClick={() => {
                         setBase(fingerprint);
-                        setDraft(characterAgencyDraft(character));
+                        setDraft([...characterTags]);
                         setError('');
                       }}
                     >
@@ -161,201 +148,66 @@ export function CharacterAgencyField({ character, disabled, onSave }: {
         )}
       </div>
 
-      {revealed && (
-        !isEditing ? (
-          <div className="character-agency-apps-list">
-            {appEntries.map(([app, account]) => {
-              const name = appNames[app] ?? app;
-              const tags = account.agencyTags ?? [];
-              const role = (app === 'fotogram' || app === 'onlyfriends') ? account.accountRole ?? 'user' : null;
+      {revealed && isEditing && (
+        <fieldset disabled={disabled} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'contents' }}>
+          <p className="character-agency-help">
+            Choose up to two behavior tags. They describe the character on every app, whichever accounts exist.
+          </p>
+
+          <div className="character-agency-tag-selectors">
+            {[0, 1].map((index) => {
+              const selectedId = draft[index] ?? '';
+              const meaning = agencyTagCatalog.find((tag) => tag.id === selectedId)?.meaning;
               return (
-                <div key={app} className={`character-agency-app-row${!account.enabled ? ' is-disabled' : ''}`}>
-                  <div className="character-agency-app-meta">
-                    <span className="character-agency-app-name">{name}</span>
-                    {!account.enabled && <span className="character-agency-disabled-tag">(disabled)</span>}
-                    {role && <span className="character-agency-role-badge">{role}</span>}
-                  </div>
-                  <div className="character-agency-app-tags">
-                    {tags.length > 0 ? (
-                      tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="character-agency-app-tag-pill character-agency-hoverable"
-                          onMouseEnter={handleTagMouseEnter(tag)}
-                          onMouseLeave={handleTagMouseLeave}
-                          onClick={handleTagClick}
-                        >
-                          {tag}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="character-agency-tag-none">Unclassified</span>
-                    )}
-                  </div>
-                </div>
+                <label className="character-agency-select-field" key={index}>
+                  <span className="field-label">{index === 0 ? 'Primary Agency Tag' : 'Second Tag (Optional)'}</span>
+                  <AgencyTagSelect
+                    value={selectedId}
+                    disabled={disabled || (index === 1 && !draft[0])}
+                    placeholder={index === 0 ? 'None' : 'None (Single tag)'}
+                    options={agencyTagCatalog.map((tag) => ({
+                      id: tag.id,
+                      disabled: draft.includes(tag.id) && selectedId !== tag.id,
+                    }))}
+                    onChange={(value) => selectTag(index, value)}
+                    onShowTooltip={showTooltipForElement}
+                    onHideTooltip={hideTooltip}
+                  />
+                  {meaning && <span className="character-agency-tag-meaning">{meaning}</span>}
+                </label>
               );
             })}
           </div>
-        ) : (
-          <fieldset disabled={disabled} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'contents' }}>
-            <p className="character-agency-help">
-              Choose up to two behavior tags, then assign compatible tags to each enabled app.
-            </p>
 
-            <div className="character-agency-tag-selectors">
-              {[0, 1].map((index) => {
-                const selectedId = draft.agencyTags[index] ?? '';
-                const meaning = agencyTagCatalog.find((tag) => tag.id === selectedId)?.meaning;
-                return (
-                  <label className="character-agency-select-field" key={index}>
-                    <span className="field-label">{index === 0 ? 'Primary Agency Tag' : 'Second Tag (Optional)'}</span>
-                    <AgencyTagSelect
-                      value={selectedId}
-                      disabled={disabled || (index === 1 && !draft.agencyTags[0])}
-                      placeholder={index === 0 ? 'None' : 'None (Single tag)'}
-                      options={agencyTagCatalog.map((tag) => ({
-                        id: tag.id,
-                        disabled: draft.agencyTags.includes(tag.id) && selectedId !== tag.id,
-                      }))}
-                      onChange={(value) => selectTag(index, value)}
-                      onShowTooltip={showTooltipForElement}
-                      onHideTooltip={hideTooltip}
-                    />
-                    {meaning && <span className="character-agency-tag-meaning">{meaning}</span>}
-                  </label>
-                );
-              })}
+          {conflict && (
+            <div className="character-agency-alert danger" role="alert">
+              Agency tags changed while editing. Cancel and reopen this section.
             </div>
-
-            <div className="character-agency-apps-editor">
-              {Object.entries(draft.apps).map(([app, assignment]) => {
-                const key = app as keyof CharacterApps;
-                const appName = appNames[key] ?? app;
-                const isEnabled = character.apps?.[key]?.enabled;
-                const hasRole = app === 'fotogram' || app === 'onlyfriends';
-
-                return (
-                  <div key={app} className={`character-agency-app-card${!isEnabled ? ' is-disabled' : ''}`}>
-                    <div className="character-agency-app-card-header">
-                      <div className="character-agency-app-card-title">
-                        <strong>{appName}</strong>
-                        {!isEnabled && <span className="character-agency-disabled-badge">Disabled</span>}
-                      </div>
-                      {hasRole && (
-                        <div className="character-agency-role-selector">
-                          <span className="character-agency-role-label">Role</span>
-                          <select
-                            value={assignment.accountRole ?? 'user'}
-                            disabled={disabled}
-                            onChange={(event) =>
-                              setDraft({
-                                ...draft,
-                                apps: {
-                                  ...draft.apps,
-                                  [app]: {
-                                    ...assignment,
-                                    accountRole: event.target.value as AgencyAccountRole,
-                                  },
-                                },
-                              })
-                            }
-                            className="character-agency-role-select nodrag"
-                          >
-                            <option value="user">User</option>
-                            <option value="creator">Creator</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="character-agency-pills-list">
-                      {draft.agencyTags.length === 0 ? (
-                        <span className="character-agency-empty-hint">Select a behavior tag above first.</span>
-                      ) : (
-                        draft.agencyTags.map((tag) => {
-                          const compatible = agencyTagSupports(tag, key, assignment.accountRole ?? 'user');
-                          const isChecked = assignment.agencyTags.includes(tag);
-                          const extra = !compatible
-                            ? `${tag} is not compatible with ${assignment.accountRole ?? 'user'} role on ${appName}`
-                            : undefined;
-                          return (
-                            <label
-                              key={tag}
-                              className={`character-agency-pill-toggle nodrag${isChecked ? ' is-active' : ''}${!compatible ? ' is-incompatible' : ''}`}
-                              onMouseEnter={handleTagMouseEnter(tag, extra)}
-                              onMouseLeave={handleTagMouseLeave}
-                              onClick={handleTagClick}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={disabled || (!compatible && !isChecked)}
-                                onChange={(event) => {
-                                  const newTags = event.target.checked
-                                    ? [...assignment.agencyTags, tag]
-                                    : assignment.agencyTags.filter((entry) => entry !== tag);
-                                  setDraft({
-                                    ...draft,
-                                    apps: {
-                                      ...draft.apps,
-                                      [app]: { ...assignment, agencyTags: newTags },
-                                    },
-                                  });
-                                }}
-                                style={{
-                                  position: 'absolute',
-                                  width: 1,
-                                  height: 1,
-                                  padding: 0,
-                                  margin: -1,
-                                  overflow: 'hidden',
-                                  clip: 'rect(0, 0, 0, 0)',
-                                  border: 0,
-                                }}
-                              />
-                              <span className="character-agency-pill-check" aria-hidden="true">{isChecked ? '✓' : '+'}</span>
-                              <span className="character-agency-pill-name">{tag}</span>
-                              {!compatible && <span className="character-agency-pill-incompatible-tag">(not compatible)</span>}
-                            </label>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          )}
+          {error && (
+            <div className="character-agency-alert danger" role="alert">
+              {error}
             </div>
+          )}
 
-            {conflict && (
-              <div className="character-agency-alert danger" role="alert">
-                Accounts or agency tags changed while editing. Cancel and reopen this section.
-              </div>
-            )}
-            {error && (
-              <div className="character-agency-alert danger" role="alert">
-                {error}
-              </div>
-            )}
-
-            <div className="character-agency-footer-actions">
-              <button
-                type="button"
-                className="character-agency-cancel-btn nodrag"
-                onClick={() => { setDraft(null); setError(''); }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="character-agency-save-btn nodrag"
-                disabled={disabled || conflict}
-                onClick={save}
-              >
-                Save Agency Tags
-              </button>
-            </div>
-          </fieldset>
-        )
+          <div className="character-agency-footer-actions">
+            <button
+              type="button"
+              className="character-agency-cancel-btn nodrag"
+              onClick={() => { setDraft(null); setError(''); }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="character-agency-save-btn nodrag"
+              disabled={disabled || conflict}
+              onClick={save}
+            >
+              Save Agency Tags
+            </button>
+          </div>
+        </fieldset>
       )}
       {TooltipPortal}
     </div>

@@ -129,9 +129,7 @@ describe('shared NPC app discovery', () => {
     const recipient = npc();
     recipient.hiddenAgency = 'Wants dependable follow-through.';
     recipient.agencyTags = ['friendly_regular'];
-    recipient.apps!.whatsup = { accountId: 'stage4-nova-wu', enabled: true, username: '', displayName: 'Nova Vale', bio: '', agencyTags: ['friendly_regular'] };
-    recipient.apps!.fotogram!.agencyTags = ['friendly_regular'];
-    recipient.apps!.matchme!.agencyTags = ['friendly_regular'];
+    recipient.apps!.whatsup = { accountId: 'stage4-nova-wu', enabled: true, username: '', displayName: 'Nova Vale', bio: '' };
     recipient.relationships = [
       { characterId: 'player', description: 'Likes the player but watches reliability.', apps: { whatsup: true } },
       { characterId: 'mentioned', description: 'Used to organize events with Jordan.', apps: { whatsup: true } },

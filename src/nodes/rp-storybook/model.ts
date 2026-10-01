@@ -5,7 +5,7 @@ import { validateCharacterAgency } from '../../../shared/agency-tags.cjs';
 import { relationshipText, relationshipAuthoringInstructions } from '../../characters/relationships';
 import { portraitDataUrl } from '../../characters/portrait';
 import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../../characters/npcParticipants';
-import { normalizeCharacterApps, socialFromCharacterApps, characterPayload, type Character } from '../../characters/character';
+import { normalizeCharacterApps, socialFromCharacterApps, characterPayload, type Character, type CharacterApps } from '../../characters/character';
 import { normalizeDatingProfile, type DatingProfile } from '../../chat/datingProfile';
 import type { MessageRecord, RpAppointment, TurnRecord } from '../../types';
 import type { TurnCheckpoint } from '../../data-management/types';
@@ -624,8 +624,14 @@ function normalizeCharacter(
     character.apps !== undefined,
   );
   const profileImage = normalizeCharacterProfileImage(character.profileImage, images);
-  const apps = normalizeCharacterApps(character.apps, character.social, id, name);
-  validateCharacterAgency({ ...character, apps });
+  let apps: CharacterApps;
+  try {
+    apps = normalizeCharacterApps(character.apps, character.social, id, name);
+    validateCharacterAgency(character);
+  } catch (error) {
+    // These errors do not name their owner; a multi-character edit needs it.
+    throw Object.assign(new Error(`Character "${name || id}": ${error instanceof Error ? error.message : String(error)}`), { cause: error });
+  }
   return {
     id,
     name,
@@ -1102,7 +1108,7 @@ function applyJsonPatchReplace(target: unknown, operation: JsonPatchOperation) {
     return;
   }
   if (!parent || typeof parent !== 'object' || !Object.prototype.hasOwnProperty.call(parent, key)) {
-    throw new Error(`JSON Patch path does not exist: ${String(operation.path)}`);
+    throw new Error(`JSON Patch path does not exist: ${String(operation.path)}. replace needs an existing field; use add to create a missing one.`);
   }
   (parent as Record<string, unknown>)[key] = operation.value;
 }
@@ -1111,7 +1117,7 @@ function jsonValuesEqual(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-export function applyJsonPatchOperation(target: unknown, operation: JsonPatchOperation) {
+function applyJsonPatchOperation(target: unknown, operation: JsonPatchOperation) {
   if (!operation || typeof operation !== 'object' || Array.isArray(operation)) {
     throw new Error('JSON Patch entries must be objects.');
   }
@@ -1164,6 +1170,29 @@ export function applyJsonPatchOperation(target: unknown, operation: JsonPatchOpe
   }
 }
 
+/** Character and account fields that are legitimately absent until authored. */
+const optionalPatchFields = new Set(['age', 'gender', 'hiddenAgency', 'agencyTags', 'relationships', 'banking', 'comfyConfig',
+  'phoneSettings', 'profileImage', 'onlyfriends', 'matchme', 'profile', 'profileName', 'privacyMode', 'avatarImageId', 'initialPosts']);
+
+/**
+ * Assistant patches often use replace for a field that does not exist yet.
+ * For known optional fields that is an unambiguous upsert; any other missing
+ * path stays an error so a misspelled field is reported instead of ignored.
+ */
+export function applyAssistantPatchOperation(target: unknown, operation: JsonPatchOperation) {
+  try {
+    applyJsonPatchOperation(target, operation);
+  } catch (error) {
+    const field = operation?.op === 'replace' && typeof operation.path === 'string' ? operation.path.split('/').pop() : undefined;
+    if (!field || !optionalPatchFields.has(field)) throw error;
+    try {
+      applyJsonPatchOperation(target, { ...operation, op: 'add' });
+    } catch {
+      throw error;
+    }
+  }
+}
+
 function applyStorybookJsonPatch(value: RpStorybook, patch: unknown) {
   if (!Array.isArray(patch)) {
     throw new Error('Assistant response must include a JSON Patch array in "patch".');
@@ -1171,7 +1200,7 @@ function applyStorybookJsonPatch(value: RpStorybook, patch: unknown) {
   const target = structuredClone(value);
   patch.forEach((operation, index) => {
     try {
-      applyJsonPatchOperation(target, operation as JsonPatchOperation);
+      applyAssistantPatchOperation(target, operation as JsonPatchOperation);
       const path = (operation as JsonPatchOperation).path;
       const appEdit = typeof path === 'string' ? /^\/characters\/(\d+)\/apps(?:\/|$)/.exec(path) : null;
       if (appEdit && (operation as JsonPatchOperation).op !== 'test') {
@@ -1496,27 +1525,28 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
         ]
       : []),
     'You are the chat assistant for one RPGraph RP Storybook JSON document.',
-    'Return only valid JSON. No markdown. No comments. No extra keys. Use JSON string escaping, never Markdown escaping: underscores need no backslash (write mia_weber).',
+    'Return only valid JSON. No markdown. No comments. Use JSON string escaping, never Markdown escaping: underscores need no backslash (write mia_weber).',
     'You can answer questions about the current storybook and you can edit the storybook when the user asks for changes.',
     'Return this response shape with a valid RFC 6902 JSON Patch array. The patch paths use RFC 6901 JSON Pointer.',
-    '{"reply":"short user-facing answer","changedFields":["title","scenario.openingSituation"],"patch":[{"op":"replace","path":"/title","value":"New title"}]}',
+    '{"reply":"short user-facing answer","patch":[{"op":"replace","path":"/title","value":"New title"}]}',
+    'The response has exactly these two keys. The app works out which fields changed from the patch itself.',
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
     'The schema example below describes field shapes, not current values. Never copy its sample names, handles, ids, or balances into existing characters:',
     `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
-    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","age":25,"gender":"woman","description":"","personality":"","speechStyle":"","hiddenAgency":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"playable":true,"apps":{"whatsup":{"accountId":"character:character-id:whatsup","enabled":true,"bio":""},"fotogram":{"accountId":"character:character-id:fotogram","enabled":true,"profileName":"nova.reyes","bio":""}},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
-    'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
-    'For a request to create a complete new story, work in three stages across separate replies, not one large patch. Stage 1: write title, introduction, scenario.summary, scenario.openingSituation, scenario.currentSituation and the base characters (including age and gender); use apps: {} for standard account defaults and omit character/app agencyTags. Defer requested optional profiles and app connections to stage 2. Stage 2: configure the requested app profiles, account roles and connections, preserving the completed story and characters; leave new characters untagged. Stage 3: assign suitable character tags and compatible subsets on every enabled app together in one patch. After stages 1 and 2, briefly state what was completed, summarize the pending work from the original request, and ask whether to proceed with the next stage. A yes/continue reply authorizes only that next stage; use the conversation and Current JSON to resume without recreating completed work. These stages apply to complete story creation, not targeted edits or character imports.',
-    'After each completed stage with a next stage pending, append [NEXT: short description of the next phase] inside the JSON reply string, before its closing quote. Return exactly one JSON object for the current stage; never append another JSON object, a marker or other text outside it. Example: {"reply":"Base saved. [NEXT: Configure app profiles]","changedFields":[],"patch":[]}. Describe the next phase in the user language; keep NEXT literal. The app renders this trailing marker as a Continue button. Do not emit it after the final stage, for errors or for unrelated questions. A Continue request authorizes only the described next phase.',
+    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","age":25,"gender":"woman","description":"","personality":"","speechStyle":"","hiddenAgency":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"playable":true,"relationships":[],"apps":{"whatsup":{"accountId":"character:character-id:whatsup","enabled":true,"bio":""},"fotogram":{"accountId":"character:character-id:fotogram","enabled":true,"profileName":"nova.reyes","bio":""}},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
+    'If the user asks a question, answer it in reply and return an empty patch array.',
+    'For a request to create a complete new story, work in three stages across separate replies, not one large patch. Stage 1: write title, introduction, scenario.summary, scenario.openingSituation, scenario.currentSituation and the base characters (including age and gender); use apps: {} for standard account defaults and omit agencyTags. Defer requested optional profiles and app connections to stage 2. Stage 2: configure the requested app profiles and connections, preserving the completed story and characters; still omit agencyTags. Stage 3: give each character suitable agencyTags from the catalog with one add operation per character at /characters/{index}/agencyTags. After stages 1 and 2, briefly state what was completed, summarize the pending work from the original request, and ask whether to proceed with the next stage. A yes/continue reply authorizes only that next stage; use the conversation and Current JSON to resume without recreating completed work. These stages apply to complete story creation, not targeted edits or character imports.',
+    'After each completed stage with a next stage pending, append [NEXT: short description of the next phase] inside the JSON reply string, before its closing quote. Return exactly one JSON object for the current stage; never append another JSON object, a marker or other text outside it. Example: {"reply":"Base saved. [NEXT: Configure app profiles]","patch":[{"op":"replace","path":"/title","value":"New title"}]}. Describe the next phase in the user language; keep NEXT literal. The app renders this trailing marker as a Continue button. Do not emit it after the final stage, for errors or for unrelated questions. A Continue request authorizes only the described next phase.',
     'APP ERROR entries in the conversation describe rejected attempts, not saved progress. Their failed JSON patches are not included in the conversation and no part of a rejected patch was saved. On an explicit retry, use Current JSON and the original request to redo only the failed stage, correcting the reported error; do not advance stages or claim that rejected changes exist.',
     'If the user asks for edits or provides new story facts, edit only the required fields. Preserve unrelated values. Image galleries, character profileImage portraits, voice samples, and phoneSettings are managed by app controls: never patch them, even on request; explain which app controls to use instead. Image-generation text in comfyConfig can be edited on request.',
     'Use paths from Current JSON, with a leading slash and zero-based array indices: /characters/0/name, not characters/0/name, /characters/alice/name, or characters[0].name. Escape ~ as ~0 and / as ~1 inside a property name.',
-    'Prefer replace for existing text fields and add at /characters/- to append a new character. replace requires an existing target; add requires an existing parent. Include value for every add or replace. To clear text, replace its value with an empty string, not null or a remove operation.',
+    'Prefer replace for existing text fields and add at /characters/- to append a new character. replace requires an existing target; add requires an existing parent. Include value for every add or replace. To clear text, replace its value with an empty string, not null or a remove operation. A field that is not shown in Current JSON does not exist yet (often age, gender, agencyTags, hiddenAgency, privacyMode, avatarImageId, or an onlyfriends or matchme account): set it with add, which also overwrites an existing value.',
     'Character append operation example: {"op":"add","path":"/characters/-","value":{"id":"new-student","name":"Alex Morgan","age":21,"gender":"nonbinary","description":"Student","personality":"Friendly","speechStyle":"Casual","role":"Friend","playable":true,"banking":{"startBalance":800,"fixedExpenses":[{"label":"Mobile plan","amount":20}]},"relationships":[],"apps":{},"comfyConfig":{},"images":[]}}. The entire /characters/- is one path string; never write "path":"/characters","-". Use a separate complete add operation for each new character.',
     'Apply operations in order. Array removals shift later indices, so remove multiple entries from highest index to lowest. Never replace the entire characters array to edit one person. Keep existing ids stable and give each new character a unique, non-empty id and a name that is unique in this Storybook. If the requested name is already used by another character, explain the conflict in reply and do not add or rename that character.',
     'Before returning, check each path against Current JSON and earlier operations. Do not guess missing character indices. If the target is ambiguous, ask a clarification in reply with an empty patch. Never claim a locked or app-managed change was completed.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
     'For character renames when identity is not locked, replace only /characters/{index}/name and keep the character id stable.',
-    `Agency tag authoring: apply the following character rules at /characters/{index} and app rules at /characters/{index}/apps. ${agencyAuthoringInstructions}`,
+    `Agency tag authoring at /characters/{index}/agencyTags. ${agencyAuthoringInstructions}`,
     'Optional characters[].hiddenAgency is author-only free text for concealed motivations, goals, priorities, boundaries and relationships, especially for NPCs. Add or edit it when the user asks, or when requested character authoring clearly requires concealed motivations. Otherwise leave it absent or empty; do not invent secret goals for every character or duplicate an ordinary role already clear from the story. Preserve existing agency unless asked to change it. Use add at /characters/{index}/hiddenAgency when absent. It is not public profile text, ordinary RP context, or a runtime command. Do not quote or summarize its contents in reply unless the user explicitly asks to reveal them; confirm only that hidden agency was updated.',
     'For new characters, add one complete character object at /characters/- with id, name, age, gender, description, personality, speechStyle, role, playable: true, banking, relationships: [], apps: {}, comfyConfig, and images: []. Always set character-level age (number in years) and gender (woman/man/nonbinary), even without MatchMe; use supplied details or choose plausible values when inventing a character. Preserve existing values unless asked to change them. Do not invent image data or voice samples.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',
@@ -1533,7 +1563,6 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     "For initial social posts, use apps.fotogram.initialPosts or apps.onlyfriends.initialPosts entries shaped {\"id\":\"unique-post-id\",\"text\":\"Post text\",\"imageId\":\"existing-gallery-image-id\"}; imageId is optional. Preserve existing post IDs and unrelated posts; do not write runtime feed or Opening History data.",
     'characters[].comfyConfig is optional image-generation configuration. loraName is a ComfyUI LoRA file name for that character. loraUrl is an optional download/source URL for that LoRA. appearance is a concise visual description for generated images. For new characters, leave them empty unless the user explicitly provides image-generation details. Preserve existing settings unless asked to change them.',
     'characters[].voiceConfig stores a binary voice sample managed by the app. Never create, edit, or remove it.',
-    'For edits, changedFields must list compact field paths that changed, for example "title", "scenario", "characters".',
     'Every authored Storybook participant belongs in characters. Existing NPC Library contacts may remain external references in relationships; do not copy them into the cast just to establish contact.',
     relationshipAuthoringInstructions,
     'When the user explicitly asks to add a selected external character to the Storybook, add one complete character object using that selected reference\'s exact stable id. The application replaces that text-only object with the authoritative container, including its accounts, images and settings. Do not invent a new id, paraphrase the character as a different person, or claim an import when no character object was added. A request to add only a relationship or app connection must not import the referenced character.',

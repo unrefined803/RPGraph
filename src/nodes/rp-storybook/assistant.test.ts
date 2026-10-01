@@ -244,22 +244,37 @@ it('keeps story creation valid across base, accounts and agency stages', () => {
   expect(base.characters[index].apps?.whatsup?.enabled).toBe(true);
   expect(base.characters[index].apps?.fotogram?.enabled).toBe(true);
   const accounts = apply([{ op: 'add', path: `${path}/apps/onlyfriends`, value: {
-    accountId: 'character:student:onlyfriends', enabled: true, profileName: 'morgan',
-    bio: '', accountRole: 'creator', privacyMode: true,
+    accountId: 'character:student:onlyfriends', enabled: true, profileName: 'morgan', bio: '', privacyMode: true,
   } }], base).storybook;
-  const before = rpStorybookJsonText(accounts);
-  expect(() => apply([{ op: 'add', path: `${path}/agencyTags`, value: ['fan_engager'] }], accounts))
-    .toThrow('requires an explicit compatible agencyTags selection');
-  expect(rpStorybookJsonText(accounts)).toBe(before);
-  const tagged = apply([
-    { op: 'add', path: `${path}/agencyTags`, value: ['fan_engager', 'casual_chatter'] },
-    { op: 'add', path: `${path}/apps/whatsup/agencyTags`, value: ['fan_engager'] },
-    { op: 'add', path: `${path}/apps/fotogram/agencyTags`, value: ['casual_chatter'] },
-    { op: 'add', path: `${path}/apps/onlyfriends/agencyTags`, value: ['fan_engager'] },
-  ], accounts).storybook;
+  const tagged = apply([{ op: 'add', path: `${path}/agencyTags`, value: ['fan_engager', 'social_lurker'] }], accounts).storybook;
   const saved = parseRpStorybookJson(rpStorybookJsonText(tagged)).characters[index];
   expect(() => validateCharacterPayload(characterPayload(saved))).not.toThrow();
-  expect(saved).toMatchObject({ name: 'Morgan', age: 21, gender: 'woman', agencyTags: ['fan_engager', 'casual_chatter'] });
+  expect(saved).toMatchObject({ name: 'Morgan', age: 21, gender: 'woman', agencyTags: ['fan_engager', 'social_lurker'] });
+});
+
+it('lets tagged characters gain any account and reports unknown tags with their owner', () => {
+  const tagged = apply([{ op: 'add', path: '/characters/1/agencyTags', value: ['status_flexer', 'clout_chaser'] }]).storybook;
+  const created = apply([{ op: 'add', path: '/characters/1/apps/onlyfriends', value: {
+    accountId: 'character:mira:onlyfriends', enabled: true, profileName: 'MiraVIP', bio: '',
+  } }], tagged).storybook;
+  expect(created.characters[1]).toMatchObject({ agencyTags: ['status_flexer', 'clout_chaser'],
+    apps: { onlyfriends: { enabled: true, profileName: 'MiraVIP' } } });
+  expect(apply([{ op: 'add', path: '/characters/1/agencyTags', value: [] }], created).storybook.characters[1].agencyTags).toEqual([]);
+  expect(() => apply([{ op: 'add', path: '/characters/1/agencyTags', value: ['influencer'] }]))
+    .toThrow('Character "Mira": Character agencyTags must contain at most two unique known tag IDs. Not in the catalog: influencer.');
+  const upserted = apply([{ op: 'replace', path: '/characters/1/agencyTags', value: ['shy_user'] },
+    { op: 'replace', path: '/characters/1/age', value: 24 }]).storybook.characters[1];
+  expect(upserted).toMatchObject({ agencyTags: ['shy_user'], age: 24 });
+  expect(() => apply([{ op: 'replace', path: '/characters/1/nickname', value: 'Mi' }]))
+    .toThrow('use add to create a missing one');
+});
+
+it('describes agency tags as character traits without account rules', () => {
+  const prompt = rpStorybookEditPrompt(rpStorybookPromptJsonText(starterRpStorybook), 'Tag everyone');
+  expect(prompt).toContain('Every catalog tag is valid for every character');
+  expect(prompt).toContain('one add operation per character at /characters/{index}/agencyTags');
+  expect(prompt).toContain('- social_lurker: ');
+  for (const retired of ['changedFields', 'dm_initiate', 'account role', 'creator account']) expect(prompt).not.toContain(retired);
 });
 
 it('includes stage confirmations and application errors in the next request context', () => {

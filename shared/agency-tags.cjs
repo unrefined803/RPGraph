@@ -1,4 +1,9 @@
-/** Authored behavior vocabulary. Applicability is metadata, never permission to perform an action. */
+/**
+ * Authored behavior vocabulary. The app/role/action entries describe where a tag's behavior shows:
+ * `user` is audience-side behavior, `creator` is publisher-side behavior. They are metadata for
+ * reports; accounts carry no role, and the entries restrict neither which tags a character may
+ * have nor who may take part at runtime.
+ */
 const agencyTagCatalog = [
   {"id": "casual_chatter", "meaning": "Enjoys relaxed everyday conversation without strongly pursuing romance, money, attention, or deeper commitment.", "apps": {"whatsup": {"user": ["dm_reply", "dm_initiate"]}, "fotogram": {"user": ["react", "dm_reply", "dm_initiate"], "creator": ["react", "dm_reply", "dm_initiate", "publish"]}, "matchme": {"user": ["dm_reply", "dm_initiate"]}, "onlyfriends": {"user": ["dm_reply", "dm_initiate"], "creator": ["dm_reply", "dm_initiate"]}}},
   {"id": "shy_user", "meaning": "Is interested in others but communicates cautiously, hesitates to initiate, and opens up gradually.", "apps": {"whatsup": {"user": ["dm_reply"]}, "fotogram": {"user": ["dm_reply"]}, "matchme": {"user": ["dm_reply"]}, "onlyfriends": {"user": ["dm_reply"]}}},
@@ -75,40 +80,18 @@ function validateTags(value, label) {
   if (value === undefined) return;
   if (!Array.isArray(value) || value.length > 2 || new Set(value).size !== value.length ||
       value.some((id) => typeof id !== 'string' || !byId.has(id))) {
-    throw new Error(`${label} agencyTags must contain at most two unique known tag IDs.`);
+    const unknown = Array.isArray(value) ? value.filter((id) => typeof id !== 'string' || !byId.has(id)) : [];
+    throw new Error(`${label} agencyTags must contain at most two unique known tag IDs.${unknown.length
+      ? ` Not in the catalog: ${unknown.map((id) => typeof id === 'string' ? id : JSON.stringify(id)).join(', ')}. Copy IDs exactly from the catalog.` : ''}`);
   }
 }
 
-/** Validate fields before normalizers can drop malformed authored data. */
-function validateAccountAgency(app, account) {
-  if (account.accountRole !== undefined &&
-      (!['fotogram', 'onlyfriends'].includes(app) || !['user', 'creator'].includes(account.accountRole))) {
-    throw new Error(`${app} accountRole must be user or creator on a social account.`);
-  }
-  validateTags(account.agencyTags, app);
-  for (const id of account.agencyTags ?? []) {
-    if (!agencyTagSupports(id, app, account.accountRole ?? 'user')) {
-      const role = account.accountRole ?? 'user';
-      const supportedRoles = Object.keys(byId.get(id)?.apps[app] ?? {});
-      const alternatives = agencyTagCatalog.filter((tag) => agencyTagSupports(tag.id, app, role)).slice(0, 3).map((tag) => tag.id);
-      throw new Error(`${app} agencyTags: ${id} does not support this app and account role. Effective accountRole: ${role}${account.accountRole === undefined ? ' (default)' : ''}. ${id} supports ${app} roles: ${supportedRoles.join(', ') || 'none'}. Choose a compatible character tag and app subset; compatible examples for this role: ${alternatives.join(', ') || 'none'}. Preserve the intended account role; do not change it just to fit a tag. Update character tags and all enabled app assignments together.`);
-    }
-  }
-}
-
+/**
+ * Tags belong to the character and are valid whichever accounts exist. Per-account
+ * agencyTags and accountRole in older files are ignored and dropped on normalization.
+ */
 function validateCharacterAgency(character) {
   validateTags(character.agencyTags, 'Character');
-  const tags = character.agencyTags ?? [];
-  for (const [app, account] of Object.entries(character.apps ?? {})) {
-    if (!account || typeof account !== 'object' || Array.isArray(account)) continue;
-    validateAccountAgency(app, account);
-    if ((account.agencyTags ?? []).some((id) => !tags.includes(id))) {
-      throw new Error(`${app} agencyTags must be a subset of character agencyTags.`);
-    }
-    if (tags.length && account.enabled && !account.agencyTags?.length) {
-      throw new Error(`${app} requires an explicit compatible agencyTags selection for a tagged character.`);
-    }
-  }
 }
 
-module.exports = { agencyTagCatalog, agencyTagSupports, validateAccountAgency, validateCharacterAgency };
+module.exports = { agencyTagCatalog, agencyTagSupports, validateCharacterAgency };

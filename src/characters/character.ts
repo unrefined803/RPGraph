@@ -1,5 +1,5 @@
 import { normalizeDatingProfile, type DatingProfile } from '../chat/datingProfile';
-import { validateAccountAgency, validateCharacterAgency, type AgencyTagId, type AgencyAccountRole } from '../../shared/agency-tags.cjs';
+import { validateCharacterAgency, type AgencyTagId } from '../../shared/agency-tags.cjs';
 import {
   validateCharacterContainer as validateSharedCharacterContainer,
   validateCharacterPayload as validateSharedCharacterPayload,
@@ -11,8 +11,6 @@ import type {
 } from '../nodes/rp-storybook/model';
 
 export type CharacterAppAccount = {
-  accountRole?: AgencyAccountRole;
-  agencyTags?: AgencyTagId[];
   accountId: string;
   enabled: boolean;
   /** The only authored app name. WhatsUp has no profile name. */
@@ -99,8 +97,8 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
   const social = record(legacy);
   const apps: CharacterApps = {};
   for (const app of ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const) {
-    const account = record(source[app]);
-    validateAccountAgency(app, account);
+    // Older files stored per-account agencyTags and accountRole; tags now belong to the character only.
+    const { agencyTags: _agencyTags, accountRole: _accountRole, ...account } = record(source[app]);
     const legacyHandle = app === 'fotogram' ? social.fotogramUsername : app === 'onlyfriends' ? social.onlyfriendsUsername : undefined;
     const rawProfile = app === 'matchme' ? record(account.profile ?? social.plotTwist) : {};
     const profileName = app === 'whatsup' ? undefined : app === 'matchme'
@@ -119,8 +117,6 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
     }, account.enabled === false) : undefined;
     if (!Object.keys(account).length && !legacyHandle && !profile) continue;
     apps[app] = {
-      ...(account.accountRole !== undefined ? { accountRole: account.accountRole as AgencyAccountRole } : {}),
-      ...(account.agencyTags !== undefined ? { agencyTags: [...account.agencyTags as AgencyTagId[]] } : {}),
       accountId: string(account.accountId) || `character:${id}:${app}`,
       enabled: typeof account.enabled === 'boolean' ? account.enabled : app === 'matchme' ? !!profile : app === 'whatsup' || !!profileName,
       ...(profileName !== undefined ? { profileName } : {}),
@@ -164,7 +160,7 @@ export function characterPayload(character: Omit<Character, 'profileImage'> & {
 }, portable = false) {
   const { social, profileImage, ...rest } = character;
   const apps = normalizeCharacterApps(character.apps, social, character.id, character.name);
-  validateCharacterAgency({ ...character, apps });
+  validateCharacterAgency(character);
   if (apps.matchme?.profile) {
     // DatingProfile.name is an editor/runtime projection, not a second stored app name.
     delete (apps.matchme.profile as Partial<DatingProfile>).name;

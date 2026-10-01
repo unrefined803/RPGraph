@@ -4,13 +4,13 @@ import { promisify } from 'node:util';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { agencyTagCatalog, agencyTagSupports, validateAccountAgency, validateCharacterAgency, type AgencyTagId } from '../../shared/agency-tags.cjs';
-import { characterAgencyDraft, withCharacterAgency } from './agency';
+import { agencyTagCatalog, agencyTagSupports, validateCharacterAgency, type AgencyTagId } from '../../shared/agency-tags.cjs';
+import { agencyAuthoringInstructions, withCharacterAgencyTags } from './agency';
 import { createAuthoredCharacter } from './creator';
-import { normalizeCharacterApps, validateCharacterContainer, type Character } from './character';
+import { validateCharacterContainer, type Character } from './character';
 import { characterContentEqual } from './contentComparison';
 import { withCharacterAppProfile } from './profiles';
-import { parseCharacterAssistantResult, runCharacterAuthoringSteps } from './assistant';
+import { parseCharacterAssistantResult, runCharacterAuthoringStep } from './assistant';
 import { buildCharacterRegistry } from './registry';
 import { appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
 import { captureNpcParticipants, parseNpcParticipantSnapshots } from './npcParticipants';
@@ -26,21 +26,13 @@ const fixture = JSON.parse(readFileSync('src/characters/fixtures/stage4-npc.json
 function tagged(): Character {
   const source = normalizeRpStorybookCharacter(createAuthoredCharacter(fixture.character, () => '').character, 0, new Set());
   delete source.social;
-  const draft = characterAgencyDraft(source);
-  draft.agencyTags = ['friendly_regular', 'boundary_setter'];
-  for (const account of Object.values(draft.apps)) account.agencyTags = ['friendly_regular'];
-  draft.apps.fotogram!.accountRole = 'creator';
-  draft.apps.onlyfriends = { accountRole: 'user', agencyTags: ['boundary_setter'] };
   source.apps!.onlyfriends = { accountId: 'onlyfriends-test', enabled: true, profileName: 'test.private', bio: 'Private profile' };
-  return withCharacterAgency(source, draft);
+  return withCharacterAgencyTags(source, ['friendly_regular', 'boundary_setter']);
 }
 
-const patchFor = (character: Character) => [
-  { op: 'add', path: '/character/agencyTags', value: character.agencyTags },
-  ...Object.entries(character.apps ?? {}).flatMap(([app, account]) => [
-    { op: 'add', path: `/character/apps/${app}`, value: account },
-  ]),
-];
+/** Per-account tags and roles as older files stored them. */
+const legacyAccount = (account: object, agencyTags: string[], accountRole?: string) =>
+  ({ ...account, agencyTags, ...(accountRole ? { accountRole } : {}) });
 
 describe('agency catalog and container contract', () => {
   it('defines every documented tag exactly once with supported role/action combinations', () => {
@@ -95,30 +87,50 @@ describe('agency catalog and container contract', () => {
   it.each([
     { agencyTags: ['missing'] }, { agencyTags: 'shy_user' }, { agencyTags: null },
     { agencyTags: ['shy_user', 'shy_user'] }, { agencyTags: ['shy_user', 'loyal_friend', 'casual_chatter'] },
-    { agencyTags: [], apps: { fotogram: { enabled: true, agencyTags: ['shy_user'] } } },
-    { agencyTags: ['shy_user'], apps: { fotogram: { enabled: true } } },
-    { agencyTags: ['shy_user'], apps: { fotogram: { enabled: true, agencyTags: ['shy_user'], accountRole: 'creator' } } },
-    { apps: { whatsup: { accountRole: 'user' } } }, { apps: { matchme: { accountRole: 'creator' } } },
-    { apps: { fotogram: { accountRole: 'both' } } }, { apps: { fotogram: { agencyTags: null } } },
-  ])('rejects malformed or contradictory agency data: %j', (value) => {
-    expect(() => validateCharacterAgency(value)).toThrow(/agencyTags|accountRole/);
+  ])('rejects malformed character tags: %j', (value) => {
+    expect(() => validateCharacterAgency(value)).toThrow('agencyTags');
   });
 
-  it('preserves legacy absence and disabled standard accounts, rejecting data before normalization', () => {
-    const legacy = normalizeRpStorybookCharacter(createAuthoredCharacter(fixture.character, () => '').character, 0, new Set());
-    expect(legacy.agencyTags).toBeUndefined();
-    expect(legacy.apps!.fotogram?.accountRole).toBeUndefined();
+  it('accepts every catalog tag whichever accounts exist', () => {
+    const untagged = normalizeRpStorybookCharacter(createAuthoredCharacter(fixture.character, () => '').character, 0, new Set());
+    delete untagged.social;
+    expect(untagged.agencyTags).toBeUndefined();
+    for (const tag of agencyTagCatalog) {
+      const character = withCharacterAgencyTags(untagged, [tag.id]);
+      expect(() => validateCharacterContainer(createAuthoredCharacter(character, () => ''))).not.toThrow();
+    }
+    // Creator-style tags neither need nor block an OnlyFriends account.
+    const flexer = withCharacterAgencyTags(untagged, ['status_flexer', 'clout_chaser']);
+    const added = withCharacterAppProfile(flexer, 'onlyfriends', {
+      accountId: 'new-onlyfriends', enabled: true, profileName: 'new.profile', bio: '',
+    });
+    expect(added.agencyTags).toEqual(['status_flexer', 'clout_chaser']);
+    expect(added.apps!.onlyfriends).toMatchObject({ enabled: true, profileName: 'new.profile' });
+    expect(() => createAuthoredCharacter({ name: 'No accounts', agencyTags: ['friendly_regular'] }, () => 'x')).not.toThrow();
+    expect(() => normalizeRpStorybook({ ...emptyRpStorybook, characters: [{ ...flexer, agencyTags: ['unknown'] }] }))
+      .toThrow('Not in the catalog: unknown.');
+    expect(() => withCharacterAgencyTags(untagged, ['not-a-tag' as AgencyTagId])).toThrow('agencyTags');
+  });
+
+  it('ignores per-account tags and roles from older files and drops them on normalization', () => {
     const source = tagged();
-    source.apps!.fotogram!.enabled = false;
-    source.apps!.fotogram!.agencyTags = [];
-    const container = createAuthoredCharacter(source, () => '');
-    expect(container.character.apps.fotogram).toMatchObject({ enabled: false, agencyTags: [], accountRole: 'creator' });
-    expect(() => normalizeCharacterApps({ fotogram: { accountRole: 'bad' } }, undefined, 'x', 'X')).toThrow('accountRole');
-    expect(() => normalizeRpStorybook({ ...emptyRpStorybook, characters: [{ ...source, agencyTags: ['unknown'] }] })).toThrow('agencyTags');
-    expect(() => createAuthoredCharacter({ name: 'Missing assignments', agencyTags: ['friendly_regular'] }, () => 'x')).toThrow('agencyTags');
+    const stored = { ...source, apps: {
+      ...source.apps,
+      whatsup: legacyAccount(source.apps!.whatsup!, ['not_in_character_tags']),
+      fotogram: legacyAccount(source.apps!.fotogram!, [], 'creator'),
+      onlyfriends: legacyAccount(source.apps!.onlyfriends!, ['boundary_setter', 'retired_tag'], 'both'),
+    } };
+    expect(() => validateCharacterAgency(stored)).not.toThrow();
+    const loaded = normalizeRpStorybookCharacter(stored, 0, new Set());
+    expect(loaded.agencyTags).toEqual(source.agencyTags);
+    for (const account of Object.values(loaded.apps!)) {
+      expect(account).not.toHaveProperty('agencyTags');
+      expect(account).not.toHaveProperty('accountRole');
+    }
+    expect(characterContentEqual(source, stored as unknown as Character)).toBe(true);
   });
 
-  it('round trips tags and roles through containers, Storybooks, CLI editing and pinned revisions without changing media', async () => {
+  it('round trips tags through containers, Storybooks, CLI editing and pinned revisions without changing media', async () => {
     const source = tagged();
     const card = createAuthoredCharacter(source, () => '');
     validateCharacterContainer(card);
@@ -142,78 +154,64 @@ describe('agency catalog and container contract', () => {
     await run(process.execPath, ['scripts/inspect-character-container.mjs', '--input', input, '--output', spec]);
     const edit = JSON.parse(readFileSync(spec, 'utf8'));
     expect(JSON.stringify(edit)).not.toContain('data:image');
-    edit.character.apps.onlyfriends.agencyTags = ['friendly_regular'];
+    edit.character.agencyTags = ['friendly_regular'];
     writeFileSync(spec, JSON.stringify(edit));
     await run(process.execPath, ['scripts/edit-character-container.mjs', '--input', input, '--spec', spec, '--output', output]);
     const result = JSON.parse(readFileSync(output, 'utf8'));
     validateCharacterContainer(result);
-    expect(result.character.apps.onlyfriends.agencyTags).toEqual(['friendly_regular']);
+    expect(result.character.agencyTags).toEqual(['friendly_regular']);
     expect(result.character.images).toEqual(card.character.images);
     expect(result.character.id).toBe(source.id);
     for (const [app, account] of Object.entries(source.apps!)) expect(result.character.apps[app].accountId).toBe(account.accountId);
   });
 
-  it('treats default roles and tag order equivalently, but detects changed assignments', () => {
-    const legacy = normalizeRpStorybookCharacter(createAuthoredCharacter(fixture.character, () => '').character, 0, new Set());
-    expect(characterContentEqual(legacy, { ...legacy, agencyTags: [], apps: { ...legacy.apps,
-      fotogram: { ...legacy.apps!.fotogram!, accountRole: 'user', agencyTags: [] } } })).toBe(true);
+  it('treats tag order equivalently, but detects changed tags', () => {
+    const untagged = normalizeRpStorybookCharacter(createAuthoredCharacter(fixture.character, () => '').character, 0, new Set());
+    expect(characterContentEqual(untagged, { ...untagged, agencyTags: [] })).toBe(true);
     const source = tagged(), next = structuredClone(source);
     next.agencyTags!.reverse();
     expect(characterContentEqual(source, next)).toBe(true);
-    next.apps!.onlyfriends!.agencyTags = ['friendly_regular'];
+    next.agencyTags = ['friendly_regular'];
     expect(characterContentEqual(source, next)).toBe(false);
   });
 
-  it('retains agency during profile edits and initializes new accounts from compatible authored tags', () => {
+  it('keeps tags during profile edits and applies assistant patches to character tags only', async () => {
     const source = tagged();
-    const { accountRole: _role, agencyTags: _tags, ...profile } = source.apps!.fotogram!;
-    const edited = withCharacterAppProfile(source, 'fotogram', { ...profile, bio: 'Updated biography' });
-    expect(edited.apps!.fotogram).toMatchObject({ accountRole: 'creator', agencyTags: ['friendly_regular'] });
-    delete source.apps!.onlyfriends;
-    const added = withCharacterAppProfile(source, 'onlyfriends', {
-      accountId: 'new-onlyfriends', enabled: true, profileName: 'new.profile', bio: '',
-    });
-    expect(added.apps!.onlyfriends!.agencyTags).toEqual(['friendly_regular', 'boundary_setter']);
-    expect(source.apps!.onlyfriends).toBeUndefined();
-    expect(() => withCharacterAppProfile(added, 'onlyfriends', { ...added.apps!.onlyfriends!, agencyTags: [] })).toThrow('agencyTags');
-  });
-
-  it('applies authoring forms and assistant patches atomically and rejects inconsistent removals', async () => {
-    const source = tagged();
-    const legacy = normalizeRpStorybookCharacter(createAuthoredCharacter(fixture.character, () => '').character, 0, new Set());
-    const result = parseCharacterAssistantResult(JSON.stringify({ reply: 'Updated', patch: patchFor(source) }), legacy);
+    const edited = withCharacterAppProfile(source, 'fotogram', { ...source.apps!.fotogram!, bio: 'Updated biography' });
+    expect(edited.agencyTags).toEqual(source.agencyTags);
+    const untagged = normalizeRpStorybookCharacter(createAuthoredCharacter(fixture.character, () => '').character, 0, new Set());
+    const patch = [{ op: 'add', path: '/character/agencyTags', value: source.agencyTags }];
+    const result = parseCharacterAssistantResult(JSON.stringify({ reply: 'Updated', patch }), untagged);
     expect(result.character.agencyTags).toEqual(source.agencyTags);
-    const specialist = await runCharacterAuthoringSteps({ ...result, steps: ['accounts'] }, 'Keep agency tags', [], async (_step, prompt) => {
-      expect(prompt).toContain('agencyTags');
-      return JSON.stringify({ reply: 'Updated', patch: [{ op: 'replace', path: '/character/agencyTags', value: source.agencyTags }] });
+    const specialist = await runCharacterAuthoringStep('accounts', result.character, 'Retag', [], async (prompt) => {
+      expect(prompt).toContain('- fan_engager: ');
+      return JSON.stringify({ reply: 'Updated', patch: [{ op: 'replace', path: '/character/agencyTags', value: ['fan_engager'] }] });
     });
-    expect(specialist.character.agencyTags).toEqual(source.agencyTags);
-    const story = normalizeRpStorybook({ ...emptyRpStorybook, characters: [legacy] });
-    const patched = parseRpStorybookAssistantResult(JSON.stringify({ reply: 'Updated', changedFields: ['agencyTags'],
-      patch: patchFor(source).map((op) => ({ ...op, path: op.path.replace('/character/', '/characters/0/') })) }), story);
+    expect(specialist.character.agencyTags).toEqual(['fan_engager']);
+    const story = normalizeRpStorybook({ ...emptyRpStorybook, characters: [untagged] });
+    const patched = parseRpStorybookAssistantResult(JSON.stringify({ reply: 'Updated',
+      patch: [{ op: 'add', path: '/characters/0/agencyTags', value: source.agencyTags },
+        // A model that still writes the retired per-account fields must not fail the edit.
+        { op: 'add', path: '/characters/0/apps/fotogram/accountRole', value: 'creator' },
+        { op: 'add', path: '/characters/0/apps/fotogram/agencyTags', value: ['upseller'] }] }), story);
     expect(patched.storybook.characters[0].agencyTags).toEqual(source.agencyTags);
-    expect(() => parseCharacterAssistantResult(JSON.stringify({ reply: 'Invalid', patch: [
+    expect(patched.storybook.characters[0].apps!.fotogram).not.toHaveProperty('accountRole');
+    expect(patched.storybook.characters[0].apps!.fotogram).not.toHaveProperty('agencyTags');
+    const cleared = parseCharacterAssistantResult(JSON.stringify({ reply: 'Cleared', patch: [
       { op: 'remove', path: '/character/agencyTags' },
-    ] }), source)).toThrow('agencyTags');
-    const draft = characterAgencyDraft(source);
-    draft.agencyTags = ['shy_user'];
-    expect(() => withCharacterAgency(source, draft)).toThrow('agencyTags');
-    expect(source.agencyTags).toEqual(['friendly_regular', 'boundary_setter']);
-    const cleared = characterAgencyDraft(source);
-    cleared.agencyTags = [];
-    Object.values(cleared.apps).forEach((app) => { app.agencyTags = []; });
-    expect(withCharacterAgency(source, cleared).agencyTags).toEqual([]);
+    ] }), source).character;
+    expect(cleared.agencyTags).toBeUndefined();
     const bad = structuredClone(source);
     bad.agencyTags = ['not-a-tag' as AgencyTagId];
     expect(() => parseNpcParticipantSnapshots({ [source.id]: { character: bad, source: 'invalid' } })).toThrow('agencyTags');
   });
 });
 
-
-it('explains incompatible account roles with catalog-derived alternatives', () => {
-  expect(() => validateAccountAgency('fotogram', { agencyTags: ['fan_engager'] }))
-    .toThrow('Effective accountRole: user (default). fan_engager supports fotogram roles: creator.');
-  expect(() => validateAccountAgency('fotogram', { agencyTags: ['fan_engager'] }))
-    .toThrow('compatible examples for this role: casual_chatter');
-  expect(() => validateAccountAgency('fotogram', { accountRole: 'creator', agencyTags: ['fan_engager'] })).not.toThrow();
+describe('agency authoring instructions', () => {
+  it('lists every tag without account constraints', () => {
+    for (const tag of agencyTagCatalog) expect(agencyAuthoringInstructions).toContain(`- ${tag.id}: ${tag.meaning}`);
+    expect(agencyAuthoringInstructions).toContain('Every catalog tag is valid for every character');
+    expect(agencyAuthoringInstructions).not.toContain('dm_reply');
+    expect(agencyAuthoringInstructions).not.toContain('creator)');
+  });
 });

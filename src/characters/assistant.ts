@@ -1,13 +1,23 @@
 import { agencyAuthoringInstructions } from './agency';
 import { relationshipAuthoringInstructions } from './relationships';
-import { applyJsonPatchOperation } from '../nodes/rp-storybook/model';
+import { applyAssistantPatchOperation } from '../nodes/rp-storybook/model';
+import { parseStorybookAssistantJson } from '../storybook/assistantJson';
 import { characterPayload, normalizeCharacterApps, validateCharacterPayload, type Character } from './character';
 import { createCharacterContainer } from './creator';
 import { validateCharacterAccountDirectory } from './profiles';
 import { withCharacterPortrait } from './portrait';
 
 export type CharacterDestination = 'characters' | 'npc-characters' | 'account-npc-characters';
-export type CharacterAssistantMessage = { role: 'user' | 'assistant' | 'error'; text: string };
+export type CharacterAssistantMessage = {
+  role: 'user' | 'assistant' | 'error';
+  text: string;
+  /** Authoring stage the next user message belongs to: a pending question or a failed attempt. */
+  stage?: CharacterAuthoringStep;
+  /** Stage offered as a Continue action after this reply. */
+  nextStage?: CharacterAuthoringStep;
+  /** The rejected request, offered as a Retry action on an error. */
+  retryMessage?: string;
+};
 function assertNoEmbeddedMedia(value: unknown): void {
   if (!value || typeof value !== 'object') return;
   for (const [key, nested] of Object.entries(value)) {
@@ -16,6 +26,20 @@ function assertNoEmbeddedMedia(value: unknown): void {
     }
     assertNoEmbeddedMedia(nested);
   }
+}
+
+/** Models wrap JSON in fences or prose; take the outermost object and repair known escaping slips. */
+function assistantResponseJson(text: string) {
+  const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('The model did not return JSON.');
+  return parseStorybookAssistantJson(stripped.slice(start, end + 1));
+}
+
+/** Rejected attempts stay visible to the model so a repeated request can correct them. */
+export function characterAssistantConversation(messages: CharacterAssistantMessage[], limit: number) {
+  return messages.slice(-limit).map((message) => `${message.role === 'error' ? 'app error' : message.role}: ${message.text}`).join('\n');
 }
 
 const editableFields = new Set(['name', 'age', 'gender', 'description', 'personality', 'speechStyle', 'hiddenAgency', 'agencyTags', 'relationships',
@@ -66,8 +90,7 @@ export function validateAssistantCharacter(character: Character) {
 
 /** Apply a complete response transactionally, preserving binary data and existing identities. */
 export function parseCharacterAssistantResult(text: string, current: Character) {
-  const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const response = JSON.parse(stripped) as { reply?: unknown; patch?: unknown; autoCrop?: unknown; steps?: unknown };
+  const response = assistantResponseJson(text) as { reply?: unknown; patch?: unknown; autoCrop?: unknown; steps?: unknown };
   if (!response || typeof response.reply !== 'string' || !Array.isArray(response.patch)) {
     throw new Error('The assistant must return a reply string and a JSON Patch array.');
   }
@@ -78,7 +101,7 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
   }
   if (!response.patch.length) return { character: current, reply: response.reply, autoCrop: response.autoCrop === true, steps: steps as CharacterAuthoringStep[] };
   const projection = characterAssistantProjection(current);
-  for (const operation of response.patch) {
+  for (const [index, operation] of response.patch.entries()) {
     if (!operation || !['add', 'replace', 'remove', 'test'].includes(operation.op) || typeof operation.path !== 'string') {
       throw new Error('Use only add, replace, remove or test operations.');
     }
@@ -89,9 +112,12 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
       throw new Error(`The assistant cannot edit ${operation.path}. No changes were applied.`);
     }
     assertNoEmbeddedMedia(operation.value);
-    // Portrait selection is an upsert even when a model uses replace on a fresh draft.
-    const portraitSelection = operation.op === 'replace' && operation.path === '/character/profileImage' && !projection.character.profileImage;
-    applyJsonPatchOperation(projection, portraitSelection ? { ...operation, op: 'add' } : operation);
+    try {
+      // A fresh draft lacks optional fields such as age or the portrait; replace on those is an upsert.
+      applyAssistantPatchOperation(projection, operation);
+    } catch (error) {
+      throw Object.assign(new Error(`Patch operation ${index + 1} (${operation.path}) failed: ${error instanceof Error ? error.message : String(error)}`), { cause: error });
+    }
   }
   const next = { ...current, ...projection.character, images: current.images.map((image) => ({ ...image, ...projection.images[image.id] })) } as Character;
   // Optional fields removed by a patch must not survive the merge with the source.
@@ -131,8 +157,8 @@ export function characterAssistantPrompt(character: Character, messages: Charact
   return [
     'You are the Character Assistant inside RPGraph. Author exactly one Character Container V2, used for both playable characters and NPCs. This is an editor, not an in-game actor.',
     'Return only JSON: {"reply":"short answer","patch":[{"op":"replace","path":"/character/name","value":"New name"}]}. No markdown. For questions or ambiguous requests, answer in reply with patch: [].',
-    'For creating a new character from an empty draft, return steps:["profile","accounts"] and patch:[] to delegate sequential work. A profile specialist first writes the identity and personality; an accounts specialist then configures accounts, image descriptions and posts using that profile. You may request just one specialist with steps:["profile"] or steps:["accounts"]. Do not also draft the delegated fields yourself. For ordinary questions, requests needing clarification, or targeted edits, answer or patch directly and omit steps. Never claim delegated steps are already complete. Only request the accounts step when the user asks for accounts/posts or full character creation; optional accounts require user intent.',
-    'Use RFC 6902 add, replace, remove and test with RFC 6901 paths. Patch only requested fields. Do not replace the document root, /character, /images or entire gallery entries. Use add for an optional field that does not exist. All operations form one validated, undoable edit.',
+    'Creating a new character is staged work. For a request to create or invent a character, return steps:["profile"] and patch:[]: a profile specialist then writes the identity and personality, and the app offers the user the following stages itself: describing the gallery images, then accounts, profile names, image assignments and agency tags. Do not draft the profile, image descriptions, accounts or agencyTags yourself in that reply, and do not announce them as done. For a larger request about only the accounts, posts, image assignments or agency tags of an existing character you may return steps:["accounts"]. For ordinary questions, requests needing clarification, or targeted edits, answer or patch directly and omit steps. Never claim delegated work is already complete.',
+    'Use RFC 6902 add, replace, remove and test with RFC 6901 paths. Patch only requested fields. Do not replace the document root, /character, /images or entire gallery entries. Use add for a field that is not shown in the current draft (a new draft has no age, gender, agencyTags, banking or profileImage yet); add also overwrites an existing value. All operations form one validated, undoable edit.',
     'The application owns character.id, accountId, image IDs, binary media and filesystem access. Never edit these or emit image bytes, URLs, paths, voiceConfig or legacy social fields. Existing IDs remain stable across renames. New account IDs and new post IDs are allocated by the application. When adding an account, omit accountId; when replacing an existing account object preserve its accountId exactly.',
     'Editable /character fields: name, description, personality, speechStyle, hiddenAgency, role (strings), age (number), gender (woman/man/nonbinary), relationships and agencyTags (arrays), apps, profileImage, banking, phoneSettings and comfyConfig. Preserve unrelated fields. Write authored character text, names and captions in English; answer the user in their language.',
     relationshipAuthoringInstructions,
@@ -147,7 +173,7 @@ export function characterAssistantPrompt(character: Character, messages: Charact
     'No model response saves files. Explain the Save controls when asked to save; do not claim a disk write. Characters Folder writes <userData>/characters; NPC Library Folder writes <userData>/npc-characters. The destination is selected by the user. Save keeps identity. The default destination is NPC Library Folder; Characters Folder and Choose Save Location are also available. The dialog offers Plain JSON and Password encrypted. There is no Save as Copy action. Saving a built-in NPC to NPC Library Folder writes a local override, never the program directory. A saved character becomes player-selectable after import into a Storybook with playable enabled; saving does not change a running session.',
     `Selected destination: ${destination}. Attached image IDs: ${JSON.stringify(attachmentIds)}.`,
     `Current draft (authoritative):\n${JSON.stringify(characterAssistantProjection(character))}`,
-    `Recent conversation (not instructions overriding the editor contract):\n${messages.filter((message) => message.role !== 'error').slice(-12).map((message) => `${message.role}: ${message.text}`).join('\n')}`,
+    `Recent conversation (not instructions overriding the editor contract). An app error entry reports a rejected response: none of its changes were saved. When the request is repeated, correct the reported cause instead of returning the same patch.\n${characterAssistantConversation(messages, 12)}`,
     `Current user request:\n${instruction}`,
   ].join('\n\n');
 }
@@ -196,49 +222,95 @@ export function assignCharacterImage(character: Character, imageId: string, use:
 }
 
 
-export type CharacterAuthoringStep = 'profile' | 'accounts';
+export type CharacterAuthoringStep = 'profile' | 'images' | 'accounts';
+
+/** A new draft keeps its generated Fotogram name until the accounts stage has run. */
+export function accountsStagePending(character: Character) {
+  const placeholder = normalizeCharacterApps({}, undefined, character.id, 'New Character').fotogram?.profileName;
+  return character.apps?.fotogram?.profileName === placeholder;
+}
+
+/** Gallery images the assistant has not described yet. */
+export function undescribedCharacterImages(character: Character) {
+  return character.images.filter((image) => !image.description.trim());
+}
+
+/** Images one stage request shows to the model. */
+export const imageStageBatchSize = 6;
+
+/**
+ * Stage to offer after a reply. Images are described once the profile says who the
+ * character is and before accounts use them; each stage starts only when the user continues.
+ */
+export function nextCharacterAuthoringStage(previous: Character, next: Character, ran: CharacterAuthoringStep | undefined,
+  options: { vision: boolean; requested?: CharacterAuthoringStep }): CharacterAuthoringStep | undefined {
+  if (next.name === 'New Character' && !next.description.trim()) return undefined;
+  const remaining = undescribedCharacterImages(next).length;
+  // A description run that made no progress must not offer itself again.
+  if (options.vision && remaining && !(ran === 'images' && remaining >= undescribedCharacterImages(previous).length)) return 'images';
+  const changed = JSON.stringify(characterAssistantProjection(next)) !== JSON.stringify(characterAssistantProjection(previous));
+  return ran !== 'accounts' && (options.requested === 'accounts' || (changed && accountsStagePending(next))) ? 'accounts' : undefined;
+}
+
+const stepRoles: Record<CharacterAuthoringStep, string> = {
+  profile: 'character profile', images: 'image description', accounts: 'accounts, image assignment and agency tags',
+};
+const stepExamplePaths: Record<CharacterAuthoringStep, string> = {
+  profile: '/character/description', images: '/images/existing-image-id/description', accounts: '/character/apps/fotogram/bio',
+};
+const stepScopes: Record<CharacterAuthoringStep, RegExp> = {
+  profile: /^\/character\/(name|age|gender|role|description|personality|speechStyle|hiddenAgency|relationships|banking)(\/|$)/,
+  images: /^\/images\/[^/]+\/(name|description)$/,
+  accounts: /^\/character\/(agencyTags|apps|profileImage)(\/|$)|^\/images\//,
+};
 
 function characterAuthoringStepPrompt(step: CharacterAuthoringStep, character: Character, instruction: string, attachmentIds: string[]) {
   const projection = characterAssistantProjection(character);
-  const { apps: _apps, profileImage: _portrait, ...profile } = projection.character;
-  return [
-    `You are RPGraph's ${step === 'profile' ? 'character profile' : 'accounts and publications'} authoring specialist. Complete only this step.`,
-    `Return JSON only: ${JSON.stringify({ reply: 'brief result or clarification', patch: [{ op: 'add', path: step === 'profile' ? '/character/description' : '/character/apps/fotogram/bio', value: '...' }] })}. Use add/replace/remove/test JSON Patch. Use add when a field is absent. No steps or delegation. Work on exactly one existing character; preserve its identity. Write authored content in English. Answer the user in their language.`,
-    step === 'profile'
-      ? 'Edit only /character/name, age, gender (woman/man/nonbinary), role, description, personality, speechStyle, hiddenAgency, relationships and banking. Text fields are strings; age is a number. Banking: {"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]}. Choose plausible fictional details when asked to invent a character. Do not edit accounts, agencyTags, gallery or portrait. Agency tag changes belong to the accounts step so character and app assignments are applied together. Preserve existing details unless asked. If essential intent is unclear, ask a question and return an empty patch.'
-      : 'Edit only /character/agencyTags, /character/apps, /character/profileImage and /images/<existing-id>/name or description. Keep character identity and profile text unchanged. WhatsUp and Fotogram are standard; only create OnlyFriends or MatchMe if requested. Account shape: {"enabled":true,"profileName":"Artist name","bio":""}. Preserve existing accountId on replacement; omit accountId on a new account (the app assigns it). Never change an accountId path. Username, display name and nickname mean profileName. WhatsUp has no profileName. Profile names: 1–60 characters, spaces allowed; bios: at most 500. Update placeholder profile names to fit the completed profile when creating a new character.',
-    ...(step === 'accounts' ? [
+  const { apps: _apps, profileImage: _portrait, agencyTags: _tags, ...profile } = projection.character;
+  const galleryEmpty = character.images.length === 0;
+  const instructions: Record<CharacterAuthoringStep, string[]> = {
+    profile: [
+      'Edit only /character/name, age, gender (woman/man/nonbinary), role, description, personality, speechStyle, hiddenAgency, relationships and banking. Text fields are strings; age is a number. Banking: {"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]}. For a new character set name, age, gender, role, description, personality, speechStyle and banking; use the details the user gave and choose plausible fictional details for the rest. Attached images show the character: let the visible appearance inform the description. Do not edit accounts, agencyTags, gallery or portrait, and do not describe or rename images, even when the request mentions them: later stages handle them, so do not claim them in reply. Preserve existing details unless asked. If essential intent is unclear, ask a question and return an empty patch.',
+      relationshipAuthoringInstructions,
+    ],
+    images: [
+      'Edit only /images/<attached-image-id>/description and /images/<attached-image-id>/name. Describe every attached image: one add operation for its description and one for a short readable name. A description states the visible content in one or two English sentences: who is shown, clothing, pose, setting and mood. The character profile below tells you who this character is; when a person in the image plausibly is this character, name them. Describe other people neutrally and never invent names for them. Describe only what is visible, never filenames. Do not assign portraits, avatars or posts and do not edit the character or accounts: the accounts stage uses your descriptions afterwards. If no image is attached, return an empty patch and say that the images must be attached.',
+    ],
+    accounts: [
+      'Edit only /character/agencyTags, /character/apps, /character/profileImage and /images/<existing-id>/name or description. Keep character identity and profile text unchanged. WhatsUp and Fotogram are standard; only create OnlyFriends or MatchMe if requested. Account shape: {"enabled":true,"profileName":"Artist name","bio":""}. Preserve existing accountId on replacement; omit accountId on a new account (the app assigns it). Never change an accountId path. Username, display name and nickname mean profileName. WhatsUp has no profileName. Profile names: 1–60 characters, spaces allowed; bios: at most 500.',
+      ...(accountsStagePending(character) ? [
+        'This character was just created. Its Fotogram profileName starting with "new.character." is an app placeholder: always replace it with a profile name that fits the character, and write a short Fotogram bio.',
+        'Before patching, check the user request and conversation for two decisions: (1) which optional accounts the character gets (OnlyFriends, MatchMe, or none) and (2) its agency tags. Statements such as "only the standard accounts", "no other accounts" or "you choose" are decisions. If a decision was never addressed, return patch [] and ask for exactly the missing decisions in one short question; propose a concrete answer (for example two fitting tag IDs with their meaning) so the user can simply agree. When both are decided, do everything in one patch: Fotogram profile name and bio, the chosen optional accounts, the image assignments, and /character/agencyTags.',
+      ] : []),
+      galleryEmpty
+        ? 'The gallery is empty. Still create the accounts and tags, without portrait, avatars or image posts, and tell the user in reply that no images exist yet and that adding some enables a portrait, profile photos and image posts. MatchMe needs a photo: if it was requested, save it as a disabled draft (enabled:false, photoIds:[]) and say that it becomes active once a photo is added.'
+        : 'Use the gallery when configuring accounts. Attached images are visible to you: look at them, and use descriptions for the others. Unless the user names a specific image for a use, decide yourself which image fits where. Portrait (/character/profileImage, when none is set): the image that shows the character alone and most clearly, ideally the face. Fotogram: an everyday or lifestyle image that suits a public feed, as avatar or post. MatchMe: one to three flattering photos that clearly show the character. OnlyFriends: images that suit that account. One image may serve several uses, and not every image must be used. Mention in reply which image you chose for what. An image that is neither attached nor described is unknown: do not assign it, and tell the user to describe it first.',
       agencyAuthoringInstructions,
       'Gallery metadata is keyed by stable image ID. Only attached images can be inspected visually. Names are not visual evidence. Use existing descriptions for unattached images. Never create media or IDs. Portrait: add /character/profileImage with {"imageId":"existing-id"}. App avatarImageId uses a gallery ID. F/O publications go in apps.fotogram.initialPosts or apps.onlyfriends.initialPosts as {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. Preserve existing post IDs; the app allocates new IDs. Create posts requested by the user; do not duplicate existing posts. Moving an image removes its former app post. P alone creates no post. You may request autoCrop:true for local face detection; do not guess coordinates.',
       'MatchMe account additionally needs profile:{"age":25,"bio":"About me","interests":"Music","photoIds":["existing-id"],"decisions":{}}. Keep the optional dating name only in account.profileName; omitted names default to character.name. Dating age and gender can differ from the real character, but default to the real adult identity unless otherwise requested. profile.bio matches account.bio. Integer age 18–120; interests at most 150 characters; one to three unique photos. Optional gender and seeking use woman/man/nonbinary (seeking is an array). With no photo, save enabled:false and photoIds:[]. Enabled MatchMe requires at least one photo. Preserve existing decisions/messages/historyVersion. Ask about missing required personal details instead of inventing them.',
-    ] : []),
-    'No filesystem writes, gameplay actions, binary data or playable edits. Never claim the character is saved. An empty patch asks for clarification and pauses the sequence.',
-    ...(step === 'profile' ? [relationshipAuthoringInstructions] : []),
+    ],
+  };
+  return [
+    `You are RPGraph's ${stepRoles[step]} authoring specialist. Complete only this step.`,
+    `Return JSON only: ${JSON.stringify({ reply: 'brief result or clarification', patch: [{ op: 'add', path: stepExamplePaths[step], value: '...' }] })}. Use add/replace/remove/test JSON Patch. Use add when a field is not shown in the current draft; add also overwrites an existing value. No steps or delegation. Work on exactly one existing character; preserve its identity. Write authored content in English. Answer the user in their language.`,
+    ...instructions[step],
+    'No filesystem writes, gameplay actions, binary data or playable edits. Never claim the character is saved. An empty patch asks for clarification and pauses the work.',
     `Attached image IDs (in order): ${JSON.stringify(attachmentIds)}.`,
-    `Current draft: ${JSON.stringify(step === 'profile' ? { character: profile } : projection)}`,
+    `Current draft: ${JSON.stringify(step === 'profile' ? { character: profile } : step === 'images' ? { character: profile, images: projection.images } : projection)}`,
     `User request and conversation: ${instruction}`,
   ].join('\n\n');
 }
 
-/** Execute specialists sequentially in an isolated draft; caller commits only the final result. */
-export async function runCharacterAuthoringSteps(initial: ReturnType<typeof parseCharacterAssistantResult>, instruction: string,
-  attachmentIds: string[], complete: (step: CharacterAuthoringStep, prompt: string) => Promise<string>) {
-  let result = initial;
-  const replies = [initial.reply];
-  for (const step of initial.steps) {
-    const text = await complete(step, characterAuthoringStepPrompt(step, result.character, instruction, attachmentIds));
-    const raw = JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
-    if (raw.steps?.length) throw new Error('Specialists cannot delegate further steps.');
-    if (!Array.isArray(raw.patch) || raw.patch.some((operation: { path?: string }) => {
-      const path = operation?.path ?? '';
-      return step === 'profile'
-        ? !/^\/character\/(name|age|gender|role|description|personality|speechStyle|hiddenAgency|relationships|banking)(\/|$)/.test(path)
-        : !/^\/character\/(agencyTags|apps|profileImage)(\/|$)|^\/images\//.test(path);
-    })) throw new Error(`The ${step} specialist tried to edit fields outside its step.`);
-    const next = parseCharacterAssistantResult(text, result.character);
-    replies.push(next.reply);
-    result = { ...next, autoCrop: result.autoCrop || next.autoCrop };
-    if (!raw.patch.length) break;
-  }
-  return { ...result, reply: replies.filter(Boolean).join('\n\n'), steps: [] };
+/** Run one specialist on a draft; the caller commits its result before offering the next stage. */
+export async function runCharacterAuthoringStep(step: CharacterAuthoringStep, character: Character, instruction: string,
+  attachmentIds: string[], complete: (prompt: string) => Promise<string>) {
+  const text = await complete(characterAuthoringStepPrompt(step, character, instruction, attachmentIds));
+  const raw = assistantResponseJson(text) as { steps?: unknown[]; patch?: unknown };
+  if (raw.steps?.length) throw new Error('Specialists cannot delegate further steps.');
+  if (!Array.isArray(raw.patch)) throw new Error(`The ${step} specialist must return a JSON Patch array.`);
+  const outside = raw.patch.map((operation: { path?: string }) => operation?.path ?? '').filter((path) => !stepScopes[step].test(path));
+  if (outside.length) throw new Error(`The ${step} specialist tried to edit fields outside its step: ${outside.join(', ') || 'missing path'}.`);
+  const result = parseCharacterAssistantResult(text, character);
+  // An empty patch is a clarifying question; the stage stays open for the answer.
+  return { character: result.character, reply: result.reply, autoCrop: result.autoCrop, asked: raw.patch.length === 0 };
 }

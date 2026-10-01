@@ -63,5 +63,4 @@ export type AgencyTagDefinition = {
 };
 export const agencyTagCatalog: readonly AgencyTagDefinition[];
 export function agencyTagSupports(id: string, app: AgencyApp, role?: AgencyAccountRole, action?: AgencyAction): boolean;
-export function validateAccountAgency(app: string, account: { accountRole?: unknown; agencyTags?: unknown }): void;
-export function validateCharacterAgency(character: { agencyTags?: unknown; apps?: unknown }): void;
+export function validateCharacterAgency(character: { agencyTags?: unknown }): void;

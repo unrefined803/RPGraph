@@ -170,3 +170,43 @@ describe('Character Assistant media', () => {
     expect(() => assertStaticCharacterImage(new Uint8Array([255, 216, 255]))).not.toThrow();
   });
 });
+
+describe('Character Assistant response handling for small models', () => {
+  it('accepts JSON wrapped in prose or fences and repairs Markdown-escaped underscores', () => {
+    const wrapped = `Here is the patch:\n\`\`\`json\n${response([{ op: 'replace', path: '/character/name', value: 'Alex Reed' }])}\n\`\`\`\nDone.`;
+    expect(parseCharacterAssistantResult(wrapped, fixture()).character.name).toBe('Alex Reed');
+    const escaped = '{"reply":"Tagged.","patch":[{"op":"add","path":"/character/agencyTags","value":["status\\_flexer"]}]}';
+    expect(parseCharacterAssistantResult(escaped, fixture()).character.agencyTags).toEqual(['status_flexer']);
+    expect(() => parseCharacterAssistantResult('I cannot do that.', fixture())).toThrow('did not return JSON');
+  });
+
+  it('treats replace on an absent optional field of a fresh draft as an upsert', () => {
+    const draft = newAssistantCharacter();
+    const created = parseCharacterAssistantResult(response([
+      { op: 'replace', path: '/character/name', value: 'Alex Reed' },
+      { op: 'replace', path: '/character/age', value: 27 },
+      { op: 'replace', path: '/character/gender', value: 'man' },
+      { op: 'replace', path: '/character/agencyTags', value: ['shy_user'] },
+      { op: 'replace', path: '/character/banking', value: { startBalance: 900, fixedExpenses: [{ label: 'Mobile plan', amount: 20 }] } },
+    ]), draft).character;
+    expect(created).toMatchObject({ name: 'Alex Reed', age: 27, gender: 'man', agencyTags: ['shy_user'], banking: { startBalance: 900 } });
+    expect(draft.age).toBeUndefined();
+  });
+
+  it('identifies the failing operation and still reports a misspelled field', () => {
+    expect(() => parseCharacterAssistantResult(response([
+      { op: 'replace', path: '/character/name', value: 'Alex Reed' },
+      { op: 'replace', path: '/character/apps/fotogram/biography', value: 'Hello' },
+    ]), fixture())).toThrow('Patch operation 2 (/character/apps/fotogram/biography) failed: JSON Patch path does not exist: /character/apps/fotogram/biography. replace needs an existing field; use add to create a missing one.');
+  });
+
+  it('shows rejected attempts to the model so a repeated request can correct them', () => {
+    const prompt = characterAssistantPrompt(fixture(), [
+      { role: 'user', text: 'Tag Alex as an influencer.' },
+      { role: 'error', text: 'Character agencyTags must contain at most two unique known tag IDs. Not in the catalog: influencer. No changes were applied.' },
+    ], 'Tag Alex as an influencer.', [], 'npc-characters');
+    expect(prompt).toContain('user: Tag Alex as an influencer.\napp error: Character agencyTags must contain');
+    expect(prompt).toContain('correct the reported cause instead of returning the same patch');
+    expect(prompt).toContain('Every catalog tag is valid for every character');
+  });
+});

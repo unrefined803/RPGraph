@@ -1,40 +1,16 @@
-import { agencyTagCatalog, validateCharacterAgency, type AgencyAccountRole, type AgencyTagId } from '../../shared/agency-tags.cjs';
-import type { Character, CharacterApps } from './character';
+import { agencyTagCatalog, validateCharacterAgency, type AgencyTagId } from '../../shared/agency-tags.cjs';
+import type { Character } from './character';
 
-export type CharacterAgencyDraft = {
-  agencyTags: AgencyTagId[];
-  apps: Partial<Record<keyof CharacterApps, { agencyTags: AgencyTagId[]; accountRole?: AgencyAccountRole }>>;
-};
-
-/** Small authoring projection; never copy gallery bytes or private app activity into form state. */
-export function characterAgencyDraft(character: Character): CharacterAgencyDraft {
-  return {
-    agencyTags: [...(character.agencyTags ?? [])],
-    apps: Object.fromEntries(Object.entries(character.apps ?? {}).map(([app, account]) => [app, {
-      agencyTags: [...(account.agencyTags ?? [])],
-      ...(['fotogram', 'onlyfriends'].includes(app) ? { accountRole: account.accountRole ?? 'user' } : {}),
-    }])),
-  };
-}
-
-/** Apply all tags and roles together; invalid intermediate selections never reach persisted data. */
-export function withCharacterAgency(character: Character, draft: CharacterAgencyDraft): Character {
-  const apps: CharacterApps = { ...character.apps };
-  for (const [app, assignment] of Object.entries(draft.apps)) {
-    const key = app as keyof CharacterApps;
-    if (!apps[key]) throw new Error(`The ${app} account changed. Reopen Agency Tags before saving.`);
-    apps[key] = { ...apps[key], ...assignment, agencyTags: [...assignment.agencyTags] };
-  }
-  const next = { ...character, agencyTags: [...draft.agencyTags], apps };
+/** Tags describe the character, independent of which app accounts exist. */
+export function withCharacterAgencyTags(character: Character, agencyTags: AgencyTagId[]): Character {
+  const next = { ...character, agencyTags: [...agencyTags] };
   validateCharacterAgency(next);
   return next;
 }
 
 export const agencyAuthoringInstructions = [
-  'Optional agencyTags is an array of one or two unique catalog IDs on the character (usually one); absent or [] means unclassified. It is separate from hiddenAgency and never performs an action. Preserve existing tags unless asked to edit them.',
-  'When authoring tags, update character agencyTags and every enabled apps.<app>.agencyTags together in one patch. Each app requires a nonempty compatible subset of the character tags. Disabled accounts may retain compatible assignments or []. To clear classification, clear character and app tags together.',
-  'Fotogram and OnlyFriends accept accountRole: user or creator; absent means user. WhatsUp and MatchMe have no accountRole. Most authored social accounts should be users (80–90% across a population); never infer creator status from having posts. Use explicit app enablement. No NPC posting or reactions are activated by these fields.',
-  'Check catalog apps[app][effectiveRole] for each assignment; a missing entry means incompatible, not a requirement to create that app. Cover every enabled account, including default WhatsUp and Fotogram. Evaluate each account separately: a character may be a creator on one app and a user on another. An app entry alone is insufficient; the effective role must also be listed for that tag. Set creator only when the intended account is a creator; otherwise choose a compatible tag. If needed, choose a second character tag to cover other enabled apps. Never add, disable or change the role of an account merely to force a tag to fit.',
-  'Catalog below maps each tag to app, effective role and supported actions. WhatsUp creator-style tags describe messaging behavior on an ordinary account; they do not confer creator status. Choose compatible tags for all enabled apps; never invent an ID. publish is reserved metadata for future workflows.',
-  JSON.stringify(agencyTagCatalog),
+  'Agency tags classify a character\'s typical online behavior. agencyTags is an optional array on the character with one or two unique tag IDs from the catalog below (usually one); absent or [] means unclassified. Set it with an add operation (add also overwrites an existing value); set [] to remove the classification. Copy IDs exactly; never invent one.',
+  'Tags belong to the character, not to an app account. Every catalog tag is valid for every character, whichever accounts exist, are disabled or are created later. Accounts have no tags and no role: never write agencyTags or accountRole under apps, and never create, disable or change an account because of a tag. Choose tags from the character\'s personality and role in the story. Tags are separate from hiddenAgency and never perform an action. Preserve existing tags unless asked to edit them.',
+  'Tag catalog:',
+  ...agencyTagCatalog.map((tag) => `- ${tag.id}: ${tag.meaning}`),
 ].join('\n');

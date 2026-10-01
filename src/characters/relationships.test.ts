@@ -10,7 +10,7 @@ import { buildSocialDirectory, socialConnectionIds, withAuthoredSocialConnection
 import { canSendMatchMeMessage, incomingMatchMeMessage, matchMeContext, matchMeMessageAllowed, matchMeState } from '../chat/matchMe';
 import { phoneRuntimeCharactersFromMessages } from '../chat/phoneCharacters';
 import { planCharacterCardImport } from '../storybook/characterCard';
-import { newAssistantCharacter, parseCharacterAssistantResult, runCharacterAuthoringSteps } from './assistant';
+import { newAssistantCharacter, parseCharacterAssistantResult, runCharacterAuthoringStep } from './assistant';
 import type { MessageRecord } from '../types';
 
 const photo = { id: 'photo', name: 'Portrait', mimeType: 'image/jpeg' as const, size: 3, dataUrl: 'data:image/jpeg;base64,YWJj', description: 'A fictional portrait.' };
@@ -195,7 +195,7 @@ describe('authored character relationships', () => {
     expect(result.character.relationships).toEqual([relationship]);
     expect(original.relationships).toEqual([]);
     const initial = parseCharacterAssistantResult(JSON.stringify({ reply: 'Creating.', patch: [], steps: ['profile'] }), original);
-    const staged = await runCharacterAuthoringSteps(initial, relationshipReferenceContext(['b'], [person('b')]), [], async (_step, prompt) => {
+    const staged = await runCharacterAuthoringStep(initial.steps[0], initial.character, relationshipReferenceContext(['b'], [person('b')]), [], async (prompt) => {
       expect(prompt).toContain('b background');
       return response;
     });

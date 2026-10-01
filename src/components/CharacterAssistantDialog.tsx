@@ -11,9 +11,10 @@ import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import type { ConnectionPreset, ProviderConnectionHealth, SavedFileSummary } from '../types';
 import { validateCharacterContainer, type Character } from '../characters/character';
 import type { NpcLibrarySnapshot, NpcLibraryEntry } from '../characters/npcLibrary';
-import { assignCharacterImage, characterAssistantProjection, characterAssistantPrompt,
-  newAssistantCharacter, parseCharacterAssistantResult, runCharacterAuthoringSteps, validateAssistantCharacter,
-  type CharacterAssistantMessage, type CharacterDestination } from '../characters/assistant';
+import { assignCharacterImage, characterAssistantConversation, characterAssistantProjection, characterAssistantPrompt,
+  imageStageBatchSize, newAssistantCharacter, nextCharacterAuthoringStage, parseCharacterAssistantResult, runCharacterAuthoringStep,
+  undescribedCharacterImages, validateAssistantCharacter,
+  type CharacterAssistantMessage, type CharacterAuthoringStep, type CharacterDestination } from '../characters/assistant';
 import { normalizeCharacterImage } from '../characters/assistantMedia';
 import { visibleLibraryEntries } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
@@ -248,46 +249,65 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     } catch (error) { setStatus(errorText(error)); }
     finally { setIoBusy(false); }
   }
-  async function send(message = draft.trim()) {
+  async function send(message = draft.trim(), requestedStage?: CharacterAuthoringStep) {
     if (!message || request.current || ioBusy) return;
     if (!selectedConnection) { setStatus('Select an LLM provider first.'); return; }
-    const selectedImages = character.images.filter((image) => attachments.includes(image.id));
+    // An open stage question or a failed stage attempt keeps the next message inside that stage.
+    let stage = requestedStage ?? messages[messages.length - 1]?.stage;
+    // The description stage looks at the images it has to describe, and the accounts stage at the
+    // gallery it assigns from (ticked images first); other requests use only the ticked ones.
+    const ticked = character.images.filter((image) => attachments.includes(image.id));
+    const selectedImages = stage === 'images' ? undescribedCharacterImages(character).slice(0, imageStageBatchSize)
+      : stage === 'accounts' && selectedConnection.vision
+        ? [...ticked, ...character.images.filter((image) => !attachments.includes(image.id))].slice(0, Math.max(imageStageBatchSize, ticked.length))
+        : ticked;
     if (selectedImages.length && !selectedConnection.vision) {
       setStatus('This provider is not configured for vision. Select a vision provider or uncheck image attachments and describe them in text.'); return;
     }
     const controller = new AbortController(); request.current = controller;
     const startRevision = revision.current;
     const original = character;
+    const imageIds = selectedImages.map((image) => image.id);
     const referenceContext = relationshipReferenceContext([...referenceIds, ...(character.relationships ?? []).map((entry) => entry.characterId)], relationshipCharacters);
     const instruction = [message, referenceContext].filter(Boolean).join('\n\n');
+    const context = [characterAssistantConversation(messages, 6), `Current request: ${instruction}`].filter(Boolean).join('\n');
     setBusy(true); setDraft(''); setStatus('');
     setMessages((history) => [...history, { role: 'user', text: message }]);
+    const runStage = (step: CharacterAuthoringStep, source: Character) => {
+      setStatus(step === 'profile' ? 'Creating character profile…' : step === 'images' ? 'Describing images…' : 'Creating accounts, image assignments and agency tags…');
+      return runCharacterAuthoringStep(step, source, context, imageIds, async (prompt) =>
+        (await nodeLlm.complete({ connectionId, label: `Character Assistant: ${step}`, signal: controller.signal, prompt, images: selectedImages })).text);
+    };
     try {
-      const response = await nodeLlm.complete({ connectionId, label: 'Character Assistant', signal: controller.signal,
-        prompt: characterAssistantPrompt(original, messages, instruction, selectedImages.map((image) => image.id), destination === 'choose' ? 'npc-characters' : destination),
-        images: selectedImages });
-      if (controller.signal.aborted) return;
-      if (startRevision !== revision.current) throw new Error('The character changed during the request. The response was not applied. Send your request again.');
-      const initial = parseCharacterAssistantResult(response.text, original);
-      const context = [...messages.filter((entry) => entry.role !== 'error').slice(-6).map((entry) => `${entry.role}: ${entry.text}`), `Current request: ${instruction}`].join('\n');
-      const result = await runCharacterAuthoringSteps(initial, context, selectedImages.map((image) => image.id), async (step, prompt) => {
-        if (controller.signal.aborted || startRevision !== revision.current) throw new Error('The request was cancelled or the character changed.');
-        setStatus(step === 'profile' ? 'Step 1: Creating character profile…' : 'Step 2: Creating accounts, images and posts…');
-        const completion = await nodeLlm.complete({ connectionId, label: `Character Assistant: ${step}`, signal: controller.signal, prompt, images: selectedImages });
-        return completion.text;
-      });
+      let result: { character: Character; reply: string; autoCrop: boolean; asked?: boolean };
+      let requestedNext: CharacterAuthoringStep | undefined;
+      if (stage) {
+        result = await runStage(stage, original);
+      } else {
+        const response = await nodeLlm.complete({ connectionId, label: 'Character Assistant', signal: controller.signal,
+          prompt: characterAssistantPrompt(original, messages, instruction, imageIds, destination === 'choose' ? 'npc-characters' : destination),
+          images: selectedImages });
+        if (controller.signal.aborted) return;
+        if (startRevision !== revision.current) throw new Error('The character changed during the request. The response was not applied. Send your request again.');
+        const initial = parseCharacterAssistantResult(response.text, original);
+        [stage, requestedNext] = initial.steps;
+        result = stage ? await runStage(stage, initial.character) : initial;
+      }
       if (controller.signal.aborted) return;
       if (startRevision !== revision.current) throw new Error('The character changed during creation. No generated changes were applied.');
       validateRelationshipTargets([result.character], [original], relationshipCharacters);
       setStatus('');
       if (JSON.stringify(characterAssistantProjection(result.character)) !== JSON.stringify(characterAssistantProjection(original))) change(result.character);
-      setMessages((history) => [...history, { role: 'assistant', text: result.reply }]);
-      setAttachments([]);
+      // Each stage is committed on its own; the next one starts only when the user continues.
+      const nextStage = result.asked ? undefined
+        : nextCharacterAuthoringStage(original, result.character, stage, { vision: !!selectedConnection.vision, requested: requestedNext });
+      setMessages((history) => [...history, { role: 'assistant', text: result.reply,
+        ...(result.asked && stage ? { stage } : {}), ...(nextStage ? { nextStage } : {}) }]);
       const portraitId = result.character.profileImage?.imageId;
       if (portraitId && (result.autoCrop || (portraitId !== original.profileImage?.imageId && !result.character.profileImage?.crop))) await autoCrop(portraitId);
     } catch (error) {
       if (!controller.signal.aborted) {
-        setMessages((history) => [...history, { role: 'error', text: `${errorText(error)} No changes were applied.` }]);
+        setMessages((history) => [...history, { role: 'error', text: `${errorText(error)} No changes were applied.`, retryMessage: message, ...(stage ? { stage } : {}) }]);
         setDraft(message);
       }
     } finally { if (request.current === controller) { request.current = null; setBusy(false); } }
@@ -424,7 +444,17 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
                 'Describe the attached images and suggest profile photos and captions.',
               ].map((suggestion) => <li key={suggestion}><button className="character-assistant-suggestion" type="button" onClick={() => setDraft(suggestion)}>{suggestion}</button></li>)}</ul>
             </div>}
-            {messages.map((message, index) => <div className={`chat-message-row ${message.role}`} key={index}><div className="message-sender-avatar">{message.role === 'user' ? 'U' : message.role === 'assistant' ? 'AI' : '!'}</div><div className="chat-message-bubble"><p>{message.text}</p></div></div>)}
+            {messages.map((message, index) => <div className={`chat-message-row ${message.role}`} key={index}><div className="message-sender-avatar">{message.role === 'user' ? 'U' : message.role === 'assistant' ? 'AI' : '!'}</div><div className="chat-message-bubble"><p>{message.text}</p>
+              {message.role === 'error' && message.retryMessage && <button type="button" className="storybook-copy-error-link storybook-retry-link"
+                disabled={busy || ioBusy || index !== messages.length - 1}
+                onClick={() => void send(message.retryMessage, message.stage)}>Retry</button>}
+              {message.nextStage && <button type="button" className="storybook-continue-button" disabled={busy || ioBusy || index !== messages.length - 1}
+                onClick={() => void send(message.nextStage === 'images'
+                  ? 'Continue: describe the gallery images that have no description yet.'
+                  : 'Continue: create the accounts, profile names, image assignments and agency tags.', message.nextStage)}>
+                <span>{message.nextStage === 'images' ? 'Describe the gallery images' : 'Create accounts and agency tags'}</span><strong>Continue →</strong>
+              </button>}
+            </div></div>)}
             {busy && <div className="chat-message-row assistant thinking"><div className="message-sender-avatar">AI</div><div className="chat-message-bubble typing-bubble" aria-label="Working on your character"><div className="typing-indicator"><span></span><span></span><span></span></div></div></div>}<div ref={chatEnd} />
           </div>
           <form className="storybook-chat-form" onSubmit={(event) => { event.preventDefault(); void send(); }}>

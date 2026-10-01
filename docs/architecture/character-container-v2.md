@@ -1467,11 +1467,11 @@ is launched by these checks.
 ## Structured agency tags
 
 The additive agency tag contract is implemented in the shared character payload:
-optional `agencyTags` selects up to two central catalog IDs, enabled app accounts
-select compatible nonempty subsets, and Fotogram/OnlyFriends accounts accept
-optional `accountRole` (`user` by default or `creator`). Empty or absent character
-tags preserve unclassified legacy characters. The shared validator checks tag
-IDs, subset membership, role applicability and enabled-account coverage.
+optional character-level `agencyTags` selects up to two central catalog IDs,
+independent of the character's app accounts. Empty or absent tags preserve
+unclassified legacy characters. The shared validator checks tag IDs, duplicates
+and the two-tag limit. Per-account `agencyTags` and `accountRole` from earlier
+files are ignored and dropped on normalization.
 
 Container 2.0.0 and Storybook 3.0.0 version numbers are unchanged. Current
 normalization, export, inspect/edit and saved NPC snapshots retain the fields;

@@ -7,12 +7,11 @@ import { browserNpcLibrarySnapshot } from './npcLibrary';
 import type { Character } from './character';
 import type { SocialAppKind } from '../types';
 
-function person(id: string, tags: Character['agencyTags'] = ['friendly_regular'], role: 'user' | 'creator' = 'user'): Character {
+function person(id: string, tags: Character['agencyTags'] = ['friendly_regular']): Character {
   return { id, name: id, description: 'PRIVATE_DESCRIPTION', personality: 'PRIVATE_PERSONALITY', speechStyle: 'PRIVATE_SPEECH_STYLE',
     hiddenAgency: 'PRIVATE_MOTIVE', agencyTags: tags, role: 'NPC', images: [],
     apps: Object.fromEntries((['fotogram', 'onlyfriends'] as const).map((app) => [app, {
-      accountId: `${id}:${app}`, enabled: true, profileName: `${id}.${app}`, bio: 'PRIVATE_BIO', accountRole: role,
-      agencyTags: tags,
+      accountId: `${id}:${app}`, enabled: true, profileName: `${id}.${app}`, bio: 'PRIVATE_BIO',
     }])),
   };
 }
@@ -26,37 +25,29 @@ function cast(people: Character[], storybook?: Character) {
 
 describe.each(['fotogram', 'onlyfriends'] as const)('%s post agency context', (app: SocialAppKind) => {
   it.each(['comment_troll', 'rage_baiter', 'contrarian_debater', 'shitposter'] as const)(
-    'integrates %s into reaction eligibility and private prompt context', (tag) => {
+    'integrates %s into the private prompt context', (tag) => {
       const characters = cast([person('Troll', [tag])]);
       const meaning = agencyTagCatalog.find((entry) => entry.id === tag)!.meaning;
       const context = socialReactionAccountContext(characters, app, true);
-      if (app === 'onlyfriends' && tag === 'contrarian_debater') {
-        expect(context.lines).toEqual([]);
-        expect(context.text).not.toContain(meaning);
-      } else {
-        expect(context.lines).toEqual([`- Troll (@Troll.${app}) [NPC] [Agency tags: ${tag}]`]);
-        expect(context.text).toContain(`Agency meaning (${tag}): ${meaning}`);
-      }
+      expect(context.lines).toEqual([`- Troll (@Troll.${app}) [NPC] [Agency tags: ${tag}]`]);
+      expect(context.text).toContain(`Agency meaning (${tag}): ${meaning}`);
       expect(recipientCharacterContext(characters[0])).toContain(`- ${tag}: ${meaning}`);
-      characters[0].apps![app]!.accountRole = 'creator';
-      expect(socialReactionAccountContext(characters, app, true).lines).toEqual([]);
     },
   );
 
-  it('shows authored character tags for eligible NPCs, with private profile context', () => {
+  it('offers every enabled account whatever its tags, with private profile context', () => {
     const regular = person('Regular', ['friendly_regular', 'slow_to_trust']);
-    const lurker = person('Lurker', ['social_lurker', 'good_listener']);
     const disabled = person('Disabled'); disabled.apps![app]!.enabled = false;
     const absent = person('Absent'); delete absent.apps![app];
-    const characters = cast([regular, lurker, disabled, absent, person('Creator', ['fan_engager'], 'creator'),
-      person('PrivateOnly', ['shy_user']), person('Legacy', undefined)], person('Author', []));
-    // Explicitly model a genuinely unclassified older entry rather than the fixture's default argument.
-    const legacy = characters.find((entry) => entry.name === 'Legacy')!;
-    legacy.agencyTags = undefined; legacy.apps![app]!.agencyTags = undefined;
+    const characters = cast([regular, disabled, absent, person('Seller', ['upseller']),
+      person('Untagged', [])], person('Author', []));
     const { lines, text } = socialReactionAccountContext(characters, app, true);
     expect(lines).toEqual([
       `- Regular (@Regular.${app}) [NPC] [Agency tags: friendly_regular, slow_to_trust]`,
-      `- Lurker (@Lurker.${app}) [NPC] [Agency tags: social_lurker, good_listener]`,
+      // Fotogram is a standard account: a missing one is provisioned for the character.
+      ...(app === 'fotogram' ? ['- Absent (@absent.Absent) [NPC] [Agency tags: friendly_regular]'] : []),
+      `- Seller (@Seller.${app}) [NPC] [Agency tags: upseller]`,
+      `- Untagged (@Untagged.${app}) [NPC]`,
       `- Author (@Author.${app}) [Storybook character]`,
     ]);
     expect(text).toContain('tone, wording and intent');
@@ -64,16 +55,7 @@ describe.each(['fotogram', 'onlyfriends'] as const)('%s post agency context', (a
     expect(text).toContain('private messages triggered');
     for (const value of ['PRIVATE_DESCRIPTION', 'PRIVATE_PERSONALITY', 'PRIVATE_SPEECH_STYLE', 'PRIVATE_MOTIVE', 'PRIVATE_BIO']) expect(text).toContain(value);
     expect(text).toContain('slow_to_trust');
-    expect(text).toContain('good_listener');
-  });
-
-  it('does not borrow another app assignment or a character-level-only tag', () => {
-    const source = person('Mixed', ['friendly_regular', 'shy_user']);
-    source.apps![app]!.agencyTags = ['shy_user'];
-    const characters = cast([source]);
-    expect(socialReactionAccountContext(characters, app, true).lines).toEqual([]);
-    characters[0].apps![app]!.agencyTags = ['boundary_setter'];
-    expect(socialReactionAccountContext(characters, app, true).lines).toEqual([]);
+    expect(text).toContain(`Agency meaning (upseller): ${agencyTagCatalog.find((entry) => entry.id === 'upseller')!.meaning}`);
   });
 
   it('excludes the post author by stable identity or exact handle', () => {
@@ -90,22 +72,19 @@ describe.each(['fotogram', 'onlyfriends'] as const)('%s post agency context', (a
     ]);
   });
 
-  it('keeps promoted NPC origin subject to reaction eligibility and missing roles default to user', () => {
-    const characters = cast([person('Regular')], person('Promoted', ['fan_engager'], 'creator'));
-    delete characters[0].apps![app]!.accountRole;
-    characters[1].npcOrigin = true;
+  it('labels promoted NPCs and Storybook characters by origin', () => {
+    const characters = cast([], person('Promoted', ['fan_engager']));
     expect(socialReactionAccountContext(characters, app, true).lines).toEqual([
-      `- Regular (@Regular.${app}) [NPC] [Agency tags: friendly_regular]`,
+      `- Promoted (@Promoted.${app}) [Storybook character] [Agency tags: fan_engager]`,
+    ]);
+    characters[0].npcOrigin = true;
+    expect(socialReactionAccountContext(characters, app, true).lines).toEqual([
+      `- Promoted (@Promoted.${app}) [NPC] [Agency tags: fan_engager]`,
     ]);
   });
 
-  it('excludes creator accounts even when they belong to Storybook characters', () => {
-    const characters = cast([], person('StoryCreator', ['fan_engager'], 'creator'));
-    expect(socialReactionAccountContext(characters, app, true).lines).toEqual([]);
-  });
-
-  it('shows tags for comment-thread participants including creators and DM-oriented characters', () => {
-    const characters = cast([person('Creator', ['fan_engager'], 'creator'), person('PrivateOnly', ['shy_user'])]);
+  it('shows tags for comment-thread participants', () => {
+    const characters = cast([person('Creator', ['fan_engager']), person('PrivateOnly', ['shy_user'])]);
     const context = socialReactionAccountContext(characters, app, false);
     expect(context.lines).toEqual([
       `- Creator (@Creator.${app}) [NPC] [Agency tags: fan_engager]`, `- PrivateOnly (@PrivateOnly.${app}) [NPC] [Agency tags: shy_user]`,
@@ -123,19 +102,18 @@ describe.each(['fotogram', 'onlyfriends'] as const)('%s post agency context', (a
   });
 });
 
-it('uses real bundled OnlyFriends assignments rather than adding creator or DM-only NPCs', async () => {
+it('samples the bundled OnlyFriends audience from every enabled account', async () => {
   const library = await browserNpcLibrarySnapshot();
   const characters = appCharactersFromRegistry(buildCharacterRegistry(library.entries));
+  const enabled = characters.filter((character) => character.apps?.onlyfriends?.enabled).length;
+  expect(enabled).toBeGreaterThan(5);
   const context = socialReactionAccountContext(characters, 'onlyfriends', true);
   expect(context.lines).toHaveLength(5);
   for (const line of context.lines) {
     const owner = characters.find((character) => line.startsWith(`- ${character.name} (`))!;
-    expect(owner.apps!.onlyfriends!.accountRole).toBe('user');
+    expect(owner.apps!.onlyfriends!.enabled).toBe(true);
     expect(context.text).toContain(owner.profile.personality);
   }
-  expect(context.text).not.toContain('paper.lantern');
-  expect(context.text).not.toContain('copper.spoon');
-
 });
 
 describe('small social audiences', () => {

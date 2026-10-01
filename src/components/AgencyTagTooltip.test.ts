@@ -24,8 +24,6 @@ function testCharacter(tags: Character['agencyTags'] = ['friendly_regular']): Ch
         accountId: 'test-account-id',
         bio: '',
         enabled: true,
-        agencyTags: tags,
-        accountRole: 'user',
       },
     },
   };
@@ -43,7 +41,7 @@ describe('AgencyTagTooltip', () => {
     expect(getAgencyTagMeaning('non_existent_tag')).toBeUndefined();
   });
 
-  it('renders CharacterAgencyField with hoverable badges and pills in SSR', () => {
+  it('renders CharacterAgencyField with its tag summary in SSR', () => {
     const markup = renderToStaticMarkup(
       createElement(CharacterAgencyField, {
         character: testCharacter(['friendly_regular']),
