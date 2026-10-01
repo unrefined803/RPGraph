@@ -14542,7 +14542,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .connection-dialog {
-  width: min(1140px, calc(100vw - 40px));
+  width: min(1240px, calc(100vw - 40px));
   max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
@@ -14668,7 +14668,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .run-llm-report-dialog {
-  width: min(920px, calc(100vw - 40px));
+  width: min(1080px, calc(100vw - 40px));
   max-height: min(720px, calc(100vh - 40px));
   display: flex;
   flex-direction: column;
@@ -15114,7 +15114,9 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .run-llm-report-table th:nth-child(8),
-.run-llm-report-table td:nth-child(8) {
+.run-llm-report-table td:nth-child(8),
+.run-llm-report-table th:nth-child(9),
+.run-llm-report-table td:nth-child(9) {
   width: 82px;
   text-align: right;
   font-family: monospace;
@@ -20911,7 +20913,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .connection-dialog-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: 24px;
   /* Scroll when a provider's config is taller than the dialog instead of clipping
      the bottom; min-height:0 lets this flex child shrink so overflow-y engages. */
@@ -20939,6 +20941,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .connection-dialog-left .dialog-actions {
+  margin-top: auto;
   padding: 16px 0 0;
 }
 
@@ -21046,15 +21049,15 @@ button.message-timeline-row.phone:focus-visible {
 .provider-presets {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   padding: 0;
 }
 
 .provider-presets button {
-  display: grid;
-  gap: 5px;
-  min-height: 74px;
-  padding: 12px;
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 14px;
   text-align: left;
   border: 1px solid #2c374d;
   border-radius: 8px;
@@ -21072,7 +21075,8 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 18px;
+  width: 100%;
 }
 
 .provider-presets .provider-model-switch {
@@ -21112,10 +21116,9 @@ button.message-timeline-row.phone:focus-visible {
   color: #7eb9c5;
 }
 
-.provider-presets .provider-capability-badge.active svg,
 .provider-presets .provider-capability-badge svg {
-  color: #7eb9c5;
-  stroke: #7eb9c5;
+  color: inherit;
+  stroke: currentColor;
 }
 
 .provider-presets .provider-capability-badge:focus-visible {
@@ -21150,12 +21153,29 @@ button.message-timeline-row.phone:focus-visible {
 
 .provider-presets strong {
   font-size: 13px;
+  font-weight: 600;
 }
 
-.provider-presets span {
-  color: #8794b1;
-  font-size: 11px;
-  line-height: 1.35;
+.provider-preset-heading > span:first-child {
+  color: #dbe4f7;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.connection-provider-actions.chatgpt-account-actions {
+  justify-content: flex-start;
+}
+
+.chatgpt-account-actions button:focus-visible {
+  outline: 2px solid #7eb9c5;
+  outline-offset: 2px;
+}
+
+.chatgpt-account-info p {
+  margin: 0;
+  color: #9dabc3;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .presets-sidebar-hint {
@@ -21761,9 +21781,7 @@ button.message-timeline-row.phone:focus-visible {
   font-weight: 850;
   letter-spacing: 0.04em !important;
   line-height: 1;
-  padding: 1px 2px;
-  border: 1px solid currentColor;
-  border-radius: 3.5px;
+  padding: 0;
   user-select: none;
 }
 
@@ -28289,3 +28307,79 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .npc-library-storage-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border: 1px solid #365e54; border-radius: 5px; color: #9cd9c4; background: #203b34; font-size: 10px; font-weight: 600; white-space: nowrap; }
+
+/* Keep provider capabilities aligned across every provider type. */
+.provider-presets .provider-capability-badges {
+  display: grid;
+  grid-template-columns: repeat(5, 21px);
+  gap: 5px;
+  flex: none;
+  justify-items: center;
+  align-items: center;
+}
+
+.provider-presets .provider-capability-badge.inactive {
+  color: #526078;
+}
+
+.provider-preset-heading > span:first-child {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.connection-form-chatgpt .connection-field {
+  align-content: start;
+}
+
+.connection-form-chatgpt {
+  row-gap: 22px;
+}
+
+.connection-form-chatgpt .chatgpt-authentication {
+  gap: 12px;
+}
+
+.chatgpt-authentication .chatgpt-account-actions {
+  gap: 10px;
+}
+
+.chatgpt-authentication .chatgpt-account-actions button {
+  min-height: 38px;
+  padding: 9px 16px;
+}
+
+@media (max-width: 1000px) {
+  .connection-dialog-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .connection-dialog-right {
+    border-left: 0;
+    border-top: 1px solid rgba(48, 58, 78, 0.4);
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 440px) {
+  .provider-preset-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+.chatgpt-account-info {
+  margin-top: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid #2c414d;
+  border-radius: 8px;
+  background: #101820;
+}
+
+.chatgpt-account-info .chatgpt-connection-status {
+  color: #8794b1;
+  font-size: 11px;
+}

@@ -2424,7 +2424,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
           workflowVariableSetCommands: workflowVariableSetCommandsForOutput,
         });
       } else if (!isPhoneMessage && liveOutputMessageId !== undefined) {
-        updateMessage(liveOutputMessageId, completedOutput);
+        // The embedded social links below publish this result in the same commit,
+        // avoiding two consecutive application renders while the chat scrolls.
+        updateMessage(liveOutputMessageId, completedOutput, { deferPublication: true });
       }
       {
         const translateOutputActionText = async (

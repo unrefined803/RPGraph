@@ -1,3 +1,4 @@
+import { chatgptCapabilities, chatgptReasoningCapabilities, chatgptReasoningEffort } from '../../shared/chatgptCapabilities.cjs';
 import { isTextGenerationConnection } from '../llm/textProvider';
 import type { ImageGenerationReference } from '../images/references';
 import { generateApiImages, isImageGenerationConnection, supportsImageGenerationReferences } from '../images/providers';
@@ -81,6 +82,7 @@ import {
   validConnectionReasoningEffort,
 } from '../settings';
 import type {
+  ChatGPTModelInfo,
   ComfyConnectionRole,
   CompositeModelInfo,
   ConnectionPreset,
@@ -181,6 +183,9 @@ export function useProviderConnections({
   const [editingConnection, setEditingConnection] = useState<ConnectionPreset>(defaultConnection);
   const [connectionDraftPending, setConnectionDraftPending] = useState(false);
   const [availableConnectionModels, setAvailableConnectionModels] = useState<string[]>([]);
+  const [chatgptModelsByProfileId, setChatGPTModelsByProfileId] = useState<Record<string, ChatGPTModelInfo[]>>({});
+  const chatgptModelsRef = useRef<Record<string, ChatGPTModelInfo[]>>({});
+  const chatgptCatalogVersionRef = useRef(0);
   const [availableComfyModels, setAvailableComfyModels] = useState<AvailableComfyModels>({
     checkpoints: [],
     loras: [],
@@ -420,6 +425,16 @@ export function useProviderConnections({
           providerKind: presetKind === 'comfyui' ? undefined : preset.providerKind,
           vision: presetKind === 'comfyui' ? false : editingConnection.vision ?? false,
         };
+    // Provider presets reference a reusable account; changing type never signs it out.
+    nextConnection.chatgptProfileId = preset.providerKind === 'chatgpt'
+      ? !connectionDraftPending && editingConnection.providerKind === 'chatgpt' ? editingConnection.chatgptProfileId : undefined
+      : undefined;
+    if (preset.providerKind === 'chatgpt') {
+      nextConnection.apiKey = '';
+      nextConnection.vision = true;
+      nextConnection.reasoningEffort = 'low';
+      delete nextConnection.apiKeyEncrypted;
+    }
     if (
       !connectionDraftPending &&
       currentKind !== presetKind &&
@@ -715,6 +730,16 @@ export function useProviderConnections({
   }
 
   async function listGenericModels(connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) {
+    if (connection.providerKind === 'chatgpt') {
+      const prepared = await prepareChatGPTConnection(connection);
+      const version = chatgptCatalogVersionRef.current;
+      const models = await window.rpgraph.chatgpt.listModels(prepared, onAbort);
+      if (prepared.chatgptProfileId && version === chatgptCatalogVersionRef.current) {
+        chatgptModelsRef.current = { ...chatgptModelsRef.current, [prepared.chatgptProfileId]: models };
+        setChatGPTModelsByProfileId(chatgptModelsRef.current);
+      }
+      return models.map(model => model.id);
+    }
     if (connection.providerKind !== 'openai-compatible') return window.rpgraph.listModels(connection, onAbort);
     const key = compatibleCacheKey(connection);
     const version = (compatibleRequestsRef.current[key] ?? 0) + 1;
@@ -728,7 +753,17 @@ export function useProviderConnections({
     return details.map((model) => model.id);
   }
 
+  function chatgptReasoningFor(connection: ConnectionPreset, catalog: Record<string, ChatGPTModelInfo[]>) {
+    return catalog[connection.chatgptProfileId ?? '']?.find(model => model.id === connection.model)?.reasoning
+      ?? chatgptReasoningCapabilities;
+  }
+
   function connectionWithReasoning(connection: ConnectionPreset) {
+    if (connection.providerKind === 'chatgpt') {
+      const reasoningCapabilities = chatgptReasoningFor(connection, chatgptModelsRef.current);
+      return { ...connection, vision: true, reasoningCapabilities,
+        reasoningEffort: chatgptReasoningEffort(connection.reasoningEffort, reasoningCapabilities) };
+    }
     if (connection.providerKind === 'openai-compatible') return connectionWithCompatibleCapabilities(connection);
     if (isGeminiConnection(connection)) {
       return { ...connection, reasoningEffort: 'auto' as const, reasoningCapabilities: undefined };
@@ -833,7 +868,22 @@ export function useProviderConnections({
     }
     try {
       let health: ProviderConnectionHealth;
-      if (connection.kind === 'comfyui') {
+      if (connection.providerKind === 'chatgpt') {
+        const prepared = await prepareChatGPTConnection(connection);
+        const state = await window.rpgraph.chatgpt.state();
+        const profile = state.profiles.find(entry => entry.id === prepared.chatgptProfileId);
+        if (!profile?.connected || !profile.sharing) {
+          health = { status: 'warning', detail: profile?.connected ? 'Enable ChatGPT plan usage to use this provider.' : 'Continue with ChatGPT to connect this provider.', checkedAt: providerCheckedAt() };
+        } else {
+          const models = await listGenericModels(prepared);
+          if (editingConnectionRef.current.id === connection.id && editingConnectionRef.current.chatgptProfileId === prepared.chatgptProfileId) {
+            setAvailableConnectionModels(models);
+          }
+          health = { status: models.length && prepared.model && models.includes(prepared.model) ? 'online' : 'warning',
+            detail: models.length ? !prepared.model || !models.includes(prepared.model) ? 'Select a model available to this ChatGPT account.' : providerModelCountDetail(models.length) : 'No ChatGPT models are available.',
+            capabilities: chatgptCapabilities, checkedAt: providerCheckedAt() };
+        }
+      } else if (connection.kind === 'comfyui') {
         const result = await window.rpgraph.checkComfyConnection({ baseUrl: connection.baseUrl });
         if (!result.ok) {
           health = {
@@ -1380,6 +1430,10 @@ export function useProviderConnections({
   }
 
   async function loadConnectionModels(selectFallbackModel: boolean) {
+    if (editingConnection.providerKind === 'chatgpt') {
+      await checkProviderConnection(editingConnection, { showStatus: true });
+      return;
+    }
     if (!isLlmConnection(editingConnection)) {
       setAvailableConnectionModels([]);
       setConnectionStatus('ComfyUI model lists load automatically from the ComfyUI provider panel.');
@@ -2584,7 +2638,7 @@ export function useProviderConnections({
     purpose = 'an LLM node',
     signal?: AbortSignal,
   ): Promise<ConnectionPreset> {
-    const connection = connections.find(
+    let connection = connections.find(
       (entry) => entry.id === (connectionId ?? defaultConnectionId),
     );
     if (!connection) {
@@ -2592,6 +2646,27 @@ export function useProviderConnections({
     }
     if (!isLlmConnection(connection)) {
       throw new Error(`Select an LLM connection for ${purpose}; "${connection.label}" is not a text generation provider.`);
+    }
+
+    if (connection.providerKind === 'chatgpt') {
+      connection = await prepareChatGPTConnection(connection);
+      let cleanup: (() => void) | undefined;
+      let models: string[];
+      try {
+        models = chatgptModelsRef.current[connection.chatgptProfileId ?? '']?.map(model => model.id)
+          ?? await listGenericModels(connection, cancel => {
+            if (signal?.aborted) cancel();
+            else {
+              signal?.addEventListener('abort', cancel, { once: true });
+              cleanup = () => signal?.removeEventListener('abort', cancel);
+            }
+          });
+      } finally { cleanup?.(); }
+      if (signal?.aborted) throw new Error('The LLM request was cancelled.');
+      if (!connection.model || !models.includes(connection.model)) {
+        throw new Error('Select a model available to this ChatGPT account in Providers.');
+      }
+      return connectionWithReasoning(connection);
     }
 
     if (connection.model.trim() &&
@@ -2699,6 +2774,46 @@ export function useProviderConnections({
     }
   }
 
+  async function prepareChatGPTConnection(connection: ConnectionPreset): Promise<ConnectionPreset> {
+    const state = await window.rpgraph.chatgpt.state();
+    // Sign-out forgets the profile. Presets that still reference it follow the
+    // workspace's current account instead of staying bound to a removed ID.
+    if (state.profiles.some(profile => profile.id === connection.chatgptProfileId)) return connection;
+    const id = state.profiles.find(profile => profile.id === state.lastProfileId)?.id
+      ?? state.profiles.find(profile => profile.connected)?.id ?? state.profiles[0]?.id;
+    if (!id) return connection;
+    const update = (current: ConnectionPreset) => current.id === connection.id && current.providerKind === 'chatgpt' &&
+      current.chatgptProfileId === connection.chatgptProfileId ? { ...current, chatgptProfileId: id } : current;
+    setConnections(current => current.map(update));
+    setEditingConnection(update);
+    return { ...connection, chatgptProfileId: id };
+  }
+
+  function selectChatGPTProfile(profileId: string, connectionId = editingConnection.id) {
+    chatgptCatalogVersionRef.current += 1;
+    const catalog = { ...chatgptModelsRef.current };
+    delete catalog[profileId];
+    chatgptModelsRef.current = catalog;
+    setChatGPTModelsByProfileId(catalog);
+    const update = (current: ConnectionPreset) => current.id === connectionId && current.providerKind === 'chatgpt'
+      ? { ...current, chatgptProfileId: profileId, model: current.chatgptProfileId === profileId ? current.model : '' } : current;
+    setConnections(current => current.map(update));
+    setEditingConnection(update);
+    if (editingConnection.id === connectionId) setAvailableConnectionModels([]);
+    void window.rpgraph.chatgpt.selectProfile(profileId).then(() => {
+      const selected = connections.find(entry => entry.id === connectionId);
+      if (selected) return checkProviderConnection(update(selected), { showStatus: true });
+    }).catch(error => setConnectionStatus(providerErrorMessage(error)));
+  }
+
+  function refreshChatGPTConnections() {
+    chatgptCatalogVersionRef.current += 1;
+    chatgptModelsRef.current = {};
+    setChatGPTModelsByProfileId({});
+    setAvailableConnectionModels([]);
+    void checkProviderConnections(connections.filter(connection => connection.providerKind === 'chatgpt'), { showStatus: true });
+  }
+
   function editConnection(field: keyof ConnectionPreset, value: ConnectionPreset[keyof ConnectionPreset]) {
     let nextConnection = { ...editingConnection, [field]: value };
     if (field === 'apiKey' && value !== editingConnection.apiKey) {
@@ -2707,6 +2822,11 @@ export function useProviderConnections({
     }
     if (nextConnection.providerKind === 'openai-compatible') {
       nextConnection = connectionWithCompatibleCapabilities(nextConnection);
+    }
+    if (field === 'model' && nextConnection.providerKind === 'chatgpt') {
+      // Keep the selected thinking level when the new model supports it.
+      nextConnection.reasoningEffort = chatgptReasoningEffort(
+        nextConnection.reasoningEffort, chatgptReasoningFor(nextConnection, chatgptModelsRef.current));
     }
     if (field === 'model' && isLmStudioConnection(nextConnection)) {
       const modelDetails = lmStudioModelsByConnectionIdRef.current[nextConnection.id] ?? [];
@@ -2811,7 +2931,8 @@ export function useProviderConnections({
   const editingCompatibleModel = editingConnection.providerKind === 'openai-compatible'
     ? compatibleModels[compatibleCacheKey(editingConnection)]?.find((model) => model.id === editingConnection.model)
     : undefined;
-  const editingConnectionCapabilities = editingConnection.providerKind === 'openai-compatible'
+  const editingConnectionCapabilities = editingConnection.providerKind === 'chatgpt' ? chatgptCapabilities
+    : editingConnection.providerKind === 'openai-compatible'
     ? editingCompatibleModel?.capabilities
     : isLmStudioConnection(editingConnection)
     ? lmStudioCapabilitiesForConnection(editingConnection, lmStudioModelsByConnectionId[editingConnection.id] ?? [])
@@ -2845,7 +2966,8 @@ export function useProviderConnections({
   const editingConnectionSupportedVoices = editingConnectionVoiceModels
         ?.find((model) => model.id === editingConnection.model)
         ?.supportedVoices ?? [];
-  const editingConnectionReasoning = editingConnection.providerKind === 'openai-compatible'
+  const editingConnectionReasoning = editingConnection.providerKind === 'chatgpt' ? chatgptReasoningFor(editingConnection, chatgptModelsByProfileId)
+    : editingConnection.providerKind === 'openai-compatible'
     ? editingCompatibleModel?.reasoning
     : isOpenRouterConnection(editingConnection)
     ? editingConnectionVoiceModels?.find((model) => model.id === editingConnection.model)?.reasoning
@@ -2862,7 +2984,8 @@ export function useProviderConnections({
   const comfyWorkflowRepairInspection = pendingComfyWorkflowRepair?.workflowPath === editingComfyWorkflowPath
     ? pendingComfyWorkflowRepair.inspection
     : null;
-  const modelCapabilitiesSourceLabel = editingCompatibleModel && Object.keys(editingCompatibleModel.capabilities).length
+  const modelCapabilitiesSourceLabel = editingConnection.providerKind === 'chatgpt' ? 'ChatGPT'
+    : editingCompatibleModel && Object.keys(editingCompatibleModel.capabilities).length
     ? 'model metadata'
     : isLmStudioConnection(editingConnection)
     ? 'LM Studio'
@@ -2890,6 +3013,9 @@ export function useProviderConnections({
     connectionDraftPending,
     setConnectionDraftPending,
     availableConnectionModels,
+    chatgptModelsByProfileId,
+    selectChatGPTProfile,
+    refreshChatGPTConnections,
     availableComfyModels,
     comfyWorkflowInspection,
     connectionStatus,

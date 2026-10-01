@@ -77,6 +77,7 @@ async function filesystemHarness(accountPassword?: string) {
     validatedStoredFileName: (name: string) => path.basename(name),
     safeSessionBaseName: (name: string) => name,
     approveWorkflowPath: (value: string) => value,
+    validateWorkflowPath: (value: string) => value,
     approveFilePath: (value: string) => value,
     validateFilePath: (value: string) => value,
     normalizedFilePath: (value: string) => value,
@@ -92,6 +93,7 @@ async function filesystemHarness(accountPassword?: string) {
     between('async function readRpgraphFile(', '\nfunction endpoint(');
   const routes = between("handleWorkspace('workflow:save-named'", "ipcMain.handle('character:detect-face'") +
     between("handleWorkspace('character:save'", "ipcMain.handle('text-file:load'") +
+    between("handleWorkspace('workflow:save-current'", "handleWorkspace('settings:load'") +
     between("handleWorkspace('session:save'", "ipcMain.handle('image:select'") +
     between('async function loadStoredFileRequest(', "ipcMain.handle('window:minimize'");
   const loaded = runInNewContext(`${helpers}${routes}; ({ read: readRpgraphFile, list: listedFilesInDirectory,
@@ -321,6 +323,21 @@ it('unlocks a foreign compact name and preserves its header when rekeying for th
   disk.localAccounts.prepare();
   await disk.localAccounts.unlock('alice', 'account-secret');
   expect((await disk.list(folder, 'files'))[0].name).toBe('Foreign-compact');
+});
+
+it('keeps the filename header on disk and out of plain payloads across plain overwrites', async () => {
+  const disk = await filesystemHarness('account-secret');
+  const workflow = cases[1].payload;
+  const saved = await disk.handlers['workflow:save-named']({}, { name: 'Private-title', workflow,
+    protection: 'encrypted', password: 'account-secret' });
+  const fileName = path.basename(saved.filePath);
+  await disk.handlers['workflow:save-named']({}, { name: fileName, workflow, protection: 'plain', overwrite: true });
+  await disk.handlers['workflow:save-current']({}, { filePath: saved.filePath, workflow });
+
+  expect(JSON.parse(await fs.readFile(saved.filePath, 'utf8')).filenameEncryption.format).toBe('rpgraph-filename-v2');
+  const loaded = await disk.handlers['file:load']({}, { fileName, storage: 'files', password: '' });
+  expect(loaded).toMatchObject({ name: 'Private-title', protection: 'plain' });
+  expect((loaded as unknown as { value: object }).value).toEqual(workflow);
 });
 
 it.each(['missing', 'changed'])('rejects a %s compact header even when the name and parameters were cached', async change => {

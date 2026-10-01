@@ -1,7 +1,7 @@
 {
   "name": "rpgraph-studio",
   "private": true,
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Local-first node graph studio for roleplay workflows.",
   "author": {
     "name": "unrefined803",
@@ -43,7 +43,8 @@
     "character:edit": "node scripts/edit-character-container.mjs",
     "character:convert-demos": "node scripts/convert-demo-characters.mjs",
     "character:faces:setup": "node scripts/setup-character-faces.mjs",
-    "character:faces": "node scripts/backfill-character-faces.mjs"
+    "character:faces": "node scripts/backfill-character-faces.mjs",
+    "perf:summary": "node scripts/ui-performance-summary.mjs"
   },
   "dependencies": {
     "@toon-format/toon": "^4.1.1",

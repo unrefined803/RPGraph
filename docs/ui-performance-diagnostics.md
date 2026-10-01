@@ -15,6 +15,40 @@ The recorder stores at most 12,000 samples, overwriting the oldest entries. The
 report states how many samples were overwritten. No message text, character
 names, images, prompts, credentials, or script URLs are collected.
 
+## Current status
+
+Resolved as of 2026-10-01 (version 0.6.3): the chat scrolls smoothly during
+generation, with no stutter noticeable to the user. The last recording of the
+reference turn (ten rendered rows, two social messages, three timestamp patches)
+compares with the recording taken before the final corrections as follows:
+
+| Measurement | Before | After |
+| --- | --- | --- |
+| Largest frame gap | 118.2 ms | 48.6 ms |
+| Completion and social publication | 118.2 ms | 34.8 ms |
+| Speaker selection | 69.5 ms | below 24 ms |
+| Frame gaps of at least 34 ms | 5 | 2 |
+| Sum of recorded frame gaps | 576 ms | 167 ms |
+| Browser long tasks | 2 | 0 |
+| App function body per render | 15–27 ms | 0.3–10 ms |
+
+The decisive correction was caching the storybook emptiness check, which had
+serialized the image-bearing storybook twice in every App render. The exported
+reports are not kept in the repository. See
+[the recording analysis](ui-performance-analysis-2026-09-27.md) for all
+recordings, corrections and the known remaining costs, which matter only if
+long chats stutter again. Record the reference turn again before further work.
+
+## Summarizing a report
+
+Reports contain thousands of per-frame scroll samples. Condense one with:
+
+`npm run perf:summary -- <report.json> [--min-gap=34] [--top=8] [--context=60]`
+
+The summary lists frame-gap counts, the slowest measured work, and one merged
+timeline per stall without routine scroll samples. `… N ms without samples`
+marks time between instrumented samples, where uninstrumented work is hidden.
+
 ## Reading a report
 
 All times use the same monotonic clock relative to recording start.
@@ -53,6 +87,16 @@ exporting is not part of the chat reproduction, so distinguish those timestamps.
 - `react-render`: React Profiler timings for App, Chat and Graph. These measure
   render work, not browser layout/paint. Standard production React builds can
   omit these callbacks; `reactProfilerObserved` makes that absence explicit.
+- `app.render` (`start`, `bodyEnd`), `render.mark` and `app.commit` (`layout`,
+  `effects`): position markers for one application render. `start` to `bodyEnd`
+  is the App function body; `chatRuntimeEnd`, `graphRunStart` and `headerStart`
+  split it at fixed source positions. React renders siblings in order, so the time between
+  `graph.start`, `graph.end`, `chatPanel.start`, `chatPanel.end` and `dialogs.end`
+  belongs to the subtree between those markers. `dialogs.end` to `layout` covers
+  the remaining render and DOM mutation; `layout` to `effects` covers layout
+  effects, browser rendering and scheduling. A repeated `start` without `bodyEnd`
+  or commit markers indicates a restarted render. These markers are available in
+  standard builds, unlike the React Profiler callbacks.
 - `scroll.readLayout` / `scroll.writePosition`: synchronous scroll frame work;
   expensive reads can indicate a forced layout. Scroll start/bottom markers
   distinguish work during motion from work after scrolling finishes.

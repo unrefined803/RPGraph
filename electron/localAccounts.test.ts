@@ -114,6 +114,28 @@ it('requires the active account password before deleting its complete workspace'
   expect(accounts.root).toBe(path.join(root, 'accounts', 'bob'));
 });
 
+it('keeps the account intact when deletion cannot start and finishes an interrupted purge later', async () => {
+  const root = await fixture();
+  const accounts = createLocalAccounts(root);
+  await accounts.create('alice', 'secret');
+  const accountFile = path.join(accounts.root, 'account.json');
+
+  vi.spyOn(fs, 'rename').mockRejectedValueOnce(Object.assign(new Error('Busy'), { code: 'EBUSY' }));
+  await expect(accounts.delete('secret')).rejects.toThrow('Busy');
+  expect(accounts.active).toBe(true);
+  await expect(readFile(accountFile, 'utf8')).resolves.toContain('alice');
+
+  vi.spyOn(fs, 'rm').mockRejectedValueOnce(Object.assign(new Error('Denied'), { code: 'EACCES' }));
+  await expect(accounts.delete('secret')).resolves.toEqual({ username: 'alice' });
+  expect(accounts.active).toBe(false);
+  expect((await readdir(path.join(root, 'accounts'))).map(name => name.slice(0, 15))).toEqual(['.deleted-alice-']);
+
+  // The staged directory is never a login candidate and does not block the username.
+  expect(await accounts.list()).toEqual([]);
+  expect(await readdir(path.join(root, 'accounts'))).toEqual([]);
+  await expect(accounts.create('alice', 'new-secret')).resolves.toEqual({ username: 'alice' });
+});
+
 it('removes an incomplete new account so creation can be retried after a write failure', async () => {
   const root = await fixture();
   const accounts = createLocalAccounts(root);
@@ -164,6 +186,7 @@ it.each(['accounts:prepare', 'accounts:delete'])('%s releases cached characters 
     workspaceOperations: createWorkspaceOperations(),
     settingsWriteQueue: Promise.resolve(),
     abortActiveLlmRequests: vi.fn(),
+    chatgptAuth: { cancelPending: vi.fn(), forgetWorkspace: vi.fn() },
     approvedFilePaths: new Set(['private-file']),
     approvedWorkflowPaths: new Set(['private-workflow']),
     workspaceProtection: { activate: vi.fn() },

@@ -1,0 +1,6 @@
+import type { ReasoningCapabilities } from '../../shared/reasoning.cjs';
+type Auth = { accessToken: (root: string, id: string | undefined, signal: AbortSignal) => Promise<string> };
+export function listModels(auth: Auth, root: string, profileId: string | undefined, signal: AbortSignal,
+  fetchRequest?: typeof fetch): Promise<Array<{ id: string; name: string; reasoning?: ReasoningCapabilities }>>;
+export function chat(auth: Auth, root: string, request: { connection: { model: string; chatgptProfileId?: string; reasoningEffort?: string; reasoningCapabilities?: ReasoningCapabilities }; prompt: string; images?: Array<{ dataUrl: string }> },
+  signal: AbortSignal, onDelta?: (text: string) => void, fetchRequest?: typeof fetch): Promise<{ text: string; usage?: unknown }>;

@@ -1,8 +1,14 @@
 import { useState, useSyncExternalStore } from 'react';
 import {
-  isUiPerformanceRecording, startUiPerformance, stopUiPerformance,
+  isUiPerformanceRecording, markUiEvent, startUiPerformance, stopUiPerformance,
   subscribeUiPerformance, uiPerformanceReport,
 } from '../diagnostics/uiPerformance';
+
+/** Marks when React reaches this position: earlier siblings have finished rendering. */
+export function UiRenderMark({ name }: { name: string }) {
+  markUiEvent('render.mark', { name });
+  return null;
+}
 
 export function UiPerformanceDiagnostics() {
   const recording = useSyncExternalStore(subscribeUiPerformance, isUiPerformanceRecording);

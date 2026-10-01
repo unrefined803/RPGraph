@@ -74,6 +74,8 @@ const {
   veniceResponseText,
 } = require('./veniceApi.cjs');
 const { chat: lmStudioAdapterChat } = require('./providers/lmStudioAdapter.cjs');
+const { createChatGPTAuth } = require('./chatgptAuth.cjs');
+const { chat: chatgptChat, listModels: chatgptListModels } = require('./providers/chatgptAdapter.cjs');
 const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
 const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
 const workspaceProtection = require('./workspaceProtection.cjs').createWorkspaceProtection();
@@ -223,6 +225,23 @@ if (process.platform === 'win32') {
 }
 
 const localAccounts = require('./localAccounts.cjs').createLocalAccounts(app.getPath('userData'));
+const chatgptAuth = createChatGPTAuth({
+  userDataPath: app.getPath('userData'),
+  runtime: {
+    claim: () => app.requestSingleInstanceLock(),
+    release: () => app.releaseSingleInstanceLock(),
+  },
+  storage: {
+    available: apiKeyEncryptionAvailable,
+    encrypt: value => safeStorage.encryptString(value).toString('base64'),
+    decrypt: value => {
+      if (!apiKeyEncryptionAvailable()) throw new Error('Secure ChatGPT storage is unavailable.');
+      return safeStorage.decryptString(Buffer.from(value, 'base64'));
+    },
+  },
+  openBrowser: url => shell.openExternal(url),
+});
+app.on('will-quit', () => { chatgptAuth.dispose(); });
 let npcLibraryService;
 const workspaceOperations = require('./workspaceOperations.cjs').createWorkspaceOperations();
 
@@ -242,7 +261,13 @@ function handleWorkspace(channel, handler) {
 let filenameSaveQueue = Promise.resolve();
 
 function handleAccountTransition(channel, handler) {
-  ipcMain.handle(channel, (...args) => workspaceOperations.transition(() => handler(...args)));
+  ipcMain.handle(channel, (...args) => {
+    if (channel !== 'accounts:set-filename-privacy') {
+      chatgptAuth.cancelPending();
+      abortActiveLlmRequests('account-transition');
+    }
+    return workspaceOperations.transition(() => handler(...args));
+  });
 }
 
 function makeNpcLibraryService(root) {
@@ -311,7 +336,9 @@ handleWorkspace('accounts:open-folder', async () => {
 handleAccountTransition('accounts:delete', async (_event, request) => {
   abortActiveLlmRequests('account-delete');
   await settingsWriteQueue.catch(() => {});
+  const root = localAccounts.root;
   const result = await localAccounts.delete(request?.password);
+  chatgptAuth.forgetWorkspace(root);
   approvedFilePaths.clear();
   approvedWorkflowPaths.clear();
   workspaceProtection.activate('');
@@ -1495,6 +1522,8 @@ async function readRpgraphFile(filePath, password) {
 async function readRpgraphFileContents(filePath, password) {
   const value = JSON.parse(await fs.readFile(filePath, 'utf8'));
   const metadata = storedFileMetadata(value);
+  // The filename header belongs to the stored file, not to plain payloads.
+  if (metadata.protection === 'plain') delete value.filenameEncryption;
   if (!metadata.compatible) {
     throw unsupportedStoredFileError(value, metadata);
   }
@@ -2222,8 +2251,20 @@ function usageReasoningTokens(usage) {
   );
 }
 
+// Cache hits are a subset of the input tokens. A missing or malformed count
+// stays undefined (unknown); a reported zero means no cache hit.
+function usageCachedInputTokens(usage) {
+  return [
+    usage?.prompt_tokens_details?.cached_tokens,
+    usage?.input_tokens_details?.cached_tokens,
+    usage?.cachedContentTokenCount,
+    usage?.prompt_cache_hit_tokens,
+  ].find((value) => Number.isSafeInteger(value) && value >= 0);
+}
+
 function llmStatsFromUsage(usage, durationMs) {
   const inputTokens = firstFiniteNumber(usage?.prompt_tokens, usage?.input_tokens, usage?.promptTokenCount);
+  const cachedInputTokens = usageCachedInputTokens(usage);
   const rawOutputTokens = firstFiniteNumber(
     usage?.completion_tokens,
     usage?.output_tokens,
@@ -2243,6 +2284,7 @@ function llmStatsFromUsage(usage, durationMs) {
         : undefined;
   return {
     inputTokens,
+    ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
     outputTokens,
     reasoningTokens: usageReasoningTokens(usage),
     totalTokens,
@@ -2319,6 +2361,10 @@ function failedLlmIpcResult(error) {
     __rpgraphLlmError: true,
     name: normalized instanceof Error ? normalized.name : 'Error',
     message: normalized instanceof Error ? normalized.message : String(normalized),
+    code: error?.code,
+    status: error?.status,
+    requestId: error?.requestId,
+    param: error?.param,
   };
 }
 
@@ -3118,7 +3164,10 @@ async function repairComfyWorkflowWithLlm(workflowPath, connection, abort, role 
   await ensureLlamaCppModelLoaded(connection, abort);
   const repairPrompt = comfyWorkflowRepairPrompt(contents, inspection);
   let responseText;
-  if (isLmStudioProviderConnection(connection)) {
+  if (connection?.providerKind === 'chatgpt') {
+    const result = await chatgptChat(chatgptAuth, localAccounts.root, { connection, prompt: repairPrompt }, abort.signal);
+    responseText = result.text;
+  } else if (isLmStudioProviderConnection(connection)) {
     const result = await requestLmStudioChat({
       connection,
       prompt: repairPrompt,
@@ -4573,7 +4622,35 @@ ipcMain.handle('ollama:unload-models', async (_event, request) => {
   }
 });
 
-ipcMain.handle('llm:list-models', async (_event, request) => {
+handleWorkspace('chatgpt:state', async () => {
+  try { return await chatgptAuth.state(localAccounts.root); }
+  catch (error) { return failedLlmIpcResult(error); }
+});
+for (const [channel, method] of [
+  ['chatgpt:sign-in', 'signIn'], ['chatgpt:select-profile', 'select'],
+  ['chatgpt:sign-out', 'signOut'], ['chatgpt:confirm-usage', 'confirmUsage'],
+]) {
+  handleWorkspace(channel, async (_event, profileId) => {
+    const root = localAccounts.root;
+    try {
+      if (profileId !== undefined && typeof profileId !== 'string') throw new Error('Invalid ChatGPT profile.');
+      if (method === 'signOut') abortActiveLlmRequests('chatgpt-sign-out');
+      return await chatgptAuth[method](root, profileId);
+    } catch (error) { return failedLlmIpcResult(error); }
+  });
+}
+ipcMain.handle('chatgpt:cancel-sign-in', () => { chatgptAuth.cancelSignIn(); });
+ipcMain.handle('chatgpt:open-usage', () => shell.openExternal('https://chatgpt.com/settings/usage'));
+handleWorkspace('chatgpt:list-models', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  try {
+    return await chatgptListModels(chatgptAuth, localAccounts.root, request?.connection?.chatgptProfileId, abort.signal);
+  } catch (error) {
+    return abort.signal.aborted ? cancelledLlmIpcResult() : failedLlmIpcResult(error);
+  } finally { abort.dispose(); }
+});
+
+handleWorkspace('llm:list-models', async (_event, request) => {
   const connection = request?.connection ?? request;
   const abort = createLlmAbortController(request);
   try {
@@ -4621,10 +4698,14 @@ ipcMain.handle('llm:list-models', async (_event, request) => {
   }
 });
 
-ipcMain.handle('llm:chat-completion', async (_event, request) => {
+handleWorkspace('llm:chat-completion', async (_event, request) => {
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   try {
+    if (request.connection?.providerKind === 'chatgpt') {
+      const result = await chatgptChat(chatgptAuth, localAccounts.root, request, abort.signal);
+      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)) };
+    }
     await freeComfyMemoryForLocalLlm(request.connection);
     await ensureLlamaCppModelLoaded(request.connection, abort);
     if (isGeminiProviderConnection(request.connection)) {
@@ -4752,13 +4833,14 @@ ipcMain.handle('llm:chat-completion', async (_event, request) => {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
     }
+    if (request.connection?.providerKind === 'chatgpt') return failedLlmIpcResult(error);
     throw normalizeLlmError(error);
   } finally {
     abort.dispose();
   }
 });
 
-ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
+handleWorkspace('llm:chat-completion-stream', async (event, request) => {
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   const reasoningChannel = `llm:chat-stream-reasoning:${request.requestId}`;
@@ -4789,6 +4871,11 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
     }
   };
   try {
+    if (request.connection?.providerKind === 'chatgpt') {
+      const result = await chatgptChat(chatgptAuth, localAccounts.root, request, abort.signal, text => textBatch.push(text));
+      sendFinalReasoningTokens(result.usage);
+      return { text: result.text, stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)) };
+    }
     await freeComfyMemoryForLocalLlm(request.connection);
     await ensureLlamaCppModelLoaded(request.connection, abort);
     if (isGeminiProviderConnection(request.connection)) {
@@ -5129,6 +5216,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
     }
+    if (request.connection?.providerKind === 'chatgpt') return failedLlmIpcResult(error);
     throw normalizeLlmError(error);
   } finally {
     if (abort.signal.aborted) textBatch.cancel();
@@ -5216,7 +5304,7 @@ ipcMain.handle('comfy:inspect-workflow', async (_event, request) => {
   }
 });
 
-ipcMain.handle('comfy:repair-workflow', async (_event, request) => {
+handleWorkspace('comfy:repair-workflow', async (_event, request) => {
   const abort = createLlmAbortController(request);
   const role = comfyWorkflowRole(request?.role);
   try {
@@ -5851,7 +5939,7 @@ handleWorkspace('workflow:save-current', async (_event, request) => {
   workspaceProtection.require({ protection: 'plain' });
   const validatedPath = validateWorkflowPath(request?.filePath);
   await assertOverwriteType(validatedPath, 'workflow');
-  await writeTextFileAtomically(validatedPath, `${JSON.stringify(request.workflow, null, 2)}\n`);
+  await writeTextFileAtomically(validatedPath, await storedPayloadContents(request.workflow, validatedPath));
   await saveLastWorkflowFileName(path.basename(validatedPath));
   return { filePath: validatedPath };
 });

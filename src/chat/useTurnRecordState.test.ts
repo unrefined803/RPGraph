@@ -162,6 +162,41 @@ it('publishes prepared embedded messages and parent links as one consistent snap
   expect(snapshot[0].embeddedSocialMessages?.map((link) => link.socialMessageId)).toEqual(ids);
 });
 
+it('publishes a deferred completion with the following update, or alone after a task', () => {
+  vi.useFakeTimers();
+  try {
+    const { state, captureNpcMessages, reconcileNpcMessages } = harness();
+    const id = state.appendMessage({ role: 'output', originalText: 'Preview' });
+    const listener = vi.fn();
+    state.messageStream.subscribe(listener);
+    reconcileNpcMessages.mockClear();
+    captureNpcMessages.mockClear();
+    const writes = hooks.writes;
+    state.updateMessage(id, { originalText: 'Final', speakerName: 'Alice' }, { deferPublication: true });
+    expect(state.messagesRef.current[0].speakerName).toBe('Alice');
+    expect(captureNpcMessages).toHaveBeenCalledOnce();
+    expect(hooks.writes).toBe(writes);
+    expect(listener).not.toHaveBeenCalled();
+    state.updateMessage(id, { embeddedSocialMessages: undefined });
+    expect(listener).toHaveBeenCalledOnce();
+    expect(state.messageStream.getSnapshot()[0]).toMatchObject({ originalText: 'Final', speakerName: 'Alice' });
+    vi.runAllTimers();
+    expect(listener).toHaveBeenCalledOnce();
+    expect(reconcileNpcMessages).toHaveBeenCalledOnce();
+
+    state.updateMessage(id, { speakerName: 'Bob' }, { deferPublication: true });
+    state.updateMessage(id, { speakerNames: ['Bob'] }, { deferPublication: true });
+    expect(listener).toHaveBeenCalledOnce();
+    vi.runAllTimers();
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(state.messageStream.getSnapshot()).toBe(state.messagesRef.current);
+    expect(state.messageStream.getSnapshot()[0]).toMatchObject({ speakerName: 'Bob', speakerNames: ['Bob'] });
+    expect(reconcileNpcMessages).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it('can discard deferred records without publishing them when a run is cancelled', () => {
   const { state } = harness();
   const before: MessageRecord[] = [{ id: 1, role: 'output', originalText: 'Previous turn' }];

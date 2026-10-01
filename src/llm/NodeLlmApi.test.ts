@@ -95,3 +95,18 @@ it.each(['text', 'error', 'disabled'] as const)('tracks actual reasoning activit
   else await result;
   expect(activity.mock.calls).toEqual(mode === 'disabled' ? [] : [['llm', true], ['llm', false]]);
 });
+
+it.each([false, true])('preserves ChatGPT thinking and vision when dispatching (fast task: %s)', async fastTask => {
+  const chatCompletion = vi.fn().mockResolvedValue({ text: 'Done', stats: {
+    inputTokens: 1, outputTokens: 1, totalTokens: 2, durationMs: 1,
+  } });
+  vi.stubGlobal('window', { rpgraph: { chatCompletion } });
+  const api = new NodeLlmApi({ resolveConnection: async () => ({
+    ...connection, providerKind: 'chatgpt', reasoningEffort: 'high',
+  }) });
+  const images = [{ id: 'image', name: 'image.png', size: 5, dataUrl: 'data:image/png;base64,aGVsbG8=', mimeType: 'image/png' }];
+  await api.complete({ label: 'Test', prompt: 'Hello', fastTask, images });
+  expect(chatCompletion.mock.calls[0][0]).toMatchObject({
+    connection: { reasoningEffort: 'high' }, images,
+  });
+});

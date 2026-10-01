@@ -538,6 +538,8 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
     providerKind: kind === 'comfyui'
       ? undefined
       : validLlmProviderKind(connection.providerKind) ?? inferredProviderKind(connection),
+    chatgptProfileId: connection.providerKind === 'chatgpt' && typeof connection.chatgptProfileId === 'string'
+      ? connection.chatgptProfileId : undefined,
     apiKey: kind === 'comfyui' ? '' : connection.apiKey,
     model: kind === 'comfyui' ? '' : connection.model,
     ttsVoice: kind === 'comfyui' || typeof connection.ttsVoice !== 'string'
@@ -650,6 +652,7 @@ function isConnectionPreset(value: unknown): value is ConnectionPreset {
     typeof connection.id === 'string' &&
     (connection.kind === undefined || connection.kind === 'llm' || connection.kind === 'comfyui') &&
     (connection.providerKind === undefined || validLlmProviderKind(connection.providerKind) !== undefined) &&
+    (connection.chatgptProfileId === undefined || typeof connection.chatgptProfileId === 'string') &&
     typeof connection.label === 'string' &&
     typeof connection.baseUrl === 'string' &&
     typeof connection.apiKey === 'string' &&

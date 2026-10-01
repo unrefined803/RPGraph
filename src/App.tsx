@@ -8,6 +8,7 @@ import { imageReferenceAttachments } from './images/references';
 import { isComfyImageConnection } from './comfy/connectionRole';
 import { needsOpeningMessageSync } from './chat/openingMessage';
 import { markUiEvent, measureUiWork, profileUiRender, setUiPerformanceContext } from './diagnostics/uiPerformance';
+import { UiRenderMark } from './components/UiPerformanceDiagnostics';
 import { highlightingSpeakerReferences, type HighlightingSpeakerContext } from './nodes/output/speakerSelection';
 import { textEffectsStyle } from './chat/textEffects';
 import { CharacterName } from './components/CharacterName';
@@ -37,6 +38,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -628,6 +630,9 @@ type PreviewImageState = {
 };
 
 function App() {
+  markUiEvent('app.render', { phase: 'start' });
+  useLayoutEffect(() => { markUiEvent('app.commit', { phase: 'layout' }); });
+  useEffect(() => { markUiEvent('app.commit', { phase: 'effects' }); });
   const npcLibrary = useNpcLibrary();
   const [characterRemoval, setCharacterRemoval] = useState<{ nodeId: string; characterId: string } | null>(null);
   const editedNpcSnapshotRef = useRef<import('./characters/npcParticipants').NpcParticipantSnapshots[string] | undefined>(undefined);
@@ -1152,6 +1157,7 @@ function App() {
   useEffect(() => {
     notifySystemRef.current = notifySystem;
   }, [notifySystem]);
+  markUiEvent('app.render', { phase: 'chatRuntimeEnd' });
   const activeCharacterNameDiagnostics = npcParticipants.registry().diagnostics.filter((diagnostic) =>
     diagnostic.code === 'shadowed-character-name' || diagnostic.code === 'duplicate-character-name');
   const activeCharacterNameDiagnosticSignature = JSON.stringify(activeCharacterNameDiagnostics.map((diagnostic) =>
@@ -1186,6 +1192,9 @@ function App() {
     editingConnection,
     connectionDraftPending,
     availableConnectionModels,
+    chatgptModelsByProfileId,
+    selectChatGPTProfile,
+    refreshChatGPTConnections,
     availableComfyModels,
     comfyWorkflowInspection,
     connectionStatus,
@@ -3931,6 +3940,7 @@ function App() {
       }];
     });
   }
+  markUiEvent('app.render', { phase: 'graphRunStart' });
   const { pendingQuestion, askUser, answerUserQuestion } = useUserQuestion();
   const { runGraph } = useGraphRun({
     askUser,
@@ -5002,6 +5012,7 @@ function App() {
     );
   }
 
+  markUiEvent('app.render', { phase: 'headerStart' });
   const displayedWorkflowName = activeWorkflowFileName
     ? activeWorkflowFileName === 'embedded workflow'
       ? 'Workflow from RP Save'
@@ -5180,6 +5191,7 @@ function App() {
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
 
+  markUiEvent('app.render', { phase: 'bodyEnd' });
   return (
     <AccountLinkContext.Provider value={accountLinkContext}>
     <div
@@ -5396,6 +5408,7 @@ function App() {
               </button>
             )}
           </div>
+          <UiRenderMark name="graph.start" />
           <NodeActionsContext.Provider value={nodeActions}>
             <NodeViewContext.Provider value={nodeViewValues}>
               <Profiler id="Graph" onRender={profileUiRender}>
@@ -5472,6 +5485,7 @@ function App() {
               </Profiler>
             </NodeViewContext.Provider>
           </NodeActionsContext.Provider>
+          <UiRenderMark name="graph.end" />
           <aside className="node-palette" aria-label="Available nodes">
             <div className="node-palette-handle" aria-hidden="true">
               NODES
@@ -5608,6 +5622,7 @@ function App() {
             <span className="chat-drawer-handle" aria-hidden="true">CHAT</span>
           </div>
 
+          <UiRenderMark name="chatPanel.start" />
           <ErrorBoundary label="Chat Panel">
           <aside className="chat-panel">
           <div className="chat-header">
@@ -6192,6 +6207,7 @@ function App() {
           </div>
           </aside>
           </ErrorBoundary>
+          <UiRenderMark name="chatPanel.end" />
         </div>
       </main>
 
@@ -6618,6 +6634,9 @@ function App() {
         editingConnectionSupportedParameters={editingConnectionSupportedParameters}
         providerHealthById={providerHealthById}
         availableConnectionModels={availableConnectionModels}
+        chatgptModelsByProfileId={chatgptModelsByProfileId}
+        onSelectChatGPTProfile={selectChatGPTProfile}
+        onRefreshChatGPTConnections={refreshChatGPTConnections}
         availableComfyModels={availableComfyModels}
         comfyWorkflowInspection={comfyWorkflowInspection}
         comfyWorkflowRepairStatus={comfyWorkflowRepairStatus}
@@ -6796,6 +6815,7 @@ function App() {
           </section>
         </div>
       )}
+      <UiRenderMark name="dialogs.end" />
     </div>
     </AccountLinkContext.Provider>
   );

@@ -16,3 +16,8 @@ export function readableFileName(
   if (listed && !listed.endsWith(' (open to unlock)')) return listed;
   return isProtectedFileName(fileName) ? undefined : fileName.replace(/(\.rpgraph-storybook|\.rpgraph-character|\.rpgraph-session|\.rpgraph)?\.json$/i, '');
 }
+
+/** Keep opaque protected filenames out of status text. */
+export function fileNameLabel(fileName: string, name: string) {
+  return isProtectedFileName(fileName) ? name : fileName;
+}

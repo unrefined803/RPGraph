@@ -38,6 +38,13 @@ and non-UI tests only; the desktop application was not launched.
 ## Open findings and proposed larger changes
 
 1. **P2: Recursive deletion has no recoverable failure state.**
+
+   Follow-up status: fixed. Deletion now renames the account directory to a
+   `.deleted-<username>-<id>` staging name before purging it. A failed rename
+   leaves the account unchanged, staged directories are excluded from login,
+   and listing accounts retries an incomplete purge. The original finding below
+   records the reviewed V1 behavior.
+
    In `electron/localAccounts.cjs`, `delete` clears the selected account only
    after `fs.rm(root, { recursive: true })` succeeds. A permission or I/O failure
    may occur after some files, including account metadata, have been removed.

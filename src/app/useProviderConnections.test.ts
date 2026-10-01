@@ -70,6 +70,84 @@ function harness(providerKind: LlmProviderKind, model = 'text-model') {
 beforeEach(() => { hooks.slots = []; hooks.index = 0; });
 afterEach(() => { vi.unstubAllGlobals(); });
 
+const chatgptState = {
+  secureStorage: true, lastProfileId: 'saved-profile', profiles: [{
+    id: 'saved-profile', label: 'Account', connected: true, sharing: true, storageLocked: false, usageConfirmed: true,
+  }],
+};
+
+it('reuses the saved ChatGPT profile when creating another model connection', async () => {
+  const ipc = { state: vi.fn().mockResolvedValue(chatgptState),
+    listModels: vi.fn().mockResolvedValue([{ id: 'selected-model', name: 'Selected model' }]) };
+  vi.stubGlobal('window', { rpgraph: { chatgpt: ipc } });
+  const state = harness('chatgpt', 'selected-model');
+  await state.render().checkProviderConnectionById('provider');
+  expect(state.connections[0].chatgptProfileId).toBe('saved-profile');
+  const resolved = await state.render().resolveConnection();
+  expect(resolved).toMatchObject({ chatgptProfileId: 'saved-profile', model: 'selected-model', reasoningEffort: 'low', vision: true });
+  expect(ipc.listModels).toHaveBeenCalledTimes(1);
+  expect(state.render().chatgptModelsByProfileId['saved-profile'][0].name).toBe('Selected model');
+});
+
+it('does not accept a model missing from the selected ChatGPT account', async () => {
+  vi.stubGlobal('window', { rpgraph: { chatgpt: {
+    state: vi.fn().mockResolvedValue(chatgptState), listModels: vi.fn().mockResolvedValue([{ id: 'available-model', name: 'Available' }]),
+  } } });
+  const state = harness('chatgpt', 'unavailable-model');
+  await expect(state.render().resolveConnection()).rejects.toThrow('Select a model available');
+});
+
+it('requires a model selection before reporting a ChatGPT provider as online', async () => {
+  vi.stubGlobal('window', { rpgraph: { chatgpt: {
+    state: vi.fn().mockResolvedValue(chatgptState), listModels: vi.fn().mockResolvedValue([{ id: 'available-model', name: 'Available' }]),
+  } } });
+  const state = harness('chatgpt', '');
+  await state.render().checkProviderConnectionById('provider');
+  expect(state.render().providerHealthById.provider).toMatchObject({
+    status: 'warning', detail: 'Select a model available to this ChatGPT account.',
+  });
+});
+
+it('keeps a signed-out ChatGPT provider saved and reports that sign-in is needed', async () => {
+  const listModels = vi.fn();
+  vi.stubGlobal('window', { rpgraph: { chatgpt: { listModels,
+    state: vi.fn().mockResolvedValue({ ...chatgptState, profiles: [{ ...chatgptState.profiles[0], connected: false }] }),
+  } } });
+  const state = harness('chatgpt');
+  await state.render().checkProviderConnectionById('provider');
+  expect(state.render().providerHealthById.provider).toMatchObject({ status: 'warning', detail: expect.stringContaining('Continue with ChatGPT') });
+  expect(state.connections[0].chatgptProfileId).toBe('saved-profile');
+  expect(listModels).not.toHaveBeenCalled();
+});
+
+it('moves a preset from a signed-out ChatGPT profile to the current account and keeps its model', async () => {
+  const listModels = vi.fn().mockResolvedValue([{ id: 'selected-model', name: 'Selected model' }]);
+  vi.stubGlobal('window', { rpgraph: { chatgpt: { listModels, state: vi.fn().mockResolvedValue(chatgptState) } } });
+  const state = harness('chatgpt', 'selected-model');
+  state.setConnections([{ ...state.connections[0], chatgptProfileId: 'removed-profile' }]);
+  const resolved = await state.render().resolveConnection();
+  expect(resolved).toMatchObject({ chatgptProfileId: 'saved-profile', model: 'selected-model' });
+  expect(state.connections[0]).toMatchObject({ chatgptProfileId: 'saved-profile', model: 'selected-model' });
+  expect(listModels).toHaveBeenCalledWith(expect.objectContaining({ chatgptProfileId: 'saved-profile' }), expect.any(Function));
+});
+
+it('offers the thinking levels reported for the selected ChatGPT model', async () => {
+  const reasoning = { mandatory: false, supportedEfforts: ['none' as const, 'medium' as const, 'xhigh' as const], defaultEffort: 'medium' as const };
+  vi.stubGlobal('window', { rpgraph: { chatgpt: { state: vi.fn().mockResolvedValue(chatgptState), listModels: vi.fn().mockResolvedValue([
+    { id: 'deep-model', name: 'Deep', reasoning }, { id: 'plain-model', name: 'Plain' },
+  ]) } } });
+  const state = harness('chatgpt', 'plain-model');
+  state.setConnections([{ ...state.connections[0], chatgptProfileId: 'saved-profile', reasoningEffort: 'high' }]);
+  state.render().setEditingConnection(state.connections[0]);
+  await state.render().checkProviderConnectionById('provider');
+  expect(state.render().editingConnectionReasoning).toMatchObject({ supportedEfforts: ['low', 'medium', 'high'] });
+  state.render().editConnection('model', 'deep-model');
+  expect(state.render().editingConnectionReasoning).toEqual(reasoning);
+  expect(state.render().editingConnection.reasoningEffort).toBe('medium');
+  state.render().editConnection('reasoningEffort', 'xhigh');
+  expect(await state.render().resolveConnection()).toMatchObject({ reasoningEffort: 'xhigh', reasoningCapabilities: reasoning });
+});
+
 it('preserves unreadable key payloads during provider edits and discards them on explicit key replacement', () => {
   const state = harness('openai-compatible');
   const payload = { format: 'electron-safe-storage' as const, value: 'unreadable-key' };

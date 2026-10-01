@@ -10,6 +10,9 @@ settings operations and wait for active operations before changing or deleting t
 root, including pending encryption, native file dialogs, and library reloads.
 Deletion removes the selected account's
 complete directory; exports in the shared NPC folder or external locations remain.
+The directory is first renamed to a `.deleted-<username>-<id>` staging name, which
+is never a valid username. A failed rename leaves the account unchanged; a failed
+or interrupted purge is finished the next time accounts are listed.
 
 The existing `userData/files`, `characters`, and `npc-characters` directories remain
 the local workspace. No existing files are moved or converted. Named workspaces use
@@ -106,6 +109,13 @@ while the remaining settings load normally. A failed settings file load disables
 automatic settings writes until the file is repaired and the app restarted.
 Atomic settings and authored-file writes use mode `0600` on POSIX systems;
 Windows access control remains subject to the enclosing directory's ACLs.
+
+ChatGPT provider registrations and OS-encrypted OAuth credentials are also scoped
+to the selected root, in `chatgpt-profiles.json`. Switching local workspaces leaves
+saved sessions intact and cancels pending requests and browser sign-in operations.
+Multiple model presets reuse a profile without another sign-in. The installation's
+opaque host ID remains shared in the main user-data directory. See
+[ChatGPT provider](chatgpt-provider.md).
 
 See [the password and privacy review](../local-accounts-privacy-review.md) for the
 reviewed data paths, fixes, and remaining design limits.

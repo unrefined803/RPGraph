@@ -2331,7 +2331,7 @@ export function verifyWorkflowValidationFixtures() {
       label: 'Chat History',
       description: 'History',
       preview: 'Ready',
-      llmCallStats: [{ label: 'History Analysis', durationMs: 123, inputTokens: 10, outputTokens: 5 }],
+      llmCallStats: [{ label: 'History Analysis', durationMs: 123, inputTokens: 10, cachedInputTokens: 6, outputTokens: 5 }],
       rawHistory: 'must not be in runtime.current',
       originalHistory: 'must not be in runtime.current',
       translatedHistory: 'must not be in runtime.current',
@@ -2975,7 +2975,7 @@ export function verifyWorkflowValidationFixtures() {
       sessionV2.debug.recentLlmCalls.some((call) =>
         call.nodeId === 'history-1' &&
         call.label === 'History Analysis' &&
-        call.inputTokens === 10
+        call.inputTokens === 10 && call.cachedInputTokens === 6
     ),
     'RP Save Format v2 must keep bounded node debug outside runtime.current',
   );

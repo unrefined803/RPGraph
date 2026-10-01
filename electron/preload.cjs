@@ -25,6 +25,9 @@ function throwIfRpgraphIpcError(result) {
   if (result?.__rpgraphLlmError === true) {
     const error = new Error(result.message || 'The LLM request failed.');
     error.name = typeof result.name === 'string' && result.name ? result.name : 'Error';
+    for (const field of ['code', 'status', 'requestId', 'param']) {
+      if (typeof result[field] === 'string' || typeof result[field] === 'number') error[field] = result[field];
+    }
     throw error;
   }
   return result;
@@ -57,6 +60,16 @@ function abortableLlmInvoke(channel, request, onAbort) {
 }
 
 contextBridge.exposeInMainWorld('rpgraph', {
+  chatgpt: {
+    state: () => ipcRenderer.invoke('chatgpt:state').then(throwIfRpgraphIpcError),
+    signIn: (profileId) => ipcRenderer.invoke('chatgpt:sign-in', profileId).then(throwIfRpgraphIpcError),
+    cancelSignIn: () => ipcRenderer.invoke('chatgpt:cancel-sign-in'),
+    selectProfile: (profileId) => ipcRenderer.invoke('chatgpt:select-profile', profileId).then(throwIfRpgraphIpcError),
+    signOut: (profileId) => ipcRenderer.invoke('chatgpt:sign-out', profileId).then(throwIfRpgraphIpcError),
+    confirmUsage: (profileId) => ipcRenderer.invoke('chatgpt:confirm-usage', profileId).then(throwIfRpgraphIpcError),
+    openUsage: () => ipcRenderer.invoke('chatgpt:open-usage'),
+    listModels: (connection, onAbort) => abortableLlmInvoke('chatgpt:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  },
   accounts: {
     prepare: () => ipcRenderer.invoke('accounts:prepare'),
     list: () => ipcRenderer.invoke('accounts:list'),

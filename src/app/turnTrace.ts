@@ -241,7 +241,7 @@ export function createTurnTrace({
       order: call.order, nodeId: call.nodeId, nodeLabel: call.nodeLabel, prompt: call.label,
       capture: 'run-report-only', status: 'completed', startedAtMs: call.startedAtMs,
       usage: call.durationMs === undefined ? undefined : {
-        durationMs: call.durationMs, inputTokens: call.inputTokens,
+        durationMs: call.durationMs, inputTokens: call.inputTokens, cachedInputTokens: call.cachedInputTokens,
         outputTokens: call.outputTokens, totalTokens: call.totalTokens, reasoningTokens: call.reasoningTokens,
       },
     }];

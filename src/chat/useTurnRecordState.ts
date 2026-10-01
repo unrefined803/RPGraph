@@ -52,6 +52,7 @@ type UseTurnRecordStateOptions = {
 };
 
 type AppendMessageInput = Omit<MessageRecord, 'id' | 'isOpening'>;
+type MessageUpdateOptions = { streaming?: boolean; deferPublication?: boolean };
 
 export function useTurnRecordState({
   appCharacters,
@@ -71,10 +72,22 @@ export function useTurnRecordState({
   const turnCheckpointsRef = useRef(turnCheckpoints);
   const nextMessageIdRef = useRef(1);
   const activeTurnCollectorRef = useRef<ActiveTurnCollector | null>(null);
+  const deferredPublicationRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // A deferred update joins the next committed publication. The task fallback
+  // publishes it alone when the caller waits for real asynchronous work or fails.
+  function scheduleDeferredPublication() {
+    if (deferredPublicationRef.current !== undefined) return;
+    deferredPublicationRef.current = setTimeout(() => setMessages(messagesRef.current), 0);
+  }
 
   // All writes must go through these setters so the refs stay in sync with the
   // state without ref writes during render.
   function setMessages(update: SetStateAction<MessageRecord[]>) {
+    if (deferredPublicationRef.current !== undefined) {
+      clearTimeout(deferredPublicationRef.current);
+      deferredPublicationRef.current = undefined;
+    }
     const next = typeof update === 'function' ? update(messagesRef.current) : update;
     measureUiWork('characters.reconcileMessages', () => reconcileNpcMessages(next));
     messagesRef.current = next;
@@ -247,14 +260,14 @@ export function useTurnRecordState({
     return id;
   }
 
-  function updateMessage(messageId: number, patch: Partial<MessageRecord>, options?: { streaming?: boolean }) {
+  function updateMessage(messageId: number, patch: Partial<MessageRecord>, options?: MessageUpdateOptions) {
     return measureUiWork(options?.streaming ? 'messages.stream' : 'messages.update',
       () => updateMessageImpl(messageId, patch, options), isUiPerformanceRecording() ? {
         messageId, fields: Object.keys(patch), messageCount: messagesRef.current.length,
       } : undefined);
   }
 
-  function updateMessageImpl(messageId: number, patch: Partial<MessageRecord>, options?: { streaming?: boolean }) {
+  function updateMessageImpl(messageId: number, patch: Partial<MessageRecord>, options?: MessageUpdateOptions) {
     if (patch.socialDirectMessage) {
       const previous = messagesRef.current.find((entry) => entry.id === messageId)?.socialDirectMessage;
       patch = { ...patch, socialDirectMessage: { ...patch.socialDirectMessage,
@@ -295,6 +308,7 @@ export function useTurnRecordState({
     // Stream only to the chat subscriber. App and its graph/phone/social
     // derivations consume committed state, while refs and the collector stay live.
     if (options?.streaming) messageStream.publish(nextMessages);
+    else if (options?.deferPublication) scheduleDeferredPublication();
     else setMessages(nextMessages);
   }
 
