@@ -53,6 +53,13 @@ and non-UI tests only; the desktop application was not launched.
    before implementation. A failed rename should leave the account unchanged.
 
 2. **P2: Cross-machine backups can trigger destructive settings recovery.**
+
+   Follow-up status: the destructive recovery path is fixed in the
+   [password and privacy review](local-accounts-privacy-review.md). Unreadable
+   keys now remain intact per provider, and failed settings loads disable
+   automatic writes. The original finding below records the reviewed V1 behavior;
+   portable account-password encryption of backup credentials remains open.
+
    `electron/main.cjs` uses `safeStorage.encryptString` for API keys, independently
    of the account password. `safeStorage.decryptString` failures propagate through
    `settingsFromDisk` and `settings:load`. In `src/settings.ts`, the load-error path

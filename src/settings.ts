@@ -1038,12 +1038,14 @@ export function useAppSettings(): AppSettingsState {
   const [apiKeyEncryptionAvailable, setApiKeyEncryptionAvailable] = useState(true);
   const [apiKeyDecryptionUnavailable, setApiKeyDecryptionUnavailable] = useState(false);
   const apiKeysConfigured = connections.some((connection) => connection.apiKey.trim().length > 0);
-  const apiKeyStorageNotice =
+  const apiKeyStorageNotice = [
     apiKeyDecryptionUnavailable
       ? 'Encrypted API keys are saved, but this system cannot decrypt them right now.'
-      : apiKeysConfigured && !apiKeyEncryptionAvailable
-      ? 'API key encryption is unavailable on this system. Provider keys are saved as local settings.'
-      : '';
+      : '',
+    apiKeysConfigured && !apiKeyEncryptionAvailable
+      ? 'Secure API key storage is unavailable on this system. New provider keys stay in memory for this session and must be entered again after restarting.'
+      : '',
+  ].filter(Boolean).join(' ');
 
   useEffect(() => {
     async function loadSettings() {
@@ -1146,10 +1148,10 @@ export function useAppSettings(): AppSettingsState {
         setSettingsLoadComplete(true);
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
-        const recoveryNotice = `Settings load failed: ${detail} Valid local settings were restored.`;
+        const recoveryNotice = `Settings load failed: ${detail} Automatic saving is disabled to preserve the original settings.json. Repair the file or restore a backup, then restart RPGraph.`;
         setSettingsRecoveryNotice(recoveryNotice);
         setSettingsStatus(recoveryNotice);
-        setSettingsLoaded(true);
+        setSettingsLoaded(false);
         setSettingsLoadComplete(true);
       }
     }
@@ -1225,9 +1227,7 @@ export function useAppSettings(): AppSettingsState {
       .saveSettings(settings)
       .then((result) => {
         setApiKeyEncryptionAvailable(result.apiKeyEncryptionAvailable);
-        if (result.apiKeyEncryptionAvailable) {
-          setApiKeyDecryptionUnavailable(false);
-        }
+        setApiKeyDecryptionUnavailable(connections.some(connection => !connection.apiKey && Boolean(connection.apiKeyEncrypted)));
         setSettingsStatus(settingsRecoveryNotice || apiKeyStorageNotice);
         if (!getAccountPassword()) localStorage.removeItem(connectionStorageKey);
       })

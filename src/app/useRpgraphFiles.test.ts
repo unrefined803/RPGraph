@@ -26,6 +26,7 @@ afterEach(() => { vi.unstubAllGlobals(); setAccountSession(''); });
 function harness() {
   const result = { fileName: 'game.json', name: 'Game', filePath: '/files/game.json' };
   const bridge = {
+    saveNamedWorkflow: vi.fn(async () => result), saveCharacter: vi.fn(async () => result),
     saveSession: vi.fn(async () => result), saveStorybook: vi.fn(async () => result),
     saveCurrentSession: vi.fn(async () => result),
     saveRpgraphFileToPath: vi.fn(async () => ({ ...result, canceled: false })),
@@ -53,6 +54,44 @@ function harness() {
   }
   return { render, bridge, options };
 }
+
+it.each(['workflow', 'storybook', 'session', 'character'] as const)(
+  'uses the chosen file password or account password for every %s save destination', async kind => {
+    const card = { character: { id: 'alice', name: 'Alice' } } as Parameters<ReturnType<typeof useRpgraphFiles>['requestSaveCharacter']>[1];
+    for (const signedIn of [false, true]) {
+      for (const chosenPath of [false, true]) {
+        hooks.slots = [];
+        hooks.index = 0;
+        setAccountSession(signedIn ? 'account-secret' : '');
+        const { render, bridge } = harness();
+        if (signedIn) render().setWorkspacePassword('imported-file-secret');
+        if (kind === 'workflow') render().requestExportWorkflow();
+        else if (kind === 'storybook') render().requestSaveStorybook();
+        else if (kind === 'session') render().requestSaveSession();
+        else render().requestSaveCharacter('book', card, () => card);
+        render().setFileProtection('encrypted');
+        render().setSessionPassword('manual-file-secret');
+        if (kind === 'character') render().setCharacterSaveLocation(chosenPath ? 'choose' : 'npc-characters');
+        else render().setChooseSaveLocation(chosenPath);
+        const expectedPassword = signedIn ? 'account-secret' : 'manual-file-secret';
+        if (kind === 'workflow') await render().saveNamedWorkflow();
+        else if (kind === 'storybook') await render().saveStorybook();
+        else if (kind === 'session') await render().saveSession();
+        else await render().saveCharacter();
+        if (chosenPath) {
+          expect(bridge.saveRpgraphFileToPath).toHaveBeenCalledWith(expect.objectContaining({
+            kind, protection: 'encrypted', password: expectedPassword,
+          }));
+        } else {
+          const save = kind === 'workflow' ? bridge.saveNamedWorkflow : kind === 'storybook' ? bridge.saveStorybook
+            : kind === 'session' ? bridge.saveSession : bridge.saveCharacter;
+          expect(save).toHaveBeenCalledWith(expect.any(String), expect.anything(), 'encrypted', expectedPassword,
+            false, ...(kind === 'character' ? ['npc-characters'] : []));
+        }
+      }
+    }
+  },
+);
 
 it('uses the account password by default but permits explicitly plain saves', async () => {
   setAccountSession('account-secret');

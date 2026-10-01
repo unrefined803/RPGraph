@@ -39,6 +39,31 @@ Plain JSON. Matching files unlock automatically; files encrypted with another
 password retain the manual unlock flow. Account saves use the account password even
 after importing a file encrypted with another password. No new file format is added.
 
+The account verifier uses scrypt with `N=32768`, `r=8`, and `p=1`; file keys use
+`N=65536`, `r=8`, and `p=1`. Each encrypted save has a fresh 16-byte salt,
+12-byte IV, and 16-byte AES-256-GCM authentication tag. Encryption happens before
+the atomic temporary-file write. Temporary key and decrypted byte buffers are
+overwritten after use, including failure paths. Passwords and loaded content are
+JavaScript strings and objects: clearing session references does not guarantee
+secure erasure, and the application cannot exclude OS swap or memory dumps.
+
+Settings are not account-password encrypted. They include provider configuration,
+custom prompts, workflow settings values, and embedded reference voice samples.
+RP-save loading restores workflow variables into this settings state, so private
+variables from an encrypted RP save can currently be persisted in plaintext.
+This is an open content-privacy finding; see the review below.
+API keys use Electron `safeStorage` independently of the account password. New
+keys remain in memory when secure OS storage is unavailable; Linux `basic_text`
+is not accepted for new encrypted saves. Existing readable payloads can still be
+loaded for migration. Unreadable encrypted key payloads are preserved per provider
+while the remaining settings load normally. A failed settings file load disables
+automatic settings writes until the file is repaired and the app restarted.
+Atomic settings and authored-file writes use mode `0600` on POSIX systems;
+Windows access control remains subject to the enclosing directory's ACLs.
+
+See [the password and privacy review](../local-accounts-privacy-review.md) for the
+reviewed data paths, fixes, and remaining design limits.
+
 The first-run preference remains in `rpgraph.accountFeature` in local storage.
 Account files and settings use the selected filesystem root; cosmetic browser
 preferences are still shared. Password reset and password changes are not implemented.

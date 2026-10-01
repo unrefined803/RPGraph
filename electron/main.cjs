@@ -365,7 +365,8 @@ function settingsFilePath() {
 }
 
 function apiKeyEncryptionAvailable() {
-  return Boolean(safeStorage?.isEncryptionAvailable?.());
+  return Boolean(safeStorage?.isEncryptionAvailable?.()) &&
+    safeStorage.getSelectedStorageBackend?.() !== 'basic_text';
 }
 
 function encryptedApiKeyPayload(apiKey) {
@@ -382,14 +383,14 @@ function encryptedApiKeyPayload(apiKey) {
 }
 
 function decryptedApiKeyPayload(payload) {
-  if (!payload || typeof payload !== 'object') {
+  if (!payload) {
     return '';
   }
-  if (payload.format !== 'electron-safe-storage' || typeof payload.value !== 'string') {
-    return '';
+  if (typeof payload !== 'object' || payload.format !== 'electron-safe-storage' || typeof payload.value !== 'string') {
+    throw new Error('Unsupported encrypted API key payload.');
   }
-  if (!apiKeyEncryptionAvailable()) {
-    return '';
+  if (!safeStorage?.isEncryptionAvailable?.()) {
+    throw new Error('API key decryption is unavailable.');
   }
   return safeStorage.decryptString(Buffer.from(payload.value, 'base64'));
 }
@@ -408,17 +409,16 @@ function settingsForDisk(settings) {
   if (!Array.isArray(encryptedSettings.connections)) {
     return encryptedSettings;
   }
-  encryptedSettings.apiKeyStorage = apiKeyEncryptionAvailable() ? 'encrypted' : 'plain';
+  encryptedSettings.apiKeyStorage = apiKeyEncryptionAvailable() ? 'encrypted' : 'memory';
   encryptedSettings.connections = encryptedSettings.connections.map((connection) => {
     const nextConnection = { ...connection };
     const encryptedApiKey = encryptedApiKeyPayload(nextConnection.apiKey);
     if (encryptedApiKey) {
       nextConnection.apiKeyEncrypted = encryptedApiKey;
       nextConnection.apiKey = '';
-    } else if (nextConnection.apiKey) {
-      delete nextConnection.apiKeyEncrypted;
-    } else if (!nextConnection.apiKeyEncrypted) {
-      delete nextConnection.apiKeyEncrypted;
+    } else {
+      // Keep new keys in session memory and preserve any unreadable saved key.
+      nextConnection.apiKey = '';
     }
     return nextConnection;
   });
@@ -436,8 +436,11 @@ function settingsFromDisk(settings) {
       if (!connection || typeof connection !== 'object') {
         return connection;
       }
-      const apiKey = connection.apiKey || decryptedApiKeyPayload(connection.apiKeyEncrypted);
-      if (connection.apiKeyEncrypted && !apiKeyEncryptionAvailable()) {
+      let apiKey = connection.apiKey || '';
+      try {
+        apiKey ||= decryptedApiKeyPayload(connection.apiKeyEncrypted);
+      } catch {
+        // Retain the payload for recovery on the original OS/keychain.
         return {
           ...connection,
           apiKey,
@@ -685,7 +688,7 @@ async function assertOverwriteType(filePath, expectedType) {
 async function writeTextFileAtomically(filePath, contents) {
   const temporaryPath = `${filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
   try {
-    await fs.writeFile(temporaryPath, contents, { encoding: 'utf8', flag: 'wx' });
+    await fs.writeFile(temporaryPath, contents, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
     await fs.rename(temporaryPath, filePath);
   } catch (error) {
     try {
@@ -1041,6 +1044,34 @@ async function deriveFileKey(password, salt, parameters) {
   });
 }
 
+async function createFileCipher(password, salt, iv, aad, decrypt = false) {
+  const key = await deriveFileKey(password, salt, currentScryptParameters);
+  try {
+    const cipher = decrypt
+      ? crypto.createDecipheriv('aes-256-gcm', key, iv)
+      : crypto.createCipheriv('aes-256-gcm', key, iv);
+    cipher.setAAD(aad);
+    return cipher;
+  } finally {
+    // OpenSSL owns the cipher's copy; release the temporary JavaScript key buffer.
+    key.fill(0);
+  }
+}
+
+function decryptedFileJson(decipher, ciphertext) {
+  const chunks = [];
+  let decrypted;
+  try {
+    chunks.push(decipher.update(Buffer.from(ciphertext, 'base64')));
+    chunks.push(decipher.final());
+    decrypted = Buffer.concat(chunks);
+    return JSON.parse(decrypted.toString('utf8'));
+  } finally {
+    decrypted?.fill(0);
+    for (const chunk of chunks) chunk.fill(0);
+  }
+}
+
 function requiredEncryptionPassword(password) {
   if (typeof password !== 'string' || !password) {
     throw new Error('Password-protected files require a password or PIN.');
@@ -1063,9 +1094,7 @@ async function encryptSession(session, password) {
   requiredEncryptionPassword(password);
   const salt = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
-  const key = await deriveFileKey(password, salt, currentScryptParameters);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(sessionCipherAad);
+  const cipher = await createFileCipher(password, salt, iv, sessionCipherAad);
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(session), 'utf8'),
     cipher.final(),
@@ -1106,9 +1135,7 @@ async function encryptWorkflow(workflow, password) {
   requiredEncryptionPassword(password);
   const salt = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
-  const key = await deriveFileKey(password, salt, currentScryptParameters);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(workflowCipherAad);
+  const cipher = await createFileCipher(password, salt, iv, workflowCipherAad);
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(workflow), 'utf8'),
     cipher.final(),
@@ -1142,9 +1169,7 @@ async function encryptStorybook(storybook, password) {
   requiredEncryptionPassword(password);
   const salt = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
-  const key = await deriveFileKey(password, salt, currentScryptParameters);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(storybookCipherAad);
+  const cipher = await createFileCipher(password, salt, iv, storybookCipherAad);
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(storybook), 'utf8'),
     cipher.final(),
@@ -1179,9 +1204,7 @@ async function encryptCharacterCard(card, password) {
   requiredEncryptionPassword(password);
   const salt = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
-  const key = await deriveFileKey(password, salt, currentScryptParameters);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(characterCardCipherAad);
+  const cipher = await createFileCipher(password, salt, iv, characterCardCipherAad);
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(card), 'utf8'),
     cipher.final(),
@@ -1221,15 +1244,9 @@ async function decryptSession(envelope, password) {
   try {
     const salt = Buffer.from(envelope.salt, 'base64');
     const iv = Buffer.from(envelope.iv, 'base64');
-    const key = await deriveFileKey(password, salt, envelope.keyDerivationParameters);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAAD(sessionCipherAad);
+    const decipher = await createFileCipher(password, salt, iv, sessionCipherAad, true);
     decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(envelope.ciphertext, 'base64')),
-      decipher.final(),
-    ]);
-    const session = JSON.parse(decrypted.toString('utf8'));
+    const session = decryptedFileJson(decipher, envelope.ciphertext);
     if (
       !session ||
       session.format !== envelope.payloadFormat ||
@@ -1270,15 +1287,9 @@ async function decryptWorkflow(envelope, password) {
   try {
     const salt = Buffer.from(envelope.salt, 'base64');
     const iv = Buffer.from(envelope.iv, 'base64');
-    const key = await deriveFileKey(password, salt, envelope.keyDerivationParameters);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAAD(workflowCipherAad);
+    const decipher = await createFileCipher(password, salt, iv, workflowCipherAad, true);
     decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(envelope.ciphertext, 'base64')),
-      decipher.final(),
-    ]);
-    const workflow = JSON.parse(decrypted.toString('utf8'));
+    const workflow = decryptedFileJson(decipher, envelope.ciphertext);
     if (
       !workflow ||
       workflow.format !== envelope.payloadFormat ||
@@ -1312,15 +1323,9 @@ async function decryptStorybook(envelope, password) {
   try {
     const salt = Buffer.from(envelope.salt, 'base64');
     const iv = Buffer.from(envelope.iv, 'base64');
-    const key = await deriveFileKey(password, salt, envelope.keyDerivationParameters);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAAD(storybookCipherAad);
+    const decipher = await createFileCipher(password, salt, iv, storybookCipherAad, true);
     decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(envelope.ciphertext, 'base64')),
-      decipher.final(),
-    ]);
-    const storybook = JSON.parse(decrypted.toString('utf8'));
+    const storybook = decryptedFileJson(decipher, envelope.ciphertext);
     if (
       !storybook ||
       storybook.format !== envelope.payloadFormat ||
@@ -1354,15 +1359,9 @@ async function decryptCharacterCard(envelope, password) {
   try {
     const salt = Buffer.from(envelope.salt, 'base64');
     const iv = Buffer.from(envelope.iv, 'base64');
-    const key = await deriveFileKey(password, salt, envelope.keyDerivationParameters);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAAD(characterCardCipherAad);
+    const decipher = await createFileCipher(password, salt, iv, characterCardCipherAad, true);
     decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(envelope.ciphertext, 'base64')),
-      decipher.final(),
-    ]);
-    const card = JSON.parse(decrypted.toString('utf8'));
+    const card = decryptedFileJson(decipher, envelope.ciphertext);
     if (
       !card ||
       card.format !== envelope.payloadFormat ||
@@ -5732,11 +5731,12 @@ handleWorkspace('settings:load', async () => {
   try {
     const contents = await fs.readFile(filePath, 'utf8');
     const settings = JSON.parse(contents);
+    const decodedSettings = settingsFromDisk(settings);
     return {
       filePath,
-      settings: settingsFromDisk(settings),
+      settings: decodedSettings,
       apiKeyEncryptionAvailable: apiKeyEncryptionAvailable(),
-      apiKeyDecryptionUnavailable: settingsHasEncryptedApiKeys(settings) && !apiKeyEncryptionAvailable(),
+      apiKeyDecryptionUnavailable: settingsHasEncryptedApiKeys(decodedSettings),
     };
   } catch (error) {
     if (error && error.code === 'ENOENT') {

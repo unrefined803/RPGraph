@@ -50,6 +50,8 @@ export type ConnectionPreset = {
   label: string;
   baseUrl: string;
   apiKey: string;
+  // Preserve an unreadable OS-encrypted key until it can be recovered or replaced.
+  apiKeyEncrypted?: { format: 'electron-safe-storage'; value: string };
   model: string;
   ttsVoice?: string;
   ttsTemperature?: number;

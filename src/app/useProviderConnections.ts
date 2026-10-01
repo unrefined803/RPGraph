@@ -2701,6 +2701,10 @@ export function useProviderConnections({
 
   function editConnection(field: keyof ConnectionPreset, value: ConnectionPreset[keyof ConnectionPreset]) {
     let nextConnection = { ...editingConnection, [field]: value };
+    if (field === 'apiKey' && value !== editingConnection.apiKey) {
+      // An explicit key edit replaces recovery data; other edits must preserve it.
+      delete nextConnection.apiKeyEncrypted;
+    }
     if (nextConnection.providerKind === 'openai-compatible') {
       nextConnection = connectionWithCompatibleCapabilities(nextConnection);
     }

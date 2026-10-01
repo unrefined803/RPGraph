@@ -70,6 +70,21 @@ function harness(providerKind: LlmProviderKind, model = 'text-model') {
 beforeEach(() => { hooks.slots = []; hooks.index = 0; });
 afterEach(() => { vi.unstubAllGlobals(); });
 
+it('preserves unreadable key payloads during provider edits and discards them on explicit key replacement', () => {
+  const state = harness('openai-compatible');
+  const payload = { format: 'electron-safe-storage' as const, value: 'unreadable-key' };
+  const connection = { ...state.connections[0], apiKey: '', apiKeyEncrypted: payload };
+  state.setConnections([connection]);
+  state.render().setEditingConnection(connection);
+  state.render().editConnection('label', 'Renamed provider');
+  expect(state.connections[0].apiKeyEncrypted).toEqual(payload);
+  state.render().editConnection('apiKey', 'replacement-key');
+  expect(state.connections[0].apiKeyEncrypted).toBeUndefined();
+  state.render().editConnection('apiKey', '');
+  expect(state.connections[0].apiKey).toBe('');
+  expect(state.connections[0].apiKeyEncrypted).toBeUndefined();
+});
+
 describe.each(providers)('%s model capabilities', (kind, listMethod) => {
   it('keeps the current saved model capabilities when an old check completes', async () => {
     const pending = deferred<typeof models>();
