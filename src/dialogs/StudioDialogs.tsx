@@ -453,15 +453,15 @@ function RetryIcon() {
 }
 
 const OPTIONS_TABS = [
-  { id: 'accounts', label: 'Accounts', desc: 'Local accounts and character storage' },
-  { id: 'chat', label: 'Chat & UI', desc: 'Avatars, scrolling, UI scale and date/time' },
-  { id: 'text', label: 'Text', desc: 'Sizes, colors, brightness and wave effects' },
-  { id: 'translation', label: 'Translation', desc: 'English processing and display language' },
-  { id: 'nodes', label: 'Node Design', desc: 'Canvas node transparency and appearance' },
-  { id: 'variables', label: 'Workflow Variables', desc: 'Global variables referenced in prompts' },
-  { id: 'images', label: 'Reference Images', desc: 'Vision model context lookback and limits' },
-  { id: 'tokens', label: 'Token Estimate', desc: 'UTF-8 byte factors and auto-calibration' },
-  { id: 'reliability', label: 'Run Reliability', desc: 'Automatic retry for LLM format errors' },
+  { id: 'accounts', label: 'Accounts', desc: 'Files and privacy' },
+  { id: 'chat', label: 'Chat & UI', desc: 'Avatars, scale and scrolling' },
+  { id: 'text', label: 'Text', desc: 'Size, color and effects' },
+  { id: 'translation', label: 'Translation', desc: 'Processing and display language' },
+  { id: 'nodes', label: 'Node Design', desc: 'Appearance and transparency' },
+  { id: 'variables', label: 'Workflow Variables', desc: 'Reusable prompt values' },
+  { id: 'images', label: 'Reference Images', desc: 'Image history and limits' },
+  { id: 'tokens', label: 'Token Estimate', desc: 'Factors and calibration' },
+  { id: 'reliability', label: 'Run Reliability', desc: 'Format error retries' },
 ] as const;
 
 type OptionsTabId = typeof OPTIONS_TABS[number]['id'];
@@ -1167,6 +1167,8 @@ export function StudioDialogs({
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
   const accountControls = useContext(AccountControlsContext);
   const [accountFolderStatus, setAccountFolderStatus] = useState('');
+  const [filenamePrivacyBusy, setFilenamePrivacyBusy] = useState(false);
+  const [filenamePrivacyStatus, setFilenamePrivacyStatus] = useState('');
   const [deleteAccountVisible, setDeleteAccountVisible] = useState(false);
   const [deleteAccountPassword, setDeleteAccountPassword] = useState('');
   const [deleteAccountStatus, setDeleteAccountStatus] = useState('');
@@ -1246,6 +1248,15 @@ export function StudioDialogs({
         `Unable to open account folder: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  async function changeFilenamePrivacy(enabled: boolean) {
+    if (filenamePrivacyBusy) return;
+    setFilenamePrivacyBusy(true);
+    setFilenamePrivacyStatus('');
+    try { await accountControls.setFilenamePrivacy(enabled); }
+    catch (error) { setFilenamePrivacyStatus(error instanceof Error ? error.message : String(error)); }
+    finally { setFilenamePrivacyBusy(false); }
   }
 
   async function deleteCurrentAccount() {
@@ -2137,7 +2148,6 @@ export function StudioDialogs({
             <div className="dialog-header">
               <div>
                 <h2>Options</h2>
-                <p>Roleplay processing and display preferences</p>
               </div>
               <button type="button" className="close-button" onClick={onCloseOptions}>
                 Close
@@ -2161,6 +2171,7 @@ export function StudioDialogs({
                       key={tab.id}
                       type="button"
                       className={`options-tab-btn ${isActive ? 'active' : ''}`}
+                      aria-pressed={isActive}
                       onClick={() => setActiveOptionsTab(tab.id)}
                     >
                       <Icon />
@@ -2173,21 +2184,18 @@ export function StudioDialogs({
                 })}
               </aside>
 
-              <main className="options-panel">
+              <main className="options-panel" aria-label={OPTIONS_TABS.find(tab => tab.id === activeOptionsTab)?.label}>
                 {activeOptionsTab === 'accounts' && <div className="options-tab-content">
-                  <div className="options-tab-header"><h3>Accounts</h3><p>Manage how you use local accounts.</p></div>
                   <div className="options-tab-body account-options">
                     <section className="account-options-card">
                       <div className="account-options-card-copy">
-                        <span className="account-options-eyebrow">WORKSPACE</span>
-                        <h4>{accountEncryption ? 'Account workspace active' : 'Local workspace active'}</h4>
+                        <h4>{accountEncryption ? 'Using a local account' : 'Using RPGraph without an account'}</h4>
                         <p>{accountEncryption
-                          ? 'Files use the current account folder and account encryption by default. Log out to select or create another account.'
-                          : accountControls.hasAccounts
-                            ? 'You are using RPGraph without an account. Log in to open one of the accounts stored on this computer.'
-                            : 'You are using RPGraph without an account. Create an account to separate and protect its files.'}</p>
+                          ? 'Files are saved in your account folder and encrypted with your account password by default.'
+                          : 'A local account keeps your files and settings separate. Its password is used by default to encrypt new workflows, RP saves, Storybooks and characters.'}</p>
+                        {!accountEncryption && <p>While signed in, matching files unlock automatically when opened. File names can also be encrypted in folders and shown normally in RPGraph. No online registration is needed; existing files are not converted automatically.</p>}
                       </div>
-                      <p className="account-options-note">Save your work first. Changing the active workspace closes the current one.</p>
+                      <p className="account-options-note">Save your work before logging in or out. Switching closes the current workspace.</p>
                       <div className="account-options-actions">
                         <button className="account-options-action primary" type="button" disabled={accountActivationDisabled || deleteAccountBusy} onClick={accountControls.openAccountEntry}>
                           {accountEncryption ? 'Log Out' : accountControls.hasAccounts ? 'Log In' : 'Create Account'}
@@ -2202,7 +2210,7 @@ export function StudioDialogs({
                       </div>
                       {accountEncryption && deleteAccountVisible && <div className="account-delete-confirm">
                         <strong>Delete the current account</strong>
-                        <p>This permanently deletes its workflows, RP saves, Storybooks, characters, NPC characters and settings. Back up the account folder first if you may need it later.</p>
+                        <p>Permanently deletes all account files and settings. Back up first.</p>
                         <label htmlFor="delete-account-password">
                           <span>CURRENT ACCOUNT PASSWORD</span>
                           <input
@@ -2226,9 +2234,22 @@ export function StudioDialogs({
 
                     {accountEncryption && <section className="account-options-card">
                       <div className="account-options-card-copy">
-                        <span className="account-options-eyebrow">BACKUP</span>
-                        <h4>Back up the complete account</h4>
-                        <p>Close RPGraph before copying the complete account folder to a safe location. The folder is named after the account and contains Files (workflows, RP saves and Storybooks), Characters, NPC Characters, settings and account metadata.</p>
+                        <h4>Encrypt file names</h4>
+                        <p>Make new encrypted file names unreadable in folders. RPGraph displays their original names after unlocking them. Plain JSON exports keep readable names.</p>
+                      </div>
+                      <label className="option-toggle">
+                        <input type="checkbox" checked={accountControls.filenamePrivacy}
+                          disabled={filenamePrivacyBusy || accountActivationDisabled || deleteAccountBusy}
+                          onChange={(event) => void changeFilenamePrivacy(event.target.checked)} />
+                        <span>Protect new encrypted filenames</span>
+                      </label>
+                      {filenamePrivacyStatus && <p className="account-options-status" role="status">{filenamePrivacyStatus}</p>}
+                    </section>}
+
+                    {accountEncryption && <section className="account-options-card">
+                      <div className="account-options-card-copy">
+                        <h4>Back up your account</h4>
+                        <p>Close RPGraph before copying the complete account folder to a safe location. It contains your files, characters and account settings.</p>
                       </div>
                       <button className="account-options-action" type="button" onClick={() => void openAccountFolder()}>
                         Open Account Folder
@@ -2236,18 +2257,16 @@ export function StudioDialogs({
                       {accountFolderStatus && <p className="account-options-status" role="status">{accountFolderStatus}</p>}
                     </section>}
 
-                    <section className="account-options-card">
+                    {accountEncryption && <section className="account-options-card">
                       <div className="account-options-card-copy">
-                        <span className="account-options-eyebrow">CHARACTER EXPORTS</span>
-                        <h4>Default export location</h4>
-                        <p>Used for new character exports and new NPC files saved from a Storybook. Existing NPC files stay in their current folder. You can choose another location in each export window.</p>
+                        <h4>Default location for character exports</h4>
+                        <p>Choose where new character exports and Storybook NPCs are saved. You can change the location for each export; existing NPC files stay in their current folder.</p>
                       </div>
                       <div className="option-field">
                         <span>DEFAULT LOCATION</span>
                         <NodeCustomSelect<'npc-characters' | 'account-npc-characters'>
                           id="default-character-export-location"
-                          value={accountEncryption ? defaultCharacterExportDestination : 'npc-characters'}
-                          disabled={!accountEncryption}
+                          value={defaultCharacterExportDestination}
                           options={[
                             { value: 'npc-characters', label: 'NPC Library Folder' },
                             { value: 'account-npc-characters', label: 'Account NPC Library' },
@@ -2255,16 +2274,11 @@ export function StudioDialogs({
                           onChange={onDefaultCharacterExportDestinationChange}
                         />
                       </div>
-                      {!accountEncryption && <p className="account-options-note">Sign in to an account to use Account NPC Library as the default.</p>}
-                    </section>
+                    </section>}
                   </div>
                 </div>}
                 {activeOptionsTab === 'chat' && (
                   <div className="options-tab-content">
-                    <div className="options-tab-header">
-                      <h3>Chat & UI</h3>
-                      <p>Avatars, scrolling, interface scaling and date/time</p>
-                    </div>
                     <div className="options-tab-body">
                       <label className="option-toggle">
                         <input
@@ -2272,12 +2286,12 @@ export function StudioDialogs({
                           checked={chatMessageAvatarsEnabled}
                           onChange={(event) => onChatMessageAvatarsEnabledChange(event.target.checked)}
                         />
-                        <span>Character faces beside chat messages</span>
+                        <span>Chat avatars</span>
                       </label>
                       <label className="option-toggle">
                         <input type="checkbox" checked={appMessageAvatarsEnabled}
                           onChange={(event) => onAppMessageAvatarsEnabledChange(event.target.checked)} />
-                        <span>Character faces beside app messages</span>
+                        <span>App avatars</span>
                       </label>
                       <label className="option-avatar-size" htmlFor="chat-message-avatar-size">
                         <span>Face size</span>
@@ -2297,7 +2311,7 @@ export function StudioDialogs({
                       <label className="option-field chat-text-size-field" htmlFor="ui-scale">
                         <span className="option-label-row">
                           UI SCALE
-                          <small>Type a value, press Enter, or focus and scroll</small>
+                          <small>Type or scroll</small>
                         </span>
                         <div className="option-stepper-row">
                           <button
@@ -2418,10 +2432,6 @@ export function StudioDialogs({
 
                 {activeOptionsTab === 'text' && (
                   <div className="options-tab-content">
-                    <div className="options-tab-header">
-                      <h3>Text</h3>
-                      <p>Text size, brightness, color intensity and animated waves</p>
-                    </div>
                     <div className="options-tab-body">
                       <label className="option-field chat-text-size-field" htmlFor="chat-text-size">
                         NORMAL CHAT TEXT SIZE
@@ -2520,23 +2530,10 @@ export function StudioDialogs({
 
                 {activeOptionsTab === 'translation' && (
                   <div className="options-tab-content">
-                    <div className="options-tab-header">
-                      <h3>Translation</h3>
-                      <p>Translation and internal workflow language preferences</p>
-                    </div>
                     <div className="options-tab-body">
                       <div className="option-info">
-                        <strong>Why use English internal processing?</strong>
-                        <p>
-                          Many roleplay models produce stronger prose and more consistent character
-                          behavior in English. When enabled, your message is converted to English
-                          before it enters the workflow, and the English RP response is converted
-                          back only for display. Chat History keeps the English workflow text.
-                        </p>
-                        <p>
-                          When disabled, nothing is converted: the workflow and model reply in the
-                          language you write in.
-                        </p>
+                        <strong>English processing</strong>
+                        <p>English processing can improve roleplay quality with some models. Your input is translated to English, and replies are translated back for display. Chat History keeps the English text. With both translation options off, your original language is used.</p>
                       </div>
                       <label className="option-toggle">
                         <input
@@ -2544,7 +2541,7 @@ export function StudioDialogs({
                           checked={englishProcessingEnabled}
                           onChange={(event) => onEnglishProcessingChange(event.target.checked)}
                         />
-                        <span>Translate but use English internally for better RP quality</span>
+                        <span>Use English internally</span>
                       </label>
                       <label className="option-toggle">
                         <input
@@ -2555,7 +2552,7 @@ export function StudioDialogs({
                         <span>Translate only input to English</span>
                       </label>
                       <label className="option-field" htmlFor="display-language">
-                        DISPLAY LANGUAGE WHEN ENABLED
+                        DISPLAY LANGUAGE
                         <input
                           id="display-language"
                           value={displayLanguage}
@@ -2565,8 +2562,7 @@ export function StudioDialogs({
                         />
                       </label>
                       <p className="options-note">
-                        Select translation LLM connections directly in the User Input and
-                        RP Output nodes.
+                        Choose the translation LLM connections in the User Input and RP Output nodes.
                       </p>
                     </div>
                   </div>
@@ -2574,16 +2570,11 @@ export function StudioDialogs({
 
                 {activeOptionsTab === 'nodes' && (
                   <div className="options-tab-content">
-                    <div className="options-tab-header">
-                      <h3>Node Design</h3>
-                      <p>Node text, glassmorphism, and transparency settings</p>
-                    </div>
                     <div className="options-tab-body">
                       <div className="option-info">
                         <strong>Node Translucency</strong>
                         <p>
-                          Enable glass design to render all nodes with a sleek, translucent backdrop.
-                          This allows you to see the connection wires passing behind the nodes on the canvas.
+                          Use translucent backgrounds to see connections behind nodes. Adjust opacity to control how much shows through.
                         </p>
                       </div>
                       <label className="option-toggle">
@@ -2592,7 +2583,7 @@ export function StudioDialogs({
                           checked={glassDesignEnabled}
                           onChange={(event) => onGlassDesignEnabledChange(event.target.checked)}
                         />
-                        <span>Enable glass design for all nodes</span>
+                        <span>Translucent nodes</span>
                       </label>
                       <label className="option-field chat-text-size-field" htmlFor="glass-design-opacity">
                         OPACITY
@@ -2616,16 +2607,11 @@ export function StudioDialogs({
 
                 {activeOptionsTab === 'variables' && (
                   <div className="options-tab-content">
-                    <div className="options-tab-header">
-                      <h3>Workflow Variables</h3>
-                      <p>Reusable values for text and number fields in prompts</p>
-                    </div>
                     <div className="options-tab-body">
                       <div className="option-info">
                         <strong>Workflow Variables</strong>
                         <p>
-                          Insert variables as &lt;Variable Name&gt; in prompt text, or expose them through a Workflow Variable node.
-                          Variables highlighted in green are used somewhere in the workflow.
+                          Insert &lt;Variable Name&gt; in prompts or use a Workflow Variable node. Green highlights variables used in the current workflow.
                         </p>
                         {workflowVariableStatus && (
                           <small className="workflow-variable-status">{workflowVariableStatus}</small>
@@ -2714,15 +2700,11 @@ export function StudioDialogs({
 
                 {activeOptionsTab === 'images' && (
                   <div className="options-tab-content">
-                    <div className="options-tab-header">
-                      <h3>Reference Images</h3>
-                      <p>Contextual image inclusion and lookback limits</p>
-                    </div>
                     <div className="options-tab-body">
                       <div className="option-info">
                         <strong>Reference Images</strong>
                         <p>
-                          Sends past images with your message history. Requires a vision-capable model in connection settings. Without vision support, the LLM only receives text captions.
+                          Include past images with message history. Enable vision support in the model connection; models without it receive text captions.
                         </p>
                       </div>
                       <label className="option-toggle">
@@ -2771,18 +2753,11 @@ export function StudioDialogs({
 
                 {activeOptionsTab === 'tokens' && (
                   <div className="options-tab-content">
-                    <div className="options-tab-header">
-                      <h3>Token Estimate</h3>
-                      <p>Context size calculation and calibration reserve</p>
-                    </div>
                     <div className="options-tab-body">
                       <div className="option-info">
                         <strong>Token estimate calibration</strong>
                         <p>
-                          The estimated token size shown for context text uses UTF-8 bytes per token.
-                          Automatic calibration combines all complete LLM Prompt requests executed
-                          in a run with the input-token usage reported by the LLM API. A fixed
-                          {' '}{fixedTokenEstimateReservePercent}% safety reserve is added to estimates.
+                          Estimate context size using UTF-8 bytes per token. Automatic calibration adjusts the factor from LLM Prompt input usage reported by the API. Estimates include a {fixedTokenEstimateReservePercent}% reserve.
                         </p>
                       </div>
                       <label className="option-field token-factor-field" htmlFor="token-estimate-factor">
@@ -2806,7 +2781,7 @@ export function StudioDialogs({
                           checked={autoCalibrateTokenEstimate}
                           onChange={(event) => onAutoCalibrateTokenEstimateChange(event.target.checked)}
                         />
-                        <span>Auto calibrate from all LLM Prompt input usage in each run</span>
+                        <span>Calibrate from API usage</span>
                       </label>
                       <p className="options-note">
                         Active factor: {activeTokenEstimateBytesPerToken.toFixed(3)} bytes/token;
@@ -2818,21 +2793,12 @@ export function StudioDialogs({
 
                 {developerOptionsVisible && activeOptionsTab === 'reliability' && (
                   <div className="options-tab-content">
-                    <div className="options-tab-header">
-                      <h3>Run Reliability</h3>
-                      <p>Automatic retry when an LLM response has an invalid format</p>
-                    </div>
                     <div className="options-tab-body">
                       <UiPerformanceDiagnostics />
                       <div className="option-info">
-                        <strong>Why retry format errors?</strong>
+                        <strong>Retry format errors</strong>
                         <p>
-                          Analysis steps like speaker highlighting, Chat History RP time
-                          tracking, and the Event Manager expect a strict response format.
-                          Occasionally a model returns broken JSON or an invalid time once
-                          after several turns. With retry enabled, the failed step is
-                          silently repeated once with a fresh request before an error is
-                          reported - which usually resolves the problem.
+                          Some analysis steps require valid JSON or RP times. If a model returns an invalid format, retry the failed step once with a fresh request before reporting an error.
                         </p>
                       </div>
                       <label className="option-toggle">
@@ -2841,11 +2807,10 @@ export function StudioDialogs({
                           checked={retryFormatErrorsEnabled}
                           onChange={(event) => onRetryFormatErrorsChange(event.target.checked)}
                         />
-                        <span>Retry format errors once before reporting them</span>
+                        <span>Retry once before reporting errors</span>
                       </label>
                       <p className="options-note">
-                        Applies to RP Output speaker analysis, Chat History RP time, and
-                        Event Manager responses.
+                        Applies to speaker analysis, RP time and Event Manager.
                       </p>
                     </div>
                   </div>

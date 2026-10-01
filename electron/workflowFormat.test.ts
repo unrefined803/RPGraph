@@ -55,7 +55,7 @@ describe('workflow format metadata', () => {
       ...currentEnvelope,
       keyDerivationParameters: { ...currentScryptParameters, N: 16384 },
     }).compatible, false);
-    assert.equal(encryptedWorkflowMetadata({ ...currentEnvelope, envelopeFormatVersion: '3.0' }).compatible, false);
+    assert.equal(encryptedWorkflowMetadata({ ...currentEnvelope, envelopeFormatVersion: '999.0' }).compatible, false);
     assert.equal(encryptedWorkflowMetadata({ ...currentEnvelope, payloadFormatVersion: '2.0' }).compatible, false);
   });
 });

@@ -101,16 +101,18 @@ it('replaces the previous game password after automatically opening an account S
   setAccountSession('account-secret');
   state.options.setActiveStorybookProtection = vi.fn();
   state.options.setWorkspacePassword = vi.fn();
+  state.options.rememberFileDisplayName = vi.fn();
   state.options.refreshFiles = vi.fn(async () => {});
   state.options.setFileStorageStatus = vi.fn();
   const file = { canceled: false, filePath: '/files/book.json', fileName: 'book.json',
-    type: 'storybook', protection: 'encrypted', compatible: true };
+    type: 'storybook', protection: 'encrypted', compatible: true, name: 'Private book' };
   const tryLoadFilePath = vi.fn(async () => ({ ...file, value: emptyRpStorybook }));
   vi.stubGlobal('window', { rpgraph: { selectFile: async () => file, tryLoadFilePath } });
   try {
     expect(await state.render().loadStorybookFile('book')).toBe(true);
     expect(tryLoadFilePath).toHaveBeenCalledWith(file.filePath, 'account-secret');
     expect(state.options.setWorkspacePassword).toHaveBeenCalledWith('account-secret');
+    expect(state.options.rememberFileDisplayName).toHaveBeenCalledWith(file.fileName, 'Private book');
   } finally {
     setAccountSession('');
     vi.unstubAllGlobals();

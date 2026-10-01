@@ -113,7 +113,6 @@ describe('storybook format metadata', () => {
       envelopeFormatVersion: currentEncryptedCharacterCardEnvelopeFormatVersion,
       payloadFormat: 'rpgraph-character',
       payloadFormatVersion: currentCharacterCardFormatVersion,
-      characterName: 'Test',
       encryption: 'aes-256-gcm',
       keyDerivation: 'scrypt',
       keyDerivationParameters: currentScryptParameters,
@@ -128,7 +127,7 @@ describe('storybook format metadata', () => {
       protection: 'encrypted',
       envelopeFormatVersion: currentEncryptedCharacterCardEnvelopeFormatVersion,
       formatVersion: currentCharacterCardFormatVersion,
-      characterName: 'Test',
+      characterName: undefined,
       legacy: false,
       compatible: true,
     });
@@ -138,11 +137,11 @@ describe('storybook format metadata', () => {
     }).legacy, true);
     assert.equal(encryptedCharacterCardMetadata({
       ...currentCharacterEnvelope,
-      characterName: undefined,
+      characterName: 'Public name is forbidden',
     }).compatible, false);
     assert.equal(encryptedCharacterCardMetadata({
       ...currentCharacterEnvelope,
-      envelopeFormatVersion: '2.0',
+      envelopeFormatVersion: '999.0',
     }).compatible, false);
     assert.equal(encryptedCharacterCardMetadata({
       ...currentCharacterEnvelope,

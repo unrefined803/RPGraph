@@ -46,6 +46,8 @@ declare global {
         useLocal: () => Promise<void>;
         openFolder: () => Promise<{ path: string }>;
         delete: (password: string) => Promise<{ username: string }>;
+        getFilenamePrivacy: () => Promise<boolean>;
+        setFilenamePrivacy: (enabled: boolean) => Promise<boolean>;
       };
       listCompatibleModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<CompatibleModelInfo[]>;
       listModels: (

@@ -41,7 +41,7 @@ describe('session format metadata', () => {
     assert.equal(encryptedSessionMetadata({ ...currentEnvelope, authenticationTag: '' }).compatible, false);
     assert.equal(encryptedSessionMetadata({ ...currentEnvelope, ciphertext: '' }).compatible, false);
     assert.equal(encryptedSessionMetadata({ ...currentEnvelope, payloadFormatVersion: '1.0' }).compatible, false);
-    assert.equal(encryptedSessionMetadata({ ...currentEnvelope, envelopeFormatVersion: '3.0' }).compatible, false);
+    assert.equal(encryptedSessionMetadata({ ...currentEnvelope, envelopeFormatVersion: '999.0' }).compatible, false);
     assert.equal(encryptedSessionMetadata({ ...currentEnvelope, workflowFormatVersion: currentWorkflowFormatVersion }).compatible, false);
     assert.equal(encryptedSessionMetadata({ ...currentEnvelope, latestTurnNumber: undefined }).compatible, false);
   });

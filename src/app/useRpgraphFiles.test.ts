@@ -23,8 +23,7 @@ vi.mock('react', async (original) => ({
 beforeEach(() => { hooks.slots = []; hooks.index = 0; });
 afterEach(() => { vi.unstubAllGlobals(); setAccountSession(''); });
 
-function harness() {
-  const result = { fileName: 'game.json', name: 'Game', filePath: '/files/game.json' };
+function harness(result = { fileName: 'game.json', name: 'Game', filePath: '/files/game.json' }) {
   const bridge = {
     saveNamedWorkflow: vi.fn(async () => result), saveCharacter: vi.fn(async () => result),
     saveSession: vi.fn(async () => result), saveStorybook: vi.fn(async () => result),
@@ -54,6 +53,37 @@ function harness() {
   }
   return { render, bridge, options };
 }
+
+it.each(['workflow', 'storybook', 'session'] as const)('retains the unlocked %s display name separately from its file ID', async type => {
+  const fileName = `${type === 'workflow' ? 'WF' : type === 'storybook' ? 'SB' : 'RP'}2xQAbCd1234.json`;
+  const { render, bridge, options } = harness({ fileName, name: 'Private title', filePath: `/files/${fileName}` });
+  bridge.loadFile.mockResolvedValueOnce({ fileName, name: 'Private title', filePath: `/files/${fileName}`,
+    type, protection: 'encrypted', value: { nodes: [] } });
+
+  expect(await render().loadStoredFile(fileName, 'manual-secret')).toBe(true);
+
+  expect(render().fileDisplayName(fileName)).toBe('Private title');
+  expect(options.applyLoadedRpgraphFile).toHaveBeenCalledWith(expect.objectContaining({ fileName, name: 'Private title' }), 'manual-secret');
+  expect(bridge.loadFile).toHaveBeenCalledWith(fileName, 'manual-secret', undefined);
+});
+
+it.each(['workflow', 'storybook', 'session'] as const)('retains the saved %s display name for both destinations', async type => {
+  for (const chosenPath of [false, true]) {
+    hooks.slots = []; hooks.index = 0;
+    const fileName = `${type === 'workflow' ? 'WF' : type === 'storybook' ? 'SB' : 'RP'}2xQAbCd1234.json`;
+    const { render } = harness({ fileName, name: 'Private title', filePath: `/files/${fileName}` });
+    if (type === 'workflow') render().requestExportWorkflow();
+    else if (type === 'storybook') render().requestSaveStorybook();
+    else render().requestSaveSession();
+    render().setFileProtection('encrypted');
+    render().setSessionPassword('manual-secret');
+    render().setChooseSaveLocation(chosenPath);
+    if (type === 'workflow') await render().saveNamedWorkflow();
+    else if (type === 'storybook') await render().saveStorybook();
+    else await render().saveSession();
+    expect(render().fileDisplayName(fileName)).toBe('Private title');
+  }
+});
 
 it.each(['workflow', 'storybook', 'session', 'character'] as const)(
   'uses the chosen file password or account password for every %s save destination', async kind => {

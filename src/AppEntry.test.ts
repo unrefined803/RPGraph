@@ -45,6 +45,8 @@ function harness(preference: string | null = null, items = [{ username: 'alice' 
     unlock: vi.fn(async (username: string) => ({ username })),
     useLocal: vi.fn(async () => {}),
     delete: vi.fn(async () => ({ username: 'alice' })),
+    getFilenamePrivacy: vi.fn(async () => true),
+    setFilenamePrivacy: vi.fn(async (enabled: boolean) => enabled),
   };
   const setItem = vi.fn();
   vi.stubGlobal('window', { rpgraph: { accounts }, confirm: () => true, alert: vi.fn(),
@@ -68,6 +70,20 @@ function harness(preference: string | null = null, items = [{ username: 'alice' 
   render();
   return { accounts, setItem, login, controls };
 }
+
+it('loads account filename privacy and updates it only after a successful save', async () => {
+  const state = harness();
+  state.accounts.getFilenamePrivacy.mockResolvedValue(false);
+  await vi.waitFor(() => expect(state.login().mode).toBe('login'));
+  state.login().onSubmit('alice', 'secret');
+  await vi.waitFor(() => expect(state.controls().filenamePrivacy).toBe(false));
+  await state.controls().setFilenamePrivacy(true);
+  expect(state.accounts.setFilenamePrivacy).toHaveBeenCalledWith(true);
+  expect(state.controls().filenamePrivacy).toBe(true);
+  state.accounts.setFilenamePrivacy.mockRejectedValueOnce(new Error('Disk full'));
+  await expect(state.controls().setFilenamePrivacy(false)).rejects.toThrow('Disk full');
+  expect(state.controls().filenamePrivacy).toBe(true);
+});
 
 it('creates an account, logs out, and signs into another account without restarting', async () => {
   const state = harness(null, []);

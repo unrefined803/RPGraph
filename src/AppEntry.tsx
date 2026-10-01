@@ -17,6 +17,7 @@ export function AppEntry() {
   const [accounts, setAccounts] = useState<{ username: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [filenamePrivacy, setFilenamePrivacy] = useState(true);
   const startup = useRef<Promise<{ mode: Mode; accounts: { username: string }[] }> | null>(null);
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export function AppEntry() {
         ? await api.create(username, password)
         : await api.unlock(username, password);
       setAccountSession(password);
+      setFilenamePrivacy(await api.getFilenamePrivacy?.() ?? true);
       setAccounts(items => items.some(item => item.username === account.username)
         ? items : [...items, account]);
       saveAccountFeaturePreference('enabled');
@@ -135,6 +137,12 @@ export function AppEntry() {
       hasAccounts: accounts.length > 0,
       openAccountEntry: () => void openAccountEntry(),
       deleteAccount,
+      filenamePrivacy,
+      setFilenamePrivacy: async (enabled) => {
+        const api = window.rpgraph?.accounts;
+        if (!api) throw new Error('Filename privacy requires a local account.');
+        setFilenamePrivacy(await api.setFilenamePrivacy(enabled));
+      },
       openFolder: async () => {
         const api = window.rpgraph?.accounts;
         if (!api) throw new Error('Account folders require the desktop app.');

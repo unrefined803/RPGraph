@@ -47,6 +47,7 @@ export function createNpcLibraryService(options: {
   roots: NpcLibraryRoots;
   openPath: (directory: string) => Promise<string>;
   decryptCharacter?: (envelope: unknown, password: string) => Promise<unknown>;
+  displayFileName?: (fileName: string, fallback?: string, filePath?: string) => Promise<string>;
   accountPassword?: string;
   onChanged?: (snapshot: NpcLibrarySnapshot) => void;
 }): {

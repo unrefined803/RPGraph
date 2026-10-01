@@ -44,7 +44,7 @@ function encryptedWorkflowMetadata(envelope) {
     workflowFormatVersion: formatVersion,
     compatible:
       envelope?.format === 'rpgraph-encrypted-workflow' &&
-      envelopeFormatVersion === currentEncryptedWorkflowEnvelopeFormatVersion &&
+      ['2.0', currentEncryptedWorkflowEnvelopeFormatVersion].includes(envelopeFormatVersion) &&
       envelope.payloadFormat === 'rpgraph-workflow' &&
       formatVersion === currentWorkflowFormatVersion &&
       envelope.encryption === 'aes-256-gcm' &&

@@ -78,7 +78,7 @@ function encryptedStorybookMetadata(envelope) {
   const versionLoadable = versionStatus === 'current' || versionStatus === 'legacy';
   const envelopeCompatible =
     envelope?.format === 'rpgraph-encrypted-storybook' &&
-    envelopeFormatVersion === currentEncryptedStorybookEnvelopeFormatVersion &&
+    ['1.0', currentEncryptedStorybookEnvelopeFormatVersion].includes(envelopeFormatVersion) &&
     envelope.payloadFormat === 'rpgraph-storybook' &&
     envelope.encryption === 'aes-256-gcm' &&
     envelope.keyDerivation === 'scrypt' &&

@@ -1395,6 +1395,8 @@ function App() {
     showStorybookPicker,
     setShowStorybookPicker,
     savedFiles,
+    fileDisplayName,
+    rememberFileDisplayName,
     selectedFile,
     setSelectedFile,
     workflowNameDraft,
@@ -1600,6 +1602,7 @@ function App() {
     updateRuntimeNode,
     errorMessage,
     refreshFiles,
+    rememberFileDisplayName,
     setPendingStorybookLoad,
     setPendingSessionFilePath,
     setSessionPassword,
@@ -2625,6 +2628,13 @@ function App() {
       savedAt,
     );
     session.metadata.workflowFileName = activeWorkflowFileName ?? undefined;
+    session.metadata.workflowDisplayName = fileDisplayName(activeWorkflowFileName);
+    session.metadata.storybookDisplayNames = Object.fromEntries(
+      nodesRef.current.filter(isStorybookSourceNode).flatMap(node => {
+        const name = fileDisplayName(node.data.storybookFileName);
+        return name ? [[node.id, name]] : [];
+      }),
+    );
     session.metadata.storybookFileNames = Object.fromEntries(nodesRef.current
       .filter((node) => isStorybookSourceNode(node) && node.data.storybookFileName)
       .map((node) => [node.id, node.data.storybookFileName as string]));
@@ -2655,9 +2665,8 @@ function App() {
       : emptyRpStorybook;
     return {
       storybook,
-      name: storybookNode.data.storybookFileName
-        ? storybookNode.data.storybookFileName.replace(/(\.rpgraph-storybook)?\.json$/i, '')
-        : storybook.title || 'storybook',
+      name: fileDisplayName(storybookNode.data.storybookFileName)
+        ?? (storybook.title || 'storybook'),
       nodeId: storybookNode.id,
     };
   }
@@ -2744,6 +2753,8 @@ function App() {
         'Loaded workflow',
         result.fileName,
         result.protection === 'encrypted' ? result.fileName : undefined,
+        true,
+        result.name,
       );
       setWorkspacePassword(result.protection === 'encrypted' ? password : '');
       setWorkflowNameDraft(result.name);
@@ -2867,6 +2878,7 @@ function App() {
       session.metadata.workflowFileName || 'Workflow from RP Save',
       session.metadata.workflowFileName || 'Workflow from RP Save',
       false,
+      session.metadata.workflowDisplayName,
     );
     npcParticipants.restore(sessionState.npcParticipants);
     setCharacterColorSlots(sessionState.characterColorSlots);
@@ -2915,6 +2927,14 @@ function App() {
     activeSessionPasswordRef.current = protection === 'encrypted' ? password : '';
     setWorkspacePassword(protection === 'encrypted' ? password : '');
     setSessionName(name);
+    rememberFileDisplayName(fileName, name);
+    if (session.metadata.workflowFileName && session.metadata.workflowDisplayName) {
+      rememberFileDisplayName(session.metadata.workflowFileName, session.metadata.workflowDisplayName);
+    }
+    for (const [nodeId, displayName] of Object.entries(session.metadata.storybookDisplayNames ?? {})) {
+      const storybookFileName = session.metadata.storybookFileNames?.[nodeId];
+      if (storybookFileName) rememberFileDisplayName(storybookFileName, displayName);
+    }
     setDraft('');
     nextMessageIdRef.current =
       loadedMessages.reduce(
@@ -2984,6 +3004,7 @@ function App() {
     fileName?: string | null,
     resetSnapshotFileName?: string,
     hydrateOpeningHistory = true,
+    displayName?: string,
   ) {
     if (activeRunRef.current) throw new Error('Wait for the current run to finish before loading a workflow.');
     resetPanelSession();
@@ -3039,7 +3060,8 @@ function App() {
       }
       : null;
     activateWorkflowPath(filePath, fileName);
-    notifySystem('info', `${status}: ${fileName ?? (filePath ? workflowName(filePath) : 'embedded workflow')}`);
+    const loadedName = displayName ?? fileDisplayName(fileName ?? (filePath ? workflowName(filePath) : null)) ?? 'Workflow from RP Save';
+    notifySystem('info', `${status}: ${loadedName.replace(/\.json$/i, '')}`);
     pendingViewport.current = hydratedWorkflow.workflow.viewport;
     pendingFitView.current = !hydratedWorkflow.workflow.viewport;
     const initializedFlow = flowInstanceRef.current;
@@ -4983,7 +5005,7 @@ function App() {
   const displayedWorkflowName = activeWorkflowFileName
     ? activeWorkflowFileName === 'embedded workflow'
       ? 'Workflow from RP Save'
-      : activeWorkflowFileName.replace(/\.json$/i, '')
+      : fileDisplayName(activeWorkflowFileName) ?? 'Workflow from RP Save'
     : 'not saved';
   const displayedSessionSavedTurn =
     activeSessionFileName && activeSessionSavedTurn !== null
@@ -4996,13 +5018,13 @@ function App() {
   const headerStorybookJson = headerStorybookNode?.data.storybookJson;
   const headerHasStorybook = !!headerStorybookJson && !isEmptyRpStorybook(headerStorybookJson);
   const displayedStorybookName = displayStorybookName(
-    headerStorybookFileName,
+    fileDisplayName(headerStorybookFileName),
     headerStorybookJson,
   );
 
   const isSessionEncrypted = activeSessionProtection === 'encrypted';
-  const displayedSessionFileName = activeSessionFileName?.replace(/\.json$/i, '')
-    ?? 'New game · Not saved';
+  const displayedSessionFileName = fileDisplayName(activeSessionFileName)
+    ?? (activeSessionFileName ? 'RP Save' : 'New game · Not saved');
 
   const isWorkflowEncrypted = activeWorkflowProtection === 'encrypted' && !!activeWorkflowFileName;
   const isStorybookEncrypted =

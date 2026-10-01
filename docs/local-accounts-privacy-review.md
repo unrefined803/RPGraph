@@ -14,9 +14,10 @@ metadata visibility is accepted for this scope.
 **Result:** the encrypted-file save/load boundary protects the complete JSON
 payload, including nested Storybooks, character data, embedded media and debug
 state. No plaintext temporary file or decrypted library cache was found in those
-paths. There is, however, an automatic plaintext settings path for RP workflow
-variables after a protected save is loaded; see the open P1 finding below. This
-prevents a blanket statement that all unlocked RP content remains in memory.
+paths. RP workflow variables are also automatically persisted in plaintext settings
+after a protected save is loaded. The user accepts this behavior because these
+variables are not considered sensitive in the intended use. See the accepted
+variable-persistence section below.
 
 The reviewed path is: renderer save choice → preload request → the relevant main
 process save handler → JSON serialization inside AES-GCM → encrypted envelope →
@@ -41,9 +42,14 @@ an intentional export choice. Exporting a whole plain workflow/RP save can also
 expose characters imported from an encrypted source because they are then part
 of that newly exported payload.
 
-## Open content finding
+## Accepted variable persistence
 
-**P1: Restored protected RP variables can be automatically saved in plaintext.**
+**Current behavior: restored RP variables are saved in plaintext settings.**
+
+The user explicitly accepts this persistence and does not require a change to
+workflow-variable storage. It is no longer an open P1 finding for the agreed
+scope. The technical path below remains documented so that this acceptance is
+not confused with encryption of those settings.
 
 `src/App.tsx` calls
 `replaceWorkflowSettingsValues(sessionState.workflowVariables)` inside
@@ -61,19 +67,107 @@ or copying that string. This does not expose the entire Storybook, graph or medi
 pool automatically; the affected data is the restored/updated variable map.
 Other protected content copied into such a variable is affected too.
 
-The settings hook test characterizes this unresolved behavior using a private
-marker while signed into an account. It is evidence of a known leak, not a test
-asserting the desired privacy guarantee. The crypto/filesystem tests remain
-separate and pass for the encrypted files themselves.
+The settings hook test characterizes this behavior using a private marker while
+signed into an account. It documents the persistence boundary, not encryption of
+settings. No persistence-policy change is planned for the accepted variables.
 
-This remains open for agreement because the current variable state serves both
-persistent user settings and RP runtime state. The preferred solution is to
-separate runtime variables from settings persistence and keep them in RP-save
-payloads. An alternative is versioned encryption of sensitive settings, which
-also requires a key-selection policy for manually protected games. Simply skipping
-writes while an encrypted game is active is insufficient: retained variable values
-could be saved after switching to an unprotected workflow. No such partial fix or
-silent persistence-policy change was introduced in this follow-up.
+## Account filename privacy
+
+Account filename protection is implemented and enabled by default. Options →
+Accounts exposes **Protect new encrypted filenames**. The preference is stored as
+`filenamePrivacy` in that account's `account.json`; missing preferences default to
+true. Only new files saved with the signed-in account password receive protected
+names. Manual-password saves without an account, saves with a different password,
+and new Plain JSON exports retain readable names.
+
+The filename has a five-character marker, followed by an encrypted name token
+and `.json`:
+
+| Marker | Type |
+| --- | --- |
+| `WF2xQ` | Workflow |
+| `RP2xQ` | RP save |
+| `CH2xQ` | Character Container |
+| `SB2xQ` | Storybook |
+
+`2xQ` identifies compact filename format V2. The type marker is public and
+authenticated. The Base64url token contains a 16-byte GCM tag and the AES-256-GCM
+encrypted UTF-8 basename. Its 16-byte salt and 12-byte random IV live in the small
+`filenameEncryption` object at the start of the file. This object contains only
+`format`, `salt` and `iv`; neither the readable name nor the password is stored
+there. Name lookup reads at most the first 4096 bytes and never decrypts the file
+payload. The tag still verifies the password and integrity at full length.
+
+The window header uses the readable names returned after unlocking or saving a
+Workflow, Storybook or RP save. Renderer name caches remain in memory and do not
+replace physical file IDs. Optional display labels in RP save payload metadata
+preserve embedded Workflow/Storybook names when source files are unavailable;
+encrypted RP saves encrypt these labels with the rest of their payload. Legacy
+saves without the labels remain loadable.
+
+The account password and a domain-separated salt derive a filename key with
+scrypt (`N=65536`, `r=8`, `p=1`). The public account verifier is never an encryption
+key. Names and filename keys remain in session memory, and keys are cleared when
+the account session ends. Each new name token has a fresh IV, even for the same
+name. A filename reveals its type and approximate name length.
+
+| Basename length (ASCII bytes) | V1 filename characters | V2 filename characters |
+| --- | --- | --- |
+| 10 | 82 | 45 |
+| 20 | 96 | 58 |
+| 40 | 122 | 85 |
+
+Counts include the five-character marker and `.json`. V2 removes 28 bytes of
+parameters from the filename without reducing key size, IV size or tag size.
+Readers also accept V1 markers (`WF1xQ`, `RP1xQ`, `CH1xQ`, `SB1xQ`) with their
+original self-contained tokens. Explicit encrypted overwrites with account
+filename protection enabled convert those long V1 names to V2. Loading alone
+does not rename a file, and disabled protection preserves its existing name.
+
+The account's salt is reused for its filename key, so twenty files normally need
+one key derivation and twenty short name decryptions per login. Directory listing
+never decrypts file payloads to obtain names. Existing metadata readers still read
+JSON envelopes, and the NPC library still performs its existing character unlock
+scan; this change does not introduce bulk Storybook/media decryption. Derivations
+are serialized and cached, with a bounded cache for foreign salts.
+
+The parameters travel in the file header, allowing copies in another account to
+display their names when the password matches. A mismatch or damaged token
+displays a label such
+as **Encrypted Storybook (open to unlock)**. A successful manual file unlock also
+unlocks its name and caches that name in RAM until logout. No plaintext name
+index or
+readable name field is written inside the file. Workflow state retains the physical
+protected filename; file load/delete operations continue to use that identifier.
+
+Named saves resolve conflicts by decrypting filenames rather than file payloads.
+V2 files retain their physical names when overwritten, and protected names remain
+readable when the preference is disabled. V1 conversion and foreign-password
+rekeying replace the physical filename and update the save result/references.
+Concurrent named saves are
+serialized to prevent duplicate same-name files. Ambiguous duplicate display names
+require an explicit physical file or another name. Saving a manually unlocked
+foreign file with the account password rekeys its filename as well as its content:
+the replacement is written first, then the old file is removed. An interruption
+between those steps can leave both encrypted copies, rather than lose the source.
+
+Protected basenames are limited to 128 UTF-8 bytes, producing ASCII filenames of
+at most 202 characters (V1 readers accept up to 240). Longer names fail with a
+request to choose a shorter name;
+they do not silently fall back to plaintext. Atomic writes use short unrelated
+temporary filenames so the encrypted name cannot exceed filesystem limits after
+adding a temporary-file suffix.
+
+New encrypted envelopes use Workflow **3.0**, RP save **3.0**, Storybook **2.0**,
+and Character **2.0**, with version-specific authenticated contexts. Readers still
+accept Workflow **2.0**, RP save **2.1**, Storybook **1.0**, and Character **1.0**
+and use their original authenticated contexts. Payload format versions are
+unchanged. New character envelopes omit the formerly public `characterName`;
+the actual character name stays inside the encrypted payload. Legacy envelopes
+remain readable with their existing public metadata. Older RPGraph releases
+cannot read the new envelopes. No migration or renaming is performed on load,
+and external backups are not
+rewritten. V1 names are converted only on explicit protected overwrites.
 
 ## Findings fixed
 
@@ -122,6 +216,7 @@ silent persistence-policy change was introduced in this follow-up.
 | Account verifier | scrypt, fresh 32-byte salt, 32-byte result, timing-safe comparison | `account.json`, mode `0600`; username and salted verifier are public to anyone with file access |
 | File password | Save/unlock form or account password → IPC → per-file scrypt key | No password in the encryption envelope |
 | Workflow, Storybook, RP save, character | Decrypt and parse in memory; encrypt before writing | AES-256-GCM envelope when encryption is selected; explicit Plain JSON remains supported |
+| Protected filename | Account password → cached domain-separated scrypt key → authenticated short name token | Type marker, salt, IV, tag and encrypted basename; no plaintext name index |
 | NPC auto-unlock | Account/game passwords and decrypted character cache in `npcLibrary` memory | Original encrypted NPC file; no decrypted cache file |
 | API key | Settings and provider requests in memory | OS `safeStorage` payload, or session-only when secure storage is unavailable |
 | Other settings | Automatic persistence from `useAppSettings` | Plain `settings.json`, including custom prompt presets, workflow settings values and reference voice samples |
@@ -146,8 +241,8 @@ and clear `accountSession`. This is reference disposal, not guaranteed erasure.
 ## Larger changes requiring agreement
 
 - **Sensitive settings remain plaintext.** File encryption does not protect custom
-  settings prompts, workflow setting values, reference samples, filenames,
-  account names, encrypted-character names, or RP-save turn counts. Encrypting
+  settings prompts, workflow setting values, reference samples, account names,
+  legacy/readable filenames, legacy encrypted-character names, or RP-save turn counts. Encrypting
   settings needs a versioned envelope, migration and recovery policy, and a
   decision about portable provider credentials and shared/local workspaces.
 - **Passwords remain available to the renderer.** A compromised renderer can
@@ -189,9 +284,31 @@ media do not appear in temporary-file contents, round-trip named and external
 exports, check that decryption performs no writes, and ensure a missing password
 does not overwrite an existing encrypted file. Renderer tests cover file/account
 password precedence for each content type and destination. A separate settings
-test documents the still-open plaintext RP-variable path.
+test documents the accepted plaintext RP-variable path.
+
+Filename tests cover every type marker, wrong passwords, changed ciphertext and
+changed type markers, portable copies, long Unicode names, one key derivation for
+twenty names, and key disposal. Compact-name tests also cover header tampering, unchanged
+full-size authentication tags, bounded header-only lookup after restart, portable
+foreign V2 unlock/rekey, and explicit V1 filename conversion. Real filesystem/IPC
+tests cover named and external
+account exports, readable listings without payload decryption, conflict handling,
+concurrent saves, overwrites, deletion, foreign-password unlock/rekey, preference
+boundaries, and legacy-envelope decryption with the original authenticated context.
+Renderer tests cover readable header-name resolution, automatic/manual unlocks,
+both save destinations, and RP save display-label validation. Filesystem tests
+verify that those RP save labels remain inside the encrypted payload and that
+corrupted filename headers cannot reuse cached names or pending parameters.
+Chosen-location saves ask for confirmation when resolving an encrypted name
+would replace a different existing path than the native save dialog selected.
+Regression coverage checks that cancellation preserves the original bytes and
+that confirmation updates the existing file without creating a duplicate.
 
 Manual validation remains with the user: save/unlock each file type using an
 account, import another password-protected file and resave it, explicitly save
 Plain JSON, switch/logout, and inspect settings warnings on a system without a
-secure key store or with an unreadable saved API key.
+secure key store or with an unreadable saved API key. Toggle filename protection
+under Accounts, inspect the five-character type markers on disk, reopen an account,
+and copy in a file protected with a different password to exercise manual unlock.
+Check the Workflow, Storybook and RP save header labels after opening and saving,
+including an RP save reopened without its original Workflow/Storybook files.

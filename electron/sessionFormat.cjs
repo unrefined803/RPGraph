@@ -56,7 +56,7 @@ function encryptedSessionMetadata(envelope) {
     latestTurnNumber,
     compatible:
       envelope?.format === 'rpgraph-encrypted-session' &&
-      envelopeFormatVersion === currentEncryptedSessionEnvelopeFormatVersion &&
+      ['2.1', currentEncryptedSessionEnvelopeFormatVersion].includes(envelopeFormatVersion) &&
       envelope.payloadFormat === 'rpgraph-session' &&
       formatVersion === currentSessionFormatVersion &&
       workflowFormatVersion === currentSessionWorkflowFormatVersion &&

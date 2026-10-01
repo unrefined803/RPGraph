@@ -18,6 +18,7 @@ import storybookFormatVersions from '../storybook/formatVersions.json';
 import { rpStorybookJsonText, type RpStorybook } from '../nodes/rp-storybook/model';
 import type { RpCharacterCard } from '../storybook/characterCard';
 import { workflowNeedsStorybookSelection } from './workflowSnapshot';
+import { readableFileName } from './fileDisplayNames';
 
 export type WorkflowSaveScope = 'workflow' | 'workflow-storybook';
 export type CharacterSaveLocation = 'characters' | 'npc-characters' | 'account-npc-characters' | 'choose';
@@ -81,7 +82,7 @@ export function useRpgraphFiles({
   latestSessionTurnNumber,
   suggestedWorkflowName,
   suggestedSessionName,
-  applyLoadedRpgraphFile,
+  applyLoadedRpgraphFile: applyLoadedFile,
   applyLoadedWorkflow,
   applyStorybookToNode,
   updateRuntimeNode,
@@ -115,6 +116,17 @@ export function useRpgraphFiles({
   const [showFiles, setShowFiles] = useState(false);
   const [showStorybookPicker, setShowStorybookPicker] = useState(false);
   const [savedFiles, setSavedFiles] = useState<SavedFileSummary[]>([]);
+  const [unlockedFileNames, setUnlockedFileNames] = useState<Record<string, string>>({});
+  function rememberFileDisplayName(fileName: string, name: string) {
+    setUnlockedFileNames(current => ({ ...current, [fileName]: name }));
+  }
+  function fileDisplayName(fileName: string | null | undefined) {
+    return readableFileName(fileName, unlockedFileNames, savedFiles);
+  }
+  function applyLoadedRpgraphFile(result: LoadedRpgraphFile, password?: string) {
+    applyLoadedFile(result, password);
+    rememberFileDisplayName(result.fileName, result.name);
+  }
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [workflowNameDraft, setWorkflowNameDraft] = useState('');
   const [storybookNameDraft, setStorybookNameDraft] = useState('');
@@ -279,6 +291,7 @@ export function useRpgraphFiles({
         return;
       }
       setWorkflowNameDraft(result.name);
+      rememberFileDisplayName(result.fileName, result.name);
       setWorkflowOverwritePending(false);
       setSessionPassword('');
       if (fileProtection === 'plain') {
@@ -338,6 +351,7 @@ export function useRpgraphFiles({
         return;
       }
       setWorkflowNameDraft(result.name ?? name);
+      if (result.fileName) rememberFileDisplayName(result.fileName, result.name ?? name);
       setWorkflowOverwritePending(false);
       setSessionPassword('');
       if (fileProtection === 'plain' && result.filePath) {
@@ -725,6 +739,7 @@ export function useRpgraphFiles({
       activeSessionPasswordRef.current = fileProtection === 'encrypted' ? sessionPassword : '';
       activateWorkflowSnapshot(await currentWorkflowForSave(), activeWorkflowFileName ?? 'Untitled workflow');
       setSessionName(result.name);
+      rememberFileDisplayName(result.fileName, result.name);
       setSessionOverwritePending(false);
       setSessionPassword('');
       await refreshFiles(result.fileName);
@@ -768,6 +783,7 @@ export function useRpgraphFiles({
       }
       activateWorkflowSnapshot(await currentWorkflowForSave(), activeWorkflowFileName ?? 'Untitled workflow');
       setSessionName(result.name ?? name);
+      if (result.fileName) rememberFileDisplayName(result.fileName, result.name ?? name);
       setSessionOverwritePending(false);
       setSessionPassword('');
       setFileStorageStatus(
@@ -820,6 +836,7 @@ export function useRpgraphFiles({
         storybookFilePath: result.filePath,
       });
       setStorybookNameDraft(result.name);
+      rememberFileDisplayName(result.fileName, result.name);
       setActiveStorybookProtection(fileProtection);
       if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
       setSessionOverwritePending(false);
@@ -863,6 +880,7 @@ export function useRpgraphFiles({
         storybookFilePath: result.filePath,
       });
       setStorybookNameDraft(result.name ?? name);
+      if (result.fileName) rememberFileDisplayName(result.fileName, result.name ?? name);
       setActiveStorybookProtection(fileProtection);
       if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
       setSessionOverwritePending(false);
@@ -918,6 +936,7 @@ export function useRpgraphFiles({
         setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');
         return;
       }
+      rememberFileDisplayName(result.fileName, result.name);
       setActiveStorybookProtection('encrypted');
       setWorkspacePassword(sessionPassword);
       await refreshFiles(result.fileName);
@@ -974,17 +993,20 @@ export function useRpgraphFiles({
     const name = sessionName.trim() || suggestedSessionName();
     try {
       const session = await currentSession(name);
-      await window.rpgraph.saveCurrentSession(
+      const result = await window.rpgraph.saveCurrentSession(
         filePath,
         session,
         protection,
         password,
       );
+      rememberFileDisplayName(result.fileName, fileDisplayName(activeSessionFileName) ?? name);
+      activeSessionPathRef.current = result.filePath;
+      setActiveSessionFileName(result.fileName);
       setActiveSessionProtection(protection);
       activeSessionPasswordRef.current = password;
       setActiveSessionSavedTurn(latestSessionTurnNumber(session));
       activateWorkflowSnapshot(await currentWorkflowForSave(), activeWorkflowFileName ?? 'Untitled workflow');
-      await refreshFiles(activeSessionFileName);
+      await refreshFiles(result.fileName);
       notifySystem(
         'info',
         `Saved RP: ${activeSessionFileName} at Turn ${latestSessionTurnNumber(session)}${protection === 'encrypted' ? ' (password encrypted)' : ''}`,
@@ -1171,6 +1193,8 @@ export function useRpgraphFiles({
     showStorybookPicker,
     setShowStorybookPicker,
     savedFiles,
+    fileDisplayName,
+    rememberFileDisplayName,
     selectedFile,
     setSelectedFile,
     workflowNameDraft,
@@ -1262,7 +1286,7 @@ type IncompatibleFileMetadata = {
 export function incompatibleSessionStatus(file: IncompatibleFileMetadata) {
   if (
     file.protection === 'encrypted' &&
-    file.envelopeFormatVersion !== currentEncryptedSessionEnvelopeFormatVersion
+    !['2.1', currentEncryptedSessionEnvelopeFormatVersion].includes(file.envelopeFormatVersion ?? '')
   ) {
     return `Encrypted RP save Envelope Format ${file.envelopeFormatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Envelope Format ${currentEncryptedSessionEnvelopeFormatVersion}.`;
   }
@@ -1272,7 +1296,7 @@ export function incompatibleSessionStatus(file: IncompatibleFileMetadata) {
 export function incompatibleWorkflowStatus(file: IncompatibleFileMetadata) {
   if (
     file.protection === 'encrypted' &&
-    file.envelopeFormatVersion !== currentEncryptedWorkflowEnvelopeFormatVersion
+    !['2.0', currentEncryptedWorkflowEnvelopeFormatVersion].includes(file.envelopeFormatVersion ?? '')
   ) {
     return `Encrypted workflow Envelope Format ${file.envelopeFormatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Envelope Format ${currentEncryptedWorkflowEnvelopeFormatVersion}.`;
   }
@@ -1286,7 +1310,7 @@ export function incompatibleStorybookStatus(file: IncompatibleFileMetadata) {
 export function incompatibleCharacterCardStatus(file: IncompatibleFileMetadata) {
   if (
     file.protection === 'encrypted' &&
-    file.envelopeFormatVersion !== storybookFormatVersions.encryptedCharacterCardEnvelope
+    !['1.0', storybookFormatVersions.encryptedCharacterCardEnvelope].includes(file.envelopeFormatVersion ?? '')
   ) {
     return `Encrypted character card Envelope Format ${file.envelopeFormatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Envelope Format ${storybookFormatVersions.encryptedCharacterCardEnvelope}.`;
   }

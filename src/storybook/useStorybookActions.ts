@@ -136,6 +136,7 @@ type UseStorybookActionsOptions = {
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   errorMessage: (error: unknown) => string;
   refreshFiles: (selectedFileName?: string | null) => Promise<void>;
+  rememberFileDisplayName?: (fileName: string, name: string) => void;
   setPendingStorybookLoad: Dispatch<SetStateAction<PendingStorybookLoad>>;
   setPendingSessionFilePath: Dispatch<SetStateAction<string | null>>;
   setSessionPassword: Dispatch<SetStateAction<string>>;
@@ -172,6 +173,7 @@ export function useStorybookActions({
   updateRuntimeNode,
   errorMessage,
   refreshFiles,
+  rememberFileDisplayName,
   setPendingStorybookLoad,
   setPendingSessionFilePath,
   setSessionPassword,
@@ -215,7 +217,7 @@ export function useStorybookActions({
   function incompatibleStorybookFileStatus(file: StorybookFileMetadata) {
     if (
       file.protection === 'encrypted' &&
-      file.envelopeFormatVersion !== storybookFormatVersions.encryptedStorybookEnvelope
+      !['1.0', storybookFormatVersions.encryptedStorybookEnvelope].includes(file.envelopeFormatVersion ?? '')
     ) {
       return `Encrypted storybook Envelope Format ${file.envelopeFormatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Envelope Format ${storybookFormatVersions.encryptedStorybookEnvelope}.`;
     }
@@ -1247,6 +1249,7 @@ export function useStorybookActions({
             if (loaded.type !== 'storybook') throw new Error('Select a Storybook file.');
             const applied = applyStorybookToNode(nodeId, loaded.value, loaded.fileName, loaded.filePath, 'Loaded encrypted storybook', 'encrypted');
             if (applied) {
+              rememberFileDisplayName?.(loaded.fileName, loaded.name);
               setActiveStorybookProtection('encrypted');
               setWorkspacePassword?.(accountPassword);
               await refreshFiles(loaded.fileName);
@@ -1275,6 +1278,7 @@ export function useStorybookActions({
         setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');
         return false;
       }
+      rememberFileDisplayName?.(result.fileName, result.name);
       setActiveStorybookProtection('plain');
       await refreshFiles(result.fileName);
       return true;

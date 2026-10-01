@@ -15,6 +15,35 @@ async function fixture() {
   return root;
 }
 
+it('defaults legacy and new accounts to private names and persists only the account preference', async () => {
+  const root = await fixture();
+  const accounts = createLocalAccounts(root);
+  await accounts.create('alice', 'secret');
+  expect(accounts.filenamePrivacy).toBe(true);
+  const fileName = await accounts.encodeFileName('Private-story', 'storybook');
+  const metadata = accounts.filenameMetadata(fileName);
+  expect(await accounts.decodeFileName(fileName, undefined, metadata)).toBe('Private-story');
+  const accountPath = path.join(accounts.root, 'account.json');
+  await accounts.setFilenamePrivacy(false);
+  accounts.prepare();
+  await accounts.unlock('alice', 'secret');
+  expect(accounts.filenamePrivacy).toBe(false);
+  expect(await accounts.decodeFileName(fileName, undefined, metadata)).toBe('Private-story');
+  const record = JSON.parse(await readFile(accountPath, 'utf8'));
+  expect(Object.keys(record).sort()).toEqual(['filenamePrivacy', 'salt', 'username', 'verifier', 'version']);
+  delete record.filenamePrivacy;
+  await writeFile(accountPath, JSON.stringify(record));
+  accounts.prepare();
+  await accounts.unlock('alice', 'secret');
+  expect(accounts.filenamePrivacy).toBe(true);
+  accounts.prepare();
+  await accounts.useLocal();
+  expect(accounts.filenamePrivacy).toBe(false);
+  expect(await accounts.decodeFileName(fileName)).toBeUndefined();
+  await expect(accounts.encodeFileName('Private-story', 'storybook')).rejects.toThrow('Sign in');
+  await expect(accounts.setFilenamePrivacy(true)).rejects.toThrow('Sign in');
+});
+
 it('preserves the existing local workspace and separates multiple accounts across restarts', async () => {
   const root = await fixture();
   await mkdir(path.join(root, 'files'));

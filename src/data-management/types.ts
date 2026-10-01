@@ -330,6 +330,8 @@ export type RpgraphSessionV2 = {
   metadata: {
     workflowFileName?: string;
     storybookFileNames?: Record<string, string>;
+    workflowDisplayName?: string;
+    storybookDisplayNames?: Record<string, string>;
     settings: {
       englishProcessingEnabled: boolean;
       inputTranslationOnlyEnabled?: boolean;

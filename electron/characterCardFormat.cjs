@@ -56,9 +56,9 @@ function encryptedCharacterCardMetadata(envelope) {
   const versionLoadable = versionStatus === 'current' || versionStatus === 'legacy';
   const envelopeCompatible =
     envelope?.format === 'rpgraph-encrypted-character' &&
-    envelopeFormatVersion === currentEncryptedCharacterCardEnvelopeFormatVersion &&
+    ['1.0', currentEncryptedCharacterCardEnvelopeFormatVersion].includes(envelopeFormatVersion) &&
     envelope.payloadFormat === 'rpgraph-character' &&
-    typeof envelope.characterName === 'string' &&
+    (envelopeFormatVersion === '1.0' ? typeof envelope.characterName === 'string' : envelope.characterName === undefined) &&
     envelope.encryption === 'aes-256-gcm' &&
     envelope.keyDerivation === 'scrypt' &&
     hasCurrentScryptParameters(envelope.keyDerivationParameters) &&
@@ -71,7 +71,7 @@ function encryptedCharacterCardMetadata(envelope) {
     protection: 'encrypted',
     envelopeFormatVersion,
     formatVersion,
-    characterName: typeof envelope?.characterName === 'string'
+    characterName: envelopeFormatVersion === '1.0' && typeof envelope?.characterName === 'string'
       ? envelope.characterName
       : undefined,
     legacy: envelopeCompatible && versionStatus === 'legacy',

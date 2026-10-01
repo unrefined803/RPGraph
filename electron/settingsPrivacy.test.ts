@@ -77,7 +77,7 @@ it('writes private atomic files with restrictive POSIX permissions', async () =>
   temporary.push(root);
   const filePath = path.join(root, 'settings.json');
   const source = main.slice(main.indexOf('async function writeTextFileAtomically('), main.indexOf('async function writeNewTextFileAtomically('));
-  const write = runInNewContext(`${source}; writeTextFileAtomically`, { fs, crypto, process, console });
+  const write = runInNewContext(`${source}; writeTextFileAtomically`, { fs, path, crypto, process, console });
   await write(filePath, 'private settings');
   expect(await readFile(filePath, 'utf8')).toBe('private settings');
   if (process.platform !== 'win32') expect((await stat(filePath)).mode & 0o777).toBe(0o600);

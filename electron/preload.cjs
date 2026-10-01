@@ -65,6 +65,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
     useLocal: () => ipcRenderer.invoke('accounts:local'),
     openFolder: () => ipcRenderer.invoke('accounts:open-folder'),
     delete: (password) => ipcRenderer.invoke('accounts:delete', { password }),
+    getFilenamePrivacy: () => ipcRenderer.invoke('accounts:filename-privacy'),
+    setFilenamePrivacy: (enabled) => ipcRenderer.invoke('accounts:set-filename-privacy', enabled),
   },
   onPanelNavigate: (callback) => {
     const listener = (_event, direction) => {

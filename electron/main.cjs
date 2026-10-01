@@ -2,6 +2,7 @@ const { supportsComfyImageReferences, prepareComfyImageReferences, uploadComfyIm
 const { compatibleModel, compatibleReasoningOptions, mergeCompatibleNativeModels } = require('../shared/compatibleModels.cjs');
 const { normalizeReasoningCapabilities, normalizeReasoningEffort, normalizeLmStudioReasoning, normalizeOllamaReasoning, ollamaReasoningOptions } = require('../shared/reasoning.cjs');
 const { safeWorkflowBaseName, safeStorybookBaseName, safeCharacterCardBaseName } = require('./fileNames.cjs');
+const { privateFileType } = require('./filenamePrivacy.cjs');
 const { bundledJsonFilesByFormat } = require('./bundledJsonFiles.cjs');
 const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, shell } = require('electron');
 const crypto = require('node:crypto');
@@ -119,10 +120,10 @@ const appIconPath = path.join(
 const jsonFileExtension = '.json';
 const maxSelectedImageBytes = 32 * 1024 * 1024;
 const maxSelectedImagesTotalBytes = 96 * 1024 * 1024;
-const sessionCipherAad = Buffer.from('rpgraph-encrypted-session:v2.1');
-const workflowCipherAad = Buffer.from('rpgraph-encrypted-workflow:v2');
-const storybookCipherAad = Buffer.from('rpgraph-encrypted-storybook:v1');
-const characterCardCipherAad = Buffer.from('rpgraph-encrypted-character:v1');
+const sessionCipherAad = Buffer.from('rpgraph-encrypted-session:v3.0');
+const workflowCipherAad = Buffer.from('rpgraph-encrypted-workflow:v3.0');
+const storybookCipherAad = Buffer.from('rpgraph-encrypted-storybook:v2.0');
+const characterCardCipherAad = Buffer.from('rpgraph-encrypted-character:v2.0');
 const approvedWorkflowPaths = new Set();
 const approvedFilePaths = new Set();
 const approvedComfyWorkflowPaths = new Set(
@@ -229,9 +230,16 @@ function handleWorkspace(channel, handler) {
   ipcMain.handle(channel, (...args) => workspaceOperations.run(() => {
     // Keep the selected root and path approvals stable for the complete operation.
     localAccounts.root;
+    if (/^(workflow:save-named|storybook:save|character:save|session:save|session:save-current|file:save-to-path)$/.test(channel)) {
+      const pending = filenameSaveQueue.then(() => handler(...args));
+      filenameSaveQueue = pending.catch(() => {});
+      return pending;
+    }
     return handler(...args);
   }));
 }
+
+let filenameSaveQueue = Promise.resolve();
 
 function handleAccountTransition(channel, handler) {
   ipcMain.handle(channel, (...args) => workspaceOperations.transition(() => handler(...args)));
@@ -250,6 +258,7 @@ function makeNpcLibraryService(root) {
     openPath: (directory) => shell.openPath(directory),
     accountPassword: localAccounts.password,
     decryptCharacter: (envelope, password) => decryptCharacterCard(envelope, password),
+    displayFileName: (fileName, fallback, filePath) => storedDisplayName(fileName, fallback, undefined, filePath),
     onChanged: () => {
       for (const window of BrowserWindow.getAllWindows()) {
         if (!window.isDestroyed()) window.webContents.send('npc-library:changed');
@@ -267,6 +276,8 @@ async function initializeAccountWorkspace() {
 }
 
 ipcMain.handle('accounts:list', () => localAccounts.list());
+handleWorkspace('accounts:filename-privacy', () => localAccounts.filenamePrivacy);
+handleAccountTransition('accounts:set-filename-privacy', (_event, enabled) => localAccounts.setFilenamePrivacy(enabled));
 handleAccountTransition('accounts:prepare', async () => {
   abortActiveLlmRequests('account-setup');
   await settingsWriteQueue.catch(() => {});
@@ -498,7 +509,7 @@ async function listedFilesInDirectory(directory, storage) {
         const metadata = await readStoredFileMetadata(filePath);
         return {
           fileName: entry.name,
-          name: metadata.characterName || storedJsonName(entry.name),
+          name: await storedDisplayName(entry.name, metadata.characterName, undefined, filePath),
           updatedAt: stats.mtime.toISOString(),
           storage,
           ...metadata,
@@ -630,6 +641,96 @@ function storedJsonName(fileName) {
   return fileName.replace(/(\.rpgraph-storybook|\.rpgraph-character|\.rpgraph-session|\.rpgraph)?\.json$/i, '');
 }
 
+async function filenameEncryptionMetadata(filePath) {
+  const fileName = path.basename(filePath);
+  const pending = localAccounts.filenameMetadata?.(fileName);
+  if (!privateFileType(fileName) || fileName.slice(2, 5) !== '2xQ') return undefined;
+  let file;
+  const buffer = Buffer.alloc(4096);
+  try {
+    file = await fs.open(filePath, 'r');
+    const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
+    // Writers put this small, flat object first. No media, ciphertext body or
+    // decrypted content is needed to recover filename parameters.
+    const match = /"filenameEncryption"\s*:\s*(\{[^{}]{1,512}\})/.exec(buffer.toString('utf8', 0, bytesRead));
+    return match ? JSON.parse(match[1]) : null;
+  } catch (error) { return error.code === 'ENOENT' ? pending : null; }
+  finally { buffer.fill(0); await file?.close(); }
+}
+
+async function storedPayloadContents(value, filePath) {
+  let payload = value;
+  if (privateFileType(path.basename(filePath)) && path.basename(filePath).slice(2, 5) === '2xQ') {
+    const metadata = await filenameEncryptionMetadata(filePath);
+    if (!metadata) throw new Error('Filename encryption parameters are missing. Choose a new name.');
+    payload = { filenameEncryption: metadata, ...value };
+    payload.filenameEncryption = metadata;
+  }
+  return `${JSON.stringify(payload, null, 2)}\n`;
+}
+
+async function storedDisplayName(fileName, fallback, password, filePath = path.join(filesDirectory(), fileName)) {
+  const decoded = await localAccounts.decodeFileName?.(fileName, password, await filenameEncryptionMetadata(filePath));
+  if (decoded) return decoded;
+  const type = privateFileType(fileName);
+  if (type) {
+    const label = { workflow: 'Workflow', session: 'RP Save', storybook: 'Storybook', 'character-card': 'Character' }[type];
+    return `Encrypted ${label} (open to unlock)`;
+  }
+  return fallback || storedJsonName(fileName);
+}
+
+function shouldProtectFileName(request) {
+  return !!localAccounts.active && localAccounts.filenamePrivacy &&
+    request.protection === 'encrypted' && request.password === localAccounts.password;
+}
+
+async function storedSaveTarget(directory, requestedName, sanitize, request, type) {
+  const requestedFileName = String(requestedName ?? '').endsWith('.json')
+    ? String(requestedName) : `${requestedName}.json`;
+  const decoded = await localAccounts.decodeFileName?.(requestedFileName, request.password,
+    await filenameEncryptionMetadata(path.join(directory, requestedFileName)));
+  if (privateFileType(requestedFileName) && !decoded) {
+    throw new Error('Unlock this protected filename before overwriting it, or choose a new name.');
+  }
+  const baseName = sanitize(decoded || requestedName);
+  const entries = await fs.readdir(directory);
+  // Resolve human names from filename headers, and keep existing identities
+  // stable for overwrite operations and references such as workflow-state.json.
+  const matches = [];
+  for (const fileName of entries) {
+    if (!fileName.endsWith('.json')) continue;
+    if (fileName === requestedFileName || fileName === `${baseName}.json` ||
+        await localAccounts.decodeFileName?.(fileName, undefined,
+          await filenameEncryptionMetadata(path.join(directory, fileName))) === baseName) {
+      matches.push(fileName);
+    }
+  }
+  const explicit = (privateFileType(requestedFileName) || String(requestedName).endsWith('.json')) &&
+    matches.includes(requestedFileName) ? requestedFileName : undefined;
+  if (matches.length > 1 && !explicit) throw new Error('Several files have this name. Choose a different name or an explicit file.');
+  for (const fileName of explicit ? [explicit] : matches) {
+    if (request.overwrite && privateFileType(fileName) && localAccounts.active &&
+        request.protection === 'encrypted' && request.password === localAccounts.password &&
+        ((shouldProtectFileName(request) && fileName.slice(2, 5) === '1xQ') ||
+          !await localAccounts.ownsFileName(fileName, await filenameEncryptionMetadata(path.join(directory, fileName))))) {
+      const replacement = shouldProtectFileName(request)
+        ? await localAccounts.encodeFileName(baseName, type) : `${baseName}.json`;
+      if (entries.includes(replacement)) throw new Error('The replacement filename already exists. Choose a new name.');
+      return { baseName, fileName: replacement, filePath: path.join(directory, replacement),
+        previousFilePath: path.join(directory, fileName) };
+    }
+    return { baseName, fileName, filePath: path.join(directory, fileName) };
+  }
+  const fileName = shouldProtectFileName(request)
+    ? await localAccounts.encodeFileName(baseName, type) : `${baseName}.json`;
+  return { baseName, fileName, filePath: path.join(directory, fileName) };
+}
+
+async function finishStoredSave(previousFilePath) {
+  if (previousFilePath) await fs.unlink(previousFilePath);
+}
+
 function storedFileMetadata(value) {
   if (value?.format === 'rpgraph-storybook') {
     return storybookMetadata(value);
@@ -686,7 +787,7 @@ async function assertOverwriteType(filePath, expectedType) {
 }
 
 async function writeTextFileAtomically(filePath, contents) {
-  const temporaryPath = `${filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  const temporaryPath = path.join(path.dirname(filePath), `.rpgraph-${process.pid}-${crypto.randomUUID()}.tmp`);
   try {
     await fs.writeFile(temporaryPath, contents, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
     await fs.rename(temporaryPath, filePath);
@@ -751,7 +852,7 @@ async function workflowFiles() {
         const metadata = await readStoredFileMetadata(filePath);
         return {
           fileName: entry.name,
-          name: storedJsonName(entry.name),
+          name: await storedDisplayName(entry.name, undefined, undefined, filePath),
           filePath,
           updatedAt: stats.mtime.toISOString(),
           ...metadata,
@@ -819,7 +920,7 @@ async function ensureDefaultWorkflowFile(
           bundledFileName,
         ])),
       });
-      return { fileName, name: storedJsonName(fileName), filePath };
+      return { fileName, name: await storedDisplayName(fileName, undefined, undefined, filePath), filePath };
     }
     fileName = `${baseName}-${index}${jsonFileExtension}`;
     filePath = path.join(directory, fileName);
@@ -835,7 +936,7 @@ async function ensureDefaultWorkflowFile(
       bundledFileName,
     ])),
   });
-  return { fileName, name: storedJsonName(fileName), filePath };
+  return { fileName, name: await storedDisplayName(fileName, undefined, undefined, filePath), filePath };
 }
 
 async function ensureBundledDefaultWorkflowFiles(overwriteExisting) {
@@ -863,7 +964,7 @@ async function ensureDefaultStorybookFile(bundledPath) {
           bundledFileName,
         ])),
       });
-      return { fileName, name: storedJsonName(fileName), filePath };
+      return { fileName, name: await storedDisplayName(fileName, undefined, undefined, filePath), filePath };
     }
     fileName = `${baseName}-${index}${jsonFileExtension}`;
     filePath = path.join(directory, fileName);
@@ -881,7 +982,7 @@ async function ensureDefaultStorybookFile(bundledPath) {
       bundledFileName,
     ])),
   });
-  return { fileName, name: storedJsonName(fileName), filePath };
+  return { fileName, name: await storedDisplayName(fileName, undefined, undefined, filePath), filePath };
 }
 
 async function importMissingBundledDefaultContent() {
@@ -920,7 +1021,7 @@ async function loadStoredWorkflowFile(fileName, password = '') {
   await saveLastWorkflowFileName(fileName);
   return {
     fileName,
-    name: storedJsonName(fileName),
+    name: await storedDisplayName(fileName, undefined, password, filePath),
     filePath,
     ...metadata,
     value,
@@ -929,7 +1030,7 @@ async function loadStoredWorkflowFile(fileName, password = '') {
 
 function unsupportedSessionFormatError(envelope) {
   const { envelopeFormatVersion, formatVersion } = encryptedSessionMetadata(envelope);
-  if (envelopeFormatVersion !== currentEncryptedSessionEnvelopeFormatVersion) {
+  if (!['2.1', currentEncryptedSessionEnvelopeFormatVersion].includes(envelopeFormatVersion)) {
     return new Error(
       `This encrypted RP save uses Envelope Format ${envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedSessionEnvelopeFormatVersion}.`,
     );
@@ -941,7 +1042,7 @@ function unsupportedSessionFormatError(envelope) {
 
 function unsupportedWorkflowFormatError(envelope) {
   const { envelopeFormatVersion, formatVersion } = encryptedWorkflowMetadata(envelope);
-  if (envelopeFormatVersion !== currentEncryptedWorkflowEnvelopeFormatVersion) {
+  if (!['2.0', currentEncryptedWorkflowEnvelopeFormatVersion].includes(envelopeFormatVersion)) {
     return new Error(
       `This encrypted workflow uses Envelope Format ${envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedWorkflowEnvelopeFormatVersion}.`,
     );
@@ -953,7 +1054,7 @@ function unsupportedWorkflowFormatError(envelope) {
 
 function unsupportedStorybookFormatError(envelope) {
   const { envelopeFormatVersion, formatVersion } = encryptedStorybookMetadata(envelope);
-  if (envelopeFormatVersion !== currentEncryptedStorybookEnvelopeFormatVersion) {
+  if (!['1.0', currentEncryptedStorybookEnvelopeFormatVersion].includes(envelopeFormatVersion)) {
     return new Error(
       `This encrypted storybook uses Envelope Format ${envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedStorybookEnvelopeFormatVersion}.`,
     );
@@ -963,7 +1064,7 @@ function unsupportedStorybookFormatError(envelope) {
 
 function unsupportedCharacterCardFormatError(envelope) {
   const { envelopeFormatVersion, formatVersion } = encryptedCharacterCardMetadata(envelope);
-  if (envelopeFormatVersion !== currentEncryptedCharacterCardEnvelopeFormatVersion) {
+  if (!['1.0', currentEncryptedCharacterCardEnvelopeFormatVersion].includes(envelopeFormatVersion)) {
     return new Error(
       `This encrypted character card uses Envelope Format ${envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedCharacterCardEnvelopeFormatVersion}.`,
     );
@@ -983,7 +1084,7 @@ function storybookFormatVersionErrorText(formatVersion) {
 function unsupportedStoredFileError(value, metadata) {
   if (metadata.type === 'workflow') {
     if (metadata.protection === 'encrypted' &&
-      metadata.envelopeFormatVersion !== currentEncryptedWorkflowEnvelopeFormatVersion) {
+      !['2.0', currentEncryptedWorkflowEnvelopeFormatVersion].includes(metadata.envelopeFormatVersion)) {
       return new Error(
         `This encrypted workflow uses Envelope Format ${metadata.envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedWorkflowEnvelopeFormatVersion}.`,
       );
@@ -994,7 +1095,7 @@ function unsupportedStoredFileError(value, metadata) {
   }
   if (metadata.type === 'session') {
     if (metadata.protection === 'encrypted' &&
-      metadata.envelopeFormatVersion !== currentEncryptedSessionEnvelopeFormatVersion) {
+      !['2.1', currentEncryptedSessionEnvelopeFormatVersion].includes(metadata.envelopeFormatVersion)) {
       return new Error(
         `This encrypted RP save uses Envelope Format ${metadata.envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedSessionEnvelopeFormatVersion}.`,
       );
@@ -1005,7 +1106,7 @@ function unsupportedStoredFileError(value, metadata) {
   }
   if (metadata.type === 'storybook') {
     if (metadata.protection === 'encrypted' &&
-      metadata.envelopeFormatVersion !== currentEncryptedStorybookEnvelopeFormatVersion) {
+      !['1.0', currentEncryptedStorybookEnvelopeFormatVersion].includes(metadata.envelopeFormatVersion)) {
       return new Error(
         `This encrypted storybook uses Envelope Format ${metadata.envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedStorybookEnvelopeFormatVersion}.`,
       );
@@ -1014,7 +1115,7 @@ function unsupportedStoredFileError(value, metadata) {
   }
   if (metadata.type === 'character-card') {
     if (metadata.protection === 'encrypted' &&
-      metadata.envelopeFormatVersion !== currentEncryptedCharacterCardEnvelopeFormatVersion) {
+      !['1.0', currentEncryptedCharacterCardEnvelopeFormatVersion].includes(metadata.envelopeFormatVersion)) {
       return new Error(
         `This encrypted character card uses Envelope Format ${metadata.envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedCharacterCardEnvelopeFormatVersion}.`,
       );
@@ -1215,7 +1316,6 @@ async function encryptCharacterCard(card, password) {
     envelopeFormatVersion: currentEncryptedCharacterCardEnvelopeFormatVersion,
     payloadFormat: card.format,
     payloadFormatVersion: card.version,
-    characterName: typeof card.character.name === 'string' ? card.character.name : '',
     encryption: 'aes-256-gcm',
     keyDerivation: 'scrypt',
     keyDerivationParameters: currentScryptParameters,
@@ -1244,7 +1344,7 @@ async function decryptSession(envelope, password) {
   try {
     const salt = Buffer.from(envelope.salt, 'base64');
     const iv = Buffer.from(envelope.iv, 'base64');
-    const decipher = await createFileCipher(password, salt, iv, sessionCipherAad, true);
+    const decipher = await createFileCipher(password, salt, iv, envelope.envelopeFormatVersion === '2.1' ? Buffer.from('rpgraph-encrypted-session:v2.1') : sessionCipherAad, true);
     decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
     const session = decryptedFileJson(decipher, envelope.ciphertext);
     if (
@@ -1287,7 +1387,7 @@ async function decryptWorkflow(envelope, password) {
   try {
     const salt = Buffer.from(envelope.salt, 'base64');
     const iv = Buffer.from(envelope.iv, 'base64');
-    const decipher = await createFileCipher(password, salt, iv, workflowCipherAad, true);
+    const decipher = await createFileCipher(password, salt, iv, envelope.envelopeFormatVersion === '2.0' ? Buffer.from('rpgraph-encrypted-workflow:v2') : workflowCipherAad, true);
     decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
     const workflow = decryptedFileJson(decipher, envelope.ciphertext);
     if (
@@ -1323,7 +1423,7 @@ async function decryptStorybook(envelope, password) {
   try {
     const salt = Buffer.from(envelope.salt, 'base64');
     const iv = Buffer.from(envelope.iv, 'base64');
-    const decipher = await createFileCipher(password, salt, iv, storybookCipherAad, true);
+    const decipher = await createFileCipher(password, salt, iv, envelope.envelopeFormatVersion === '1.0' ? Buffer.from('rpgraph-encrypted-storybook:v1') : storybookCipherAad, true);
     decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
     const storybook = decryptedFileJson(decipher, envelope.ciphertext);
     if (
@@ -1359,14 +1459,15 @@ async function decryptCharacterCard(envelope, password) {
   try {
     const salt = Buffer.from(envelope.salt, 'base64');
     const iv = Buffer.from(envelope.iv, 'base64');
-    const decipher = await createFileCipher(password, salt, iv, characterCardCipherAad, true);
+    const decipher = await createFileCipher(password, salt, iv, envelope.envelopeFormatVersion === '1.0' ? Buffer.from('rpgraph-encrypted-character:v1') : characterCardCipherAad, true);
     decipher.setAuthTag(Buffer.from(envelope.authenticationTag, 'base64'));
     const card = decryptedFileJson(decipher, envelope.ciphertext);
     if (
       !card ||
       card.format !== envelope.payloadFormat ||
       card.version !== envelope.payloadFormatVersion ||
-      (typeof card.character?.name === 'string' ? card.character.name : '') !== envelope.characterName
+      (envelope.envelopeFormatVersion === '1.0' &&
+        (typeof card.character?.name === 'string' ? card.character.name : '') !== envelope.characterName)
     ) {
       throw new Error('Encrypted character card metadata does not match its payload.');
     }
@@ -5137,7 +5238,7 @@ ipcMain.handle('comfy:apply-workflow-repair', async (_event, request) => {
     const filePath = validateComfyWorkflowPath(request?.workflowPath || defaultComfyWorkflowPathForRole(role));
     const workflow = extractJsonObjectFromText(request?.workflowJson);
     const inspection = assertComfyWorkflowCompatible(workflow, filePath, role);
-    const workflowJson = `${JSON.stringify(workflow, null, 2)}\n`;
+    const workflowJson = await storedPayloadContents(workflow, filePath);
     await fs.writeFile(filePath, workflowJson, 'utf8');
     return {
       ok: true,
@@ -5391,10 +5492,9 @@ handleWorkspace('workflow:save-named', async (_event, request) => {
   workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
-  const baseName = safeWorkflowBaseName(request?.name);
-  const fileName = `${baseName}${jsonFileExtension}`;
-  const filePath = path.join(directory, fileName);
+  const { baseName, fileName, filePath, previousFilePath } = await storedSaveTarget(directory, request?.name, safeWorkflowBaseName, request, 'workflow');
   if (request.overwrite) {
+    if (previousFilePath) await assertOverwriteType(previousFilePath, 'workflow');
     await assertOverwriteType(filePath, 'workflow');
   }
   const workflow = request.protection === 'encrypted'
@@ -5403,7 +5503,7 @@ handleWorkspace('workflow:save-named', async (_event, request) => {
       ? request.workflow
       : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
   try {
-    const contents = `${JSON.stringify(workflow, null, 2)}\n`;
+    const contents = await storedPayloadContents(workflow, filePath);
     if (request.overwrite) {
       await writeTextFileAtomically(filePath, contents);
     } else {
@@ -5415,6 +5515,7 @@ handleWorkspace('workflow:save-named', async (_event, request) => {
     }
     throw error;
   }
+  await finishStoredSave(previousFilePath);
   if (request.protection === 'plain') {
     approveWorkflowPath(filePath);
   }
@@ -5426,10 +5527,9 @@ handleWorkspace('storybook:save', async (_event, request) => {
   workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
-  const baseName = safeStorybookBaseName(request?.name ?? request?.storybook?.title);
-  const fileName = `${baseName}${jsonFileExtension}`;
-  const filePath = path.join(directory, fileName);
+  const { baseName, fileName, filePath, previousFilePath } = await storedSaveTarget(directory, request?.name ?? request?.storybook?.title, safeStorybookBaseName, request, 'storybook');
   if (request.overwrite) {
+    if (previousFilePath) await assertOverwriteType(previousFilePath, 'storybook');
     await assertOverwriteType(filePath, 'storybook');
   }
   const storybook = request.protection === 'encrypted'
@@ -5438,7 +5538,7 @@ handleWorkspace('storybook:save', async (_event, request) => {
       ? request.storybook
       : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
   try {
-    const contents = `${JSON.stringify(storybook, null, 2)}\n`;
+    const contents = await storedPayloadContents(storybook, filePath);
     if (request.overwrite) {
       await writeTextFileAtomically(filePath, contents);
     } else {
@@ -5450,6 +5550,7 @@ handleWorkspace('storybook:save', async (_event, request) => {
     }
     throw error;
   }
+  await finishStoredSave(previousFilePath);
   await npcLibraryService.reload();
   approveFilePath(filePath);
   return { fileName, name: baseName, filePath };
@@ -5487,10 +5588,9 @@ handleWorkspace('character:save', async (_event, request) => {
       `Only RPGraph Character Card Format ${currentCharacterCardFormatVersion} payloads can be saved.`,
     );
   }
-  const baseName = safeCharacterCardBaseName(request?.name ?? card.character?.name);
-  const fileName = `${baseName}${jsonFileExtension}`;
-  const filePath = path.join(directory, fileName);
+  const { baseName, fileName, filePath, previousFilePath } = await storedSaveTarget(directory, request?.name ?? card.character?.name, safeCharacterCardBaseName, request, 'character-card');
   if (request.overwrite) {
+    if (previousFilePath) await assertOverwriteType(previousFilePath, 'character-card');
     await assertOverwriteType(filePath, 'character-card');
   }
   const payload = request.protection === 'encrypted'
@@ -5499,7 +5599,7 @@ handleWorkspace('character:save', async (_event, request) => {
       ? card
       : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
   try {
-    const contents = `${JSON.stringify(payload, null, 2)}\n`;
+    const contents = await storedPayloadContents(payload, filePath);
     if (request.overwrite) {
       await writeTextFileAtomically(filePath, contents);
     } else {
@@ -5511,6 +5611,7 @@ handleWorkspace('character:save', async (_event, request) => {
     }
     throw error;
   }
+  await finishStoredSave(previousFilePath);
   approveFilePath(filePath);
   if (destination === 'npc-characters' || destination === 'account-npc-characters') {
     await npcLibraryService.reload();
@@ -5583,6 +5684,8 @@ handleWorkspace('file:save-to-path', async (_event, request) => {
     throw new Error('Choose Workflow, Storybook, RP save, or Character.');
   }
 
+  if (shouldProtectFileName(request)) defaultFileName = await localAccounts.encodeFileName(baseName, expectedType);
+
   const result = await dialog.showSaveDialog({
     title,
     defaultPath: path.join(filesDirectory(), defaultFileName),
@@ -5591,10 +5694,37 @@ handleWorkspace('file:save-to-path', async (_event, request) => {
   if (result.canceled || !result.filePath) {
     return { canceled: true };
   }
-  const filePath = normalizedFilePath(result.filePath);
+  let filePath = normalizedFilePath(result.filePath);
+  let previousFilePath;
   await fs.mkdir(path.dirname(filePath), { recursive: true });
+  if (shouldProtectFileName(request)) {
+    const target = await storedSaveTarget(path.dirname(filePath), path.basename(filePath), storedJsonName, { ...request, overwrite: true }, expectedType);
+    filePath = target.filePath;
+    previousFilePath = target.previousFilePath;
+  }
+  if (previousFilePath) await assertOverwriteType(previousFilePath, expectedType);
   await assertOverwriteType(filePath, expectedType);
-  await writeTextFileAtomically(filePath, `${JSON.stringify(payload, null, 2)}\n`);
+  // The native save dialog only confirms the path the user selected. Resolving
+  // an encrypted display name can find a different existing file.
+  if (!previousFilePath && filePath !== normalizedFilePath(result.filePath)) {
+    const exists = await fs.stat(filePath).then(() => true, error => {
+      if (error.code === 'ENOENT') return false;
+      throw error;
+    });
+    if (exists) {
+      const confirmation = await dialog.showMessageBox({
+        type: 'warning',
+        buttons: ['Cancel', 'Replace'],
+        defaultId: 0,
+        cancelId: 0,
+        message: 'A file with this name already exists.',
+        detail: 'Replace the existing file in the selected folder?',
+      });
+      if (confirmation.response !== 1) return { canceled: true };
+    }
+  }
+  await writeTextFileAtomically(filePath, await storedPayloadContents(payload, filePath));
+  await finishStoredSave(previousFilePath);
   approveFilePath(filePath);
   if (expectedType === 'workflow' && protection === 'plain') {
     approveWorkflowPath(filePath);
@@ -5605,7 +5735,7 @@ handleWorkspace('file:save-to-path', async (_event, request) => {
   return {
     canceled: false,
     fileName: path.basename(filePath),
-    name: storedJsonName(path.basename(filePath)),
+    name: await storedDisplayName(path.basename(filePath), undefined, undefined, filePath),
     filePath,
   };
 });
@@ -5768,10 +5898,9 @@ handleWorkspace('session:save', async (_event, request) => {
   workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
-  const baseName = safeSessionBaseName(request.name);
-  const fileName = `${baseName}${jsonFileExtension}`;
-  const filePath = path.join(directory, fileName);
+  const { baseName, fileName, filePath, previousFilePath } = await storedSaveTarget(directory, request.name, safeSessionBaseName, request, 'session');
   if (request.overwrite) {
+    if (previousFilePath) await assertOverwriteType(previousFilePath, 'session');
     await assertOverwriteType(filePath, 'session');
   }
   const session = request.protection === 'encrypted'
@@ -5780,7 +5909,7 @@ handleWorkspace('session:save', async (_event, request) => {
       ? request.session
       : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
   try {
-    const contents = `${JSON.stringify(session, null, 2)}\n`;
+    const contents = await storedPayloadContents(session, filePath);
     if (request.overwrite) {
       await writeTextFileAtomically(filePath, contents);
     } else {
@@ -5792,6 +5921,7 @@ handleWorkspace('session:save', async (_event, request) => {
     }
     throw error;
   }
+  await finishStoredSave(previousFilePath);
   approveFilePath(filePath);
   return { fileName, name: baseName, filePath };
 });
@@ -5914,7 +6044,7 @@ handleWorkspace('file:select', async () => {
     filePath,
     fileName,
     ...metadata,
-    name: storedJsonName(fileName),
+    name: await storedDisplayName(fileName, undefined, undefined, filePath),
   };
 });
 
@@ -5941,7 +6071,7 @@ handleWorkspace('character:select', async () => {
     filePath,
     fileName,
     ...metadata,
-    name: metadata.characterName || storedJsonName(fileName),
+    name: await storedDisplayName(fileName, metadata.characterName, undefined, filePath),
   };
 });
 
@@ -5957,7 +6087,7 @@ async function loadStoredFileRequest(request) {
   }
   return {
     fileName,
-    name: storedJsonName(fileName),
+    name: await storedDisplayName(fileName, undefined, request.password, filePath),
     filePath,
     ...metadata,
     value,
@@ -5977,15 +6107,28 @@ handleWorkspace('file:try-load', async (_event, request) => {
 
 handleWorkspace('session:save-current', async (_event, request) => {
   workspaceProtection.require(request);
-  const filePath = validateFilePath(request.filePath);
+  let filePath = validateFilePath(request.filePath);
+  let previousFilePath;
   await assertOverwriteType(filePath, 'session');
+  if (privateFileType(path.basename(filePath)) && localAccounts.active &&
+      request.protection === 'encrypted' && request.password === localAccounts.password &&
+      ((shouldProtectFileName(request) && path.basename(filePath).slice(2, 5) === '1xQ') ||
+        !await localAccounts.ownsFileName(path.basename(filePath), await filenameEncryptionMetadata(filePath)))) {
+    const target = await storedSaveTarget(path.dirname(filePath), path.basename(filePath), storedJsonName,
+      { ...request, overwrite: true }, 'session');
+    filePath = target.filePath;
+    previousFilePath = target.previousFilePath;
+    await assertOverwriteType(filePath, 'session');
+  }
   const session = request.protection === 'encrypted'
     ? await encryptSession(request.session, request.password)
     : request.protection === 'plain'
       ? request.session
       : (() => { throw new Error('Choose Plain JSON or Password encrypted.'); })();
-  await writeTextFileAtomically(filePath, `${JSON.stringify(session, null, 2)}\n`);
-  return { filePath, fileName: path.basename(filePath) };
+  await writeTextFileAtomically(filePath, await storedPayloadContents(session, filePath));
+  await finishStoredSave(previousFilePath);
+  approveFilePath(filePath);
+  return { filePath, fileName: path.basename(filePath), name: await storedDisplayName(path.basename(filePath), undefined, undefined, filePath) };
 });
 
 async function loadFilePathRequest(request) {
@@ -6000,7 +6143,7 @@ async function loadFilePathRequest(request) {
   }
   return {
     fileName,
-    name: storedJsonName(fileName),
+    name: await storedDisplayName(fileName, undefined, request.password, filePath),
     filePath,
     ...metadata,
     value,
