@@ -150,6 +150,7 @@ function StartDialogFileRow({
   onSelect,
   onOpen,
   infoLoading = false,
+  disabled = false,
   onInfo,
 }: {
   file: SavedFileSummary;
@@ -159,9 +160,10 @@ function StartDialogFileRow({
   onSelect: () => void;
   onOpen?: () => void;
   infoLoading?: boolean;
+  disabled?: boolean;
   onInfo?: () => void;
 }) {
-  const open = onOpen && file.compatible ? onOpen : undefined;
+  const open = onOpen && file.compatible && !disabled ? onOpen : undefined;
   return (
     <div
       className={`saved-chat-row${selected ? ' selected' : ''}`}
@@ -171,6 +173,7 @@ function StartDialogFileRow({
         className="saved-chat-select"
         type="button"
         aria-pressed={selected}
+        disabled={disabled}
         onClick={onSelect}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && open) {
@@ -216,7 +219,7 @@ function StartDialogFileRow({
             <button
               className="saved-chat-info"
               type="button"
-              disabled={file.protection !== 'plain' || !file.compatible || infoLoading}
+              disabled={disabled || file.protection !== 'plain' || !file.compatible || infoLoading}
               title={file.protection === 'encrypted'
                 ? 'Preview is unavailable for encrypted Storybooks.'
                 : !file.compatible
@@ -228,7 +231,7 @@ function StartDialogFileRow({
             </button>
           )}
           {onOpen && (
-            <button className="saved-chat-open" type="button" disabled={!file.compatible} onClick={onOpen}>
+            <button className="saved-chat-open" type="button" disabled={disabled || !file.compatible} onClick={onOpen}>
               Open
             </button>
           )}
@@ -324,6 +327,7 @@ type StudioDialogsProps = {
   showFiles: boolean;
   showStorybookPicker: boolean;
   showStartDialog: boolean;
+  startSelectionLoading: boolean;
   startWorkflowFileName: string | null;
   startTargetFileName: string | null;
   onCloseStartDialog: () => void;
@@ -1206,6 +1210,7 @@ export function StudioDialogs({
   showFiles,
   showStorybookPicker,
   showStartDialog,
+  startSelectionLoading,
   startWorkflowFileName,
   startTargetFileName,
   onCloseStartDialog,
@@ -3141,9 +3146,10 @@ export function StudioDialogs({
             aria-modal={activeDialog === 'start'}
             aria-hidden={activeDialog !== 'start'}
             aria-label="Start"
+            aria-busy={startSelectionLoading}
             tabIndex={-1}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && event.target === event.currentTarget && startTargetFile?.compatible) {
+              if (!startSelectionLoading && event.key === 'Enter' && event.target === event.currentTarget && startTargetFile?.compatible) {
                 event.preventDefault();
                 onOpenStartSelection(startTargetFile);
               }
@@ -3169,6 +3175,7 @@ export function StudioDialogs({
                       <StartDialogFileRow
                         key={file.fileName}
                         file={file}
+                        disabled={startSelectionLoading}
                         badge="Workflow"
                         name={file.name}
                         selected={startWorkflowFileName === file.fileName}
@@ -3186,6 +3193,7 @@ export function StudioDialogs({
                       <StartDialogFileRow
                         key={file.fileName}
                         file={file}
+                        disabled={startSelectionLoading}
                         badge="Storybook"
                         name={storybookDisplayName(file.name)}
                         selected={startTargetFileName === file.fileName}
@@ -3208,6 +3216,7 @@ export function StudioDialogs({
                       <StartDialogFileRow
                         key={file.fileName}
                         file={file}
+                        disabled={startSelectionLoading}
                         badge="RP Save"
                         name={file.name}
                         selected={startTargetFileName === file.fileName}
@@ -3227,14 +3236,14 @@ export function StudioDialogs({
               <button
                 type="button"
                 className="secondary"
-                disabled={!startWorkflowFile?.compatible}
+                disabled={startSelectionLoading || !startWorkflowFile?.compatible}
                 onClick={() => onOpenStartSelection()}
               >
                 Open Workflow Only
               </button>
               <button
                 type="button"
-                disabled={!startTargetFile?.compatible || (startTargetFile.type === 'storybook' && !startWorkflowFile?.compatible)}
+                disabled={startSelectionLoading || !startTargetFile?.compatible || (startTargetFile.type === 'storybook' && !startWorkflowFile?.compatible)}
                 onClick={() => onOpenStartSelection(startTargetFile)}
               >
                 {startTargetFile?.type === 'session' ? 'Continue RP' : 'Start RP'}

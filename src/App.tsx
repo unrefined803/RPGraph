@@ -1405,6 +1405,8 @@ function App() {
     showStorybookPicker,
     setShowStorybookPicker,
     showStartDialog,
+    startSelectionLoading,
+    cancelStartSelection,
     startWorkflowFileName,
     setStartWorkflowFileName,
     startTargetFileName,
@@ -6484,6 +6486,7 @@ function App() {
           setFileStorageStatus('');
         }}
         showStartDialog={showStartDialog}
+        startSelectionLoading={startSelectionLoading}
         startWorkflowFileName={startWorkflowFileName}
         startTargetFileName={startTargetFileName}
         onCloseStartDialog={() => {
@@ -6585,6 +6588,7 @@ function App() {
         onIncludeCharacterReceivedImagesChange={setIncludeCharacterReceivedImages}
         includeCharacterOwnPosts={includeCharacterOwnPosts}
         onCloseSessionPassword={() => {
+          if (showStartDialog) cancelStartSelection();
           if (sessionPasswordAction === 'load-character') {
             cancelCharacterCardUnlock();
           }

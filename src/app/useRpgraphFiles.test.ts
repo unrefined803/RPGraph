@@ -426,3 +426,137 @@ it('drops a remembered start dialog target that no longer exists', async () => {
 
   expect(render().startTargetFileName).toBeNull();
 });
+
+
+function pendingFileRead() {
+  let resolve!: (file: Awaited<ReturnType<Window['rpgraph']['loadFile']>>) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<Awaited<ReturnType<Window['rpgraph']['loadFile']>>>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+function loadedStartFile(file: SavedFileSummary) {
+  return { ...file, filePath: `/files/${file.fileName}`, value: { nodes: [] } };
+}
+
+it('ignores repeated start actions until the workflow and Storybook finish loading', async () => {
+  const { render, bridge, options } = startHarness();
+  const pending = pendingFileRead();
+  bridge.loadFile.mockImplementationOnce(() => pending.promise as never);
+  await render().openStartDialog();
+  const first = render().openStartSelection(startFiles.storybook);
+  expect(render().startSelectionLoading).toBe(true);
+
+  await render().openStartSelection(startFiles.session);
+  expect(bridge.loadFile).toHaveBeenCalledOnce();
+  expect(render().startTargetFileName).toBe('book.json');
+
+  pending.resolve(loadedStartFile(startFiles.workflow));
+  await first;
+  expect(vi.mocked(options.applyLoadedRpgraphFile).mock.calls.map(([file]) => file.fileName))
+    .toEqual(['wf.json', 'book.json']);
+  expect(render().startSelectionLoading).toBe(false);
+  expect(render().showStartDialog).toBe(false);
+});
+
+it.each([false, true])('discards canceled start reads and errors after a newer RP loads (reject: %s)', async reject => {
+  const { render, bridge, options } = startHarness();
+  const pending = pendingFileRead();
+  bridge.loadFile.mockImplementationOnce(() => pending.promise as never);
+  await render().openStartDialog();
+  const first = render().openStartSelection(startFiles.storybook);
+  render().closeStartDialog();
+  await render().openStartDialog();
+  await render().openStartSelection(startFiles.session);
+  const status = render().fileStorageStatus;
+
+  if (reject) pending.reject(new Error('Old read failed'));
+  else pending.resolve(loadedStartFile(startFiles.workflow));
+  await first;
+  expect(vi.mocked(options.applyLoadedRpgraphFile).mock.calls.map(([file]) => file.fileName))
+    .toEqual(['save.json']);
+  expect(render().fileStorageStatus).toBe(status);
+  expect(render().startTargetFileName).toBe('save.json');
+  expect(render().startSelectionLoading).toBe(false);
+});
+
+it('discards a Storybook read canceled after its workflow was applied', async () => {
+  const { render, bridge, options } = startHarness();
+  const pending = pendingFileRead();
+  bridge.loadFile.mockResolvedValueOnce(loadedStartFile(startFiles.workflow) as never);
+  bridge.loadFile.mockImplementationOnce(() => pending.promise as never);
+  await render().openStartDialog();
+  const opening = render().openStartSelection(startFiles.storybook);
+  await vi.waitFor(() => expect(bridge.loadFile).toHaveBeenCalledTimes(2));
+  expect(render().startSelectionLoading).toBe(true);
+  render().closeStartDialog();
+  pending.resolve(loadedStartFile(startFiles.storybook));
+  await opening;
+  expect(options.applyLoadedRpgraphFile).toHaveBeenCalledOnce();
+  expect(bridge.saveStartTarget).not.toHaveBeenCalled();
+});
+
+it('serializes password submissions and ignores an unlock canceled before completion', async () => {
+  const workflow = { ...startFiles.workflow, protection: 'encrypted' } satisfies SavedFileSummary;
+  const { render, bridge, options } = startHarness([workflow, startFiles.storybook]);
+  await render().openStartDialog();
+  await render().openStartSelection(startFiles.storybook);
+  expect(render().startSelectionLoading).toBe(false);
+  render().setSessionPassword('secret');
+  const pending = pendingFileRead();
+  bridge.loadFile.mockImplementationOnce(() => pending.promise as never);
+  const unlocking = render().unlockStoredFile();
+  await render().unlockStoredFile();
+  expect(bridge.loadFile).toHaveBeenCalledOnce();
+  render().cancelStartSelection();
+  pending.resolve(loadedStartFile(workflow));
+  await unlocking;
+  expect(options.applyLoadedRpgraphFile).not.toHaveBeenCalled();
+  expect(render().startSelectionLoading).toBe(false);
+});
+
+it('does not reopen a password prompt after an automatic unlock was canceled', async () => {
+  setAccountSession('account-secret');
+  const workflow = { ...startFiles.workflow, protection: 'encrypted' } satisfies SavedFileSummary;
+  const { render, bridge, options } = startHarness([workflow, startFiles.storybook]);
+  const pending = pendingFileRead();
+  bridge.tryLoadFile.mockImplementationOnce(() => pending.promise);
+  await render().openStartDialog();
+  const opening = render().openStartSelection(startFiles.storybook);
+  render().closeStartDialog();
+  pending.resolve(loadedStartFile(workflow));
+  await opening;
+  expect(options.applyLoadedRpgraphFile).not.toHaveBeenCalled();
+  expect(render().sessionPasswordAction).toBeNull();
+});
+
+it('allows retrying a failed start selection', async () => {
+  const { render, bridge } = startHarness();
+  await render().openStartDialog();
+  bridge.loadFile.mockRejectedValueOnce(new Error('Read failed'));
+  await render().openStartSelection(startFiles.storybook);
+  expect(render().startSelectionLoading).toBe(false);
+  expect(render().showStartDialog).toBe(true);
+  await render().openStartSelection(startFiles.storybook);
+  expect(render().showStartDialog).toBe(false);
+});
+
+it('remembers a successfully saved Storybook as the next start target', async () => {
+  const { render, bridge } = harness();
+  render().requestSaveStorybook();
+  await render().saveStorybook();
+  expect(bridge.saveStartTarget).toHaveBeenLastCalledWith('game.json');
+  expect(render().startTargetFileName).toBe('game.json');
+});
+
+it('does not change the remembered start target before an overwrite is confirmed', async () => {
+  const { render, bridge } = harness();
+  bridge.saveStorybook.mockResolvedValueOnce({ fileName: 'game.json', name: 'Game', filePath: '/files/game.json', conflict: true } as never);
+  render().requestSaveStorybook();
+  await render().saveStorybook();
+  expect(bridge.saveStartTarget).not.toHaveBeenCalled();
+  expect(render().sessionOverwritePending).toBe(true);
+});
