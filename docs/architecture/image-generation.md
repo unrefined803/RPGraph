@@ -78,7 +78,7 @@ inserts a character LoRA into an unassigned slot or replaces a provider's fixed 
 The assistant receives workflow, diffusion-model, checkpoint, and slot context, and must
 describe character appearance fully when the selected LoRA cannot activate.
 
-## Assistant Context and Follow-up Review
+## Assistant context and capability limits
 
 The assistant receives the selected provider and model. ComfyUI additionally supplies
 workflow, checkpoint, diffusion model, and the current Character LoRA activation state,
@@ -87,12 +87,9 @@ and LoRA metadata. A selected generated preview remains attached after the order
 references during ordinary assistant conversation as well as explicit description tasks;
 it is not implicitly added to the generation references.
 
-Remaining improvements identified during review:
+The controls do not query `/api/v1/images/models` for model-specific reference
+counts or aspect ratios. They can therefore offer a combination the selected
+model rejects. Provider errors remain visible.
 
-- Discover OpenRouter image-model capabilities through `/api/v1/images/models`,
-  including supported reference counts and aspect ratios, instead of assuming all
-  image-output models accept the same inputs. The current controls can offer an
-  unsupported combination, which the provider then rejects.
-- Synchronize format changes requested in assistant chat with the API format selector.
-  Currently API responses must keep settings null, so the selector remains authoritative
-  even when the generated prompt requests a different aspect ratio.
+The API format selector is authoritative. API assistant responses keep settings
+null, so a format requested in conversation does not synchronize the selector.

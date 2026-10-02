@@ -37,7 +37,7 @@ The `plotTwist` profile field and `plottwist` phone layout key remain compatible
 Profiles store public fields, photo references, directed decisions (`pass`, `like`,
 `superlike`) keyed by account ID, and a migration version. Decisions remain private
 and are excluded from public MatchMe context.
-They no longer maintain live conversation history. Structured `matchMeMatch`
+Live conversation history is stored separately. Structured `matchMeMatch`
 timeline records contain the deterministic pair ID, both account IDs, timestamp
 and status. Each new match has one readable history event in the same record.
 Removing those records by restoring an earlier history removes the permission;
@@ -103,7 +103,7 @@ append operation check permission again. Invented accounts, self-messages and
 unmatched pairs cannot become delivered app messages. MatchMe supports text and
 emoji, without feed posts, comments, tips, voice or image-message attachments.
 
-## Conversation behavior and validation
+## Conversation behavior
 
 The UI reads `socialDirectMessage` timeline records with app `matchme`. IDs scope
 conversations and drafts. Sending respects the global run lock, shows progress
@@ -114,18 +114,6 @@ conversation during generation does not change the run's participants. Incoming
 messages use the shared per-character/per-conversation read markers and phone
 badge mechanism. Embedded history links open the original conversation.
 
-Non-UI tests cover all bundled matches, duplicate likes, inactive/unknown/self
-accounts, ambiguous names, renames, conversation isolation, strict direct replies,
-embedded/command permissions, legacy migration, RP-save round trips and custom
-prompt slot preservation. The application and UI/E2E tests are not launched by
-the implementation workflow.
-
-Manual checks: create/edit a profile; like each NPC; open a Storybook account
-with a profile; send text and emoji; switch conversations and characters during
-a run; force a provider error and retry; check unread badges and embedded links;
-save/load and export/import; restore earlier history and reset. Also check photo
-selection, gallery-backed discovery photos, dark-mode compact layouts and
-keyboard focus. Accounts without available photos show an unavailable state;
-the matching policy is intentionally unconditional. The shared library fixture
-and cross-app manual steps are documented in
-`docs/architecture/character-container-v2.md`, Stage 4.
+Accounts without available photos show an unavailable state. See the
+[Character Container reference](../../../docs/architecture/character-container-v2.md)
+for registry identity, snapshots and cross-app relationships.

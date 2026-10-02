@@ -15,30 +15,6 @@ The recorder stores at most 12,000 samples, overwriting the oldest entries. The
 report states how many samples were overwritten. No message text, character
 names, images, prompts, credentials, or script URLs are collected.
 
-## Current status
-
-Resolved as of 2026-10-01 (version 0.6.3): the chat scrolls smoothly during
-generation, with no stutter noticeable to the user. The last recording of the
-reference turn (ten rendered rows, two social messages, three timestamp patches)
-compares with the recording taken before the final corrections as follows:
-
-| Measurement | Before | After |
-| --- | --- | --- |
-| Largest frame gap | 118.2 ms | 48.6 ms |
-| Completion and social publication | 118.2 ms | 34.8 ms |
-| Speaker selection | 69.5 ms | below 24 ms |
-| Frame gaps of at least 34 ms | 5 | 2 |
-| Sum of recorded frame gaps | 576 ms | 167 ms |
-| Browser long tasks | 2 | 0 |
-| App function body per render | 15–27 ms | 0.3–10 ms |
-
-The decisive correction was caching the storybook emptiness check, which had
-serialized the image-bearing storybook twice in every App render. The exported
-reports are not kept in the repository. See
-[the recording analysis](ui-performance-analysis-2026-09-27.md) for all
-recordings, corrections and the known remaining costs, which matter only if
-long chats stutter again. Record the reference turn again before further work.
-
 ## Summarizing a report
 
 Reports contain thousands of per-frame scroll samples. Condense one with:
@@ -122,7 +98,6 @@ React state for individual samples, write to the console, or serialize reports
 while chat output runs. The observer and per-frame sampler exist only during an
 explicit recording. Instrumentation adds some overhead, so compare repeated
 short samples before attributing a small timing difference to a code change.
-
 
 ## Profiling build for unresolved stalls
 

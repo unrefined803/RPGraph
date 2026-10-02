@@ -25,8 +25,7 @@ To update, close RPGraph and run the new version's installer with the same
 installation scope. The standard electron-builder NSIS upgrade replaces the old
 program and preserves application data. Keep `appId`, executable name, product
 name, and installation conventions stable in future releases. Increase the
-application version for each published update. Automatic update checks inside
-the application are not implemented by this packaging change.
+application version for each published update. The application has no automatic update checks.
 
 Program files and user data are separate:
 

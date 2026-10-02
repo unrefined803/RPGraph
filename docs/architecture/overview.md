@@ -2,7 +2,7 @@
 
 RPGraph Studio is a local-first desktop studio for building and running roleplay workflows as a node graph. The app combines a visual workflow editor, roleplay chat, a multi-app character phone, scheduled events, story data, session saves, provider management, voice playback, and optional image generation through ComfyUI and OpenRouter.
 
-This document is the first high-level map of the current codebase. It is intentionally broad: later documents can expand each section into deeper implementation notes.
+This document maps the current application and its main code areas. Subsystem references are listed in the [architecture index](README.md).
 
 ## Contents
 
@@ -164,9 +164,28 @@ Panel navigation uses an in-memory, session-local history in `src/navigation`. M
 
 These UI panels are backed by chat parsing, phone message parsing, timeline selectors, event entities, and session runtime state.
 
-WhatsUp supports contact lists, unread conversations, replies, text and voice messages, images, gallery selection, emoji insertion, and per-character viewing. Gallery and Camera connect Storybook images, uploads, and the image-generation assistant. Banking shows character accounts, contacts, balances, statements, and transfers. Fotogram and OnlyFriends share a private social feed implementation with accounts, posts, comments, likes, direct messages, and app-specific prompts. Each app has its own bundled 100-user directory, and generated background comments reuse exact identities from the corresponding catalog. Both apps also show cosmetic catalog posts on every account's home page; these discovery posts do not imply a saved social connection. Each app's shuffled catalog is divided evenly across the current player characters, with overlap only when equal-sized partitions require reusing the pool remainder. The catalogs contain 25 posts in total: 15 Fotogram posts and 10 OnlyFriends posts. Fotogram includes 13 bundled 4:5 portrait JPEG posts and two text-only posts. The 10 OnlyFriends posts contain no bundled images and therefore use locked or placeholder frames. Real generated posts remain private to their author and connected viewers. Character containers carry explicit per-app relationships: WhatsUp numbers and Fotogram/OnlyFriends follows are directed, while authored MatchMe matches are mutual. Legacy Storybook contact pairs migrate to explicit WhatsUp/Fotogram entries. Real conversations remain visible without connecting other apps; new Fotogram follows do not add reverse follows. See [the relationship contract](character-container-v2.md#contacts-and-relationships). Searches begin after three characters and include matching Storybook accounts plus NPC identities discovered in phone or social history. OnlyFriends additionally supports a wallet, DM tips, paid post unlocks, and creator accounts. Notes provides character-specific editable cards with gentle automatic colors and a manual color picker.
+WhatsUp supports contacts, unread conversations, replies, text and voice messages,
+images and per-character viewing. Gallery and Camera connect character media,
+uploads and image generation. Banking shows accounts, statements and transfers.
+Fotogram and OnlyFriends share posts, comments, likes, direct messages and
+app-specific prompts. Discovery uses the effective character registry and each
+account's enabled state. Starting publications come from character containers;
+live activity is stored on the timeline. Legacy catalogs serve historical
+compatibility, not fresh cosmetic feeds or permission for new participants.
+OnlyFriends also supports wallets, DM tips and paid post unlocks. Accounts have
+no creator/user role. Notes stores per-character editable cards.
 
-New Fotogram and OnlyFriends posts receive an effective-registry account block in User Input context. Every character with an enabled account on that app is eligible, tagged or not; only disabled, missing and author accounts are omitted, and a small random sample is offered. Each line includes the exact name, handle and character tags. Private runtime instructions tell the model to use those tags for participation and comment style without printing tag labels. Tags shape whether and how a listed character reacts; they never gate eligibility. Comment-thread and DM routes do not yet use agency behavior. See [NPC Agency Tags](npc-agency-tags.md#candidate-selection-and-prompt-context).
+Characters carry explicit per-app relationships: WhatsUp numbers and social
+follows are directed; authored MatchMe matches are mutual. Legacy Storybook
+contact pairs migrate to explicit WhatsUp/Fotogram entries. Messaging and
+account sharing acquire contacts through the [relationship contract](character-container-v2.md#contacts-and-relationships).
+
+New Fotogram and OnlyFriends posts receive up to five randomly selected enabled
+accounts from the effective registry, excluding the author. Comment threads
+retain up to six recent commenters and can add up to two newcomers within that
+cap; the author is included separately. Context contains names, handles, tags
+and private characterization. Tags guide behavior without gating eligibility.
+See [NPC Agency Tags](npc-agency-tags.md#candidate-selection-and-prompt-context).
 
 ## Story And Session Data
 
@@ -319,7 +338,6 @@ The runtime:
 - [`src/comfy`](../../src/comfy): ComfyUI API and workflow compatibility helpers.
 - [`src/llm`](../../src/llm): LLM API wrapper and token metrics.
 - [`electron`](../../electron): desktop main process, preload bridge, file formats, encryption, and OS/provider integrations.
-
 
 ## MatchMe Workflow Actions
 

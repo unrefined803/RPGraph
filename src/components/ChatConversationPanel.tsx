@@ -388,9 +388,7 @@ type MessageRowProps = {
  * assembly, output-action UI, timeline grouping, etc.) only when this
  * message's own data or the shared display/handler props change — not on
  * every render of the panel, e.g. every streamed chunk of live LLM output
- * touching a different message elsewhere in the history. This is the
- * primary target of the "full per-message row memoization" follow-up: see
- * docs/performance-stuttering-investigation.md. */
+ * touching a different message elsewhere in the history. */
 const MessageRow = memo(function MessageRow(props: MessageRowProps) {
   const [diagnosticIdentity] = useState(() => ({}));
   countChatRowRender(props.message.id, props, diagnosticIdentity);

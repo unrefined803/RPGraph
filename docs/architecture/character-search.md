@@ -2,7 +2,9 @@
 
 `Ask character information` (`getCharacterList`, LLM request `ask_character_information`) uses a dedicated assistant for questions about known characters, accounts, relationships, and suitable people. It does not use criteria scoring or return JSON profiles. The phone image action uses the related plan-driven assistant described below.
 
-Bundled normal and planning v34 workflows enable character discovery in output channel 0 for RP Prompt Normal, RP AutoTurn, RP Narrator, and RP Narrator AutoTurn, in every WhatsUp slot, and in every Social Media slot, including Fotogram, OnlyFriends and MatchMe DMs. Planning workflows expose the action and answer to planning and main passes. RP Event and the separate Autoplay output remain unchanged.
+Workflow authors enable this action with `@action:Ask character information` in
+the relevant prompt. Availability depends on the selected workflow and slot.
+Multistep prompts can consume the answer in planning and output passes.
 
 ## Execution
 
@@ -40,8 +42,6 @@ The stable internal ID remains `getCharacterList`. Legacy `Get character list` m
 The action editor labels are **Character Information Assistant Prompt** and **Assistant Answer Insertion Template**. The first-pass hint stays read-only. Assistant variables are `{{plan}}` and `{{characterDirectory}}`; insertion uses `{{answer}}`. Missing placeholders append the required request, directory, or answer. Substitution is single-pass so data containing template tokens cannot expand further content.
 
 The previous maximum-results setting is removed; the request determines the desired result count. Stored default ranking and assistant instructions (including the former full-directory and 50–100-word information prompts) and result templates migrate to the new defaults, while custom templates remain editable. Legacy query-only calls are no longer executable.
-
-Validation: `src/characters/search.test.ts` covers name/profile/keyword selectors, one-hop relationships, empty selections and directory reduction. `src/app/workflowSnapshot.test.ts` checks app prompt availability and knowledge guidance. `src/nodes/shared/promptActions.characterList.test.ts` covers directory fields, post ownership, template migration, relationship context, prompt isolation, prose replay in planning and main output, no matches and empty responses. Phone-image tests also cover legacy direct-call compatibility.
 
 ## Phone image assistant
 

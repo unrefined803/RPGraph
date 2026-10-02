@@ -39,8 +39,7 @@ This is file encryption, not an encrypted filesystem or OS permission boundary.
 
 Credentials live only in application-session memory. File save dialogs default to
 Account encrypted and reuse the signed-in password with the existing RPGraph file
-envelopes, random salts, and encryption implementation. Users can explicitly select
-Plain JSON. Matching files unlock automatically; files encrypted with another
+envelopes, random salts, and encryption implementation. Users can select Plain JSON when active game protection permits it. Matching files unlock automatically; files encrypted with another
 password retain the manual unlock flow. Account saves use the account password even
 after importing a file encrypted with another password. New encryption-envelope
 versions retain readers for the previous versions; payload versions are unchanged.
@@ -99,8 +98,7 @@ Settings are not account-password encrypted. They include provider configuration
 custom prompts, workflow settings values, and embedded reference voice samples.
 RP-save loading restores workflow variables into this settings state, so private
 variables from an encrypted RP save can currently be persisted in plaintext.
-The user accepts this variable persistence for the intended use; see the review
-below for the documented boundary and the implemented protection of filenames.
+The user accepts this variable persistence for the intended use; see [Account privacy](account-privacy.md) for the persistence boundary.
 API keys use Electron `safeStorage` independently of the account password. New
 keys remain in memory when secure OS storage is unavailable; Linux `basic_text`
 is not accepted for new encrypted saves. Existing readable payloads can still be
@@ -117,8 +115,8 @@ Multiple model presets reuse a profile without another sign-in. The installation
 opaque host ID remains shared in the main user-data directory. See
 [ChatGPT provider](chatgpt-provider.md).
 
-See [the password and privacy review](../local-accounts-privacy-review.md) for the
-reviewed data paths, fixes, and remaining design limits.
+See [Account privacy](account-privacy.md) for encryption boundaries, filename
+protection and credential storage.
 
 The first-run preference remains in `rpgraph.accountFeature` in local storage.
 Account files and settings use the selected filesystem root; cosmetic browser
