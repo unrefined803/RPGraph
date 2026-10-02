@@ -91,3 +91,30 @@ Compare individual and combined turn exports in JSON and TOON, then exercise
 regeneration, undo, session load, and reset. Check long Text Input sections, image
 metadata, format errors, selected output handles, timestamps, and clipboard text.
 Application, browser, and UI/E2E tests are intentionally left to the user.
+
+## Workflow assistant context
+
+The workflow assistant uses a separate compact graph overview: all node IDs,
+labels, types, connections/handles, and short scalar settings. Authored text and
+structured settings are listed in `deferredFields` and loaded only as needed.
+`{"load":"nodeData","id":"node-id","field":"field-name"}` loads one field;
+omitting `field` loads bounded node state without source code. Existing `node`
+and `nodeType` requests include implementation code. Loaded text retains explicit
+truncation notices. Context receipts expose the executed JSON command and identify
+successfully loaded empty text fields. Each follow-up request includes a record
+of completed loads. Duplicate commands within one question receive a reminder
+without reloading; another repetition stops the loop. Escape closes the assistant
+and cancels pending work; late connection, context, or stream results are ignored.
+The overview uses compact JSON and omits visual layout, edge
+IDs, duplicate descriptions/previews, history, and Storybook content.
+
+Debug Snapshot remains a separate bounded runtime export with its existing
+compression and reference semantics. Assistant debug sections are optional, so
+their contents do not contribute to the initial workflow prompt.
+
+Storybook nodes advertise a `contentContext.request` using the virtual
+`storybookContent` field. It exposes title, introduction, scenario, character
+narrative fields, and the opening summary independently of export toggles.
+Media and imported runtime collections are excluded before context serialization.
+Invalid field requests return corrective feedback to the model within the
+existing bounded request loop, including the exact Storybook content command.
