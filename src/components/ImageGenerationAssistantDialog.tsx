@@ -1,3 +1,4 @@
+import { AssistantComposer } from './AssistantComposer';
 import { isTextGenerationConnection } from '../llm/textProvider';
 import { characterLoraStatus } from '../images/loraCompatibility';
 import { addImageGenerationReference, maxImageGenerationReferences, type ImageGenerationReference } from '../images/references';
@@ -869,58 +870,39 @@ export function ImageGenerationAssistantDialog({
               )}
             </div>
             {referenceError && <p className="image-generation-error" role="alert">{referenceError}</p>}
-            <form className="storybook-chat-form image-generation-chat-form" onSubmit={submitMessage}>
-              <div className="image-chat-input-box">
-                <textarea
-                  className="image-chat-textarea"
-                  rows={2}
-                  value={draft}
-                  placeholder="Describe the picture or request a change..."
-                  onChange={(event) => setDraft(event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      event.currentTarget.form?.requestSubmit();
-                    }
-                  }}
-                />
-                <div className="image-chat-input-toolbar">
-                  <div className="image-chat-input-left">
-                    {referencesSupported && (
-                      <button
-                        type="button"
-                        className="image-chat-reference-btn"
-                        disabled={isSubmitting || isGenerating || activeReferences.length >= maxImageGenerationReferences}
-                        onClick={() => { setReferenceError(''); setReferenceGalleryOpen(true); }}
-                        title={activeReferences.length >= maxImageGenerationReferences ? 'Maximum references reached (3/3)' : 'Add reference image'}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                          <circle cx="8.5" cy="8.5" r="1.5" />
-                          <polyline points="21 15 16 10 5 21" />
-                        </svg>
-                        <span>Reference</span>
-                        <span className="image-chat-reference-count">{activeReferences.length}/3</span>
-                      </button>
-                    )}
-                  </div>
-                  <div className="image-chat-input-right">
-                    <button
-                      type="submit"
-                      className="image-chat-send-btn"
-                      disabled={!draft.trim() || !assistantProvider || isSubmitting || isGenerating}
-                      title="Send message (Enter)"
-                    >
-                      <span>{isSubmitting ? 'Sending...' : 'Send'}</span>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13" />
-                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </form>
+            <AssistantComposer onSubmit={submitMessage}
+              disabled={!draft.trim() || !assistantProvider || isGenerating} busy={isSubmitting}
+              actions={referencesSupported && (
+                <button
+                  type="button"
+                  className="image-chat-reference-btn"
+                  disabled={isSubmitting || isGenerating || activeReferences.length >= maxImageGenerationReferences}
+                  onClick={() => { setReferenceError(''); setReferenceGalleryOpen(true); }}
+                  title={activeReferences.length >= maxImageGenerationReferences ? 'Maximum references reached (3/3)' : 'Add reference image'}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  <span>Reference</span>
+                  <span className="image-chat-reference-count">{activeReferences.length}/3</span>
+                </button>
+              )}>
+              <textarea
+                className="image-chat-textarea"
+                rows={2}
+                value={draft}
+                placeholder="Describe the picture or request a change..."
+                onChange={(event) => setDraft(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+              />
+            </AssistantComposer>
           </section>
         </div>
         {hoverReference && createPortal(<div className="image-reference-hover" style={{ left: hoverReference.x, top: hoverReference.y }}><img src={hoverReference.image.dataUrl} alt={hoverReference.image.name} /></div>, document.body)}

@@ -18363,47 +18363,6 @@ button.message-timeline-row.phone:focus-visible {
   box-shadow: 0 0 0 2px rgba(138, 115, 201, 0.18);
 }
 
-.send-message-button {
-  height: 40px;
-  min-width: 80px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  color: var(--soft-white);
-  cursor: pointer;
-  background: rgba(138, 115, 201, 0.22);
-  backdrop-filter: blur(8px);
-  padding: 0 18px;
-  font-size: 13px;
-  font-weight: 700;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(138, 115, 201, 0.15);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.send-message-button:hover:not(:disabled) {
-  background: rgba(138, 115, 201, 0.35);
-  border-color: rgba(138, 115, 201, 0.4);
-  transform: translateY(-1px);
-  box-shadow:
-    0 6px 16px rgba(138, 115, 201, 0.22),
-    0 0 10px rgba(138, 115, 201, 0.15);
-}
-
-.send-message-button:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.send-message-button:disabled {
-  opacity: 0.35;
-  cursor: default;
-  box-shadow: none;
-  background: rgba(255, 255, 255, 0.02);
-  border-color: rgba(255, 255, 255, 0.04);
-  color: #5d7090;
-}
-
 .typing-bubble {
   display: flex;
   align-items: center;
@@ -23203,68 +23162,6 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 11.5px;
 }
 
-.node-assistant-form {
-  padding: 14px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.01);
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.node-assistant-form textarea {
-  flex: 1;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: var(--soft-white);
-  font-size: 12.5px;
-  resize: none;
-  outline: none;
-  transition: border-color 0.2s ease;
-  line-height: 1.4;
-}
-
-.node-assistant-form textarea:focus {
-  border-color: var(--accent);
-}
-
-.node-assistant-form .send-message-button {
-  padding: 0 16px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-light));
-  border: none;
-  border-radius: 10px;
-  color: var(--soft-white);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 38px;
-}
-
-.node-assistant-form .send-message-button:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(138, 115, 201, 0.25);
-}
-
-.node-assistant-form .send-message-button.cancel {
-  background: linear-gradient(135deg, #b85c6a, #d08166);
-}
-
-.node-assistant-form .send-message-button.cancel:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(216, 92, 108, 0.25);
-}
-
-.node-assistant-form .send-message-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 .node-assistant-code-block {
   margin: 10px 0;
   padding: 12px;
@@ -24744,14 +24641,14 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 /* Chat Header clear button and row layout */
-.image-generation-chat-panel .storybook-chat-header .prompt-generate-btn {
+.storybook-chat-header .prompt-generate-btn {
   background: rgba(30, 41, 59, 0.85);
   border-color: rgba(71, 85, 105, 0.7);
   box-shadow: none;
   color: #cbd5e1;
 }
 
-.image-generation-chat-panel .storybook-chat-header .prompt-generate-btn:hover:not(:disabled) {
+.storybook-chat-header .prompt-generate-btn:hover:not(:disabled) {
   background: rgba(138, 115, 201, 0.28);
   border-color: rgba(138, 115, 201, 0.55);
   color: var(--soft-white);
@@ -27073,12 +26970,6 @@ button.message-timeline-row.phone:focus-visible {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.storybook-chat-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .storybook-continue-button {
   display: flex;
   flex-wrap: wrap;
@@ -28013,7 +27904,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 /* Chat Input Bar & Unified Box */
-.image-generation-chat-panel .storybook-chat-form.image-generation-chat-form {
+.storybook-chat-form.assistant-chat-form {
   display: block;
   padding: 12px 16px;
   background: #0d121f;
@@ -28030,13 +27921,21 @@ button.message-timeline-row.phone:focus-visible {
   overflow: hidden;
 }
 
+.assistant-chat-form .image-chat-input-box { overflow: visible; }
+.assistant-chat-form .character-mention-input { min-width: 0; }
+.assistant-chat-form .image-chat-input-left { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.assistant-chat-form .image-chat-input-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.assistant-chat-header { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.assistant-chat-header > button { flex-shrink: 0; }
+.image-chat-send-btn.cancel { background: linear-gradient(135deg, #b85c6a, #d08166); }
+
 .image-chat-input-box:focus-within {
   border-color: rgba(138, 115, 201, 0.7);
   background: #090e18;
   box-shadow: 0 0 0 2px rgba(138, 115, 201, 0.18);
 }
 
-.image-generation-chat-panel .storybook-chat-form textarea.image-chat-textarea {
+.storybook-chat-form.assistant-chat-form textarea {
   width: 100%;
   box-sizing: border-box;
   border: none !important;

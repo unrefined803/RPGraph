@@ -218,7 +218,7 @@ It has two modes:
 - **Workflow mode**: opened from the topbar `Assistant` button or by pressing `F1` with no node selected. It sees the app overview, a compact workflow snapshot, recent system-log warnings/errors, available node types, chat history with the assistant, and any debug snapshots it has requested.
 - **Node mode**: opened by selecting a graph node and pressing `F1`. It focuses on that node and can include its source code, current configuration/state JSON, recent system log, and selected debug snapshots.
 
-The assistant uses lazy context loading. If it needs more detail, it can request exactly one context item with a JSON command in its own response. The app then loads that context and continues the conversation. Supported requests include selected-node code/state, workflow node context, node-type context, and debug snapshots such as timeline, phone, events, app state, workflow nodes, workflow edges, last run, prompt switch debug, event manager debug, or full system log.
+The assistant uses lazy context loading. If it needs more detail, it can request exactly one context item with a JSON command in its own response. The app then loads that context and continues the conversation. When a response ends with several commands, only the first one runs. Supported requests include selected-node code/state, single workflow node fields or state without source code, Storybook narrative content, workflow node context, node-type context, and debug snapshots such as timeline, phone, events, app state, workflow nodes, workflow edges, last run, prompt switch debug, event manager debug, or full system log.
 
 ## File Management
 

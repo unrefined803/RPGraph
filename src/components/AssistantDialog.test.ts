@@ -205,3 +205,31 @@ it('bounds recovery attempts when the model keeps inventing fields', async () =>
   expect(state.bridge.streamChatCompletion).toHaveBeenCalledTimes(5);
   expect(state.props.messages.some((message) => message.text.startsWith('Loaded node context:'))).toBe(false);
 });
+
+it('runs the first of several closing commands and accepts an inline-code command', async () => {
+  const state = harness();
+  Object.assign(state.props.workflowNodes![0].data, { second: 'Second field value' });
+  state.bridge.streamChatCompletion
+    .mockResolvedValueOnce({ text: 'I need two fields.\n{"load":"nodeData","id":"prompt","field":"prompt"}\n{"load":"nodeData","id":"prompt","field":"second"}' })
+    .mockResolvedValueOnce({ text: '`{"load":"nodeData","id":"prompt","field":"second"}`' });
+  state.send();
+  await vi.waitFor(() => expect(state.bridge.streamChatCompletion).toHaveBeenCalledTimes(3));
+  const prompts = state.bridge.streamChatCompletion.mock.calls.map(([request]) => (request as { prompt: string }).prompt);
+  expect(prompts[1]).toContain('Authored prompt');
+  expect(prompts[1]).not.toContain('Second field value');
+  expect(prompts[2]).toContain('Second field value');
+  expect(state.props.messages.filter((message) => message.role === 'assistant').map((message) => message.text)).toEqual(['I need two fields.', 'Answer']);
+});
+
+it('replaces an empty reply or a failed request with an error instead of an empty bubble', async () => {
+  const state = harness();
+  state.bridge.streamChatCompletion.mockResolvedValueOnce({ text: '' });
+  state.send();
+  await vi.waitFor(() => expect(state.props.messages[state.props.messages.length - 1]?.role).toBe('error'));
+  expect(state.props.messages.map((message) => message.role)).toEqual(['user', 'error']);
+
+  state.bridge.streamChatCompletion.mockRejectedValueOnce(new Error('Provider offline'));
+  state.send();
+  await vi.waitFor(() => expect(state.props.messages[state.props.messages.length - 1]?.text).toContain('Provider offline'));
+  expect(state.props.messages.some((message) => message.role === 'assistant')).toBe(false);
+});

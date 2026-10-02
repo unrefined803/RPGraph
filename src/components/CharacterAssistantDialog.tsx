@@ -1,3 +1,4 @@
+import { AssistantComposer } from './AssistantComposer';
 import { isTextGenerationConnection } from '../llm/textProvider';
 import { getAccountPassword } from '../accounts/accountSession';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
@@ -435,6 +436,8 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
           <div className="storybook-chat-header character-assistant-chat-header"><div className="character-assistant-chat-title"><span className="panel-title">AI Character Assistant</span><span className="panel-subtitle">Create, describe and refine your character and images.</span></div>
             <label className="character-assistant-provider"><span>Provider Preset</span><NodeCustomSelect value={connectionId} onChange={setConnectionId} disabled={busy}
               options={llmConnections.length ? llmConnections.map((entry) => ({ value: entry.id, label: entry.label })) : [{ value: '', label: 'Configure a provider in Providers', disabled: true }]} /></label>
+            <button type="button" className="prompt-generate-btn" disabled={busy || ioBusy || !messages.length}
+              title="Clear assistant conversation" onClick={() => setMessages([])}>Clear Chat</button>
           </div>
           <div className="storybook-chat-log" aria-live="polite">
             {!messages.length && <div className="chat-empty-state"><div className="assistant-avatar-large">AI</div><p className="empty-title">Welcome to Character Assistant</p><p className="empty-description">Describe your character or choose a starting point.</p>
@@ -457,16 +460,14 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
             </div></div>)}
             {busy && <div className="chat-message-row assistant thinking"><div className="message-sender-avatar">AI</div><div className="chat-message-bubble typing-bubble" aria-label="Working on your character"><div className="typing-indicator"><span></span><span></span><span></span></div></div></div>}<div ref={chatEnd} />
           </div>
-          <form className="storybook-chat-form" onSubmit={(event) => { event.preventDefault(); void send(); }}>
-            <CharacterMentionInput value={draft} onChange={setDraft} characters={relationshipCharacters} selectedIds={referenceIds}
+          <AssistantComposer onSubmit={(event) => { event.preventDefault(); void send(); }}
+            disabled={ioBusy || !draft.trim() || !selectedConnection} busy={busy}
+            onCancel={() => { request.current?.abort(); setStatus('Request cancelled.'); }}
+            actions={attachments.length > 0 && <span className="character-assistant-attachment-count">{attachments.length} image{attachments.length === 1 ? '' : 's'} selected</span>}
+            sendActions={<button className="image-chat-reference-btn" type="button" disabled={ioBusy || busy} onClick={() => imageInput.current?.click()}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m8 12 7-7a4 4 0 0 1 6 6L10 22a6 6 0 0 1-8-8L13 3m-7 13 10-10" /></svg>Attach Images</button>}>
+            <CharacterMentionInput rows={2} value={draft} onChange={setDraft} characters={relationshipCharacters} selectedIds={referenceIds}
               onSelectedIdsChange={setReferenceIds} onSubmit={() => void send()} disabled={busy || ioBusy} />
-            <div className="character-assistant-composer-actions">
-              <span className="character-assistant-attachment-count">{attachments.length ? `${attachments.length} image${attachments.length === 1 ? '' : 's'} selected` : 'Shift + Enter for a new line'}</span>
-              <button className="inspect-button character-assistant-attach" type="button" disabled={ioBusy || busy} onClick={() => imageInput.current?.click()}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m8 12 7-7a4 4 0 0 1 6 6L10 22a6 6 0 0 1-8-8L13 3m-7 13 10-10" /></svg>Attach Images</button>
-              {busy ? <button className="send-message-button" type="button" onClick={() => { request.current?.abort(); setStatus('Request cancelled.'); }}>Cancel</button>
-                : <button type="submit" className="send-message-button" disabled={ioBusy || !draft.trim() || !selectedConnection}>Send</button>}
-            </div>
-          </form>
+          </AssistantComposer>
         </div>
       </div>
       </div>

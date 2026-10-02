@@ -29,8 +29,6 @@
 .character-assistant-image-uses { display: flex; flex-wrap: wrap; gap: 10px; }
 .character-assistant-image-uses label { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 .character-assistant-provider { display: grid; gap: 6px; margin-top: 12px; width: 100%; font-size: 11px; color: var(--muted); }
-.character-assistant-attachments { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; color: var(--muted); font-size: 12px; }
-.character-assistant-dialog .storybook-chat-form { display: flex; flex-direction: column; gap: 10px; }
 .character-assistant-dialog .chat-message-bubble p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .character-assistant-dialog .prompt-suggestions li { padding: 0; }
 .character-assistant-dialog .prompt-suggestions .character-assistant-suggestion { flex: 1; padding: 12px 14px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; box-shadow: none; cursor: pointer; }
@@ -50,14 +48,7 @@
   .character-assistant-dialog .thinking .message-sender-avatar { animation: none; }
 }
 
-/* The composer fills the panel; attachment and send actions share its bottom row. */
-.character-assistant-dialog .storybook-chat-form { align-items: stretch; padding: 16px 18px; }
-.character-assistant-dialog .storybook-chat-form > textarea {
-  flex: none; width: 100%; box-sizing: border-box; height: 110px; min-height: 90px; max-height: 220px; resize: vertical;
-}
-.character-assistant-composer-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
 .character-assistant-attachment-count { margin-right: auto; color: var(--muted); font-size: 11px; }
-.character-assistant-dialog .character-assistant-attach { display: inline-flex; align-items: center; gap: 8px; height: 40px; margin: 0; padding: 0 14px; border-radius: 12px; }
 .character-assistant-fields details, .character-assistant-image details { border: 1px solid #303d53; border-radius: 10px; padding: 12px; }
 .character-assistant-fields summary, .character-assistant-image summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; list-style: none; cursor: pointer; font-size: 13px; font-weight: 600; }
 .character-assistant-fields summary::-webkit-details-marker, .character-assistant-image summary::-webkit-details-marker { display: none; }
@@ -72,7 +63,7 @@
 .character-assistant-fields details > .character-assistant-inline { display: flex; }
 .character-assistant-image details > label { margin-top: 10px; }
 
-.character-assistant-dialog .character-assistant-chat-header { flex-direction: row; align-items: center; justify-content: space-between; gap: 18px; }
+.character-assistant-dialog .character-assistant-chat-header { flex-direction: row; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .character-assistant-chat-title { display: grid; gap: 5px; min-width: 0; }
 .character-assistant-chat-header .character-assistant-provider { margin: 0; width: clamp(160px, 38%, 260px); flex-shrink: 0; }
 @media (max-width: 1050px) {

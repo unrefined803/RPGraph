@@ -1,3 +1,4 @@
+import { AssistantComposer } from './AssistantComposer';
 import { isTextGenerationConnection } from '../llm/textProvider';
 import { isImageGenerationConnection } from '../images/providers';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
@@ -736,7 +737,7 @@ export function CustomNodeAssistantDialog({
               onClick={onClearChat}
               disabled={messages.length === 0 && diagnostics.length === 0}
             >
-              Delete Chat
+              Clear Chat
             </button>
             <div className="storybook-more-menu custom-node-more-menu">
               <button
@@ -1055,24 +1056,21 @@ export function CustomNodeAssistantDialog({
                 )}
               </div>
 
-              <form className="storybook-chat-form" onSubmit={submit}>
+              <AssistantComposer onSubmit={submit} disabled={!draft.trim()} busy={isSubmitting}>
                 <textarea
                   className="nodrag nowheel"
-                  rows={4}
+                  rows={2}
                   value={draft}
                   placeholder={customNodeIsEmpty ? 'Describe the Custom Node you want...' : 'Ask a question or describe the change you want...'}
                   onChange={(event) => setDraft(event.currentTarget.value)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
+                    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       submitDraft();
                     }
                   }}
                 />
-                <button type="submit" className="send-message-button" disabled={isSubmitting || !draft.trim()}>
-                  {isSubmitting ? 'Sending...' : 'Send'}
-                </button>
-              </form>
+              </AssistantComposer>
             </div>
           </div>
         </div>
@@ -3890,9 +3888,13 @@ export function StorybookCreatorDialog({
 
             {/* Right Column: Chat Panel */}
             <div className="storybook-chat-panel">
-              <div className="storybook-chat-header">
-                <span className="panel-title">AI Storybook Assistant</span>
-                <span className="panel-subtitle">Ask the assistant to draft, expand, or refine any part of your storybook.</span>
+              <div className="storybook-chat-header assistant-chat-header">
+                <div className="storybook-chat-header-text">
+                  <span className="panel-title">AI Storybook Assistant</span>
+                  <span className="panel-subtitle">Ask the assistant to draft, expand, or refine any part of your storybook.</span>
+                </div>
+                <button type="button" className="prompt-generate-btn" disabled={isSubmitting || messages.length === 0}
+                  title="Clear assistant conversation" onClick={onClearChat}>Clear Chat</button>
               </div>
               <div className="storybook-chat-log">
                 {pendingConversion?.phase === 'review' ? (
@@ -3963,17 +3965,10 @@ export function StorybookCreatorDialog({
                 )}
               </div>
 
-              <form className="storybook-chat-form" onSubmit={submit}>
-                <CharacterMentionInput value={draft} onChange={setDraft} characters={relationshipCharacters}
+              <AssistantComposer onSubmit={submit} disabled={!draft.trim()} busy={isSubmitting}>
+                <CharacterMentionInput rows={2} value={draft} onChange={setDraft} characters={relationshipCharacters}
                   selectedIds={referenceIds} onSelectedIdsChange={setReferenceIds} onSubmit={submitDraft} disabled={isSubmitting} />
-                <div className="storybook-chat-actions">
-                  <button type="button" className="send-message-button" disabled={isSubmitting || messages.length === 0}
-                    title="Clear assistant conversation" onClick={onClearChat}>Clear</button>
-                <button type="submit" className="send-message-button" disabled={isSubmitting || !draft.trim()}>
-                  {isSubmitting ? 'Sending...' : 'Send'}
-                </button>
-                </div>
-              </form>
+              </AssistantComposer>
             </div>
           </div>
         </div>
