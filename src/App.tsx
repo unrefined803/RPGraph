@@ -1481,7 +1481,7 @@ function App() {
     unlockOpenFilePath,
     unlockStoredFile,
     saveCurrentSession,
-    loadStartupWorkflow,
+    openStartDialogAtStartup,
     restoreDefaultFiles,
     resetWorkflow,
     saveCurrentWorkflow,
@@ -1507,7 +1507,8 @@ function App() {
     workflowFileMissing,
     setActiveWorkflowProtection,
     setActiveStorybookProtection,
-    clearWorkspaceForLockedStartup,
+    clearWorkspace,
+    workspaceEmpty: () => nodesRef.current.length === 0,
     onWorkspacePasswordChange: npcLibrary.setGamePassword,
     workflowRequiresProtection: () => activeWorkflowProtection === 'encrypted',
     workflowFollowsStorybookProtection: () => workflowFromRpSaveRef.current,
@@ -2422,9 +2423,8 @@ function App() {
     if (!settingsLoadComplete) {
       return;
     }
-    void loadStartupWorkflow();
-    // The last local workflow is loaded once settings are ready at app startup,
-    // then the start dialog opens on top of it.
+    void openStartDialogAtStartup();
+    // The start dialog opens on an empty workspace once settings are ready.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoadComplete]);
 
@@ -2639,6 +2639,7 @@ function App() {
 
   async function currentSession(name: string): Promise<RpgraphSessionV2> {
     if (activeRunRef.current) throw new Error('Wait for the current run to finish before replacing or saving the RP.');
+    if (nodesRef.current.length === 0) throw new Error('No workflow is loaded. Open a workflow before saving an RP.');
     const savedAt = new Date().toISOString();
     const session = sessionV2FromCurrentState(
       currentSessionState(name),
@@ -2672,13 +2673,21 @@ function App() {
     return suggestedWorkflowNameFromPath(activeWorkflowPath);
   }
 
-  function currentStorybookForSave() {
+  /** Finds the Storybook node a file action targets, or explains what is missing. */
+  function storybookNodeForFileAction(action: string) {
     const storybookNode =
       nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
       nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
-    if (!storybookNode || storybookNode.data.nodeType !== 'rp-storybook') {
-      throw new Error('Add an RP Storybook V3 node before saving a storybook file.');
+    if (!storybookNode) {
+      throw new Error(nodesRef.current.length === 0
+        ? `No workflow is loaded. Open a workflow before ${action}.`
+        : `Add an RP Storybook V3 node before ${action}.`);
     }
+    return storybookNode;
+  }
+
+  function currentStorybookForSave() {
+    const storybookNode = storybookNodeForFileAction('saving a storybook file');
     const storybook = storybookNode.data.storybookJson
       ? parseRpStorybookJson(storybookNode.data.storybookJson)
       : emptyRpStorybook;
@@ -2736,7 +2745,7 @@ function App() {
     nextMessageIdRef.current = 1;
   }
 
-  function clearWorkspaceForLockedStartup() {
+  function clearWorkspace() {
     clearCurrentSession();
     commitNodes([]);
     commitEdges([]);
@@ -2786,12 +2795,7 @@ function App() {
     }
     if (result.type === 'storybook') {
       if (result.protection === 'encrypted') checkImportedPassword(password);
-      const storybookNode =
-        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
-        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
-      if (!storybookNode) {
-        throw new Error('Add an RP Storybook V3 node before opening a storybook file.');
-      }
+      const storybookNode = storybookNodeForFileAction('opening a storybook file');
       const applied = applyStorybookToNode(
         storybookNode.id,
         result.value,
@@ -2816,12 +2820,7 @@ function App() {
       if (!getAccountPassword() && result.protection === 'encrypted' && (!workspacePasswordRef.current || workspacePasswordRef.current !== password)) {
         throw new Error('Open a protected Storybook or RP Save with the matching character password first.');
       }
-      const storybookNode =
-        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
-        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
-      if (!storybookNode) {
-        throw new Error('Add an RP Storybook V3 node before importing a character card.');
-      }
+      const storybookNode = storybookNodeForFileAction('importing a character card');
       applyCharacterCardToNode(storybookNode.id, result.value, result.fileName);
       setSelectedFile(result.fileName);
       setFileStorageStatus(`Imported character card: ${result.name}`);
@@ -2978,6 +2977,7 @@ function App() {
   }
 
   async function currentWorkflowForSave(includeStorybook = true) {
+    if (nodesRef.current.length === 0) throw new Error('No workflow is loaded. Open a workflow or add nodes before saving.');
     return currentWorkflow(includeStorybook);
   }
 
@@ -5023,7 +5023,9 @@ function App() {
   }
 
   markUiEvent('app.render', { phase: 'headerStart' });
-  const displayedWorkflowName = activeWorkflowFileName
+  const displayedWorkflowName = nodeViewNodes.length === 0
+    ? 'none loaded'
+    : activeWorkflowFileName
     ? activeWorkflowFileName === 'embedded workflow'
       ? 'Workflow from RP Save'
       : fileDisplayName(activeWorkflowFileName) ?? 'Workflow from RP Save'

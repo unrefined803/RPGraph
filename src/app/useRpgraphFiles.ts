@@ -65,7 +65,8 @@ type UseRpgraphFilesOptions = {
   workflowFileMissing: (error: unknown) => boolean;
   setActiveWorkflowProtection: (protection: FileProtection) => void;
   setActiveStorybookProtection: (protection: FileProtection) => void;
-  clearWorkspaceForLockedStartup: () => void;
+  clearWorkspace: () => void;
+  workspaceEmpty?: () => boolean;
   onWorkspacePasswordChange?: (password: string) => Promise<unknown>;
   workflowRequiresProtection?: () => boolean;
   workflowFollowsStorybookProtection?: () => boolean;
@@ -109,7 +110,8 @@ export function useRpgraphFiles({
   workflowFileMissing,
   setActiveWorkflowProtection,
   setActiveStorybookProtection,
-  clearWorkspaceForLockedStartup,
+  clearWorkspace,
+  workspaceEmpty,
   onWorkspacePasswordChange,
   workflowRequiresProtection,
   workflowFollowsStorybookProtection,
@@ -237,7 +239,17 @@ export function useRpgraphFiles({
     setShowStorybookPicker(workflowNeedsStorybookSelection(workflow));
   }
 
+  // The last opened or saved Storybook or RP Save is preselected the next
+  // time the start dialog opens, also after an app restart.
+  function rememberStartTarget(fileName: string) {
+    setStartTargetFileName(fileName);
+    void window.rpgraph.saveStartTarget(fileName).catch(() => undefined);
+  }
+
   async function completeFileLoad(result: LoadedRpgraphFile, applied: boolean, password = '') {
+    if (applied && (result.type === 'storybook' || result.type === 'session')) {
+      rememberStartTarget(result.fileName);
+    }
     const pendingStart = pendingStartStorybookRef.current;
     pendingStartStorybookRef.current = null;
     if (applied && result.type === 'workflow' && pendingStart?.workflowFileName === result.fileName) {
@@ -317,7 +329,10 @@ export function useRpgraphFiles({
     }
   }
 
-  async function openStartDialog(preferredWorkflowFileName?: string | null) {
+  async function openStartDialog(
+    preferredWorkflowFileName?: string | null,
+    preferredTargetFileName?: string | null,
+  ) {
     pendingStartStorybookRef.current = null;
     setShowFiles(false);
     setShowStorybookPicker(false);
@@ -336,10 +351,9 @@ export function useRpgraphFiles({
       startWorkflowFileName,
     ]));
     setStartTargetFileName((current) =>
-      files.some((file) =>
-        file.fileName === current && (file.type === 'storybook' || file.type === 'session'))
-        ? current
-        : null);
+      [preferredTargetFileName, current].find((fileName) =>
+        files.some((file) =>
+          file.fileName === fileName && (file.type === 'storybook' || file.type === 'session'))) ?? null);
     startDialogOpenRef.current = true;
     setShowStartDialog(true);
   }
@@ -443,7 +457,17 @@ export function useRpgraphFiles({
     }
   }
 
+  // Saving needs a loaded workflow; the workspace is empty until one is opened.
+  function saveBlockedByEmptyWorkspace(kind: string) {
+    if (!workspaceEmpty?.()) return false;
+    const message = `No workflow is loaded. Open a workflow before saving ${kind}.`;
+    setFileStorageStatus(message);
+    notifySystem('warning', message);
+    return true;
+  }
+
   function requestExportWorkflow(returnToFilesAfterSave = false) {
+    if (saveBlockedByEmptyWorkspace('a workflow')) return;
     const selectedWorkflow = savedFiles.find(
       (file) => file.fileName === selectedFile && file.type === 'workflow',
     );
@@ -715,6 +739,7 @@ export function useRpgraphFiles({
   }
 
   function requestSaveSession(returnToFilesAfterSave = false) {
+    if (saveBlockedByEmptyWorkspace('an RP')) return;
     const selectedSession = savedFiles.find(
       (file) => file.fileName === selectedFile && file.type === 'session',
     );
@@ -845,6 +870,7 @@ export function useRpgraphFiles({
         return;
       }
       setActiveSessionFileName(result.fileName);
+      rememberStartTarget(result.fileName);
       setActiveSessionSavedTurn(latestSessionTurnNumber(session));
       activeSessionPathRef.current = result.filePath;
       setActiveSessionProtection(fileProtection);
@@ -1110,6 +1136,7 @@ export function useRpgraphFiles({
       rememberFileDisplayName(result.fileName, fileDisplayName(activeSessionFileName) ?? name);
       activeSessionPathRef.current = result.filePath;
       setActiveSessionFileName(result.fileName);
+      rememberStartTarget(result.fileName);
       setActiveSessionProtection(protection);
       activeSessionPasswordRef.current = password;
       setActiveSessionSavedTurn(latestSessionTurnNumber(session));
@@ -1124,38 +1151,20 @@ export function useRpgraphFiles({
     }
   }
 
-  async function loadStartupWorkflow() {
-    let startupWorkflowFileName: string | null = null;
+  async function openStartDialogAtStartup() {
+    // Nothing is loaded in the background: the workspace stays empty until
+    // the user opens a selection, so dismissing the dialog leaves it empty.
+    clearWorkspace();
+    let workflowFileName: string | null = null;
+    let targetFileName: string | null = null;
     try {
-      const result = await window.rpgraph.loadStartupWorkflow();
-      startupWorkflowFileName = result.fileName;
-      if (result.requiresPassword) {
-        const unlocked = accountPassword
-          ? await window.rpgraph.tryLoadFile(result.fileName, accountPassword)
-          : null;
-        if (unlocked) {
-          applyLoadedRpgraphFile(unlocked, accountPassword);
-        } else {
-          // The start dialog requests the password once a selection is opened.
-          clearWorkspaceForLockedStartup();
-        }
-      } else {
-        applyLoadedWorkflow(
-          result.workflow ?? result.value,
-          result.protection === 'plain' ? result.filePath : null,
-          'Loaded',
-          result.fileName,
-          result.protection === 'encrypted' ? result.fileName : undefined,
-        );
-        setActiveWorkflowProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
-      }
+      const state = await window.rpgraph.loadStartDialogState();
+      workflowFileName = state.workflowFileName || null;
+      targetFileName = state.targetFileName || null;
     } catch (error) {
-      notifySystem(
-        'error',
-        `Startup workflow load failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      notifySystem('error', `Startup failed: ${errorMessage(error)}`);
     }
-    await openStartDialog(startupWorkflowFileName);
+    await openStartDialog(workflowFileName, targetFileName);
   }
 
   async function loadDefaultWorkflow() {
@@ -1377,7 +1386,7 @@ export function useRpgraphFiles({
     unlockOpenFilePath,
     unlockStoredFile,
     saveCurrentSession,
-    loadStartupWorkflow,
+    openStartDialogAtStartup,
     loadDefaultWorkflow,
     restoreDefaultFiles,
     resetWorkflow,

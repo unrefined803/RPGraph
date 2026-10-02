@@ -41,14 +41,14 @@ The main app shell is built in [`src/App.tsx`](../../src/App.tsx). It renders a 
 - **Graph panel**: the main React Flow canvas where workflow nodes are placed and connected.
 - **Graph toolbar**: reset workflow, save workflow, save RP session, runtime report, workflow capability indicators, and system toast messages.
 - **Node palette**: a side drawer of available node types grouped by purpose. Nodes can be dragged onto the graph, and favorite nodes can be added to the quick-add menu.
-- **Chat drawer**: a resizable right panel with `Chat`, `Phone`, and `Events` tabs. The graph decides which tabs exist: `Phone` is hidden when RP Output has **Enable phone** unchecked, and `Events` is hidden when the graph has no `Event Manager` node.
+- **Chat drawer**: a resizable right panel with `Chat`, `Phone`, and `Events` tabs. The graph decides which tabs exist: `Phone` is hidden when RP Output has **Enable phone** unchecked or the graph has no RP Output node (for example the empty workspace after dismissing the start dialog), and `Events` is hidden when the graph has no `Event Manager` node.
 - **Dialogs**: start, options, files, providers, storybook creator, assistant, custom node assistant, output help, image preview, system log, and ComfyUI generated image preview.
 
 ## Core User Flow
 
 At a high level, the app works like this:
 
-1. The start dialog opens on every app start. The user picks a workflow and a Storybook to start a new RP, or continues an RP Save. Dismissing it keeps the last active workflow.
+1. The start dialog opens on every app start over an empty workspace. The user picks a workflow and a Storybook to start a new RP, or continues an RP Save. Dismissing it leaves the workspace empty until a file is opened from Files.
 2. The workflow graph contains nodes such as `User Input`, `LLM Prompt`, `RP Output`, `RP Storybook V3`, and supporting context nodes.
 3. The user selects who they are playing as in the chat panel.
 4. The user sends a chat message, phone message, social-media action, event run, auto-turn, direct app action, or regeneration request.
@@ -240,15 +240,17 @@ Loading a Storybook file starts a fresh story session: current chat and phone-ap
 
 ### Start Dialog
 
-`loadStartupWorkflow` runs once after settings are loaded. It loads the last active workflow in the background and then always calls `openStartDialog`. An encrypted last workflow is unlocked silently with the account password when possible; otherwise the workspace stays empty and no password is requested until a selection is opened. `Start Dialog` in the Files dialog header reopens it at any time.
+`openStartDialogAtStartup` runs once after settings are loaded. It clears the workspace (`clearWorkspace`: no nodes, no edges, no session), reads the remembered selection through `window.rpgraph.loadStartDialogState` (`start-dialog:load-state`, which also imports new bundled defaults), and always calls `openStartDialog`. No workflow is loaded in the background and no password is requested until a selection is opened, so dismissing the dialog leaves an empty workspace. `Start Dialog` in the Files dialog header reopens it at any time.
+
+An empty workspace (zero nodes) is a supported state. The topbar shows `workflow: none loaded`, and file actions that need a workflow report it instead of failing later: opening a Storybook or Character Card and saving a Storybook go through `storybookNodeForFileAction`, saving a workflow or RP is refused by `saveBlockedByEmptyWorkspace` in `useRpgraphFiles` (with `currentSession` and `currentWorkflowForSave` as a second guard). Opening a workflow or an RP Save from Files fills the workspace. `Reset Workflow` on an empty workspace loads the bundled default workflow.
 
 The dialog (`showStartDialog` in `useRpgraphFiles`, markup in `src/dialogs/StudioDialogs.tsx`, `activeDialog` value `start`) is split in two halves:
 
-- **Left, top**: workflows. Exactly one is selected (`startWorkflowFileName`). `startDialogWorkflowFileName` picks the startup workflow, then the active workflow, then the previous selection, and falls back to the first compatible workflow.
+- **Left, top**: workflows. Exactly one is selected (`startWorkflowFileName`). `startDialogWorkflowFileName` picks the last active workflow reported at startup, then the active workflow, then the previous selection, and falls back to the first compatible workflow.
 - **Left, bottom**: Storybooks, with the same `Info` preview as the Storybook picker. The two left lists size to their rows and share the column evenly only when both overflow (`.start-dialog-new` grid tracks `minmax(0, max-content)`); each then scrolls on its own.
 - **Right**: RP Saves.
 
-`startTargetFileName` holds the single selected Storybook or RP Save. Both selections are kept in renderer memory while the app runs; the selected target row receives focus when the dialog opens, so `Enter` opens it. Double-click, `Open`, `Enter`, and the primary footer button all call `openStartSelection`:
+`startTargetFileName` holds the single selected Storybook or RP Save. The target is persisted: `rememberStartTarget` stores the file name through `window.rpgraph.saveStartTarget` (`lastStartTargetFileName` in `workflow-state.json`, next to `lastWorkflowFileName`) whenever a stored Storybook or RP Save was applied, from any dialog, and whenever an RP Save is written to RPGraph Studio Files. `start-dialog:load-state` returns it as `targetFileName`, and `openStartDialog` drops it when the file no longer exists. The selected target row receives focus when the dialog opens, so a single `Enter` resumes the last Storybook or RP Save; the primary button reads `Continue RP` for an RP Save and `Start RP` otherwise. Double-click, `Open`, `Enter`, and the primary footer button all call `openStartSelection`:
 
 - **Storybook**: stores the Storybook in `pendingStartStorybookRef` and opens the selected workflow through `openStoredFile`. After the workflow is applied, `completeFileLoad` consumes the pending entry and opens the Storybook into the freshly committed `rp-storybook` node. The Storybook replaces any Storybook embedded in the workflow.
 - **RP Save**: opens the save directly; the workflow selection is ignored.

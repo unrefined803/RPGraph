@@ -255,20 +255,11 @@ declare global {
         fileName?: string;
         workflow: unknown;
       }>;
-      loadStartupWorkflow: () => Promise<{
-        fileName: string;
-        name: string;
-        filePath: string;
-        type: SavedFileSummary['type'];
-        protection: SavedFileSummary['protection'];
-        envelopeFormatVersion?: string;
-        formatVersion?: string;
-        workflowFormatVersion?: string;
-        compatible?: boolean;
-        requiresPassword?: boolean;
-        value?: unknown;
-        workflow?: unknown;
+      loadStartDialogState: () => Promise<{
+        workflowFileName: string;
+        targetFileName: string;
       }>;
+      saveStartTarget: (fileName: string) => Promise<void>;
       resolveProjectPath: (relativePath: string) => Promise<{
         path: string;
       }>;

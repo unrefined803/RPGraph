@@ -148,10 +148,15 @@ export function useRoleplayPanelRuntime({
   const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
   const [storedChatPanelView, setChatPanelView] = usePanelNavigationState<ChatPanelView>('panel.chatPanelView', 'chat');
   // The graph decides which tabs exist: RP Output enables the phone (on unless
-  // unchecked), and the Events tab needs an Event Manager node.
+  // unchecked), and the Events tab needs an Event Manager node. Without an RP
+  // Output node, as in an empty workspace, there is no phone.
   const phoneAvailable = useMemo(
-    () => !nodeViewNodes.some((node) =>
-      node.data.kind === undefined && node.data.nodeType === 'output' && node.data.outputPhoneEnabled === false),
+    () => {
+      const outputNodes = nodeViewNodes.filter((node) =>
+        node.data.kind === undefined && node.data.nodeType === 'output');
+      return outputNodes.length > 0 &&
+        outputNodes.every((node) => node.data.outputPhoneEnabled !== false);
+    },
     [nodeViewNodes],
   );
   const eventManagerNode = useMemo(

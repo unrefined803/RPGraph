@@ -31,7 +31,8 @@ function harness(result = { fileName: 'game.json', name: 'Game', filePath: '/fil
     saveCurrentSession: vi.fn(async () => result),
     saveRpgraphFileToPath: vi.fn(async () => ({ ...result, canceled: false })),
     listFiles: vi.fn(async () => []),
-    loadStartupWorkflow: vi.fn(async () => ({ requiresPassword: true, fileName: 'game.json', name: 'Game' })),
+    saveStartTarget: vi.fn(async () => {}),
+    loadStartDialogState: vi.fn(async () => ({ workflowFileName: 'game.json', targetFileName: '' })),
     loadFile: vi.fn(async () => ({ ...result, type: 'session', protection: 'encrypted', value: {} })),
     tryLoadFile: vi.fn(async (): ReturnType<Window['rpgraph']['tryLoadFile']> => ({ ...result, type: 'session', protection: 'encrypted', value: {} })),
     loadFilePath: vi.fn(async () => ({ ...result, type: 'storybook', protection: 'encrypted', value: emptyRpStorybook })),
@@ -45,7 +46,7 @@ function harness(result = { fileName: 'game.json', name: 'Game', filePath: '/fil
     updateRuntimeNode: vi.fn(), notifySystem: vi.fn(), errorMessage: String,
     setActiveStorybookProtection: vi.fn(), setActiveWorkflowProtection: vi.fn(),
     applyStorybookToNode: vi.fn(() => true), onWorkspacePasswordChange: vi.fn(async () => {}),
-    applyLoadedRpgraphFile: vi.fn(),
+    applyLoadedRpgraphFile: vi.fn(), clearWorkspace: vi.fn(),
   } as unknown as Parameters<typeof useRpgraphFiles>[0];
   function render() {
     hooks.index = 0;
@@ -191,18 +192,6 @@ it('preserves file read errors instead of requesting another password', async ()
   expect(render().fileStorageStatus).toBe('Load failed: File no longer exists');
 });
 
-it('refreshes the file picker after automatically unlocking the startup workflow', async () => {
-  setAccountSession('account-secret');
-  const { render, bridge } = harness();
-  bridge.tryLoadFile.mockResolvedValueOnce({ fileName: 'game.json', name: 'Game', filePath: '/files/game.json',
-    type: 'workflow', protection: 'encrypted', value: { nodes: [] } });
-
-  await render().loadStartupWorkflow();
-
-  expect(bridge.listFiles).toHaveBeenCalledOnce();
-  expect(render().sessionPasswordAction).toBeNull();
-});
-
 it.each([false, true])('inherits an encrypted Storybook password for RP saves (chosen path: %s)', async (choosePath) => {
   const { render, bridge } = harness();
   render().requestSaveStorybook();
@@ -322,18 +311,44 @@ it('prefers the last used workflow in the start dialog and falls back to a compa
   expect(startDialogWorkflowFileName([startFiles.storybook], [])).toBeNull();
 });
 
-it('opens the start dialog at startup instead of requesting the workflow password', async () => {
+it('opens the start dialog on an empty workspace at startup without loading a workflow', async () => {
+  setAccountSession('account-secret');
   const { render, bridge, options } = startHarness();
-  options.clearWorkspaceForLockedStartup = vi.fn();
-  bridge.loadStartupWorkflow.mockResolvedValueOnce({ requiresPassword: true, fileName: 'other.json', name: 'Other' });
+  bridge.loadStartDialogState.mockResolvedValueOnce({ workflowFileName: 'other.json', targetFileName: '' });
 
-  await render().loadStartupWorkflow();
+  await render().openStartDialogAtStartup();
 
-  expect(options.clearWorkspaceForLockedStartup).toHaveBeenCalledOnce();
+  expect(options.clearWorkspace).toHaveBeenCalledOnce();
+  expect(options.applyLoadedRpgraphFile).not.toHaveBeenCalled();
+  expect(bridge.loadFile).not.toHaveBeenCalled();
+  expect(bridge.tryLoadFile).not.toHaveBeenCalled();
   expect(render().sessionPasswordAction).toBeNull();
   expect(render().showStartDialog).toBe(true);
   expect(render().showStorybookPicker).toBe(false);
   expect(render().startWorkflowFileName).toBe('other.json');
+});
+
+it('still opens the start dialog when the remembered selection cannot be read', async () => {
+  const { render, bridge, options } = startHarness();
+  bridge.loadStartDialogState.mockRejectedValueOnce(new Error('disk error'));
+
+  await render().openStartDialogAtStartup();
+
+  expect(options.notifySystem).toHaveBeenCalledWith('error', 'Startup failed: Error: disk error');
+  expect(render().showStartDialog).toBe(true);
+  expect(render().startWorkflowFileName).toBe('wf.json');
+});
+
+it.each(['workflow', 'session'] as const)('refuses to save a %s while no workflow is loaded', kind => {
+  const { render, options } = harness();
+  options.workspaceEmpty = () => true;
+
+  if (kind === 'workflow') render().requestExportWorkflow();
+  else render().requestSaveSession();
+
+  expect(render().sessionPasswordAction).toBeNull();
+  expect(render().fileStorageStatus).toMatch(/^No workflow is loaded\./);
+  expect(options.notifySystem).toHaveBeenCalledWith('warning', expect.stringMatching(/^No workflow is loaded\./));
 });
 
 it('loads the selected workflow before the Storybook chosen in the start dialog', async () => {
@@ -385,4 +400,29 @@ it('keeps the start dialog open when the Storybook cannot be applied', async () 
   await render().openStartSelection(startFiles.storybook);
 
   expect(render().showStartDialog).toBe(true);
+});
+
+it('restores the last start dialog target at startup and persists opened or saved ones', async () => {
+  const { render, bridge } = startHarness();
+  bridge.loadStartDialogState.mockResolvedValueOnce({ workflowFileName: 'wf.json', targetFileName: 'book.json' });
+
+  await render().openStartDialogAtStartup();
+  expect(render().startTargetFileName).toBe('book.json');
+  expect(bridge.saveStartTarget).not.toHaveBeenCalled();
+
+  await render().openStartSelection(startFiles.session);
+  expect(bridge.saveStartTarget).toHaveBeenLastCalledWith('save.json');
+
+  render().requestSaveSession();
+  await render().saveSession();
+  expect(bridge.saveStartTarget).toHaveBeenLastCalledWith('game.json');
+  expect(render().startTargetFileName).toBe('game.json');
+});
+
+it('drops a remembered start dialog target that no longer exists', async () => {
+  const { render } = startHarness();
+
+  await render().openStartDialog(null, 'deleted.json');
+
+  expect(render().startTargetFileName).toBeNull();
 });

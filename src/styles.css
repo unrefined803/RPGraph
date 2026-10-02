@@ -121,6 +121,12 @@ input[type="checkbox"]:checked::after {
   color: #c6e4c8;
 }
 
+/* Keyboard focus is never ringed: the system focus ring (orange on some Linux
+   themes) clashes with the app's own selection styling. */
+:focus-visible {
+  outline: none !important;
+}
+
 input[type="checkbox"]:focus-visible {
   outline: 2px solid rgba(126, 185, 197, 0.55);
   outline-offset: 2px;
