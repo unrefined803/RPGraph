@@ -986,6 +986,7 @@ function App() {
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    phoneAvailable,
     cyclePhoneNotificationOwner,
     setSelectedCharacterId,
     selectedCharacter,
@@ -5640,28 +5641,32 @@ function App() {
 	                    <span className="tab-badge">{unreadChatCount}</span>
 	                  )}
 	                </button>
-                <PhoneTab
-                  active={chatPanelView === 'phone'}
-                  notificationCount={unreadPhoneNotificationCount}
-                  viewedPhoneHasNotifications={viewedPhoneHasNotifications}
-                  settingsLoadComplete={settingsLoadComplete}
-                  switchHintSeen={phoneNotificationSwitchHintSeen}
-                  onSelect={selectPhonePanelView}
-                  onCycleNotificationOwner={cyclePhoneNotificationOwner}
-                  onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
-                />
-                <button
-                  className={chatPanelView === 'events' ? 'active' : ''}
-                  type="button"
-                  role="tab"
-                  aria-selected={chatPanelView === 'events'}
-                  onClick={() => selectChatPanelView('events')}
-                >
-                  Events
-                  {unreadEventCount > 0 && (
-                    <span className="tab-badge">{unreadEventCount}</span>
-                  )}
-                </button>
+                {phoneAvailable && (
+                  <PhoneTab
+                    active={chatPanelView === 'phone'}
+                    notificationCount={unreadPhoneNotificationCount}
+                    viewedPhoneHasNotifications={viewedPhoneHasNotifications}
+                    settingsLoadComplete={settingsLoadComplete}
+                    switchHintSeen={phoneNotificationSwitchHintSeen}
+                    onSelect={selectPhonePanelView}
+                    onCycleNotificationOwner={cyclePhoneNotificationOwner}
+                    onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
+                  />
+                )}
+                {eventManagerAvailable && (
+                  <button
+                    className={chatPanelView === 'events' ? 'active' : ''}
+                    type="button"
+                    role="tab"
+                    aria-selected={chatPanelView === 'events'}
+                    onClick={() => selectChatPanelView('events')}
+                  >
+                    Events
+                    {unreadEventCount > 0 && (
+                      <span className="tab-badge">{unreadEventCount}</span>
+                    )}
+                  </button>
+                )}
               </div>
               <div className="speaker-picker-menu" ref={characterDropdownRef}>
                 <span className="speaker-picker-label">Play as</span>
@@ -5894,6 +5899,7 @@ function App() {
               onRemoveDraftImage={(imageId) =>
                 setDraftImages((current) => current.filter((entry) => entry.id !== imageId))
               }
+              phoneLinksEnabled={phoneAvailable}
               onOpenEmbeddedPhoneMessage={openEmbeddedPhoneMessage}
               onOpenEmbeddedSocialMessage={openEmbeddedSocialMessage}
               onOpenSocialPost={openSocialPost}

@@ -41,7 +41,7 @@ The main app shell is built in [`src/App.tsx`](../../src/App.tsx). It renders a 
 - **Graph panel**: the main React Flow canvas where workflow nodes are placed and connected.
 - **Graph toolbar**: reset workflow, save workflow, save RP session, runtime report, workflow capability indicators, and system toast messages.
 - **Node palette**: a side drawer of available node types grouped by purpose. Nodes can be dragged onto the graph, and favorite nodes can be added to the quick-add menu.
-- **Chat drawer**: a resizable right panel with `Chat`, `Phone`, and `Events` tabs.
+- **Chat drawer**: a resizable right panel with `Chat`, `Phone`, and `Events` tabs. The graph decides which tabs exist: `Phone` is hidden when RP Output has **Enable phone** unchecked, and `Events` is hidden when the graph has no `Event Manager` node.
 - **Dialogs**: options, files, providers, storybook creator, assistant, custom node assistant, output help, image preview, system log, and ComfyUI generated image preview.
 
 ## Core User Flow
@@ -57,6 +57,8 @@ At a high level, the app works like this:
 7. The output is appended back into the chat/session timeline and shown in the UI.
 
 The two bundled default workflows are ready-to-use roleplay graphs rather than minimal three-node examples. Both combine `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, an empty `RP Storybook V3` slot, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Messenger Apps, and Social Media runs into the matching `RP Output` inputs. It also provides an Autoplay output that can be connected to the dedicated RP Output Autoplay input. The classic `workflow.default_vNN.json` family keeps the single-pass prompts, while `workflow.default_planning_vNN.json` uses multistep planning for Normal RP and Messenger prompts. Shared graph and format changes are maintained in both families. Bundled workflows and standalone Storybooks live under `resources/default-content`.
+
+A third bundled workflow, `default_NoPhone_vNN.json`, is the chat-only variant: it has no `Event Manager` and no `Phone Apps` node, disables RP time tracking in `Chat History`, and its Prompt Switch keeps only the Normal RP and Autoplay outputs. RP Output sets `outputPhoneEnabled` to `false` (**Enable phone** unchecked; the option defaults to on), so the Phone tab is hidden and every phone-opening handler in `useRoleplayPanelRuntime` is a no-op. Its prompts contain no phone-app commands, account links, or gallery actions; the only structured output is the embedded `whatsUpApp` text-message object, which the unchanged Normal RP and Autoplay parsers record as a phone message and the Chat tab renders as a non-clickable message bubble. Autoplay writes that object directly instead of the plan-and-command pass. Because the Prompt Switch clamps the output-channel input to its last output, the Autoplay message format still reaches the Autoplay output at index 1.
 
 ## Prompt Routing
 

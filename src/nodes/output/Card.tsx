@@ -152,6 +152,17 @@ export function OutputNodeCard({ id, data }: NodeProps<WorkflowNode>) {
           />
           Highlight spoken text with LLM
         </label>
+        <label
+          className="node-toggle nodrag"
+          title="When unchecked, the Phone tab is hidden. Text messages still appear inside the chat, but no longer link to the phone."
+        >
+          <input
+            type="checkbox"
+            checked={data.outputPhoneEnabled ?? true}
+            onChange={(event) => changeOutputOption(id, 'outputPhoneEnabled', event.target.checked)}
+          />
+          Enable phone
+        </label>
         <label className="node-field-label" htmlFor={`${id}-speaker-format`}>
           Speaker Format
         </label>

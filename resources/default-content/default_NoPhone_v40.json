@@ -1,0 +1,678 @@
+{
+  "format": "rpgraph-workflow",
+  "formatVersion": "1.2",
+  "savedAt": "2026-10-02T18:26:10.363Z",
+  "viewport": {
+    "x": 427.71350127639903,
+    "y": 530.134263523532,
+    "zoom": 0.48632747370613844
+  },
+  "nodes": [
+    {
+      "id": "user-input",
+      "type": "workflow",
+      "position": {
+        "x": 470.8422532281687,
+        "y": 149.99468277264083
+      },
+      "data": {
+        "nodeType": "input",
+        "label": "User Input",
+        "description": "Chat message",
+        "preview": "Waiting for input ...",
+        "connectionId": "lm-studio-default",
+        "autoTurnInstructions": {
+          "character-rp": {
+            "mode": "default",
+            "customText": ""
+          },
+          "character-phone": {
+            "mode": "default",
+            "customText": ""
+          },
+          "narrator-rp": {
+            "mode": "default",
+            "customText": ""
+          },
+          "narrator-phone": {
+            "mode": "default",
+            "customText": ""
+          }
+        },
+        "nodeDataVersion": "1.8.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 485
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "rp-output",
+      "type": "workflow",
+      "position": {
+        "x": 2118.5702827795158,
+        "y": 72.53187379351515
+      },
+      "data": {
+        "nodeType": "output",
+        "label": "RP Output",
+        "description": "Roleplay response",
+        "preview": "No output yet",
+        "connectionId": "lm-studio-default",
+        "streamOutputEnabled": true,
+        "speakerAnalysisEnabled": true,
+        "dialogueHighlightEnabled": true,
+        "outputPhoneEnabled": false,
+        "outputSpeakerResponseFormat": "toon",
+        "outputSpeakerPrompt": {
+          "mode": "default",
+          "customText": ""
+        },
+        "nodeDataVersion": "1.6.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 736
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "chat-history",
+      "type": "workflow",
+      "position": {
+        "x": -514.8281096074339,
+        "y": -387.8758965362058
+      },
+      "data": {
+        "nodeType": "history",
+        "label": "Chat History",
+        "description": "Previous conversation context",
+        "preview": "No conversation yet",
+        "connectionId": "lm-studio-default",
+        "historyTimeTrackingEnabled": false,
+        "historyTimeStatus": "RP Time: Disabled",
+        "historyLastTurnsCount": 5,
+        "historyRpTimePrompt": {
+          "mode": "default",
+          "customText": ""
+        },
+        "runAfterRpOutput": true,
+        "nodeDataVersion": "1.8.2"
+      },
+      "measured": {
+        "width": 365,
+        "height": 383
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "context-compression-default",
+      "type": "workflow",
+      "position": {
+        "x": -14.416531280186973,
+        "y": -145.7551573689393
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "context-compression",
+        "label": "Context Compression",
+        "description": "Summarize text when its context budget is reached",
+        "preview": "Waiting for text ...",
+        "connectionId": "lm-studio-default",
+        "contextCompressionMaxTokens": 3000,
+        "contextCompressionRatio": 50,
+        "contextCompressionLengthWords": 200,
+        "runAfterRpOutput": true,
+        "nodeDataVersion": "1.0.3"
+      },
+      "selected": false,
+      "dragging": false,
+      "measured": {
+        "width": 365,
+        "height": 590
+      }
+    },
+    {
+      "id": "text-combiner-1779617525442-2",
+      "type": "workflow",
+      "position": {
+        "x": 476.18331354120926,
+        "y": -437.727808101654
+      },
+      "data": {
+        "nodeType": "combiner",
+        "label": "Text Combiner",
+        "description": "Merge ordered text inputs",
+        "preview": "Waiting for 2 inputs ...",
+        "combinerInputCount": 2,
+        "combinerPrefixes": [
+          "",
+          ""
+        ],
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 489
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "settings-value-1779837628451-14",
+      "type": "workflow",
+      "position": {
+        "x": -514.336679271616,
+        "y": 114.28432962221834
+      },
+      "data": {
+        "nodeType": "settings-value",
+        "label": "Workflow Variable",
+        "description": "Output values configured in Options",
+        "preview": "Values are edited in Options",
+        "settingsValueEntries": [
+          {
+            "id": "value-1779837815858-30",
+            "optionKey": "context-length-max",
+            "label": "Context Length Max"
+          }
+        ],
+        "nodeDataVersion": "1.0.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 185
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "combiner-copy-1780172796312-18",
+      "type": "workflow",
+      "position": {
+        "x": 960.5575061683087,
+        "y": -51.620605073368324
+      },
+      "data": {
+        "nodeType": "combiner",
+        "label": "Text Combiner",
+        "description": "Merge ordered text inputs",
+        "preview": "Waiting for 2 inputs ...",
+        "combinerInputCount": 2,
+        "combinerPrefixes": [
+          "",
+          ""
+        ],
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 489
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "rp-storybook-1780769514774-25",
+      "type": "workflow",
+      "position": {
+        "x": -20.42561877338926,
+        "y": -777.9787013883869
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "rp-storybook",
+        "label": "RP Storybook V3",
+        "description": "Complete roleplay storybook",
+        "preview": "No storybook loaded",
+        "connectionId": "lm-studio-default",
+        "storybookJson": "{\n  \"format\": \"rpgraph-storybook\",\n  \"version\": \"3.0.0\",\n  \"title\": \"\",\n  \"introduction\": \"\",\n  \"imageDescriptionPrompt\": {\n    \"mode\": \"default\"\n  },\n  \"scenario\": {\n    \"summary\": \"\",\n    \"openingSituation\": \"\",\n    \"currentSituation\": \"\"\n  },\n  \"characters\": [],\n  \"phoneContacts\": {\n    \"blocked\": []\n  },\n  \"openingHistory\": {\n    \"npcParticipants\": {},\n    \"summary\": \"\",\n    \"turns\": [],\n    \"checkpoints\": [],\n    \"events\": [],\n    \"voiceMedia\": {},\n    \"socialLikes\": {},\n    \"dynamicSocialUsers\": {},\n    \"socialConnections\": {},\n    \"notes\": {},\n    \"chatGpdChats\": {}\n  }\n}",
+        "storybookStatus": "Ready",
+        "storybookFormattedTextSettings": {
+          "title": true,
+          "introduction": true,
+          "scenario": true,
+          "characters": true,
+          "openingHistory": true,
+          "characterImages": false,
+          "relationships": true,
+          "hiddenAgency": false
+        },
+        "nodeDataVersion": "3.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 584
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "type": "workflow",
+      "position": {
+        "x": 1448.4749062173457,
+        "y": -901.8441498127085
+      },
+      "style": {
+        "width": 548,
+        "height": 1140
+      },
+      "data": {
+        "nodeType": "llm-prompt-switch",
+        "label": "LLM Prompt Switch",
+        "description": "Select an LLM prompt by output channel and prompt slot",
+        "preview": "Not run yet",
+        "llmPromptSwitchOutputTitles": [
+          "Normal RP",
+          "Autoplay"
+        ],
+        "llmPromptSwitchPromptTitlesByOutput": [
+          [
+            "Empty",
+            "RP Prompt Normal",
+            "RP AutoTurn",
+            "RP Event",
+            "RP Narrator",
+            "RP Narrator AutoTurn",
+            "AI Action / User Reaction"
+          ],
+          [
+            "Local Activity",
+            "Remote Activity",
+            "Story Flow",
+            "Escalation"
+          ]
+        ],
+        "llmPromptSwitchPromptBeforesByOutput": [
+          [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            ""
+          ]
+        ],
+        "llmPromptSwitchPromptAftersByOutput": [
+          [
+            "",
+            "This is the Normal RP prompt. Write the scene in-character, reacting to the latest RP input and any attached image; use recent chat, scene state, and relationships.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nScene rules:\nFollow the Storybook's tone, established facts, and character personalities. Let conflict arise naturally; allow warmth, cooperation, quiet moments, and resolution. NPCs act on their own goals; in-character requests, permission, and boundaries follow their personalities and the situation.\nDo not invent the player-controlled character's speech, thoughts, decisions, messages, or voluntary actions. Resolve only actions the player supplied, unless the current Narrator or AutoTurn instruction explicitly authorizes acting for that character; do not extend that authorization to unrelated choices.\nTreat explicit Narrator facts and specified event outcomes as fixed. Resolve only genuinely open outcomes from the situation and character abilities. Write the response directly without a separate event plan, probability markers, or invented dice results.\n\nCharacter information:\nUse the action below when a reply or scene needs missing facts about a character or a relationship, or a suitable existing person. This includes questions such as whether a character knows or is friends with someone. Ask before filling gaps; never invent people or relationships. Name the relevant people explicitly; for discovery without a name, give focused #keywords such as #sister, #student or #troll. Request only the facts needed.\nThe answer is private author context, not automatic character knowledge. Use a fact in dialogue or behavior only when the acting character could know it through their own experience, an established relationship, something they were told, or accessible public information. Check the returned evidence; do not invent a conversation, observation or access to explain knowing it. Keep hidden motives, anonymous identities and other people's private relationships private unless established as known. If knowledge is unsupported, let the character remain uncertain or ask naturally.\n\n@action:Ask character information\n\nImages:\nReact to attached images when relevant. When the input refers to an attached image, use that image, not a substitute.\n\n@action:Describe input image (After Reply Action)\n\nOutput format:\nWrite max <Response Length> words of RP story as plain text. No markdown; any JSON must be valid with double quotes.\n\nText messages:\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are not physically together: write it as the JSON object below and the application shows it as a message bubble inside the chat. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n\nEmbed the object at the story moment where its first message is sent; story text may continue afterward:\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    }\n  ]\n}\nThe array should normally contain exactly one message. If the latest input narrates or directs a discussion or back-and-forth instead of only writing the selected character's own reply, it may instead contain one short conversation of two to four messages. Write the complete exchange in chronological order, starting with the newly occurring message that initiates it; do not replace that opening message with RP prose. Alternate between the same two people and use at most one message object with one conversation partner per RP response. Choose the shortest number that completes it; do not add filler.\nUse text messages only between people who are not physically together; characters in the same place talk in RP prose. Most beats need no text message. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output.",
+            "This is the RP AutoTurn prompt. Follow the latest Narrator instruction: the named character acts or speaks now. Continue the current scene with the next concrete beat; do not restart, replay, or paraphrase the previous RP output.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nScene rules:\nFollow the Storybook's tone, established facts, and character personalities. Let conflict arise naturally; allow warmth, cooperation, quiet moments, and resolution. NPCs act on their own goals; in-character requests, permission, and boundaries follow their personalities and the situation.\nDo not invent the player-controlled character's speech, thoughts, decisions, messages, or voluntary actions. Resolve only actions the player supplied, unless the current Narrator or AutoTurn instruction explicitly authorizes acting for that character; do not extend that authorization to unrelated choices.\nTreat explicit Narrator facts and specified event outcomes as fixed. Resolve only genuinely open outcomes from the situation and character abilities. Write the response directly without a separate event plan, probability markers, or invented dice results.\n\nCharacter information:\nUse the action below when a reply or scene needs missing facts about a character or a relationship, or a suitable existing person. This includes questions such as whether a character knows or is friends with someone. Ask before filling gaps; never invent people or relationships. Name the relevant people explicitly; for discovery without a name, give focused #keywords such as #sister, #student or #troll. Request only the facts needed.\nThe answer is private author context, not automatic character knowledge. Use a fact in dialogue or behavior only when the acting character could know it through their own experience, an established relationship, something they were told, or accessible public information. Check the returned evidence; do not invent a conversation, observation or access to explain knowing it. Keep hidden motives, anonymous identities and other people's private relationships private unless established as known. If knowledge is unsupported, let the character remain uncertain or ask naturally.\n\n@action:Ask character information\n\nImages:\nReact to attached images when relevant. When the input refers to an attached image, use that image, not a substitute.\n\nOutput format:\nWrite max <Response Length> words of RP story as plain text. No markdown; any JSON must be valid with double quotes.\n\nText messages:\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are not physically together: write it as the JSON object below and the application shows it as a message bubble inside the chat. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n\nEmbed the object at the story moment where its first message is sent; story text may continue afterward:\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nThe array may contain one message or one short conversation of two to four messages. For a discussion or back-and-forth, write the complete exchange in chronological order, starting with the newly occurring message that initiates it; do not replace that opening message with RP prose. Alternate between the same two people and use at most one message object with one conversation partner per RP response. Choose the shortest number that completes it; do not add filler.\nUse text messages only between people who are not physically together; characters in the same place talk in RP prose. Most beats need no text message. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output.",
+            "This is the RP Event prompt. The latest input is the event trigger: jump to that moment, move the story forward, and give a concrete scene the characters can react to. Do not write the next user response. Do not begin with the event title, \"Event:\", a timestamp, or a date.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nScene rules:\nFollow the Storybook's tone, established facts, and character personalities. Let conflict arise naturally; allow warmth, cooperation, quiet moments, and resolution. NPCs act on their own goals; in-character requests, permission, and boundaries follow their personalities and the situation.\nDo not invent the player-controlled character's speech, thoughts, decisions, messages, or voluntary actions. Resolve only actions the player supplied, unless the current Narrator or AutoTurn instruction explicitly authorizes acting for that character; do not extend that authorization to unrelated choices.\nTreat explicit Narrator facts and specified event outcomes as fixed. Resolve only genuinely open outcomes from the situation and character abilities. Write the response directly without a separate event plan, probability markers, or invented dice results.\n\nImages:\nReact to attached images when relevant. When the input refers to an attached image, use that image, not a substitute.\n\nOutput format:\nWrite max <Response Length> words of RP story as plain text. No markdown; any JSON must be valid with double quotes.\n\nText messages:\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are not physically together: write it as the JSON object below and the application shows it as a message bubble inside the chat. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n\nEmbed the object at the story moment where its first message is sent; story text may continue afterward:\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nThe array may contain one message or one short conversation of two to four messages. For a discussion or back-and-forth, write the complete exchange in chronological order, starting with the newly occurring message that initiates it; do not replace that opening message with RP prose. Alternate between the same two people and use at most one message object with one conversation partner per RP response. Choose the shortest number that completes it; do not add filler.\nUse text messages only between people who are not physically together; characters in the same place talk in RP prose. Most beats need no text message. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output.",
+            "This is the RP Narrator prompt. The latest Narrator message is direct story input, not a visible chat message: what it says or causes must visibly happen as the first beat, then continue with reactions, consequences, dialogue, or action. If it includes an attached image, react to it too; do not write caption metadata JSON; a hidden action records the caption after the reply.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nVoice the scene: the characters present speak out loud with real spoken lines, not only described action. Whenever anyone is on scene, a good part of the response is dialogue. Wrap every spoken sentence in double quotation marks (\"...\"); only quoted text is recognized as speech, and unquoted lines stay silent narration.\n\nScene rules:\nFollow the Storybook's tone, established facts, and character personalities. Let conflict arise naturally; allow warmth, cooperation, quiet moments, and resolution. NPCs act on their own goals; in-character requests, permission, and boundaries follow their personalities and the situation.\nDo not invent the player-controlled character's speech, thoughts, decisions, messages, or voluntary actions. Resolve only actions the player supplied, unless the current Narrator or AutoTurn instruction explicitly authorizes acting for that character; do not extend that authorization to unrelated choices.\nTreat explicit Narrator facts and specified event outcomes as fixed. Resolve only genuinely open outcomes from the situation and character abilities. Write the response directly without a separate event plan, probability markers, or invented dice results.\n\nCharacter information:\nUse the action below when a reply or scene needs missing facts about a character or a relationship, or a suitable existing person. This includes questions such as whether a character knows or is friends with someone. Ask before filling gaps; never invent people or relationships. Name the relevant people explicitly; for discovery without a name, give focused #keywords such as #sister, #student or #troll. Request only the facts needed.\nThe answer is private author context, not automatic character knowledge. Use a fact in dialogue or behavior only when the acting character could know it through their own experience, an established relationship, something they were told, or accessible public information. Check the returned evidence; do not invent a conversation, observation or access to explain knowing it. Keep hidden motives, anonymous identities and other people's private relationships private unless established as known. If knowledge is unsupported, let the character remain uncertain or ask naturally.\n\n@action:Ask character information\n\nImages:\nReact to attached images when relevant. When the input refers to an attached image, use that image, not a substitute.\n\n@action:Describe input image (After Reply Action)\n\nOutput format:\nWrite max <Response Length> words of RP story as plain text. No markdown; any JSON must be valid with double quotes.\n\nText messages:\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are not physically together: write it as the JSON object below and the application shows it as a message bubble inside the chat. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n\nEmbed the object at the story moment where its first message is sent; story text may continue afterward:\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nThe array may contain one message or one short conversation of two to four messages. For a discussion or back-and-forth, write the complete exchange in chronological order, starting with the newly occurring message that initiates it; do not replace that opening message with RP prose. Alternate between the same two people and use at most one message object with one conversation partner per RP response. Choose the shortest number that completes it; do not add filler.\nUse text messages only between people who are not physically together; characters in the same place talk in RP prose. Most beats need no text message. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output.",
+            "This is the RP Narrator AutoTurn prompt. The latest Narrator message is an internal control instruction, not visible story content: do not quote or summarize it. Pick the most fitting character or characters to act, speak, or decide now, and continue after the previous RP output with the next concrete beat.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nVoice the scene: the characters present speak out loud with real spoken lines, not only described action. Whenever anyone is on scene, a good part of the response is dialogue. Wrap every spoken sentence in double quotation marks (\"...\"); only quoted text is recognized as speech, and unquoted lines stay silent narration.\n\nScene rules:\nFollow the Storybook's tone, established facts, and character personalities. Let conflict arise naturally; allow warmth, cooperation, quiet moments, and resolution. NPCs act on their own goals; in-character requests, permission, and boundaries follow their personalities and the situation.\nDo not invent the player-controlled character's speech, thoughts, decisions, messages, or voluntary actions. Resolve only actions the player supplied, unless the current Narrator or AutoTurn instruction explicitly authorizes acting for that character; do not extend that authorization to unrelated choices.\nTreat explicit Narrator facts and specified event outcomes as fixed. Resolve only genuinely open outcomes from the situation and character abilities. Write the response directly without a separate event plan, probability markers, or invented dice results.\n\nCharacter information:\nUse the action below when a reply or scene needs missing facts about a character or a relationship, or a suitable existing person. This includes questions such as whether a character knows or is friends with someone. Ask before filling gaps; never invent people or relationships. Name the relevant people explicitly; for discovery without a name, give focused #keywords such as #sister, #student or #troll. Request only the facts needed.\nThe answer is private author context, not automatic character knowledge. Use a fact in dialogue or behavior only when the acting character could know it through their own experience, an established relationship, something they were told, or accessible public information. Check the returned evidence; do not invent a conversation, observation or access to explain knowing it. Keep hidden motives, anonymous identities and other people's private relationships private unless established as known. If knowledge is unsupported, let the character remain uncertain or ask naturally.\n\n@action:Ask character information\n\nImages:\nReact to attached images when relevant. When the input refers to an attached image, use that image, not a substitute.\n\nOutput format:\nWrite max <Response Length> words of RP story as plain text. No markdown; any JSON must be valid with double quotes.\n\nText messages:\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are not physically together: write it as the JSON object below and the application shows it as a message bubble inside the chat. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n\nEmbed the object at the story moment where its first message is sent; story text may continue afterward:\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nThe array may contain one message or one short conversation of two to four messages. For a discussion or back-and-forth, write the complete exchange in chronological order, starting with the newly occurring message that initiates it; do not replace that opening message with RP prose. Alternate between the same two people and use at most one message object with one conversation partner per RP response. Choose the shortest number that completes it; do not add filler.\nUse text messages only between people who are not physically together; characters in the same place talk in RP prose. Most beats need no text message. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output.",
+            "@step:planning\nThis is an AI initiative turn. User Input identifies the player-controlled character. Invent one NEW action by another existing character or the environment that gives the player a concrete choice. History provides continuity and inspiration, not the trigger: never ask for a reaction to an already delivered message, shared link, or played event. Advance the story with a fresh development fitting its tone and stakes.\n\nBefore completing the plan, call Ask User once: preview the new initiating action as the player would perceive it, then ask how their character responds. This previews the upcoming turn; it neither plays the scene nor sends messages. Use the workflow processing language from User Input, otherwise the scene language. Reveal no hidden motives, future outcomes, planning, or rolls. Invent no player thoughts, speech, decisions, or voluntary actions.\n\nIf the action below already contains the user's answer, do not ask again or change the previewed situation. Preserve that new trigger and the player's exact intent; resolve uncertain consequences only after their reaction. Pass all three parts to main: new initiative, supplied reaction, consequences.\n\n@action:Ask User\n\nCharacter information:\nUse the action below when a reply or scene needs missing facts about a character or a relationship, or a suitable existing person. This includes questions such as whether a character knows or is friends with someone. Ask before filling gaps; never invent people or relationships. Name the relevant people explicitly; for discovery without a name, give focused #keywords such as #sister, #student or #troll. Request only the facts needed.\nThe answer is private author context, not automatic character knowledge. Use a fact in dialogue or behavior only when the acting character could know it through their own experience, an established relationship, something they were told, or accessible public information. Check the returned evidence; do not invent a conversation, observation or access to explain knowing it. Keep hidden motives, anonymous identities and other people's private relationships private unless established as known. If knowledge is unsupported, let the character remain uncertain or ask naturally. Include the selected names, needed facts, and the established basis or limits of the acting character's knowledge in the final plan; keep this author handoff out of the visible reply.\n\n@action:Ask character information\n\nImages:\nReact to attached images when relevant. When the input refers to an attached image, use that image, not a substitute.\n\nScene tone and character behavior:\nMatch the tone and stakes established by the Storybook and current scene. Let conflict arise from character goals, relationships, and circumstances; do not force hostility or escalation into every turn. Allow warmth, cooperation, quiet moments, and resolution when they fit. Preserve physical plausibility and consequences when conflict occurs.\nNPCs act autonomously according to their personalities and goals, which may conflict with the player's. They do not need out-of-character approval for every action. In-character requests, permission, and boundaries follow the character and situation. Preserve established personalities instead of turning every character into an antagonist or helper.\nDo not invent the player-controlled character's speech, thoughts, decisions, messages, or voluntary actions. Resolve only actions the player has supplied, unless the current Narrator or AutoTurn instruction explicitly authorizes acting for that character. Do not extend that authorization to unrelated choices.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nOne beat, one focus:\nThe next step turns this plan into a single story response. It focuses on one thing per turn: at most one text-message exchange with one conversation partner, and text messages only between people who are not physically together; characters in the same place talk in RP prose. Never plan messages to several different people in the same turn; if more than one contact seems relevant, pick the one that matters most now and leave the rest for later turns. Most beats need no text message at all. This story has no phone apps, social media, banking, notes, or AI assistant; plan everything else as RP prose.\n\nOutput format for this planning pass:\nAfter Ask User is answered, output these three parts in order:\nInitiative: the NEW action to execute, including sender, recipient, and exact previewed message when applicable. This is still pending, not history.\nReaction: the player's supplied intent, including any authorized reply.\nConsequences: 1 to 3 event bullets under the rules below.\nNever start with the player's reply or omit Initiative. No scene prose or JSON; quoted initiating message text is allowed.\n- Treat explicit Narrator facts and specified event outcomes as fixed. Distinguish them from attempted actions whose outcomes remain open. Do not roll to undo a specified fact or outcome.\n- State certain developments without percentages. Roll only meaningful unresolved outcomes; do not manufacture uncertainty just to include a roll.\n- Each uncertain bullet must occupy one line and contain exactly one marker: \"- Success outcome (chance: NN%); otherwise: failure outcome.\" Use an integer from 1 to 99. Certain outcomes need no roll; impossible outcomes are excluded.\n- Keep rolled bullets independent. If a later event requires an earlier success, include that consequence in the same success branch rather than rolling it separately. Both branches must fit the established situation and be possible to write in this turn's output format.\n- The application rolls the marked outcomes. Never choose, predict, or write the roll result yourself. A bare percentage without the chance keyword is not rolled. Use only the exact (chance: NN%) marker for uncertainty, not legacy Success/Failure labels.\n\nFinal reminder: if no user answer is present at the Ask User action, output the Ask User request JSON, not a completed plan. Once answered, output only the plan.\n\n@step:main\nPlay the WHOLE turn in order: (1) the new initiating action, (2) the player's supplied reaction, (3) the resulting consequences. Start before the reaction, never after it. Ask User was only a preview, not story history or an already sent message. Render its initiating scene now; send any initiating message through the message JSON, not merely prose, then enact the supplied reaction and resolved consequences. Preserve the preview and player intent without adding player choices or dialogue. Do not resend old history messages.\nThe original user exchange is available at this authored action location:\n@action:Ask User\n\nHere is the plan for this turn. Every uncertain point was diced automatically and its noted result is binding: on success the stated thing happens, on failure its otherwise-part happens. Write the beat so it plays out accordingly and treat the plan as guidance for events, not as text to quote:\n@output:planning\n\nCharacter information:\nUse the action below when a reply or scene needs missing facts about a character or a relationship, or a suitable existing person. This includes questions such as whether a character knows or is friends with someone. Ask before filling gaps; never invent people or relationships. Name the relevant people explicitly; for discovery without a name, give focused #keywords such as #sister, #student or #troll. Request only the facts needed.\nThe answer is private author context, not automatic character knowledge. Use a fact in dialogue or behavior only when the acting character could know it through their own experience, an established relationship, something they were told, or accessible public information. Check the returned evidence; do not invent a conversation, observation or access to explain knowing it. Keep hidden motives, anonymous identities and other people's private relationships private unless established as known. If knowledge is unsupported, let the character remain uncertain or ask naturally.\n\n@action:Ask character information\n\nWrite only the selected outcome of each rolled point; never reroll or combine success and failure branches. Success or failure intensity changes presentation within the stated branch, not established facts. Preserve Storybook tone, character knowledge, and player control while realizing the plan. Characters know only what they observed, did, or were told. The Ask User preview is authoritative for the initiating action: if the plan omits it, restore it from the question and execute it before the reaction. This is a required planned action. Add no unrelated actions.\n\nThis is the Normal RP AI Action / User Reaction prompt. Write the combined scene in-character from the initiative plan and the user answer, using recent chat, scene state, and relationships.\n\n@action:Describe input image (After Reply Action)\n\nOutput format:\nWrite the complete RP scene as plain text. No markdown; any JSON must be valid with double quotes.\n\nText messages:\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are not physically together: write it as the JSON object below and the application shows it as a message bubble inside the chat. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it. Ask User sends none. For an incoming message and a user-authorized reply, include BOTH as below; omit the reply entry if the user chose no message.\n\nEmbed the object at the story moment where its first message is sent; story text may continue afterward:\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nInclude every message needed for the planned initiative, authorized player reply, and consequences, in chronological order. Start with the NEW initiating message even when the latest input contains only the player's reaction; never omit it or replace it with prose. Use one message object with one conversation partner for the complete multi-message exchange, normally two to four messages. Include player messages only as authorized by their answer; a non-message reaction belongs in RP prose. No filler.\nUse text messages only between people who are not physically together; characters in the same place talk in RP prose. Most beats need no text message. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output.\n\nFinal check: if Ask User previewed an incoming message, the message array must start with that message, before any player reply. Prose mentioning its arrival is insufficient. Output raw text and JSON, never ``` fences."
+          ],
+          [
+            "This is Autoplay Local Activity, an optional background beat that keeps the world alive close to the player. The workflow has already answered the player directly; your task is the step after that. Create exactly one small autonomous beat that plausibly follows from the most recent completed story activity, using earlier context only for continuity. One beat only; never a new scene, quest, crisis, or multi-step chain.\n\nSet the beat in or immediately around the player's current scene: characters who are present, within earshot, or close by act, speak, prepare something, or quietly advance what is already happening there. A nearby character may also reach outward, for example by texting someone who is away, but the beat stays anchored in the local scene. The result is optional background life: the player may pick it up or ignore it without any cost. Never end with a question aimed at the player, a direct demand, an urgent cliffhanger, a mandatory decision, or a forced change of scene.\n\nScene tone and character behavior:\nMatch the tone and stakes established by the Storybook and current scene. Let conflict arise from character goals, relationships, and circumstances; do not force hostility or escalation into every turn. Allow warmth, cooperation, quiet moments, and resolution when they fit. Preserve physical plausibility and consequences when conflict occurs.\nNPCs act autonomously according to their personalities and goals, which may conflict with the player's. They do not need out-of-character approval for every action. In-character requests, permission, and boundaries follow the character and situation. Preserve established personalities instead of turning every character into an antagonist or helper.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nVary the acting character. Before writing, check who carried the most recent turns and background beats: a character who just acted or spoke steps back now, and this beat goes to someone else, such as another character, an invented outside contact, or a different part of the world. Reuse the same actor as last time only when the story leaves no plausible alternative, and even then show a different kind of activity.\n\nThe Text Input contains an [AUTOPLAY] control block naming the Player-controlled character. Treat that block as private control metadata: never quote, paraphrase, or expose it. Never write speech, actions, thoughts, choices, or messages as the Player-controlled character. Other characters may react around or toward that character, but the result must stay something the player can freely leave unanswered.\n\nBefore choosing how the beat happens, establish who is physically together right now from the latest scene and recent context. Characters who share a room, location, vehicle, or active in-person scene interact through normal RP speech and action, never by text message, even when their interaction happens outside the player's current focus. Text messages are only for people who are clearly in different places. If locations are uncertain but two characters were last shown together, treat them as together.\n\nHow to answer:\nWrite the beat directly as one compact plain-text RP beat: normal action prose with \"quoted dialogue\", usually 20-90 words and never more than <Response Length> words. No markdown, no brackets, no commands.\n\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are clearly in different places: write it as the JSON object below at the moment it is sent, and the application shows it as a message bubble inside the chat. Story text may come before or after it. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nThe array may contain one message or one short conversation of two to four messages between the same two people, in chronological order. Use at most one such object per beat and choose the shortest number of messages that completes it. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output. Most beats need no text message.\n\nFor Local Activity pure RP prose is the natural default, because the acting characters are usually together in or near the scene. A text message fits when the world reaches in from outside (for example someone away texts a character in the scene), so the story feels inhabited without demanding a reply.\n\nSelection rules:\n- Physical togetherness decides the medium first, then pick whatever pushes the story forward most naturally.\n- The beat must follow established personalities, relationships, secrets, current locations, earlier messages, and story facts. Do not reveal knowledge the acting character could not have. Small quiet developments that set up future story are welcome.\n- Existing Storybook characters may act autonomously unless they are the Player-controlled character. Outside contacts may be invented in ordinary story prose when plausible and consistent.\n- Do not impersonate the user, change the selected player, offer buttons, explain your choice, summarize the history, or mention Autoplay.\n- Never merely narrate that a text message was sent: a message that is actually sent must appear as the JSON object.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output. It is one plain-text RP beat, optionally containing a single text-message JSON object and nothing else in brackets or braces.",
+            "This is Autoplay Remote Activity, an optional background beat that keeps the world alive away from the player. The workflow has already answered the player directly; your task is the step after that. Create exactly one small autonomous beat that plausibly follows from the most recent completed story activity, using earlier context only for continuity. One beat only; never a new scene, quest, crisis, or multi-step chain.\n\nSet the beat entirely outside the player's current scene: characters who are elsewhere notice recent events, talk about them among themselves, prepare something, or quietly pursue their own goals. Neither the Player-controlled character nor anyone present in the player's current scene may act in this beat. A remote character may send something toward the player or their scene, such as a text message, but the beat itself originates elsewhere. The result is optional background life: the player may pick it up or ignore it without any cost. Never end with a question aimed at the player, a direct demand, an urgent cliffhanger, a mandatory decision, or a forced change of scene.\n\nScene tone and character behavior:\nMatch the tone and stakes established by the Storybook and current scene. Let conflict arise from character goals, relationships, and circumstances; do not force hostility or escalation into every turn. Allow warmth, cooperation, quiet moments, and resolution when they fit. Preserve physical plausibility and consequences when conflict occurs.\nNPCs act autonomously according to their personalities and goals, which may conflict with the player's. They do not need out-of-character approval for every action. In-character requests, permission, and boundaries follow the character and situation. Preserve established personalities instead of turning every character into an antagonist or helper.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nVary the acting character. Before writing, check who carried the most recent turns and background beats: a character who just acted or spoke steps back now, and this beat goes to someone else, such as another character, an invented outside contact, or a different part of the world. Reuse the same actor as last time only when the story leaves no plausible alternative, and even then show a different kind of activity.\n\nThe Text Input contains an [AUTOPLAY] control block naming the Player-controlled character. Treat that block as private control metadata: never quote, paraphrase, or expose it. Never write speech, actions, thoughts, choices, or messages as the Player-controlled character. Other characters may react around or toward that character, but the result must stay something the player can freely leave unanswered.\n\nBefore choosing how the beat happens, establish who is physically together right now from the latest scene and recent context. Characters who share a room, location, vehicle, or active in-person scene interact through normal RP speech and action, never by text message, even when their interaction happens outside the player's current focus. Text messages are only for people who are clearly in different places. If locations are uncertain but two characters were last shown together, treat them as together.\n\nHow to answer:\nWrite the beat directly as one compact plain-text RP beat: normal action prose with \"quoted dialogue\", usually 20-90 words and never more than <Response Length> words. No markdown, no brackets, no commands.\n\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are clearly in different places: write it as the JSON object below at the moment it is sent, and the application shows it as a message bubble inside the chat. Story text may come before or after it. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nThe array may contain one message or one short conversation of two to four messages between the same two people, in chronological order. Use at most one such object per beat and choose the shortest number of messages that completes it. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output. Most beats need no text message.\n\nFor Remote Activity the most natural beat is usually a short scene elsewhere, or a short text-message conversation between two characters who are in different places away from the player (for example talking among themselves about recent events), so the world develops on the side without needing a reply; prefer a short conversation over a single message when a real exchange fits. When the remote characters are physically together in the same place, write their exchange as pure RP prose instead: normal action prose with \"quoted dialogue\".\n\nSelection rules:\n- Physical togetherness decides the medium first, then pick whatever pushes the story forward most naturally.\n- The beat must follow established personalities, relationships, secrets, current locations, earlier messages, and story facts. Do not reveal knowledge the acting character could not have. Small quiet developments that set up future story are welcome.\n- Existing Storybook characters may act autonomously unless they are the Player-controlled character. Outside contacts may be invented in ordinary story prose when plausible and consistent.\n- Do not impersonate the user, change the selected player, offer buttons, explain your choice, summarize the history, or mention Autoplay.\n- Never merely narrate that a text message was sent: a message that is actually sent must appear as the JSON object.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output. It is one plain-text RP beat, optionally containing a single text-message JSON object and nothing else in brackets or braces.",
+            "This is Autoplay Story Flow, an optional background beat that keeps the story moving where it is most alive. The workflow has already answered the player directly; your task is the step after that. Create exactly one small autonomous beat that plausibly follows from the most recent completed story activity, using earlier context only for continuity. One beat only; a small new thread may follow from established activity, but do not force a scene change, quest, crisis, or multi-step chain.\n\nFirst judge the current thread. Look at the last few turns: does the active conversation or scene still have energy (an open question, unresolved tension, an unfinished goal, someone mid-task)? Then stay with it and create the beat in or immediately around the player's current scene, feeding that thread. But when the thread is winding down (goodbyes, repetition, small talk that has said everything, a scene that has clearly reached its natural end), shift the focus instead: open a new thread by bringing other characters into play. Prefer characters whose earlier background activity now pays off: someone who was texting, planning, or traveling in earlier beats now arrives, follows up, or sets their plan in motion. Connect to what already happened rather than starting from nothing.\n\nThe beat may move closer to the player than pure background noise (a new arrival, a message aimed at the scene), but it stays optional life the player may pick up or ignore without any cost. Never end with a question aimed at the player, a direct demand, an urgent cliffhanger, a mandatory decision, or a forced change of scene.\n\nScene tone and character behavior:\nMatch the tone and stakes established by the Storybook and current scene. Let conflict arise from character goals, relationships, and circumstances; do not force hostility or escalation into every turn. Allow warmth, cooperation, quiet moments, and resolution when they fit. Preserve physical plausibility and consequences when conflict occurs.\nNPCs act autonomously according to their personalities and goals, which may conflict with the player's. They do not need out-of-character approval for every action. In-character requests, permission, and boundaries follow the character and situation. Preserve established personalities instead of turning every character into an antagonist or helper.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nVary the acting character. Before writing, check who carried the most recent turns and background beats: a character who just acted or spoke steps back now, and this beat goes to someone else, such as another character, an invented outside contact, or a different part of the world. Reuse the same actor as last time only when the story leaves no plausible alternative, and even then show a different kind of activity.\n\nThe Text Input contains an [AUTOPLAY] control block naming the Player-controlled character. Treat that block as private control metadata: never quote, paraphrase, or expose it. Never write speech, actions, thoughts, choices, or messages as the Player-controlled character. Other characters may react around or toward that character, but the result must stay something the player can freely leave unanswered.\n\nBefore choosing how the beat happens, establish who is physically together right now from the latest scene and recent context. Characters who share a room, location, vehicle, or active in-person scene interact through normal RP speech and action, never by text message, even when their interaction happens outside the player's current focus. Text messages are only for people who are clearly in different places. If locations are uncertain but two characters were last shown together, treat them as together.\n\nHow to answer:\nWrite the beat directly as one compact plain-text RP beat: normal action prose with \"quoted dialogue\", usually 20-90 words and never more than <Response Length> words. No markdown, no brackets, no commands.\n\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are clearly in different places: write it as the JSON object below at the moment it is sent, and the application shows it as a message bubble inside the chat. Story text may come before or after it. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nThe array may contain one message or one short conversation of two to four messages between the same two people, in chronological order. Use at most one such object per beat and choose the shortest number of messages that completes it. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output. Most beats need no text message.\n\nWhen you stay with the current thread, pure RP prose is usually right, because those characters tend to be together. When you shift the focus, pick what makes the transition feel most natural: an arrival or nearby activity written as pure RP prose, or a text message (a single message or a short conversation reaching toward the scene) that pulls the new thread into view.\n\nSelection rules:\n- Physical togetherness decides the medium first, then pick whatever pushes the story forward most naturally.\n- The beat must follow established personalities, relationships, secrets, current locations, earlier messages, and story facts. Do not reveal knowledge the acting character could not have.\n- Existing Storybook characters may act autonomously unless they are the Player-controlled character. Outside contacts may be invented in ordinary story prose when plausible and consistent.\n- Do not impersonate the user, change the selected player, offer buttons, explain your choice, summarize the history, or mention Autoplay.\n- Never merely narrate that a text message was sent: a message that is actually sent must appear as the JSON object.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output. It is one plain-text RP beat, optionally containing a single text-message JSON object and nothing else in brackets or braces.",
+            "This is Autoplay Escalation, an optional background beat with real narrative weight. The workflow has already answered the player directly; your task is the step after that: push the story toward a turning point. Create exactly one autonomous beat that plausibly grows out of the most recent completed story activity. One beat only; it may carry consequences, but never a whole new scene, a random catastrophe, or a multi-step chain.\n\nBuild the escalation from established material only: a secret that threatens to surface, a relationship strain that sharpens, a decision another character finally makes, an announcement, an unexpected arrival, a consequence of earlier behavior becoming visible, evidence turning up in the wrong hands. No disasters out of nowhere and no new main characters; the development must feel inevitable in hindsight.\n\nCheck the chat history first: if an escalation thread is already running (something is already surfacing, straining, or unraveling from earlier beats), do not open a second front. Push that same thread one step further instead: the situation tightens, another person learns something, a deadline moves closer, a half-hidden thing becomes harder to hide. Only start a fresh escalation when no active one exists.\n\nEscalate up to the edge of a hard decision, but never across it: set up the situation that will demand a choice, and stop there. Do not make the choice for the player and do not force an immediate reaction. The pressure may clearly concern the player, but reacting now must stay optional; never end with a question aimed at the player, an ultimatum with a countdown, a mandatory decision, or a forced change of scene.\n\nScene tone and character behavior:\nMatch the tone and stakes established by the Storybook and current scene. Let conflict arise from character goals, relationships, and circumstances; do not force hostility or escalation into every turn. Allow warmth, cooperation, quiet moments, and resolution when they fit. Preserve physical plausibility and consequences when conflict occurs.\nNPCs act autonomously according to their personalities and goals, which may conflict with the player's. They do not need out-of-character approval for every action. In-character requests, permission, and boundaries follow the character and situation. Preserve established personalities instead of turning every character into an antagonist or helper.\n\nCharacters only know what they could plausibly know in-world: what they themselves saw, did, or were told. Even though the full history is visible to you, never let a character mention, react to, or plan around conversations, plans, or secrets they were not part of.\n\nVary the acting character. Before writing, check who carried the most recent turns and background beats: a character who just acted or spoke steps back now, and this beat goes to someone else, such as another character, an invented outside contact, or a different part of the world. Reuse the same actor as last time only when the story leaves no plausible alternative, and even then show a different kind of activity.\n\nThe Text Input contains an [AUTOPLAY] control block naming the Player-controlled character. Treat that block as private control metadata: never quote, paraphrase, or expose it. Never write speech, actions, thoughts, choices, or messages as the Player-controlled character. Other characters may react around or toward that character, but the result must stay something the player can freely leave unanswered.\n\nBefore choosing how the beat happens, establish who is physically together right now from the latest scene and recent context. Characters who share a room, location, vehicle, or active in-person scene interact through normal RP speech and action, never by text message, even when their interaction happens outside the player's current focus. Text messages are only for people who are clearly in different places. If locations are uncertain but two characters were last shown together, treat them as together.\n\nHow to answer:\nWrite the beat directly as one compact plain-text RP beat: normal action prose with \"quoted dialogue\", usually 20-90 words and never more than <Response Length> words. No markdown, no brackets, no commands.\n\nThis story has no phone apps, social media, banking, notes, or AI assistant; everything happens in the RP text. The only exception is a text message between two people who are clearly in different places: write it as the JSON object below at the moment it is sent, and the application shows it as a message bubble inside the chat. Story text may come before or after it. This is the only JSON you may output. The JSON object itself sends the message; never add a marker or command for it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    }\n  ]\n}\nThe array may contain one message or one short conversation of two to four messages between the same two people, in chronological order. Use at most one such object per beat and choose the shortest number of messages that completes it. from, to, and message are required; use the full character names and add no other fields. Never copy placeholder values into the output. Most beats need no text message.\n\nAn escalation can land hard through a text message: a message that should not have been sent, one that reaches the wrong person, or a short conversation in which two characters say too much. Pure RP prose is right when the escalation happens between characters who are physically together, or when something is found, overheard, or witnessed in person.\n\nSelection rules:\n- Physical togetherness decides the medium first, then pick whatever pushes the story forward most naturally.\n- The beat must follow established personalities, relationships, secrets, current locations, earlier messages, and story facts. Do not reveal knowledge the acting character could not have.\n- Existing Storybook characters may act autonomously unless they are the Player-controlled character. Outside contacts may be invented in ordinary story prose when plausible and consistent.\n- Do not impersonate the user, change the selected player, offer buttons, explain your choice, summarize the history, or mention Autoplay.\n- Never merely narrate that a text message was sent: a message that is actually sent must appear as the JSON object.\n\nFinal reminder: never wrap any part of your output in ``` code fences (markdown code blocks); output raw text and raw JSON directly; before you finish, check your output. It is one plain-text RP beat, optionally containing a single text-message JSON object and nothing else in brackets or braces."
+          ]
+        ],
+        "llmPromptSwitchSelectedOutputChannel": 0,
+        "llmPromptSwitchSelectedPromptSlot": 2,
+        "llmPromptSwitchAutoShowPrompt": true,
+        "llmPromptSwitchAutoFormatJson": true,
+        "llmPromptActions": [
+          {
+            "title": "Describe input image",
+            "actionId": "describeInputImage",
+            "preset": "default"
+          },
+          {
+            "title": "Update phone image caption",
+            "actionId": "updatePhoneImageCaption",
+            "preset": "default"
+          },
+          {
+            "title": "Get character phone image list",
+            "actionId": "getImageId",
+            "preset": "default"
+          },
+          {
+            "title": "Create character phone image",
+            "actionId": "createImage",
+            "preset": "default"
+          }
+        ],
+        "llmPromptCommands": [],
+        "connectionId": "lm-studio-default",
+        "runAfterRpOutput": false,
+        "nodeDataVersion": "1.3.1"
+      },
+      "measured": {
+        "width": 548,
+        "height": 1626
+      },
+      "height": 1626,
+      "resizing": false,
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "type": "workflow",
+      "position": {
+        "x": 1211.7095672962707,
+        "y": 783.1674500073206
+      },
+      "style": {
+        "width": 97,
+        "height": 50
+      },
+      "data": {
+        "nodeType": "memory-slot",
+        "label": "Wire Link",
+        "description": "Store and reuse text through a linked pair",
+        "preview": "No stored text yet",
+        "memorySlotName": "02",
+        "memorySlotText": "",
+        "memorySlotMode": "input",
+        "fullText": "",
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 97,
+        "height": 50
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "memory-slot-a322e6fc-5b2f-43df-aad2-cafa5b540157",
+      "type": "workflow",
+      "position": {
+        "x": 1292.809787067744,
+        "y": 782.7820614044997
+      },
+      "style": {
+        "width": 97,
+        "height": 50
+      },
+      "data": {
+        "nodeType": "memory-slot",
+        "label": "Wire Link",
+        "description": "Store and reuse text through a linked pair",
+        "preview": "No stored text yet",
+        "memorySlotName": "02",
+        "memorySlotText": "",
+        "memorySlotMode": "output",
+        "fullText": "",
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 97,
+        "height": 50
+      },
+      "selected": false,
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "chat-history",
+      "sourceHandle": "original",
+      "target": "context-compression-default",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__chat-historyoriginal-context-compression-default",
+      "targetHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "context-compression-default",
+      "target": "text-combiner-1779617525442-2",
+      "targetHandle": "input-b",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__context-compression-default-text-combiner-1779617525442-2input-b",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "rp-storybook-1780769514774-25",
+      "sourceHandle": "formatted-text",
+      "target": "text-combiner-1779617525442-2",
+      "targetHandle": "input-a",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__rp-storybook-1780769514774-25formatted-text-text-combiner-1779617525442-2input-a",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "text-combiner-1779617525442-2",
+      "target": "combiner-copy-1780172796312-18",
+      "targetHandle": "input-a",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__text-combiner-1779617525442-2-combiner-copy-1780172796312-18input-a",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "user-input",
+      "target": "combiner-copy-1780172796312-18",
+      "targetHandle": "input-b",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__user-input-combiner-copy-1780172796312-18input-b",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "sourceHandle": "output-channel-0",
+      "target": "rp-output",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel-0-rp-output",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "settings-value-1779837628451-14",
+      "sourceHandle": "settings-value-1779837815858-30",
+      "target": "context-compression-default",
+      "targetHandle": "max-tokens",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__settings-value-1779837628451-14settings-value-1779837815858-30-context-compression-defaultmax-tokens",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "combiner-copy-1780172796312-18",
+      "target": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "targetHandle": "text",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__combiner-copy-1780172796312-18-llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20text",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "image",
+      "target": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "targetHandle": "image",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__user-inputimage-llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20image",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "turn-mode",
+      "target": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "targetHandle": "prompt-slot",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "animated": false,
+      "type": "workflow",
+      "id": "xy-edge__user-inputturn-mode-llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20prompt-slot"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "message-format",
+      "target": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "targetHandle": "output-channel",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__user-inputmessage-format-llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "memory-slot-a322e6fc-5b2f-43df-aad2-cafa5b540157",
+      "target": "rp-output",
+      "targetHandle": "direct-actions",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__memory-slot-68192f0a-02cf-4da7-b937-287c4307486e-rp-outputdirect-actions",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "direct-actions",
+      "target": "memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__user-inputdirect-actions-memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "sourceHandle": "output-channel-1",
+      "target": "rp-output",
+      "targetHandle": "autoplay",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel-1-rp-outputautoplay",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    }
+  ]
+}

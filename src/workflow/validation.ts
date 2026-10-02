@@ -287,6 +287,7 @@ function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
     !isOptionalBoolean(value.streamOutputEnabled) ||
     !isOptionalBoolean(value.speakerAnalysisEnabled) ||
     !isOptionalBoolean(value.dialogueHighlightEnabled) ||
+    !isOptionalBoolean(value.outputPhoneEnabled) ||
     (value.outputSpeakerResponseFormat !== undefined &&
       value.outputSpeakerResponseFormat !== 'toon' &&
       value.outputSpeakerResponseFormat !== 'json') ||

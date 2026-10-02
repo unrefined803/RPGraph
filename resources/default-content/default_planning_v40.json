@@ -1,11 +1,11 @@
 {
   "format": "rpgraph-workflow",
   "formatVersion": "1.2",
-  "savedAt": "2026-09-25T09:46:45.267Z",
+  "savedAt": "2026-10-02T18:27:48.210Z",
   "viewport": {
-    "x": 598.5148795421974,
-    "y": 563.3666850167863,
-    "zoom": 0.41179550863378594
+    "x": 619.939833310212,
+    "y": 555.004203327399,
+    "zoom": 0.41179550863378583
   },
   "nodes": [
     {
@@ -52,8 +52,8 @@
       "id": "rp-output",
       "type": "workflow",
       "position": {
-        "x": 2104.641473766778,
-        "y": 103.87169407217588
+        "x": 2107.59001220136,
+        "y": 71.4377712917716
       },
       "data": {
         "nodeType": "output",
@@ -64,12 +64,13 @@
         "streamOutputEnabled": true,
         "speakerAnalysisEnabled": true,
         "dialogueHighlightEnabled": true,
+        "outputPhoneEnabled": true,
         "outputSpeakerResponseFormat": "toon",
         "outputSpeakerPrompt": {
           "mode": "default",
           "customText": ""
         },
-        "nodeDataVersion": "1.6.0"
+        "nodeDataVersion": "1.6.1"
       },
       "measured": {
         "width": 365,

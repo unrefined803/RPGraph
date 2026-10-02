@@ -382,6 +382,7 @@ type WorkflowNodeCommonFields = {
   streamOutputEnabled?: boolean;
   speakerAnalysisEnabled?: boolean;
   dialogueHighlightEnabled?: boolean;
+  outputPhoneEnabled?: boolean;
   outputSpeakerResponseFormat?: OutputSpeakerResponseFormat;
   outputSpeakerPrompt?: OutputSpeakerPromptSettings;
   inputAPreview?: string;

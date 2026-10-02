@@ -1915,17 +1915,44 @@ export function verifyWorkflowValidationFixtures() {
   );
 
   assertFixture(
-    allBundledDefaultWorkflows.length === 2 &&
+    allBundledDefaultWorkflows.length === 3 &&
       allBundledDefaultWorkflows.every(({ workflow }) => isWorkflowFile(workflow)),
-    'both bundled default workflows must load',
+    'all bundled default workflows must load',
   );
   assertFixture(
     allBundledDefaultWorkflows.every(
       ({ workflow }) => workflow.formatVersion === currentWorkflowFormatVersion,
     ),
-    'both bundled default workflows must declare the current format version',
+    'all bundled default workflows must declare the current format version',
   );
-  for (const { workflow } of allBundledDefaultWorkflows) {
+  const phoneDisabled = (workflow: WorkflowFile) =>
+    workflow.nodes.some((node) => node.data.nodeType === 'output' && node.data.outputPhoneEnabled === false);
+  const chatOnlyWorkflows = allBundledDefaultWorkflows.filter(({ workflow }) => phoneDisabled(workflow));
+  assertFixture(
+    chatOnlyWorkflows.length === 1 && /NoPhone/.test(chatOnlyWorkflows[0].filePath),
+    'only the NoPhone bundled workflow must disable the phone',
+  );
+  assertFixture(
+    allBundledDefaultWorkflows.every(({ workflow }) =>
+      typeof workflow.nodes.find((node) => node.data.nodeType === 'output')?.data.outputPhoneEnabled === 'boolean'),
+    'every bundled workflow must state the RP Output phone option explicitly',
+  );
+  for (const { workflow } of chatOnlyWorkflows) {
+    const promptSwitch = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch');
+    const prompts = (promptSwitch?.data.llmPromptSwitchPromptAftersByOutput ?? []).flat().filter(Boolean);
+    assertFixture(
+      !workflow.nodes.some((node) =>
+        node.data.nodeType === 'phone-apps' || node.data.nodeType === 'event-manager') &&
+        JSON.stringify(promptSwitch?.data.llmPromptSwitchOutputTitles) === '["Normal RP","Autoplay"]' &&
+        prompts.length === 10 &&
+        prompts.every((prompt) =>
+          prompt.includes('"whatsUpApp"') &&
+          !/@command|command_name|\[\[|@action:(?:Get|Create|Update) /.test(prompt) &&
+          !/fotogramApp|onlyFriendsApp|matchMeApp|sendImageId|isVoiceMessage/.test(prompt)),
+      'the NoPhone workflow must keep only chat-embedded text messages without phone apps or commands',
+    );
+  }
+  for (const { workflow } of allBundledDefaultWorkflows.filter(({ workflow }) => !phoneDisabled(workflow))) {
     const promptSwitch = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch');
     const socialIndex = promptSwitch?.data.llmPromptSwitchOutputTitles?.indexOf('Social Media') ?? -1;
     const prompts = promptSwitch?.data.llmPromptSwitchPromptAftersByOutput?.[socialIndex] ?? [];

@@ -145,7 +145,7 @@ export type NodeActions = {
   changeConnection: (nodeId: string, value: string) => void;
   changeOutputOption: (
     nodeId: string,
-    field: 'streamOutputEnabled' | 'speakerAnalysisEnabled' | 'dialogueHighlightEnabled',
+    field: 'streamOutputEnabled' | 'speakerAnalysisEnabled' | 'dialogueHighlightEnabled' | 'outputPhoneEnabled',
     value: boolean,
   ) => void;
   changeFixedNumberValue: (nodeId: string, value: number | string) => void;

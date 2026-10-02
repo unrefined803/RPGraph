@@ -38,7 +38,7 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'settings-value': '1.0.1',
   'rp-storybook': '3.0.0',
   'rp-storybook-editor': '1.0.0',
-  output: '1.6.0',
+  output: '1.6.1',
   'phone-apps': '1.0.0',
 };
 

@@ -1120,6 +1120,7 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         streamOutputEnabled: false,
         speakerAnalysisEnabled: false,
         dialogueHighlightEnabled: false,
+        outputPhoneEnabled: true,
         outputSpeakerResponseFormat: defaultOutputSpeakerResponseFormat,
         outputSpeakerPrompt: defaultOutputSpeakerPromptSettings(),
       },

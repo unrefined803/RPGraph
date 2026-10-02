@@ -146,7 +146,24 @@ export function useRoleplayPanelRuntime({
   const [panelSessionRevision, setPanelSessionRevision] = useState(0);
   const [smoothChatAutoScrollActive, setSmoothChatAutoScrollActive] = useState(false);
   const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
-  const [chatPanelView, setChatPanelView] = usePanelNavigationState<ChatPanelView>('panel.chatPanelView', 'chat');
+  const [storedChatPanelView, setChatPanelView] = usePanelNavigationState<ChatPanelView>('panel.chatPanelView', 'chat');
+  // The graph decides which tabs exist: RP Output enables the phone (on unless
+  // unchecked), and the Events tab needs an Event Manager node.
+  const phoneAvailable = useMemo(
+    () => !nodeViewNodes.some((node) =>
+      node.data.kind === undefined && node.data.nodeType === 'output' && node.data.outputPhoneEnabled === false),
+    [nodeViewNodes],
+  );
+  const eventManagerNode = useMemo(
+    () => nodeViewNodes.find((node) => node.data.kind === undefined && node.data.nodeType === 'event-manager'),
+    [nodeViewNodes],
+  );
+  const eventManagerAvailable = !!eventManagerNode;
+  const chatPanelView: ChatPanelView =
+    (storedChatPanelView === 'phone' && !phoneAvailable) ||
+    (storedChatPanelView === 'events' && !eventManagerAvailable)
+      ? 'chat'
+      : storedChatPanelView;
   const [selectedCharacterId, setSelectedCharacterId] = usePanelNavigationState('panel.selectedCharacterId', '');
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = usePanelNavigationState('panel.viewedPhoneCharacterId', '');
   const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = usePanelNavigationState('panel.selectedPhoneCharacterId', '');
@@ -706,11 +723,6 @@ export function useRoleplayPanelRuntime({
     selectedPhoneConversationLatestId,
   ]);
 
-  const eventManagerNode = useMemo(
-    () => nodeViewNodes.find((node) => node.data.kind === undefined && node.data.nodeType === 'event-manager'),
-    [nodeViewNodes],
-  );
-  const eventManagerAvailable = !!eventManagerNode;
   const eventEntities = useMemo(
     () => eventEntitiesFromNodes(nodeViewNodes),
     [nodeViewNodes],
@@ -838,6 +850,9 @@ export function useRoleplayPanelRuntime({
     conversation.viewerName;
 
   function openUnreadPhoneConversation(conversation: typeof unreadPhoneConversations[number]) {
+    if (!phoneAvailable) {
+      return;
+    }
     const { viewer, contact } = phoneSwitchCharacters(
       phoneCharacters,
       conversation,
@@ -855,6 +870,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function openEmbeddedPhoneMessage(message: EmbeddedPhoneMessageLink) {
+    if (!phoneAvailable) {
+      return;
+    }
     const { viewer, contact } = embeddedPhoneMessageCharacters(phoneCharacters, message);
     if (!viewer || !contact) {
       notifySystem('warning', 'Could not find both phone characters.');
@@ -876,7 +894,7 @@ export function useRoleplayPanelRuntime({
 
   function openAccountLink(link: AccountLinkTarget) {
     const owner = (chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter) ?? viewedPhoneCharacter;
-    if (!owner || isRunning) return;
+    if (!owner || isRunning || !phoneAvailable) return;
     const target = resolveAccountLink(link.app, link.app === 'banking' ? link.characterId : link.accountId, appCharacters);
     if (!target || target.characterId !== link.characterId) {
       notifySystem('warning', 'This shared account is unavailable.');
@@ -906,6 +924,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function openEmbeddedSocialMessage(message: EmbeddedSocialMessageLink) {
+    if (!phoneAvailable) {
+      return;
+    }
     const directMessage = messages.find((entry) => entry.id === message.socialMessageId)
       ?.socialDirectMessage;
     if (!directMessage) {
@@ -988,6 +1009,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function openSocialPost(post: SocialPostRecord) {
+    if (!phoneAvailable) {
+      return;
+    }
     if (post.app === 'onlyfriends') {
       const author = socialCharacterForPost(post, storyCharacters);
       if (!author) {
@@ -1093,6 +1117,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function selectChatPanelView(view: ChatPanelView) {
+    if ((view === 'phone' && !phoneAvailable) || (view === 'events' && !eventManagerAvailable)) {
+      return;
+    }
     setAccountLinkOpenRequest(undefined);
     if (view === 'chat') {
       setLastSeenMessageRecordId(latestMessageRecordId);
@@ -1109,6 +1136,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function selectPhonePanelView() {
+    if (!phoneAvailable) {
+      return;
+    }
     setHighlightedPhoneMessage(undefined);
     setSocialPostOpenRequest(undefined);
     setSocialDirectMessageOpenRequest(undefined);
@@ -1481,6 +1511,7 @@ export function useRoleplayPanelRuntime({
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    phoneAvailable,
     cyclePhoneNotificationOwner,
     selectedCharacterId,
     setSelectedCharacterId,

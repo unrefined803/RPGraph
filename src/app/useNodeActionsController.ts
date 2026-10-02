@@ -162,7 +162,7 @@ export function useNodeActionsController({
 
   function changeOutputOption(
     nodeId: string,
-    field: 'streamOutputEnabled' | 'speakerAnalysisEnabled' | 'dialogueHighlightEnabled',
+    field: 'streamOutputEnabled' | 'speakerAnalysisEnabled' | 'dialogueHighlightEnabled' | 'outputPhoneEnabled',
     value: boolean,
   ) {
     updateRuntimeNode(nodeId, {

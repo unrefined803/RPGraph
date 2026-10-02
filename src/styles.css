@@ -12439,6 +12439,19 @@ button.message-timeline-row.phone:focus-visible {
   filter: brightness(1.08);
 }
 
+/* Phone not enabled in RP Output: messages are shown but do not open the phone. */
+.chat-phone-bubble.static,
+.embedded-phone-link.static,
+.message-timeline-row.phone.static,
+.message-timeline-row.phone.static .embedded-phone-link {
+  cursor: default;
+}
+
+.chat-phone-bubble.static:hover {
+  border-color: rgba(255, 255, 255, 0.04);
+  filter: none;
+}
+
 .chat-phone-bubble .phone-bubble-image {
   cursor: zoom-in;
 }
