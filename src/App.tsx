@@ -1404,6 +1404,14 @@ function App() {
     setShowFiles,
     showStorybookPicker,
     setShowStorybookPicker,
+    showStartDialog,
+    startWorkflowFileName,
+    setStartWorkflowFileName,
+    startTargetFileName,
+    setStartTargetFileName,
+    openStartDialog,
+    closeStartDialog,
+    openStartSelection,
     savedFiles,
     fileDisplayName,
     rememberFileDisplayName,
@@ -2415,7 +2423,8 @@ function App() {
       return;
     }
     void loadStartupWorkflow();
-    // The last local workflow is loaded once settings are ready at app startup.
+    // The last local workflow is loaded once settings are ready at app startup,
+    // then the start dialog opens on top of it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoadComplete]);
 
@@ -2793,7 +2802,7 @@ function App() {
       );
       if (!applied) {
         setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');
-        return;
+        return false;
       }
       setActiveStorybookProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
       if (result.protection === 'encrypted') setWorkspacePassword(password);
@@ -6472,6 +6481,27 @@ function App() {
           setSelectedFile(null);
           setFileStorageStatus('');
         }}
+        showStartDialog={showStartDialog}
+        startWorkflowFileName={startWorkflowFileName}
+        startTargetFileName={startTargetFileName}
+        onCloseStartDialog={() => {
+          closeStartDialog();
+          setFileStorageStatus('');
+        }}
+        onSelectStartWorkflow={(file) => {
+          setStartWorkflowFileName(file.fileName);
+          setFileStorageStatus('');
+        }}
+        onSelectStartTarget={(file) => {
+          setStartTargetFileName(file.fileName);
+          setFileStorageStatus('');
+        }}
+        onOpenStartSelection={(file) => void openStartSelection(file)}
+        onOpenStartDialogFromFiles={() => void openStartDialog()}
+        onOpenFilesFromStartDialog={() => {
+          closeStartDialog();
+          void openFiles();
+        }}
         onRequestOpenStorybookFile={() => {
           const storybookNode = nodesRef.current.find(
             (node) => node.data.nodeType === 'rp-storybook',
@@ -6557,7 +6587,7 @@ function App() {
             cancelCharacterCardUnlock();
           }
           setShowFiles(
-            showStorybookPicker
+            showStorybookPicker || showStartDialog
               ? false
               : sessionPasswordAction === 'save-workflow' ||
               sessionPasswordAction === 'save-session' ||

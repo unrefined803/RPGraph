@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SetStateAction } from 'react';
-import { useRpgraphFiles } from './useRpgraphFiles';
+import { startDialogWorkflowFileName, useRpgraphFiles } from './useRpgraphFiles';
+import type { SavedFileSummary } from '../types';
 import { emptyRpStorybook } from '../nodes/rp-storybook/model';
 import { setAccountSession } from '../accounts/accountSession';
 
@@ -295,4 +296,93 @@ it('replaces an inherited RP password with the new encrypted Storybook password'
   await render().unlockStorybookFile();
   expect(options.applyStorybookToNode).toHaveBeenCalled();
   expect(render().workspacePasswordRef.current).toBe('new-book-secret');
+});
+
+const startFiles = {
+  workflow: { fileName: 'wf.json', name: 'Workflow', updatedAt: '', type: 'workflow', protection: 'plain', compatible: true },
+  otherWorkflow: { fileName: 'other.json', name: 'Other', updatedAt: '', type: 'workflow', protection: 'plain', compatible: true },
+  storybook: { fileName: 'book.json', name: 'Book', updatedAt: '', type: 'storybook', protection: 'plain', compatible: true },
+  session: { fileName: 'save.json', name: 'Save', updatedAt: '', type: 'session', protection: 'plain', compatible: true },
+} satisfies Record<string, SavedFileSummary>;
+
+function startHarness(files: SavedFileSummary[] = Object.values(startFiles)) {
+  const context = harness();
+  context.bridge.listFiles.mockResolvedValue(files as never);
+  context.bridge.loadFile.mockImplementation((async (fileName: string) => {
+    const file = files.find(entry => entry.fileName === fileName)!;
+    return { fileName, name: file.name, filePath: `/files/${fileName}`, type: file.type, protection: file.protection, value: { nodes: [] } };
+  }) as never);
+  return context;
+}
+
+it('prefers the last used workflow in the start dialog and falls back to a compatible one', () => {
+  const files = [{ ...startFiles.workflow, compatible: false }, startFiles.otherWorkflow, startFiles.storybook];
+  expect(startDialogWorkflowFileName(files, [null, 'missing.json', 'wf.json'])).toBe('wf.json');
+  expect(startDialogWorkflowFileName(files, ['book.json'])).toBe('other.json');
+  expect(startDialogWorkflowFileName([startFiles.storybook], [])).toBeNull();
+});
+
+it('opens the start dialog at startup instead of requesting the workflow password', async () => {
+  const { render, bridge, options } = startHarness();
+  options.clearWorkspaceForLockedStartup = vi.fn();
+  bridge.loadStartupWorkflow.mockResolvedValueOnce({ requiresPassword: true, fileName: 'other.json', name: 'Other' });
+
+  await render().loadStartupWorkflow();
+
+  expect(options.clearWorkspaceForLockedStartup).toHaveBeenCalledOnce();
+  expect(render().sessionPasswordAction).toBeNull();
+  expect(render().showStartDialog).toBe(true);
+  expect(render().showStorybookPicker).toBe(false);
+  expect(render().startWorkflowFileName).toBe('other.json');
+});
+
+it('loads the selected workflow before the Storybook chosen in the start dialog', async () => {
+  const { render, bridge, options } = startHarness();
+  await render().openStartDialog();
+  render().setStartWorkflowFileName('other.json');
+
+  await render().openStartSelection(startFiles.storybook);
+
+  expect(bridge.loadFile.mock.calls.map(call => (call as unknown[])[0])).toEqual(['other.json', 'book.json']);
+  expect(vi.mocked(options.applyLoadedRpgraphFile).mock.calls.map(([file]) => file.type)).toEqual(['workflow', 'storybook']);
+  expect(render().showStartDialog).toBe(false);
+  expect(render().showStorybookPicker).toBe(false);
+  expect(render().startTargetFileName).toBe('book.json');
+});
+
+it('opens an RP Save from the start dialog without loading the selected workflow', async () => {
+  const { render, bridge } = startHarness();
+  await render().openStartDialog();
+
+  await render().openStartSelection(startFiles.session);
+
+  expect(bridge.loadFile).toHaveBeenCalledOnce();
+  expect(bridge.loadFile).toHaveBeenCalledWith('save.json', '', undefined);
+  expect(render().showStartDialog).toBe(false);
+});
+
+it('continues with the pending Storybook after the encrypted workflow is unlocked', async () => {
+  const workflow = { ...startFiles.workflow, protection: 'encrypted' } satisfies SavedFileSummary;
+  const { render, bridge } = startHarness([workflow, startFiles.storybook]);
+  await render().openStartDialog();
+
+  await render().openStartSelection(startFiles.storybook);
+
+  expect(bridge.loadFile).not.toHaveBeenCalled();
+  expect(render().sessionPasswordAction).toBe('load');
+  expect(render().showStartDialog).toBe(true);
+  render().setSessionPassword('secret');
+  await render().unlockStoredFile();
+  expect(bridge.loadFile.mock.calls.map(call => (call as unknown[]).slice(0, 2))).toEqual([['wf.json', 'secret'], ['book.json', '']]);
+  expect(render().showStartDialog).toBe(false);
+});
+
+it('keeps the start dialog open when the Storybook cannot be applied', async () => {
+  const { render, options } = startHarness();
+  vi.mocked(options.applyLoadedRpgraphFile).mockImplementation(file => file.type !== 'storybook');
+  await render().openStartDialog();
+
+  await render().openStartSelection(startFiles.storybook);
+
+  expect(render().showStartDialog).toBe(true);
 });

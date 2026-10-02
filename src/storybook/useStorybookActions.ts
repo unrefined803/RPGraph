@@ -135,7 +135,7 @@ type UseStorybookActionsOptions = {
   nodeLlm: NodeLlmApi;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   errorMessage: (error: unknown) => string;
-  refreshFiles: (selectedFileName?: string | null) => Promise<void>;
+  refreshFiles: (selectedFileName?: string | null) => Promise<unknown>;
   rememberFileDisplayName?: (fileName: string, name: string) => void;
   setPendingStorybookLoad: Dispatch<SetStateAction<PendingStorybookLoad>>;
   setPendingSessionFilePath: Dispatch<SetStateAction<string | null>>;

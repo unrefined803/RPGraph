@@ -14633,6 +14633,72 @@ button.message-timeline-row.phone:focus-visible {
   margin-left: 0;
 }
 
+.chat-files-dialog.start-dialog {
+  width: min(1320px, calc(100vw - 40px));
+  height: min(1000px, calc(100vh - 40px));
+}
+
+.start-dialog-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.start-dialog-column {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px 20px 10px;
+}
+
+.start-dialog-column + .start-dialog-column {
+  border-left: 1px solid #1f2a3b;
+}
+
+/* Each list takes the height of its rows. Free space is handed out evenly
+   until a list fits, so two long lists end up sharing the column 50/50. */
+.start-dialog-new {
+  grid-template-rows: minmax(0, max-content) minmax(0, max-content);
+  align-content: start;
+}
+
+.start-dialog-section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.start-dialog-heading {
+  margin: 0;
+  color: #9ba8c0;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.start-dialog .saved-chat-list {
+  padding-right: 4px;
+}
+
+.start-dialog .saved-chat-row.selected {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent), 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.start-dialog-status {
+  padding: 0 23px 8px;
+}
+
+.start-dialog-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .storybook-creator-dialog.storybook-info-dialog {
   width: min(1344px, calc(100vw - 24px));
   height: min(980px, calc(100vh - 24px));

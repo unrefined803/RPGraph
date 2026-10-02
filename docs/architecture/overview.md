@@ -42,13 +42,13 @@ The main app shell is built in [`src/App.tsx`](../../src/App.tsx). It renders a 
 - **Graph toolbar**: reset workflow, save workflow, save RP session, runtime report, workflow capability indicators, and system toast messages.
 - **Node palette**: a side drawer of available node types grouped by purpose. Nodes can be dragged onto the graph, and favorite nodes can be added to the quick-add menu.
 - **Chat drawer**: a resizable right panel with `Chat`, `Phone`, and `Events` tabs. The graph decides which tabs exist: `Phone` is hidden when RP Output has **Enable phone** unchecked, and `Events` is hidden when the graph has no `Event Manager` node.
-- **Dialogs**: options, files, providers, storybook creator, assistant, custom node assistant, output help, image preview, system log, and ComfyUI generated image preview.
+- **Dialogs**: start, options, files, providers, storybook creator, assistant, custom node assistant, output help, image preview, system log, and ComfyUI generated image preview.
 
 ## Core User Flow
 
 At a high level, the app works like this:
 
-1. The user opens or creates a workflow.
+1. The start dialog opens on every app start. The user picks a workflow and a Storybook to start a new RP, or continues an RP Save. Dismissing it keeps the last active workflow.
 2. The workflow graph contains nodes such as `User Input`, `LLM Prompt`, `RP Output`, `RP Storybook V3`, and supporting context nodes.
 3. The user selects who they are playing as in the chat panel.
 4. The user sends a chat message, phone message, social-media action, event run, auto-turn, direct app action, or regeneration request.
@@ -238,8 +238,27 @@ Saving can produce either readable **Plain JSON** or a password/PIN protected en
 
 Loading a Storybook file starts a fresh story session: current chat and phone-app runtime state are cleared, and the loaded Storybook fully replaces the previous node content. In-editor changes still retain image-usage and running-story identity protections.
 
+### Start Dialog
+
+`loadStartupWorkflow` runs once after settings are loaded. It loads the last active workflow in the background and then always calls `openStartDialog`. An encrypted last workflow is unlocked silently with the account password when possible; otherwise the workspace stays empty and no password is requested until a selection is opened. `Start Dialog` in the Files dialog header reopens it at any time.
+
+The dialog (`showStartDialog` in `useRpgraphFiles`, markup in `src/dialogs/StudioDialogs.tsx`, `activeDialog` value `start`) is split in two halves:
+
+- **Left, top**: workflows. Exactly one is selected (`startWorkflowFileName`). `startDialogWorkflowFileName` picks the startup workflow, then the active workflow, then the previous selection, and falls back to the first compatible workflow.
+- **Left, bottom**: Storybooks, with the same `Info` preview as the Storybook picker. The two left lists size to their rows and share the column evenly only when both overflow (`.start-dialog-new` grid tracks `minmax(0, max-content)`); each then scrolls on its own.
+- **Right**: RP Saves.
+
+`startTargetFileName` holds the single selected Storybook or RP Save. Both selections are kept in renderer memory while the app runs; the selected target row receives focus when the dialog opens, so `Enter` opens it. Double-click, `Open`, `Enter`, and the primary footer button all call `openStartSelection`:
+
+- **Storybook**: stores the Storybook in `pendingStartStorybookRef` and opens the selected workflow through `openStoredFile`. After the workflow is applied, `completeFileLoad` consumes the pending entry and opens the Storybook into the freshly committed `rp-storybook` node. The Storybook replaces any Storybook embedded in the workflow.
+- **RP Save**: opens the save directly; the workflow selection is ignored.
+- **No target** (`Open Workflow Only`): opens the selected workflow and keeps its embedded Storybook, if any.
+
+Encrypted files use the normal unlock path. The password dialog stacks above the start dialog, and the pending Storybook survives the workflow unlock; the workflow password is tried for an encrypted Storybook before a second prompt appears. Incompatible files cannot be opened. A legacy Storybook closes the dialog and continues in the conversion panel. The dialog closes only after the final file was applied; load errors stay visible in its status line. While the start dialog is open, loading a workflow never opens the Storybook picker.
+
 Important file actions:
 
+- `openStartDialog` lists stored files and opens the start dialog; `openStartSelection` opens the chosen workflow and Storybook, or RP Save.
 - `openFiles` lists stored files and opens the file manager.
 - `saveSession` writes an RP save and marks the active workflow as an embedded snapshot.
 - `saveNamedWorkflow` exports a reusable workflow file.
@@ -247,7 +266,7 @@ Important file actions:
 - `openStoredFile`, `requestOpenFile`, and `loadStoredFile` route plain or encrypted loads through the correct unlock path.
 - `resetWorkflow` reloads the active workflow file, restores an embedded workflow snapshot, or restores both bundled workflow families and opens the planning workflow.
 
-Bundled workflow names are versioned independently in the classic `workflow.default_vNN.json` and multistep `workflow.default_planning_vNN.json` families. On startup the Electron layer imports every new bundled workflow and Storybook filename into RPGraph Studio Files. It never overwrites an existing local file, so changed bundled content must use a new versioned filename to appear as an update. On a fresh installation the planning family is selected as the primary default; an existing installation keeps its last active workflow. Loading a workflow whose RP Storybook node is empty opens the local Storybook picker, which can also be dismissed to continue without a Storybook. Files offers `Restore Default Files` whenever either no workflow or no Storybook remains and restores only the missing category.
+Bundled workflow names are versioned independently in the classic `workflow.default_vNN.json` and multistep `workflow.default_planning_vNN.json` families. On startup the Electron layer imports every new bundled workflow and Storybook filename into RPGraph Studio Files. It never overwrites an existing local file, so changed bundled content must use a new versioned filename to appear as an update. On a fresh installation the planning family is selected as the primary default; an existing installation keeps its last active workflow. Outside the start dialog, loading a workflow whose RP Storybook node is empty (for example from Files or after a workflow reset) opens the local Storybook picker, which can also be dismissed to continue without a Storybook. Files offers `Restore Default Files` whenever either no workflow or no Storybook remains and restores only the missing category.
 
 ## Node System
 
