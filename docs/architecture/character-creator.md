@@ -156,6 +156,21 @@ stable character, account, image and post IDs.
 
 ## Portraits and automatic face crops
 
+### Authoring new character images
+
+Generate new character photos in vertical **3:4 (width:height)** format, including
+photos initially used only as portraits. Keep the full portrait-oriented image
+in the gallery so it can also be posted in the game's social apps later. Frame
+the face clearly with enough space around the head for a circular avatar crop;
+store that crop in `profileImage.crop` without cropping the gallery source.
+Check the generated image dimensions before creating the container. This is an
+authoring convention; existing images and supported import formats remain valid.
+
+An image in the gallery or an avatar reference does not require a starting post.
+For a character who only browses, leave `initialPosts` empty and describe that
+habit in their characterization. Provision OnlyFriends when appropriate to the
+person; do not create a MatchMe profile unless they actually use dating discovery.
+
 A character portrait is optional. No `profileImage` means the existing initials
 fallback. `{ "imageId": "photo" }` explicitly selects an uncropped picture, which
 may show scenery, an object, or a person. An optional `crop: { x, y, size }` selects
