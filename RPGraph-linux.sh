@@ -88,6 +88,18 @@ build_app() {
   npm run build
 }
 
+build_appimage() {
+  ensure_dependencies || return
+  printf "\nBuilding and verifying the Linux x86_64 AppImage ...\n"
+  npm run package:linux
+}
+
+build_windows_installer() {
+  ensure_dependencies || return
+  printf "\nBuilding and verifying the Windows installer ...\n"
+  npm run package:windows
+}
+
 install_dependencies() {
   printf "\nInstalling dependencies exactly as pinned in package-lock.json ...\n"
   run_clean_install
@@ -148,7 +160,9 @@ while true; do
   printf "4) Install dependencies\n"
   printf "5) Reset generated files\n"
   printf "6) Reset local app data (delete RPGraph saves/settings)\n"
-  printf "7) Exit\n\n"
+  printf "7) Exit\n"
+  printf "8) Build Linux AppImage\n"
+  printf "9) Build Windows installer\n\n"
   printf "Selection: "
   read -r choice
 
@@ -179,6 +193,14 @@ while true; do
       ;;
     7)
       exit 0
+      ;;
+    8)
+      build_appimage
+      pause
+      ;;
+    9)
+      build_windows_installer
+      pause
       ;;
     *)
       printf "\nInvalid selection.\n"

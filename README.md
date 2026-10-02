@@ -103,6 +103,13 @@ Launch the app:
 
 If packages are missing, the starter will offer to install them.
 
+To build a portable Linux AppImage, run `npm run package:linux`.
+The AppImage includes a modern static runtime and requires no separate FUSE 2 library.
+See the [Linux AppImage guide](docs/linux-appimage.md) for build requirements and Arch Linux testing.
+
+To build the Windows installer, run `npm run package:windows`.
+See the [Windows installer guide](docs/windows-installer.md) for Windows and Linux builds, installation, and updates.
+
 ---
 
 ## 📜 License

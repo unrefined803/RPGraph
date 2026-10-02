@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["wine"],
   "entry": [
     "index.html",
     "electron/preload.cjs",

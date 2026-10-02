@@ -7,7 +7,7 @@ where npm >nul 2>&1
 if errorlevel 1 (
   echo.
   echo Node.js with npm was not found.
-  echo Install Node.js LTS for Windows, then start this file again.
+  echo Install Node.js 24 or newer for Windows, then start this file again.
   echo.
   pause
   exit /b 1
@@ -26,6 +26,7 @@ echo 4^) Install dependencies
 echo 5^) Reset generated files
 echo 6^) Reset local app data ^(delete RPGraph saves/settings^)
 echo 7^) Exit
+echo 8^) Build Windows installer
 echo.
 set /p "choice=Selection: "
 
@@ -36,6 +37,7 @@ if "%choice%"=="4" goto install_dependencies
 if "%choice%"=="5" goto reset_generated_files
 if "%choice%"=="6" goto reset_local_app_data
 if "%choice%"=="7" exit /b 0
+if "%choice%"=="8" goto build_installer
 
 echo.
 echo Invalid selection.
@@ -93,6 +95,14 @@ goto pause_and_menu
 echo.
 echo Installing dependencies exactly as pinned in package-lock.json ...
 call :run_clean_install
+goto pause_and_menu
+
+:build_installer
+call :ensure_dependencies
+if errorlevel 1 goto pause_and_menu
+echo.
+echo Building and verifying the Windows installer ...
+call npm run package:windows
 goto pause_and_menu
 
 :reset_generated_files

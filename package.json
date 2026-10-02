@@ -16,7 +16,10 @@
   "scripts": {
     "dev": "vite --config dev/config/vite.config.mts",
     "build": "tsc -b && vite build --config dev/config/vite.config.mts",
-    "package:linux": "npm run build && electron-builder --config dev/config/electron-builder.yml --linux AppImage --x64",
+    "package:linux": "npm run build && electron-builder --config dev/config/electron-builder.yml --linux AppImage --x64 --publish never && npm run package:linux:verify",
+    "package:linux:verify": "node scripts/verify-linux-package.mjs",
+    "package:windows": "node scripts/package-windows.mjs",
+    "package:windows:verify": "node scripts/verify-windows-package.mjs",
     "lint": "eslint .",
     "check:unused": "knip --config dev/config/knip.json",
     "test": "node scripts/run-tests.mjs vitest run --config dev/config/vitest.config.mts",

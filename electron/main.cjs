@@ -219,7 +219,7 @@ if (process.env.RPGRAPH_GPU_DIAGNOSTICS === '1') {
 
 app.setName('RPgraph Studio');
 if (process.platform === 'win32') {
-  app.setAppUserModelId('studio.rpgraph.app');
+  app.setAppUserModelId('io.github.unrefined803.rpgraph');
 } else if (process.platform === 'linux') {
   app.setDesktopName('rpgraph-studio.desktop');
 }

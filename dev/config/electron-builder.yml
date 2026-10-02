@@ -4,20 +4,30 @@ copyright: Copyright © 2026 unrefined803
 
 asar: true
 
+# The application has no updater; do not embed or generate update metadata.
+publish: null
+
+# Bundle the static runtime so users do not need a separate libfuse2 installation.
+toolsets:
+  appimage: "1.0.3"
+
 directories:
   output: release
 
 files:
   - dist/**/*
-  - electron/**/*
+  - electron/**/*.cjs
   - comfy-workflows/api-workflows-with-variables/**/*
   - src/assets/app-icons/rpgraph.png
+  - src/assets/app-icons/rpgraph.ico
   - src/session/formatVersions.json
   - src/storybook/formatVersions.json
   - src/workflow/formatVersions.json
   - shared/**/*.cjs
   - package.json
   - LICENSE
+  # The renderer dependencies are already bundled into dist by Vite.
+  - "!node_modules/**/*"
 
 extraResources:
   - from: scripts
@@ -45,3 +55,28 @@ linux:
   executableName: rpgraph-studio
   icon: src/assets/app-icons/rpgraph-512.png
   syncDesktopName: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+  executableName: RPGraph-Studio
+  icon: src/assets/app-icons/rpgraph.ico
+  requestedExecutionLevel: asInvoker
+
+nsis:
+  artifactName: RPGraph-Studio-${version}-Windows-Setup.${ext}
+  include: dev/config/windows-installer.nsh
+  oneClick: false
+  perMachine: false
+  selectPerMachineByDefault: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: RPgraph Studio
+  deleteAppDataOnUninstall: false
+  installerLanguages:
+    - en_US
