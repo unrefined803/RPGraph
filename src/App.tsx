@@ -305,6 +305,8 @@ import {
   defaultBigScreenPanelWidth,
   defaultBigScreenPhoneWidth,
   defaultChatPhoneWidth,
+  defaultPhoneAppListScales,
+  defaultBigScreenPhoneAppListScales,
   defaultConnection,
   useAppSettings,
 } from './settings';
@@ -1185,6 +1187,7 @@ function App() {
     const setScales = bigScreenMode ? setBigScreenPhoneAppListScales : setPhoneAppListScales;
     return {
       scales: bigScreenMode ? bigScreenPhoneAppListScales : phoneAppListScales,
+      defaultScales: bigScreenMode ? defaultBigScreenPhoneAppListScales : defaultPhoneAppListScales,
       onScaleChange: (app: PhoneAppListId, scale: number) =>
         setScales((current) => ({ ...current, [app]: scale })),
     };

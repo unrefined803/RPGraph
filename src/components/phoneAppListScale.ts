@@ -3,11 +3,14 @@ import type { PhoneAppListId, PhoneAppListScales } from '../types';
 
 type PhoneAppListScaleContextValue = {
   scales: PhoneAppListScales;
+  /** Scales a double-click on the list edge restores. */
+  defaultScales: PhoneAppListScales;
   onScaleChange: (app: PhoneAppListId, scale: number) => void;
 };
 
 export const PhoneAppListScaleContext = createContext<PhoneAppListScaleContextValue>({
   scales: {},
+  defaultScales: {},
   onScaleChange: () => {},
 });
 

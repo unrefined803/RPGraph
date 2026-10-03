@@ -5,7 +5,7 @@ import { PhoneAppListScaleContext } from './phoneAppListScale';
 
 /** Drag handle on the right edge of an app's list; place it inside the positioned list element. */
 export function PhoneAppListResizer({ app }: { app: PhoneAppListId }) {
-  const { scales, onScaleChange } = useContext(PhoneAppListScaleContext);
+  const { scales, defaultScales, onScaleChange } = useContext(PhoneAppListScaleContext);
 
   function startResize(event: ReactPointerEvent<HTMLDivElement>) {
     const list = event.currentTarget.parentElement;
@@ -52,7 +52,7 @@ export function PhoneAppListResizer({ app }: { app: PhoneAppListId }) {
       aria-orientation="vertical"
       title="Drag to resize the list"
       onPointerDown={startResize}
-      onDoubleClick={() => onScaleChange(app, 1)}
+      onDoubleClick={() => onScaleChange(app, defaultScales[app] ?? 1)}
     />
   );
 }
