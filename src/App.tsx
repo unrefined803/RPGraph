@@ -233,6 +233,7 @@ import {
   turnMessageIds,
 } from './chat/turns';
 import { useTurnRecordState } from './chat/useTurnRecordState';
+import { migrateStoredSession } from './session/migrations';
 import { currentSessionFormatVersion } from './session/version';
 import {
   Background,
@@ -3028,7 +3029,8 @@ function App() {
       setShowFiles(false);
       return;
     }
-    if (!isRpgraphSessionV2(result.value)) {
+    const session = migrateStoredSession(result.value);
+    if (!isRpgraphSessionV2(session)) {
       throw new Error('The selected file does not contain a valid RPGraph file.');
     }
     applySessionFile(
@@ -3036,7 +3038,7 @@ function App() {
       result.name,
       result.filePath,
       result.protection,
-      result.value,
+      session,
       result.protection === 'encrypted' ? password : '',
     );
   }

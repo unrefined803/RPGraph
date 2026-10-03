@@ -23,12 +23,14 @@ const {
   currentSessionWorkflowFormatVersion,
   encryptedSessionMetadata,
   sessionMetadata,
+  sessionVersionStatus,
 } = require('./sessionFormat.cjs');
 const {
   currentEncryptedWorkflowEnvelopeFormatVersion,
   currentWorkflowFormatVersion,
   encryptedWorkflowMetadata,
   workflowMetadata,
+  workflowVersionStatus,
 } = require('./workflowFormat.cjs');
 const {
   bundledDefaultWorkflowFileNames,
@@ -527,13 +529,14 @@ function storedFileDirectory(storage) {
 async function listedFilesInDirectory(directory, storage) {
   await fs.mkdir(directory, { recursive: true });
   const entries = await fs.readdir(directory, { withFileTypes: true });
+  forgetMissingStoredFileMetadata(directory, entries.map((entry) => entry.name));
   return Promise.all(
     entries
       .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(jsonFileExtension))
       .map(async (entry) => {
         const filePath = path.join(directory, entry.name);
         const stats = await fs.stat(filePath);
-        const metadata = await readStoredFileMetadata(filePath);
+        const metadata = await readStoredFileMetadata(filePath, stats);
         return {
           fileName: entry.name,
           name: await storedDisplayName(entry.name, metadata.characterName, undefined, filePath),
@@ -786,11 +789,39 @@ function storedFileMetadata(value) {
   return { type: 'unknown', protection: 'unknown', compatible: false };
 }
 
-async function readStoredFileMetadata(filePath) {
+// Type and version are only known after parsing a whole file, embedded media
+// included. Remember them per unchanged file so repeated listings stay cheap.
+// Holds file metadata only, in memory; decrypted content is never cached.
+const storedFileMetadataCache = new Map();
+
+async function readStoredFileMetadata(filePath, stats) {
+  const unknown = { type: 'unknown', protection: 'unknown', compatible: false };
   try {
-    return storedFileMetadata(JSON.parse(await fs.readFile(filePath, 'utf8')));
+    const { mtimeMs, ctimeMs, size } = stats ?? await fs.stat(filePath);
+    const cached = storedFileMetadataCache.get(filePath);
+    if (cached && cached.mtimeMs === mtimeMs && cached.ctimeMs === ctimeMs && cached.size === size) {
+      return cached.metadata;
+    }
+    const contents = await fs.readFile(filePath, 'utf8');
+    let metadata = unknown;
+    try {
+      metadata = storedFileMetadata(JSON.parse(contents));
+    } catch {
+      // Not JSON; stays unknown until the file changes.
+    }
+    storedFileMetadataCache.set(filePath, { mtimeMs, ctimeMs, size, metadata });
+    return metadata;
   } catch {
-    return { type: 'unknown', protection: 'unknown', compatible: false };
+    return unknown;
+  }
+}
+
+function forgetMissingStoredFileMetadata(directory, fileNames) {
+  const present = new Set(fileNames.map((fileName) => path.join(directory, fileName)));
+  for (const filePath of storedFileMetadataCache.keys()) {
+    if (path.dirname(filePath) === directory && !present.has(filePath)) {
+      storedFileMetadataCache.delete(filePath);
+    }
   }
 }
 
@@ -907,7 +938,7 @@ async function workflowFiles() {
       .map(async (entry) => {
         const filePath = path.join(directory, entry.name);
         const stats = await fs.stat(filePath);
-        const metadata = await readStoredFileMetadata(filePath);
+        const metadata = await readStoredFileMetadata(filePath, stats);
         return {
           fileName: entry.name,
           name: await storedDisplayName(entry.name, undefined, undefined, filePath),
@@ -1074,9 +1105,7 @@ function unsupportedSessionFormatError(envelope) {
       `This encrypted RP save uses Envelope Format ${envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedSessionEnvelopeFormatVersion}.`,
     );
   }
-  return new Error(
-    `This RP save uses RP Save Format v${formatVersion ?? 'Unknown'}, which is incompatible with supported RP Save Format v${currentSessionFormatVersion}.`,
-  );
+  return new Error(sessionFormatVersionErrorText(formatVersion));
 }
 
 function unsupportedWorkflowFormatError(envelope) {
@@ -1086,9 +1115,7 @@ function unsupportedWorkflowFormatError(envelope) {
       `This encrypted workflow uses Envelope Format ${envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedWorkflowEnvelopeFormatVersion}.`,
     );
   }
-  return new Error(
-    `This workflow uses Workflow File Format ${formatVersion ?? 'Unknown'}, which is incompatible with supported Workflow File Format ${currentWorkflowFormatVersion}.`,
-  );
+  return new Error(workflowFormatVersionErrorText(formatVersion));
 }
 
 function unsupportedStorybookFormatError(envelope) {
@@ -1113,6 +1140,20 @@ function unsupportedCharacterCardFormatError(envelope) {
   );
 }
 
+function sessionFormatVersionErrorText(formatVersion) {
+  if (sessionVersionStatus(formatVersion) === 'newer') {
+    return `This RP save uses RP Save Format v${formatVersion}, which is newer than the supported RP Save Format v${currentSessionFormatVersion}. Update RPGraph to open it.`;
+  }
+  return `This RP save uses RP Save Format v${formatVersion ?? 'Unknown'}, which is incompatible with supported RP Save Format v${currentSessionFormatVersion}.`;
+}
+
+function workflowFormatVersionErrorText(formatVersion) {
+  if (workflowVersionStatus(formatVersion) === 'newer') {
+    return `This workflow uses Workflow File Format ${formatVersion}, which is newer than the supported Workflow File Format ${currentWorkflowFormatVersion}. Update RPGraph to open it.`;
+  }
+  return `This workflow uses Workflow File Format ${formatVersion ?? 'Unknown'}, which is incompatible with supported Workflow File Format ${currentWorkflowFormatVersion}.`;
+}
+
 function storybookFormatVersionErrorText(formatVersion) {
   if (storybookVersionStatus(formatVersion) === 'newer') {
     return `This storybook uses Storybook Format ${formatVersion}, which is newer than the supported Storybook Format ${currentStorybookFormatVersion}. Update RPGraph to open it.`;
@@ -1128,9 +1169,7 @@ function unsupportedStoredFileError(value, metadata) {
         `This encrypted workflow uses Envelope Format ${metadata.envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedWorkflowEnvelopeFormatVersion}.`,
       );
     }
-    return new Error(
-      `This workflow uses Workflow File Format ${metadata.formatVersion ?? 'Unknown'}, which is incompatible with supported Workflow File Format ${currentWorkflowFormatVersion}.`,
-    );
+    return new Error(workflowFormatVersionErrorText(metadata.formatVersion));
   }
   if (metadata.type === 'session') {
     if (metadata.protection === 'encrypted' &&
@@ -1139,9 +1178,7 @@ function unsupportedStoredFileError(value, metadata) {
         `This encrypted RP save uses Envelope Format ${metadata.envelopeFormatVersion ?? 'Unknown'}, which is incompatible with supported Envelope Format ${currentEncryptedSessionEnvelopeFormatVersion}.`,
       );
     }
-    return new Error(
-      `This RP save uses RP Save Format v${metadata.formatVersion ?? 'Unknown'}, which is incompatible with supported RP Save Format v${currentSessionFormatVersion}.`,
-    );
+    return new Error(sessionFormatVersionErrorText(metadata.formatVersion));
   }
   if (metadata.type === 'storybook') {
     if (metadata.protection === 'encrypted' &&

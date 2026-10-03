@@ -1,4 +1,5 @@
 {
   "workflow": "1.2",
+  "oldestLoadableWorkflow": "1.2",
   "encryptedWorkflowEnvelope": "3.0"
 }

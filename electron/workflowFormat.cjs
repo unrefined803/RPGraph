@@ -1,8 +1,17 @@
 const formatVersions = require('../src/workflow/formatVersions.json');
 const { hasCurrentScryptParameters } = require('./encryptionFormat.cjs');
+const { formatVersionStatus } = require('../shared/formatVersionStatus.cjs');
 
 const currentEncryptedWorkflowEnvelopeFormatVersion = formatVersions.encryptedWorkflowEnvelope;
 const currentWorkflowFormatVersion = formatVersions.workflow;
+
+function workflowVersionStatus(value) {
+  return formatVersionStatus(value, currentWorkflowFormatVersion, formatVersions.oldestLoadableWorkflow);
+}
+
+function workflowVersionLoadable(value) {
+  return ['current', 'legacy'].includes(workflowVersionStatus(value));
+}
 
 function isBase64Bytes(value, expectedLength) {
   if (typeof value !== 'string' || !value) {
@@ -22,10 +31,11 @@ function workflowMetadata(workflow) {
     type: 'workflow',
     protection: 'plain',
     formatVersion,
+    versionStatus: workflowVersionStatus(formatVersion),
     workflowFormatVersion: formatVersion,
     compatible:
       workflow?.format === 'rpgraph-workflow' &&
-      formatVersion === currentWorkflowFormatVersion,
+      workflowVersionLoadable(formatVersion),
   };
 }
 
@@ -41,12 +51,13 @@ function encryptedWorkflowMetadata(envelope) {
     protection: 'encrypted',
     envelopeFormatVersion,
     formatVersion,
+    versionStatus: workflowVersionStatus(formatVersion),
     workflowFormatVersion: formatVersion,
     compatible:
       envelope?.format === 'rpgraph-encrypted-workflow' &&
       ['2.0', currentEncryptedWorkflowEnvelopeFormatVersion].includes(envelopeFormatVersion) &&
       envelope.payloadFormat === 'rpgraph-workflow' &&
-      formatVersion === currentWorkflowFormatVersion &&
+      workflowVersionLoadable(formatVersion) &&
       envelope.encryption === 'aes-256-gcm' &&
       envelope.keyDerivation === 'scrypt' &&
       hasCurrentScryptParameters(envelope.keyDerivationParameters) &&
@@ -62,4 +73,5 @@ module.exports = {
   currentWorkflowFormatVersion,
   encryptedWorkflowMetadata,
   workflowMetadata,
+  workflowVersionStatus,
 };

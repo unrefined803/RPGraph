@@ -100,8 +100,41 @@ async function scanNpcDirectory(directory, tier, unlock, displayFileName) {
   return { entries, files, diagnostics, skipped };
 }
 
+// Reads one file of the Storybook directory. Characters keep their payload only
+// while this file provides the library entry for their ID.
+async function readStorybookRecord(filePath, fileName, stats) {
+  const record = { mtimeMs: stats.mtimeMs, ctimeMs: stats.ctimeMs, size: stats.size,
+    updatedAt: stats.mtime.toISOString(), ids: [], characters: new Map(), diagnostics: [] };
+  let value;
+  try {
+    value = JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch (error) {
+    record.diagnostics.push(diagnostic('saved-storybook', fileName, 'invalid-json', String(error)));
+    return record;
+  }
+  // Never attempt to decrypt Storybooks, even when a game password is available.
+  if (value?.format !== 'rpgraph-storybook') return record;
+  if (!storybookMetadata(value).compatible || !Array.isArray(value.characters)) {
+    record.diagnostics.push(diagnostic('saved-storybook', fileName, 'invalid-container', 'Unsupported or malformed Storybook.'));
+    return record;
+  }
+  for (const character of value.characters) {
+    try {
+      validateCharacterPayload(character);
+      record.ids.push(character.id);
+      record.characters.set(character.id, character);
+    } catch (error) {
+      record.diagnostics.push(diagnostic('saved-storybook', fileName, 'invalid-container',
+        `Invalid Storybook character: ${error instanceof Error ? error.message : String(error)}`));
+    }
+  }
+  return record;
+}
+
 // Storybooks are read-only sources: rebuilding the scan also removes deleted characters.
-async function scanStorybookDirectory(directory) {
+// `cache` (file path -> record) lets a later scan skip unchanged files. It only
+// ever holds what plain files already expose; nothing here is decrypted.
+async function scanStorybookDirectory(directory, cache = new Map()) {
   const result = { entries: [], files: [], diagnostics: [], skipped: 0 };
   if (!directory) return result;
   let candidates;
@@ -113,53 +146,70 @@ async function scanStorybookDirectory(directory) {
     if (error?.code !== 'ENOENT') result.diagnostics.push(diagnostic('saved-storybook', '', 'directory-error', String(error)));
     return result;
   }
-  const byId = new Map();
+  const records = [];
   for (const file of candidates) {
+    const filePath = path.join(directory, file.name);
     try {
-      const filePath = path.join(directory, file.name);
-      const [value, stats] = await Promise.all([fs.readFile(filePath, 'utf8').then(JSON.parse), fs.stat(filePath)]);
-      // Never attempt to decrypt Storybooks, even when a game password is available.
-      if (value?.format !== 'rpgraph-storybook') continue;
-      if (!storybookMetadata(value).compatible || !Array.isArray(value.characters)) {
-        result.diagnostics.push(diagnostic('saved-storybook', file.name, 'invalid-container', 'Unsupported or malformed Storybook.'));
-        continue;
+      const stats = await fs.stat(filePath);
+      let record = cache.get(filePath);
+      if (!record || record.mtimeMs !== stats.mtimeMs || record.ctimeMs !== stats.ctimeMs || record.size !== stats.size) {
+        record = await readStorybookRecord(filePath, file.name, stats);
+        cache.set(filePath, record);
       }
-      for (const character of value.characters) {
-        try {
-          validateCharacterPayload(character);
-          // A character can occur in several saved Storybooks. Prefer the newest
-          // file, with sorted filenames providing a stable tie-breaker.
-          if ((byId.get(character.id)?.mtime ?? -Infinity) >= stats.mtimeMs) continue;
-          const fileName = `${file.name}#${character.id}`;
-          byId.set(character.id, {
-            mtime: stats.mtimeMs,
-            entry: { tier: 'saved-storybook', source: `saved-storybook:${fileName}`, fileName, character },
-            file: { tier: 'saved-storybook', fileName, name: character.name, updatedAt: stats.mtime.toISOString(),
-              type: 'character-card', protection: 'plain', formatVersion: currentCharacterContainerVersion, compatible: true },
-          });
-        } catch (error) {
-          result.diagnostics.push(diagnostic('saved-storybook', file.name, 'invalid-container',
-            `Invalid Storybook character: ${error instanceof Error ? error.message : String(error)}`));
-        }
-      }
+      records.push({ filePath, fileName: file.name, record });
     } catch (error) {
+      cache.delete(filePath);
       result.diagnostics.push(diagnostic('saved-storybook', file.name, 'invalid-json', String(error)));
     }
   }
-  for (const { entry, file } of byId.values()) {
-    result.entries.push(entry);
-    result.files.push(file);
+  const present = new Set(records.map(({ filePath }) => filePath));
+  for (const filePath of cache.keys()) {
+    if (path.dirname(filePath) === directory && !present.has(filePath)) cache.delete(filePath);
+  }
+  // A character can occur in several saved Storybooks. Prefer the newest
+  // file, with sorted filenames providing a stable tie-breaker.
+  const winners = new Map();
+  for (const source of records) {
+    result.diagnostics.push(...source.record.diagnostics);
+    for (const id of source.record.ids) {
+      if ((winners.get(id)?.record.mtimeMs ?? -Infinity) >= source.record.mtimeMs) continue;
+      winners.set(id, source);
+    }
+  }
+  for (const [id, source] of winners) {
+    if (!source.record.characters.has(id)) {
+      // This file was superseded during an earlier scan and is needed again.
+      try {
+        source.record = await readStorybookRecord(source.filePath, source.fileName, await fs.stat(source.filePath));
+        cache.set(source.filePath, source.record);
+      } catch {
+        cache.delete(source.filePath);
+        continue;
+      }
+    }
+    const character = source.record.characters.get(id);
+    if (!character) continue;
+    const fileName = `${source.fileName}#${id}`;
+    result.entries.push({ tier: 'saved-storybook', source: `saved-storybook:${fileName}`, fileName, character });
+    result.files.push({ tier: 'saved-storybook', fileName, name: character.name, updatedAt: source.record.updatedAt,
+      type: 'character-card', protection: 'plain', formatVersion: currentCharacterContainerVersion, compatible: true });
+  }
+  // Superseded copies would otherwise keep their embedded images in memory.
+  for (const { record } of records) {
+    for (const id of record.characters.keys()) {
+      if (winners.get(id)?.record !== record) record.characters.delete(id);
+    }
   }
   return result;
 }
 
-async function scanNpcLibrary(roots, unlock, displayFileName) {
+async function scanNpcLibrary(roots, unlock, displayFileName, storybookCache) {
   // Serialize decryptions across both tiers, including identical encrypted copies.
   const bundled = await scanNpcDirectory(roots.bundled, 'bundled', unlock, displayFileName);
   const user = await scanNpcDirectory(roots.user, 'user', unlock, displayFileName);
   const account = roots.account ? await scanNpcDirectory(roots.account, 'account', unlock, displayFileName)
     : { entries: [], files: [], diagnostics: [], skipped: 0 };
-  const storybooks = await scanStorybookDirectory(roots.storybooks);
+  const storybooks = await scanStorybookDirectory(roots.storybooks, storybookCache);
   return {
     roots,
     entries: [...bundled.entries, ...storybooks.entries, ...user.entries, ...account.entries],
@@ -172,6 +222,7 @@ async function scanNpcLibrary(roots, unlock, displayFileName) {
 function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFileName, accountPassword = '', onChanged = () => {} }) {
   let cached = { roots, entries: [], files: [], diagnostics: [], skipped: 0 };
   let queue = Promise.resolve();
+  const storybookCache = new Map();
   // Application-session memory only. Never serialize passwords or attempt records.
   const passwords = new Set(accountPassword ? [accountPassword] : []);
   let gamePassword = '';
@@ -211,7 +262,7 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFil
           gamePassword = password;
           if (password) passwords.add(password);
         }
-        cached = await scanNpcLibrary(roots, unlock, displayFileName);
+        cached = await scanNpcLibrary(roots, unlock, displayFileName, storybookCache);
         onChanged(cached);
         return cached;
       });
@@ -223,7 +274,7 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFil
         } catch {
           // The scan below returns a directory diagnostic without blocking startup.
         }
-        cached = await scanNpcLibrary(roots, unlock, displayFileName);
+        cached = await scanNpcLibrary(roots, unlock, displayFileName, storybookCache);
         onChanged(cached);
         return cached;
       });

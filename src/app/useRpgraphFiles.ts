@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { formatVersionStatus } from '../../shared/formatVersionStatus.cjs';
 import { getAccountPassword } from '../accounts/accountSession';
 import type {
   SavedFileSummary,
@@ -1449,6 +1450,9 @@ export function incompatibleSessionStatus(file: IncompatibleFileMetadata) {
   ) {
     return `Encrypted RP save Envelope Format ${file.envelopeFormatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Envelope Format ${currentEncryptedSessionEnvelopeFormatVersion}.`;
   }
+  if (formatVersionStatus(file.formatVersion, currentSessionFormatVersion) === 'newer') {
+    return `RP Save Format v${file.formatVersion} is newer than this RPGraph build supports (RP Save Format v${currentSessionFormatVersion}). Update RPGraph to open it.`;
+  }
   return `RP Save Format v${file.formatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports RP Save Format v${currentSessionFormatVersion}.`;
 }
 
@@ -1458,6 +1462,9 @@ export function incompatibleWorkflowStatus(file: IncompatibleFileMetadata) {
     !['2.0', currentEncryptedWorkflowEnvelopeFormatVersion].includes(file.envelopeFormatVersion ?? '')
   ) {
     return `Encrypted workflow Envelope Format ${file.envelopeFormatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Envelope Format ${currentEncryptedWorkflowEnvelopeFormatVersion}.`;
+  }
+  if (formatVersionStatus(file.formatVersion, currentWorkflowFormatVersion) === 'newer') {
+    return `Workflow File Format ${file.formatVersion} is newer than this RPGraph build supports (Workflow File Format ${currentWorkflowFormatVersion}). Update RPGraph to open it.`;
   }
   return `Workflow File Format ${file.formatVersion ?? 'Unknown'} is incompatible. This RPGraph build supports Workflow File Format ${currentWorkflowFormatVersion}.`;
 }

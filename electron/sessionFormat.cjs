@@ -1,11 +1,31 @@
 const formatVersions = require('../src/session/formatVersions.json');
 const workflowFormatVersions = require('../src/workflow/formatVersions.json');
 const { hasCurrentScryptParameters } = require('./encryptionFormat.cjs');
+const { formatVersionStatus } = require('../shared/formatVersionStatus.cjs');
 
 const currentEncryptedSessionEnvelopeFormatVersion = formatVersions.encryptedSessionEnvelope;
 const currentSessionFormatVersion = formatVersions.session;
 const currentWorkflowFormatVersion = workflowFormatVersions.workflow;
 const currentSessionWorkflowFormatVersion = formatVersions.sessionWorkflow;
+
+function sessionVersionStatus(value) {
+  return formatVersionStatus(value, currentSessionFormatVersion, formatVersions.oldestLoadableSession);
+}
+
+/**
+ * A current RP save embeds exactly the current session workflow format. A
+ * legacy save may embed any older one; its migration steps upgrade both.
+ */
+function sessionVersionsLoadable(formatVersion, workflowFormatVersion) {
+  const status = sessionVersionStatus(formatVersion);
+  if (status === 'current') {
+    return workflowFormatVersion === currentSessionWorkflowFormatVersion;
+  }
+  return status === 'legacy' &&
+    ['current', 'legacy'].includes(
+      formatVersionStatus(workflowFormatVersion, currentSessionWorkflowFormatVersion, '0.0'),
+    );
+}
 
 function sessionTurnNumber(session) {
   if (Array.isArray(session?.timeline)) {
@@ -52,14 +72,14 @@ function encryptedSessionMetadata(envelope) {
     protection: 'encrypted',
     envelopeFormatVersion,
     formatVersion,
+    versionStatus: sessionVersionStatus(formatVersion),
     workflowFormatVersion,
     latestTurnNumber,
     compatible:
       envelope?.format === 'rpgraph-encrypted-session' &&
       ['2.1', currentEncryptedSessionEnvelopeFormatVersion].includes(envelopeFormatVersion) &&
       envelope.payloadFormat === 'rpgraph-session' &&
-      formatVersion === currentSessionFormatVersion &&
-      workflowFormatVersion === currentSessionWorkflowFormatVersion &&
+      sessionVersionsLoadable(formatVersion, workflowFormatVersion) &&
       latestTurnNumber !== undefined &&
       envelope.encryption === 'aes-256-gcm' &&
       envelope.keyDerivation === 'scrypt' &&
@@ -81,9 +101,8 @@ function sessionMetadata(session) {
   const latestTurnNumber = sessionTurnNumber(session);
   const compatible =
     session?.format === 'rpgraph-session' &&
-    formatVersion === currentSessionFormatVersion &&
+    sessionVersionsLoadable(formatVersion, workflowFormatVersion) &&
     session.workflow?.format === 'rpgraph-workflow' &&
-    workflowFormatVersion === currentSessionWorkflowFormatVersion &&
     session.workflow?.graph &&
     Array.isArray(session.workflow.graph.nodes) &&
     Array.isArray(session.workflow.graph.edges) &&
@@ -99,6 +118,7 @@ function sessionMetadata(session) {
     type: 'session',
     protection: 'plain',
     formatVersion,
+    versionStatus: sessionVersionStatus(formatVersion),
     workflowFormatVersion,
     latestTurnNumber,
     compatible: !!compatible,
@@ -112,4 +132,5 @@ module.exports = {
   currentWorkflowFormatVersion,
   encryptedSessionMetadata,
   sessionMetadata,
+  sessionVersionStatus,
 };

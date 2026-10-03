@@ -1,5 +1,6 @@
 {
   "session": "2.19",
+  "oldestLoadableSession": "2.19",
   "encryptedSessionEnvelope": "3.0",
   "sessionWorkflow": "2.0"
 }

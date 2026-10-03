@@ -279,4 +279,29 @@ describe('saved Storybook NPC sources', () => {
     await writeJson(roots.storybooks, 'a.json', { format: 'rpgraph-encrypted-storybook' });
     assert.equal((await service.setGamePassword('password')).entries.length, 0);
   });
+
+  it('skips unchanged Storybook files and rereads a superseded copy when it is needed again', async () => {
+    const root = await temporaryDirectory();
+    const roots = { bundled: path.join(root, 'bundled'), user: path.join(root, 'user'), storybooks: path.join(root, 'files') };
+    const book = (bio: string) => ({ format: 'rpgraph-storybook', version: '3.0.0', characters: [characterCard('shared', bio).character] });
+    await writeJson(roots.storybooks, 'a.json', book('older'));
+    await writeJson(roots.storybooks, 'b.json', book('newer'));
+    await writeJson(roots.storybooks, 'save.json', { format: 'rpgraph-session' });
+    await fs.utimes(path.join(roots.storybooks, 'a.json'), 100, 100);
+    await fs.utimes(path.join(roots.storybooks, 'b.json'), 200, 200);
+    const service = createNpcLibraryService({ roots, openPath: async () => '' });
+    const first = await service.reload();
+    const readFile = vi.spyOn(fs, 'readFile');
+    try {
+      const second = await service.reload();
+      assert.equal(readFile.mock.calls.length, 0);
+      assert.deepEqual(second, first);
+      await fs.unlink(path.join(roots.storybooks, 'b.json'));
+      const third = await service.reload();
+      assert.deepEqual(readFile.mock.calls.map(([filePath]) => path.basename(String(filePath))), ['a.json']);
+      assert.equal(third.entries[0].character.apps?.fotogram?.bio, 'older');
+    } finally {
+      readFile.mockRestore();
+    }
+  });
 });
