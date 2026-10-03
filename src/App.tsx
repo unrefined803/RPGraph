@@ -695,6 +695,9 @@ function App() {
   const [showWelcome, setShowWelcome] = useState(() => {
     return window.localStorage.getItem('rpgraph.welcomeSeen') !== 'true';
   });
+  // The first-run guide explains the workflow view, so Big Screen defers it
+  // until that view is entered. Opening it from the brand shows it anywhere.
+  const [welcomeRequested, setWelcomeRequested] = useState(false);
   const {
     connections,
     setConnections,
@@ -5386,8 +5389,35 @@ function App() {
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
 
+  const logMenuButton = (
+    <button
+      className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
+      type="button"
+      onClick={() => setShowSystemLog(true)}
+      title="Open system log"
+    >
+      Log
+      {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
+    </button>
+  );
+  const npcLibraryMenuButton = (
+    <button className="connection-button" type="button" onClick={npcLibrary.show}>
+      NPC Library
+    </button>
+  );
+  const storybookSourceNodeId = nodes.find(isStorybookSourceNode)?.id;
   const appMenuButtons = (
     <>
+      {bigScreenMode && (
+        <button
+          className="connection-button"
+          type="button"
+          onClick={() => void openStartDialog()}
+          title="Choose a workflow and Storybook, or continue an RP Save"
+        >
+          Start
+        </button>
+      )}
       <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
         Options
       </button>
@@ -5407,18 +5437,21 @@ function App() {
           Assistant
         </button>
       )}
-      <button
-        className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
-        type="button"
-        onClick={() => setShowSystemLog(true)}
-        title="Open system log"
-      >
-        Log
-        {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
-      </button>
-      <button className="connection-button" type="button" onClick={npcLibrary.show}>
-        NPC Library
-      </button>
+      {bigScreenMode ? npcLibraryMenuButton : logMenuButton}
+      {bigScreenMode && (
+        <button
+          className="connection-button"
+          type="button"
+          disabled={!storybookSourceNodeId}
+          onClick={() => { if (storybookSourceNodeId) openStorybookCreator(storybookSourceNodeId); }}
+          title={storybookSourceNodeId
+            ? 'Create or edit the Storybook of the loaded workflow'
+            : 'Load a workflow to edit its Storybook'}
+        >
+          Edit Storybook
+        </button>
+      )}
+      {bigScreenMode ? logMenuButton : npcLibraryMenuButton}
       <button className="connection-button" type="button" onClick={() => void openFiles()}>
         Files
       </button>
@@ -5497,7 +5530,10 @@ function App() {
       <button
         className="brand-name"
         type="button"
-        onClick={() => setShowWelcome(true)}
+        onClick={() => {
+          setWelcomeRequested(true);
+          setShowWelcome(true);
+        }}
         aria-label="RPgraph Studio: open welcome guide"
       >
         <span className="brand-name-rp">RP</span>graph Studio
@@ -7133,7 +7169,7 @@ function App() {
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
           dismissOnEscape={!characterRemoval}
-          storybookNodeId={nodes.find(isStorybookSourceNode)?.id}
+          storybookNodeId={storybookSourceNodeId}
           onAddToStorybook={(characterId, nodeId) => {
             const previous = npcParticipants.current();
             try {
@@ -7168,10 +7204,11 @@ function App() {
           onClose={() => setPreviewImage(null)}
         />
       )}
-      {showWelcome && (
+      {showWelcome && (!bigScreenMode || welcomeRequested) && (
         <WelcomeDialog
           onClose={() => {
             window.localStorage.setItem('rpgraph.welcomeSeen', 'true');
+            setWelcomeRequested(false);
             setShowWelcome(false);
           }}
         />

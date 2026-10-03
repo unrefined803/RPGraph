@@ -29627,9 +29627,14 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   transition: color 0.18s ease, background 0.18s ease;
 }
 
-.big-screen-menu .connection-button:hover {
+.big-screen-menu .connection-button:hover:not(:disabled) {
   color: var(--soft-white);
   background: rgba(148, 170, 214, 0.07);
+}
+
+.big-screen-menu .connection-button:disabled {
+  opacity: 0.38;
+  cursor: default;
 }
 
 .big-screen-files {
