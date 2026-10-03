@@ -7,7 +7,8 @@ export function useSliderPreview(enabled: boolean) {
     if (!enabled) return;
     const isSlider = (target: EventTarget | null) =>
       target instanceof HTMLInputElement && target.type === 'range' &&
-      !target.disabled && !!target.closest('.options-dialog');
+      !target.disabled &&
+      target.matches('.options-dialog [data-slider-preview] input:not([data-no-slider-preview])');
     const startPointer = (event: PointerEvent) => {
       setActive(event.button === 0 && isSlider(event.target));
     };

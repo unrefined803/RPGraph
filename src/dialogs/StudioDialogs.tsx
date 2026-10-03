@@ -2478,7 +2478,7 @@ export function StudioDialogs({
                   </div>
                 </div>}
                 {activeOptionsTab === 'chat' && (
-                  <div className="options-tab-content">
+                  <div className="options-tab-content" data-slider-preview>
                     <div className="options-tab-body">
                       <label className="option-toggle">
                         <input
@@ -2493,20 +2493,22 @@ export function StudioDialogs({
                           onChange={(event) => onAppMessageAvatarsEnabledChange(event.target.checked)} />
                         <span>App avatars</span>
                       </label>
-                      <label className="option-avatar-size" htmlFor="chat-message-avatar-size">
-                        <span>Face size</span>
-                        <input
-                          id="chat-message-avatar-size"
-                          type="range"
-                          min={70}
-                          max={130}
-                          step={1}
-                          value={chatMessageAvatarSize}
-                          disabled={!chatMessageAvatarsEnabled && !appMessageAvatarsEnabled}
-                          onChange={(event) => onChatMessageAvatarSizeChange(Number(event.target.value))}
-                          aria-valuetext={`${chatMessageAvatarSize}%`}
-                        />
-                        <output htmlFor="chat-message-avatar-size">{chatMessageAvatarSize}%</output>
+                      <label className="option-field chat-text-size-field" htmlFor="chat-message-avatar-size">
+                        AVATAR SIZE
+                        <div className="option-range-row">
+                          <input
+                            id="chat-message-avatar-size"
+                            type="range"
+                            min={70}
+                            max={130}
+                            step={1}
+                            value={chatMessageAvatarSize}
+                            disabled={!chatMessageAvatarsEnabled && !appMessageAvatarsEnabled}
+                            onChange={(event) => onChatMessageAvatarSizeChange(Number(event.target.value))}
+                            aria-valuetext={`${chatMessageAvatarSize}%`}
+                          />
+                          <span>{chatMessageAvatarSize}%</span>
+                        </div>
                       </label>
                       <label className="option-field chat-text-size-field" htmlFor="ui-scale">
                         <span className="option-label-row">
@@ -2588,6 +2590,7 @@ export function StudioDialogs({
                         <div className="option-range-row">
                           <input
                             id="smooth-chat-auto-scroll-min-speed"
+                            data-no-slider-preview
                             title="Base scroll speed. Long output increases it gradually, up to 1.75 times this value."
                             min={minSmoothChatAutoScrollMinSpeed}
                             max={maxSmoothChatAutoScrollMinSpeed}
@@ -2631,7 +2634,7 @@ export function StudioDialogs({
                 )}
 
                 {activeOptionsTab === 'text' && (
-                  <div className="options-tab-content">
+                  <div className="options-tab-content" data-slider-preview>
                     <div className="options-tab-body">
                       <label className="option-field chat-text-size-field" htmlFor="chat-text-size">
                         NORMAL CHAT TEXT SIZE

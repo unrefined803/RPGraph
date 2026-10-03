@@ -93,6 +93,10 @@ gradient.
 **Checkbox / radio.** `accent-color: #7aa2e8`. A checked option card takes the
 selected card look.
 
+**Slider.** Track `rgba(148, 170, 214, 0.16)`, 6px high. Thumb: blue gradient
+`linear-gradient(180deg, #8fb4f0, #5f86d0)` with a light border, inset top
+highlight and a blue glow that strengthens on hover.
+
 **Scrollbar.** Thumb `#222c3f` on a transparent track; hover `#33405a`.
 
 **Transitions.** `0.18s ease` on colour, background, border and shadow. No
@@ -106,7 +110,8 @@ movement on hover.
   confirmations use it.
 - Dialogs with their own class tree carry the palette in their own rules:
   NPC Library (`.npc-library-dialog`), System Log, Debug Snapshot and its
-  viewer, the Turn Trace window frame, and Providers (`.connection-dialog`).
+  viewer, the Turn Trace window frame, Providers (`.connection-dialog`) and
+  Options (`.options-dialog`).
 - Base rules stay in place for dialogs not yet restyled; skin rules override
   them by specificity. When restyling a dialog, check hover, selected and
   disabled states as well as the resting state.

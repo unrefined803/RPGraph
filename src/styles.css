@@ -2862,51 +2862,65 @@ input[type="radio"]:focus-visible {
   gap: 12px;
 }
 
-.option-range-row input[type="range"],
-.option-avatar-size input[type="range"] {
+.option-range-row input[type="range"] {
   appearance: none;
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: #384152;
+  background: rgba(148, 170, 214, 0.16);
+  cursor: pointer;
 }
 
-.option-range-row input[type="range"]::-webkit-slider-runnable-track,
-.option-avatar-size input[type="range"]::-webkit-slider-runnable-track {
+.option-range-row input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 999px;
-  background: #384152;
+  background: rgba(148, 170, 214, 0.16);
 }
 
-.option-range-row input[type="range"]::-moz-range-track,
-.option-avatar-size input[type="range"]::-moz-range-track {
+.option-range-row input[type="range"]::-moz-range-track {
   height: 6px;
   border-radius: 999px;
-  background: #384152;
+  background: rgba(148, 170, 214, 0.16);
 }
 
-.option-range-row input[type="range"]::-webkit-slider-thumb,
-.option-avatar-size input[type="range"]::-webkit-slider-thumb {
+.option-range-row input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
   margin-top: -5px;
-  border: 0;
+  border: 1px solid rgba(190, 212, 255, 0.55);
   border-radius: 50%;
-  background: #94a3b8;
+  background: linear-gradient(180deg, #8fb4f0, #5f86d0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 10px rgba(92, 132, 214, 0.45);
+  transition: box-shadow 0.18s ease;
 }
 
-.option-range-row input[type="range"]::-moz-range-thumb,
-.option-avatar-size input[type="range"]::-moz-range-thumb {
+.option-range-row input[type="range"]:hover:not(:disabled)::-webkit-slider-thumb {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 16px rgba(122, 162, 232, 0.7);
+}
+
+.option-range-row input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  border: 0;
+  border: 1px solid rgba(190, 212, 255, 0.55);
   border-radius: 50%;
-  background: #94a3b8;
+  background: linear-gradient(180deg, #8fb4f0, #5f86d0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 10px rgba(92, 132, 214, 0.45);
 }
 
-.option-range-row input[type="range"]:disabled,
-.option-avatar-size input[type="range"]:disabled {
+.option-range-row input[type="range"]::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(122, 162, 232, 0.55);
+}
+
+.option-range-row input[type="range"]:disabled {
   opacity: 0.45;
 }
 
@@ -14676,12 +14690,14 @@ button.message-timeline-row.phone:focus-visible {
   margin-left: 0;
 }
 
-/* Deep dialogs (Start, Files, Save/Unlock, character save) follow the Big Screen palette: deep navy surfaces,
-   hairline borders, flat controls and the blue active state of the Big Screen rail. */
+/* Deep dialogs (Start, Files, Save/Unlock, character save) follow the Big Screen
+   palette: deep navy surfaces, hairline borders, flat controls and the blue
+   active state of the Big Screen rail. */
 .dialog-backdrop:has(> .deep-dialog),
 .dialog-backdrop:has(> .npc-library-dialog),
 .dialog-backdrop:has(> .system-log-dialog),
-.dialog-backdrop:has(> .connection-dialog) {
+.dialog-backdrop:has(> .connection-dialog),
+.dialog-backdrop:has(> .options-dialog) {
   background: rgba(2, 3, 6, 0.74);
   backdrop-filter: blur(6px);
 }
@@ -23041,6 +23057,264 @@ button.message-timeline-row.phone:focus-visible {
   background: linear-gradient(180deg, rgba(198, 95, 95, 0.3), rgba(91, 45, 51, 0.72));
 }
 
+/* Options dialog in the Big Screen palette of the deep dialogs. */
+.options-dialog {
+  border-color: rgba(130, 160, 220, 0.12);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(52, 82, 140, 0.16), transparent 75%),
+    linear-gradient(180deg, #111a2a, #0c1320);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 22px 80px rgba(0, 0, 0, 0.6),
+    0 0 140px rgba(60, 100, 180, 0.14);
+}
+
+.options-dialog,
+.options-dialog * {
+  scrollbar-color: #222c3f transparent;
+}
+
+.options-dialog *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.options-dialog *::-webkit-scrollbar-thumb {
+  border-color: #0e1522;
+  background: #222c3f;
+}
+
+.options-dialog *::-webkit-scrollbar-thumb:hover {
+  background: #33405a;
+}
+
+.options-dialog .dialog-header {
+  padding: 18px 24px;
+  border-bottom-color: rgba(148, 163, 184, 0.08);
+}
+
+.options-dialog .dialog-header h2 {
+  color: var(--soft-white);
+  font-size: 22px;
+  letter-spacing: 0.01em;
+}
+
+.options-dialog .dialog-header p {
+  color: #8292ae;
+  font-size: 13px;
+}
+
+.options-dialog .options-layout,
+.options-dialog .options-panel {
+  background: transparent;
+}
+
+.options-dialog .options-sidebar {
+  border-right-color: rgba(148, 163, 184, 0.08);
+  background: rgba(2, 3, 6, 0.22);
+}
+
+.options-dialog .options-tab-btn {
+  color: #8592ab;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.options-dialog .options-tab-btn:hover {
+  color: var(--soft-white);
+  background: rgba(148, 170, 214, 0.07);
+}
+
+.options-dialog .options-tab-btn.active {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: linear-gradient(180deg, rgba(52, 71, 106, 0.6), rgba(35, 49, 80, 0.6));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 18px rgba(92, 132, 214, 0.16);
+}
+
+.options-dialog .options-tab-btn.active svg {
+  color: #8fb4f0;
+}
+
+.options-dialog .options-tab-btn-desc {
+  color: #66738c;
+}
+
+.options-dialog .options-tab-btn.active .options-tab-btn-desc {
+  color: #8d9bb5;
+}
+
+.options-dialog .options-tab-header {
+  border-bottom-color: rgba(148, 163, 184, 0.08);
+}
+
+.options-dialog .options-tab-header h3 {
+  color: var(--soft-white);
+}
+
+.options-dialog .options-tab-header p,
+.options-dialog .options-note {
+  color: #7887a2;
+}
+
+.options-dialog .option-toggle {
+  color: #c3cee0;
+}
+
+.options-dialog .option-field {
+  color: #66738c;
+}
+
+.options-dialog .option-info,
+.options-dialog .account-options-card {
+  border-color: rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  color: #a9b5cb;
+  background: rgba(2, 3, 6, 0.26);
+  box-shadow: none;
+}
+
+.options-dialog .option-info strong,
+.options-dialog .account-options-card h4 {
+  color: #dbe3f2;
+}
+
+.options-dialog .account-options-card p {
+  color: #7887a2;
+}
+
+.options-dialog .option-scale-status span {
+  border-color: rgba(148, 163, 184, 0.1);
+  background: rgba(2, 3, 6, 0.26);
+}
+
+.options-dialog input[type="checkbox"] {
+  border-color: rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  background: rgba(2, 3, 6, 0.3);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.options-dialog input[type="checkbox"]:hover:not(:disabled) {
+  border-color: rgba(122, 162, 232, 0.45);
+}
+
+.options-dialog input[type="checkbox"]:checked {
+  border-color: rgba(122, 162, 232, 0.6);
+  background: linear-gradient(180deg, #4a67a0, #34497a);
+  box-shadow: 0 0 10px rgba(92, 132, 214, 0.3);
+}
+
+.options-dialog .option-field input:not([type="range"]):not([type="checkbox"]),
+.options-dialog .option-field select {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(2, 3, 6, 0.3);
+}
+
+.options-dialog .option-field input:not([type="range"]):not([type="checkbox"]):focus,
+.options-dialog .option-field select:focus {
+  border-color: rgba(122, 162, 232, 0.45);
+  box-shadow: none;
+}
+
+.options-dialog .node-custom-select-button,
+.options-dialog .node-custom-select-button:disabled:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(2, 3, 6, 0.3);
+}
+
+.options-dialog .node-custom-select-button:hover:not(:disabled),
+.options-dialog .node-custom-select-button[aria-expanded="true"]:not(:disabled) {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: rgba(122, 162, 232, 0.1);
+}
+
+.options-dialog .workflow-variable-field {
+  border-color: rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  background: rgba(148, 170, 214, 0.035);
+}
+
+.options-dialog .workflow-variable-field.used {
+  border-color: rgba(86, 217, 154, 0.26);
+  background: rgba(86, 217, 154, 0.05);
+}
+
+.options-dialog .workflow-variable-field.invalid {
+  border-color: #e87070;
+}
+
+/* Flat controls with the blue hover. */
+.options-dialog .close-button,
+.options-dialog .connection-button,
+.options-dialog .account-options-action,
+.options-dialog .option-stepper-button,
+.options-dialog .workflow-variable-action-button {
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.options-dialog .close-button,
+.options-dialog .connection-button,
+.options-dialog .account-options-action {
+  border-radius: 10px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.options-dialog .close-button:hover,
+.options-dialog .connection-button:hover:not(:disabled),
+.options-dialog .account-options-action:hover:not(:disabled),
+.options-dialog .option-stepper-button:hover:not(:disabled),
+.options-dialog .option-stepper-button:focus-visible,
+.options-dialog .workflow-variable-action-button:hover,
+.options-dialog .workflow-variable-action-button:focus-visible {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.12);
+}
+
+.options-dialog .account-options-action.primary {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: linear-gradient(180deg, #34476a, #233150);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 0 16px rgba(92, 132, 214, 0.3);
+}
+
+.options-dialog .account-options-action.primary:hover:not(:disabled) {
+  border-color: #7aa2e8;
+  background: linear-gradient(180deg, #3d5480, #2a3b60);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 22px rgba(92, 132, 214, 0.42);
+}
+
+.options-dialog .account-options-action.danger,
+.options-dialog .workflow-variable-action-button.danger {
+  border-color: rgba(232, 112, 112, 0.3);
+  color: #efb5b5;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.options-dialog .account-options-action.danger:hover:not(:disabled),
+.options-dialog .workflow-variable-action-button.danger:hover,
+.options-dialog .workflow-variable-action-button.danger:focus-visible {
+  border-color: rgba(232, 112, 112, 0.6);
+  color: var(--soft-white);
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.26), rgba(232, 112, 112, 0.12));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 14px rgba(232, 112, 112, 0.16);
+}
+
 /* Providers dialog in the Big Screen palette of the deep dialogs. */
 .connection-dialog {
   border-color: rgba(130, 160, 220, 0.12);
@@ -28347,29 +28621,6 @@ button.message-timeline-row.phone:focus-visible {
   border-radius: 18px 18px 18px 6px;
 }
 
-.option-avatar-size {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: -16px 0 0 28px;
-  color: #7d8ba6;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.option-avatar-size input[type="range"] {
-  width: 120px;
-  flex: 0 1 120px;
-  min-width: 80px;
-}
-
-.option-avatar-size output {
-  color: #b7c3df;
-  min-width: 4ch;
-  font-variant-numeric: tabular-nums;
-}
-
 .phone-message-side {
   display: contents;
 }
@@ -28461,10 +28712,28 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 
+/* While an Options slider is adjusted, everything except that slider is hidden
+   so the chat behind the dialog shows the change live. */
 .dialog-backdrop.text-effect-preview {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  /* Hidden rather than only cleared: a hidden layer cannot keep blurring. */
+  visibility: hidden;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Any other open overlay must not blur the previewed chat either. */
+body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dialog-backdrop.text-effect-preview .options-dialog input[type="range"]:focus {
+  visibility: visible;
+  /* Dark halo keeps the bare slider readable over chat text. */
+  box-shadow:
+    0 0 0 9px rgba(8, 12, 20, 0.82),
+    0 0 0 10px rgba(122, 162, 232, 0.35);
 }
 
 .text-effect-options {

@@ -98,7 +98,7 @@ function validChatGpdModel(value: unknown): ChatGpdModel {
 const defaultSmoothChatAutoScrollEnabled = true;
 const defaultSmoothChatAutoScrollMinSpeed = 46;
 export const minSmoothChatAutoScrollMinSpeed = 32;
-export const maxSmoothChatAutoScrollMinSpeed = 60;
+export const maxSmoothChatAutoScrollMinSpeed = 80;
 export const defaultThoughtTextStyle = 'italic';
 const defaultRpDateTimeFormat: RpDateTimeFormat = 'eu';
 const defaultRpWeekdayLanguage: RpWeekdayLanguage = 'system';
