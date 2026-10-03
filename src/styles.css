@@ -28427,6 +28427,25 @@ button.message-timeline-row.phone:focus-visible {
     0 0 140px rgba(60, 100, 180, 0.16);
 }
 
+/* Quieter scrollbars on the dark Big Screen column. */
+.studio.big-screen-active .chat-drawer,
+.studio.big-screen-active .chat-drawer * {
+  scrollbar-color: #222c3f #0d131e;
+}
+
+.studio.big-screen-active .chat-drawer *::-webkit-scrollbar-track {
+  background: #0d131e;
+}
+
+.studio.big-screen-active .chat-drawer *::-webkit-scrollbar-thumb {
+  border-color: #0d131e;
+  background: #222c3f;
+}
+
+.studio.big-screen-active .chat-drawer *::-webkit-scrollbar-thumb:hover {
+  background: #33405a;
+}
+
 .studio.big-screen-active .chat-drawer .panel-resizer {
   border: 0;
   background: #0b111c;
