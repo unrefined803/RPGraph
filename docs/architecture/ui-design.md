@@ -110,8 +110,10 @@ movement on hover.
   confirmations use it.
 - Dialogs with their own class tree carry the palette in their own rules:
   NPC Library (`.npc-library-dialog`), System Log, Debug Snapshot and its
-  viewer, the Turn Trace window frame, Providers (`.connection-dialog`) and
-  Options (`.options-dialog`).
+  viewer, the Turn Trace window frame, Providers (`.connection-dialog`),
+  Options (`.options-dialog`) and the Storybook dialogs
+  (`.storybook-creator-dialog`, shared by the Storybook creator, editor and
+  info views, the Character Assistant and the Custom Node Assistant).
 - Base rules stay in place for dialogs not yet restyled; skin rules override
   them by specificity. When restyling a dialog, check hover, selected and
   disabled states as well as the resting state.

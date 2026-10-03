@@ -529,6 +529,19 @@ export function CustomNodeAssistantDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingSecurity, setIsCheckingSecurity] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!moreOpen) {
+      return;
+    }
+    const closeMoreOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !moreMenuRef.current?.contains(event.target)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeMoreOutside);
+    return () => document.removeEventListener('pointerdown', closeMoreOutside);
+  }, [moreOpen]);
   const [editDraft, setEditDraft] = useState('');
   const [editCodeDraft, setEditCodeDraft] = useState('');
   const [editStatus, setEditStatus] = useState('');
@@ -739,7 +752,7 @@ export function CustomNodeAssistantDialog({
             >
               Clear Chat
             </button>
-            <div className="storybook-more-menu custom-node-more-menu">
+            <div className="storybook-more-menu custom-node-more-menu" ref={moreMenuRef}>
               <button
                 className="inspect-button storybook-more-button nodrag"
                 type="button"
@@ -3226,6 +3239,19 @@ export function StorybookCreatorDialog({
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [fileActionStatus, setFileActionStatus] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!moreOpen) {
+      return;
+    }
+    const closeMoreOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !moreMenuRef.current?.contains(event.target)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeMoreOutside);
+    return () => document.removeEventListener('pointerdown', closeMoreOutside);
+  }, [moreOpen]);
   const [outputSettingsOpen, setOutputSettingsOpen] = useState(false);
   const outputSettingsMenuRef = useRef<HTMLDivElement | null>(null);
   const [imageOwner, setImageOwner] = useState<StorybookImageOwner | null>(null);
@@ -3410,7 +3436,7 @@ export function StorybookCreatorDialog({
             <button className="inspect-button nodrag" type="button" onClick={() => void loadStorybook()}>
               Load
             </button>
-            <div className="storybook-more-menu">
+            <div className="storybook-more-menu" ref={moreMenuRef}>
               <button
                 className="inspect-button storybook-more-button nodrag"
                 type="button"
@@ -3912,14 +3938,14 @@ export function StorybookCreatorDialog({
                       You can instruct the AI to build your roleplay settings. Try prompts like:
                     </p>
                     <ul className="prompt-suggestions">
-                      <li onClick={() => setDraft("Create a dark fantasy storybook set in a cursed tower")}>
-                        "Create a dark fantasy storybook set in a cursed tower"
+                      <li onClick={() => setDraft("Create a storybook about three roommates sharing a flat in a big city")}>
+                        "Create a storybook about three roommates sharing a flat in a big city"
                       </li>
-                      <li onClick={() => setDraft("Add a character named Julian, a rogue prince")}>
-                        "Add a character named Julian, a rogue prince"
+                      <li onClick={() => setDraft("Add a character named Mia, a lifestyle influencer with a growing Fotogram following")}>
+                        "Add a character named Mia, a lifestyle influencer with a growing Fotogram following"
                       </li>
-                      <li onClick={() => setDraft("Add an npc named Lilith who is a mysterious merchant")}>
-                        "Add an npc named Lilith who is a mysterious merchant"
+                      <li onClick={() => setDraft("Add an npc named Daniel, a coworker who keeps texting after hours")}>
+                        "Add an npc named Daniel, a coworker who keeps texting after hours"
                       </li>
                     </ul>
                   </div>

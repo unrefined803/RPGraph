@@ -859,7 +859,7 @@ input[type="radio"]:focus-visible {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   background: #0b1220;
-  box-shadow: 
+  box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   letter-spacing: normal;
@@ -6819,7 +6819,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 22%;
   color: var(--soft-white);
-  box-shadow: 
+  box-shadow:
     0 6px 16px rgba(0, 0, 0, 0.35),
     inset 0 1px 1px rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(12px);
@@ -6886,7 +6886,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-desktop-app:focus-visible .phone-whatsup-icon {
   transform: translateY(-3px) scale(1.06);
   border-color: rgba(34, 197, 94, 0.75);
-  box-shadow: 
+  box-shadow:
     0 8px 24px rgba(34, 197, 94, 0.45),
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
@@ -6897,7 +6897,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-desktop-app:focus-visible .phone-camera-icon {
   transform: translateY(-3px) scale(1.06);
   border-color: rgba(148, 163, 184, 0.7);
-  box-shadow: 
+  box-shadow:
     0 8px 24px rgba(148, 163, 184, 0.35),
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
@@ -6906,7 +6906,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-desktop-app:focus-visible .phone-banking-icon {
   transform: translateY(-3px) scale(1.06);
   border-color: rgba(59, 130, 246, 0.75);
-  box-shadow: 
+  box-shadow:
     0 8px 24px rgba(59, 130, 246, 0.45),
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
@@ -7382,7 +7382,7 @@ input[type="number"]::-webkit-outer-spin-button {
   background: linear-gradient(135deg, rgba(18, 52, 67, 0.94), rgba(14, 38, 50, 0.92));
   border-bottom-left-radius: 4px;
   backdrop-filter: none;
-  box-shadow: 
+  box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
@@ -7392,7 +7392,7 @@ input[type="number"]::-webkit-outer-spin-button {
   background: linear-gradient(135deg, rgba(27, 77, 62, 0.94), rgba(17, 45, 36, 0.92));
   border-color: rgba(16, 185, 129, 0.22);
   backdrop-filter: none;
-  box-shadow: 
+  box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
@@ -8982,7 +8982,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 18px;
   background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 55%, #1e1b4b 100%);
   border: 1px solid rgba(96, 165, 250, 0.3);
-  box-shadow: 
+  box-shadow:
     0 12px 28px -6px rgba(0, 0, 0, 0.5),
     0 4px 12px rgba(30, 58, 138, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
@@ -8992,7 +8992,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-banking-balance-card:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 16px 32px -6px rgba(0, 0, 0, 0.6),
     0 6px 16px rgba(30, 58, 138, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
@@ -15959,13 +15959,22 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #303a4e;
+  border: 1px solid rgba(130, 160, 220, 0.12);
   border-radius: 18px;
-  background: #111722;
-  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(52, 82, 140, 0.16), transparent 75%),
+    linear-gradient(180deg, #111a2a, #0c1320);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 22px 80px rgba(0, 0, 0, 0.6),
+    0 0 140px rgba(60, 100, 180, 0.14);
   /* Native widgets (scrollbars, resize grips) must follow the dark surface,
      not the OS light scheme. */
   color-scheme: dark;
+  --accent: #7aa2e8;
+  --accent-light: #8fb4f0;
+  --cyan: #8fb4f0;
+  --muted: #7887a2;
 }
 
 .image-generation-assistant-dialog {
@@ -15976,10 +15985,10 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(138, 115, 201, 0.28);
+  border: 1px solid rgba(122, 162, 232, 0.28);
   border-radius: 20px;
   background:
-    radial-gradient(circle at 82% -8%, rgba(138, 115, 201, 0.14), transparent 38%),
+    radial-gradient(circle at 82% -8%, rgba(122, 162, 232, 0.14), transparent 38%),
     radial-gradient(circle at 8% 112%, rgba(126, 185, 197, 0.09), transparent 34%),
     #10151f;
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
@@ -16020,7 +16029,7 @@ button.message-timeline-row.phone:focus-visible {
   place-items: center;
   padding: 22px;
   background:
-    radial-gradient(circle at 50% 38%, rgba(138, 115, 201, 0.12), transparent 58%),
+    radial-gradient(circle at 50% 38%, rgba(122, 162, 232, 0.12), transparent 58%),
     radial-gradient(circle at center, #161f33, #080c15 76%);
 }
 
@@ -16042,7 +16051,7 @@ button.message-timeline-row.phone:focus-visible {
   justify-content: center;
   gap: 12px;
   padding: 30px;
-  border: 1.5px dashed rgba(138, 115, 201, 0.35);
+  border: 1.5px dashed rgba(122, 162, 232, 0.35);
   border-radius: 18px;
   color: #77849b;
   text-align: center;
@@ -16104,8 +16113,8 @@ button.message-timeline-row.phone:focus-visible {
 
 .image-generation-prompt-panel textarea:focus {
   outline: none;
-  border-color: rgba(138, 115, 201, 0.65);
-  box-shadow: 0 0 0 3px rgba(138, 115, 201, 0.15);
+  border-color: rgba(122, 162, 232, 0.65);
+  box-shadow: 0 0 0 3px rgba(122, 162, 232, 0.15);
 }
 
 .image-generation-prompt-actions {
@@ -16149,14 +16158,14 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-header-actions .close-button.danger {
-  border-color: rgba(198, 95, 95, 0.72);
-  color: #fff4f4;
-  background: linear-gradient(180deg, #8f3f46, #612a30);
+  border-color: rgba(232, 112, 112, 0.3);
+  color: #efb5b5;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06));
 }
 
 .storybook-header-actions .close-button.danger:hover {
-  border-color: #e58a91;
-  background: linear-gradient(180deg, #a84c54, #743239);
+  border-color: rgba(232, 112, 112, 0.6);
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.26), rgba(232, 112, 112, 0.12));
 }
 
 .storybook-title-row {
@@ -16223,42 +16232,42 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-file-row .storybook-more-button {
-  border-color: rgba(219, 126, 53, 0.66);
-  color: #ffe7c7;
-  background: linear-gradient(180deg, #56301c, #3a2116);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .storybook-file-row .storybook-more-button:hover,
 .storybook-file-row .storybook-more-button[aria-expanded="true"] {
-  border-color: #f0a35a;
-  color: #fff3dd;
-  background: linear-gradient(180deg, #704025, #4b2b1b);
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.14);
 }
 
 .storybook-header-actions .storybook-output-button {
-  border-color: rgba(116, 183, 255, 0.56);
-  color: #d9ecff;
-  background: linear-gradient(180deg, #203755, #17263c);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .storybook-header-actions .storybook-output-button:hover,
 .storybook-header-actions .storybook-output-button[aria-expanded="true"] {
-  border-color: #8cc7ff;
+  border-color: rgba(122, 162, 232, 0.45);
   color: var(--soft-white);
-  background: linear-gradient(180deg, #28466d, #1c304b);
+  background: rgba(122, 162, 232, 0.14);
 }
 
 .storybook-header-actions .storybook-more-button {
-  border-color: rgba(219, 126, 53, 0.66);
-  color: #ffe7c7;
-  background: linear-gradient(180deg, #56301c, #3a2116);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .storybook-header-actions .storybook-more-button:hover,
 .storybook-header-actions .storybook-more-button[aria-expanded="true"] {
-  border-color: #f0a35a;
-  color: #fff3dd;
-  background: linear-gradient(180deg, #704025, #4b2b1b);
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.14);
 }
 
 .storybook-file-status {
@@ -16278,10 +16287,10 @@ button.message-timeline-row.phone:focus-visible {
   display: grid;
   gap: 3px;
   padding: 6px;
-  border: 1px solid #303a4e;
-  border-radius: 8px;
-  background: #111722;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(130, 160, 220, 0.22);
+  border-radius: 10px;
+  background: rgba(12, 18, 30, 0.98);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .storybook-output-popover {
@@ -16293,17 +16302,17 @@ button.message-timeline-row.phone:focus-visible {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #2f405b;
+  border: 1px solid rgba(130, 160, 220, 0.22);
   border-radius: 10px;
-  background: #101927;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+  background: rgba(12, 18, 30, 0.98);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .storybook-more-popover button {
   width: 100%;
   border: 0;
   border-radius: 6px;
-  color: #dbe4f7;
+  color: #dbe3f2;
   background: transparent;
   padding: 8px 10px;
   font: inherit;
@@ -16312,11 +16321,11 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-more-popover button:hover {
-  background: #1a2536;
+  background: rgba(148, 170, 214, 0.1);
 }
 
 .storybook-more-popover button.danger {
-  color: #f7b3b3;
+  color: #efb5b5;
 }
 
 .storybook-confirm-backdrop {
@@ -16335,21 +16344,21 @@ button.message-timeline-row.phone:focus-visible {
   display: grid;
   gap: 14px;
   padding: 18px;
-  border: 1px solid #39465e;
-  border-radius: 12px;
-  background: #111722;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+  border: 1px solid rgba(130, 160, 220, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #111a2a, #0c1320);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 24px 70px rgba(0, 0, 0, 0.6);
 }
 
 .storybook-confirm-dialog h3 {
   margin: 0;
-  color: #f4f7ff;
+  color: var(--soft-white);
   font-size: 17px;
 }
 
 .storybook-confirm-dialog p {
   margin: 0;
-  color: #aeb9ce;
+  color: #8d9bb5;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -16366,14 +16375,14 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-confirm-actions .inspect-button.danger {
-  border-color: #8f3e45;
-  color: #fff0f0;
-  background: #5a242a;
+  border-color: rgba(232, 112, 112, 0.3);
+  color: #efb5b5;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06));
 }
 
 .storybook-confirm-actions .inspect-button.danger:hover {
-  border-color: #c85c66;
-  background: #763039;
+  border-color: rgba(232, 112, 112, 0.6);
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.26), rgba(232, 112, 112, 0.12));
 }
 
 .custom-node-assistant-dialog {
@@ -16632,14 +16641,14 @@ button.message-timeline-row.phone:focus-visible {
   grid-template-rows: minmax(180px, 0.45fr) minmax(240px, 0.55fr);
   gap: 0;
   overflow: hidden;
-  background: #090d14;
+  background: rgba(2, 3, 6, 0.3);
 }
 
 .custom-node-readable-section {
   min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr;
-  border-bottom: 1px solid #232d42;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.09);
 }
 
 .custom-node-readable-section:last-child {
@@ -16648,7 +16657,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .custom-node-readable-heading {
   padding: 10px 18px;
-  border-bottom: 1px solid #232d42;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.09);
   background: #101724;
   color: #aab8d6;
   font-size: 11px;
@@ -16675,7 +16684,7 @@ button.message-timeline-row.phone:focus-visible {
   overflow-y: auto;
   border: 0;
   border-radius: 0;
-  background: #090d14;
+  background: rgba(2, 3, 6, 0.3);
   color: #c5d4f5;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 12px;
@@ -16724,7 +16733,7 @@ button.message-timeline-row.phone:focus-visible {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border-top: 1px solid #232d42;
+  border-top: 1px solid rgba(148, 163, 184, 0.09);
   background: #101724;
 }
 
@@ -16741,8 +16750,8 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: rgba(13, 20, 32, 0.45);
-  border: 1px solid #232d42;
+  background: rgba(2, 3, 6, 0.26);
+  border: 1px solid rgba(148, 163, 184, 0.09);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -16753,8 +16762,8 @@ button.message-timeline-row.phone:focus-visible {
   align-items: center;
   justify-content: space-between;
   padding: 12px 18px;
-  background: #151d2d;
-  border-bottom: 1px solid #232d42;
+  background: rgba(2, 3, 6, 0.22);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.09);
   flex: none;
 }
 
@@ -16766,7 +16775,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .panel-title {
   font-weight: 700;
-  color: #edf1ff;
+  color: #dbe3f2;
   font-size: 13px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -16779,10 +16788,10 @@ button.message-timeline-row.phone:focus-visible {
 
 .storybook-tabs {
   display: flex;
-  background: #090d14;
+  background: rgba(2, 3, 6, 0.3);
   padding: 3px;
   border-radius: 8px;
-  border: 1px solid #232d42;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tab-button {
@@ -16804,8 +16813,8 @@ button.message-timeline-row.phone:focus-visible {
 
 .tab-button.active {
   color: var(--soft-white);
-  background: var(--accent);
-  box-shadow: 0 2px 8px rgba(138, 115, 201, 0.24);
+  background: linear-gradient(180deg, #34476a, #233150);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 12px rgba(92, 132, 214, 0.25);
 }
 
 .storybook-panel-content {
@@ -16827,7 +16836,7 @@ button.message-timeline-row.phone:focus-visible {
   width: 100%;
   border: 0;
   border-radius: 0;
-  background: #090d14;
+  background: rgba(2, 3, 6, 0.3);
   color: #c5d4f5;
   font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 12px;
@@ -16845,12 +16854,12 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  background: #0c111a;
+  background: transparent;
 }
 
 .storybook-ui-header {
-  background: linear-gradient(135deg, #182235, #0f1624);
-  border: 1px solid #2a374e;
+  background: rgba(148, 170, 214, 0.05);
+  border: 1px solid rgba(148, 163, 184, 0.13);
   border-radius: 10px;
   padding: 20px;
   position: relative;
@@ -16884,7 +16893,7 @@ button.message-timeline-row.phone:focus-visible {
   overflow-wrap: break-word;
   word-break: break-word;
   white-space: normal;
-  background: linear-gradient(90deg, var(--soft-white), #b48cff);
+  background: linear-gradient(90deg, var(--soft-white), #8fb4f0);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -16899,8 +16908,8 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-section {
-  background: #111722;
-  border: 1px solid #232d42;
+  background: rgba(148, 170, 214, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.09);
   border-radius: 10px;
   padding: 16px 20px;
   display: flex;
@@ -16912,7 +16921,7 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #232d42;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.09);
   padding-bottom: 8px;
 }
 
@@ -16968,7 +16977,7 @@ button.message-timeline-row.phone:focus-visible {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  border-top: 1px dashed #232d42;
+  border-top: 1px dashed rgba(148, 163, 184, 0.09);
   padding-top: 12px;
 }
 
@@ -16976,8 +16985,8 @@ button.message-timeline-row.phone:focus-visible {
   position: relative;
   display: flex;
   gap: 16px;
-  background: #151d2d;
-  border: 1px solid #2a374e;
+  background: rgba(148, 170, 214, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.13);
   border-radius: 10px;
   padding: 16px;
   transition: all 0.25s ease;
@@ -16988,8 +16997,8 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: #151d2d;
-  border: 1px solid #2a374e;
+  background: rgba(148, 170, 214, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.13);
   border-radius: 12px;
   padding: 18px;
   transition: all 0.25s ease;
@@ -16998,7 +17007,7 @@ button.message-timeline-row.phone:focus-visible {
 .storybook-actor-card:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(138, 115, 201, 0.13);
+  box-shadow: 0 4px 16px rgba(122, 162, 232, 0.13);
 }
 
 /* The card's flex gap owns the rhythm; default paragraph margins on top of it
@@ -17060,10 +17069,10 @@ button.message-timeline-row.phone:focus-visible {
   flex: none;
   place-items: center;
   padding: 6px 12px;
-  border: 1px solid rgba(239, 111, 111, 0.35);
+  border: 1px solid rgba(232, 112, 112, 0.3);
   border-radius: 6px;
-  color: #f0a0a0;
-  background: rgba(130, 48, 48, 0.16);
+  color: #efb5b5;
+  background: rgba(232, 112, 112, 0.08);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -17165,7 +17174,7 @@ button.message-timeline-row.phone:focus-visible {
 .character-avatar-button:focus-visible .actor-avatar {
   border-color: rgba(188, 168, 255, 0.95);
   box-shadow:
-    0 0 0 3px rgba(138, 115, 201, 0.28),
+    0 0 0 3px rgba(122, 162, 232, 0.28),
     0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
@@ -17196,7 +17205,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .player-avatar {
-  background: linear-gradient(135deg, var(--accent), #7928ca);
+  background: linear-gradient(135deg, var(--accent), #3d5a96);
   border: 2px solid var(--accent-light);
 }
 
@@ -17334,8 +17343,8 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: #101722;
-  border: 1px solid #2a374e;
+  background: linear-gradient(180deg, #111a2a, #0c1320);
+  border: 1px solid rgba(130, 160, 220, 0.14);
   border-radius: 8px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
   padding: 18px;
@@ -17346,7 +17355,7 @@ button.message-timeline-row.phone:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid #232d42;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.09);
   padding-bottom: 12px;
 }
 
@@ -17405,8 +17414,8 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background: #101722;
-  border: 1px solid #2a374e;
+  background: linear-gradient(180deg, #111a2a, #0c1320);
+  border: 1px solid rgba(130, 160, 220, 0.14);
   border-radius: 12px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
   padding: 20px;
@@ -17417,7 +17426,7 @@ button.message-timeline-row.phone:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid #232d42;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.09);
   padding-bottom: 12px;
 }
 
@@ -17454,9 +17463,9 @@ button.message-timeline-row.phone:focus-visible {
   min-height: 220px;
   max-height: 560px;
   resize: vertical;
-  border: 1px solid #2a374e;
+  border: 1px solid rgba(148, 163, 184, 0.13);
   border-radius: 6px;
-  background: #0c121c;
+  background: rgba(2, 3, 6, 0.3);
   color: #edf1ff;
   padding: 10px;
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -17498,8 +17507,8 @@ button.message-timeline-row.phone:focus-visible {
   width: 100%;
   min-width: 0;
   margin: 0 0 14px;
-  background: #151d2d;
-  border: 1px solid #2a374e;
+  background: rgba(148, 170, 214, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.13);
   border-radius: 8px;
   padding: 0;
   overflow: hidden;
@@ -17642,9 +17651,9 @@ button.message-timeline-row.phone:focus-visible {
   width: 100%;
   resize: vertical;
   min-height: 88px;
-  border: 1px solid #2a374e;
+  border: 1px solid rgba(148, 163, 184, 0.13);
   border-radius: 6px;
-  background: #0c121c;
+  background: rgba(2, 3, 6, 0.3);
   color: #edf1ff;
   padding: 8px;
   font: inherit;
@@ -17657,7 +17666,7 @@ button.message-timeline-row.phone:focus-visible {
   display: grid;
   place-items: center;
   column-span: all;
-  border: 1px dashed #2a374e;
+  border: 1px dashed rgba(148, 163, 184, 0.13);
   border-radius: 8px;
   color: var(--muted);
 }
@@ -17680,9 +17689,9 @@ button.message-timeline-row.phone:focus-visible {
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  border: 1px solid #2a374e;
+  border: 1px solid rgba(130, 160, 220, 0.14);
   border-radius: 8px;
-  background: #101722;
+  background: linear-gradient(180deg, #111a2a, #0c1320);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
 }
 
@@ -17692,7 +17701,7 @@ button.message-timeline-row.phone:focus-visible {
   justify-content: space-between;
   gap: 14px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #232d42;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.09);
 }
 
 .storybook-image-detail-header h4,
@@ -17753,9 +17762,9 @@ button.message-timeline-row.phone:focus-visible {
   max-height: min(72vh, 720px);
   overflow: auto;
   padding: 12px;
-  border: 1px solid #253047;
+  border: 1px solid rgba(148, 163, 184, 0.09);
   border-radius: 8px;
-  background: #0f1622;
+  background: rgba(2, 3, 6, 0.26);
 }
 
 .storybook-image-detail-description textarea {
@@ -17810,10 +17819,10 @@ button.message-timeline-row.phone:focus-visible {
   gap: 10px;
   padding: 12px 16px;
   text-align: left;
-  border: 1px solid #233147;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background: #0f1826;
-  color: #8b9bb4;
+  background: rgba(255, 255, 255, 0.04);
+  color: #8d9bb5;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -17839,41 +17848,42 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .character-setup-tabs button:hover {
-  border-color: rgba(126, 185, 197, 0.45);
-  color: #dbe4f7;
-  background: #142235;
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.12);
 }
 
 .character-setup-tabs button:hover svg {
-  color: #7eb9c5;
+  color: #8fb4f0;
 }
 
 .character-setup-tabs button:hover .character-setup-tab-symbol {
-  color: #7eb9c5;
+  color: #8fb4f0;
 }
 
 .character-setup-tabs button.active {
-  border-color: #7eb9c5;
-  background: #16263d;
+  border-color: rgba(122, 162, 232, 0.45);
+  background: linear-gradient(180deg, #34476a, #233150);
   color: var(--soft-white);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 14px rgba(92, 132, 214, 0.25);
 }
 
 .character-setup-tabs button.active svg {
-  color: #7eb9c5;
+  color: #8fb4f0;
 }
 
 .character-setup-tabs button.active .character-setup-tab-symbol {
-  color: #7eb9c5;
+  color: #8fb4f0;
 }
 
 /* Primary Save Button */
 .storybook-image-dialog-actions .primary-save {
-  background: #7eb9c5;
-  color: #0b121d;
-  border-color: #7eb9c5;
+  background: linear-gradient(180deg, #34476a, #233150);
+  color: var(--soft-white);
+  border-color: rgba(122, 162, 232, 0.45);
   font-weight: 700;
   transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 16px rgba(92, 132, 214, 0.3);
 }
 
 .storybook-image-dialog-actions .primary-save:hover {
@@ -18619,8 +18629,8 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: rgba(13, 20, 32, 0.3);
-  border: 1px solid #232d42;
+  background: rgba(2, 3, 6, 0.22);
+  border: 1px solid rgba(148, 163, 184, 0.09);
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
@@ -18646,7 +18656,7 @@ button.message-timeline-row.phone:focus-visible {
   flex-direction: column;
   gap: 16px;
   padding: 20px;
-  background: radial-gradient(circle at top right, #0d1321, #080c14);
+  background: transparent;
 }
 
 .chat-empty-state {
@@ -18663,7 +18673,7 @@ button.message-timeline-row.phone:focus-visible {
   width: 68px;
   height: 68px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), #7928ca);
+  background: linear-gradient(135deg, var(--accent), #3d5a96);
   color: var(--soft-white);
   font-size: 22px;
   font-weight: 800;
@@ -18676,13 +18686,13 @@ button.message-timeline-row.phone:focus-visible {
 
 @keyframes pulseAvatar {
   0% {
-    box-shadow: 0 0 0 0 rgba(138, 115, 201, 0.42);
+    box-shadow: 0 0 0 0 rgba(122, 162, 232, 0.42);
   }
   70% {
-    box-shadow: 0 0 0 12px rgba(138, 115, 201, 0);
+    box-shadow: 0 0 0 12px rgba(122, 162, 232, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(138, 115, 201, 0);
+    box-shadow: 0 0 0 0 rgba(122, 162, 232, 0);
   }
 }
 
@@ -18691,7 +18701,7 @@ button.message-timeline-row.phone:focus-visible {
   font-weight: 700;
   color: var(--soft-white);
   margin: 0 0 6px 0;
-  background: linear-gradient(90deg, var(--soft-white), #b48cff);
+  background: linear-gradient(90deg, var(--soft-white), #8fb4f0);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -18718,14 +18728,14 @@ button.message-timeline-row.phone:focus-visible {
 .prompt-suggestions li {
   font-size: 12px;
   padding: 10px 14px;
-  background: rgba(21, 29, 45, 0.6);
-  border: 1px solid #232d42;
+  background: rgba(148, 170, 214, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.09);
   border-left: 3px solid var(--accent);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
-  color: #edf1ff;
+  color: #dbe3f2;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -18742,7 +18752,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .prompt-suggestions li:hover {
   border-color: var(--accent);
-  background: rgba(138, 115, 201, 0.08);
+  background: rgba(122, 162, 232, 0.08);
   transform: translateX(4px);
 }
 
@@ -18830,13 +18840,13 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .chat-message-row.user .message-sender-avatar {
-  background: linear-gradient(135deg, #9d8bd2, #745eaa);
-  border: 1px solid #b29ce3;
+  background: linear-gradient(135deg, #5f86d0, #3d5a96);
+  border: 1px solid #8fb4f0;
 }
 
 .chat-message-row.assistant .message-sender-avatar {
   background: linear-gradient(135deg, #1e293b, #0f172a);
-  border: 1px solid #38bdf8;
+  border: 1px solid rgba(122, 162, 232, 0.55);
 }
 
 .chat-message-row.error .message-sender-avatar {
@@ -18851,11 +18861,11 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .chat-message-bubble {
-  background: #151d2d;
-  border: 1px solid #232d42;
+  background: rgba(148, 170, 214, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.09);
   padding: 12px 16px;
   border-radius: 16px 16px 16px 4px;
-  color: #edf1ff;
+  color: #dbe3f2;
   font-size: 13px;
   line-height: 1.5;
   position: relative;
@@ -18863,11 +18873,11 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .chat-message-row.user .chat-message-bubble {
-  background: linear-gradient(135deg, #8a73c9, #715da7);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #34476a, #233150);
+  border: 1px solid rgba(122, 162, 232, 0.45);
   border-radius: 16px 16px 4px 16px;
   color: var(--soft-white);
-  box-shadow: 0 4px 16px rgba(138, 115, 201, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 16px rgba(92, 132, 214, 0.2);
 }
 
 .chat-message-row.error .chat-message-bubble {
@@ -18895,8 +18905,8 @@ button.message-timeline-row.phone:focus-visible {
   align-items: flex-end;
   gap: 10px;
   padding: 16px;
-  background: #0d121f;
-  border-top: 1px solid #1e293b;
+  background: rgba(2, 3, 6, 0.28);
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
 }
 
 .storybook-chat-form textarea {
@@ -23057,6 +23067,52 @@ button.message-timeline-row.phone:focus-visible {
   background: linear-gradient(180deg, rgba(198, 95, 95, 0.3), rgba(91, 45, 51, 0.72));
 }
 
+/* Storybook dialogs in the Big Screen palette: flat controls with the blue
+   hover; shapes and sizes stay as authored. */
+.dialog-backdrop:has(> .storybook-creator-dialog) {
+  background: rgba(2, 3, 6, 0.74);
+  backdrop-filter: blur(6px);
+}
+
+.storybook-creator-dialog,
+.storybook-creator-dialog * {
+  scrollbar-color: #222c3f transparent;
+}
+
+.storybook-creator-dialog *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.storybook-creator-dialog *::-webkit-scrollbar-thumb {
+  border-color: #0e1522;
+  background: #222c3f;
+}
+
+.storybook-creator-dialog *::-webkit-scrollbar-thumb:hover {
+  background: #33405a;
+}
+
+.storybook-creator-dialog .dialog-header {
+  border-bottom-color: rgba(148, 163, 184, 0.08);
+}
+
+.storybook-creator-dialog .inspect-button:not(.danger):not(.active),
+.storybook-creator-dialog .close-button:not(.danger):not(.primary) {
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.storybook-creator-dialog .inspect-button:not(.danger):not(.active):hover:not(:disabled),
+.storybook-creator-dialog .close-button:not(.danger):not(.primary):hover:not(:disabled),
+.storybook-creator-dialog .inspect-button[aria-expanded="true"] {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.12);
+}
+
 /* Options dialog in the Big Screen palette of the deep dialogs. */
 .options-dialog {
   border-color: rgba(130, 160, 220, 0.12);
@@ -25814,15 +25870,15 @@ button.message-timeline-row.phone:focus-visible {
 
 /* Chat Header clear button and row layout */
 .storybook-chat-header .prompt-generate-btn {
-  background: rgba(30, 41, 59, 0.85);
-  border-color: rgba(71, 85, 105, 0.7);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
   box-shadow: none;
-  color: #cbd5e1;
+  color: #b7c4da;
 }
 
 .storybook-chat-header .prompt-generate-btn:hover:not(:disabled) {
-  background: rgba(138, 115, 201, 0.28);
-  border-color: rgba(138, 115, 201, 0.55);
+  background: rgba(122, 162, 232, 0.12);
+  border-color: rgba(122, 162, 232, 0.45);
   color: var(--soft-white);
   box-shadow: none;
 }
@@ -27455,10 +27511,10 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  border: 1px solid #263049;
+  border: 1px solid rgba(148, 163, 184, 0.09);
   border-radius: 10px;
   padding: 8px 12px;
-  background: #161d2b;
+  background: rgba(148, 170, 214, 0.04);
 }
 
 .storybook-conversion-row-text {
@@ -27496,9 +27552,9 @@ button.message-timeline-row.phone:focus-visible {
   flex: none;
   margin: 12px 14px 0;
   overflow: hidden;
-  border: 1px solid rgba(138, 115, 201, 0.38);
+  border: 1px solid rgba(122, 162, 232, 0.3);
   border-radius: 12px;
-  background: linear-gradient(145deg, rgba(37, 30, 62, 0.74), rgba(17, 24, 39, 0.92));
+  background: rgba(122, 162, 232, 0.06);
 }
 
 .storybook-conversion-report-header {
@@ -27507,7 +27563,7 @@ button.message-timeline-row.phone:focus-visible {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(138, 115, 201, 0.25);
+  border-bottom: 1px solid rgba(122, 162, 232, 0.2);
 }
 
 .storybook-conversion-report-header > span {
@@ -27534,10 +27590,10 @@ button.message-timeline-row.phone:focus-visible {
 .storybook-conversion-report-header button {
   flex: none;
   padding: 7px 11px;
-  border: 1px solid rgba(184, 158, 255, 0.5);
+  border: 1px solid rgba(122, 162, 232, 0.45);
   border-radius: 8px;
-  color: #f4efff;
-  background: rgba(138, 115, 201, 0.32);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.16);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
@@ -27558,7 +27614,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-conversion-report-scroll section > strong {
-  color: #d9cff9;
+  color: #b9cdf2;
   font-size: 11px;
 }
 
@@ -27583,7 +27639,7 @@ button.message-timeline-row.phone:focus-visible {
 .storybook-conversion-report-hint {
   margin: 0;
   padding: 8px 12px 10px;
-  border-top: 1px solid rgba(138, 115, 201, 0.16);
+  border-top: 1px solid rgba(122, 162, 232, 0.14);
   line-height: 1.4;
 }
 
@@ -27727,9 +27783,9 @@ button.message-timeline-row.phone:focus-visible {
 .storybook-editor-field input:focus,
 .storybook-editor-field select:focus,
 .storybook-editor-field textarea:focus {
-  border-color: var(--accent);
+  border-color: rgba(122, 162, 232, 0.45);
   background: #090d15;
-  box-shadow: 0 0 0 2px rgba(138, 115, 201, 0.18);
+  box-shadow: none;
 }
 
 .storybook-editor-field textarea {
