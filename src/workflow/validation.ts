@@ -19,7 +19,7 @@ import {
   isNodeVersion,
 } from '../nodes/nodeVersion';
 import { isCustomNodeDefinition } from '../nodes/custom-node/model';
-import { isPromptActionConfig } from '../nodes/shared/promptActions';
+import { isPromptActionConfig, isRetiredPromptActionConfig } from '../nodes/shared/promptActions';
 import { isPromptCommandConfig } from '../nodes/shared/promptCommands';
 import { contextBuilderInputCount } from './defaults';
 import {
@@ -65,7 +65,7 @@ function isStringMatrix(value: unknown) {
 }
 
 function isPromptActionConfigArray(value: unknown) {
-  return Array.isArray(value) && value.every(isPromptActionConfig);
+  return Array.isArray(value) && value.every((entry) => isPromptActionConfig(entry) || isRetiredPromptActionConfig(entry));
 }
 
 function isPromptCommandConfigArray(value: unknown) {

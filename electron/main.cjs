@@ -5486,9 +5486,8 @@ ipcMain.handle('comfy:free-memory', async (_event, request) => {
     // ComfyUI's /free responds as soon as the unload is *queued*, not once the
     // model is actually out of VRAM (same reasoning as comfyFreeSettleMs in
     // freeComfyMemoryForLocalLlm above, which frees Comfy in the other
-    // direction — before loading a local LLM). Callers of this handler
-    // (comfyImageRunner.ts's reloadLocalLlmModelsAfterComfy) immediately try
-    // to load the LLM back afterward; without this wait, that reload could
+    // direction — before loading a local LLM). Callers of this handler may
+    // load the LLM back immediately afterward; without this wait, that reload could
     // start while ComfyUI is still releasing memory, and both models briefly
     // resident at once was causing OOM.
     await new Promise((resolve) => setTimeout(resolve, comfyFreeSettleMs));

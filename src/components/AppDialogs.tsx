@@ -57,14 +57,6 @@ import {
 import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 import { runStateClassName } from '../nodes/shared/CardView';
 import { providerOption } from '../nodes/shared/providerHealthLabels';
-import {
-  configForPromptActionToken,
-  parsePromptActionTokens,
-  promptActionConfigs,
-  withPromptActionRuntimeSettingsList,
-  type PromptActionRuntimeSettings,
-  type PromptActionConfig,
-} from '../nodes/shared/promptActions';
 import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
 import {
   promptPresetDisplayText,
@@ -102,10 +94,6 @@ import { TurnTraceDialog } from './TurnTraceDialog';
 import { useBackdropDismiss } from './useBackdropDismiss';
 import type { TurnTrace } from '../app/turnTrace';
 import { createDebugSnapshotCopy, type DebugSnapshot, type DebugSnapshotSectionKey } from '../app/debugSnapshot';
-import {
-  llmPromptSwitchPromptAftersByOutput,
-  llmPromptSwitchPromptBeforesByOutput,
-} from '../workflow';
 import { callTotalTokens, runLlmReportTotals, tokenCell } from './runLlmReportTotals';
 
 export type StorybookCreatorMessage = {
@@ -1064,8 +1052,6 @@ type StorybookCreatorDialogProps = {
   referenceCharacters?: Character[];
   identityLocked?: boolean;
   node: WorkflowNode;
-  workflowNodes: WorkflowNode[];
-  promptActionSettings: PromptActionRuntimeSettings;
   messages: StorybookCreatorMessage[];
   onRetry: (index: number) => Promise<void>;
   onClearChat: () => void;
@@ -1218,106 +1204,6 @@ function storybookCharacterComfyConfigured(character: { comfyConfig?: RpStoryboo
     character.comfyConfig?.appearance.trim() ||
     character.comfyConfig?.loraName.trim(),
   );
-}
-
-function usedCreateImagePromptActions(
-  nodes: WorkflowNode[],
-  promptActionSettings: PromptActionRuntimeSettings,
-) {
-  return nodes.flatMap((node): PromptActionConfig[] => {
-    if (
-      node.data.kind !== undefined ||
-      (node.data.nodeType !== 'llm-prompt' && node.data.nodeType !== 'llm-prompt-switch')
-    ) {
-      return [];
-    }
-    // Merge the runtime prompt-action settings (where the provider dropdown writes
-    // comfyProviderId), like the run path does. Reading only the stored
-    // llmPromptActions produced a false "no ComfyUI provider" warning even though
-    // the run resolves the provider and image generation works.
-    const actionConfigs = withPromptActionRuntimeSettingsList(
-      promptActionConfigs(node.data.llmPromptActions),
-      promptActionSettings,
-    );
-    const promptTexts = node.data.nodeType === 'llm-prompt'
-      ? [node.data.llmPromptBefore ?? '', node.data.llmPromptAfter ?? '']
-      : [
-          ...llmPromptSwitchPromptBeforesByOutput(node.data).flat(),
-          ...llmPromptSwitchPromptAftersByOutput(node.data).flat(),
-        ];
-    return promptTexts
-      .flatMap((text) => parsePromptActionTokens(text))
-      .map((token) => configForPromptActionToken(actionConfigs, token.title))
-      .filter((action) => action.actionId === 'createImage');
-  });
-}
-
-function storybookCharacterComfyStatus({
-  character,
-  createImageActions,
-  connections,
-  providerHealthById,
-}: {
-  character: { name?: string; comfyConfig?: RpStorybookCharacterComfyConfig };
-  createImageActions: PromptActionConfig[];
-  connections: ConnectionPreset[];
-  providerHealthById: Record<string, ProviderConnectionHealth>;
-}) {
-  const characterConfigured = storybookCharacterComfyConfigured(character);
-  if (!characterConfigured) {
-    return {
-      active: false,
-      text: 'Character image generation is not configured for this character.',
-    };
-  }
-  if (createImageActions.length === 0) {
-    return {
-      active: false,
-      text: 'This function is not used because the workflow does not call a Create character phone image action.',
-    };
-  }
-  const selectedProviderIds = Array.from(new Set(
-    createImageActions
-      .map((action) => action.comfyProviderId?.trim() ?? '')
-      .filter(Boolean),
-  ));
-  if (selectedProviderIds.length === 0) {
-    return {
-      active: false,
-      text: 'This function is not used because no image provider is selected in the Create character phone image action.',
-    };
-  }
-  const comfyProviderIds = new Set(connections.filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id])).map((connection) => connection.id));
-  const missingProvider = selectedProviderIds.find((providerId) => !comfyProviderIds.has(providerId));
-  if (missingProvider) {
-    return {
-      active: false,
-      text: 'This function is not used because the selected image provider is no longer available.',
-    };
-  }
-  const healthValues = selectedProviderIds.map((providerId) => providerHealthById[providerId]);
-  if (healthValues.some((health) => health?.status === 'online')) {
-    return {
-      active: true,
-      text: 'This character setup is used by the workflow Create character phone image action.',
-    };
-  }
-  if (healthValues.some((health) => health?.status === 'checking' || health?.status === 'unknown')) {
-    return {
-      active: false,
-      text: 'This function is not used yet because the selected image provider has not been checked.',
-    };
-  }
-  if (healthValues.some((health) => health?.status === 'warning')) {
-    return {
-      active: false,
-      text: 'This function is not used yet because the selected image provider setup is incomplete.',
-    };
-  }
-  return {
-    active: false,
-    text: 'This function is not used because the image provider is offline.',
-  };
 }
 
 function withStorybookCharacterComfyConfig(
@@ -2359,7 +2245,6 @@ function CharacterSetupDialog({
   identityLocked,
   storybook,
   characterId,
-  workflowNodes,
   connections,
   providerHealthById,
   onUpdateStorybook,
@@ -2367,13 +2252,11 @@ function CharacterSetupDialog({
   onGenerateCharacterComfyPreview,
   onGenerateCharacterVoicePreview,
   onUnloadCharacterComfyModels,
-  promptActionSettings,
   onClose,
 }: {
   identityLocked: boolean;
   storybook: RpStorybook;
   characterId: string;
-  workflowNodes: WorkflowNode[];
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   onUpdateStorybook: (storybook: RpStorybook, status?: string) => boolean;
@@ -2381,7 +2264,6 @@ function CharacterSetupDialog({
   onGenerateCharacterComfyPreview: StorybookCreatorDialogProps['onGenerateCharacterComfyPreview'];
   onGenerateCharacterVoicePreview: StorybookCreatorDialogProps['onGenerateCharacterVoicePreview'];
   onUnloadCharacterComfyModels: StorybookCreatorDialogProps['onUnloadCharacterComfyModels'];
-  promptActionSettings: PromptActionRuntimeSettings;
   onClose: () => void;
 }) {
   const character = storybook.characters.find((entry) => entry.id === characterId);
@@ -2423,13 +2305,6 @@ function CharacterSetupDialog({
   const [unloading, setUnloading] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ dataUrl: string; filename: string } | null>(null);
   const loraOptionsCacheRef = useRef<Record<string, string[]>>({});
-  const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
-  const comfyUsageStatus = storybookCharacterComfyStatus({
-    character: { name: characterName, comfyConfig: draft },
-    createImageActions,
-    connections,
-    providerHealthById,
-  });
 
   useEffect(() => {
     let active = true;
@@ -3136,11 +3011,6 @@ function CharacterSetupDialog({
         </div>
           )}
         </div>
-        {activeSetupTab === 'image' ? (
-          <p className={`character-comfy-usage-status${comfyUsageStatus.active ? ' active' : ''}`}>
-            {comfyUsageStatus.text}
-          </p>
-        ) : null}
       </section>
     </div>
   );
@@ -3164,8 +3034,6 @@ function CopyFailedStorybookResponse({ message }: { message: StorybookCreatorMes
 export function StorybookCreatorDialog({
   referenceCharacters = [],
   node,
-  workflowNodes,
-  promptActionSettings,
   messages,
   isSubmitting,
   connections,
@@ -3270,7 +3138,6 @@ export function StorybookCreatorDialog({
   const formattedTextSettings = rpStorybookFormattedTextSettings(node.data.storybookFormattedTextSettings);
   const [referenceIds, setReferenceIds] = useState<string[]>([]);
   const relationshipCharacters = characterReferenceCandidates(storybook.characters, referenceCharacters);
-  const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
   const openingHistoryMessages = useMemo(
     () => {
       // Stored messages reference gallery images by id only; resolve the
@@ -3662,12 +3529,7 @@ export function StorybookCreatorDialog({
                        {storybook.characters.length ? (
                         <div className="storybook-actor-grid">
                           {storybook.characters.map((character) => {
-                            const comfyStatus = storybookCharacterComfyStatus({
-                              character,
-                              createImageActions,
-                              connections,
-                              providerHealthById,
-                            });
+                            const comfyConfigured = storybookCharacterComfyConfigured(character);
                             return (
                             <article className="storybook-actor-card" key={character.id}>
                               <StorybookInlineEditor
@@ -3762,11 +3624,11 @@ export function StorybookCreatorDialog({
                                 <div className="character-card-footer-actions">
                                   <button
                                     type="button"
-                                    className={`character-images-button character-comfy-config-button nodrag${comfyStatus.active ? ' configured' : ''}`}
+                                    className={`character-images-button character-comfy-config-button nodrag${comfyConfigured ? ' configured' : ''}`}
                                     onClick={() => setComfyConfigCharacterId(character.id)}
                                   >
                                     <span>Character Setup</span>
-                                    {comfyStatus.active ? <span aria-hidden="true">✓</span> : null}
+                                    {comfyConfigured ? <span aria-hidden="true">✓</span> : null}
                                   </button>
                                   <button
                                     type="button"
@@ -4005,8 +3867,6 @@ export function StorybookCreatorDialog({
             identityLocked={identityLocked || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0}
             storybook={storybook}
             characterId={comfyConfigCharacterId}
-            workflowNodes={workflowNodes}
-            promptActionSettings={promptActionSettings}
             connections={connections}
             providerHealthById={providerHealthById}
             onUpdateStorybook={onUpdateStorybook}

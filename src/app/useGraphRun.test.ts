@@ -1,71 +1,85 @@
 import { describe, expect, it, vi } from 'vitest';
 import { useGraphRun } from './useGraphRun';
-import type { ProviderConnectionHealth, WorkflowNode } from '../types';
+import { NodeLlmApi } from '../llm/NodeLlmApi';
+import type { WorkflowNode } from '../types';
 
 type Options = Parameters<typeof useGraphRun>[0];
-function harness(check: Options['checkProviderConnections']) {
-  const nodes = ['input', 'output'].map((nodeType) => ({ id: nodeType, data: { nodeType, connectionId: 'provider' } })) as WorkflowNode[];
+function harness() {
+  const nodes = ['input', 'output', 'llm-prompt'].map((nodeType, index) => ({
+    id: nodeType, data: { nodeType, label: nodeType, connectionId: index === 2 ? 'unused' : 'provider' },
+  })) as WorkflowNode[];
+  const translateText = vi.fn<Options['translateText']>((...args) => new Promise((_resolve, reject) => {
+    args[6]!.addEventListener('abort', () => reject(new Error('The LLM request was cancelled.')), { once: true });
+  }));
   const options = {
-    nodesRef: { current: nodes }, messages: [], activeRun: { current: null },
-    characterStorybookNodes: [{}], phoneCharacters: [], selectedCharacter: { id: 'ari' },
+    nodesRef: { current: nodes }, edges: [], messages: [], messagesRef: { current: [] },
+    activeRun: { current: null }, turnsRef: { current: [] }, activeTurnCollectorRef: { current: null },
+    workflowSettingsValuesRef: { current: {} }, lastRunDebugRef: { current: null },
+    characterStorybookNodes: [{}], phoneCharacters: [], selectedCharacter: { id: 'ari', name: 'Ari' },
+    appCharacters: () => [], characterColors: new Map(),
     referenceImageOptionsForRun: () => [], nodeHasVision: () => false,
     setActiveRunId: vi.fn(), setIsRunning: vi.fn(), setIsPaused: vi.fn(), setRunHistory: vi.fn(),
     setRunStartTimeMs: vi.fn(), setRunDurationMs: vi.fn(),
     activeRunLlmReport: { current: null }, setRunLlmReport: vi.fn(), activeRunCancelReason: { current: 'cancel' },
-    checkProviderConnections: check, connections: [{ id: 'provider', label: 'Provider' }],
-    isLlmConnection: () => true, notifySystem: vi.fn(),
+    defaultConnectionId: 'provider', notifySystem: vi.fn(),
     runEndTimeRef: { current: null }, runStartTimeRef: { current: null },
-    pendingRunRestart: { current: null }, applyTurnCheckpointRuntime: vi.fn(),
+    pendingRunRestart: { current: null }, applyTurnCheckpointRuntime: vi.fn(), applyTurnRuntime: vi.fn(),
     setDraft: vi.fn(), setDraftCommands: vi.fn(), setDraftImages: vi.fn(),
+    clearAllRunActiveTimers: vi.fn(), setNodes: vi.fn(), updateRuntimeNode: vi.fn(),
+    setOutputActionChoicesHiddenByTurn: vi.fn(), recordTurnTrace: vi.fn(),
+    englishProcessingEnabled: true, displayLanguage: 'English', translateText,
+    nodeLlm: new NodeLlmApi({ resolveConnection: async () => { throw new Error('Unexpected LLM call'); } }),
   } as unknown as Options;
-  // No React runtime is needed: this orchestration function receives state through refs and callbacks.
+  // No DOM is needed: orchestration receives its state through refs and callbacks.
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  return { options, run: useGraphRun(options).runGraph };
+  return { options, translateText, run: useGraphRun(options).runGraph };
 }
 
-describe('run preflight', () => {
-  it('shows a pending health check as running, rejects a duplicate and cancels without mutation', async () => {
-    let resolve!: (health: Record<string, ProviderConnectionHealth>) => void;
-    const check = vi.fn(() => new Promise<Record<string, ProviderConnectionHealth>>((done) => { resolve = done; }));
-    const { run, options } = harness(check);
-    const nodes = options.nodesRef.current;
+describe('on-demand run providers', () => {
+  it('reaches the requested provider despite a disconnected offline LLM node', async () => {
+    const { options, translateText, run } = harness();
+    const pending = run('Hello');
+    expect(translateText).toHaveBeenCalledWith('Hello', 'to-english', 'provider', 'input',
+      undefined, 'English', expect.any(AbortSignal), expect.any(String));
+    expect(options.notifySystem).not.toHaveBeenCalledWith('error', expect.stringContaining('offline'));
+    options.activeRun.current!.controller.abort();
+    await pending;
+  });
+
+  it('registers the run before the first provider request and cancels without waiting for health checks', async () => {
+    const { options, run } = harness();
     const pending = run('Hello');
     expect(options.setIsRunning).toHaveBeenCalledWith(true);
     expect(await run('Duplicate')).toBe(false);
     options.activeRun.current!.controller.abort();
-    resolve({});
     expect(await pending).toBe(false);
     expect(options.activeRun.current).toBeNull();
+    expect(options.activeTurnCollectorRef.current).toBeNull();
     expect(options.setIsRunning).toHaveBeenLastCalledWith(false);
-    expect(options.nodesRef.current).toBe(nodes);
-    expect(options.applyTurnCheckpointRuntime).not.toHaveBeenCalled();
-    expect(check).toHaveBeenCalledTimes(1);
+    expect(options.applyTurnRuntime).toHaveBeenCalledTimes(1);
     expect(options.setDraft).toHaveBeenCalledWith('Hello');
   });
 
-  it.each(['offline', 'throw'])('does not rewind a replacement when provider preflight fails: %s', async (mode) => {
-    const { run, options } = harness(async () => {
-      if (mode === 'throw') throw new Error('IPC unavailable');
-      return { provider: { status: 'offline' } as ProviderConnectionHealth };
-    });
-    const replacement = { turn: { id: 'old' }, replaceInput: false } as NonNullable<Parameters<typeof run>[8]>;
-    expect(await run('Hello', [], undefined, [], undefined, undefined, undefined, undefined, replacement)).toBe(false);
-    expect(options.applyTurnCheckpointRuntime).not.toHaveBeenCalled();
-    expect(options.activeRun.current).toBeNull();
-    expect(options.setIsRunning).toHaveBeenLastCalledWith(false);
-  });
-
-  it('runs a requested restart after cancelled preflight settles', async () => {
-    let resolve!: (health: Record<string, ProviderConnectionHealth>) => void;
-    const { run, options } = harness(() => new Promise((done) => { resolve = done; }));
+  it('runs a requested restart after cancelling the active provider request', async () => {
+    const { run, options } = harness();
     const pending = run('Hello');
     const restart = vi.fn();
     options.pendingRunRestart.current = restart;
     options.activeRunCancelReason.current = 'restart';
     options.activeRun.current!.controller.abort();
-    resolve({});
     await pending;
     expect(restart).toHaveBeenCalledTimes(1);
     expect(options.pendingRunRestart.current).toBeNull();
+    expect(options.setDraft).not.toHaveBeenCalled();
+  });
+
+  it('reports a failure of the requested provider and restores the input', async () => {
+    const { run, options, translateText } = harness();
+    translateText.mockRejectedValue(new Error('Connection refused'));
+    expect(await run('Hello')).toBe(false);
+    expect(options.notifySystem).toHaveBeenCalledWith('error', 'Input translation failed: Connection refused');
+    expect(options.setDraft).toHaveBeenCalledWith('Hello');
+    expect(options.applyTurnRuntime).toHaveBeenCalledTimes(1);
+    expect(options.activeRun.current).toBeNull();
   });
 });

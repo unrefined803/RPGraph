@@ -79,16 +79,6 @@ export type StorybookImageList = {
   images: Array<Pick<RpStorybookCharacterImage, 'id' | 'name' | 'mimeType' | 'size' | 'dataUrl' | 'width' | 'height' | 'description' | 'receivedFrom' | 'imageAccess'>>;
 };
 
-export type StorybookCreateImageCharacter = StorybookCharacter & {
-  createImage: {
-    appearance: string;
-    loraName: string;
-    hasAppearance: boolean;
-    hasLora: boolean;
-    available: boolean;
-  };
-};
-
 export function chatAttachmentFromStorybookImage(image: RpStorybookCharacterImage): ChatImageAttachment {
   return {
     id: image.id,
@@ -161,25 +151,6 @@ export function storyCharacterRefsFromNodes(nodes: WorkflowNode[]): StorybookCha
     label: character.label,
     kind: character.kind,
   }));
-}
-
-export function storybookCreateImageCharactersFromNodes(nodes: WorkflowNode[]): StorybookCreateImageCharacter[] {
-  return storyCharactersFromNodes(nodes).map((character) => {
-    const appearance = character.comfyConfig?.appearance.trim() ?? '';
-    const loraName = character.comfyConfig?.loraName.trim() ?? '';
-    const hasAppearance = appearance.length > 0;
-    const hasLora = loraName.length > 0;
-    return {
-      ...character,
-      createImage: {
-        appearance,
-        loraName,
-        hasAppearance,
-        hasLora,
-        available: !!character.name.trim() && (hasAppearance || hasLora),
-      },
-    };
-  });
 }
 
 function storybookImageListId(characterId: string) {

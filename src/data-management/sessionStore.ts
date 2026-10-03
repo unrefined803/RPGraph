@@ -421,7 +421,28 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
       .filter((entry) => entry.flags?.openingHistory)
       .map((entry) => entry.turnId),
   );
-  const messageIdsByTimelineId = new Map(entries.map((entry, index) => [entry.id, index + 1]));
+  // timelineStore encodes the original numeric message id in each entry id.
+  // Keep it: read markers and phone dividers use these same numeric ids, and
+  // regeneration/undo can leave gaps or change their order in the timeline.
+  const originalIds = entries.map(entry => {
+    const match = /^turn-\d+-(?:input|output|message)-(\d+)$/.exec(entry.id);
+    const id = match ? Number(match[1]) : 0;
+    return Number.isSafeInteger(id) && id > 0 && id < Number.MAX_SAFE_INTEGER ? id : undefined;
+  });
+  const reservedIds = new Set(originalIds.filter((id): id is number => id !== undefined));
+  const usedIds = new Set<number>();
+  let fallbackId = 1;
+  const messageIdsByTimelineId = new Map(entries.map((entry, index) => {
+    let id = originalIds[index];
+    // Imported timelines may use other identifiers or repeat a numeric suffix.
+    // Allocate a unique id without taking one belonging to a later entry.
+    if (id === undefined || usedIds.has(id)) {
+      while (reservedIds.has(fallbackId) || usedIds.has(fallbackId)) fallbackId += 1;
+      id = fallbackId++;
+    }
+    usedIds.add(id);
+    return [entry.id, id];
+  }));
   const messages = entries.map((entry) =>
     chatMessageFromTimelineEntry(
       entry,

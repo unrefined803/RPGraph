@@ -22,7 +22,6 @@ function createContext(options: {
     historyMessages: [],
     runScratch: new Map(),
     referenceImages: { enabled: false, maxImages: 0, turnLookback: 0 },
-    comfyProviderIds: [],
     providerHealthById: {},
     settingsValueDefinitions: [],
     settingsValues: {},
@@ -64,6 +63,23 @@ function runArgs(node: WorkflowNode, context: ExecuteContext, inputValue: string
 }
 
 describe('LLM Prompt text overrides', () => {
+  it.each([false, true])('removes retired image actions from prompts and previews (active search: %s)', async (search) => {
+    const node = promptNode({ llmPromptAfter: [
+      'Before', '@action:Create character phone image', 'After',
+      ...(search ? ['@action:Get character phone image list', 'End'] : []),
+    ].join('\n') });
+    const { context, prompts } = createContext({ edges: [] });
+    context.nodes = [node];
+    context.updateRuntimeData = (_id, patch) => { Object.assign(node.data, patch); };
+    await executeLlmPromptNode(runArgs(node, context, 'Input'));
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).not.toContain('Create character phone image');
+    expect(prompts[0].includes('get_image_id')).toBe(search);
+    const debug = node.data.llmPromptDebug;
+    expect(JSON.stringify(debug?.promptPasses)).not.toContain('Create character phone image');
+    expect(prompts[0]).toContain('Before\n\nAfter');
+  });
+
   it.each(['prompt', 'switch'])('keeps MatchMe state out of the %s prompt unless it arrives through text input', async (kind) => {
     const node = promptNode({ nodeType: kind === 'switch' ? 'llm-prompt-switch' : 'llm-prompt' });
     const input = 'User input with authored recipient context';

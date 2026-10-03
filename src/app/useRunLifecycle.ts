@@ -16,8 +16,6 @@ export function useRunLifecycle() {
   const [showRunLlmReport, setShowRunLlmReport] = useState(false);
   const [runDurationMs, setRunDurationMs] = useState<number>(0);
   const [runHistory, setRunHistory] = useState<LlmRunHistoryEntry[]>([]);
-  const [workflowComfyGenerationActive, setWorkflowComfyGenerationActive] = useState(false);
-  const workflowComfyGenerationActiveCountRef = useRef(0);
   const activeRun = useRef<ActiveRun | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const lastRunDebugRef = useRef<LastRunDebug | null>(null);
@@ -36,14 +34,6 @@ export function useRunLifecycle() {
   // conversation) 20x/second; on a large session each render takes ~750ms, so
   // they ran back-to-back and pegged the main thread for the whole run, freezing
   // the tab. The final duration is set once in runGraph's finishRun().
-
-  function updateWorkflowComfyGenerationActive(active: boolean) {
-    workflowComfyGenerationActiveCountRef.current = Math.max(
-      0,
-      workflowComfyGenerationActiveCountRef.current + (active ? 1 : -1),
-    );
-    setWorkflowComfyGenerationActive(workflowComfyGenerationActiveCountRef.current > 0);
-  }
 
   function cancelCurrentRun(reason: CancelReason = 'cancel') {
     const run = activeRun.current;
@@ -71,8 +61,6 @@ export function useRunLifecycle() {
     setRunDurationMs,
     runHistory,
     setRunHistory,
-    workflowComfyGenerationActive,
-    updateWorkflowComfyGenerationActive,
     activeRunRef: activeRun,
     activeRunId,
     setActiveRunId,

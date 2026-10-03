@@ -176,14 +176,13 @@ import {
   resolveSocialMessageIdentity,
   validateSocialMessengerAccounts,
 } from '../chat/socialMessageValidation';
-import type { StorybookCharacter, StorybookCreateImageCharacter } from '../storybook/runtime';
+import type { StorybookCharacter } from '../storybook/runtime';
 import {
   collectRecentReferenceImages,
   promptWithImageAttachmentMarkers,
   promptWithReferenceImageMarkers,
 } from '../chat/referenceImages';
 import {
-  defaultCreateImageResultTemplate,
   defaultPromptActionConfig,
   countPromptActionUses,
   executePromptAction,
@@ -191,7 +190,6 @@ import {
   parsePromptActionCall,
   parsePromptActionRequest,
   promptActionConfigs,
-  promptActionInstructionText,
   promptActionRuntimeSettings,
   previousPromptActionDefaultsForValidation,
   replacePromptActionTitle,
@@ -208,7 +206,7 @@ import {
 } from '../nodes/shared/promptCommands';
 import { runActionAwarePrompt } from '../nodes/shared/promptRun';
 import { applyTurnCheckpointToNodes } from '../data-management/checkpointStore';
-import { executeGraph, resolveCreateImageCharacterByName } from '../graph/executeGraph';
+import { executeGraph } from '../graph/executeGraph';
 import { withGeneratedImageDescriptions } from '../graph/generatedImageDescriptions';
 import { NodeLlmApi } from '../llm/NodeLlmApi';
 import { TextMetricsApi } from '../llm/tokenMetrics';
@@ -272,11 +270,6 @@ function fixtureTextSignature(text: string) {
 }
 
 const previousPromptActionDefaultSignatures = [
-  'create-image-instruction-1:4493:bcb6b611',
-  'create-image-instruction-2:3697:2586555d',
-  'create-image-instruction-3:4199:797b306a',
-  'create-image-instruction-4:1148:edbb0e3c',
-  'create-image-instruction-5:1092:5935443b',
   'phone-caption-instruction-1:1997:287ce91d',
   'phone-caption-after-reply-1:3084:acc80b46',
   'phone-caption-after-reply-2:2785:2c9d80f6',
@@ -296,12 +289,6 @@ const previousPromptActionDefaultSignatures = [
   'get-images-instruction-7:1232:d84b8431',
   'get-images-instruction-8:2244:97b5ffe3',
   'get-images-instruction-9:3073:0c522da4',
-  'create-image-result-1:243:e4845c8c',
-  'create-image-result-2:240:be37f41b',
-  'create-image-result-3:209:a11ab164',
-  'create-image-result-4:550:495144c5',
-  'create-image-result-5:273:f16ba521',
-  'create-image-result-6:279:99850548',
   'get-images-result-1:739:93e5a2a0',
   'get-images-result-2:339:6ee17746',
   'get-images-result-3:130:1f636f21',
@@ -312,6 +299,7 @@ const previousPromptActionDefaultSignatures = [
   'get-images-result-8:1131:f210876a',
   'get-images-result-9:1401:341cdf18',
   'get-images-result-10:1674:d7f5b6f3',
+  'get-images-result-11:1701:1cecbf03',
 ];
 
 export function verifyWorkflowValidationFixtures() {
@@ -2021,10 +2009,10 @@ export function verifyWorkflowValidationFixtures() {
       getImageIdRuntimeDefaults?.sendImagesToLlm === true &&
       getImageIdRuntimeDefaults.hideImageTextWhenSendingToLlm === false &&
       getImageIdDefaults.resultTemplate.includes('Image shown to: {{imageShownTo}}') &&
-      getImageIdDefaults.resultTemplate.includes('use the Create character phone image action when it is offered') &&
+      !getImageIdDefaults.resultTemplate.includes('Create character phone image') &&
       getImageIdDefaults.resultTemplate.includes('write the reply without an image') &&
       getImageIdDefaults.resultTemplate.includes('steer the conversation naturally away from sending a photo'),
-    'get image id prompt action defaults must send three captioned images, report recipients, offer available image generation, and preserve the current roleplay topic',
+    'get image id prompt action defaults must send three captioned images, report recipients, never offer image generation, and preserve the current roleplay topic',
   );
   const updatePhoneImageCaptionDefaults = defaultPromptActionConfig(
     'Update phone image caption',
@@ -3973,18 +3961,13 @@ export function verifyWorkflowValidationFixtures() {
     'fence unwrapping and known action ids must classify LLM action names',
   );
   const plannedImageAction = parsePromptActionRequest(
-    '{"action":"create_image","plan":"Lara takes and owns a mirror selfie of herself in her current outfit."}',
+    '{"action":"get_image_id","plan":"Find a mirror selfie of Lara in her current outfit."}',
   );
   assertFixture(
-    plannedImageAction?.action === 'createImage' &&
-      plannedImageAction.plan === 'Lara takes and owns a mirror selfie of herself in her current outfit.',
+    plannedImageAction?.action === 'getImageId' &&
+      plannedImageAction.plan === 'Find a mirror selfie of Lara in her current outfit.' &&
+      parsePromptActionRequest('{"action":"create_image","plan":"Lara takes a mirror selfie."}') === undefined,
     'pre-reply image actions must carry a first-pass plan into their follow-up pass',
-  );
-  const createImageAction = parsePromptActionCall(
-    '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":"Lara Miller","prompt":"A 28-year-old woman stands beside stacked moving boxes."}',
-  );
-  const createImageWithoutLora = parsePromptActionCall(
-    '{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":0,"prompt":"A small dog lies on a sofa."}',
   );
   const characterOnlyImageSearch = parsePromptActionCall(
     '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Robert Miller"}',
@@ -3993,43 +3976,10 @@ export function verifyWorkflowValidationFixtures() {
     '{"action":"get_image_id","phoneOwner":"Sarah Miller","characters":"Robert Miller","tags":"mirror, selfie"}',
   );
   assertFixture(
-    createImageAction?.action === 'createImage' &&
-      createImageAction.phoneOwner === 'Robert Miller' &&
-      createImageAction.loraCharacter === 'Lara Miller' &&
-      createImageAction.prompt === 'A 28-year-old woman stands beside stacked moving boxes.' &&
-      createImageWithoutLora?.action === 'createImage' &&
-      createImageWithoutLora.loraCharacter === '' &&
+    parsePromptActionCall('{"action":"create_image","phoneOwner":"Robert Miller","loraCharacter":0,"prompt":"A small dog lies on a sofa."}') === undefined &&
       characterOnlyImageSearch === undefined &&
       taggedImageSearch?.action === 'getImageId',
-    'image actions must separate optional LoRA selection from phone ownership and reject searches without tags',
-  );
-  const duplicateFirstNameCharacters = [
-    { name: 'Alex Smith' },
-    { name: 'Alex Jones' },
-    { name: 'Taylor Reed' },
-  ] as StorybookCreateImageCharacter[];
-  const exactAlexJones = resolveCreateImageCharacterByName(
-    duplicateFirstNameCharacters,
-    'Alex Jones',
-  );
-  const ambiguousAlex = resolveCreateImageCharacterByName(
-    duplicateFirstNameCharacters,
-    'Alex',
-  );
-  const uniqueTaylor = resolveCreateImageCharacterByName(
-    duplicateFirstNameCharacters,
-    'Taylor',
-  );
-  const incorrectAlexSurname = resolveCreateImageCharacterByName(
-    duplicateFirstNameCharacters,
-    'Alex Unknown',
-  );
-  assertFixture(
-    exactAlexJones.status === 'found' && exactAlexJones.character.name === 'Alex Jones' &&
-      ambiguousAlex.status === 'ambiguous' &&
-      uniqueTaylor.status === 'found' && uniqueTaylor.character.name === 'Taylor Reed' &&
-      incorrectAlexSurname.status === 'not-found',
-    'create-image character matching must prefer exact full names and accept only unique first-name fallbacks',
+    'image actions must ignore the removed create-image call and reject searches without tags',
   );
   const outgoingGeneratedImageCaption = parsePhoneMessageOutput([
     '{"from":"Helga Harper","to":"Jack Carter","message":"Caught her off guard.","sendImageId":"helga_harper_image_06"}',
@@ -4053,34 +4003,6 @@ export function verifyWorkflowValidationFixtures() {
       combinedPhoneOutput.phoneImageActions[0]?.imageAction === 'update' &&
       combinedPhoneOutput.bankTransfers.length === 1,
     'phone output splitting must preserve generated image captions alongside phone-app actions',
-  );
-  const createImageFollowUp = promptActionInstructionText(
-    defaultPromptActionConfig('Create character phone image', 'createImage'),
-    { createImageCharacters: [] },
-    'Lara takes and owns a mirror selfie of herself in her current outfit.',
-  );
-  assertFixture(
-    createImageFollowUp.includes('Lara takes and owns a mirror selfie of herself in her current outfit.') &&
-      createImageFollowUp.includes('"phoneOwner": "Phone Owner Name"') &&
-      createImageFollowUp.includes('"loraCharacter": 0') &&
-      createImageFollowUp.includes('which Phone Gallery stores the generated image') &&
-      createImageFollowUp.includes('RPGraph does not prepend it automatically') &&
-      createImageFollowUp.includes('Only one character LoRA can be used per image') &&
-      createImageFollowUp.includes('State every visible person\'s age in the prompt whenever their age is known') &&
-      createImageFollowUp.includes('Write the prompt from the finished image\'s point of view') &&
-      createImageFollowUp.includes('The photographer is invisible unless their body or reflection must actually appear') &&
-      createImageFollowUp.includes('roughly 80 to 120 words') &&
-      createImageFollowUp.includes('one frozen visual snapshot') &&
-      createImageFollowUp.includes('latest established state of every person, garment, object, and location') &&
-      createImageFollowUp.includes('Do not use Storybook-only character names') &&
-      !createImageFollowUp.includes('{{plan}}'),
-    'create-image follow-up prompts must turn the first-pass plan into a detailed visual snapshot',
-  );
-  assertFixture(
-    defaultCreateImageResultTemplate.includes('* imagePrompt: {{imagePrompt}}') &&
-      defaultCreateImageResultTemplate.includes('"imageAction":"update"') &&
-      defaultCreateImageResultTemplate.includes('inspect the attached generated image'),
-    'create-image results must distinguish the generation prompt and request a caption for an attached outgoing image',
   );
   const captionDefaults = defaultPromptActionConfig(
     'Update phone image caption',
@@ -5390,7 +5312,6 @@ async function verifyPromptRunFixtures() {
   const combinedCaptionContext = {
     ...imageListContext,
     edges: [],
-    comfyProviderIds: [],
     providerHealthById: {},
     retryFormatErrorsEnabled: true,
     llm: {
@@ -5533,7 +5454,6 @@ async function verifyPromptRunFixtures() {
     nodes: [],
     edges: [],
     historyMessages: [],
-    comfyProviderIds: [],
     providerHealthById: {},
     llm: {
       supportsVision: async () => true,
@@ -5641,7 +5561,6 @@ async function verifyPromptRunFixtures() {
     nodes: [],
     edges: [],
     historyMessages: [],
-    comfyProviderIds: [],
     providerHealthById: {},
     llm: {
       supportsVision: async () => true,
@@ -5832,7 +5751,6 @@ async function verifyPromptRunFixtures() {
     } as WorkflowNode],
     edges: [],
     historyMessages: [],
-    comfyProviderIds: [],
     providerHealthById: {},
     retryFormatErrorsEnabled: true,
     llm: {
@@ -5898,7 +5816,6 @@ async function verifyPromptRunFixtures() {
     nodes: [],
     edges: [],
     historyMessages: [],
-    comfyProviderIds: [],
     providerHealthById: {},
     llm: {
       supportsVision: async () => true,
@@ -6005,7 +5922,6 @@ async function verifyPromptRunFixtures() {
     nodes: [],
     edges: [],
     historyMessages: [],
-    comfyProviderIds: [],
     providerHealthById: {},
     llm: {
       supportsVision: async () => false,
@@ -6073,8 +5989,8 @@ async function verifyPromptRunFixtures() {
       llmCallStageLabel({ kind: 'step', name: 'main' }, '') === 'Step: Main' &&
       llmCallStageLabel({ kind: 'step', name: 'translation', replay: 2 }, '') ===
         'Step: Translation · Replay 2' &&
-      llmCallStageLabel({ kind: 'action', name: 'Create character phone image' }, '') ===
-        'Action: Create character phone image' &&
+      llmCallStageLabel({ kind: 'action', name: 'Get character phone image list' }, '') ===
+        'Action: Get character phone image list' &&
       llmCallStageLabel({ kind: 'command', name: 'Bank transfer' }, '') ===
         'Command: Bank transfer',
     'prompt switch call display labels must keep one route heading and concise stage names',
@@ -6088,7 +6004,6 @@ async function verifyPromptRunFixtures() {
       nodes: [],
       edges: [],
       historyMessages: [],
-      comfyProviderIds: [],
       providerHealthById: {},
       llm: {
         supportsVision: async () => true,
@@ -6179,7 +6094,6 @@ async function verifyPromptRunFixtures() {
       nodes: [],
       edges: [],
       historyMessages: [],
-      comfyProviderIds: [],
       providerHealthById: {},
       llm: {
         supportsVision: async () => true,

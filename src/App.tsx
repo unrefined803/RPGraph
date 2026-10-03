@@ -1,3 +1,4 @@
+import { clampPhoneReadState, remapPhoneReadState } from './chat/phoneReadState';
 import { openingHistoryNpcParticipantsFromNodes } from './characters/npcParticipantRuntime';
 import { getAccountPassword } from './accounts/accountSession';
 import { npcSaveDestination } from './characters/librarySummary';
@@ -118,7 +119,6 @@ import {
   translationPrompt,
 } from './chat/inputTransforms';
 import {
-  bankingSeenStateFromMessages,
   bankTransferMessages,
 } from './chat/bankTransfers';
 import {
@@ -182,7 +182,6 @@ import {
   latestHistoryRpDateTime,
   phoneConversationKey,
   phoneMessageShouldBeMarkedSeen,
-  phoneSeenStateFromMessages,
 } from './data-management/selectors';
 import {
   appStateFromSessionV2,
@@ -212,6 +211,7 @@ import {
   openingHistorySocialConnectionsFromNodes,
   openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
+  openingHistoryReadStateFromNodes,
   remapOpeningTurnMessageIds,
 } from './storybook/openingHistoryRuntime';
 import {
@@ -448,10 +448,6 @@ function storedNarratorInputText(graphText: string) {
 
 function normalizedEventAppointments(appointments: WorkflowNodeData['eventAppointments']) {
   return normalizeEventAppointments(appointments ?? []);
-}
-
-function phoneSeenStateForLoadedMessages(messages: MessageRecord[]) {
-  return phoneSeenStateFromMessages(messages);
 }
 
 function mergeSeenStates(...states: Array<Record<string, number> | undefined>) {
@@ -891,8 +887,6 @@ function App() {
     setRunDurationMs,
     runHistory,
     setRunHistory,
-    workflowComfyGenerationActive,
-    updateWorkflowComfyGenerationActive,
     activeRunRef,
     activeRunId,
     setActiveRunId,
@@ -1334,7 +1328,6 @@ function App() {
     applyConnectionToAllNodes,
     checkProviderConnection,
     checkProviderConnectionById,
-    checkProviderConnections,
     loadCharacterComfyLoras,
     generateCharacterComfyPreview,
     generateImageAssistantImages,
@@ -1351,7 +1344,7 @@ function App() {
     defaultConnectionId,
     setDefaultConnectionId,
     settingsLoadComplete,
-    isRunning: isRunning || workflowComfyGenerationActive,
+    isRunning,
     nodesRef,
     setNodes,
     notifySystem,
@@ -1757,6 +1750,9 @@ function App() {
     currentSocialLikesByAccount: () => socialLikesByAccount,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
     currentSocialConnectionsByCharacter: () => persistedSocialConnectionsByCharacter,
+    currentPhoneReadState: () => ({
+      phoneSeenByConversation, bankingSeenByCharacter, phoneAppSeenByCharacter, phoneDividerAfterByConversation,
+    }),
     currentPhoneNotesByCharacter: () => phoneNotesByCharacter,
     currentChatGpdChatsByCharacter: () => chatGpdChatsByCharacter,
     clearCurrentSession: () => clearCurrentSession(),
@@ -2677,7 +2673,7 @@ function App() {
       (highest, message) => Math.max(highest, message.id),
       0,
     );
-    const { remappedTurns, nextId } = remapOpeningTurnMessageIds(
+    const { remappedTurns, nextId, idMap } = remapOpeningTurnMessageIds(
       openingHistoryTurnsFromNodes(nextNodes),
       highestPreservedMessageId + 1,
     );
@@ -2715,15 +2711,17 @@ function App() {
     setMessages(nextMessages);
     setTurns(nextTurns);
     setTurnCheckpoints(nextTurnCheckpoints);
-    setPhoneSeenByConversation((current) =>
-      mergeSeenStates(current, phoneSeenStateForLoadedMessages(openingMessages))
+    const openingReadState = remapPhoneReadState(
+      openingHistoryReadStateFromNodes(nextNodes, npcParticipants.characters()), idMap,
     );
-    setBankingSeenByCharacter((current) =>
-      mergeSeenStates(
-        current,
-        bankingSeenStateFromMessages(storyCharactersFromNodes(nextNodes), openingMessages),
-      )
-    );
+    setPhoneSeenByConversation(current => replaceCurrentChat ? openingReadState.phoneSeenByConversation
+      : mergeSeenStates(current, openingReadState.phoneSeenByConversation));
+    setBankingSeenByCharacter(current => replaceCurrentChat ? openingReadState.bankingSeenByCharacter
+      : mergeSeenStates(current, openingReadState.bankingSeenByCharacter));
+    setPhoneAppSeenByCharacter(current => replaceCurrentChat ? openingReadState.phoneAppSeenByCharacter
+      : mergeSeenStates(current, openingReadState.phoneAppSeenByCharacter));
+    setPhoneDividerAfterByConversation(current => replaceCurrentChat ? openingReadState.phoneDividerAfterByConversation
+      : { ...current, ...openingReadState.phoneDividerAfterByConversation });
 
     // Imported opening histories bring the players' likes back; when the
     // current chat is kept, the imported likes are merged in on top.
@@ -3114,20 +3112,21 @@ function App() {
     turnsRef.current = loadedTurns;
     setTurns(loadedTurns);
     setTurnCheckpoints(sessionState.turnCheckpoints);
-    setPhoneSeenByConversation(
-      mergeSeenStates(
-        sessionState.phoneSeenByConversation,
-        phoneSeenStateForLoadedMessages(loadedMessages),
-      ),
-    );
-    setBankingSeenByCharacter(sessionState.bankingSeenByCharacter);
-    setPhoneAppSeenByCharacter(sessionState.phoneAppSeenByCharacter);
+    const loadedReadState = clampPhoneReadState({
+      phoneSeenByConversation: sessionState.phoneSeenByConversation,
+      bankingSeenByCharacter: sessionState.bankingSeenByCharacter,
+      phoneAppSeenByCharacter: sessionState.phoneAppSeenByCharacter,
+      phoneDividerAfterByConversation: sessionState.phoneDividerAfterByConversation,
+    }, loadedMessages.reduce((highest, message) => Math.max(highest, message.id), 0));
+    setPhoneSeenByConversation(loadedReadState.phoneSeenByConversation);
+    setBankingSeenByCharacter(loadedReadState.bankingSeenByCharacter);
+    setPhoneAppSeenByCharacter(loadedReadState.phoneAppSeenByCharacter);
     setBankingContactsByCharacter(sessionState.bankingContactsByCharacter);
     setSocialLikesByAccount(sessionState.socialLikesByAccount);
     setDynamicSocialUsers(sessionState.dynamicSocialUsers);
     setSocialConnectionsByCharacter(sessionState.socialConnectionsByCharacter);
     setOnlyFriendsPurchasesByCharacter(sessionState.onlyFriendsPurchasesByCharacter);
-    setPhoneDividerAfterByConversation(sessionState.phoneDividerAfterByConversation);
+    setPhoneDividerAfterByConversation(loadedReadState.phoneDividerAfterByConversation);
     setRecentlyUsedEmojis(sessionState.recentlyUsedEmojis ?? []);
     setPhoneNotesByCharacter(sessionState.phoneNotesByCharacter);
     setChatGpdChatsByCharacter(sessionState.chatGpdChatsByCharacter);
@@ -3251,15 +3250,17 @@ function App() {
       setTurns(openingTurns);
       setMessages(openingMessages);
       setTurnCheckpoints(npcParticipants.captureHistory(openingMessages, openingTurns, openingCheckpoints));
-      setPhoneSeenByConversation(phoneSeenStateForLoadedMessages(openingMessages));
-      setBankingSeenByCharacter(
-        bankingSeenStateFromMessages(storyCharactersFromNodes(loadedNodes), openingMessages),
+      const openingReadState = clampPhoneReadState(
+        openingHistoryReadStateFromNodes(loadedNodes, npcParticipants.characters()),
+        openingMessages.reduce((highest, message) => Math.max(highest, message.id), 0),
       );
-      setPhoneAppSeenByCharacter({});
+      setPhoneSeenByConversation(openingReadState.phoneSeenByConversation);
+      setBankingSeenByCharacter(openingReadState.bankingSeenByCharacter);
+      setPhoneAppSeenByCharacter(openingReadState.phoneAppSeenByCharacter);
+      setPhoneDividerAfterByConversation(openingReadState.phoneDividerAfterByConversation);
       setBankingContactsByCharacter({});
       setSocialLikesByAccount({});
       setOnlyFriendsPurchasesByCharacter({});
-      setPhoneDividerAfterByConversation({});
       setPhoneNotesByCharacter(openingHistoryNotesFromNodes(loadedNodes));
       setChatGpdChatsByCharacter(openingHistoryChatGpdChatsFromNodes(loadedNodes));
       setOpenedPhoneConversationKey('');
@@ -3378,9 +3379,7 @@ function App() {
     draft,
     nodeLlm,
     activeTokenEstimateBytesPerToken,
-    connections,
     promptActionSettings,
-    updateWorkflowComfyGenerationActive,
     workflowSettingsValuesForGraph,
     setWorkflowVariablesFromCommands,
     rpDateTimeFormat,
@@ -4186,11 +4185,8 @@ function App() {
     nodesRef,
     setNodes,
     edges,
-    connections,
     defaultConnectionId,
-    isLlmConnection,
     nodeHasVision,
-    checkProviderConnections,
     notifySystem,
     onRpOutputReady:
       dialogueVoiceMode === 'narrator-only' && !englishProcessingEnabled
@@ -4198,7 +4194,6 @@ function App() {
         : undefined,
     updateRuntimeNode,
     clearAllRunActiveTimers,
-    updateWorkflowComfyGenerationActive,
     setOutputActionChoicesHiddenByTurn,
     setWorkflowVariablesFromCommands,
     commitSimulatedAiChats: (turnId, chats) => {
@@ -5413,8 +5408,7 @@ function App() {
     dialogueVoiceMode,
     storyCharacters,
     resolvedNarratorProviderId,
-    imageGenerationActive:
-      workflowComfyGenerationActive || comfyProviderActionActive === 'generate',
+    imageGenerationActive: comfyProviderActionActive === 'generate',
     audioGenerationActive:
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
@@ -5685,10 +5679,6 @@ function App() {
               <PromptPresetOverview
                 nodes={nodeViewNodes}
                 connections={connections}
-                providerHealthById={providerHealthById}
-                onCheckProviderConnection={(connectionId) => {
-                  void checkProviderConnectionById(connectionId);
-                }}
                 promptActionCustomPresets={promptActionCustomPresets}
                 setPromptActionCustomPresets={setPromptActionCustomPresets}
                 promptActionSettings={promptActionSettings}
@@ -6694,8 +6684,6 @@ function App() {
         <StorybookCreatorDialog
           referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)}
           node={storybookCreatorNode}
-          workflowNodes={nodeViewNodes}
-          promptActionSettings={promptActionSettings}
           identityLocked={messages.length > 0}
           onClearChat={clearStorybookCreatorChat}
           onRetry={retryStorybookCreatorMessage}

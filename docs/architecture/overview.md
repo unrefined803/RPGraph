@@ -105,7 +105,7 @@ Prompt Actions are internal helper calls that can be inserted into an LLM prompt
 
 After-reply caption actions remain separate focused passes because their instructions depend on the already completed visible reply.
 
-This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries and identify earlier recipients of each match so the model does not resend the same photo to them. Caption actions return a compact JSON record for the latest incoming phone image, and Create character phone image actions generate and store a new outgoing character phone image through the selected image provider before replaying the prompt. See [image-generation.md](image-generation.md) for provider routing.
+This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries and identify earlier recipients of each match so the model does not resend the same photo to them. Caption actions return a compact JSON record for the latest incoming phone image. Workflows do not generate images; new images come only from the phone camera's image assistant. See [image-generation.md](image-generation.md) for provider routing.
 
 ## Phone And JSON Outputs
 
@@ -151,7 +151,7 @@ Node header colors and outgoing wire colors show the current execution state:
 
 During execution, `executeGraph` sets `runActive`, `runCompleted`, `runPrepared`, and `runError` on node data. Card rendering converts those flags into CSS classes, and edge rendering colors outgoing wires from the source node state.
 
-LLM-capable node cards show a compact route heading followed by aligned call rows for input tokens, output tokens, reasoning tokens, and duration. Prompt Switch calls use short stage labels such as `Step: Planning`, `Step: Main`, `Action: Create character phone image`, and `Command: Bank transfer` instead of repeating the selected output and prompt titles on every row. While a roleplay run is active, the Chat tab temporarily replaces the composer with a compact progress island containing the current node or LLM sub-step, an optional live `RSN` reasoning-token counter, a green elapsed-time clock, an activity animation, and a Cancel button. LM Studio uses its native reasoning events; llama.cpp, Ollama, and OpenRouter use their streamed reasoning fields. Helper calls use streaming for these providers even when they do not render response text. The counter appears only after the provider emits a reasoning delta and is reconciled with final usage when available; providers that expose only final reasoning usage do not show a misleading live counter. The progress island disappears when the run finishes or is cancelled, restoring the collapsed composer so the resulting story, phone, banking, or information cards remain the focus.
+LLM-capable node cards show a compact route heading followed by aligned call rows for input tokens, output tokens, reasoning tokens, and duration. Prompt Switch calls use short stage labels such as `Step: Planning`, `Step: Main`, `Action: Get character phone image list`, and `Command: Bank transfer` instead of repeating the selected output and prompt titles on every row. While a roleplay run is active, the Chat tab temporarily replaces the composer with a compact progress island containing the current node or LLM sub-step, an optional live `RSN` reasoning-token counter, a green elapsed-time clock, an activity animation, and a Cancel button. LM Studio uses its native reasoning events; llama.cpp, Ollama, and OpenRouter use their streamed reasoning fields. Helper calls use streaming for these providers even when they do not render response text. The counter appears only after the provider emits a reasoning delta and is reconciled with final usage when available; providers that expose only final reasoning usage do not show a misleading live counter. The progress island disappears when the run finishes or is cancelled, restoring the collapsed composer so the resulting story, phone, banking, or information cards remain the focus.
 
 ## Chat, Phone, And Events
 
@@ -323,7 +323,37 @@ The runtime:
 - Handles post-output nodes.
 - Emits warnings and format diagnostics.
 - Streams output text when enabled.
-- Coordinates image creation and storybook image updates.
+- Resolves stored gallery images and applies image-caption updates.
+
+Runs do not wait for a global provider health check. LLM connections are resolved
+when an executed node or translation requests them, with the run's abort signal
+forwarded to model discovery and completion. Disconnected nodes and unselected
+branches therefore do not require their providers to be online. Graph runs do
+not contact image providers; the image assistant reads live provider health.
+
+When loading an RP Save, numeric message IDs encoded in the timeline entry IDs
+are restored, including gaps left by undo or regeneration. Phone, banking and
+social read markers and phone dividers retain the same numeric boundaries.
+Boundaries above the highest loaded message ID (left by undo) are capped on load,
+for RP Saves and for Opening History loaded with a workflow, so messages that
+reuse those IDs stay unread.
+Imported entries with other identifiers receive unique fallback IDs; embedded
+message links and replies are resolved through the timeline-to-message ID map.
+
+RP Saves restore their saved phone read boundaries directly, including WhatsUp;
+loading does not mark every conversation read. Opening History optionally stores
+`readState` with WhatsUp, banking, social DM/app read boundaries and phone dividers.
+`Import Current Session` captures this state together with the history. Saving the
+Storybook preserves that snapshot; importing again captures subsequent reads.
+Character-owned keys use stable source IDs in Storybooks and are resolved to the
+current runtime identities on load. History ID remapping preserves numeric order
+and translates read boundaries, including boundaries whose messages were removed.
+Older Storybooks without `readState` start with all Opening History activity read,
+including WhatsUp, banking, notes, ChatGPD, social DMs/reactions and MatchMe matches.
+Explicit read metadata, including empty markers, is restored unchanged. The legacy
+fallback uses existing message IDs so future activity still produces unread badges.
+No Storybook format version change is required for these optional fields.
+
 
 ## Important Code Areas
 

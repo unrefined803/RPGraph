@@ -56,7 +56,6 @@ import { useBackdropDismiss } from './useBackdropDismiss';
 import type {
   AutoTurnInstructionKey,
   ConnectionPreset,
-  ProviderConnectionHealth,
   WorkflowNode,
   WorkflowNodeData,
 } from '../types';
@@ -64,8 +63,6 @@ import type {
 type PromptPresetOverviewProps = {
   nodes: WorkflowNode[];
   connections: ConnectionPreset[];
-  providerHealthById: Record<string, ProviderConnectionHealth>;
-  onCheckProviderConnection?: (connectionId: string) => void;
   promptActionCustomPresets: PromptActionConfig[];
   setPromptActionCustomPresets: (updater: (current: PromptActionConfig[]) => PromptActionConfig[]) => void;
   promptActionSettings: PromptActionRuntimeSettings;
@@ -363,8 +360,6 @@ function promptEntries(
 export function PromptPresetOverview({
   nodes,
   connections,
-  providerHealthById,
-  onCheckProviderConnection,
   promptActionCustomPresets,
   setPromptActionCustomPresets,
   promptActionSettings,
@@ -657,10 +652,6 @@ export function PromptPresetOverview({
           promptActionSettings={promptActionSettings}
           setPromptActionSettings={setPromptActionSettings}
           visionEnabled={editingAction.visionEnabled}
-          connections={connections}
-          nodes={nodes}
-          providerHealthById={providerHealthById}
-          onCheckProviderConnection={onCheckProviderConnection}
           onReplace={(config, _scope, options = {}) => {
             const workflowConfig = workflowActionConfigs[editingAction.id] ?? (
               promptActionActiveSources(editingAction.config, promptActionCustomPresets).workflow

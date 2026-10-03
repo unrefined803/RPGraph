@@ -55,7 +55,6 @@ import {
 } from './promptSteps';
 import { promptImagePass } from './promptImagePass';
 import {
-  storybookCreateImageCharactersFromNodes,
   storyCharactersFromNodes,
 } from '../../storybook/runtime';
 import {
@@ -293,14 +292,9 @@ export async function runActionAwarePrompt({
   const referenceImageValues = visionEnabled
     ? referenceImageAttachments(usableReferenceImages)
     : [];
-  const createImageCharacters = storybookCreateImageCharactersFromNodes(context.nodes);
   const actionAvailabilityOptions = {
     visionEnabled,
     hasImageInput: images.length > 0,
-    comfyProviderIds: context.comfyProviderIds,
-    apiImageProviderIds: context.apiImageProviderIds,
-    providerHealthById: context.providerHealthById,
-    createImageCharacters,
   };
   const warnedUnknownCommandNames = new Set<string>();
   const warnUnknownCommandName = (name: string) => {
@@ -375,7 +369,10 @@ export async function runActionAwarePrompt({
     if (!tokens.length || resolved === trimmedOriginal) {
       return [{ text: resolved }];
     }
-    const plainPartText = (text: string) => replacePromptCommandTokensWithHints(text, warnUnknownCommandName);
+    const plainPartText = (text: string) => replacePromptCommandTokensWithHints(
+      replacePromptActionTokensWithInstructions(text, actionConfigs, actionResults, actionAvailabilityOptions),
+      warnUnknownCommandName,
+    );
     const resolvedParts: PromptPreviewPart[] = [];
     let cursor = 0;
     tokens.forEach((token) => {
@@ -735,7 +732,6 @@ export async function runActionAwarePrompt({
       }
       const followUpInstruction = promptActionInstructionText(
         actionConfig,
-        actionAvailabilityOptions,
         actionRequest.plan,
         stepImagePass.inputImageOffset + 1,
       );
@@ -926,7 +922,7 @@ export async function runActionAwarePrompt({
     let actionRequest = parsePromptActionRequest(output.text);
     if (!actionRequest) {
       // Models sometimes request an image action through the command syntax
-      // ("[commands: create_image]") instead of the action JSON. Recover by
+      // ("[commands: get_image_id]") instead of the action JSON. Recover by
       // treating it as an action request; the drafted reply becomes the plan
       // and is rewritten in the replay pass with the action result available.
       const commandStyleRequest = parsePromptCommandRequest(
@@ -935,8 +931,8 @@ export async function runActionAwarePrompt({
       );
       const requestedAction = commandStyleRequest?.requests
         .map((request) => ({ plan: request.plan, actionId: knownPromptActionId(request.name) }))
-        .find((entry): entry is { plan: string; actionId: 'getImageId' | 'createImage' | 'getCharacterList' } =>
-          (entry.actionId === 'getImageId' || entry.actionId === 'createImage' || entry.actionId === 'getCharacterList') &&
+        .find((entry): entry is { plan: string; actionId: 'getImageId' | 'getCharacterList' } =>
+          (entry.actionId === 'getImageId' || entry.actionId === 'getCharacterList') &&
           preReplyActionConfigs.some(
             (candidate) =>
               candidate.actionId === entry.actionId &&
@@ -986,7 +982,6 @@ export async function runActionAwarePrompt({
       const followUpImagePass = currentImagePass();
       const followUpInstruction = promptActionInstructionText(
         actionConfig,
-        actionAvailabilityOptions,
         actionRequest.plan,
         followUpImagePass.inputImageOffset + 1,
       );

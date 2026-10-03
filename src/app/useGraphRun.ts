@@ -14,7 +14,6 @@ import { socialMessagePreviewLinks } from '../chat/socialMessagePreview';
 import type {
   BankTransferRecord,
   ChatImageAttachment,
-  ConnectionPreset,
   EmbeddedPhoneMessageLink,
   EmbeddedSocialMessageLink,
   ImageCaptionChange,
@@ -24,7 +23,6 @@ import type {
   SocialThreadActionRecord,
   ChatDialogueQuote,
   OutputActionContextCapacityBar,
-  ProviderConnectionHealth,
   RpDateTimeFormat,
   RpWeekdayLanguage,
   TurnContext,
@@ -217,18 +215,12 @@ type UseGraphRunOptions = Pick<
   nodesRef: Ref<WorkflowNode[]>;
   setNodes: (nodes: WorkflowNode[]) => void;
   edges: ExecuteGraphOptions['edges'];
-  connections: ConnectionPreset[];
   defaultConnectionId: string;
-  isLlmConnection: (connection: ConnectionPreset) => boolean;
   nodeHasVision: (node: WorkflowNode) => boolean;
-  checkProviderConnections: (
-    connectionsToCheck: ConnectionPreset[],
-  ) => Promise<Record<string, ProviderConnectionHealth>>;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
   onRpOutputReady?: (text: string) => void;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   clearAllRunActiveTimers: () => void;
-  updateWorkflowComfyGenerationActive: (active: boolean) => void;
   setOutputActionChoicesHiddenByTurn: (turnId: string, hidden: boolean) => void;
   setWorkflowVariablesFromCommands: (commands: WorkflowVariableSetCommand[]) => void;
   commitSimulatedAiChats: (turnId: string, chats: SimulatedAiChatCommit[]) => void;
@@ -393,16 +385,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
     nodesRef,
     setNodes,
     edges,
-    connections,
     defaultConnectionId,
-    isLlmConnection,
     nodeHasVision,
-    checkProviderConnections,
     notifySystem,
     onRpOutputReady,
     updateRuntimeNode,
     clearAllRunActiveTimers,
-    updateWorkflowComfyGenerationActive,
     setOutputActionChoicesHiddenByTurn,
     setWorkflowVariablesFromCommands,
     commitSimulatedAiChats,
@@ -638,61 +626,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
     activeRunLlmReport.current = initialRunLlmReport;
     setRunLlmReport(initialRunLlmReport);
     activeRunCancelReason.current = 'cancel';
-    const restorePreflightInput = () => {
-      if (replacement || !shouldRestoreCancelledInput || activeRunCancelReason.current === 'restart') return;
-      if (isPhoneMessage) {
-        setPhoneDraft(displayText);
-        setPhoneDraftCommands(commandInputCommandsFromStructured(structuredInput?.commands ?? []));
-        setPhoneImages(inputImages);
-        if (phoneReplyToOverride) selectPhoneReply(phoneReplyToOverride);
-      } else {
-        setDraft(displayText);
-        setDraftCommands(commandInputCommandsFromStructured(structuredInput?.commands ?? []));
-        setDraftImages(inputImages);
-      }
-    };
-    // The health check runs after the run is registered as active, so a
-    // second trigger during this await cannot slip in as a parallel run.
-    let providerHealthForRun: Record<string, ProviderConnectionHealth>;
-    try {
-      providerHealthForRun = directActionOnly ? {} : await checkProviderConnections(connections);
-      if (runSignal.aborted) {
-        restorePreflightInput();
-        finishRun();
-        return false;
-      }
-    } catch (error) {
-      if (!runSignal.aborted) notifySystem('error', `Provider check failed: ${error instanceof Error ? error.message : String(error)}`);
-      restorePreflightInput();
-      finishRun();
-      return false;
-    }
-    const usedLlmConnectionIds = new Set(
-      runtimeNodes.flatMap((node) => {
-        if (node.data.kind !== undefined || !Object.prototype.hasOwnProperty.call(node.data, 'connectionId')) {
-          return [];
-        }
-        const connectionId = node.data.connectionId ?? defaultConnectionId;
-        const connection = connections.find((entry) => entry.id === connectionId);
-        return connection && isLlmConnection(connection) ? [connection.id] : [];
-      }),
-    );
-    const offlineLlmConnection = connections.find((connection) =>
-      usedLlmConnectionIds.has(connection.id) &&
-      providerHealthForRun[connection.id]?.status === 'offline',
-    );
-    if (offlineLlmConnection) {
-      const detail = providerHealthForRun[offlineLlmConnection.id]?.detail;
-      notifySystem(
-        'error',
-        `Provider ${offlineLlmConnection.label} is offline${detail ? `: ${detail}` : '.'}`,
-      );
-      restorePreflightInput();
-      finishRun();
-      activeRunLlmReport.current = null;
-      setRunLlmReport(null);
-      return false;
-    }
+    // Provider metadata is refreshed by the provider manager. Resolve and contact
+    // LLM providers only when a node actually requests them, using runSignal.
+    // A global health check would block unrelated paths and delay cancellation.
     const turnContext: TurnContext = existingInputMessage?.turnContext ?? {
       englishProcessingEnabled: existingInputMessage && socialDirectMessage?.app !== 'matchme'
         ? !!existingInputMessage.translatedText
@@ -1614,8 +1550,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
         onNodeExecution: recordNodeExecution,
         textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
         updateRuntimeNode,
-        connections,
-        onComfyGenerationActive: updateWorkflowComfyGenerationActive,
         settingsValues: workflowSettingsValuesForGraph(),
         settingsValueDefinitions: settingsValueDefinitionsRef.current,
         askUser: askUser ? async (question) => {
@@ -1655,7 +1589,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
         rpWeekdayLanguage,
         referenceImages: runReferenceImageOptions,
         retryFormatErrorsEnabled,
-        providerHealthById: providerHealthForRun,
         autoCalibrateTokenEstimate,
         onTokenEstimateCalibrated: setCalibratedTokenBytesPerToken,
         onWarning: reportRunWarning,
@@ -3131,8 +3064,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
           onNodeExecution: recordNodeExecution,
           textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
           updateRuntimeNode,
-          connections,
-          onComfyGenerationActive: updateWorkflowComfyGenerationActive,
           onWarning: reportRunWarning,
           onFormatResult: (result) => {
             runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'format', ...result });

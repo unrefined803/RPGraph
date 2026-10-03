@@ -1,6 +1,5 @@
 import { expect, it } from 'vitest';
 import { imageGenerationAssistantPrompt } from '../chat/imageGenerationAssistant';
-import { defaultPromptActionConfig, promptActionInstructionText } from '../nodes/shared/promptActions';
 
 it('uses full character descriptions instead of LoRAs for API image prompts', () => {
   const prompt = imageGenerationAssistantPrompt('', { width: 1024, height: 1024, characterLora: '' }, '',
@@ -10,11 +9,6 @@ it('uses full character descriptions instead of LoRAs for API image prompts', ()
   expect(prompt).toContain('JSON prompt field itself MUST');
   expect(prompt).toContain('portrait 3:4');
   expect(prompt).toContain('describe visible subjects fully');
-  const action = { ...defaultPromptActionConfig('Create character phone image', 'createImage'), comfyProviderId: 'images' };
-  expect(promptActionInstructionText(action, { comfyProviderIds: ['images'], apiImageProviderIds: ['images'] }))
-    .toContain('Set loraCharacter to 0');
-  expect(promptActionInstructionText(action, { comfyProviderIds: ['images'], apiImageProviderIds: [] }))
-    .not.toContain('Set loraCharacter to 0');
 });
 
 it('keeps local settings and reference capability independent', () => {

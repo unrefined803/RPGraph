@@ -40,7 +40,6 @@ import {
 } from '../workflow';
 import { lastMessageText } from './runOrchestration';
 import type {
-  ConnectionPreset,
   MessageRecord,
   RpDateTimeFormat,
   RpWeekdayLanguage,
@@ -87,9 +86,7 @@ type UseNodeActionsControllerOptions = {
   draft: string;
   nodeLlm: NodeLlmApi;
   activeTokenEstimateBytesPerToken: number;
-  connections: ConnectionPreset[];
   promptActionSettings: PromptActionRuntimeSettings;
-  updateWorkflowComfyGenerationActive: (active: boolean) => void;
   workflowSettingsValuesForGraph: () => Record<string, string>;
   setWorkflowVariablesFromCommands: (commands: WorkflowVariableSetCommand[]) => void;
   rpDateTimeFormat: RpDateTimeFormat;
@@ -128,9 +125,7 @@ export function useNodeActionsController({
   draft,
   nodeLlm,
   activeTokenEstimateBytesPerToken,
-  connections,
   promptActionSettings,
-  updateWorkflowComfyGenerationActive,
   workflowSettingsValuesForGraph,
   setWorkflowVariablesFromCommands,
   rpDateTimeFormat,
@@ -573,9 +568,7 @@ export function useNodeActionsController({
             llm: nodeLlm,
             textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
             updateRuntimeNode,
-            connections,
             promptActionSettings,
-            onComfyGenerationActive: updateWorkflowComfyGenerationActive,
             settingsValues: workflowSettingsValuesForGraph(),
             settingsValueDefinitions: settingsValueDefinitionsRef.current,
             onWorkflowVariablesSet: setWorkflowVariablesFromCommands,

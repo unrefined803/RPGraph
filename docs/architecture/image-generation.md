@@ -1,7 +1,7 @@
 # Image Generation
 
 `src/images/providers.ts` defines image-provider eligibility for the image assistant,
-character preview, workflow image action, and workflow capability display. ComfyUI image
+character preview, and workflow capability display. ComfyUI image
 connections are eligible by role. OpenRouter connections require a selected model whose
 health metadata reports image output; vision input alone does not qualify. Model changes
 refresh capabilities through `useProviderConnections`.
@@ -15,10 +15,9 @@ cancellation. Generation errors do not automatically retry paid requests or mark
 otherwise reachable API provider offline.
 
 The image assistant and character preview share the provider routing in
-`useProviderConnections`. `createComfyImageRunner` also accepts OpenRouter connections;
-it retains the existing captioning, JPEG normalization, phone-gallery storage, and
-per-run Storybook update handling. Persisted `comfyProviderId` fields retain their names
-for compatibility but can reference any supported image provider.
+`useProviderConnections`. Workflow runs do not generate images: the former
+`Create character phone image` prompt action and its runner were removed, and stored
+action entries with that ID are dropped when a workflow is loaded.
 
 LoRAs, workflow settings, and model unload/reload operations apply only to ComfyUI.
 API-image prompts omit the local settings and LoRA instruction block, and keep settings

@@ -1,5 +1,3 @@
-import { isComfyImageConnection } from '../comfy/connectionRole';
-import { isImageGenerationConnection } from '../images/providers';
 import type { TurnTraceNodeExecution } from '../app/turnTrace';
 import { sanitizeDataUrlsInText } from '../utils/sanitize';
 import type { Edge } from '@xyflow/react';
@@ -13,12 +11,10 @@ import { wireLinkName } from '../nodes/memory-slot/model';
 import { customNodeDefinition } from '../nodes/custom-node/model';
 import type {
   ChatImageAttachment,
-  ConnectionPreset,
   MessageRecord,
   TurnRecord,
   RpDateTimeFormat,
   RpWeekdayLanguage,
-  ProviderConnectionHealth,
   SettingsValueDefinition,
   WorkflowNode,
   WorkflowNodeData,
@@ -29,7 +25,6 @@ import { workflowVariableValueKind } from '../workflow/variables';
 import type { ReferenceImageOptions } from '../chat/referenceImages';
 import type { ExecuteTraceFormatResult, ExecuteTraceNodeInfo } from '../nodes/types';
 import { runScratchKeys } from '../nodes/runScratch';
-import { createComfyImageRunner } from './comfyImageRunner';
 
 type ExecuteGraphOptions = {
   outputNodeId: string;
@@ -75,14 +70,11 @@ type ExecuteGraphOptions = {
   rpWeekdayLanguage?: RpWeekdayLanguage;
   referenceImages?: ReferenceImageOptions;
   retryFormatErrorsEnabled?: boolean;
-  connections?: ConnectionPreset[];
-  providerHealthById?: Record<string, ProviderConnectionHealth>;
   auxiliaryOutputHandles?: string[];
   onAuxiliaryOutput?: (handle: string, text: string) => void;
   onNodeExecution?: (event: TurnTraceNodeExecution) => void;
   onWarning?: (message: string, node?: ExecuteTraceNodeInfo) => void;
   onFormatResult?: (result: ExecuteTraceFormatResult & ExecuteTraceNodeInfo) => void;
-  onComfyGenerationActive?: (active: boolean) => void;
   signal?: AbortSignal;
 };
 
@@ -110,7 +102,6 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-export { resolveCreateImageCharacterByName } from './comfyImageRunner';
 
 function withoutPromptPreviewFields(patch: Partial<WorkflowNodeData>) {
   const next = { ...patch };
@@ -170,14 +161,11 @@ export async function executeGraph({
   rpWeekdayLanguage = 'system',
   referenceImages = { enabled: true, turnLookback: 10, maxImages: 3 },
   retryFormatErrorsEnabled = true,
-  connections = [],
-  providerHealthById = {},
   auxiliaryOutputHandles = [],
   onAuxiliaryOutput,
   onNodeExecution,
   onWarning = () => {},
   onFormatResult = () => {},
-  onComfyGenerationActive,
   signal,
 }: ExecuteGraphOptions) {
   let runtimeHistoryMessages = historyMessages;
@@ -304,17 +292,6 @@ export async function executeGraph({
     onWorkflowVariablesSet?.(validCommands);
   };
 
-  const createComfyImageForCharacter = createComfyImageRunner({
-    getNodes: () => nodes,
-    connections,
-    providerHealthById,
-    llm: graphLlm,
-    updateRuntimeNode,
-    onComfyGenerationActive,
-    signal,
-  });
-  runScratch.set(runScratchKeys.createComfyImageForCharacter, createComfyImageForCharacter);
-
   // Custom outputs share one execution, so their waits share one identity too.
   const dependencyKey = (nodeId: string, handle?: string | null) =>
     `${nodeId}:${nodeById.get(nodeId)?.data.nodeType === 'custom' ? 'default' : handle ?? 'default'}`;
@@ -423,13 +400,6 @@ export async function executeGraph({
             referenceImages,
             retryFormatErrorsEnabled,
             runScratch,
-            apiImageProviderIds: connections
-              .filter((connection) => !isComfyImageConnection(connection) && isImageGenerationConnection(connection, providerHealthById[connection.id]))
-              .map((connection) => connection.id),
-            comfyProviderIds: connections
-              .filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id]))
-              .map((connection) => connection.id),
-            providerHealthById,
             executeInput: async (sourceNodeId, sourceHandle) => {
               const inputKey = dependencyKey(sourceNodeId, sourceHandle);
               if (dependsOn(inputKey, waitKey)) {

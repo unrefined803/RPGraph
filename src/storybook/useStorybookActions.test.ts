@@ -1,3 +1,4 @@
+import { normalizePhoneReadState } from '../chat/phoneReadState';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { SetStateAction } from 'react';
 import type { WorkflowNode } from '../types';
@@ -60,6 +61,8 @@ function harness() {
       Object.keys(snapshots).forEach((id) => delete snapshots[id]); Object.assign(snapshots, next);
     },
     currentLibraryEntries: () => library.map((entry) => ({ ...entry, fileName: 'npc.json' })),
+    currentPhoneReadState: () => normalizePhoneReadState(undefined),
+    currentDynamicSocialUsers: () => ({}),
     currentSocialLikesByAccount: () => ({}), currentSocialConnectionsByCharacter: () => ({}),
     currentPhoneNotesByCharacter: () => ({}), currentChatGpdChatsByCharacter: () => ({}),
     clearCurrentSession,
@@ -629,4 +632,27 @@ it('retries the latest failed request with provider sampling and preserved reque
   expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).title).toBe('AI title');
   await state.render().retryStorybookCreatorMessage(index);
   expect(state.complete).toHaveBeenCalledTimes(2);
+});
+
+it('captures phone read state only when importing the current session into Opening History', () => {
+  const state = harness();
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(normalizeRpStorybook({
+    characters: [{ id: 'alice', name: 'Alice', playable: true }],
+  }));
+  const readState = normalizePhoneReadState({
+    phoneSeenByConversation: { 'alice::bob': 101 }, bankingSeenByCharacter: { 'book:character:alice': 100 },
+    phoneAppSeenByCharacter: { 'book:character:alice:fotogram:dm:bob': 102 },
+    phoneDividerAfterByConversation: { 'alice::bob': 99 },
+  });
+  state.options.currentPhoneReadState = () => readState;
+  state.render().importCurrentSessionAsOpeningHistory('book');
+  const stored = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).openingHistory.readState!;
+  expect(stored.bankingSeenByCharacter).toEqual({ alice: 100 });
+  expect(stored.phoneAppSeenByCharacter).toEqual({ 'alice:fotogram:dm:bob': 102 });
+  expect(stored.phoneSeenByConversation).toEqual(readState.phoneSeenByConversation);
+  readState.phoneAppSeenByCharacter['book:character:alice:fotogram:dm:bob'] = 200;
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).openingHistory.readState).toEqual(stored);
+  state.render().importCurrentSessionAsOpeningHistory('book');
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).openingHistory.readState!
+    .phoneAppSeenByCharacter['alice:fotogram:dm:bob']).toBe(200);
 });

@@ -307,7 +307,7 @@ describe('NPC prompt execution boundary', () => {
       nodes: [], edges: [], appCharacters: characters, matchMeDirectMessage: outgoing,
       historyMessages: messages, runScratch: new Map(),
       referenceImages: { enabled: false, maxImages: 0, turnLookback: 0 },
-      comfyProviderIds: [], providerHealthById: {}, settingsValueDefinitions: [], settingsValues: {},
+      settingsValueDefinitions: [], settingsValues: {},
       textMetrics: { bytesPerToken: 4 }, retryFormatErrorsEnabled: false,
       executeInput: async () => '', updateRuntimeData: () => {}, reportWarning: () => {}, reportFormatResult: () => {},
       llm: { supportsVision: async () => false, complete: async ({ prompt }: { prompt: string }) => {

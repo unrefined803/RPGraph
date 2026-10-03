@@ -5056,91 +5056,6 @@ input[type="number"]::-webkit-outer-spin-button {
   background: rgba(255, 123, 134, 0.09);
 }
 
-.prompt-action-character-list {
-  display: grid;
-  gap: 8px;
-  padding: 9px;
-  border: 1px solid #242e40;
-  border-radius: 8px;
-  background: rgba(8, 12, 20, 0.36);
-}
-
-.prompt-action-character-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  color: #8fa2c1;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-}
-
-.prompt-action-character-rows {
-  display: grid;
-  gap: 6px;
-  max-height: 168px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.prompt-action-character-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 28px;
-}
-
-.prompt-action-character-row.unavailable .prompt-action-character-name {
-  color: #7f899b;
-  text-decoration: line-through;
-  text-decoration-color: rgba(127, 137, 155, 0.76);
-}
-
-.prompt-action-character-name {
-  min-width: 0;
-  color: #dfe7ff;
-  font-size: 12px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.prompt-action-character-badges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 5px;
-}
-
-.prompt-action-character-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 3px 6px;
-  border: 1px solid rgba(129, 140, 158, 0.28);
-  border-radius: 999px;
-  color: #7f899b;
-  background: rgba(129, 140, 158, 0.1);
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.prompt-action-character-badge.active {
-  border-color: rgba(95, 210, 142, 0.42);
-  color: #9de7b5;
-  background: rgba(57, 153, 99, 0.2);
-}
-
-.prompt-action-character-empty {
-  color: #94a3b8;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
 .prompt-action-select-row {
   display: flex;
   align-items: center;
@@ -5213,16 +5128,6 @@ input[type="number"]::-webkit-outer-spin-button {
 .prompt-action-condition.missing .prompt-action-condition-dot {
   background: #ff6575;
   box-shadow: 0 0 0 3px rgba(255, 101, 117, 0.14), 0 0 10px rgba(255, 101, 117, 0.42);
-}
-
-.prompt-action-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.prompt-action-toggle-row .node-toggle {
-  flex: 1;
 }
 
 .prompt-action-modal-section.templates-column {
@@ -17156,24 +17061,6 @@ button.message-timeline-row.phone:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
-}
-
-.character-comfy-usage-status {
-  margin: 14px 0 0;
-  padding: 10px 12px;
-  border: 1px solid rgba(220, 154, 86, 0.28);
-  border-radius: 8px;
-  color: #f2c58d;
-  background: rgba(74, 45, 20, 0.24);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.4;
-}
-
-.character-comfy-usage-status.active {
-  border-color: rgba(95, 210, 142, 0.36);
-  color: #c8f4d5;
-  background: rgba(57, 153, 99, 0.16);
 }
 
 .character-images-button:hover {

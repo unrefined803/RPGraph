@@ -1,4 +1,3 @@
-import type { ChatImageAttachment } from '../types';
 import type { ExecuteContext } from './types';
 
 export type CharacterStatsRunResult = {
@@ -20,29 +19,6 @@ export type LlmPromptSwitchRunResult = {
   text: string;
 };
 
-export type CreateComfyImageForCharacterRequest = {
-  phoneOwnerName: string;
-  phoneOwnerId?: string;
-  loraCharacterName?: string;
-  prompt: string;
-  llmConnectionId?: string;
-  llmNodeId?: string;
-  comfyProviderId?: string;
-  manageModelMemory?: boolean;
-};
-
-type CreateComfyImageForCharacterResult = {
-  phoneOwnerName: string;
-  loraCharacterName?: string;
-  imageIds: string[];
-  images: ChatImageAttachment[];
-};
-
-export type CreateComfyImageForCharacterRunner = (
-  request: CreateComfyImageForCharacterRequest,
-  warn: (message: string) => void,
-) => Promise<CreateComfyImageForCharacterResult>;
-
 export const runScratchKeys = {
   customNodeMemo: 'customNodeMemo',
   characterStatsMemo: 'characterStatsMemo',
@@ -50,7 +26,6 @@ export const runScratchKeys = {
   llmDecisionMemo: 'llmDecisionMemo',
   llmPromptSwitchMemo: 'llmPromptSwitchMemo',
   memorySlotValues: 'memorySlotValues',
-  createComfyImageForCharacter: 'createComfyImageForCharacter',
 } as const;
 
 function scratchMap<T>(context: ExecuteContext, key: string) {
@@ -81,17 +56,6 @@ export function llmPromptSwitchMemo(context: ExecuteContext) {
 
 export function memorySlotValues(context: ExecuteContext) {
   return scratchMap<string>(context, runScratchKeys.memorySlotValues);
-}
-
-export function createComfyImageForCharacter(
-  context: ExecuteContext,
-  request: CreateComfyImageForCharacterRequest,
-) {
-  const runner = context.runScratch.get(runScratchKeys.createComfyImageForCharacter);
-  if (typeof runner !== 'function') {
-    throw new Error('Create character phone image action is not available for this graph run.');
-  }
-  return (runner as CreateComfyImageForCharacterRunner)(request, context.reportWarning);
 }
 
 export function customNodeMemo(context: ExecuteContext) {

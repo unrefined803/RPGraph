@@ -1,4 +1,3 @@
-import { isImageGenerationConnection } from '../../images/providers';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -27,13 +26,10 @@ import {
   promptCommandTokenText,
   type PromptCommandConfig,
 } from './promptCommands';
-import type { ConnectionPreset, ProviderConnectionHealth, WorkflowNode } from '../../types';
 import type { PromptPreviewPart, PromptRunDebug } from './promptRun';
 import { JsonSyntaxTextarea } from './JsonSyntaxTextarea';
 import { HighlightedPreviewText } from './HighlightedPreviewText';
 import { NodeCustomSelect } from './NodeCustomSelect';
-import { providerOption } from './providerHealthLabels';
-import { storybookCreateImageCharactersFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
 import { useBackdropDismiss } from '../../components/useBackdropDismiss';
 
 const promptActionResultLineHeight = 19;
@@ -61,9 +57,6 @@ type PromptActionReplaceOptions = {
   presetSource?: PromptActionPresetSource;
 };
 
-const createImageMemoryTooltip =
-  'Before Create character phone image runs, RPGraph unloads local LM Studio, Ollama, and llama.cpp models so ComfyUI can load its image model. After generation, it frees ComfyUI model memory. API-based LLM providers are ignored. With enough cached RAM for both models, switching is usually quick, often within about two seconds.';
-
 function promptActionTemplateVariableStatuses(
   config: PromptActionConfig,
   visionEnabled = true,
@@ -86,16 +79,6 @@ function promptActionTemplateVariableStatuses(
       actionId: 'active',
       imageJson: 'active',
       caption: 'active',
-    };
-  }
-  if (config.actionId === 'createImage') {
-    return {
-      actionId: 'active',
-      character: 'active',
-      characters: 'active',
-      imageId: 'active',
-      description: 'active',
-      prompt: 'active',
     };
   }
   const effectiveSendImagesToLlm = visionEnabled && config.sendImagesToLlm;
@@ -126,14 +109,11 @@ function promptActionInstructionVariableStatuses(
   config: PromptActionConfig,
 ): Record<string, TemplateVariableStatus> | undefined {
   const statuses: Record<string, TemplateVariableStatus> = {};
-  if (!config.runAfterReply && (config.actionId === 'getImageId' || config.actionId === 'createImage' || config.actionId === 'getCharacterList')) {
+  if (!config.runAfterReply && (config.actionId === 'getImageId' || config.actionId === 'getCharacterList')) {
     statuses.plan = 'active';
   }
   if (config.actionId === 'getCharacterList' || config.actionId === 'getImageId') {
     statuses.characterDirectory = 'active';
-  }
-  if (config.actionId === 'createImage') {
-    statuses.availableCharacters = 'active';
   }
   if (config.runAfterReply) {
     statuses.reply = 'active';
@@ -153,10 +133,6 @@ function promptActionConditionMet(
   options: {
     visionEnabled: boolean;
     hasImageInput?: boolean;
-    comfyProviderIds: string[];
-    selectedComfyProviderId: string;
-    providerHealthById: Record<string, ProviderConnectionHealth>;
-    createImageCharacters: StorybookCreateImageCharacter[];
   },
 ) {
   switch (condition.id) {
@@ -164,63 +140,9 @@ function promptActionConditionMet(
       return options.visionEnabled;
     case 'imageInput':
       return options.hasImageInput === true;
-    case 'comfyProvider':
-      return options.selectedComfyProviderId
-        ? options.comfyProviderIds.includes(options.selectedComfyProviderId)
-          && options.providerHealthById[options.selectedComfyProviderId]?.status === 'online'
-        : false;
-    case 'createImageCharacters':
-      return options.createImageCharacters.length > 0;
     default:
       return false;
   }
-}
-
-function CreateImageCharacterBadge({
-  label,
-  active,
-}: {
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <span className={`prompt-action-character-badge${active ? ' active' : ''}`}>
-      {label}
-    </span>
-  );
-}
-
-function CreateImageCharacterList({
-  characters,
-}: {
-  characters: StorybookCreateImageCharacter[];
-}) {
-  return (
-    <div className="prompt-action-character-list">
-      <div className="prompt-action-character-list-header">
-        <span>AVAILABLE CHARACTERS</span>
-        <span>{characters.length}</span>
-      </div>
-      {characters.length ? (
-        <div className="prompt-action-character-rows">
-          {characters.map((character) => (
-            <div
-              className="prompt-action-character-row"
-              key={character.id}
-            >
-              <span className="prompt-action-character-name">{character.name}</span>
-              <span className="prompt-action-character-badges">
-                <CreateImageCharacterBadge label="Appearance" active={character.createImage.hasAppearance} />
-                <CreateImageCharacterBadge label="LoRA" active={character.createImage.hasLora} />
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <span className="prompt-action-character-empty">No Storybook characters found.</span>
-      )}
-    </div>
-  );
 }
 
 export function PromptActionModal({
@@ -233,10 +155,6 @@ export function PromptActionModal({
   promptActionSettings,
   setPromptActionSettings,
   visionEnabled,
-  connections,
-  nodes,
-  providerHealthById,
-  onCheckProviderConnection,
   onReplace,
   onSaveCustomPreset,
   onClose,
@@ -250,10 +168,6 @@ export function PromptActionModal({
   promptActionSettings: PromptActionRuntimeSettings;
   setPromptActionSettings: (updater: (current: PromptActionRuntimeSettings) => PromptActionRuntimeSettings) => void;
   visionEnabled: boolean;
-  connections: ConnectionPreset[];
-  nodes: WorkflowNode[];
-  providerHealthById: Record<string, ProviderConnectionHealth>;
-  onCheckProviderConnection?: (connectionId: string) => void;
   onReplace: (config: PromptActionConfig, scope: 'single' | 'linked', options?: PromptActionReplaceOptions) => void;
   onSaveCustomPreset: (config: PromptActionConfig) => void;
   onClose: () => void;
@@ -274,7 +188,6 @@ export function PromptActionModal({
       initialActionSelected && !isDefaultPromptActionConfig(initialConfig) ? initialConfig : undefined
     ),
   );
-  const autoCheckedProviderIds = useRef(new Set<string>());
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
 
   const withCurrentRuntimeSettings = (config: PromptActionConfig): PromptActionConfig => ({
@@ -321,12 +234,6 @@ export function PromptActionModal({
   const resultPanelBasis = promptActionResultChromeHeight + resultVisibleRows * promptActionResultLineHeight;
   const templateVariableStatuses = promptActionTemplateVariableStatuses(draft, visionEnabled);
   const instructionVariableStatuses = promptActionInstructionVariableStatuses(draft);
-  const comfyConnections = connections.filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id]));
-  const comfyProviderIds = comfyConnections.map((connection) => connection.id);
-  const createImageCharacters = storybookCreateImageCharactersFromNodes(nodes);
-  const selectedComfyProviderId = comfyProviderIds.includes(draft.comfyProviderId ?? '')
-    ? draft.comfyProviderId ?? ''
-    : comfyProviderIds[0] ?? '';
   const nextTitle = selectedActionId ? promptActionTitle(selectedActionId) : '';
   const promptTitle = selectedActionId ? promptActionPromptTitle(selectedActionId) : '';
   const actionChanged = !!selectedActionId && initialActionSelected && selectedActionId !== initialConfig.actionId;
@@ -335,20 +242,6 @@ export function PromptActionModal({
   const showReplaceLinkedActions = showReplaceThisAction && usageCount > 1;
   const selectedActionConditions = selectedActionId ? promptActionConditions(selectedActionId) : [];
   const usesAfterReply = selectedActionId ? defaultPromptActionRunAfterReply(selectedActionId) : false;
-
-  useEffect(() => {
-    if (selectedActionId !== 'createImage' || !selectedComfyProviderId) {
-      return;
-    }
-    const status = providerHealthById[selectedComfyProviderId]?.status ?? 'unknown';
-    if (
-      (status === 'unknown' || status === 'offline') &&
-      !autoCheckedProviderIds.current.has(selectedComfyProviderId)
-    ) {
-      autoCheckedProviderIds.current.add(selectedComfyProviderId);
-      onCheckProviderConnection?.(selectedComfyProviderId);
-    }
-  }, [onCheckProviderConnection, providerHealthById, selectedActionId, selectedComfyProviderId]);
 
   if (typeof document === 'undefined') {
     return null;
@@ -367,9 +260,7 @@ export function PromptActionModal({
       title,
       maxReturnedImages: Math.min(20, Math.max(1, Math.trunc(Number(draft.maxReturnedImages) || 1))),
       hideImageTextWhenSendingToLlm: draft.sendImagesToLlm && draft.hideImageTextWhenSendingToLlm,
-      manageModelMemoryForComfy: selectedActionId === 'createImage' ? draft.manageModelMemoryForComfy : true,
       runAfterReply,
-      comfyProviderId: selectedActionId === 'createImage' ? selectedComfyProviderId : '',
       instructionTemplate: draft.instructionTemplate.trim() || defaults.instructionTemplate,
       afterReplyTemplate: draft.afterReplyTemplate.trim() || defaults.afterReplyTemplate,
       resultTemplate: draft.resultTemplate.trim() || defaults.resultTemplate,
@@ -516,8 +407,6 @@ export function PromptActionModal({
                       ...draft,
                       actionId,
                       title: defaults.title,
-                      comfyProviderId: actionId === 'createImage' ? selectedComfyProviderId : '',
-                      manageModelMemoryForComfy: defaults.manageModelMemoryForComfy,
                       runAfterReply: defaults.runAfterReply,
                       instructionTemplate: defaults.instructionTemplate,
                       afterReplyTemplate: defaults.afterReplyTemplate,
@@ -572,10 +461,6 @@ export function PromptActionModal({
                   {selectedActionConditions.map((condition) => {
                     const met = promptActionConditionMet(condition, {
                       visionEnabled,
-                      comfyProviderIds,
-                      selectedComfyProviderId,
-                      providerHealthById,
-                      createImageCharacters,
                     });
                     return (
                       <div
@@ -620,23 +505,6 @@ export function PromptActionModal({
                   })}
                 />
               </div>
-            ) : null}
-
-            {draft.actionId === 'createImage' ? (
-              <>
-                <div className="prompt-action-field">
-                  <label className="node-field-label" htmlFor={`${id}-comfy-provider`}>IMAGE PROVIDER</label>
-                  <NodeCustomSelect
-                    id={`${id}-comfy-provider`}
-                    value={selectedComfyProviderId}
-                    options={comfyConnections.length
-                      ? comfyConnections.map((connection) => providerOption(connection, providerHealthById[connection.id]))
-                      : [{ value: '', label: 'No image provider', disabled: true }]}
-                    onChange={(providerId) => updateRuntimeConfig({ comfyProviderId: String(providerId) })}
-                  />
-                </div>
-                <CreateImageCharacterList characters={createImageCharacters} />
-              </>
             ) : null}
 
             <div className="prompt-action-checkbox-group">
@@ -685,29 +553,6 @@ export function PromptActionModal({
                     </label>
                   ) : null}
                 </>
-              ) : null}
-              {draft.actionId === 'createImage' ? (
-                <div className="prompt-action-toggle-row">
-                  <label className="node-toggle post-output-toggle nodrag">
-                    <input
-                      className="nodrag nowheel"
-                      type="checkbox"
-                      checked={draft.manageModelMemoryForComfy}
-                      onChange={(event) => updateRuntimeConfig({
-                        manageModelMemoryForComfy: event.currentTarget.checked,
-                      })}
-                    />
-                    Unload local LLMs, then unload ComfyUI
-                  </label>
-                  <button
-                    className="node-info-button nodrag"
-                    type="button"
-                    aria-label={createImageMemoryTooltip}
-                    data-tooltip={createImageMemoryTooltip}
-                  >
-                    ?
-                  </button>
-                </div>
               ) : null}
             </div>
             {(showSaveThisAction || showReplaceThisAction || showReplaceLinkedActions) ? (

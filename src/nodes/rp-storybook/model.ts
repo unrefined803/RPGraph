@@ -1,3 +1,4 @@
+import { normalizePhoneReadState, type PhoneReadState } from '../../chat/phoneReadState';
 import { parseStorybookAssistantJson } from '../../storybook/assistantJson';
 import { agencyAuthoringInstructions } from '../../characters/agency';
 import { validateCharacterRelationships } from '../../../shared/character-container.cjs';
@@ -155,6 +156,8 @@ export type RpStorybook = {
     blocked: RpStorybookPhoneContactBlock[];
   };
   openingHistory: {
+    /** Optional read boundaries captured on import; owners use stable character IDs. */
+    readState?: PhoneReadState;
     /** Non-playable pinned NPC revisions required by activity and its checkpoints. */
     npcParticipants?: NpcParticipantSnapshots;
     summary: string;
@@ -880,6 +883,7 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
     characters: normalizedCharacters,
     phoneContacts: normalizePhoneContacts(storybook.phoneContacts, validPhoneContactRefs),
     openingHistory: {
+      ...(openingHistory.readState === undefined ? {} : { readState: normalizePhoneReadState(openingHistory.readState) }),
       npcParticipants: parseNpcParticipantSnapshots(openingHistory.npcParticipants),
       summary: stringValue(openingHistory.summary),
       turns: normalizedOpeningHistoryMedia.turns,
@@ -1293,6 +1297,7 @@ export function rpStorybookPromptJsonText(storybook: RpStorybook) {
     openingHistory: {
       ...storybook.openingHistory,
       summary: [storybook.openingHistory.summary, omittedNote].filter(Boolean).join(' '),
+      readState: undefined,
       npcParticipants: {},
       checkpoints: [],
       turns: [],

@@ -1,3 +1,6 @@
+import { normalizePhoneReadState, rekeyPhoneReadState, remapPhoneReadState } from '../chat/phoneReadState';
+import { openingHistoryReadStateFromNodes, openingHistoryTurnsFromNodes, remapOpeningTurnMessageIds } from '../storybook/openingHistoryRuntime';
+import { datingAccountId } from '../chat/datingAccounts';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { EffectCallback, SetStateAction } from 'react';
 import { useRoleplayPanelRuntime } from './useRoleplayPanelRuntime';
@@ -351,4 +354,84 @@ it('colors NPCs only after reciprocal messages and shares that classification wi
   options.messages = options.messages.slice(0, 1);
   expect(render().interactedCharacterIds).toEqual([]);
   expect(render().characterColors.has(npc.name)).toBe(false);
+});
+
+it.each(['fotogram', 'onlyfriends', 'matchme'] as const)(
+  'preserves read and unread %s DM badges through RP saves and Opening History', app => {
+    const { render, options, nodes, player, npc } = harness();
+    const partner = app === 'matchme' ? datingAccountId(npc) : 'npc';
+    const message = (id: number) => ({ id, role: 'output' as const, originalText: 'Hello',
+      socialDirectMessage: { app, messageId: `dm-${id}`, from: npc.name, fromHandle: partner,
+        to: player.name, toHandle: 'player', fromAccountId: datingAccountId(npc),
+        toAccountId: datingAccountId(player), text: 'Hello', sentAt: '2026-10-03T12:00:00Z' },
+    });
+    options.messages = [message(100), message(110)];
+    expect(render().phoneAppNotificationCounts[app]).toBe(1);
+    render().markViewedSocialDmSeen(app, partner);
+    expect(render().phoneAppNotificationCounts[app]).toBe(0);
+    options.messages.push(message(120));
+    expect(render().unreadSocialDirectMessages[app][partner].count).toBe(1);
+    const readState = normalizePhoneReadState({ phoneAppSeenByCharacter: render().phoneAppSeenByCharacter });
+    const turns: TurnRecord[] = [{ id: 'turn', number: 1, createdAt: '2026-10-03T12:00:00Z',
+      input: { graphText: '', messages: [] }, output: { graphText: '', messages: options.messages },
+    }];
+    const saved = sessionV2FromCurrentState({ name: 'Badges', settings: { englishProcessingEnabled: false, displayLanguage: 'en' },
+      turns, turnCheckpoints: [], openingMessages: [], workflowVariables: {}, ...readState },
+      { format: 'rpgraph-workflow', formatVersion: currentWorkflowFormatVersion,
+        savedAt: turns[0].createdAt, nodes, edges: [] }, nodes);
+    const restored = appStateFromSessionV2(JSON.parse(JSON.stringify(saved)));
+    options.messages = restored.turns[0].output.messages;
+    render().setPhoneAppSeenByCharacter(restored.phoneAppSeenByCharacter);
+    expect(render().unreadSocialDirectMessages[app][partner].count).toBe(1);
+    const book = normalizeRpStorybook({ ...emptyRpStorybook, openingHistory: {
+      ...emptyRpStorybook.openingHistory, turns,
+      readState: rekeyPhoneReadState(readState, [player, npc], 'store'),
+    } });
+    const bookNode = { ...nodes[0], data: { ...nodes[0].data, storybookJson: rpStorybookJsonText(book) } };
+    const remapped = remapOpeningTurnMessageIds(openingHistoryTurnsFromNodes([bookNode]), 2);
+    options.messages = remapped.remappedTurns[0].output.messages;
+    const loaded = remapPhoneReadState(openingHistoryReadStateFromNodes([bookNode], [player, npc]), remapped.idMap);
+    render().setPhoneAppSeenByCharacter(loaded.phoneAppSeenByCharacter);
+    expect(render().unreadSocialDirectMessages[app][partner].count).toBe(1);
+    render().markViewedSocialDmSeen(app, partner);
+    expect(render().phoneAppNotificationCounts[app]).toBe(0);
+    book.openingHistory.turns = remapped.remappedTurns;
+    book.openingHistory.readState = rekeyPhoneReadState(normalizePhoneReadState({
+      phoneAppSeenByCharacter: render().phoneAppSeenByCharacter,
+    }), [player, npc], 'store');
+    bookNode.data.storybookJson = rpStorybookJsonText(book);
+    render().setPhoneAppSeenByCharacter({});
+    render().setPhoneAppSeenByCharacter(openingHistoryReadStateFromNodes([bookNode], [player, npc]).phoneAppSeenByCharacter);
+    expect(render().phoneAppNotificationCounts[app]).toBe(0);
+    // Legacy history starts read, but the next incoming DM still raises a badge.
+    delete book.openingHistory.readState;
+    bookNode.data.storybookJson = rpStorybookJsonText(book);
+    render().setPhoneAppSeenByCharacter(openingHistoryReadStateFromNodes([bookNode], [player, npc]).phoneAppSeenByCharacter);
+    expect(render().phoneAppNotificationCounts[app]).toBe(0);
+    options.messages.push(message(remapped.nextId));
+    expect(render().unreadSocialDirectMessages[app][partner].count).toBe(1);
+  },
+);
+
+it('restores Notes, ChatGPD and social reaction badges from their saved app boundaries', () => {
+  const { render, options, player } = harness();
+  options.messages = [
+    { id: 10, role: 'output', originalText: 'Note', createdPhoneNote: { characterId: player.id, characterName: player.name,
+      note: { id: 'note', title: 'Note', text: 'Text', color: 'neutral', dayLabel: '' } } },
+    { id: 20, role: 'output', originalText: 'Chat', simulatedAiChat: { characterId: player.id, characterName: player.name,
+      chat: { id: 'chat', title: 'Chat', createdAt: '2026-10-03T00:00:00Z', messages: [{ role: 'assistant', text: 'Hello' }] } } },
+    { id: 30, role: 'output', originalText: 'Post', socialPost: { app: 'fotogram', postId: 'post', author: player.name,
+      authorHandle: 'player', caption: 'Hello' } },
+    { id: 40, role: 'output', originalText: 'Reaction', socialReactions: { app: 'fotogram', postId: 'post', likes: 1, comments: [] } },
+  ];
+  expect(render().phoneAppNotificationCounts).toMatchObject({ notes: 1, ai: 1, fotogram: 1 });
+  render().markViewedPhoneAppSeen('notes');
+  render().markViewedPhoneAppSeen('ai');
+  render().markViewedPhoneAppSeen('fotogram');
+  const snapshot = structuredClone(render().phoneAppSeenByCharacter);
+  expect(render().phoneAppNotificationCounts).toMatchObject({ notes: 0, ai: 0, fotogram: 0 });
+  render().setPhoneAppSeenByCharacter({});
+  expect(render().phoneAppNotificationCounts).toMatchObject({ notes: 1, ai: 1, fotogram: 1 });
+  render().setPhoneAppSeenByCharacter(snapshot);
+  expect(render().phoneAppNotificationCounts).toMatchObject({ notes: 0, ai: 0, fotogram: 0 });
 });

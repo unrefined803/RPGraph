@@ -115,9 +115,7 @@ export function useWorkflowCapabilities({
   return useMemo<WorkflowCapabilityIndicator[]>(() => {
     const llmConnectionIds = new Set<string>();
     const visionConnectionIds = new Set<string>();
-    const explicitComfyProviderIds = new Set<string>();
     let usesVision = false;
-    let usesImage = false;
     const usesAudio =
       dialogueVoiceMode === 'narrator-only' ||
       storyCharacters.some((character) => !!character.voiceConfig?.sampleDataUrl);
@@ -167,13 +165,6 @@ export function useWorkflowCapabilities({
         ) {
           usesVision = true;
           visionConnectionIds.add(nodeConnectionId);
-        }
-        if (action.actionId === 'createImage') {
-          usesImage = true;
-          const comfyProviderId = action.comfyProviderId?.trim();
-          if (comfyProviderId) {
-            explicitComfyProviderIds.add(comfyProviderId);
-          }
         }
       }
     }
@@ -241,16 +232,6 @@ export function useWorkflowCapabilities({
     const anyVoiceConnected =
       voiceProviders.some((connection) => connectionIsOnline(connection.id)) ||
       anyApiVoiceConnected;
-    const imageReady =
-      usesImage &&
-      (explicitComfyProviderIds.size > 0
-        ? [...explicitComfyProviderIds].every((providerId) =>
-            imageProviders.some(
-              (connection) =>
-                connection.id === providerId && connectionIsOnline(connection.id),
-            ),
-          )
-        : anyImageConnected);
     const textActive = relevantNodes.some(
       (node) => node.data.kind === undefined && node.data.runActive === true,
     );
@@ -297,18 +278,13 @@ export function useWorkflowCapabilities({
             : 'Vision: required, but the used LLM provider is not connected or has no vision',
       });
     }
-    if (usesImage || anyImageConnected || imageGenerationActive) {
-      const ready = usesImage ? imageReady : anyImageConnected;
+    // Workflows never require image generation; it is offered by the phone camera assistant.
+    if (anyImageConnected || imageGenerationActive) {
       indicators.push({
         kind: 'image',
-        tone: ready || imageGenerationActive ? 'ready' : 'missing',
+        tone: 'ready',
         active: imageGenerationActive,
-        label:
-          ready || imageGenerationActive
-            ? usesImage
-              ? 'Image generation: required and connected'
-              : 'Image generation: connected'
-            : 'Image generation: required, but the image provider is not connected',
+        label: 'Image generation: connected',
       });
     }
     if (usesAudio || anyVoiceConnected || audioGenerationActive) {

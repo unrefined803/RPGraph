@@ -1,5 +1,9 @@
+import { normalizePhoneReadState, rekeyPhoneReadState } from '../chat/phoneReadState';
+import { phoneSeenStateFromMessages } from '../data-management/selectors';
+import { datingAccountId, datingAccountMatches } from '../chat/datingAccounts';
+import { matchMeState } from '../chat/matchMe';
 import { parseRpStorybookJson, type RpStorybook } from '../nodes/rp-storybook/model';
-import { chatAttachmentFromStorybookImage, isStorybookSourceNode } from './runtime';
+import { chatAttachmentFromStorybookImage, isStorybookSourceNode, storyCharactersFromNodes, type StorybookCharacter } from './runtime';
 import { storybookImageSourceById } from './imageLibrary';
 import type { MessageRecord, TurnRecord, RpAppointment, WorkflowNode } from '../types';
 import type { TurnCheckpoint } from '../data-management/types';
@@ -176,14 +180,15 @@ export function openingHistoryCheckpointsFromNodes(nodes: WorkflowNode[]) {
 
 export function remapOpeningTurnMessageIds(openingTurns: TurnRecord[], startId: number) {
   let nextId = startId;
-  const idMap = new Map<number, number>();
+  // Keep numeric order even when regeneration put newer IDs in earlier turns.
+  const storedIds = [...new Set(openingTurns.flatMap(turn =>
+    [...turn.input.messages, ...turn.output.messages].map(message => message.id)))].sort((a, b) => a - b);
+  const idMap = new Map(storedIds.map(id => [id, nextId++]));
   const remappedTurns = structuredClone(openingTurns);
   remappedTurns.forEach((turn) => {
     [...turn.input.messages, ...turn.output.messages].forEach((message) => {
       const storedId = message.id;
-      message.id = nextId;
-      idMap.set(storedId, nextId);
-      nextId += 1;
+      message.id = idMap.get(storedId)!;
     });
   });
   remappedTurns.forEach((turn) => {
@@ -205,7 +210,7 @@ export function remapOpeningTurnMessageIds(openingTurns: TurnRecord[], startId: 
       }
     });
   });
-  return { remappedTurns, nextId };
+  return { remappedTurns, nextId, idMap };
 }
 
 /** Union of the imported player likes from every storybook's opening history. */
@@ -303,4 +308,47 @@ export function openingHistoryChatGpdChatsFromNodes(nodes: WorkflowNode[]): Chat
     }
   });
   return structuredClone(chats);
+}
+
+/** Older Storybooks start read; explicit metadata (even empty) remains authoritative. */
+export function openingHistoryReadStateFromNodes(
+  nodes: WorkflowNode[],
+  characters: StorybookCharacter[] = storyCharactersFromNodes(nodes),
+) {
+  // Workflows accept one Storybook source (including the standalone editor).
+  const history = storybooksFromNodes(nodes)[0]?.openingHistory;
+  const stored = history?.readState;
+  if (stored !== undefined) {
+    return rekeyPhoneReadState(normalizePhoneReadState(stored), characters, 'load');
+  }
+  const messages = (history?.turns ?? [])
+    .flatMap(turn => [...turn.input.messages, ...turn.output.messages]);
+  const state = normalizePhoneReadState(undefined);
+  if (!messages.length) return state;
+  const highestId = messages.reduce((highest, message) => Math.max(highest, message.id), 0);
+  state.phoneSeenByConversation = phoneSeenStateFromMessages(messages);
+  state.phoneDividerAfterByConversation = { ...state.phoneSeenByConversation };
+  const datingState = matchMeState(characters, messages);
+  for (const character of characters) {
+    state.bankingSeenByCharacter[character.id] = highestId;
+    for (const app of ['notes', 'ai', 'fotogram', 'onlyfriends']) {
+      state.phoneAppSeenByCharacter[`${character.id}:${app}`] = highestId;
+    }
+    for (const message of messages) {
+      const dm = message.socialDirectMessage;
+      if (!dm || (dm.app === 'matchme'
+        ? !datingAccountMatches(character, dm.toAccountId)
+        : dm.to !== character.name)) continue;
+      const partner = dm.app === 'matchme' ? dm.fromHandle : dm.fromHandle.toLowerCase();
+      state.phoneAppSeenByCharacter[`${character.id}:${dm.app}:dm:${partner}`] = highestId;
+    }
+    const ownerId = datingAccountId(character);
+    for (const match of datingState.matches) {
+      if (!match.accountIds.includes(ownerId)) continue;
+      for (const partner of match.accountIds.filter(id => id !== ownerId)) {
+        state.phoneAppSeenByCharacter[`${character.id}:matchme:dm:${partner}`] = highestId;
+      }
+    }
+  }
+  return state;
 }

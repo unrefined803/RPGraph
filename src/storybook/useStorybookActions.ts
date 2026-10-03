@@ -1,3 +1,4 @@
+import { rekeyPhoneReadState, type PhoneReadState } from '../chat/phoneReadState';
 import { effectiveLibraryEntry, npcSaveDestination } from '../characters/librarySummary';
 import { getAccountPassword } from '../accounts/accountSession';
 import { characterUsageReasons, characterRemovalInfo, characterStoryTextWarnings, storybookWithRetiredCharacter } from '../characters/lifecycle';
@@ -129,6 +130,7 @@ type UseStorybookActionsOptions = {
   currentSocialLikesByAccount: () => Record<string, string[]>;
   currentDynamicSocialUsers: () => DynamicSocialUsers;
   currentSocialConnectionsByCharacter: () => SocialConnectionsByCharacter;
+  currentPhoneReadState: () => PhoneReadState;
   currentPhoneNotesByCharacter: () => PhoneNotesByCharacter;
   currentChatGpdChatsByCharacter: () => ChatGpdChatsByCharacter;
   replaceCurrentChatWithOpeningHistoryRef: MutableRefObject<boolean>;
@@ -166,6 +168,7 @@ export function useStorybookActions({
   currentSocialLikesByAccount,
   currentDynamicSocialUsers,
   currentSocialConnectionsByCharacter,
+  currentPhoneReadState,
   currentPhoneNotesByCharacter,
   currentChatGpdChatsByCharacter,
   replaceCurrentChatWithOpeningHistoryRef,
@@ -778,6 +781,8 @@ export function useStorybookActions({
         summary: hasOpeningContent
           ? `Imported from current RP session: ${historyMessageCount} messages and ${normalizedOpeningEvents.length} events across ${historyTurns.length} turns.${phoneAppSuffix}`
           : '',
+        readState: rekeyPhoneReadState(structuredClone(currentPhoneReadState()),
+          appCharactersFromRegistry(currentCharacterRegistry()), 'store'),
         npcParticipants: structuredClone(currentNpcParticipants()),
         turns: historyTurns,
         checkpoints: historyCheckpoints,

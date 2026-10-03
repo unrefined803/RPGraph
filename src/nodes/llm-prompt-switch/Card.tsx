@@ -45,7 +45,6 @@ import {
   withPromptActionRuntimeSettingsList,
   type PromptActionConfig,
 } from '../shared/promptActions';
-import { storybookCreateImageCharactersFromNodes } from '../../storybook/runtime';
 import {
   promptSwitchOutputChannelHandle,
   promptSwitchPromptSlotHandle,
@@ -138,10 +137,6 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const selectedConnection = view.connections.find((connection) => connection.id === data.connectionId)
     ?? view.connections[0];
   const visionEnabled = !!selectedConnection?.vision;
-  const comfyProviderIds = view.connections
-    .filter((connection) => connection.kind === 'comfyui')
-    .map((connection) => connection.id);
-  const createImageCharacters = storybookCreateImageCharactersFromNodes(view.contentNodes);
   const commandConfigs = promptCommandConfigs(data.llmPromptCommands);
   const promptCommandStatuses = Object.fromEntries(
     [...promptBeforeRows.flat(), ...promptAfterRows.flat()]
@@ -172,9 +167,6 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
     actionConfigs.flatMap((action) => {
       const status = promptActionStatus(action, {
         visionEnabled,
-        comfyProviderIds,
-        providerHealthById: view.providerHealthById,
-        createImageCharacters,
       });
       return status
         ? [[promptActionKey(action.title), {
@@ -749,10 +741,6 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         promptActionSettings={view.promptActionSettings}
         setPromptActionSettings={view.setPromptActionSettings}
         visionEnabled={visionEnabled}
-        connections={view.connections}
-        nodes={view.contentNodes}
-        providerHealthById={view.providerHealthById}
-        onCheckProviderConnection={view.onCheckProviderConnection}
         onReplace={applyPromptActionDialog}
         onSaveCustomPreset={saveCustomPromptActionPreset}
         onClose={() => setActionDialog(null)}

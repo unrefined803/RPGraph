@@ -212,6 +212,23 @@ describe.each(providers)('%s model capabilities', (kind, listMethod) => {
     await expect(resolve).rejects.toThrow('cancelled');
     expect(state.connections[0].model).toBe('');
   });
+
+  it('cancels on-demand model discovery through IPC without waiting for a model reply', async () => {
+    const cancel = vi.fn();
+    vi.stubGlobal('window', { rpgraph: {
+      [listMethod]: vi.fn((_connection, onAbort) => new Promise((_resolve, reject) => {
+        onAbort(() => { cancel(); reject(new Error('The LLM request was cancelled.')); });
+      })),
+    } });
+    const state = harness(kind, '');
+    const controller = new AbortController();
+    const pending = state.render().resolveConnection(undefined, undefined, controller.signal);
+    const rejected = expect(pending).rejects.toThrow('cancelled');
+    controller.abort();
+    await rejected;
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(state.connections[0].model).toBe('');
+  });
 });
 
 describe.each([
