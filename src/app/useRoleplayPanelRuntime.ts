@@ -62,6 +62,7 @@ import {
 } from '../storybook/runtime';
 import {
   embeddedPhoneMessageCharacters,
+  matchingPhoneName,
   phoneContactsForViewer,
   phoneConversationInfoFromMessages,
   phoneConversationKey,
@@ -557,6 +558,14 @@ export function useRoleplayPanelRuntime({
   const phoneConversationInfo = useMemo(() => {
     return measureUiWork('phone.conversations', () => phoneConversationInfoFromMessages(messages, phoneSeenByConversation));
   }, [messages, phoneSeenByConversation]);
+  // History may name a participant differently than the character, so a
+  // conversation is attributed to the characters its names resolve to.
+  const phoneConversationPairs = useMemo(() => new Set(
+    Array.from(phoneConversationInfo.values()).flatMap(({ names }) => {
+      const [left, right] = names.map((name) => matchingPhoneName(phoneCharacters, name));
+      return left && right ? [phoneConversationKey(left.name, right.name)] : [];
+    }),
+  ), [phoneCharacters, phoneConversationInfo]);
 
   const phoneContactVisibleForViewer = useCallback((
     viewer: PhoneRuntimeCharacter | undefined,
@@ -567,7 +576,7 @@ export function useRoleplayPanelRuntime({
     }
     const sharedPhoneIds = socialConnectionIds(socialConnectionsByCharacter, viewer.id, 'whatsup', appCharacters);
     if (sharedPhoneIds.some((id) => resolveAccountLink('whatsup', id, appCharacters)?.characterId === contact.sourceId)) return true;
-    if (phoneConversationInfo.has(phoneConversationKey(viewer.name, contact.name))) {
+    if (phoneConversationPairs.has(phoneConversationKey(viewer.name, contact.name))) {
       return true;
     }
     if (viewer.relationships !== undefined) return hasAuthoredConnection(viewer, contact, 'whatsup');
@@ -578,7 +587,7 @@ export function useRoleplayPanelRuntime({
       }
     }
     return viewer.relationships === undefined && !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
-  }, [phoneConversationInfo, storybooksByNodeId, socialConnectionsByCharacter, appCharacters]);
+  }, [phoneConversationPairs, storybooksByNodeId, socialConnectionsByCharacter, appCharacters]);
 
   const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>) => {
     if (updates.length === 0) {

@@ -435,3 +435,39 @@ it('restores Notes, ChatGPD and social reaction badges from their saved app boun
   render().setPhoneAppSeenByCharacter(snapshot);
   expect(render().phoneAppNotificationCounts).toMatchObject({ notes: 0, ai: 0, fotogram: 0 });
 });
+
+it('opens WhatsUp links from senders who are not contacts of the recipient', () => {
+  const book = normalizeRpStorybook({ ...emptyRpStorybook, characters: [
+    { id: 'npc', name: 'Riley Jones', playable: false, relationships: [] },
+    { id: 'player', name: 'Player', playable: true, relationships: [] },
+  ] } as never);
+  const nodes = [
+    { id: 'book', data: { nodeType: 'rp-storybook', storybookJson: rpStorybookJsonText(book) } } as WorkflowNode,
+    { id: 'rp-output', data: { nodeType: 'output' } } as WorkflowNode,
+  ];
+  const cast = storyCharactersFromNodes(nodes);
+  const stranger = { ...cast[0], id: 'lib-1', sourceId: 'lib-1', name: 'Riley Smith', label: 'Riley Smith', libraryNpc: true,
+    storybookNodeId: '', playerSelectable: false,
+    apps: { ...cast[0].apps, whatsup: { ...cast[0].apps!.whatsup!, accountId: 'lib-wa' } } };
+  // A namesake's first name and a legacy short name must both reach the sender.
+  for (const [from, accountId, contactId] of [
+    ['Riley Smith', 'lib-wa', 'lib-1'], ['Riley', undefined, cast[0].id],
+  ] as const) {
+    hooks.slots = [];
+    const options = { appCharacters: [...cast, stranger], nodeViewNodes: nodes, nodesRef: { current: nodes }, turns: [],
+      messages: [{ id: 5, role: 'output', originalText: 'hi', channel: 'phone', phoneMessage: true, phoneFrom: from,
+        phoneTo: 'Player', phoneFromAccountId: accountId }],
+      storybooksByNodeId: new Map([['book', book]]), characterStorybookNodeCount: 1,
+      captureNpcParticipants: vi.fn(), notifySystem: vi.fn(), commitNodes: vi.fn(), isRunning: false,
+    } as unknown as Parameters<typeof useRoleplayPanelRuntime>[0];
+    const render = () => {
+      hooks.index = 0;
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      return useRoleplayPanelRuntime(options);
+    };
+    render().openEmbeddedPhoneMessage({ phoneMessageId: 5, from, to: 'Player', message: 'hi' });
+    expect(render().viewedPhoneCharacter?.id).toBe(cast[1].id);
+    expect([from, render().selectedPhoneContact?.character.id]).toEqual([from, contactId]);
+    expect(render().selectedPhoneConversation.map((message) => message.id)).toEqual([5]);
+  }
+});

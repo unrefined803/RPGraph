@@ -404,7 +404,11 @@ export function matchingPhoneName<T extends { name: string }>(
   values: T[],
   name: string,
 ) {
-  return values.find((value) => phoneNamesMatch(value.name, name));
+  // A namesake listed earlier must not shadow the exact identity; the
+  // first-name fallback only serves short names in legacy history.
+  const key = normalizePhoneName(name);
+  return values.find((value) => normalizePhoneName(value.name) === key) ??
+    values.find((value) => phoneNamesMatch(value.name, name));
 }
 
 export function phoneSwitchCharacters<TCharacter extends PhoneCharacterLike>(
