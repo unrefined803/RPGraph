@@ -69,6 +69,19 @@ import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import { PhoneTab } from './chat/PhoneTab';
 import {
+  AutoTurnIcon,
+  CancelRunIcon,
+  ChatIcon,
+  EnterBigScreenIcon,
+  EventsIcon,
+  ExitBigScreenIcon,
+  PhoneIcon,
+  RegenerateIcon,
+  RunEventIcon,
+  SwitchPlayerIcon,
+  UndoTurnIcon,
+} from './components/BigScreenIcons';
+import {
   autoplayMessageFormat,
   localActivityPromptSlot,
   socialMediaMessageFormat,
@@ -288,6 +301,7 @@ import {
 } from './nodes/output/speakerPrompt';
 import {
   defaultChatPanelWidth,
+  defaultBigScreenPanelWidth,
   defaultConnection,
   useAppSettings,
 } from './settings';
@@ -504,6 +518,14 @@ function loadAssistantConnectionId() {
 
 const minChatPanelWidth = 779;
 const minGraphPanelWidth = 520;
+const minBigScreenPanelWidth = 480;
+// Big Screen keeps the outer fifth on each side free for the menu and turn controls.
+const maxBigScreenPanelWidthRatio = 0.6;
+
+function clampBigScreenPanelWidth(width: number) {
+  const maximum = Math.max(minBigScreenPanelWidth, window.innerWidth * maxBigScreenPanelWidthRatio);
+  return Math.round(Math.min(maximum, Math.max(minBigScreenPanelWidth, width)));
+}
 const phoneEmojiOptions = [
   '🙂',
   '😀',
@@ -724,6 +746,10 @@ function App() {
     setMaxReferenceImages,
     chatPanelWidth: storedChatPanelWidth,
     setChatPanelWidth: setStoredChatPanelWidth,
+    bigScreenPanelWidth: storedBigScreenPanelWidth,
+    setBigScreenPanelWidth: setStoredBigScreenPanelWidth,
+    bigScreenMode,
+    setBigScreenMode,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,
@@ -890,6 +916,8 @@ function App() {
   const [chatWidth, setChatWidth] = useState(defaultChatPanelWidth);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [bigScreenWidth, setBigScreenWidth] = useState(defaultBigScreenPanelWidth);
+  const bigScreenWidthRef = useRef(bigScreenWidth);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const workflowFromRpSaveRef = useRef(false);
@@ -2064,11 +2092,37 @@ function App() {
   }, [settingsLoadComplete, storedChatPanelWidth]);
 
   useEffect(() => {
+    if (settingsLoadComplete) {
+      queueMicrotask(() => {
+        setBigScreenWidth(clampBigScreenPanelWidth(storedBigScreenPanelWidth));
+      });
+    }
+  }, [settingsLoadComplete, storedBigScreenPanelWidth]);
+
+  useEffect(() => {
+    if (!bigScreenMode) {
+      return;
+    }
+    function fitBigScreenPanel() {
+      setBigScreenWidth((current) => clampBigScreenPanelWidth(current));
+    }
+    window.addEventListener('resize', fitBigScreenPanel);
+    return () => window.removeEventListener('resize', fitBigScreenPanel);
+  }, [bigScreenMode]);
+
+  useEffect(() => {
     if (!isResizing) {
       return;
     }
 
     function resize(event: PointerEvent) {
+      if (bigScreenMode) {
+        // The centered panel grows symmetrically from both edges.
+        const width = clampBigScreenPanelWidth(Math.abs(event.clientX - window.innerWidth / 2) * 2);
+        bigScreenWidthRef.current = width;
+        setBigScreenWidth(width);
+        return;
+      }
       const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
       const width = Math.min(maximum, Math.max(minChatPanelWidth, window.innerWidth - event.clientX));
       chatWidthRef.current = width;
@@ -2077,7 +2131,11 @@ function App() {
 
     function stopResize() {
       setIsResizing(false);
-      setStoredChatPanelWidth(chatWidthRef.current);
+      if (bigScreenMode) {
+        setStoredBigScreenPanelWidth(bigScreenWidthRef.current);
+      } else {
+        setStoredChatPanelWidth(chatWidthRef.current);
+      }
     }
 
     document.body.classList.add('resizing-panels');
@@ -2089,7 +2147,7 @@ function App() {
       window.removeEventListener('pointermove', resize);
       window.removeEventListener('pointerup', stopResize);
     };
-  }, [isResizing, setStoredChatPanelWidth]);
+  }, [bigScreenMode, isResizing, setStoredBigScreenPanelWidth, setStoredChatPanelWidth]);
 
   useEffect(() => {
     if (!previewImage) {
@@ -5205,17 +5263,149 @@ function App() {
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
 
+  const appMenuButtons = (
+    <>
+      <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
+        Options
+      </button>
+      <button className="connection-button" type="button" onClick={openConnectionManager}>
+        Providers
+      </button>
+      <button
+        className="connection-button"
+        type="button"
+        onClick={() => {
+          setNodeAssistantNodeId(null);
+          setWorkflowAssistantOpen(true);
+        }}
+        title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
+      >
+        Assistant
+      </button>
+      <button
+        className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
+        type="button"
+        onClick={() => setShowSystemLog(true)}
+        title="Open system log"
+      >
+        Log
+        {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
+      </button>
+      <button className="connection-button" type="button" onClick={npcLibrary.show}>
+        NPC Library
+      </button>
+      <button className="connection-button" type="button" onClick={() => void openFiles()}>
+        Files
+      </button>
+    </>
+  );
+  const activeFileStatus = (
+    <div className="topbar-file-status" aria-label="Active RP files">
+      <div className="status-badge">
+        <span className="session-label">RP save:</span>
+        <span className="session-file">
+          {displayedSessionFileName}
+          {isSessionEncrypted && headerLockIcon}
+        </span>
+        {displayedSessionSavedTurn && (
+          <span className="session-turn">{displayedSessionSavedTurn}</span>
+        )}
+      </div>
+      <div className="status-badge">
+        <span className="session-label">workflow:</span>
+        <span className="session-file">
+          {displayedWorkflowName}
+          {isWorkflowEncrypted && headerLockIcon}
+        </span>
+      </div>
+      <div className="status-badge">
+        <span className="session-label">storybook:</span>
+        <span className="session-file">
+          {displayedStorybookName}
+          {isStorybookEncrypted && headerLockIcon}
+        </span>
+      </div>
+    </div>
+  );
+  const windowControls = (
+    <div className="window-controls" aria-label="Window controls">
+      <button
+        className="window-control"
+        type="button"
+        onClick={() => void window.rpgraph.minimizeWindow()}
+        aria-label="Minimize window"
+        title="Minimize"
+      >
+        <span className="window-control-icon minimize" aria-hidden="true" />
+      </button>
+      <button
+        className="window-control"
+        type="button"
+        onClick={() => void window.rpgraph.toggleFullScreenWindow()}
+        aria-label="Toggle full screen"
+        title="Full screen (F11)"
+      >
+        <span className="window-control-icon full-screen" aria-hidden="true" />
+      </button>
+      <button
+        className="window-control"
+        type="button"
+        onClick={() => void window.rpgraph.toggleMaximizeWindow()}
+        aria-label="Maximize or restore window"
+        title="Maximize / Restore"
+      >
+        <span className="window-control-icon maximize" aria-hidden="true" />
+      </button>
+      <button
+        className="window-control close"
+        type="button"
+        onClick={() => void window.rpgraph.closeWindow()}
+        aria-label="Close window"
+        title="Close"
+      >
+        <span className="window-control-icon close" aria-hidden="true" />
+      </button>
+    </div>
+  );
+  const brandHeading = (
+    <h1>
+      <button
+        className="brand-name"
+        type="button"
+        onClick={() => setShowWelcome(true)}
+        aria-label="RPgraph Studio: open welcome guide"
+      >
+        <span className="brand-name-rp">RP</span>graph Studio
+      </button>
+      <span className="app-version">v{packageMetadata.version} Beta</span>
+    </h1>
+  );
+  const graphSystemToast = visibleLogEntry && (
+    <div
+      key={visibleLogEntry.id}
+      className={`graph-system-toast ${visibleLogEntry.level}`}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="graph-system-toast-content">
+        <strong>{visibleLogEntry.level}</strong>
+        <span>{visibleLogEntry.text}</span>
+      </div>
+    </div>
+  );
+
   markUiEvent('app.render', { phase: 'bodyEnd' });
   return (
     <AccountLinkContext.Provider value={accountLinkContext}>
     <div
-      className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
+      className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}${bigScreenMode ? ' big-screen-active' : ''}`}
       style={{
         ...textEffectsStyle(textEffects),
         ...characterColorStyle,
         '--character-name-animation-state': smoothChatAutoScrollActive ? 'paused' : 'running',
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
+        '--big-screen-panel-width': `${bigScreenWidth}px`,
       } as React.CSSProperties}
     >
       {showRunLlmReport && runLlmReport && (
@@ -5229,122 +5419,43 @@ function App() {
           onClose={() => setShowRunLlmReport(false)}
         />
       )}
+      {bigScreenMode ? (
+        <>
+          <aside className="big-screen-sidebar" aria-label="Application menu">
+            <div className="big-screen-brand brand">{brandHeading}</div>
+            <nav className="big-screen-menu" aria-label="Main menu">
+              {appMenuButtons}
+              <button className="connection-button" type="button" onClick={() => void saveCurrentSession()}>
+                Save RP
+              </button>
+            </nav>
+            <div className="big-screen-files">
+              {activeFileStatus}
+              {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
+            </div>
+            {graphSystemToast}
+            <button className="big-screen-exit" type="button" onClick={() => setBigScreenMode(false)}>
+              <ExitBigScreenIcon />
+              Exit Big Screen
+            </button>
+          </aside>
+          <div className="big-screen-window-bar">{windowControls}</div>
+        </>
+      ) : (
       <header className="topbar">
         <div className="brand">
-          <h1>
-            <button
-              className="brand-name"
-              type="button"
-              onClick={() => setShowWelcome(true)}
-              aria-label="RPgraph Studio: open welcome guide"
-            >
-              <span className="brand-name-rp">RP</span>graph Studio
-            </button>
-            <span className="app-version">v{packageMetadata.version} Beta</span>
-          </h1>
+          {brandHeading}
           <div className="header-brand-actions">
-            <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
-              Options
-            </button>
-            <button className="connection-button" type="button" onClick={openConnectionManager}>
-              Providers
-            </button>
-            <button
-              className="connection-button"
-              type="button"
-              onClick={() => {
-                setNodeAssistantNodeId(null);
-                setWorkflowAssistantOpen(true);
-              }}
-              title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
-            >
-              Assistant
-            </button>
-            <button
-              className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
-              type="button"
-              onClick={() => setShowSystemLog(true)}
-              title="Open system log"
-            >
-              Log
-              {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
-            </button>
-            <button className="connection-button" type="button" onClick={npcLibrary.show}>
-              NPC Library
-            </button>
-            <button className="connection-button" type="button" onClick={() => void openFiles()}>
-              Files
-            </button>
+            {appMenuButtons}
           </div>
         </div>
         <div className="header-actions">
           {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
-          <div className="topbar-file-status" aria-label="Active RP files">
-            <div className="status-badge">
-              <span className="session-label">RP save:</span>
-              <span className="session-file">
-                {displayedSessionFileName}
-                {isSessionEncrypted && headerLockIcon}
-              </span>
-              {displayedSessionSavedTurn && (
-                <span className="session-turn">{displayedSessionSavedTurn}</span>
-              )}
-            </div>
-            <div className="status-badge">
-              <span className="session-label">workflow:</span>
-              <span className="session-file">
-                {displayedWorkflowName}
-                {isWorkflowEncrypted && headerLockIcon}
-              </span>
-            </div>
-            <div className="status-badge">
-              <span className="session-label">storybook:</span>
-              <span className="session-file">
-                {displayedStorybookName}
-                {isStorybookEncrypted && headerLockIcon}
-              </span>
-            </div>
-          </div>
-          <div className="window-controls" aria-label="Window controls">
-            <button
-              className="window-control"
-              type="button"
-              onClick={() => void window.rpgraph.minimizeWindow()}
-              aria-label="Minimize window"
-              title="Minimize"
-            >
-              <span className="window-control-icon minimize" aria-hidden="true" />
-            </button>
-            <button
-              className="window-control"
-              type="button"
-              onClick={() => void window.rpgraph.toggleFullScreenWindow()}
-              aria-label="Toggle full screen"
-              title="Full screen (F11)"
-            >
-              <span className="window-control-icon full-screen" aria-hidden="true" />
-            </button>
-            <button
-              className="window-control"
-              type="button"
-              onClick={() => void window.rpgraph.toggleMaximizeWindow()}
-              aria-label="Maximize or restore window"
-              title="Maximize / Restore"
-            >
-              <span className="window-control-icon maximize" aria-hidden="true" />
-            </button>
-            <button
-              className="window-control close"
-              type="button"
-              onClick={() => void window.rpgraph.closeWindow()}
-              aria-label="Close window"
-              title="Close"
-            >
-              <span className="window-control-icon close" aria-hidden="true" />
-            </button>
-          </div>
+          {activeFileStatus}
+          {windowControls}
         </div>
       </header>
+      )}
 
       <main
         className={`workspace ${isResizing ? 'resizing' : ''}`}
@@ -5396,19 +5507,7 @@ function App() {
                 Runtime: <LiveRunClock isRunning={isRunning} isPaused={isPaused} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
               </button>
               <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
-              {visibleLogEntry && (
-                <div
-                  key={visibleLogEntry.id}
-                  className={`graph-system-toast ${visibleLogEntry.level}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="graph-system-toast-content">
-                    <strong>{visibleLogEntry.level}</strong>
-                    <span>{visibleLogEntry.text}</span>
-                  </div>
-                </div>
-              )}
+              {graphSystemToast}
             </div>
             {showDeletedNodeRestoreButton && (
               <button
@@ -5607,7 +5706,8 @@ function App() {
         </section>
         </ErrorBoundary>
 
-        {isChatPanelOpen && !isResizing && (
+        {bigScreenMode && <div className="big-screen-backdrop" aria-hidden="true" />}
+        {(isChatPanelOpen || bigScreenMode) && !isResizing && (
           <EdgeCharacterPicker
             characters={playerCharacters}
             settingsLoadComplete={settingsLoadComplete}
@@ -5619,8 +5719,10 @@ function App() {
           />
         )}
         <div
-          className={`chat-drawer ${isChatPanelOpen || isResizing ? 'open' : ''}`}
-          style={{ gridTemplateColumns: `7px ${chatWidth}px` }}
+          className={`chat-drawer ${isChatPanelOpen || isResizing || bigScreenMode ? 'open' : ''}`}
+          style={{
+            gridTemplateColumns: bigScreenMode ? `7px ${bigScreenWidth}px 7px` : `7px ${chatWidth}px`,
+          }}
           onMouseEnter={() => setIsChatPanelOpen(true)}
         >
           <div
@@ -5633,12 +5735,13 @@ function App() {
               setIsResizing(true);
             }}
           >
-            <span className="chat-drawer-handle" aria-hidden="true">CHAT</span>
+            {!bigScreenMode && <span className="chat-drawer-handle" aria-hidden="true">CHAT</span>}
           </div>
 
           <UiRenderMark name="chatPanel.start" />
           <ErrorBoundary label="Chat Panel">
           <aside className="chat-panel">
+          {!bigScreenMode && (
           <div className="chat-header">
             <div className="chat-header-primary">
               <div className="chat-panel-tabs" role="tablist" aria-label="Chat views">
@@ -5779,9 +5882,19 @@ function App() {
                 <span className="turn-counter">
                   Turn {currentSessionTurn?.number ?? 0}
                 </span>
+                <button
+                  className="big-screen-toggle"
+                  type="button"
+                  onClick={() => setBigScreenMode(true)}
+                  title="Big Screen: center the chat and hide the graph"
+                  aria-label="Enter Big Screen mode"
+                >
+                  <EnterBigScreenIcon />
+                </button>
               </div>
             </div>
           </div>
+          )}
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
             <Profiler id="Chat" onRender={profileUiRender}>
@@ -6226,8 +6339,120 @@ function App() {
           </div>
           </aside>
           </ErrorBoundary>
+          {bigScreenMode && (
+            <div
+              className="panel-resizer big-screen-resizer-end"
+              role="separator"
+              aria-label="Resize chat panel"
+              aria-orientation="vertical"
+              onPointerDown={() => setIsResizing(true)}
+            />
+          )}
           <UiRenderMark name="chatPanel.end" />
         </div>
+        {bigScreenMode && (
+          <nav className="big-screen-rail" aria-label="Chat views and turn actions">
+            <div className="big-screen-rail-group" role="tablist" aria-label="Chat views">
+              <button
+                className={`big-screen-rail-button${chatPanelView === 'chat' ? ' active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={chatPanelView === 'chat'}
+                aria-label="Chat"
+                title="Chat"
+                onClick={() => selectChatPanelView('chat')}
+              >
+                <ChatIcon />
+                {unreadChatCount > 0 && <span className="tab-badge">{unreadChatCount}</span>}
+              </button>
+              {phoneAvailable && (
+                <PhoneTab
+                  className="big-screen-rail-button"
+                  title="Phone (double-click to switch notification owner)"
+                  active={chatPanelView === 'phone'}
+                  notificationCount={unreadPhoneNotificationCount}
+                  viewedPhoneHasNotifications={viewedPhoneHasNotifications}
+                  settingsLoadComplete={settingsLoadComplete}
+                  switchHintSeen={phoneNotificationSwitchHintSeen}
+                  onSelect={selectPhonePanelView}
+                  onCycleNotificationOwner={cyclePhoneNotificationOwner}
+                  onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
+                >
+                  <PhoneIcon />
+                </PhoneTab>
+              )}
+              {eventManagerAvailable && (
+                <button
+                  className={`big-screen-rail-button${chatPanelView === 'events' ? ' active' : ''}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={chatPanelView === 'events'}
+                  aria-label="Events"
+                  title="Events"
+                  onClick={() => selectChatPanelView('events')}
+                >
+                  <EventsIcon />
+                  {unreadEventCount > 0 && <span className="tab-badge">{unreadEventCount}</span>}
+                </button>
+              )}
+            </div>
+            <div className="big-screen-rail-group" aria-label="Turn actions">
+              <button
+                className="big-screen-rail-button primary"
+                type="button"
+                onClick={triggerAutoTurn}
+                disabled={autoTurnDisabled}
+                title={autoTurnTitle || (chatPanelView === 'events' ? 'Run Event' : 'AutoTurn')}
+                aria-label={chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
+              >
+                {chatPanelView === 'events' ? <RunEventIcon /> : <AutoTurnIcon />}
+              </button>
+              <button
+                className="big-screen-rail-button"
+                type="button"
+                onClick={cancelRunOrUndoLastTurn}
+                disabled={undoTurnDisabled}
+                title={undoTurnTitle}
+                aria-label={undoTurnTitle}
+              >
+                {isRunning ? <CancelRunIcon /> : <UndoTurnIcon />}
+              </button>
+              <button
+                className="big-screen-rail-button"
+                type="button"
+                onClick={regenerateLastOutput}
+                disabled={!isRunning && !currentSessionTurn}
+                title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+                aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+              >
+                <RegenerateIcon />
+              </button>
+              <button
+                className="big-screen-rail-button"
+                type="button"
+                onClick={switchActivePlayer}
+                disabled={switchPlayerDisabled}
+                title={switchPlayerTitle || 'Switch player'}
+                aria-label="Switch player"
+              >
+                <SwitchPlayerIcon />
+              </button>
+              <span className="big-screen-turn" title="Current turn">
+                <small>Turn</small>
+                {currentSessionTurn?.number ?? 0}
+              </span>
+            </div>
+            <button
+              className="big-screen-rail-button"
+              type="button"
+              onClick={() => setBigScreenMode(false)}
+              title="Exit Big Screen"
+              aria-label="Exit Big Screen mode"
+            >
+              <ExitBigScreenIcon />
+            </button>
+          </nav>
+        )}
       </main>
 
       {outputFormatHelpKind && (

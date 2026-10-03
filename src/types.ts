@@ -1044,6 +1044,8 @@ export type AppSettings = {
   };
   layout?: {
     chatPanelWidth: number;
+    bigScreenPanelWidth?: number;
+    bigScreenMode?: boolean;
   };
 };
 
