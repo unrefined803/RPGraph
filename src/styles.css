@@ -29696,10 +29696,34 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   z-index: 13;
   inset: 0;
   pointer-events: none;
-  /* The noise layer dithers the dark gradients, which otherwise show banding. */
+  /* Dark gradients band on 8-bit displays. Three measures counter that: the
+     noise layer on top varies red, green and blue independently, the glow
+     layers use slightly different blue hues so the channels step at different
+     places, and the glow around the chat column is painted here, below the
+     noise, instead of as an undithered box-shadow on the column. */
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    radial-gradient(ellipse 62% 110% at 50% 45%, rgba(52, 82, 140, 0.26), rgba(52, 82, 140, 0.1) 55%, transparent 85%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 0.05'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(
+      90deg,
+      transparent calc(50% - var(--big-screen-panel-width) / 2 - 130px),
+      rgba(52, 104, 168, 0.018) calc(50% - var(--big-screen-panel-width) / 2 - 85px),
+      rgba(58, 100, 182, 0.045) calc(50% - var(--big-screen-panel-width) / 2 - 40px),
+      rgba(66, 96, 190, 0.08) calc(50% - var(--big-screen-panel-width) / 2),
+      rgba(66, 96, 190, 0.08) calc(50% + var(--big-screen-panel-width) / 2),
+      rgba(58, 100, 182, 0.045) calc(50% + var(--big-screen-panel-width) / 2 + 40px),
+      rgba(52, 104, 168, 0.018) calc(50% + var(--big-screen-panel-width) / 2 + 85px),
+      transparent calc(50% + var(--big-screen-panel-width) / 2 + 130px)
+    ),
+    radial-gradient(ellipse 46% 78% at 24% 28%, rgba(34, 112, 138, 0.05), transparent 72%),
+    radial-gradient(ellipse 46% 78% at 77% 72%, rgba(74, 70, 172, 0.05), transparent 72%),
+    radial-gradient(
+      ellipse 62% 110% at 50% 45%,
+      rgba(52, 82, 140, 0.26),
+      rgba(46, 88, 146, 0.18) 28%,
+      rgba(56, 80, 150, 0.1) 55%,
+      rgba(44, 86, 132, 0.045) 70%,
+      transparent 85%
+    ),
     linear-gradient(
       90deg,
       #020306 0%,
@@ -29721,8 +29745,7 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   transition: none;
   box-shadow:
     0 0 0 1px rgba(130, 160, 220, 0.09),
-    0 0 40px rgba(0, 0, 0, 0.45),
-    0 0 140px rgba(60, 100, 180, 0.16);
+    0 0 40px rgba(0, 0, 0, 0.45);
 }
 
 /* Quieter scrollbars on the dark Big Screen column. */
@@ -29883,7 +29906,9 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-top: 18px;
+  /* Generous, equal air above and below the separator line. */
+  margin-top: 14px;
+  padding-top: 58px;
   border-top: 1px solid rgba(148, 163, 184, 0.08);
 }
 
@@ -29892,9 +29917,9 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  /* The sidebar gap plus this padding matches the spacing above the file block. */
-  margin-top: -12px;
-  padding-top: 18px;
+  /* With the button's own padding this equals the space above the line. */
+  margin-top: 14px;
+  padding-top: 38px;
   border-top: 1px solid rgba(148, 163, 184, 0.08);
 }
 
