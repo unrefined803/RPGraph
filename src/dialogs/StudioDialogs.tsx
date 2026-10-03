@@ -142,6 +142,105 @@ function formatFileDate(value: string | number) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function StartDialogFileRow({
+  file,
+  badge,
+  name,
+  selected,
+  onSelect,
+  onOpen,
+  infoLoading = false,
+  disabled = false,
+  onInfo,
+}: {
+  file: SavedFileSummary;
+  badge: string;
+  name: string;
+  selected: boolean;
+  onSelect: () => void;
+  onOpen?: () => void;
+  infoLoading?: boolean;
+  disabled?: boolean;
+  onInfo?: () => void;
+}) {
+  const open = onOpen && file.compatible && !disabled ? onOpen : undefined;
+  return (
+    <div
+      className={`saved-chat-row${selected ? ' selected' : ''}`}
+      onDoubleClick={open}
+    >
+      <button
+        className="saved-chat-select"
+        type="button"
+        aria-pressed={selected}
+        disabled={disabled}
+        onClick={onSelect}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && open) {
+            event.preventDefault();
+            open();
+          }
+        }}
+      >
+        <span className="saved-file-summary">
+          <strong className="saved-file-name-container">
+            <span className={`file-type-badge ${file.type}`}>{badge}</span>
+            <span className="saved-file-name-text">{name}</span>
+            {file.protection === 'encrypted' && (
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ marginLeft: '4px', verticalAlign: 'middle', color: 'var(--success)' }}
+                aria-label="Encrypted"
+              >
+                <title>Encrypted</title>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            )}
+          </strong>
+          <small>
+            {formatFileDate(file.updatedAt)} · v{file.type === 'workflow' ? file.workflowFormatVersion : file.formatVersion}
+            {!file.compatible && ' · Incompatible'}
+            {' · '}{file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+            {file.type === 'session' && ` · Turn ${file.latestTurnNumber ?? 'Unknown'}`}
+          </small>
+        </span>
+      </button>
+      {(onInfo || onOpen) && (
+        <div className="saved-chat-actions" onDoubleClick={(event) => event.stopPropagation()}>
+          {onInfo && (
+            <button
+              className="saved-chat-info"
+              type="button"
+              disabled={disabled || file.protection !== 'plain' || !file.compatible || infoLoading}
+              title={file.protection === 'encrypted'
+                ? 'Preview is unavailable for encrypted Storybooks.'
+                : !file.compatible
+                  ? 'Preview is unavailable for incompatible Storybooks.'
+                  : `Preview ${file.name}`}
+              onClick={onInfo}
+            >
+              {infoLoading ? 'Loading…' : 'Info'}
+            </button>
+          )}
+          {onOpen && (
+            <button className="saved-chat-open" type="button" disabled={disabled || !file.compatible} onClick={onOpen}>
+              Open
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type StudioDialogsProps = {
   appCharacters?: StorybookCharacter[];
   textDialogNode?: WorkflowNode;
@@ -227,6 +326,16 @@ type StudioDialogsProps = {
   onRetryFormatErrorsChange: (enabled: boolean) => void;
   showFiles: boolean;
   showStorybookPicker: boolean;
+  showStartDialog: boolean;
+  startSelectionLoading: boolean;
+  startWorkflowFileName: string | null;
+  startTargetFileName: string | null;
+  onCloseStartDialog: () => void;
+  onSelectStartWorkflow: (file: SavedFileSummary) => void;
+  onSelectStartTarget: (file: SavedFileSummary) => void;
+  onOpenStartSelection: (file?: SavedFileSummary) => void;
+  onOpenFilesFromStartDialog: () => void;
+  onOpenStartDialogFromFiles: () => void;
   savedFiles: SavedFileSummary[];
   selectedFile: string | null;
   workflowName: string;
@@ -1100,6 +1209,16 @@ export function StudioDialogs({
   onDefaultCharacterExportDestinationChange,
   showFiles,
   showStorybookPicker,
+  showStartDialog,
+  startSelectionLoading,
+  startWorkflowFileName,
+  startTargetFileName,
+  onCloseStartDialog,
+  onSelectStartWorkflow,
+  onSelectStartTarget,
+  onOpenStartSelection,
+  onOpenFilesFromStartDialog,
+  onOpenStartDialogFromFiles,
   savedFiles,
   selectedFile,
   workflowName,
@@ -1336,6 +1455,11 @@ export function StudioDialogs({
   const hasStoredWorkflow = savedFiles.some((file) => file.type === 'workflow');
   const hasStoredStorybook = savedFiles.some((file) => file.type === 'storybook');
   const storybookPickerFiles = savedFiles.filter((file) => file.type === 'storybook');
+  const startWorkflowFiles = savedFiles.filter((file) => file.type === 'workflow');
+  const startSessionFiles = savedFiles.filter((file) => file.type === 'session');
+  const startWorkflowFile = startWorkflowFiles.find((file) => file.fileName === startWorkflowFileName);
+  const startTargetFile = [...storybookPickerFiles, ...startSessionFiles]
+    .find((file) => file.fileName === startTargetFileName);
   const characterImportSections = ([
     { source: 'characters', title: 'Characters Folder' },
     { source: 'npc-library', title: 'NPC Library Folder' },
@@ -1794,6 +1918,8 @@ export function StudioDialogs({
           ? 'storybook-info'
         : showStorybookPicker
           ? 'storybook-picker'
+        : showStartDialog
+          ? 'start'
         : showCharacterFiles
           ? 'characters'
         : showFiles
@@ -1807,14 +1933,14 @@ export function StudioDialogs({
                   : null;
 
   useEffect(() => {
-    if (!showStorybookPicker) {
+    if (!showStorybookPicker && !showStartDialog) {
       queueMicrotask(() => {
         setStorybookInfo(null);
         setStorybookInfoLoading(null);
         setStorybookInfoStatus('');
       });
     }
-  }, [showStorybookPicker]);
+  }, [showStorybookPicker, showStartDialog]);
 
   useEffect(() => {
     if (!showFiles) {
@@ -1873,6 +1999,10 @@ export function StudioDialogs({
       } else {
         sessionPasswordInputRef.current?.focus();
       }
+    } else if (activeDialog === 'start') {
+      // Focus the remembered Storybook or RP Save so Enter opens it directly.
+      (activeDialogRef.current?.querySelector<HTMLElement>('.start-dialog-targets .selected .saved-chat-select')
+        ?? activeDialogRef.current)?.focus();
     } else {
       activeDialogRef.current?.querySelector<HTMLElement>('.close-button')?.focus();
     }
@@ -1889,6 +2019,7 @@ export function StudioDialogs({
     }
     if (activeDialog === 'session-password') { onCloseSessionPassword(); return; }
     if (activeDialog === 'storybook-picker') { onCloseStorybookPicker(); return; }
+    if (activeDialog === 'start') { onCloseStartDialog(); return; }
     if (activeDialog === 'connections') { onCloseConnections(); return; }
     if (activeDialog === 'characters') { onCloseCharacterFiles(); return; }
     if (activeDialog === 'files') { onCloseFiles(); return; }
@@ -1896,7 +2027,7 @@ export function StudioDialogs({
     if (activeDialog === 'json') { onCloseJson(); return; }
     onCloseText();
   }, [activeDialog, showFileVersionInfo, deleteFileCandidate, onCloseSessionPassword,
-    onCloseStorybookPicker, onCloseConnections, onCloseCharacterFiles, onCloseFiles,
+    onCloseStorybookPicker, onCloseStartDialog, onCloseConnections, onCloseCharacterFiles, onCloseFiles,
     onCloseOptions, onCloseJson, onCloseText]);
   usePanelNavigationOverlay(closeActiveDialog, !!activeDialog);
 
@@ -2347,7 +2478,7 @@ export function StudioDialogs({
                   </div>
                 </div>}
                 {activeOptionsTab === 'chat' && (
-                  <div className="options-tab-content">
+                  <div className="options-tab-content" data-slider-preview>
                     <div className="options-tab-body">
                       <label className="option-toggle">
                         <input
@@ -2362,20 +2493,22 @@ export function StudioDialogs({
                           onChange={(event) => onAppMessageAvatarsEnabledChange(event.target.checked)} />
                         <span>App avatars</span>
                       </label>
-                      <label className="option-avatar-size" htmlFor="chat-message-avatar-size">
-                        <span>Face size</span>
-                        <input
-                          id="chat-message-avatar-size"
-                          type="range"
-                          min={70}
-                          max={130}
-                          step={1}
-                          value={chatMessageAvatarSize}
-                          disabled={!chatMessageAvatarsEnabled && !appMessageAvatarsEnabled}
-                          onChange={(event) => onChatMessageAvatarSizeChange(Number(event.target.value))}
-                          aria-valuetext={`${chatMessageAvatarSize}%`}
-                        />
-                        <output htmlFor="chat-message-avatar-size">{chatMessageAvatarSize}%</output>
+                      <label className="option-field chat-text-size-field" htmlFor="chat-message-avatar-size">
+                        AVATAR SIZE
+                        <div className="option-range-row">
+                          <input
+                            id="chat-message-avatar-size"
+                            type="range"
+                            min={70}
+                            max={130}
+                            step={1}
+                            value={chatMessageAvatarSize}
+                            disabled={!chatMessageAvatarsEnabled && !appMessageAvatarsEnabled}
+                            onChange={(event) => onChatMessageAvatarSizeChange(Number(event.target.value))}
+                            aria-valuetext={`${chatMessageAvatarSize}%`}
+                          />
+                          <span>{chatMessageAvatarSize}%</span>
+                        </div>
                       </label>
                       <label className="option-field chat-text-size-field" htmlFor="ui-scale">
                         <span className="option-label-row">
@@ -2457,6 +2590,7 @@ export function StudioDialogs({
                         <div className="option-range-row">
                           <input
                             id="smooth-chat-auto-scroll-min-speed"
+                            data-no-slider-preview
                             title="Base scroll speed. Long output increases it gradually, up to 1.75 times this value."
                             min={minSmoothChatAutoScrollMinSpeed}
                             max={maxSmoothChatAutoScrollMinSpeed}
@@ -2500,7 +2634,7 @@ export function StudioDialogs({
                 )}
 
                 {activeOptionsTab === 'text' && (
-                  <div className="options-tab-content">
+                  <div className="options-tab-content" data-slider-preview>
                     <div className="options-tab-body">
                       <label className="option-field chat-text-size-field" htmlFor="chat-text-size">
                         NORMAL CHAT TEXT SIZE
@@ -2899,7 +3033,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'characters' ? activeDialogRef : undefined}
-            className="chat-files-dialog"
+            className="chat-files-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'characters'}
             aria-hidden={activeDialog !== 'characters'}
@@ -3001,6 +3135,127 @@ export function StudioDialogs({
         </div>
       )}
 
+      {showStartDialog && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onPointerDown={trackBackdropPointerDown}
+          onClick={(event) => closeFromBackdropClick(event, 'start', onCloseStartDialog)}
+        >
+          <section
+            ref={activeDialog === 'start' ? activeDialogRef : undefined}
+            className="chat-files-dialog start-dialog deep-dialog"
+            role="dialog"
+            aria-modal={activeDialog === 'start'}
+            aria-hidden={activeDialog !== 'start'}
+            aria-label="Start"
+            aria-busy={startSelectionLoading}
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              if (!startSelectionLoading && event.key === 'Enter' && event.target === event.currentTarget && startTargetFile?.compatible) {
+                event.preventDefault();
+                onOpenStartSelection(startTargetFile);
+              }
+            }}
+          >
+            <div className="dialog-header">
+              <div>
+                <h2 className="workflow-dialog-title">Start</h2>
+                <p>Open a Storybook in the selected workflow to start a new RP, or continue an RP Save.</p>
+              </div>
+              <button type="button" className="close-button" onClick={onCloseStartDialog}>
+                Close
+              </button>
+            </div>
+            <div className="start-dialog-body">
+              <div className="start-dialog-column start-dialog-new">
+                <div className="start-dialog-section">
+                  <h3 className="start-dialog-heading">Workflow</h3>
+                  <div className="saved-chat-list" aria-label="Available workflows">
+                    {startWorkflowFiles.length === 0 ? (
+                      <p className="empty-chat-list">No workflows are available in RPGraph Studio Files.</p>
+                    ) : startWorkflowFiles.map((file) => (
+                      <StartDialogFileRow
+                        key={file.fileName}
+                        file={file}
+                        disabled={startSelectionLoading}
+                        badge="Workflow"
+                        name={file.name}
+                        selected={startWorkflowFileName === file.fileName}
+                        onSelect={() => onSelectStartWorkflow(file)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="start-dialog-section start-dialog-targets">
+                  <h3 className="start-dialog-heading">Storybooks</h3>
+                  <div className="saved-chat-list" aria-label="Available Storybooks">
+                    {storybookPickerFiles.length === 0 ? (
+                      <p className="empty-chat-list">No Storybooks are available in RPGraph Studio Files.</p>
+                    ) : storybookPickerFiles.map((file) => (
+                      <StartDialogFileRow
+                        key={file.fileName}
+                        file={file}
+                        disabled={startSelectionLoading}
+                        badge="Storybook"
+                        name={storybookDisplayName(file.name)}
+                        selected={startTargetFileName === file.fileName}
+                        onSelect={() => onSelectStartTarget(file)}
+                        onOpen={() => onOpenStartSelection(file)}
+                        infoLoading={storybookInfoLoading === file.fileName}
+                        onInfo={() => void openStorybookInfo(file)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="start-dialog-column">
+                <div className="start-dialog-section start-dialog-targets">
+                  <h3 className="start-dialog-heading">RP Saves</h3>
+                  <div className="saved-chat-list" aria-label="Available RP Saves">
+                    {startSessionFiles.length === 0 ? (
+                      <p className="empty-chat-list">No RP Saves yet. Open a Storybook to start a new RP.</p>
+                    ) : startSessionFiles.map((file) => (
+                      <StartDialogFileRow
+                        key={file.fileName}
+                        file={file}
+                        disabled={startSelectionLoading}
+                        badge="RP Save"
+                        name={file.name}
+                        selected={startTargetFileName === file.fileName}
+                        onSelect={() => onSelectStartTarget(file)}
+                        onOpen={() => onOpenStartSelection(file)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="chat-storage-status start-dialog-status">{storybookInfoStatus || fileStorageStatus}</p>
+            <div className="dialog-actions chat-files-actions start-dialog-actions">
+              <button type="button" className="secondary" onClick={onOpenFilesFromStartDialog}>
+                Browse Files
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={startSelectionLoading || !startWorkflowFile?.compatible}
+                onClick={() => onOpenStartSelection()}
+              >
+                Open Workflow Only
+              </button>
+              <button
+                type="button"
+                disabled={startSelectionLoading || !startTargetFile?.compatible || (startTargetFile.type === 'storybook' && !startWorkflowFile?.compatible)}
+                onClick={() => onOpenStartSelection(startTargetFile)}
+              >
+                {startTargetFile?.type === 'session' ? 'Continue RP' : 'Start RP'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {showStorybookPicker && (
         <div
           className="dialog-backdrop"
@@ -3010,7 +3265,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'storybook-picker' ? activeDialogRef : undefined}
-            className="chat-files-dialog storybook-picker-dialog"
+            className="chat-files-dialog storybook-picker-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'storybook-picker'}
             aria-hidden={activeDialog !== 'storybook-picker'}
@@ -3129,7 +3384,7 @@ export function StudioDialogs({
                 <p>{storybookInfo.file.name}</p>
               </div>
               <div className="storybook-header-actions">
-                <button type="button" className="close-button danger" onClick={() => setStorybookInfo(null)}>
+                <button type="button" className="close-button" onClick={() => setStorybookInfo(null)}>
                   Close
                 </button>
               </div>
@@ -3159,7 +3414,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'files' ? activeDialogRef : undefined}
-            className="chat-files-dialog"
+            className="chat-files-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'files'}
             aria-hidden={activeDialog !== 'files'}
@@ -3183,6 +3438,14 @@ export function StudioDialogs({
                   onClick={() => setShowFileVersionInfo((visible) => !visible)}
                 >
                   Info
+                </button>
+                <button
+                  type="button"
+                  className="close-button"
+                  title="Choose a workflow and Storybook, or continue an RP Save"
+                  onClick={onOpenStartDialogFromFiles}
+                >
+                  Start Dialog
                 </button>
                 <button type="button" className="close-button" onClick={onCloseFiles}>
                   Close
@@ -3406,7 +3669,7 @@ export function StudioDialogs({
               onClick={() => setDeleteFileCandidate(null)}
             >
               <section
-                className="storybook-confirm-dialog"
+                className="storybook-confirm-dialog deep-dialog"
                 role="alertdialog"
                 aria-modal="true"
                 aria-labelledby="file-delete-confirm-title"
@@ -3448,7 +3711,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'session-password' ? activeDialogRef : undefined}
-            className="chat-password-dialog"
+            className="chat-password-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'session-password'}
             aria-hidden={activeDialog !== 'session-password'}
@@ -4748,7 +5011,7 @@ export function StudioDialogs({
       )}
       {pendingProviderType && showConnections && (
         <div className="storybook-confirm-backdrop file-confirm-backdrop" role="presentation" onClick={() => setPendingProviderType(null)}>
-          <section className="storybook-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="provider-type-confirm-title" aria-describedby="provider-type-confirm-message" onClick={(event) => event.stopPropagation()}>
+          <section className="storybook-confirm-dialog deep-dialog" role="alertdialog" aria-modal="true" aria-labelledby="provider-type-confirm-title" aria-describedby="provider-type-confirm-message" onClick={(event) => event.stopPropagation()}>
             <h3 id="provider-type-confirm-title">Change provider type?</h3>
             <p id="provider-type-confirm-message">Switching to {pendingProviderType.label} will remove the API key from this preset and reset its Base URL and defaults. Continue?</p>
             <div className="storybook-confirm-actions">

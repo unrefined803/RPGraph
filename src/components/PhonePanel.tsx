@@ -7,6 +7,9 @@ import { AccountLinkContext } from '../chat/accountLinkContext';
 import { AccountLinkText } from './AccountLinkText';
 import type { CharacterAppAccount } from '../characters/character';
 import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
+import { PhoneAppListResizer } from './PhoneAppListResizer';
+import { appDialogCoversPhone } from './phoneEscape';
+import { usePhoneAppListScaleStyle } from './phoneAppListScale';
 import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
 import type { DatingProfile } from '../chat/datingProfile';
 import {
@@ -165,6 +168,7 @@ function desktopBadgeLabel(count: number) {
 
 type PhonePanelProps = {
   onStartInitiativeTurn?: () => void;
+  onScreenChange?: (screen: string) => void;
   phoneContacts: PhoneContact[];
   appCharacters: StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
@@ -350,6 +354,7 @@ type PhonePanelProps = {
 
 export function PhonePanel({
   onStartInitiativeTurn,
+  onScreenChange,
   phoneContacts,
   appCharacters,
   storyCharacters,
@@ -533,6 +538,10 @@ export function PhonePanel({
   );
 
   useEffect(() => {
+    onScreenChange?.(screen);
+  }, [onScreenChange, screen]);
+
+  useEffect(() => {
     if (screen === 'whatsup' && selectedPhoneContact) {
       onMarkSelectedPhoneConversationSeen();
     }
@@ -565,6 +574,7 @@ export function PhonePanel({
   }
   const [desktopLayoutOverride, setDesktopLayoutOverride] = useState<PhoneDesktopLayout | undefined>(undefined);
   const desktopLayout = desktopLayoutOverride ?? phoneDesktopLayout;
+  const whatsUpListStyle = usePhoneAppListScaleStyle('whatsup');
   const desktopLayoutRef = useRef(phoneDesktopLayout);
   const desktopRef = useRef<HTMLDivElement | null>(null);
   const lastInitiativeEnter = useRef<number | null>(null);
@@ -572,6 +582,23 @@ export function PhonePanel({
     lastInitiativeEnter.current = null;
     if (screen === 'desktop') desktopRef.current?.focus();
   }, [screen, selectedCharacter?.id, isRunning]);
+  useEffect(() => {
+    if (screen !== 'whatsup') {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || appDialogCoversPhone()) {
+        return;
+      }
+      if (showPhoneEmojiPicker) {
+        onTogglePhoneEmojiPicker();
+        return;
+      }
+      setScreen('desktop');
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  });
   const desktopInteractionRef = useRef<{
     kind: 'clock' | 'app' | 'resize';
     appId?: PhoneDesktopAppId;
@@ -585,6 +612,56 @@ export function PhonePanel({
   const desktopGridGap = desktopIconPx / 2;
   const desktopCellWidth = desktopIconPx;
   const desktopCellHeight = desktopIconPx + phoneDesktopIconLabelHeight;
+  const desktopMinPadding = desktopIconPx * 0.5;
+  const [desktopBounds, setDesktopBounds] = useState<{ width: number; height: number } | undefined>(undefined);
+
+  useEffect(() => {
+    const element = desktopRef.current;
+    if (screen !== 'desktop' || !element || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const measure = () => setDesktopBounds((current) =>
+      current?.width === element.clientWidth && current.height === element.clientHeight
+        ? current
+        : { width: element.clientWidth, height: element.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [screen]);
+
+  // The grid gains or loses columns with the available width and is centered,
+  // so the side margins shrink and grow symmetrically.
+  function desktopGridMetrics(width: number, height: number) {
+    const pitchX = desktopCellWidth + desktopGridGap;
+    const pitchY = desktopCellHeight + desktopGridGap;
+    const fitColumns = Math.min(
+      phoneDesktopGridColumns,
+      Math.max(1, Math.floor((width - desktopMinPadding * 2 + desktopGridGap) / pitchX)),
+    );
+    const fitRows = Math.min(
+      phoneDesktopGridRows,
+      Math.max(1, Math.floor((height - desktopMinPadding * 2 + desktopGridGap) / pitchY)),
+    );
+    const gridWidth = fitColumns * desktopCellWidth + (fitColumns - 1) * desktopGridGap;
+    return {
+      pitchX,
+      pitchY,
+      fitColumns,
+      fitRows,
+      offsetX: Math.max(desktopMinPadding, (width - gridWidth) / 2),
+      offsetY: desktopMinPadding,
+    };
+  }
+  const desktopGrid = desktopBounds
+    ? desktopGridMetrics(desktopBounds.width, desktopBounds.height)
+    : undefined;
+  // Keep the clock inside the visible columns when the phone becomes narrower.
+  const desktopClockWidth = Math.min(desktopLayout.clock.width, desktopGrid?.fitColumns ?? desktopLayout.clock.width);
+  const desktopClockStart = desktopGrid
+    ? Math.max(1, Math.min(desktopLayout.clock.column, desktopGrid.fitColumns - desktopClockWidth + 1))
+    : desktopLayout.clock.column;
+  const desktopClockColumn = `${desktopClockStart} / span ${desktopClockWidth}`;
 
   useEffect(() => {
     if (!desktopSettingsOpen) {
@@ -654,24 +731,16 @@ export function PhonePanel({
   ]);
 
   function desktopGridPoint(clientX: number, clientY: number) {
-    const bounds = desktopRef.current?.getBoundingClientRect();
-    const pitchX = desktopCellWidth + desktopGridGap;
-    const pitchY = desktopCellHeight + desktopGridGap;
-    if (!bounds) {
+    const element = desktopRef.current;
+    if (!element) {
       return { column: 1, row: 1, fitColumns: 1, fitRows: 1 };
     }
-    const padding = desktopIconPx * 0.75;
-    const fitColumns = Math.min(
-      phoneDesktopGridColumns,
-      Math.max(1, Math.floor((bounds.width - padding * 2 + desktopGridGap) / pitchX)),
-    );
-    const fitRows = Math.min(
-      phoneDesktopGridRows,
-      Math.max(1, Math.floor((bounds.height - padding * 2 + desktopGridGap) / pitchY)),
-    );
+    const bounds = element.getBoundingClientRect();
+    const { pitchX, pitchY, fitColumns, fitRows, offsetX, offsetY } =
+      desktopGridMetrics(element.clientWidth, element.clientHeight);
     return {
-      column: Math.min(fitColumns, Math.max(1, Math.floor((clientX - bounds.left - padding) / pitchX) + 1)),
-      row: Math.min(fitRows, Math.max(1, Math.floor((clientY - bounds.top - padding) / pitchY) + 1)),
+      column: Math.min(fitColumns, Math.max(1, Math.floor((clientX - bounds.left - offsetX + desktopGridGap / 2) / pitchX) + 1)),
+      row: Math.min(fitRows, Math.max(1, Math.floor((clientY - bounds.top - offsetY + desktopGridGap / 2) / pitchY) + 1)),
       fitColumns,
       fitRows,
     };
@@ -685,6 +754,15 @@ export function PhonePanel({
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     desktopLayoutRef.current = desktopLayout;
+    if (interaction.kind !== 'app' && desktopGrid) {
+      // Continue from the clock position that is actually shown.
+      const shownLayout = {
+        ...desktopLayout,
+        clock: { ...desktopLayout.clock, column: desktopClockStart, width: desktopClockWidth },
+      };
+      desktopLayoutRef.current = shownLayout;
+      setDesktopLayoutOverride(shownLayout);
+    }
     desktopInteractionRef.current = {
       ...interaction,
       startedAt: { x: event.clientX, y: event.clientY },
@@ -1005,7 +1083,14 @@ export function PhonePanel({
       <div
         className="phone-desktop"
         ref={desktopRef}
-        style={{ ...desktopStyle, '--phone-icon': `${desktopIconPx}px` } as CSSProperties}
+        style={{
+          ...desktopStyle,
+          '--phone-icon': `${desktopIconPx}px`,
+          ...(desktopGrid && {
+            gridTemplateColumns: `repeat(${desktopGrid.fitColumns}, var(--phone-cell-w))`,
+            padding: `${desktopGrid.offsetY}px ${desktopGrid.offsetX}px`,
+          }),
+        } as CSSProperties}
         aria-label="Phone desktop"
         tabIndex={0}
         title="Press Enter twice for Phone Initiative"
@@ -1038,7 +1123,7 @@ export function PhonePanel({
         <div
           className="phone-clock-widget"
           style={{
-            gridColumn: `${desktopLayout.clock.column} / span ${desktopLayout.clock.width}`,
+            gridColumn: desktopClockColumn,
             gridRow: `${desktopLayout.clock.row} / span ${desktopLayout.clock.height}`,
           }}
           onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'clock' })}
@@ -1374,8 +1459,9 @@ export function PhonePanel({
   }
 
   return (
-    <div className="phone-surface">
+    <div className="phone-surface" style={whatsUpListStyle}>
       <div className="phone-list" aria-label="Phone chats">
+        <PhoneAppListResizer app="whatsup" />
         <div className="phone-list-header">
           <button
             className="phone-home-button"
@@ -1384,7 +1470,9 @@ export function PhonePanel({
             aria-label="Back to phone desktop"
             title="Phone desktop"
           >
-            ←
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
           </button>
           <strong>{phoneOwnerName ? <><CharacterName color={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{phoneOwnerName}</CharacterName>'s Chats</> : 'Phone Chats'}</strong>
           <span className="phone-contact-count">{phoneContacts.length}</span>

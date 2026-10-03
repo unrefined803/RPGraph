@@ -12,6 +12,7 @@ import type {
   RpWeekdayLanguage,
   PhoneDesktopIconSize,
   PhoneDesktopLayout,
+  PhoneAppListScales,
 } from './types';
 import { bundledComfyNarratorVoice } from './comfy/defaultNarratorVoice';
 import {
@@ -36,7 +37,7 @@ export const defaultPhoneChatTextSize = 14;
 export const phoneDesktopGridColumns = 8;
 export const phoneDesktopGridRows = 12;
 const defaultPhoneDesktopLayout: PhoneDesktopLayout = {
-  clock: { column: 2, row: 6, width: 5, height: 2 },
+  clock: { column: 2, row: 5, width: 4, height: 2 },
   apps: {
     whatsup: { column: 1, row: 1 },
     gallery: { column: 2, row: 1 },
@@ -60,6 +61,32 @@ export const minChatGpdSidebarWidth = 140;
 export const maxChatGpdSidebarWidth = 320;
 const defaultChatGpdModel: ChatGpdModel = 'ChatGPD 6';
 
+// Each app list can be narrowed or widened by up to 20% of its default width.
+const minPhoneAppListScale = 0.8;
+const maxPhoneAppListScale = 1.2;
+const phoneAppListIds = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const;
+// Tuned starting widths for new installations; apps without an entry use 1.
+export const defaultPhoneAppListScales: PhoneAppListScales = { whatsup: 1.041, fotogram: 0.985 };
+export const defaultBigScreenPhoneAppListScales: PhoneAppListScales = { whatsup: 1.155, matchme: 1.032 };
+
+export function clampPhoneAppListScale(value: number) {
+  return Math.min(maxPhoneAppListScale, Math.max(minPhoneAppListScale, Math.round(value * 1000) / 1000));
+}
+
+function validPhoneAppListScales(value: unknown, defaults: PhoneAppListScales): PhoneAppListScales {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return defaults;
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    ...defaults,
+    ...Object.fromEntries(phoneAppListIds.flatMap((id) => {
+      const scale = record[id];
+      return typeof scale === 'number' && Number.isFinite(scale) ? [[id, clampPhoneAppListScale(scale)]] : [];
+    })),
+  };
+}
+
 function validChatGpdSidebarWidth(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.min(maxChatGpdSidebarWidth, Math.max(minChatGpdSidebarWidth, Math.round(value)))
@@ -74,7 +101,7 @@ function validChatGpdModel(value: unknown): ChatGpdModel {
 const defaultSmoothChatAutoScrollEnabled = true;
 const defaultSmoothChatAutoScrollMinSpeed = 46;
 export const minSmoothChatAutoScrollMinSpeed = 32;
-export const maxSmoothChatAutoScrollMinSpeed = 60;
+export const maxSmoothChatAutoScrollMinSpeed = 80;
 export const defaultThoughtTextStyle = 'italic';
 const defaultRpDateTimeFormat: RpDateTimeFormat = 'eu';
 const defaultRpWeekdayLanguage: RpWeekdayLanguage = 'system';
@@ -285,7 +312,10 @@ function validMaxReferenceImages(value?: number) {
 }
 
 const connectionStorageKey = 'rpgraph.connections';
-export const defaultChatPanelWidth = 779;
+export const defaultChatPanelWidth = 815;
+export const defaultBigScreenPanelWidth = 948;
+export const defaultBigScreenPhoneWidth = 707;
+export const defaultChatPhoneWidth = 696;
 const defaultConnectionReasoningEffort: ConnectionReasoningEffort = 'none';
 export const defaultComfyBaseUrl = 'http://127.0.0.1:8188';
 export type BundledComfyWorkflow = {
@@ -861,7 +891,14 @@ function isAppSettings(value: unknown): value is AppSettings {
     (settings.options.defaultCharacterExportDestination === undefined ||
       settings.options.defaultCharacterExportDestination === 'npc-characters' ||
       settings.options.defaultCharacterExportDestination === 'account-npc-characters') &&
-    (!settings.layout || validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined)
+    (!settings.layout ||
+      (validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined &&
+        (settings.layout.bigScreenPanelWidth === undefined ||
+          validChatPanelWidth(settings.layout.bigScreenPanelWidth) !== undefined) &&
+        (settings.layout.bigScreenPhoneWidth === undefined ||
+          validChatPanelWidth(settings.layout.bigScreenPhoneWidth) !== undefined) &&
+        (settings.layout.chatPhoneWidth === undefined ||
+          validChatPanelWidth(settings.layout.chatPhoneWidth) !== undefined)))
   );
 }
 
@@ -914,6 +951,10 @@ type AppSettingsState = {
   setChatGpdSidebarOpen: Dispatch<SetStateAction<boolean>>;
   chatGpdSidebarWidth: number;
   setChatGpdSidebarWidth: Dispatch<SetStateAction<number>>;
+  phoneAppListScales: PhoneAppListScales;
+  setPhoneAppListScales: Dispatch<SetStateAction<PhoneAppListScales>>;
+  bigScreenPhoneAppListScales: PhoneAppListScales;
+  setBigScreenPhoneAppListScales: Dispatch<SetStateAction<PhoneAppListScales>>;
   chatGpdModel: ChatGpdModel;
   setChatGpdModel: Dispatch<SetStateAction<ChatGpdModel>>;
   smoothChatAutoScrollEnabled: boolean;
@@ -934,6 +975,12 @@ type AppSettingsState = {
   setMaxReferenceImages: Dispatch<SetStateAction<number>>;
   chatPanelWidth: number;
   setChatPanelWidth: Dispatch<SetStateAction<number>>;
+  bigScreenPanelWidth: number;
+  setBigScreenPanelWidth: Dispatch<SetStateAction<number>>;
+  bigScreenPhoneWidth: number;
+  setBigScreenPhoneWidth: Dispatch<SetStateAction<number>>;
+  chatPhoneWidth: number;
+  setChatPhoneWidth: Dispatch<SetStateAction<number>>;
   settingsLoadComplete: boolean;
   settingsStatus: string;
   glassDesignEnabled: boolean;
@@ -993,6 +1040,10 @@ export function useAppSettings(): AppSettingsState {
   );
   const [chatGpdSidebarOpen, setChatGpdSidebarOpen] = useState(defaultChatGpdSidebarOpen);
   const [chatGpdSidebarWidth, setChatGpdSidebarWidth] = useState(defaultChatGpdSidebarWidth);
+  const [phoneAppListScales, setPhoneAppListScales] = useState(defaultPhoneAppListScales);
+  const [bigScreenPhoneAppListScales, setBigScreenPhoneAppListScales] = useState(
+    defaultBigScreenPhoneAppListScales,
+  );
   const [chatGpdModel, setChatGpdModel] = useState<ChatGpdModel>(defaultChatGpdModel);
   const [smoothChatAutoScrollEnabled, setSmoothChatAutoScrollEnabled] = useState(
     defaultSmoothChatAutoScrollEnabled,
@@ -1017,6 +1068,9 @@ export function useAppSettings(): AppSettingsState {
   );
   const [maxReferenceImages, setMaxReferenceImages] = useState(defaultMaxReferenceImages);
   const [chatPanelWidth, setChatPanelWidth] = useState(defaultChatPanelWidth);
+  const [bigScreenPanelWidth, setBigScreenPanelWidth] = useState(defaultBigScreenPanelWidth);
+  const [bigScreenPhoneWidth, setBigScreenPhoneWidth] = useState(defaultBigScreenPhoneWidth);
+  const [chatPhoneWidth, setChatPhoneWidth] = useState(defaultChatPhoneWidth);
   const [glassDesignEnabled, setGlassDesignEnabled] = useState(defaultGlassDesignEnabled);
   const [glassDesignOpacity, setGlassDesignOpacity] = useState(defaultGlassDesignOpacity);
   const [nodeTextSize, setNodeTextSize] = useState<NodeTextSize>(defaultNodeTextSize);
@@ -1101,6 +1155,15 @@ export function useAppSettings(): AppSettingsState {
         setPhoneDesktopIconSize(validPhoneDesktopIconSize(result.settings.options.phoneDesktopIconSize));
         setChatGpdSidebarOpen(result.settings.options.chatGpdSidebarOpen ?? defaultChatGpdSidebarOpen);
         setChatGpdSidebarWidth(validChatGpdSidebarWidth(result.settings.options.chatGpdSidebarWidth));
+        setPhoneAppListScales(
+          validPhoneAppListScales(result.settings.options.phoneAppListScales, defaultPhoneAppListScales),
+        );
+        setBigScreenPhoneAppListScales(
+          validPhoneAppListScales(
+            result.settings.options.bigScreenPhoneAppListScales,
+            defaultBigScreenPhoneAppListScales,
+          ),
+        );
         setChatGpdModel(validChatGpdModel(result.settings.options.chatGpdModel));
         setSmoothChatAutoScrollEnabled(
           result.settings.options.smoothChatAutoScrollEnabled ??
@@ -1145,6 +1208,15 @@ export function useAppSettings(): AppSettingsState {
         );
         setChatPanelWidth(
           validChatPanelWidth(result.settings.layout?.chatPanelWidth) ?? defaultChatPanelWidth,
+        );
+        setBigScreenPanelWidth(
+          validChatPanelWidth(result.settings.layout?.bigScreenPanelWidth) ?? defaultBigScreenPanelWidth,
+        );
+        setBigScreenPhoneWidth(
+          validChatPanelWidth(result.settings.layout?.bigScreenPhoneWidth) ?? defaultBigScreenPhoneWidth,
+        );
+        setChatPhoneWidth(
+          validChatPanelWidth(result.settings.layout?.chatPhoneWidth) ?? defaultChatPhoneWidth,
         );
         setSettingsStatus('');
         setSettingsLoaded(true);
@@ -1198,6 +1270,11 @@ export function useAppSettings(): AppSettingsState {
         phoneDesktopIconSize: validPhoneDesktopIconSize(phoneDesktopIconSize),
         chatGpdSidebarOpen,
         chatGpdSidebarWidth: validChatGpdSidebarWidth(chatGpdSidebarWidth),
+        phoneAppListScales: validPhoneAppListScales(phoneAppListScales, defaultPhoneAppListScales),
+        bigScreenPhoneAppListScales: validPhoneAppListScales(
+          bigScreenPhoneAppListScales,
+          defaultBigScreenPhoneAppListScales,
+        ),
         chatGpdModel: validChatGpdModel(chatGpdModel),
         smoothChatAutoScrollEnabled,
         smoothChatAutoScrollMinSpeed: validSmoothChatAutoScrollMinSpeed(
@@ -1224,6 +1301,9 @@ export function useAppSettings(): AppSettingsState {
       },
       layout: {
         chatPanelWidth,
+        bigScreenPanelWidth,
+        bigScreenPhoneWidth,
+        chatPhoneWidth,
       },
     };
     void window.rpgraph
@@ -1242,6 +1322,9 @@ export function useAppSettings(): AppSettingsState {
   }, [
     connections,
     chatPanelWidth,
+    bigScreenPanelWidth,
+    bigScreenPhoneWidth,
+    chatPhoneWidth,
     defaultConnectionId,
     displayLanguage,
     englishProcessingEnabled,
@@ -1265,6 +1348,8 @@ export function useAppSettings(): AppSettingsState {
     phoneDesktopIconSize,
     chatGpdSidebarOpen,
     chatGpdSidebarWidth,
+    phoneAppListScales,
+    bigScreenPhoneAppListScales,
     chatGpdModel,
     smoothChatAutoScrollEnabled,
     smoothChatAutoScrollMinSpeed,
@@ -1340,6 +1425,10 @@ export function useAppSettings(): AppSettingsState {
     setChatGpdSidebarOpen,
     chatGpdSidebarWidth,
     setChatGpdSidebarWidth,
+    phoneAppListScales,
+    setPhoneAppListScales,
+    bigScreenPhoneAppListScales,
+    setBigScreenPhoneAppListScales,
     chatGpdModel,
     setChatGpdModel,
     smoothChatAutoScrollEnabled,
@@ -1360,6 +1449,12 @@ export function useAppSettings(): AppSettingsState {
     setMaxReferenceImages,
     chatPanelWidth,
     setChatPanelWidth,
+    bigScreenPanelWidth,
+    setBigScreenPanelWidth,
+    bigScreenPhoneWidth,
+    setBigScreenPhoneWidth,
+    chatPhoneWidth,
+    setChatPhoneWidth,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,

@@ -33,14 +33,14 @@ describe('workflow Storybook selection', () => {
     expect(workflowNeedsStorybookSelection({ nodes: [] })).toBe(false);
   });
 
-  it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
+  it.each(['default_normal_v40.json', 'default_planning_v40.json', 'default_NoPhone_v40.json'])(
     'recognizes the empty Storybook slot in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8'));
       expect(workflowNeedsStorybookSelection(workflow)).toBe(true);
     },
   );
-  it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
+  it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
     'uses one RP input prompt and no image generation in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
@@ -79,7 +79,7 @@ describe('workflow Storybook selection', () => {
       expect(rows[1][0]).toContain('attached image');
     },
   );
-  it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
+  it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
     'explains account links once in every independent app and RP pass in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
@@ -101,7 +101,7 @@ describe('workflow Storybook selection', () => {
 });
 
 
-it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
+it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
   'authors initiative and user interaction only in slot 6 of %s', (fileName) => {
     const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
     const data = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!.data;
@@ -118,7 +118,7 @@ it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
 );
 
 
-it.each(['default_normal_v39.json', 'default_planning_v39.json'])(
+it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
   'routes autonomous phone events through Social Media slot 7 in %s', (fileName) => {
     const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
     const data = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!.data;

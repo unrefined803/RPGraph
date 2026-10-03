@@ -116,15 +116,9 @@ unstructured admission `detail` text is not shown. No automatic fallback to anot
 Manage usage opens ChatGPT usage settings. RPGraph does not estimate remaining
 plan allowance or scrape an undocumented usage endpoint.
 
-## References and validation
+## References
 
 - [Registration and sign-in](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
 - [Accounts and sessions](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions)
 - [Models and inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference)
 - [Preview limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)
-
-Unit tests cover signed identity validation, callback state, profile restoration,
-workspace separation, concurrent refreshes, storage failures, account permissions,
-revocation, model selection and streamed completion. Tests inject the browser,
-loopback listener and OpenAI transport; they do not perform real sign-in.
-Interactive validation requires an eligible account and a completed live request.

@@ -850,16 +850,27 @@ async function loadWorkflowState() {
         typeof state.lastWorkflowFileName === 'string'
           ? path.basename(state.lastWorkflowFileName)
           : '',
+      lastStartTargetFileName:
+        typeof state.lastStartTargetFileName === 'string'
+          ? path.basename(state.lastStartTargetFileName)
+          : '',
       importedDefaultFileNames: importedDefaultFileNamesFromState(state),
     };
   } catch {
-    return { lastWorkflowFileName: '', importedDefaultFileNames: [] };
+    return { lastWorkflowFileName: '', lastStartTargetFileName: '', importedDefaultFileNames: [] };
   }
 }
 
+let workflowStateWriteQueue = Promise.resolve();
+
 async function saveWorkflowState(partialState) {
-  const state = { ...(await loadWorkflowState()), ...partialState };
-  await writeTextFileAtomically(workflowStateFilePath(), `${JSON.stringify(state, null, 2)}\n`);
+  // Atomic replacement alone does not protect concurrent read-modify-write updates.
+  const pending = workflowStateWriteQueue.catch(() => {}).then(async () => {
+    const state = { ...(await loadWorkflowState()), ...partialState };
+    await writeTextFileAtomically(workflowStateFilePath(), `${JSON.stringify(state, null, 2)}\n`);
+  });
+  workflowStateWriteQueue = pending;
+  await pending;
 }
 
 async function saveLastWorkflowFileName(fileName) {
@@ -1034,25 +1045,6 @@ async function importMissingBundledDefaultContent() {
     }
   }
   return imported;
-}
-
-async function loadStoredWorkflowFile(fileName, password = '') {
-  const filePath = approveFilePath(path.join(filesDirectory(), validatedStoredFileName(fileName)));
-  const { metadata, value } = await readRpgraphFile(filePath, password);
-  if (metadata.type !== 'workflow') {
-    throw new Error('The selected file is not a workflow.');
-  }
-  if (metadata.protection === 'plain') {
-    approveWorkflowPath(filePath);
-  }
-  await saveLastWorkflowFileName(fileName);
-  return {
-    fileName,
-    name: await storedDisplayName(fileName, undefined, password, filePath),
-    filePath,
-    ...metadata,
-    value,
-  };
 }
 
 function unsupportedSessionFormatError(envelope) {
@@ -5887,46 +5879,26 @@ handleWorkspace('workflow:load-default', async () => {
 
 handleWorkspace('defaults:restore-files', async () => restoreMissingBundledDefaultFiles());
 
-handleWorkspace('workflow:load-startup', async () => {
+// The start dialog opens on an empty workspace. Startup only makes the bundled
+// defaults available and reports the selection remembered from the last run.
+handleWorkspace('start-dialog:load-state', async () => {
   try {
     await importMissingBundledDefaultContent();
   } catch (error) {
     console.error('Unable to import bundled default content:', error);
   }
-  let files = await workflowFiles();
-  if (files.length === 0) {
+  if ((await workflowFiles()).length === 0) {
     await restoreDefaultWorkflowFile();
-    files = await workflowFiles();
   }
   const state = await loadWorkflowState();
-  const workflow =
-    files.find((file) => file.fileName === state.lastWorkflowFileName) ??
-    files.find((file) => file.compatible) ??
-    files[0];
-  if (!workflow) {
-    throw new Error('No workflow file is available.');
-  }
-  if (!workflow.compatible) {
-    throw unsupportedStoredFileError({}, workflow);
-  }
-  if (workflow.protection === 'encrypted') {
-    approveFilePath(workflow.filePath);
-    await saveLastWorkflowFileName(workflow.fileName);
-    return {
-      fileName: workflow.fileName,
-      name: workflow.name,
-      filePath: workflow.filePath,
-      type: workflow.type,
-      protection: workflow.protection,
-      envelopeFormatVersion: workflow.envelopeFormatVersion,
-      formatVersion: workflow.formatVersion,
-      workflowFormatVersion: workflow.workflowFormatVersion,
-      compatible: workflow.compatible,
-      requiresPassword: true,
-    };
-  }
-  const loaded = await loadStoredWorkflowFile(workflow.fileName);
-  return { ...loaded, workflow: loaded.value };
+  return {
+    workflowFileName: state.lastWorkflowFileName,
+    targetFileName: state.lastStartTargetFileName,
+  };
+});
+
+handleWorkspace('start-dialog:save-target', async (_event, fileName) => {
+  await saveWorkflowState({ lastStartTargetFileName: validatedStoredFileName(fileName) });
 });
 
 handleWorkspace('workflow:reload', async (_event, filePath) => {

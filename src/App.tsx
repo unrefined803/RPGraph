@@ -54,6 +54,7 @@ import {
   SystemLogDialog,
 } from './components/AppDialogs';
 import { StorybookEditorDialog } from './components/StorybookEditorDialog';
+import { runLlmReportTotals, tokenCell } from './components/runLlmReportTotals';
 import {
   AssistantDialog,
   type AssistantMessage as AssistantChatMessage,
@@ -68,6 +69,20 @@ import { PhonePanel } from './components/PhonePanel';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import { PhoneTab } from './chat/PhoneTab';
+import { PhoneTabletFrame } from './components/PhoneTabletFrame';
+import { PhoneAppListScaleContext } from './components/phoneAppListScale';
+import {
+  AutoTurnIcon,
+  CancelRunIcon,
+  EnterBigScreenIcon,
+  EventsIcon,
+  ExitBigScreenIcon,
+  PhoneIcon,
+  RegenerateIcon,
+  RunEventIcon,
+  SwitchPlayerIcon,
+  UndoTurnIcon,
+} from './components/BigScreenIcons';
 import {
   autoplayMessageFormat,
   localActivityPromptSlot,
@@ -288,6 +303,11 @@ import {
 } from './nodes/output/speakerPrompt';
 import {
   defaultChatPanelWidth,
+  defaultBigScreenPanelWidth,
+  defaultBigScreenPhoneWidth,
+  defaultChatPhoneWidth,
+  defaultPhoneAppListScales,
+  defaultBigScreenPhoneAppListScales,
   defaultConnection,
   useAppSettings,
 } from './settings';
@@ -317,6 +337,7 @@ import type {
   ImageCaptionChange,
   InputActionSelection,
   MessageRecord,
+  PhoneAppListId,
   SocialDirectMessageRecord,
   SocialPostRecord,
   SocialReactionComment,
@@ -504,6 +525,26 @@ function loadAssistantConnectionId() {
 
 const minChatPanelWidth = 779;
 const minGraphPanelWidth = 520;
+const minBigScreenPanelWidth = 480;
+const minBigScreenPhoneWidth = 420;
+// Big Screen keeps the outer fifth on each side free for the menu and turn controls.
+const maxBigScreenPanelWidthRatio = 0.6;
+// The Phone view is framed as a tablet; the side bezels double as resize handles.
+const bigScreenTabletBezelWidth = 18;
+const bigScreenChatEdgeWidth = 7;
+
+// In the side drawer the tablet sits inside the chat column and never exceeds it.
+const minChatPhoneWidth = 320;
+const chatPhoneStageInset = 16;
+
+function maxChatPhoneWidth(chatWidth: number) {
+  return Math.max(minChatPhoneWidth, chatWidth - (chatPhoneStageInset + bigScreenTabletBezelWidth) * 2);
+}
+
+function clampBigScreenWidth(width: number, minimum: number) {
+  const maximum = Math.max(minimum, window.innerWidth * maxBigScreenPanelWidthRatio);
+  return Math.round(Math.min(maximum, Math.max(minimum, width)));
+}
 const phoneEmojiOptions = [
   '🙂',
   '😀',
@@ -655,6 +696,9 @@ function App() {
   const [showWelcome, setShowWelcome] = useState(() => {
     return window.localStorage.getItem('rpgraph.welcomeSeen') !== 'true';
   });
+  // The first-run guide explains the workflow view, so Big Screen defers it
+  // until that view is entered. Opening it from the brand shows it anywhere.
+  const [welcomeRequested, setWelcomeRequested] = useState(false);
   const {
     connections,
     setConnections,
@@ -704,6 +748,10 @@ function App() {
     setChatGpdSidebarOpen,
     chatGpdSidebarWidth,
     setChatGpdSidebarWidth,
+    phoneAppListScales,
+    setPhoneAppListScales,
+    bigScreenPhoneAppListScales,
+    setBigScreenPhoneAppListScales,
     chatGpdModel,
     setChatGpdModel,
     smoothChatAutoScrollEnabled,
@@ -724,6 +772,12 @@ function App() {
     setMaxReferenceImages,
     chatPanelWidth: storedChatPanelWidth,
     setChatPanelWidth: setStoredChatPanelWidth,
+    bigScreenPanelWidth: storedBigScreenPanelWidth,
+    setBigScreenPanelWidth: setStoredBigScreenPanelWidth,
+    bigScreenPhoneWidth: storedBigScreenPhoneWidth,
+    setBigScreenPhoneWidth: setStoredBigScreenPhoneWidth,
+    chatPhoneWidth: storedChatPhoneWidth,
+    setChatPhoneWidth: setStoredChatPhoneWidth,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,
@@ -890,6 +944,15 @@ function App() {
   const [chatWidth, setChatWidth] = useState(defaultChatPanelWidth);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  // Most players use Big Screen, so every app start opens in it.
+  const [bigScreenMode, setBigScreenMode] = useState(true);
+  const [bigScreenWidth, setBigScreenWidth] = useState(defaultBigScreenPanelWidth);
+  const [bigScreenPhoneWidth, setBigScreenPhoneWidth] = useState(defaultBigScreenPhoneWidth);
+  const bigScreenWidthRef = useRef(bigScreenWidth);
+  const bigScreenPhoneWidthRef = useRef(bigScreenPhoneWidth);
+  const [chatPhoneWidth, setChatPhoneWidth] = useState(defaultChatPhoneWidth);
+  const chatPhoneWidthRef = useRef(chatPhoneWidth);
+  const [isPhoneResizing, setIsPhoneResizing] = useState(false);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const workflowFromRpSaveRef = useRef(false);
@@ -986,6 +1049,7 @@ function App() {
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    phoneAvailable,
     cyclePhoneNotificationOwner,
     setSelectedCharacterId,
     selectedCharacter,
@@ -1065,6 +1129,10 @@ function App() {
     changeChatReadsPhoneAppsEnabled,
     autoTurnDisabled,
     autoTurnTitle,
+    autoTurnLabel,
+    phoneInitiativeAutoTurn,
+    phoneScreen,
+    setPhoneScreen,
     switchPlayerDisabled,
     switchPlayerTitle,
     highlightedPhoneMessage,
@@ -1122,6 +1190,30 @@ function App() {
     commitNodes,
     notifySystem: (level, message) => notifySystemRef.current(level, message),
   });
+  const bigScreenTablet = bigScreenMode && chatPanelView === 'phone';
+  // Big Screen and the side drawer keep separate app list widths.
+  const phoneAppListScaleContext = useMemo(() => {
+    const setScales = bigScreenMode ? setBigScreenPhoneAppListScales : setPhoneAppListScales;
+    return {
+      scales: bigScreenMode ? bigScreenPhoneAppListScales : phoneAppListScales,
+      defaultScales: bigScreenMode ? defaultBigScreenPhoneAppListScales : defaultPhoneAppListScales,
+      onScaleChange: (app: PhoneAppListId, scale: number) =>
+        setScales((current) => ({ ...current, [app]: scale })),
+    };
+  }, [
+    bigScreenMode,
+    bigScreenPhoneAppListScales,
+    phoneAppListScales,
+    setBigScreenPhoneAppListScales,
+    setPhoneAppListScales,
+  ]);
+  const bigScreenColumnWidth = bigScreenTablet ? bigScreenPhoneWidth : bigScreenWidth;
+  const bigScreenEdgeWidth = bigScreenTablet ? bigScreenTabletBezelWidth : bigScreenChatEdgeWidth;
+  // The rail stays beside the wider of the two views so switching views does not move it.
+  const bigScreenRailOffset = Math.max(
+    bigScreenWidth / 2 + bigScreenChatEdgeWidth,
+    bigScreenPhoneWidth / 2 + bigScreenTabletBezelWidth,
+  );
   const usedStorybookImageIds = useMemo(
     () => storybookImageIdsUsedByMessages(messages),
     [messages],
@@ -1403,6 +1495,16 @@ function App() {
     setShowFiles,
     showStorybookPicker,
     setShowStorybookPicker,
+    showStartDialog,
+    startSelectionLoading,
+    cancelStartSelection,
+    startWorkflowFileName,
+    setStartWorkflowFileName,
+    startTargetFileName,
+    setStartTargetFileName,
+    openStartDialog,
+    closeStartDialog,
+    openStartSelection,
     savedFiles,
     fileDisplayName,
     rememberFileDisplayName,
@@ -1472,7 +1574,7 @@ function App() {
     unlockOpenFilePath,
     unlockStoredFile,
     saveCurrentSession,
-    loadStartupWorkflow,
+    openStartDialogAtStartup,
     restoreDefaultFiles,
     resetWorkflow,
     saveCurrentWorkflow,
@@ -1498,7 +1600,8 @@ function App() {
     workflowFileMissing,
     setActiveWorkflowProtection,
     setActiveStorybookProtection,
-    clearWorkspaceForLockedStartup,
+    clearWorkspace,
+    workspaceEmpty: () => nodesRef.current.length === 0,
     onWorkspacePasswordChange: npcLibrary.setGamePassword,
     workflowRequiresProtection: () => activeWorkflowProtection === 'encrypted',
     workflowFollowsStorybookProtection: () => workflowFromRpSaveRef.current,
@@ -1773,6 +1876,11 @@ function App() {
   useEffect(() => {
     chatWidthRef.current = chatWidth;
   }, [chatWidth]);
+
+  useEffect(() => {
+    bigScreenWidthRef.current = bigScreenWidth;
+    bigScreenPhoneWidthRef.current = bigScreenPhoneWidth;
+  }, [bigScreenWidth, bigScreenPhoneWidth]);
 
   useEffect(() => {
     if (assistantConnectionId) {
@@ -2052,11 +2160,86 @@ function App() {
   }, [settingsLoadComplete, storedChatPanelWidth]);
 
   useEffect(() => {
+    if (!settingsLoadComplete) {
+      return;
+    }
+    // A small window only narrows the shown widths; the saved widths return
+    // as soon as the window is large enough again.
+    function fitBigScreenPanel() {
+      setBigScreenWidth(clampBigScreenWidth(storedBigScreenPanelWidth, minBigScreenPanelWidth));
+      setBigScreenPhoneWidth(clampBigScreenWidth(storedBigScreenPhoneWidth, minBigScreenPhoneWidth));
+    }
+    queueMicrotask(fitBigScreenPanel);
+    window.addEventListener('resize', fitBigScreenPanel);
+    return () => window.removeEventListener('resize', fitBigScreenPanel);
+  }, [settingsLoadComplete, storedBigScreenPanelWidth, storedBigScreenPhoneWidth]);
+
+  useEffect(() => {
+    if (settingsLoadComplete) {
+      queueMicrotask(() => {
+        chatPhoneWidthRef.current = storedChatPhoneWidth;
+        setChatPhoneWidth(storedChatPhoneWidth);
+      });
+    }
+  }, [settingsLoadComplete, storedChatPhoneWidth]);
+
+  useEffect(() => {
+    if (!isPhoneResizing) {
+      return;
+    }
+
+    function resize(event: PointerEvent) {
+      // The tablet stays centered in the drawer and grows symmetrically.
+      const center = window.innerWidth - chatWidthRef.current / 2;
+      const requestedWidth = Math.abs(event.clientX - center) * 2 - bigScreenTabletBezelWidth * 2;
+      const width = Math.round(Math.min(
+        maxChatPhoneWidth(chatWidthRef.current),
+        Math.max(minChatPhoneWidth, requestedWidth),
+      ));
+      chatPhoneWidthRef.current = width;
+      setChatPhoneWidth(width);
+    }
+
+    function stopResize() {
+      setIsPhoneResizing(false);
+      setStoredChatPhoneWidth(chatPhoneWidthRef.current);
+    }
+
+    document.body.classList.add('resizing-panels');
+    window.addEventListener('pointermove', resize);
+    window.addEventListener('pointerup', stopResize);
+    window.addEventListener('pointercancel', stopResize);
+    window.addEventListener('blur', stopResize);
+
+    return () => {
+      document.body.classList.remove('resizing-panels');
+      window.removeEventListener('pointermove', resize);
+      window.removeEventListener('pointerup', stopResize);
+      window.removeEventListener('pointercancel', stopResize);
+      window.removeEventListener('blur', stopResize);
+    };
+  }, [isPhoneResizing, setStoredChatPhoneWidth]);
+
+  useEffect(() => {
     if (!isResizing) {
       return;
     }
 
     function resize(event: PointerEvent) {
+      if (bigScreenMode) {
+        // The centered panel grows symmetrically from both edges.
+        const requestedWidth = Math.abs(event.clientX - window.innerWidth / 2) * 2;
+        if (bigScreenTablet) {
+          const width = clampBigScreenWidth(requestedWidth - bigScreenTabletBezelWidth * 2, minBigScreenPhoneWidth);
+          bigScreenPhoneWidthRef.current = width;
+          setBigScreenPhoneWidth(width);
+        } else {
+          const width = clampBigScreenWidth(requestedWidth - bigScreenChatEdgeWidth * 2, minBigScreenPanelWidth);
+          bigScreenWidthRef.current = width;
+          setBigScreenWidth(width);
+        }
+        return;
+      }
       const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
       const width = Math.min(maximum, Math.max(minChatPanelWidth, window.innerWidth - event.clientX));
       chatWidthRef.current = width;
@@ -2065,19 +2248,44 @@ function App() {
 
     function stopResize() {
       setIsResizing(false);
-      setStoredChatPanelWidth(chatWidthRef.current);
+      if (bigScreenTablet) {
+        setStoredBigScreenPhoneWidth(bigScreenPhoneWidthRef.current);
+      } else if (bigScreenMode) {
+        setStoredBigScreenPanelWidth(bigScreenWidthRef.current);
+      } else {
+        setStoredChatPanelWidth(chatWidthRef.current);
+        // Narrowing the chat also narrows the tablet; widening it leaves the tablet as set.
+        const phoneMaximum = maxChatPhoneWidth(chatWidthRef.current);
+        if (chatPhoneWidthRef.current > phoneMaximum) {
+          chatPhoneWidthRef.current = phoneMaximum;
+          setChatPhoneWidth(phoneMaximum);
+          setStoredChatPhoneWidth(phoneMaximum);
+        }
+      }
     }
 
     document.body.classList.add('resizing-panels');
     window.addEventListener('pointermove', resize);
     window.addEventListener('pointerup', stopResize);
+    window.addEventListener('pointercancel', stopResize);
+    window.addEventListener('blur', stopResize);
 
     return () => {
       document.body.classList.remove('resizing-panels');
       window.removeEventListener('pointermove', resize);
       window.removeEventListener('pointerup', stopResize);
+      window.removeEventListener('pointercancel', stopResize);
+      window.removeEventListener('blur', stopResize);
     };
-  }, [isResizing, setStoredChatPanelWidth]);
+  }, [
+    bigScreenMode,
+    bigScreenTablet,
+    isResizing,
+    setStoredBigScreenPanelWidth,
+    setStoredBigScreenPhoneWidth,
+    setStoredChatPanelWidth,
+    setStoredChatPhoneWidth,
+  ]);
 
   useEffect(() => {
     if (!previewImage) {
@@ -2264,6 +2472,10 @@ function App() {
   });
 
   useEffect(() => {
+    // Big Screen hides the graph, so its shortcuts must not edit it unseen.
+    if (bigScreenMode) {
+      return;
+    }
     function onGraphKeyboardShortcut(event: KeyboardEvent) {
       if (
         (!event.ctrlKey && !event.metaKey) ||
@@ -2385,7 +2597,7 @@ function App() {
 
     window.addEventListener('keydown', onGraphKeyboardShortcut);
     return () => window.removeEventListener('keydown', onGraphKeyboardShortcut);
-  }, [setEdges, setNodes]);
+  }, [bigScreenMode, setEdges, setNodes]);
 
   useEffect(() => {
     function handleF1Key(event: KeyboardEvent) {
@@ -2413,8 +2625,8 @@ function App() {
     if (!settingsLoadComplete) {
       return;
     }
-    void loadStartupWorkflow();
-    // The last local workflow is loaded once settings are ready at app startup.
+    void openStartDialogAtStartup();
+    // The start dialog opens on an empty workspace once settings are ready.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoadComplete]);
 
@@ -2629,6 +2841,7 @@ function App() {
 
   async function currentSession(name: string): Promise<RpgraphSessionV2> {
     if (activeRunRef.current) throw new Error('Wait for the current run to finish before replacing or saving the RP.');
+    if (nodesRef.current.length === 0) throw new Error('No workflow is loaded. Open a workflow before saving an RP.');
     const savedAt = new Date().toISOString();
     const session = sessionV2FromCurrentState(
       currentSessionState(name),
@@ -2662,13 +2875,21 @@ function App() {
     return suggestedWorkflowNameFromPath(activeWorkflowPath);
   }
 
-  function currentStorybookForSave() {
+  /** Finds the Storybook node a file action targets, or explains what is missing. */
+  function storybookNodeForFileAction(action: string) {
     const storybookNode =
       nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
       nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
-    if (!storybookNode || storybookNode.data.nodeType !== 'rp-storybook') {
-      throw new Error('Add an RP Storybook V3 node before saving a storybook file.');
+    if (!storybookNode) {
+      throw new Error(nodesRef.current.length === 0
+        ? `No workflow is loaded. Open a workflow before ${action}.`
+        : `Add an RP Storybook V3 node before ${action}.`);
     }
+    return storybookNode;
+  }
+
+  function currentStorybookForSave() {
+    const storybookNode = storybookNodeForFileAction('saving a storybook file');
     const storybook = storybookNode.data.storybookJson
       ? parseRpStorybookJson(storybookNode.data.storybookJson)
       : emptyRpStorybook;
@@ -2726,7 +2947,7 @@ function App() {
     nextMessageIdRef.current = 1;
   }
 
-  function clearWorkspaceForLockedStartup() {
+  function clearWorkspace() {
     clearCurrentSession();
     commitNodes([]);
     commitEdges([]);
@@ -2776,12 +2997,7 @@ function App() {
     }
     if (result.type === 'storybook') {
       if (result.protection === 'encrypted') checkImportedPassword(password);
-      const storybookNode =
-        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
-        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
-      if (!storybookNode) {
-        throw new Error('Add an RP Storybook V3 node before opening a storybook file.');
-      }
+      const storybookNode = storybookNodeForFileAction('opening a storybook file');
       const applied = applyStorybookToNode(
         storybookNode.id,
         result.value,
@@ -2792,7 +3008,7 @@ function App() {
       );
       if (!applied) {
         setFileStorageStatus('Cannot load storybook: it conflicts with the running chat history.');
-        return;
+        return false;
       }
       setActiveStorybookProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
       if (result.protection === 'encrypted') setWorkspacePassword(password);
@@ -2806,12 +3022,7 @@ function App() {
       if (!getAccountPassword() && result.protection === 'encrypted' && (!workspacePasswordRef.current || workspacePasswordRef.current !== password)) {
         throw new Error('Open a protected Storybook or RP Save with the matching character password first.');
       }
-      const storybookNode =
-        nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
-        nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
-      if (!storybookNode) {
-        throw new Error('Add an RP Storybook V3 node before importing a character card.');
-      }
+      const storybookNode = storybookNodeForFileAction('importing a character card');
       applyCharacterCardToNode(storybookNode.id, result.value, result.fileName);
       setSelectedFile(result.fileName);
       setFileStorageStatus(`Imported character card: ${result.name}`);
@@ -2968,6 +3179,7 @@ function App() {
   }
 
   async function currentWorkflowForSave(includeStorybook = true) {
+    if (nodesRef.current.length === 0) throw new Error('No workflow is loaded. Open a workflow or add nodes before saving.');
     return currentWorkflow(includeStorybook);
   }
 
@@ -3791,6 +4003,13 @@ function App() {
     };
   }
 
+  // A run keeps the appendPhoneMessage closure from its start, so the view the
+  // player is on when a reply arrives has to be read through a ref.
+  const phoneViewRef = useRef({ chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey });
+  useLayoutEffect(() => {
+    phoneViewRef.current = { chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey };
+  });
+
   function appendPhoneMessage(
     message: ParsedPhoneMessage,
     sound?: PhoneMessageSound,
@@ -3858,12 +4077,15 @@ function App() {
       playPhoneMessageSound(sound);
     }
     const conversationKey = phoneConversationKey(canonicalMessage.from, canonicalMessage.to);
+    const phoneView = phoneViewRef.current;
+    // Outside the messenger screen the conversation is not visible, so the
+    // reply stays unread and raises a badge.
     const messageShouldBeMarkedSeen = phoneMessageShouldBeMarkedSeen(
       role,
-      chatPanelView,
+      phoneView.phoneScreen === 'whatsup' ? phoneView.chatPanelView : 'chat',
       conversationKey,
-      openedPhoneConversationKey,
-      selectedPhoneContact?.conversationKey,
+      phoneView.openedPhoneConversationKey,
+      phoneView.selectedConversationKey,
     );
     if (messageShouldBeMarkedSeen) {
       setPhoneSeenByConversation((current) =>
@@ -4946,6 +5168,10 @@ function App() {
       runSelectedEvent();
       return;
     }
+    if (phoneInitiativeAutoTurn) {
+      startPhoneInitiativeTurn();
+      return;
+    }
     if (chatPanelView === 'phone') {
       if (narratorSelected) {
         void runGraph(
@@ -5013,7 +5239,9 @@ function App() {
   }
 
   markUiEvent('app.render', { phase: 'headerStart' });
-  const displayedWorkflowName = activeWorkflowFileName
+  const displayedWorkflowName = nodeViewNodes.length === 0
+    ? 'none loaded'
+    : activeWorkflowFileName
     ? activeWorkflowFileName === 'embedded workflow'
       ? 'Workflow from RP Save'
       : fileDisplayName(activeWorkflowFileName) ?? 'Workflow from RP Save'
@@ -5191,17 +5419,187 @@ function App() {
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
 
+  const logMenuButton = (
+    <button
+      className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
+      type="button"
+      onClick={() => setShowSystemLog(true)}
+      title="Open system log"
+    >
+      Log
+      {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
+    </button>
+  );
+  const npcLibraryMenuButton = (
+    <button className="connection-button" type="button" onClick={npcLibrary.show}>
+      NPC Library
+    </button>
+  );
+  const storybookSourceNodeId = nodes.find(isStorybookSourceNode)?.id;
+  const runLlmTotals = bigScreenMode && runLlmReport ? runLlmReportTotals(runLlmReport) : null;
+  const appMenuButtons = (
+    <>
+      {bigScreenMode && (
+        <button
+          className="connection-button"
+          type="button"
+          onClick={() => void openStartDialog()}
+          title="Choose a workflow and Storybook, or continue an RP Save"
+        >
+          Start
+        </button>
+      )}
+      <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
+        Options
+      </button>
+      <button className="connection-button" type="button" onClick={openConnectionManager}>
+        Providers
+      </button>
+      {!bigScreenMode && (
+        <button
+          className="connection-button"
+          type="button"
+          onClick={() => {
+            setNodeAssistantNodeId(null);
+            setWorkflowAssistantOpen(true);
+          }}
+          title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
+        >
+          Assistant
+        </button>
+      )}
+      {bigScreenMode ? npcLibraryMenuButton : logMenuButton}
+      {bigScreenMode && (
+        <button
+          className="connection-button"
+          type="button"
+          disabled={!storybookSourceNodeId}
+          onClick={() => { if (storybookSourceNodeId) openStorybookCreator(storybookSourceNodeId); }}
+          title={storybookSourceNodeId
+            ? 'Create or edit the Storybook of the loaded workflow'
+            : 'Load a workflow to edit its Storybook'}
+        >
+          Edit Storybook
+        </button>
+      )}
+      {bigScreenMode ? logMenuButton : npcLibraryMenuButton}
+      <button className="connection-button" type="button" onClick={() => void openFiles()}>
+        Files
+      </button>
+    </>
+  );
+  const activeFileStatus = (
+    <div className="topbar-file-status" aria-label="Active RP files">
+      <div className="status-badge">
+        <span className="session-label">RP save:</span>
+        <span className="session-file">
+          {displayedSessionFileName}
+          {isSessionEncrypted && headerLockIcon}
+        </span>
+        {displayedSessionSavedTurn && (
+          <span className="session-turn">{displayedSessionSavedTurn}</span>
+        )}
+      </div>
+      <div className="status-badge">
+        <span className="session-label">workflow:</span>
+        <span className="session-file">
+          {displayedWorkflowName}
+          {isWorkflowEncrypted && headerLockIcon}
+        </span>
+      </div>
+      <div className="status-badge">
+        <span className="session-label">storybook:</span>
+        <span className="session-file">
+          {displayedStorybookName}
+          {isStorybookEncrypted && headerLockIcon}
+        </span>
+      </div>
+    </div>
+  );
+  const windowControls = (
+    <div className="window-controls" aria-label="Window controls">
+      <button
+        className="window-control"
+        type="button"
+        onClick={() => void window.rpgraph.minimizeWindow()}
+        aria-label="Minimize window"
+        title="Minimize"
+      >
+        <span className="window-control-icon minimize" aria-hidden="true" />
+      </button>
+      <button
+        className="window-control"
+        type="button"
+        onClick={() => void window.rpgraph.toggleFullScreenWindow()}
+        aria-label="Toggle full screen"
+        title="Full screen (F11)"
+      >
+        <span className="window-control-icon full-screen" aria-hidden="true" />
+      </button>
+      <button
+        className="window-control"
+        type="button"
+        onClick={() => void window.rpgraph.toggleMaximizeWindow()}
+        aria-label="Maximize or restore window"
+        title="Maximize / Restore"
+      >
+        <span className="window-control-icon maximize" aria-hidden="true" />
+      </button>
+      <button
+        className="window-control close"
+        type="button"
+        onClick={() => void window.rpgraph.closeWindow()}
+        aria-label="Close window"
+        title="Close"
+      >
+        <span className="window-control-icon close" aria-hidden="true" />
+      </button>
+    </div>
+  );
+  const brandHeading = (
+    <h1>
+      <button
+        className="brand-name"
+        type="button"
+        onClick={() => {
+          setWelcomeRequested(true);
+          setShowWelcome(true);
+        }}
+        aria-label="RPgraph Studio: open welcome guide"
+      >
+        <span className="brand-name-rp">RP</span>graph Studio
+      </button>
+      <span className="app-version">v{packageMetadata.version} Beta</span>
+    </h1>
+  );
+  const graphSystemToast = visibleLogEntry && (
+    <div
+      key={visibleLogEntry.id}
+      className={`graph-system-toast ${visibleLogEntry.level}`}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="graph-system-toast-content">
+        <strong>{visibleLogEntry.level}</strong>
+        <span>{visibleLogEntry.text}</span>
+      </div>
+    </div>
+  );
+
   markUiEvent('app.render', { phase: 'bodyEnd' });
   return (
     <AccountLinkContext.Provider value={accountLinkContext}>
     <div
-      className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
+      className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}${bigScreenMode ? ' big-screen-active' : ''}`}
       style={{
         ...textEffectsStyle(textEffects),
         ...characterColorStyle,
         '--character-name-animation-state': smoothChatAutoScrollActive ? 'paused' : 'running',
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
+        '--big-screen-panel-width': `${bigScreenColumnWidth}px`,
+        '--big-screen-edge-width': `${bigScreenEdgeWidth}px`,
+        '--big-screen-rail-offset': `${bigScreenRailOffset}px`,
       } as React.CSSProperties}
     >
       {showRunLlmReport && runLlmReport && (
@@ -5215,122 +5613,66 @@ function App() {
           onClose={() => setShowRunLlmReport(false)}
         />
       )}
+      {bigScreenMode ? (
+        <>
+          <aside className="big-screen-sidebar" aria-label="Application menu">
+            <div className="big-screen-brand brand">{brandHeading}</div>
+            <nav className="big-screen-menu" aria-label="Main menu">
+              {appMenuButtons}
+              <button className="connection-button" type="button" onClick={() => void saveCurrentSession()}>
+                Save RP
+              </button>
+            </nav>
+            <div className="big-screen-files">
+              {activeFileStatus}
+              {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
+            </div>
+            <div className="big-screen-runtime">
+              <button
+                className="big-screen-runtime-button"
+                type="button"
+                onClick={() => setShowRunLlmReport(true)}
+                disabled={!runLlmReport}
+                title="Show LLM calls for the current or last run"
+              >
+                <span>Runtime</span>
+                <span className="big-screen-runtime-clock">
+                  <LiveRunClock isRunning={isRunning} isPaused={isPaused} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+                </span>
+              </button>
+              <dl className="big-screen-runtime-stats" aria-label="LLM usage of the current or last run">
+                <div><dt>Input tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.inputTokens) : '-'}</dd></div>
+                <div><dt>Output tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.outputTokens) : '-'}</dd></div>
+                <div>
+                  <dt>Reasoning</dt>
+                  <dd>{runLlmTotals ? tokenCell(runLlmTotals.hasReasoningTokens ? runLlmTotals.reasoningTokens : undefined) : '-'}</dd>
+                </div>
+                <div><dt>LLM calls</dt><dd>{runLlmReport ? runLlmReport.calls.length : '-'}</dd></div>
+              </dl>
+            </div>
+            {graphSystemToast}
+            <button className="big-screen-exit" type="button" onClick={() => setBigScreenMode(false)}>
+              <ExitBigScreenIcon />
+              Exit Big Screen
+            </button>
+          </aside>
+          <div className="big-screen-window-bar">{windowControls}</div>
+        </>
+      ) : (
       <header className="topbar">
         <div className="brand">
-          <h1>
-            <button
-              className="brand-name"
-              type="button"
-              onClick={() => setShowWelcome(true)}
-              aria-label="RPgraph Studio: open welcome guide"
-            >
-              <span className="brand-name-rp">RP</span>graph Studio
-            </button>
-            <span className="app-version">v{packageMetadata.version} Beta</span>
-          </h1>
+          {brandHeading}
           <div className="header-brand-actions">
-            <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
-              Options
-            </button>
-            <button className="connection-button" type="button" onClick={openConnectionManager}>
-              Providers
-            </button>
-            <button
-              className="connection-button"
-              type="button"
-              onClick={() => {
-                setNodeAssistantNodeId(null);
-                setWorkflowAssistantOpen(true);
-              }}
-              title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
-            >
-              Assistant
-            </button>
-            <button
-              className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
-              type="button"
-              onClick={() => setShowSystemLog(true)}
-              title="Open system log"
-            >
-              Log
-              {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
-            </button>
-            <button className="connection-button" type="button" onClick={npcLibrary.show}>
-              NPC Library
-            </button>
-            <button className="connection-button" type="button" onClick={() => void openFiles()}>
-              Files
-            </button>
+            {appMenuButtons}
           </div>
         </div>
         <div className="header-actions">
           {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
-          <div className="topbar-file-status" aria-label="Active RP files">
-            <div className="status-badge">
-              <span className="session-label">RP save:</span>
-              <span className="session-file">
-                {displayedSessionFileName}
-                {isSessionEncrypted && headerLockIcon}
-              </span>
-              {displayedSessionSavedTurn && (
-                <span className="session-turn">{displayedSessionSavedTurn}</span>
-              )}
-            </div>
-            <div className="status-badge">
-              <span className="session-label">workflow:</span>
-              <span className="session-file">
-                {displayedWorkflowName}
-                {isWorkflowEncrypted && headerLockIcon}
-              </span>
-            </div>
-            <div className="status-badge">
-              <span className="session-label">storybook:</span>
-              <span className="session-file">
-                {displayedStorybookName}
-                {isStorybookEncrypted && headerLockIcon}
-              </span>
-            </div>
-          </div>
-          <div className="window-controls" aria-label="Window controls">
-            <button
-              className="window-control"
-              type="button"
-              onClick={() => void window.rpgraph.minimizeWindow()}
-              aria-label="Minimize window"
-              title="Minimize"
-            >
-              <span className="window-control-icon minimize" aria-hidden="true" />
-            </button>
-            <button
-              className="window-control"
-              type="button"
-              onClick={() => void window.rpgraph.toggleFullScreenWindow()}
-              aria-label="Toggle full screen"
-              title="Full screen (F11)"
-            >
-              <span className="window-control-icon full-screen" aria-hidden="true" />
-            </button>
-            <button
-              className="window-control"
-              type="button"
-              onClick={() => void window.rpgraph.toggleMaximizeWindow()}
-              aria-label="Maximize or restore window"
-              title="Maximize / Restore"
-            >
-              <span className="window-control-icon maximize" aria-hidden="true" />
-            </button>
-            <button
-              className="window-control close"
-              type="button"
-              onClick={() => void window.rpgraph.closeWindow()}
-              aria-label="Close window"
-              title="Close"
-            >
-              <span className="window-control-icon close" aria-hidden="true" />
-            </button>
-          </div>
+          {activeFileStatus}
+          {windowControls}
         </div>
       </header>
+      )}
 
       <main
         className={`workspace ${isResizing ? 'resizing' : ''}`}
@@ -5382,19 +5724,7 @@ function App() {
                 Runtime: <LiveRunClock isRunning={isRunning} isPaused={isPaused} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
               </button>
               <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
-              {visibleLogEntry && (
-                <div
-                  key={visibleLogEntry.id}
-                  className={`graph-system-toast ${visibleLogEntry.level}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="graph-system-toast-content">
-                    <strong>{visibleLogEntry.level}</strong>
-                    <span>{visibleLogEntry.text}</span>
-                  </div>
-                </div>
-              )}
+              {graphSystemToast}
             </div>
             {showDeletedNodeRestoreButton && (
               <button
@@ -5464,7 +5794,7 @@ function App() {
                 edgesReconnectable
                 elementsSelectable
                 onlyRenderVisibleElements
-                deleteKeyCode={['Backspace', 'Delete']}
+                deleteKeyCode={bigScreenMode ? null : ['Backspace', 'Delete']}
                 multiSelectionKeyCode="Control"
                 selectionKeyCode="Control"
                 connectionRadius={connectionRadius}
@@ -5593,7 +5923,8 @@ function App() {
         </section>
         </ErrorBoundary>
 
-        {isChatPanelOpen && !isResizing && (
+        {bigScreenMode && <div className="big-screen-backdrop" aria-hidden="true" />}
+        {(isChatPanelOpen || bigScreenMode) && !isResizing && (
           <EdgeCharacterPicker
             characters={playerCharacters}
             settingsLoadComplete={settingsLoadComplete}
@@ -5605,8 +5936,12 @@ function App() {
           />
         )}
         <div
-          className={`chat-drawer ${isChatPanelOpen || isResizing ? 'open' : ''}`}
-          style={{ gridTemplateColumns: `7px ${chatWidth}px` }}
+          className={`chat-drawer ${isChatPanelOpen || isResizing || bigScreenMode ? 'open' : ''}${bigScreenTablet ? ' big-screen-tablet' : ''}`}
+          style={{
+            gridTemplateColumns: bigScreenMode
+              ? `${bigScreenEdgeWidth}px ${bigScreenColumnWidth}px ${bigScreenEdgeWidth}px`
+              : `7px ${chatWidth}px`,
+          }}
           onMouseEnter={() => setIsChatPanelOpen(true)}
         >
           <div
@@ -5614,17 +5949,20 @@ function App() {
             role="separator"
             aria-label="Resize chat panel"
             aria-orientation="vertical"
-            onPointerDown={() => {
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              event.preventDefault();
               setIsChatPanelOpen(true);
               setIsResizing(true);
             }}
           >
-            <span className="chat-drawer-handle" aria-hidden="true">CHAT</span>
+            {!bigScreenMode && <span className="chat-drawer-handle" aria-hidden="true">CHAT</span>}
           </div>
 
           <UiRenderMark name="chatPanel.start" />
           <ErrorBoundary label="Chat Panel">
           <aside className="chat-panel">
+          {!bigScreenMode && (
           <div className="chat-header">
             <div className="chat-header-primary">
               <div className="chat-panel-tabs" role="tablist" aria-label="Chat views">
@@ -5640,28 +5978,32 @@ function App() {
 	                    <span className="tab-badge">{unreadChatCount}</span>
 	                  )}
 	                </button>
-                <PhoneTab
-                  active={chatPanelView === 'phone'}
-                  notificationCount={unreadPhoneNotificationCount}
-                  viewedPhoneHasNotifications={viewedPhoneHasNotifications}
-                  settingsLoadComplete={settingsLoadComplete}
-                  switchHintSeen={phoneNotificationSwitchHintSeen}
-                  onSelect={selectPhonePanelView}
-                  onCycleNotificationOwner={cyclePhoneNotificationOwner}
-                  onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
-                />
-                <button
-                  className={chatPanelView === 'events' ? 'active' : ''}
-                  type="button"
-                  role="tab"
-                  aria-selected={chatPanelView === 'events'}
-                  onClick={() => selectChatPanelView('events')}
-                >
-                  Events
-                  {unreadEventCount > 0 && (
-                    <span className="tab-badge">{unreadEventCount}</span>
-                  )}
-                </button>
+                {phoneAvailable && (
+                  <PhoneTab
+                    active={chatPanelView === 'phone'}
+                    notificationCount={unreadPhoneNotificationCount}
+                    viewedPhoneHasNotifications={viewedPhoneHasNotifications}
+                    settingsLoadComplete={settingsLoadComplete}
+                    switchHintSeen={phoneNotificationSwitchHintSeen}
+                    onSelect={selectPhonePanelView}
+                    onCycleNotificationOwner={cyclePhoneNotificationOwner}
+                    onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
+                  />
+                )}
+                {eventManagerAvailable && (
+                  <button
+                    className={chatPanelView === 'events' ? 'active' : ''}
+                    type="button"
+                    role="tab"
+                    aria-selected={chatPanelView === 'events'}
+                    onClick={() => selectChatPanelView('events')}
+                  >
+                    Events
+                    {unreadEventCount > 0 && (
+                      <span className="tab-badge">{unreadEventCount}</span>
+                    )}
+                  </button>
+                )}
               </div>
               <div className="speaker-picker-menu" ref={characterDropdownRef}>
                 <span className="speaker-picker-label">Play as</span>
@@ -5736,7 +6078,7 @@ function App() {
                   disabled={autoTurnDisabled}
                   title={autoTurnTitle}
                 >
-                  {chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
+                  {autoTurnLabel}
                 </button>
                 <div className="turn-controls" aria-label="Turn actions">
                   <button
@@ -5762,8 +6104,19 @@ function App() {
                   Turn {currentSessionTurn?.number ?? 0}
                 </span>
               </div>
+              <button
+                className="big-screen-toggle"
+                type="button"
+                onClick={() => setBigScreenMode(true)}
+                title="Big Screen: center the chat and hide the graph"
+                aria-label="Enter Big Screen mode"
+              >
+                <EnterBigScreenIcon />
+                Big Screen
+              </button>
             </div>
           </div>
+          )}
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
             <Profiler id="Chat" onRender={profileUiRender}>
@@ -5894,6 +6247,7 @@ function App() {
               onRemoveDraftImage={(imageId) =>
                 setDraftImages((current) => current.filter((entry) => entry.id !== imageId))
               }
+              phoneLinksEnabled={phoneAvailable}
               onOpenEmbeddedPhoneMessage={openEmbeddedPhoneMessage}
               onOpenEmbeddedSocialMessage={openEmbeddedSocialMessage}
               onOpenSocialPost={openSocialPost}
@@ -5913,9 +6267,17 @@ function App() {
             />
             </Profiler>
           ) : chatPanelView === 'phone' ? (
+            <PhoneTabletFrame
+              framed={!bigScreenMode}
+              width={Math.min(chatPhoneWidth, maxChatPhoneWidth(chatWidth))}
+              resizing={isPhoneResizing}
+              onResizeStart={() => setIsPhoneResizing(true)}
+            >
+            <PhoneAppListScaleContext.Provider value={phoneAppListScaleContext}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
               onStartInitiativeTurn={startPhoneInitiativeTurn}
+              onScreenChange={setPhoneScreen}
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
               phoneContacts={phoneContacts}
@@ -6183,6 +6545,8 @@ function App() {
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
             </AppMessageAvatars>
+            </PhoneAppListScaleContext.Provider>
+            </PhoneTabletFrame>
           ) : (
             <EventsPanel
               key={panelSessionRevision}
@@ -6207,8 +6571,115 @@ function App() {
           </div>
           </aside>
           </ErrorBoundary>
+          {bigScreenMode && (
+            <div
+              className="panel-resizer big-screen-resizer-end"
+              role="separator"
+              aria-label="Resize chat panel"
+              aria-orientation="vertical"
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                setIsResizing(true);
+              }}
+            />
+          )}
           <UiRenderMark name="chatPanel.end" />
         </div>
+        {bigScreenMode && (
+          <nav className="big-screen-rail" aria-label="Chat views and turn actions">
+            <div className="big-screen-rail-group" role="tablist" aria-label="Chat views">
+              <button
+                className={`big-screen-rail-button${chatPanelView === 'chat' ? ' active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={chatPanelView === 'chat'}
+                aria-label="RP Chat"
+                title="RP Chat"
+                onClick={() => selectChatPanelView('chat')}
+              >
+                <span className="big-screen-rail-label">RP</span>
+                {unreadChatCount > 0 && <span className="tab-badge">{unreadChatCount}</span>}
+              </button>
+              {phoneAvailable && (
+                <PhoneTab
+                  className="big-screen-rail-button"
+                  title="Phone (double-click to switch notification owner)"
+                  active={chatPanelView === 'phone'}
+                  notificationCount={unreadPhoneNotificationCount}
+                  viewedPhoneHasNotifications={viewedPhoneHasNotifications}
+                  settingsLoadComplete={settingsLoadComplete}
+                  switchHintSeen={phoneNotificationSwitchHintSeen}
+                  onSelect={selectPhonePanelView}
+                  onCycleNotificationOwner={cyclePhoneNotificationOwner}
+                  onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
+                >
+                  <PhoneIcon />
+                </PhoneTab>
+              )}
+              {eventManagerAvailable && (
+                <button
+                  className={`big-screen-rail-button${chatPanelView === 'events' ? ' active' : ''}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={chatPanelView === 'events'}
+                  aria-label="Events"
+                  title="Events"
+                  onClick={() => selectChatPanelView('events')}
+                >
+                  <EventsIcon />
+                  {unreadEventCount > 0 && <span className="tab-badge">{unreadEventCount}</span>}
+                </button>
+              )}
+            </div>
+            <div className="big-screen-rail-group" aria-label="Turn actions">
+              <button
+                className="big-screen-rail-button primary"
+                type="button"
+                onClick={triggerAutoTurn}
+                disabled={autoTurnDisabled}
+                title={autoTurnTitle || autoTurnLabel}
+                aria-label={autoTurnLabel}
+              >
+                {chatPanelView === 'events' ? <RunEventIcon /> : <AutoTurnIcon />}
+              </button>
+              <button
+                className="big-screen-rail-button"
+                type="button"
+                onClick={cancelRunOrUndoLastTurn}
+                disabled={undoTurnDisabled}
+                title={undoTurnTitle}
+                aria-label={undoTurnTitle}
+              >
+                {isRunning ? <CancelRunIcon /> : <UndoTurnIcon />}
+              </button>
+              <button
+                className="big-screen-rail-button"
+                type="button"
+                onClick={regenerateLastOutput}
+                disabled={!isRunning && !currentSessionTurn}
+                title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+                aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+              >
+                <RegenerateIcon />
+              </button>
+              <button
+                className="big-screen-rail-button"
+                type="button"
+                onClick={switchActivePlayer}
+                disabled={switchPlayerDisabled}
+                title={switchPlayerTitle || 'Switch player'}
+                aria-label="Switch player"
+              >
+                <SwitchPlayerIcon />
+              </button>
+              <span className="big-screen-turn" title="Current turn">
+                <small>Turn</small>
+                {currentSessionTurn?.number ?? 0}
+              </span>
+            </div>
+          </nav>
+        )}
       </main>
 
       {outputFormatHelpKind && (
@@ -6466,6 +6937,28 @@ function App() {
           setSelectedFile(null);
           setFileStorageStatus('');
         }}
+        showStartDialog={showStartDialog}
+        startSelectionLoading={startSelectionLoading}
+        startWorkflowFileName={startWorkflowFileName}
+        startTargetFileName={startTargetFileName}
+        onCloseStartDialog={() => {
+          closeStartDialog();
+          setFileStorageStatus('');
+        }}
+        onSelectStartWorkflow={(file) => {
+          setStartWorkflowFileName(file.fileName);
+          setFileStorageStatus('');
+        }}
+        onSelectStartTarget={(file) => {
+          setStartTargetFileName(file.fileName);
+          setFileStorageStatus('');
+        }}
+        onOpenStartSelection={(file) => void openStartSelection(file)}
+        onOpenStartDialogFromFiles={() => void openStartDialog()}
+        onOpenFilesFromStartDialog={() => {
+          closeStartDialog();
+          void openFiles();
+        }}
         onRequestOpenStorybookFile={() => {
           const storybookNode = nodesRef.current.find(
             (node) => node.data.nodeType === 'rp-storybook',
@@ -6547,11 +7040,12 @@ function App() {
         onIncludeCharacterReceivedImagesChange={setIncludeCharacterReceivedImages}
         includeCharacterOwnPosts={includeCharacterOwnPosts}
         onCloseSessionPassword={() => {
+          if (showStartDialog) cancelStartSelection();
           if (sessionPasswordAction === 'load-character') {
             cancelCharacterCardUnlock();
           }
           setShowFiles(
-            showStorybookPicker
+            showStorybookPicker || showStartDialog
               ? false
               : sessionPasswordAction === 'save-workflow' ||
               sessionPasswordAction === 'save-session' ||
@@ -6736,7 +7230,7 @@ function App() {
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
           dismissOnEscape={!characterRemoval}
-          storybookNodeId={nodes.find(isStorybookSourceNode)?.id}
+          storybookNodeId={storybookSourceNodeId}
           onAddToStorybook={(characterId, nodeId) => {
             const previous = npcParticipants.current();
             try {
@@ -6771,10 +7265,11 @@ function App() {
           onClose={() => setPreviewImage(null)}
         />
       )}
-      {showWelcome && (
+      {showWelcome && (!bigScreenMode || welcomeRequested) && (
         <WelcomeDialog
           onClose={() => {
             window.localStorage.setItem('rpgraph.welcomeSeen', 'true');
+            setWelcomeRequested(false);
             setShowWelcome(false);
           }}
         />

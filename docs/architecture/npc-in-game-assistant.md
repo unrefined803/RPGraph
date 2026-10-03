@@ -1,6 +1,6 @@
 # Character Assistant
 
-Status: implemented character editor with provider-backed chat, image attachments,
+The Character Assistant provides a character editor with provider-backed chat, image attachments,
 manual forms, gallery assignments, local loading and saving. Autonomous NPC
 execution is a separate feature and is not connected to this editor.
 
@@ -137,20 +137,22 @@ confirmation. The dialog does not display filesystem paths or a Save as Copy act
 whole-file encryption code. Encrypted saves require a password or PIN. The optional
 own-posts checkbox defaults to enabled. The portable serializer excludes private
 dating history and runtime media access metadata; API keys and assistant messages
-are never exported. Encrypted NPC files appear as locked rows with their public
-name, filename, modification time, container version and encryption status.
+are never exported. Encrypted NPC files appear as locked rows with available public metadata,
+filename, modification time, container version and encryption status. Current
+envelopes do not expose the character name; protected filenames require unlocking.
 The row offers only **Info**, explaining automatic unlocking. There is no manual
 NPC password entry. Activating a protected game (Storybook, RP Save, or encrypted
 workflow) tries its password against the NPC Library. Reading a file for preview
 or editing a standalone character does not unlock the NPC Library. Unlocking adds
 validated characters to the normal registry with its duplicate and override rules.
 
-The active game password is retained in memory only. The NPC service tries only
-that password, once per unchanged payload, and retains matching unlocks on reload.
-Activating a different game clears old attempts and decrypted library entries;
-an unprotected game exposes no encrypted NPC files as active library characters.
-Closing the application clears this state. IPC library snapshots expose unlock
-status and unlocked characters, never passwords.
+Account and active game passwords are retained in memory only. The NPC service
+tries each available password once per unchanged payload and retains matching
+unlocks on reload. Changing the game password clears prior attempts and decrypted
+entries, then retries with the signed-in account password and new game password.
+An unprotected game can still use matching account-encrypted NPCs while signed
+in. Closing the application clears this state. IPC library snapshots expose
+unlock status and unlocked characters, never passwords.
 
 Saving or loading a protected Storybook or RP Save establishes mandatory game
 protection. RP Save (including quick save and Save As), Storybook, workflow and
@@ -177,7 +179,7 @@ and clears its play history without modifying the saved file.
 Saving preserves character, account, image and existing post IDs. A built-in
 revision saved to NPC Library replaces the bundled definition by ID through the
 existing user-over-bundled registry precedence; the original program file stays
-unchanged. **Built-in → Edited** identifies that effective local entry. Saving to
+unchanged. The provenance chain identifies the built-in source and effective Local NPC entry. Saving to
 Characters Folder or another location is an export and does not change the active
 NPC Library. Removing a local override restores the bundled definition on reload.
 
@@ -198,39 +200,19 @@ needed. The field is preserved through editing, import and portable export.
 
 Authors can describe primary and secondary goals, relationships, conditions,
 boundaries and clues to concealed motives. No fixed goal catalog is required.
-A future agency catalog can extend authoring guidance without changing the schema.
+Character-level agency tags provide a separate structured vocabulary.
 
 Hidden means withheld from public profiles and ordinary RP prompt context, not
 encrypted in the JSON container. The authoring assistant intentionally sees it.
-It never triggers posts, messages, account changes or banking transactions.
-Storybook Formatted Text now provides an explicit Hidden Agency output switch,
+Social reaction prompts include it as private characterization. It does not
+trigger posts, messages, account changes or banking transactions on its own.
+Storybook Formatted Text provides an explicit Hidden Agency output switch,
 disabled by default; it does not change this assistant or activate autonomy.
-Autonomous NPC scheduling, context and permitted in-game actions need a separate
-runtime design.
-
-## Validation
-
-`src/characters/assistant.test.ts` covers transactional edits, source immutability,
-identity and binary-media protection, new IDs, MatchMe drafts and activation,
-portrait crop changes, publication moves, independent copies, local precedence,
-prompt media omission and animation rejection. Existing Storybook patch and
-library tests cover the reused mechanisms.
-
-Interactive verification is performed by the user:
-
-1. Open **NPC Library → Create Character**, select a provider and draft a character.
-2. Attach a photo with a vision provider, request a description and F/P assignment,
-   inspect the gallery and caption, then Undo and reapply a change.
-3. Save in each local destination and reopen through the corresponding load action.
-4. Load a built-in NPC, edit and save to NPC Library, then verify local precedence
-   without changes to the installed file.
-5. Cancel a request or edit the draft during a request; verify no stale changes apply.
-6. Verify discard/overwrite prompts, encrypted character loading, manual profile
-   editing and portable container compatibility with the offline tools.
+The editor does not schedule autonomous NPC actions.
 
 ### Local portrait detection
 
-The Character Assistant now invokes the existing local MediaPipe detector through
+The Character Assistant invokes the existing local MediaPipe detector through
 `character:detect-face`. Selecting a new portrait runs detection automatically;
 **Portrait crop → Auto Crop** retries it explicitly. The assistant may request the
 same operation with `autoCrop: true` in its response. Exactly one detected face
@@ -250,8 +232,8 @@ sections instead of unstyled browser arrows and adjacent full-width buttons.
 
 The NPC Library and Load NPC picker share `visibleLibraryEntries`. One valid local
 revision with the same character ID hides the bundled row and displays
-**Built-in → Edited**. Matching uses identity, not name or filename. Truly new
-user entries remain **User-created**. Counts reflect visible characters rather
+a Built-in → Local NPC provenance chain. Matching uses identity, not name or
+filename. New user entries are labeled Local NPC. Counts reflect visible characters rather
 than both files; ambiguous duplicate local files remain visible for diagnostics.
 The existing registry's user-over-bundled precedence still controls execution.
 No persisted primary or disabled flag is needed, and removing the local revision
@@ -293,9 +275,6 @@ that stage, and errors offer a Retry action for the same request and stage.
 There is no recursive delegation; a validation failure, cancellation or
 concurrent edit discards only the running stage. The UI reports the active
 step; no model stage saves files automatically.
-`authoringSteps.test.ts` covers ordering, scope restrictions, clarification,
-transactional failures, and effective library rows.
-
 
 ### Character references and relationships
 

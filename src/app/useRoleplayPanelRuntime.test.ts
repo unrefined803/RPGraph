@@ -218,7 +218,11 @@ function harness() {
   const book = normalizeRpStorybook({ ...emptyRpStorybook, characters: [
     { id: 'npc', name: 'NPC', playable: false }, { id: 'player', name: 'Player', playable: true },
   ] });
-  const nodes = [{ id: 'book', data: { nodeType: 'rp-storybook', storybookJson: rpStorybookJsonText(book) } } as WorkflowNode];
+  // The phone exists only in a graph with an RP Output node.
+  const nodes = [
+    { id: 'book', data: { nodeType: 'rp-storybook', storybookJson: rpStorybookJsonText(book) } } as WorkflowNode,
+    { id: 'rp-output', data: { nodeType: 'output' } } as WorkflowNode,
+  ];
   const cast = storyCharactersFromNodes(nodes);
   const options = { appCharacters: cast, nodeViewNodes: nodes, nodesRef: { current: nodes }, messages: [], turns: [],
     storybooksByNodeId: new Map([['book', book]]), characterStorybookNodeCount: 1,

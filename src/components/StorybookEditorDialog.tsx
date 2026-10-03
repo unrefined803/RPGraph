@@ -265,7 +265,7 @@ export function StorybookEditorDialog({ referenceCharacters = [], node, identity
             <p>{status || node.data.storybookStatus || 'Ready'}</p>
           </div>
           <div className="storybook-header-actions">
-            <button type="button" className="close-button danger" onClick={onClose}>
+            <button type="button" className="close-button" onClick={onClose}>
               Close
             </button>
           </div>

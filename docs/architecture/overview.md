@@ -2,7 +2,7 @@
 
 RPGraph Studio is a local-first desktop studio for building and running roleplay workflows as a node graph. The app combines a visual workflow editor, roleplay chat, a multi-app character phone, scheduled events, story data, session saves, provider management, voice playback, and optional image generation through ComfyUI and OpenRouter.
 
-This document is the first high-level map of the current codebase. It is intentionally broad: later documents can expand each section into deeper implementation notes.
+This document maps the current application and its main code areas. Subsystem references are listed in the [architecture index](README.md).
 
 ## Contents
 
@@ -41,14 +41,15 @@ The main app shell is built in [`src/App.tsx`](../../src/App.tsx). It renders a 
 - **Graph panel**: the main React Flow canvas where workflow nodes are placed and connected.
 - **Graph toolbar**: reset workflow, save workflow, save RP session, runtime report, workflow capability indicators, and system toast messages.
 - **Node palette**: a side drawer of available node types grouped by purpose. Nodes can be dragged onto the graph, and favorite nodes can be added to the quick-add menu.
-- **Chat drawer**: a resizable right panel with `Chat`, `Phone`, and `Events` tabs.
-- **Dialogs**: options, files, providers, storybook creator, assistant, custom node assistant, output help, image preview, system log, and ComfyUI generated image preview.
+- **Chat drawer**: a resizable right panel with `Chat`, `Phone`, and `Events` tabs. The graph decides which tabs exist: `Phone` is hidden when RP Output has **Enable phone** unchecked or the graph has no RP Output node (for example the empty workspace after dismissing the start dialog), and `Events` is hidden when the graph has no `Event Manager` node.
+- **Big Screen mode**: the default view on every app start; it can be left and re-entered from the button next to the chat turn counter. It hides the topbar, graph and node palette, centers the chat drawer as a full-height column that resizes symmetrically from both edges (`layout.bigScreenPanelWidth`, at most 60% of the window), and moves the menu, active file status and system toasts into a left sidebar. The sidebar menu order is Start (reopens the Start dialog), Options, Providers, NPC Library, Edit Storybook (opens the Storybook creator for the workflow's Storybook node; disabled while no workflow with such a node is loaded), Log, Files, Save RP; it omits the developer-oriented Assistant. Below the active file status, separated by a hairline, the sidebar shows the Runtime clock of the current or last run; clicking it opens the LLM Runtime report. Under it a quiet summary lists input tokens, output tokens, reasoning tokens and LLM calls of that run (`runLlmReportTotals`), updating while the run progresses. The first-run welcome guide covers the workflow view, so it is deferred while Big Screen is active and appears when Big Screen is left for the first time; the brand button opens it in either view. The Phone view uses its own narrower width (`layout.bigScreenPhoneWidth`) inside a tablet-style bezel whose sides are the resize handles. Outside Big Screen the Phone view is framed by the same tablet bezel inside the side drawer (`PhoneTabletFrame`), with its own width (`layout.chatPhoneWidth`) capped by the chat width: narrowing the chat drawer narrows the tablet permanently, widening it leaves the tablet unchanged. The phone desktop grid derives its column count from the available width and centers itself, so side margins stay symmetric. The left contact/account lists of WhatsUp, Fotogram, OnlyFriends and MatchMe share the Fotogram list ratio by default and can be dragged by ±20% per app, stored separately for the side drawer (`options.phoneAppListScales`) and Big Screen (`options.bigScreenPhoneAppListScales`); double-click restores the tuned default of the current mode. The `RP`/`Phone`/`Events` tabs, AutoTurn/Run Event, undo/cancel, regenerate, switch player, turn counter and exit become a round-button rail beside the column; the edge character picker stays on the right window edge.
+- **Dialogs**: start, options, files, providers, storybook creator, assistant, custom node assistant, output help, image preview, system log, and ComfyUI generated image preview.
 
 ## Core User Flow
 
 At a high level, the app works like this:
 
-1. The user opens or creates a workflow.
+1. The start dialog opens on every app start over an empty workspace. The user picks a workflow and a Storybook to start a new RP, or continues an RP Save. Dismissing it leaves the workspace empty until a file is opened from Files.
 2. The workflow graph contains nodes such as `User Input`, `LLM Prompt`, `RP Output`, `RP Storybook V3`, and supporting context nodes.
 3. The user selects who they are playing as in the chat panel.
 4. The user sends a chat message, phone message, social-media action, event run, auto-turn, direct app action, or regeneration request.
@@ -57,6 +58,8 @@ At a high level, the app works like this:
 7. The output is appended back into the chat/session timeline and shown in the UI.
 
 The two bundled default workflows are ready-to-use roleplay graphs rather than minimal three-node examples. Both combine `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, an empty `RP Storybook V3` slot, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Messenger Apps, and Social Media runs into the matching `RP Output` inputs. It also provides an Autoplay output that can be connected to the dedicated RP Output Autoplay input. The classic `workflow.default_vNN.json` family keeps the single-pass prompts, while `workflow.default_planning_vNN.json` uses multistep planning for Normal RP and Messenger prompts. Shared graph and format changes are maintained in both families. Bundled workflows and standalone Storybooks live under `resources/default-content`.
+
+A third bundled workflow, `default_NoPhone_vNN.json`, is the chat-only variant: it has no `Event Manager` and no `Phone Apps` node, disables RP time tracking in `Chat History`, and its Prompt Switch keeps only the Normal RP and Autoplay outputs. RP Output sets `outputPhoneEnabled` to `false` (**Enable phone** unchecked; the option defaults to on), so the Phone tab is hidden and every phone-opening handler in `useRoleplayPanelRuntime` is a no-op. Its prompts contain no phone-app commands, account links, or gallery actions; the only structured output is the embedded `whatsUpApp` text-message object, which the unchanged Normal RP and Autoplay parsers record as a phone message and the Chat tab renders as a non-clickable message bubble. Autoplay writes that object directly instead of the plan-and-command pass. Because the Prompt Switch clamps the output-channel input to its last output, the Autoplay message format still reaches the Autoplay output at index 1.
 
 ## Prompt Routing
 
@@ -162,9 +165,28 @@ Panel navigation uses an in-memory, session-local history in `src/navigation`. M
 
 These UI panels are backed by chat parsing, phone message parsing, timeline selectors, event entities, and session runtime state.
 
-WhatsUp supports contact lists, unread conversations, replies, text and voice messages, images, gallery selection, emoji insertion, and per-character viewing. Gallery and Camera connect Storybook images, uploads, and the image-generation assistant. Banking shows character accounts, contacts, balances, statements, and transfers. Fotogram and OnlyFriends share a private social feed implementation with accounts, posts, comments, likes, direct messages, and app-specific prompts. Each app has its own bundled 100-user directory, and generated background comments reuse exact identities from the corresponding catalog. Both apps also show cosmetic catalog posts on every account's home page; these discovery posts do not imply a saved social connection. Each app's shuffled catalog is divided evenly across the current player characters, with overlap only when equal-sized partitions require reusing the pool remainder. The catalogs contain 25 posts in total: 15 Fotogram posts and 10 OnlyFriends posts. Fotogram includes 13 bundled 4:5 portrait JPEG posts and two text-only posts. The 10 OnlyFriends posts contain no bundled images and therefore use locked or placeholder frames. Real generated posts remain private to their author and connected viewers. Character containers carry explicit per-app relationships: WhatsUp numbers and Fotogram/OnlyFriends follows are directed, while authored MatchMe matches are mutual. Legacy Storybook contact pairs migrate to explicit WhatsUp/Fotogram entries. Real conversations remain visible without connecting other apps; new Fotogram follows do not add reverse follows. See [the relationship contract](character-container-v2.md#contacts-and-relationships). Searches begin after three characters and include matching Storybook accounts plus NPC identities discovered in phone or social history. OnlyFriends additionally supports a wallet, DM tips, paid post unlocks, and creator accounts. Notes provides character-specific editable cards with gentle automatic colors and a manual color picker.
+WhatsUp supports contacts, unread conversations, replies, text and voice messages,
+images and per-character viewing. Gallery and Camera connect character media,
+uploads and image generation. Banking shows accounts, statements and transfers.
+Fotogram and OnlyFriends share posts, comments, likes, direct messages and
+app-specific prompts. Discovery uses the effective character registry and each
+account's enabled state. Starting publications come from character containers;
+live activity is stored on the timeline. Legacy catalogs serve historical
+compatibility, not fresh cosmetic feeds or permission for new participants.
+OnlyFriends also supports wallets, DM tips and paid post unlocks. Accounts have
+no creator/user role. Notes stores per-character editable cards.
 
-New Fotogram and OnlyFriends posts receive an effective-registry account block in User Input context. Every character with an enabled account on that app is eligible, tagged or not; only disabled, missing and author accounts are omitted, and a small random sample is offered. Each line includes the exact name, handle and character tags. Private runtime instructions tell the model to use those tags for participation and comment style without printing tag labels. Tags shape whether and how a listed character reacts; they never gate eligibility. Comment-thread and DM routes do not yet use agency behavior. See [NPC Agency Tags](npc-agency-tags.md#candidate-selection-and-prompt-context).
+Characters carry explicit per-app relationships: WhatsUp numbers and social
+follows are directed; authored MatchMe matches are mutual. Legacy Storybook
+contact pairs migrate to explicit WhatsUp/Fotogram entries. Messaging and
+account sharing acquire contacts through the [relationship contract](character-container-v2.md#contacts-and-relationships).
+
+New Fotogram and OnlyFriends posts receive up to five randomly selected enabled
+accounts from the effective registry, excluding the author. Comment threads
+retain up to six recent commenters and can add up to two newcomers within that
+cap; the author is included separately. Context contains names, handles, tags
+and private characterization. Tags guide behavior without gating eligibility.
+See [NPC Agency Tags](npc-agency-tags.md#candidate-selection-and-prompt-context).
 
 ## Story And Session Data
 
@@ -236,8 +258,33 @@ Saving can produce either readable **Plain JSON** or a password/PIN protected en
 
 Loading a Storybook file starts a fresh story session: current chat and phone-app runtime state are cleared, and the loaded Storybook fully replaces the previous node content. In-editor changes still retain image-usage and running-story identity protections.
 
+### Start Dialog
+
+`openStartDialogAtStartup` runs once after settings are loaded. It clears the workspace (`clearWorkspace`: no nodes, no edges, no session), reads the remembered selection through `window.rpgraph.loadStartDialogState` (`start-dialog:load-state`, which also imports new bundled defaults), and always calls `openStartDialog`. No workflow is loaded in the background and no password is requested until a selection is opened, so dismissing the dialog leaves an empty workspace. `Start Dialog` in the Files dialog header reopens it at any time.
+
+An empty workspace (zero nodes) is a supported state. The topbar shows `workflow: none loaded`, and file actions that need a workflow report it instead of failing later: opening a Storybook or Character Card and saving a Storybook go through `storybookNodeForFileAction`, saving a workflow or RP is refused by `saveBlockedByEmptyWorkspace` in `useRpgraphFiles` (with `currentSession` and `currentWorkflowForSave` as a second guard). Opening a workflow or an RP Save from Files fills the workspace. `Reset Workflow` on an empty workspace loads the bundled default workflow.
+
+The dialog (`showStartDialog` in `useRpgraphFiles`, markup in `src/dialogs/StudioDialogs.tsx`, `activeDialog` value `start`) is split in two halves:
+
+- **Left, top**: workflows. Exactly one is selected (`startWorkflowFileName`). `startDialogWorkflowFileName` picks the last active workflow reported at startup, then the active workflow, then the previous selection, and falls back to the first compatible workflow.
+- **Left, bottom**: Storybooks, with the same `Info` preview as the Storybook picker. The two left lists size to their rows and share the column evenly only when both overflow (`.start-dialog-new` grid tracks `minmax(0, max-content)`); each then scrolls on its own.
+- **Right**: RP Saves.
+
+`startTargetFileName` holds the single selected Storybook or RP Save. The target is persisted: `rememberStartTarget` stores the file name through `window.rpgraph.saveStartTarget` (`lastStartTargetFileName` in `workflow-state.json`, next to `lastWorkflowFileName`) whenever a stored Storybook or RP Save was applied, from any dialog, and whenever a Storybook or RP Save is written to RPGraph Studio Files. `start-dialog:load-state` returns it as `targetFileName`, and `openStartDialog` drops it when the file no longer exists. The selected target row receives focus when the dialog opens, so a single `Enter` resumes the last Storybook or RP Save; the primary button reads `Continue RP` for an RP Save and `Start RP` otherwise. Double-click, `Open`, `Enter`, and the primary footer button all call `openStartSelection`:
+
+- **Storybook**: stores the Storybook in `pendingStartStorybookRef` and opens the selected workflow through `openStoredFile`. After the workflow is applied, `completeFileLoad` consumes the pending entry and opens the Storybook into the freshly committed `rp-storybook` node. The Storybook replaces any Storybook embedded in the workflow.
+- **RP Save**: opens the save directly; the workflow selection is ignored.
+- **No target** (`Open Workflow Only`): opens the selected workflow and keeps its embedded Storybook, if any.
+
+Start selection reads are serialized, including password submissions. Closing the start dialog or canceling its password prompt invalidates pending reads before they can apply content or errors. File rows and opening actions are disabled during a read.
+
+Tab and Shift+Tab are intercepted at the window capture phase in `src/main.tsx`, before browser focus traversal or dialog focus traps. Mouse focus, text input, and other keyboard shortcuts remain available.
+
+Encrypted files use the normal unlock path. The password dialog stacks above the start dialog, and the pending Storybook survives the workflow unlock; the workflow password is tried for an encrypted Storybook before a second prompt appears. Incompatible files cannot be opened. A legacy Storybook closes the dialog and continues in the conversion panel. The dialog closes only after the final file was applied; load errors stay visible in its status line. While the start dialog is open, loading a workflow never opens the Storybook picker.
+
 Important file actions:
 
+- `openStartDialog` lists stored files and opens the start dialog; `openStartSelection` opens the chosen workflow and Storybook, or RP Save.
 - `openFiles` lists stored files and opens the file manager.
 - `saveSession` writes an RP save and marks the active workflow as an embedded snapshot.
 - `saveNamedWorkflow` exports a reusable workflow file.
@@ -245,7 +292,7 @@ Important file actions:
 - `openStoredFile`, `requestOpenFile`, and `loadStoredFile` route plain or encrypted loads through the correct unlock path.
 - `resetWorkflow` reloads the active workflow file, restores an embedded workflow snapshot, or restores both bundled workflow families and opens the planning workflow.
 
-Bundled workflow names are versioned independently in the classic `workflow.default_vNN.json` and multistep `workflow.default_planning_vNN.json` families. On startup the Electron layer imports every new bundled workflow and Storybook filename into RPGraph Studio Files. It never overwrites an existing local file, so changed bundled content must use a new versioned filename to appear as an update. On a fresh installation the planning family is selected as the primary default; an existing installation keeps its last active workflow. Loading a workflow whose RP Storybook node is empty opens the local Storybook picker, which can also be dismissed to continue without a Storybook. Files offers `Restore Default Files` whenever either no workflow or no Storybook remains and restores only the missing category.
+Bundled workflow names are versioned independently in the classic `workflow.default_vNN.json` and multistep `workflow.default_planning_vNN.json` families. On startup the Electron layer imports every new bundled workflow and Storybook filename into RPGraph Studio Files. It never overwrites an existing local file, so changed bundled content must use a new versioned filename to appear as an update. On a fresh installation the planning family is selected as the primary default; an existing installation keeps its last active workflow. Outside the start dialog, loading a workflow whose RP Storybook node is empty (for example from Files or after a workflow reset) opens the local Storybook picker, which can also be dismissed to continue without a Storybook. Files offers `Restore Default Files` whenever either no workflow or no Storybook remains and restores only the missing category.
 
 ## Node System
 
@@ -292,7 +339,6 @@ The runtime:
 - [`src/comfy`](../../src/comfy): ComfyUI API and workflow compatibility helpers.
 - [`src/llm`](../../src/llm): LLM API wrapper and token metrics.
 - [`electron`](../../electron): desktop main process, preload bridge, file formats, encryption, and OS/provider integrations.
-
 
 ## MatchMe Workflow Actions
 

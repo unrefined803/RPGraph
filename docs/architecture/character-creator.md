@@ -1,8 +1,8 @@
 # Character creator and demo conversion
 
-App naming uses one canonical profileName per social app; WhatsUp uses the real character name. See [App profile names](app-profile-names.md) for the current schema and legacy import rules. This supersedes older username/display-name distinctions below.
+App naming uses one canonical profileName per social app; WhatsUp uses the real character name. See [App profile names](app-profile-names.md) for the current schema and legacy import rules.
 
-Stage 6 uses `src/characters/creator.ts` for authored payloads and UI character
+The application uses `src/characters/creator.ts` for authored payloads and UI character
 exports. Both produce plain `rpgraph-character` 2.0.0 documents validated by
 `shared/character-container.cjs`. Storybook and node versions remain 3.0.0.
 
@@ -37,8 +37,7 @@ Embedded galleries in existing V2 containers need no converter. Image dimensions
 and byte sizes describe the output JPEG, not the source. Original files are read
 only. No Electron, browser, LLM or UI is launched.
 
-The example is authored fiction using existing landscape media. It is a new
-identity, unrelated to every legacy demo and to the Stage 4 fixture.
+The example is authored fiction using existing landscape media.
 
 Input is a character specification or an existing plain V2 container. Required:
 `name`; all other character fields use the canonical model. Local `images`
@@ -88,8 +87,8 @@ character ID for new installations; revisions reuse an existing matching basenam
 Duplicate matching library files must be resolved first. Identity lookup still uses the ID inside the container. The user
 library remains `<Electron userData>/npc-characters`; bundled development files
 remain `resources/npc-characters`, packaged files `<resourcesPath>/npc-characters`.
-No new UI creator/install button was added; UI exports use the common service,
-and CLI installation is explicit. Storybook import and Add to Storybook use the
+The Character Assistant provides UI creation and export through the common
+service; CLI installation uses the explicit destination above. Storybook import and Add to Storybook use the
 existing promotion/import flow.
 
 ## Inspect and edit a packed container
@@ -135,72 +134,42 @@ unless `--overwrite` is explicit. All writes are atomic. The edit specification
 format is `rpgraph-character-edit` 1.0.0 and is an authoring aid, not a runtime
 container or application format.
 
-## Explicit legacy conversion
+## Legacy conversion tool
 
 ```sh
 npm run character:convert-demos -- --output /tmp/rpgraph-demo-staging
-```
-
-The converter creates 204 containers and `conversion-map.json`. The checked-in
-[conversion map](demo-conversion-map.json) records every character, account,
-source post, source image and legacy post pattern. The output is staging data,
-not installed or packaged by default. Stage 7 must switch discovery sources and
-provide compatibility resolution before these containers are activated.
-
-- The two independent social catalogs each contain 100 identities. Character
-  and account IDs preserve `bundled:<app>:<handle>`. No cross-app name matching
-  joins these people. In particular, Sam Rivera is unrelated to MatchMe Sam,
-  Cleo Hart to Cleo Noir, and catalog Nova Reyes to fixture Nova Vale.
-- All 25 authored post captions are converted: 15 Fotogram and 10 OnlyFriends.
-  The 13 Fotogram JPEG imports become their authors' galleries. Two Fotogram
-  posts are text-only. OnlyFriends has no bundled post images; those captions
-  become text-only seeds, without fabricated photos or audio.
-- Synthetic likes, comments, comment identities as engagement, locks, prices,
-  dummy flags, placeholder styling and viewer partitioning are not portable
-  publication fields. They are omitted. Catalog commenters remain independent
-  accounts; no private histories or backstories are invented for them.
-- Existing cosmetic posts used `dummy-<app>-<viewerId>-<templateId>` and could
-  override the visible author. Converted immutable source seeds use the template
-  ID under the explicit source account. The map preserves the old key pattern;
-  it does not migrate saved likes, purchases or authored-viewer substitutions.
-  Stage 7 must retain their compatibility behavior instead of relabeling old
-  activity as a different account's activity.
-- Alex, Jamie, Robin and Sam preserve `demo-*` character/account IDs, existing
-  age, gender, bio and personality. Their interests are retained in the mapping.
-  No actual portraits exist. Their containers therefore have public MatchMe
-  account metadata but no discoverable `profile`: the shared schema requires
-  at least one gallery photo for that profile. Cosmetic card colors are omitted.
-  These are compatibility identities, not newly authored replacements. Existing
-  hard-coded profiles stay active until Stage 7; no new face receives their IDs.
-
-This is an explicit, intentionally limited conversion of supported public data.
-It does not claim lossless cosmetic conversion or migration of existing saves.
-Current saves, discovery and runtime history stores are unchanged by Stage 6.
-Manual creation/import, reload, profile display and packaged-app validation remain
-with the user; automated tests cover the shared boundary and CLI round trips.
-
-Stage 7 packages only the 13 Fotogram identities backed by actual image files:
-
-```sh
 npm run character:convert-demos -- --output /tmp/rpgraph-image-demos --images-only
 ```
 
-This filtered mode writes readable character-name filenames such as
-`luna-sky.json`. Image-less catalog identities, text-only authors, OnlyFriends
-templates without images and the four legacy MatchMe placeholders remain outside
-bundled discovery. The unfiltered command remains an explicit compatibility
-inventory and staging tool; it does not make those entries discoverable.
+The unfiltered converter writes a compatibility inventory of the old app catalogs
+and `conversion-map.json`. The [conversion map](demo-conversion-map.json) records
+character, account, post and image identities. Output is staging data, not an
+installation or a save migration. Synthetic engagement and private histories are
+excluded. Catalog people retain independent identities; matching names do not
+merge accounts across apps.
 
-## Bundled image-backed MatchMe characters
-
-Seven independent fictional characters with explicit MatchMe and Fotogram
-profiles are checked in under `resources/npc-characters/`. Their supplied source
-PNGs were converted and embedded once, then removed after the inspect/edit path
-proved a byte-preserving round trip. Future metadata, account, reference and
-media changes use the packed-container workflow above. Stable character, account,
-image and post IDs make each result a revision rather than a new identity.
+`--images-only` limits output to the legacy Fotogram authors with real source
+images. Image-less profiles are not made discoverable by conversion. Existing
+saves retain their historical identities; never assign those IDs to a new person.
+Use the shared inspect/edit procedure to revise bundled containers and preserve
+stable character, account, image and post IDs.
 
 ## Portraits and automatic face crops
+
+### Authoring new character images
+
+Generate new character photos in vertical **3:4 (width:height)** format, including
+photos initially used only as portraits. Keep the full portrait-oriented image
+in the gallery so it can also be posted in the game's social apps later. Frame
+the face clearly with enough space around the head for a circular avatar crop;
+store that crop in `profileImage.crop` without cropping the gallery source.
+Check the generated image dimensions before creating the container. This is an
+authoring convention; existing images and supported import formats remain valid.
+
+An image in the gallery or an avatar reference does not require a starting post.
+For a character who only browses, leave `initialPosts` empty and describe that
+habit in their characterization. Provision OnlyFriends when appropriate to the
+person; do not create a MatchMe profile unless they actually use dating discovery.
 
 A character portrait is optional. No `profileImage` means the existing initials
 fallback. `{ "imageId": "photo" }` explicitly selects an uncropped picture, which
@@ -273,9 +242,6 @@ crops are never overwritten. Multiple confident faces prevent all batch writes;
 zero confident faces are an ordinary unchanged result. Each changed file is
 published atomically; publication of the whole directory is not transactional.
 
-All 20 bundled NPC images were reviewed. The seven authored single-person
-portraits now contain face crops. The thirteen legacy scene/gallery profiles
-retain initials rather than cropping incidental people, objects or scenery.
 Existing RP snapshots remain pinned to their saved revision; reloading the NPC
 library updates library discovery, not previously captured snapshots. Those
 portraits can be edited in the active Storybook or used in a fresh story.
@@ -288,8 +254,9 @@ Model reference: [BlazeFace models](https://developers.google.com/edge/mediapipe
 The optional `character.hiddenAgency` string holds author-only goals and motives.
 It is preserved through creation, inspection, editing, import and export. Existing
 containers without it remain valid V2 documents. An empty string has no authored
-agency. There is no gameplay behavior or ordinary RP prompt integration yet.
-See [NPC In-Game Assistant](npc-in-game-assistant.md) for the future editor design.
+agency. Social reaction context includes it as private characterization; it does not
+trigger autonomous actions. See [Character Assistant](npc-in-game-assistant.md)
+for in-app authoring.
 
 Use a new workspace to unpack a library into editable specifications and images:
 
@@ -321,11 +288,6 @@ text unless authored, and text-only posts survive. Old image posts are replaced
 according to the flags. Adding M to a new account requires a valid adult age and
 profile bio in the specification. New accounts use the character's stable ID.
 
-The September 2026 bundled revision normalizes character IDs to lowercase names
-with underscores, updates associated account/image/post references and applies
-explicit image assignments. Historical conversion maps and existing saves retain
-their original identities. Future edits keep the new IDs stable.
-
 ## Agency tags
 
 Character Containers support optional `agencyTags` with up to two distinct IDs
@@ -344,8 +306,7 @@ The Character Assistant and Storybook editors provide an Agency Tags section
 with two tag selectors. Assistant patches update the same character field;
 hiddenAgency remains a separate free-text field.
 See [NPC Agency Tags](npc-agency-tags.md) for the catalog semantics, compatibility
-limits and remaining implementation phases.
-
+and runtime context rules.
 
 ## Saved Storybook NPC sources
 
@@ -369,11 +330,10 @@ replaces the previous discovered entries, so deletions, changed characters, and
 new encryption take effect on the next scan. No automatic character export
 files are written. Browser development retains its bundled-only fallback.
 
-
 ### Library provenance and storage badges
 
 The final gold provenance badge identifies the effective version: `Built-in`,
-`Local NPC`, `From Storybook`, `Story NPC`, or `Storybook`. Known library
+`Local NPC`, `Account NPC`, `From Storybook`, `Story NPC`, or `Storybook`. Known library
 sources precede retained NPC or active Storybook versions. A scanned saved
 Storybook copy does not add an import stage to an active Storybook character.
 Payload differences remain in tooltips rather than modification labels.

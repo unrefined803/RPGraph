@@ -11,8 +11,8 @@ vi.mock('react', () => ({
 class Input {
   type = 'range';
   disabled = false;
-  insideOptions = true;
-  closest() { return this.insideOptions ? {} : null; }
+  previewEnabled = true;
+  matches() { return this.previewEnabled; }
 }
 let events: EventTarget;
 let cleanup: (() => void) | undefined;
@@ -61,13 +61,13 @@ it('handles all enabled options ranges, keyboard gestures and cancellation', () 
   expect(hooks.active).toBe(false);
 });
 
-it('ignores disabled controls and controls outside Options', () => {
+it('ignores disabled controls and controls outside the preview allowlist', () => {
   const input = new Input();
   input.disabled = true;
   send('pointerdown', input, { button: 0 });
   expect(hooks.active).toBe(false);
   input.disabled = false;
-  input.insideOptions = false;
+  input.previewEnabled = false;
   send('keydown', input, { key: 'ArrowLeft' });
   expect(hooks.active).toBe(false);
 });

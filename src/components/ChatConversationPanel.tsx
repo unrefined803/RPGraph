@@ -345,6 +345,7 @@ type MessageRowProps = {
   thoughtTextStyle: 'bold' | 'italic' | 'light';
   chatTextSize: number;
   phoneAuthorBadgesEnabled: boolean;
+  phoneLinksEnabled?: boolean;
   rpTimeTrackingEnabled: boolean;
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
@@ -387,9 +388,7 @@ type MessageRowProps = {
  * assembly, output-action UI, timeline grouping, etc.) only when this
  * message's own data or the shared display/handler props change — not on
  * every render of the panel, e.g. every streamed chunk of live LLM output
- * touching a different message elsewhere in the history. This is the
- * primary target of the "full per-message row memoization" follow-up: see
- * docs/performance-stuttering-investigation.md. */
+ * touching a different message elsewhere in the history. */
 const MessageRow = memo(function MessageRow(props: MessageRowProps) {
   const [diagnosticIdentity] = useState(() => ({}));
   countChatRowRender(props.message.id, props, diagnosticIdentity);
@@ -398,7 +397,7 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
     chatMessageAvatarsEnabled, socialMessageRpDateTimeById,
     characterColors, dialogueHighlightEnabled, dialogueVoiceSpeakerNames, activeDialogueVoiceKey,
     onSpeakDialogue, onGenerateVoiceMessageClip, chatColorIntensity, thoughtTextStyle, chatTextSize,
-    phoneAuthorBadgesEnabled, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage,
+    phoneAuthorBadgesEnabled, phoneLinksEnabled = true, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage,
     editingMessageId, editableUserMessageId, editingDraft, isRunning, contextualReferenceImageIds,
     selectedReferenceImageIds, referenceImageContextEnabled, referenceImageContextDisabledReason,
     onBeginEditMessage, onCancelEditMessage, onRegenerateEditedMessage, onEditingDraftChange,
@@ -604,10 +603,11 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
       : phoneMessage.message;
     return (
       <button
-        className="embedded-phone-link"
+        className={`embedded-phone-link${phoneLinksEnabled ? '' : ' static'}`}
         type="button"
         key={phoneMessage.phoneMessageId}
-        onClick={() => onOpenEmbeddedPhoneMessage(phoneMessage)}
+        tabIndex={phoneLinksEnabled ? undefined : -1}
+        onClick={phoneLinksEnabled ? () => onOpenEmbeddedPhoneMessage(phoneMessage) : undefined}
         title={title}
       >
         {renderPhoneActionContent(phoneMessage)}
@@ -634,11 +634,12 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
       : phoneMessage.message;
     return (
       <button
-        className={`message-timeline-row phone ${className}`}
+        className={`message-timeline-row phone ${className}${phoneLinksEnabled ? '' : ' static'}`}
         style={{ fontSize: chatTextSize || defaultChatTextSize }}
         type="button"
         key={phoneMessage.phoneMessageId}
-        onClick={() => onOpenEmbeddedPhoneMessage(phoneMessage)}
+        tabIndex={phoneLinksEnabled ? undefined : -1}
+        onClick={phoneLinksEnabled ? () => onOpenEmbeddedPhoneMessage(phoneMessage) : undefined}
         title={title}
         aria-label={ariaLabel}
       >
@@ -733,16 +734,16 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
           <div className={`phone-message-content ${outgoing ? 'outgoing' : 'incoming'}${chatMessageAvatarsEnabled ? ' with-message-avatar' : ''}`}>
             {chatMessageAvatarsEnabled && renderMessageAvatar(phoneMessage.from, linkedMessage?.phoneFromAccountId)}
             <div
-              className={`phone-bubble ${outgoing ? 'outgoing' : 'incoming'} chat-phone-bubble`}
-              role="button"
-              tabIndex={0}
-              onClick={openPhoneMessage}
-              onKeyDown={(event) => {
+              className={`phone-bubble ${outgoing ? 'outgoing' : 'incoming'} chat-phone-bubble${phoneLinksEnabled ? '' : ' static'}`}
+              role={phoneLinksEnabled ? 'button' : undefined}
+              tabIndex={phoneLinksEnabled ? 0 : undefined}
+              onClick={phoneLinksEnabled ? openPhoneMessage : undefined}
+              onKeyDown={phoneLinksEnabled ? (event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
                   openPhoneMessage();
                 }
-              }}
+              } : undefined}
               style={{ fontSize: chatTextSize || defaultChatTextSize }}
             >
               {showRouteLabel ? (
@@ -1581,6 +1582,8 @@ type ChatConversationPanelProps = RunProgress & {
   chatTextSize: number;
   onChatTextSizeChange: (value: number) => void;
   phoneAuthorBadgesEnabled: boolean;
+  /** False when RP Output has the phone unchecked: messages stay visible but do not open it. */
+  phoneLinksEnabled?: boolean;
   onPhoneAuthorBadgesEnabledChange: (enabled: boolean) => void;
   chatReadsPhoneAppsEnabled: boolean;
   onChatReadsPhoneAppsEnabledChange: (enabled: boolean) => void;
@@ -1717,6 +1720,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   chatTextSize,
   onChatTextSizeChange,
   phoneAuthorBadgesEnabled,
+  phoneLinksEnabled = true,
   onPhoneAuthorBadgesEnabledChange,
   chatReadsPhoneAppsEnabled,
   onChatReadsPhoneAppsEnabledChange,
@@ -2178,6 +2182,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             thoughtTextStyle={thoughtTextStyle}
             chatTextSize={chatTextSize}
             phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}
+            phoneLinksEnabled={phoneLinksEnabled}
             rpTimeTrackingEnabled={rpTimeTrackingEnabled}
             rpDateTimeFormat={rpDateTimeFormat}
             rpWeekdayLanguage={rpWeekdayLanguage}

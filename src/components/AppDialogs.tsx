@@ -106,6 +106,7 @@ import {
   llmPromptSwitchPromptAftersByOutput,
   llmPromptSwitchPromptBeforesByOutput,
 } from '../workflow';
+import { callTotalTokens, runLlmReportTotals, tokenCell } from './runLlmReportTotals';
 
 export type StorybookCreatorMessage = {
   role: 'user' | 'assistant' | 'storybook' | 'error';
@@ -174,39 +175,6 @@ export type LlmRunHistoryEntry = {
 
 function formatRuntimeSeconds(durationMs: number) {
   return (durationMs / 1000).toFixed(2);
-}
-
-function tokenCell(value: number | undefined) {
-  return value === undefined ? '-' : value.toLocaleString();
-}
-
-function callTotalTokens(call: RunLlmCallReport) {
-  return call.totalTokens ?? (call.inputTokens ?? 0) + (call.outputTokens ?? 0);
-}
-
-function runLlmReportTotals(report: RunLlmReport) {
-  return report.calls.reduce(
-    (totals, call) => ({
-      inputTokens: totals.inputTokens + (call.inputTokens ?? 0),
-      cachedInputTokens: totals.cachedInputTokens + (call.cachedInputTokens ?? 0),
-      hasCachedInputTokens: totals.hasCachedInputTokens || call.cachedInputTokens !== undefined,
-      outputTokens: totals.outputTokens + (call.outputTokens ?? 0),
-      reasoningTokens: totals.reasoningTokens + (call.reasoningTokens ?? 0),
-      hasReasoningTokens: totals.hasReasoningTokens || call.reasoningTokens !== undefined,
-      totalTokens: totals.totalTokens + callTotalTokens(call),
-      durationMs: totals.durationMs + call.durationMs,
-    }),
-    {
-      inputTokens: 0,
-      cachedInputTokens: 0,
-      hasCachedInputTokens: false,
-      outputTokens: 0,
-      reasoningTokens: 0,
-      hasReasoningTokens: false,
-      totalTokens: 0,
-      durationMs: 0,
-    },
-  );
 }
 
 export function RunLlmReportDialog({
@@ -529,6 +497,19 @@ export function CustomNodeAssistantDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingSecurity, setIsCheckingSecurity] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!moreOpen) {
+      return;
+    }
+    const closeMoreOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !moreMenuRef.current?.contains(event.target)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeMoreOutside);
+    return () => document.removeEventListener('pointerdown', closeMoreOutside);
+  }, [moreOpen]);
   const [editDraft, setEditDraft] = useState('');
   const [editCodeDraft, setEditCodeDraft] = useState('');
   const [editStatus, setEditStatus] = useState('');
@@ -739,7 +720,7 @@ export function CustomNodeAssistantDialog({
             >
               Clear Chat
             </button>
-            <div className="storybook-more-menu custom-node-more-menu">
+            <div className="storybook-more-menu custom-node-more-menu" ref={moreMenuRef}>
               <button
                 className="inspect-button storybook-more-button nodrag"
                 type="button"
@@ -772,7 +753,7 @@ export function CustomNodeAssistantDialog({
                 options={connectionOptions}
               />
             </div>
-            <button type="button" className="close-button danger" onClick={onClose}>
+            <button type="button" className="close-button" onClick={onClose}>
               Close
             </button>
           </div>
@@ -3226,6 +3207,19 @@ export function StorybookCreatorDialog({
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [fileActionStatus, setFileActionStatus] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!moreOpen) {
+      return;
+    }
+    const closeMoreOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !moreMenuRef.current?.contains(event.target)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeMoreOutside);
+    return () => document.removeEventListener('pointerdown', closeMoreOutside);
+  }, [moreOpen]);
   const [outputSettingsOpen, setOutputSettingsOpen] = useState(false);
   const outputSettingsMenuRef = useRef<HTMLDivElement | null>(null);
   const [imageOwner, setImageOwner] = useState<StorybookImageOwner | null>(null);
@@ -3242,6 +3236,24 @@ export function StorybookCreatorDialog({
     | null
   >(null);
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
+  useEffect(() => {
+    // Escape closes the innermost layer; nested character dialogs own their keys.
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape' || event.defaultPrevented || imageOwner || comfyConfigCharacterId) {
+        return;
+      }
+      if (confirmAction) {
+        setConfirmAction(null);
+      } else if (moreOpen || outputSettingsOpen) {
+        setMoreOpen(false);
+        setOutputSettingsOpen(false);
+      } else {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [comfyConfigCharacterId, confirmAction, imageOwner, moreOpen, onClose, outputSettingsOpen]);
   const parsedStorybook = useMemo(() => {
     try {
       return node.data.storybookJson ? parseRpStorybookJson(node.data.storybookJson) : emptyRpStorybook;
@@ -3410,7 +3422,7 @@ export function StorybookCreatorDialog({
             <button className="inspect-button nodrag" type="button" onClick={() => void loadStorybook()}>
               Load
             </button>
-            <div className="storybook-more-menu">
+            <div className="storybook-more-menu" ref={moreMenuRef}>
               <button
                 className="inspect-button storybook-more-button nodrag"
                 type="button"
@@ -3471,7 +3483,7 @@ export function StorybookCreatorDialog({
                 </div>
               )}
             </div>
-            <button type="button" className="close-button danger" onClick={onClose}>
+            <button type="button" className="close-button" onClick={onClose}>
               Close
             </button>
           </div>
@@ -3912,14 +3924,14 @@ export function StorybookCreatorDialog({
                       You can instruct the AI to build your roleplay settings. Try prompts like:
                     </p>
                     <ul className="prompt-suggestions">
-                      <li onClick={() => setDraft("Create a dark fantasy storybook set in a cursed tower")}>
-                        "Create a dark fantasy storybook set in a cursed tower"
+                      <li onClick={() => setDraft("Create a storybook about three roommates sharing a flat in a big city")}>
+                        "Create a storybook about three roommates sharing a flat in a big city"
                       </li>
-                      <li onClick={() => setDraft("Add a character named Julian, a rogue prince")}>
-                        "Add a character named Julian, a rogue prince"
+                      <li onClick={() => setDraft("Add a character named Mia, a lifestyle influencer with a growing Fotogram following")}>
+                        "Add a character named Mia, a lifestyle influencer with a growing Fotogram following"
                       </li>
-                      <li onClick={() => setDraft("Add an npc named Lilith who is a mysterious merchant")}>
-                        "Add an npc named Lilith who is a mysterious merchant"
+                      <li onClick={() => setDraft("Add an npc named Daniel, a coworker who keeps texting after hours")}>
+                        "Add an npc named Daniel, a coworker who keeps texting after hours"
                       </li>
                     </ul>
                   </div>

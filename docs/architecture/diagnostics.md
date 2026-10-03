@@ -84,14 +84,6 @@ estimate. TOON 4 exports preserve nested objects without key folding or path exp
 - An already shortened supplied snapshot can demonstrate additional excerpt
   deduplication, but cannot verify reconstruction of its missing source text.
 
-Manual checks should cover a successful multistep prompt, an action follow-up and
-replay, a switch fallback, provider failure during a later pass, cancellation and
-restart, translation failure before graph execution, and next-turn preparation.
-Compare individual and combined turn exports in JSON and TOON, then exercise
-regeneration, undo, session load, and reset. Check long Text Input sections, image
-metadata, format errors, selected output handles, timestamps, and clipboard text.
-Application, browser, and UI/E2E tests are intentionally left to the user.
-
 ## Workflow assistant context
 
 The workflow assistant uses a separate compact graph overview: all node IDs,

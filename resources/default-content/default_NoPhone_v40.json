@@ -1,0 +1,678 @@
+{
+  "format": "rpgraph-workflow",
+  "formatVersion": "1.2",
+  "savedAt": "2026-10-02T18:26:10.363Z",
+  "viewport": {
+    "x": 427.71350127639903,
+    "y": 530.134263523532,
+    "zoom": 0.48632747370613844
+  },
+  "nodes": [
+    {
+      "id": "user-input",
+      "type": "workflow",
+      "position": {
+        "x": 470.8422532281687,
+        "y": 149.99468277264083
+      },
+      "data": {
+        "nodeType": "input",
+        "label": "User Input",
+        "description": "Chat message",
+        "preview": "Waiting for input ...",
+        "connectionId": "lm-studio-default",
+        "autoTurnInstructions": {
+          "character-rp": {
+            "mode": "default",
+            "customText": ""
+          },
+          "character-phone": {
+            "mode": "default",
+            "customText": ""
+          },
+          "narrator-rp": {
+            "mode": "default",
+            "customText": ""
+          },
+          "narrator-phone": {
+            "mode": "default",
+            "customText": ""
+          }
+        },
+        "nodeDataVersion": "1.8.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 485
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "rp-output",
+      "type": "workflow",
+      "position": {
+        "x": 2118.5702827795158,
+        "y": 72.53187379351515
+      },
+      "data": {
+        "nodeType": "output",
+        "label": "RP Output",
+        "description": "Roleplay response",
+        "preview": "No output yet",
+        "connectionId": "lm-studio-default",
+        "streamOutputEnabled": true,
+        "speakerAnalysisEnabled": true,
+        "dialogueHighlightEnabled": true,
+        "outputPhoneEnabled": false,
+        "outputSpeakerResponseFormat": "toon",
+        "outputSpeakerPrompt": {
+          "mode": "default",
+          "customText": ""
+        },
+        "nodeDataVersion": "1.6.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 736
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "chat-history",
+      "type": "workflow",
+      "position": {
+        "x": -514.8281096074339,
+        "y": -387.8758965362058
+      },
+      "data": {
+        "nodeType": "history",
+        "label": "Chat History",
+        "description": "Previous conversation context",
+        "preview": "No conversation yet",
+        "connectionId": "lm-studio-default",
+        "historyTimeTrackingEnabled": false,
+        "historyTimeStatus": "RP Time: Disabled",
+        "historyLastTurnsCount": 5,
+        "historyRpTimePrompt": {
+          "mode": "default",
+          "customText": ""
+        },
+        "runAfterRpOutput": true,
+        "nodeDataVersion": "1.8.2"
+      },
+      "measured": {
+        "width": 365,
+        "height": 383
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "context-compression-default",
+      "type": "workflow",
+      "position": {
+        "x": -14.416531280186973,
+        "y": -145.7551573689393
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "context-compression",
+        "label": "Context Compression",
+        "description": "Summarize text when its context budget is reached",
+        "preview": "Waiting for text ...",
+        "connectionId": "lm-studio-default",
+        "contextCompressionMaxTokens": 3000,
+        "contextCompressionRatio": 50,
+        "contextCompressionLengthWords": 200,
+        "runAfterRpOutput": true,
+        "nodeDataVersion": "1.0.3"
+      },
+      "selected": false,
+      "dragging": false,
+      "measured": {
+        "width": 365,
+        "height": 590
+      }
+    },
+    {
+      "id": "text-combiner-1779617525442-2",
+      "type": "workflow",
+      "position": {
+        "x": 476.18331354120926,
+        "y": -437.727808101654
+      },
+      "data": {
+        "nodeType": "combiner",
+        "label": "Text Combiner",
+        "description": "Merge ordered text inputs",
+        "preview": "Waiting for 2 inputs ...",
+        "combinerInputCount": 2,
+        "combinerPrefixes": [
+          "",
+          ""
+        ],
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 489
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "settings-value-1779837628451-14",
+      "type": "workflow",
+      "position": {
+        "x": -514.336679271616,
+        "y": 114.28432962221834
+      },
+      "data": {
+        "nodeType": "settings-value",
+        "label": "Workflow Variable",
+        "description": "Output values configured in Options",
+        "preview": "Values are edited in Options",
+        "settingsValueEntries": [
+          {
+            "id": "value-1779837815858-30",
+            "optionKey": "context-length-max",
+            "label": "Context Length Max"
+          }
+        ],
+        "nodeDataVersion": "1.0.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 185
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "combiner-copy-1780172796312-18",
+      "type": "workflow",
+      "position": {
+        "x": 960.5575061683087,
+        "y": -51.620605073368324
+      },
+      "data": {
+        "nodeType": "combiner",
+        "label": "Text Combiner",
+        "description": "Merge ordered text inputs",
+        "preview": "Waiting for 2 inputs ...",
+        "combinerInputCount": 2,
+        "combinerPrefixes": [
+          "",
+          ""
+        ],
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 489
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "rp-storybook-1780769514774-25",
+      "type": "workflow",
+      "position": {
+        "x": -20.42561877338926,
+        "y": -777.9787013883869
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "rp-storybook",
+        "label": "RP Storybook V3",
+        "description": "Complete roleplay storybook",
+        "preview": "No storybook loaded",
+        "connectionId": "lm-studio-default",
+        "storybookJson": "{\n  \"format\": \"rpgraph-storybook\",\n  \"version\": \"3.0.0\",\n  \"title\": \"\",\n  \"introduction\": \"\",\n  \"imageDescriptionPrompt\": {\n    \"mode\": \"default\"\n  },\n  \"scenario\": {\n    \"summary\": \"\",\n    \"openingSituation\": \"\",\n    \"currentSituation\": \"\"\n  },\n  \"characters\": [],\n  \"phoneContacts\": {\n    \"blocked\": []\n  },\n  \"openingHistory\": {\n    \"npcParticipants\": {},\n    \"summary\": \"\",\n    \"turns\": [],\n    \"checkpoints\": [],\n    \"events\": [],\n    \"voiceMedia\": {},\n    \"socialLikes\": {},\n    \"dynamicSocialUsers\": {},\n    \"socialConnections\": {},\n    \"notes\": {},\n    \"chatGpdChats\": {}\n  }\n}",
+        "storybookStatus": "Ready",
+        "storybookFormattedTextSettings": {
+          "title": true,
+          "introduction": true,
+          "scenario": true,
+          "characters": true,
+          "openingHistory": true,
+          "characterImages": false,
+          "relationships": true,
+          "hiddenAgency": false
+        },
+        "nodeDataVersion": "3.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 584
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "type": "workflow",
+      "position": {
+        "x": 1448.4749062173457,
+        "y": -901.8441498127085
+      },
+      "style": {
+        "width": 548,
+        "height": 1140
+      },
+      "data": {
+        "nodeType": "llm-prompt-switch",
+        "label": "LLM Prompt Switch",
+        "description": "Select an LLM prompt by output channel and prompt slot",
+        "preview": "Not run yet",
+        "llmPromptSwitchOutputTitles": [
+          "Normal RP",
+          "Autoplay"
+        ],
+        "llmPromptSwitchPromptTitlesByOutput": [
+          [
+            "Empty",
+            "RP Prompt Normal",
+            "RP AutoTurn",
+            "RP Event",
+            "RP Narrator",
+            "RP Narrator AutoTurn",
+            "AI Action / User Reaction"
+          ],
+          [
+            "Local Activity",
+            "Remote Activity",
+            "Story Flow",
+            "Escalation"
+          ]
+        ],
+        "llmPromptSwitchPromptBeforesByOutput": [
+          [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            ""
+          ]
+        ],
+        "llmPromptSwitchPromptAftersByOutput": [
+          [
+            "",
+            "This is a roleplay turn. Continue the story in response to the player's latest input and stay in character. Build on the recent chat, the current scene, and the relationships between the characters.\n\nStory rules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters pursue their own goals and may disagree with the player. Let conflict, warmth, and quiet moments arise naturally; do not force drama into every turn.\n- Characters know only what they saw, did, or were told. You can read the whole history; they cannot. Never let a character react to a conversation or secret they were not part of.\n- The player decides for their own character. Never write that character's speech, thoughts, decisions, or messages beyond what the input supplies.\n- Facts stated by the Narrator are fixed. Decide open outcomes from the situation and the characters' abilities and simply write what happens: no plans, percentages, or dice.\n\nCharacter information:\nThe Storybook above describes the main, playable characters in full. Side characters and NPCs are different: family members, friends, colleagues, neighbours, and anyone who is only mentioned usually have a profile that is not part of this prompt.\nWhenever the input asks about such a person or the scene involves them, look them up with the action below before you write: who they are, whether they exist at all, what they are like, and how they relate to the others. Do this even when only a role is known. If the player asks what their sister is doing and you have no profile of the sister, ask for #sister together with the player character's full name first.\nNever fill the gap yourself. Do not make up a side character's name, age, job, personality, whereabouts, or relationships.\nThe answer is background for you as the author. A character may use it only if they could plausibly know it themselves. If the lookup finds nothing, keep to what the story has already established and stay vague about the rest. Do not ask twice about the same person.\n\n@action:Ask character information\n\nImages:\nIf the input comes with an attached image, react to it where it matters to the scene.\n\n@action:Describe input image (After Reply Action)\n\nOutput format:\nWrite at most <Response Length> words of story. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- When the input says a character texts someone, that message comes first, worded as the input gives it, and the other person replies. Add further messages from the player's character only when the input describes a longer exchange. A message that someone sends to the player's character unprompted stays unanswered until the player replies.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nHow to answer:\n- The player's input opens the turn; it is not the turn itself. Your response is what happens next: the other characters answer, react, and act. A response that only retells the input in nicer words is a failure.\n- When the player's character says or does something, weave it into the scene in a sentence or two instead of repeating it word for word, then give the stage to the people it is aimed at. If the player asks someone a question, that character answers it in this response, in their own voice.\n- When the input reads like narration, describing what happens rather than what the player's character says or does, play it out: show it happening and let the characters involved speak and act.\n- Move the scene one step forward and end on the other characters: a reply, a decision, a small development, something the player can react to. Never end on the player's own line or action.\n- Your means are prose with spoken dialogue, a text-message conversation between people in different places, and a character lookup when you need facts about a side character.\n\nFinal check: make sure the other characters actually answer and react, and that the response does more than restate the input. Also, do not invent anything about side characters or NPCs. If this turn involves or asks about someone whose profile is not in this prompt, use the Ask character information action first to find out whether that person exists and what is known about them, and write the story only after the answer. Output raw text and raw JSON only, never ``` code fences.",
+            "This is an AutoTurn. The latest input is a Narrator instruction naming a character who acts or speaks now. Write that character's next concrete beat. Continue from where the story stands; do not restart, repeat, or paraphrase the previous output.\n\nStory rules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters pursue their own goals and may disagree with the player. Let conflict, warmth, and quiet moments arise naturally; do not force drama into every turn.\n- Characters know only what they saw, did, or were told. You can read the whole history; they cannot. Never let a character react to a conversation or secret they were not part of.\n- The player decides for their own character. Never write that character's speech, thoughts, decisions, or messages beyond what the input supplies, unless the instruction tells you to act for that character; then do only what it authorizes.\n- Facts stated by the Narrator are fixed. Decide open outcomes from the situation and the characters' abilities and simply write what happens: no plans, percentages, or dice.\n\nCharacter information:\nThe Storybook above describes the main, playable characters in full. Side characters and NPCs are different: family members, friends, colleagues, neighbours, and anyone who is only mentioned usually have a profile that is not part of this prompt.\nWhenever the input asks about such a person or the scene involves them, look them up with the action below before you write: who they are, whether they exist at all, what they are like, and how they relate to the others. Do this even when only a role is known. If the player asks what their sister is doing and you have no profile of the sister, ask for #sister together with the player character's full name first.\nNever fill the gap yourself. Do not make up a side character's name, age, job, personality, whereabouts, or relationships.\nThe answer is background for you as the author. A character may use it only if they could plausibly know it themselves. If the lookup finds nothing, keep to what the story has already established and stay vague about the rest. Do not ask twice about the same person.\n\n@action:Ask character information\n\nOutput format:\nWrite at most <Response Length> words of story. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- When the input says a character texts someone, that message comes first, worded as the input gives it, and the other person replies. Add further messages from the player's character only when the input describes a longer exchange. A message that someone sends to the player's character unprompted stays unanswered until the player replies.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nHow to answer:\n- Write something new: what the acting characters say and do now, and how the others around them respond. Do not retell what the history already shows.\n- Move the scene one step forward and leave something the player can react to: a reply, a decision, a small development.\n- Your means are prose with spoken dialogue, a text-message conversation between people in different places, and a character lookup when you need facts about a side character.\n\nFinal check: do not invent anything about side characters or NPCs. If this turn involves or asks about someone whose profile is not in this prompt, use the Ask character information action first to find out whether that person exists and what is known about them, and write the story only after the answer. Output raw text and raw JSON only, never ``` code fences.",
+            "This is an Event turn. The latest input is the trigger of a scheduled event. Jump to that moment and write a concrete scene the characters can react to. Do not begin with the event title, \"Event:\", a date, or a time, and do not write the player's reaction.\n\nStory rules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters pursue their own goals and may disagree with the player. Let conflict, warmth, and quiet moments arise naturally; do not force drama into every turn.\n- Characters know only what they saw, did, or were told. You can read the whole history; they cannot. Never let a character react to a conversation or secret they were not part of.\n- The player decides for their own character. Never write that character's speech, thoughts, decisions, or messages beyond what the input supplies.\n- Facts stated by the Narrator are fixed. Decide open outcomes from the situation and the characters' abilities and simply write what happens: no plans, percentages, or dice.\n\nCharacter information:\nThe Storybook above describes the main, playable characters in full. Side characters and NPCs are different: family members, friends, colleagues, neighbours, and anyone who is only mentioned usually have a profile that is not part of this prompt.\nWhenever the input asks about such a person or the scene involves them, look them up with the action below before you write: who they are, whether they exist at all, what they are like, and how they relate to the others. Do this even when only a role is known. If the player asks what their sister is doing and you have no profile of the sister, ask for #sister together with the player character's full name first.\nNever fill the gap yourself. Do not make up a side character's name, age, job, personality, whereabouts, or relationships.\nThe answer is background for you as the author. A character may use it only if they could plausibly know it themselves. If the lookup finds nothing, keep to what the story has already established and stay vague about the rest. Do not ask twice about the same person.\n\n@action:Ask character information\n\nOutput format:\nWrite at most <Response Length> words of story. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- When the input says a character texts someone, that message comes first, worded as the input gives it, and the other person replies. Add further messages from the player's character only when the input describes a longer exchange. A message that someone sends to the player's character unprompted stays unanswered until the player replies.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nHow to answer:\n- Write something new: what the acting characters say and do now, and how the others around them respond. Do not retell what the history already shows.\n- Move the scene one step forward and leave something the player can react to: a reply, a decision, a small development.\n- Your means are prose with spoken dialogue, a text-message conversation between people in different places, and a character lookup when you need facts about a side character.\n\nFinal check: do not invent anything about side characters or NPCs. If this turn involves or asks about someone whose profile is not in this prompt, use the Ask character information action first to find out whether that person exists and what is known about them, and write the story only after the answer. Output raw text and raw JSON only, never ``` code fences.",
+            "This is a Narrator turn. The latest input is story direction from the Narrator, not something a character said. Whatever it states or sets in motion happens first; then continue with the characters' reactions, dialogue, and consequences.\n\nStory rules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters pursue their own goals and may disagree with the player. Let conflict, warmth, and quiet moments arise naturally; do not force drama into every turn.\n- Characters know only what they saw, did, or were told. You can read the whole history; they cannot. Never let a character react to a conversation or secret they were not part of.\n- The player decides for their own character. Never write that character's speech, thoughts, decisions, or messages beyond what the input supplies, unless the Narrator directs it; then do only what was directed.\n- Facts stated by the Narrator are fixed. Decide open outcomes from the situation and the characters' abilities and simply write what happens: no plans, percentages, or dice.\n\nVoice the scene: when characters are present, let them speak out loud with real lines instead of only describing what they do. A good part of the response is dialogue.\n\nCharacter information:\nThe Storybook above describes the main, playable characters in full. Side characters and NPCs are different: family members, friends, colleagues, neighbours, and anyone who is only mentioned usually have a profile that is not part of this prompt.\nWhenever the input asks about such a person or the scene involves them, look them up with the action below before you write: who they are, whether they exist at all, what they are like, and how they relate to the others. Do this even when only a role is known. If the player asks what their sister is doing and you have no profile of the sister, ask for #sister together with the player character's full name first.\nNever fill the gap yourself. Do not make up a side character's name, age, job, personality, whereabouts, or relationships.\nThe answer is background for you as the author. A character may use it only if they could plausibly know it themselves. If the lookup finds nothing, keep to what the story has already established and stay vague about the rest. Do not ask twice about the same person.\n\n@action:Ask character information\n\nImages:\nIf the input comes with an attached image, react to it where it matters to the scene.\n\n@action:Describe input image (After Reply Action)\n\nOutput format:\nWrite at most <Response Length> words of story. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- When the input says a character texts someone, that message comes first, worded as the input gives it, and the other person replies. Add further messages from the player's character only when the input describes a longer exchange. A message that someone sends to the player's character unprompted stays unanswered until the player replies.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nHow to answer:\n- Play the direction out as a scene instead of retelling it: show it happening and let the characters involved speak, react, and act on it. A response that only rephrases the direction is a failure.\n- Move the scene one step forward and end on the other characters: a reply, a decision, a small development, something the player can react to. Never end on the player's own line or action.\n- Your means are prose with spoken dialogue, a text-message conversation between people in different places, and a character lookup when you need facts about a side character.\n\nFinal check: make sure the direction is played out with the characters speaking and reacting, not merely restated. Also, do not invent anything about side characters or NPCs. If this turn involves or asks about someone whose profile is not in this prompt, use the Ask character information action first to find out whether that person exists and what is known about them, and write the story only after the answer. Output raw text and raw JSON only, never ``` code fences.",
+            "This is a Narrator AutoTurn. The latest input is a private control instruction: never quote or summarize it. Choose the character or characters who would most naturally act now and write the next concrete beat, continuing after the previous output.\n\nStory rules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters pursue their own goals and may disagree with the player. Let conflict, warmth, and quiet moments arise naturally; do not force drama into every turn.\n- Characters know only what they saw, did, or were told. You can read the whole history; they cannot. Never let a character react to a conversation or secret they were not part of.\n- The player decides for their own character. Never write that character's speech, thoughts, decisions, or messages beyond what the input supplies, unless the instruction tells you to act for that character; then do only what it authorizes.\n- Facts stated by the Narrator are fixed. Decide open outcomes from the situation and the characters' abilities and simply write what happens: no plans, percentages, or dice.\n\nVoice the scene: when characters are present, let them speak out loud with real lines instead of only describing what they do. A good part of the response is dialogue.\n\nCharacter information:\nThe Storybook above describes the main, playable characters in full. Side characters and NPCs are different: family members, friends, colleagues, neighbours, and anyone who is only mentioned usually have a profile that is not part of this prompt.\nWhenever the input asks about such a person or the scene involves them, look them up with the action below before you write: who they are, whether they exist at all, what they are like, and how they relate to the others. Do this even when only a role is known. If the player asks what their sister is doing and you have no profile of the sister, ask for #sister together with the player character's full name first.\nNever fill the gap yourself. Do not make up a side character's name, age, job, personality, whereabouts, or relationships.\nThe answer is background for you as the author. A character may use it only if they could plausibly know it themselves. If the lookup finds nothing, keep to what the story has already established and stay vague about the rest. Do not ask twice about the same person.\n\n@action:Ask character information\n\nOutput format:\nWrite at most <Response Length> words of story. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- When the input says a character texts someone, that message comes first, worded as the input gives it, and the other person replies. Add further messages from the player's character only when the input describes a longer exchange. A message that someone sends to the player's character unprompted stays unanswered until the player replies.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nHow to answer:\n- Write something new: what the acting characters say and do now, and how the others around them respond. Do not retell what the history already shows.\n- Move the scene one step forward and leave something the player can react to: a reply, a decision, a small development.\n- Your means are prose with spoken dialogue, a text-message conversation between people in different places, and a character lookup when you need facts about a side character.\n\nFinal check: do not invent anything about side characters or NPCs. If this turn involves or asks about someone whose profile is not in this prompt, use the Ask character information action first to find out whether that person exists and what is known about them, and write the story only after the answer. Output raw text and raw JSON only, never ``` code fences.",
+            "@step:planning\nThis is an AI initiative turn: instead of waiting for the player, the story makes the first move. User Input names the player's character. Invent one NEW thing that another existing character or the world does now and that gives the player a real choice. Use the history for continuity, not as the trigger: never ask for a reaction to something that has already happened.\n\nAsk the player first. Call Ask User once: describe the new situation as the player's character would perceive it, then ask how they respond. Use the workflow processing language named in User Input, otherwise the language of the scene. Reveal no hidden motives or outcomes, and put no words, thoughts, or decisions into the player's character. This is only a preview: nothing in it has happened in the story yet.\n\nIf the action below already holds the player's answer, do not ask again and do not change the situation you previewed.\n\n@action:Ask User\n\nCharacter information:\nThe Storybook above describes the main, playable characters in full. Side characters and NPCs are different: family members, friends, colleagues, neighbours, and anyone who is only mentioned usually have a profile that is not part of this prompt.\nWhenever the input asks about such a person or the scene involves them, look them up with the action below before you write: who they are, whether they exist at all, what they are like, and how they relate to the others. Do this even when only a role is known. If the player asks what their sister is doing and you have no profile of the sister, ask for #sister together with the player character's full name first.\nNever fill the gap yourself. Do not make up a side character's name, age, job, personality, whereabouts, or relationships.\nThe answer is background for you as the author. A character may use it only if they could plausibly know it themselves. If the lookup finds nothing, keep to what the story has already established and stay vague about the rest. Do not ask twice about the same person.\n\n@action:Ask character information\n\nPlanning rules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters pursue their own goals; do not force hostility or drama.\n- Characters know only what they saw, did, or were told. Never plan around knowledge a character cannot have.\n- The player decides for their own character. Plan nothing for that character beyond the answer they gave.\n- The next step writes one scene with one focus. Everything happens in prose, except texting between two people who are in different places; plan at most one such conversation.\n\nOutput of this step:\nOnce the player has answered, output only the plan, in three parts:\nInitiative: the new action that opens the turn and who performs it. For a text message, name sender and recipient and repeat the previewed wording exactly. It has not happened yet.\nReaction: what the player decided, including any reply they chose to send.\nConsequences: one to three bullets, under these rules:\n- Facts fixed by the Narrator or by the player's answer stay fixed; never roll to undo them.\n- State certain developments plainly. Roll only for outcomes that are really open; do not invent uncertainty just to have a roll.\n- An uncertain bullet is one line with exactly one marker: \"- Success outcome (chance: NN%); otherwise: failure outcome.\" NN is a whole number from 1 to 99.\n- Keep rolled bullets independent. If one development depends on another succeeding, put both into the same success branch.\n- The application rolls the marked bullets. Never choose or write a result yourself.\nAdd any character facts the next step needs, and how much the acting character can know. No scene prose and no JSON in the plan.\n\nFinal check: do not invent anything about side characters or NPCs. If this turn involves or asks about someone whose profile is not in this prompt, use the Ask character information action first to find out whether that person exists and what is known about them, and write the story only after the answer. Put what you learned into the plan. If the player has not answered yet, output the Ask User request JSON instead of a plan.\n\n@step:main\nWrite the whole turn as one scene, in this order: (1) the new initiating action, (2) the player's reaction, (3) what follows from it. The Ask User exchange was only a preview: nothing in it has happened in the story yet, so begin with the initiating action itself, as it was previewed. Keep the player's intent as given and add no further choices or lines for their character.\n\nThe preview and the player's answer:\n@action:Ask User\n\nThe plan for this turn. The application has rolled the open points and the stated result is binding: on success the stated outcome happens, on failure the otherwise-part. Write only that outcome; never reroll or blend both branches. Treat the plan as a guide to events, not as text to quote. For side characters and NPCs, use the facts the plan gives and invent nothing beyond them. If it leaves out the initiating action, restore it from the preview.\n@output:planning\n\nStory rules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters pursue their own goals and may disagree with the player. Let conflict, warmth, and quiet moments arise naturally; do not force drama into every turn.\n- Characters know only what they saw, did, or were told. You can read the whole history; they cannot. Never let a character react to a conversation or secret they were not part of.\n- The player decides for their own character. Never write that character's speech, thoughts, decisions, or messages beyond what the input supplies and the player's answer.\n- Facts stated by the Narrator are fixed. Decide open outcomes from the situation and the characters' abilities and simply write what happens: no plans, percentages, or dice.\n\nOutput format:\nWrite the complete scene. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- If the initiating action is a text message, the object starts with exactly that message. The player's reply follows only if they chose to send one, worded as they gave it, and then any answer to it. A reaction that is not a message belongs in prose.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nFinal check: if the preview announced an incoming message, the object must start with that message; mentioning its arrival in prose is not enough. Output raw text and raw JSON only, never ``` code fences."
+          ],
+          [
+            "This is Autoplay, Local Activity: a small background beat close to the player. The player's turn has already been answered; this comes after it. Write exactly one small thing that plausibly follows from what just happened. It is not a new scene, quest, or crisis.\n\nWhere it happens: in or right around the player's current scene. Someone who is present or nearby does, says, or prepares something, or quietly continues what is already going on. The beat is optional background life. Do not end on a question to the player, a demand, a cliffhanger, or a forced change of scene.\n\nRules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters act on their own goals; small quiet developments are welcome.\n- Characters know only what they saw, did, or were told. Never let one use knowledge they cannot have.\n- The input contains an [AUTOPLAY] block naming the player's character. It is private control data: never quote or mention it. Never write anything that character says, does, thinks, decides, or texts. Others may act around or toward them, but the player must stay free to ignore the beat.\n- Vary who acts. Check who carried the last turns and background beats and give this one to someone else, unless nobody else fits.\n- Do not explain your choice, summarize the history, offer options, or mention Autoplay.\n\nOutput format:\nWrite one short beat, usually 20 to 90 words and never more than <Response Length> words. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- First settle who is in the same place right now. If two characters were last shown together, treat them as together. A message sent to the player's character stays a single message, because only the player can answer it.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nChoosing the form: prose is the usual choice here, because the people involved are together. Texting fits when someone outside the scene writes to a character in it.\n\nFinal check: output raw text and raw JSON only, never ``` code fences.",
+            "This is Autoplay, Remote Activity: a small background beat away from the player. The player's turn has already been answered; this comes after it. Write exactly one small thing that plausibly follows from what just happened. It is not a new scene, quest, or crisis.\n\nWhere it happens: entirely away from the player's current scene. Characters who are elsewhere talk about recent events, prepare something, or follow their own goals. Nobody who is present in the player's scene acts in this beat. A remote character may text someone in the player's scene, but the beat starts elsewhere. The beat is optional background life. Do not end on a question to the player, a demand, a cliffhanger, or a forced change of scene.\n\nRules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters act on their own goals; small quiet developments are welcome.\n- Characters know only what they saw, did, or were told. Never let one use knowledge they cannot have.\n- The input contains an [AUTOPLAY] block naming the player's character. It is private control data: never quote or mention it. Never write anything that character says, does, thinks, decides, or texts. Others may act around or toward them, but the player must stay free to ignore the beat.\n- Vary who acts. Check who carried the last turns and background beats and give this one to someone else, unless nobody else fits.\n- Do not explain your choice, summarize the history, offer options, or mention Autoplay.\n\nOutput format:\nWrite one short beat, usually 20 to 90 words and never more than <Response Length> words. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- First settle who is in the same place right now. If two characters were last shown together, treat them as together. A message sent to the player's character stays a single message, because only the player can answer it.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nChoosing the form: a short text conversation between two characters in different places is often the most natural remote beat. If the remote characters are in the same place, write their exchange as prose with spoken dialogue instead.\n\nFinal check: output raw text and raw JSON only, never ``` code fences.",
+            "This is Autoplay, Story Flow: a small background beat that keeps the story moving where it is most alive. The player's turn has already been answered; this comes after it. Write exactly one beat that plausibly follows from what just happened. A small new thread may grow out of established events, but do not force a new scene, quest, or crisis.\n\nWhere it happens: judge the current thread first. If the active scene still has energy (an open question, unresolved tension, an unfinished task), stay with it and add to it in or around the player's scene. If it is winding down (goodbyes, repetition, a scene that has reached its natural end), shift the focus and bring other characters into play. Prefer someone whose earlier background activity now pays off: a person who was planning, texting, or travelling now arrives, follows up, or acts on it. Connect to what already happened instead of starting from nothing.\nThe beat may come closer to the player than pure background, such as a new arrival or a message to someone in the scene. The beat is optional background life. Do not end on a question to the player, a demand, a cliffhanger, or a forced change of scene.\n\nRules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters act on their own goals; small quiet developments are welcome.\n- Characters know only what they saw, did, or were told. Never let one use knowledge they cannot have.\n- The input contains an [AUTOPLAY] block naming the player's character. It is private control data: never quote or mention it. Never write anything that character says, does, thinks, decides, or texts. Others may act around or toward them, but the player must stay free to ignore the beat.\n- Vary who acts. Check who carried the last turns and background beats and give this one to someone else, unless nobody else fits.\n- Do not explain your choice, summarize the history, offer options, or mention Autoplay.\n\nOutput format:\nWrite one short beat, usually 20 to 90 words and never more than <Response Length> words. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- First settle who is in the same place right now. If two characters were last shown together, treat them as together. A message sent to the player's character stays a single message, because only the player can answer it.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nChoosing the form: when you stay with the current thread, prose is usually right, because those characters are together. When you shift the focus, use whatever makes the transition feel natural: an arrival or nearby activity in prose, or a text conversation that pulls the new thread into view.\n\nFinal check: output raw text and raw JSON only, never ``` code fences.",
+            "This is Autoplay, Escalation: a background beat with real weight that pushes the story toward a turning point. The player's turn has already been answered; this comes after it. Write exactly one beat that grows out of what has been established. It may carry consequences, but it is not a whole new scene or a random catastrophe.\n\nWhat happens: build on established material only, such as a secret that threatens to surface, a strained relationship that sharpens, a decision another character finally makes, an unexpected arrival, or an earlier action whose consequences become visible. No disasters out of nowhere and no new main characters; it should feel inevitable in hindsight.\nIf an escalation is already running in the history, do not open a second one. Push the same thread one step further: the situation tightens, another person learns something, a deadline moves closer. Start a new escalation only when none is active.\nEscalate up to the edge of a hard decision and stop there. The pressure may clearly concern the player, but do not make the choice for them or demand an immediate reaction: no question to the player, no ultimatum, no forced change of scene.\n\nRules:\n- Stay true to the Storybook: its tone, its established facts, and each character's personality. Characters act on their own goals; small quiet developments are welcome.\n- Characters know only what they saw, did, or were told. Never let one use knowledge they cannot have.\n- The input contains an [AUTOPLAY] block naming the player's character. It is private control data: never quote or mention it. Never write anything that character says, does, thinks, decides, or texts. Others may act around or toward them, but the player must stay free to ignore the beat.\n- Vary who acts. Check who carried the last turns and background beats and give this one to someone else, unless nobody else fits.\n- Do not explain your choice, summarize the history, offer options, or mention Autoplay.\n\nOutput format:\nWrite one short beat, usually 20 to 90 words and never more than <Response Length> words. Plain text without markdown. Put every spoken line in \"double quotation marks\"; only quoted text counts as speech.\n\nText messages:\nThe story is told in prose. The one exception is texting: when two characters who are not in the same place write to each other, output their exchange as the JSON object below, placed where the first message is sent. The application shows it as chat bubbles. Prose may come before and after it.\n{\n  \"whatsUpApp\": [\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"opening message\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"reply\"\n    },\n    {\n      \"from\": \"first person name\",\n      \"to\": \"second person name\",\n      \"message\": \"follow-up\"\n    },\n    {\n      \"from\": \"second person name\",\n      \"to\": \"first person name\",\n      \"message\": \"answer\"\n    }\n  ]\n}\n- Write a conversation, not a lone line. When someone texts, the other person normally answers, and the two may go back and forth. List the messages in the order they are sent, alternating between the two people, usually two to six, and stop once the exchange has said what it needs to.\n- A single message is right only when no answer comes yet: the recipient is busy, asleep, or ignoring it.\n- First settle who is in the same place right now. If two characters were last shown together, treat them as together. A message sent to the player's character stays a single message, because only the player can answer it.\n- Use one object per response, between the same two people. Characters in the same place talk in prose, never by text.\n- Every entry has exactly from, to, and message, with full character names. Replace the example texts with real ones. This is the only JSON you output.\nMost responses need no text messages at all.\n\nChoosing the form: texting can carry an escalation well, for example a message that should not have been sent, one that reaches the wrong person, or a conversation in which two characters say too much. Use prose when it happens between characters who are together, or when something is found, overheard, or witnessed in person.\n\nFinal check: output raw text and raw JSON only, never ``` code fences."
+          ]
+        ],
+        "llmPromptSwitchSelectedOutputChannel": 0,
+        "llmPromptSwitchSelectedPromptSlot": 2,
+        "llmPromptSwitchAutoShowPrompt": true,
+        "llmPromptSwitchAutoFormatJson": true,
+        "llmPromptActions": [
+          {
+            "title": "Describe input image",
+            "actionId": "describeInputImage",
+            "preset": "default"
+          },
+          {
+            "title": "Update phone image caption",
+            "actionId": "updatePhoneImageCaption",
+            "preset": "default"
+          },
+          {
+            "title": "Get character phone image list",
+            "actionId": "getImageId",
+            "preset": "default"
+          },
+          {
+            "title": "Create character phone image",
+            "actionId": "createImage",
+            "preset": "default"
+          }
+        ],
+        "llmPromptCommands": [],
+        "connectionId": "lm-studio-default",
+        "runAfterRpOutput": false,
+        "nodeDataVersion": "1.3.1"
+      },
+      "measured": {
+        "width": 548,
+        "height": 1626
+      },
+      "height": 1626,
+      "resizing": false,
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "type": "workflow",
+      "position": {
+        "x": 1211.7095672962707,
+        "y": 783.1674500073206
+      },
+      "style": {
+        "width": 97,
+        "height": 50
+      },
+      "data": {
+        "nodeType": "memory-slot",
+        "label": "Wire Link",
+        "description": "Store and reuse text through a linked pair",
+        "preview": "No stored text yet",
+        "memorySlotName": "02",
+        "memorySlotText": "",
+        "memorySlotMode": "input",
+        "fullText": "",
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 97,
+        "height": 50
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "memory-slot-a322e6fc-5b2f-43df-aad2-cafa5b540157",
+      "type": "workflow",
+      "position": {
+        "x": 1292.809787067744,
+        "y": 782.7820614044997
+      },
+      "style": {
+        "width": 97,
+        "height": 50
+      },
+      "data": {
+        "nodeType": "memory-slot",
+        "label": "Wire Link",
+        "description": "Store and reuse text through a linked pair",
+        "preview": "No stored text yet",
+        "memorySlotName": "02",
+        "memorySlotText": "",
+        "memorySlotMode": "output",
+        "fullText": "",
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 97,
+        "height": 50
+      },
+      "selected": false,
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "chat-history",
+      "sourceHandle": "original",
+      "target": "context-compression-default",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__chat-historyoriginal-context-compression-default",
+      "targetHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "context-compression-default",
+      "target": "text-combiner-1779617525442-2",
+      "targetHandle": "input-b",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__context-compression-default-text-combiner-1779617525442-2input-b",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "rp-storybook-1780769514774-25",
+      "sourceHandle": "formatted-text",
+      "target": "text-combiner-1779617525442-2",
+      "targetHandle": "input-a",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__rp-storybook-1780769514774-25formatted-text-text-combiner-1779617525442-2input-a",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "text-combiner-1779617525442-2",
+      "target": "combiner-copy-1780172796312-18",
+      "targetHandle": "input-a",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__text-combiner-1779617525442-2-combiner-copy-1780172796312-18input-a",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "user-input",
+      "target": "combiner-copy-1780172796312-18",
+      "targetHandle": "input-b",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__user-input-combiner-copy-1780172796312-18input-b",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "sourceHandle": "output-channel-0",
+      "target": "rp-output",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel-0-rp-output",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "settings-value-1779837628451-14",
+      "sourceHandle": "settings-value-1779837815858-30",
+      "target": "context-compression-default",
+      "targetHandle": "max-tokens",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__settings-value-1779837628451-14settings-value-1779837815858-30-context-compression-defaultmax-tokens",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "combiner-copy-1780172796312-18",
+      "target": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "targetHandle": "text",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__combiner-copy-1780172796312-18-llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20text",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "image",
+      "target": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "targetHandle": "image",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__user-inputimage-llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20image",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "turn-mode",
+      "target": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "targetHandle": "prompt-slot",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "animated": false,
+      "type": "workflow",
+      "id": "xy-edge__user-inputturn-mode-llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20prompt-slot"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "message-format",
+      "target": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "targetHandle": "output-channel",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__user-inputmessage-format-llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "memory-slot-a322e6fc-5b2f-43df-aad2-cafa5b540157",
+      "target": "rp-output",
+      "targetHandle": "direct-actions",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__memory-slot-68192f0a-02cf-4da7-b937-287c4307486e-rp-outputdirect-actions",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "direct-actions",
+      "target": "memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__user-inputdirect-actions-memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20",
+      "sourceHandle": "output-channel-1",
+      "target": "rp-output",
+      "targetHandle": "autoplay",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20output-channel-1-rp-outputautoplay",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    }
+  ]
+}

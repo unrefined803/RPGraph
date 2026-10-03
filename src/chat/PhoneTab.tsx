@@ -1,5 +1,10 @@
+import type { ReactNode } from 'react';
+
 type PhoneTabProps = {
   active: boolean;
+  className?: string;
+  title?: string;
+  children?: ReactNode;
   notificationCount: number;
   viewedPhoneHasNotifications: boolean;
   settingsLoadComplete: boolean;
@@ -13,6 +18,9 @@ const phoneNotificationSwitchHintId = 'phone-notification-switch-hint';
 
 export function PhoneTab({
   active,
+  className,
+  title,
+  children = 'Phone',
   notificationCount,
   viewedPhoneHasNotifications,
   settingsLoadComplete,
@@ -37,15 +45,17 @@ export function PhoneTab({
 
   return (
     <button
-      className={active ? 'active' : ''}
+      className={[className, active ? 'active' : ''].filter(Boolean).join(' ')}
       type="button"
       role="tab"
       aria-selected={active}
+      aria-label="Phone"
+      title={title}
       aria-describedby={showSwitchHint ? phoneNotificationSwitchHintId : undefined}
       onClick={onSelect}
       onDoubleClick={handleDoubleClick}
     >
-      Phone
+      {children}
       {notificationCount > 0 && (
         <span className={`tab-badge${viewedPhoneHasNotifications ? '' : ' muted'}`}>
           {notificationCount}

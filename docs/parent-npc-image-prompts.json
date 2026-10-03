@@ -1,0 +1,36 @@
+{
+  "tool": "Built-in image_gen",
+  "aspectRatio": "3:4 portrait",
+  "usage": "One gallery portrait per parent, with a separate circular avatar crop. No initial posts or MatchMe profiles.",
+  "images": [
+    {
+      "slug": "helen-sterling",
+      "prompt": "Use case: photorealistic-natural. Create a VERTICAL 3:4 portrait photograph, 960 pixels wide by 1280 pixels tall. Fictional character Helen Sterling, 52-year-old white woman, shoulder-length auburn hair with visible silver strands, hazel eyes, freckles, realistic crow's feet and smile lines, rounded face, amused slightly knowing smile. Community theatre costume supervisor, plain teal knit top and simple earrings. Softly blurred sewing room background, window daylight, candid everyday photo, realistic mature skin, no beauty retouching. Frame head and upper torso, entire hair and chin visible, face centered in upper half with space around head for later circular avatar crop. This image must be taller than it is wide and usable as a social media photo. One person only. No text, logos, watermark or borders.",
+      "container": "resources/npc-characters/helen-sterling.json",
+      "imageId": "helen_sterling:image:portrait",
+      "workspaceImage": "user_data/npc-authoring/new-characters/helen-sterling/images/P-portrait.png"
+    },
+    {
+      "slug": "daniel-park",
+      "prompt": "Use case: photorealistic-natural. Create a VERTICAL 3:4 portrait photograph, 960 pixels wide by 1280 pixels tall. Fictional character Daniel Park, 56-year-old Korean man, short salt-and-pepper hair, brown eyes, rectangular thin metal glasses with no glare, broad face, natural forehead wrinkles, gentle reserved smile. City bus dispatcher wearing a plain navy polo shirt. Softly blurred leafy backyard, overcast natural daylight, honest everyday portrait, visible pores and realistic mature skin, no glamour retouching. Frame head and upper torso, looking into camera, entire hair and chin visible, face centered in upper half with generous space around head for later circular avatar crop. Image taller than wide, suitable for social media. One person only, no text, logos, watermark or borders.",
+      "container": "resources/npc-characters/daniel-park.json",
+      "imageId": "daniel_park:image:portrait",
+      "workspaceImage": "user_data/npc-authoring/new-characters/daniel-park/images/P-portrait.png"
+    },
+    {
+      "slug": "marisol-reyes",
+      "prompt": "Use case: photorealistic-natural. Create a VERTICAL 3:4 portrait photograph, 960 pixels wide by 1280 pixels tall. Fictional character Marisol Reyes, 49-year-old Latina woman with warm medium-brown skin, dark brown eyes, shoulder-length wavy dark hair with subtle gray strands, strong eyebrows, visible smile lines, confident relaxed smile. Housing association maintenance coordinator wearing a terracotta linen blouse and small silver hoop earrings. Softly blurred neighborhood courtyard, warm late afternoon natural light, candid authentic photograph, realistic mature skin, no beauty retouching. Frame head and upper torso, looking into camera, entire hair and chin visible, face centered in upper half with space around head for later circular avatar crop. Image taller than wide, suitable for social media. One person only, no text, logos, watermark or borders.",
+      "container": "resources/npc-characters/marisol-reyes.json",
+      "imageId": "marisol_reyes:image:portrait",
+      "workspaceImage": "user_data/npc-authoring/new-characters/marisol-reyes/images/P-portrait.png"
+    },
+    {
+      "slug": "graham-harlow",
+      "prompt": "Use case: photorealistic-natural. Create a VERTICAL 3:4 portrait photograph, 960 pixels wide by 1280 pixels tall. Fictional character Graham Harlow, 60-year-old white man, receding short silver hair, neatly trimmed gray beard, blue-gray eyes, lined weathered face, broad nose, sturdy average build, small dry smile. Semi-retired electrician and birdwatcher wearing an olive overshirt over a plain charcoal tee. Softly blurred allotment shed background, soft morning daylight, everyday candid photograph, realistic mature skin, no glamour retouching. Frame head and upper torso, looking into camera, entire hair and chin visible, face centered in upper half with space around head for later circular avatar crop. Image taller than wide, suitable for social media. One person only, no text, logos, watermark or borders.",
+      "container": "resources/npc-characters/graham-harlow.json",
+      "imageId": "graham_harlow:image:portrait",
+      "workspaceImage": "user_data/npc-authoring/new-characters/graham-harlow/images/P-portrait.png"
+    }
+  ],
+  "status": "Unpacked authoring drafts; container paths are intended destinations, not published files."
+}

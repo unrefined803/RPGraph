@@ -2,9 +2,13 @@ import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { datingAccountId, resolveDatingAccount, datingFirstName, datingAvatarDataUrl } from '../../chat/datingAccounts';
+import { datingDiscoveryOrder } from '../../chat/datingDiscovery';
 import { matchMeDecision, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
 import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
+import { PhoneAppListResizer } from '../PhoneAppListResizer';
+import { appDialogCoversPhone } from '../phoneEscape';
+import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 import { useEffect, useRef, useState } from 'react';
 import type { ChatImageAttachment } from '../../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
@@ -37,6 +41,7 @@ type Props = {
 };
 
 export function PhoneDatingScreen({ characterColors, profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onDecision, onBack, emojiOptions, recentlyUsedEmojis, rpTimeTrackingEnabled = false, rpDateTimeFormat = 'eu', rpWeekdayLanguage = 'system' }: Props) {
+  const listStyle = usePhoneAppListScaleStyle('matchme');
   const profileColor = (characterId: string | undefined) =>
     characterColors?.get(characters.find((character) => character.id === characterId)?.name ?? '');
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
@@ -112,7 +117,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   }, [tab, editing, selectedMatchId, previewCandidateId]);
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (event.key !== 'Escape' || event.defaultPrevented || appDialogCoversPhone()) return;
 
       if (celebration) {
         event.preventDefault();
@@ -215,7 +220,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const decisionFor = (id: string) => matchMeDecision({ ...profile?.decisions, ...state.accounts.find((account) => account.id === ownerId)?.decisions }, id, state);
   const likedProfiles = availableProfiles.filter((entry) => ['like', 'superlike'].includes(decisionFor(entry.id) ?? ''));
   const linkedCandidate = availableProfiles.find((entry) => entry.id === selectedMatchId && !decisionFor(entry.id) && !canSendMatchMeMessage(ownerId, entry.id, state));
-  const candidate = linkedCandidate ?? availableProfiles.find((entry) =>
+  const candidate = linkedCandidate ?? datingDiscoveryOrder(availableProfiles, ownerId).find((entry) =>
     (!profile?.seeking?.length || !!entry.gender && profile.seeking.includes(entry.gender)) &&
     !decisionFor(entry.id) && !canSendMatchMeMessage(ownerId, entry.id, state));
   const candidatePhotoCount = candidate?.photos?.length ?? 0;
@@ -295,8 +300,9 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
         <span>MatchMe</span>
       </strong>
     </header>
-    <div className="pt-layout">
+    <div className="pt-layout" style={listStyle}>
       {profile && !profileOnly && <aside className="pt-matches" aria-label="Matches">
+        <PhoneAppListResizer app="matchme" />
         <h2>Matches <span>{matches.length}</span></h2>
         <p className="pt-subtle">Your connections</p>
         <div className="pt-match-list">

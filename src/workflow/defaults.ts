@@ -117,6 +117,7 @@ export function createInitialNodes(): WorkflowNode[] {
         streamOutputEnabled: false,
         speakerAnalysisEnabled: false,
         dialogueHighlightEnabled: false,
+        outputPhoneEnabled: true,
         outputSpeakerResponseFormat: defaultOutputSpeakerResponseFormat,
         outputSpeakerPrompt: defaultOutputSpeakerPromptSettings(),
       },

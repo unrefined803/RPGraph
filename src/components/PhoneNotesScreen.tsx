@@ -1,4 +1,5 @@
 import { CharacterName } from './CharacterName';
+import { appDialogCoversPhone } from './phoneEscape';
 import { useEffect, useState } from 'react';
 import type { RpDateTimeFormat, RpWeekdayLanguage } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -129,7 +130,7 @@ export function PhoneNotesScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
+      if (event.key !== 'Escape' || appDialogCoversPhone()) {
         return;
       }
       if (!draftNote) {

@@ -146,7 +146,29 @@ export function useRoleplayPanelRuntime({
   const [panelSessionRevision, setPanelSessionRevision] = useState(0);
   const [smoothChatAutoScrollActive, setSmoothChatAutoScrollActive] = useState(false);
   const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
-  const [chatPanelView, setChatPanelView] = usePanelNavigationState<ChatPanelView>('panel.chatPanelView', 'chat');
+  const [storedChatPanelView, setChatPanelView] = usePanelNavigationState<ChatPanelView>('panel.chatPanelView', 'chat');
+  // The graph decides which tabs exist: RP Output enables the phone (on unless
+  // unchecked), and the Events tab needs an Event Manager node. Without an RP
+  // Output node, as in an empty workspace, there is no phone.
+  const phoneAvailable = useMemo(
+    () => {
+      const outputNodes = nodeViewNodes.filter((node) =>
+        node.data.kind === undefined && node.data.nodeType === 'output');
+      return outputNodes.length > 0 &&
+        outputNodes.every((node) => node.data.outputPhoneEnabled !== false);
+    },
+    [nodeViewNodes],
+  );
+  const eventManagerNode = useMemo(
+    () => nodeViewNodes.find((node) => node.data.kind === undefined && node.data.nodeType === 'event-manager'),
+    [nodeViewNodes],
+  );
+  const eventManagerAvailable = !!eventManagerNode;
+  const chatPanelView: ChatPanelView =
+    (storedChatPanelView === 'phone' && !phoneAvailable) ||
+    (storedChatPanelView === 'events' && !eventManagerAvailable)
+      ? 'chat'
+      : storedChatPanelView;
   const [selectedCharacterId, setSelectedCharacterId] = usePanelNavigationState('panel.selectedCharacterId', '');
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = usePanelNavigationState('panel.viewedPhoneCharacterId', '');
   const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = usePanelNavigationState('panel.selectedPhoneCharacterId', '');
@@ -166,6 +188,8 @@ export function useRoleplayPanelRuntime({
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = usePanelNavigationState('panel.phoneHomeRequestId', 0, false);
+  // Mirrors the screen shown inside PhonePanel so turn actions can follow it.
+  const [phoneScreen, setPhoneScreen] = useState('desktop');
   const accountLinkRequestId = useRef(0);
   const [accountLinkOpenRequest, setAccountLinkOpenRequest] = usePanelNavigationState<AccountLinkOpenRequest>('panel.accountLinkOpenRequest');
   const [socialPostOpenRequest, setSocialPostOpenRequest] = usePanelNavigationState<{
@@ -645,8 +669,7 @@ export function useRoleplayPanelRuntime({
     .map((id) => playerCharacters.find((character) => character.id === id))
     .filter((character): character is StorybookCharacter => !!character);
   const chatSwitchTarget =
-    recentChatCharacters.find((character) => character.id !== selectedCharacter?.id) ??
-    recentChatCharacters[0];
+    recentChatCharacters.find((character) => character.id !== selectedCharacter?.id);
   const phoneSwitchTargetPlayable = !!selectedPhoneContact && playerCharacters.some(
     (character) => character.id === selectedPhoneContact.character.id,
   );
@@ -706,11 +729,6 @@ export function useRoleplayPanelRuntime({
     selectedPhoneConversationLatestId,
   ]);
 
-  const eventManagerNode = useMemo(
-    () => nodeViewNodes.find((node) => node.data.kind === undefined && node.data.nodeType === 'event-manager'),
-    [nodeViewNodes],
-  );
-  const eventManagerAvailable = !!eventManagerNode;
   const eventEntities = useMemo(
     () => eventEntitiesFromNodes(nodeViewNodes),
     [nodeViewNodes],
@@ -838,6 +856,9 @@ export function useRoleplayPanelRuntime({
     conversation.viewerName;
 
   function openUnreadPhoneConversation(conversation: typeof unreadPhoneConversations[number]) {
+    if (!phoneAvailable) {
+      return;
+    }
     const { viewer, contact } = phoneSwitchCharacters(
       phoneCharacters,
       conversation,
@@ -855,6 +876,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function openEmbeddedPhoneMessage(message: EmbeddedPhoneMessageLink) {
+    if (!phoneAvailable) {
+      return;
+    }
     const { viewer, contact } = embeddedPhoneMessageCharacters(phoneCharacters, message);
     if (!viewer || !contact) {
       notifySystem('warning', 'Could not find both phone characters.');
@@ -876,7 +900,7 @@ export function useRoleplayPanelRuntime({
 
   function openAccountLink(link: AccountLinkTarget) {
     const owner = (chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter) ?? viewedPhoneCharacter;
-    if (!owner || isRunning) return;
+    if (!owner || isRunning || !phoneAvailable) return;
     const target = resolveAccountLink(link.app, link.app === 'banking' ? link.characterId : link.accountId, appCharacters);
     if (!target || target.characterId !== link.characterId) {
       notifySystem('warning', 'This shared account is unavailable.');
@@ -906,6 +930,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function openEmbeddedSocialMessage(message: EmbeddedSocialMessageLink) {
+    if (!phoneAvailable) {
+      return;
+    }
     const directMessage = messages.find((entry) => entry.id === message.socialMessageId)
       ?.socialDirectMessage;
     if (!directMessage) {
@@ -988,6 +1015,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function openSocialPost(post: SocialPostRecord) {
+    if (!phoneAvailable) {
+      return;
+    }
     if (post.app === 'onlyfriends') {
       const author = socialCharacterForPost(post, storyCharacters);
       if (!author) {
@@ -1093,6 +1123,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function selectChatPanelView(view: ChatPanelView) {
+    if ((view === 'phone' && !phoneAvailable) || (view === 'events' && !eventManagerAvailable)) {
+      return;
+    }
     setAccountLinkOpenRequest(undefined);
     if (view === 'chat') {
       setLastSeenMessageRecordId(latestMessageRecordId);
@@ -1109,6 +1142,9 @@ export function useRoleplayPanelRuntime({
   }
 
   function selectPhonePanelView() {
+    if (!phoneAvailable) {
+      return;
+    }
     setHighlightedPhoneMessage(undefined);
     setSocialPostOpenRequest(undefined);
     setSocialDirectMessageOpenRequest(undefined);
@@ -1156,16 +1192,28 @@ export function useRoleplayPanelRuntime({
   }
 
   const autoTurnTargetName = selectedCharacter?.name;
+  // A phone AutoTurn writes into the open conversation, so the remembered
+  // contact only counts while that conversation is actually on screen. On the
+  // phone desktop the same button starts a Phone Initiative turn instead.
+  const phoneConversationOpen = phoneScreen === 'whatsup' && !!selectedPhoneContact;
+  const phoneInitiativeAutoTurn = chatPanelView === 'phone' && phoneScreen === 'desktop';
+  const autoTurnLabel =
+    chatPanelView === 'events' ? 'Run Event' : phoneInitiativeAutoTurn ? 'AutoPhone' : 'AutoTurn';
   const autoTurnDisabled =
     isRunning ||
     characterStorybookNodeCount === 0 ||
     (chatPanelView === 'chat' && !selectedCharacter && !narratorSelected) ||
-    (chatPanelView === 'phone' && !narratorSelected && !selectedCharacter) ||
-    (chatPanelView === 'phone' && !selectedPhoneContact) ||
+    (phoneInitiativeAutoTurn && (narratorSelected || !selectedCharacter)) ||
+    (chatPanelView === 'phone' && !phoneInitiativeAutoTurn && !narratorSelected && !selectedCharacter) ||
+    (chatPanelView === 'phone' && !phoneInitiativeAutoTurn && !phoneConversationOpen) ||
     (chatPanelView === 'events' && (!eventManagerAvailable || !selectedEvent));
   const autoTurnTitle =
-    chatPanelView === 'phone'
-      ? !selectedPhoneContact
+    phoneInitiativeAutoTurn
+      ? narratorSelected || !autoTurnTargetName
+        ? 'Phone Initiative needs a player character'
+        : `Phone Initiative for ${autoTurnTargetName} (same as pressing Enter twice)`
+      : chatPanelView === 'phone'
+      ? !phoneConversationOpen
         ? 'Open a phone conversation first'
         : narratorSelected
         ? 'Continue the phone story with the most fitting sender and recipient'
@@ -1186,12 +1234,12 @@ export function useRoleplayPanelRuntime({
   const switchPlayerDisabled =
     isRunning ||
     (chatPanelView === 'chat' && !chatSwitchTarget) ||
-    (chatPanelView === 'phone' && (!viewedPhoneCharacter || !selectedPhoneContact || !phoneSwitchTargetPlayable)) ||
+    (chatPanelView === 'phone' && (!viewedPhoneCharacter || !phoneConversationOpen || !phoneSwitchTargetPlayable)) ||
     chatPanelView === 'events';
   const switchPlayerTitle =
     chatPanelView === 'phone'
-      ? !selectedPhoneContact
-        ? 'Select a phone contact first'
+      ? !phoneConversationOpen || !selectedPhoneContact
+        ? 'Open a phone conversation first'
         : !phoneSwitchTargetPlayable
           ? `${selectedPhoneContact.character.name} is not a playable Storybook character`
           : `Switch to ${selectedPhoneContact.character.name}'s phone`
@@ -1481,6 +1529,7 @@ export function useRoleplayPanelRuntime({
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    phoneAvailable,
     cyclePhoneNotificationOwner,
     selectedCharacterId,
     setSelectedCharacterId,
@@ -1563,6 +1612,10 @@ export function useRoleplayPanelRuntime({
     changeChatReadsPhoneAppsEnabled,
     autoTurnDisabled,
     autoTurnTitle,
+    autoTurnLabel,
+    phoneInitiativeAutoTurn,
+    phoneScreen,
+    setPhoneScreen,
     switchPlayerDisabled,
     switchPlayerTitle,
     highlightedPhoneMessage,

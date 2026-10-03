@@ -428,6 +428,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
       speakerAnalysisEnabled: data.speakerAnalysisEnabled ?? false,
       dialogueHighlightEnabled:
         (data.speakerAnalysisEnabled ?? false) && (data.dialogueHighlightEnabled ?? false),
+      outputPhoneEnabled: data.outputPhoneEnabled ?? true,
       outputSpeakerResponseFormat: outputSpeakerResponseFormat(data.outputSpeakerResponseFormat),
       outputSpeakerPrompt: outputSpeakerPromptSaveSettings(data.outputSpeakerPrompt),
     }),
@@ -437,6 +438,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
       speakerAnalysisEnabled: data.speakerAnalysisEnabled ?? false,
       dialogueHighlightEnabled:
         (data.speakerAnalysisEnabled ?? false) && (data.dialogueHighlightEnabled ?? false),
+      outputPhoneEnabled: data.outputPhoneEnabled ?? true,
       outputSpeakerResponseFormat: outputSpeakerResponseFormat(data.outputSpeakerResponseFormat),
       outputSpeakerPrompt: outputSpeakerPromptSettings(data.outputSpeakerPrompt),
     }),
