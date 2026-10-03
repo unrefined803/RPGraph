@@ -14676,7 +14676,7 @@ button.message-timeline-row.phone:focus-visible {
   margin-left: 0;
 }
 
-/* Deep dialogs (Start, Files) follow the Big Screen palette: deep navy surfaces,
+/* Deep dialogs (Start, Files, Save/Unlock, character save) follow the Big Screen palette: deep navy surfaces,
    hairline borders, flat controls and the blue active state of the Big Screen rail. */
 .dialog-backdrop:has(> .deep-dialog),
 .dialog-backdrop:has(> .npc-library-dialog) {
@@ -14689,7 +14689,8 @@ button.message-timeline-row.phone:focus-visible {
   height: min(1000px, calc(100vh - 40px));
 }
 
-.chat-files-dialog.deep-dialog {
+.chat-files-dialog.deep-dialog,
+.chat-password-dialog.deep-dialog {
   border-color: rgba(130, 160, 220, 0.12);
   background:
     radial-gradient(ellipse 80% 60% at 50% 0%, rgba(52, 82, 140, 0.16), transparent 75%),
@@ -14992,16 +14993,151 @@ button.message-timeline-row.phone:focus-visible {
   box-shadow: none;
 }
 
+.deep-dialog .chat-password-form {
+  padding: 20px 26px 6px;
+}
+
+.deep-dialog .chat-security-info {
+  border-color: rgba(148, 163, 184, 0.09);
+  color: #8d9bb5;
+  background: rgba(2, 3, 6, 0.28);
+}
+
+.deep-dialog .chat-security-info strong {
+  color: #dbe3f2;
+}
+
+.deep-dialog .chat-file-field,
+.deep-dialog .character-export-location > span {
+  color: #536079;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+
+.deep-dialog .chat-file-field input {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: var(--soft-white);
+  background: rgba(2, 3, 6, 0.3);
+  transition: border-color 0.18s ease;
+}
+
+.deep-dialog .chat-file-field input:focus {
+  border-color: rgba(122, 162, 232, 0.45);
+}
+
+.deep-dialog .file-protection-options label {
+  border-color: rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  background: rgba(148, 170, 214, 0.035);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.deep-dialog .file-protection-options label:hover {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(148, 170, 214, 0.07);
+}
+
+.deep-dialog .file-protection-options label:has(input:checked) {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: linear-gradient(180deg, rgba(52, 71, 106, 0.6), rgba(35, 49, 80, 0.6));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 18px rgba(92, 132, 214, 0.16);
+}
+
+.deep-dialog .file-protection-options strong {
+  color: #dbe3f2;
+}
+
+.deep-dialog .file-protection-options small,
+.deep-dialog .character-export-posts small {
+  color: #66738c;
+}
+
+.deep-dialog .file-protection-options label:has(input:checked) small {
+  color: #8d9bb5;
+}
+
+.deep-dialog input[type="radio"],
+.deep-dialog input[type="checkbox"] {
+  accent-color: #7aa2e8;
+}
+
+.deep-dialog .character-export-options {
+  border-color: rgba(148, 163, 184, 0.09);
+  background: rgba(2, 3, 6, 0.28);
+}
+
+.deep-dialog .dialog-action-checkbox {
+  color: #b7c4da;
+}
+
+.deep-dialog .node-custom-select-button,
+.deep-dialog .node-custom-select-button:disabled:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.deep-dialog .node-custom-select-button:hover:not(:disabled),
+.deep-dialog .node-custom-select-button[aria-expanded="true"]:not(:disabled) {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.12);
+}
+
 .deep-dialog .dialog-actions .node-custom-select-button {
   padding: 11px 14px;
   justify-content: flex-start;
   font-size: 13px;
 }
 
-.deep-dialog .dialog-actions .node-custom-select-button[aria-expanded="true"] {
+.storybook-confirm-dialog.deep-dialog {
+  border-color: rgba(130, 160, 220, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #111a2a, #0c1320);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 24px 70px rgba(0, 0, 0, 0.6);
+}
+
+.storybook-confirm-dialog.deep-dialog h3 {
+  color: var(--soft-white);
+}
+
+.storybook-confirm-dialog.deep-dialog p {
+  color: #8d9bb5;
+}
+
+.storybook-confirm-dialog.deep-dialog .inspect-button {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.storybook-confirm-dialog.deep-dialog .inspect-button:hover {
   border-color: rgba(122, 162, 232, 0.45);
   color: var(--soft-white);
   background: rgba(122, 162, 232, 0.12);
+}
+
+.storybook-confirm-dialog.deep-dialog .storybook-confirm-actions .inspect-button.danger {
+  border-color: rgba(232, 112, 112, 0.32);
+  color: #f0b4b4;
+  background: rgba(232, 112, 112, 0.1);
+}
+
+.storybook-confirm-dialog.deep-dialog .storybook-confirm-actions .inspect-button.danger:hover {
+  border-color: #e87070;
+  color: var(--soft-white);
+  background: rgba(232, 112, 112, 0.2);
+  box-shadow: 0 0 14px rgba(232, 112, 112, 0.2);
 }
 
 .storybook-creator-dialog.storybook-info-dialog {

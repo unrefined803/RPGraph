@@ -3666,7 +3666,7 @@ export function StudioDialogs({
               onClick={() => setDeleteFileCandidate(null)}
             >
               <section
-                className="storybook-confirm-dialog"
+                className="storybook-confirm-dialog deep-dialog"
                 role="alertdialog"
                 aria-modal="true"
                 aria-labelledby="file-delete-confirm-title"
@@ -3708,7 +3708,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'session-password' ? activeDialogRef : undefined}
-            className="chat-password-dialog"
+            className="chat-password-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'session-password'}
             aria-hidden={activeDialog !== 'session-password'}

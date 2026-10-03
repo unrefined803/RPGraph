@@ -471,7 +471,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         </div>
       </div>
       </div>
-      {showSave && <div className="storybook-confirm-backdrop"><section inert={!!confirm} className="chat-password-dialog" role="dialog" aria-modal="true" aria-labelledby="character-save-title">
+      {showSave && <div className="storybook-confirm-backdrop"><section inert={!!confirm} className="chat-password-dialog deep-dialog" role="dialog" aria-modal="true" aria-labelledby="character-save-title">
         <div className="dialog-header"><div><h2 id="character-save-title">Save Character File</h2><p>Choose where the complete character should be stored</p></div><button type="button" className="close-button" disabled={ioBusy} onClick={() => setShowSave(false)}>Close</button></div>
         <div className="chat-password-form">
           <label className="chat-file-field">CHARACTER NAME<input value={character.name} readOnly /></label>
