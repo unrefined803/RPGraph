@@ -140,6 +140,21 @@ export function PhoneChatGpdScreen({
     onBack();
   }
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) {
+        return;
+      }
+      if (modelMenuOpen) {
+        setModelMenuOpen(false);
+        return;
+      }
+      leaveChatGpd();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  });
+
   return (
     <div className="phone-chatgpd-screen" aria-label="ChatGPD">
       <header className="phone-gallery-header">

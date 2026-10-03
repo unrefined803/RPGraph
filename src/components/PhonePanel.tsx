@@ -575,6 +575,23 @@ export function PhonePanel({
     lastInitiativeEnter.current = null;
     if (screen === 'desktop') desktopRef.current?.focus();
   }, [screen, selectedCharacter?.id, isRunning]);
+  useEffect(() => {
+    if (screen !== 'whatsup') {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) {
+        return;
+      }
+      if (showPhoneEmojiPicker) {
+        onTogglePhoneEmojiPicker();
+        return;
+      }
+      setScreen('desktop');
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  });
   const desktopInteractionRef = useRef<{
     kind: 'clock' | 'app' | 'resize';
     appId?: PhoneDesktopAppId;
@@ -1446,7 +1463,9 @@ export function PhonePanel({
             aria-label="Back to phone desktop"
             title="Phone desktop"
           >
-            ←
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
           </button>
           <strong>{phoneOwnerName ? <><CharacterName color={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{phoneOwnerName}</CharacterName>'s Chats</> : 'Phone Chats'}</strong>
           <span className="phone-contact-count">{phoneContacts.length}</span>

@@ -6132,13 +6132,15 @@ input[type="number"]::-webkit-outer-spin-button {
   display: block;
   width: 250px;
   padding: 10px 12px;
-  border: 1px solid #8ba4c6;
+  border: 1px solid #4a6496;
   border-radius: 9px;
-  color: #18253a;
-  background: #edf4ff;
-  box-shadow: 0 8px 24px rgba(5, 12, 25, 0.34);
+  color: #dbe6fa;
+  background: #1c2a45;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.5);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.45;
   text-align: left;
   white-space: normal;
@@ -6166,7 +6168,7 @@ input[type="number"]::-webkit-outer-spin-button {
   top: 50%;
   left: 100%;
   border: 7px solid transparent;
-  border-left-color: #edf4ff;
+  border-left-color: #4a6496;
   content: '';
   transform: translateY(-50%);
 }
@@ -6187,7 +6189,7 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 0;
   height: 0;
   border: 7px solid transparent;
-  border-bottom-color: #edf4ff;
+  border-bottom-color: #4a6496;
   content: '';
   transform: translateX(-50%);
 }
@@ -6948,17 +6950,23 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-home-button {
   display: grid;
-  width: 25px;
-  height: 25px;
+  width: 32px;
+  height: 32px;
+  flex: none;
   place-items: center;
+  margin-left: -6px;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
   color: #cbd5e1;
-  background: transparent;
-  font-size: 17px;
-  line-height: 1;
+  background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.phone-home-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 .phone-home-button:hover,
@@ -12255,6 +12263,8 @@ button.message-timeline-row.phone:focus-visible {
   --chat-social-accent-soft: rgba(37, 211, 102, 0.24);
   display: flex;
   width: 100%;
+  max-width: var(--chat-embedded-card-max-width, 540px);
+  margin-inline: auto;
   flex-direction: column;
   gap: 24px;
   padding: 14px 18px 18px;
@@ -12301,6 +12311,8 @@ button.message-timeline-row.phone:focus-visible {
   --chat-social-outgoing: linear-gradient(135deg, rgba(168, 85, 247, 0.36), rgba(99, 102, 241, 0.25));
   display: flex;
   width: 100%;
+  max-width: var(--chat-embedded-card-max-width, 540px);
+  margin-inline: auto;
   flex-direction: column;
   gap: 12px;
   padding: 12px 14px 14px;
@@ -28386,7 +28398,9 @@ button.message-timeline-row.phone:focus-visible {
   z-index: 13;
   inset: 0;
   pointer-events: none;
+  /* The noise layer dithers the dark gradients, which otherwise show banding. */
   background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
     radial-gradient(ellipse 62% 110% at 50% 45%, rgba(52, 82, 140, 0.26), rgba(52, 82, 140, 0.1) 55%, transparent 85%),
     linear-gradient(
       90deg,
@@ -28415,7 +28429,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .studio.big-screen-active .chat-drawer .panel-resizer {
   border: 0;
-  background: #131b28;
+  background: #0b111c;
 }
 
 .studio.big-screen-active .chat-drawer .panel-resizer::after {
@@ -28439,16 +28453,21 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .big-screen-toggle {
-  display: inline-grid;
-  width: 28px;
+  display: inline-flex;
   height: 28px;
   flex: none;
-  place-items: center;
-  padding: 0;
+  align-items: center;
+  gap: 6px;
+  /* Centered in the free space between the turn counter and the header edge. */
+  margin-inline: auto;
+  padding: 0 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   color: #b7c4da;
   background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.18s ease;
 }
@@ -28657,7 +28676,7 @@ button.message-timeline-row.phone:focus-visible {
   position: absolute;
   z-index: 15;
   top: 50%;
-  left: calc(50% + var(--big-screen-panel-width) / 2 + var(--big-screen-edge-width) + 30px);
+  left: calc(50% + var(--big-screen-rail-offset) + 30px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -28693,11 +28712,6 @@ button.message-timeline-row.phone:focus-visible {
   background: transparent;
   cursor: pointer;
   transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.big-screen-rail > .big-screen-rail-button {
-  border-color: rgba(148, 163, 184, 0.1);
-  background: rgba(13, 19, 31, 0.72);
 }
 
 .big-screen-rail-button:hover:not(:disabled) {
@@ -28744,22 +28758,30 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .big-screen-rail-button .phone-notification-switch-hint {
-  top: 50%;
-  right: calc(100% + 16px);
-  left: auto;
-  transform: translateY(-50%);
+  width: 220px;
+  transform: translateX(-50%);
   animation-name: big-screen-rail-hint-in;
+}
+
+/* Keep the hint above the following rail group. */
+.big-screen-rail-group:has(.phone-notification-switch-hint) {
+  position: relative;
+  z-index: 1;
+}
+
+.big-screen-rail-button .phone-notification-switch-hint::before {
+  left: 50%;
 }
 
 @keyframes big-screen-rail-hint-in {
   from {
     opacity: 0;
-    transform: translate(4px, -50%);
+    transform: translate(-50%, -4px);
   }
 
   to {
     opacity: 1;
-    transform: translate(0, -50%);
+    transform: translate(-50%, 0);
   }
 }
 

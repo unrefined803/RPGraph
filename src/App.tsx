@@ -530,6 +530,7 @@ const minBigScreenPhoneWidth = 420;
 const maxBigScreenPanelWidthRatio = 0.6;
 // The Phone view is framed as a tablet; the side bezels double as resize handles.
 const bigScreenTabletBezelWidth = 18;
+const bigScreenChatEdgeWidth = 7;
 
 // In the side drawer the tablet sits inside the chat column and never exceeds it.
 const minChatPhoneWidth = 320;
@@ -1199,7 +1200,12 @@ function App() {
     setPhoneAppListScales,
   ]);
   const bigScreenColumnWidth = bigScreenTablet ? bigScreenPhoneWidth : bigScreenWidth;
-  const bigScreenEdgeWidth = bigScreenTablet ? bigScreenTabletBezelWidth : 7;
+  const bigScreenEdgeWidth = bigScreenTablet ? bigScreenTabletBezelWidth : bigScreenChatEdgeWidth;
+  // The rail stays beside the wider of the two views so switching views does not move it.
+  const bigScreenRailOffset = Math.max(
+    bigScreenWidth / 2 + bigScreenChatEdgeWidth,
+    bigScreenPhoneWidth / 2 + bigScreenTabletBezelWidth,
+  );
   const usedStorybookImageIds = useMemo(
     () => storybookImageIdsUsedByMessages(messages),
     [messages],
@@ -5526,6 +5532,7 @@ function App() {
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
         '--big-screen-panel-width': `${bigScreenColumnWidth}px`,
         '--big-screen-edge-width': `${bigScreenEdgeWidth}px`,
+        '--big-screen-rail-offset': `${bigScreenRailOffset}px`,
       } as React.CSSProperties}
     >
       {showRunLlmReport && runLlmReport && (
@@ -6004,16 +6011,17 @@ function App() {
                 <span className="turn-counter">
                   Turn {currentSessionTurn?.number ?? 0}
                 </span>
-                <button
-                  className="big-screen-toggle"
-                  type="button"
-                  onClick={() => setBigScreenMode(true)}
-                  title="Big Screen: center the chat and hide the graph"
-                  aria-label="Enter Big Screen mode"
-                >
-                  <EnterBigScreenIcon />
-                </button>
               </div>
+              <button
+                className="big-screen-toggle"
+                type="button"
+                onClick={() => setBigScreenMode(true)}
+                title="Big Screen: center the chat and hide the graph"
+                aria-label="Enter Big Screen mode"
+              >
+                <EnterBigScreenIcon />
+                Big Screen
+              </button>
             </div>
           </div>
           )}
@@ -6573,15 +6581,6 @@ function App() {
                 {currentSessionTurn?.number ?? 0}
               </span>
             </div>
-            <button
-              className="big-screen-rail-button"
-              type="button"
-              onClick={() => setBigScreenMode(false)}
-              title="Exit Big Screen"
-              aria-label="Exit Big Screen mode"
-            >
-              <ExitBigScreenIcon />
-            </button>
           </nav>
         )}
       </main>
