@@ -2,9 +2,12 @@
 
 ## Current working state
 
-All 50 NPCs are packed and installed in `resources/npc-characters` after the
-consistency review (see "Third batch" below). The unpacked workspace remains the
+All 55 NPCs are packed in `resources/npc-characters`, including the five
+crime-story characters (see "Fourth batch" below). The unpacked workspace remains the
 editing source; repack with the inspect/edit procedure described there.
+
+The current review inventory is 55 characters: 42 existing specifications and
+13 new-character specifications. The bundled library contains the same 55 characters.
 
 The local workspace is `user_data/npc-authoring/` in this checkout. It is ignored
 by Git, persists across a chat reset on this machine, and is not included in a
@@ -14,8 +17,8 @@ clone or commit. Preserve it when cleaning local files.
   extracted images. The six revised NPC specifications contain the latest edits.
 - `existing/.originals/` and `existing/manifest.json`: original container backups
   and the unpack tool's manifest. Keep these intact.
-- `new-characters/`: eight new plain creation specifications, each named
-  `character.json`, with one local `images/P-portrait.png`. These are not edit
+- `new-characters/`: thirteen plain creation specifications, each named
+  `character.json`, with one local portrait image. These are not edit
   specifications and are not entries in the existing-character pack manifest.
 - `image-prompts.json`: the final prompts used with the built-in image generator;
   the tracked copy is [parent-npc-image-prompts.json](parent-npc-image-prompts.json).
@@ -163,3 +166,54 @@ obsolete per-account `agencyTags`/`accountRole` were dropped by serialization.
 The eight new NPCs were created with `character:create` using their manual
 crops. Storybook characters were not modified; `marc_vance` still points to the
 Storybook-only `sarah_carter`.
+
+## Fourth batch: American crime-story cast
+
+Five additional plain creation specifications live in
+`user_data/npc-authoring/new-characters/<slug>/character.json`. They were packed
+with `character:create` into `resources/npc-characters/<slug>.json`, including
+embedded portraits and the existing manual face crops. Count only the direct
+character folders, never backups. Previously existing specifications and bundled
+containers were verified unchanged.
+
+| Character | Age | Slug | Story role | Agency tags |
+| --- | --- | --- | --- | --- |
+| Russell Mercer | 51 | `russell-mercer` | Older producer; repair-shop owner and Caleb's mentor | `slow_to_trust`, `contrarian_debater` |
+| Caleb Bennett | 27 | `caleb-bennett` | Younger production partner; Frank's nephew | `slow_to_trust`, `loyal_friend` |
+| Mason Rourke | 34 | `mason-rourke` | Street seller; Caleb's former warehouse colleague | `status_flexer`, `move_to_private` |
+| Tessa Vaughn | 30 | `tessa-vaughn` | Street seller; Caleb's former evening-class friend | `boundary_setter`, `move_to_private` |
+| Frank Bennett | 55 | `frank-bennett` | Police detective investigating the unidentified local operation | `good_listener`, `boundary_setter` |
+
+Caleb introduced both sellers to Russell and to each other. The four criminals
+know their respective roles; six reciprocal pairs reflect their existing WhatsUp
+conversations. Mason and Tessa are associates, not a couple. Frank is Caleb's
+paternal uncle and has met Russell once as Caleb's employer. Those ties are
+narrative-only: Frank has no seeded app contacts or follows. He starts without
+suspecting either man and does not know the sellers' identities. The others know
+his profession but not the subject of his current investigation. Knowledge must
+develop through RP events. No new agency tags or engine behavior were needed.
+
+The final account selection is WhatsUp, private pseudonymous Fotogram and a separate
+private pseudonymous OnlyFriends browsing account for all five. Fotogram handles
+are `copper.echo` (Russell), `lowbeam.hours` (Caleb), `afterhours.rail` (Mason),
+`midnight.cinder` (Tessa) and `extra.innings` (Frank). Each differs from its owner's
+OnlyFriends handle. Privacy mode hides the real name and profile photo in public
+identity and social DM display; it does not hide the message or its account name,
+restrict posts, or erase identity already learned in play. All starting publications
+are empty. Only Mason has MatchMe, using his original black-denim-jacket portrait
+as both the character portrait and dating photo. The other four have no MatchMe
+account. No private-account relationships are seeded.
+
+Each gallery contains exactly one original 1086 x 1448 (3:4) portrait with a manual
+face crop. Mason's file is `images/M-P-portrait.png`; the other four use
+`images/P-portrait.png`. Additional dating, party and restyled images are not
+referenced or included. The five selected built-in image-generation prompts and
+saved image paths are recorded in
+`user_data/npc-authoring/crime-cast-image-prompts.json`.
+
+Validation covered in-memory creator conversion and V2 container validation,
+unique IDs and names across all 55 cards, image dimensions and crop bounds,
+reciprocal relationship targets, enabled accounts, empty publications and Mason's
+shared portrait/dating reference. No application, browser or UI tests were run.
+The five written containers were also validated after packing and checked against
+their source specifications for characterization, accounts and relationships.
