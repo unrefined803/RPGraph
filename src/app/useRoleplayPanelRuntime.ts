@@ -188,6 +188,8 @@ export function useRoleplayPanelRuntime({
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = usePanelNavigationState('panel.phoneHomeRequestId', 0, false);
+  // Mirrors the screen shown inside PhonePanel so turn actions can follow it.
+  const [phoneScreen, setPhoneScreen] = useState('desktop');
   const accountLinkRequestId = useRef(0);
   const [accountLinkOpenRequest, setAccountLinkOpenRequest] = usePanelNavigationState<AccountLinkOpenRequest>('panel.accountLinkOpenRequest');
   const [socialPostOpenRequest, setSocialPostOpenRequest] = usePanelNavigationState<{
@@ -667,8 +669,7 @@ export function useRoleplayPanelRuntime({
     .map((id) => playerCharacters.find((character) => character.id === id))
     .filter((character): character is StorybookCharacter => !!character);
   const chatSwitchTarget =
-    recentChatCharacters.find((character) => character.id !== selectedCharacter?.id) ??
-    recentChatCharacters[0];
+    recentChatCharacters.find((character) => character.id !== selectedCharacter?.id);
   const phoneSwitchTargetPlayable = !!selectedPhoneContact && playerCharacters.some(
     (character) => character.id === selectedPhoneContact.character.id,
   );
@@ -1191,16 +1192,28 @@ export function useRoleplayPanelRuntime({
   }
 
   const autoTurnTargetName = selectedCharacter?.name;
+  // A phone AutoTurn writes into the open conversation, so the remembered
+  // contact only counts while that conversation is actually on screen. On the
+  // phone desktop the same button starts a Phone Initiative turn instead.
+  const phoneConversationOpen = phoneScreen === 'whatsup' && !!selectedPhoneContact;
+  const phoneInitiativeAutoTurn = chatPanelView === 'phone' && phoneScreen === 'desktop';
+  const autoTurnLabel =
+    chatPanelView === 'events' ? 'Run Event' : phoneInitiativeAutoTurn ? 'AutoPhone' : 'AutoTurn';
   const autoTurnDisabled =
     isRunning ||
     characterStorybookNodeCount === 0 ||
     (chatPanelView === 'chat' && !selectedCharacter && !narratorSelected) ||
-    (chatPanelView === 'phone' && !narratorSelected && !selectedCharacter) ||
-    (chatPanelView === 'phone' && !selectedPhoneContact) ||
+    (phoneInitiativeAutoTurn && (narratorSelected || !selectedCharacter)) ||
+    (chatPanelView === 'phone' && !phoneInitiativeAutoTurn && !narratorSelected && !selectedCharacter) ||
+    (chatPanelView === 'phone' && !phoneInitiativeAutoTurn && !phoneConversationOpen) ||
     (chatPanelView === 'events' && (!eventManagerAvailable || !selectedEvent));
   const autoTurnTitle =
-    chatPanelView === 'phone'
-      ? !selectedPhoneContact
+    phoneInitiativeAutoTurn
+      ? narratorSelected || !autoTurnTargetName
+        ? 'Phone Initiative needs a player character'
+        : `Phone Initiative for ${autoTurnTargetName} (same as pressing Enter twice)`
+      : chatPanelView === 'phone'
+      ? !phoneConversationOpen
         ? 'Open a phone conversation first'
         : narratorSelected
         ? 'Continue the phone story with the most fitting sender and recipient'
@@ -1221,12 +1234,12 @@ export function useRoleplayPanelRuntime({
   const switchPlayerDisabled =
     isRunning ||
     (chatPanelView === 'chat' && !chatSwitchTarget) ||
-    (chatPanelView === 'phone' && (!viewedPhoneCharacter || !selectedPhoneContact || !phoneSwitchTargetPlayable)) ||
+    (chatPanelView === 'phone' && (!viewedPhoneCharacter || !phoneConversationOpen || !phoneSwitchTargetPlayable)) ||
     chatPanelView === 'events';
   const switchPlayerTitle =
     chatPanelView === 'phone'
-      ? !selectedPhoneContact
-        ? 'Select a phone contact first'
+      ? !phoneConversationOpen || !selectedPhoneContact
+        ? 'Open a phone conversation first'
         : !phoneSwitchTargetPlayable
           ? `${selectedPhoneContact.character.name} is not a playable Storybook character`
           : `Switch to ${selectedPhoneContact.character.name}'s phone`
@@ -1599,6 +1612,10 @@ export function useRoleplayPanelRuntime({
     changeChatReadsPhoneAppsEnabled,
     autoTurnDisabled,
     autoTurnTitle,
+    autoTurnLabel,
+    phoneInitiativeAutoTurn,
+    phoneScreen,
+    setPhoneScreen,
     switchPlayerDisabled,
     switchPlayerTitle,
     highlightedPhoneMessage,

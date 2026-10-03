@@ -1129,6 +1129,10 @@ function App() {
     changeChatReadsPhoneAppsEnabled,
     autoTurnDisabled,
     autoTurnTitle,
+    autoTurnLabel,
+    phoneInitiativeAutoTurn,
+    phoneScreen,
+    setPhoneScreen,
     switchPlayerDisabled,
     switchPlayerTitle,
     highlightedPhoneMessage,
@@ -3999,6 +4003,13 @@ function App() {
     };
   }
 
+  // A run keeps the appendPhoneMessage closure from its start, so the view the
+  // player is on when a reply arrives has to be read through a ref.
+  const phoneViewRef = useRef({ chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey });
+  useLayoutEffect(() => {
+    phoneViewRef.current = { chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey };
+  });
+
   function appendPhoneMessage(
     message: ParsedPhoneMessage,
     sound?: PhoneMessageSound,
@@ -4066,12 +4077,15 @@ function App() {
       playPhoneMessageSound(sound);
     }
     const conversationKey = phoneConversationKey(canonicalMessage.from, canonicalMessage.to);
+    const phoneView = phoneViewRef.current;
+    // Outside the messenger screen the conversation is not visible, so the
+    // reply stays unread and raises a badge.
     const messageShouldBeMarkedSeen = phoneMessageShouldBeMarkedSeen(
       role,
-      chatPanelView,
+      phoneView.phoneScreen === 'whatsup' ? phoneView.chatPanelView : 'chat',
       conversationKey,
-      openedPhoneConversationKey,
-      selectedPhoneContact?.conversationKey,
+      phoneView.openedPhoneConversationKey,
+      phoneView.selectedConversationKey,
     );
     if (messageShouldBeMarkedSeen) {
       setPhoneSeenByConversation((current) =>
@@ -5154,6 +5168,10 @@ function App() {
       runSelectedEvent();
       return;
     }
+    if (phoneInitiativeAutoTurn) {
+      startPhoneInitiativeTurn();
+      return;
+    }
     if (chatPanelView === 'phone') {
       if (narratorSelected) {
         void runGraph(
@@ -6060,7 +6078,7 @@ function App() {
                   disabled={autoTurnDisabled}
                   title={autoTurnTitle}
                 >
-                  {chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
+                  {autoTurnLabel}
                 </button>
                 <div className="turn-controls" aria-label="Turn actions">
                   <button
@@ -6259,6 +6277,7 @@ function App() {
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
               onStartInitiativeTurn={startPhoneInitiativeTurn}
+              onScreenChange={setPhoneScreen}
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
               phoneContacts={phoneContacts}
@@ -6619,8 +6638,8 @@ function App() {
                 type="button"
                 onClick={triggerAutoTurn}
                 disabled={autoTurnDisabled}
-                title={autoTurnTitle || (chatPanelView === 'events' ? 'Run Event' : 'AutoTurn')}
-                aria-label={chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
+                title={autoTurnTitle || autoTurnLabel}
+                aria-label={autoTurnLabel}
               >
                 {chatPanelView === 'events' ? <RunEventIcon /> : <AutoTurnIcon />}
               </button>

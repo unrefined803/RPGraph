@@ -168,6 +168,7 @@ function desktopBadgeLabel(count: number) {
 
 type PhonePanelProps = {
   onStartInitiativeTurn?: () => void;
+  onScreenChange?: (screen: string) => void;
   phoneContacts: PhoneContact[];
   appCharacters: StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
@@ -353,6 +354,7 @@ type PhonePanelProps = {
 
 export function PhonePanel({
   onStartInitiativeTurn,
+  onScreenChange,
   phoneContacts,
   appCharacters,
   storyCharacters,
@@ -534,6 +536,10 @@ export function PhonePanel({
     (count, contact) => count + contact.unreadCount,
     0,
   );
+
+  useEffect(() => {
+    onScreenChange?.(screen);
+  }, [onScreenChange, screen]);
 
   useEffect(() => {
     if (screen === 'whatsup' && selectedPhoneContact) {
