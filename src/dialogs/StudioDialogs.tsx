@@ -3141,7 +3141,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'start' ? activeDialogRef : undefined}
-            className="chat-files-dialog start-dialog"
+            className="chat-files-dialog start-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'start'}
             aria-hidden={activeDialog !== 'start'}
@@ -3411,7 +3411,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'files' ? activeDialogRef : undefined}
-            className="chat-files-dialog"
+            className="chat-files-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'files'}
             aria-hidden={activeDialog !== 'files'}
