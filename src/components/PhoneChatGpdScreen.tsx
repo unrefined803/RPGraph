@@ -13,6 +13,7 @@ import {
 } from '../chat/useChatGpdPhoneApp';
 import type { ChatGpdChatRecord } from '../chat/phoneAppsSessions';
 import { maxChatGpdSidebarWidth, minChatGpdSidebarWidth } from '../settings';
+import { appDialogCoversPhone } from './phoneEscape';
 
 type PhoneChatGpdScreenProps = {
   chatGpd: ChatGpdPhoneApp;
@@ -142,7 +143,7 @@ export function PhoneChatGpdScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented) {
+      if (event.key !== 'Escape' || event.defaultPrevented || appDialogCoversPhone()) {
         return;
       }
       if (modelMenuOpen) {

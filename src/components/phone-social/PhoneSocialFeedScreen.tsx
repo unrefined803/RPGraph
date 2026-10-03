@@ -80,6 +80,7 @@ import {
 } from './socialPostPresentation';
 import { buildAlgorithmicFeed } from './socialFeedAlgorithm';
 import { PhoneAppListResizer } from '../PhoneAppListResizer';
+import { appDialogCoversPhone } from '../phoneEscape';
 import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 
 type SocialAccount = {
@@ -414,7 +415,7 @@ export function PhoneSocialFeedScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !galleryOpen && !cameraOpen) {
+      if (event.key === 'Escape' && !galleryOpen && !cameraOpen && !appDialogCoversPhone()) {
         onBack();
       }
     };

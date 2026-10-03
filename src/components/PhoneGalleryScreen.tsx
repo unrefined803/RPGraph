@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import type { ChatImageAttachment } from '../types';
+import { appDialogCoversPhone } from './phoneEscape';
 
 const phoneGalleryPageSize = 100;
 
@@ -33,6 +34,9 @@ export function PhoneGalleryScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (appDialogCoversPhone()) {
+        return;
+      }
       if (event.key === 'Escape') {
         if (selectedImage) {
           setSelectedImage(undefined);

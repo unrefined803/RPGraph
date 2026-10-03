@@ -7,6 +7,7 @@ import { matchMeDecision, matchMeState, canSendMatchMeMessage, incomingMatchMeMe
 import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
 import { PhoneAppListResizer } from '../PhoneAppListResizer';
+import { appDialogCoversPhone } from '../phoneEscape';
 import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 import { useEffect, useRef, useState } from 'react';
 import type { ChatImageAttachment } from '../../types';
@@ -116,7 +117,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   }, [tab, editing, selectedMatchId, previewCandidateId]);
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (event.key !== 'Escape' || event.defaultPrevented || appDialogCoversPhone()) return;
 
       if (celebration) {
         event.preventDefault();

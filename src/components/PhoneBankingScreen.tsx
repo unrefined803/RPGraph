@@ -14,6 +14,7 @@ import { dummyBankTransactions } from '../chat/bankingDummyTransactions';
 import { normalizePhoneName } from '../chat/phoneMessages';
 import { formatRpDateTimeParts } from '../workflow';
 import { CharacterAvatar } from './CharacterAvatar';
+import { appDialogCoversPhone } from './phoneEscape';
 
 type PhoneBankingScreenProps = {
   owner?: StorybookCharacter;
@@ -136,7 +137,7 @@ export function PhoneBankingScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !appDialogCoversPhone()) {
         onBack();
       }
     };

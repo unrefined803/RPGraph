@@ -78,10 +78,13 @@ function validPhoneAppListScales(value: unknown, defaults: PhoneAppListScales): 
     return defaults;
   }
   const record = value as Record<string, unknown>;
-  return Object.fromEntries(phoneAppListIds.flatMap((id) => {
-    const scale = record[id];
-    return typeof scale === 'number' && Number.isFinite(scale) ? [[id, clampPhoneAppListScale(scale)]] : [];
-  }));
+  return {
+    ...defaults,
+    ...Object.fromEntries(phoneAppListIds.flatMap((id) => {
+      const scale = record[id];
+      return typeof scale === 'number' && Number.isFinite(scale) ? [[id, clampPhoneAppListScale(scale)]] : [];
+    })),
+  };
 }
 
 function validChatGpdSidebarWidth(value: unknown) {

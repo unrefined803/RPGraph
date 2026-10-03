@@ -8,6 +8,7 @@ import { AccountLinkText } from './AccountLinkText';
 import type { CharacterAppAccount } from '../characters/character';
 import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
 import { PhoneAppListResizer } from './PhoneAppListResizer';
+import { appDialogCoversPhone } from './phoneEscape';
 import { usePhoneAppListScaleStyle } from './phoneAppListScale';
 import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
 import type { DatingProfile } from '../chat/datingProfile';
@@ -580,7 +581,7 @@ export function PhonePanel({
       return;
     }
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented) {
+      if (event.key !== 'Escape' || event.defaultPrevented || appDialogCoversPhone()) {
         return;
       }
       if (showPhoneEmojiPicker) {

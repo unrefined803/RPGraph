@@ -2156,12 +2156,18 @@ function App() {
   }, [settingsLoadComplete, storedChatPanelWidth]);
 
   useEffect(() => {
-    if (settingsLoadComplete) {
-      queueMicrotask(() => {
-        setBigScreenWidth(clampBigScreenWidth(storedBigScreenPanelWidth, minBigScreenPanelWidth));
-        setBigScreenPhoneWidth(clampBigScreenWidth(storedBigScreenPhoneWidth, minBigScreenPhoneWidth));
-      });
+    if (!settingsLoadComplete) {
+      return;
     }
+    // A small window only narrows the shown widths; the saved widths return
+    // as soon as the window is large enough again.
+    function fitBigScreenPanel() {
+      setBigScreenWidth(clampBigScreenWidth(storedBigScreenPanelWidth, minBigScreenPanelWidth));
+      setBigScreenPhoneWidth(clampBigScreenWidth(storedBigScreenPhoneWidth, minBigScreenPhoneWidth));
+    }
+    queueMicrotask(fitBigScreenPanel);
+    window.addEventListener('resize', fitBigScreenPanel);
+    return () => window.removeEventListener('resize', fitBigScreenPanel);
   }, [settingsLoadComplete, storedBigScreenPanelWidth, storedBigScreenPhoneWidth]);
 
   useEffect(() => {
@@ -2209,20 +2215,6 @@ function App() {
       window.removeEventListener('blur', stopResize);
     };
   }, [isPhoneResizing, setStoredChatPhoneWidth]);
-
-  useEffect(() => {
-    if (!bigScreenMode) {
-      return;
-    }
-    function fitBigScreenPanel() {
-      setBigScreenWidth((current) => clampBigScreenWidth(current, minBigScreenPanelWidth));
-      setBigScreenPhoneWidth((current) => clampBigScreenWidth(current, minBigScreenPhoneWidth));
-    }
-    // The window may have changed size while the graph view was active.
-    queueMicrotask(fitBigScreenPanel);
-    window.addEventListener('resize', fitBigScreenPanel);
-    return () => window.removeEventListener('resize', fitBigScreenPanel);
-  }, [bigScreenMode]);
 
   useEffect(() => {
     if (!isResizing) {
@@ -2476,6 +2468,10 @@ function App() {
   });
 
   useEffect(() => {
+    // Big Screen hides the graph, so its shortcuts must not edit it unseen.
+    if (bigScreenMode) {
+      return;
+    }
     function onGraphKeyboardShortcut(event: KeyboardEvent) {
       if (
         (!event.ctrlKey && !event.metaKey) ||
@@ -2597,7 +2593,7 @@ function App() {
 
     window.addEventListener('keydown', onGraphKeyboardShortcut);
     return () => window.removeEventListener('keydown', onGraphKeyboardShortcut);
-  }, [setEdges, setNodes]);
+  }, [bigScreenMode, setEdges, setNodes]);
 
   useEffect(() => {
     function handleF1Key(event: KeyboardEvent) {
@@ -5780,7 +5776,7 @@ function App() {
                 edgesReconnectable
                 elementsSelectable
                 onlyRenderVisibleElements
-                deleteKeyCode={['Backspace', 'Delete']}
+                deleteKeyCode={bigScreenMode ? null : ['Backspace', 'Delete']}
                 multiSelectionKeyCode="Control"
                 selectionKeyCode="Control"
                 connectionRadius={connectionRadius}
