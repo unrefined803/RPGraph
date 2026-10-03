@@ -22,6 +22,7 @@ export function PhoneTabletFrame({ framed, width, resizing, onResizeStart, child
       aria-label="Resize phone tablet"
       aria-orientation="vertical"
       onPointerDown={(event) => {
+        if (event.button !== 0) return;
         event.preventDefault();
         onResizeStart();
       }}

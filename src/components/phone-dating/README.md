@@ -10,7 +10,10 @@ profiles; no random background likes or message timer are fabricated. Authored
 starting matches and existing timeline matches remain available.
 
 Discovery excludes saved likes, superlikes and active matches. Explore again
-clears only passes. The Likes tab shows pending interest and supports upgrading
+clears only passes. Discovery uses a pseudorandom order derived from the owner's
+and candidate's canonical account IDs, so each owner gets an individual order
+that stays stable across rerenders, character switches and reloads. New profiles
+do not reorder existing profiles. The Likes tab shows pending interest and supports upgrading
 a pending like to a Superlike. New connections show an animated confirmation
 with a direct chat action and respect reduced-motion preferences.
 

@@ -62,6 +62,33 @@ it('still persists normal first-run settings', async () => {
   expect(state.bridge.saveSettings).toHaveBeenCalledOnce();
 });
 
+it('restores independent Big Screen and drawer dimensions and list scales', async () => {
+  const first = harness(async () => ({ settings: null, apiKeyEncryptionAvailable: true }));
+  first.render();
+  await vi.waitFor(() => expect(first.render().settingsLoadComplete).toBe(true));
+  const settings = first.render();
+  settings.setBigScreenPanelWidth(1030);
+  settings.setBigScreenPhoneWidth(650);
+  settings.setChatPanelWidth(840);
+  settings.setChatPhoneWidth(610);
+  settings.setPhoneAppListScales({ whatsup: 0.9 });
+  settings.setBigScreenPhoneAppListScales({ whatsup: 1.1 });
+  first.render();
+  const saves = first.bridge.saveSettings.mock.calls;
+  const saved = saves[saves.length - 1]?.[0];
+
+  hooks.slots = []; hooks.index = 0; hooks.effects = [];
+  const restarted = harness(async () => ({ settings: saved, apiKeyEncryptionAvailable: true }));
+  restarted.render();
+  await vi.waitFor(() => expect(restarted.render().settingsLoadComplete).toBe(true));
+  expect(restarted.render()).toMatchObject({
+    bigScreenPanelWidth: 1030, bigScreenPhoneWidth: 650,
+    chatPanelWidth: 840, chatPhoneWidth: 610,
+    phoneAppListScales: { whatsup: 0.9 },
+    bigScreenPhoneAppListScales: { whatsup: 1.1 },
+  });
+});
+
 it('documents the unresolved plaintext settings path for restored RP workflow variables', async () => {
   setAccountSession('account-secret');
   const state = harness(async () => ({ settings: null, apiKeyEncryptionAvailable: true, apiKeyDecryptionUnavailable: false }));

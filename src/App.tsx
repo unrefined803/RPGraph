@@ -1874,6 +1874,11 @@ function App() {
   }, [chatWidth]);
 
   useEffect(() => {
+    bigScreenWidthRef.current = bigScreenWidth;
+    bigScreenPhoneWidthRef.current = bigScreenPhoneWidth;
+  }, [bigScreenWidth, bigScreenPhoneWidth]);
+
+  useEffect(() => {
     if (assistantConnectionId) {
       window.localStorage.setItem(assistantConnectionStorageKey, assistantConnectionId);
     } else {
@@ -2193,11 +2198,15 @@ function App() {
     document.body.classList.add('resizing-panels');
     window.addEventListener('pointermove', resize);
     window.addEventListener('pointerup', stopResize);
+    window.addEventListener('pointercancel', stopResize);
+    window.addEventListener('blur', stopResize);
 
     return () => {
       document.body.classList.remove('resizing-panels');
       window.removeEventListener('pointermove', resize);
       window.removeEventListener('pointerup', stopResize);
+      window.removeEventListener('pointercancel', stopResize);
+      window.removeEventListener('blur', stopResize);
     };
   }, [isPhoneResizing, setStoredChatPhoneWidth]);
 
@@ -2209,6 +2218,8 @@ function App() {
       setBigScreenWidth((current) => clampBigScreenWidth(current, minBigScreenPanelWidth));
       setBigScreenPhoneWidth((current) => clampBigScreenWidth(current, minBigScreenPhoneWidth));
     }
+    // The window may have changed size while the graph view was active.
+    queueMicrotask(fitBigScreenPanel);
     window.addEventListener('resize', fitBigScreenPanel);
     return () => window.removeEventListener('resize', fitBigScreenPanel);
   }, [bigScreenMode]);
@@ -2227,7 +2238,7 @@ function App() {
           bigScreenPhoneWidthRef.current = width;
           setBigScreenPhoneWidth(width);
         } else {
-          const width = clampBigScreenWidth(requestedWidth, minBigScreenPanelWidth);
+          const width = clampBigScreenWidth(requestedWidth - bigScreenChatEdgeWidth * 2, minBigScreenPanelWidth);
           bigScreenWidthRef.current = width;
           setBigScreenWidth(width);
         }
@@ -2260,11 +2271,15 @@ function App() {
     document.body.classList.add('resizing-panels');
     window.addEventListener('pointermove', resize);
     window.addEventListener('pointerup', stopResize);
+    window.addEventListener('pointercancel', stopResize);
+    window.addEventListener('blur', stopResize);
 
     return () => {
       document.body.classList.remove('resizing-panels');
       window.removeEventListener('pointermove', resize);
       window.removeEventListener('pointerup', stopResize);
+      window.removeEventListener('pointercancel', stopResize);
+      window.removeEventListener('blur', stopResize);
     };
   }, [
     bigScreenMode,
@@ -5920,7 +5935,9 @@ function App() {
             role="separator"
             aria-label="Resize chat panel"
             aria-orientation="vertical"
-            onPointerDown={() => {
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              event.preventDefault();
               setIsChatPanelOpen(true);
               setIsResizing(true);
             }}
@@ -6545,7 +6562,11 @@ function App() {
               role="separator"
               aria-label="Resize chat panel"
               aria-orientation="vertical"
-              onPointerDown={() => setIsResizing(true)}
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                setIsResizing(true);
+              }}
             />
           )}
           <UiRenderMark name="chatPanel.end" />

@@ -2,6 +2,7 @@ import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { datingAccountId, resolveDatingAccount, datingFirstName, datingAvatarDataUrl } from '../../chat/datingAccounts';
+import { datingDiscoveryOrder } from '../../chat/datingDiscovery';
 import { matchMeDecision, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
 import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
@@ -218,7 +219,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const decisionFor = (id: string) => matchMeDecision({ ...profile?.decisions, ...state.accounts.find((account) => account.id === ownerId)?.decisions }, id, state);
   const likedProfiles = availableProfiles.filter((entry) => ['like', 'superlike'].includes(decisionFor(entry.id) ?? ''));
   const linkedCandidate = availableProfiles.find((entry) => entry.id === selectedMatchId && !decisionFor(entry.id) && !canSendMatchMeMessage(ownerId, entry.id, state));
-  const candidate = linkedCandidate ?? availableProfiles.find((entry) =>
+  const candidate = linkedCandidate ?? datingDiscoveryOrder(availableProfiles, ownerId).find((entry) =>
     (!profile?.seeking?.length || !!entry.gender && profile.seeking.includes(entry.gender)) &&
     !decisionFor(entry.id) && !canSendMatchMeMessage(ownerId, entry.id, state));
   const candidatePhotoCount = candidate?.photos?.length ?? 0;

@@ -861,9 +861,16 @@ async function loadWorkflowState() {
   }
 }
 
+let workflowStateWriteQueue = Promise.resolve();
+
 async function saveWorkflowState(partialState) {
-  const state = { ...(await loadWorkflowState()), ...partialState };
-  await writeTextFileAtomically(workflowStateFilePath(), `${JSON.stringify(state, null, 2)}\n`);
+  // Atomic replacement alone does not protect concurrent read-modify-write updates.
+  const pending = workflowStateWriteQueue.catch(() => {}).then(async () => {
+    const state = { ...(await loadWorkflowState()), ...partialState };
+    await writeTextFileAtomically(workflowStateFilePath(), `${JSON.stringify(state, null, 2)}\n`);
+  });
+  workflowStateWriteQueue = pending;
+  await pending;
 }
 
 async function saveLastWorkflowFileName(fileName) {
