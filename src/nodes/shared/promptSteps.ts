@@ -94,7 +94,9 @@ type PlanProbabilityMarker = {
   successChance: number;
 };
 
-const labeledPlanPercentPattern = /\(?\s*(chance|success|failure|fail)\s*:\s*([0-9]{1,3})\s*%\s*\)?/i;
+// The optional parentheses own their inner whitespace, so an unparenthesized
+// marker does not swallow the spaces separating it from neighboring words.
+const labeledPlanPercentPattern = /(?:\(\s*)?\b(chance|success|failure|fail)\s*:\s*([0-9]{1,3})\s*%(?:\s*\))?/i;
 const parenthesizedPlanPercentPattern = /\(\s*([0-9]{1,3})\s*%\s*\)/i;
 const barePlanPercentPattern = /([0-9]{1,3})\s*%/i;
 

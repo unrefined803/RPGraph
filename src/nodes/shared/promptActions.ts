@@ -968,11 +968,11 @@ export function replacePromptActionTitle(
   previousHasTitle: boolean,
 ) {
   if (!previousHasTitle) {
-    return value.replace(/@action[^\n\r]*(?=\r?\n|$)/g, `@action:${nextTitle}`);
+    return value.replace(/@action[^\n\r]*(?=\r?\n|$)/g, () => `@action:${nextTitle}`);
   }
   return value.replace(
     new RegExp(`@action:\\s*${escapeRegExp(previousTitle)}(?=\\r?\\n|$)`, 'g'),
-    `@action:${nextTitle}`,
+    () => `@action:${nextTitle}`,
   );
 }
 

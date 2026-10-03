@@ -37,6 +37,22 @@ describe('rollPlanOutcomes', () => {
     expect(result.text).toContain('- Her phone battery is at 20%.');
   });
 
+  it('keeps the spacing around unparenthesized markers', () => {
+    const result = rollPlanOutcomes(
+      '- Ryan asks her out, chance: 60% otherwise: he stays quiet.',
+      () => 0.99,
+    );
+
+    expect(result.text).toBe(
+      '- Ryan asks her out, (chance: 60%: CLEAR SUCCESS, this happens decisively; skip any otherwise-part) otherwise: he stays quiet.',
+    );
+  });
+
+  it('does not treat a longer word ending in a label as a marker', () => {
+    const text = '- Perchance: 50% of the guests leave early.';
+    expect(rollPlanOutcomes(text, () => 0.5)).toEqual({ text, rolls: [] });
+  });
+
   it('leaves out-of-range probabilities unchanged', () => {
     const text = '- An invalid outcome (chance: 101%); otherwise: it fails.';
     expect(rollPlanOutcomes(text, () => 0.5)).toEqual({ text, rolls: [] });

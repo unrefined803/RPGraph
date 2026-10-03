@@ -233,7 +233,9 @@ function applyCodePatches(code: string, patches: CustomNodeCodePatch[] | undefin
     if (!current.includes(patch.find)) {
       throw new Error(`Code patch find text was not found: ${patch.find.slice(0, 120)}`);
     }
-    return current.replace(patch.find, patch.replace);
+    // Function replacer: code may contain `$&`, `$'` or `$$`, which a string
+    // replacement would expand as special patterns.
+    return current.replace(patch.find, () => patch.replace);
   }, code);
 }
 

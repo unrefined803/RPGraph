@@ -377,7 +377,7 @@ export function AssistantDialog({
             formatAvailableDebugSnapshotSectionsForPrompt(debugSnapshotSections),
           );
         return contextLoadResults.length
-          ? prompt.replace(/\nAssistant:$/, `\nCONTEXT LOAD RESULTS FOR THIS QUESTION:\n${contextLoadResults.join('\n')}\nUse the loaded results. Empty fields are successful loads, not missing data. Do not repeat a completed request. Answer the question or request a different necessary field.\nAssistant:`)
+          ? prompt.replace(/\nAssistant:$/, () => `\nCONTEXT LOAD RESULTS FOR THIS QUESTION:\n${contextLoadResults.join('\n')}\nUse the loaded results. Empty fields are successful loads, not missing data. Do not repeat a completed request. Answer the question or request a different necessary field.\nAssistant:`)
           : prompt;
       };
       const streamAssistantPrompt = async (promptText: string) => {

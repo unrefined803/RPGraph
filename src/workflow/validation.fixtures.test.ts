@@ -2053,6 +2053,11 @@ export function verifyWorkflowValidationFixtures() {
     'saving a bare prompt action must canonicalize its complete dedicated line',
   );
   assertFixture(
+    replacePromptActionTitle('@action:Old title\nNext line', 'Old title', 'Costs $& more', true) ===
+      '@action:Costs $& more\nNext line',
+    'a renamed prompt action title must be inserted literally',
+  );
+  assertFixture(
     !isWorkflowFile({ ...currentWorkflow, formatVersion: '1' }),
     'an invalid workflow format version must be rejected',
   );
