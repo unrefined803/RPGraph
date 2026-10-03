@@ -727,6 +727,9 @@ export type BankTransferRecord = {
 
 export type SocialAppKind = 'fotogram' | 'onlyfriends';
 export type SocialMessengerAppKind = SocialAppKind | 'matchme';
+/** Phone apps with a resizable contact or account list on the left. */
+export type PhoneAppListId = 'whatsup' | SocialMessengerAppKind;
+export type PhoneAppListScales = Partial<Record<PhoneAppListId, number>>;
 
 export type MatchMeMatch = {
   id: string; accountIds: [string, string]; matchedAt: string; status: 'active' | 'inactive';
@@ -1036,6 +1039,8 @@ export type AppSettings = {
     phoneDesktopIconSize?: PhoneDesktopIconSize;
     chatGpdSidebarOpen?: boolean;
     chatGpdSidebarWidth?: number;
+    phoneAppListScales?: PhoneAppListScales;
+    bigScreenPhoneAppListScales?: PhoneAppListScales;
     chatGpdModel?: string;
     edgeCharacterPickerHintSeen?: boolean;
     aiInitiativeUsed?: boolean;

@@ -6911,13 +6911,14 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-surface {
   display: grid;
-  grid-template-columns: minmax(138px, 40%) minmax(0, 1fr);
+  grid-template-columns: minmax(138px, calc(32% * var(--phone-app-list-scale, 1))) minmax(0, 1fr);
   min-height: 0;
   flex: 1;
   background: #131b28;
 }
 
 .phone-list {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -25016,12 +25017,13 @@ button.message-timeline-row.phone:focus-visible {
 
 .phone-social-surface {
   display: grid;
-  grid-template-columns: minmax(138px, 32%) minmax(0, 1fr);
+  grid-template-columns: minmax(138px, calc(32% * var(--phone-app-list-scale, 1))) minmax(0, 1fr);
   min-height: 0;
   flex: 1;
 }
 
 .phone-social-sidebar {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -28880,4 +28882,32 @@ button.message-timeline-row.phone:focus-visible {
   flex-direction: column;
   overflow: hidden;
   background: #131b28;
+}
+
+/* Drag handle on the right edge of a phone app's contact or account list. */
+.phone-app-list-resizer {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.phone-app-list-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background 0.18s ease;
+}
+
+.phone-app-list-resizer:hover::after,
+.phone-app-list-resizer:active::after {
+  background: rgba(150, 175, 225, 0.45);
 }

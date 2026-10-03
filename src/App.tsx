@@ -69,6 +69,7 @@ import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import { PhoneTab } from './chat/PhoneTab';
 import { PhoneTabletFrame } from './components/PhoneTabletFrame';
+import { PhoneAppListScaleContext } from './components/phoneAppListScale';
 import {
   AutoTurnIcon,
   CancelRunIcon,
@@ -333,6 +334,7 @@ import type {
   ImageCaptionChange,
   InputActionSelection,
   MessageRecord,
+  PhoneAppListId,
   SocialDirectMessageRecord,
   SocialPostRecord,
   SocialReactionComment,
@@ -739,6 +741,10 @@ function App() {
     setChatGpdSidebarOpen,
     chatGpdSidebarWidth,
     setChatGpdSidebarWidth,
+    phoneAppListScales,
+    setPhoneAppListScales,
+    bigScreenPhoneAppListScales,
+    setBigScreenPhoneAppListScales,
     chatGpdModel,
     setChatGpdModel,
     smoothChatAutoScrollEnabled,
@@ -1174,6 +1180,21 @@ function App() {
     notifySystem: (level, message) => notifySystemRef.current(level, message),
   });
   const bigScreenTablet = bigScreenMode && chatPanelView === 'phone';
+  // Big Screen and the side drawer keep separate app list widths.
+  const phoneAppListScaleContext = useMemo(() => {
+    const setScales = bigScreenMode ? setBigScreenPhoneAppListScales : setPhoneAppListScales;
+    return {
+      scales: bigScreenMode ? bigScreenPhoneAppListScales : phoneAppListScales,
+      onScaleChange: (app: PhoneAppListId, scale: number) =>
+        setScales((current) => ({ ...current, [app]: scale })),
+    };
+  }, [
+    bigScreenMode,
+    bigScreenPhoneAppListScales,
+    phoneAppListScales,
+    setBigScreenPhoneAppListScales,
+    setPhoneAppListScales,
+  ]);
   const bigScreenColumnWidth = bigScreenTablet ? bigScreenPhoneWidth : bigScreenWidth;
   const bigScreenEdgeWidth = bigScreenTablet ? bigScreenTabletBezelWidth : 7;
   const usedStorybookImageIds = useMemo(
@@ -6149,6 +6170,7 @@ function App() {
               resizing={isPhoneResizing}
               onResizeStart={() => setIsPhoneResizing(true)}
             >
+            <PhoneAppListScaleContext.Provider value={phoneAppListScaleContext}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
               onStartInitiativeTurn={startPhoneInitiativeTurn}
@@ -6419,6 +6441,7 @@ function App() {
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
             </AppMessageAvatars>
+            </PhoneAppListScaleContext.Provider>
             </PhoneTabletFrame>
           ) : (
             <EventsPanel

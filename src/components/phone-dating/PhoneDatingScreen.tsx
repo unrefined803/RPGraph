@@ -5,6 +5,8 @@ import { datingAccountId, resolveDatingAccount, datingFirstName, datingAvatarDat
 import { matchMeDecision, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
 import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
+import { PhoneAppListResizer } from '../PhoneAppListResizer';
+import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 import { useEffect, useRef, useState } from 'react';
 import type { ChatImageAttachment } from '../../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
@@ -37,6 +39,7 @@ type Props = {
 };
 
 export function PhoneDatingScreen({ characterColors, profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onDecision, onBack, emojiOptions, recentlyUsedEmojis, rpTimeTrackingEnabled = false, rpDateTimeFormat = 'eu', rpWeekdayLanguage = 'system' }: Props) {
+  const listStyle = usePhoneAppListScaleStyle('matchme');
   const profileColor = (characterId: string | undefined) =>
     characterColors?.get(characters.find((character) => character.id === characterId)?.name ?? '');
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
@@ -295,8 +298,9 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
         <span>MatchMe</span>
       </strong>
     </header>
-    <div className="pt-layout">
+    <div className="pt-layout" style={listStyle}>
       {profile && !profileOnly && <aside className="pt-matches" aria-label="Matches">
+        <PhoneAppListResizer app="matchme" />
         <h2>Matches <span>{matches.length}</span></h2>
         <p className="pt-subtle">Your connections</p>
         <div className="pt-match-list">

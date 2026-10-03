@@ -79,6 +79,8 @@ import {
   type SocialPost,
 } from './socialPostPresentation';
 import { buildAlgorithmicFeed } from './socialFeedAlgorithm';
+import { PhoneAppListResizer } from '../PhoneAppListResizer';
+import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 
 type SocialAccount = {
   key: string;
@@ -273,6 +275,7 @@ export function PhoneSocialFeedScreen({
   rpDateTimeFormat,
   rpWeekdayLanguage,
 }: PhoneSocialFeedScreenProps) {
+  const listStyle = usePhoneAppListScaleStyle(app.id);
   const [editingProfile, setEditingProfile] = usePanelNavigationState(`${app.id}.${owner?.id}.editingProfile`, false);
   // A username stored in the Storybook means the character already has an
   // account in this app; the onboarding step is skipped then.
@@ -1342,8 +1345,9 @@ export function PhoneSocialFeedScreen({
           <span>{notice.text}</span>
         </div>
       )}
-      <div className="phone-social-surface">
+      <div className="phone-social-surface" style={listStyle}>
         <div className="phone-social-sidebar" aria-label="Followed accounts">
+          <PhoneAppListResizer app={app.id} />
           <header className="phone-gallery-header phone-social-header">
             <button type="button" onClick={onBack} aria-label="Back" title="Back">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
