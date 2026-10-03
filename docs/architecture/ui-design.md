@@ -32,7 +32,7 @@ are restyled to match it one at a time. All styles live in `src/styles.css`.
 | Brand purple | `var(--accent)` `#8a73c9`, light `#b29ce3` |
 | Success green | `#56d99a`, text `#9fdcbc` |
 | Amber | `#e0a96a` |
-| Danger red | `#e87070`, text `#efb5b5` |
+| Danger red | `#e87070`, text `#d9b3b6` |
 
 Text colours, brightest to quietest:
 
@@ -68,11 +68,11 @@ raised construction in translucent purple.
 background `rgba(86, 217, 154, 0.07)`, text `#9fdcbc`. Hover: border `#56d99a`,
 background `rgba(86, 217, 154, 0.15)`, soft green glow.
 
-**Button, destructive.** Faint translucent red, never a solid fill: border
-`rgba(232, 112, 112, 0.3)`, background
-`linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06))`,
-text `#efb5b5`, inset top highlight. Hover raises the tint and adds a small
-red glow.
+**Button, destructive.** Only a hint of red, never a solid fill: border
+`rgba(232, 112, 112, 0.2)`, background
+`linear-gradient(180deg, rgba(232, 112, 112, 0.09), rgba(232, 112, 112, 0.03))`,
+text `#d9b3b6`, inset top highlight. Hover raises the tint slightly. Close
+buttons are never destructive; they use the default button.
 
 **List row / card.** Card at rest and card hover from the palette, radius 12px.
 Selected: active gradient at 60% opacity, blue border, `inset 3px 0 0 #7aa2e8`
@@ -106,14 +106,15 @@ movement on hover.
 
 - `.deep-dialog` is the shared skin. Add it to a dialog `section` to apply the
   window, header, buttons, rows, badges, inputs and footer described above.
-  Start, Files, Save/Unlock, character save and the delete and provider-type
-  confirmations use it.
+  Start, Files, the Storybook picker, character import, Save/Unlock, character
+  save and the delete and provider-type confirmations use it.
 - Dialogs with their own class tree carry the palette in their own rules:
   NPC Library (`.npc-library-dialog`), System Log, Debug Snapshot and its
   viewer, the Turn Trace window frame, Providers (`.connection-dialog`),
   Options (`.options-dialog`) and the Storybook dialogs
   (`.storybook-creator-dialog`, shared by the Storybook creator, editor and
-  info views, the Character Assistant and the Custom Node Assistant).
+  info views, the Character Assistant and the Custom Node Assistant), and the F1 Assistant
+  (`.node-assistant-dialog`).
 - Base rules stay in place for dialogs not yet restyled; skin rules override
   them by specificity. When restyling a dialog, check hover, selected and
   disabled states as well as the resting state.

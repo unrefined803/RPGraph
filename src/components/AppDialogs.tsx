@@ -785,7 +785,7 @@ export function CustomNodeAssistantDialog({
                 options={connectionOptions}
               />
             </div>
-            <button type="button" className="close-button danger" onClick={onClose}>
+            <button type="button" className="close-button" onClick={onClose}>
               Close
             </button>
           </div>
@@ -3268,6 +3268,24 @@ export function StorybookCreatorDialog({
     | null
   >(null);
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
+  useEffect(() => {
+    // Escape closes the innermost layer; nested character dialogs own their keys.
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape' || event.defaultPrevented || imageOwner || comfyConfigCharacterId) {
+        return;
+      }
+      if (confirmAction) {
+        setConfirmAction(null);
+      } else if (moreOpen || outputSettingsOpen) {
+        setMoreOpen(false);
+        setOutputSettingsOpen(false);
+      } else {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [comfyConfigCharacterId, confirmAction, imageOwner, moreOpen, onClose, outputSettingsOpen]);
   const parsedStorybook = useMemo(() => {
     try {
       return node.data.storybookJson ? parseRpStorybookJson(node.data.storybookJson) : emptyRpStorybook;
@@ -3497,7 +3515,7 @@ export function StorybookCreatorDialog({
                 </div>
               )}
             </div>
-            <button type="button" className="close-button danger" onClick={onClose}>
+            <button type="button" className="close-button" onClick={onClose}>
               Close
             </button>
           </div>

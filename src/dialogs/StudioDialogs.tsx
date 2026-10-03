@@ -3033,7 +3033,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'characters' ? activeDialogRef : undefined}
-            className="chat-files-dialog"
+            className="chat-files-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'characters'}
             aria-hidden={activeDialog !== 'characters'}
@@ -3265,7 +3265,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'storybook-picker' ? activeDialogRef : undefined}
-            className="chat-files-dialog storybook-picker-dialog"
+            className="chat-files-dialog storybook-picker-dialog deep-dialog"
             role="dialog"
             aria-modal={activeDialog === 'storybook-picker'}
             aria-hidden={activeDialog !== 'storybook-picker'}
@@ -3384,7 +3384,7 @@ export function StudioDialogs({
                 <p>{storybookInfo.file.name}</p>
               </div>
               <div className="storybook-header-actions">
-                <button type="button" className="close-button danger" onClick={() => setStorybookInfo(null)}>
+                <button type="button" className="close-button" onClick={() => setStorybookInfo(null)}>
                   Close
                 </button>
               </div>

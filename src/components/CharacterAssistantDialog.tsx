@@ -333,7 +333,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         <div className="storybook-header-actions">
           {editingRp && <button className="inspect-button nodrag primary" type="button" disabled={ioBusy || busy || rpBusy || !dirty} onClick={applyToRp}>Apply to RP</button>}
           <button className="inspect-button nodrag" type="button" disabled={ioBusy || busy} onClick={() => { setStatus(''); setIncludeReceivedImages(false); setShowSave(true); }}>Save Character File…</button>
-          <button className="close-button danger" type="button" disabled={ioBusy} onClick={close}>Close</button>
+          <button className="close-button" type="button" disabled={ioBusy} onClick={close}>Close</button>
         </div>
       </header>
       <div inert={showSave || !!choices || !!confirm} className="character-assistant-toolbar">

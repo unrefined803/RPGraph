@@ -652,7 +652,7 @@ export function AssistantDialog({
             <button type="button" className="close-button" onClick={clearChat}>
               Clear Chat
             </button>
-            <button type="button" className="close-button danger" onClick={closeAssistant}>
+            <button type="button" className="close-button" onClick={closeAssistant}>
               Close
             </button>
           </div>

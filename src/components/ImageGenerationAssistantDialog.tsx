@@ -472,7 +472,7 @@ export function ImageGenerationAssistantDialog({
             <p>Compose a picture for this phone conversation.</p>
           </div>
           <div className="storybook-header-actions">
-            <button type="button" className="close-button danger" onClick={requestClose}>
+            <button type="button" className="close-button" onClick={requestClose}>
               Close
             </button>
           </div>

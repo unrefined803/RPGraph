@@ -15107,6 +15107,35 @@ button.message-timeline-row.phone:focus-visible {
   background: rgba(122, 162, 232, 0.12);
 }
 
+.deep-dialog .character-import-section-heading {
+  color: #536079;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.deep-dialog .character-import-section-heading::after {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.deep-dialog .character-import-empty {
+  border-color: rgba(148, 163, 184, 0.12);
+  border-radius: 12px;
+  color: #66738c;
+}
+
+.deep-dialog .character-import-filters label {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #8d9bb5;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.deep-dialog .character-import-filters label:has(input:checked) {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.12);
+}
+
 .deep-dialog .dialog-actions .node-custom-select-button {
   padding: 11px 14px;
   justify-content: flex-start;
@@ -16158,14 +16187,14 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-header-actions .close-button.danger {
-  border-color: rgba(232, 112, 112, 0.3);
-  color: #efb5b5;
-  background: linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06));
+  border-color: rgba(232, 112, 112, 0.2);
+  color: #d9b3b6;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.09), rgba(232, 112, 112, 0.03));
 }
 
 .storybook-header-actions .close-button.danger:hover {
-  border-color: rgba(232, 112, 112, 0.6);
-  background: linear-gradient(180deg, rgba(232, 112, 112, 0.26), rgba(232, 112, 112, 0.12));
+  border-color: rgba(232, 112, 112, 0.42);
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.17), rgba(232, 112, 112, 0.08));
 }
 
 .storybook-title-row {
@@ -16325,7 +16354,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-more-popover button.danger {
-  color: #efb5b5;
+  color: #d9b3b6;
 }
 
 .storybook-confirm-backdrop {
@@ -16375,14 +16404,14 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-confirm-actions .inspect-button.danger {
-  border-color: rgba(232, 112, 112, 0.3);
-  color: #efb5b5;
-  background: linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06));
+  border-color: rgba(232, 112, 112, 0.2);
+  color: #d9b3b6;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.09), rgba(232, 112, 112, 0.03));
 }
 
 .storybook-confirm-actions .inspect-button.danger:hover {
-  border-color: rgba(232, 112, 112, 0.6);
-  background: linear-gradient(180deg, rgba(232, 112, 112, 0.26), rgba(232, 112, 112, 0.12));
+  border-color: rgba(232, 112, 112, 0.42);
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.17), rgba(232, 112, 112, 0.08));
 }
 
 .custom-node-assistant-dialog {
@@ -17071,7 +17100,7 @@ button.message-timeline-row.phone:focus-visible {
   padding: 6px 12px;
   border: 1px solid rgba(232, 112, 112, 0.3);
   border-radius: 6px;
-  color: #efb5b5;
+  color: #d9b3b6;
   background: rgba(232, 112, 112, 0.08);
   font-size: 10px;
   font-weight: 700;
@@ -23097,7 +23126,8 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-creator-dialog .inspect-button:not(.danger):not(.active),
-.storybook-creator-dialog .close-button:not(.danger):not(.primary) {
+.storybook-creator-dialog .close-button:not(.danger):not(.primary),
+.storybook-creator-dialog .contextual-action-button:not(.danger) {
   border-color: rgba(255, 255, 255, 0.08);
   color: #b7c4da;
   background: rgba(255, 255, 255, 0.04);
@@ -23105,12 +23135,97 @@ button.message-timeline-row.phone:focus-visible {
   transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
+/* Header actions share one size and a brighter resting state so they read
+   like the header buttons of the other dialogs. */
+.storybook-creator-dialog .storybook-header-actions .inspect-button,
+.storybook-creator-dialog .storybook-header-actions .close-button {
+  margin-left: 0;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.storybook-creator-dialog .storybook-header-actions .inspect-button:not(.danger):not(.primary),
+.storybook-creator-dialog .storybook-header-actions .close-button:not(.danger):not(.primary) {
+  border-color: rgba(255, 255, 255, 0.13);
+  color: #d3dcec;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.storybook-creator-dialog .storybook-header-actions .inspect-button.primary {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: linear-gradient(180deg, #34476a, #233150);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 0 16px rgba(92, 132, 214, 0.3);
+}
+
+.storybook-creator-dialog .contextual-action-button.danger {
+  border-color: rgba(232, 112, 112, 0.2);
+  color: #d9b3b6;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.09), rgba(232, 112, 112, 0.03));
+}
+
 .storybook-creator-dialog .inspect-button:not(.danger):not(.active):hover:not(:disabled),
 .storybook-creator-dialog .close-button:not(.danger):not(.primary):hover:not(:disabled),
+.storybook-creator-dialog .contextual-action-button:not(.danger):hover:not(:disabled),
+.storybook-creator-dialog .storybook-header-actions .inspect-button:not(.danger):not(.primary):hover:not(:disabled),
+.storybook-creator-dialog .storybook-header-actions .close-button:not(.danger):not(.primary):hover:not(:disabled),
 .storybook-creator-dialog .inspect-button[aria-expanded="true"] {
   border-color: rgba(122, 162, 232, 0.45);
   color: var(--soft-white);
   background: rgba(122, 162, 232, 0.12);
+}
+
+/* Assistant dialog controls in the Big Screen palette. */
+.dialog-backdrop:has(> .node-assistant-dialog) {
+  background: rgba(2, 3, 6, 0.74);
+  backdrop-filter: blur(6px);
+}
+
+.node-assistant-dialog,
+.node-assistant-dialog * {
+  scrollbar-color: #222c3f transparent;
+}
+
+.node-assistant-dialog *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.node-assistant-dialog *::-webkit-scrollbar-thumb {
+  border-color: #0e1522;
+  background: #222c3f;
+}
+
+.node-assistant-dialog .close-button {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.node-assistant-dialog .close-button:hover:not(:disabled) {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.12);
+}
+
+.node-assistant-dialog .node-custom-select-button {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(2, 3, 6, 0.3);
+}
+
+.node-assistant-dialog .node-custom-select-button:hover:not(:disabled),
+.node-assistant-dialog .node-custom-select-button[aria-expanded="true"]:not(:disabled) {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: rgba(122, 162, 232, 0.1);
 }
 
 /* Options dialog in the Big Screen palette of the deep dialogs. */
@@ -23354,21 +23469,21 @@ button.message-timeline-row.phone:focus-visible {
 
 .options-dialog .account-options-action.danger,
 .options-dialog .workflow-variable-action-button.danger {
-  border-color: rgba(232, 112, 112, 0.3);
-  color: #efb5b5;
-  background: linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06));
+  border-color: rgba(232, 112, 112, 0.2);
+  color: #d9b3b6;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.09), rgba(232, 112, 112, 0.03));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .options-dialog .account-options-action.danger:hover:not(:disabled),
 .options-dialog .workflow-variable-action-button.danger:hover,
 .options-dialog .workflow-variable-action-button.danger:focus-visible {
-  border-color: rgba(232, 112, 112, 0.6);
+  border-color: rgba(232, 112, 112, 0.42);
   color: var(--soft-white);
-  background: linear-gradient(180deg, rgba(232, 112, 112, 0.26), rgba(232, 112, 112, 0.12));
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.17), rgba(232, 112, 112, 0.08));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 14px rgba(232, 112, 112, 0.16);
+    0 0 10px rgba(232, 112, 112, 0.08);
 }
 
 /* Providers dialog in the Big Screen palette of the deep dialogs. */
@@ -23456,21 +23571,21 @@ button.message-timeline-row.phone:focus-visible {
 .connection-dialog .dialog-actions button.danger,
 .connection-dialog .connection-provider-actions button.danger,
 .storybook-confirm-dialog.deep-dialog .storybook-confirm-actions button.danger:not(.inspect-button) {
-  border-color: rgba(232, 112, 112, 0.3);
-  color: #efb5b5;
-  background: linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06));
+  border-color: rgba(232, 112, 112, 0.2);
+  color: #d9b3b6;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.09), rgba(232, 112, 112, 0.03));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .connection-dialog .dialog-actions button.danger:hover:not(:disabled),
 .connection-dialog .connection-provider-actions button.danger:hover:not(:disabled),
 .storybook-confirm-dialog.deep-dialog .storybook-confirm-actions button.danger:not(.inspect-button):hover {
-  border-color: rgba(232, 112, 112, 0.6);
+  border-color: rgba(232, 112, 112, 0.42);
   color: var(--soft-white);
-  background: linear-gradient(180deg, rgba(232, 112, 112, 0.26), rgba(232, 112, 112, 0.12));
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.17), rgba(232, 112, 112, 0.08));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 14px rgba(232, 112, 112, 0.16);
+    0 0 10px rgba(232, 112, 112, 0.08);
 }
 
 /* Provider tabs and the type list. */
@@ -23960,12 +24075,21 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(130, 160, 220, 0.14);
   border-radius: 20px;
-  background: rgba(13, 18, 28, 0.85);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(52, 82, 140, 0.16), transparent 75%),
+    linear-gradient(180deg, rgba(17, 26, 42, 0.96), rgba(12, 19, 32, 0.96));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 24px 60px rgba(0, 0, 0, 0.6),
+    0 0 140px rgba(60, 100, 180, 0.14);
+  --accent: #7aa2e8;
+  --accent-light: #8fb4f0;
+  --cyan: #8fb4f0;
+  --muted: #7887a2;
   animation: nodeAssistantOpen 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -23985,8 +24109,8 @@ button.message-timeline-row.phone:focus-visible {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.01);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  background: rgba(2, 3, 6, 0.22);
 }
 
 .node-assistant-title-row {
@@ -24010,7 +24134,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .node-assistant-subtitle code {
   color: var(--cyan);
-  background: rgba(126, 185, 197, 0.1);
+  background: rgba(122, 162, 232, 0.1);
   padding: 2px 4px;
   border-radius: 4px;
 }
@@ -24077,8 +24201,8 @@ button.message-timeline-row.phone:focus-visible {
 
 .node-assistant-context-meter .context-meter-total {
   color: #edf1ff;
-  border-color: rgba(126, 185, 197, 0.28);
-  background: rgba(126, 185, 197, 0.1);
+  border-color: rgba(122, 162, 232, 0.28);
+  background: rgba(122, 162, 232, 0.1);
   font-weight: 700;
 }
 
@@ -24113,7 +24237,7 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 24px;
   font-weight: 600;
   margin-bottom: 16px;
-  box-shadow: 0 0 16px rgba(138, 115, 201, 0.25);
+  box-shadow: 0 0 16px rgba(122, 162, 232, 0.25);
 }
 
 .node-assistant-empty-state .empty-title {
@@ -24153,7 +24277,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .node-assistant-empty-state .prompt-suggestions button:hover {
   border-color: var(--accent);
-  background: rgba(138, 115, 201, 0.08);
+  background: rgba(122, 162, 232, 0.08);
   color: var(--soft-white);
   transform: translateY(-1px);
 }
@@ -24181,7 +24305,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .node-assistant-body .chat-message-row.user .message-sender-avatar {
-  background: #394867;
+  background: linear-gradient(135deg, #5f86d0, #3d5a96);
   color: var(--soft-white);
 }
 
@@ -24275,7 +24399,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .node-assistant-table th {
   color: #f4f7ff;
-  background: rgba(126, 185, 197, 0.1);
+  background: rgba(122, 162, 232, 0.1);
   font-weight: 700;
 }
 
@@ -24284,8 +24408,8 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .node-assistant-body .chat-message-row.user .chat-message-bubble {
-  background: rgba(138, 115, 201, 0.15);
-  border: 1px solid rgba(138, 115, 201, 0.25);
+  background: rgba(122, 162, 232, 0.15);
+  border: 1px solid rgba(122, 162, 232, 0.25);
   color: #e5eefb;
   border-top-right-radius: 2px;
 }
@@ -24295,18 +24419,18 @@ button.message-timeline-row.phone:focus-visible {
   min-width: 42px;
   height: 28px;
   padding: 0 9px;
-  border: 1px solid rgba(138, 115, 201, 0.28);
+  border: 1px solid rgba(122, 162, 232, 0.28);
   border-radius: 8px;
-  background: rgba(138, 115, 201, 0.1);
-  color: #dcd6ff;
+  background: rgba(122, 162, 232, 0.1);
+  color: #cfdcf5;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .node-assistant-edit-button:hover {
-  background: rgba(138, 115, 201, 0.18);
-  border-color: rgba(138, 115, 201, 0.42);
+  background: rgba(122, 162, 232, 0.18);
+  border-color: rgba(122, 162, 232, 0.42);
 }
 
 .node-assistant-edit-form {
@@ -24315,10 +24439,10 @@ button.message-timeline-row.phone:focus-visible {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  border: 1px solid rgba(138, 115, 201, 0.28);
+  border: 1px solid rgba(122, 162, 232, 0.28);
   border-radius: 12px;
   border-top-right-radius: 2px;
-  background: rgba(138, 115, 201, 0.13);
+  background: rgba(122, 162, 232, 0.13);
 }
 
 .node-assistant-edit-form textarea {
@@ -24358,9 +24482,9 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .node-assistant-edit-actions button[type="submit"] {
-  border-color: rgba(126, 185, 197, 0.34);
-  background: rgba(126, 185, 197, 0.14);
-  color: #d9f7ff;
+  border-color: rgba(122, 162, 232, 0.34);
+  background: rgba(122, 162, 232, 0.14);
+  color: var(--soft-white);
 }
 
 .node-assistant-edit-actions button:disabled {
@@ -24383,8 +24507,8 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .node-assistant-body .chat-message-row.context .chat-message-bubble {
-  background: rgba(126, 185, 197, 0.08);
-  border: 1px solid rgba(126, 185, 197, 0.2);
+  background: rgba(122, 162, 232, 0.08);
+  border: 1px solid rgba(122, 162, 232, 0.2);
   color: #bfdceb;
   border-top-left-radius: 2px;
   font-size: 11.5px;
@@ -24393,7 +24517,7 @@ button.message-timeline-row.phone:focus-visible {
 .node-assistant-code-block {
   margin: 10px 0;
   padding: 12px;
-  background: #090d14;
+  background: rgba(2, 3, 6, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   overflow-x: auto;
