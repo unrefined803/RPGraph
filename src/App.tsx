@@ -68,6 +68,7 @@ import { PhonePanel } from './components/PhonePanel';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import { PhoneTab } from './chat/PhoneTab';
+import { PhoneTabletFrame } from './components/PhoneTabletFrame';
 import {
   AutoTurnIcon,
   CancelRunIcon,
@@ -302,6 +303,7 @@ import {
   defaultChatPanelWidth,
   defaultBigScreenPanelWidth,
   defaultBigScreenPhoneWidth,
+  defaultChatPhoneWidth,
   defaultConnection,
   useAppSettings,
 } from './settings';
@@ -524,6 +526,14 @@ const minBigScreenPhoneWidth = 420;
 const maxBigScreenPanelWidthRatio = 0.6;
 // The Phone view is framed as a tablet; the side bezels double as resize handles.
 const bigScreenTabletBezelWidth = 18;
+
+// In the side drawer the tablet sits inside the chat column and never exceeds it.
+const minChatPhoneWidth = 320;
+const chatPhoneStageInset = 16;
+
+function maxChatPhoneWidth(chatWidth: number) {
+  return Math.max(minChatPhoneWidth, chatWidth - (chatPhoneStageInset + bigScreenTabletBezelWidth) * 2);
+}
 
 function clampBigScreenWidth(width: number, minimum: number) {
   const maximum = Math.max(minimum, window.innerWidth * maxBigScreenPanelWidthRatio);
@@ -753,6 +763,8 @@ function App() {
     setBigScreenPanelWidth: setStoredBigScreenPanelWidth,
     bigScreenPhoneWidth: storedBigScreenPhoneWidth,
     setBigScreenPhoneWidth: setStoredBigScreenPhoneWidth,
+    chatPhoneWidth: storedChatPhoneWidth,
+    setChatPhoneWidth: setStoredChatPhoneWidth,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,
@@ -925,6 +937,9 @@ function App() {
   const [bigScreenPhoneWidth, setBigScreenPhoneWidth] = useState(defaultBigScreenPhoneWidth);
   const bigScreenWidthRef = useRef(bigScreenWidth);
   const bigScreenPhoneWidthRef = useRef(bigScreenPhoneWidth);
+  const [chatPhoneWidth, setChatPhoneWidth] = useState(defaultChatPhoneWidth);
+  const chatPhoneWidthRef = useRef(chatPhoneWidth);
+  const [isPhoneResizing, setIsPhoneResizing] = useState(false);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const workflowFromRpSaveRef = useRef(false);
@@ -2111,6 +2126,48 @@ function App() {
   }, [settingsLoadComplete, storedBigScreenPanelWidth, storedBigScreenPhoneWidth]);
 
   useEffect(() => {
+    if (settingsLoadComplete) {
+      queueMicrotask(() => {
+        chatPhoneWidthRef.current = storedChatPhoneWidth;
+        setChatPhoneWidth(storedChatPhoneWidth);
+      });
+    }
+  }, [settingsLoadComplete, storedChatPhoneWidth]);
+
+  useEffect(() => {
+    if (!isPhoneResizing) {
+      return;
+    }
+
+    function resize(event: PointerEvent) {
+      // The tablet stays centered in the drawer and grows symmetrically.
+      const center = window.innerWidth - chatWidthRef.current / 2;
+      const requestedWidth = Math.abs(event.clientX - center) * 2 - bigScreenTabletBezelWidth * 2;
+      const width = Math.round(Math.min(
+        maxChatPhoneWidth(chatWidthRef.current),
+        Math.max(minChatPhoneWidth, requestedWidth),
+      ));
+      chatPhoneWidthRef.current = width;
+      setChatPhoneWidth(width);
+    }
+
+    function stopResize() {
+      setIsPhoneResizing(false);
+      setStoredChatPhoneWidth(chatPhoneWidthRef.current);
+    }
+
+    document.body.classList.add('resizing-panels');
+    window.addEventListener('pointermove', resize);
+    window.addEventListener('pointerup', stopResize);
+
+    return () => {
+      document.body.classList.remove('resizing-panels');
+      window.removeEventListener('pointermove', resize);
+      window.removeEventListener('pointerup', stopResize);
+    };
+  }, [isPhoneResizing, setStoredChatPhoneWidth]);
+
+  useEffect(() => {
     if (!bigScreenMode) {
       return;
     }
@@ -2156,6 +2213,13 @@ function App() {
         setStoredBigScreenPanelWidth(bigScreenWidthRef.current);
       } else {
         setStoredChatPanelWidth(chatWidthRef.current);
+        // Narrowing the chat also narrows the tablet; widening it leaves the tablet as set.
+        const phoneMaximum = maxChatPhoneWidth(chatWidthRef.current);
+        if (chatPhoneWidthRef.current > phoneMaximum) {
+          chatPhoneWidthRef.current = phoneMaximum;
+          setChatPhoneWidth(phoneMaximum);
+          setStoredChatPhoneWidth(phoneMaximum);
+        }
       }
     }
 
@@ -2175,6 +2239,7 @@ function App() {
     setStoredBigScreenPanelWidth,
     setStoredBigScreenPhoneWidth,
     setStoredChatPanelWidth,
+    setStoredChatPhoneWidth,
   ]);
 
   useEffect(() => {
@@ -6078,6 +6143,12 @@ function App() {
             />
             </Profiler>
           ) : chatPanelView === 'phone' ? (
+            <PhoneTabletFrame
+              framed={!bigScreenMode}
+              width={Math.min(chatPhoneWidth, maxChatPhoneWidth(chatWidth))}
+              resizing={isPhoneResizing}
+              onResizeStart={() => setIsPhoneResizing(true)}
+            >
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
               onStartInitiativeTurn={startPhoneInitiativeTurn}
@@ -6348,6 +6419,7 @@ function App() {
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
             </AppMessageAvatars>
+            </PhoneTabletFrame>
           ) : (
             <EventsPanel
               key={panelSessionRevision}

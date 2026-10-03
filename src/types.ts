@@ -1046,6 +1046,7 @@ export type AppSettings = {
     chatPanelWidth: number;
     bigScreenPanelWidth?: number;
     bigScreenPhoneWidth?: number;
+    chatPhoneWidth?: number;
   };
 };
 

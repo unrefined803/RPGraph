@@ -28783,11 +28783,16 @@ button.message-timeline-row.phone:focus-visible {
   text-transform: uppercase;
 }
 
-/* Phone view in Big Screen: a narrower column framed like a tablet. */
+/* Phone view as a tablet: in Big Screen the drawer itself is the device,
+   in the side drawer a frame inside the chat column draws the same bezel. */
 .studio.big-screen-active .chat-drawer.big-screen-tablet {
   top: 4vh;
   bottom: 4vh;
   padding: 18px 0;
+}
+
+.studio.big-screen-active .chat-drawer.big-screen-tablet,
+.phone-tablet-frame {
   border: 1px solid rgba(150, 170, 210, 0.16);
   border-radius: 42px;
   background: linear-gradient(160deg, #1d2433, #0a0d14 45%, #121825);
@@ -28800,7 +28805,8 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 /* Front camera. */
-.studio.big-screen-active .chat-drawer.big-screen-tablet::before {
+.studio.big-screen-active .chat-drawer.big-screen-tablet::before,
+.phone-tablet-frame::before {
   content: "";
   position: absolute;
   top: 6px;
@@ -28817,15 +28823,61 @@ button.message-timeline-row.phone:focus-visible {
   background: transparent;
 }
 
-.studio.big-screen-active .chat-drawer.big-screen-tablet .panel-resizer::after {
+.studio.big-screen-active .chat-drawer.big-screen-tablet .panel-resizer::after,
+.phone-tablet-bezel::after {
+  content: "";
+  position: absolute;
+  top: 50%;
   left: 50%;
   width: 3px;
   height: 64px;
+  border-radius: 99px;
   transform: translate(-50%, -50%);
   background: rgba(150, 170, 210, 0.22);
+  transition: background 0.18s ease;
 }
 
-.studio.big-screen-active .chat-drawer.big-screen-tablet .chat-panel {
+.phone-tablet-bezel:hover::after,
+.phone-tablet-stage.resizing .phone-tablet-bezel::after {
+  background: rgba(170, 190, 235, 0.55);
+}
+
+.studio.big-screen-active .chat-drawer.big-screen-tablet .chat-panel,
+.phone-tablet-screen {
   border-radius: 24px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
+}
+
+.phone-tablet-stage {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
+  padding: 14px 16px;
+  background: radial-gradient(ellipse 70% 90% at 50% 45%, #121b2b, #080c14 85%);
+}
+
+.phone-tablet-frame {
+  position: relative;
+  display: grid;
+  box-sizing: border-box;
+  width: calc(var(--phone-tablet-screen-width) + 36px);
+  max-width: 100%;
+  min-height: 0;
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
+  padding: 18px 0;
+}
+
+.phone-tablet-bezel {
+  position: relative;
+  cursor: col-resize;
+}
+
+.phone-tablet-screen {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: #131b28;
 }
