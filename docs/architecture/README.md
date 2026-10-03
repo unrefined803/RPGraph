@@ -16,6 +16,7 @@ Component-level design references for RPGraph Studio. Strict and declarative —
 | [character-search.md](character-search.md) | Isolated LLM character discovery through the Ask character information prompt action. |
 | [app-profile-names.md](app-profile-names.md) | Canonical app profile names, terminology, legacy migration and container persistence. |
 | [image-generation.md](image-generation.md) | Image provider selection, OpenRouter generation, and shared gallery integration. |
+| [ui-design.md](ui-design.md) | Visual language: Big Screen palette, shared dialog skin and component styles. |
 | [overview.md](overview.md) | Full architecture map: UI shell, prompt routing, node system, execution runtime, data model, providers. |
 | [npc-agency-tags.md](npc-agency-tags.md) | Character-level tags, social reaction audiences and private context. |
 | [npc-in-game-assistant.md](npc-in-game-assistant.md) | In-app character editor, assistant authoring, media assignments and local saving. |

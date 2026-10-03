@@ -5008,7 +5008,7 @@ export function StudioDialogs({
       )}
       {pendingProviderType && showConnections && (
         <div className="storybook-confirm-backdrop file-confirm-backdrop" role="presentation" onClick={() => setPendingProviderType(null)}>
-          <section className="storybook-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="provider-type-confirm-title" aria-describedby="provider-type-confirm-message" onClick={(event) => event.stopPropagation()}>
+          <section className="storybook-confirm-dialog deep-dialog" role="alertdialog" aria-modal="true" aria-labelledby="provider-type-confirm-title" aria-describedby="provider-type-confirm-message" onClick={(event) => event.stopPropagation()}>
             <h3 id="provider-type-confirm-title">Change provider type?</h3>
             <p id="provider-type-confirm-message">Switching to {pendingProviderType.label} will remove the API key from this preset and reset its Base URL and defaults. Continue?</p>
             <div className="storybook-confirm-actions">

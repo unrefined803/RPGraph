@@ -14680,7 +14680,8 @@ button.message-timeline-row.phone:focus-visible {
    hairline borders, flat controls and the blue active state of the Big Screen rail. */
 .dialog-backdrop:has(> .deep-dialog),
 .dialog-backdrop:has(> .npc-library-dialog),
-.dialog-backdrop:has(> .system-log-dialog) {
+.dialog-backdrop:has(> .system-log-dialog),
+.dialog-backdrop:has(> .connection-dialog) {
   background: rgba(2, 3, 6, 0.74);
   backdrop-filter: blur(6px);
 }
@@ -23040,6 +23041,258 @@ button.message-timeline-row.phone:focus-visible {
   background: linear-gradient(180deg, rgba(198, 95, 95, 0.3), rgba(91, 45, 51, 0.72));
 }
 
+/* Providers dialog in the Big Screen palette of the deep dialogs. */
+.connection-dialog {
+  border-color: rgba(130, 160, 220, 0.12);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(52, 82, 140, 0.16), transparent 75%),
+    linear-gradient(180deg, #111a2a, #0c1320);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 22px 80px rgba(0, 0, 0, 0.6),
+    0 0 140px rgba(60, 100, 180, 0.14);
+}
+
+.connection-dialog,
+.connection-dialog * {
+  scrollbar-color: #222c3f transparent;
+}
+
+.connection-dialog *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.connection-dialog *::-webkit-scrollbar-thumb {
+  border-color: #0e1522;
+  background: #222c3f;
+}
+
+.connection-dialog *::-webkit-scrollbar-thumb:hover {
+  background: #33405a;
+}
+
+.connection-dialog .dialog-header {
+  padding: 18px 26px;
+  border-bottom-color: rgba(148, 163, 184, 0.08);
+}
+
+.connection-dialog .dialog-header h2 {
+  color: var(--soft-white);
+  font-size: 22px;
+  letter-spacing: 0.01em;
+}
+
+.connection-dialog .dialog-header p {
+  color: #8292ae;
+  font-size: 13px;
+}
+
+/* Flat controls with the blue hover. */
+.connection-dialog .close-button,
+.connection-dialog .dialog-actions button,
+.connection-dialog .connection-provider-actions button,
+.connection-dialog .connection-inline-button,
+.connection-dialog .llama-router-notice button,
+.storybook-confirm-dialog.deep-dialog .storybook-confirm-actions button:not(.inspect-button) {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.storybook-confirm-dialog.deep-dialog .storybook-confirm-actions button:not(.inspect-button) {
+  min-width: 82px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.connection-dialog .close-button:hover,
+.connection-dialog .dialog-actions button:hover:not(:disabled),
+.connection-dialog .connection-provider-actions button:hover:not(:disabled),
+.connection-dialog .connection-inline-button:hover:not(:disabled),
+.connection-dialog .llama-router-notice button:hover,
+.storybook-confirm-dialog.deep-dialog .storybook-confirm-actions button:not(.inspect-button):hover {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.12);
+}
+
+/* Destructive actions: faint translucent red with a raised edge. */
+.connection-dialog .dialog-actions button.danger,
+.connection-dialog .connection-provider-actions button.danger,
+.storybook-confirm-dialog.deep-dialog .storybook-confirm-actions button.danger:not(.inspect-button) {
+  border-color: rgba(232, 112, 112, 0.3);
+  color: #efb5b5;
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.16), rgba(232, 112, 112, 0.06));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.connection-dialog .dialog-actions button.danger:hover:not(:disabled),
+.connection-dialog .connection-provider-actions button.danger:hover:not(:disabled),
+.storybook-confirm-dialog.deep-dialog .storybook-confirm-actions button.danger:not(.inspect-button):hover {
+  border-color: rgba(232, 112, 112, 0.6);
+  color: var(--soft-white);
+  background: linear-gradient(180deg, rgba(232, 112, 112, 0.26), rgba(232, 112, 112, 0.12));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 14px rgba(232, 112, 112, 0.16);
+}
+
+/* Provider tabs and the type list. */
+.connection-dialog .preset-tabs button {
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #8d9bb5;
+  background: rgba(255, 255, 255, 0.04);
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.connection-dialog .preset-tabs button:hover {
+  border-color: rgba(148, 163, 184, 0.2);
+  color: var(--soft-white);
+  background: rgba(148, 170, 214, 0.08);
+}
+
+.connection-dialog .preset-tabs button.active {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: linear-gradient(180deg, rgba(52, 71, 106, 0.75), rgba(35, 49, 80, 0.75));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 14px rgba(92, 132, 214, 0.2);
+}
+
+.connection-dialog .preset-tabs .new-preset {
+  color: #8fb4f0;
+}
+
+.connection-dialog .connection-dialog-right {
+  border-left-color: rgba(148, 163, 184, 0.08);
+}
+
+.connection-dialog .presets-sidebar-title {
+  color: #536079;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+
+.connection-dialog .presets-sidebar-hint {
+  color: #7887a2;
+}
+
+.connection-dialog .provider-presets button {
+  border-color: rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  color: #dbe3f2;
+  background: rgba(148, 170, 214, 0.035);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.connection-dialog .provider-presets button:hover {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(148, 170, 214, 0.07);
+}
+
+.connection-dialog .provider-presets.choose button {
+  border-color: rgba(122, 162, 232, 0.32);
+}
+
+.connection-dialog .provider-presets.choose button:hover {
+  border-color: rgba(122, 162, 232, 0.6);
+  background: rgba(122, 162, 232, 0.1);
+}
+
+.connection-dialog .provider-presets button.active {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: linear-gradient(180deg, rgba(52, 71, 106, 0.6), rgba(35, 49, 80, 0.6));
+  box-shadow:
+    inset 3px 0 0 #7aa2e8,
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 18px rgba(92, 132, 214, 0.16);
+}
+
+/* Fields and grouped sections. */
+.connection-dialog .connection-field label,
+.connection-dialog .connection-field-hint,
+.connection-dialog .connection-sampling-header span {
+  color: #66738c;
+}
+
+.connection-dialog .connection-field input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.connection-dialog .connection-field select,
+.connection-dialog .connection-detected-capabilities {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(2, 3, 6, 0.3);
+}
+
+.connection-dialog .connection-field input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+.connection-dialog .connection-field select:focus {
+  border-color: rgba(122, 162, 232, 0.45);
+  box-shadow: none;
+}
+
+.connection-dialog .node-custom-select-button,
+.connection-dialog .node-custom-select-button:disabled:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(2, 3, 6, 0.3);
+}
+
+.connection-dialog .node-custom-select-button:hover:not(:disabled),
+.connection-dialog .node-custom-select-button[aria-expanded="true"]:not(:disabled) {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: rgba(122, 162, 232, 0.1);
+}
+
+.connection-dialog .connection-provider-tools,
+.connection-dialog .connection-sampling-section,
+.connection-dialog .connection-tts-section {
+  border-color: rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  background: rgba(2, 3, 6, 0.26);
+}
+
+.connection-dialog .connection-provider-tools strong {
+  color: #dbe3f2;
+}
+
+.connection-dialog .connection-draft-placeholder {
+  border-color: rgba(148, 163, 184, 0.14);
+  border-radius: 12px;
+}
+
+.connection-dialog .connection-draft-placeholder span {
+  color: #7887a2;
+}
+
+.connection-dialog .llama-router-notice code,
+.connection-dialog .llama-router-notice pre {
+  border-color: rgba(148, 163, 184, 0.1);
+  background: rgba(2, 3, 6, 0.3);
+}
+
+.connection-dialog .comfy-role-options button {
+  border-color: rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  background: rgba(148, 170, 214, 0.035);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.connection-dialog .comfy-role-options button:hover {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: rgba(122, 162, 232, 0.1);
+}
+
+.connection-dialog .connection-status {
+  color: #7887a2;
+}
+
 /* Error Boundary */
 .error-boundary-fallback {
   display: grid;
@@ -23255,7 +23508,7 @@ button.message-timeline-row.phone:focus-visible {
   gap: 2px;
   padding: 5px;
   border: 1px solid #1e293b;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #090c14;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
@@ -23267,8 +23520,8 @@ button.message-timeline-row.phone:focus-visible {
   justify-content: flex-start;
   width: 100%;
   border: 0;
-  border-radius: 6px;
-  color: #edf1ff;
+  border-radius: 7px;
+  color: #dbe3f2;
   background: transparent;
   padding: 7px 10px;
   font: inherit;
@@ -23321,11 +23574,12 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .node-custom-select-option:hover {
-  background: #161f30;
+  background: rgba(148, 170, 214, 0.1);
 }
 
 .node-custom-select-option.selected {
-  background: rgba(138, 115, 201, 0.2);
+  background: linear-gradient(180deg, #34476a, #233150);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   color: var(--soft-white);
 }
 
@@ -23347,10 +23601,10 @@ button.message-timeline-row.phone:focus-visible {
 .node-custom-select-popover,
 .studio.glass-design-active .node-custom-select-popover,
 .node-custom-select-popover.glass-design-popover {
-  background: rgba(13, 17, 28, 0.96) !important;
+  background: rgba(12, 18, 30, 0.97) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border: 1px solid rgba(138, 115, 201, 0.35) !important;
+  border: 1px solid rgba(130, 160, 220, 0.22) !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
 }
 
@@ -23360,11 +23614,12 @@ button.message-timeline-row.phone:focus-visible {
 
 .studio.glass-design-active .node-custom-select-option:hover,
 .node-custom-select-popover.glass-design-popover .node-custom-select-option:hover {
-  background: rgba(138, 115, 201, 0.2) !important;
+  background: rgba(148, 170, 214, 0.1) !important;
 }
 
 .node-custom-select-popover.glass-design-popover .node-custom-select-option.selected {
-  background: rgba(138, 115, 201, 0.32) !important;
+  background: linear-gradient(180deg, #34476a, #233150) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   color: #fff !important;
 }
 
