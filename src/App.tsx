@@ -54,6 +54,7 @@ import {
   SystemLogDialog,
 } from './components/AppDialogs';
 import { StorybookEditorDialog } from './components/StorybookEditorDialog';
+import { runLlmReportTotals, tokenCell } from './components/runLlmReportTotals';
 import {
   AssistantDialog,
   type AssistantMessage as AssistantChatMessage,
@@ -5406,6 +5407,7 @@ function App() {
     </button>
   );
   const storybookSourceNodeId = nodes.find(isStorybookSourceNode)?.id;
+  const runLlmTotals = bigScreenMode && runLlmReport ? runLlmReportTotals(runLlmReport) : null;
   const appMenuButtons = (
     <>
       {bigScreenMode && (
@@ -5595,6 +5597,29 @@ function App() {
             <div className="big-screen-files">
               {activeFileStatus}
               {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
+            </div>
+            <div className="big-screen-runtime">
+              <button
+                className="big-screen-runtime-button"
+                type="button"
+                onClick={() => setShowRunLlmReport(true)}
+                disabled={!runLlmReport}
+                title="Show LLM calls for the current or last run"
+              >
+                <span>Runtime</span>
+                <span className="big-screen-runtime-clock">
+                  <LiveRunClock isRunning={isRunning} isPaused={isPaused} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+                </span>
+              </button>
+              <dl className="big-screen-runtime-stats" aria-label="LLM usage of the current or last run">
+                <div><dt>Input tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.inputTokens) : '-'}</dd></div>
+                <div><dt>Output tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.outputTokens) : '-'}</dd></div>
+                <div>
+                  <dt>Reasoning</dt>
+                  <dd>{runLlmTotals ? tokenCell(runLlmTotals.hasReasoningTokens ? runLlmTotals.reasoningTokens : undefined) : '-'}</dd>
+                </div>
+                <div><dt>LLM calls</dt><dd>{runLlmReport ? runLlmReport.calls.length : '-'}</dd></div>
+              </dl>
             </div>
             {graphSystemToast}
             <button className="big-screen-exit" type="button" onClick={() => setBigScreenMode(false)}>

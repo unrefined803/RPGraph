@@ -1128,9 +1128,9 @@ input[type="radio"]:focus-visible {
 }
 
 .runtime-summary-button:not(:disabled):hover {
-  border-color: var(--accent);
+  border-color: rgba(122, 162, 232, 0.45);
   color: var(--soft-white);
-  background: rgba(138, 115, 201, 0.12);
+  background: rgba(122, 162, 232, 0.12);
 }
 
 .graph-reset {
@@ -14697,7 +14697,8 @@ button.message-timeline-row.phone:focus-visible {
 .dialog-backdrop:has(> .npc-library-dialog),
 .dialog-backdrop:has(> .system-log-dialog),
 .dialog-backdrop:has(> .connection-dialog),
-.dialog-backdrop:has(> .options-dialog) {
+.dialog-backdrop:has(> .options-dialog),
+.dialog-backdrop:has(> .run-llm-report-dialog) {
   background: rgba(2, 3, 6, 0.74);
   backdrop-filter: blur(6px);
 }
@@ -15261,10 +15262,15 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #303a4e;
+  border: 1px solid rgba(130, 160, 220, 0.12);
   border-radius: 18px;
-  background: #111722;
-  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(52, 82, 140, 0.16), transparent 75%),
+    linear-gradient(180deg, #111a2a, #0c1320);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 22px 80px rgba(0, 0, 0, 0.6),
+    0 0 140px rgba(60, 100, 180, 0.14);
 }
 
 .comfy-image-dialog {
@@ -15503,7 +15509,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .run-llm-report-comparison-section {
   margin-bottom: 24px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
   padding-bottom: 24px;
 }
 
@@ -15512,7 +15518,7 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #64748b;
+  color: #536079;
   letter-spacing: 0.05em;
 }
 
@@ -15523,9 +15529,9 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .run-llm-card {
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 10px;
-  background: rgba(30, 41, 59, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  background: rgba(148, 170, 214, 0.035);
   padding: 12px;
   transition: all 0.2s ease;
   display: flex;
@@ -15533,9 +15539,9 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .run-llm-card.current {
-  border-color: var(--accent, #8a73c9);
-  background: rgba(138, 115, 201, 0.05);
-  box-shadow: 0 4px 12px rgba(138, 115, 201, 0.1);
+  border-color: rgba(122, 162, 232, 0.45);
+  background: linear-gradient(180deg, rgba(52, 71, 106, 0.5), rgba(35, 49, 80, 0.5));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 18px rgba(92, 132, 214, 0.16);
 }
 
 .run-llm-card-header {
@@ -15552,7 +15558,7 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: #8d9bb5;
 }
 
 .run-llm-card.current .run-llm-card-header h4 {
@@ -15561,8 +15567,8 @@ button.message-timeline-row.phone:focus-visible {
 
 .run-llm-card-badge {
   font-size: 9px;
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
+  background: rgba(86, 217, 154, 0.14);
+  color: #7fd6ac;
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 600;
@@ -15583,15 +15589,15 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .run-llm-card-label {
-  color: #64748b;
+  color: #66738c;
 }
 
 .run-llm-card.current .run-llm-card-label {
-  color: #94a3b8;
+  color: #a9b5cb;
 }
 
 .run-llm-card-value {
-  color: #94a3b8;
+  color: #8d9bb5;
   text-align: right;
 }
 
@@ -15611,10 +15617,10 @@ button.message-timeline-row.phone:focus-visible {
 .run-llm-report-empty {
   margin: 0;
   padding: 18px;
-  border: 1px dashed rgba(148, 163, 184, 0.28);
-  border-radius: 8px;
-  color: #94a3b8;
-  background: rgba(15, 23, 42, 0.32);
+  border: 1px dashed rgba(148, 163, 184, 0.14);
+  border-radius: 12px;
+  color: #66738c;
+  background: transparent;
   font-size: 13px;
 }
 
@@ -15637,8 +15643,8 @@ button.message-timeline-row.phone:focus-visible {
   position: sticky;
   top: 0;
   z-index: 1;
-  color: #94a3b8;
-  background: #111722;
+  color: #8d9bb5;
+  background: #0f1726;
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -15713,10 +15719,10 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .run-llm-report-table tfoot td {
-  border-top: 2px solid rgba(126, 185, 197, 0.42);
+  border-top: 2px solid rgba(122, 162, 232, 0.4);
   border-bottom: 0;
-  color: #e8fbff;
-  background: rgba(16, 44, 57, 0.42);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.1);
   font-weight: 800;
 }
 
@@ -23228,6 +23234,49 @@ button.message-timeline-row.phone:focus-visible {
   background: rgba(122, 162, 232, 0.1);
 }
 
+/* LLM Runtime report in the Big Screen palette. */
+.run-llm-report-dialog .dialog-header {
+  border-bottom-color: rgba(148, 163, 184, 0.08);
+}
+
+.run-llm-report-dialog .dialog-header h2 {
+  color: var(--soft-white);
+}
+
+.run-llm-report-dialog .dialog-header p {
+  color: #8292ae;
+}
+
+.run-llm-report-dialog .close-button {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #b7c4da;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  font-weight: 650;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.run-llm-report-dialog .close-button:hover {
+  border-color: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+  background: rgba(122, 162, 232, 0.12);
+}
+
+.run-llm-report-dialog,
+.run-llm-report-dialog * {
+  scrollbar-color: #222c3f transparent;
+}
+
+.run-llm-report-dialog *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.run-llm-report-dialog *::-webkit-scrollbar-thumb {
+  border-color: #0e1522;
+  background: #222c3f;
+}
+
 /* Options dialog in the Big Screen palette of the deep dialogs. */
 .options-dialog {
   border-color: rgba(130, 160, 220, 0.12);
@@ -29759,16 +29808,29 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   bottom: 0;
   left: 0;
   display: flex;
-  width: clamp(210px, 18vw, 320px);
+  --big-screen-menu-width: clamp(210px, 18vw, 320px);
+  /* The sidebar spans the gap up to the chat column so long file names can
+     run past the menu width; its blocks keep the menu width. */
+  width: max(
+    var(--big-screen-menu-width),
+    calc(50vw - var(--big-screen-panel-width) / 2 - var(--big-screen-edge-width) - 8px)
+  );
   flex-direction: column;
   gap: 30px;
   padding: 24px 16px 20px 26px;
+  overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
 }
 
+.big-screen-sidebar > * {
+  width: calc(var(--big-screen-menu-width) - 42px);
+  max-width: 100%;
+}
+
 .big-screen-brand {
   -webkit-app-region: drag;
+  width: var(--big-screen-menu-width);
   flex: none;
   margin: 0 -16px 0 -26px;
   padding: 0 16px 0 26px;
@@ -29825,8 +29887,91 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   border-top: 1px solid rgba(148, 163, 184, 0.08);
 }
 
+/* Runtime of the current or last run with a quiet usage summary below it. */
+.big-screen-runtime {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* The sidebar gap plus this padding matches the spacing above the file block. */
+  margin-top: -12px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.big-screen-runtime-button {
+  display: flex;
+  width: fit-content;
+  align-items: baseline;
+  gap: 0;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: #8292ae;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  text-align: left;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.big-screen-runtime-button:hover:not(:disabled) {
+  color: var(--soft-white);
+  background: rgba(148, 170, 214, 0.07);
+}
+
+.big-screen-runtime-button:disabled {
+  cursor: default;
+}
+
+/* Labels and values sit in two narrow columns so the numbers stay close to
+   their labels and still line up on the right. */
+.big-screen-runtime-button > span:first-child,
+.big-screen-runtime-stats dt {
+  width: 104px;
+  flex: none;
+}
+
+.big-screen-runtime-clock,
+.big-screen-runtime-stats dd {
+  min-width: 62px;
+  text-align: right;
+}
+
+.big-screen-runtime-clock {
+  color: #c3cee0;
+  font-variant-numeric: tabular-nums;
+}
+
+.big-screen-runtime-stats {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 12px;
+}
+
+.big-screen-runtime-stats > div {
+  display: flex;
+  align-items: baseline;
+}
+
+.big-screen-runtime-stats dt,
+.big-screen-runtime-stats dd {
+  margin: 0;
+  color: #536079;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.big-screen-runtime-stats dd {
+  color: #66738c;
+  font-variant-numeric: tabular-nums;
+}
+
 .big-screen-files .topbar-file-status {
   max-width: none;
+  overflow: visible;
   flex-direction: column;
   align-items: stretch;
   gap: 14px;
@@ -29853,13 +29998,19 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   letter-spacing: 0.1em;
 }
 
+/* Long names run past the menu width and fade out before the chat column. */
 .big-screen-files .topbar-file-status .session-file {
+  width: max(
+    100%,
+    calc(50vw - var(--big-screen-panel-width) / 2 - var(--big-screen-edge-width) - 70px)
+  );
   max-width: none;
   overflow: hidden;
   color: #8292ae;
   font-size: 13.5px;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
+  mask-image: linear-gradient(90deg, #000 calc(100% - 96px), transparent);
 }
 
 .big-screen-files .topbar-file-status .session-turn {
