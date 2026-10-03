@@ -28632,7 +28632,7 @@ button.message-timeline-row.phone:focus-visible {
   z-index: 20;
   top: 0;
   right: 0;
-  left: calc(50% + var(--big-screen-panel-width) / 2 + 7px);
+  left: calc(50% + var(--big-screen-panel-width) / 2 + var(--big-screen-edge-width));
   display: flex;
   height: 46px;
   align-items: center;
@@ -28655,7 +28655,7 @@ button.message-timeline-row.phone:focus-visible {
   position: absolute;
   z-index: 15;
   top: 50%;
-  left: calc(50% + var(--big-screen-panel-width) / 2 + 7px + 30px);
+  left: calc(50% + var(--big-screen-panel-width) / 2 + var(--big-screen-edge-width) + 30px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -28724,6 +28724,13 @@ button.message-timeline-row.phone:focus-visible {
   cursor: default;
 }
 
+.big-screen-rail-label {
+  font-size: 16px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
 .big-screen-rail-button .big-screen-icon {
   width: 24px;
   height: 24px;
@@ -28774,4 +28781,51 @@ button.message-timeline-row.phone:focus-visible {
   font-weight: 750;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+/* Phone view in Big Screen: a narrower column framed like a tablet. */
+.studio.big-screen-active .chat-drawer.big-screen-tablet {
+  top: 4vh;
+  bottom: 4vh;
+  padding: 18px 0;
+  border: 1px solid rgba(150, 170, 210, 0.16);
+  border-radius: 42px;
+  background: linear-gradient(160deg, #1d2433, #0a0d14 45%, #121825);
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 30px 80px rgba(0, 0, 0, 0.6),
+    0 0 140px rgba(60, 100, 180, 0.14);
+}
+
+/* Front camera. */
+.studio.big-screen-active .chat-drawer.big-screen-tablet::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #3a4a6a, #06080d 70%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transform: translateX(-50%);
+}
+
+.studio.big-screen-active .chat-drawer.big-screen-tablet .panel-resizer {
+  background: transparent;
+}
+
+.studio.big-screen-active .chat-drawer.big-screen-tablet .panel-resizer::after {
+  left: 50%;
+  width: 3px;
+  height: 64px;
+  transform: translate(-50%, -50%);
+  background: rgba(150, 170, 210, 0.22);
+}
+
+.studio.big-screen-active .chat-drawer.big-screen-tablet .chat-panel {
+  border-radius: 24px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
 }

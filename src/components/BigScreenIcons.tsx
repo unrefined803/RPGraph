@@ -17,16 +17,12 @@ function Icon({ children }: { children: ReactNode }) {
   );
 }
 
-export function ChatIcon() {
-  return <Icon><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17H10l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5Z" /></Icon>;
-}
-
 export function PhoneIcon() {
-  return <Icon><rect x="6.5" y="2.8" width="11" height="18.4" rx="2.4" /><path d="M10.5 18h3" /></Icon>;
+  return <Icon><rect x="6" y="2.5" width="12" height="19" rx="3" /><path d="M10.5 5.3h3" strokeWidth="2.2" /><path d="M10 18.6h4" /></Icon>;
 }
 
 export function EventsIcon() {
-  return <Icon><path d="M12 3.5 13.9 9l5.6.3-4.4 3.5 1.5 5.5L12 15.2l-4.6 3.1 1.5-5.5L4.5 9.3l5.6-.3L12 3.5Z" /></Icon>;
+  return <Icon><rect x="3.8" y="5.2" width="16.4" height="15" rx="2.4" /><path d="M3.8 10h16.4" /><path d="M8.2 3.2v3.6" /><path d="M15.8 3.2v3.6" /><path d="M8 13.6h.01M12 13.6h.01M16 13.6h.01M8 16.8h.01M12 16.8h.01" strokeWidth="2.4" /></Icon>;
 }
 
 export function AutoTurnIcon() {

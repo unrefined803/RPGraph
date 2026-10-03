@@ -287,6 +287,7 @@ function validMaxReferenceImages(value?: number) {
 const connectionStorageKey = 'rpgraph.connections';
 export const defaultChatPanelWidth = 779;
 export const defaultBigScreenPanelWidth = 1100;
+export const defaultBigScreenPhoneWidth = 760;
 const defaultConnectionReasoningEffort: ConnectionReasoningEffort = 'none';
 export const defaultComfyBaseUrl = 'http://127.0.0.1:8188';
 export type BundledComfyWorkflow = {
@@ -866,8 +867,8 @@ function isAppSettings(value: unknown): value is AppSettings {
       (validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined &&
         (settings.layout.bigScreenPanelWidth === undefined ||
           validChatPanelWidth(settings.layout.bigScreenPanelWidth) !== undefined) &&
-        (settings.layout.bigScreenMode === undefined ||
-          typeof settings.layout.bigScreenMode === 'boolean')))
+        (settings.layout.bigScreenPhoneWidth === undefined ||
+          validChatPanelWidth(settings.layout.bigScreenPhoneWidth) !== undefined)))
   );
 }
 
@@ -942,8 +943,8 @@ type AppSettingsState = {
   setChatPanelWidth: Dispatch<SetStateAction<number>>;
   bigScreenPanelWidth: number;
   setBigScreenPanelWidth: Dispatch<SetStateAction<number>>;
-  bigScreenMode: boolean;
-  setBigScreenMode: Dispatch<SetStateAction<boolean>>;
+  bigScreenPhoneWidth: number;
+  setBigScreenPhoneWidth: Dispatch<SetStateAction<number>>;
   settingsLoadComplete: boolean;
   settingsStatus: string;
   glassDesignEnabled: boolean;
@@ -1028,7 +1029,7 @@ export function useAppSettings(): AppSettingsState {
   const [maxReferenceImages, setMaxReferenceImages] = useState(defaultMaxReferenceImages);
   const [chatPanelWidth, setChatPanelWidth] = useState(defaultChatPanelWidth);
   const [bigScreenPanelWidth, setBigScreenPanelWidth] = useState(defaultBigScreenPanelWidth);
-  const [bigScreenMode, setBigScreenMode] = useState(false);
+  const [bigScreenPhoneWidth, setBigScreenPhoneWidth] = useState(defaultBigScreenPhoneWidth);
   const [glassDesignEnabled, setGlassDesignEnabled] = useState(defaultGlassDesignEnabled);
   const [glassDesignOpacity, setGlassDesignOpacity] = useState(defaultGlassDesignOpacity);
   const [nodeTextSize, setNodeTextSize] = useState<NodeTextSize>(defaultNodeTextSize);
@@ -1161,7 +1162,9 @@ export function useAppSettings(): AppSettingsState {
         setBigScreenPanelWidth(
           validChatPanelWidth(result.settings.layout?.bigScreenPanelWidth) ?? defaultBigScreenPanelWidth,
         );
-        setBigScreenMode(result.settings.layout?.bigScreenMode ?? false);
+        setBigScreenPhoneWidth(
+          validChatPanelWidth(result.settings.layout?.bigScreenPhoneWidth) ?? defaultBigScreenPhoneWidth,
+        );
         setSettingsStatus('');
         setSettingsLoaded(true);
         setSettingsLoadComplete(true);
@@ -1241,7 +1244,7 @@ export function useAppSettings(): AppSettingsState {
       layout: {
         chatPanelWidth,
         bigScreenPanelWidth,
-        bigScreenMode,
+        bigScreenPhoneWidth,
       },
     };
     void window.rpgraph
@@ -1261,7 +1264,7 @@ export function useAppSettings(): AppSettingsState {
     connections,
     chatPanelWidth,
     bigScreenPanelWidth,
-    bigScreenMode,
+    bigScreenPhoneWidth,
     defaultConnectionId,
     displayLanguage,
     englishProcessingEnabled,
@@ -1382,8 +1385,8 @@ export function useAppSettings(): AppSettingsState {
     setChatPanelWidth,
     bigScreenPanelWidth,
     setBigScreenPanelWidth,
-    bigScreenMode,
-    setBigScreenMode,
+    bigScreenPhoneWidth,
+    setBigScreenPhoneWidth,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,

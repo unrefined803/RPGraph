@@ -71,7 +71,6 @@ import { PhoneTab } from './chat/PhoneTab';
 import {
   AutoTurnIcon,
   CancelRunIcon,
-  ChatIcon,
   EnterBigScreenIcon,
   EventsIcon,
   ExitBigScreenIcon,
@@ -302,6 +301,7 @@ import {
 import {
   defaultChatPanelWidth,
   defaultBigScreenPanelWidth,
+  defaultBigScreenPhoneWidth,
   defaultConnection,
   useAppSettings,
 } from './settings';
@@ -519,12 +519,15 @@ function loadAssistantConnectionId() {
 const minChatPanelWidth = 779;
 const minGraphPanelWidth = 520;
 const minBigScreenPanelWidth = 480;
+const minBigScreenPhoneWidth = 420;
 // Big Screen keeps the outer fifth on each side free for the menu and turn controls.
 const maxBigScreenPanelWidthRatio = 0.6;
+// The Phone view is framed as a tablet; the side bezels double as resize handles.
+const bigScreenTabletBezelWidth = 18;
 
-function clampBigScreenPanelWidth(width: number) {
-  const maximum = Math.max(minBigScreenPanelWidth, window.innerWidth * maxBigScreenPanelWidthRatio);
-  return Math.round(Math.min(maximum, Math.max(minBigScreenPanelWidth, width)));
+function clampBigScreenWidth(width: number, minimum: number) {
+  const maximum = Math.max(minimum, window.innerWidth * maxBigScreenPanelWidthRatio);
+  return Math.round(Math.min(maximum, Math.max(minimum, width)));
 }
 const phoneEmojiOptions = [
   '🙂',
@@ -748,8 +751,8 @@ function App() {
     setChatPanelWidth: setStoredChatPanelWidth,
     bigScreenPanelWidth: storedBigScreenPanelWidth,
     setBigScreenPanelWidth: setStoredBigScreenPanelWidth,
-    bigScreenMode,
-    setBigScreenMode,
+    bigScreenPhoneWidth: storedBigScreenPhoneWidth,
+    setBigScreenPhoneWidth: setStoredBigScreenPhoneWidth,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,
@@ -916,8 +919,12 @@ function App() {
   const [chatWidth, setChatWidth] = useState(defaultChatPanelWidth);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  // Most players use Big Screen, so every app start opens in it.
+  const [bigScreenMode, setBigScreenMode] = useState(true);
   const [bigScreenWidth, setBigScreenWidth] = useState(defaultBigScreenPanelWidth);
+  const [bigScreenPhoneWidth, setBigScreenPhoneWidth] = useState(defaultBigScreenPhoneWidth);
   const bigScreenWidthRef = useRef(bigScreenWidth);
+  const bigScreenPhoneWidthRef = useRef(bigScreenPhoneWidth);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const workflowFromRpSaveRef = useRef(false);
@@ -1151,6 +1158,9 @@ function App() {
     commitNodes,
     notifySystem: (level, message) => notifySystemRef.current(level, message),
   });
+  const bigScreenTablet = bigScreenMode && chatPanelView === 'phone';
+  const bigScreenColumnWidth = bigScreenTablet ? bigScreenPhoneWidth : bigScreenWidth;
+  const bigScreenEdgeWidth = bigScreenTablet ? bigScreenTabletBezelWidth : 7;
   const usedStorybookImageIds = useMemo(
     () => storybookImageIdsUsedByMessages(messages),
     [messages],
@@ -2094,17 +2104,19 @@ function App() {
   useEffect(() => {
     if (settingsLoadComplete) {
       queueMicrotask(() => {
-        setBigScreenWidth(clampBigScreenPanelWidth(storedBigScreenPanelWidth));
+        setBigScreenWidth(clampBigScreenWidth(storedBigScreenPanelWidth, minBigScreenPanelWidth));
+        setBigScreenPhoneWidth(clampBigScreenWidth(storedBigScreenPhoneWidth, minBigScreenPhoneWidth));
       });
     }
-  }, [settingsLoadComplete, storedBigScreenPanelWidth]);
+  }, [settingsLoadComplete, storedBigScreenPanelWidth, storedBigScreenPhoneWidth]);
 
   useEffect(() => {
     if (!bigScreenMode) {
       return;
     }
     function fitBigScreenPanel() {
-      setBigScreenWidth((current) => clampBigScreenPanelWidth(current));
+      setBigScreenWidth((current) => clampBigScreenWidth(current, minBigScreenPanelWidth));
+      setBigScreenPhoneWidth((current) => clampBigScreenWidth(current, minBigScreenPhoneWidth));
     }
     window.addEventListener('resize', fitBigScreenPanel);
     return () => window.removeEventListener('resize', fitBigScreenPanel);
@@ -2118,9 +2130,16 @@ function App() {
     function resize(event: PointerEvent) {
       if (bigScreenMode) {
         // The centered panel grows symmetrically from both edges.
-        const width = clampBigScreenPanelWidth(Math.abs(event.clientX - window.innerWidth / 2) * 2);
-        bigScreenWidthRef.current = width;
-        setBigScreenWidth(width);
+        const requestedWidth = Math.abs(event.clientX - window.innerWidth / 2) * 2;
+        if (bigScreenTablet) {
+          const width = clampBigScreenWidth(requestedWidth - bigScreenTabletBezelWidth * 2, minBigScreenPhoneWidth);
+          bigScreenPhoneWidthRef.current = width;
+          setBigScreenPhoneWidth(width);
+        } else {
+          const width = clampBigScreenWidth(requestedWidth, minBigScreenPanelWidth);
+          bigScreenWidthRef.current = width;
+          setBigScreenWidth(width);
+        }
         return;
       }
       const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
@@ -2131,7 +2150,9 @@ function App() {
 
     function stopResize() {
       setIsResizing(false);
-      if (bigScreenMode) {
+      if (bigScreenTablet) {
+        setStoredBigScreenPhoneWidth(bigScreenPhoneWidthRef.current);
+      } else if (bigScreenMode) {
         setStoredBigScreenPanelWidth(bigScreenWidthRef.current);
       } else {
         setStoredChatPanelWidth(chatWidthRef.current);
@@ -2147,7 +2168,14 @@ function App() {
       window.removeEventListener('pointermove', resize);
       window.removeEventListener('pointerup', stopResize);
     };
-  }, [bigScreenMode, isResizing, setStoredBigScreenPanelWidth, setStoredChatPanelWidth]);
+  }, [
+    bigScreenMode,
+    bigScreenTablet,
+    isResizing,
+    setStoredBigScreenPanelWidth,
+    setStoredBigScreenPhoneWidth,
+    setStoredChatPanelWidth,
+  ]);
 
   useEffect(() => {
     if (!previewImage) {
@@ -5271,17 +5299,19 @@ function App() {
       <button className="connection-button" type="button" onClick={openConnectionManager}>
         Providers
       </button>
-      <button
-        className="connection-button"
-        type="button"
-        onClick={() => {
-          setNodeAssistantNodeId(null);
-          setWorkflowAssistantOpen(true);
-        }}
-        title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
-      >
-        Assistant
-      </button>
+      {!bigScreenMode && (
+        <button
+          className="connection-button"
+          type="button"
+          onClick={() => {
+            setNodeAssistantNodeId(null);
+            setWorkflowAssistantOpen(true);
+          }}
+          title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
+        >
+          Assistant
+        </button>
+      )}
       <button
         className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
         type="button"
@@ -5405,7 +5435,8 @@ function App() {
         '--character-name-animation-state': smoothChatAutoScrollActive ? 'paused' : 'running',
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
-        '--big-screen-panel-width': `${bigScreenWidth}px`,
+        '--big-screen-panel-width': `${bigScreenColumnWidth}px`,
+        '--big-screen-edge-width': `${bigScreenEdgeWidth}px`,
       } as React.CSSProperties}
     >
       {showRunLlmReport && runLlmReport && (
@@ -5719,9 +5750,11 @@ function App() {
           />
         )}
         <div
-          className={`chat-drawer ${isChatPanelOpen || isResizing || bigScreenMode ? 'open' : ''}`}
+          className={`chat-drawer ${isChatPanelOpen || isResizing || bigScreenMode ? 'open' : ''}${bigScreenTablet ? ' big-screen-tablet' : ''}`}
           style={{
-            gridTemplateColumns: bigScreenMode ? `7px ${bigScreenWidth}px 7px` : `7px ${chatWidth}px`,
+            gridTemplateColumns: bigScreenMode
+              ? `${bigScreenEdgeWidth}px ${bigScreenColumnWidth}px ${bigScreenEdgeWidth}px`
+              : `7px ${chatWidth}px`,
           }}
           onMouseEnter={() => setIsChatPanelOpen(true)}
         >
@@ -6358,11 +6391,11 @@ function App() {
                 type="button"
                 role="tab"
                 aria-selected={chatPanelView === 'chat'}
-                aria-label="Chat"
-                title="Chat"
+                aria-label="RP Chat"
+                title="RP Chat"
                 onClick={() => selectChatPanelView('chat')}
               >
-                <ChatIcon />
+                <span className="big-screen-rail-label">RP</span>
                 {unreadChatCount > 0 && <span className="tab-badge">{unreadChatCount}</span>}
               </button>
               {phoneAvailable && (
