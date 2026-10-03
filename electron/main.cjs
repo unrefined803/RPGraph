@@ -813,6 +813,26 @@ async function assertOverwriteType(filePath, expectedType) {
   }
 }
 
+// Encrypted saves are checked by the encrypt functions. Apply the same payload
+// check to every save, so a malformed plain payload never replaces a valid file.
+function assertSavablePayload(value, type) {
+  if (type === 'workflow' && !workflowMetadata(value).compatible) {
+    throw new Error(`Only RPGraph Workflow File Format ${currentWorkflowFormatVersion} payloads can be saved.`);
+  }
+  if (type === 'session' && (
+    value?.format !== 'rpgraph-session' ||
+    value.formatVersion !== currentSessionFormatVersion ||
+    value.workflow?.formatVersion !== currentSessionWorkflowFormatVersion ||
+    !Array.isArray(value.timeline)
+  )) {
+    throw new Error(`Only RPGraph RP Save Format v${currentSessionFormatVersion} payloads can be saved.`);
+  }
+  if (type === 'storybook' &&
+      (value?.format !== 'rpgraph-storybook' || value.version !== currentStorybookFormatVersion)) {
+    throw new Error(`Only RPGraph Storybook Format ${currentStorybookFormatVersion} payloads can be saved.`);
+  }
+}
+
 async function writeTextFileAtomically(filePath, contents) {
   const temporaryPath = path.join(path.dirname(filePath), `.rpgraph-${process.pid}-${crypto.randomUUID()}.tmp`);
   try {
@@ -5569,6 +5589,7 @@ handleWorkspace('npc-library:open-folder', async () => npcLibraryService.openUse
 
 handleWorkspace('workflow:save-named', async (_event, request) => {
   workspaceProtection.require(request);
+  assertSavablePayload(request?.workflow, 'workflow');
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const { baseName, fileName, filePath, previousFilePath } = await storedSaveTarget(directory, request?.name, safeWorkflowBaseName, request, 'workflow');
@@ -5604,6 +5625,7 @@ handleWorkspace('workflow:save-named', async (_event, request) => {
 
 handleWorkspace('storybook:save', async (_event, request) => {
   workspaceProtection.require(request);
+  assertSavablePayload(request?.storybook, 'storybook');
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const { baseName, fileName, filePath, previousFilePath } = await storedSaveTarget(directory, request?.name ?? request?.storybook?.title, safeStorybookBaseName, request, 'storybook');
@@ -5712,6 +5734,7 @@ handleWorkspace('file:save-to-path', async (_event, request) => {
     baseName = safeWorkflowBaseName(request?.name);
     expectedType = 'workflow';
     title = 'Save Workflow File';
+    assertSavablePayload(request?.workflow, 'workflow');
     defaultFileName = `${baseName}${jsonFileExtension}`;
     payload = protection === 'encrypted'
       ? await encryptWorkflow(request.workflow, request.password)
@@ -5722,6 +5745,7 @@ handleWorkspace('file:save-to-path', async (_event, request) => {
     baseName = safeStorybookBaseName(request?.name ?? request?.storybook?.title);
     expectedType = 'storybook';
     title = 'Save Storybook File';
+    assertSavablePayload(request?.storybook, 'storybook');
     defaultFileName = `${baseName}${jsonFileExtension}`;
     payload = protection === 'encrypted'
       ? await encryptStorybook(request.storybook, request.password)
@@ -5732,6 +5756,7 @@ handleWorkspace('file:save-to-path', async (_event, request) => {
     baseName = safeSessionBaseName(request?.name);
     expectedType = 'session';
     title = 'Save RP File';
+    assertSavablePayload(request?.session, 'session');
     defaultFileName = `${baseName}${jsonFileExtension}`;
     payload = protection === 'encrypted'
       ? await encryptSession(request.session, request.password)
@@ -5909,6 +5934,7 @@ handleWorkspace('workflow:reload', async (_event, filePath) => {
 handleWorkspace('workflow:save-current', async (_event, request) => {
   workspaceProtection.require({ protection: 'plain' });
   const validatedPath = validateWorkflowPath(request?.filePath);
+  assertSavablePayload(request?.workflow, 'workflow');
   await assertOverwriteType(validatedPath, 'workflow');
   await writeTextFileAtomically(validatedPath, await storedPayloadContents(request.workflow, validatedPath));
   await saveLastWorkflowFileName(path.basename(validatedPath));
@@ -5955,6 +5981,7 @@ handleWorkspace('settings:save', async (_event, settings) => {
 
 handleWorkspace('session:save', async (_event, request) => {
   workspaceProtection.require(request);
+  assertSavablePayload(request?.session, 'session');
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const { baseName, fileName, filePath, previousFilePath } = await storedSaveTarget(directory, request.name, safeSessionBaseName, request, 'session');
@@ -6168,6 +6195,7 @@ handleWorkspace('session:save-current', async (_event, request) => {
   workspaceProtection.require(request);
   let filePath = validateFilePath(request.filePath);
   let previousFilePath;
+  assertSavablePayload(request?.session, 'session');
   await assertOverwriteType(filePath, 'session');
   if (privateFileType(path.basename(filePath)) && localAccounts.active &&
       request.protection === 'encrypted' && request.password === localAccounts.password &&

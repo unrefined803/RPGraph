@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { migrateV3Document, prepareV3Document } from './migration';
 import { characterPayload, validateCharacterPayload } from './character';
-import { emptyRpStorybook, normalizeRpStorybook, parseRpStorybookAssistantResult, rpStorybookJsonText } from '../nodes/rp-storybook/model';
+import { currentRpStorybookVersion, emptyRpStorybook, normalizeRpStorybook, parseRpStorybookAssistantResult, rpStorybookJsonText } from '../nodes/rp-storybook/model';
+import formatVersions from '../storybook/formatVersions.json';
 import { planCharacterCardImport, rpCharacterCardForCharacter } from '../storybook/characterCard';
 
 const image = { id: 'stable-photo', name: 'Portrait', mimeType: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,YWJj', size: 3, description: 'Portrait' };
@@ -15,6 +16,10 @@ const legacy = () => ({ format: 'rpgraph-storybook', version: '2.2.0', character
 }] });
 
 describe('Character Container and Storybook V3', () => {
+  it('keeps the renderer Storybook version in sync with the shared format versions', () => {
+    expect(currentRpStorybookVersion).toBe(formatVersions.storybook);
+  });
+
   it('migrates without changing the source and retains references and settings', () => {
     const source = legacy();
     const before = structuredClone(source);

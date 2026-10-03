@@ -33,9 +33,10 @@ export function migrateV3Document<T>(input: T): V3MigrationResult<T> {
       const version = typeof value.version === 'string' ? value.version : '';
       if (!/^\d+\.\d+(?:\.\d+)?$/.test(version)) throw new Error('Invalid character or Storybook format version.');
       const target = value.format === 'rpgraph-character' ? formatVersions.characterCard : formatVersions.storybook;
-      const major = Number(target.split('.')[0]);
+      const current = target.split('.').map(Number);
       const parts = version.split('.').map(Number);
-      if (parts[0] > major || parts[0] === major && (parts[1] > 0 || (parts[2] ?? 0) > 0)) throw new Error(`Unsupported newer character or Storybook format: ${version}`);
+      const difference = parts[0] - current[0] || parts[1] - current[1] || (parts[2] ?? 0) - current[2];
+      if (difference > 0) throw new Error(`Unsupported newer character or Storybook format: ${version}`);
       if (version !== target) {
         migratedDocuments += 1;
         versions.add(version);
