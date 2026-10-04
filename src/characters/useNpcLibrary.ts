@@ -8,17 +8,24 @@ export function useNpcLibrary() {
   const [status, setStatus] = useState('');
   const transition = useRef(0);
   const transitioning = useRef(false);
+  // Source selection depends on the active Storybook files; a response selected
+  // for an earlier Storybook or superseded by a newer request is never applied.
+  const activeStorybooks = useRef<string[]>([]);
+  const request = useRef(0);
 
   const load = useCallback(async (reload = false) => {
     const revision = transition.current;
+    const sequence = ++request.current;
+    const names = activeStorybooks.current;
     setLoading(true);
     setStatus('');
     try {
       const bridge = window.rpgraph;
       const next = await (bridge?.getNpcLibrary
-        ? (reload ? bridge.reloadNpcLibrary() : bridge.getNpcLibrary())
+        ? (reload ? bridge.reloadNpcLibrary(names) : bridge.getNpcLibrary(names))
         : browserNpcLibrarySnapshot());
-      if (!transitioning.current && revision === transition.current) setSnapshot(next);
+      if (!transitioning.current && revision === transition.current && sequence === request.current &&
+        names === activeStorybooks.current) setSnapshot(next);
       if (reload) setStatus(`Reloaded ${next.entries.length} NPC container${next.entries.length === 1 ? '' : 's'}.`);
       return next;
     } catch (error) {
@@ -33,15 +40,20 @@ export function useNpcLibrary() {
     let active = true;
     const unsubscribe = window.rpgraph?.onNpcLibraryChanged?.(() => {
       const revision = transition.current;
-      void window.rpgraph.getNpcLibrary().then((next) => { if (active && !transitioning.current && revision === transition.current) setSnapshot(next); }).catch((error) => {
+      const sequence = ++request.current;
+      const names = activeStorybooks.current;
+      void window.rpgraph.getNpcLibrary(names).then((next) => { if (active && !transitioning.current && revision === transition.current && sequence === request.current && names === activeStorybooks.current) setSnapshot(next); }).catch((error) => {
         if (active) setStatus(`Unable to refresh NPC library: ${error instanceof Error ? error.message : String(error)}`);
       });
     });
+    const sequence = ++request.current;
+    const names = activeStorybooks.current;
     const initial = window.rpgraph?.getNpcLibrary
-      ? window.rpgraph.getNpcLibrary()
+      ? window.rpgraph.getNpcLibrary(names)
       : browserNpcLibrarySnapshot();
     void initial.then((next) => {
-      if (active && !transitioning.current && transition.current === 0) setSnapshot(next);
+      if (active && !transitioning.current && transition.current === 0 && sequence === request.current &&
+        names === activeStorybooks.current) setSnapshot(next);
     }).catch((error) => {
       if (active) setStatus(`Unable to load NPC library: ${error instanceof Error ? error.message : String(error)}`);
     });
@@ -58,8 +70,15 @@ export function useNpcLibrary() {
       files: current.files.map((file) => ({ ...file, unlocked: false })),
     } : current);
     try {
-      const next = await window.rpgraph.setWorkspaceProtection(password);
+      request.current += 1;
+      const names = activeStorybooks.current;
+      let next = await window.rpgraph.setWorkspaceProtection(password);
       if (revision !== transition.current) return;
+      // Unlocking rescans with the main process's last known Storybook selection.
+      if (names !== activeStorybooks.current || (next.activeStorybookFileNames ?? []).join('\u0000') !== activeStorybooks.current.join('\u0000')) {
+        next = await window.rpgraph.getNpcLibrary(activeStorybooks.current);
+        if (revision !== transition.current) return;
+      }
       setSnapshot(next);
       const unlocked = next.files.filter((file) => file.protection === 'encrypted' && file.unlocked).length;
       const locked = next.files.filter((file) => file.protection === 'encrypted' && !file.unlocked).length;
@@ -70,6 +89,14 @@ export function useNpcLibrary() {
       setStatus(`Unable to unlock NPC library: ${error instanceof Error ? error.message : String(error)}`);
     } finally { if (revision === transition.current) { transitioning.current = false; setLoading(false); } }
   }, []);
+
+  /** Select external sources for these active Storybook files; unchanged names are ignored. */
+  const setActiveStorybooks = useCallback((fileNames: readonly string[]) => {
+    const names = [...new Set(fileNames.filter(Boolean))].sort();
+    if (names.join('\u0000') === activeStorybooks.current.join('\u0000')) return;
+    activeStorybooks.current = names;
+    if (window.rpgraph && !transitioning.current) void load();
+  }, [load]);
 
   const show = useCallback(() => {
     setOpen(true);
@@ -90,5 +117,5 @@ export function useNpcLibrary() {
   }, []);
 
   return { snapshot, open, loading, status, show, close: () => setOpen(false),
-    reload: () => load(true), openFolder, setGamePassword };
+    reload: () => load(true), openFolder, setGamePassword, setActiveStorybooks };
 }

@@ -7,6 +7,7 @@ import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { characterLibrarySummary, characterMatchesLibrarySearch, characterProvenanceStages, characterStorageBadge, effectiveLibraryEntry, visibleLibraryEntries, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
+import { publicationSourceLabel } from '../characters/externalNpcs';
 import type { Character } from '../characters/character';
 import { characterContentEqual } from '../characters/contentComparison';
 
@@ -93,6 +94,9 @@ function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onR
   const portrait = useMemo(() => appAvatarDataUrl(character,
     character.images.find((image) => image.id === character.profileImage?.imageId)), [character]);
   const [failedPortrait, setFailedPortrait] = useState('');
+  // Shown only while the external Storybook copy is the effective character.
+  const publication = !inStorybook && !display.retained && libraryEntry?.tier === 'saved-storybook'
+    ? libraryEntry.publication : undefined;
   const provenance = characterProvenanceStages({
     tier: libraryEntry?.tier, editedBuiltIn: libraryEntry?.editedBuiltIn,
     localEdited, inStorybook, storybookEdited, retained: display.retained, snapshotEdited: display.snapshotEdited,
@@ -116,6 +120,13 @@ function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onR
               </span>
             </span>)}
           </span>
+          {publication && <span className="npc-library-origin" title={publication.pinned
+            ? 'Imported with this RP. Its posts stay as saved even when the source Storybook or RP Save changes.'
+            : publication.kind === 'save'
+              ? 'Character state and own posts come from the latest usable RP Save of this Storybook.'
+              : 'Character state and own posts come from this stored Storybook and its Opening History.'}>
+            Posts from: {publicationSourceLabel(publication)}
+          </span>}
           {display.storageBadge && <span className="npc-library-storage-badge" title={display.storageBadge.title}
             aria-label={`${display.storageBadge.label === 'SB' ? 'Storybook' : 'RP save'} storage: ${display.storageBadge.title}`}>
             <span aria-hidden="true">💾</span> {display.storageBadge.label}
@@ -357,6 +368,7 @@ export function NpcLibraryDialog({ characterColors, snapshot, participants = {},
               ['Local NPCs', libraryEntries.filter((entry) => entry.tier === 'user').length],
               ['Account NPCs', libraryEntries.filter((entry) => entry.tier === 'account').length],
               ['Ignored files', snapshot?.skipped ?? 0],
+              ['Protected sources', snapshot?.protectedSources ?? 0],
             ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}</dl>
             <span className={diagnosticCount ? 'npc-library-warning' : 'npc-library-muted'}>{diagnosticCount} diagnostic{diagnosticCount === 1 ? '' : 's'}{diagnosticCount > 0 ? ' · Check the info icons' : ''}</span>
             {generalIssues.length > 0 && <details className="npc-library-general-issues"><summary>ⓘ File and library issues ({generalIssues.length})</summary>

@@ -955,6 +955,13 @@ function App() {
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot, setNodes);
+  // External sources are selected per active Storybook; prepared, RP-pinned entries come from the participants runtime.
+  const effectiveNpcLibrary = npcParticipants.library();
+  const activeStorybookFileNamesKey = npcParticipants.activeStorybookFileNames().join('\u0000');
+  const setNpcLibraryActiveStorybooks = npcLibrary.setActiveStorybooks;
+  useEffect(() => {
+    setNpcLibraryActiveStorybooks(activeStorybookFileNamesKey ? activeStorybookFileNamesKey.split('\u0000') : []);
+  }, [activeStorybookFileNamesKey, setNpcLibraryActiveStorybooks]);
   useEffect(() => { markUiEvent('run.state', { isRunning }); }, [isRunning]);
   const lifecycleRunningRef = useRef(isRunning);
   useEffect(() => { lifecycleRunningRef.current = isRunning; }, [isRunning]);
@@ -1738,8 +1745,8 @@ function App() {
     currentNpcParticipants: npcParticipants.current,
     restoreNpcParticipants: npcParticipants.restore,
     commitLifecycleNodes: (nextNodes) => commitNodes(nextNodes),
-    currentLibraryEntries: () => npcLibrary.snapshot?.entries ?? [],
-    currentLibraryFiles: () => npcLibrary.snapshot?.files ?? [],
+    currentLibraryEntries: () => npcParticipants.library()?.entries ?? [],
+    currentLibraryFiles: () => npcParticipants.library()?.files ?? [],
     reloadLibrary: () => npcLibrary.reload(),
     workspacePassword: () => workspacePasswordRef.current,
     preferredNpcDestination: () => getAccountPassword() ? defaultCharacterExportDestination : 'npc-characters',
@@ -2870,6 +2877,7 @@ function App() {
       },
       workflowVariables: workflowSettingsValuesRef.current,
       npcParticipants: npcParticipants.current(),
+      importedNpcs: npcParticipants.currentImports(),
       characterColorSlots,
       turns: turnsRef.current,
       turnCheckpoints: turnCheckpointsRef.current,
@@ -3152,6 +3160,7 @@ function App() {
       session.metadata.workflowDisplayName,
     );
     npcParticipants.restore(sessionState.npcParticipants);
+    npcParticipants.restoreImports(sessionState.importedNpcs);
     setCharacterColorSlots(sessionState.characterColorSlots);
     workflowFromRpSaveRef.current = true;
     const openingMessages = sessionState.openingMessages;
@@ -3293,6 +3302,8 @@ function App() {
     commitEdges(loadedEdges);
     if (hydrateOpeningHistory) {
       npcParticipants.restore(hydratedWorkflow.openingNpcParticipants);
+      // A new RP uses the latest available external sources.
+      npcParticipants.restoreImports(undefined);
       const openingTurns = hydratedWorkflow.openingTurns;
       const openingMessages = hydratedWorkflow.openingMessages;
       const openingCheckpoints = hydratedWorkflow.openingCheckpoints;
@@ -7258,7 +7269,7 @@ function App() {
             editedNpcSnapshotRef.current = npcParticipants.current()[character.id];
             plan.warnings.forEach((warning) => notifySystem('warning', warning.message));
           } : undefined}
-          snapshot={npcLibrary.snapshot} onSaved={async () => { await npcLibrary.reload(); }}
+          snapshot={effectiveNpcLibrary} onSaved={async () => { await npcLibrary.reload(); }}
           onClose={() => setShowCharacterAssistant(false)} />
       )}
       {characterRemoval && npcParticipants.registry().characters.some((entry) => entry.character.id === characterRemoval.characterId && entry.provenance.tier === 'storybook' && entry.provenance.source === characterRemoval.nodeId) && <CharacterRemovalDialog
@@ -7276,7 +7287,7 @@ function App() {
             openStorybookCreator(nodeId);
             npcLibrary.close();
           }}
-          snapshot={npcLibrary.snapshot}
+          snapshot={effectiveNpcLibrary}
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
           openingParticipants={openingHistoryNpcParticipantsFromNodes(nodes)}

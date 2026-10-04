@@ -48,6 +48,7 @@ import {
   type StorybookConversionResult,
 } from './conversion';
 import { rpCharacterCardForCharacter } from './characterCard';
+import { socialPostsFromTurns } from '../characters/publicationExport';
 import { storybookWithoutCharacter } from './characterManagement';
 import { storybookAssistantConversationContext } from './assistantConversation';
 import {
@@ -905,8 +906,7 @@ export function useStorybookActions({
         updateRuntimeNode(nodeId, { storybookStatus: 'Export failed: character not found.' });
         return;
       }
-      const posts = [...storybook.openingHistory.turns, ...turnsRef.current].flatMap((turn) =>
-        [...turn.input.messages, ...turn.output.messages].flatMap((message) => message.socialPost ? [message.socialPost] : []));
+      const posts = socialPostsFromTurns([...storybook.openingHistory.turns, ...turnsRef.current]);
       const createCard = (includePosts: boolean, includeReceivedImages: boolean) =>
         rpCharacterCardForCharacter(character, { includePosts, includeReceivedImages, posts,
           gallery: storybook.characters.flatMap((entry) => entry.images) });

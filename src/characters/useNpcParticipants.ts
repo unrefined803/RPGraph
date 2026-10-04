@@ -17,6 +17,10 @@ import {
   type StorybookRegistryCandidateOptions,
 } from './npcParticipantRuntime';
 import type { Character } from './character';
+import {
+  createActiveStorybookContextCache, createExternalNpcLibrary, importedNpcSnapshots, parseImportedNpcSnapshots,
+  type ImportedNpcSnapshots,
+} from './externalNpcs';
 
 const emptyLibraryEntries: NonNullable<NpcLibrarySnapshot>['entries'] = [];
 
@@ -25,7 +29,12 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   const [, setRevision] = useState(0);
   const snapshotsRef = useRef<NpcParticipantSnapshots>({});
   const [runtimeCache] = useState(createNpcRuntimeCache);
-  const runtime = () => runtimeCache(nodesRef.current, library?.entries ?? emptyLibraryEntries, snapshotsRef.current);
+  // External Storybook NPC copies restored from the RP Save; they win over the live sources.
+  const importsRef = useRef<ImportedNpcSnapshots>({});
+  const [externalLibrary] = useState(createExternalNpcLibrary);
+  const [activeContext] = useState(createActiveStorybookContextCache);
+  const effectiveLibrary = () => externalLibrary(library, importsRef.current, activeContext(nodesRef.current));
+  const runtime = () => runtimeCache(nodesRef.current, effectiveLibrary()?.entries ?? emptyLibraryEntries, snapshotsRef.current);
   const entries = () => runtime().entries;
   const registryForStorybook = (nodeId: string, characters: Character[], options?: StorybookRegistryCandidateOptions) =>
     candidateStorybookRegistry(entries(), snapshotsRef.current, nodeId, characters, options);
@@ -46,6 +55,14 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   };
   return {
     current: () => snapshotsRef.current,
+    /** The library with external Storybook characters prepared, pinned and filtered for the active Storybook. */
+    library: effectiveLibrary,
+    activeStorybookFileNames: () => activeContext(nodesRef.current).storybookFileNames,
+    currentImports: () => importedNpcSnapshots(effectiveLibrary()),
+    restoreImports: (imports: ImportedNpcSnapshots | undefined) => {
+      importsRef.current = parseImportedNpcSnapshots(imports);
+      setRevision((revision) => revision + 1);
+    },
     registry: () => runtime().registry,
     registryForStorybook,
     characters: () => runtime().characters,
@@ -74,7 +91,7 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
       return history.checkpoints;
     },
     restore: (snapshots: NpcParticipantSnapshots) => { snapshotsRef.current = parseNpcParticipantSnapshots(snapshots); setRevision((revision) => revision + 1); },
-    reset: () => { snapshotsRef.current = {}; },
+    reset: () => { snapshotsRef.current = {}; importsRef.current = {}; },
     importOpeningHistory: (nodes: WorkflowNode[], replace: boolean) => {
       const opening = openingHistoryNpcParticipantsFromNodes(nodes);
       // An already pinned RP revision wins when importing additional history.

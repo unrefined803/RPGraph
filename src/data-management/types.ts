@@ -257,6 +257,8 @@ export type RuntimeState = {
   characterColorSlots?: CharacterColorSlots;
   /** Pooled JSON revision archive shared by current activity and undo history. */
   npcParticipantsJson?: string;
+  /** Pooled JSON archive of external Storybook NPC copies with their source provenance. */
+  importedNpcsJson?: string;
   nodes: Record<string, NodeRuntimeState>;
   workflowVariables: Record<string, string>;
 };

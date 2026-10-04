@@ -5614,9 +5614,11 @@ handleWorkspace('character:list', async () => {
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
-handleWorkspace('npc-library:get', async () => npcLibraryService.current());
+handleWorkspace('npc-library:get', async (_event, activeStorybookFileNames) =>
+  npcLibraryService.forActiveStorybooks(activeStorybookFileNames));
 
-handleWorkspace('npc-library:reload', async () => npcLibraryService.reload());
+handleWorkspace('npc-library:reload', async (_event, activeStorybookFileNames) =>
+  npcLibraryService.reload(activeStorybookFileNames));
 handleWorkspace('workspace:protection', async (_event, password) => {
   workspaceProtection.activate(localAccounts.active ? '' : password);
   return npcLibraryService.setGamePassword(password || localAccounts.password);

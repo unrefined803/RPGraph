@@ -12,6 +12,8 @@ const {
 } = require('./characterCardFormat.cjs');
 
 const { storybookMetadata } = require('./storybookFormat.cjs');
+const { sessionMetadata } = require('./sessionFormat.cjs');
+const { rehydratedMediaJson } = require('../shared/mediaPool.cjs');
 
 function npcLibraryRoots({ isPackaged, resourcesPath, projectRootPath, userDataPath }) {
   return {
@@ -100,11 +102,131 @@ async function scanNpcDirectory(directory, tier, unlock, displayFileName) {
   return { entries, files, diagnostics, skipped };
 }
 
+const socialPublicationApps = new Set(['fotogram', 'onlyfriends']);
+
+function isRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validSocialPost(post) {
+  return isRecord(post) && socialPublicationApps.has(post.app) && typeof post.postId === 'string' &&
+    typeof post.author === 'string' && typeof post.authorHandle === 'string' && typeof post.caption === 'string';
+}
+
+function openingHistoryPosts(storybook) {
+  const turns = Array.isArray(storybook.openingHistory?.turns) ? storybook.openingHistory.turns : [];
+  return turns.flatMap((turn) => [turn?.input?.messages, turn?.output?.messages]
+    .flatMap((messages) => Array.isArray(messages) ? messages : [])
+    .flatMap((message) => validSocialPost(message?.socialPost) ? [message.socialPost] : []));
+}
+
+// The saved timeline already contains the opening messages; never append Opening History again.
+function timelinePosts(session) {
+  return session.timeline.flatMap((entry) =>
+    entry?.kind === 'message' && validSocialPost(entry.socialPost) ? [entry.socialPost] : []);
+}
+
+/**
+ * One publication source: the playable cast of a Storybook state plus the
+ * publication records and referenced gallery images of that same state.
+ * Imported library NPCs and archived NPC participants never become sources.
+ */
+function publicationSource(storybook, posts, fileName, diagnostics) {
+  const source = { ids: [], characters: new Map(), posts, gallery: new Map(), loaded: true };
+  for (const character of storybook.characters) {
+    if (character?.playable === false) continue;
+    try {
+      validateCharacterPayload(character);
+      if (!source.characters.has(character.id)) source.ids.push(character.id);
+      source.characters.set(character.id, character);
+    } catch (error) {
+      diagnostics.push(diagnostic('saved-storybook', fileName, 'invalid-container',
+        `Invalid Storybook character: ${error instanceof Error ? error.message : String(error)}`));
+    }
+  }
+  const referenced = new Set(posts.flatMap((post) => typeof post.imageId === 'string' ? [post.imageId] : []));
+  for (const character of storybook.characters) {
+    for (const image of Array.isArray(character?.images) ? character.images : []) {
+      if (isRecord(image) && referenced.has(image.id) && !source.gallery.has(image.id)) {
+        source.gallery.set(image.id, { image, ownerId: character.id });
+      }
+    }
+  }
+  return source;
+}
+
+function releaseSource(source) {
+  source.characters.clear();
+  source.gallery.clear();
+  source.posts = [];
+  source.loaded = false;
+}
+
+/**
+ * Source matching, isolated from publication extraction: a save belongs to a
+ * stored Storybook only through the filename it recorded for one Storybook
+ * node. Replace this function to match by a stable Storybook ID later.
+ */
+function sessionStorybookAssociations(session) {
+  const names = session.metadata?.storybookFileNames;
+  const nodeIdsByFileName = new Map();
+  if (!isRecord(names)) return nodeIdsByFileName;
+  for (const [nodeId, fileName] of Object.entries(names)) {
+    if (typeof fileName !== 'string' || !fileName) continue;
+    nodeIdsByFileName.set(fileName, [...(nodeIdsByFileName.get(fileName) ?? []), nodeId]);
+  }
+  return nodeIdsByFileName;
+}
+
+function readSessionSources(session, fileName, record) {
+  const unusable = (message, code = 'unusable-source') =>
+    record.diagnostics.push(diagnostic('saved-storybook', fileName, code, message));
+  if (!sessionMetadata(session).compatible) {
+    unusable('Unsupported or malformed RP Save.', 'unsupported-version');
+    return;
+  }
+  record.savedAt = typeof session.savedAt === 'string' ? Date.parse(session.savedAt) : NaN;
+  if (!Number.isFinite(record.savedAt)) {
+    unusable('RP Save has no valid save time and is not used as a publication source.');
+    return;
+  }
+  record.savedAtText = session.savedAt;
+  record.name = typeof session.name === 'string' && session.name.trim() ? session.name.trim() : undefined;
+  const posts = timelinePosts(session);
+  for (const [storybookFileName, nodeIds] of sessionStorybookAssociations(session)) {
+    if (nodeIds.length !== 1) {
+      unusable(`RP Save links several Storybook nodes to "${storybookFileName}" and is not used as its publication source.`, 'ambiguous-source');
+      continue;
+    }
+    // The runtime state is the effective saved state; its media lives in the save's pool.
+    const runtimeJson = session.runtime.current.nodes?.[nodeIds[0]]?.storybookJson;
+    const json = typeof runtimeJson === 'string' ? runtimeJson
+      : session.workflow.graph.nodes.find((node) => node?.id === nodeIds[0])?.data?.storybookJson;
+    if (typeof json !== 'string' || !json) {
+      unusable(`RP Save has no Storybook state for "${storybookFileName}".`);
+      continue;
+    }
+    let storybook;
+    try {
+      storybook = JSON.parse(rehydratedMediaJson(json, session.entities?.mediaData));
+    } catch (error) {
+      unusable(`RP Save Storybook state for "${storybookFileName}" is unreadable: ${error instanceof Error ? error.message : String(error)}`, 'missing-media');
+      continue;
+    }
+    const metadata = storybookMetadata(storybook);
+    if (!metadata.compatible || metadata.legacy || !Array.isArray(storybook.characters)) {
+      unusable(`RP Save Storybook state for "${storybookFileName}" is unsupported or needs an update.`, 'unsupported-version');
+      continue;
+    }
+    record.sources.set(storybookFileName, publicationSource(storybook, posts, fileName, record.diagnostics));
+  }
+}
+
 // Reads one file of the Storybook directory. Characters keep their payload only
 // while this file provides the library entry for their ID.
-async function readStorybookRecord(filePath, fileName, stats) {
+async function readStorybookRecord(filePath, fileName, stats, displayFileName) {
   const record = { mtimeMs: stats.mtimeMs, ctimeMs: stats.ctimeMs, size: stats.size,
-    updatedAt: stats.mtime.toISOString(), ids: [], characters: new Map(), diagnostics: [] };
+    updatedAt: stats.mtime.toISOString(), kind: 'other', sources: new Map(), diagnostics: [] };
   let value;
   try {
     value = JSON.parse(await fs.readFile(filePath, 'utf8'));
@@ -112,30 +234,49 @@ async function readStorybookRecord(filePath, fileName, stats) {
     record.diagnostics.push(diagnostic('saved-storybook', fileName, 'invalid-json', String(error)));
     return record;
   }
-  // Never attempt to decrypt Storybooks, even when a game password is available.
+  // Never attempt to decrypt Storybooks or RP Saves, even when a game password is available.
+  if (value?.format === 'rpgraph-encrypted-storybook' || value?.format === 'rpgraph-encrypted-session') {
+    record.kind = 'protected';
+    return record;
+  }
+  if (value?.format === 'rpgraph-session') {
+    record.kind = 'session';
+    readSessionSources(value, fileName, record);
+    if (record.sources.size && !record.name) record.name = await sourceDisplayName(displayFileName, fileName, filePath);
+    return record;
+  }
   if (value?.format !== 'rpgraph-storybook') return record;
   if (!storybookMetadata(value).compatible || !Array.isArray(value.characters)) {
     record.diagnostics.push(diagnostic('saved-storybook', fileName, 'invalid-container', 'Unsupported or malformed Storybook.'));
     return record;
   }
-  for (const character of value.characters) {
-    try {
-      validateCharacterPayload(character);
-      record.ids.push(character.id);
-      record.characters.set(character.id, character);
-    } catch (error) {
-      record.diagnostics.push(diagnostic('saved-storybook', fileName, 'invalid-container',
-        `Invalid Storybook character: ${error instanceof Error ? error.message : String(error)}`));
-    }
-  }
+  record.kind = 'storybook';
+  record.name = await sourceDisplayName(displayFileName, fileName, filePath);
+  record.sources.set(fileName, publicationSource(value, openingHistoryPosts(value), fileName, record.diagnostics));
   return record;
 }
 
-// Storybooks are read-only sources: rebuilding the scan also removes deleted characters.
+async function sourceDisplayName(displayFileName, fileName, filePath) {
+  return (displayFileName ? await displayFileName(fileName, undefined, filePath) : '') ||
+    path.basename(fileName, path.extname(fileName));
+}
+
+/** Latest valid save time wins; equal times fall back to the sorted filename. */
+function selectedSave(sessions, storybookFileName) {
+  let selected;
+  for (const session of sessions) {
+    if (!session.record.sources.has(storybookFileName)) continue;
+    if (!selected || session.record.savedAt > selected.record.savedAt) selected = session;
+  }
+  return selected;
+}
+
+// Storybooks and RP Saves are read-only sources: rebuilding the scan also removes deleted characters.
 // `cache` (file path -> record) lets a later scan skip unchanged files. It only
-// ever holds what plain files already expose; nothing here is decrypted.
-async function scanStorybookDirectory(directory, cache = new Map()) {
-  const result = { entries: [], files: [], diagnostics: [], skipped: 0 };
+// ever holds what plain files already expose; nothing here is decrypted. The
+// cache is independent of `activeStorybookFileNames`, which only steers selection.
+async function scanStorybookDirectory(directory, cache = new Map(), displayFileName, activeStorybookFileNames = []) {
+  const result = { entries: [], files: [], diagnostics: [], skipped: 0, publicationSources: [], protectedSources: 0 };
   if (!directory) return result;
   let candidates;
   try {
@@ -153,7 +294,7 @@ async function scanStorybookDirectory(directory, cache = new Map()) {
       const stats = await fs.stat(filePath);
       let record = cache.get(filePath);
       if (!record || record.mtimeMs !== stats.mtimeMs || record.ctimeMs !== stats.ctimeMs || record.size !== stats.size) {
-        record = await readStorybookRecord(filePath, file.name, stats);
+        record = await readStorybookRecord(filePath, file.name, stats, displayFileName);
         cache.set(filePath, record);
       }
       records.push({ filePath, fileName: file.name, record });
@@ -166,61 +307,115 @@ async function scanStorybookDirectory(directory, cache = new Map()) {
   for (const filePath of cache.keys()) {
     if (path.dirname(filePath) === directory && !present.has(filePath)) cache.delete(filePath);
   }
+  for (const { record } of records) {
+    result.diagnostics.push(...record.diagnostics);
+    if (record.kind === 'protected') result.protectedSources += 1;
+  }
+  // Each Storybook contributes exactly one lineage: its latest usable matching
+  // RP Save, or the stored Storybook with its Opening History. Alternate saves
+  // are never merged. The active Storybook is not an external source.
+  const active = new Set(activeStorybookFileNames);
+  const sessions = records.filter(({ record }) => record.kind === 'session');
+  const lineages = records.filter(({ record, fileName }) => record.kind === 'storybook' && !active.has(fileName))
+    .map((storybook) => ({ storybook, origin: selectedSave(sessions, storybook.fileName) ?? storybook, ids: [] }));
   // A character can occur in several saved Storybooks. Prefer the newest
-  // file, with sorted filenames providing a stable tie-breaker.
+  // Storybook file, with sorted filenames providing a stable tie-breaker.
   const winners = new Map();
-  for (const source of records) {
-    result.diagnostics.push(...source.record.diagnostics);
-    for (const id of source.record.ids) {
-      if ((winners.get(id)?.record.mtimeMs ?? -Infinity) >= source.record.mtimeMs) continue;
-      winners.set(id, source);
+  for (const lineage of lineages) {
+    for (const id of lineage.origin.record.sources.get(lineage.storybook.fileName).ids) {
+      if ((winners.get(id)?.storybook.record.mtimeMs ?? -Infinity) >= lineage.storybook.record.mtimeMs) continue;
+      winners.set(id, lineage);
     }
   }
-  for (const [id, source] of winners) {
-    if (!source.record.characters.has(id)) {
-      // This file was superseded during an earlier scan and is needed again.
+  for (const [id, lineage] of winners) lineage.ids.push(id);
+  for (const lineage of lineages) {
+    if (!lineage.ids.length) continue;
+    const { storybook, origin } = lineage;
+    let source = origin.record.sources.get(storybook.fileName);
+    if (!source.loaded || lineage.ids.some((id) => !source.characters.has(id))) {
+      // This file was released during an earlier scan and is needed again.
       try {
-        source.record = await readStorybookRecord(source.filePath, source.fileName, await fs.stat(source.filePath));
-        cache.set(source.filePath, source.record);
+        origin.record = await readStorybookRecord(origin.filePath, origin.fileName, await fs.stat(origin.filePath), displayFileName);
+        cache.set(origin.filePath, origin.record);
       } catch {
-        cache.delete(source.filePath);
+        cache.delete(origin.filePath);
         continue;
       }
+      source = origin.record.sources.get(storybook.fileName);
+      if (!source) continue;
     }
-    const character = source.record.characters.get(id);
-    if (!character) continue;
-    const fileName = `${source.fileName}#${id}`;
-    result.entries.push({ tier: 'saved-storybook', source: `saved-storybook:${fileName}`, fileName, character });
-    result.files.push({ tier: 'saved-storybook', fileName, name: character.name, updatedAt: source.record.updatedAt,
-      type: 'character-card', protection: 'plain', formatVersion: currentCharacterContainerVersion, compatible: true });
+    const shipped = lineage.ids.filter((id) => source.characters.has(id));
+    if (!shipped.length) continue;
+    const fromSave = origin !== storybook;
+    result.publicationSources.push({
+      key: storybook.fileName,
+      revision: [storybook.record.mtimeMs, storybook.record.size, origin.fileName, origin.record.mtimeMs, origin.record.size].join(':'),
+      storybookFileName: storybook.fileName,
+      storybookName: storybook.record.name,
+      kind: fromSave ? 'save' : 'storybook',
+      ...(fromSave ? { saveFileName: origin.fileName, saveName: origin.record.name, savedAt: origin.record.savedAtText } : {}),
+      posts: source.posts,
+      // Winners carry their own galleries; ship only referenced images owned by others.
+      gallery: [...source.gallery.values()].filter(({ ownerId }) => !shipped.includes(ownerId)).map(({ image }) => image),
+    });
+    for (const id of shipped) {
+      const character = source.characters.get(id);
+      const fileName = `${storybook.fileName}#${id}`;
+      result.entries.push({ tier: 'saved-storybook', source: `saved-storybook:${fileName}`, fileName, character,
+        publicationSource: storybook.fileName });
+      result.files.push({ tier: 'saved-storybook', fileName, name: character.name, updatedAt: storybook.record.updatedAt,
+        type: 'character-card', protection: 'plain', formatVersion: currentCharacterContainerVersion, compatible: true });
+    }
+    lineage.source = source;
   }
-  // Superseded copies would otherwise keep their embedded images in memory.
+  // Unselected saves and superseded copies would otherwise keep their embedded images in memory.
+  const used = new Map(lineages.filter((lineage) => lineage.source).map((lineage) => [lineage.source, lineage.ids]));
   for (const { record } of records) {
-    for (const id of record.characters.keys()) {
-      if (winners.get(id)?.record !== record) record.characters.delete(id);
+    for (const source of record.sources.values()) {
+      const ids = used.get(source);
+      if (!ids) {
+        if (source.loaded) releaseSource(source);
+        continue;
+      }
+      for (const id of source.characters.keys()) {
+        if (!ids.includes(id)) source.characters.delete(id);
+      }
     }
   }
   return result;
 }
 
-async function scanNpcLibrary(roots, unlock, displayFileName, storybookCache) {
+function normalizedStorybookFileNames(value) {
+  return Array.isArray(value) ? [...new Set(value.filter((name) => typeof name === 'string' && name))].sort() : [];
+}
+
+async function scanNpcLibrary(roots, unlock, displayFileName, storybookCache, activeStorybookFileNames = []) {
   // Serialize decryptions across both tiers, including identical encrypted copies.
   const bundled = await scanNpcDirectory(roots.bundled, 'bundled', unlock, displayFileName);
   const user = await scanNpcDirectory(roots.user, 'user', unlock, displayFileName);
   const account = roots.account ? await scanNpcDirectory(roots.account, 'account', unlock, displayFileName)
     : { entries: [], files: [], diagnostics: [], skipped: 0 };
-  const storybooks = await scanStorybookDirectory(roots.storybooks, storybookCache);
+  const storybooks = await scanStorybookDirectory(roots.storybooks, storybookCache, displayFileName, activeStorybookFileNames);
   return {
     roots,
     entries: [...bundled.entries, ...storybooks.entries, ...user.entries, ...account.entries],
     files: [...bundled.files, ...storybooks.files, ...user.files, ...account.files],
     diagnostics: [...bundled.diagnostics, ...storybooks.diagnostics, ...user.diagnostics, ...account.diagnostics],
     skipped: bundled.skipped + user.skipped + account.skipped,
+    publicationSources: storybooks.publicationSources,
+    protectedSources: storybooks.protectedSources,
+    activeStorybookFileNames,
   };
 }
 
 function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFileName, accountPassword = '', onChanged = () => {} }) {
-  let cached = { roots, entries: [], files: [], diagnostics: [], skipped: 0 };
+  let cached = { roots, entries: [], files: [], diagnostics: [], skipped: 0, publicationSources: [], protectedSources: 0, activeStorybookFileNames: [] };
+  // Selection context only; the file cache below stays valid across Storybook switches.
+  let activeStorybookFileNames = [];
+  const scan = () => scanNpcLibrary(roots, unlock, displayFileName, storybookCache, activeStorybookFileNames);
+  const useActiveStorybooks = (names) => {
+    if (names !== undefined) activeStorybookFileNames = normalizedStorybookFileNames(names);
+  };
   let queue = Promise.resolve();
   const storybookCache = new Map();
   // Application-session memory only. Never serialize passwords or attempt records.
@@ -252,6 +447,15 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFil
   }
   const service = {
     current: () => cached,
+    /** Return the snapshot selected for these active Storybooks, rescanning only when they changed. */
+    forActiveStorybooks: (names) => enqueue(async () => {
+      const next = normalizedStorybookFileNames(names);
+      if (next.join('\u0000') !== cached.activeStorybookFileNames.join('\u0000')) {
+        activeStorybookFileNames = next;
+        cached = await scan();
+      }
+      return cached;
+    }),
     setGamePassword: (password) => {
       if (typeof password !== 'string') throw new Error('Invalid game password.');
       return enqueue(async () => {
@@ -262,19 +466,20 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFil
           gamePassword = password;
           if (password) passwords.add(password);
         }
-        cached = await scanNpcLibrary(roots, unlock, displayFileName, storybookCache);
+        cached = await scan();
         onChanged(cached);
         return cached;
       });
     },
-    reload: () => {
+    reload: (names) => {
       return enqueue(async () => {
+        useActiveStorybooks(names);
         try {
           await fs.mkdir(roots.user, { recursive: true });
         } catch {
           // The scan below returns a directory diagnostic without blocking startup.
         }
-        cached = await scanNpcLibrary(roots, unlock, displayFileName, storybookCache);
+        cached = await scan();
         onChanged(cached);
         return cached;
       });

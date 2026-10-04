@@ -1,5 +1,6 @@
 import type { CharacterColorSlots } from '../chat/characterColors';
 import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../characters/npcParticipants';
+import { parseImportedNpcSnapshots, type ImportedNpcSnapshots } from '../characters/externalNpcs';
 import {
   currentSessionFormatVersion,
   currentSessionWorkflowFormatVersion,
@@ -45,6 +46,7 @@ import type {
 export type SessionV2AppState = {
   characterColorSlots: CharacterColorSlots;
   npcParticipants: NpcParticipantSnapshots;
+  importedNpcs: ImportedNpcSnapshots;
   settings: {
     englishProcessingEnabled: boolean;
     inputTranslationOnlyEnabled?: boolean;
@@ -72,6 +74,8 @@ export type SessionV2AppState = {
 export type SessionV2CurrentStateInput = {
   characterColorSlots?: CharacterColorSlots;
   npcParticipants?: NpcParticipantSnapshots;
+  /** External Storybook NPC copies in effect for this RP, pinned by saving them. */
+  importedNpcs?: ImportedNpcSnapshots;
   name: string;
   settings: SessionV2AppState['settings'];
   workflowVariables: Record<string, string>;
@@ -218,6 +222,11 @@ export function sessionV2FromCurrentState(
   if (state.npcParticipants && Object.keys(state.npcParticipants).length) {
     redactedRuntime.npcParticipantsJson = mediaWriter.redactedStorybookJson(
       JSON.stringify(parseNpcParticipantSnapshots(state.npcParticipants)),
+    );
+  }
+  if (state.importedNpcs && Object.keys(state.importedNpcs).length) {
+    redactedRuntime.importedNpcsJson = mediaWriter.redactedStorybookJson(
+      JSON.stringify(parseImportedNpcSnapshots(state.importedNpcs)),
     );
   }
   const redactedCheckpoints = state.turnCheckpoints.map((checkpoint) =>
@@ -503,6 +512,8 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
     characterColorSlots: { ...session.runtime.current.characterColorSlots },
     npcParticipants: parseNpcParticipantSnapshots(session.runtime.current.npcParticipantsJson === undefined
       ? undefined : JSON.parse(mediaReader.rehydratedStorybookJson(session.runtime.current.npcParticipantsJson))),
+    importedNpcs: parseImportedNpcSnapshots(session.runtime.current.importedNpcsJson === undefined
+      ? undefined : JSON.parse(mediaReader.rehydratedStorybookJson(session.runtime.current.importedNpcsJson))),
     workflowVariables: workflowVariableRecord(session.runtime.current.workflowVariables),
     turns,
     turnCheckpoints: session.runtime.undo.map((checkpoint) =>

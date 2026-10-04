@@ -15,9 +15,13 @@ export function initialCharacterPosts(characters: StorybookCharacter[]): SocialP
   }));
 }
 
-/** Whitelist own publication fields. Never copy messages, reactions, likes or match history. */
+/**
+ * Whitelist own publication fields. Never copy messages, reactions, likes or match history.
+ * A post whose image is missing aborts the snapshot unless `onMissingImage` accepts
+ * responsibility for reporting it; that post is then left out instead of dangling.
+ */
 export function withPublicationSnapshot(character: Character, posts: SocialPostRecord[], gallery: Character['images'],
-  options: { copyExternalImages?: boolean } = {}): Character {
+  options: { copyExternalImages?: boolean; onMissingImage?: (post: SocialPostRecord) => void } = {}): Character {
   const copy = structuredClone(character);
   for (const app of ['fotogram', 'onlyfriends'] as const) {
     const account = copy.apps?.[app];
@@ -29,7 +33,11 @@ export function withPublicationSnapshot(character: Character, posts: SocialPostR
         post.authorHandle.toLowerCase() !== accountHandle(account).toLowerCase() || post.author !== character.name)) continue;
       if (options.copyExternalImages !== false && post.imageId && !copy.images.some((image) => image.id === post.imageId)) {
         const image = gallery.find((entry) => entry.id === post.imageId);
-        if (!image) throw new Error(`Cannot export post ${post.postId}: missing gallery image ${post.imageId}.`);
+        if (!image) {
+          if (!options.onMissingImage) throw new Error(`Cannot export post ${post.postId}: missing gallery image ${post.imageId}.`);
+          options.onMissingImage(post);
+          continue;
+        }
         copy.images.push({ ...structuredClone(image), imageAccess: true });
       }
       const seedId = sourceSeedId(post.postId, account.accountId);

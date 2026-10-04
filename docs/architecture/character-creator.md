@@ -310,25 +310,133 @@ and runtime context rules.
 
 ## Saved Storybook NPC sources
 
-The desktop NPC library scans plain `rpgraph-storybook` JSON files directly in
+The desktop NPC library scans the plain JSON files directly in
 `<Electron userData>/files` alongside its character-container directories.
-`electron/npcLibrary.cjs` validates each character independently and exposes it
-as a read-only `saved-storybook` entry, including its authored media and accounts.
-Encrypted Storybooks are excluded even when a workspace password is available.
-Unsupported Storybooks and invalid characters produce diagnostics without
-blocking other sources. External directories are not scanned.
+While a Storybook is active, the playable characters of every other stored
+Storybook are available as read-only `saved-storybook` library NPCs carrying
+their own published posts and the images those posts need. No character file is
+written and neither the source Storybook nor its RP Saves are changed.
+External directories are not scanned. Browser development retains its
+bundled-only fallback.
+
+### Source selection
+
+`electron/npcLibrary.cjs` (`scanStorybookDirectory`) selects exactly one source
+per stored Storybook:
+
+1. The matching, usable RP Save with the latest valid `savedAt` time. Turn
+   count, in-game date and file modification time are ignored; equal times
+   resolve by filename order.
+2. Otherwise the stored Storybook itself with its Opening History.
+
+A save is usable when it is plain, loadable, has a valid `savedAt`, and its
+Storybook state parses, is current, and resolves every pooled media reference.
+An unusable save is reported and the next newest usable save is tried.
+Alternate saves are never merged, and workflow files are never sources.
+
+`sessionStorybookAssociations` is the only place that matches saves to
+Storybooks. A save belongs to a Storybook file when `metadata.storybookFileNames`
+records that filename for exactly one Storybook node. Saves without that
+metadata, or linking several nodes to one file, are not attached; names,
+character overlap and content are never compared. A stable Storybook ID can
+replace this function without touching publication extraction.
+
+A save source supplies one consistent state: the characters from its effective
+Storybook state (`runtime.current.nodes[<node>].storybookJson`, rehydrated from
+`entities.mediaData` through `shared/mediaPool.cjs`, else the embedded workflow
+node) and the `socialPost` records of its timeline. The timeline already
+contains the opening messages, so Opening History is not appended again. The
+Storybook fallback supplies the stored characters and the `socialPost` records
+of `openingHistory.turns`.
+
+Only characters with `playable !== false` are exported. Library NPCs added to a
+Storybook, characters removed from its cast, archived NPC participants
+(`npcParticipantsJson`) and imported copies (`importedNpcsJson`) are never
+re-exported as that Storybook's original cast.
+
+When several stored Storybooks provide the same character ID, the Storybook
+file with the newest modification time provides it, with filename order as the
+tie-breaker; the save is then chosen inside that Storybook's lineage. Histories
+of different Storybooks are never merged. Each entry records the winning source
+as `publication` provenance.
+
+### Active Storybook exclusion
+
+Exclusion is active-session state and stays outside the source caches:
+
+- The renderer sends the active Storybook filenames with every library request.
+  Those Storybooks are not external sources, so another Storybook can provide a
+  character the active file also stores. The snapshot echoes the names it was
+  selected for.
+- `createActiveStorybookContextCache` (`src/characters/externalNpcs.ts`) collects
+  the stable IDs and identity aliases of every character in the active
+  Storybooks. A matching external character is dropped before its posts or
+  media are collected, so an active character never receives posts, images or
+  profile changes from another Storybook. Names are never compared; other
+  characters of the same external Storybook stay available.
+
+### Publication snapshot
+
+`prepareCharacterPublicationExport` (`src/characters/publicationExport.ts`) is the
+single non-UI preparation behind the manual “Export Character with Own Posts”
+and the automatic NPC copies. It takes an explicit character, publication
+records, gallery and inclusion options, and returns a validated portable
+container. The manual export passes the active Storybook plus current session
+turns with its two checkbox options unchanged. `createExternalNpcLibrary` passes
+the selected source with posts included and `receivedImages: 'referenced'`.
+
+The copy keeps the source character ID, account IDs and relationships. Its
+Fotogram and OnlyFriends `initialPosts` hold the authored starting posts plus
+the character's own posts from the source, keyed by the existing seed identity
+(`sourceSeedId`), so opening posts, timeline posts and repeated refreshes never
+duplicate. Authorship resolves by account ID, then character ID, then the
+established handle-and-name rule for legacy records. Images referenced by own
+posts are copied from the source gallery; other received or shared gallery
+images are left behind unless the public profile uses them. Private messages,
+notes, bank state, purchases, likes, comments and match history are not
+transferred. A post whose image is missing is omitted and reported as a
+`missing-media` diagnostic for that character; other characters still load.
 
 Priority by stable character ID is active Storybook, retained RP snapshot,
-local NPC file, saved Storybook, then bundled NPC file. Multiple saved Storybooks
-with the same character ID resolve to the file with the newest modification
-time; equal timestamps use filename order. The source is labeled “From Storybook” in the library and character editor. Editing and saving creates a
-local NPC override, leaving the source Storybook intact.
+account NPC file, local NPC file, saved Storybook, then bundled NPC file. The
+copies are not player-selectable, do not count as interacted and grant no
+contacts. The library labels them “From Storybook” with
+“Posts from: <Storybook> · <RP Save>”. Editing and saving creates a local NPC
+override, leaving the source intact.
+
+### Persistence with the RP
+
+Saving an RP stores the external copies in effect as
+`runtime.current.importedNpcsJson`, pooled through the save's media pool and
+separate from `npcParticipantsJson`. Each record keeps the character, its
+library source and its publication provenance. Loading the RP restores them as
+pins: a pinned ID keeps its saved revision even when the source later advances,
+changes or disappears, while IDs the RP has not imported yet come from the live
+sources. Pins remain at the `saved-storybook` tier, so local files, retained RP
+snapshots and the active Storybook keep precedence. A new RP has no pins and
+uses the latest sources. Activity with an imported NPC pins it through the
+existing participant snapshot mechanism.
+
+### Caching and refresh
 
 The scan runs during library reloads (including startup and opening the library),
-Storybook loads, Storybook saves, and workspace-protection changes. Each scan
-replaces the previous discovered entries, so deletions, changed characters, and
-new encryption take effect on the next scan. No automatic character export
-files are written. Browser development retains its bundled-only fallback.
+Storybook loads, Storybook saves, workspace-protection changes and active
+Storybook changes. The main process caches one record per file, keyed by
+modification time, change time and size; each changed file is read once per
+scan, and switching the active Storybook reuses the records. Only selected
+sources keep their characters in memory; released ones are read again when
+they are selected. Prepared copies are cached in the renderer per character
+and source revision, and publication ownership is indexed once per source.
+Stale responses for an earlier Storybook, account or request are discarded. The
+library service and its caches are recreated at every account transition.
+
+Encrypted Storybooks and RP Saves are never decrypted for discovery, even when
+a password is available; they are counted as “Protected sources”. Unsupported,
+malformed or ambiguous sources produce diagnostics without blocking others.
+
+Limitations: saves with filename privacy or encryption cannot be sources;
+renaming a stored Storybook detaches its earlier saves; an RP Save grows by the
+galleries of the external characters it pins.
 
 ### Library provenance and storage badges
 

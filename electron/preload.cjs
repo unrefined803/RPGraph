@@ -207,8 +207,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
   listFiles: () => ipcRenderer.invoke('file:list'),
   confirmV3Migration: (summary) => ipcRenderer.sendSync('character:confirm-v3-migration', summary),
   listCharacterFiles: () => ipcRenderer.invoke('character:list'),
-  getNpcLibrary: () => ipcRenderer.invoke('npc-library:get'),
-  reloadNpcLibrary: () => ipcRenderer.invoke('npc-library:reload'),
+  getNpcLibrary: (activeStorybookFileNames) => ipcRenderer.invoke('npc-library:get', activeStorybookFileNames),
+  reloadNpcLibrary: (activeStorybookFileNames) => ipcRenderer.invoke('npc-library:reload', activeStorybookFileNames),
   setWorkspaceProtection: (password) => ipcRenderer.invoke('workspace:protection', password),
   onNpcLibraryChanged: (callback) => {
     const listener = () => callback();
