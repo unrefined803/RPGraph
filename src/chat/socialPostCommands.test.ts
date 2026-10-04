@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCommandBinding } from './socialPostCommands';
+import { resolveSocialPostCommand, resolveSocialPostReference, socialThreadImageAttachments, type SocialPostCommandBinding } from './socialPostCommands';
 import { embeddedPhoneMessagesLivePreview, parseEmbeddedPhoneMessagesFromRpOutput } from './phoneMessages';
 import { parseRpOutput } from './rpOutput';
 import { socialPostHistoryText } from './socialMedia';
@@ -189,5 +189,47 @@ describe('social publication commands', () => {
       }
     }
     expect(checked).toBe(17);
+  });
+});
+
+
+describe('social thread image context', () => {
+  it.each(['fotogram', 'onlyfriends'] as const)('resolves old live and initial %s post images from the author gallery', (app) => {
+    const author = character();
+    const other = character();
+    other.id = other.sourceId = 'other';
+    other.apps = {};
+    other.images = [{ ...author.images![0], dataUrl: 'data:image/jpeg;base64,b3RoZXI=' }];
+    const post = resolveSocialPostCommand({ app, from: author.apps![app]!.accountId,
+      text: 'Photo', textOnly: false, imageId: 'photo-1' }, [author], []).post!;
+    const history: MessageRecord[] = [{ id: 1, role: 'output', originalText: '', socialPost: post, turnNumber: 1 }];
+    const action = { app, postId: post.postId };
+    expect(socialThreadImageAttachments(action, [other, author], history)[0]?.dataUrl).toBe(author.images![0].dataUrl);
+    author.apps![app]!.initialPosts = [{ id: 'seed', text: 'Photo', imageId: 'photo-1' }];
+    expect(socialThreadImageAttachments({ app, postId: 'seed' }, [other, author], [])[0]?.id).toBe('photo-1');
+    expect(socialThreadImageAttachments({ app, postId: 'missing' }, [author], history)).toEqual([]);
+    expect(socialThreadImageAttachments({ app: app === 'fotogram' ? 'onlyfriends' : 'fotogram', postId: post.postId }, [author], history)).toEqual([]);
+    expect(socialThreadImageAttachments(action, [{ ...author, images: [] }], history)).toEqual([]);
+    expect(socialThreadImageAttachments(action, [author], [{ ...history[0], socialPost: { ...post, textOnly: true, imageId: undefined } }])).toEqual([]);
+  });
+
+  it.each([true, false])('sends thread pixels to prompt steps only when vision is supported (%s)', async (vision) => {
+    const author = character();
+    author.apps!.onlyfriends!.initialPosts = [{ id: 'seed', text: 'Photo', imageId: 'photo-1' }];
+    const images = socialThreadImageAttachments({ app: 'onlyfriends', postId: 'seed' }, [author], []);
+    const calls: Array<{ images?: unknown[] }> = [];
+    const context = {
+      nodes: [], historyMessages: [], reportWarning: vi.fn(), reportFormatResult: vi.fn(), updateRuntimeData: vi.fn(),
+      llm: { supportsVision: async () => vision, complete: async (call: { images?: unknown[] }) => {
+        calls.push(call); return { text: 'A comment.', connection: { label: 'Test' } };
+      } },
+    } as unknown as ExecuteContext;
+    await runActionAwarePrompt({ node: { id: 'prompt', data: { label: 'Comments' } } as WorkflowNode,
+      context, inputValue: 'What color is the dress?', images, referenceImages: [],
+      promptBefore: '', promptAfter: '@step:planning\nPlan comments.\n@step:main\n@output:planning\nReply.',
+      actionConfigs: [], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Comments',
+    });
+    expect(calls).toHaveLength(2);
+    for (const call of calls) expect(call.images ?? []).toEqual(vision ? images : []);
   });
 });

@@ -168,6 +168,15 @@ Normal RP input uses slot 1 with or without images; slot 0 is empty in the bundl
 V33 workflows. Messenger input retains slot 0 with images and slot 1 without images.
 Narrator and Narrator AutoTurn retain slots 4 and 5.
 
+### Social comment image context
+
+Fotogram and OnlyFriends thread actions resolve the target post's gallery image
+in `useGraphRun` before executing the graph. This covers initial comment loading,
+load-more, user comments, and regeneration, including initial character posts.
+The lookup uses the post's app, ID, and author account/character; it does not depend
+on the history-image lookback. The image follows the same input path as a new
+social post, and prompt execution omits pixels when vision is unavailable.
+
 ### Prompt Switch image diagnostics
 
 The Image Input port continues to show only the connected image wire. A separate

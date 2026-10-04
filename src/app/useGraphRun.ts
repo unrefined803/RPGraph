@@ -1,6 +1,6 @@
 import { askUserWithTranslation } from './askUserTranslation';
 import type { HighlightingSpeakerContext } from '../nodes/output/speakerSelection';
-import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCommandBinding } from '../chat/socialPostCommands';
+import { resolveSocialPostCommand, resolveSocialPostReference, socialThreadImageAttachments, type SocialPostCommandBinding } from '../chat/socialPostCommands';
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
@@ -489,6 +489,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
     socialDirectMessage?: SocialDirectMessageRecord,
   ) {
     if (activeRun.current) return false;
+    if (socialThreadAction) {
+      // Shared by initial comment loading, load-more, replies, and regeneration.
+      // Use the same wired image path as new posts; prompt execution handles vision.
+      const postImages = socialThreadImageAttachments(socialThreadAction, appCharacters(), historyMessages);
+      const postImageIds = new Set(postImages.map((image) => image.id));
+      inputImages = [...postImages, ...inputImages.filter((image) => !postImageIds.has(image.id))];
+    }
     if (socialDirectMessage?.app === 'matchme' && !matchMeMessageAllowed(socialDirectMessage,
       matchMeState(appCharacters(), historyMessages))) {
       notifySystem('warning', 'MatchMe message blocked: the accounts need an active match.');

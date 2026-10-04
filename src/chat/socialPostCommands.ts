@@ -1,7 +1,7 @@
 import { appCharacterImage } from '../characters/appRuntime';
 import { postsWithInitialContent } from '../characters/publications';
-import type { StorybookCharacter } from '../storybook/runtime';
-import type { MessageRecord, SocialAppKind, SocialPostRecord } from '../types';
+import { chatAttachmentFromStorybookImage, type StorybookCharacter } from '../storybook/runtime';
+import type { MessageRecord, SocialAppKind, SocialPostRecord, SocialThreadActionRecord } from '../types';
 import type { ParsedSocialPost } from './phoneMessages';
 import { nextSocialPostId } from './socialMedia';
 import { resolveSocialMessageIdentity } from './socialMessageValidation';
@@ -55,4 +55,21 @@ export function resolveSocialPostReference(
     return matches.length === 1 ? matches[0].post : undefined;
   }
   return messages.find((message) => message.socialPost?.app === app && message.socialPost.postId === postId)?.socialPost;
+}
+
+
+/** Thread requests need the exact post's pixels, regardless of history lookback. */
+export function socialThreadImageAttachments(
+  action: Pick<SocialThreadActionRecord, 'app' | 'postId'>,
+  characters: StorybookCharacter[],
+  messages: MessageRecord[],
+) {
+  const post = resolveSocialPostReference(
+    action.app, action.postId, [], postsWithInitialContent(characters, messages),
+  );
+  if (!post?.imageId || post.textOnly) return [];
+  const image = appCharacterImage(
+    characters, post.imageId, post.authorAccountId ?? post.authorCharacterId,
+  );
+  return image ? [chatAttachmentFromStorybookImage(image)] : [];
 }
