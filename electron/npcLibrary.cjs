@@ -298,8 +298,8 @@ function sourceIndex(records) {
 // Storybooks and RP Saves are read-only sources: rebuilding the scan also removes deleted characters.
 // `cache` (file path -> record) lets a later scan skip unchanged files. It only
 // ever holds what plain files already expose; nothing here is decrypted. The
-// cache is independent of `activeStorybookFileNames`, which only steers selection.
-async function scanStorybookDirectory(directory, cache = new Map(), displayFileName, activeStorybookFileNames = []) {
+// cache is independent of `activeStorybookFileNames` and `sourcePreferences`, which only steer selection.
+async function scanStorybookDirectory(directory, cache = new Map(), displayFileName, activeStorybookFileNames = [], sourcePreferences = {}) {
   const result = { entries: [], files: [], diagnostics: [], skipped: 0, publicationSources: [], protectedSources: 0 };
   if (!directory) return result;
   let candidates;
@@ -341,7 +341,7 @@ async function scanStorybookDirectory(directory, cache = new Map(), displayFileN
   const index = sourceIndex(records);
   result.previewIndex = index;
   const byName = new Map(records.map((record) => [record.fileName, record]));
-  const lineages = selectNpcSources(index, activeStorybookFileNames).map((selection) => ({
+  const lineages = selectNpcSources(index, activeStorybookFileNames, sourcePreferences).map((selection) => ({
     storybook: byName.get(selection.storybookFileName), origin: byName.get(selection.originFileName),
     ids: selection.characters.map((character) => character.id),
   }));
@@ -406,13 +406,23 @@ function normalizedStorybookFileNames(value) {
   return Array.isArray(value) ? [...new Set(value.filter((name) => typeof name === 'string' && name))].sort() : [];
 }
 
-async function scanNpcLibrary(roots, unlock, displayFileName, storybookCache, activeStorybookFileNames = []) {
+function normalizedSourcePreferences(value) {
+  const record = isRecord(value) ? value : {};
+  const fileName = (name) => typeof name === 'string' && name ? [path.basename(name)] : [];
+  return {
+    origins: Object.fromEntries(Object.entries(isRecord(record.origins) ? record.origins : {})
+      .flatMap(([book, origin]) => book ? fileName(origin).map((name) => [book, name]) : [])),
+    priority: [...new Set((Array.isArray(record.priority) ? record.priority : []).flatMap(fileName))],
+  };
+}
+
+async function scanNpcLibrary(roots, unlock, displayFileName, storybookCache, activeStorybookFileNames = [], sourcePreferences = {}) {
   // Serialize decryptions across both tiers, including identical encrypted copies.
   const bundled = await scanNpcDirectory(roots.bundled, 'bundled', unlock, displayFileName);
   const user = await scanNpcDirectory(roots.user, 'user', unlock, displayFileName);
   const account = roots.account ? await scanNpcDirectory(roots.account, 'account', unlock, displayFileName)
     : { entries: [], files: [], diagnostics: [], skipped: 0 };
-  const storybooks = await scanStorybookDirectory(roots.storybooks, storybookCache, displayFileName, activeStorybookFileNames);
+  const storybooks = await scanStorybookDirectory(roots.storybooks, storybookCache, displayFileName, activeStorybookFileNames, sourcePreferences);
   return {
     roots,
     entries: [...bundled.entries, ...storybooks.entries, ...user.entries, ...account.entries],
@@ -426,11 +436,14 @@ async function scanNpcLibrary(roots, unlock, displayFileName, storybookCache, ac
   };
 }
 
-function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFileName, accountPassword = '', onChanged = () => {} }) {
+function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFileName, accountPassword = '', onChanged = () => {},
+  sourcePreferences: initialSourcePreferences, saveSourcePreferences }) {
   let cached = { roots, entries: [], files: [], diagnostics: [], skipped: 0, publicationSources: [], protectedSources: 0, activeStorybookFileNames: [] };
   // Selection context only; the file cache below stays valid across Storybook switches.
   let activeStorybookFileNames = [];
-  const scan = () => scanNpcLibrary(roots, unlock, displayFileName, storybookCache, activeStorybookFileNames);
+  // The user's choice of source file per Storybook and of Storybook per shared character.
+  let sourcePreferences = normalizedSourcePreferences(initialSourcePreferences);
+  const scan = () => scanNpcLibrary(roots, unlock, displayFileName, storybookCache, activeStorybookFileNames, sourcePreferences);
   const useActiveStorybooks = (names) => {
     if (names !== undefined) activeStorybookFileNames = normalizedStorybookFileNames(names);
   };
@@ -467,7 +480,7 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFil
     current: () => cached,
     preview: () => enqueue(async () => {
       const snapshot = await scan();
-      return { files: snapshot.previewIndex ?? [],
+      return { files: snapshot.previewIndex ?? [], preferences: sourcePreferences,
         overriddenIds: snapshot.entries.filter((entry) => entry.tier === 'user' || entry.tier === 'account')
           .map((entry) => entry.character.id) };
     }),
@@ -490,6 +503,27 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFil
           gamePassword = password;
           if (password) passwords.add(password);
         }
+        cached = await scan();
+        onChanged(cached);
+        return cached;
+      });
+    },
+    /**
+     * Let one stored file share its whole cast: it becomes the source of its
+     * Storybook, and that Storybook wins characters other Storybooks also have.
+     */
+    preferSource: (fileName) => {
+      if (typeof fileName !== 'string' || !fileName) throw new Error('Invalid NPC source.');
+      return enqueue(async () => {
+        const file = ((await scan()).previewIndex ?? []).find((entry) => entry.fileName === fileName);
+        const books = file?.kind === 'storybook' ? [file.fileName]
+          : file?.kind === 'session' ? file.sources.map((source) => source.storybookFileName) : [];
+        if (!books.length) throw new Error('This file cannot share NPCs.');
+        sourcePreferences = normalizedSourcePreferences({
+          origins: { ...sourcePreferences.origins, ...Object.fromEntries(books.map((book) => [book, fileName])) },
+          priority: [...books, ...sourcePreferences.priority],
+        });
+        if (saveSourcePreferences) await saveSourcePreferences(sourcePreferences);
         cached = await scan();
         onChanged(cached);
         return cached;

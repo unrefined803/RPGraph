@@ -144,7 +144,9 @@ function formatFileDate(value: string | number) {
 }
 
 function StartDialogFileRow({
-  npcNames,
+  npcCount,
+  npcSwitch,
+  onSwitchNpcs,
   file,
   badge,
   name,
@@ -155,7 +157,11 @@ function StartDialogFileRow({
   disabled = false,
   onInfo,
 }: {
-  npcNames?: string[];
+  /** External NPCs this file contributes to the current selection. */
+  npcCount?: number;
+  /** This file could share NPCs that other files currently share. */
+  npcSwitch?: boolean;
+  onSwitchNpcs?: () => void;
   file: SavedFileSummary;
   badge: string;
   name: string;
@@ -213,10 +219,27 @@ function StartDialogFileRow({
             {!file.compatible && ' · Incompatible'}
             {' · '}{file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
             {file.type === 'session' && ` · Turn ${file.latestTurnNumber ?? 'Unknown'}`}
+            {!!npcCount && ` · Shares ${npcCount} NPC${npcCount === 1 ? '' : 's'}`}
+            {npcSwitch && onSwitchNpcs && !disabled && <>
+              {' · '}
+              <span
+                className="start-npc-switch"
+                role="button"
+                tabIndex={0}
+                title="Share the characters of this file as NPCs instead of the file that currently shares them."
+                onClick={(event) => { event.stopPropagation(); onSwitchNpcs(); }}
+                onDoubleClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onSwitchNpcs();
+                }}
+              >
+                Switch
+              </span>
+            </>}
           </small>
-          {npcNames && npcNames.length > 0 && <small className="start-npc-source">
-            Supplies {npcNames.length} NPC{npcNames.length === 1 ? '' : 's'}: {npcNames.join(', ')}
-          </small>}
         </span>
       </button>
       {(onInfo || onOpen) && (
@@ -3128,7 +3151,9 @@ export function StudioDialogs({
                         file={file}
                         disabled={startSelectionLoading}
                         badge="Storybook"
-                        npcNames={npcPreview.rows?.[file.fileName]}
+                        npcCount={npcPreview.rows?.[file.fileName]?.length}
+                        npcSwitch={!!npcPreview.switches[file.fileName]}
+                        onSwitchNpcs={() => void npcPreview.switchSource(file.fileName)}
                         name={storybookDisplayName(file.name)}
                         selected={startTargetFileName === file.fileName}
                         onSelect={() => onSelectStartTarget(file)}
@@ -3152,7 +3177,9 @@ export function StudioDialogs({
                         file={file}
                         disabled={startSelectionLoading}
                         badge="RP Save"
-                        npcNames={npcPreview.rows?.[file.fileName]}
+                        npcCount={npcPreview.rows?.[file.fileName]?.length}
+                        npcSwitch={!!npcPreview.switches[file.fileName]}
+                        onSwitchNpcs={() => void npcPreview.switchSource(file.fileName)}
                         name={file.name}
                         selected={startTargetFileName === file.fileName}
                         onSelect={() => onSelectStartTarget(file)}

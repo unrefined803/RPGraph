@@ -358,7 +358,18 @@ re-exported as that Storybook's original cast.
 
 When several stored Storybooks provide the same character ID, the Storybook
 file with the newest modification time provides it, with filename order as the
-tie-breaker; the save is then chosen inside that Storybook's lineage. Histories
+tie-breaker; the save is then chosen inside that Storybook's lineage. The user
+can override both defaults per file: in Start, a file that shares NPCs for the
+current selection shows `Shares N NPCs`, and every other file that could share
+them instead (the Storybook itself, another of its RP Saves, or a Storybook
+whose characters another Storybook provides) shows a plain underlined `Switch` link
+in the same place. Switching always takes the whole cast of that file: it
+becomes the source of its Storybook (`origins`), and that Storybook moves to
+the front of the list that wins shared characters (`priority`). Both are stored
+as `npcSourcePreferences` in `workflow-state.json`, applied by
+`selectNpcSources` for the import and the preview alike, and ignored once the
+named file no longer exists or no longer belongs to that Storybook. A chosen
+file stays the source even when a newer RP Save appears. Histories
 of different Storybooks are never merged. Each entry records the winning source
 as `publication` provenance.
 

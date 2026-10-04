@@ -1,6 +1,6 @@
 import { captureStoryNpcParticipants, migrateLegacyNpcImports } from './storyNpcParticipants';
 import type { ImportedNpcSnapshots } from './externalNpcs';
-import { npcImportPreview } from './npcImportPreview';
+import { npcImportPreview, npcSourceSwitches } from './npcImportPreview';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -223,6 +223,57 @@ describe('cross-Storybook NPC publications', () => {
     const [entry] = externalEntries(createExternalNpcLibrary()(await scan(roots), {}, noActive));
     expect(entry.publication).toMatchObject({ storybookFileName: 'c.json', kind: 'save', saveFileName: 'c-save.json' });
     expect(postTexts(entry.character)).toEqual(['Mia authored', 'From C', 'C continues']);
+  });
+
+  it('lets the user switch NPC sharing between a Storybook, its saves and other Storybooks', async () => {
+    const { roots, write } = await workspace();
+    const mia = character('mia', 'Mia');
+    const ben = character('ben', 'Ben');
+    await write('a.json', storybook([character('alex', 'Alex')]));
+    const bookB = storybook([mia, ben], [turn('opening-b', 1, [post(mia, 'b-post', 'From B')], true)]);
+    await write('b.json', bookB, 100);
+    await write('b-save.json', rpSave(bookB, 'b.json', '2026-10-02T08:00:00Z', [turn('t2', 2, [post(mia, 'b-live', 'B continues')])]));
+    await write('c.json', storybook([mia], [turn('opening-c', 1, [post(mia, 'c-post', 'From C')], true)]), 200);
+    const saved: unknown[] = [];
+    const service = createNpcLibraryService({ roots, openPath: async () => '',
+      saveSourcePreferences: async (preferences) => { saved.push(preferences); } });
+    await service.reload(['a.json']);
+    const preview = async (target = 'a.json') => {
+      const index = await service.preview();
+      return { rows: npcImportPreview(index, target), switches: npcSourceSwitches(index, target) };
+    };
+    // Default: the newest save provides B's cast and the newest Storybook wins Mia.
+    expect(await preview()).toEqual({ rows: { 'b-save.json': ['Ben'], 'c.json': ['Mia'] },
+      switches: { 'b.json': ['b-save.json'], 'b-save.json': ['c.json'] } });
+    // The active Storybook's own files never offer a switch.
+    expect((await preview('b.json')).switches).toEqual({});
+
+    // A switch takes the whole cast of that file, including characters another Storybook shared.
+    await service.preferSource('b.json');
+    expect(saved[saved.length - 1]).toEqual({ origins: { 'b.json': 'b.json' }, priority: ['b.json'] });
+    expect(await preview()).toEqual({ rows: { 'b.json': ['Mia', 'Ben'] },
+      switches: { 'b-save.json': ['b.json'], 'c.json': ['b.json'] } });
+    const entry = () => externalEntries(createExternalNpcLibrary()(service.current() as unknown as NpcLibrarySnapshot, {}, noActive))
+      .find((candidate) => candidate.character.id === 'mia')!;
+    expect(entry().publication).toMatchObject({ storybookFileName: 'b.json', kind: 'storybook' });
+    expect(postTexts(entry().character)).toEqual(['Mia authored', 'From B']);
+
+    await service.preferSource('b-save.json');
+    expect(await preview()).toEqual({ rows: { 'b-save.json': ['Mia', 'Ben'] },
+      switches: { 'b.json': ['b-save.json'], 'c.json': ['b-save.json'] } });
+    expect(postTexts(entry().character)).toEqual(['Mia authored', 'From B', 'B continues']);
+
+    await service.preferSource('c.json');
+    expect((await preview()).rows).toEqual({ 'b-save.json': ['Ben'], 'c.json': ['Mia'] });
+    await expect(service.preferSource('missing.json')).rejects.toThrow();
+
+    // The choice survives a restart; choices for missing files fall back to the defaults.
+    await service.preferSource('b.json');
+    const restarted = createNpcLibraryService({ roots, openPath: async () => '', sourcePreferences: saved[saved.length - 1] });
+    expect(npcImportPreview(await restarted.preview(), 'a.json')).toEqual({ 'b.json': ['Mia', 'Ben'] });
+    const stale = createNpcLibraryService({ roots, openPath: async () => '',
+      sourcePreferences: { origins: { 'b.json': 'gone.json' }, priority: ['gone.json'] } });
+    expect(npcImportPreview(await stale.preview(), 'a.json')).toEqual({ 'b-save.json': ['Ben'], 'c.json': ['Mia'] });
   });
 
   it('copies only required images and reports missing media without losing other characters', async () => {

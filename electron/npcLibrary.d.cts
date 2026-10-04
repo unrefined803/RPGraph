@@ -67,6 +67,7 @@ export function scanNpcLibrary(
   displayFileName?: (fileName: string, fallback?: string, filePath?: string) => Promise<string>,
   storybookCache?: Map<string, unknown>,
   activeStorybookFileNames?: string[],
+  sourcePreferences?: import('../shared/npcSourceSelection.cjs').NpcSourcePreferences,
 ): Promise<NpcLibrarySnapshot>;
 export function createNpcLibraryService(options: {
   roots: NpcLibraryRoots;
@@ -75,10 +76,13 @@ export function createNpcLibraryService(options: {
   displayFileName?: (fileName: string, fallback?: string, filePath?: string) => Promise<string>;
   accountPassword?: string;
   onChanged?: (snapshot: NpcLibrarySnapshot) => void;
+  sourcePreferences?: unknown;
+  saveSourcePreferences?: (preferences: Required<import('../shared/npcSourceSelection.cjs').NpcSourcePreferences>) => Promise<void>;
 }): {
   current(): NpcLibrarySnapshot;
   preview(): Promise<import('../shared/npcSourceSelection.cjs').NpcImportPreviewIndex>;
   forActiveStorybooks(activeStorybookFileNames: unknown): Promise<NpcLibrarySnapshot>;
+  preferSource(fileName: string): Promise<NpcLibrarySnapshot>;
   reload(activeStorybookFileNames?: unknown): Promise<NpcLibrarySnapshot>;
   setGamePassword(password: string): Promise<NpcLibrarySnapshot>;
   openUserDirectory(): Promise<{ path: string }>;
