@@ -171,7 +171,7 @@ export function characterPayload(character: Omit<Character, 'profileImage'> & {
     apps.matchme = { ...apps.matchme, profile: { ...profile, decisions: {} } };
   }
   return { ...rest, relationships: rest.relationships ?? [],
-    ...(portable ? { images: rest.images.map(({ receivedFrom: _receivedFrom, imageAccess: _imageAccess, ...image }) => image) } : {}),
+    ...(portable ? { images: rest.images.map(({ receivedFrom: _receivedFrom, imageAccess: _imageAccess, turnUpload: _turnUpload, ...image }) => image) } : {}),
     playable: character.playable ?? true, apps,
     ...(profileImage ? { profileImage: { imageId: profileImage.imageId, crop: profileImage.crop } } : {}) };
 }

@@ -236,3 +236,42 @@ readable but no longer control these rules and are omitted on subsequent saves.
 | Validation | `src/workflow/validation.ts` |
 | Hydration & size strip | `src/app/workflowHydration.ts` |
 | Styles | `src/styles.css` |
+
+### Fotogram post moderation
+
+The bundled V41 Social Media / Fotogram Post slot asks for
+`reactions.moderation`: `{ "blocked": false }` for allowed posts, or
+`{ "blocked": true, "reason": "nudity" }` for removed posts. Supported reasons
+are `nudity`, `graphic_violence`, `hate_harassment`, and `spam_scam`.
+The model judges the attached photo, description, and caption; this is simulated
+platform moderation, not a separate image classifier. OnlyFriends ignores this
+Fotogram field. Legacy reactions without it remain visible normally.
+
+`socialMedia.ts` parses and aggregates moderation with the reactions. Append
+records retain an existing removal; replacing the original reaction through
+regeneration can replace the decision. Session persistence retains the field.
+Blocked posts remain in the author's Fotogram feed with a reason, blurred image,
+and an explicit View Image disclosure. Other accounts cannot see the post in
+their feeds, including through following or recommendations. Stored account IDs
+have precedence over character IDs and legacy handles when identifying the owner.
+The shared RP timeline retains a blurred archival card and removal context.
+Pre-removal comments remain readable; new thread runs, comment commands, and
+phone likes are disabled after removal. The authored prompt requests two fitting
+pre-removal comments, subject to existing-account availability.
+
+For newly published or regenerated posts in the open phone feed, the removal
+badge and image blur appear 3–6 seconds after the last initial comment is
+revealed (also delayed when there are no comments). The stored moderation
+decision still guards visibility and interactions immediately. Existing posts
+show their stored status when the feed is opened. Local post previews end when
+publication completes; undo and regeneration invalidate reveal timers and counts
+by timeline message identity, including when a regenerated post reuses its ID.
+
+Computer uploads for social posts and WhatsUp sends mark newly inserted gallery
+images with `turnUpload`; deduplicating against an existing gallery image does
+not add the marker. Complete-turn undo passes the removed messages to image
+pruning, which removes marked uploads referenced by that turn only when no
+surviving message or profile still uses them. Draft uploads and authored gallery
+images remain intact. The marker survives session/Storybook serialization and
+is stripped from portable character exports. Older unmarked uploads are treated
+as existing gallery content because their origin cannot be inferred safely.

@@ -1,3 +1,5 @@
+import { socialPostTimeline, socialPostTimelineChanges, socialReactionRevealSchedule } from './socialPostTimeline';
+import { socialModerationReasons } from '../../chat/socialModeration';
 import type { ImageGenerationReference } from '../../images/references';
 import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
@@ -330,6 +332,7 @@ export function PhoneSocialFeedScreen({
   const [notice, setNotice] = useState<SocialNotice>();
   const [optimisticPosts, setOptimisticPosts] = useState<SocialPost[]>([]);
   const [delayedPostIds, setDelayedPostIds] = useState<Set<string>>(() => new Set());
+  const [pendingModerationPostIds, setPendingModerationPostIds] = useState<Set<string>>(() => new Set());
   const [freshPostIds, setFreshPostIds] = useState<Set<string>>(() => new Set());
   const [visibleLikeCounts, setVisibleLikeCounts] = useState<Record<string, number>>({});
   const [visibleCommentCounts, setVisibleCommentCounts] = useState<Record<string, number>>({});
@@ -346,6 +349,9 @@ export function PhoneSocialFeedScreen({
   const dmScheduledRevealIdsRef = useRef<Set<string>>(new Set());
   const dmRevealTimersRef = useRef<number[]>([]);
   const noticeTimerRef = useRef<number | undefined>(undefined);
+  const pendingPostsRef = useRef(new Map<string, symbol>());
+  const timelineRef = useRef(socialPostTimeline(socialMediaMessages, app.id));
+  const moderationTimersRef = useRef(new Map<string, number>());
   const postAppearTimersRef = useRef(new Map<string, number>());
   const reactionFallbackTimersRef = useRef(new Map<string, number>());
   const commentRevealTimersRef = useRef(new Map<string, number[]>());
@@ -420,6 +426,8 @@ export function PhoneSocialFeedScreen({
     if (noticeTimerRef.current !== undefined) {
       window.clearTimeout(noticeTimerRef.current);
     }
+    pendingPostsRef.current.clear();
+    moderationTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     postAppearTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     reactionFallbackTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     commentRevealTimersRef.current.forEach((timers) => {
@@ -636,16 +644,22 @@ export function PhoneSocialFeedScreen({
     ...discoveredIdentities,
     ...recommendedSocialPostIdentities(app.id, storyCharacters),
   ];
-  const persistedPosts: SocialPost[] = socialPostMessages(app.id, postsWithInitialContent(storyCharacters, socialMediaMessages))
-    .reverse()
+  const allPersistedPosts = socialPostMessages(app.id, postsWithInitialContent(storyCharacters, socialMediaMessages));
+  const persistedPosts: SocialPost[] = allPersistedPosts.slice().reverse()
     .filter((message) => socialPostVisibleToViewer(
       message.socialPost,
       owner?.name ?? '',
       account ?? '',
       visiblePostIdentities,
+      persistedReactions[message.socialPost.postId]?.moderation,
+      owner?.apps?.[app.id]?.accountId,
+      socialCharacterForPost(message.socialPost, storyCharacters)?.id === owner?.id
+        ? message.socialPost.authorCharacterId : owner?.id,
+      owner?.identityAliases?.accountIds?.[app.id],
     ))
     .map((message) => ({
       id: message.socialPost.postId,
+      moderation: app.id === 'fotogram' ? persistedReactions[message.socialPost.postId]?.moderation : undefined,
       authorName: message.socialPost.author,
       authorHandle: message.socialPost.authorHandle,
       authorAccountId: message.socialPost.authorAccountId,
@@ -665,9 +679,10 @@ export function PhoneSocialFeedScreen({
       imageDescription: message.socialPost.imageDescription,
       rpDateTime: message.rpDateTime,
     }));
-  const persistedPostIds = new Set(persistedPosts.map((post) => post.id));
+  const persistedPostIds = new Set(allPersistedPosts.map((message) => message.socialPost.postId));
   const availablePosts = [
-    ...optimisticPosts.filter((post) => !persistedPostIds.has(post.id)),
+    ...optimisticPosts.filter((post) => !persistedPostIds.has(post.id) &&
+      post.authorAccountId === owner?.apps?.[app.id]?.accountId && post.authorCharacterId === owner?.id),
     ...persistedPosts,
   ].filter((post) => !delayedPostIds.has(post.id));
   const optimisticPostIdSet = new Set(optimisticPosts.map((post) => post.id));
@@ -733,7 +748,7 @@ export function PhoneSocialFeedScreen({
   useEffect(() => {
     freshPostIds.forEach((postId) => {
       const reactions = persistedReactionsRef.current[postId];
-      if (!reactions || likeRampTimersRef.current.has(postId)) {
+      if (!reactions || delayedPostIds.has(postId) || likeRampTimersRef.current.has(postId)) {
         return;
       }
       const target =
@@ -755,36 +770,35 @@ export function PhoneSocialFeedScreen({
         Math.max(500, pulseInterval * 0.7),
         Math.max(900, pulseInterval * 1.3),
       );
+      let visibleCount = 0;
       const tick = () => {
-        setVisibleLikeCounts((current) => {
-          const currentCount = current[postId] ?? 0;
-          const elapsedShare = Math.min(1, (Date.now() - startedAt) / duration);
-          const pacedCeiling = Math.max(1, Math.ceil(target * elapsedShare));
-          const nextCount = Math.min(target, Math.max(currentCount + randomDelay(1, 4), pacedCeiling));
-          if (nextCount >= target) {
-            likeRampTimersRef.current.delete(postId);
-            setFreshPostIds((freshIds) => {
-              const next = new Set(freshIds);
-              next.delete(postId);
-              return next;
-            });
-          } else {
-            const timer = window.setTimeout(tick, nextPulseDelay());
-            likeRampTimersRef.current.set(postId, timer);
-          }
-          return { ...current, [postId]: nextCount };
-        });
+        const elapsedShare = Math.min(1, (Date.now() - startedAt) / duration);
+        const pacedCeiling = Math.max(1, Math.ceil(target * elapsedShare));
+        visibleCount = Math.min(target, Math.max(visibleCount + randomDelay(1, 4), pacedCeiling));
+        const nextCount = visibleCount;
+        setVisibleLikeCounts((current) => ({ ...current, [postId]: nextCount }));
+        if (nextCount >= target) {
+          likeRampTimersRef.current.delete(postId);
+          setFreshPostIds((freshIds) => {
+            const next = new Set(freshIds);
+            next.delete(postId);
+            return next;
+          });
+        } else {
+          const timer = window.setTimeout(tick, nextPulseDelay());
+          likeRampTimersRef.current.set(postId, timer);
+        }
       };
       const timer = window.setTimeout(tick, nextPulseDelay());
       likeRampTimersRef.current.set(postId, timer);
     });
-  }, [freshPostIds, socialMediaMessages, socialLikesByAccount]);
+  }, [freshPostIds, delayedPostIds, socialMediaMessages, socialLikesByAccount]);
 
   // Initial reactions arrive together from the workflow, but comments are
   // revealed one by one after the post card itself has appeared.
   useEffect(() => {
     freshPostIds.forEach((postId) => {
-      if (!persistedReactionsRef.current[postId] || scheduledInitialCommentsRef.current.has(postId)) {
+      if (delayedPostIds.has(postId) || !persistedReactionsRef.current[postId] || scheduledInitialCommentsRef.current.has(postId)) {
         return;
       }
       scheduledInitialCommentsRef.current.add(postId);
@@ -793,20 +807,36 @@ export function PhoneSocialFeedScreen({
         ...current,
         [postId]: Math.max(current[postId] ?? 0, Math.min(1, total)),
       }));
-      let elapsed = 0;
-      const timers: number[] = [];
-      for (let visibleCount = 2; visibleCount <= total; visibleCount += 1) {
-        elapsed += randomDelay(COMMENT_APPEAR_DELAY_MIN_MS, COMMENT_APPEAR_DELAY_MAX_MS);
-        timers.push(window.setTimeout(() => {
-          setVisibleCommentCounts((current) => ({
-            ...current,
-            [postId]: Math.max(current[postId] ?? 0, visibleCount),
-          }));
-        }, elapsed));
-      }
+      const schedule = socialReactionRevealSchedule(total,
+        () => randomDelay(COMMENT_APPEAR_DELAY_MIN_MS, COMMENT_APPEAR_DELAY_MAX_MS));
+      const timers = schedule.comments.map(({ count, delay }) => window.setTimeout(() => {
+        setVisibleCommentCounts((current) => ({
+          ...current,
+          [postId]: Math.max(current[postId] ?? 0, count),
+        }));
+      }, delay));
       commentRevealTimersRef.current.set(postId, timers);
+      const moderationTimer = window.setTimeout(() => {
+        if (persistedReactionsRef.current[postId]?.moderation?.blocked) {
+          const likeTimer = likeRampTimersRef.current.get(postId);
+          if (likeTimer !== undefined) window.clearTimeout(likeTimer);
+          likeRampTimersRef.current.delete(postId);
+          setFreshPostIds((current) => {
+            const next = new Set(current);
+            next.delete(postId);
+            return next;
+          });
+        }
+        setPendingModerationPostIds((current) => {
+          const next = new Set(current);
+          next.delete(postId);
+          return next;
+        });
+        moderationTimersRef.current.delete(postId);
+      }, schedule.moderationDelay);
+      moderationTimersRef.current.set(postId, moderationTimer);
     });
-  }, [freshPostIds, socialMediaMessages]);
+  }, [freshPostIds, delayedPostIds, socialMediaMessages]);
 
   // Replies to a new user comment arrive gradually. Loading an existing thread
   // reveals the completed workflow result together, because those comments
@@ -834,34 +864,63 @@ export function PhoneSocialFeedScreen({
     const currentPersistedCount = persistedCommentsRef.current[postId]?.length ?? 0;
     const total = baselineCount + Math.max(0, currentPersistedCount - baselinePersistedCount);
     const firstVisibleCount = Math.min(total, baselineVisibleCount + 1);
-    queueMicrotask(() => {
-      if (pendingCommentReveal.action === 'load-more') {
-        setVisibleCommentCounts((current) => ({
-          ...current,
-          [postId]: Math.max(current[postId] ?? 0, total),
-        }));
-        setPendingCommentReveal(undefined);
-        return;
-      }
+    if (pendingCommentReveal.action === 'load-more') {
       setVisibleCommentCounts((current) => ({
         ...current,
-        [postId]: Math.max(current[postId] ?? 0, firstVisibleCount),
+        [postId]: Math.max(current[postId] ?? 0, total),
       }));
-      let elapsed = 0;
-      const timers: number[] = [];
-      for (let visibleCount = firstVisibleCount + 1; visibleCount <= total; visibleCount += 1) {
-        elapsed += randomDelay(COMMENT_APPEAR_DELAY_MIN_MS, COMMENT_APPEAR_DELAY_MAX_MS);
-        timers.push(window.setTimeout(() => {
-          setVisibleCommentCounts((current) => ({
-            ...current,
-            [postId]: Math.max(current[postId] ?? 0, visibleCount),
-          }));
-        }, elapsed));
-      }
-      commentRevealTimersRef.current.set(postId, timers);
       setPendingCommentReveal(undefined);
-    });
+      return;
+    }
+    setVisibleCommentCounts((current) => ({
+      ...current,
+      [postId]: Math.max(current[postId] ?? 0, firstVisibleCount),
+    }));
+    let elapsed = 0;
+    const timers: number[] = [];
+    for (let visibleCount = firstVisibleCount + 1; visibleCount <= total; visibleCount += 1) {
+      elapsed += randomDelay(COMMENT_APPEAR_DELAY_MIN_MS, COMMENT_APPEAR_DELAY_MAX_MS);
+      timers.push(window.setTimeout(() => {
+        setVisibleCommentCounts((current) => ({
+          ...current,
+          [postId]: Math.max(current[postId] ?? 0, visibleCount),
+        }));
+      }, elapsed));
+    }
+    commentRevealTimersRef.current.set(postId, timers);
+    setPendingCommentReveal(undefined);
   }, [pendingCommentReveal, socialMediaMessages]);
+
+  // Undo and regeneration replace timeline records, even when they reuse a post ID.
+  // Discard every presentation timer/count tied to the removed records.
+  useEffect(() => {
+    const timeline = socialPostTimeline(socialMediaMessages, app.id);
+    const { reset, added } = socialPostTimelineChanges(timelineRef.current, timeline);
+    timelineRef.current = timeline;
+    if (!reset.size && !added.size) return;
+    reset.forEach((postId) => {
+      for (const timers of [postAppearTimersRef, reactionFallbackTimersRef, likeRampTimersRef, moderationTimersRef]) {
+        const timer = timers.current.get(postId);
+        if (timer !== undefined) window.clearTimeout(timer);
+        timers.current.delete(postId);
+      }
+      commentRevealTimersRef.current.get(postId)?.forEach((timer) => window.clearTimeout(timer));
+      commentRevealTimersRef.current.delete(postId);
+      scheduledInitialCommentsRef.current.delete(postId);
+    });
+    setOptimisticPosts((current) => current.filter((post) => !reset.has(post.id) && !timeline.posts.has(post.id)));
+    setDelayedPostIds((current) => new Set([...current].filter((id) => !reset.has(id))));
+    setFreshPostIds((current) => new Set([...current].filter((id) => !reset.has(id)).concat([...added])));
+    setPendingModerationPostIds((current) => new Set([...current].filter((id) => !reset.has(id)).concat([...added])));
+    setVisibleLikeCounts((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !reset.has(id))));
+    const initialCommentCounts = Object.fromEntries([...added]
+      .filter((id) => !scheduledInitialCommentsRef.current.has(id)).map((id) => [id, 0]));
+    setVisibleCommentCounts((current) => ({
+      ...Object.fromEntries(Object.entries(current).filter(([id]) => !reset.has(id))),
+      ...initialCommentCounts,
+    }));
+    setPendingCommentReveal((current) => current && reset.has(current.postId) ? undefined : current);
+  }, [app.id, socialMediaMessages]);
 
   if (openPostRequest && seenOpenPostRequestId !== openPostRequest.requestId) {
     setSeenOpenPostRequestId(openPostRequest.requestId);
@@ -907,6 +966,7 @@ export function PhoneSocialFeedScreen({
   }, [openPostId, openPostRequestId]);
 
   function toggleLike(post: SocialPost) {
+    if (post.moderation?.blocked) return;
     if (!owner) {
       return;
     }
@@ -939,7 +999,7 @@ export function PhoneSocialFeedScreen({
   async function submitComment(event: FormEvent<HTMLFormElement>, post: SocialPost) {
     event.preventDefault();
     const text = commentDraft.trim();
-    if (!text || !account || !owner || isRunning) {
+    if (post.moderation?.blocked || !text || !account || !owner || isRunning) {
       return;
     }
     const actionId = nextThreadActionId(post.id);
@@ -1014,7 +1074,7 @@ export function PhoneSocialFeedScreen({
   }
 
   async function loadMoreComments(post: SocialPost) {
-    if (!account || !owner || isRunning) {
+    if (post.moderation?.blocked || !account || !owner || isRunning) {
       return;
     }
     const actionId = nextThreadActionId(post.id);
@@ -1095,6 +1155,8 @@ export function PhoneSocialFeedScreen({
     };
     const draftImage = postDraftImage;
     const optimisticPost: SocialPost = {
+      authorAccountId: owner.apps?.[app.id]?.accountId,
+      authorCharacterId: owner.id,
       id: record.postId,
       authorName: record.author,
       authorHandle: record.authorHandle,
@@ -1106,6 +1168,9 @@ export function PhoneSocialFeedScreen({
       textOnly: record.textOnly,
       imageDataUrl: draftImage?.dataUrl,
     };
+    const publication = Symbol(record.postId);
+    pendingPostsRef.current.set(record.postId, publication);
+    setPendingModerationPostIds((current) => new Set(current).add(record.postId));
     setPostDraft('');
     setPostDraftImage(undefined);
     setPostStage(undefined);
@@ -1115,10 +1180,12 @@ export function PhoneSocialFeedScreen({
     setVisibleCommentCounts((current) => ({ ...current, [record.postId]: 0 }));
     showNotice({ kind: 'success', text: 'Post sent' });
     const appearTimer = window.setTimeout(() => {
-      setOptimisticPosts((current) => [
-        optimisticPost,
-        ...current.filter((post) => post.id !== record.postId),
-      ]);
+      if (pendingPostsRef.current.get(record.postId) === publication) {
+        setOptimisticPosts((current) => [
+          optimisticPost,
+          ...current.filter((post) => post.id !== record.postId),
+        ]);
+      }
       setOpenCommentsPostId(record.postId);
       setDelayedPostIds((current) => {
         const next = new Set(current);
@@ -1136,7 +1203,15 @@ export function PhoneSocialFeedScreen({
       post: record,
       image: draftImage,
     });
+    if (pendingPostsRef.current.get(record.postId) !== publication) return;
+    pendingPostsRef.current.delete(record.postId);
+    setOptimisticPosts((current) => current.filter((post) => post.id !== record.postId));
     if (!succeeded) {
+      setPendingModerationPostIds((current) => {
+        const next = new Set(current);
+        next.delete(record.postId);
+        return next;
+      });
       const pendingTimer = postAppearTimersRef.current.get(record.postId);
       if (pendingTimer !== undefined) {
         window.clearTimeout(pendingTimer);
@@ -1760,9 +1835,10 @@ export function PhoneSocialFeedScreen({
             const timeParts = post.rpDateTime && rpDateTimeFormat && rpWeekdayLanguage
               ? formatRpDateTimeParts(post.rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
               : undefined;
+            const moderation = pendingModerationPostIds.has(post.id) ? undefined : post.moderation;
             return (
               <article
-                className={`phone-social-post${freshPostIds.has(post.id) ? ' fresh' : ''}`}
+                className={`phone-social-post${moderation?.blocked ? ' moderated' : ''}${freshPostIds.has(post.id) ? ' fresh' : ''}`}
                 key={post.id}
                 ref={(element) => {
                   if (element) {
@@ -1797,6 +1873,7 @@ export function PhoneSocialFeedScreen({
                     />
                     <div className="phone-social-post-author-info">
                       <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong>
+                      {moderation?.blocked && <span className="phone-social-moderation-badge">Post blocked · ToS</span>}
                     </div>
                   </button>
                   <div className="phone-social-post-header-right">
@@ -1811,6 +1888,12 @@ export function PhoneSocialFeedScreen({
                     )}
                   </div>
                 </div>
+                {moderation?.blocked && (
+                  <p className="phone-social-moderation-notice">
+                    {moderation.reason ? socialModerationReasons[moderation.reason] : 'Terms of service violation'}.
+                    {' '}Only you can see this post. Comments received before removal remain available.
+                  </p>
+                )}
                 {post.textOnly ? (
                   <>
                     <p className="phone-social-post-caption text-only-caption">
@@ -1823,6 +1906,7 @@ export function PhoneSocialFeedScreen({
                           type="button"
                           className={`phone-social-like-button${liked ? ' liked' : ''}`}
                           onClick={() => toggleLike(post)}
+                          disabled={post.moderation?.blocked}
                           aria-pressed={liked}
                           aria-label={liked ? 'Unlike' : 'Like'}
                         >
@@ -1854,7 +1938,7 @@ export function PhoneSocialFeedScreen({
                 ) : (
                   <>
                     <div
-                      className={`phone-social-post-image${lockedNow ? ' locked' : ''}${
+                      className={`phone-social-post-image${moderation?.blocked ? ' moderated' : ''}${lockedNow ? ' locked' : ''}${
                         post.imageDataUrl && !lockedNow ? '' : ' placeholder'
                       }`}
                     >
@@ -1867,6 +1951,18 @@ export function PhoneSocialFeedScreen({
                             <circle cx="8.5" cy="8.5" r="1.4" />
                             <path d="m4.5 18 5.5-5.5 3.2 3.2 2.1-2.1 4.2 4.4" />
                           </svg>
+                        </div>
+                      )}
+                      {moderation?.blocked && (
+                        <div className="phone-social-moderation-overlay">
+                          <strong>Post blocked</strong>
+                          <span>{moderation.reason ? socialModerationReasons[moderation.reason] : 'Terms of service violation'}</span>
+                          {post.imageDataUrl && (
+                            <details className="phone-social-moderation-reveal">
+                              <summary><span className="show-image-label">View Image</span><span className="hide-image-label">Hide Image</span></summary>
+                              <img src={post.imageDataUrl} alt={post.caption} />
+                            </details>
+                          )}
                         </div>
                       )}
                       {lockedNow && (
@@ -1920,6 +2016,7 @@ export function PhoneSocialFeedScreen({
                             type="button"
                             className={`phone-social-like-button${liked ? ' liked' : ''}`}
                             onClick={() => toggleLike(post)}
+                            disabled={post.moderation?.blocked}
                             aria-pressed={liked}
                             aria-label={liked ? 'Unlike' : 'Like'}
                           >
@@ -2032,7 +2129,7 @@ export function PhoneSocialFeedScreen({
                           : 'No comments yet.'}
                       </span>
                     )}
-                    <button
+                    {!post.moderation?.blocked && <button
                       type="button"
                       className="phone-social-load-comments"
                       onClick={() => void loadMoreComments(post)}
@@ -2041,8 +2138,8 @@ export function PhoneSocialFeedScreen({
                       {isRunning || pendingCommentReveal?.postId === post.id
                         ? 'Loading...'
                         : 'Load More Comments'}
-                    </button>
-                    {pendingCommentReveal?.postId !== post.id && (
+                    </button>}
+                    {!post.moderation?.blocked && pendingCommentReveal?.postId !== post.id && (
                       <form
                         className="phone-social-comment-form"
                         onSubmit={(event) => submitComment(event, post)}

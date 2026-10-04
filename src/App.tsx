@@ -4631,7 +4631,7 @@ function App() {
     messagesRef.current = messagesRef.current.filter((message) => !removedIds.has(message.id));
     setMessages(messagesRef.current);
     applyTurnCheckpointRuntime(turn, 'before');
-    pruneStorybookExternalImagesForMessages();
+    pruneStorybookExternalImagesForMessages(messagesRef.current, flattenTurnMessages([turn]));
     setOutputActionChoicesHiddenByTurn(turn.id, false);
     removeTurnCheckpoint(turn.id);
     removeTurnTracesForTurn(turn.id);
@@ -4931,6 +4931,7 @@ function App() {
         addedCount > 0
           ? `Saved uploaded image for ${request.owner.name}.`
           : `Uploaded image already saved for ${request.owner.name}.`,
+      { turnUpload: true },
     );
     if (!savedImages?.length) {
       notifySystem('error', `Could not save the uploaded image for ${request.owner.name}.`);

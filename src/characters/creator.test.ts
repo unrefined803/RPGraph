@@ -313,3 +313,11 @@ it.each(['receivedFrom', 'imageAccess'] as const)('excludes %s images by default
   validateCharacterContainer(included);
   expect(source).toEqual(before);
 });
+
+it('exports uploaded gallery images without timeline cleanup metadata', () => {
+  const character = structuredClone(fixture.character);
+  character.images[0].turnUpload = true;
+  const exported = createCharacterContainer(character, true);
+  expect(exported.character.images[0].dataUrl).toBe(character.images[0].dataUrl);
+  expect(exported.character.images[0]).not.toHaveProperty('turnUpload');
+});

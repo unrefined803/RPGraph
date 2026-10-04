@@ -1,6 +1,8 @@
+import type { SocialPostModeration } from '../../types';
 import { npcSeedPostAccountId } from '../../characters/npcParticipants';
 
 export type SocialPost = {
+  moderation?: SocialPostModeration;
   authorAccountId?: string;
   authorCharacterId?: string;
   id: string;

@@ -379,8 +379,8 @@ type MessageRowProps = {
   expandedPhoneGroups: Record<string, boolean>;
   setExpandedPhoneGroups: Dispatch<SetStateAction<Record<string, boolean>>>;
   socialEngagementByApp: {
-    fotogram: Record<string, { likeCount: number; commentCount: number }>;
-    onlyfriends: Record<string, { likeCount: number; commentCount: number }>;
+    fotogram: ReturnType<typeof socialPostEngagementByPostId>;
+    onlyfriends: ReturnType<typeof socialPostEngagementByPostId>;
   };
 };
 
@@ -1291,6 +1291,7 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
         {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
         <SocialPostCard
           post={socialPost}
+          moderation={engagement.moderation}
           showProfileNames={showProfileNames}
           imageDataUrl={socialPost.imageId
             ? socialImageById(socialPost.imageId, socialPost.authorAccountId ?? socialPost.authorCharacterId)?.dataUrl

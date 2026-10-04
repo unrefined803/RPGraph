@@ -1,3 +1,4 @@
+import { isRpgraphSessionV2 } from './validation';
 import { expect, it } from 'vitest';
 import { appStateFromSessionV2, sessionV2FromCurrentState } from './sessionStore';
 import { currentWorkflowFormatVersion } from '../workflow/version';
@@ -57,4 +58,19 @@ it('allocates collision-free fallback ids for imported timeline identifiers', ()
   session.timeline[2].id = 'turn-2-output-1';
   const restored = appStateFromSessionV2(session).turns[0].output.messages;
   expect(restored.map(entry => entry.id)).toEqual([2, 1, 3]);
+});
+
+it('preserves Fotogram removal and pre-removal comments across save/load', () => {
+  const reactions: MessageRecord = {
+    id: 115, role: 'output', originalText: 'Post blocked',
+    socialReactions: {
+      app: 'fotogram', postId: 'fotogram-post-02', likes: 1,
+      moderation: { blocked: true, reason: 'nudity' },
+      comments: [{ from: 'Bob', handle: 'bob', text: 'Wrong app!' }],
+    },
+  };
+  const session = save([reactions]);
+  expect(isRpgraphSessionV2(session)).toBe(true);
+  const restored = appStateFromSessionV2(session).turns[0].output.messages;
+  expect(restored[0].socialReactions).toEqual(reactions.socialReactions);
 });

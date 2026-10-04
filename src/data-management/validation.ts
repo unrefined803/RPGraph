@@ -1,3 +1,4 @@
+import { isSocialPostModeration } from '../chat/socialModeration';
 import { isMatchMeAction } from '../chat/matchMeActions';
 import { validCharacterColorSlots } from '../chat/characterColors';
 import { validAccountLinkBindings } from '../chat/accountLinks';
@@ -136,6 +137,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       (value.socialReactions.app === 'fotogram' || value.socialReactions.app === 'onlyfriends') &&
       typeof value.socialReactions.postId === 'string' &&
       typeof value.socialReactions.likes === 'number' &&
+      (value.socialReactions.moderation === undefined || isSocialPostModeration(value.socialReactions.moderation)) &&
       (value.socialReactions.append === undefined || typeof value.socialReactions.append === 'boolean') &&
       Array.isArray(value.socialReactions.comments) &&
       value.socialReactions.comments.every((comment) =>

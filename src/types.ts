@@ -824,8 +824,14 @@ export type SocialThreadActionRecord = {
   commentText?: string;
 };
 
+export type SocialPostModeration = {
+  blocked: boolean;
+  reason?: 'nudity' | 'graphic_violence' | 'hate_harassment' | 'spam_scam';
+};
+
 /** LLM-generated reactions (likes and comments) to one social post. */
 export type SocialReactionsRecord = {
+  moderation?: SocialPostModeration;
   app: SocialAppKind;
   postId: string;
   likes: number;

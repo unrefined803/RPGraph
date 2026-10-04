@@ -1,3 +1,4 @@
+import { socialReactionsByPostId } from '../chat/socialMedia';
 import { askUserWithTranslation } from './askUserTranslation';
 import type { HighlightingSpeakerContext } from '../nodes/output/speakerSelection';
 import { resolveSocialPostCommand, resolveSocialPostReference, socialThreadImageAttachments, type SocialPostCommandBinding } from '../chat/socialPostCommands';
@@ -489,6 +490,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
     socialDirectMessage?: SocialDirectMessageRecord,
   ) {
     if (activeRun.current) return false;
+    if (socialThreadAction?.app === 'fotogram' &&
+      socialReactionsByPostId('fotogram', historyMessages)[socialThreadAction.postId]?.moderation?.blocked) {
+      notifySystem('warning', 'This Fotogram post was blocked. Its comment thread is read-only.');
+      return false;
+    }
     if (socialThreadAction) {
       // Shared by initial comment loading, load-more, replies, and regeneration.
       // Use the same wired image path as new posts; prompt execution handles vision.
@@ -2683,6 +2689,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
             postComment.app, postComment.postId, postBindings,
             postsWithInitialContent(appCharacters(), messagesRef.current),
           );
+          if (targetPost?.app === 'fotogram' &&
+            socialReactionsByPostId('fotogram', messagesRef.current)[targetPost.postId]?.moderation?.blocked) {
+            reportRunWarning('Fotogram comment ignored: this post was blocked.', outputNodeTraceInfo);
+            continue;
+          }
           if (!targetPost) {
             reportRunWarning(
               `${socialAppNames[postComment.app]} post comment was ignored because post "${postComment.postId}" is missing, failed, or ambiguous.`,

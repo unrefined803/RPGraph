@@ -39,6 +39,8 @@ export type RpStorybookCharacterImage = {
   description: string;
   receivedFrom?: string;
   imageAccess?: true;
+  /** Imported for a timeline action rather than authored in the gallery. */
+  turnUpload?: true;
 };
 
 export type RpStorybookCharacterProfileImage = {
@@ -509,6 +511,7 @@ function normalizeCharacterImages(
       description: stringValue(image.description),
       ...(receivedFrom ? { receivedFrom } : {}),
       ...(imageAccess ? { imageAccess: true } : {}),
+      ...(image.turnUpload === true ? { turnUpload: true } : {}),
     });
   });
   return normalized;
