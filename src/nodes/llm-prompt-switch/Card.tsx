@@ -19,6 +19,7 @@ import { ConnectionSelect } from '../shared/ConnectionSelect';
 import { LlmCallMetrics, runStateClassName, useNodeLayoutSync } from '../shared/CardView';
 import { NodeCustomSelect } from '../shared/NodeCustomSelect';
 import { PortLabel } from '../shared/PortValue';
+import { promptImageSummary } from '../shared/promptImageSummary';
 import { PostOutputToggle } from '../shared/PostOutputToggle';
 import { imageInputHandle } from '../shared/imageInputs';
 import { JsonSyntaxTextarea, formatJsonTextSegments } from '../shared/JsonSyntaxTextarea';
@@ -94,6 +95,7 @@ function optionLabel(index: number, title: string, fallback: string) {
 }
 
 export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
+  const imageSummary = promptImageSummary(data.llmPromptSwitchDebug?.promptPasses);
   const actions = useNodeActions();
   const view = useNodeView();
   const nodeBodyRef = useNodeLayoutSync(id);
@@ -705,6 +707,11 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         <div className="workflow-port workflow-port-input">
           <Handle id={imageInputHandle} type="target" position={Position.Left} />
           <PortLabel data={data} direction="input" handle={imageInputHandle} label="Image Input" valueType="image" />
+          {imageSummary && (
+            <small className="port-runtime-value" title={imageSummary.tooltip} tabIndex={0} aria-label={imageSummary.tooltip}>
+              {imageSummary.label}
+            </small>
+          )}
         </div>
         <div className="workflow-port workflow-port-input">
           <Handle id={promptSwitchOutputChannelHandle} type="target" position={Position.Left} />

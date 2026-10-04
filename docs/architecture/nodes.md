@@ -168,6 +168,18 @@ Normal RP input uses slot 1 with or without images; slot 0 is empty in the bundl
 V33 workflows. Messenger input retains slot 0 with images and slot 1 without images.
 Narrator and Narrator AutoTurn retain slots 4 and 5.
 
+### Prompt Switch image diagnostics
+
+The Image Input port continues to show only the connected image wire. A separate
+summary uses the current run's prompt-pass diagnostics: for example, `false`
+alongside `2 injected` means no wired input image, but two distinct images were
+attached to prompts through history or actions. The tooltip lists unique image
+counts by source and attachment counts for each request, including planning,
+replays, and image-search calls. Repeated images count once in the totals; images
+used only in earlier steps remain visible. These are prompt attachment diagnostics,
+not confirmation that a model successfully processed a request. The summary clears
+with the run's debug state and does not change image routing.
+
 ### Historical reference images
 
 `collectRecentReferenceImages` (`src/chat/referenceImages.ts`) uses fixed application
