@@ -1797,7 +1797,6 @@ export function PhoneSocialFeedScreen({
                     />
                     <div className="phone-social-post-author-info">
                       <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong>
-                      <span>@{postIdentity.handle}</span>
                     </div>
                   </button>
                   <div className="phone-social-post-header-right">
@@ -2021,7 +2020,7 @@ export function PhoneSocialFeedScreen({
                             ? undefined
                             : `Message ${commentIdentity.name}`}
                         >
-                          <strong><CharacterName color={commentCharacter ? characterColors.get(commentCharacter.name) : undefined}>{commentIdentity.name}</CharacterName>{commentIdentity.handle && ` (@${commentIdentity.handle})`}</strong>
+                          <strong><CharacterName color={commentCharacter ? characterColors.get(commentCharacter.name) : undefined}>{commentIdentity.name}</CharacterName></strong>
                           <span>{comment.text}</span>
                         </button>
                       );
