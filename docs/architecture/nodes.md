@@ -168,6 +168,27 @@ Normal RP input uses slot 1 with or without images; slot 0 is empty in the bundl
 V33 workflows. Messenger input retains slot 0 with images and slot 1 without images.
 Narrator and Narrator AutoTurn retain slots 4 and 5.
 
+### Historical reference images
+
+`collectRecentReferenceImages` (`src/chat/referenceImages.ts`) uses fixed application
+rules: direct RP images remain eligible for five global turns; phone and social
+message-card images shown in the RP timeline remain eligible for three. Embedded
+and standalone cards resolve to the same persisted messages and image IDs, so an
+image is attached only once and viewing a card does not restart its lifetime.
+Messenger conversations use ten global turns, plus images in their latest two
+messages even beyond that window. Other messenger pairs never qualify.
+Automatic references are limited to three images, newest first. Social runs
+retain their separate app/direct-message scope; unknown app initiatives attach
+no automatic references. Vision capability is still required.
+
+Manual selections and replied-to images bypass the age and automatic count limit,
+but belong to the current view/conversation. Switching conversations clears manual
+selection; `additionalImageScope` also prevents a selection captured in one view
+from leaking into a run for another. Reply targets must match the conversation.
+`useGraphRun` supplies the actual run scope and `App.tsx` supplies the preview scope.
+The Reference Images options tab has been removed. Legacy saved settings remain
+readable but no longer control these rules and are omitted on subsequent saves.
+
 ## Invariants
 
 - Load validates fully, then commits atomically; incompatible or corrupt nodes are preserved as placeholders, never coerced.

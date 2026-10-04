@@ -109,6 +109,12 @@ import {
   type ParsedPhoneMessage,
 } from './chat/phoneMessages';
 import { useNextTurnReferenceImages } from './chat/useNextTurnReferenceImages';
+import {
+  fixedReferenceImageOptions,
+  phoneReferenceImageScope,
+  rpReferenceImageScope,
+  unknownConversationReferenceImageScope,
+} from './chat/referenceImages';
 import { shieldTranslationEmoji, restoreTranslationEmoji } from './chat/translationEmojiShield';
 import { findOutputActionPlayer, type OutputActionContextCapacityRequest } from './chat/outputActions';
 import {
@@ -764,12 +770,6 @@ function App() {
     setRpDateTimeFormat,
     rpWeekdayLanguage,
     setRpWeekdayLanguage,
-    showReferenceImagesInContext,
-    setShowReferenceImagesInContext,
-    referenceImageTurnLookback,
-    setReferenceImageTurnLookback,
-    maxReferenceImages,
-    setMaxReferenceImages,
     chatPanelWidth: storedChatPanelWidth,
     setChatPanelWidth: setStoredChatPanelWidth,
     bigScreenPanelWidth: storedBigScreenPanelWidth,
@@ -846,12 +846,8 @@ function App() {
     [nodeHasVision, nodeViewNodes],
   );
   const referenceImageOptions = useMemo(
-    () => ({
-      enabled: showReferenceImagesInContext && imageUploadVisionEnabled,
-      turnLookback: referenceImageTurnLookback,
-      maxImages: maxReferenceImages,
-    }),
-    [imageUploadVisionEnabled, showReferenceImagesInContext, referenceImageTurnLookback, maxReferenceImages],
+    () => ({ ...fixedReferenceImageOptions, enabled: imageUploadVisionEnabled }),
+    [imageUploadVisionEnabled],
   );
   const {
     definitions: settingsValueDefinitions,
@@ -1219,6 +1215,17 @@ function App() {
     () => storybookImageIdsUsedByMessages(messages),
     [messages],
   );
+  // The preview of attached reference images follows the open conversation,
+  // matching the scope the next run in this view will use.
+  const referenceImageScope = chatPanelView !== 'phone'
+    ? rpReferenceImageScope
+    : phoneScreen === 'whatsup' && viewedPhoneCharacter && selectedPhoneContact
+      ? phoneReferenceImageScope(viewedPhoneCharacter.name, selectedPhoneContact.character.name)
+      : unknownConversationReferenceImageScope;
+  const scopedReferenceImageOptions = useMemo(
+    () => ({ ...referenceImageOptions, scope: referenceImageScope }),
+    [referenceImageOptions, referenceImageScope],
+  );
   const {
     contextualImageIds: contextualReferenceImageIds,
     selectedImageIds: selectedReferenceImageIds,
@@ -1230,7 +1237,7 @@ function App() {
   } = useNextTurnReferenceImages({
     messages,
     nodes: nodeViewNodes,
-    options: referenceImageOptions,
+    options: scopedReferenceImageOptions,
     replyToMessage: phoneReplyToMessage,
   });
   const pendingViewport = useRef<WorkflowFile['viewport']>(undefined);
@@ -6905,9 +6912,6 @@ function App() {
         thoughtTextStyle={thoughtTextStyle}
         rpDateTimeFormat={rpDateTimeFormat}
         rpWeekdayLanguage={rpWeekdayLanguage}
-        showReferenceImagesInContext={showReferenceImagesInContext}
-        referenceImageTurnLookback={referenceImageTurnLookback}
-        maxReferenceImages={maxReferenceImages}
         glassDesignEnabled={glassDesignEnabled}
         glassDesignOpacity={glassDesignOpacity}
         nodeTextSize={nodeTextSize}
@@ -6941,9 +6945,6 @@ function App() {
         onThoughtTextStyleChange={setThoughtTextStyle}
         onRpDateTimeFormatChange={setRpDateTimeFormat}
         onRpWeekdayLanguageChange={setRpWeekdayLanguage}
-        onShowReferenceImagesInContextChange={setShowReferenceImagesInContext}
-        onReferenceImageTurnLookbackChange={setReferenceImageTurnLookback}
-        onMaxReferenceImagesChange={setMaxReferenceImages}
         onGlassDesignEnabledChange={setGlassDesignEnabled}
         onGlassDesignOpacityChange={setGlassDesignOpacity}
         onNodeTextSizeChange={setNodeTextSize}

@@ -284,9 +284,6 @@ type StudioDialogsProps = {
   thoughtTextStyle: 'bold' | 'italic' | 'light';
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
-  showReferenceImagesInContext: boolean;
-  referenceImageTurnLookback: number;
-  maxReferenceImages: number;
   glassDesignEnabled: boolean;
   glassDesignOpacity: number;
   nodeTextSize: 'small' | 'normal' | 'big';
@@ -316,9 +313,6 @@ type StudioDialogsProps = {
   onThoughtTextStyleChange: (style: 'bold' | 'italic' | 'light') => void;
   onRpDateTimeFormatChange: (format: RpDateTimeFormat) => void;
   onRpWeekdayLanguageChange: (language: RpWeekdayLanguage) => void;
-  onShowReferenceImagesInContextChange: (enabled: boolean) => void;
-  onReferenceImageTurnLookbackChange: (value: number) => void;
-  onMaxReferenceImagesChange: (value: number) => void;
   onGlassDesignEnabledChange: (enabled: boolean) => void;
   onGlassDesignOpacityChange: (opacity: number) => void;
   onNodeTextSizeChange: (size: 'small' | 'normal' | 'big') => void;
@@ -531,16 +525,6 @@ function VariablesIcon() {
   );
 }
 
-function ImagesIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <polyline points="21 15 16 10 5 21" />
-    </svg>
-  );
-}
-
 function TokenIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -574,7 +558,6 @@ const OPTIONS_TABS = [
   { id: 'translation', label: 'Translation', desc: 'Processing and display language' },
   { id: 'nodes', label: 'Node Design', desc: 'Appearance and transparency' },
   { id: 'variables', label: 'Workflow Variables', desc: 'Reusable prompt values' },
-  { id: 'images', label: 'Reference Images', desc: 'Image history and limits' },
   { id: 'tokens', label: 'Token Estimate', desc: 'Factors and calibration' },
   { id: 'reliability', label: 'Run Reliability', desc: 'Format error retries' },
 ] as const;
@@ -1167,9 +1150,6 @@ export function StudioDialogs({
   thoughtTextStyle,
   rpDateTimeFormat,
   rpWeekdayLanguage,
-  showReferenceImagesInContext,
-  referenceImageTurnLookback,
-  maxReferenceImages,
   glassDesignEnabled,
   glassDesignOpacity,
   nodeTextSize,
@@ -1197,9 +1177,6 @@ export function StudioDialogs({
   onThoughtTextStyleChange,
   onRpDateTimeFormatChange,
   onRpWeekdayLanguageChange,
-  onShowReferenceImagesInContextChange,
-  onReferenceImageTurnLookbackChange,
-  onMaxReferenceImagesChange,
   onGlassDesignEnabledChange,
   onGlassDesignOpacityChange,
   onNodeTextSizeChange,
@@ -2362,7 +2339,6 @@ export function StudioDialogs({
                   if (tab.id === 'translation') Icon = TranslationIcon;
                   if (tab.id === 'nodes') Icon = NodesIcon;
                   if (tab.id === 'variables') Icon = VariablesIcon;
-                  if (tab.id === 'images') Icon = ImagesIcon;
                   if (tab.id === 'tokens') Icon = TokenIcon;
                   if (tab.id === 'reliability') Icon = RetryIcon;
 
@@ -2897,59 +2873,6 @@ export function StudioDialogs({
                           </div>
                         ))}
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeOptionsTab === 'images' && (
-                  <div className="options-tab-content">
-                    <div className="options-tab-body">
-                      <div className="option-info">
-                        <strong>Reference Images</strong>
-                        <p>
-                          Include past images with message history. Enable vision support in the model connection; models without it receive text captions.
-                        </p>
-                      </div>
-                      <label className="option-toggle">
-                        <input
-                          type="checkbox"
-                          checked={showReferenceImagesInContext}
-                          onChange={(event) => onShowReferenceImagesInContextChange(event.target.checked)}
-                        />
-                        <span>Send reference images to LLM</span>
-                      </label>
-                      <label className="option-field" htmlFor="reference-image-turn-lookback">
-                        REFERENCE IMAGE TURN LOOKBACK
-                        <div className="option-range-row">
-                          <input
-                            id="reference-image-turn-lookback"
-                            type="range"
-                            min={5}
-                            max={99}
-                            step={1}
-                            value={referenceImageTurnLookback}
-                            disabled={!showReferenceImagesInContext}
-                            onChange={(event) => onReferenceImageTurnLookbackChange(Number(event.target.value))}
-                          />
-                          <span>{referenceImageTurnLookback} turns</span>
-                        </div>
-                      </label>
-                      <label className="option-field" htmlFor="max-reference-images">
-                        MAX REFERENCE IMAGES
-                        <div className="option-range-row">
-                          <input
-                            id="max-reference-images"
-                            type="range"
-                            min={2}
-                            max={9}
-                            step={1}
-                            value={maxReferenceImages}
-                            disabled={!showReferenceImagesInContext}
-                            onChange={(event) => onMaxReferenceImagesChange(Number(event.target.value))}
-                          />
-                          <span>{maxReferenceImages} images</span>
-                        </div>
-                      </label>
                     </div>
                   </div>
                 )}

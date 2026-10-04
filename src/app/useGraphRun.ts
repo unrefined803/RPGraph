@@ -44,6 +44,13 @@ import { createTurnTraceRecorder, type TurnTraceEvent, type TurnTraceNodeExecuti
 import type { useTurnTraceState } from './useTurnTraceState';
 import type { useTurnRecordState, TurnReplacement } from '../chat/useTurnRecordState';
 import type { useNextTurnReferenceImages } from '../chat/useNextTurnReferenceImages';
+import {
+  phoneReferenceImageScope,
+  rpReferenceImageScope,
+  socialDirectReferenceImageScope,
+  socialReferenceImageScope,
+  unknownConversationReferenceImageScope,
+} from '../chat/referenceImages';
 import type { usePhoneReply } from '../chat/usePhoneReply';
 import {
   applyTimeCommandsToWorkflowNodes,
@@ -517,7 +524,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         ? historyMessages.find((message) => message.id === existingInputMessage.replyToMessageId)
         : undefined
     );
-    const runReferenceImageOptions = referenceImageOptionsForRun(phoneReplyTo);
+    const selectedReferenceImageOptions = referenceImageOptionsForRun(phoneReplyTo);
     const inputCharacter = socialDirectMessage && inputCharacterOverride
       ? inputCharacterOverride
       : existingInputMessage?.speakerName
@@ -1095,6 +1102,21 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : inputCharacter!.name);
     const phoneRecipientName =
       inputPhoneParticipants?.to.name ?? existingInputMessage?.phoneTo ?? phoneRecipientCharacterOverride?.name ?? selectedPhoneContact?.character.name;
+    // Automatic reference images follow the conversation of this run, so a
+    // picture from another chat or app is not re-sent after switching.
+    const socialRunApp = socialDirectMessage ? undefined : (socialPost ?? socialThreadAction)?.app;
+    const runReferenceImageOptions = {
+      ...selectedReferenceImageOptions,
+      scope: socialDirectMessage
+        ? socialDirectReferenceImageScope(socialDirectMessage)
+        : socialRunApp
+          ? socialReferenceImageScope(socialRunApp)
+          : messageFormat === socialMediaMessageFormat
+            ? unknownConversationReferenceImageScope
+            : isPhoneMessage
+              ? phoneReferenceImageScope(inputCharacterName, phoneRecipientName ?? '')
+              : rpReferenceImageScope,
+    };
     const rawSentPhoneImages = existingInputMessage?.imageAttachments ?? inputImages;
     const sentPhoneImages =
       isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length

@@ -1,24 +1,14 @@
 import { measureUiWork } from '../diagnostics/uiPerformance';
 import { createStableDerivedValueSelector } from './stableDerivedValue';
 import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
 import {
   collectRecentReferenceImages,
+  messageImageIds,
+  referenceImageScopeForMessage,
   type ReferenceImageOptions,
 } from './referenceImages';
-
-function messageImageIds(message?: MessageRecord) {
-  const phoneImageIds = message?.phoneImageIds
-    ?.map((imageId) => imageId.trim())
-    .filter(Boolean);
-  if (phoneImageIds?.length) {
-    return phoneImageIds;
-  }
-  return message?.imageAttachments
-    ?.map((image) => image.id.trim())
-    .filter(Boolean) ?? [];
-}
 
 function uniqueImageIds(...groups: string[][]) {
   return [...new Set(groups.flat().map((imageId) => imageId.trim()).filter(Boolean))];
@@ -37,14 +27,26 @@ export function useNextTurnReferenceImages({
 }) {
   const [selectContextualIds] = useState(() => createStableDerivedValueSelector<Set<string>>());
   const [selectSelectedIds] = useState(() => createStableDerivedValueSelector<Set<string>>());
-  const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
-  const selectedImageIdsRef = useRef<string[]>([]);
+  const [selection, setSelection] = useState<{ scope?: string; ids: string[] }>({ ids: [] });
+  const selectionRef = useRef(selection);
+  const selectedImageIds = useMemo(
+    () => selection.scope === options.scope ? selection.ids : [],
+    [selection, options.scope],
+  );
+  useEffect(() => {
+    if (selectionRef.current.scope !== options.scope) {
+      const empty = { scope: options.scope, ids: [] };
+      selectionRef.current = empty;
+      setSelection(empty);
+    }
+  }, [options.scope]);
 
   const updateSelectedImageIds = useCallback((update: (current: string[]) => string[]) => {
-    const next = update(selectedImageIdsRef.current);
-    selectedImageIdsRef.current = next;
-    setSelectedImageIds(next);
-  }, []);
+    const current = selectionRef.current;
+    const next = { scope: options.scope, ids: update(current.scope === options.scope ? current.ids : []) };
+    selectionRef.current = next;
+    setSelection(next);
+  }, [options.scope]);
 
   const toggleSelectedImage = useCallback((image: ChatImageAttachment) => {
     if (!options.enabled) {
@@ -62,28 +64,31 @@ export function useNextTurnReferenceImages({
   }, [options.enabled, updateSelectedImageIds]);
 
   const clearSelectedImages = useCallback(() => {
-    selectedImageIdsRef.current = [];
-    setSelectedImageIds([]);
+    const empty = { scope: selectionRef.current.scope, ids: [] };
+    selectionRef.current = empty;
+    setSelection(empty);
   }, []);
 
   const retainMessageImages = useCallback((message?: MessageRecord) => {
     if (!options.enabled) {
       return;
     }
-    const imageIds = messageImageIds(message);
+    const imageIds = message && referenceImageScopeForMessage(message) === options.scope
+      ? messageImageIds(message) : [];
     if (imageIds.length > 0) {
       updateSelectedImageIds((current) => uniqueImageIds(current, imageIds));
     }
-  }, [options.enabled, updateSelectedImageIds]);
+  }, [options.enabled, options.scope, updateSelectedImageIds]);
 
   const additionalImageIds = useMemo(
     () => options.enabled
-      ? uniqueImageIds(selectedImageIds, messageImageIds(replyToMessage))
+      ? uniqueImageIds(selectedImageIds, replyToMessage && referenceImageScopeForMessage(replyToMessage) === options.scope
+        ? messageImageIds(replyToMessage) : [])
       : [],
-    [options.enabled, replyToMessage, selectedImageIds],
+    [options.enabled, options.scope, replyToMessage, selectedImageIds],
   );
   const nextTurnOptions = useMemo(
-    () => ({ ...options, additionalImageIds }),
+    () => ({ ...options, additionalImageIds, additionalImageScope: options.scope }),
     [additionalImageIds, options],
   );
   const storybookContentNodes = useStorybookContentNodes(nodes);
@@ -102,10 +107,12 @@ export function useNextTurnReferenceImages({
 
   const optionsForRun = useCallback((replyMessage?: MessageRecord): ReferenceImageOptions => ({
     ...options,
+    additionalImageScope: options.scope,
     additionalImageIds: options.enabled
       ? uniqueImageIds(
-          selectedImageIdsRef.current,
-          messageImageIds(replyMessage),
+          selectionRef.current.scope === options.scope ? selectionRef.current.ids : [],
+          replyMessage && referenceImageScopeForMessage(replyMessage) === options.scope
+            ? messageImageIds(replyMessage) : [],
         )
       : [],
   }), [options]);

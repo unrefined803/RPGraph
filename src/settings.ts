@@ -105,9 +105,6 @@ export const maxSmoothChatAutoScrollMinSpeed = 80;
 export const defaultThoughtTextStyle = 'italic';
 const defaultRpDateTimeFormat: RpDateTimeFormat = 'eu';
 const defaultRpWeekdayLanguage: RpWeekdayLanguage = 'system';
-const defaultShowReferenceImagesInContext = true;
-const defaultReferenceImageTurnLookback = 20;
-const defaultMaxReferenceImages = 3;
 const rpWeekdayLanguages = [
   'disabled',
   'system',
@@ -297,18 +294,6 @@ function validRpWeekdayLanguage(value?: string): RpWeekdayLanguage {
   return rpWeekdayLanguages.includes(value as RpWeekdayLanguage)
     ? value as RpWeekdayLanguage
     : defaultRpWeekdayLanguage;
-}
-
-function validReferenceImageTurnLookback(value?: number) {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? Math.min(99, Math.max(5, Math.round(value)))
-    : defaultReferenceImageTurnLookback;
-}
-
-function validMaxReferenceImages(value?: number) {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? Math.min(9, Math.max(2, Math.round(value)))
-    : defaultMaxReferenceImages;
 }
 
 const connectionStorageKey = 'rpgraph.connections';
@@ -856,6 +841,10 @@ function isAppSettings(value: unknown): value is AppSettings {
       (typeof settings.options.referenceImageTurnLookback === 'number' &&
         Number.isFinite(settings.options.referenceImageTurnLookback) &&
         settings.options.referenceImageTurnLookback >= 0)) &&
+    (settings.options.phoneReferenceImageTurnLookback === undefined ||
+      (typeof settings.options.phoneReferenceImageTurnLookback === 'number' &&
+        Number.isFinite(settings.options.phoneReferenceImageTurnLookback) &&
+        settings.options.phoneReferenceImageTurnLookback >= 0)) &&
     (settings.options.maxReferenceImages === undefined ||
       (typeof settings.options.maxReferenceImages === 'number' &&
         Number.isFinite(settings.options.maxReferenceImages) &&
@@ -967,12 +956,6 @@ type AppSettingsState = {
   setRpDateTimeFormat: Dispatch<SetStateAction<RpDateTimeFormat>>;
   rpWeekdayLanguage: RpWeekdayLanguage;
   setRpWeekdayLanguage: Dispatch<SetStateAction<RpWeekdayLanguage>>;
-  showReferenceImagesInContext: boolean;
-  setShowReferenceImagesInContext: Dispatch<SetStateAction<boolean>>;
-  referenceImageTurnLookback: number;
-  setReferenceImageTurnLookback: Dispatch<SetStateAction<number>>;
-  maxReferenceImages: number;
-  setMaxReferenceImages: Dispatch<SetStateAction<number>>;
   chatPanelWidth: number;
   setChatPanelWidth: Dispatch<SetStateAction<number>>;
   bigScreenPanelWidth: number;
@@ -1060,13 +1043,6 @@ export function useAppSettings(): AppSettingsState {
   const [rpWeekdayLanguage, setRpWeekdayLanguage] = useState<RpWeekdayLanguage>(
     defaultRpWeekdayLanguage,
   );
-  const [showReferenceImagesInContext, setShowReferenceImagesInContext] = useState(
-    defaultShowReferenceImagesInContext,
-  );
-  const [referenceImageTurnLookback, setReferenceImageTurnLookback] = useState(
-    defaultReferenceImageTurnLookback,
-  );
-  const [maxReferenceImages, setMaxReferenceImages] = useState(defaultMaxReferenceImages);
   const [chatPanelWidth, setChatPanelWidth] = useState(defaultChatPanelWidth);
   const [bigScreenPanelWidth, setBigScreenPanelWidth] = useState(defaultBigScreenPanelWidth);
   const [bigScreenPhoneWidth, setBigScreenPhoneWidth] = useState(defaultBigScreenPhoneWidth);
@@ -1175,15 +1151,6 @@ export function useAppSettings(): AppSettingsState {
         setThoughtTextStyle(validThoughtTextStyle(result.settings.options.thoughtTextStyle));
         setRpDateTimeFormat(validRpDateTimeFormat(result.settings.options.rpDateTimeFormat));
         setRpWeekdayLanguage(validRpWeekdayLanguage(result.settings.options.rpWeekdayLanguage));
-        setShowReferenceImagesInContext(
-          result.settings.options.showReferenceImagesInContext ?? defaultShowReferenceImagesInContext,
-        );
-        setReferenceImageTurnLookback(
-          validReferenceImageTurnLookback(result.settings.options.referenceImageTurnLookback),
-        );
-        setMaxReferenceImages(
-          validMaxReferenceImages(result.settings.options.maxReferenceImages),
-        );
         setGlassDesignEnabled(
           result.settings.options.glassDesignEnabled ?? defaultGlassDesignEnabled,
         );
@@ -1283,9 +1250,6 @@ export function useAppSettings(): AppSettingsState {
         thoughtTextStyle: validThoughtTextStyle(thoughtTextStyle),
         rpDateTimeFormat: validRpDateTimeFormat(rpDateTimeFormat),
         rpWeekdayLanguage: validRpWeekdayLanguage(rpWeekdayLanguage),
-        showReferenceImagesInContext,
-        referenceImageTurnLookback: validReferenceImageTurnLookback(referenceImageTurnLookback),
-        maxReferenceImages: validMaxReferenceImages(maxReferenceImages),
         glassDesignEnabled,
         glassDesignOpacity: validGlassDesignOpacity(glassDesignOpacity),
         nodeTextSize: validNodeTextSize(nodeTextSize),
@@ -1356,9 +1320,6 @@ export function useAppSettings(): AppSettingsState {
     thoughtTextStyle,
     rpDateTimeFormat,
     rpWeekdayLanguage,
-    showReferenceImagesInContext,
-    referenceImageTurnLookback,
-    maxReferenceImages,
     glassDesignEnabled,
     glassDesignOpacity,
     nodeTextSize,
@@ -1441,12 +1402,6 @@ export function useAppSettings(): AppSettingsState {
     setRpDateTimeFormat,
     rpWeekdayLanguage,
     setRpWeekdayLanguage,
-    showReferenceImagesInContext,
-    setShowReferenceImagesInContext,
-    referenceImageTurnLookback,
-    setReferenceImageTurnLookback,
-    maxReferenceImages,
-    setMaxReferenceImages,
     chatPanelWidth,
     setChatPanelWidth,
     bigScreenPanelWidth,

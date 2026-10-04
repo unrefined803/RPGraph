@@ -1024,8 +1024,10 @@ export type AppSettings = {
     thoughtTextStyle?: 'bold' | 'italic' | 'light';
     rpDateTimeFormat?: RpDateTimeFormat;
     rpWeekdayLanguage?: RpWeekdayLanguage;
+    /** Legacy reference-image settings: accepted on load, ignored and no longer saved. */
     showReferenceImagesInContext?: boolean;
     referenceImageTurnLookback?: number;
+    phoneReferenceImageTurnLookback?: number;
     maxReferenceImages?: number;
     glassDesignEnabled?: boolean;
     glassDesignOpacity?: number;
