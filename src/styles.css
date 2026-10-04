@@ -27873,6 +27873,8 @@ button.message-timeline-row.phone:focus-visible {
   font-weight: 600;
 }
 
+/* The picker shares the skin of the Big Screen rail: dark translucent panel,
+   round tiles and the blue active state. */
 .edge-character-picker {
   position: fixed;
   z-index: 30;
@@ -27880,17 +27882,20 @@ button.message-timeline-row.phone:focus-visible {
   right: 18px;
   display: flex;
   flex-direction: column;
-  width: min(172px, calc(100vw - 36px));
+  gap: 4px;
+  width: min(148px, calc(100vw - 36px));
   max-height: calc(100dvh - 144px);
   padding: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 28px;
-  background: rgba(18, 25, 40, 0.94);
-  box-shadow: -12px 12px 40px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(18px);
+  scrollbar-width: none;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 30px;
+  background: rgba(13, 19, 31, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
   transform: translate(24px, -50%) scale(0.96);
   opacity: 0;
   visibility: hidden;
@@ -27913,31 +27918,46 @@ button.message-timeline-row.phone:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px;
-  border: 0;
-  border-radius: 18px;
+  padding: 8px 6px;
+  border: 1px solid transparent;
+  border-radius: 22px;
   background: transparent;
   color: var(--picker-color);
   cursor: pointer;
   transform: translateX(36px) scale(0.65);
   opacity: 0;
-  transition: transform 180ms ease, opacity 140ms ease, background 140ms ease;
+  transition:
+    transform 180ms ease,
+    opacity 140ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .is-open .edge-character-choice {
   transform: translateX(0) scale(1);
   opacity: 1;
-  transition: transform 340ms cubic-bezier(0.2, 1.4, 0.4, 1) var(--picker-delay), opacity 180ms ease var(--picker-delay), background 140ms ease;
+  transition:
+    transform 340ms cubic-bezier(0.2, 1.4, 0.4, 1) var(--picker-delay),
+    opacity 180ms ease var(--picker-delay),
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .edge-character-choice .edge-character-avatar {
+  display: grid;
   width: var(--picker-avatar-size);
   height: var(--picker-avatar-size);
   flex-shrink: 0;
-  object-fit: cover;
+  place-items: center;
   border: 2px solid var(--picker-color);
   border-radius: 50%;
-  box-shadow: 0 4px 14px #0005;
+  background: #0a0f17;
+  color: var(--picker-color);
+  font-size: calc(var(--picker-avatar-size) * 0.4);
+  font-weight: 750;
+  line-height: 1;
   overflow: hidden;
 }
 
@@ -27948,7 +27968,7 @@ button.message-timeline-row.phone:focus-visible {
   object-fit: cover;
 }
 
-.edge-character-choice span {
+.edge-character-choice > span:last-child {
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -27959,24 +27979,20 @@ button.message-timeline-row.phone:focus-visible {
   flex-shrink: 0;
 }
 
-.edge-character-choice:not(.has-image) span {
-  white-space: pre-line;
-}
-
-.edge-character-choice:not(.has-image) {
-  flex-basis: auto;
-  min-height: max(44px, calc(var(--picker-item-height) * 0.55));
-  padding: 10px 8px;
-}
-
 .edge-character-choice:hover,
-.edge-character-choice:focus-visible,
+.edge-character-choice:focus-visible {
+  background: rgba(148, 170, 214, 0.1);
+}
+
 .edge-character-choice[aria-pressed="true"] {
-  background: #91b8ff20;
+  border-color: rgba(122, 162, 232, 0.45);
+  background: linear-gradient(180deg, #34476a, #233150);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 0 16px rgba(92, 132, 214, 0.3);
 }
 
 .edge-character-choice:focus-visible { outline: 2px solid var(--picker-color); outline-offset: -2px; }
-.edge-character-choice[aria-pressed="true"] .edge-character-avatar { border-width: 4px; }
 
 @media (prefers-reduced-motion: reduce) {
   .edge-character-picker,
@@ -28704,6 +28720,8 @@ button.message-timeline-row.phone:focus-visible {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Portraits beside messages are toned down so they sit in the dark UI. */
+  filter: brightness(0.9) contrast(0.9) saturate(0.85);
 }
 
 .chat-phone-message-row .with-message-avatar .chat-message-avatar,
@@ -29573,9 +29591,13 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   background: #020306;
 }
 
-.studio.big-screen-active .graph-panel {
-  visibility: hidden;
-  pointer-events: none;
+/* React Flow sets visibility and pointer-events inline on nodes and edges,
+   which would override values inherited from the panel and keep the hidden
+   graph clickable through the backdrop. */
+.studio.big-screen-active .graph-panel,
+.studio.big-screen-active .graph-panel * {
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .big-screen-backdrop {
@@ -30120,10 +30142,10 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
 .big-screen-turn {
   display: grid;
   width: 54px;
+  height: 54px;
   gap: 3px;
-  padding: 8px 0 10px;
+  place-content: center;
   place-items: center;
-  border-top: 1px solid rgba(148, 163, 184, 0.1);
   color: #c3cee0;
   font-size: 18px;
   font-weight: 750;
@@ -30137,6 +30159,38 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   font-weight: 750;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+/* Shows who AutoTurn plays and Switch leaves: portrait, or initial without one. */
+.big-screen-rail-player {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  user-select: none;
+}
+
+.big-screen-rail-avatar {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid;
+  border-radius: 50%;
+  color: #c3cee0;
+  background: #0a0f17;
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.big-screen-rail-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Same toning as the message portraits. */
+  filter: brightness(0.9) contrast(0.9) saturate(0.85);
 }
 
 /* Phone view as a tablet: in Big Screen the drawer itself is the device,

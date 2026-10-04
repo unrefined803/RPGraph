@@ -14,6 +14,8 @@ import { highlightingSpeakerReferences, type HighlightingSpeakerContext } from '
 import { textEffectsStyle } from './chat/textEffects';
 import { CharacterName } from './components/CharacterName';
 import { AppMessageAvatars } from './components/AppMessageAvatars';
+import { CharacterAvatar } from './components/CharacterAvatar';
+import { phoneCharacterAvatarDataUrl } from './chat/phoneCharacters';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
 import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
@@ -70,6 +72,7 @@ import { PhonePanel } from './components/PhonePanel';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import { PhoneTab } from './chat/PhoneTab';
+import { panelViewSwitchEvent } from './app/panelViewSwitchEvent';
 import { PhoneTabletFrame } from './components/PhoneTabletFrame';
 import { PhoneAppListScaleContext } from './components/phoneAppListScale';
 import {
@@ -1202,6 +1205,9 @@ function App() {
     setBigScreenPhoneAppListScales,
     setPhoneAppListScales,
   ]);
+  const bigScreenPlayerName = narratorSelected
+    ? narratorSpeakerName
+    : selectedCharacter?.name ?? 'No character';
   const bigScreenColumnWidth = bigScreenTablet ? bigScreenPhoneWidth : bigScreenWidth;
   const bigScreenEdgeWidth = bigScreenTablet ? bigScreenTabletBezelWidth : bigScreenChatEdgeWidth;
   // The rail stays beside the wider of the two views so switching views does not move it.
@@ -2467,6 +2473,29 @@ function App() {
   useEffect(() => {
     restoreLastDeletedNodesRef.current = restoreLastDeletedNodes;
   });
+
+  // Tab switches between the Chat and Phone views while the panel is on screen.
+  const switchPanelViewRef = useRef(() => {});
+  useEffect(() => {
+    switchPanelViewRef.current = () => {
+      if (
+        (!bigScreenMode && !isChatPanelOpen) ||
+        document.querySelector('[role="dialog"], .dialog-backdrop')
+      ) {
+        return;
+      }
+      if (chatPanelView === 'chat' && phoneAvailable) {
+        selectPhonePanelView();
+      } else if (chatPanelView !== 'chat') {
+        selectChatPanelView('chat');
+      }
+    };
+  });
+  useEffect(() => {
+    const onPanelViewSwitch = () => switchPanelViewRef.current();
+    window.addEventListener(panelViewSwitchEvent, onPanelViewSwitch);
+    return () => window.removeEventListener(panelViewSwitchEvent, onPanelViewSwitch);
+  }, []);
 
   useEffect(() => {
     // Big Screen hides the graph, so its shortcuts must not edit it unseen.
@@ -5674,7 +5703,8 @@ function App() {
         className={`workspace ${isResizing ? 'resizing' : ''}`}
       >
         <ErrorBoundary label="Graph Panel">
-        <section className="graph-panel" aria-label="Workflow Graph">
+        {/* Big Screen covers the graph; inert keeps its nodes out of clicks and focus. */}
+        <section className="graph-panel" aria-label="Workflow Graph" inert={bigScreenMode}>
           <div className="graph-toolbar">
             <div className="panel-label">
               <span>GRAPH</span>
@@ -5963,6 +5993,7 @@ function App() {
                   type="button"
                   role="tab"
                   aria-selected={chatPanelView === 'chat'}
+                  title={phoneAvailable ? 'Chat (switch with Tab)' : undefined}
                   onClick={() => selectChatPanelView('chat')}
 	                >
 	                  Chat
@@ -6587,7 +6618,7 @@ function App() {
                 role="tab"
                 aria-selected={chatPanelView === 'chat'}
                 aria-label="RP Chat"
-                title="RP Chat"
+                title={phoneAvailable ? 'RP Chat (switch with Tab)' : 'RP Chat'}
                 onClick={() => selectChatPanelView('chat')}
               >
                 <span className="big-screen-rail-label">RP</span>
@@ -6596,7 +6627,7 @@ function App() {
               {phoneAvailable && (
                 <PhoneTab
                   className="big-screen-rail-button"
-                  title="Phone (double-click to switch notification owner)"
+                  title="Phone (switch with Tab, double-click to switch notification owner)"
                   active={chatPanelView === 'phone'}
                   notificationCount={unreadPhoneNotificationCount}
                   viewedPhoneHasNotifications={viewedPhoneHasNotifications}
@@ -6626,16 +6657,6 @@ function App() {
             </div>
             <div className="big-screen-rail-group" aria-label="Turn actions">
               <button
-                className="big-screen-rail-button primary"
-                type="button"
-                onClick={triggerAutoTurn}
-                disabled={autoTurnDisabled}
-                title={autoTurnTitle || autoTurnLabel}
-                aria-label={autoTurnLabel}
-              >
-                {chatPanelView === 'events' ? <RunEventIcon /> : <AutoTurnIcon />}
-              </button>
-              <button
                 className="big-screen-rail-button"
                 type="button"
                 onClick={cancelRunOrUndoLastTurn}
@@ -6655,6 +6676,22 @@ function App() {
               >
                 <RegenerateIcon />
               </button>
+              <span className="big-screen-turn" title="Current turn">
+                <small>Turn</small>
+                {currentSessionTurn?.number ?? 0}
+              </span>
+            </div>
+            <div className="big-screen-rail-group" aria-label="Active player">
+              <button
+                className="big-screen-rail-button primary"
+                type="button"
+                onClick={triggerAutoTurn}
+                disabled={autoTurnDisabled}
+                title={autoTurnTitle || autoTurnLabel}
+                aria-label={autoTurnLabel}
+              >
+                {chatPanelView === 'events' ? <RunEventIcon /> : <AutoTurnIcon />}
+              </button>
               <button
                 className="big-screen-rail-button"
                 type="button"
@@ -6665,9 +6702,21 @@ function App() {
               >
                 <SwitchPlayerIcon />
               </button>
-              <span className="big-screen-turn" title="Current turn">
-                <small>Turn</small>
-                {currentSessionTurn?.number ?? 0}
+              <span
+                className="big-screen-rail-player"
+                role="img"
+                title={`Playing as ${bigScreenPlayerName}`}
+                aria-label={`Playing as ${bigScreenPlayerName}`}
+              >
+                <CharacterAvatar
+                  className="big-screen-rail-avatar"
+                  name={bigScreenPlayerName}
+                  fallback={bigScreenPlayerName.trim().slice(0, 1).toUpperCase() || '?'}
+                  profileImageDataUrl={narratorSelected ? undefined : phoneCharacterAvatarDataUrl(selectedCharacter)}
+                  ringColor={
+                    (!narratorSelected && selectedCharacter && characterColors.get(selectedCharacter.name)) || '#cbd5e1'
+                  }
+                />
               </span>
             </div>
           </nav>

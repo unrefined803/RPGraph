@@ -278,7 +278,7 @@ The dialog (`showStartDialog` in `useRpgraphFiles`, markup in `src/dialogs/Studi
 
 Start selection reads are serialized, including password submissions. Closing the start dialog or canceling its password prompt invalidates pending reads before they can apply content or errors. File rows and opening actions are disabled during a read.
 
-Tab and Shift+Tab are intercepted at the window capture phase in `src/main.tsx`, before browser focus traversal or dialog focus traps. Mouse focus, text input, and other keyboard shortcuts remain available.
+Tab and Shift+Tab are intercepted at the window capture phase in `src/main.tsx`, before browser focus traversal or dialog focus traps. Mouse focus, text input, and other keyboard shortcuts remain available. A plain Tab press is forwarded as a window event (`src/app/panelViewSwitchEvent.ts`) that switches between the Chat and Phone views while the panel is on screen and no dialog is open.
 
 Encrypted files use the normal unlock path. The password dialog stacks above the start dialog, and the pending Storybook survives the workflow unlock; the workflow password is tried for an encrypted Storybook before a second prompt appears. Incompatible files cannot be opened. A legacy Storybook closes the dialog and continues in the conversion panel. The dialog closes only after the final file was applied; load errors stay visible in its status line. While the start dialog is open, loading a workflow never opens the Storybook picker.
 

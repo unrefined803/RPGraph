@@ -14,12 +14,6 @@ type EdgeCharacterPickerProps = {
   onHintSeen: (seen: boolean) => void;
 };
 
-function pickerDisplayName(name: string) {
-  const normalized = name.trim().replace(/\s+/g, ' ');
-  // Separate familiar titles without mistaking initials or surname particles for titles.
-  return normalized.replace(/^((?:(?:Dr|Prof|Mr|Mrs|Ms)\. )+)(?=\S)/i, (title) => `${title.trim()}\n`);
-}
-
 /** Mounted only while the drawer is open, so its first edge contact cannot open the picker. */
 export function EdgeCharacterPicker({ characters, selectedId, characterColors, onSelect, settingsLoadComplete, hintSeen, onHintSeen }: EdgeCharacterPickerProps) {
   const [open, setOpen] = useState(false);
@@ -28,11 +22,8 @@ export function EdgeCharacterPicker({ characters, selectedId, characterColors, o
   const armed = useRef(false);
   const previousFocus = useRef<HTMLElement | null>(null);
   const availableHeight = Math.max(48, height - 162);
-  const itemWeight = characters.reduce(
-    (total, character) => total + (character.profileImage?.dataUrl ? 1 : 0.55),
-    0.55,
-  );
-  const itemHeight = Math.min(112, Math.max(64, availableHeight / itemWeight));
+  // Every entry, including the narrator, gets the same tile with an avatar circle.
+  const itemHeight = Math.min(112, Math.max(64, availableHeight / (characters.length + 1)));
 
   const showHint = settingsLoadComplete && !hintSeen && characters.length > 0 && !open;
 
@@ -150,7 +141,7 @@ export function EdgeCharacterPicker({ characters, selectedId, characterColors, o
         <button
           key={character.id}
           type="button"
-          className={`edge-character-choice${character.profileImage?.dataUrl ? ' has-image' : ''}`}
+          className="edge-character-choice"
           aria-label={`Play as ${character.name}`}
           aria-pressed={selectedId === character.id}
           title={character.name}
@@ -164,14 +155,14 @@ export function EdgeCharacterPicker({ characters, selectedId, characterColors, o
             previousFocus.current?.focus({ preventScroll: true });
           }}
         >
-          {character.profileImage?.dataUrl && <CharacterAvatar
+          <CharacterAvatar
             className="edge-character-avatar"
             name={character.name}
-            fallback={character.name.slice(0, 1)}
-            profileImageDataUrl={character.profileImage.dataUrl}
-            ringColor={characterColors.get(character.name)}
-          />}
-          <span><CharacterName color={character.id === narratorCharacterId ? undefined : characterColors.get(character.name)}>{character.profileImage?.dataUrl ? character.name : pickerDisplayName(character.name)}</CharacterName></span>
+            fallback={character.name.trim().slice(0, 1).toUpperCase() || '?'}
+            profileImageDataUrl={character.profileImage?.dataUrl}
+            ringColor={character.id === narratorCharacterId ? '#cbd5e1' : characterColors.get(character.name)}
+          />
+          <span><CharacterName color={character.id === narratorCharacterId ? undefined : characterColors.get(character.name)}>{character.name}</CharacterName></span>
         </button>
       ))}
     </div>
