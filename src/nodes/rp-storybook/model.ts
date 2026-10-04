@@ -232,7 +232,9 @@ export function rpStorybookFormattedTextSettings(
 
 export const defaultRpStorybookImageDescriptionPrompt = [
   'Describe this image for an RPGraph character image library.',
-  'Assume the visible character is the character from the provided context.',
+  'The Storybook context above names the image owner, their contacts and relationships, the other characters, and the scenario.',
+  'Assume the visible person is the image owner. If several people are visible, assume one of them is the image owner and decide who the others most plausibly are from the owner\'s relationships and the other characters, matching visible traits such as gender, age, and appearance. Name them by their Storybook names; call anyone who fits no character a neutral term such as "a friend" or "a stranger".',
+  'Use the scenario only to interpret the visible setting or occasion when it plausibly fits.',
   'Return only one concise description in 20 to 30 words.',
   'Focus on visible pose, expression, clothing, action, setting, and mood.',
   'If the image shows nudity, exposed genitals, breasts, nipples, ass, sexual body parts, revealing or tight clothing, partial/complete undress, or an erotic/sexual atmosphere, describe those visible details clearly and directly.',
@@ -268,6 +270,74 @@ export function rpStorybookImageDescriptionPromptText(value: unknown) {
   return settings.mode === 'custom'
     ? settings.customText?.trim() || defaultRpStorybookImageDescriptionPrompt
     : defaultRpStorybookImageDescriptionPrompt;
+}
+
+/**
+ * Plain-text LLM context for describing one character's images: the full owner
+ * card with their relationships, the rest of the cast by description only, and
+ * the scenario. Apps, accounts and history stay out to keep the context small.
+ */
+export function rpStorybookImageDescriptionContext(
+  storybook: RpStorybook,
+  ownerId: string,
+  fallbackName = 'selected character',
+) {
+  const owner = storybook.characters.find((character) => character.id === ownerId);
+  const ownerName = owner?.name || fallbackName;
+  const field = (label: string, value: string | undefined) => value?.trim() ? `${label}: ${value.trim()}` : '';
+  const section = (title: string, lines: string[]) => {
+    const content = lines.filter(Boolean);
+    return content.length ? [title, ...content].join('\n') : '';
+  };
+  const others = storybook.characters.filter((character) => character.id !== ownerId && character.name.trim());
+  return [
+    section('Image owner (the character this image library belongs to):', [
+      `Name: ${ownerName}`,
+      field('Role', owner?.role),
+      field('Description', owner?.description),
+      field('Personality', owner?.personality),
+      field('Speech Style', owner?.speechStyle),
+    ]),
+    section(`${ownerName}'s contacts and relationships:`, (owner?.relationships ?? []).map((entry) => {
+      const target = others.find((character) => character.id === entry.characterId);
+      return target ? `- ${[target.name, entry.description.trim()].filter(Boolean).join(': ')}` : '';
+    })),
+    section('Other Storybook characters:', others.map((character) =>
+      `- ${[character.name, character.description.trim()].filter(Boolean).join(': ')}`)),
+    section('Scenario:', [
+      field('Summary', storybook.scenario.summary),
+      field('Opening situation', storybook.scenario.openingSituation),
+      field('Current situation', storybook.scenario.currentSituation),
+    ]),
+  ].filter(Boolean).join('\n\n');
+}
+
+/**
+ * Prompt for revising one image description from a free-form user instruction.
+ * The instruction outranks the base prompt's identity assumption and length limit.
+ */
+export function rpStorybookImageRevisionPrompt(
+  basePrompt: string,
+  currentDescription: string,
+  instruction: string,
+) {
+  return [
+    'Revise the description of this image for an RPGraph character image library.',
+    'Combine three sources: what is visible in the attached image, the Storybook context above, and the user instruction.',
+    'The user instruction is authoritative. It may correct who the visible people are, or add facts that cannot be seen, such as the occasion, place, or time. Work these facts in naturally and name people by their Storybook names.',
+    'Where the user instruction conflicts with the style rules or the current description, follow the user instruction. Do not assume every visible person is the image owner.',
+    'Keep correct details of the current description that the instruction does not touch, and verify them against the image.',
+    'Return only the revised description, with no preface, quotes, or explanation. It may exceed the usual length when needed to include the user-provided facts.',
+    '',
+    'Style rules:',
+    basePrompt.trim() || defaultRpStorybookImageDescriptionPrompt,
+    '',
+    'Current description:',
+    currentDescription.trim() || '(none)',
+    '',
+    'User instruction:',
+    instruction.trim(),
+  ].join('\n');
 }
 
 export const emptyRpStorybook: RpStorybook = {

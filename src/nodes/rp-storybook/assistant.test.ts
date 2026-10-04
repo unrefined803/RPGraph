@@ -3,7 +3,10 @@ import { storybookAssistantConversationContext } from '../../storybook/assistant
 import { characterPayload, validateCharacterPayload } from '../../characters/character';
 import { normalizeDatingProfile } from '../../chat/datingProfile';
 import {
+  defaultRpStorybookImageDescriptionPrompt,
   normalizeRpStorybook,
+  rpStorybookImageDescriptionContext,
+  rpStorybookImageRevisionPrompt,
   parseRpStorybookAssistantResult,
   rpStorybookEditPrompt,
   rpStorybookIdentityLockViolations,
@@ -289,4 +292,67 @@ it('includes stage confirmations and application errors in the next request cont
   expect(prompt).toContain('USER: Yes.');
   expect(prompt).toContain('APP ERROR: Invalid account role.');
   expect(prompt).toContain('Current user message: Retry.');
+});
+
+describe('image description revision prompt', () => {
+  it('combines the style rules, current description, and user instruction', () => {
+    const prompt = rpStorybookImageRevisionPrompt(
+      'Keep it short.',
+      'Mia smiles at the camera.',
+      ' The left person is Mia, the right one is Tom. This was at her birthday. ',
+    );
+    expect(prompt).toContain('Style rules:\nKeep it short.');
+    expect(prompt).toContain('Current description:\nMia smiles at the camera.');
+    expect(prompt.endsWith('User instruction:\nThe left person is Mia, the right one is Tom. This was at her birthday.')).toBe(true);
+  });
+
+  it('falls back to the default style rules and marks a missing description', () => {
+    const prompt = rpStorybookImageRevisionPrompt('', '', 'Taken at the beach.');
+    expect(prompt).toContain(defaultRpStorybookImageDescriptionPrompt);
+    expect(prompt).toContain('Current description:\n(none)');
+  });
+});
+
+describe('image description context', () => {
+  const character = (id: string, name: string, extra: object = {}) => ({
+    id, name, description: `${name} description`, personality: '', speechStyle: '', role: '', images: [], ...extra,
+  });
+  const storybook = {
+    ...starterRpStorybook,
+    scenario: { summary: 'A shared flat.', openingSituation: '', currentSituation: 'Party night.' },
+    characters: [
+      character('mia', 'Mia', {
+        personality: 'Warm',
+        relationships: [
+          { characterId: 'tom', description: 'Best friend since school.', apps: { whatsup: true } },
+          { characterId: 'missing', description: 'Unknown person.', apps: {} },
+        ],
+      }),
+      character('tom', 'Tom'),
+    ],
+  };
+
+  it('formats the owner card, relationships, cast, and scenario as plain text', () => {
+    expect(rpStorybookImageDescriptionContext(storybook, 'mia')).toBe([
+      'Image owner (the character this image library belongs to):',
+      'Name: Mia',
+      'Description: Mia description',
+      'Personality: Warm',
+      '',
+      "Mia's contacts and relationships:",
+      '- Tom: Best friend since school.',
+      '',
+      'Other Storybook characters:',
+      '- Tom: Tom description',
+      '',
+      'Scenario:',
+      'Summary: A shared flat.',
+      'Current situation: Party night.',
+    ].join('\n'));
+  });
+
+  it('keeps the fallback name when the owner is not in the Storybook', () => {
+    expect(rpStorybookImageDescriptionContext({ ...storybook, characters: [] }, 'ghost', 'Ghost'))
+      .toContain('Name: Ghost');
+  });
 });

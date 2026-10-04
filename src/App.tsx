@@ -1775,10 +1775,10 @@ function App() {
       throw new Error('Storybook image descriptions require an RP Storybook node.');
     }
     const prompt = [
-      descriptionPrompt.trim() || defaultRpStorybookImageDescriptionPrompt,
-      '',
-      'Character context:',
+      'Storybook context:',
       characterContext.trim() || 'Name: selected character',
+      '',
+      descriptionPrompt.trim() || defaultRpStorybookImageDescriptionPrompt,
     ].join('\n');
     const visionEnabled = await nodeLlm.supportsVision(
       node.data.connectionId,

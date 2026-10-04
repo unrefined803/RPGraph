@@ -40,7 +40,9 @@ import {
   rpStorybookFormattedText,
   rpStorybookFormattedTextSettings,
   rpStorybookImageDescriptionPromptSettings,
+  rpStorybookImageDescriptionContext,
   rpStorybookImageDescriptionPromptText,
+  rpStorybookImageRevisionPrompt,
   rpStorybookLogicCheckInstruction,
   estimatedRpStorybookPromptTokens,
   storybookCharacterImageOwnerIdBase,
@@ -1135,20 +1137,6 @@ function storybookImageOwnerName(storybook: RpStorybook, owner: StorybookImageOw
   return character?.name || character?.id || 'Character';
 }
 
-function storybookImageOwnerContext(storybook: RpStorybook, owner: StorybookImageOwner) {
-  const character = storybook.characters.find((entry) => entry.id === owner.characterId);
-  if (!character) {
-    return `Name: ${storybookImageOwnerName(storybook, owner)}`;
-  }
-  return [
-    character.name ? `Name: ${character.name}` : '',
-    character.description ? `Description: ${character.description}` : '',
-    character.personality ? `Personality: ${character.personality}` : '',
-    character.speechStyle ? `Speech Style: ${character.speechStyle}` : '',
-    character.role ? `Role: ${character.role}` : '',
-  ].filter(Boolean).join('\n') || `Name: ${storybookImageOwnerName(storybook, owner)}`;
-}
-
 function storybookImageOwnerImages(storybook: RpStorybook, owner: StorybookImageOwner) {
   return storybook.characters.find((character) => character.id === owner.characterId)?.images ?? [];
 }
@@ -1604,11 +1592,12 @@ function CharacterImagesDialog({
   const [describingIds, setDescribingIds] = useState<Set<string>>(() => new Set());
   const [page, setPage] = useState(0);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [assistantInstruction, setAssistantInstruction] = useState('');
   const [profilePickImageId, setProfilePickImageId] = useState<string | null>(null);
   const [promptOpen, setPromptOpen] = useState(false);
   const [workflowPromptText, setWorkflowPromptText] = useState<string | undefined>();
   const characterName = storybookImageOwnerName(storybook, owner);
-  const characterContext = storybookImageOwnerContext(storybook, owner);
+  const characterContext = rpStorybookImageDescriptionContext(storybook, owner.characterId, characterName);
   const images = storybookImageOwnerImages(storybook, owner);
   const profileImage = storybookImageOwnerProfileImage(storybook, owner);
   const imageDescriptionPrompt = rpStorybookImageDescriptionPromptSettings(storybook.imageDescriptionPrompt);
@@ -1835,6 +1824,7 @@ function CharacterImagesDialog({
       commitDescription(selectedImageId);
     }
     setSelectedImageId(null);
+    setAssistantInstruction('');
   }
 
   function applyProfileImage(profileImageValue: RpStorybookCharacterProfileImage) {
@@ -1846,23 +1836,38 @@ function CharacterImagesDialog({
     setStatus('Profile pic applied.');
   }
 
-  async function describeImage(image: RpStorybookCharacterImage) {
+  // With an instruction, the assistant revises the current description instead of starting over.
+  async function describeImage(image: RpStorybookCharacterImage, instruction = '') {
+    const revising = !!instruction.trim();
     setDescribingIds((current) => new Set(current).add(image.id));
     try {
-      setStatus(`Describing ${image.name} ...`);
+      setStatus(`${revising ? 'Revising' : 'Describing'} ${image.name} ...`);
       const activeStorybook = commitPromptDraft();
       const activePrompt = rpStorybookImageDescriptionPromptText(activeStorybook.imageDescriptionPrompt);
-      const description = await onDescribeCharacterImage(characterContext, image, activePrompt);
+      const description = await onDescribeCharacterImage(
+        characterContext,
+        image,
+        revising
+          ? rpStorybookImageRevisionPrompt(
+              activePrompt,
+              descriptionDrafts[image.id] ?? image.description,
+              instruction,
+            )
+          : activePrompt,
+      );
       setDescriptionDrafts((current) => ({ ...current, [image.id]: description }));
       const nextImages = images.map((entry) =>
         entry.id === image.id ? { ...entry, description } : entry
       );
       const nextStorybook = withStorybookImageOwnerImages(activeStorybook, owner, nextImages);
-      onUpdateStorybook(nextStorybook, `Described image for ${characterName}.`);
-      setStatus(`Described ${image.name}.`);
+      onUpdateStorybook(nextStorybook, `${revising ? 'Revised' : 'Described'} image for ${characterName}.`);
+      setStatus(`${revising ? 'Revised' : 'Described'} ${image.name}.`);
+      if (revising) {
+        setAssistantInstruction('');
+      }
       return nextStorybook;
     } catch (error) {
-      setStatus(`Describe failed: ${error instanceof Error ? error.message : String(error)}`);
+      setStatus(`${revising ? 'Revise' : 'Describe'} failed: ${error instanceof Error ? error.message : String(error)}`);
       return storybook;
     } finally {
       setDescribingIds((current) => {
@@ -2126,6 +2131,7 @@ function CharacterImagesDialog({
                         setProfilePickImageId(image.id);
                         return;
                       }
+                      setStatus('');
                       setSelectedImageId(image.id);
                     }}
                   >
@@ -2220,6 +2226,33 @@ function CharacterImagesDialog({
                     >
                       Remove Image
                     </button>
+                  </div>
+                  <label className="storybook-image-description storybook-image-detail-assistant">
+                    ASSISTANT
+                    <textarea
+                      value={assistantInstruction}
+                      rows={3}
+                      disabled={describingIds.has(selectedImage.id)}
+                      onChange={(event) => setAssistantInstruction(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey && assistantInstruction.trim()) {
+                          event.preventDefault();
+                          void describeImage(selectedImage, assistantInstruction);
+                        }
+                      }}
+                      placeholder="Tell the assistant what to correct or add, e.g. who is who, or where and when this was taken."
+                    />
+                  </label>
+                  <div className="storybook-image-detail-actions">
+                    <button
+                      className="contextual-action-button nodrag"
+                      type="button"
+                      disabled={!assistantInstruction.trim() || describingIds.has(selectedImage.id)}
+                      onClick={() => void describeImage(selectedImage, assistantInstruction)}
+                    >
+                      {describingIds.has(selectedImage.id) ? 'Working ...' : 'Apply Change'}
+                    </button>
+                    {status && <span className="run-note storybook-image-status">{status}</span>}
                   </div>
                   <CaptionHistoryList items={captionHistoryTimeline(selectedImageCaptionHistory)} />
                 </aside>

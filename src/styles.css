@@ -17693,7 +17693,18 @@ button.message-timeline-row.phone:focus-visible {
   min-height: 120px;
 }
 
+.storybook-image-detail-assistant textarea {
+  min-height: 64px;
+}
+
+.storybook-image-detail-actions .storybook-image-status {
+  flex: 1 1 140px;
+  align-self: center;
+  margin-bottom: 0;
+}
+
 .storybook-image-detail-actions {
+  align-items: center;
   display: flex;
   justify-content: flex-start;
   gap: 8px;
