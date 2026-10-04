@@ -360,7 +360,8 @@ When several stored Storybooks provide the same character ID, the Storybook
 file with the newest modification time provides it, with filename order as the
 tie-breaker; the save is then chosen inside that Storybook's lineage. The user
 can override both defaults per file: in Start, a file that shares NPCs for the
-current selection shows `Shares N NPCs`, and every other file that could share
+current selection shows `Shares N NPCs`, the selected file itself shows its
+playable cast as `N main characters`, and every other file that could share
 them instead (the Storybook itself, another of its RP Saves, or a Storybook
 whose characters another Storybook provides) shows a plain underlined `Switch` link
 in the same place. Switching always takes the whole cast of that file: it

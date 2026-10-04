@@ -23,6 +23,13 @@ export function npcImportPreview(index: NpcImportPreviewIndex, targetFileName: s
   return rows;
 }
 
+/** Playable characters of the selected Storybook or RP Save, from the same compact metadata. */
+export function mainCharacterCount(index: NpcImportPreviewIndex, targetFileName: string) {
+  const target = index.files.find((file) => file.fileName === targetFileName);
+  if (!target || !['storybook', 'session'].includes(target.kind)) return 0;
+  return new Set(target.sources.flatMap((source) => source.characters.map((character) => character.id))).size;
+}
+
 /**
  * Files that could share NPCs instead of the current sources: another file of
  * the same Storybook, or a Storybook whose characters another one provides.

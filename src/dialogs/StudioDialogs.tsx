@@ -144,6 +144,7 @@ function formatFileDate(value: string | number) {
 }
 
 function StartDialogFileRow({
+  mainCharacterCount,
   npcCount,
   npcSwitch,
   onSwitchNpcs,
@@ -157,6 +158,8 @@ function StartDialogFileRow({
   disabled = false,
   onInfo,
 }: {
+  /** Playable characters of this file; set only for the selected file. */
+  mainCharacterCount?: number;
   /** External NPCs this file contributes to the current selection. */
   npcCount?: number;
   /** This file could share NPCs that other files currently share. */
@@ -219,6 +222,7 @@ function StartDialogFileRow({
             {!file.compatible && ' · Incompatible'}
             {' · '}{file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
             {file.type === 'session' && ` · Turn ${file.latestTurnNumber ?? 'Unknown'}`}
+            {!!mainCharacterCount && ` · ${mainCharacterCount} main character${mainCharacterCount === 1 ? '' : 's'}`}
             {!!npcCount && ` · Shares ${npcCount} NPC${npcCount === 1 ? '' : 's'}`}
             {npcSwitch && onSwitchNpcs && !disabled && <>
               {' · '}
@@ -3151,6 +3155,7 @@ export function StudioDialogs({
                         file={file}
                         disabled={startSelectionLoading}
                         badge="Storybook"
+                        mainCharacterCount={startTargetFileName === file.fileName ? npcPreview.mainCharacters : undefined}
                         npcCount={npcPreview.rows?.[file.fileName]?.length}
                         npcSwitch={!!npcPreview.switches[file.fileName]}
                         onSwitchNpcs={() => void npcPreview.switchSource(file.fileName)}
@@ -3177,6 +3182,7 @@ export function StudioDialogs({
                         file={file}
                         disabled={startSelectionLoading}
                         badge="RP Save"
+                        mainCharacterCount={startTargetFileName === file.fileName ? npcPreview.mainCharacters : undefined}
                         npcCount={npcPreview.rows?.[file.fileName]?.length}
                         npcSwitch={!!npcPreview.switches[file.fileName]}
                         onSwitchNpcs={() => void npcPreview.switchSource(file.fileName)}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { NpcImportPreviewIndex } from '../../shared/npcSourceSelection.cjs';
-import { npcImportPreview, npcSourceSwitches } from './npcImportPreview';
+import { mainCharacterCount, npcImportPreview, npcSourceSwitches } from './npcImportPreview';
 
 export function useNpcImportPreview(open: boolean, targetFileName: string | null) {
   const [index, setIndex] = useState<NpcImportPreviewIndex | null>(null);
@@ -29,6 +29,7 @@ export function useNpcImportPreview(open: boolean, targetFileName: string | null
     return () => { active = false; unsubscribe?.(); };
   }, [open]);
   const rows = index && targetFileName ? npcImportPreview(index, targetFileName) : null;
+  const mainCharacters = index && targetFileName ? mainCharacterCount(index, targetFileName) : 0;
   const switches = index && targetFileName ? npcSourceSwitches(index, targetFileName) : {};
   /** Let this file share its whole cast; the library change refreshes the preview. */
   const switchSource = async (fileName: string) => {
@@ -38,6 +39,6 @@ export function useNpcImportPreview(open: boolean, targetFileName: string | null
       setStatus('Unable to switch NPC sharing.');
     }
   };
-  return { rows, switches, switchSource, status: status || (index && targetFileName && !rows
+  return { rows, mainCharacters, switches, switchSource, status: status || (index && targetFileName && !rows
     ? 'NPC source preview is unavailable for this file.' : '') };
 }

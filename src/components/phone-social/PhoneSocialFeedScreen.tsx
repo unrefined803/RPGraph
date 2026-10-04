@@ -344,6 +344,7 @@ export function PhoneSocialFeedScreen({
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const postMenuRef = useRef<HTMLDivElement | null>(null);
   const postElementsRef = useRef(new Map<string, HTMLElement>());
+  const feedScrollRef = useRef<HTMLDivElement | null>(null);
   const scrolledOpenPostRequestIdRef = useRef<number | undefined>(undefined);
   const nextThreadActionSequenceRef = useRef(socialMediaMessages.length);
   const dmScheduledRevealIdsRef = useRef<Set<string>>(new Set());
@@ -965,6 +966,20 @@ export function PhoneSocialFeedScreen({
     return () => window.cancelAnimationFrame(frame);
   }, [openPostId, openPostRequestId]);
 
+  // The composer and every new post sit at the top of the feed, so a feed
+  // that was scrolled down has to return there to show them.
+  function scrollFeedToTop() {
+    feedScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  useEffect(() => {
+    if (postStage !== 'editor') {
+      return;
+    }
+    const frame = window.requestAnimationFrame(scrollFeedToTop);
+    return () => window.cancelAnimationFrame(frame);
+  }, [postStage]);
+
   function toggleLike(post: SocialPost) {
     if (post.moderation?.blocked) return;
     if (!owner) {
@@ -1174,6 +1189,7 @@ export function PhoneSocialFeedScreen({
     setPostDraft('');
     setPostDraftImage(undefined);
     setPostStage(undefined);
+    scrollFeedToTop();
     setDelayedPostIds((current) => new Set(current).add(record.postId));
     setFreshPostIds((current) => new Set(current).add(record.postId));
     setVisibleLikeCounts((current) => ({ ...current, [record.postId]: 0 }));
@@ -1769,9 +1785,22 @@ export function PhoneSocialFeedScreen({
             onSend={(message) => onSendDirectMessage(message, owner.id)}
           />
         ) : (
-        <div className="phone-social-scroll">
+        <div className="phone-social-scroll" ref={feedScrollRef}>
           {postStage === 'editor' && (
             <form className="phone-social-composer" onSubmit={submitPost}>
+              <div className="phone-social-composer-header">
+                <CharacterAvatar
+                  className="phone-avatar"
+                  name={owner?.name ?? account}
+                  fallback={(owner?.name ?? account).slice(0, 1).toUpperCase()}
+                  profileImageDataUrl={!isAccountPrivacyMode(app.id, owner) ? socialAvatarDataUrl(owner, owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId) : undefined) : undefined}
+                  style={ownerColor ? { borderColor: ownerColor, color: ownerColor } : undefined}
+                />
+                <div className="phone-social-post-author-info">
+                  <strong><CharacterName color={ownerColor}>{socialAccountPresentation(app.id, owner, owner?.name ?? '', account).name}</CharacterName></strong>
+                  <span>New post</span>
+                </div>
+              </div>
               {postDraftImage && (
                 <div className="phone-social-composer-preview">
                   <img src={postDraftImage.dataUrl} alt={postDraftImage.name} />
@@ -1784,7 +1813,7 @@ export function PhoneSocialFeedScreen({
                     aria-label="Remove image"
                     title="Remove image"
                   >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
@@ -1792,16 +1821,20 @@ export function PhoneSocialFeedScreen({
                 </div>
               )}
               <textarea
-                placeholder={postDraftImage ? 'Describe your image' : 'Write your post'}
+                placeholder={postDraftImage ? 'Write a comment...' : 'Write your post...'}
+                aria-label={postDraftImage ? 'Comment' : 'Post text'}
                 value={postDraft}
                 onChange={(event) => setPostDraft(event.target.value)}
                 onKeyDown={submitPostOnEnter}
-                rows={2}
+                rows={postDraftImage ? 2 : 3}
                 autoFocus
               />
-              <button type="submit" disabled={!postDraft.trim() || isRunning}>
-                {isRunning ? 'Posting...' : 'Share Post'}
-              </button>
+              <div className="phone-social-composer-footer">
+                <small>Enter to share · Shift+Enter for a new line</small>
+                <button type="submit" disabled={!postDraft.trim() || isRunning}>
+                  {isRunning ? 'Posting...' : 'Share Post'}
+                </button>
+              </div>
             </form>
           )}
           {posts.map((post) => {

@@ -1,6 +1,6 @@
 import { captureStoryNpcParticipants, migrateLegacyNpcImports } from './storyNpcParticipants';
 import type { ImportedNpcSnapshots } from './externalNpcs';
-import { npcImportPreview, npcSourceSwitches } from './npcImportPreview';
+import { mainCharacterCount, npcImportPreview, npcSourceSwitches } from './npcImportPreview';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -479,6 +479,9 @@ it('ignores idle legacy imports and excludes story participants from the preview
   expect(npcImportPreview(index, 'a-save.json')).toEqual({ 'b.json': ['Mia'] });
   expect(npcImportPreview({ ...index, overriddenIds: ['mia'] }, 'a-save.json')).toEqual({});
   expect(npcImportPreview(index, 'missing.json')).toBeNull();
+  expect(mainCharacterCount(index, 'a-save.json')).toBe(1);
+  expect(mainCharacterCount(index, 'b.json')).toBe(1);
+  expect(mainCharacterCount(index, 'missing.json')).toBe(0);
 });
 
 it('migrates only communicating legacy imports and stops writing the bulk archive', async () => {
