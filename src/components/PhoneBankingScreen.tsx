@@ -40,6 +40,23 @@ type PhoneBankingScreenProps = {
   }) => void;
 };
 
+// Minus on red marks money leaving the account, plus on green money arriving.
+function TransactionIcon({ direction }: { direction: 'sent' | 'received' }) {
+  return (
+    <div
+      className={`phone-banking-tx-icon ${direction}`}
+      role="img"
+      aria-label={direction === 'sent' ? 'Sent' : 'Received'}
+      title={direction === 'sent' ? 'Sent' : 'Received'}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+        <line x1="5" y1="12" x2="19" y2="12" />
+        {direction === 'received' && <line x1="12" y1="5" x2="12" y2="19" />}
+      </svg>
+    </div>
+  );
+}
+
 export function PhoneBankingScreen({
   owner,
   storyCharacters,
@@ -103,18 +120,22 @@ export function PhoneBankingScreen({
   const dummyTransactions = owner ? dummyBankTransactions(owner, clockDateTime) : [];
 
   // Merge real transfers and the generated opening history into one list, newest first.
+  // Transfers without an RP time stay on top; the message id orders equal times.
   const transactionRows = [
     ...transactions.map((transaction) => ({
       kind: 'transfer' as const,
       rpDateTime: transaction.message.rpDateTime ?? '9999-12-31T23:59',
+      order: transaction.message.id,
       transaction,
     })),
     ...dummyTransactions.map((transaction) => ({
       kind: 'dummy' as const,
       rpDateTime: transaction.rpDateTime,
+      order: 0,
       transaction,
     })),
-  ].sort((left, right) => right.rpDateTime.localeCompare(left.rpDateTime));
+  ].sort((left, right) =>
+    right.rpDateTime.localeCompare(left.rpDateTime) || right.order - left.order);
 
   const filteredTransactionRows = transactionRows.filter((row) => {
     if (transactionFilter === 'all') return true;
@@ -510,19 +531,7 @@ export function PhoneBankingScreen({
 
                   return (
                     <li className="phone-banking-transaction" key={`transfer-${transaction.message.id}`}>
-                      <div className={`phone-banking-tx-icon ${transaction.direction}`}>
-                        {isSent ? (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="7" y1="17" x2="17" y2="7" />
-                            <polyline points="7 7 17 7 17 17" />
-                          </svg>
-                        ) : (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="17" y1="7" x2="7" y2="17" />
-                            <polyline points="17 17 7 17 7 7" />
-                          </svg>
-                        )}
-                      </div>
+                      <TransactionIcon direction={transaction.direction} />
                       <div className="phone-banking-transaction-info">
                         <strong className="phone-banking-transaction-title">
                           {isSent ? 'To' : 'From'} <CharacterName color={characterColors.get(transaction.counterpartyName)}>{transaction.counterpartyName}</CharacterName>
@@ -558,12 +567,7 @@ export function PhoneBankingScreen({
 
                 return (
                   <li className="phone-banking-transaction" key={transaction.id}>
-                    <div className="phone-banking-tx-icon sent dummy">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="7" y1="17" x2="17" y2="7" />
-                        <polyline points="7 7 17 7 17 17" />
-                      </svg>
-                    </div>
+                    <TransactionIcon direction="sent" />
                     <div className="phone-banking-transaction-info">
                       <strong className="phone-banking-transaction-title">{transaction.label}</strong>
                       {timeStr && (

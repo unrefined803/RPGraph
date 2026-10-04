@@ -431,7 +431,7 @@ export function verifyWorkflowValidationFixtures() {
     onlyFriendsWalletBalance(
       bankingCharacter,
       onlyFriendsWalletMessages,
-      { 'onlyfriends-post-1': 9.99 },
+      { [bankingCharacter.id]: { 'onlyfriends-post-1': 9.99 } },
     ) === 75.51,
     'OnlyFriends balance must combine bank funding, withdrawals, received DM tips, and internal post purchases',
   );
@@ -447,16 +447,16 @@ export function verifyWorkflowValidationFixtures() {
   };
   assertFixture(
     onlyFriendsWalletBalance(bankingCharacter, [...onlyFriendsWalletMessages, outgoingTip],
-      { 'onlyfriends-post-1': 9.99 }) === 50.51,
+      { [bankingCharacter.id]: { 'onlyfriends-post-1': 9.99 } }) === 50.51,
     'Sent tips must debit the sender wallet alongside purchases and received tips',
   );
   assertFixture(
-    onlyFriendsWalletBalance(bankingCharacter, [outgoingTip], undefined) === -25,
-    'Outgoing tips must be accounted for from persisted message history',
+    onlyFriendsWalletBalance(bankingCharacter, [outgoingTip], undefined) === 0,
+    'An uncovered outgoing tip must not push the OnlyFriends wallet below zero',
   );
   assertFixture(
     onlyFriendsWalletBalance(bankingCharacter, onlyFriendsWalletMessages,
-      { 'onlyfriends-post-1': 9.99 }) === 75.51,
+      { [bankingCharacter.id]: { 'onlyfriends-post-1': 9.99 } }) === 75.51,
     'Removing a sent tip from history must restore its wallet debit',
   );
   assertFixture(
@@ -2337,6 +2337,7 @@ export function verifyWorkflowValidationFixtures() {
           }],
           voiceMedia: {},
           socialLikes: { 'alex/fotogram': ['post-1'] },
+          onlyFriendsPurchases: {},
           dynamicSocialUsers: {},
           socialConnections: {},
           notes: {},

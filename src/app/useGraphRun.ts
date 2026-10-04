@@ -68,6 +68,7 @@ import {
   type ParsedIncomingSocialDirectMessage,
   type ParsedPhoneImageAction,
   type ParsedPhoneMessage,
+  normalizePhoneName,
 } from '../chat/phoneMessages';
 import { captureTurnRuntime } from '../chat/turns';
 import { createRpImageOutputStream, parseRpOutput } from '../chat/rpOutput';
@@ -93,10 +94,10 @@ import {
   type ParsedOutputActions,
 } from '../chat/outputActions';
 import {
-  bankingBalanceForCharacter,
   bankTransferHistoryText,
   bankTransferPartyMatches,
 } from '../chat/bankTransfers';
+import { onlyFriendsWalletBalance, onlyFriendsWalletName } from '../chat/onlyFriendsWallet';
 import {
   parseSocialDirectMessageOutput,
   socialAppNames,
@@ -2593,12 +2594,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
             reportRunWarning('A bank transfer to the same account was ignored.', outputNodeTraceInfo);
             continue;
           }
+          // Bank accounts may go negative, so transfers are always booked on
+          // both sides. Only the OnlyFriends wallet cannot pay out more than it holds.
           if (
-            sender &&
-            canonicalTransfer.amount > bankingBalanceForCharacter(sender, messagesRef.current)
+            recipient &&
+            normalizePhoneName(canonicalTransfer.from) === normalizePhoneName(onlyFriendsWalletName) &&
+            canonicalTransfer.amount > onlyFriendsWalletBalance(recipient, messagesRef.current)
           ) {
             reportRunWarning(
-              `Bank transfer from "${sender.name}" was ignored because the account balance is too low.`,
+              `OnlyFriends withdrawal for "${recipient.name}" was ignored because the wallet balance is too low.`,
               outputNodeTraceInfo,
             );
             continue;

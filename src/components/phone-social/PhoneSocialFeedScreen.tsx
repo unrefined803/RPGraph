@@ -29,10 +29,11 @@ import type {
 import { formatRpDateTimeParts } from '../../workflow';
 import { bankingBalanceForCharacter, formatBankingAmount } from '../../chat/bankTransfers';
 import {
-  onlyFriendsWalletBalance,
+  onlyFriendsWalletActivity,
   formatOnlyFriendsTip,
   type OnlyFriendsPurchasesByCharacter,
 } from '../../chat/onlyFriendsWallet';
+import type { MoneyLedgerEntryKind } from '../../chat/moneyLedger';
 import type {
   ImageGenerationAssistantMessage,
   ImageGenerationAssistantResult,
@@ -111,6 +112,15 @@ const COMMENT_APPEAR_DELAY_MIN_MS = 3_000;
 const COMMENT_APPEAR_DELAY_MAX_MS = 6_000;
 const LIKE_RAMP_DURATION_MIN_MS = 45_000;
 const LIKE_RAMP_DURATION_MAX_MS = 60_000;
+
+const walletActivityLabels: Record<MoneyLedgerEntryKind, string> = {
+  bankTransfer: 'Transfer',
+  walletTopUp: 'Top-up',
+  walletWithdrawal: 'Withdrawal',
+  tip: 'Tip',
+  purchase: 'Unlock',
+  sale: 'Sale',
+};
 
 function randomDelay(minimum: number, maximum: number) {
   return Math.round(minimum + Math.random() * (maximum - minimum));
@@ -351,13 +361,18 @@ export function PhoneSocialFeedScreen({
     ? onlyFriendsPurchasesByCharacter[owner.id] ?? {}
     : {};
   const unlockedPostIds = new Set(Object.keys(onlyFriendsPurchases));
-  const walletBalance = owner
-    ? onlyFriendsWalletBalance(
+  // The ledger replays in timeline order; ids restore it after the split by message kind.
+  const walletActivity = owner
+    ? onlyFriendsWalletActivity(
         owner,
-        [...bankTransferMessages, ...socialMediaMessages],
-        onlyFriendsPurchases,
+        [...bankTransferMessages, ...socialMediaMessages].sort((left, right) => left.id - right.id),
+        onlyFriendsPurchasesByCharacter,
+        storyCharacters,
       )
-    : 0;
+    : [];
+  const walletBalance = Math.round(
+    walletActivity.reduce((total, entry) => total + entry.walletDelta, 0) * 100,
+  ) / 100;
   const walletAmount = Math.round(Number(walletAmountText) * 100) / 100;
   const walletAmountValid = Number.isFinite(walletAmount) && walletAmount > 0;
   const ownerFirstName = owner?.name.trim().split(/\s+/)[0];
@@ -1415,6 +1430,18 @@ export function PhoneSocialFeedScreen({
                     </button>
                   </div>
                   <small>Bank balance: {formatBankingAmount(bankBalance)}</small>
+                  {walletActivity.length > 0 && (
+                    <ul className="phone-social-wallet-activity" aria-label="Wallet activity">
+                      {walletActivity.slice(0, 8).map((entry, index) => (
+                        <li key={`${entry.kind}-${entry.messageId ?? entry.postId ?? index}`}>
+                          <span>{walletActivityLabels[entry.kind]} · {entry.counterparty}</span>
+                          <strong className={entry.walletDelta < 0 ? 'debit' : 'credit'}>
+                            {entry.walletDelta < 0 ? '−' : '+'}{formatBankingAmount(Math.abs(entry.walletDelta))}
+                          </strong>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
             </div>

@@ -9583,12 +9583,6 @@ input[type="number"]::-webkit-outer-spin-button {
   border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
-.phone-banking-tx-icon.dummy {
-  background: rgba(148, 163, 184, 0.15);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
 .phone-banking-transaction-info {
   display: flex;
   flex-direction: column;
@@ -26226,6 +26220,39 @@ button.message-timeline-row.phone:focus-visible {
   color: rgba(255, 255, 255, 0.52);
   font-size: 9px;
   text-align: center;
+}
+
+.phone-social-wallet-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  list-style: none;
+  font-size: 9px;
+}
+
+.phone-social-wallet-activity li {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.phone-social-wallet-activity span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-social-wallet-activity strong.credit {
+  color: var(--soft-white);
+}
+
+.phone-social-wallet-activity strong.debit {
+  color: rgba(255, 255, 255, 0.52);
 }
 
 .phone-social-surface {

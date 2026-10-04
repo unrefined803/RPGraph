@@ -1,5 +1,6 @@
 import type { BankTransferRecord, MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
+import { characterMoneyLedger } from './moneyLedger';
 import { normalizePhoneName } from './phoneMessages';
 
 const usdFormatter = new Intl.NumberFormat('en-US', {
@@ -87,18 +88,12 @@ export function bankingRecipientNamesForCharacter(
   return [...namesByKey.values()];
 }
 
+/** Bank balance from the shared money ledger; bank accounts may go negative. */
 export function bankingBalanceForCharacter(
   character: StorybookCharacter,
   messages: MessageRecord[],
 ) {
-  const balance = bankTransactionsForCharacter(character, messages).reduce(
-    (current, transaction) =>
-      transaction.direction === 'sent'
-        ? current - transaction.transfer.amount
-        : current + transaction.transfer.amount,
-    character.banking.startBalance,
-  );
-  return Math.round(balance * 100) / 100;
+  return characterMoneyLedger(character, messages).bankBalance;
 }
 
 export function latestBankTransferMessageIdForCharacter(

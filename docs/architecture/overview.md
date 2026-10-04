@@ -173,7 +173,8 @@ app-specific prompts. Discovery uses the effective character registry and each
 account's enabled state. Starting publications come from character containers;
 live activity is stored on the timeline. Legacy catalogs serve historical
 compatibility, not fresh cosmetic feeds or permission for new participants.
-OnlyFriends also supports wallets, DM tips and paid post unlocks. Accounts have
+OnlyFriends also supports wallets, DM tips and paid post unlocks. Bank and wallet
+balances are derived from one ledger; see [money-ledger.md](money-ledger.md). Accounts have
 no creator/user role. Notes stores per-character editable cards.
 
 Characters carry explicit per-app relationships: WhatsUp numbers and social

@@ -218,6 +218,7 @@ import {
   openingHistoryDynamicSocialUsersFromNodes,
   openingHistoryNotesFromNodes,
   openingHistorySocialConnectionsFromNodes,
+  openingHistoryOnlyFriendsPurchasesFromNodes,
   openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
   openingHistoryReadStateFromNodes,
@@ -1762,6 +1763,7 @@ function App() {
     characterRegistryForStorybook: npcParticipants.registryForStorybook,
     currentTimelineMessages: () => messagesRef.current,
     currentSocialLikesByAccount: () => socialLikesByAccount,
+    currentOnlyFriendsPurchasesByCharacter: () => onlyFriendsPurchasesByCharacter,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
     currentSocialConnectionsByCharacter: () => persistedSocialConnectionsByCharacter,
     currentPhoneReadState: () => ({
@@ -2774,6 +2776,19 @@ function App() {
           ...existing,
           ...postIds.filter((postId) => !existing.includes(postId)),
         ];
+      });
+      return merged;
+    });
+
+    // Purchases are part of the money ledger, so wallets replay them with the imported turns.
+    const openingPurchases = openingHistoryOnlyFriendsPurchasesFromNodes(nextNodes);
+    setOnlyFriendsPurchasesByCharacter((current) => {
+      if (replaceCurrentChat) {
+        return openingPurchases;
+      }
+      const merged = { ...current };
+      Object.entries(openingPurchases).forEach(([characterId, purchases]) => {
+        merged[characterId] = { ...purchases, ...merged[characterId] };
       });
       return merged;
     });
@@ -4982,7 +4997,7 @@ function App() {
     }
     if (message.app === 'onlyfriends' && message.tip !== undefined && (
       !Number.isFinite(message.tip) || message.tip <= 0 ||
-      message.tip > onlyFriendsWalletBalance(actor, messagesRef.current, onlyFriendsPurchasesByCharacter[actor.id])
+      message.tip > onlyFriendsWalletBalance(actor, messagesRef.current, onlyFriendsPurchasesByCharacter, storyCharacters)
     )) {
       notifySystem('warning', 'Cannot send tip. Check the amount and top up your OnlyFriends balance first.');
       return false;
