@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => ({
       apply: 'serve',
       transform(code, id) {
         if (id.endsWith('/shared/agency-tags.cjs') || id.endsWith('/shared/reasoning.cjs') ||
-          id.endsWith('/shared/mediaPool.cjs')) {
+          id.endsWith('/shared/mediaPool.cjs') || id.endsWith('/shared/npcSourceSelection.cjs') || id.endsWith('/shared/storyNpcReferences.cjs')) {
           return code.replace(localCjsExportStatement, 'export { $1 };');
         }
         if (id.endsWith('/shared/character-container.cjs')) {

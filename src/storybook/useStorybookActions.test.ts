@@ -1,3 +1,5 @@
+import { createExternalNpcLibrary } from '../characters/externalNpcs';
+import type { NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { normalizePhoneReadState } from '../chat/phoneReadState';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { SetStateAction } from 'react';
@@ -655,4 +657,30 @@ it('captures phone read state only when importing the current session into Openi
   state.render().importCurrentSessionAsOpeningHistory('book');
   expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).openingHistory.readState!
     .phoneAppSeenByCharacter['alice:fotogram:dm:bob']).toBe(200);
+});
+
+it('imports the refreshed prepared NPC publications rather than stale library cards', async () => {
+  const state = harness();
+  const character = reviewBook('external-player').characters[0];
+  const raw: NpcLibrarySnapshot = {
+    roots: { bundled: '', user: '' }, diagnostics: [], skipped: 0,
+    entries: [{ tier: 'saved-storybook', source: 'saved-storybook:b.json#external-player',
+      fileName: 'b.json#external-player', publicationSource: 'b.json', character }],
+    files: [{ tier: 'saved-storybook', fileName: 'b.json#external-player', name: character.name,
+      type: 'character-card', protection: 'plain', updatedAt: '', compatible: true }],
+    publicationSources: [{ key: 'b.json', revision: 'new', storybookFileName: 'b.json', storybookName: 'B',
+      kind: 'save', saveFileName: 'b-save.json', gallery: [], posts: [{ app: 'fotogram', postId: 'saved-post',
+        author: character.name, authorHandle: 'external', authorAccountId: character.apps!.fotogram!.accountId,
+        caption: 'Published in the latest save', textOnly: true }] }],
+  };
+  const prepare = createExternalNpcLibrary();
+  state.options.reloadLibrary = async () => prepare(raw, {}, { characterIds: new Set(), storybookFileNames: [] })!;
+  vi.stubGlobal('window', { rpgraph: { listCharacterFiles: async () => [] } });
+  try {
+    await state.render().importCharacterCard('book');
+    const choice = state.render().characterImportChoices[0];
+    await state.render().importSelectedCharacterCard(choice);
+    const imported = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0];
+    expect(imported.apps?.fotogram?.initialPosts?.some(post => post.text === 'Published in the latest save')).toBe(true);
+  } finally { vi.unstubAllGlobals(); }
 });

@@ -74,8 +74,6 @@ export type SessionV2AppState = {
 export type SessionV2CurrentStateInput = {
   characterColorSlots?: CharacterColorSlots;
   npcParticipants?: NpcParticipantSnapshots;
-  /** External Storybook NPC copies in effect for this RP, pinned by saving them. */
-  importedNpcs?: ImportedNpcSnapshots;
   name: string;
   settings: SessionV2AppState['settings'];
   workflowVariables: Record<string, string>;
@@ -222,11 +220,6 @@ export function sessionV2FromCurrentState(
   if (state.npcParticipants && Object.keys(state.npcParticipants).length) {
     redactedRuntime.npcParticipantsJson = mediaWriter.redactedStorybookJson(
       JSON.stringify(parseNpcParticipantSnapshots(state.npcParticipants)),
-    );
-  }
-  if (state.importedNpcs && Object.keys(state.importedNpcs).length) {
-    redactedRuntime.importedNpcsJson = mediaWriter.redactedStorybookJson(
-      JSON.stringify(parseImportedNpcSnapshots(state.importedNpcs)),
     );
   }
   const redactedCheckpoints = state.turnCheckpoints.map((checkpoint) =>

@@ -30357,3 +30357,15 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
 .phone-app-list-resizer:active::after {
   background: rgba(150, 175, 225, 0.45);
 }
+
+.deep-dialog .saved-file-summary small.start-npc-source,
+.deep-dialog .saved-chat-row.selected .saved-file-summary small.start-npc-source {
+  color: #9fdcbc;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.start-npc-preview-status {
+  display: block;
+  color: #8292ae;
+}

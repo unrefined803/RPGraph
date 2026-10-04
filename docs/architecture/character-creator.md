@@ -330,7 +330,9 @@ per stored Storybook:
 2. Otherwise the stored Storybook itself with its Opening History.
 
 A save is usable when it is plain, loadable, has a valid `savedAt`, and its
-Storybook state parses, is current, and resolves every pooled media reference.
+Storybook state parses, is current, resolves every pooled media reference, and
+all of its playable character payloads validate. A corrupt playable character
+invalidates that save source as a whole, rather than silently dropping its cast.
 An unusable save is reported and the next newest usable save is tried.
 Alternate saves are never merged, and workflow files are never sources.
 
@@ -406,16 +408,25 @@ override, leaving the source intact.
 
 ### Persistence with the RP
 
-Saving an RP stores the external copies in effect as
-`runtime.current.importedNpcsJson`, pooled through the save's media pool and
-separate from `npcParticipantsJson`. Each record keeps the character, its
-library source and its publication provenance. Loading the RP restores them as
-pins: a pinned ID keeps its saved revision even when the source later advances,
-changes or disappears, while IDs the RP has not imported yet come from the live
-sources. Pins remain at the `saved-storybook` tier, so local files, retained RP
-snapshots and the active Storybook keep precedence. A new RP has no pins and
-uses the latest sources. Activity with an imported NPC pins it through the
-existing participant snapshot mechanism.
+Uninvolved external NPCs are resolved dynamically from current library sources.
+They are not copied into RP Saves. A committed incoming or outgoing private
+message or a non-empty public comment captures the participating NPCs through
+`captureStoryNpcParticipants` into `runtime.current.npcParticipantsJson`, using
+the existing pooled participant archive. Explicit local editing retains its
+existing capture behavior. Passive posts, likes, matches, discovery and loading
+more comments do not capture characters.
+
+This first communication makes the character a Story NPC. The separate
+Interacted classification, character colors and reciprocal contact grants still
+require a two-way private exchange with a playable character in the same app.
+Story NPC snapshots take precedence over current external sources and are
+excluded from automatic external preparation and the Start source preview.
+Their saved revisions survive source changes or deletion.
+
+New saves do not write `importedNpcsJson`. Older saves remain readable: on load,
+only communicating characters from that legacy archive are promoted into the
+participant archive. Uninvolved legacy imports are discarded and resolved from
+current sources. The next save writes only the participant copies.
 
 ### Caching and refresh
 
@@ -454,3 +465,24 @@ added. A divergent Opening History copy does not qualify the current NPC for
 `SB`. Both can also be carried by RP saves; the badge is neither an exclusive
 storage location nor an indication that changes have already been written to
 disk. Library-only characters have no SB/RP storage badge.
+
+### Start dialog source preview
+
+The Start dialog requests `npc-library:preview` once when opened and refreshes
+on library changes. The service reuses the file scan cache and returns only
+compact identities, names, source associations and timestamps, never image or
+post payloads. It does not change the running RP's active library selection.
+
+`shared/npcSourceSelection.cjs` selects sources for both the actual import and
+the preview. Clicking a Storybook or RP Save uses the in-memory index to mark
+the supplying Storybook or save rows with NPC counts and character names. It
+excludes active cast identities and higher-priority local NPCs; save previews
+exclude saved story participants and show only external sources; there is no
+retained-NPC count on the selected save. Protected or
+unreadable target files show an unavailable status. Protected sources are
+excluded under the existing background-discovery policy.
+
+The manual Storybook character picker receives the freshly prepared library
+from `useNpcParticipants.prepareLibrary` after reloading. It therefore imports
+the same publication snapshots as the NPC Library, without waiting for a React
+state update or using the scanner's unprepared character payloads.

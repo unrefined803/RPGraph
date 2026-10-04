@@ -1,3 +1,6 @@
+import { captureStoryNpcParticipants, migrateLegacyNpcImports } from './storyNpcParticipants';
+import type { ImportedNpcSnapshots } from './externalNpcs';
+import { npcImportPreview } from './npcImportPreview';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -62,12 +65,14 @@ const storybookNode = (book: RpStorybook, id = 'book', fileName?: string): Workf
 
 /** A real RP Save: the saved timeline already contains the Opening History turns. */
 function rpSave(book: RpStorybook, storybookFileName: string | undefined, savedAt: string, turns: TurnRecord[],
-  options: { name?: string; importedNpcs?: Parameters<typeof sessionV2FromCurrentState>[0]['importedNpcs'] } = {}) {
+  options: { name?: string; importedNpcs?: ImportedNpcSnapshots; npcParticipants?: Parameters<typeof sessionV2FromCurrentState>[0]['npcParticipants'] } = {}) {
   const nodes = [storybookNode(book)];
   const session = sessionV2FromCurrentState({ name: options.name ?? 'Save', settings: { englishProcessingEnabled: true, displayLanguage: 'en' },
     workflowVariables: {}, turns: [...book.openingHistory.turns, ...turns], turnCheckpoints: [], openingMessages: [],
-    importedNpcs: options.importedNpcs },
+    npcParticipants: options.npcParticipants },
   { format: 'rpgraph-workflow', formatVersion: currentWorkflowFormatVersion, savedAt, nodes, edges: [] }, nodes, savedAt);
+  // Only legacy fixtures carry a full library archive; new saves must never write it.
+  if (options.importedNpcs) session.runtime.current.importedNpcsJson = JSON.stringify(options.importedNpcs);
   if (storybookFileName) session.metadata.storybookFileNames = { book: storybookFileName };
   return session;
 }
@@ -284,44 +289,38 @@ describe('cross-Storybook NPC publications', () => {
     }
   });
 
-  it('keeps the imported state of a saved RP when its source changes or disappears', async () => {
+  it('saves only communicating NPCs and reloads unrelated characters dynamically', async () => {
     const { roots, write } = await workspace();
     const mia = character('mia', 'Mia');
-    await write('b.json', storybook([mia], [turn('opening-1', 1, [post(mia, 'first', 'First state')], true)]));
+    const tom = character('tom', 'Tom');
+    await write('b.json', storybook([mia, tom]));
     const activeBook = storybook([character('alex', 'Alex')]);
+    const live = createExternalNpcLibrary()(await scan(roots), {}, activeContext(activeBook))!;
+    const idle = rpSave(activeBook, 'a.json', '2026-10-03T08:00:00Z', []);
+    expect(idle.runtime.current.importedNpcsJson).toBeUndefined();
+    expect(idle.runtime.current.npcParticipantsJson).toBeUndefined();
+    expect(JSON.stringify(idle)).not.toContain(pixels('mia-portrait'));
+    const message: MessageRecord = { id: 1, role: 'output', originalText: '', socialReactions: {
+      app: 'fotogram', postId: 'alex-post', likes: 0, comments: [{ from: 'Mia', handle: 'mia.photo', text: 'Hello!' }],
+    } };
+    const participants = captureStoryNpcParticipants({}, live.entries, [message]);
+    expect(Object.keys(participants)).toEqual(['mia']);
+    const saved = rpSave(activeBook, 'a.json', '2026-10-03T08:00:00Z', [], { npcParticipants: participants });
+    expect(isRpgraphSessionV2(saved)).toBe(true);
+    expect(saved.runtime.current.importedNpcsJson).toBeUndefined();
+    const restored = appStateFromSessionV2(saved);
+    expect(restored.importedNpcs).toEqual({});
+    expect(restored.npcParticipants.mia.character.images[0].dataUrl).toBe(pixels('mia-portrait'));
+    expect(JSON.stringify(saved)).not.toContain(pixels('tom-portrait'));
+    await write('b.json', storybook([{ ...mia, description: 'Changed' }, { ...tom, description: 'Latest Tom' }]));
     const context = activeContext(activeBook);
-    const live = createExternalNpcLibrary()(await scan(roots, ['a.json']), {}, context);
-    const stored = JSON.parse(JSON.stringify(rpSave(activeBook, 'a.json', '2026-10-03T08:00:00Z', [],
-      { importedNpcs: importedNpcSnapshots(live) })));
-    expect(isRpgraphSessionV2(stored)).toBe(true);
-    expect(stored.runtime.current.importedNpcsJson).not.toContain(pixels('mia-portrait'));
-    const restored = appStateFromSessionV2(stored);
-    expect(restored.npcParticipants).toEqual({});
-    expect(restored.importedNpcs.mia.publication).toEqual({ storybookFileName: 'b.json', storybookName: 'b', kind: 'storybook' });
-
-    await write('b.json', storybook([{ ...mia, description: 'Changed' }, character('tom', 'Tom')],
-      [turn('opening-1', 1, [post(mia, 'second', 'Second state')], true)]));
-    const resumed = createExternalNpcLibrary()(await scan(roots, ['a.json']), restored.importedNpcs, context);
-    const pinned = externalEntries(resumed).find((entry) => entry.character.id === 'mia')!;
-    expect(postTexts(pinned.character)).toEqual(['Mia authored', 'First state']);
-    expect(pinned.character.description).toBe('');
-    expect(pinned.publication?.pinned).toBe(true);
-    expect(externalEntries(resumed).map((entry) => entry.character.id).sort()).toEqual(['mia', 'tom']);
-    // A new RP uses the latest source state.
-    const fresh = externalEntries(createExternalNpcLibrary()(await scan(roots, ['a.json']), {}, context));
-    expect(postTexts(fresh.find((entry) => entry.character.id === 'mia')!.character)).toEqual(['Mia authored', 'Second state']);
-
+    const resumed = createExternalNpcLibrary()(await scan(roots), {}, { ...context,
+      characterIds: new Set([...context.characterIds, ...Object.keys(restored.npcParticipants)]) })!;
+    expect(externalEntries(resumed).map(entry => entry.character.id)).toEqual(['tom']);
+    expect(externalEntries(resumed)[0].character.description).toBe('Latest Tom');
+    expect(restored.npcParticipants.mia.character.description).toBe('');
     await fs.unlink(path.join(roots.storybooks, 'b.json'));
-    const orphaned = externalEntries(createExternalNpcLibrary()(await scan(roots, ['a.json']), restored.importedNpcs, context));
-    expect(orphaned.map((entry) => entry.character.id)).toEqual(['mia']);
-    expect(postTexts(orphaned[0].character)).toEqual(['Mia authored', 'First state']);
-
-    // A's save holds the import as an archive, never as part of A's playable cast.
-    await write('a.json', activeBook);
-    await write('a-save.json', stored);
-    const fromOtherStorybook = await scan(roots, ['c.json']);
-    expect(fromOtherStorybook.entries.map((entry) => entry.character.id)).toEqual(['alex']);
-    expect(fromOtherStorybook.publicationSources).toMatchObject([{ kind: 'save', saveFileName: 'a-save.json' }]);
+    expect(buildCharacterRegistry(npcSnapshotEntries(restored.npcParticipants)).characters[0].character.id).toBe('mia');
   });
 
   it('keeps registry precedence and exposes imported posts through the social timeline without duplicates', async () => {
@@ -364,4 +363,95 @@ describe('cross-Storybook NPC publications', () => {
     expect(() => rpCharacterCardForCharacter(mia as never, { includePosts: true, gallery: [],
       posts: [post(mia, 'lost', 'Lost', 'gone')] })).toThrow('missing gallery image gone');
   });
+});
+
+it('falls back past a save with a corrupt playable character instead of dropping its cast', async () => {
+  const { roots, write } = await workspace();
+  const mia = character('mia', 'Mia');
+  const book = storybook([mia]);
+  await write('b.json', book);
+  await write('older.json', rpSave(book, 'b.json', '2026-10-01T08:00:00Z',
+    [turn('one', 1, [post(mia, 'one', 'Older valid post')])]));
+  const broken = rpSave(book, 'b.json', '2026-10-02T08:00:00Z', []);
+  const payload = JSON.parse(rpStorybookJsonText(book));
+  payload.characters[0].apps.fotogram.accountId = 42;
+  broken.runtime.current.nodes.book.storybookJson = JSON.stringify(payload);
+  await write('newer.json', broken);
+  const snapshot = await scan(roots);
+  const result = createExternalNpcLibrary()(snapshot, {}, noActive);
+  expect(externalEntries(result).map(entry => entry.character.id)).toEqual(['mia']);
+  expect(snapshot.publicationSources?.[0].saveFileName).toBe('older.json');
+  expect(snapshot.diagnostics).toContainEqual(expect.objectContaining({ fileName: 'newer.json', code: 'invalid-container' }));
+});
+
+it('previews five Storybooks and ten saves without reads on selection or changing the active library', async () => {
+  const { roots, write } = await workspace();
+  for (let i = 0; i < 5; i++) {
+    const book = storybook([character(`person-${i}`, `Person ${i}`), character('shared', 'Shared')]);
+    await write(`book-${i}.json`, book, 1000 + i);
+    for (let n = 0; n < 2; n++) {
+      await write(`save-${i}-${n}.json`, rpSave(book, `book-${i}.json`, `2026-10-0${n + 1}T08:00:00Z`, []));
+    }
+  }
+  const service = createNpcLibraryService({ roots, openPath: async () => '' });
+  await service.reload(['book-0.json']);
+  const current = service.current();
+  const index = await service.preview();
+  expect(service.current()).toBe(current);
+  expect(JSON.stringify(index)).not.toContain('data:image');
+  const readFile = vi.spyOn(fs, 'readFile');
+  try {
+    for (let i = 0; i < 5; i++) {
+      const rows = npcImportPreview(index, `book-${i}.json`)!;
+      expect(Object.keys(rows)).toHaveLength(4);
+      expect(rows[`save-${i}-1.json`]).toBeUndefined();
+      for (let other = 0; other < 5; other++) {
+        if (other !== i) expect(rows[`save-${other}-1.json`]).toEqual([`Person ${other}`]);
+      }
+    }
+    expect(npcImportPreview(index, 'save-0-0.json')).toEqual(npcImportPreview(index, 'book-0.json'));
+    expect(readFile).not.toHaveBeenCalled();
+  } finally { readFile.mockRestore(); }
+});
+
+it('ignores idle legacy imports and excludes story participants from the preview', async () => {
+  const { roots, write } = await workspace();
+  const mia = character('mia', 'Mia');
+  await write('b.json', storybook([mia]));
+  const book = storybook([character('alex', 'Alex')]);
+  const library = createExternalNpcLibrary()(await scan(roots), {}, activeContext(book));
+  await write('a.json', book);
+  await write('a-save.json', rpSave(book, 'a.json', '2026-10-03T08:00:00Z', [],
+    { importedNpcs: importedNpcSnapshots(library) }));
+  const service = createNpcLibraryService({ roots, openPath: async () => '' });
+  const index = await service.preview();
+  expect(npcImportPreview(index, 'a-save.json')).toEqual({ 'b.json': ['Mia'] });
+  expect(npcImportPreview({ ...index, overriddenIds: ['mia'] }, 'a-save.json')).toEqual({});
+  expect(npcImportPreview(index, 'missing.json')).toBeNull();
+});
+
+it('migrates only communicating legacy imports and stops writing the bulk archive', async () => {
+  const { roots, write } = await workspace();
+  await write('b.json', storybook([character('mia', 'Mia'), character('tom', 'Tom')]));
+  const book = storybook([character('alex', 'Alex')]);
+  const live = createExternalNpcLibrary()(await scan(roots), {}, activeContext(book))!;
+  const comment: MessageRecord = { id: 1, role: 'output', originalText: '', socialReactions: {
+    app: 'fotogram', postId: 'alex-post', likes: 0, comments: [{ from: 'Mia', handle: 'mia.photo', text: 'Hi!' }],
+  } };
+  const history: TurnRecord = { ...turn('reply', 1, []), output: { graphText: '', messages: [comment] } };
+  const legacySave = rpSave(book, 'a.json', '2026-10-03T08:00:00Z', [history],
+    { importedNpcs: importedNpcSnapshots(live) });
+  const loaded = appStateFromSessionV2(legacySave);
+  const participants = migrateLegacyNpcImports(loaded.npcParticipants, storybookRegistryEntries([storybookNode(book)]),
+    loaded.importedNpcs, loaded.turns.flatMap(turn => [...turn.input.messages, ...turn.output.messages]));
+  expect(Object.keys(participants)).toEqual(['mia']);
+  const clean = rpSave(book, 'a.json', '2026-10-04T08:00:00Z', [history], { npcParticipants: participants });
+  expect(clean.runtime.current.importedNpcsJson).toBeUndefined();
+  expect(JSON.stringify(clean)).not.toContain(pixels('tom-portrait'));
+  await write('a.json', book);
+  await write('a-save.json', legacySave);
+  const service = createNpcLibraryService({ roots, openPath: async () => '' });
+  expect(npcImportPreview(await service.preview(), 'a-save.json')).toEqual({ 'b.json': ['Tom'] });
+  await write('a-save.json', clean);
+  expect(npcImportPreview(await service.preview(), 'a-save.json')).toEqual({ 'b.json': ['Tom'] });
 });

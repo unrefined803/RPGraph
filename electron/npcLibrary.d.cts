@@ -77,6 +77,7 @@ export function createNpcLibraryService(options: {
   onChanged?: (snapshot: NpcLibrarySnapshot) => void;
 }): {
   current(): NpcLibrarySnapshot;
+  preview(): Promise<import('../shared/npcSourceSelection.cjs').NpcImportPreviewIndex>;
   forActiveStorybooks(activeStorybookFileNames: unknown): Promise<NpcLibrarySnapshot>;
   reload(activeStorybookFileNames?: unknown): Promise<NpcLibrarySnapshot>;
   setGamePassword(password: string): Promise<NpcLibrarySnapshot>;

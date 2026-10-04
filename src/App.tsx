@@ -1747,7 +1747,10 @@ function App() {
     commitLifecycleNodes: (nextNodes) => commitNodes(nextNodes),
     currentLibraryEntries: () => npcParticipants.library()?.entries ?? [],
     currentLibraryFiles: () => npcParticipants.library()?.files ?? [],
-    reloadLibrary: () => npcLibrary.reload(),
+    reloadLibrary: async () => {
+      const snapshot = await npcLibrary.reload();
+      return snapshot ? npcParticipants.prepareLibrary(snapshot) ?? undefined : undefined;
+    },
     workspacePassword: () => workspacePasswordRef.current,
     preferredNpcDestination: () => getAccountPassword() ? defaultCharacterExportDestination : 'npc-characters',
     setWorkspacePassword,
@@ -2877,7 +2880,6 @@ function App() {
       },
       workflowVariables: workflowSettingsValuesRef.current,
       npcParticipants: npcParticipants.current(),
-      importedNpcs: npcParticipants.currentImports(),
       characterColorSlots,
       turns: turnsRef.current,
       turnCheckpoints: turnCheckpointsRef.current,
@@ -3160,7 +3162,6 @@ function App() {
       session.metadata.workflowDisplayName,
     );
     npcParticipants.restore(sessionState.npcParticipants);
-    npcParticipants.restoreImports(sessionState.importedNpcs);
     setCharacterColorSlots(sessionState.characterColorSlots);
     workflowFromRpSaveRef.current = true;
     const openingMessages = sessionState.openingMessages;
@@ -3200,6 +3201,7 @@ function App() {
     setDisplayLanguage(sessionState.settings.displayLanguage);
     replaceWorkflowSettingsValues(sessionState.workflowVariables);
     commitNodes(loadedRuntimeNodes);
+    npcParticipants.restoreImports(sessionState.importedNpcs, loadedMessages);
     setTurnCheckpoints(npcParticipants.captureHistory(loadedMessages, loadedTurns, sessionState.turnCheckpoints));
     setActiveSessionFileName(fileName);
     setActiveSessionSavedTurn(latestSessionTurnNumber(session));
@@ -3303,7 +3305,6 @@ function App() {
     if (hydrateOpeningHistory) {
       npcParticipants.restore(hydratedWorkflow.openingNpcParticipants);
       // A new RP uses the latest available external sources.
-      npcParticipants.restoreImports(undefined);
       const openingTurns = hydratedWorkflow.openingTurns;
       const openingMessages = hydratedWorkflow.openingMessages;
       const openingCheckpoints = hydratedWorkflow.openingCheckpoints;

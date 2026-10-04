@@ -5614,6 +5614,8 @@ handleWorkspace('character:list', async () => {
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
+handleWorkspace('npc-library:preview', async () => npcLibraryService.preview());
+
 handleWorkspace('npc-library:get', async (_event, activeStorybookFileNames) =>
   npcLibraryService.forActiveStorybooks(activeStorybookFileNames));
 

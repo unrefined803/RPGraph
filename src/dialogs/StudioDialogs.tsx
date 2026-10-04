@@ -1,3 +1,4 @@
+import { useNpcImportPreview } from '../characters/useNpcImportPreview';
 import { chatgptReasoningEffort } from '../../shared/chatgptCapabilities.cjs';
 import { isTextGenerationConnection } from '../llm/textProvider';
 import { getAccountPassword } from '../accounts/accountSession';
@@ -143,6 +144,7 @@ function formatFileDate(value: string | number) {
 }
 
 function StartDialogFileRow({
+  npcNames,
   file,
   badge,
   name,
@@ -153,6 +155,7 @@ function StartDialogFileRow({
   disabled = false,
   onInfo,
 }: {
+  npcNames?: string[];
   file: SavedFileSummary;
   badge: string;
   name: string;
@@ -211,6 +214,9 @@ function StartDialogFileRow({
             {' · '}{file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
             {file.type === 'session' && ` · Turn ${file.latestTurnNumber ?? 'Unknown'}`}
           </small>
+          {npcNames && npcNames.length > 0 && <small className="start-npc-source">
+            Supplies {npcNames.length} NPC{npcNames.length === 1 ? '' : 's'}: {npcNames.join(', ')}
+          </small>}
         </span>
       </button>
       {(onInfo || onOpen) && (
@@ -1434,6 +1440,7 @@ export function StudioDialogs({
   const storybookPickerFiles = savedFiles.filter((file) => file.type === 'storybook');
   const startWorkflowFiles = savedFiles.filter((file) => file.type === 'workflow');
   const startSessionFiles = savedFiles.filter((file) => file.type === 'session');
+  const npcPreview = useNpcImportPreview(showStartDialog, startTargetFileName);
   const startWorkflowFile = startWorkflowFiles.find((file) => file.fileName === startWorkflowFileName);
   const startTargetFile = [...storybookPickerFiles, ...startSessionFiles]
     .find((file) => file.fileName === startTargetFileName);
@@ -3121,6 +3128,7 @@ export function StudioDialogs({
                         file={file}
                         disabled={startSelectionLoading}
                         badge="Storybook"
+                        npcNames={npcPreview.rows?.[file.fileName]}
                         name={storybookDisplayName(file.name)}
                         selected={startTargetFileName === file.fileName}
                         onSelect={() => onSelectStartTarget(file)}
@@ -3144,6 +3152,7 @@ export function StudioDialogs({
                         file={file}
                         disabled={startSelectionLoading}
                         badge="RP Save"
+                        npcNames={npcPreview.rows?.[file.fileName]}
                         name={file.name}
                         selected={startTargetFileName === file.fileName}
                         onSelect={() => onSelectStartTarget(file)}
@@ -3154,7 +3163,14 @@ export function StudioDialogs({
                 </div>
               </div>
             </div>
-            <p className="chat-storage-status start-dialog-status">{storybookInfoStatus || fileStorageStatus}</p>
+            <p className="chat-storage-status start-dialog-status" role="status">
+              {storybookInfoStatus || fileStorageStatus}
+              {npcPreview.status && <span className="start-npc-preview-status">{npcPreview.status}</span>}
+              {!npcPreview.status && npcPreview.rows && <span className="start-npc-preview-status">
+                {Object.keys(npcPreview.rows).length ? 'NPC sources for this selection are marked above.' : 'No external NPC sources for this selection.'}
+                {' '}Protected sources are excluded.
+              </span>}
+            </p>
             <div className="dialog-actions chat-files-actions start-dialog-actions">
               <button type="button" className="secondary" onClick={onOpenFilesFromStartDialog}>
                 Browse Files

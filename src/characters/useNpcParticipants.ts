@@ -1,3 +1,4 @@
+import { captureStoryNpcParticipants, migrateLegacyNpcImports } from './storyNpcParticipants';
 import { appCharactersFromRegistry } from './appRuntime';
 import { createNpcRuntimeCache } from './npcRuntimeCache';
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
@@ -18,8 +19,8 @@ import {
 } from './npcParticipantRuntime';
 import type { Character } from './character';
 import {
-  createActiveStorybookContextCache, createExternalNpcLibrary, importedNpcSnapshots, parseImportedNpcSnapshots,
-  type ImportedNpcSnapshots,
+  createActiveStorybookContextCache, createExternalNpcLibrary,
+  type ImportedNpcSnapshots, type ActiveStorybookContext,
 } from './externalNpcs';
 
 const emptyLibraryEntries: NonNullable<NpcLibrarySnapshot>['entries'] = [];
@@ -29,11 +30,18 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   const [, setRevision] = useState(0);
   const snapshotsRef = useRef<NpcParticipantSnapshots>({});
   const [runtimeCache] = useState(createNpcRuntimeCache);
-  // External Storybook NPC copies restored from the RP Save; they win over the live sources.
-  const importsRef = useRef<ImportedNpcSnapshots>({});
   const [externalLibrary] = useState(createExternalNpcLibrary);
   const [activeContext] = useState(createActiveStorybookContextCache);
-  const effectiveLibrary = () => externalLibrary(library, importsRef.current, activeContext(nodesRef.current));
+  const [noImports] = useState<ImportedNpcSnapshots>({});
+  const contextCache = useRef<{ active: ActiveStorybookContext; participants: NpcParticipantSnapshots; value: ActiveStorybookContext } | undefined>(undefined);
+  const context = () => {
+    const active = activeContext(nodesRef.current);
+    if (contextCache.current?.active === active && contextCache.current.participants === snapshotsRef.current) return contextCache.current.value;
+    const value = { ...active, characterIds: new Set([...active.characterIds, ...Object.keys(snapshotsRef.current)]) };
+    contextCache.current = { active, participants: snapshotsRef.current, value };
+    return value;
+  };
+  const effectiveLibrary = () => externalLibrary(library, noImports, context());
   const runtime = () => runtimeCache(nodesRef.current, effectiveLibrary()?.entries ?? emptyLibraryEntries, snapshotsRef.current);
   const entries = () => runtime().entries;
   const registryForStorybook = (nodeId: string, characters: Character[], options?: StorybookRegistryCandidateOptions) =>
@@ -57,10 +65,11 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
     current: () => snapshotsRef.current,
     /** The library with external Storybook characters prepared, pinned and filtered for the active Storybook. */
     library: effectiveLibrary,
+    prepareLibrary: (snapshot: NpcLibrarySnapshot) => externalLibrary(snapshot, noImports, context()),
     activeStorybookFileNames: () => activeContext(nodesRef.current).storybookFileNames,
-    currentImports: () => importedNpcSnapshots(effectiveLibrary()),
-    restoreImports: (imports: ImportedNpcSnapshots | undefined) => {
-      importsRef.current = parseImportedNpcSnapshots(imports);
+    // Older saves may contain the whole external library. Preserve only actual story participants.
+    restoreImports: (imports: ImportedNpcSnapshots | undefined, messages: MessageRecord[]) => {
+      snapshotsRef.current = migrateLegacyNpcImports(snapshotsRef.current, entries(), imports, messages);
       setRevision((revision) => revision + 1);
     },
     registry: () => runtime().registry,
@@ -80,18 +89,18 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
       commitContacts({ nodes: nodesRef.current, participants: reconcileNpcMessageContacts(snapshotsRef.current, entries(), messages) });
     },
     captureMessages: (messages: MessageRecord[]) => {
-      commitContacts(acquireMessageContacts(nodesRef.current, snapshotsRef.current, entries(), messages));
+      commitContacts(acquireMessageContacts(nodesRef.current, captureStoryNpcParticipants(snapshotsRef.current, entries(), messages), entries(), messages));
     },
     captureHistory: (messages: MessageRecord[], turns: TurnRecord[], checkpoints: TurnCheckpoint[]) => {
       const registryEntries = entries();
-      const next = acquireMessageContacts(nodesRef.current, snapshotsRef.current, registryEntries, messages);
+      const next = acquireMessageContacts(nodesRef.current, captureStoryNpcParticipants(snapshotsRef.current, registryEntries, messages), registryEntries, messages);
       const history = historicalContactCheckpoints(nodesRef.current, next.nodes, messages, turns, checkpoints,
         appCharactersFromRegistry(buildCharacterRegistry([...registryEntries, ...npcSnapshotEntries(next.participants)])));
       commitContacts({ ...next, nodes: history.nodes });
       return history.checkpoints;
     },
     restore: (snapshots: NpcParticipantSnapshots) => { snapshotsRef.current = parseNpcParticipantSnapshots(snapshots); setRevision((revision) => revision + 1); },
-    reset: () => { snapshotsRef.current = {}; importsRef.current = {}; },
+    reset: () => { snapshotsRef.current = {}; },
     importOpeningHistory: (nodes: WorkflowNode[], replace: boolean) => {
       const opening = openingHistoryNpcParticipantsFromNodes(nodes);
       // An already pinned RP revision wins when importing additional history.

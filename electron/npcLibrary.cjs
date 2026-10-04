@@ -1,6 +1,8 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
+const { legacyStoryNpcIds } = require('../shared/storyNpcReferences.cjs');
+const { selectNpcSources } = require('../shared/npcSourceSelection.cjs');
 const {
   currentCharacterContainerVersion,
   validateCharacterContainer,
@@ -132,18 +134,20 @@ function timelinePosts(session) {
  * Imported library NPCs and archived NPC participants never become sources.
  */
 function publicationSource(storybook, posts, fileName, diagnostics) {
-  const source = { ids: [], characters: new Map(), posts, gallery: new Map(), loaded: true };
+  const source = { characters: new Map(), posts, gallery: new Map(), loaded: true, valid: true, cast: [],
+    characterIds: storybook.characters.flatMap((character) => typeof character?.id === 'string' ? [character.id] : []) };
   for (const character of storybook.characters) {
     if (character?.playable === false) continue;
     try {
       validateCharacterPayload(character);
-      if (!source.characters.has(character.id)) source.ids.push(character.id);
       source.characters.set(character.id, character);
     } catch (error) {
       diagnostics.push(diagnostic('saved-storybook', fileName, 'invalid-container',
         `Invalid Storybook character: ${error instanceof Error ? error.message : String(error)}`));
+      source.valid = false;
     }
   }
+  source.cast = [...source.characters.values()].map((character) => ({ id: character.id, name: character.name }));
   const referenced = new Set(posts.flatMap((post) => typeof post.imageId === 'string' ? [post.imageId] : []));
   for (const character of storybook.characters) {
     for (const image of Array.isArray(character?.images) ? character.images : []) {
@@ -192,6 +196,23 @@ function readSessionSources(session, fileName, record) {
   }
   record.savedAtText = session.savedAt;
   record.name = typeof session.name === 'string' && session.name.trim() ? session.name.trim() : undefined;
+  record.participantIds = [];
+  try {
+    const importsJson = session.runtime.current.importedNpcsJson;
+    if (typeof importsJson === 'string') {
+      const imports = JSON.parse(rehydratedMediaJson(importsJson, session.entities?.mediaData));
+      record.participantIds.push(...legacyStoryNpcIds(session.timeline.filter((entry) => entry.kind === 'message')
+        .map((entry) => ({ ...entry, phoneMessage: !!entry.phone,
+          phoneFromAccountId: entry.phone?.fromAccountId, phoneToAccountId: entry.phone?.toAccountId,
+          phoneFrom: entry.phone?.from, phoneTo: entry.phone?.to })), Object.values(imports).map((entry) => entry.character)));
+    }
+    const participantsJson = session.runtime.current.npcParticipantsJson;
+    if (typeof participantsJson === 'string') {
+      record.participantIds.push(...Object.keys(JSON.parse(rehydratedMediaJson(participantsJson, session.entities?.mediaData))));
+    }
+  } catch {
+    record.previewUnavailable = true;
+  }
   const posts = timelinePosts(session);
   for (const [storybookFileName, nodeIds] of sessionStorybookAssociations(session)) {
     if (nodeIds.length !== 1) {
@@ -218,7 +239,8 @@ function readSessionSources(session, fileName, record) {
       unusable(`RP Save Storybook state for "${storybookFileName}" is unsupported or needs an update.`, 'unsupported-version');
       continue;
     }
-    record.sources.set(storybookFileName, publicationSource(storybook, posts, fileName, record.diagnostics));
+    const source = publicationSource(storybook, posts, fileName, record.diagnostics);
+    if (source.valid) record.sources.set(storybookFileName, source);
   }
 }
 
@@ -251,6 +273,7 @@ async function readStorybookRecord(filePath, fileName, stats, displayFileName) {
     return record;
   }
   record.kind = 'storybook';
+  record.participantIds = Object.keys(value.openingHistory?.npcParticipants ?? {});
   record.name = await sourceDisplayName(displayFileName, fileName, filePath);
   record.sources.set(fileName, publicationSource(value, openingHistoryPosts(value), fileName, record.diagnostics));
   return record;
@@ -261,14 +284,15 @@ async function sourceDisplayName(displayFileName, fileName, filePath) {
     path.basename(fileName, path.extname(fileName));
 }
 
-/** Latest valid save time wins; equal times fall back to the sorted filename. */
-function selectedSave(sessions, storybookFileName) {
-  let selected;
-  for (const session of sessions) {
-    if (!session.record.sources.has(storybookFileName)) continue;
-    if (!selected || session.record.savedAt > selected.record.savedAt) selected = session;
-  }
-  return selected;
+/** Compact metadata survives releasing the large publication/media payloads. */
+function sourceIndex(records) {
+  return records.map(({ fileName, record }) => ({ fileName, kind: record.kind,
+    mtimeMs: record.mtimeMs, savedAt: record.savedAt,
+    participantIds: record.participantIds, previewUnavailable: record.previewUnavailable,
+    sources: [...record.sources].map(([storybookFileName, source]) => ({
+      storybookFileName, characters: source.cast, characterIds: source.characterIds,
+    })),
+  }));
 }
 
 // Storybooks and RP Saves are read-only sources: rebuilding the scan also removes deleted characters.
@@ -314,20 +338,13 @@ async function scanStorybookDirectory(directory, cache = new Map(), displayFileN
   // Each Storybook contributes exactly one lineage: its latest usable matching
   // RP Save, or the stored Storybook with its Opening History. Alternate saves
   // are never merged. The active Storybook is not an external source.
-  const active = new Set(activeStorybookFileNames);
-  const sessions = records.filter(({ record }) => record.kind === 'session');
-  const lineages = records.filter(({ record, fileName }) => record.kind === 'storybook' && !active.has(fileName))
-    .map((storybook) => ({ storybook, origin: selectedSave(sessions, storybook.fileName) ?? storybook, ids: [] }));
-  // A character can occur in several saved Storybooks. Prefer the newest
-  // Storybook file, with sorted filenames providing a stable tie-breaker.
-  const winners = new Map();
-  for (const lineage of lineages) {
-    for (const id of lineage.origin.record.sources.get(lineage.storybook.fileName).ids) {
-      if ((winners.get(id)?.storybook.record.mtimeMs ?? -Infinity) >= lineage.storybook.record.mtimeMs) continue;
-      winners.set(id, lineage);
-    }
-  }
-  for (const [id, lineage] of winners) lineage.ids.push(id);
+  const index = sourceIndex(records);
+  result.previewIndex = index;
+  const byName = new Map(records.map((record) => [record.fileName, record]));
+  const lineages = selectNpcSources(index, activeStorybookFileNames).map((selection) => ({
+    storybook: byName.get(selection.storybookFileName), origin: byName.get(selection.originFileName),
+    ids: selection.characters.map((character) => character.id),
+  }));
   for (const lineage of lineages) {
     if (!lineage.ids.length) continue;
     const { storybook, origin } = lineage;
@@ -403,6 +420,7 @@ async function scanNpcLibrary(roots, unlock, displayFileName, storybookCache, ac
     diagnostics: [...bundled.diagnostics, ...storybooks.diagnostics, ...user.diagnostics, ...account.diagnostics],
     skipped: bundled.skipped + user.skipped + account.skipped,
     publicationSources: storybooks.publicationSources,
+    previewIndex: storybooks.previewIndex,
     protectedSources: storybooks.protectedSources,
     activeStorybookFileNames,
   };
@@ -447,6 +465,12 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, displayFil
   }
   const service = {
     current: () => cached,
+    preview: () => enqueue(async () => {
+      const snapshot = await scan();
+      return { files: snapshot.previewIndex ?? [],
+        overriddenIds: snapshot.entries.filter((entry) => entry.tier === 'user' || entry.tier === 'account')
+          .map((entry) => entry.character.id) };
+    }),
     /** Return the snapshot selected for these active Storybooks, rescanning only when they changed. */
     forActiveStorybooks: (names) => enqueue(async () => {
       const next = normalizedStorybookFileNames(names);
