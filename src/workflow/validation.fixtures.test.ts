@@ -1946,7 +1946,12 @@ export function verifyWorkflowValidationFixtures() {
     const prompts = promptSwitch?.data.llmPromptSwitchPromptAftersByOutput?.[socialIndex] ?? [];
     assertFixture(
       prompts.length >= 4 && prompts.slice(0, 4).every((prompt) => {
-        return prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') &&
+        return (prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') || (
+          prompt.includes('Character discovery is required before generating reactions:') &&
+          prompt.includes('@action:Ask character information') &&
+          prompt.includes('[SOCIAL REACTION DISCOVERY]') &&
+          prompt.includes('Up to two contact comments plus three additional-person comments')
+        )) &&
           prompt.includes('Never invent an account') &&
           prompt.includes('If no eligible participant exists') &&
           prompt.includes('Following is optional and is not required') &&
@@ -1974,7 +1979,12 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     bundledSocialPrompts.slice(0, 4).length === 4 &&
       bundledSocialPrompts.slice(0, 4).every((prompt) =>
-        prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') &&
+        (prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') || (
+          prompt.includes('Character discovery is required before generating reactions:') &&
+          prompt.includes('@action:Ask character information') &&
+          prompt.includes('[SOCIAL REACTION DISCOVERY]') &&
+          prompt.includes('Up to two contact comments plus three additional-person comments')
+        )) &&
         prompt.includes('Never invent an account')
       ) &&
       bundledSocialPrompts[0]?.includes('Following is optional and is not required') &&

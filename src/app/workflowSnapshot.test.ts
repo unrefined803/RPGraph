@@ -68,10 +68,26 @@ describe('workflow Storybook selection', () => {
       for (const after of [...rows[1], ...rows[2]]) {
         for (const step of buildPromptStepChain('', after)) {
           expect(step.after.match(/@action:Ask character information/g)).toHaveLength(1);
-          expect(step.after).toContain('Character information:');
-          expect(step.after).toContain('#keywords');
           expect(step.after).toContain('private author context, not automatic character knowledge');
-          expect(step.after).toContain('do not invent a conversation, observation or access');
+          if (step.after.includes('Character discovery is required before generating reactions:')) {
+            expect(step.after).toContain('\n@action:Ask character information\n');
+            expect(step.after).toContain('[SOCIAL REACTION DISCOVERY]');
+            expect(step.after).toContain('[SOCIAL CONTACTS AND RELATIONSHIPS]');
+            expect(step.after).toContain('exclude all listed contacts and the author');
+            expect(step.after).toContain('If no contacts are listed, skip that group');
+            expect(step.after).toContain('request and return all five together');
+            expect(step.after).toContain(step.after.startsWith('This is a Fotogram')
+              ? 'literal app keyword #Photogram' : 'literal app keyword #OnlyFriends');
+            expect(step.after).toContain('#agency_tags');
+            expect(step.after).toContain('Up to two contact comments plus three additional-person comments');
+            expect(step.after).toContain('a short selection reason');
+            expect(step.after).not.toContain('[AVAILABLE SOCIAL ACCOUNTS]');
+            expect(step.after).toContain('do not invent prior contact or an offscreen discovery');
+          } else {
+            expect(step.after).toContain('Character information:');
+            expect(step.after).toContain('#keywords');
+            expect(step.after).toContain('do not invent a conversation, observation or access');
+          }
         }
       }
       expect(rows[3].join('\n')).not.toContain('@action:Ask character information');

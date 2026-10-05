@@ -10,8 +10,8 @@ Multistep prompts can consume the answer in planning and output passes.
 
 1. An authored `@action:Ask character information` marker inserts a hint requesting `{"action":"ask_character_information","plan":"..."}`. The plan is a self-contained request: explicit names/profiles/account IDs or `#keywords`, acting character, scene facts, app/account requirements, relationships, number of results, and information needed. Necessary context must be included because the assistant does not receive history.
 2. `runCharacterSearch` inside `runActionAwarePrompt` makes a separate, non-streamed LLM request using the calling node's connection. Its prompt consists only of the configured assistant instructions, the request, and the directory of locally selected effective characters. `selectCharacterSearchCandidates` scans the full registry locally and includes only matching profiles and direct relationships; it never falls back to the entire registry on a miss. It receives no story instructions, raw user input, conversation history, prior action results, or images. Prompt Route and prompt logs retain the assistant instructions and request but replace the directory with selected/available character counts and its estimated token size, measured with the run’s TextMetricsApi settings. The request carries this diagnostic representation separately for Turn Trace capture and export; provider dispatch and token calibration still use the complete prompt. No automatic context splitting is performed.
-3. The assistant searches the selected directory for recorded matches and semantically suitable alternatives, then answers in concise prose without a fixed word or character limit. It respects the requested result count. Missing prior contact does not disqualify a suitable candidate, but alternatives are explicitly distinguished from established participants. Account results must use enabled accounts on the requested app and include exact character names, app names, account IDs, and profile names, without unrelated accounts from other apps. It reports missing facts or no plausible candidate rather than inventing identities, claiming unrecorded interactions, recommending placeholders, or referring to unseen history. It identifies the evidence for personal facts and relationships and separates author-only data from knowledge established for the acting character. Missing matches describe this selection, not the entire registry. There is no second parameter JSON or deterministic ranking step.
-4. The answer insertion template wraps this text, which replaces the action marker on replay. The full directory is never inserted into the planning or main story pass. An empty assistant response reports a warning and inserts a notice that the lookup returned nothing, so the replay continues with established facts instead of ending the turn or exposing the request as story output.
+3. The assistant searches the selected directory for recorded matches and semantically suitable alternatives, then answers in concise prose without a fixed word or character limit. It respects the requested result count and group sizes, with no fixed two-person output limit. Missing prior contact does not disqualify a suitable candidate, but alternatives are explicitly distinguished from established participants. Account results must use enabled accounts on the requested app and include exact character names, app names, account IDs, and profile names, without unrelated accounts from other apps. It reports missing facts or no plausible candidate rather than inventing identities, claiming unrecorded interactions, recommending placeholders, or referring to unseen history. It identifies the evidence for personal facts and relationships and separates author-only data from knowledge established for the acting character. Missing matches describe this selection, not the entire registry. There is no second parameter JSON or deterministic ranking step.
+4. Each selected entry identifies one person by exact full name, enabled profile/account ID or character ID on its first line, followed by a concrete situational selection reason. The runtime appends recorded Speech style and Hidden agency beneath each uniquely identified entry, with blank lines between entries, before the answer insertion template wraps this text. Matching is restricted to retrieved candidates; an exact name or identifier suffices when another identifier is misspelled. Ambiguous or conflicting identities are not enriched, and absent fields are marked as not recorded. These additions remain private author context. The wrapped result replaces the action marker on replay. The full directory is never inserted into the planning or main story pass. An empty assistant response reports a warning and inserts a notice that the lookup returned nothing, so the replay continues with established facts instead of ending the turn or exposing the request as story output.
 
 ## Local retrieval
 
@@ -19,7 +19,7 @@ Multistep prompts can consume the answer in planning and output passes.
 
 - Exact full names, character IDs, enabled account IDs and profile names match case-insensitively with identifier boundaries. Recognized identities are masked before matching standalone first names or surnames, so `Espen Harper` targets that full name while `Espen` or `Harper` includes all matching names.
 - Explicitly named profiles include direct outgoing relationship targets and profiles with incoming relationships to them. Target IDs and names in authored relationship descriptions are checked. Expansion is one hop from named matches only, without recursively loading friends of friends.
-- `#sister`, `#student`, `#woman`, `#troll`, and similar keywords search names, gender, age, description, personality, speech style, role, hidden agency, relationship descriptions, and enabled account bios/roles/agency tags. Agency tag meanings are searchable too. Matching uses word prefixes (`#student` matches `students`); underscores/hyphens separate words in compound tags such as `#comment_troll`.
+- `#sister`, `#student`, `#woman`, `#troll`, and similar keywords search names, gender, age, description, personality, speech style, role, hidden agency, relationship descriptions, and enabled account bios/roles/agency tags. Agency tag meanings and enabled app names are searchable too (`#Photogram`/`#Fotogram`, `#OnlyFriends`). Plain app names without `#` do not add keyword points. App hashtags use the same OR ranking as other keywords; the assistant must still enforce the requested app requirement. Matching uses word prefixes (`#student` matches `students`); underscores/hyphens separate words in compound tags such as `#comment_troll`.
 - Multiple keywords add candidates with OR semantics; names and keywords are combined and deduplicated. Exact identities rank first, followed by standalone name matches. Within each group, more distinct matching keywords rank higher; repeated keywords or occurrences across fields add no extra weight. Ties retain registry order. Pure relationship matches follow keyword matches unless they also match an explicit identity. The assistant evaluates combined requirements, exclusions and semantic suitability. Keyword matches alone do not expand relationships.
 - No names or keywords, or no matches, yields an explicitly empty selection. It does not load unrelated profiles or imply that nobody fitting the question exists. After ranking all matches, at most 20 full profiles are sent to the assistant. This limit includes explicit identities and relationship neighbors as well as keyword matches. Lower-ranked candidates are omitted, and the assistant is told that absence is not proof of nonexistence. The character limit is not a token cap or batching scheme.
 
@@ -56,3 +56,38 @@ Subsequent planning and main steps retain the full image selection result, inclu
 Recorded publications are labelled `Fotogram (public)` and `OnlyFriends (subscriber post)`. The assistant treats an OnlyFriends post as a real publication rather than an access restriction and prefers recorded posts when a request concerns what someone publishes on a platform. The earlier "restricted access" wording in the label, assistant instruction and result template is retired; stored defaults migrate automatically.
 
 Image selection results begin with the executed action, the verbatim request plan, and the assistant answer, followed by the selected image list and usage guidance. The shared LLM prompt runner never injects global MatchMe application context. MatchMe context reaches prompts through the workflow text input; action and command result insertion remains supported.
+
+## Social post reaction discovery
+
+Both bundled workflows require `Ask character information` before reacting to a
+Fotogram or OnlyFriends post. A single self-contained plan requests up to five
+people: up to two suitable contacts plus three additional people selected by
+agency tags. It includes the chosen contact identities and relationship evidence,
+post caption and image facts, required app, author exclusion and group counts.
+The assistant returns both groups together with exact account identifiers and a
+brief relationship or agency-fit reason for each person. Five requested eligible
+people means five results, not two; missing candidates produce an explicit
+shortfall. Without contacts, the plan requests only the three additional people.
+
+`socialReactionAccountContext` provides `[SOCIAL CONTACTS AND RELATIONSHIPS]`:
+direct incoming and outgoing relationships to the resolved poster, with exact
+names, account IDs, profile names, privacy modes, attributed descriptions and app
+follow flags. Targets must have an enabled account on the current app. A recorded
+relationship description qualifies without a follow; an empty description qualifies
+only with a follow on that app. Playability does not determine membership. The
+registry's acquired contacts are included through its effective relationships.
+Follow flags never imply mutual friendship or knowledge of anonymous identities.
+
+`[SOCIAL REACTION DISCOVERY]` lists only agency tag IDs and eligible account counts,
+without explanations or full profiles. Counts exclude the author and listed
+contacts. The prompt selects people outside that list for the additional group;
+missing relationship records do not prove they have never met. Both normal and
+moderated posts use up to two contact comments plus three additional comments.
+Existing comment threads retain their current audience context. Custom post
+workflows must author the discovery action to obtain participants. The existing
+V41 release work phase and workflow filenames are retained.
+
+Post plans explicitly include `#Photogram` or `#OnlyFriends` alongside agency tags.
+Selection reasons must connect recorded behavior or relationships to the actual
+post; listing tag IDs alone is insufficient. Speech style and hidden agency are
+inserted from stored character data, without adding full profiles or personality.

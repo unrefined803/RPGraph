@@ -1,4 +1,4 @@
-import { characterSearchDirectory, resolveCharacterMentions, characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction, previousCharacterAssistantResultTemplate } from '../../characters/search';
+import { characterSearchDirectory, resolveCharacterMentions, characterSearchInstruction, characterSearchResultTemplate, previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction, previousGroupedCharacterSearchInstruction, previousCountedCharacterSearchInstruction, previousCharacterAssistantResultTemplate } from '../../characters/search';
 import type { ChatImageAttachment, MessageRecord, SocialAppKind, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { postsWithInitialContent } from '../../characters/publications';
@@ -841,7 +841,7 @@ export function normalizePromptActionConfig(
       : true,
     runAfterReply,
     instructionTemplate: actionId === 'getCharacterList'
-      ? currentOrCustomTemplate(record.instructionTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction]))
+      ? currentOrCustomTemplate(record.instructionTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction, previousGroupedCharacterSearchInstruction, previousCountedCharacterSearchInstruction]))
       : actionId === 'getImageId'
       ? currentOrCustomTemplate(
           record.instructionTemplate,
@@ -858,7 +858,7 @@ export function normalizePromptActionConfig(
         ? record.instructionTemplate
         : defaultPromptActionInstructionTemplate(actionId)),
     afterReplyTemplate: actionId === 'getCharacterList'
-      ? currentOrCustomTemplate(record.afterReplyTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction]))
+      ? currentOrCustomTemplate(record.afterReplyTemplate, characterSearchInstruction, new Set([previousCharacterSearchInstruction, previousCharacterAssistantInstruction, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction, previousGroupedCharacterSearchInstruction, previousCountedCharacterSearchInstruction]))
       : actionId === 'updatePhoneImageCaption'
       ? currentOrCustomTemplate(
           record.afterReplyTemplate,

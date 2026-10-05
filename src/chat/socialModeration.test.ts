@@ -74,7 +74,8 @@ describe('Fotogram moderation', () => {
     const row = titles.findIndex((entries) => entries[0] === 'Fotogram Post');
     const prompts = node.data.llmPromptSwitchPromptAftersByOutput![row];
     expect(prompts[0]).toContain('"moderation": { "blocked": false }');
-    expect(prompts[0]).toContain('write two short, photo-specific');
+    expect(prompts[0]).toContain('For a blocked post, keep the same two groups and limits: up to two contacts plus three additional people');
+    expect(prompts[0]).toContain('short, photo-specific, in-character reactions');
     expect(prompts[0]).toContain('"graphic_violence"');
     expect(prompts[1]).not.toContain('Fotogram moderation (roleplay platform rules)');
   });

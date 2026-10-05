@@ -1,3 +1,4 @@
+import { characterSearchAnswerDetails } from './search';
 import { describe, expect, it } from 'vitest';
 import { appCharactersFromRegistry } from './appRuntime';
 import { buildCharacterRegistry } from './registry';
@@ -141,4 +142,47 @@ describe('local character selectors', () => {
     expect(selectCharacterSearchCandidates(cast, 'Find Harper.')).toEqual(cast.slice(0, 20));
   });
 
+});
+
+describe('character answer enrichment', () => {
+  it('adds recorded fields to five separate selected entries with flexible exact identity matching', () => {
+    const cast = makeCast();
+    cast.forEach((character, index) => { character.hiddenAgency = `Motive ${index}`; });
+    const answer = [
+      '1. **Espen Harper**\nReason: Her interest in studying fits the campus photo.',
+      '2. Misspelled person (`account-1`)\nReason: A fitting relationship.',
+      '3. @profile.2\nReason: The playful post invites teasing.',
+      '4. Ryan Parker (incorrect-account)\nReason: Enjoys provoking debate.',
+      '5. person-4\nReason: A relevant interest.',
+    ].join('\n\n');
+    const text = characterSearchAnswerDetails(answer, cast);
+    expect(text.match(/Recorded characterization for/g)).toHaveLength(5);
+    for (let i = 0; i < 5; i++) expect(text).toContain(`Hidden agency: Motive ${i}`);
+    expect(text).not.toContain('Motive 5');
+    expect(text).toContain('Speech style: Direct.');
+    expect(text).toContain('Hidden agency: Motive 0\n\n2.');
+    expect(text).toContain('Reason: Her interest in studying fits the campus photo.');
+  });
+
+  it('does not guess from ambiguous, conflicting, unknown or unselected identities', () => {
+    const cast = makeCast();
+    for (const answer of ['1. Harper', '1. Unknown Person', '1. Espen Harper (account-1)']) {
+      expect(characterSearchAnswerDetails(answer, cast)).toBe(answer);
+    }
+    expect(characterSearchAnswerDetails('1. Thomas Carter', cast.slice(0, 2))).toBe('1. Thomas Carter');
+    expect(characterSearchAnswerDetails('1. Espen Harper', cast)).toContain('Hidden agency: Not recorded.');
+  });
+
+  it('does not turn unmarked app names into keyword points', () => {
+    const cast = makeCast();
+    cast[4].profile.description = 'Photogram student';
+    expect(names('Photogram', cast)).toEqual([]);
+    expect(names('#student Photogram', cast)).toEqual(names('#student', cast));
+    cast[0].apps!.fotogram!.enabled = false;
+    expect(names('#student #Photogram', cast)[0]).toBe('Lena Weber');
+    expect(names('#Photogram', cast)).not.toContain('Espen Harper');
+    expect(names('#OnlyFriends', cast)).toEqual([]);
+    cast[1].apps!.onlyfriends!.enabled = true;
+    expect(names('#OnlyFriends', cast)).toEqual(['Helga Harper']);
+  });
 });

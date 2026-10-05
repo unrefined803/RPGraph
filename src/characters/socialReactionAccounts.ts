@@ -18,7 +18,7 @@ function shuffled<T>(items: T[], random: () => number): T[] {
   return result;
 }
 
-/** Small random audiences with private characterization and continuing thread participants. */
+/** Relationship and tag discovery for social posts; sampled audiences and continuing participants elsewhere. */
 export function socialReactionAccountContext(
   characters: StorybookCharacter[],
   app: SocialAppKind,
@@ -42,6 +42,46 @@ export function socialReactionAccountContext(
     return [{ character, account, handle, tags, line: `- ${character.name} (@${handle})${npc ? ' [NPC]' : ' [Storybook character]'}${
       tags.length ? ` [Agency tags: ${tags.join(', ')}]` : ''}` }];
   });
+  if (post) {
+    const matchesAuthor = characters.filter((character) => author?.characterId
+      ? character.sourceId === author.characterId || character.id === author.characterId
+      : author?.accountId ? character.apps?.[app]?.accountId === author.accountId
+        : !!author?.handle && accountHandle(character.apps?.[app]).replace(/^@/, '').toLowerCase() === author.handle.replace(/^@/, '').toLowerCase());
+    const owner = matchesAuthor.length === 1 ? matchesAuthor[0] : undefined;
+    const contacts = candidates.flatMap((candidate) => {
+      if (!owner) return [];
+      const outgoing = owner.relationships?.find((entry) => entry.characterId === candidate.character.sourceId);
+      const incoming = candidate.character.relationships?.find((entry) => entry.characterId === owner.sourceId);
+      const evidence = [
+        ...(outgoing && (outgoing.description.trim() || outgoing.apps[app])
+          ? [`Poster to contact: ${outgoing.description.trim() || 'No relationship description'}; follows on this app: ${!!outgoing.apps[app]}`] : []),
+        ...(incoming && (incoming.description.trim() || incoming.apps[app])
+          ? [`Contact to poster: ${incoming.description.trim() || 'No relationship description'}; follows on this app: ${!!incoming.apps[app]}`] : []),
+      ];
+      return evidence.length ? [{ ...candidate, evidence }] : [];
+    });
+    const contactIds = new Set(contacts.map(({ character }) => character.sourceId));
+    const discoveryCandidates = candidates.filter(({ character }) => !contactIds.has(character.sourceId));
+    const counts = new Map<string, number>();
+    for (const { tags } of discoveryCandidates) {
+      for (const tag of tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    const lines = contacts.map(({ character, account, handle, evidence }) =>
+      `- ${JSON.stringify(character.name)}; account ID: ${JSON.stringify(account.accountId ?? '')}; profile name: ${JSON.stringify(handle)}; privacy: ${account.privacyMode ? 'anonymous' : 'public'}; ${evidence.join('; ')}`);
+    return { lines, text: [
+      '[SOCIAL CONTACTS AND RELATIONSHIPS]',
+      `App: ${app}; eligible contacts of the post author: ${contacts.length}`,
+      'Private author data. Relationship perspectives are directed; a follow alone does not establish friendship or identity knowledge.',
+      ...lines,
+      '[/SOCIAL CONTACTS AND RELATIONSHIPS]',
+      '[SOCIAL REACTION DISCOVERY]',
+      `Eligible existing accounts excluding the author: ${candidates.length}`,
+      `Additional accounts outside the contact list: ${discoveryCandidates.length}`,
+      'Agency tags (eligible additional-account counts):',
+      ...agencyTagCatalog.map(({ id }) => `#${id} (${counts.get(id) ?? 0})`),
+      '[/SOCIAL REACTION DISCOVERY]',
+    ].join('\n') };
+  }
   const normalize = (handle: string) => handle.replace(/^@/, '').toLowerCase();
   const threadAuthor = thread ? candidates.find((candidate) => normalize(candidate.handle) === normalize(thread.authorHandle)) : undefined;
   const previous = (thread?.participantHandles ?? []).flatMap((handle) =>
@@ -49,7 +89,7 @@ export function socialReactionAccountContext(
   // Most recent distinct commenters take priority in older threads that already exceed the cap.
   const returning = previous.filter((candidate, index) => previous.lastIndexOf(candidate) === index).slice(-6);
   const pool = candidates.filter((candidate) => candidate !== threadAuthor && !returning.includes(candidate));
-  const selected = post || !thread
+  const selected = !thread
     ? shuffled(pool, random).slice(0, 5)
     : [...returning, ...shuffled(pool, random).slice(0, Math.min(2, 6 - returning.length))];
   if (threadAuthor) selected.push(threadAuthor);
