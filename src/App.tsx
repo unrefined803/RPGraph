@@ -4461,6 +4461,7 @@ function App() {
               socialThreadAction,
               threadContext?.existingComments ?? [],
               threadContext?.likeCount ?? 0,
+              npcParticipants.characters(),
             )
           : socialDirectRunMessage
             ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages, npcParticipants.characters())
@@ -4954,6 +4955,7 @@ function App() {
         request.action,
         request.existingComments,
         request.likeCount,
+        npcParticipants.characters(),
       ),
       [],
       undefined,

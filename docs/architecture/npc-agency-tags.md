@@ -22,14 +22,36 @@ Container and Storybook versions remain 2.0.0 and 3.0.0 respectively.
 reaction context from the effective character registry, including Storybook
 overrides and retained NPC revisions. An enabled account with a usable handle is
 eligible regardless of tags. A new post excludes its author by character/account
-identity or exact handle fallback and samples at most five candidates randomly.
+identity or exact handle fallback. Post inputs list directed relationships to
+eligible contacts and catalog tag counts for accounts outside that contact list.
+The authored post prompts use Ask character information to select participants
+from these two groups, including a suitable negative agency candidate when one
+is available; the input does not preload full profiles for that discovery pool.
 
-Comment threads retain up to six existing commenters, chosen by their most recent
+Loading more comments uses the same discovery context. Counts and contact lists
+exclude the post author, acting user, and all previous commenters from newcomer
+searches, so new participants remain discoverable even after six people have
+commented. Each existing comment combines its speaker name, character ID,
+profile name, privacy status and full text in one entry, without account IDs or
+a duplicate participant list. Older name/handle comment inputs remain readable.
+Enabled previous commenters and the author may reply again;
+the acting user's comments are never generated for them. The thread User Input
+contains the full ordered comment list from the post and persisted social
+reactions, including NPC comments omitted from chat-history summaries, even
+when the acting character changes. New and returning participants can respond
+to that discussion within the app's shared per-output comment limit. Both
+bundled workflows request up to one contact and three additional people, using
+post/image context and existing discussion to choose tags. Only new comments are
+appended to the existing post; loading comments does not publish posts or send
+DMs or tips. An exhausted newcomer pool still allows fitting replies from existing
+participants; no suitable contribution from either group produces no comments.
+
+Replies to a user-written comment retain up to six existing commenters, chosen by their most recent
 appearance. Up to two newcomers fill unused places within that six-person cap.
 The enabled post author is included separately. Disabled or missing accounts
 are omitted; presentation follows registry order after selection.
 
-Each selected character supplies its exact name and handle, character tags and
+For these user-comment replies, each selected character supplies its exact name and handle, character tags and
 catalog meanings, description, personality, speech style, hidden agency, account
 bio and privacy mode. Empty authored text fields are omitted. These fields are
 private characterization data, not instructions or public character knowledge.
@@ -42,9 +64,10 @@ conversations use their recipient-bound characterization. Account and message
 validators still reject ambiguous or invalid identities; context selection does
 not bypass delivery rules, paid access or MatchMe requirements.
 
-Candidate caps and supplied fields are fixed in code. There are no settings for
-field inclusion or candidate counts, and selection uses `Math.random` rather
-than a persisted reproducible rotation.
+User-comment reply caps and supplied fields are fixed in code; their newcomer
+sampling uses `Math.random`. Post and load-more selection is performed by the
+Character Assistant under the authored workflow prompts, using current eligible
+counts rather than a random preselected audience.
 
 ## Publications and autonomy
 

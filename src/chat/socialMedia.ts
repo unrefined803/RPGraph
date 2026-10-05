@@ -462,13 +462,18 @@ export function socialThreadActionInputText(
   action: SocialThreadActionRecord,
   existingComments: SocialReactionComment[],
   likeCount = 0,
+  characters: StorybookCharacter[] = [],
 ) {
   const actorOwnsPost =
     action.actor.trim().toLowerCase() === action.postAuthor.trim().toLowerCase() ||
     action.actorHandle.trim().toLowerCase() === action.postAuthorHandle.trim().toLowerCase();
-  const commentContext = existingComments.map(
-    (comment) => `- ${comment.from} (@${comment.handle}): ${singleLine(comment.text)}`,
-  );
+  const commentContext = existingComments.map((comment) => {
+    const matches = characters.filter((character) =>
+      accountHandleMatches(character.apps?.[action.app], comment.handle));
+    const character = matches.length === 1 ? matches[0] : undefined;
+    const account = character?.apps?.[action.app];
+    return `- ${JSON.stringify(comment.from)}; character ID: ${JSON.stringify(character?.sourceId ?? '')}; profile name: ${JSON.stringify(comment.handle)}; privacy: ${account ? account.privacyMode ? 'anonymous' : 'public' : 'unknown'}; ${JSON.stringify(comment.text)}`;
+  });
   return [
     '[SOCIAL MEDIA THREAD ACTION]',
     `App: ${socialAppNames[action.app]}`,
@@ -498,6 +503,14 @@ export function socialThreadRunContextFromInput(inputText: string): SocialThread
   const existingComments = commentsBlock
     .split('\n')
     .flatMap((line) => {
+      const combined = line.match(/^- ("(?:[^"\\]|\\.)*"); character ID: ("(?:[^"\\]|\\.)*"); profile name: ("(?:[^"\\]|\\.)*"); privacy: (?:public|anonymous|unknown); ("(?:[^"\\]|\\.)*")$/);
+      if (combined) {
+        try {
+          return [{ from: JSON.parse(combined[1]) as string, handle: JSON.parse(combined[3]) as string, text: JSON.parse(combined[4]) as string }];
+        } catch {
+          return [];
+        }
+      }
       const match = line.match(/^-\s*(.*?)\s*\(@([^()]+)\):\s*(.+)$/);
       if (!match?.[1] || !match[2] || !match[3]) {
         return [];

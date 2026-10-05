@@ -18,23 +18,30 @@ function shuffled<T>(items: T[], random: () => number): T[] {
   return result;
 }
 
-/** Relationship and tag discovery for social posts; sampled audiences and continuing participants elsewhere. */
+/** Relationship and tag discovery for posts and loaded comments; continuing participants for replies. */
 export function socialReactionAccountContext(
   characters: StorybookCharacter[],
   app: SocialAppKind,
   post: boolean,
   author?: SocialReactionPostAuthor,
-  thread?: { authorHandle: string; participantHandles: string[] },
+  thread?: { authorHandle: string; participantHandles: string[]; loadMore?: boolean; actorHandle?: string },
   random: () => number = Math.random,
 ) {
+  const discovery = post || !!thread?.loadMore;
+  const normalizeHandle = (handle: string) => handle.replace(/^@/, '').toLowerCase();
+  const excludedHandles = new Set(thread?.loadMore
+    ? [...thread.participantHandles, thread.authorHandle, thread.actorHandle ?? ''].map(normalizeHandle)
+    : []);
+  const discoveryAuthor = author ?? (thread?.loadMore ? { handle: thread.authorHandle } : undefined);
   const candidates = characters.flatMap((character) => {
     const account = character.apps?.[app];
     if (!account?.enabled || !accountHandle(account).trim()) return [];
     const handle = accountHandle(account).replace(/^@/, '');
-    if (post && author && (
-      (!!author.characterId && (character.sourceId === author.characterId || character.id === author.characterId)) ||
-      (!!author.accountId && account.accountId === author.accountId) ||
-      (!!author.handle && handle.toLowerCase() === author.handle.replace(/^@/, '').toLowerCase())
+    if (excludedHandles.has(normalizeHandle(handle))) return [];
+    if (discovery && discoveryAuthor && (
+      (!!discoveryAuthor.characterId && (character.sourceId === discoveryAuthor.characterId || character.id === discoveryAuthor.characterId)) ||
+      (!!discoveryAuthor.accountId && account.accountId === discoveryAuthor.accountId) ||
+      (!!discoveryAuthor.handle && handle.toLowerCase() === discoveryAuthor.handle.replace(/^@/, '').toLowerCase())
     )) return [];
     const npc = !!(character.npcOrigin || character.libraryNpc);
     // Every enabled account can take part; tags shape whether and how its owner reacts.
@@ -42,7 +49,8 @@ export function socialReactionAccountContext(
     return [{ character, account, handle, tags, line: `- ${character.name} (@${handle})${npc ? ' [NPC]' : ' [Storybook character]'}${
       tags.length ? ` [Agency tags: ${tags.join(', ')}]` : ''}` }];
   });
-  if (post) {
+  if (discovery) {
+    const author = discoveryAuthor;
     const matchesAuthor = characters.filter((character) => author?.characterId
       ? character.sourceId === author.characterId || character.id === author.characterId
       : author?.accountId ? character.apps?.[app]?.accountId === author.accountId
@@ -75,6 +83,11 @@ export function socialReactionAccountContext(
       ...lines,
       '[/SOCIAL CONTACTS AND RELATIONSHIPS]',
       '[SOCIAL REACTION DISCOVERY]',
+      ...(thread?.loadMore ? [
+        'Load more comments: discover new participants for the existing post, not a new publication.',
+        'Newcomer counts exclude the post author, acting user, and all existing commenters. Do not select these accounts as newcomers; eligible existing participants may still reply.',
+        `Excluded profile names: ${JSON.stringify([...excludedHandles].filter(Boolean))}`,
+      ] : []),
       `Eligible existing accounts excluding the author: ${candidates.length}`,
       `Additional accounts outside the contact list: ${discoveryCandidates.length}`,
       'Agency tags (eligible additional-account counts):',

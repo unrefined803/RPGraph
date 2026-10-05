@@ -485,7 +485,7 @@ export function verifyWorkflowValidationFixtures() {
     socialThreadInput.includes("Post ownership: actor's own post") &&
       socialThreadInput.includes('Likes: 12') &&
       socialThreadInput.includes('Comment count: 1') &&
-      socialThreadInput.includes('Background Friend (@background.friend): Looks great!') &&
+      socialThreadInput.includes('"Background Friend"; character ID: ""; profile name: "background.friend"; privacy: unknown; "Looks great!"') &&
       socialPostTextFromInput('[SOCIAL MEDIA POST]\nPost text: Translated caption') ===
         'Translated caption' &&
       socialThreadCommentTextFromInput(

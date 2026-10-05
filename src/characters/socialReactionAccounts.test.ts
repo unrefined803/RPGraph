@@ -64,6 +64,36 @@ describe('small social audiences', () => {
 });
 
 describe.each(['fotogram', 'onlyfriends'] as const)('%s post discovery', (app: SocialAppKind) => {
+  it('discovers new thread participants beyond the old cap with accurate tag counts and contacts', () => {
+    const author = person('Author');
+    author.relationships = [{ characterId: 'Contact', description: 'My colleague', apps: {} }];
+    const prior = Array.from({ length: 7 }, (_, index) => person(`Previous${index}`));
+    const disabled = person('Disabled', ['comment_troll']);
+    disabled.apps![app]!.enabled = false;
+    const characters = cast([author, person('Actor'), ...prior, person('Contact'),
+      person('NewCritic', ['comment_troll']), person('NewFan'), disabled]);
+    const thread = { authorHandle: `@AUTHOR.${app}`, actorHandle: `Actor.${app}`,
+      participantHandles: prior.map(({ id }) => `@${id.toUpperCase()}.${app}`), loadMore: true };
+    const context = socialReactionAccountContext(characters, app, false, undefined, thread);
+    expect(context.text).toContain('[SOCIAL REACTION DISCOVERY]');
+    expect(context.text).toContain('Additional accounts outside the contact list: 2');
+    expect(context.text).toContain('#comment_troll (1)');
+    expect(context.text).toContain('#friendly_regular (1)');
+    expect(context.lines).toHaveLength(1);
+    expect(context.lines[0]).toContain('Contact');
+    expect(context.lines[0]).toContain('My colleague');
+    expect(context.text).not.toContain('[AVAILABLE SOCIAL ACCOUNTS]');
+    expect(context.text).not.toContain('PRIVATE_');
+    expect(context.text).not.toContain('NewCritic');
+    expect(context.text).not.toContain('[EXISTING THREAD PARTICIPANTS]');
+    const exhausted = socialReactionAccountContext(characters, app, false, undefined, {
+      ...thread, participantHandles: [...thread.participantHandles, `Contact.${app}`, `NewCritic.${app}`, `NewFan.${app}`],
+    });
+    expect(exhausted.text).toContain('excluding the author: 0');
+    expect(exhausted.text).toContain('#comment_troll (0)');
+    expect(exhausted.lines).toEqual([]);
+  });
+
   it('lists directed contacts and relationships with enabled app accounts, regardless of playability', () => {
     const author = person('Author');
     author.relationships = [

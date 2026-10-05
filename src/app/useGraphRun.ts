@@ -1061,6 +1061,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               : socialThreadAction,
             socialThreadContext.existingComments,
             socialThreadContext.likeCount,
+            appCharacters(),
           );
         } else {
           inputText = await translateSocialText(displayText);
@@ -1300,6 +1301,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
           handle: socialPost.authorHandle,
         } : undefined, socialThreadAction ? {
           authorHandle: socialThreadAction.postAuthorHandle,
+          loadMore: socialThreadAction.action !== 'comment',
+          actorHandle: socialThreadAction.actorHandle,
           participantHandles: (socialThreadContext ?? socialThreadRunContextFromInput(originalInput)).existingComments.map((comment) => comment.handle),
         } : undefined)
       : undefined;
