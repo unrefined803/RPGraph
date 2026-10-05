@@ -51,7 +51,9 @@ and [Local accounts](local-accounts.md) for password and workspace boundaries.
 Effective precedence is active Storybook, retained RP revision, account NPC,
 global user NPC, saved Storybook, then bundled NPC. Saved Storybook duplicates
 resolve by modification time, then filename. Ambiguous character files are
-reported rather than arbitrarily merged.
+reported rather than arbitrarily merged. Saved Storybook entries are prepared
+NPC copies with their own posts, taken from one selected source per Storybook;
+see [Saved Storybook NPC sources](character-creator.md#saved-storybook-npc-sources).
 
 Character IDs and account IDs establish identity. Same-name Storybook characters
 are rejected after case folding and whitespace normalization. A library character

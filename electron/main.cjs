@@ -272,8 +272,10 @@ function handleAccountTransition(channel, handler) {
   });
 }
 
-function makeNpcLibraryService(root) {
+function makeNpcLibraryService(root, sourcePreferences) {
   return createNpcLibraryService({
+    sourcePreferences,
+    saveSourcePreferences: (npcSourcePreferences) => saveWorkflowState({ npcSourcePreferences }),
     roots: { ...npcLibraryRoots({
       isPackaged: app.isPackaged,
       resourcesPath: process.resourcesPath,
@@ -298,7 +300,7 @@ async function initializeAccountWorkspace() {
   approvedFilePaths.clear();
   approvedWorkflowPaths.clear();
   workspaceProtection.activate('');
-  npcLibraryService = makeNpcLibraryService(localAccounts.root);
+  npcLibraryService = makeNpcLibraryService(localAccounts.root, (await loadWorkflowState()).npcSourcePreferences);
   await npcLibraryService.setGamePassword(localAccounts.password);
 }
 
@@ -906,9 +908,12 @@ async function loadWorkflowState() {
           ? path.basename(state.lastStartTargetFileName)
           : '',
       importedDefaultFileNames: importedDefaultFileNamesFromState(state),
+      // The files chosen to share their cast as NPCs; validated by the NPC library service.
+      npcSourcePreferences: state.npcSourcePreferences && typeof state.npcSourcePreferences === 'object' &&
+        !Array.isArray(state.npcSourcePreferences) ? state.npcSourcePreferences : {},
     };
   } catch {
-    return { lastWorkflowFileName: '', lastStartTargetFileName: '', importedDefaultFileNames: [] };
+    return { lastWorkflowFileName: '', lastStartTargetFileName: '', importedDefaultFileNames: [], npcSourcePreferences: {} };
   }
 }
 
@@ -5614,9 +5619,17 @@ handleWorkspace('character:list', async () => {
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
-handleWorkspace('npc-library:get', async () => npcLibraryService.current());
+handleWorkspace('npc-library:preview', async () => npcLibraryService.preview());
 
-handleWorkspace('npc-library:reload', async () => npcLibraryService.reload());
+handleWorkspace('npc-library:prefer-source', async (_event, fileName) => {
+  await npcLibraryService.preferSource(fileName);
+});
+
+handleWorkspace('npc-library:get', async (_event, activeStorybookFileNames) =>
+  npcLibraryService.forActiveStorybooks(activeStorybookFileNames));
+
+handleWorkspace('npc-library:reload', async (_event, activeStorybookFileNames) =>
+  npcLibraryService.reload(activeStorybookFileNames));
 handleWorkspace('workspace:protection', async (_event, password) => {
   workspaceProtection.activate(localAccounts.active ? '' : password);
   return npcLibraryService.setGamePassword(password || localAccounts.password);

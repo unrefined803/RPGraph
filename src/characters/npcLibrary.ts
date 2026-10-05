@@ -1,19 +1,45 @@
 import type { Character } from './character';
 import { validateCharacterContainer } from './character';
 import type { CharacterRegistryEntry } from './registry';
-import type { SavedFileSummary } from '../types';
+import type { SavedFileSummary, SocialPostRecord } from '../types';
 
 type NpcLibraryTier = 'bundled' | 'saved-storybook' | 'user' | 'account';
-type NpcLibraryDiagnostic = {
+export type NpcLibraryDiagnostic = {
   tier: NpcLibraryTier;
   fileName: string;
-  code: 'directory-error' | 'invalid-json' | 'invalid-container' | 'unsupported-version';
+  code: 'directory-error' | 'invalid-json' | 'invalid-container' | 'unsupported-version'
+    | 'unusable-source' | 'ambiguous-source' | 'missing-media';
   message: string;
+};
+/** Where an external Storybook character and its publications were taken from. */
+export type NpcPublicationProvenance = {
+  storybookFileName: string;
+  storybookName: string;
+  /** `save`: the Storybook's latest usable RP Save; `storybook`: the stored Storybook and its Opening History. */
+  kind: 'save' | 'storybook';
+  saveFileName?: string;
+  saveName?: string;
+  savedAt?: string;
+  /** The current RP keeps this imported revision instead of the live source. */
+  pinned?: boolean;
+};
+/** The one selected source of an external stored Storybook, read once per refresh. */
+export type NpcPublicationSource = Omit<NpcPublicationProvenance, 'pinned'> & {
+  key: string;
+  /** Changes whenever the Storybook file or its selected source changes. */
+  revision: string;
+  posts: SocialPostRecord[];
+  /** Images referenced by posts that no shipped character of this source owns. */
+  gallery: Character['images'];
 };
 export type NpcLibraryEntry = CharacterRegistryEntry & {
   tier: NpcLibraryTier;
   fileName: string;
   character: Character;
+  /** Key of the publication source providing this unprepared saved-Storybook character. */
+  publicationSource?: string;
+  /** Present once the character was prepared as an NPC copy with its own posts. */
+  publication?: NpcPublicationProvenance;
 };
 export type NpcLibraryFileSummary = Omit<SavedFileSummary, 'storage'> & {
   tier: NpcLibraryTier;
@@ -26,6 +52,11 @@ export type NpcLibrarySnapshot = {
   files: NpcLibraryFileSummary[];
   diagnostics: NpcLibraryDiagnostic[];
   skipped: number;
+  publicationSources?: NpcPublicationSource[];
+  /** Encrypted Storybooks and RP Saves skipped without decryption. */
+  protectedSources?: number;
+  /** The active Storybook files this snapshot's source selection excluded. */
+  activeStorybookFileNames?: string[];
   browserLimited?: boolean;
 };
 

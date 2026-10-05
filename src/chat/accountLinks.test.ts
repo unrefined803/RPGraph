@@ -52,7 +52,7 @@ function direct(characters = setup().characters, text = 'Here: @whatsup:Third Pe
 
 describe('inline account links', () => {
   it('resolves the bundled Storybook Fotogram messages with standard WhatsUp accounts', () => {
-    const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v40.json', 'utf8')) as WorkflowFile;
+    const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v41.json', 'utf8')) as WorkflowFile;
     const storybook = readFileSync('resources/default-content/Saturday_Night_Plans_v1.1.json', 'utf8');
     const storybookNode = workflow.nodes.find((node) => node.data.nodeType === 'rp-storybook')!;
     storybookNode.data.storybookJson = storybook;

@@ -155,8 +155,10 @@ declare global {
       listFiles: () => Promise<SavedFileSummary[]>;
       confirmV3Migration: (summary: string) => boolean;
       listCharacterFiles: () => Promise<SavedFileSummary[]>;
-      getNpcLibrary: () => Promise<NpcLibrarySnapshot>;
-      reloadNpcLibrary: () => Promise<NpcLibrarySnapshot>;
+      getNpcImportPreview: () => Promise<import('../shared/npcSourceSelection.cjs').NpcImportPreviewIndex>;
+      preferNpcSource: (fileName: string) => Promise<void>;
+      getNpcLibrary: (activeStorybookFileNames?: string[]) => Promise<NpcLibrarySnapshot>;
+      reloadNpcLibrary: (activeStorybookFileNames?: string[]) => Promise<NpcLibrarySnapshot>;
       setWorkspaceProtection: (password: string) => Promise<NpcLibrarySnapshot>;
       onNpcLibraryChanged: (callback: () => void) => () => void;
       openNpcLibraryFolder: () => Promise<{ path: string }>;

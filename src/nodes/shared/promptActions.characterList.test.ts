@@ -1,7 +1,7 @@
 import { TextMetricsApi } from '../../llm/tokenMetrics';
 import { describe, expect, it, vi } from 'vitest';
 import { characterSearchDirectory, characterSearchPrompt, characterSearchResult,
-  previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction } from '../../characters/search';
+  previousCharacterSearchInstruction, previousCharacterSearchResultTemplate, previousCharacterInformationInstruction, previousFullDirectoryCharacterSearchInstruction, previousGroupedCharacterSearchInstruction, previousCountedCharacterSearchInstruction } from '../../characters/search';
 import { appCharactersFromRegistry } from '../../characters/appRuntime';
 import { buildCharacterRegistry } from '../../characters/registry';
 import type { Character } from '../../characters/character';
@@ -59,6 +59,14 @@ it('migrates old ranking templates and retains custom assistant templates', () =
     afterReplyTemplate: previousFullDirectoryCharacterSearchInstruction })).toMatchObject({
     instructionTemplate: config.instructionTemplate, afterReplyTemplate: config.instructionTemplate,
   });
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: previousGroupedCharacterSearchInstruction,
+    afterReplyTemplate: previousGroupedCharacterSearchInstruction })).toMatchObject({
+    instructionTemplate: config.instructionTemplate, afterReplyTemplate: config.instructionTemplate,
+  });
+  expect(normalizePromptActionConfig({ ...config, instructionTemplate: previousCountedCharacterSearchInstruction,
+    afterReplyTemplate: previousCountedCharacterSearchInstruction })).toMatchObject({
+    instructionTemplate: config.instructionTemplate, afterReplyTemplate: config.instructionTemplate,
+  });
   expect(restored.resultTemplate).toBe(config.resultTemplate);
   expect(restored).not.toHaveProperty('maxReturnedCharacters');
   expect(normalizePromptActionConfig(promptActionSaveConfigs([config])[0])).toEqual(config);
@@ -102,6 +110,19 @@ async function run(planning: boolean, answer: string, characters: StorybookChara
 }
 
 describe('isolated character search assistant', () => {
+  it('preserves a five-person grouped answer through action replay', async () => {
+    const request = 'Find five Fotogram people: two contacts Avery and Blake, plus three additional #drama_magnet people. Return both groups with exact accounts and reasons.';
+    const answer = ['Avery', 'Blake', 'Casey', 'Dana', 'Eli'].map((name, index) =>
+      `${index + 1}. ${name}; Fotogram account-${name}; profile-${name}\nReason: ${index < 2 ? 'requested contact' : 'drama_magnet fit'}.`).join('\n\n');
+    const { calls } = await run(false, answer, cast, request);
+    expect(calls[1].prompt).toContain(request);
+    expect(calls[1].prompt).toContain('If five eligible people are requested and available, return five distinct people');
+    for (const line of answer.split('\n')) expect(calls[2].prompt).toContain(line);
+    expect(calls[2].prompt).toContain('Speech style: Dry humor');
+    expect(calls[2].prompt).toContain('Hidden agency: Wants attention');
+    expect(calls[2].prompt.match(/Recorded characterization for/g)).toHaveLength(5);
+  });
+
   it.each([false, true])('replays with prose only and keeps the directory isolated (planning=%s)', async (planning) => {
     const answer = 'Avery fits: his attention-seeking motives suit the request. Fotogram account ID: account-Avery; profile: profile-Avery. His profile hides his real identity.';
     const { result, calls, context, request } = await run(planning, answer);

@@ -168,6 +168,48 @@ Normal RP input uses slot 1 with or without images; slot 0 is empty in the bundl
 V33 workflows. Messenger input retains slot 0 with images and slot 1 without images.
 Narrator and Narrator AutoTurn retain slots 4 and 5.
 
+### Social comment image context
+
+Fotogram and OnlyFriends thread actions resolve the target post's gallery image
+in `useGraphRun` before executing the graph. This covers initial comment loading,
+load-more, user comments, and regeneration, including initial character posts.
+The lookup uses the post's app, ID, and author account/character; it does not depend
+on the history-image lookback. The image follows the same input path as a new
+social post, and prompt execution omits pixels when vision is unavailable.
+
+### Prompt Switch image diagnostics
+
+The Image Input port continues to show only the connected image wire. A separate
+summary uses the current run's prompt-pass diagnostics: for example, `false`
+alongside `2 injected` means no wired input image, but two distinct images were
+attached to prompts through history or actions. The tooltip lists unique image
+counts by source and attachment counts for each request, including planning,
+replays, and image-search calls. Repeated images count once in the totals; images
+used only in earlier steps remain visible. These are prompt attachment diagnostics,
+not confirmation that a model successfully processed a request. The summary clears
+with the run's debug state and does not change image routing.
+
+### Historical reference images
+
+`collectRecentReferenceImages` (`src/chat/referenceImages.ts`) uses fixed application
+rules: direct RP images remain eligible for five global turns; phone and social
+message-card images shown in the RP timeline remain eligible for three. Embedded
+and standalone cards resolve to the same persisted messages and image IDs, so an
+image is attached only once and viewing a card does not restart its lifetime.
+Messenger conversations use ten global turns, plus images in their latest two
+messages even beyond that window. Other messenger pairs never qualify.
+Automatic references are limited to three images, newest first. Social runs
+retain their separate app/direct-message scope; unknown app initiatives attach
+no automatic references. Vision capability is still required.
+
+Manual selections and replied-to images bypass the age and automatic count limit,
+but belong to the current view/conversation. Switching conversations clears manual
+selection; `additionalImageScope` also prevents a selection captured in one view
+from leaking into a run for another. Reply targets must match the conversation.
+`useGraphRun` supplies the actual run scope and `App.tsx` supplies the preview scope.
+The Reference Images options tab has been removed. Legacy saved settings remain
+readable but no longer control these rules and are omitted on subsequent saves.
+
 ## Invariants
 
 - Load validates fully, then commits atomically; incompatible or corrupt nodes are preserved as placeholders, never coerced.
@@ -194,3 +236,42 @@ Narrator and Narrator AutoTurn retain slots 4 and 5.
 | Validation | `src/workflow/validation.ts` |
 | Hydration & size strip | `src/app/workflowHydration.ts` |
 | Styles | `src/styles.css` |
+
+### Fotogram post moderation
+
+The bundled V41 Social Media / Fotogram Post slot asks for
+`reactions.moderation`: `{ "blocked": false }` for allowed posts, or
+`{ "blocked": true, "reason": "nudity" }` for removed posts. Supported reasons
+are `nudity`, `graphic_violence`, `hate_harassment`, and `spam_scam`.
+The model judges the attached photo, description, and caption; this is simulated
+platform moderation, not a separate image classifier. OnlyFriends ignores this
+Fotogram field. Legacy reactions without it remain visible normally.
+
+`socialMedia.ts` parses and aggregates moderation with the reactions. Append
+records retain an existing removal; replacing the original reaction through
+regeneration can replace the decision. Session persistence retains the field.
+Blocked posts remain in the author's Fotogram feed with a reason, blurred image,
+and an explicit View Image disclosure. Other accounts cannot see the post in
+their feeds, including through following or recommendations. Stored account IDs
+have precedence over character IDs and legacy handles when identifying the owner.
+The shared RP timeline retains a blurred archival card and removal context.
+Pre-removal comments remain readable; new thread runs, comment commands, and
+phone likes are disabled after removal. The authored prompt requests two fitting
+pre-removal comments, subject to existing-account availability.
+
+For newly published or regenerated posts in the open phone feed, the removal
+badge and image blur appear 3–6 seconds after the last initial comment is
+revealed (also delayed when there are no comments). The stored moderation
+decision still guards visibility and interactions immediately. Existing posts
+show their stored status when the feed is opened. Local post previews end when
+publication completes; undo and regeneration invalidate reveal timers and counts
+by timeline message identity, including when a regenerated post reuses its ID.
+
+Computer uploads for social posts and WhatsUp sends mark newly inserted gallery
+images with `turnUpload`; deduplicating against an existing gallery image does
+not add the marker. Complete-turn undo passes the removed messages to image
+pruning, which removes marked uploads referenced by that turn only when no
+surviving message or profile still uses them. Draft uploads and authored gallery
+images remain intact. The marker survives session/Storybook serialization and
+is stripped from portable character exports. Older unmarked uploads are treated
+as existing gallery content because their origin cannot be inferred safely.

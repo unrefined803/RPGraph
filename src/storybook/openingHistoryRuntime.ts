@@ -237,6 +237,19 @@ export function openingHistorySocialLikesFromNodes(nodes: WorkflowNode[]) {
   return likesByAccount;
 }
 
+/** OnlyFriends purchases imported with Opening History; they belong to the money ledger. */
+export function openingHistoryOnlyFriendsPurchasesFromNodes(
+  nodes: WorkflowNode[],
+): Record<string, Record<string, number>> {
+  const merged: Record<string, Record<string, number>> = {};
+  storybooksFromNodes(nodes).forEach((storybook) => {
+    Object.entries(storybook.openingHistory.onlyFriendsPurchases).forEach(([characterId, purchases]) => {
+      merged[characterId] = { ...merged[characterId], ...purchases };
+    });
+  });
+  return merged;
+}
+
 /** Dynamic social identities imported with Opening History. */
 export function openingHistoryDynamicSocialUsersFromNodes(
   nodes: WorkflowNode[],

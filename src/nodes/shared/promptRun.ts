@@ -1,4 +1,4 @@
-import { maximumCharacterSearchCandidates, selectCharacterSearchCandidates, characterSearchDirectory, characterSearchPrompt, characterSearchResult } from '../../characters/search';
+import { maximumCharacterSearchCandidates, characterSearchAnswerDetails, selectCharacterSearchCandidates, characterSearchDirectory, characterSearchPrompt, characterSearchResult } from '../../characters/search';
 import {
   promptWithImageAttachmentMarkers,
   promptWithReferenceImageMarkers,
@@ -526,7 +526,7 @@ export async function runActionAwarePrompt({
       context.reportWarning(`${node.data.label}: Character information assistant returned an empty answer; continuing without it.`);
       answer = 'The character information lookup returned no answer. Use only identities, accounts and facts already established in this prompt; do not invent any, and do not request this action again.';
     }
-    const result = characterSearchResult(config.resultTemplate, answer);
+    const result = characterSearchResult(config.resultTemplate, characterSearchAnswerDetails(answer, selected));
     actionResults.set(promptActionKey(config.title), result);
     actionResultTexts.push(result);
     context.updateRuntimeData(node.id, { preview: 'Character information resolved; replaying prompt ...' });

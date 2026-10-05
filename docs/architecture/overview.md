@@ -173,7 +173,8 @@ app-specific prompts. Discovery uses the effective character registry and each
 account's enabled state. Starting publications come from character containers;
 live activity is stored on the timeline. Legacy catalogs serve historical
 compatibility, not fresh cosmetic feeds or permission for new participants.
-OnlyFriends also supports wallets, DM tips and paid post unlocks. Accounts have
+OnlyFriends also supports wallets, DM tips and paid post unlocks. Bank and wallet
+balances are derived from one ledger; see [money-ledger.md](money-ledger.md). Accounts have
 no creator/user role. Notes stores per-character editable cards.
 
 Characters carry explicit per-app relationships: WhatsUp numbers and social
@@ -393,9 +394,10 @@ and a double-heart match label. Plus signs separate recipients; consecutive
 actions by the same sender share the sender label. A different sender starts a
 separate card. Likes, superlikes and matches store lightweight timeline records;
 none alone mark an NPC as Interacted or automatically capture its full container.
-Automatic message-driven capture waits for a private conversation in both
-directions with a playable character in the same app. Comments and one-way DMs
-remain visible without promoting their authors. The Library, colors and known
+Story NPC capture begins with a committed private message or public comment.
+The separate Interacted status still requires a private conversation in both
+directions with a playable character in the same app. Uninvolved external
+Library NPCs are resolved dynamically and are not stored in RP Saves. The Library, colors and known
 speaker selection share that classification. Existing archived containers and
 explicit editing/promotion snapshots remain retained independently of status. An intervening history
 message or a new RP day starts a new group. Text previews retain individual

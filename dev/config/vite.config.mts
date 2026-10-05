@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 /**
  * Vite's dev server serves local (non-`node_modules`) `.cjs` files completely
  * unprocessed — the CommonJS-to-ESM interop it applies elsewhere only runs
- * during dependency pre-bundling of `node_modules` packages. The two shared
+ * during dependency pre-bundling of `node_modules` packages. The shared
  * `.cjs` modules under `shared/` are also `require()`d directly by the
  * Electron main process, so they can't just become `.mjs`/`.ts`. Rewrite
  * their trailing `module.exports`/`require` statements to native ESM only
@@ -25,7 +25,8 @@ export default defineConfig(({ mode }) => ({
       name: 'local-cjs-dev-interop',
       apply: 'serve',
       transform(code, id) {
-        if (id.endsWith('/shared/agency-tags.cjs') || id.endsWith('/shared/reasoning.cjs')) {
+        if (id.endsWith('/shared/agency-tags.cjs') || id.endsWith('/shared/reasoning.cjs') ||
+          id.endsWith('/shared/mediaPool.cjs') || id.endsWith('/shared/npcSourceSelection.cjs') || id.endsWith('/shared/storyNpcReferences.cjs')) {
           return code.replace(localCjsExportStatement, 'export { $1 };');
         }
         if (id.endsWith('/shared/character-container.cjs')) {

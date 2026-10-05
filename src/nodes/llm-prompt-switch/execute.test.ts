@@ -9,7 +9,7 @@ import { executeLlmPromptSwitchNode } from './execute';
 vi.mock('../shared/promptRun', () => ({ runActionAwarePrompt: vi.fn() }));
 
 function phoneInitiativeContext() {
-  const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v40.json', 'utf8')) as WorkflowFile;
+  const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v41.json', 'utf8')) as WorkflowFile;
   const node = workflow.nodes.find((entry) => entry.data.nodeType === 'llm-prompt-switch')!;
   const values: Record<string, string> = { text: 'AI phone initiative for Alex', 'output-channel': '2', 'prompt-slot': '7' };
   const context = {

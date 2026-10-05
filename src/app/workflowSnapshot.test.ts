@@ -33,14 +33,14 @@ describe('workflow Storybook selection', () => {
     expect(workflowNeedsStorybookSelection({ nodes: [] })).toBe(false);
   });
 
-  it.each(['default_normal_v40.json', 'default_planning_v40.json', 'default_NoPhone_v40.json'])(
+  it.each(['default_normal_v41.json', 'default_planning_v41.json', 'default_NoPhone_v40.json'])(
     'recognizes the empty Storybook slot in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8'));
       expect(workflowNeedsStorybookSelection(workflow)).toBe(true);
     },
   );
-  it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
+  it.each(['default_normal_v41.json', 'default_planning_v41.json'])(
     'uses one RP input prompt and no image generation in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
@@ -68,10 +68,26 @@ describe('workflow Storybook selection', () => {
       for (const after of [...rows[1], ...rows[2]]) {
         for (const step of buildPromptStepChain('', after)) {
           expect(step.after.match(/@action:Ask character information/g)).toHaveLength(1);
-          expect(step.after).toContain('Character information:');
-          expect(step.after).toContain('#keywords');
           expect(step.after).toContain('private author context, not automatic character knowledge');
-          expect(step.after).toContain('do not invent a conversation, observation or access');
+          if (step.after.includes('Character discovery is required before generating reactions:')) {
+            expect(step.after).toContain('\n@action:Ask character information\n');
+            expect(step.after).toContain('[SOCIAL REACTION DISCOVERY]');
+            expect(step.after).toContain('[SOCIAL CONTACTS AND RELATIONSHIPS]');
+            expect(step.after).toContain('exclude all listed contacts and the author');
+            expect(step.after).toContain('If no contacts are listed, skip that group');
+            expect(step.after).toContain('request and return all five together');
+            expect(step.after).toContain(step.after.startsWith('This is a Fotogram')
+              ? 'literal app keyword #Photogram' : 'literal app keyword #OnlyFriends');
+            expect(step.after).toContain('#agency_tags');
+            expect(step.after).toContain('Up to two contact comments plus three additional-person comments');
+            expect(step.after).toContain('a short selection reason');
+            expect(step.after).not.toContain('[AVAILABLE SOCIAL ACCOUNTS]');
+            expect(step.after).toContain('do not invent prior contact or an offscreen discovery');
+          } else {
+            expect(step.after).toContain('Character information:');
+            expect(step.after).toContain('#keywords');
+            expect(step.after).toContain('do not invent a conversation, observation or access');
+          }
         }
       }
       expect(rows[3].join('\n')).not.toContain('@action:Ask character information');
@@ -79,7 +95,7 @@ describe('workflow Storybook selection', () => {
       expect(rows[1][0]).toContain('attached image');
     },
   );
-  it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
+  it.each(['default_normal_v41.json', 'default_planning_v41.json'])(
     'explains account links once in every independent app and RP pass in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
@@ -101,7 +117,7 @@ describe('workflow Storybook selection', () => {
 });
 
 
-it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
+it.each(['default_normal_v41.json', 'default_planning_v41.json'])(
   'authors initiative and user interaction only in slot 6 of %s', (fileName) => {
     const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
     const data = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!.data;
@@ -118,7 +134,7 @@ it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
 );
 
 
-it.each(['default_normal_v40.json', 'default_planning_v40.json'])(
+it.each(['default_normal_v41.json', 'default_planning_v41.json'])(
   'routes autonomous phone events through Social Media slot 7 in %s', (fileName) => {
     const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
     const data = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!.data;

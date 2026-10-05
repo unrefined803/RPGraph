@@ -1,3 +1,4 @@
+import { isSocialPostModeration, socialModerationReasons } from './socialModeration';
 import { accountHandle, accountHandleMatches } from '../characters/character';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import { matchMeContext, matchMeState } from './matchMe';
@@ -8,6 +9,7 @@ import type {
   SocialMessengerAppKind,
   SocialDirectMessageRecord,
   SocialPostRecord,
+  SocialPostModeration,
   SocialReactionComment,
   SocialReactionsRecord,
   SocialThreadActionRecord,
@@ -144,7 +146,17 @@ export function socialPostVisibleToViewer(
   viewerName: string,
   viewerHandle: string,
   discoveredIdentities: string[],
+  moderation?: SocialPostModeration,
+  viewerAccountId?: string,
+  viewerCharacterId?: string,
+  viewerAccountAliases: readonly string[] = [],
 ) {
+  if (post.app === 'fotogram' && moderation?.blocked) {
+    if (post.authorAccountId) return post.authorAccountId === viewerAccountId ||
+      viewerAccountAliases.includes(post.authorAccountId);
+    if (post.authorCharacterId) return !!viewerCharacterId && post.authorCharacterId === viewerCharacterId;
+    return !!viewerHandle && socialIdentityMatches(post.authorHandle, viewerHandle);
+  }
   return socialIdentityMatches(post.author, viewerName) ||
     socialIdentityMatches(post.authorHandle, viewerHandle) ||
     discoveredIdentities.some((identity) =>
@@ -450,13 +462,18 @@ export function socialThreadActionInputText(
   action: SocialThreadActionRecord,
   existingComments: SocialReactionComment[],
   likeCount = 0,
+  characters: StorybookCharacter[] = [],
 ) {
   const actorOwnsPost =
     action.actor.trim().toLowerCase() === action.postAuthor.trim().toLowerCase() ||
     action.actorHandle.trim().toLowerCase() === action.postAuthorHandle.trim().toLowerCase();
-  const commentContext = existingComments.map(
-    (comment) => `- ${comment.from} (@${comment.handle}): ${singleLine(comment.text)}`,
-  );
+  const commentContext = existingComments.map((comment) => {
+    const matches = characters.filter((character) =>
+      accountHandleMatches(character.apps?.[action.app], comment.handle));
+    const character = matches.length === 1 ? matches[0] : undefined;
+    const account = character?.apps?.[action.app];
+    return `- ${JSON.stringify(comment.from)}; character ID: ${JSON.stringify(character?.sourceId ?? '')}; profile name: ${JSON.stringify(comment.handle)}; privacy: ${account ? account.privacyMode ? 'anonymous' : 'public' : 'unknown'}; ${JSON.stringify(comment.text)}`;
+  });
   return [
     '[SOCIAL MEDIA THREAD ACTION]',
     `App: ${socialAppNames[action.app]}`,
@@ -486,6 +503,14 @@ export function socialThreadRunContextFromInput(inputText: string): SocialThread
   const existingComments = commentsBlock
     .split('\n')
     .flatMap((line) => {
+      const combined = line.match(/^- ("(?:[^"\\]|\\.)*"); character ID: ("(?:[^"\\]|\\.)*"); profile name: ("(?:[^"\\]|\\.)*"); privacy: (?:public|anonymous|unknown); ("(?:[^"\\]|\\.)*")$/);
+      if (combined) {
+        try {
+          return [{ from: JSON.parse(combined[1]) as string, handle: JSON.parse(combined[3]) as string, text: JSON.parse(combined[4]) as string }];
+        } catch {
+          return [];
+        }
+      }
       const match = line.match(/^-\s*(.*?)\s*\(@([^()]+)\):\s*(.+)$/);
       if (!match?.[1] || !match[2] || !match[3]) {
         return [];
@@ -506,7 +531,10 @@ export function socialReactionsHistoryText(reactions: SocialReactionsRecord, pos
   const base = `[${socialAppNames[reactions.app]}] Reactions to @${post.authorHandle}'s post (${post.postId}): ${reactions.likes} like${
     reactions.likes === 1 ? '' : 's'
   }`;
-  return comments ? `${base}. Comments: ${comments}` : `${base}.`;
+  const moderation = reactions.app === 'fotogram' && reactions.moderation?.blocked
+    ? ` Post blocked for ${reactions.moderation.reason ? socialModerationReasons[reactions.moderation.reason] : 'a terms-of-service violation'}. Only the author can view it; comments below were received before removal.`
+    : '';
+  return comments ? `${base}.${moderation} Comments: ${comments}` : `${base}.${moderation}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -752,6 +780,14 @@ export function parseSocialReactionsOutput(
       comments.push({ from, handle, text: entry.text.trim() });
     });
   }
+  let moderation: SocialPostModeration | undefined;
+  if (target.app === 'fotogram' && payload.moderation !== undefined) {
+    if (isSocialPostModeration(payload.moderation)) {
+      moderation = { blocked: payload.moderation.blocked, reason: payload.moderation.reason };
+    } else {
+      warnings.push('Invalid Fotogram moderation: expected blocked and a supported reason for blocked posts.');
+    }
+  }
   const summaryValue = isRecord(parsed) ? parsed.summary ?? parsed.historySummary : undefined;
   const compactSummary = typeof summaryValue === 'string'
     ? compactHistorySummary(summaryValue)
@@ -765,6 +801,7 @@ export function parseSocialReactionsOutput(
       app: target.app,
       postId: target.postId,
       likes: likes ?? 0,
+      ...(moderation ? { moderation } : {}),
       comments,
       append: target.append || undefined,
     },
@@ -817,6 +854,7 @@ export function socialReactionsByPostId(app: SocialAppKind, messages: MessageRec
         byPostId[next.postId] = {
           app,
           postId: next.postId,
+          moderation: current.moderation?.blocked ? current.moderation : next.moderation ?? current.moderation,
           likes: current.likes + next.likes,
           comments: [...current.comments, ...next.comments],
         };
@@ -832,11 +870,12 @@ export function socialPostEngagementByPostId(
   likesByAccount: Record<string, string[]> = {},
 ) {
   const reactionsByPostId = socialReactionsByPostId(app, messages);
-  const engagementByPostId: Record<string, { likeCount: number; commentCount: number }> =
+  const engagementByPostId: Record<string, { likeCount: number; commentCount: number; moderation?: SocialPostModeration }> =
     Object.fromEntries(
       Object.entries(reactionsByPostId).map(([postId, reactions]) => [
         postId,
         {
+          ...(app === 'fotogram' && reactions.moderation ? { moderation: reactions.moderation } : {}),
           likeCount: reactions.likes,
           commentCount: reactions.comments.length,
         },

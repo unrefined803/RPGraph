@@ -1,7 +1,9 @@
+import { isSocialPostModeration } from '../chat/socialModeration';
 import { isMatchMeAction } from '../chat/matchMeActions';
 import { validCharacterColorSlots } from '../chat/characterColors';
 import { validAccountLinkBindings } from '../chat/accountLinks';
 import { parseNpcParticipantSnapshots } from '../characters/npcParticipants';
+import { parseImportedNpcSnapshots } from '../characters/externalNpcs';
 import { createMediaPoolReader } from './mediaPool';
 import { isMatchMeMatch, matchMePairId } from '../chat/matchMe';
 import type { RpgraphSessionV2, TimelineEntry } from './types';
@@ -135,6 +137,7 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       (value.socialReactions.app === 'fotogram' || value.socialReactions.app === 'onlyfriends') &&
       typeof value.socialReactions.postId === 'string' &&
       typeof value.socialReactions.likes === 'number' &&
+      (value.socialReactions.moderation === undefined || isSocialPostModeration(value.socialReactions.moderation)) &&
       (value.socialReactions.append === undefined || typeof value.socialReactions.append === 'boolean') &&
       Array.isArray(value.socialReactions.comments) &&
       value.socialReactions.comments.every((comment) =>
@@ -504,6 +507,16 @@ function isWorkflowVariableRecord(value: unknown) {
   );
 }
 
+function hasValidImportedNpcs(runtime: Record<string, unknown>, media: unknown) {
+  if (runtime.importedNpcsJson === undefined) return true;
+  if (typeof runtime.importedNpcsJson !== 'string') return false;
+  try {
+    const reader = createMediaPoolReader(media as Record<string, string> | undefined);
+    parseImportedNpcSnapshots(JSON.parse(reader.rehydratedStorybookJson(runtime.importedNpcsJson)));
+    return true;
+  } catch { return false; }
+}
+
 function hasValidNpcParticipants(runtime: Record<string, unknown>, media: unknown) {
   if (runtime.npcParticipantsJson === undefined) return true;
   if (typeof runtime.npcParticipantsJson !== 'string') return false;
@@ -558,6 +571,7 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     isRecord(value.runtime.current) &&
     (value.runtime.current.characterColorSlots === undefined || validCharacterColorSlots(value.runtime.current.characterColorSlots)) &&
     hasValidNpcParticipants(value.runtime.current, value.entities.mediaData) &&
+    hasValidImportedNpcs(value.runtime.current, value.entities.mediaData) &&
     isWorkflowVariableRecord(value.runtime.current.workflowVariables) &&
     isNodeRuntimeRecord(value.runtime.current.nodes) &&
     Array.isArray(value.runtime.undo) &&

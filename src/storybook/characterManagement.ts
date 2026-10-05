@@ -30,6 +30,7 @@ export function storybookWithoutCharacter(
           ([accountKey]) => !accountKey.startsWith(`${characterId}/`),
         ),
       ),
+      onlyFriendsPurchases: withoutRecordKey(storybook.openingHistory.onlyFriendsPurchases, characterId),
       notes: withoutRecordKey(storybook.openingHistory.notes, characterId),
       chatGpdChats: withoutRecordKey(storybook.openingHistory.chatGpdChats, characterId),
     },

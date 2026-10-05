@@ -169,3 +169,71 @@ it('saves a separate dating identity from the phone without renaming the charact
   expect(saved.social!.plotTwist).toMatchObject({ name: 'Dating Persona', age: 29, gender: 'nonbinary' });
   expect(saved.images).toEqual(original.images);
 });
+
+function uploadHarness() {
+  const context = harness();
+  context.options.updateRuntimeNode.mockImplementation((id, patch) => {
+    const node = context.options.nodesRef.current.find((entry) => entry.id === id)!;
+    node.data = { ...node.data, ...patch };
+  });
+  const gallery = () => parseRpStorybookJson(context.options.nodesRef.current[0].data.storybookJson!).characters[0].images;
+  const upload = { id: 'computer-upload', name: 'upload.jpg', mimeType: 'image/jpeg', size: 3,
+    dataUrl: 'data:image/jpeg;base64,bmV3' };
+  return { ...context, gallery, upload };
+}
+
+it.each(['fotogram', 'onlyfriends'] as const)('removes a new %s computer upload on undo, including after regeneration', (app) => {
+  const { api, owner, gallery, upload, book } = uploadHarness();
+  const saved = api.ensureImagesForCharacter(owner, [upload], '', () => '', { turnUpload: true })![0];
+  expect(gallery().find((image) => image.id === saved.id)?.turnUpload).toBe(true);
+  const post: MessageRecord = { id: 10, role: 'output', originalText: '', socialPost: {
+    app, postId: 'post-1', author: owner.name, authorHandle: 'owner', imageId: saved.id, caption: '',
+  } };
+  // Ordinary pruning and regeneration must preserve the source pixels.
+  api.pruneExternalImagesForMessages([post]);
+  const regenerated = { ...post, id: 20 };
+  api.pruneExternalImagesForMessages([regenerated], [post]);
+  expect(gallery().some((image) => image.id === saved.id)).toBe(true);
+  api.pruneExternalImagesForMessages([], [regenerated]);
+  expect(gallery()).toEqual(book.characters[0].images);
+});
+
+it('preserves existing gallery images when an identical computer upload is undone', () => {
+  const { api, owner, book, gallery } = uploadHarness();
+  const original = book.characters[0].images[0];
+  const saved = api.ensureImagesForCharacter(owner, [chatAttachmentFromStorybookImage(original)], '', () => '',
+    { turnUpload: true })![0];
+  expect(gallery().find((image) => image.id === saved.id)?.turnUpload).toBeUndefined();
+  api.pruneExternalImagesForMessages([], [{ id: 1, role: 'output', originalText: '', socialPost: {
+    app: 'fotogram', postId: 'post-1', author: owner.name, authorHandle: 'owner', imageId: saved.id, caption: '',
+  } }]);
+  expect(gallery()).toEqual(book.characters[0].images);
+});
+
+it('keeps unsubmitted uploads and uploads referenced by surviving turns', () => {
+  const { api, owner, gallery, upload } = uploadHarness();
+  const saved = api.ensureImagesForCharacter(owner, [upload], '', () => '', { turnUpload: true })![0];
+  api.pruneExternalImagesForMessages([]);
+  expect(gallery().some((image) => image.id === saved.id)).toBe(true);
+  const send: MessageRecord = { id: 1, role: 'user', originalText: '', phoneFrom: owner.name,
+    phoneTo: 'Recipient', phoneImageIds: [saved.id] };
+  api.pruneExternalImagesForMessages([send], [{ ...send, id: 2 }]);
+  expect(gallery().some((image) => image.id === saved.id)).toBe(true);
+});
+
+it('removes a WhatsUp computer upload from both sender and recipient on undo', () => {
+  const { api, options, owner, book, upload } = uploadHarness();
+  const recipient = { ...structuredClone(book.characters[0]), id: 'recipient', name: 'Recipient',
+    images: [], apps: {}, social: undefined, profileImage: undefined };
+  options.nodesRef.current[0].data.storybookJson = rpStorybookJsonText({ ...book, characters: [book.characters[0], recipient] });
+  const saved = api.ensurePhoneImages(owner.name, recipient.name, [upload])![0];
+  const send: MessageRecord = { id: 1, role: 'user', originalText: '', phoneFrom: owner.name,
+    phoneTo: recipient.name, phoneImageIds: [saved.id], imageAttachments: [saved] };
+  api.pruneExternalImagesForMessages([send]);
+  const albums = () => parseRpStorybookJson(options.nodesRef.current[0].data.storybookJson!).characters;
+  expect(albums()[0].images.find((image) => image.id === saved.id)?.turnUpload).toBe(true);
+  expect(albums()[1].images).toHaveLength(1);
+  api.pruneExternalImagesForMessages([], [send]);
+  expect(albums()[0].images).toEqual(book.characters[0].images);
+  expect(albums()[1].images).toEqual([]);
+});

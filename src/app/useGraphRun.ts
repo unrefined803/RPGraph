@@ -1,6 +1,7 @@
+import { socialReactionsByPostId } from '../chat/socialMedia';
 import { askUserWithTranslation } from './askUserTranslation';
 import type { HighlightingSpeakerContext } from '../nodes/output/speakerSelection';
-import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCommandBinding } from '../chat/socialPostCommands';
+import { resolveSocialPostCommand, resolveSocialPostReference, socialThreadImageAttachments, type SocialPostCommandBinding } from '../chat/socialPostCommands';
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
@@ -44,6 +45,13 @@ import { createTurnTraceRecorder, type TurnTraceEvent, type TurnTraceNodeExecuti
 import type { useTurnTraceState } from './useTurnTraceState';
 import type { useTurnRecordState, TurnReplacement } from '../chat/useTurnRecordState';
 import type { useNextTurnReferenceImages } from '../chat/useNextTurnReferenceImages';
+import {
+  phoneReferenceImageScope,
+  rpReferenceImageScope,
+  socialDirectReferenceImageScope,
+  socialReferenceImageScope,
+  unknownConversationReferenceImageScope,
+} from '../chat/referenceImages';
 import type { usePhoneReply } from '../chat/usePhoneReply';
 import {
   applyTimeCommandsToWorkflowNodes,
@@ -61,6 +69,7 @@ import {
   type ParsedIncomingSocialDirectMessage,
   type ParsedPhoneImageAction,
   type ParsedPhoneMessage,
+  normalizePhoneName,
 } from '../chat/phoneMessages';
 import { captureTurnRuntime } from '../chat/turns';
 import { createRpImageOutputStream, parseRpOutput } from '../chat/rpOutput';
@@ -86,10 +95,10 @@ import {
   type ParsedOutputActions,
 } from '../chat/outputActions';
 import {
-  bankingBalanceForCharacter,
   bankTransferHistoryText,
   bankTransferPartyMatches,
 } from '../chat/bankTransfers';
+import { onlyFriendsWalletBalance, onlyFriendsWalletName } from '../chat/onlyFriendsWallet';
 import {
   parseSocialDirectMessageOutput,
   socialAppNames,
@@ -481,6 +490,18 @@ export function useGraphRun(options: UseGraphRunOptions) {
     socialDirectMessage?: SocialDirectMessageRecord,
   ) {
     if (activeRun.current) return false;
+    if (socialThreadAction?.app === 'fotogram' &&
+      socialReactionsByPostId('fotogram', historyMessages)[socialThreadAction.postId]?.moderation?.blocked) {
+      notifySystem('warning', 'This Fotogram post was blocked. Its comment thread is read-only.');
+      return false;
+    }
+    if (socialThreadAction) {
+      // Shared by initial comment loading, load-more, replies, and regeneration.
+      // Use the same wired image path as new posts; prompt execution handles vision.
+      const postImages = socialThreadImageAttachments(socialThreadAction, appCharacters(), historyMessages);
+      const postImageIds = new Set(postImages.map((image) => image.id));
+      inputImages = [...postImages, ...inputImages.filter((image) => !postImageIds.has(image.id))];
+    }
     if (socialDirectMessage?.app === 'matchme' && !matchMeMessageAllowed(socialDirectMessage,
       matchMeState(appCharacters(), historyMessages))) {
       notifySystem('warning', 'MatchMe message blocked: the accounts need an active match.');
@@ -517,7 +538,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         ? historyMessages.find((message) => message.id === existingInputMessage.replyToMessageId)
         : undefined
     );
-    const runReferenceImageOptions = referenceImageOptionsForRun(phoneReplyTo);
+    const selectedReferenceImageOptions = referenceImageOptionsForRun(phoneReplyTo);
     const inputCharacter = socialDirectMessage && inputCharacterOverride
       ? inputCharacterOverride
       : existingInputMessage?.speakerName
@@ -1040,6 +1061,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               : socialThreadAction,
             socialThreadContext.existingComments,
             socialThreadContext.likeCount,
+            appCharacters(),
           );
         } else {
           inputText = await translateSocialText(displayText);
@@ -1095,6 +1117,21 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : inputCharacter!.name);
     const phoneRecipientName =
       inputPhoneParticipants?.to.name ?? existingInputMessage?.phoneTo ?? phoneRecipientCharacterOverride?.name ?? selectedPhoneContact?.character.name;
+    // Automatic reference images follow the conversation of this run, so a
+    // picture from another chat or app is not re-sent after switching.
+    const socialRunApp = socialDirectMessage ? undefined : (socialPost ?? socialThreadAction)?.app;
+    const runReferenceImageOptions = {
+      ...selectedReferenceImageOptions,
+      scope: socialDirectMessage
+        ? socialDirectReferenceImageScope(socialDirectMessage)
+        : socialRunApp
+          ? socialReferenceImageScope(socialRunApp)
+          : messageFormat === socialMediaMessageFormat
+            ? unknownConversationReferenceImageScope
+            : isPhoneMessage
+              ? phoneReferenceImageScope(inputCharacterName, phoneRecipientName ?? '')
+              : rpReferenceImageScope,
+    };
     const rawSentPhoneImages = existingInputMessage?.imageAttachments ?? inputImages;
     const sentPhoneImages =
       isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length
@@ -1264,6 +1301,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
           handle: socialPost.authorHandle,
         } : undefined, socialThreadAction ? {
           authorHandle: socialThreadAction.postAuthorHandle,
+          loadMore: socialThreadAction.action !== 'comment',
+          actorHandle: socialThreadAction.actorHandle,
           participantHandles: (socialThreadContext ?? socialThreadRunContextFromInput(originalInput)).existingComments.map((comment) => comment.handle),
         } : undefined)
       : undefined;
@@ -2571,12 +2610,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
             reportRunWarning('A bank transfer to the same account was ignored.', outputNodeTraceInfo);
             continue;
           }
+          // Bank accounts may go negative, so transfers are always booked on
+          // both sides. Only the OnlyFriends wallet cannot pay out more than it holds.
           if (
-            sender &&
-            canonicalTransfer.amount > bankingBalanceForCharacter(sender, messagesRef.current)
+            recipient &&
+            normalizePhoneName(canonicalTransfer.from) === normalizePhoneName(onlyFriendsWalletName) &&
+            canonicalTransfer.amount > onlyFriendsWalletBalance(recipient, messagesRef.current)
           ) {
             reportRunWarning(
-              `Bank transfer from "${sender.name}" was ignored because the account balance is too low.`,
+              `OnlyFriends withdrawal for "${recipient.name}" was ignored because the wallet balance is too low.`,
               outputNodeTraceInfo,
             );
             continue;
@@ -2650,6 +2692,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
             postComment.app, postComment.postId, postBindings,
             postsWithInitialContent(appCharacters(), messagesRef.current),
           );
+          if (targetPost?.app === 'fotogram' &&
+            socialReactionsByPostId('fotogram', messagesRef.current)[targetPost.postId]?.moderation?.blocked) {
+            reportRunWarning('Fotogram comment ignored: this post was blocked.', outputNodeTraceInfo);
+            continue;
+          }
           if (!targetPost) {
             reportRunWarning(
               `${socialAppNames[postComment.app]} post comment was ignored because post "${postComment.postId}" is missing, failed, or ambiguous.`,

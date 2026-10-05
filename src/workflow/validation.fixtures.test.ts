@@ -431,7 +431,7 @@ export function verifyWorkflowValidationFixtures() {
     onlyFriendsWalletBalance(
       bankingCharacter,
       onlyFriendsWalletMessages,
-      { 'onlyfriends-post-1': 9.99 },
+      { [bankingCharacter.id]: { 'onlyfriends-post-1': 9.99 } },
     ) === 75.51,
     'OnlyFriends balance must combine bank funding, withdrawals, received DM tips, and internal post purchases',
   );
@@ -447,16 +447,16 @@ export function verifyWorkflowValidationFixtures() {
   };
   assertFixture(
     onlyFriendsWalletBalance(bankingCharacter, [...onlyFriendsWalletMessages, outgoingTip],
-      { 'onlyfriends-post-1': 9.99 }) === 50.51,
+      { [bankingCharacter.id]: { 'onlyfriends-post-1': 9.99 } }) === 50.51,
     'Sent tips must debit the sender wallet alongside purchases and received tips',
   );
   assertFixture(
-    onlyFriendsWalletBalance(bankingCharacter, [outgoingTip], undefined) === -25,
-    'Outgoing tips must be accounted for from persisted message history',
+    onlyFriendsWalletBalance(bankingCharacter, [outgoingTip], undefined) === 0,
+    'An uncovered outgoing tip must not push the OnlyFriends wallet below zero',
   );
   assertFixture(
     onlyFriendsWalletBalance(bankingCharacter, onlyFriendsWalletMessages,
-      { 'onlyfriends-post-1': 9.99 }) === 75.51,
+      { [bankingCharacter.id]: { 'onlyfriends-post-1': 9.99 } }) === 75.51,
     'Removing a sent tip from history must restore its wallet debit',
   );
   assertFixture(
@@ -485,7 +485,7 @@ export function verifyWorkflowValidationFixtures() {
     socialThreadInput.includes("Post ownership: actor's own post") &&
       socialThreadInput.includes('Likes: 12') &&
       socialThreadInput.includes('Comment count: 1') &&
-      socialThreadInput.includes('Background Friend (@background.friend): Looks great!') &&
+      socialThreadInput.includes('"Background Friend"; character ID: ""; profile name: "background.friend"; privacy: unknown; "Looks great!"') &&
       socialPostTextFromInput('[SOCIAL MEDIA POST]\nPost text: Translated caption') ===
         'Translated caption' &&
       socialThreadCommentTextFromInput(
@@ -1946,7 +1946,12 @@ export function verifyWorkflowValidationFixtures() {
     const prompts = promptSwitch?.data.llmPromptSwitchPromptAftersByOutput?.[socialIndex] ?? [];
     assertFixture(
       prompts.length >= 4 && prompts.slice(0, 4).every((prompt) => {
-        return prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') &&
+        return (prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') || (
+          prompt.includes('Character discovery is required before generating reactions:') &&
+          prompt.includes('@action:Ask character information') &&
+          prompt.includes('[SOCIAL REACTION DISCOVERY]') &&
+          prompt.includes('Up to two contact comments plus three additional-person comments')
+        )) &&
           prompt.includes('Never invent an account') &&
           prompt.includes('If no eligible participant exists') &&
           prompt.includes('Following is optional and is not required') &&
@@ -1974,7 +1979,12 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     bundledSocialPrompts.slice(0, 4).length === 4 &&
       bundledSocialPrompts.slice(0, 4).every((prompt) =>
-        prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') &&
+        (prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') || (
+          prompt.includes('Character discovery is required before generating reactions:') &&
+          prompt.includes('@action:Ask character information') &&
+          prompt.includes('[SOCIAL REACTION DISCOVERY]') &&
+          prompt.includes('Up to two contact comments plus three additional-person comments')
+        )) &&
         prompt.includes('Never invent an account')
       ) &&
       bundledSocialPrompts[0]?.includes('Following is optional and is not required') &&
@@ -2337,6 +2347,7 @@ export function verifyWorkflowValidationFixtures() {
           }],
           voiceMedia: {},
           socialLikes: { 'alex/fotogram': ['post-1'] },
+          onlyFriendsPurchases: {},
           dynamicSocialUsers: {},
           socialConnections: {},
           notes: {},

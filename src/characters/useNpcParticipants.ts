@@ -1,3 +1,4 @@
+import { captureStoryNpcParticipants, migrateLegacyNpcImports } from './storyNpcParticipants';
 import { appCharactersFromRegistry } from './appRuntime';
 import { createNpcRuntimeCache } from './npcRuntimeCache';
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
@@ -17,6 +18,10 @@ import {
   type StorybookRegistryCandidateOptions,
 } from './npcParticipantRuntime';
 import type { Character } from './character';
+import {
+  createActiveStorybookContextCache, createExternalNpcLibrary,
+  type ImportedNpcSnapshots, type ActiveStorybookContext,
+} from './externalNpcs';
 
 const emptyLibraryEntries: NonNullable<NpcLibrarySnapshot>['entries'] = [];
 
@@ -25,7 +30,19 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   const [, setRevision] = useState(0);
   const snapshotsRef = useRef<NpcParticipantSnapshots>({});
   const [runtimeCache] = useState(createNpcRuntimeCache);
-  const runtime = () => runtimeCache(nodesRef.current, library?.entries ?? emptyLibraryEntries, snapshotsRef.current);
+  const [externalLibrary] = useState(createExternalNpcLibrary);
+  const [activeContext] = useState(createActiveStorybookContextCache);
+  const [noImports] = useState<ImportedNpcSnapshots>({});
+  const contextCache = useRef<{ active: ActiveStorybookContext; participants: NpcParticipantSnapshots; value: ActiveStorybookContext } | undefined>(undefined);
+  const context = () => {
+    const active = activeContext(nodesRef.current);
+    if (contextCache.current?.active === active && contextCache.current.participants === snapshotsRef.current) return contextCache.current.value;
+    const value = { ...active, characterIds: new Set([...active.characterIds, ...Object.keys(snapshotsRef.current)]) };
+    contextCache.current = { active, participants: snapshotsRef.current, value };
+    return value;
+  };
+  const effectiveLibrary = () => externalLibrary(library, noImports, context());
+  const runtime = () => runtimeCache(nodesRef.current, effectiveLibrary()?.entries ?? emptyLibraryEntries, snapshotsRef.current);
   const entries = () => runtime().entries;
   const registryForStorybook = (nodeId: string, characters: Character[], options?: StorybookRegistryCandidateOptions) =>
     candidateStorybookRegistry(entries(), snapshotsRef.current, nodeId, characters, options);
@@ -46,6 +63,15 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   };
   return {
     current: () => snapshotsRef.current,
+    /** The library with external Storybook characters prepared, pinned and filtered for the active Storybook. */
+    library: effectiveLibrary,
+    prepareLibrary: (snapshot: NpcLibrarySnapshot) => externalLibrary(snapshot, noImports, context()),
+    activeStorybookFileNames: () => activeContext(nodesRef.current).storybookFileNames,
+    // Older saves may contain the whole external library. Preserve only actual story participants.
+    restoreImports: (imports: ImportedNpcSnapshots | undefined, messages: MessageRecord[]) => {
+      snapshotsRef.current = migrateLegacyNpcImports(snapshotsRef.current, entries(), imports, messages);
+      setRevision((revision) => revision + 1);
+    },
     registry: () => runtime().registry,
     registryForStorybook,
     characters: () => runtime().characters,
@@ -63,11 +89,11 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
       commitContacts({ nodes: nodesRef.current, participants: reconcileNpcMessageContacts(snapshotsRef.current, entries(), messages) });
     },
     captureMessages: (messages: MessageRecord[]) => {
-      commitContacts(acquireMessageContacts(nodesRef.current, snapshotsRef.current, entries(), messages));
+      commitContacts(acquireMessageContacts(nodesRef.current, captureStoryNpcParticipants(snapshotsRef.current, entries(), messages), entries(), messages));
     },
     captureHistory: (messages: MessageRecord[], turns: TurnRecord[], checkpoints: TurnCheckpoint[]) => {
       const registryEntries = entries();
-      const next = acquireMessageContacts(nodesRef.current, snapshotsRef.current, registryEntries, messages);
+      const next = acquireMessageContacts(nodesRef.current, captureStoryNpcParticipants(snapshotsRef.current, registryEntries, messages), registryEntries, messages);
       const history = historicalContactCheckpoints(nodesRef.current, next.nodes, messages, turns, checkpoints,
         appCharactersFromRegistry(buildCharacterRegistry([...registryEntries, ...npcSnapshotEntries(next.participants)])));
       commitContacts({ ...next, nodes: history.nodes });

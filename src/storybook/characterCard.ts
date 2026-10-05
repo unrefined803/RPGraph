@@ -1,5 +1,4 @@
-import { createCharacterContainer } from '../characters/creator';
-import { withPublicationSnapshot } from '../characters/publications';
+import { prepareCharacterPublicationExport } from '../characters/publicationExport';
 import type { SocialPostRecord } from '../types';
 import { validateCharacterAccountDirectory } from '../characters/profiles';
 import { characterPayload, socialFromCharacterApps, validateCharacterPayload } from '../characters/character';
@@ -28,10 +27,8 @@ export type RpCharacterCard = {
 export function rpCharacterCardForCharacter(character: RpStorybookCharacter, options?: {
   includePosts?: boolean; includeReceivedImages?: boolean; posts?: SocialPostRecord[]; gallery?: RpStorybookCharacter['images'];
 }): RpCharacterCard {
-  const exported = options?.includePosts
-    ? withPublicationSnapshot(character, options.posts ?? [], options.gallery ?? character.images)
-    : structuredClone(character);
-  return createCharacterContainer(exported, options?.includePosts, options?.includeReceivedImages);
+  return prepareCharacterPublicationExport({ character, posts: options?.posts, gallery: options?.gallery,
+    includePosts: options?.includePosts, receivedImages: options?.includeReceivedImages ? 'all' : 'none' });
 }
 
 export type CharacterCardImportPlan = {

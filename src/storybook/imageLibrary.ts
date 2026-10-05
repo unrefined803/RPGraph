@@ -20,6 +20,7 @@ export type StorybookImageLibraryEnsureResult = {
 export type StorybookImageLibraryEnsureOptions = {
   receivedFrom?: string;
   imageAccess?: boolean;
+  turnUpload?: boolean;
 };
 
 export function storybookImageSourceById(
@@ -178,39 +179,45 @@ export function withChangedStorybookImageDescriptionsSynchronized(
 export function withStorybookExternalImagesPruned(
   storybook: RpStorybook,
   messages: readonly MessageRecord[],
+  removedMessages: readonly MessageRecord[] = [],
 ) {
   let removedCount = 0;
   const characters = storybook.characters.map((character) => {
-    const usedImageIds = new Set<string>();
-    const usedDataUrls = new Set<string>();
-    messages.forEach((message) => {
-      // A reference keeps an external copy only in the participating gallery.
-      const participants = [message.phoneFrom, message.phoneTo,
-        message.socialDirectMessage?.from, message.socialDirectMessage?.to,
-        message.socialPost?.author, message.speakerName];
-      if (!participants.some((name) => name && phoneNamesMatch(name, character.name))) return;
-      message.imageAttachments?.forEach((image) => {
-        const imageId = image.id.trim();
-        if (imageId) {
-          usedImageIds.add(imageId);
-        }
-        if (image.dataUrl) {
-          usedDataUrls.add(image.dataUrl);
+    function references(entries: readonly MessageRecord[]) {
+      const usedImageIds = new Set<string>();
+      const usedDataUrls = new Set<string>();
+      entries.forEach((message) => {
+        // A reference keeps an external copy only in the participating gallery.
+        const participants = [message.phoneFrom, message.phoneTo,
+          message.socialDirectMessage?.from, message.socialDirectMessage?.to,
+          message.socialPost?.author, message.speakerName];
+        if (!participants.some((name) => name && phoneNamesMatch(name, character.name))) return;
+        message.imageAttachments?.forEach((image) => {
+          const imageId = image.id.trim();
+          if (imageId) {
+            usedImageIds.add(imageId);
+          }
+          if (image.dataUrl) {
+            usedDataUrls.add(image.dataUrl);
+          }
+        });
+        message.phoneImageIds?.forEach((imageId) => {
+          const normalizedImageId = imageId.trim();
+          if (normalizedImageId) {
+            usedImageIds.add(normalizedImageId);
+          }
+        });
+        message.socialDirectMessage?.imageIds?.forEach((id) => usedImageIds.add(id.trim()));
+        // Social photo posts keep their linked Gallery image alive.
+        const socialImageId = message.socialPost?.imageId?.trim();
+        if (socialImageId) {
+          usedImageIds.add(socialImageId);
         }
       });
-      message.phoneImageIds?.forEach((imageId) => {
-        const normalizedImageId = imageId.trim();
-        if (normalizedImageId) {
-          usedImageIds.add(normalizedImageId);
-        }
-      });
-      message.socialDirectMessage?.imageIds?.forEach((id) => usedImageIds.add(id.trim()));
-      // Social photo posts keep their linked Gallery image alive.
-      const socialImageId = message.socialPost?.imageId?.trim();
-      if (socialImageId) {
-        usedImageIds.add(socialImageId);
-      }
-    });
+      return { ids: usedImageIds, dataUrls: usedDataUrls };
+    }
+    const active = references(messages);
+    const removed = references(removedMessages);
     const profileImageIds = new Set([
       character.profileImage?.imageId,
       ...Object.values(character.apps ?? {}).flatMap((account) => [
@@ -221,11 +228,12 @@ export function withStorybookExternalImagesPruned(
     ]);
     const images = character.images.filter((image) => {
       const external = !!image.receivedFrom || image.imageAccess === true;
+      const removedUpload = image.turnUpload && (removed.ids.has(image.id) || removed.dataUrls.has(image.dataUrl));
       if (
-        !external ||
+        (!external && !removedUpload) ||
         profileImageIds.has(image.id) ||
-        usedImageIds.has(image.id) ||
-        usedDataUrls.has(image.dataUrl)
+        active.ids.has(image.id) ||
+        active.dataUrls.has(image.dataUrl)
       ) {
         return true;
       }
@@ -275,6 +283,7 @@ function storybookImageFromAttachment(
     description: description.trim(),
     ...(receivedFrom ? { receivedFrom } : {}),
     ...(imageAccess ? { imageAccess: true } : {}),
+    ...(options.turnUpload ? { turnUpload: true } : {}),
   };
 }
 

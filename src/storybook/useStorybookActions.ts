@@ -48,6 +48,7 @@ import {
   type StorybookConversionResult,
 } from './conversion';
 import { rpCharacterCardForCharacter } from './characterCard';
+import { socialPostsFromTurns } from '../characters/publicationExport';
 import { storybookWithoutCharacter } from './characterManagement';
 import { storybookAssistantConversationContext } from './assistantConversation';
 import {
@@ -128,6 +129,7 @@ type UseStorybookActionsOptions = {
   }) => EffectiveCharacterRegistry;
   currentTimelineMessages: () => import('../types').MessageRecord[];
   currentSocialLikesByAccount: () => Record<string, string[]>;
+  currentOnlyFriendsPurchasesByCharacter?: () => Record<string, Record<string, number>>;
   currentDynamicSocialUsers: () => DynamicSocialUsers;
   currentSocialConnectionsByCharacter: () => SocialConnectionsByCharacter;
   currentPhoneReadState: () => PhoneReadState;
@@ -166,6 +168,7 @@ export function useStorybookActions({
   characterRegistryForStorybook,
   currentTimelineMessages,
   currentSocialLikesByAccount,
+  currentOnlyFriendsPurchasesByCharacter,
   currentDynamicSocialUsers,
   currentSocialConnectionsByCharacter,
   currentPhoneReadState,
@@ -747,6 +750,7 @@ export function useStorybookActions({
     // session UI state, not message records, so Opening History snapshots them
     // explicitly.
     const openingSocialLikes = structuredClone(currentSocialLikesByAccount());
+    const openingOnlyFriendsPurchases = structuredClone(currentOnlyFriendsPurchasesByCharacter?.() ?? {});
     const openingDynamicSocialUsers = structuredClone(currentDynamicSocialUsers());
     const openingSocialConnections = structuredClone(currentSocialConnectionsByCharacter());
     const openingNotes = structuredClone(currentPhoneNotesByCharacter());
@@ -756,6 +760,10 @@ export function useStorybookActions({
     const openingNoteCount = countRecords(openingNotes);
     const openingChatGpdChatCount = countRecords(openingChatGpdChats);
     const openingSocialLikeCount = countRecords(openingSocialLikes);
+    const openingPurchaseCount = Object.values(openingOnlyFriendsPurchases).reduce(
+      (count, purchases) => count + Object.keys(purchases).length,
+      0,
+    );
     const openingSocialConnectionCount = Object.values(openingSocialConnections).reduce(
       (count, apps) => count + (apps.fotogram?.length ?? 0) + (apps.onlyfriends?.length ?? 0),
       0,
@@ -770,6 +778,9 @@ export function useStorybookActions({
         : '',
       openingSocialConnectionCount
         ? `${openingSocialConnectionCount} added social user${openingSocialConnectionCount === 1 ? '' : 's'}`
+        : '',
+      openingPurchaseCount
+        ? `${openingPurchaseCount} OnlyFriends purchase${openingPurchaseCount === 1 ? '' : 's'}`
         : '',
     ].filter(Boolean);
     const phoneAppSuffix = phoneAppParts.length ? ` Includes ${phoneAppParts.join(', ')}.` : '';
@@ -789,6 +800,7 @@ export function useStorybookActions({
         events: normalizedOpeningEvents,
         voiceMedia: historyMedia.voiceMedia,
         socialLikes: openingSocialLikes,
+        onlyFriendsPurchases: openingOnlyFriendsPurchases,
         dynamicSocialUsers: openingDynamicSocialUsers,
         socialConnections: openingSocialConnections,
         notes: openingNotes,
@@ -894,8 +906,7 @@ export function useStorybookActions({
         updateRuntimeNode(nodeId, { storybookStatus: 'Export failed: character not found.' });
         return;
       }
-      const posts = [...storybook.openingHistory.turns, ...turnsRef.current].flatMap((turn) =>
-        [...turn.input.messages, ...turn.output.messages].flatMap((message) => message.socialPost ? [message.socialPost] : []));
+      const posts = socialPostsFromTurns([...storybook.openingHistory.turns, ...turnsRef.current]);
       const createCard = (includePosts: boolean, includeReceivedImages: boolean) =>
         rpCharacterCardForCharacter(character, { includePosts, includeReceivedImages, posts,
           gallery: storybook.characters.flatMap((entry) => entry.images) });

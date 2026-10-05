@@ -405,12 +405,12 @@ export function useStorybookPhoneImages({
     notifySystem('info', `Changed caption update for ${normalizedImageId}.`);
   }
 
-  function pruneExternalImagesForMessages(activeMessages = messagesRef.current) {
+  function pruneExternalImagesForMessages(activeMessages = messagesRef.current, removedMessages: readonly MessageRecord[] = []) {
     const previousNpcImages: Array<{ id: string; images: RpStorybook['characters'][number]['images'] }> = [];
     for (const entry of currentCharacterRegistry().characters) {
       if (entry.provenance.tier !== 'snapshot' || !updateNpcImages) continue;
       const result = withStorybookExternalImagesPruned(
-        { ...emptyRpStorybook, characters: [entry.character] }, activeMessages,
+        { ...emptyRpStorybook, characters: [entry.character] }, activeMessages, removedMessages,
       );
       if (result.removedCount) {
         previousNpcImages.push({ id: entry.character.id, images: entry.character.images });
@@ -422,13 +422,13 @@ export function useStorybookPhoneImages({
         return;
       }
       const storybook = parseRpStorybookJson(node.data.storybookJson);
-      const result = withStorybookExternalImagesPruned(storybook, activeMessages);
+      const result = withStorybookExternalImagesPruned(storybook, activeMessages, removedMessages);
       if (result.removedCount === 0) {
         return;
       }
       updateRuntimeNode(node.id, {
         storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: `Removed ${result.removedCount} inactive received image${result.removedCount === 1 ? '' : 's'}.`,
+        storybookStatus: `Removed ${result.removedCount} inactive timeline image${result.removedCount === 1 ? '' : 's'}.`,
       });
     });
     return () => previousNpcImages.forEach(({ id, images }) => updateNpcImages?.(id, images));
@@ -487,7 +487,7 @@ export function useStorybookPhoneImages({
             addedCount > 0
               ? `Added ${addedCount} phone image${addedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}${senderNeedsImageAccess ? ` from ${sourceOwnerName}` : ''}.`
               : `Updated ${updatedCount} phone image description${updatedCount === 1 ? '' : 's'} for ${sender?.name ?? 'Storybook character'}.`,
-          senderNeedsImageAccess ? { receivedFrom: sourceOwnerName } : undefined,
+          senderNeedsImageAccess ? { receivedFrom: sourceOwnerName } : { turnUpload: true },
         );
     const ensuredAttachments = senderAttachments?.length ? senderAttachments : images;
     addImagesToRecipientStorybook(fromName, toName, ensuredAttachments, description);

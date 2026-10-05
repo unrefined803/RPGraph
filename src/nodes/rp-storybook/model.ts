@@ -39,6 +39,8 @@ export type RpStorybookCharacterImage = {
   description: string;
   receivedFrom?: string;
   imageAccess?: true;
+  /** Imported for a timeline action rather than authored in the gallery. */
+  turnUpload?: true;
 };
 
 export type RpStorybookCharacterProfileImage = {
@@ -168,6 +170,8 @@ export type RpStorybook = {
     voiceMedia: StorybookVoiceMedia;
     /** Liked post ids per "characterId/app" account key, imported with the session. */
     socialLikes: Record<string, string[]>;
+    /** Unlocked OnlyFriends post prices per buyer character id, part of the money ledger. */
+    onlyFriendsPurchases: Record<string, Record<string, number>>;
     /** Dynamic social identities imported from an RP session. */
     dynamicSocialUsers: DynamicSocialUsers;
     /** Added social users per player character and app. */
@@ -363,6 +367,7 @@ export const emptyRpStorybook: RpStorybook = {
     events: [],
     voiceMedia: {},
     socialLikes: {},
+    onlyFriendsPurchases: {},
     dynamicSocialUsers: {},
     socialConnections: {},
     notes: {},
@@ -506,6 +511,7 @@ function normalizeCharacterImages(
       description: stringValue(image.description),
       ...(receivedFrom ? { receivedFrom } : {}),
       ...(imageAccess ? { imageAccess: true } : {}),
+      ...(image.turnUpload === true ? { turnUpload: true } : {}),
     });
   });
   return normalized;
@@ -818,6 +824,18 @@ function normalizeOpeningHistorySocialLikes(value: unknown): Record<string, stri
   );
 }
 
+function normalizeOpeningHistoryOnlyFriendsPurchases(value: unknown): Record<string, Record<string, number>> {
+  return Object.fromEntries(
+    Object.entries(recordValue(value)).flatMap(([characterId, purchases]) => {
+      const prices = Object.entries(recordValue(purchases)).filter(
+        (entry): entry is [string, number] =>
+          !!entry[0].trim() && typeof entry[1] === 'number' && Number.isFinite(entry[1]) && entry[1] >= 0,
+      );
+      return characterId.trim() && prices.length ? [[characterId, Object.fromEntries(prices)]] : [];
+    }),
+  );
+}
+
 function normalizeOpeningHistoryTurn(value: unknown, index: number): TurnRecord | undefined {
   const turn = recordValue(value);
   const input = recordValue(turn.input);
@@ -965,6 +983,7 @@ export function normalizeRpStorybook(value: unknown): RpStorybook {
         .filter((event): event is RpAppointment => !!event),
       voiceMedia: normalizedOpeningHistoryMedia.voiceMedia,
       socialLikes: normalizeOpeningHistorySocialLikes(openingHistory.socialLikes),
+      onlyFriendsPurchases: normalizeOpeningHistoryOnlyFriendsPurchases(openingHistory.onlyFriendsPurchases),
       dynamicSocialUsers: normalizeDynamicSocialUsers(openingHistory.dynamicSocialUsers),
       socialConnections: normalizeSocialConnectionsByCharacter(openingHistory.socialConnections),
       notes: normalizePhoneNotesByCharacter(openingHistory.notes),
@@ -1608,7 +1627,7 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     'Do not return the complete storybook. Do not replace the document root. Patch only the exact fields or array entries needed for the user request.',
     'The schema example below describes field shapes, not current values. Never copy its sample names, handles, ids, or balances into existing characters:',
     `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
-    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","age":25,"gender":"woman","description":"","personality":"","speechStyle":"","hiddenAgency":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"playable":true,"relationships":[],"apps":{"whatsup":{"accountId":"character:character-id:whatsup","enabled":true,"bio":""},"fotogram":{"accountId":"character:character-id:fotogram","enabled":true,"profileName":"nova.reyes","bio":""}},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
+    '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","age":25,"gender":"woman","description":"","personality":"","speechStyle":"","hiddenAgency":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"playable":true,"relationships":[],"apps":{"whatsup":{"accountId":"character:character-id:whatsup","enabled":true,"bio":""},"fotogram":{"accountId":"character:character-id:fotogram","enabled":true,"profileName":"nova.reyes","bio":""}},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"images":[]}],"phoneContacts":{"blocked":[]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"onlyFriendsPurchases":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
     'If the user asks a question, answer it in reply and return an empty patch array.',
     'For a request to create a complete new story, work in three stages across separate replies, not one large patch. Stage 1: write title, introduction, scenario.summary, scenario.openingSituation, scenario.currentSituation and the base characters (including age and gender); use apps: {} for standard account defaults and omit agencyTags. Defer requested optional profiles and app connections to stage 2. Stage 2: configure the requested app profiles and connections, preserving the completed story and characters; still omit agencyTags. Stage 3: give each character suitable agencyTags from the catalog with one add operation per character at /characters/{index}/agencyTags. After stages 1 and 2, briefly state what was completed, summarize the pending work from the original request, and ask whether to proceed with the next stage. A yes/continue reply authorizes only that next stage; use the conversation and Current JSON to resume without recreating completed work. These stages apply to complete story creation, not targeted edits or character imports.',
     'After each completed stage with a next stage pending, append [NEXT: short description of the next phase] inside the JSON reply string, before its closing quote. Return exactly one JSON object for the current stage; never append another JSON object, a marker or other text outside it. Example: {"reply":"Base saved. [NEXT: Configure app profiles]","patch":[{"op":"replace","path":"/title","value":"New title"}]}. Describe the next phase in the user language; keep NEXT literal. The app renders this trailing marker as a Continue button. Do not emit it after the final stage, for errors or for unrelated questions. A Continue request authorizes only the described next phase.',

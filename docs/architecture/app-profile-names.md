@@ -34,7 +34,11 @@ Example:
 }
 ```
 
-UI labels use the real character name followed by `@profileName`. IDs, historical
+Account lists (the followed-accounts side panel, user search and direct-message
+headers) show the real character name followed by `@profileName`. Posts and
+comments in the Fotogram and OnlyFriends feed show exactly one name and no
+handle: the real character name, or `profileName` alone for an account in privacy
+mode. IDs, historical
 routing handles and account-link bindings are not rewritten when the name changes.
 Historical narrator-created users retain their recorded identity for display.
 New Fotogram and OnlyFriends comments and messages require a loaded character

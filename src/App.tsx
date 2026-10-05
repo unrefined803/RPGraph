@@ -109,6 +109,12 @@ import {
   type ParsedPhoneMessage,
 } from './chat/phoneMessages';
 import { useNextTurnReferenceImages } from './chat/useNextTurnReferenceImages';
+import {
+  fixedReferenceImageOptions,
+  phoneReferenceImageScope,
+  rpReferenceImageScope,
+  unknownConversationReferenceImageScope,
+} from './chat/referenceImages';
 import { shieldTranslationEmoji, restoreTranslationEmoji } from './chat/translationEmojiShield';
 import { findOutputActionPlayer, type OutputActionContextCapacityRequest } from './chat/outputActions';
 import {
@@ -212,6 +218,7 @@ import {
   openingHistoryDynamicSocialUsersFromNodes,
   openingHistoryNotesFromNodes,
   openingHistorySocialConnectionsFromNodes,
+  openingHistoryOnlyFriendsPurchasesFromNodes,
   openingHistorySocialLikesFromNodes,
   openingHistoryTurnsFromNodes,
   openingHistoryReadStateFromNodes,
@@ -764,12 +771,6 @@ function App() {
     setRpDateTimeFormat,
     rpWeekdayLanguage,
     setRpWeekdayLanguage,
-    showReferenceImagesInContext,
-    setShowReferenceImagesInContext,
-    referenceImageTurnLookback,
-    setReferenceImageTurnLookback,
-    maxReferenceImages,
-    setMaxReferenceImages,
     chatPanelWidth: storedChatPanelWidth,
     setChatPanelWidth: setStoredChatPanelWidth,
     bigScreenPanelWidth: storedBigScreenPanelWidth,
@@ -846,12 +847,8 @@ function App() {
     [nodeHasVision, nodeViewNodes],
   );
   const referenceImageOptions = useMemo(
-    () => ({
-      enabled: showReferenceImagesInContext && imageUploadVisionEnabled,
-      turnLookback: referenceImageTurnLookback,
-      maxImages: maxReferenceImages,
-    }),
-    [imageUploadVisionEnabled, showReferenceImagesInContext, referenceImageTurnLookback, maxReferenceImages],
+    () => ({ ...fixedReferenceImageOptions, enabled: imageUploadVisionEnabled }),
+    [imageUploadVisionEnabled],
   );
   const {
     definitions: settingsValueDefinitions,
@@ -958,6 +955,13 @@ function App() {
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot, setNodes);
+  // External sources are selected per active Storybook; prepared, RP-pinned entries come from the participants runtime.
+  const effectiveNpcLibrary = npcParticipants.library();
+  const activeStorybookFileNamesKey = npcParticipants.activeStorybookFileNames().join('\u0000');
+  const setNpcLibraryActiveStorybooks = npcLibrary.setActiveStorybooks;
+  useEffect(() => {
+    setNpcLibraryActiveStorybooks(activeStorybookFileNamesKey ? activeStorybookFileNamesKey.split('\u0000') : []);
+  }, [activeStorybookFileNamesKey, setNpcLibraryActiveStorybooks]);
   useEffect(() => { markUiEvent('run.state', { isRunning }); }, [isRunning]);
   const lifecycleRunningRef = useRef(isRunning);
   useEffect(() => { lifecycleRunningRef.current = isRunning; }, [isRunning]);
@@ -1219,6 +1223,17 @@ function App() {
     () => storybookImageIdsUsedByMessages(messages),
     [messages],
   );
+  // The preview of attached reference images follows the open conversation,
+  // matching the scope the next run in this view will use.
+  const referenceImageScope = chatPanelView !== 'phone'
+    ? rpReferenceImageScope
+    : phoneScreen === 'whatsup' && viewedPhoneCharacter && selectedPhoneContact
+      ? phoneReferenceImageScope(viewedPhoneCharacter.name, selectedPhoneContact.character.name)
+      : unknownConversationReferenceImageScope;
+  const scopedReferenceImageOptions = useMemo(
+    () => ({ ...referenceImageOptions, scope: referenceImageScope }),
+    [referenceImageOptions, referenceImageScope],
+  );
   const {
     contextualImageIds: contextualReferenceImageIds,
     selectedImageIds: selectedReferenceImageIds,
@@ -1230,7 +1245,7 @@ function App() {
   } = useNextTurnReferenceImages({
     messages,
     nodes: nodeViewNodes,
-    options: referenceImageOptions,
+    options: scopedReferenceImageOptions,
     replyToMessage: phoneReplyToMessage,
   });
   const pendingViewport = useRef<WorkflowFile['viewport']>(undefined);
@@ -1730,9 +1745,12 @@ function App() {
     currentNpcParticipants: npcParticipants.current,
     restoreNpcParticipants: npcParticipants.restore,
     commitLifecycleNodes: (nextNodes) => commitNodes(nextNodes),
-    currentLibraryEntries: () => npcLibrary.snapshot?.entries ?? [],
-    currentLibraryFiles: () => npcLibrary.snapshot?.files ?? [],
-    reloadLibrary: () => npcLibrary.reload(),
+    currentLibraryEntries: () => npcParticipants.library()?.entries ?? [],
+    currentLibraryFiles: () => npcParticipants.library()?.files ?? [],
+    reloadLibrary: async () => {
+      const snapshot = await npcLibrary.reload();
+      return snapshot ? npcParticipants.prepareLibrary(snapshot) ?? undefined : undefined;
+    },
     workspacePassword: () => workspacePasswordRef.current,
     preferredNpcDestination: () => getAccountPassword() ? defaultCharacterExportDestination : 'npc-characters',
     setWorkspacePassword,
@@ -1755,6 +1773,7 @@ function App() {
     characterRegistryForStorybook: npcParticipants.registryForStorybook,
     currentTimelineMessages: () => messagesRef.current,
     currentSocialLikesByAccount: () => socialLikesByAccount,
+    currentOnlyFriendsPurchasesByCharacter: () => onlyFriendsPurchasesByCharacter,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
     currentSocialConnectionsByCharacter: () => persistedSocialConnectionsByCharacter,
     currentPhoneReadState: () => ({
@@ -2771,6 +2790,19 @@ function App() {
       return merged;
     });
 
+    // Purchases are part of the money ledger, so wallets replay them with the imported turns.
+    const openingPurchases = openingHistoryOnlyFriendsPurchasesFromNodes(nextNodes);
+    setOnlyFriendsPurchasesByCharacter((current) => {
+      if (replaceCurrentChat) {
+        return openingPurchases;
+      }
+      const merged = { ...current };
+      Object.entries(openingPurchases).forEach(([characterId, purchases]) => {
+        merged[characterId] = { ...purchases, ...merged[characterId] };
+      });
+      return merged;
+    });
+
     const openingDynamicSocialUsers = openingHistoryDynamicSocialUsersFromNodes(nextNodes);
     setDynamicSocialUsers((current) =>
       replaceCurrentChat
@@ -3169,6 +3201,7 @@ function App() {
     setDisplayLanguage(sessionState.settings.displayLanguage);
     replaceWorkflowSettingsValues(sessionState.workflowVariables);
     commitNodes(loadedRuntimeNodes);
+    npcParticipants.restoreImports(sessionState.importedNpcs, loadedMessages);
     setTurnCheckpoints(npcParticipants.captureHistory(loadedMessages, loadedTurns, sessionState.turnCheckpoints));
     setActiveSessionFileName(fileName);
     setActiveSessionSavedTurn(latestSessionTurnNumber(session));
@@ -3271,6 +3304,7 @@ function App() {
     commitEdges(loadedEdges);
     if (hydrateOpeningHistory) {
       npcParticipants.restore(hydratedWorkflow.openingNpcParticipants);
+      // A new RP uses the latest available external sources.
       const openingTurns = hydratedWorkflow.openingTurns;
       const openingMessages = hydratedWorkflow.openingMessages;
       const openingCheckpoints = hydratedWorkflow.openingCheckpoints;
@@ -4427,6 +4461,7 @@ function App() {
               socialThreadAction,
               threadContext?.existingComments ?? [],
               threadContext?.likeCount ?? 0,
+              npcParticipants.characters(),
             )
           : socialDirectRunMessage
             ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages, npcParticipants.characters())
@@ -4597,7 +4632,7 @@ function App() {
     messagesRef.current = messagesRef.current.filter((message) => !removedIds.has(message.id));
     setMessages(messagesRef.current);
     applyTurnCheckpointRuntime(turn, 'before');
-    pruneStorybookExternalImagesForMessages();
+    pruneStorybookExternalImagesForMessages(messagesRef.current, flattenTurnMessages([turn]));
     setOutputActionChoicesHiddenByTurn(turn.id, false);
     removeTurnCheckpoint(turn.id);
     removeTurnTracesForTurn(turn.id);
@@ -4897,6 +4932,7 @@ function App() {
         addedCount > 0
           ? `Saved uploaded image for ${request.owner.name}.`
           : `Uploaded image already saved for ${request.owner.name}.`,
+      { turnUpload: true },
     );
     if (!savedImages?.length) {
       notifySystem('error', `Could not save the uploaded image for ${request.owner.name}.`);
@@ -4919,6 +4955,7 @@ function App() {
         request.action,
         request.existingComments,
         request.likeCount,
+        npcParticipants.characters(),
       ),
       [],
       undefined,
@@ -4975,7 +5012,7 @@ function App() {
     }
     if (message.app === 'onlyfriends' && message.tip !== undefined && (
       !Number.isFinite(message.tip) || message.tip <= 0 ||
-      message.tip > onlyFriendsWalletBalance(actor, messagesRef.current, onlyFriendsPurchasesByCharacter[actor.id])
+      message.tip > onlyFriendsWalletBalance(actor, messagesRef.current, onlyFriendsPurchasesByCharacter, storyCharacters)
     )) {
       notifySystem('warning', 'Cannot send tip. Check the amount and top up your OnlyFriends balance first.');
       return false;
@@ -6905,9 +6942,6 @@ function App() {
         thoughtTextStyle={thoughtTextStyle}
         rpDateTimeFormat={rpDateTimeFormat}
         rpWeekdayLanguage={rpWeekdayLanguage}
-        showReferenceImagesInContext={showReferenceImagesInContext}
-        referenceImageTurnLookback={referenceImageTurnLookback}
-        maxReferenceImages={maxReferenceImages}
         glassDesignEnabled={glassDesignEnabled}
         glassDesignOpacity={glassDesignOpacity}
         nodeTextSize={nodeTextSize}
@@ -6941,9 +6975,6 @@ function App() {
         onThoughtTextStyleChange={setThoughtTextStyle}
         onRpDateTimeFormatChange={setRpDateTimeFormat}
         onRpWeekdayLanguageChange={setRpWeekdayLanguage}
-        onShowReferenceImagesInContextChange={setShowReferenceImagesInContext}
-        onReferenceImageTurnLookbackChange={setReferenceImageTurnLookback}
-        onMaxReferenceImagesChange={setMaxReferenceImages}
         onGlassDesignEnabledChange={setGlassDesignEnabled}
         onGlassDesignOpacityChange={setGlassDesignOpacity}
         onNodeTextSizeChange={setNodeTextSize}
@@ -7242,7 +7273,7 @@ function App() {
             editedNpcSnapshotRef.current = npcParticipants.current()[character.id];
             plan.warnings.forEach((warning) => notifySystem('warning', warning.message));
           } : undefined}
-          snapshot={npcLibrary.snapshot} onSaved={async () => { await npcLibrary.reload(); }}
+          snapshot={effectiveNpcLibrary} onSaved={async () => { await npcLibrary.reload(); }}
           onClose={() => setShowCharacterAssistant(false)} />
       )}
       {characterRemoval && npcParticipants.registry().characters.some((entry) => entry.character.id === characterRemoval.characterId && entry.provenance.tier === 'storybook' && entry.provenance.source === characterRemoval.nodeId) && <CharacterRemovalDialog
@@ -7260,7 +7291,7 @@ function App() {
             openStorybookCreator(nodeId);
             npcLibrary.close();
           }}
-          snapshot={npcLibrary.snapshot}
+          snapshot={effectiveNpcLibrary}
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
           openingParticipants={openingHistoryNpcParticipantsFromNodes(nodes)}

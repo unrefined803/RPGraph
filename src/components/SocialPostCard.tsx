@@ -1,9 +1,11 @@
+import { socialModerationReasons } from '../chat/socialModeration';
 import { CharacterName } from './CharacterName';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
   RpDateTimeFormat,
   RpWeekdayLanguage,
   SocialPostRecord,
+  SocialPostModeration,
 } from '../types';
 import { socialAppNames, socialAccountPresentation, isAccountPrivacyMode } from '../chat/socialMedia';
 import { formatRpDateTimeParts } from '../workflow';
@@ -12,6 +14,7 @@ import { formatSocialCount } from './phone-social/socialPostPresentation';
 
 type SocialPostCardProps = {
   post: SocialPostRecord;
+  moderation?: SocialPostModeration;
   showProfileNames?: boolean;
   /** Resolved Gallery image of the post (posts only store the image id). */
   imageDataUrl?: string;
@@ -29,6 +32,7 @@ type SocialPostCardProps = {
 
 export function SocialPostCard({
   post,
+  moderation,
   showProfileNames = false,
   imageDataUrl,
   authorCharacter,
@@ -58,6 +62,7 @@ export function SocialPostCard({
       />
       <span>
         <strong><CharacterName color={authorColor}>{identity.name}</CharacterName></strong>
+        {moderation?.blocked && <small className="phone-social-moderation-badge">Post blocked · ToS</small>}
         {showProfileNames && identity.handle && <small>@{identity.handle}</small>}
       </span>
     </span>
@@ -65,7 +70,7 @@ export function SocialPostCard({
 
   return (
     <button
-      className={`chat-social-post-card ${post.app}`}
+      className={`chat-social-post-card ${post.app}${moderation?.blocked ? ' moderated' : ''}`}
       type="button"
       style={fontSize ? { fontSize } : undefined}
       onClick={onOpen}
@@ -123,6 +128,11 @@ export function SocialPostCard({
           <span className="chat-social-post-image-caption">
             {post.caption}
           </span>
+        </span>
+      )}
+      {moderation?.blocked && (
+        <span className="phone-social-moderation-notice">
+          {moderation.reason ? socialModerationReasons[moderation.reason] : 'Terms of service violation'} · Visible only to the author
         </span>
       )}
       <span className="chat-social-post-footer">

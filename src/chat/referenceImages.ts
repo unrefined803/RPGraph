@@ -1,14 +1,80 @@
 import { parseNodeStorybookJson } from '../nodes/rp-storybook/model';
 import { isStorybookSourceNode } from '../storybook/runtime';
-import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
+import type {
+  ChatImageAttachment,
+  MessageRecord,
+  SocialDirectMessageRecord,
+  WorkflowNode,
+} from '../types';
+import { normalizePhoneName } from './phoneMessages';
 import { rpPictureGalleryId } from './rpPictures';
 
 export type ReferenceImageOptions = {
   enabled: boolean;
   turnLookback: number;
+  /** Lookback for messenger conversations; falls back to `turnLookback`. */
+  phoneTurnLookback?: number;
   maxImages: number;
   additionalImageIds?: string[];
+  /** Conversation where the manual selection was made. */
+  additionalImageScope?: string;
+  /**
+   * Conversation the next model call belongs to. Automatic references are
+   * limited to messages of the same conversation, except recent cards in RP.
+   * Explicit selections belong to their originating view. Without a scope
+   * every recent message qualifies.
+   */
+  scope?: string;
 };
+
+export const fixedReferenceImageOptions: ReferenceImageOptions = {
+  enabled: true,
+  turnLookback: 5,
+  phoneTurnLookback: 10,
+  maxImages: 3,
+};
+const rpCardTurnLookback = 3;
+
+export const rpReferenceImageScope = 'rp';
+const phoneScopePrefix = 'phone:';
+const latestPhoneConversationMessageCount = 2;
+/** Scope of a run or view without a known conversation; it matches no message. */
+export const unknownConversationReferenceImageScope = 'unknown';
+
+export function phoneReferenceImageScope(from: string, to: string) {
+  return `${phoneScopePrefix}${[normalizePhoneName(from), normalizePhoneName(to)].sort().join('::')}`;
+}
+
+export function socialReferenceImageScope(app: string) {
+  return `social:${app}`;
+}
+
+function socialHandleKey(handle: string) {
+  return handle.trim().replace(/^@/, '').toLowerCase();
+}
+
+export function socialDirectReferenceImageScope(
+  message: Pick<SocialDirectMessageRecord, 'app' | 'fromHandle' | 'toHandle'>,
+) {
+  const handles = [socialHandleKey(message.fromHandle), socialHandleKey(message.toHandle)].sort();
+  return `dm:${message.app}:${handles.join('::')}`;
+}
+
+export function referenceImageScopeForMessage(message: MessageRecord) {
+  if (message.socialDirectMessage) {
+    return socialDirectReferenceImageScope(message.socialDirectMessage);
+  }
+  const socialApp = (
+    message.socialPost ?? message.socialThreadAction ?? message.socialReactions
+  )?.app;
+  if (socialApp) {
+    return socialReferenceImageScope(socialApp);
+  }
+  if ((message.phoneMessage || message.channel === 'phone') && message.phoneFrom && message.phoneTo) {
+    return phoneReferenceImageScope(message.phoneFrom, message.phoneTo);
+  }
+  return rpReferenceImageScope;
+}
 
 export type ReferenceImage = {
   index: number;
@@ -61,6 +127,28 @@ function recentReferenceMessages(messages: MessageRecord[], turnLookback: number
   });
 }
 
+/**
+ * Messages of one conversation that qualify for automatic references: those
+ * inside the turn lookback plus the conversation's latest messages, so a
+ * messenger picture is still attached when the user returns to that chat
+ * after the lookback.
+ */
+function scopedReferenceMessages(
+  messages: MessageRecord[],
+  lookbackMessages: MessageRecord[],
+  scope: string,
+  latestMessageCount: number,
+) {
+  const conversation = messages.filter(
+    (message) => includedHistoryMessage(message) && referenceImageScopeForMessage(message) === scope,
+  );
+  const qualifying = new Set([
+    ...lookbackMessages,
+    ...(latestMessageCount > 0 ? conversation.slice(-latestMessageCount) : []),
+  ]);
+  return conversation.filter((message) => qualifying.has(message));
+}
+
 function attachmentKey(attachment: ChatImageAttachment) {
   const imageId = attachment.id.trim();
   return imageId ? `id:${imageId}` : `data:${attachment.dataUrl}`;
@@ -96,22 +184,22 @@ function storybookImagesById(nodes: WorkflowNode[]) {
   return images;
 }
 
-function messageImageIds(message: MessageRecord) {
-  const ids = message.phoneImageIds
-    ?.map((imageId) => imageId.trim())
-    .filter(Boolean);
-  if (ids?.length) {
-    return ids;
-  }
-  return message.imageAttachments
-    ?.map((image) => image.id.trim())
-    .filter(Boolean) ?? [];
+export function messageImageIds(message: MessageRecord) {
+  return [...new Set([
+    ...(message.phoneImageIds ?? []),
+    ...(message.imageAttachments?.map((image) => image.id) ?? []),
+    ...(message.socialDirectMessage?.imageIds ?? []),
+    ...(message.socialPost?.imageId ? [message.socialPost.imageId] : []),
+    ...(message.socialDirectMessage?.origin?.postImageId
+      ? [message.socialDirectMessage.origin.postImageId] : []),
+  ].map((id) => id.trim()).filter(Boolean))];
 }
 
 function candidateCaption(message: MessageRecord, attachment: ChatImageAttachment) {
   return (
     message.phoneImageDescription?.trim() ||
     message.rpImageDescription?.trim() ||
+    message.socialPost?.imageDescription?.trim() ||
     attachment.description?.trim() ||
     undefined
   );
@@ -152,17 +240,40 @@ export function collectRecentReferenceImages({
   options: ReferenceImageOptions;
 }): ReferenceImage[] {
   const maxImages = Math.max(0, Math.round(options.maxImages));
-  const additionalImageIds = options.additionalImageIds
+  const additionalImageIds = (options.additionalImageScope === options.scope
+    ? options.additionalImageIds : [])
     ?.map((imageId) => imageId.trim())
     .filter(Boolean) ?? [];
   if ((!options.enabled || maxImages <= 0) && additionalImageIds.length === 0) {
     return [];
   }
   const storybookImages = storybookImagesById(nodes);
-  const recentCandidates = recentReferenceMessages(
+  const scope = options.scope;
+  const phoneScope = !!scope?.startsWith(phoneScopePrefix);
+  const turnLookback = phoneScope
+    ? options.phoneTurnLookback ?? options.turnLookback
+    : options.turnLookback;
+  const lookbackMessages = recentReferenceMessages(
     messages,
-    Math.max(0, Math.round(options.turnLookback)),
-  )
+    Math.max(0, Math.round(turnLookback)),
+  );
+  let recentMessages = scope === undefined
+    ? lookbackMessages
+    : scopedReferenceMessages(
+        messages,
+        lookbackMessages,
+        scope,
+        phoneScope ? latestPhoneConversationMessageCount : 0,
+      );
+  if (scope === rpReferenceImageScope) {
+    // Phone and social cards are visible in the RP timeline. Their images have
+    // a shorter lifetime than images attached directly to RP messages.
+    const cardMessages = recentReferenceMessages(messages, rpCardTurnLookback)
+      .filter((message) => referenceImageScopeForMessage(message) !== rpReferenceImageScope);
+    const qualifying = new Set([...recentMessages, ...cardMessages]);
+    recentMessages = messages.filter((message) => qualifying.has(message));
+  }
+  const recentCandidates = recentMessages
     .slice()
     .reverse()
     .flatMap((message) => imageCandidatesForMessage(message, storybookImages).reverse());

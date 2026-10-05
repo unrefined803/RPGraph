@@ -257,6 +257,8 @@ export type RuntimeState = {
   characterColorSlots?: CharacterColorSlots;
   /** Pooled JSON revision archive shared by current activity and undo history. */
   npcParticipantsJson?: string;
+  /** Legacy full-library archive, read for migration only; new saves use npcParticipantsJson. */
+  importedNpcsJson?: string;
   nodes: Record<string, NodeRuntimeState>;
   workflowVariables: Record<string, string>;
 };
