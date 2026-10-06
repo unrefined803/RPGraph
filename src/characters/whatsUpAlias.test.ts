@@ -169,7 +169,7 @@ describe('WhatsUp second name', () => {
     const runtime = phoneRuntimeCharactersFromMessages(cast, current);
     expect(runtime.some((entry) => entry.name === 'Sofia Belova')).toBe(false);
     expect(formatChatHistory(stored, false, undefined, undefined, undefined, cast))
-      .toContain('[WhatsUp] Mark Renamed texts New Alias: Hi Sofia Belova');
+      .toContain('[WhatsUp] Mark Renamed texts New Alias (second account of Tamara Kovac): Hi Sofia Belova');
     const oldKey = phoneConversationKey('Mark Hale', 'Sofia Belova');
     const newKey = phoneConversationKey('Mark Renamed', 'New Alias');
     const seen = phoneMarkersWithCurrentNames({ [oldKey]: stored[0].id }, stored, current);
@@ -195,7 +195,7 @@ describe('WhatsUp second name', () => {
     const projected = phoneMessagesWithCurrentNames([parent, stored], cast);
     expect(projected[0].embeddedPhoneMessages?.[0].from).toBe('New Alias');
     expect(formatChatHistory([parent], false, undefined, undefined, [stored], cast))
-      .toContain('New Alias texts Mark Hale: My old name is Sofia Belova');
+      .toContain('New Alias (second account of Tamara Kovac) texts Mark Hale: My old name is Sofia Belova');
   });
 
   it('still follows a history-only contact, whose account ID is not a character account', () => {

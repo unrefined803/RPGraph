@@ -190,6 +190,11 @@ Storybooks and RP Saves without the field behave exactly as before.
   The current account does not determine what a character knows: an established
   discovery persists across account switches, and an unsupported suspicion stays
   uncertain. Private author context never establishes in-world knowledge.
+- Model history names the person behind a second account on every WhatsUp
+  line: `OF11girl (second account of Sophie Carter) texts Chloe Lane:`. The
+  label (`phoneHistoryLabels`) is derived while formatting history and never
+  stored or shown in the phone. It keeps the narrating model oriented; the
+  prompts state that this is author knowledge, not character knowledge.
 - On the owner's phone a message written from the second account shows the
   second name and its picture in the bubble.
 
