@@ -6708,7 +6708,7 @@ function App() {
             </div>
             <div className="big-screen-rail-group" aria-label="Turn actions">
               <button
-                className="big-screen-rail-button"
+                className={`big-screen-rail-button${isRunning ? ' running' : ''}`}
                 type="button"
                 onClick={cancelRunOrUndoLastTurn}
                 disabled={undoTurnDisabled}
