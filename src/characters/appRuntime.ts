@@ -124,7 +124,7 @@ export function recipientCharacterContext(character: StorybookCharacter, options
           ...field('Second name', `@${secondName}`),
           ...field('Second name link', `@whatsup:${secondName}`),
           ...field('Second name use', `Both links reach this same account. Someone who received the second link sees only the name ${secondName} and its picture, never the real name or portrait. Give the real link to people who know who you are and the second link to people who must not find out.`),
-          ...(options.whatsUpAlias ? field('This conversation', `The other person knows you only as ${secondName}. Stay in that identity; do not use or reveal the real name unless the story establishes it.`) : []),
+          ...(options.whatsUpAlias ? field('This conversation', `You are using the second account ${secondName}. Reply from this account. This does not establish whether the other person knows your real identity. Treat the identities as unconnected unless their own observations, a disclosure, or other established events in the chat history gave them that knowledge. Preserve an established discovery; do not reset what they already know. Private author context alone is never evidence of character knowledge.`) : []),
         ] : []),
       ] : []),
       ...(app === 'whatsup' || app === 'matchme' ? [] : field('Profile name', account.profileName ? `@${account.profileName}` : undefined)),

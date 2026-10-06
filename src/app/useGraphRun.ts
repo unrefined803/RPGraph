@@ -1,3 +1,4 @@
+import { phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { socialReactionsByPostId } from '../chat/socialMedia';
 import { askUserWithTranslation } from './askUserTranslation';
 import type { HighlightingSpeakerContext } from '../nodes/output/speakerSelection';
@@ -538,6 +539,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       nodeLabel: outputNode.data.label,
       nodeType: outputNode.data.nodeType,
     };
+    historyMessages = phoneMessagesWithCurrentNames(historyMessages, appCharacters());
+    if (existingInputMessage) existingInputMessage = phoneMessagesWithCurrentNames([existingInputMessage], appCharacters())[0];
     const phoneReplyTo = phoneReplyToOverride ?? (
       existingInputMessage?.replyToMessageId !== undefined
         ? historyMessages.find((message) => message.id === existingInputMessage.replyToMessageId)

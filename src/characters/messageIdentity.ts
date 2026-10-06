@@ -29,13 +29,18 @@ function aliasRecipient(owners: StorybookCharacter[], identity: string) {
 }
 
 /** WhatsUp recipients must be exact identities, never fuzzy name guesses. */
-export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messages: MessageRecord[], identity: string) {
+export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messages: MessageRecord[], identity: string): {
+  name: string; accountId: string; characterId?: string; alias?: true;
+} {
   // Generated messages name their participants as account links; a bare name or ID stays valid.
   identity = accountLinkIdentity(identity, 'whatsup') ?? identity.trim().replace(/^@/, '').trim();
   // Temporary UI contacts are projections of history, not newly provisioned accounts.
   characters = characters.filter((character) => !(character as StorybookCharacter & { temporaryPhone?: boolean }).temporaryPhone);
   const aliasById = characters.filter((character) => whatsUpAlias(character) && whatsUpAliasAccountId(character) === identity);
   if (aliasById.length) return aliasRecipient(aliasById, identity);
+  if (characters.some((character) => whatsUpAliasAccountId(character) === identity)) {
+    throw new Error(`Unavailable WhatsUp recipient "${identity}". The second account is absent or disabled.`);
+  }
   const canonical = characters.filter((character) => whatsUpAccountId(character) === identity);
   const stable = characters.filter((character) => character.id === identity || character.sourceId === identity ||
     character.identityAliases?.characterIds?.includes(identity) ||
@@ -76,8 +81,14 @@ export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messag
     .map((contact) => [contact.accountId, contact]));
   if (distinct.size === 1) {
     const contact = [...distinct.values()][0];
+    // Recorded identities still belong to their owner after a rename. Resolve
+    // without history to avoid reviving removed or disabled second accounts.
+    if (characters.some((character) => [whatsUpAccountId(character), whatsUpAliasAccountId(character)].includes(contact.accountId))) {
+      return resolveWhatsUpRecipient(characters, [], contact.accountId);
+    }
     // A recorded alias must not resurrect a currently disabled character account.
-    const owner = characters.find((character) => key(character.name) === key(contact.name));
+    const owner = characters.find((character) => key(character.name) === key(contact.name) ||
+      key(character.apps?.whatsup?.alias?.name ?? '') === key(contact.name));
     if (owner?.apps?.whatsup?.enabled === false) {
       throw new Error(`Unavailable WhatsUp recipient "${identity}". The matching account is disabled.`);
     }
@@ -116,11 +127,11 @@ function knownWhatsUpName(
 ) {
   const owner = 'characterId' in side ? characters.find((character) => character.sourceId === side.characterId) : undefined;
   if (!owner || !whatsUpAlias(owner) || 'alias' in side || identity.trim().replace(/^@/, '').trim() === side.accountId) return side;
-  return whatsUpNameKnownBy(owner, other.name, messages) === 'alias' ? aliasRecipient([owner], identity) : side;
+  return whatsUpNameKnownBy(owner, other.name, messages, other.accountId) === 'alias' ? aliasRecipient([owner], identity) : side;
 }
 
 /** The owner's names a contact has exchanged messages with, and the one their latest message used. */
-export function whatsUpNamesUsedWith(owner: StorybookCharacter, contactName: string, messages: MessageRecord[]) {
+export function whatsUpNamesUsedWith(owner: StorybookCharacter, contactName: string, messages: MessageRecord[], contactAccountId?: string) {
   const alias = whatsUpAlias(owner);
   const known = new Set<'real' | 'alias'>();
   let latest: 'real' | 'alias' | undefined;
@@ -129,9 +140,17 @@ export function whatsUpNamesUsedWith(owner: StorybookCharacter, contactName: str
   const contactKey = key(contactName);
   for (const message of messages) {
     if (!message.phoneMessage) continue;
-    const names = [key(message.phoneFrom ?? ''), key(message.phoneTo ?? '')];
-    if (!names.includes(contactKey)) continue;
-    const used = names.includes(key(alias.name)) ? 'alias' : names.includes(key(owner.name)) ? 'real' : undefined;
+    const endpoints = [
+      { name: message.phoneFrom ?? '', id: message.phoneFromAccountId },
+      { name: message.phoneTo ?? '', id: message.phoneToAccountId },
+    ];
+    const contactIndex = endpoints.findIndex((endpoint) => endpoint.id && contactAccountId
+      ? endpoint.id === contactAccountId : key(endpoint.name) === contactKey);
+    if (contactIndex < 0) continue;
+    const endpoint = endpoints[1 - contactIndex];
+    const used = endpoint.id
+      ? endpoint.id === whatsUpAliasAccountId(owner) ? 'alias' : endpoint.id === whatsUpAccountId(owner) ? 'real' : undefined
+      : key(endpoint.name) === key(alias.name) ? 'alias' : key(endpoint.name) === key(owner.name) ? 'real' : undefined;
     if (!used) continue;
     known.add(used);
     latest = used;
@@ -141,8 +160,8 @@ export function whatsUpNamesUsedWith(owner: StorybookCharacter, contactName: str
 }
 
 /** Which of the owner's two names a contact has seen so far; undefined when neither or both were used. */
-export function whatsUpNameKnownBy(owner: StorybookCharacter, contactName: string, messages: MessageRecord[]) {
-  const { known } = whatsUpNamesUsedWith(owner, contactName, messages);
+export function whatsUpNameKnownBy(owner: StorybookCharacter, contactName: string, messages: MessageRecord[], contactAccountId?: string) {
+  const { known } = whatsUpNamesUsedWith(owner, contactName, messages, contactAccountId);
   return known.size === 1 ? [...known][0] : undefined;
 }
 

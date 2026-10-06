@@ -1,3 +1,4 @@
+import { phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { socialDirectMessageDisplayText } from '../chat/socialMedia';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
@@ -151,8 +152,8 @@ function formatMessageRecordForContext(
       ? linkedPhoneMessages.get(contextMessage.replyToMessageId)
       : undefined;
     const formatted = replyTo
-      ? `[WhatsUp] ${formatPhoneReplyInput(phoneMessage.from, replyTo, text, translated)}`
-      : `${phoneMessagePrefix(contextMessage, phoneMessage.from, phoneMessage.to)} ${phoneImageContext(contextMessage)}${text}`;
+      ? `[WhatsUp] ${formatPhoneReplyInput(contextMessage.phoneFrom ?? phoneMessage.from, replyTo, text, translated)}`
+      : `${phoneMessagePrefix(contextMessage, contextMessage.phoneFrom ?? phoneMessage.from, contextMessage.phoneTo ?? phoneMessage.to)} ${phoneImageContext(contextMessage)}${text}`;
     return includeRpDateTime
       ? withRpDateTime(
           formatted,
@@ -586,6 +587,8 @@ export function formatChatHistorySegments(
   linkedMessages: MessageRecord[] = messages,
   characters: StorybookCharacter[] = [],
 ): FormattedChatHistorySegment[] {
+  messages = phoneMessagesWithCurrentNames(messages, characters);
+  linkedMessages = phoneMessagesWithCurrentNames(linkedMessages, characters);
   messages = messages.map((message) => message.socialDirectMessage
     ? { ...message,
         originalText: socialDirectMessageDisplayText(message, false, characters, true),

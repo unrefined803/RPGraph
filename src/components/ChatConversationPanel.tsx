@@ -1,3 +1,4 @@
+import { phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { MatchMeActivityCard } from './MatchMeActivityCard';
 import { groupMatchMeHistory, type MatchMeHistoryRow } from '../chat/matchMe';
 import type { UserQuestion } from '../app/userQuestion';
@@ -1772,7 +1773,8 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   onSelectDraftImages,
   onMessageContentLoaded,
 }: ChatConversationPanelProps) {
-  const messages = useSyncExternalStore(messageStream.subscribe, messageStream.getSnapshot);
+  const storedMessages = useSyncExternalStore(messageStream.subscribe, messageStream.getSnapshot);
+  const messages = useMemo(() => phoneMessagesWithCurrentNames(storedMessages, appCharacters), [storedMessages, appCharacters]);
   useEffect(() => {
     onStreamContentChange();
   }, [messages, onStreamContentChange]);

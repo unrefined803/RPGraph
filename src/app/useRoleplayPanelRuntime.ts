@@ -30,6 +30,7 @@ import {
   whatsUpAliasContact,
   type PhoneRuntimeCharacter,
 } from '../chat/phoneCharacters';
+import { phoneMarkersWithCurrentNames, phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { usePhoneReply } from '../chat/usePhoneReply';
 import {
   bankTransferMessages,
@@ -136,7 +137,7 @@ export function useRoleplayPanelRuntime({
   captureNpcParticipants,
   nodeViewNodes,
   nodesRef,
-  messages,
+  messages: storedMessages,
   turns,
   storybooksByNodeId,
   characterStorybookNodeCount,
@@ -148,6 +149,7 @@ export function useRoleplayPanelRuntime({
   commitNodes,
   notifySystem,
 }: UseRoleplayPanelRuntimeOptions) {
+  const messages = useMemo(() => phoneMessagesWithCurrentNames(storedMessages, appCharacters), [storedMessages, appCharacters]);
   const [panelSessionRevision, setPanelSessionRevision] = useState(0);
   const [smoothChatAutoScrollActive, setSmoothChatAutoScrollActive] = useState(false);
   const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
@@ -178,7 +180,9 @@ export function useRoleplayPanelRuntime({
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = usePanelNavigationState('panel.viewedPhoneCharacterId', '');
   const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = usePanelNavigationState('panel.selectedPhoneCharacterId', '');
   const [selectedEventId, setSelectedEventId] = usePanelNavigationState('panel.selectedEventId', '');
-  const [phoneSeenByConversation, setPhoneSeenByConversation] = useState<Record<string, number>>({});
+  const [storedPhoneSeenByConversation, setPhoneSeenByConversation] = useState<Record<string, number>>({});
+  const phoneSeenByConversation = useMemo(() => phoneMarkersWithCurrentNames(storedPhoneSeenByConversation, storedMessages, messages),
+    [storedPhoneSeenByConversation, storedMessages, messages]);
   const [bankingSeenByCharacter, setBankingSeenByCharacter] = useState<Record<string, number>>({});
   const [phoneAppSeenByCharacter, setPhoneAppSeenByCharacter] = useState<Record<string, number>>({});
   const [bankingContactsByCharacter, setBankingContactsByCharacter] = useState<Record<string, string[]>>({});
@@ -205,6 +209,15 @@ export function useRoleplayPanelRuntime({
   const [socialDirectMessageOpenRequest, setSocialDirectMessageOpenRequest] =
     usePanelNavigationState<SocialDirectMessageOpenRequest>('panel.socialDirectMessageOpenRequest');
   const [phoneDividerAfterByConversation, setPhoneDividerAfterByConversation] = useState<Record<string, number>>({});
+  const previousPhoneMessages = useRef(messages);
+  useEffect(() => {
+    const previous = previousPhoneMessages.current;
+    previousPhoneMessages.current = messages;
+    // Preserve markers across successive renames, even without a new message
+    // recorded under the intermediate name.
+    setPhoneSeenByConversation((current) => phoneMarkersWithCurrentNames(current, previous, messages));
+    setPhoneDividerAfterByConversation((current) => phoneMarkersWithCurrentNames(current, previous, messages));
+  }, [messages]);
   // A deliberate choice of WhatsUp name for one conversation; without one the known name continues.
   const [phoneSenderNameByConversation, setPhoneSenderNameByConversation] = useState<Record<string, { name: 'real' | 'alias'; count: number }>>({});
   const [recentlyUsedEmojis, setRecentlyUsedEmojis] = useState<string[]>([]);
@@ -576,10 +589,10 @@ export function useRoleplayPanelRuntime({
     if (!viewedPhoneHasAlias) return phoneConversationInfo;
     const seen = { ...phoneSeenByConversation };
     for (const [key, latestId] of Object.entries(phoneSeenByConversation)) {
-      for (const twin of phoneConversationKeyTwins(key, appCharacters)) seen[twin] = Math.max(seen[twin] ?? 0, latestId);
+      for (const twin of phoneConversationKeyTwins(key, viewedPhoneCharacter)) seen[twin] = Math.max(seen[twin] ?? 0, latestId);
     }
     return phoneConversationInfoFromMessages(viewerPhoneMessages, seen);
-  }, [viewedPhoneHasAlias, phoneConversationInfo, phoneSeenByConversation, viewerPhoneMessages, appCharacters]);
+  }, [viewedPhoneHasAlias, phoneConversationInfo, phoneSeenByConversation, viewerPhoneMessages, viewedPhoneCharacter]);
   const phoneConversationPairs = useMemo(() => new Set(
     [...phoneConversationInfo.values(), ...(viewedPhoneHasAlias ? viewerPhoneConversationInfo.values() : [])].flatMap(({ names }) => {
       const [left, right] = names.map((name) => matchingPhoneName(phoneCharacters, name));
@@ -611,7 +624,7 @@ export function useRoleplayPanelRuntime({
     return viewer.relationships === undefined && !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
   }, [phoneConversationPairs, storybooksByNodeId, socialConnectionsByCharacter, appCharacters]);
 
-  const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>) => {
+  const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>, owner: StorybookCharacter | undefined) => {
     if (updates.length === 0) {
       return;
     }
@@ -619,7 +632,7 @@ export function useRoleplayPanelRuntime({
       let changed = false;
       const next = { ...current };
       // Reading a conversation also reads its second-name twin; both are one inbox.
-      updates.flatMap((update) => [update, ...phoneConversationKeyTwins(update.key, appCharacters)
+      updates.flatMap((update) => [update, ...phoneConversationKeyTwins(update.key, owner)
         .map((key) => ({ key, latestId: update.latestId }))]).forEach(({ key, latestId }) => {
         if (latestId > (next[key] ?? 0)) {
           next[key] = latestId;
@@ -628,7 +641,7 @@ export function useRoleplayPanelRuntime({
       });
       return changed ? next : current;
     });
-  }, [appCharacters]);
+  }, []);
 
   const openPhoneConversation = useCallback((
     conversationKey: string,
@@ -636,6 +649,7 @@ export function useRoleplayPanelRuntime({
     select?: { speakerId: string; contactId: string; activatePlayer?: boolean },
   ) => {
     const seenBefore = phoneSeenByConversation[conversationKey] ?? 0;
+    let readingOwner = viewedPhoneCharacter;
     if (select) {
       let { speakerId, contactId } = select;
       if (select.activatePlayer ?? true) {
@@ -648,14 +662,15 @@ export function useRoleplayPanelRuntime({
       }
       setViewedPhoneCharacterId(speakerId);
       setSelectedPhoneCharacterId(contactId);
+      readingOwner = phoneCharacters.find((character) => character.id === speakerId);
     }
     setOpenedPhoneConversationKey(conversationKey);
     setPhoneDividerAfterByConversation((current) => ({
       ...current,
       [conversationKey]: seenBefore,
     }));
-    markPhoneConversationsSeen([{ key: conversationKey, latestId }]);
-  }, [markPhoneConversationsSeen, phoneSeenByConversation, playerCharacters, setOpenedPhoneConversationKey, setSelectedPhoneCharacterId, setViewedPhoneCharacterId, setSelectedCharacterId]);
+    markPhoneConversationsSeen([{ key: conversationKey, latestId }], readingOwner);
+  }, [markPhoneConversationsSeen, phoneSeenByConversation, playerCharacters, phoneCharacters, viewedPhoneCharacter, setOpenedPhoneConversationKey, setSelectedPhoneCharacterId, setViewedPhoneCharacterId, setSelectedCharacterId]);
 
   const phoneContacts = useMemo(
     () => phoneContactsForViewer(
@@ -745,9 +760,13 @@ export function useRoleplayPanelRuntime({
   // A hand-made choice holds until the conversation moves on, so a message to the other account is followed again.
   const viewedPhoneAlias = whatsUpAlias(viewedPhoneCharacter);
   const phoneNamesUsed = viewedPhoneCharacter && viewedPhoneAlias && selectedPhoneContact
-    ? whatsUpNamesUsedWith(viewedPhoneCharacter, selectedPhoneContact.character.name, messages)
+    ? whatsUpNamesUsedWith(viewedPhoneCharacter, selectedPhoneContact.character.name, messages,
+        // A history-only contact has no account of its own; its messages are matched by name.
+        selectedPhoneContact.character.apps?.whatsup?.accountId)
     : undefined;
-  const storedPhoneSenderChoice = selectedPhoneContact ? phoneSenderNameByConversation[selectedPhoneContact.conversationKey] : undefined;
+  const phoneSenderChoiceKey = viewedPhoneCharacter && selectedPhoneContact
+    ? JSON.stringify([whatsUpAccountId(viewedPhoneCharacter), whatsUpAccountId(selectedPhoneContact.character)]) : undefined;
+  const storedPhoneSenderChoice = phoneSenderChoiceKey ? phoneSenderNameByConversation[phoneSenderChoiceKey] : undefined;
   const phoneSenderChoice = storedPhoneSenderChoice && storedPhoneSenderChoice.count === phoneNamesUsed?.count
     ? storedPhoneSenderChoice.name
     : undefined;
@@ -759,10 +778,10 @@ export function useRoleplayPanelRuntime({
   const phoneSenderUnknownToContact = !!phoneNamesUsed && phoneNamesUsed.known.size > 0 &&
     !phoneNamesUsed.known.has(phoneWritesAsAlias ? 'alias' : 'real');
   const setPhoneWritesAsAlias = (alias: boolean) => {
-    if (selectedPhoneContact) {
+    if (phoneSenderChoiceKey) {
       setPhoneSenderNameByConversation((current) => ({
         ...current,
-        [selectedPhoneContact.conversationKey]: { name: alias ? 'alias' : 'real', count: phoneNamesUsed?.count ?? 0 },
+        [phoneSenderChoiceKey]: { name: alias ? 'alias' : 'real', count: phoneNamesUsed?.count ?? 0 },
       }));
     }
   };
@@ -780,9 +799,10 @@ export function useRoleplayPanelRuntime({
     markPhoneConversationsSeen([{
       key: selectedPhoneConversationKey,
       latestId: selectedPhoneConversationLatestId,
-    }]);
+    }], viewedPhoneCharacter);
   }, [
     markPhoneConversationsSeen,
+    viewedPhoneCharacter,
     selectedPhoneConversationKey,
     selectedPhoneConversationLatestId,
   ]);

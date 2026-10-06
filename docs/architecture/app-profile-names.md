@@ -154,7 +154,9 @@ Storybooks and RP Saves without the field behave exactly as before.
   links sees two contacts with separate threads.
 - The owner sees one inbox. On the owner's own phone `phoneMessagesForOwner`
   reads messages under the second name as messages under the real name, and
-  read state is shared between both conversation keys. The thread shows a small
+  read state is shared between the owner's two conversation keys. This is scoped
+  to the phone being viewed: reading the main contact on someone else's phone
+  never reads that person's separate second-account contact. The thread shows a small
   badge (“Second account · <name>” or “Main account · <name>”) once where a
   conversation starts on the second account and at every later switch; the
   derived `phoneOwnerAlias` message flag behind it is never stored.
@@ -163,6 +165,13 @@ Storybooks and RP Saves without the field behave exactly as before.
   protected: when a conversation has only used the second name
   (`whatsUpNameKnownBy`), a message a model writes under the real name
   continues the second name instead. An exact account ID is never rewritten.
+- Stored account IDs take precedence over participant names. Renaming either
+  party preserves account choice and the second-name protection. `phoneIdentity`
+  projects current participant names into phone/chat views, embedded cards,
+  reply reruns and model history; message bodies and shared link tokens remain
+  unchanged. Read markers follow those names across renames. Legacy messages
+  without account IDs keep their recorded names and name-based fallback.
+  Historical identities cannot reactivate a disabled or removed second account.
 - The player writes from the account the conversation last used
   (`whatsUpNamesUsedWith`), so a chat opened by a message to the second account
   answers from it. **Writing as** in the chat header switches the account; the
@@ -178,6 +187,9 @@ Storybooks and RP Saves without the field behave exactly as before.
   model reads the whole history and would. A WhatsUp input whose sender has a
   second name therefore carries a `Sender identity` note: the recipient treats
   the two names as different contacts unless the story has shown the connection.
+  The current account does not determine what a character knows: an established
+  discovery persists across account switches, and an unsupported suspicion stays
+  uncertain. Private author context never establishes in-world knowledge.
 - On the owner's phone a message written from the second account shows the
   second name and its picture in the bubble.
 

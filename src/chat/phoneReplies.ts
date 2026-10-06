@@ -48,10 +48,11 @@ function senderIdentityNote(from: string, to: string, characters: StorybookChara
   const other = messageAliasKey(alias) === fromKey ? owners[0].name.trim() : alias;
   return [
     'Sender identity',
-    `${to} sees this message from the WhatsUp contact "${from}" and knows only what that contact has shown.`,
-    `Earlier messages under the name "${other}" came from a different contact as far as ${to} can tell. ` +
-      `${to} does not know that "${from}" and "${other}" are the same person, must not say or hint that they are, ` +
-      `and must not carry over anything "${other}" said or was told into this chat, unless the story has shown ${to} the connection.`,
+    `${to} sees this message from the WhatsUp contact "${from}".`,
+    `Treat "${from}" and "${other}" as separate contacts unless the history establishes that ${to} learned their connection ` +
+      `through their own observations, a disclosure, or another event they could know about. Private author context and access to the full history do not establish that knowledge. ` +
+      `Without such evidence, do not connect the names or carry information from the other contact into this chat. ` +
+      `If the connection was already discovered, preserve that knowledge; using a different account does not undo it. A suspicion remains uncertain until supported.`,
     '',
   ];
 }

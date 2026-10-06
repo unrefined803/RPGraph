@@ -66,33 +66,34 @@ export function phoneMessagesForOwner(messages: MessageRecord[], owner: Storyboo
   if (!owner || !alias) return messages;
   const aliasKey = normalizePhoneName(alias.name);
   const realKey = normalizePhoneName(owner.name);
-  const own = (name: string | undefined) => !!name && normalizePhoneName(name) === aliasKey;
-  const real = (name: string | undefined) => !!name && normalizePhoneName(name) === realKey;
+  const own = (name: string | undefined, id: string | undefined) => id
+    ? id === whatsUpAliasAccountId(owner) : !!name && normalizePhoneName(name) === aliasKey;
+  const real = (name: string | undefined, id: string | undefined) => id
+    ? id === whatsUpAccountId(owner) : !!name && normalizePhoneName(name) === realKey;
   return messages.map((message) => {
     if (message.channel !== 'phone') return message;
-    if (own(message.phoneFrom) || own(message.phoneTo)) {
+    if (own(message.phoneFrom, message.phoneFromAccountId) || own(message.phoneTo, message.phoneToAccountId)) {
       return {
         ...message, phoneOwnerAlias: true,
-        ...(own(message.phoneFrom) ? { phoneFrom: owner.name, speakerName: owner.name, speakerNames: [owner.name] } : {}),
-        ...(own(message.phoneTo) ? { phoneTo: owner.name } : {}),
+        ...(own(message.phoneFrom, message.phoneFromAccountId) ? { phoneFrom: owner.name, speakerName: owner.name, speakerNames: [owner.name] } : {}),
+        ...(own(message.phoneTo, message.phoneToAccountId) ? { phoneTo: owner.name } : {}),
       };
     }
     // The thread shows which of the two names a conversation is running under.
-    return real(message.phoneFrom) || real(message.phoneTo) ? { ...message, phoneOwnerAlias: false } : message;
+    return real(message.phoneFrom, message.phoneFromAccountId) || real(message.phoneTo, message.phoneToAccountId)
+      ? { ...message, phoneOwnerAlias: false } : message;
   });
 }
 
-/** Conversation keys of the same inbox: the stored key plus its second-name or real-name twin. */
-export function phoneConversationKeyTwins(conversationKey: string, characters: StorybookCharacter[]) {
+/** Only the viewed owner's two names share an inbox; the other person's contacts stay separate. */
+export function phoneConversationKeyTwins(conversationKey: string, owner: StorybookCharacter | undefined) {
   const parts = conversationKey.split('::');
   if (parts.length !== 2) return [];
-  return characters.flatMap((character) => {
-    const alias = whatsUpAlias(character);
-    if (!alias) return [];
-    const names = [normalizePhoneName(character.name), normalizePhoneName(alias.name)];
-    return parts.flatMap((part, index) => names.includes(part)
-      ? names.filter((name) => name !== part).map((name) => [name, parts[1 - index]].sort().join('::')) : []);
-  });
+  const alias = whatsUpAlias(owner);
+  if (!owner || !alias) return [];
+  const names = [normalizePhoneName(owner.name), normalizePhoneName(alias.name)];
+  return parts.flatMap((part, index) => names.includes(part)
+    ? names.filter((name) => name !== part).map((name) => [name, parts[1 - index]].sort().join('::')) : []);
 }
 
 function temporaryPhoneCharacterId(name: string) {

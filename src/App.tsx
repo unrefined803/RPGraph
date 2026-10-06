@@ -4076,9 +4076,9 @@ function App() {
 
   // A run keeps the appendPhoneMessage closure from its start, so the view the
   // player is on when a reply arrives has to be read through a ref.
-  const phoneViewRef = useRef({ chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey });
+  const phoneViewRef = useRef({ chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey, owner: viewedPhoneCharacter });
   useLayoutEffect(() => {
-    phoneViewRef.current = { chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey };
+    phoneViewRef.current = { chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey, owner: viewedPhoneCharacter };
   });
 
   function appendPhoneMessage(
@@ -4152,7 +4152,7 @@ function App() {
     // Outside the messenger screen the conversation is not visible, so the
     // reply stays unread and raises a badge.
     // A second WhatsUp name shares its owner's inbox, so either key counts as the open conversation.
-    const messageShouldBeMarkedSeen = [conversationKey, ...phoneConversationKeyTwins(conversationKey, npcParticipants.characters())]
+    const messageShouldBeMarkedSeen = [conversationKey, ...phoneConversationKeyTwins(conversationKey, phoneView.owner)]
       .some((key) => phoneMessageShouldBeMarkedSeen(
         role,
         phoneView.phoneScreen === 'whatsup' ? phoneView.chatPanelView : 'chat',

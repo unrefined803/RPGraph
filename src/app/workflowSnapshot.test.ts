@@ -109,6 +109,8 @@ describe('workflow Storybook selection', () => {
           expect(step.after).toContain('@bank:Full Name opens Banking');
           expect(step.after).toContain('it never transfers money');
           expect(step.after).toContain('Sharing a MatchMe profile never creates a match');
+          expect(step.after).toContain('Preserve an established discovery across account switches');
+          expect(step.after).toContain('Access to the full history is not character knowledge');
         }
       }
     },
