@@ -3,6 +3,7 @@ import { socialModerationReasons } from '../../chat/socialModeration';
 import type { ImageGenerationReference } from '../../images/references';
 import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
+import { AccountLinkText } from '../AccountLinkText';
 import { accountHandle } from '../../characters/character';
 import { isAccountPrivacyMode, socialAccountPresentation } from '../../chat/socialMedia';
 import { socialAvatarDataUrl } from '../../characters/portrait';
@@ -1930,7 +1931,7 @@ export function PhoneSocialFeedScreen({
                 {post.textOnly ? (
                   <>
                     <p className="phone-social-post-caption text-only-caption">
-                      <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong> {post.caption}
+                      <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong> <AccountLinkText text={post.caption} />
                     </p>
                     <hr className="phone-social-post-separator" />
                     <div className="phone-social-post-footer">
@@ -2078,7 +2079,7 @@ export function PhoneSocialFeedScreen({
                       <>
                         <hr className="phone-social-post-separator" />
                         <p className="phone-social-post-caption">
-                          <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong> {post.caption}
+                          <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong> <AccountLinkText text={post.caption} />
                         </p>
                         <div className="phone-social-post-footer">
                           <button
@@ -2151,7 +2152,7 @@ export function PhoneSocialFeedScreen({
                             : `Message ${commentIdentity.name}`}
                         >
                           <strong><CharacterName color={commentCharacter ? characterColors.get(commentCharacter.name) : undefined}>{commentIdentity.name}</CharacterName></strong>
-                          <span>{comment.text}</span>
+                          <span><AccountLinkText text={comment.text} nested /></span>
                         </button>
                       );
                     })}

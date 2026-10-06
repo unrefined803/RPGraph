@@ -2,7 +2,7 @@ import { socialReactionsByPostId } from '../chat/socialMedia';
 import { askUserWithTranslation } from './askUserTranslation';
 import type { HighlightingSpeakerContext } from '../nodes/output/speakerSelection';
 import { resolveSocialPostCommand, resolveSocialPostReference, socialThreadImageAttachments, type SocialPostCommandBinding } from '../chat/socialPostCommands';
-import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
+import { socialPublishedLinkContext, socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { applyMatchMeAction, matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
@@ -1316,8 +1316,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
           participantHandles: (socialThreadContext ?? socialThreadRunContextFromInput(originalInput)).existingComments.map((comment) => comment.handle),
         } : undefined)
       : undefined;
+    // Posting or commenting an account link invites contact on exactly that account.
+    const socialLinkContext = !socialCatalogApp ? undefined
+      : socialPost ? socialPublishedLinkContext(appCharacters(), socialCatalogApp, {
+          role: 'post author', characterId: socialPost.authorCharacterId, accountId: socialPost.authorAccountId, handle: socialPost.authorHandle,
+        }, socialPost.caption)
+      : socialThreadAction?.action === 'comment' ? socialPublishedLinkContext(appCharacters(), socialCatalogApp, {
+          role: 'actor', handle: socialThreadAction.actorHandle,
+        }, `${socialThreadAction.postCaption}\n${socialThreadAction.commentText ?? ''}`)
+      : undefined;
     const executionOriginalInput = socialAccountContext
-      ? [originalInput, socialAccountContext.text].join('\n')
+      ? [originalInput, ...(socialLinkContext ? [socialLinkContext] : []), socialAccountContext.text].join('\n')
       : originalInput;
     const storedInputGraphText = socialDirectMessage?.app === 'matchme' ? originalInput : directActionOnly
       ? originalInput
@@ -2926,6 +2935,27 @@ export function useGraphRun(options: UseGraphRunOptions) {
         // Social-media runs record the post itself plus the generated
         // reactions as history messages, mirroring how bank transfers land in
         // the timeline. The post is only persisted when the run succeeds.
+        // WhatsUp messages that answer an account link published in a post or comment.
+        const appendPublishedLinkPhoneMessages = async (phoneMessages: ParsedPhoneMessage[]) => {
+          for (const [index, phoneMessage] of phoneMessages.entries()) {
+            let participants;
+            try { participants = resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, phoneMessage); }
+            catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
+            appendPhoneMessage(
+              {
+                from: participants.from.name,
+                to: participants.to.name,
+                fromAccountId: participants.from.accountId,
+                toAccountId: participants.to.accountId,
+                message: phoneMessage.message,
+                translatedMessage: await translateOutputActionText(phoneMessage.message, { text: phoneMessage.message }),
+                turnContext,
+              },
+              index === 0 ? 'received' : undefined,
+              'output',
+            );
+          }
+        };
         if (socialPost) {
           // The whole input block was translated to English for the run. The
           // persisted record uses that text too, so the app and history agree.
@@ -2945,6 +2975,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const parsedReactions = parseValidatedSocialReactionsOutput(socialMediaOutputText, socialPost, {
             characters: appCharacters(),
             messages: messagesRef.current,
+            publishedText: socialPost.caption,
           });
           reportFormatResult({
             name: 'Social Media JSON',
@@ -2988,6 +3019,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               persistedSocialPost,
             );
           }
+          await appendPublishedLinkPhoneMessages(parsedReactions.phoneMessages);
         }
         if (socialThreadAction) {
           const persistedThreadAction = socialThreadAction.action === 'comment'
@@ -3004,6 +3036,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }, {
             characters: appCharacters(),
             messages: messagesRef.current,
+            publishedText: `${socialThreadAction.postCaption}\n${socialThreadAction.commentText ?? ''}`,
           });
           reportFormatResult({
             name: 'Social Media Thread JSON',
@@ -3047,6 +3080,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               handle: persistedThreadAction.actorHandle,
             });
           }
+          await appendPublishedLinkPhoneMessages(parsedReactions.phoneMessages);
         }
       }
       if (!isPhoneMessage && translationError) {

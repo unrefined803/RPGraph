@@ -68,7 +68,7 @@ describe('Fotogram moderation', () => {
   });
 
   it.each(['normal', 'planning'])('authors the moderation contract in the %s Fotogram slot only', (name) => {
-    const workflow = JSON.parse(readFileSync(`resources/default-content/default_${name}_v41.json`, 'utf8')) as WorkflowFile;
+    const workflow = JSON.parse(readFileSync(`resources/default-content/default_${name}_v42.json`, 'utf8')) as WorkflowFile;
     const node = workflow.nodes.find((entry) => entry.data.nodeType === 'llm-prompt-switch')!;
     const titles = node.data.llmPromptSwitchPromptTitlesByOutput!;
     const row = titles.findIndex((entries) => entries[0] === 'Fotogram Post');

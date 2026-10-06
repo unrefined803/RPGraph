@@ -1,4 +1,4 @@
-import { characterMessageAliases, matchingMessageAliases, messageAliasKey } from './messageAliases';
+import { accountLinkIdentity, characterMessageAliases, matchingMessageAliases, messageAliasKey } from './messageAliases';
 import { accountHandleMatches } from './character';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
@@ -30,7 +30,8 @@ function aliasRecipient(owners: StorybookCharacter[], identity: string) {
 
 /** WhatsUp recipients must be exact identities, never fuzzy name guesses. */
 export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messages: MessageRecord[], identity: string) {
-  identity = identity.trim().replace(/^@/, '').trim();
+  // Generated messages name their participants as account links; a bare name or ID stays valid.
+  identity = accountLinkIdentity(identity, 'whatsup') ?? identity.trim().replace(/^@/, '').trim();
   // Temporary UI contacts are projections of history, not newly provisioned accounts.
   characters = characters.filter((character) => !(character as StorybookCharacter & { temporaryPhone?: boolean }).temporaryPhone);
   const aliasById = characters.filter((character) => whatsUpAlias(character) && whatsUpAliasAccountId(character) === identity);
@@ -101,9 +102,10 @@ export function resolveWhatsUpMessageParticipants(
 }
 
 /**
- * A character with a second name keeps the name the other person already knows:
- * when their conversation has only ever used one of the two names, a written
- * name follows it. Exact account IDs are deliberate choices and stay untouched.
+ * A character with a second name stays hidden from people who know only that
+ * name: a message written under the real name then continues the second name.
+ * The second name itself is always a deliberate choice, and so is an exact
+ * account ID; neither is rewritten.
  */
 function knownWhatsUpName(
   characters: StorybookCharacter[],
@@ -113,11 +115,8 @@ function knownWhatsUpName(
   identity: string,
 ) {
   const owner = 'characterId' in side ? characters.find((character) => character.sourceId === side.characterId) : undefined;
-  if (!owner || !whatsUpAlias(owner) || identity.trim().replace(/^@/, '').trim() === side.accountId) return side;
-  const known = whatsUpNameKnownBy(owner, other.name, messages);
-  if (!known) return side;
-  return known === 'alias' ? aliasRecipient([owner], identity)
-    : { name: owner.name, characterId: owner.sourceId, accountId: whatsUpAccountId(owner) };
+  if (!owner || !whatsUpAlias(owner) || 'alias' in side || identity.trim().replace(/^@/, '').trim() === side.accountId) return side;
+  return whatsUpNameKnownBy(owner, other.name, messages) === 'alias' ? aliasRecipient([owner], identity) : side;
 }
 
 /** Which of the owner's two names a contact has seen so far; undefined when neither or both were used. */

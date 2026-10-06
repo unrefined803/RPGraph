@@ -62,8 +62,11 @@ describe('shared NPC app discovery', () => {
       }
       expect(input).toContain('Banking\nLink: @bank:Nova Vale');
       const links = parseAccountLinks(input, characters);
-      expect(links.map((link) => link.app).sort()).toEqual(['banking', 'fotogram', 'matchme', 'onlyfriends', 'whatsup']);
-      expect(links.every((link) => link.characterId === recipient.sourceId)).toBe(true);
+      // The reply lines repeat the recipient's link for the current app.
+      expect([...new Set(links.map((link) => link.app))].sort()).toEqual(['banking', 'fotogram', 'matchme', 'onlyfriends', 'whatsup']);
+      // Apart from the reply-to line, which names the sender, every link is the recipient's.
+      expect(links.filter((link) => !input.includes(`Reply to: ${link.token}`))
+        .every((link) => link.characterId === recipient.sourceId)).toBe(true);
     }
     recipient.apps!.onlyfriends.enabled = false;
     const context = recipientCharacterContext(recipient);

@@ -11,7 +11,8 @@
   cursor: pointer;
   overflow-wrap: anywhere;
 }
-.account-link:disabled {
+.account-link:disabled,
+.account-link[aria-disabled="true"] {
   color: #94bde4;
   opacity: 1;
   cursor: default;

@@ -15,7 +15,9 @@ export function whatsUpMessageInputText(
 ) {
   return [
     '[WHATSUP MESSAGE]', 'App: WhatsUp', `Sender: ${from}`, `Recipient: ${to}`,
-    `Reply as: ${to} to ${from}`, '',
+    `Reply as: ${to} to ${from}`,
+    // The reply names both sides by account link, which keeps a second name apart from its owner's real one.
+    `Reply from: @whatsup:${to}`, `Reply to: @whatsup:${from}`, '',
     ...(recipient ? [recipientCharacterContext(recipient, {
       app: 'whatsup',
       whatsUpAlias: messageAliasKey(whatsUpAlias(recipient)?.name ?? '') === messageAliasKey(to),

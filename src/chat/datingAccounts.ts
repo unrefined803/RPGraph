@@ -1,4 +1,4 @@
-import { characterMessageAliases, matchingMessageAliases } from '../characters/messageAliases';
+import { accountLinkIdentity, characterMessageAliases, matchingMessageAliases } from '../characters/messageAliases';
 import { appAvatarDataUrl, portraitDataUrl } from '../characters/portrait';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import type { ChatImageAttachment, MessageRecord } from '../types';
@@ -83,6 +83,7 @@ export function datingAccounts(characters: StorybookCharacter[], messages: Messa
 }
 
 export function resolveDatingAccount(identity: string, accounts: DatingAccount[]) {
+  identity = accountLinkIdentity(identity, 'matchme') ?? identity;
   const byId = accounts.filter((account) => account.id === identity.trim().replace(/^@/, ''));
   if (byId.length) return byId.length === 1 ? byId[0] : undefined;
   const matches = matchingMessageAliases(accounts, identity,

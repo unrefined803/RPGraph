@@ -1,10 +1,12 @@
-import { characterMessageAliases, matchingMessageAliases, messageAliasKey } from '../characters/messageAliases';
+import { accountLinkIdentity, characterMessageAliases, matchingMessageAliases, messageAliasKey } from '../characters/messageAliases';
 import { accountHandle, accountHandleMatches } from '../characters/character';
 import { matchMeState, incomingMatchMeMessage } from './matchMe';
 import { resolveDatingAccount } from './datingAccounts';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind, SocialMessengerAppKind, SocialDirectMessageRecord } from '../types';
-import { jsonObjectRanges, messengerAppMessageKeys, normalizeMatchMeMessageKey } from './phoneMessages';
+import { jsonObjectRanges, messengerAppMessageKeys, normalizeMatchMeMessageKey, type ParsedPhoneMessage } from './phoneMessages';
+import { parseAccountLinks } from './accountLinks';
+import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
 import { parseSocialReactionsOutput, type SocialReactionTarget } from './socialMedia';
 
 function cleanHandle(value: string) {
@@ -41,7 +43,8 @@ export function resolveSocialMessageIdentity(options: {
   app: SocialMessengerAppKind;
   identity: string;
 }): ResolvedSocialMessageIdentity {
-  const identity = options.identity.trim();
+  // Generated messages name their participants as account links; a bare name, handle or ID stays valid.
+  const identity = accountLinkIdentity(options.identity, options.app) ?? options.identity.trim();
   if (options.app === 'matchme') {
     const account = resolveDatingAccount(identity, matchMeState(options.characters, options.messages).accounts);
     return account ? { available: true, name: account.name, handle: account.id, source: 'directory' }
@@ -91,13 +94,42 @@ type SocialMessageValidationIssue = {
   resolved: ResolvedSocialMessageIdentity;
 };
 
+/**
+ * A post or comment leads to WhatsUp only through a link published in it. The
+ * recipient becomes exactly that account, so a second name is never replaced by
+ * its owner's real name.
+ */
+function whatsUpMessagesToPublishedLinks(
+  messages: ParsedPhoneMessage[], publishedText: string, characters: StorybookCharacter[], warnings: string[],
+) {
+  const published = parseAccountLinks(publishedText, characters).filter((link) => link.app === 'whatsup');
+  return messages.flatMap((message) => {
+    const resolve = (identity: string) => {
+      try {
+        const resolved = resolveWhatsUpRecipient(characters, [], identity);
+        return 'characterId' in resolved ? resolved : undefined;
+      } catch { return undefined; }
+    };
+    const sender = resolve(message.from);
+    const recipient = resolve(message.to);
+    const ownerLinks = published.filter((link) => link.characterId === recipient?.characterId);
+    const link = ownerLinks.find((entry) => entry.accountId === recipient?.accountId) ?? (ownerLinks.length === 1 ? ownerLinks[0] : undefined);
+    if (!sender || !link || sender.characterId === link.characterId) {
+      warnings.push('A WhatsUp message was ignored: a post or comment leads to WhatsUp only through an account link published in it, and needs an existing sender.');
+      return [];
+    }
+    return [{ ...message, to: link.accountId }];
+  });
+}
+
 /** Apply the DM account rules before post or thread reactions enter the timeline. */
 export function parseValidatedSocialReactionsOutput(
   text: string,
   target: SocialReactionTarget,
-  context: { characters: StorybookCharacter[]; messages: MessageRecord[] },
+  context: { characters: StorybookCharacter[]; messages: MessageRecord[]; publishedText?: string },
 ) {
   const parsed = parseSocialReactionsOutput(text, target);
+  parsed.phoneMessages = whatsUpMessagesToPublishedLinks(parsed.phoneMessages, context.publishedText ?? '', context.characters, parsed.warnings);
   parsed.directMessages = parsed.directMessages.filter((message) => {
     const identities = [message.from, message.to ?? ''];
     const valid = identities.every((identity) => resolveSocialMessageIdentity({

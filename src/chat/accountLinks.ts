@@ -1,4 +1,4 @@
-import { matchingMessageAliases } from '../characters/messageAliases';
+import { accountLinkAppAliases, matchingMessageAliases } from '../characters/messageAliases';
 import { accountHandle, migratedProfileName } from '../characters/character';
 import { resolveWhatsUpRecipient, whatsUpAlias, whatsUpAliasAccountId } from '../characters/messageIdentity';
 import { normalizePhoneName } from './phoneMessages';
@@ -10,11 +10,7 @@ export type AccountLinkApp = typeof accountLinkApps[number];
 export type AccountLink = { token: string; app: AccountLinkApp; accountId: string; characterId: string };
 export type AccountLinkTarget = AccountLink & { name: string; username: string; character: StorybookCharacter };
 export type ParsedAccountLink = AccountLinkTarget & { start: number; end: number };
-const appAliases: Record<string, AccountLinkApp> = {
-  whatsup: 'whatsup', whatsapp: 'whatsup', fotogram: 'fotogram', photogram: 'fotogram',
-  onlyfriends: 'onlyfriends', matchme: 'matchme',
-  bank: 'banking', banking: 'banking',
-};
+const appAliases: Record<string, AccountLinkApp> = accountLinkAppAliases;
 const identityContinuation = /^[\p{L}\p{N}_:@-]|^[.][\p{L}\p{N}_]/u;
 
 function accountLinkTargets(characters: StorybookCharacter[]) {
@@ -117,6 +113,25 @@ export function parseAccountLinks(text: string, characters: StorybookCharacter[]
     }
   }
   return links;
+}
+
+/**
+ * The links that address a character's accounts, as written in message text and
+ * in the from/to fields of generated messages. A second WhatsUp name is listed
+ * as its own link.
+ */
+export function characterAccountLinkTokens(character: StorybookCharacter) {
+  const social = (app: 'fotogram' | 'onlyfriends' | 'matchme') => {
+    const account = character.apps?.[app];
+    const profileName = account?.enabled ? migratedProfileName(account, character.name).trim().replace(/^@/, '') : '';
+    return profileName ? `@${app}:${profileName}` : undefined;
+  };
+  const alias = whatsUpAlias(character)?.name.trim();
+  return {
+    whatsup: character.apps?.whatsup?.enabled === false ? undefined : `@whatsup:${character.name.trim()}`,
+    whatsupSecond: alias ? `@whatsup:${alias}` : undefined,
+    fotogram: social('fotogram'), onlyfriends: social('onlyfriends'), matchme: social('matchme'),
+  };
 }
 
 export function bindAccountLinks(text: string, characters: StorybookCharacter[]): AccountLink[] {

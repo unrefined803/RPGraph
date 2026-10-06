@@ -6,6 +6,8 @@ import {
   resolveWhatsUpMessageParticipants, resolveWhatsUpRecipient, whatsUpAliasOwner, whatsUpNameKnownBy,
 } from './messageIdentity';
 import { validateCharacterAccountDirectory } from './profiles';
+import { socialPublishedLinkContext, socialReactionAccountContext } from './socialReactionAccounts';
+import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { messageContactGrants } from './messageContacts';
 import { buildCharacterRegistry } from './registry';
 import { automaticAccountLinkGrants, parseAccountLinks } from '../chat/accountLinks';
@@ -161,6 +163,65 @@ describe('WhatsUp second name', () => {
     expect(input).toContain('This conversation: The other person knows you only as Sofia Belova.');
     expect(recipientCharacterContext(characters.find((entry) => entry.sourceId === 'mark')!, { app: 'whatsup' }))
       .not.toContain('Second name');
+  });
+});
+
+describe('account links as message participants', () => {
+  it('resolves a WhatsUp link to exactly the account it names', () => {
+    expect(resolveWhatsUpRecipient(characters, [], '@whatsup:Sofia Belova')).toMatchObject({ accountId: 'tamara:whatsup:alias' });
+    expect(resolveWhatsUpRecipient(characters, [], '@whatsapp:Tamara Kovac')).toMatchObject({ accountId: 'tamara:whatsup' });
+    expect(() => resolveWhatsUpRecipient(characters, [], '@fotogram:Tamara Kovac')).toThrow(/Unknown WhatsUp recipient/);
+    expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity: '@fotogram:mark.fotogram' }))
+      .toMatchObject({ available: true, characterId: 'mark' });
+  });
+
+  it('never rewrites the second name, but hides the real one from people who know only the second', () => {
+    const knowsReal = [phone('Mark Hale', 'Tamara Kovac')];
+    expect(resolveWhatsUpMessageParticipants(characters, knowsReal, { from: '@whatsup:Sofia Belova', to: '@whatsup:Mark Hale' }).from)
+      .toMatchObject({ name: 'Sofia Belova', accountId: 'tamara:whatsup:alias' });
+    const knowsSecond = [phone('Mark Hale', 'Sofia Belova')];
+    expect(resolveWhatsUpMessageParticipants(characters, knowsSecond, { from: '@whatsup:Tamara Kovac', to: '@whatsup:Mark Hale' }).from.name)
+      .toBe('Sofia Belova');
+  });
+
+  it('lists the links of a post author and of every participant', () => {
+    const context = socialPublishedLinkContext(characters, 'fotogram', { role: 'actor', handle: 'tamara.fotogram' },
+      'message me on whatsup @whatsup:Sofia Belova');
+    expect(context).toContain('- Fotogram: @fotogram:tamara.fotogram (this account)');
+    expect(context).toContain('- WhatsUp main account: @whatsup:Tamara Kovac');
+    expect(context).toContain('- WhatsUp second account: @whatsup:Sofia Belova');
+    expect(context).toContain('- @whatsup:Sofia Belova: WhatsUp second account of Tamara Kovac.');
+    expect(socialPublishedLinkContext(characters, 'fotogram', { role: 'actor', handle: 'tamara.fotogram' }, 'hello'))
+      .toContain('No account link was published');
+    const available = socialReactionAccountContext(characters, 'fotogram', false, undefined,
+      { authorHandle: 'mark.fotogram', participantHandles: ['tamara.fotogram'] }).text;
+    expect(available).toContain('Account links: Fotogram @fotogram:tamara.fotogram; WhatsUp @whatsup:Tamara Kovac; WhatsUp second account @whatsup:Sofia Belova');
+  });
+
+  it('reads a comment author from this app\'s account link without a handle field', () => {
+    const parsed = parseValidatedSocialReactionsOutput(JSON.stringify({
+      reactions: { postId: 'fotogram-post-01', additionalLikes: 0, comments: [{ from: '@fotogram:mark.fotogram', text: 'nice' }] },
+      summary: 'Mark commented.',
+    }), { app: 'fotogram', postId: 'fotogram-post-01', append: true }, { characters, messages: [] });
+    expect(parsed.warnings).toEqual([]);
+    expect(parsed.reactions?.comments).toEqual([{ from: 'Mark Hale', handle: 'mark.fotogram', text: 'nice' }]);
+  });
+
+  it('delivers a WhatsUp message from a comment run only to a published link', () => {
+    const output = (to: string) => JSON.stringify({
+      reactions: { postId: 'fotogram-post-01', additionalLikes: 1, comments: [] }, summary: 'Mark reacted.',
+      whatsUpApp: [{ from: '@whatsup:Mark Hale', to, message: 'saw your comment' }],
+    });
+    const parse = (to: string, publishedText: string) => parseValidatedSocialReactionsOutput(output(to),
+      { app: 'fotogram', postId: 'fotogram-post-01', append: true }, { characters, messages: [], publishedText });
+    const published = 'write me: @whatsup:Sofia Belova';
+    expect(parse('@whatsup:Sofia Belova', published).phoneMessages).toMatchObject([{ to: 'tamara:whatsup:alias' }]);
+    // A real name written by mistake still reaches the account that was offered.
+    expect(parse('Tamara Kovac', published).phoneMessages).toMatchObject([{ to: 'tamara:whatsup:alias' }]);
+    const unpublished = parse('@whatsup:Tamara Kovac', 'no link here');
+    expect(unpublished.phoneMessages).toEqual([]);
+    expect(unpublished.warnings.join(' ')).toMatch(/published/);
+    expect(unpublished.reactions?.likes).toBe(1);
   });
 });
 

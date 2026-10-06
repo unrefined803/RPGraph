@@ -158,11 +158,13 @@ Storybooks and RP Saves without the field behave exactly as before.
   badge (“Second account · <name>” or “Main account · <name>”) once where a
   conversation starts on the second account and at every later switch; the
   derived `phoneOwnerAlias` message flag behind it is never stored.
-- Replies continue the name the other person already knows
-  (`whatsUpNameKnownBy`): when a conversation has only used one of the two
-  names, a name written by a model follows it. The player can switch the name
-  per conversation with **Writing as** in the chat header; an exact account ID
-  is never rewritten.
+- The second name is never rewritten: writing under it is always deliberate, so
+  its owner can also contact someone who knows the real name. The reverse is
+  protected: when a conversation has only used the second name
+  (`whatsUpNameKnownBy`), a message a model writes under the real name
+  continues the second name instead. The player can switch the name per
+  conversation with **Writing as** in the chat header; an exact account ID is
+  never rewritten.
 - Exchanging messages under the second name, or receiving its link, never adds
   the real character as a contact or relationship of the other person. The
   owner is still pinned as a Story NPC, because both names are the same account.
@@ -179,3 +181,36 @@ for work or privacy. Choosing a picture runs the local face detector: one face
 sets the round crop and shows “Face detected”, otherwise the whole picture is
 used. **Set manually** opens the shared crop dialog (`ProfilePickDialog`); the
 MatchMe profile form offers the same link for its main photo.
+
+## Account links as message participants
+
+Generated messages name both sides by account link, the same `@app:name` token
+that is shared in message text: `@whatsup:Full Name`, `@fotogram:profile name`,
+`@onlyfriends:profile name`. The bundled workflow prompts and the command
+prompts ask for links in `from` and `to` of `whatsUpApp`, `fotogramApp` and
+`onlyFriendsApp`; MatchMe keeps its exact account IDs. A link names one exact
+account, which is what keeps a second WhatsUp name apart from its owner's real
+name. Bare names, handles and account IDs remain accepted as a fallback.
+Comments and post commands name their author the same way
+(`"from": "@fotogram:profile name"`); the prompts no longer ask for a separate
+`handle` field, which is still read when a model supplies it.
+
+- `accountLinkIdentity` (`src/characters/messageAliases.ts`) reads the identity
+  out of a link for one app. The leading `@` is required, because stored
+  account IDs may themselves start with an app name. The message parsers in
+  `src/chat/phoneMessages.ts` strip the prefix, so previews and reports show the
+  name; `resolveWhatsUpRecipient`, `resolveSocialMessageIdentity` and
+  `resolveDatingAccount` accept the link form directly as well.
+- Inputs list the links to copy. WhatsUp and social DM inputs carry
+  `Reply from:` and `Reply to:` lines; `[AVAILABLE SOCIAL ACCOUNTS]` lists each
+  participant's `Account links`; character search lists a link per account.
+- Post and comment runs receive a runtime-only `[ACCOUNT LINKS]` block
+  (`socialPublishedLinkContext`): the author's or actor's own accounts as
+  private author data, and every account link published in the post or comment.
+- A post or comment leads to WhatsUp only through a link published in it.
+  `parseValidatedSocialReactionsOutput` accepts a `whatsUpApp` array next to the
+  reactions, drops messages to any other account, and binds the recipient to the
+  published account even when the model wrote its owner's real name.
+- Fotogram and OnlyFriends captions and comments render account links like chat
+  messages do (`AccountLinkText`; comments use its `nested` form because the
+  comment row is itself a button).

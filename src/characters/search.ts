@@ -206,8 +206,8 @@ export function characterSearchDirectory(
         post.author === character.name && accountHandleMatches(account, post.authorHandle)
       )).map((post) => post.postId)).size;
       return [
-        `${app}: account ID ${account.accountId}${app === 'whatsup' ? '' : `; profile name ${migratedProfileName(account, character.name)}`}`,
-        ...(app === 'whatsup' && whatsUpAlias(character) ? [`  Second name: ${whatsUpAlias(character)!.name} (same account under another name and picture; people who know this name do not know the real one unless the story establishes it)`] : []),
+        `${app}: account ID ${account.accountId}${app === 'whatsup' ? `; link @whatsup:${character.name.trim()}` : `; profile name ${migratedProfileName(account, character.name)}; link @${app}:${migratedProfileName(account, character.name).trim()}`}`,
+        ...(app === 'whatsup' && whatsUpAlias(character) ? [`  Second name: ${whatsUpAlias(character)!.name}; link @whatsup:${whatsUpAlias(character)!.name.trim()} (same account under another name and picture; people who know this name do not know the real one unless the story establishes it)`] : []),
         ...(social ? [`  Privacy: ${account.privacyMode === true ? 'anonymous (real name and profile photo hidden)' : 'public identity'}; posts: ${postCount}`] : []),
         ...field('  Bio', account.bio),
       ];

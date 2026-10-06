@@ -1,7 +1,56 @@
 import { agencyTagCatalog } from '../../shared/agency-tags.cjs';
-import { accountHandle } from './character';
+import { accountHandle, accountHandleMatches } from './character';
+import { characterAccountLinkTokens, parseAccountLinks } from '../chat/accountLinks';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { SocialAppKind } from '../types';
+
+const socialAppLabels = { fotogram: 'Fotogram', onlyfriends: 'OnlyFriends' } as const;
+
+/** One participant's links: this app's account plus the WhatsUp accounts they can write from. */
+function participantAccountLinks(character: StorybookCharacter, app: SocialAppKind) {
+  const tokens = characterAccountLinkTokens(character);
+  return [
+    ...(tokens[app] ? [`${socialAppLabels[app]} ${tokens[app]}`] : []),
+    ...(tokens.whatsup ? [`WhatsUp ${tokens.whatsup}`] : []),
+    ...(tokens.whatsupSecond ? [`WhatsUp second account ${tokens.whatsupSecond}`] : []),
+  ].join('; ');
+}
+
+/**
+ * Runtime-only link context for a post or thread run: the acting user's own
+ * accounts and every account link published in the post or comment, so a
+ * reaction can move to exactly the account that was offered.
+ */
+export function socialPublishedLinkContext(
+  characters: StorybookCharacter[],
+  app: SocialAppKind,
+  owner: { role: 'post author' | 'actor'; characterId?: string; accountId?: string; handle?: string },
+  publishedText: string,
+) {
+  const owners = characters.filter((character) => owner.characterId
+    ? character.sourceId === owner.characterId || character.id === owner.characterId
+    : owner.accountId ? character.apps?.[app]?.accountId === owner.accountId
+      : !!owner.handle && !!character.apps?.[app]?.enabled && accountHandleMatches(character.apps[app], owner.handle));
+  const character = owners.length === 1 ? owners[0] : undefined;
+  const tokens = character && characterAccountLinkTokens(character);
+  const published = parseAccountLinks(publishedText, characters);
+  const appLabels = { whatsup: 'WhatsUp', fotogram: 'Fotogram', onlyfriends: 'OnlyFriends', matchme: 'MatchMe', banking: 'Banking' };
+  return [
+    '[ACCOUNT LINKS]',
+    'An account link (@app:name) addresses exactly one account. Write the sender and the recipient of every private message as account links.',
+    ...(character && tokens ? [
+      `Accounts of the ${owner.role}, ${character.name} (private author data; other people know only the account shown in this app and links that were published or given to them):`,
+      ...(tokens[app] ? [`- ${socialAppLabels[app]}: ${tokens[app]} (this account${character.apps?.[app]?.privacyMode ? '; anonymous, the real name is not public' : ''})`] : []),
+      ...(tokens.whatsup ? [`- WhatsUp main account: ${tokens.whatsup} (shows the real name and portrait)`] : []),
+      ...(tokens.whatsupSecond ? [`- WhatsUp second account: ${tokens.whatsupSecond} (own name and picture; never reveals the real name)`] : []),
+    ] : []),
+    ...(published.length ? [
+      'Account links published in this post or comment:',
+      ...published.map((link) => `- ${link.token}: ${appLabels[link.app]}${link.app === 'whatsup' && link.name !== link.character.name ? ' second account' : ' account'} of ${link.character.name}. Readers know it by the name ${link.name} and may contact exactly this account; copy the link unchanged as "to".`),
+    ] : [`No account link was published in this post or comment. Do not contact the ${owner.role} outside this app.`]),
+    '[/ACCOUNT LINKS]',
+  ].join('\n');
+}
 
 export type SocialReactionPostAuthor = {
   characterId?: string;
@@ -75,7 +124,7 @@ export function socialReactionAccountContext(
       for (const tag of tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
     const lines = contacts.map(({ character, account, handle, evidence }) =>
-      `- ${JSON.stringify(character.name)}; account ID: ${JSON.stringify(account.accountId ?? '')}; profile name: ${JSON.stringify(handle)}; privacy: ${account.privacyMode ? 'anonymous' : 'public'}; ${evidence.join('; ')}`);
+      `- ${JSON.stringify(character.name)}; account ID: ${JSON.stringify(account.accountId ?? '')}; profile name: ${JSON.stringify(handle)}; link: @${app}:${handle}; privacy: ${account.privacyMode ? 'anonymous' : 'public'}; ${evidence.join('; ')}`);
     return { lines, text: [
       '[SOCIAL CONTACTS AND RELATIONSHIPS]',
       `App: ${app}; eligible contacts of the post author: ${contacts.length}`,
@@ -118,6 +167,7 @@ export function socialReactionAccountContext(
       ...field('Speech style', character.profile.speechStyle),
       ...field('Hidden agency', character.hiddenAgency),
       ...field('Account bio', account.bio),
+      `  Account links: ${participantAccountLinks(character, app)}`,
       `  Privacy mode: ${account.privacyMode === true ? 'anonymous; real name is not public' : 'public identity'}`,
       ...tags.flatMap((id) => {
         const tag = agencyTagCatalog.find((entry) => entry.id === id);
@@ -127,7 +177,8 @@ export function socialReactionAccountContext(
   });
   const text = [
     '[AVAILABLE SOCIAL ACCOUNTS]',
-    'Use these exact existing name and handle pairs for social participants:',
+    'Use these exact existing accounts for social participants:',
+    'Each participant lists the account links they can write from. A comment names its author by this app\'s link; a private message uses the sender link and the recipient link of the same app.',
     ...details,
     'Use only these existing accounts. Never invent social participants or assign a missing app account to a character. If no eligible participant exists, return empty comments and omit optional messages.',
     'Agency tags are private behavioral guidance for comments and any private messages triggered by this post or thread. Use each listed participant’s own tags to shape whether they react and the tone, wording and intent of their comments and messages, grounded in the post text and image context. Do not give everyone the same voice.',
