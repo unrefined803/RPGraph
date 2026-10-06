@@ -859,6 +859,11 @@ export type MessageRecord = {
   phoneFrom?: string;
   phoneTo?: string;
   phoneVoiceMessage?: boolean;
+  /**
+   * Derived for the owner's own phone, never stored: whether this message ran
+   * under the owner's second WhatsUp name (true) or the real name (false).
+   */
+  phoneOwnerAlias?: boolean;
   phoneAutoTurnSource?: 'narrator';
   embeddedPhoneMessages?: EmbeddedPhoneMessageLink[];
   embeddedSocialMessages?: EmbeddedSocialMessageLink[];

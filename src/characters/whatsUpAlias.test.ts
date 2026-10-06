@@ -115,6 +115,8 @@ describe('WhatsUp second name', () => {
     expect(inbox.map((message) => [message.phoneFrom, message.phoneTo])).toEqual([
       ['Mark Hale', 'Tamara Kovac'], ['Tamara Kovac', 'Mark Hale'], ['Dexter Shaw', 'Tamara Kovac'],
     ]);
+    // The owner's thread can mark where a conversation uses the second or the main account.
+    expect(inbox.map((message) => message.phoneOwnerAlias)).toEqual([true, true, false]);
     expect(phoneMessagesForOwner(messages, characters.find((entry) => entry.sourceId === 'mark'))).toBe(messages);
     const phoneCharacters = phoneRuntimeCharactersFromMessages(characters, messages);
     const contacts = phoneContactsForViewer(phoneCharacters.filter((entry) => !entry.whatsUpAliasOf), {

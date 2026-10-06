@@ -592,12 +592,17 @@ export function PhonePanel({
     lastInitiativeEnter.current = null;
     if (screen === 'desktop') desktopRef.current?.focus();
   }, [screen, selectedCharacter?.id, isRunning]);
+  const [whatsUpAliasEditorOpen, setWhatsUpAliasEditorOpen] = useState(false);
   useEffect(() => {
     if (screen !== 'whatsup') {
       return;
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || appDialogCoversPhone()) {
+        return;
+      }
+      if (whatsUpAliasEditorOpen) {
+        setWhatsUpAliasEditorOpen(false);
         return;
       }
       if (showPhoneEmojiPicker) {
@@ -716,7 +721,6 @@ export function PhonePanel({
     !!image.id.trim() && selectedReferenceImageIds.has(image.id.trim());
   const phoneOwnerName = selectedCharacter?.name.trim().split(/\s+/)[0];
   const ownWhatsUpAlias = whatsUpAlias(selectedCharacter);
-  const [whatsUpAliasEditorOpen, setWhatsUpAliasEditorOpen] = useState(false);
   const wallpaperImageId = selectedCharacter?.phoneSettings.wallpaperId ?? 'wallpaper-1';
   const wallpaperImage = [...defaultPhoneWallpapers, ...phoneGalleryImages]
     .find((image) => image.id === wallpaperImageId) ?? defaultPhoneWallpapers[0];
@@ -1511,7 +1515,7 @@ export function PhonePanel({
               }`}
               type="button"
               key={contact.character.id}
-              onClick={() => onOpenPhoneContact(contact)}
+              onClick={() => { setWhatsUpAliasEditorOpen(false); onOpenPhoneContact(contact); }}
             >
               <CharacterAvatar
                 className="phone-avatar"
@@ -1605,8 +1609,14 @@ export function PhonePanel({
             </div>
             <div className="phone-thread" ref={phoneThreadRef}>
               {phoneMessageViews.length > 0 ? (
-                phoneMessageViews.map((view) => {
+                phoneMessageViews.map((view, viewIndex) => {
                   const { message } = view;
+                  // With two accounts, mark once where the conversation starts on or switches to the other one.
+                  const previousOwnerAlias = phoneMessageViews[viewIndex - 1]?.message.phoneOwnerAlias;
+                  const accountSwitch = ownWhatsUpAlias && selectedCharacter && message.phoneOwnerAlias !== undefined &&
+                    (viewIndex === 0 ? message.phoneOwnerAlias : previousOwnerAlias !== undefined && previousOwnerAlias !== message.phoneOwnerAlias)
+                    ? message.phoneOwnerAlias ? `Second account · ${ownWhatsUpAlias.name}` : `Main account · ${selectedCharacter.name}`
+                    : '';
                   const focusHighlighted = highlightedPhoneMessageId === message.id;
                   const repliedToMessage = message.replyToMessageId !== undefined
                     ? selectedPhoneConversation.find((entry) => entry.id === message.replyToMessageId)
@@ -1622,6 +1632,7 @@ export function PhonePanel({
                   return (
                     <Fragment key={`${message.id}-${focusHighlighted ? highlightedPhoneMessagePulseKey : 'idle'}`}>
                       {dayLabel && <div className="rp-day-divider"><span>{dayLabel}</span></div>}
+                      {accountSwitch && <div className="phone-account-switch-badge" role="note"><span>{accountSwitch}</span></div>}
                       <div
                         className={`phone-message-row${replySelected ? ' reply-selected' : ''}${
                           focusHighlighted ? ' phone-focus-highlight' : ''

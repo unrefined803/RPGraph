@@ -65,12 +65,21 @@ export function phoneMessagesForOwner(messages: MessageRecord[], owner: Storyboo
   const alias = whatsUpAlias(owner);
   if (!owner || !alias) return messages;
   const aliasKey = normalizePhoneName(alias.name);
+  const realKey = normalizePhoneName(owner.name);
   const own = (name: string | undefined) => !!name && normalizePhoneName(name) === aliasKey;
-  return messages.map((message) => message.channel === 'phone' && (own(message.phoneFrom) || own(message.phoneTo)) ? {
-    ...message,
-    ...(own(message.phoneFrom) ? { phoneFrom: owner.name, speakerName: owner.name, speakerNames: [owner.name] } : {}),
-    ...(own(message.phoneTo) ? { phoneTo: owner.name } : {}),
-  } : message);
+  const real = (name: string | undefined) => !!name && normalizePhoneName(name) === realKey;
+  return messages.map((message) => {
+    if (message.channel !== 'phone') return message;
+    if (own(message.phoneFrom) || own(message.phoneTo)) {
+      return {
+        ...message, phoneOwnerAlias: true,
+        ...(own(message.phoneFrom) ? { phoneFrom: owner.name, speakerName: owner.name, speakerNames: [owner.name] } : {}),
+        ...(own(message.phoneTo) ? { phoneTo: owner.name } : {}),
+      };
+    }
+    // The thread shows which of the two names a conversation is running under.
+    return real(message.phoneFrom) || real(message.phoneTo) ? { ...message, phoneOwnerAlias: false } : message;
+  });
 }
 
 /** Conversation keys of the same inbox: the stored key plus its second-name or real-name twin. */

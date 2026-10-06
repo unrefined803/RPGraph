@@ -7144,6 +7144,23 @@ input[type="number"]::-webkit-outer-spin-button {
   font-weight: 550;
 }
 
+/* Marks where a conversation starts on or switches to the owner's other WhatsUp account. */
+.phone-account-switch-badge {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0;
+}
+
+.phone-account-switch-badge span {
+  padding: 3px 10px;
+  border: 1px solid rgba(94, 234, 212, 0.3);
+  border-radius: 999px;
+  color: #5eead4;
+  background: rgba(94, 234, 212, 0.08);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
 /* Second WhatsUp name: settings button, editor area and the per-conversation sender switch. */
 .phone-list-header > .phone-alias-settings-button {
   width: 28px;

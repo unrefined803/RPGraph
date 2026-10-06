@@ -154,7 +154,10 @@ Storybooks and RP Saves without the field behave exactly as before.
   links sees two contacts with separate threads.
 - The owner sees one inbox. On the owner's own phone `phoneMessagesForOwner`
   reads messages under the second name as messages under the real name, and
-  read state is shared between both conversation keys.
+  read state is shared between both conversation keys. The thread shows a small
+  badge (“Second account · <name>” or “Main account · <name>”) once where a
+  conversation starts on the second account and at every later switch; the
+  derived `phoneOwnerAlias` message flag behind it is never stored.
 - Replies continue the name the other person already knows
   (`whatsUpNameKnownBy`): when a conversation has only used one of the two
   names, a name written by a model follows it. The player can switch the name
@@ -167,7 +170,8 @@ Storybooks and RP Saves without the field behave exactly as before.
   current conversation runs under the second name. Character search lists the
   second name. Other characters' contexts never connect the two names.
 
-The gear button in WhatsUp opens **Your accounts**: the fixed main account and
+The gear button in WhatsUp opens **Your accounts** (closed with Done, Escape or
+by opening a chat): the fixed main account and
 the second account, each with its picture and a click-to-copy link. Creating or
 editing the second account opens a nested form; Character Setup offers the same
 panel under **WhatsUp**. The interface calls the second name a second account
