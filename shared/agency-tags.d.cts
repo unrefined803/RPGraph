@@ -52,7 +52,9 @@ export type AgencyTagId =
   | 'comment_troll'
   | 'rage_baiter'
   | 'contrarian_debater'
-  | 'shitposter';
+  | 'shitposter'
+  | 'comment_hater'
+  | 'online_scammer';
 export type AgencyApp = 'whatsup' | 'fotogram' | 'onlyfriends' | 'matchme';
 export type AgencyAccountRole = 'user' | 'creator';
 export type AgencyAction = 'react' | 'dm_reply' | 'dm_initiate' | 'publish';

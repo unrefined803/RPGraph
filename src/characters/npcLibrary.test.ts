@@ -14,6 +14,11 @@ const authoredMatchMeCharacters = {
   'noah_blake': { name: 'Noah Blake', fotogram: 'noah.citynotes', matchme: 'noah.blake' },
 } as const;
 const authoredMatchMeIds = Object.keys(authoredMatchMeCharacters);
+// Dating identities that deliberately differ from the real character.
+const catfishPersonas: Record<string, { name: string; gender: string; age: number } | undefined> = {
+  'chloe_bella_vance': { name: 'Chloe Vance', gender: 'woman', age: 22 },
+  'tamara_kovac': { name: 'Sofia Belova', gender: 'woman', age: 24 },
+};
 
 describe('bundled authored MatchMe characters', () => {
   it('discovers each character with valid MatchMe and Fotogram media', async () => {
@@ -89,15 +94,15 @@ it('ships developed NPCs with tags, deliberate privacy and consistent dating pro
     }
     const matchme = character.apps?.matchme;
     if (matchme?.enabled) {
-      const catfish = character.id === 'chloe_bella_vance';
-      expect(matchme.profileName).toBe(catfish ? 'Chloe Vance' : character.name);
+      const catfish = catfishPersonas[character.id];
+      expect(matchme.profileName).toBe(catfish?.name ?? character.name);
       expect(['woman', 'man']).toContain(matchme.profile?.gender);
       expect(matchme.profile?.age).toBeGreaterThanOrEqual(18);
       if (catfish || character.gender !== undefined) {
-        expect(matchme.profile?.gender).toBe(catfish ? 'woman' : character.gender);
+        expect(matchme.profile?.gender).toBe(catfish?.gender ?? character.gender);
       }
       if (catfish || character.age !== undefined) {
-        expect(matchme.profile?.age).toBe(catfish ? 22 : character.age);
+        expect(matchme.profile?.age).toBe(catfish?.age ?? character.age);
       }
       expect(matchme.profile?.interests.trim()).toBeTruthy();
       expect(matchme.profile?.bio).toBe(matchme.bio);

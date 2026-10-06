@@ -2,12 +2,13 @@
 
 ## Current working state
 
-All 55 NPCs are packed in `resources/npc-characters`, including the five
-crime-story characters (see "Fourth batch" below). The unpacked workspace remains the
+All 65 NPCs are packed in `resources/npc-characters`, including the five
+crime-story characters (see "Fourth batch" below) and the ten antagonistic
+commenters and scammers (see "Fifth batch"). The unpacked workspace remains the
 editing source; repack with the inspect/edit procedure described there.
 
-The current review inventory is 55 characters: 42 existing specifications and
-13 new-character specifications. The bundled library contains the same 55 characters.
+The current review inventory is 65 characters: 42 existing specifications and
+23 new-character specifications. The bundled library contains the same 65 characters.
 
 The local workspace is `user_data/npc-authoring/` in this checkout. It is ignored
 by Git, persists across a chat reset on this machine, and is not included in a
@@ -17,8 +18,9 @@ clone or commit. Preserve it when cleaning local files.
   extracted images. The six revised NPC specifications contain the latest edits.
 - `existing/.originals/` and `existing/manifest.json`: original container backups
   and the unpack tool's manifest. Keep these intact.
-- `new-characters/`: thirteen plain creation specifications, each named
-  `character.json`, with one local portrait image. These are not edit
+- `new-characters/`: twenty-three plain creation specifications, each named
+  `character.json`, with one local portrait image (two for Dexter Shaw and
+  Tamara Kovac). These are not edit
   specifications and are not entries in the existing-character pack manifest.
 - `image-prompts.json`: the final prompts used with the built-in image generator;
   the tracked copy is [parent-npc-image-prompts.json](parent-npc-image-prompts.json).
@@ -217,3 +219,46 @@ reciprocal relationship targets, enabled accounts, empty publications and Mason'
 shared portrait/dating reference. No application, browser or UI tests were run.
 The five written containers were also validated after packing and checked against
 their source specifications for characterization, accounts and relationships.
+
+## Fifth batch: antagonistic commenters and scammers
+
+Ten plain creation specifications live in
+`user_data/npc-authoring/new-characters/<slug>/character.json` and were packed
+with `character:create` into `resources/npc-characters/<slug>.json`. This batch
+introduced the catalog tags `comment_hater` and `online_scammer`.
+
+| Character | Age | Slug | Role | Agency tags |
+| --- | --- | --- | --- | --- |
+| Brody Callahan | 29 | `brody-callahan` | Personal trainer and online fitness coach | `rage_baiter`, `comment_troll` |
+| Kendra Holt | 23 | `kendra-holt` | Sociology student; Brody's stepsister | `shitposter`, `comment_troll` |
+| Leon Richter | 34 | `leon-richter` | Backend engineer hating from anonymous handles | `comment_hater`, `comment_troll` |
+| Damian Cross | 26 | `damian-cross` | Menswear sales associate and aspiring influencer | `clout_chaser`, `comment_troll` |
+| Gemma Croft | 27 | `gemma-croft` | Boutique styling assistant and fashion commentator | `comment_hater`, `passive_aggressive` |
+| Roxy Mendez | 26 | `roxy-mendez` | Gossip podcaster | `screenshot_drama`, `comment_hater` |
+| Dexter Shaw | 32 | `dexter-shaw` | Fake crypto pool operator | `online_scammer`, `upseller` |
+| Tamara Kovac | 46 | `tamara-kovac` | Romance scammer posing as Sofia Belova, 24 | `catfish`, `online_scammer` |
+| Finn Gallagher | 33 | `finn-gallagher` | Freelance essayist and contrarian | `contrarian_debater`, `rage_baiter` |
+| Toby Becker | 26 | `toby-becker` | Variety game streamer | `shitposter`, `drama_magnet` |
+
+Six reciprocal relationships connect the batch internally: Brody and Kendra are
+step-siblings; Kendra moderates Toby's stream chat; Gemma feeds observations to
+her friend Roxy; Roxy and Damian trade exposure; Finn and Leon are former
+flatmates who still argue; Tamara refers marks to Dexter for a cut. The scammer
+pair and the Finn/Leon pair connect on WhatsUp only, the others on WhatsUp and
+Fotogram. No existing character was changed.
+
+All ten have WhatsUp and Fotogram. Leon's Fotogram and Tamara's Sofia-themed
+Fotogram use privacy mode; the other eight post under their real names with one
+starting post (two for Dexter). Brody and Damian have public OnlyFriends creator
+accounts; Kendra, Leon, Gemma, Roxy, Finn and Toby have anonymous browsing
+accounts whose handles and bios avoid their names; Dexter and Tamara have none.
+Damian has a genuine MatchMe profile. Tamara's MatchMe identity is Sofia Belova,
+using the stranger's terrace photo; `npcLibrary.test.ts` lists her with Joel
+Vance as a deliberate dating persona. WhatsUp shows Tamara's real name and
+portrait, so her Hidden Agency keeps marks away from it.
+
+Source images are 896 x 1200 (3:4) JPEGs. Dexter's supercar image shows a
+different man and is authored as a lifted photo. Face crops come from the
+detector and are stored in the specifications, except Roxy's, which is manual
+because the microphone covers part of her face. Social avatars deliberately omit
+`avatarImageId` so they follow the cropped portrait.
