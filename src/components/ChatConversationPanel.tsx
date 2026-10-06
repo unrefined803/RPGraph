@@ -9,13 +9,13 @@ import { ChatBubbleText } from './ChatBubbleText';
 import { CharacterName } from './CharacterName';
 import { EmojiText } from './EmojiText';
 import { accountHandleMatches } from '../characters/character';
-import { datingAccountMatches } from '../chat/datingAccounts';
+import { datingAccountMatches, datingAvatarDataUrl } from '../chat/datingAccounts';
 import { CharacterAvatar } from './CharacterAvatar';
 import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
 import { phoneNamesMatch } from '../chat/phoneMessages';
 import { createStableDerivedValueSelector } from '../chat/stableDerivedValue';
 import type { MessageStream } from '../chat/messageStream';
-import { socialDirectMessageCharacter, socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
+import { isAccountPrivacyMode, socialAccountPresentation, socialDirectMessageCharacter, socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
 import { socialTimelineGroups, socialTimelineMessageText } from '../chat/socialTimeline';
 import { AccountLinkText } from './AccountLinkText';
 import {
@@ -687,12 +687,16 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
       : appCharacters.filter((character) => phoneNamesMatch(character.name, name) ||
         accountHandleMatches(character.apps?.[app], name));
     const character = matches.length === 1 ? matches[0] : undefined;
+    // Show the app identity: a dating persona or private account must not reveal the real name or portrait.
+    const publicName = app === 'whatsup' ? name : socialAccountPresentation(app, character, name, name).name;
+    const avatarDataUrl = app === 'matchme' ? datingAvatarDataUrl(character)
+      : isAccountPrivacyMode(app, character) ? undefined : phoneCharacterAvatarDataUrl(character);
     return <CharacterAvatar
       className="chat-message-avatar"
       style={{ borderColor: characterColors.get(character?.name ?? name) ?? '#ffffff' }}
-      name={name}
-      fallback={name.trim().slice(0, 2).toUpperCase() || '?'}
-      profileImageDataUrl={phoneCharacterAvatarDataUrl(character)}
+      name={publicName}
+      fallback={publicName.trim().slice(0, 2).toUpperCase() || '?'}
+      profileImageDataUrl={avatarDataUrl}
     />;
   };
   const renderPhoneBubbleStack = (

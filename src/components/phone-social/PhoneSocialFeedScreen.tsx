@@ -1575,8 +1575,8 @@ export function PhoneSocialFeedScreen({
                 >
                   <CharacterAvatar
                     className="phone-avatar"
-                    name={entry.name}
-                    fallback={entry.name.slice(0, 1).toUpperCase()}
+                    name={socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name}
+                    fallback={socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name.slice(0, 1).toUpperCase()}
                     profileImageDataUrl={!isAccountPrivacyMode(app.id, entry.character) ? socialAvatarDataUrl(entry.character, entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!, entry.character.sourceId) : undefined) : undefined}
                     style={color ? { borderColor: color, color } : undefined}
                   />
@@ -1897,8 +1897,8 @@ export function PhoneSocialFeedScreen({
                   >
                     <CharacterAvatar
                       className="phone-avatar"
-                      name={post.authorName}
-                      fallback={post.authorName.slice(0, 1).toUpperCase()}
+                      name={postIdentity.name}
+                      fallback={postIdentity.name.slice(0, 1).toUpperCase()}
                       profileImageDataUrl={!isAccountPrivacyMode(app.id, postAuthorCharacter) ? socialAvatarDataUrl(postAuthorCharacter, postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!, postAuthorCharacter.sourceId) : undefined) : undefined}
                       style={postAuthorColor
                         ? { borderColor: postAuthorColor, color: postAuthorColor }

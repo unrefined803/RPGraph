@@ -5,6 +5,7 @@ import type { StorybookCharacter } from '../../storybook/runtime';
 import { AccountLinkInput } from '../AccountLinkInput';
 import { AccountLinkText } from '../AccountLinkText';
 import { CharacterAvatar } from '../CharacterAvatar';
+import { datingAvatarDataUrl } from '../../chat/datingAccounts';
 import { useEffect, useRef, useState } from 'react';
 import type { DatingMessage } from '../../chat/datingMessages';
 import type { RpDateTimeFormat, RpWeekdayLanguage } from '../../types';
@@ -86,11 +87,14 @@ export function MatchMeConversation({ nameColor, owner, partner, busy, name, ava
         <strong>You matched with <CharacterName color={nameColor}>{name}</CharacterName></strong><small>Say hello or break the ice with an emoji.</small>
       </div>}
       {messages.map((message) => {
+        // Dating identities never fall back to the real character portrait.
+        const messageAvatar = (sender: DatingMessage['sender']) => sender === 'owner' ? datingAvatarDataUrl(owner) : avatarDataUrl;
         const rpTimeParts = rpTimeTrackingEnabled && message.rpDateTime
           ? formatRpDateTimeParts(message.rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
           : undefined;
         return <div key={message.id} className={`phone-social-dm-message-row ${message.sender === 'owner' ? 'outgoing' : 'incoming'}`}>
-          <AppMessageAvatar character={message.sender === 'owner' ? owner : partner} name={message.sender === 'owner' ? owner?.name ?? 'You' : name} />
+          <AppMessageAvatar character={message.sender === 'owner' ? owner : partner} name={message.sender === 'owner' ? owner?.name ?? 'You' : name}
+            avatarDataUrl={messageAvatar(message.sender)} hidePortrait={!messageAvatar(message.sender)} />
           <div className="phone-social-dm-bubble"><ChatBubbleText><AccountLinkText text={message.text} bindings={message.accountLinks} /></ChatBubbleText>
             <time dateTime={message.rpDateTime ?? message.sentAt}>
               {message.demo ? 'Demo reply · ' : ''}
