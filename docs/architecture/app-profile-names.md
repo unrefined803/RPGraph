@@ -162,15 +162,24 @@ Storybooks and RP Saves without the field behave exactly as before.
   its owner can also contact someone who knows the real name. The reverse is
   protected: when a conversation has only used the second name
   (`whatsUpNameKnownBy`), a message a model writes under the real name
-  continues the second name instead. The player can switch the name per
-  conversation with **Writing as** in the chat header; an exact account ID is
-  never rewritten.
+  continues the second name instead. An exact account ID is never rewritten.
+- The player writes from the account the conversation last used
+  (`whatsUpNamesUsedWith`), so a chat opened by a message to the second account
+  answers from it. **Writing as** in the chat header switches the account; the
+  choice holds until the conversation moves on. While the chosen account is one
+  the contact has never exchanged messages with, the header warns that the
+  message reaches them as a new, unknown contact.
 - Exchanging messages under the second name, or receiving its link, never adds
   the real character as a contact or relationship of the other person. The
   owner is still pinned as a Story NPC, because both names are the same account.
 - The replying character's private context lists both links and states when the
   current conversation runs under the second name. Character search lists the
-  second name. Other characters' contexts never connect the two names.
+  second name. Other characters' contexts never connect the two names, but the
+  model reads the whole history and would. A WhatsUp input whose sender has a
+  second name therefore carries a `Sender identity` note: the recipient treats
+  the two names as different contacts unless the story has shown the connection.
+- On the owner's phone a message written from the second account shows the
+  second name and its picture in the bubble.
 
 The gear button in WhatsUp opens **Your accounts** (closed with Done, Escape or
 by opening a chat): the fixed main account and

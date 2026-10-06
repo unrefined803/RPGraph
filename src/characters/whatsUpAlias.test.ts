@@ -3,7 +3,7 @@ import fixture from './fixtures/stage4-npc.json';
 import { appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
 import { characterPayload, normalizeCharacterApps, validateCharacterPayload, type Character } from './character';
 import {
-  resolveWhatsUpMessageParticipants, resolveWhatsUpRecipient, whatsUpAliasOwner, whatsUpNameKnownBy,
+  resolveWhatsUpMessageParticipants, resolveWhatsUpRecipient, whatsUpAliasOwner, whatsUpNameKnownBy, whatsUpNamesUsedWith,
 } from './messageIdentity';
 import { validateCharacterAccountDirectory } from './profiles';
 import { socialPublishedLinkContext, socialReactionAccountContext } from './socialReactionAccounts';
@@ -146,6 +146,21 @@ describe('WhatsUp second name', () => {
     expect(whatsUpNameKnownBy(owner, 'Mark Hale', [...history, phone('Tamara Kovac', 'Mark Hale')])).toBeUndefined();
   });
 
+  it('follows the account a conversation last used and sends from the chosen one', () => {
+    const history = [phone('Tamara Kovac', 'Mark Hale'), phone('Mark Hale', 'Sofia Belova')];
+    expect(whatsUpNamesUsedWith(owner, 'Mark Hale', history)).toMatchObject({ latest: 'alias', count: 2 });
+    expect(whatsUpNamesUsedWith(owner, 'Mark Hale', [...history, phone('Mark Hale', 'Tamara Kovac')]).latest).toBe('real');
+    // Someone who only wrote to the second account does not know the main one.
+    const aliasOnly = whatsUpNamesUsedWith(owner, 'Mark Hale', [phone('Mark Hale', 'Sofia Belova')]);
+    expect([...aliasOnly.known]).toEqual(['alias']);
+    expect(whatsUpNamesUsedWith(owner, 'Dexter Shaw', history)).toMatchObject({ latest: undefined, count: 0 });
+    // The account picked in the chat header is an exact account ID, which is never rewritten.
+    expect(resolveWhatsUpMessageParticipants(characters, [phone('Mark Hale', 'Sofia Belova')],
+      { from: 'tamara:whatsup', to: 'Mark Hale' }).from).toMatchObject({ name: 'Tamara Kovac', accountId: 'tamara:whatsup' });
+    expect(resolveWhatsUpMessageParticipants(characters, [phone('Tamara Kovac', 'Mark Hale')],
+      { from: 'tamara:whatsup:alias', to: 'Mark Hale' }).from).toMatchObject({ name: 'Sofia Belova', accountId: 'tamara:whatsup:alias' });
+  });
+
   it('never turns a second-name conversation into a contact with the real character', () => {
     const exchange = [phone('Mark Hale', 'Sofia Belova'), phone('Sofia Belova', 'Mark Hale', 'Also here: @whatsup:Sofia Belova')];
     expect(messageContactGrants(exchange, characters)).toEqual([{ ownerId: 'tamara', targetId: 'mark', app: 'whatsup' }]);
@@ -161,6 +176,12 @@ describe('WhatsUp second name', () => {
     const input = whatsUpMessageInputText('Mark Hale', 'Sofia Belova', 'hey', owner, undefined, characters);
     expect(input).toContain('Reply as: Sofia Belova to Mark Hale');
     expect(input).toContain('This conversation: The other person knows you only as Sofia Belova.');
+    // The recipient of a message cannot connect the sender's two names; a sender with one name needs no note.
+    expect(input).not.toContain('Sender identity');
+    const fromReal = whatsUpMessageInputText('Tamara Kovac', 'Mark Hale', 'hey', undefined, undefined, characters);
+    expect(fromReal).toContain('Mark Hale does not know that "Tamara Kovac" and "Sofia Belova" are the same person');
+    const fromSecond = whatsUpMessageInputText('Sofia Belova', 'Mark Hale', 'hey', undefined, undefined, characters);
+    expect(fromSecond).toContain('Mark Hale does not know that "Sofia Belova" and "Tamara Kovac" are the same person');
     expect(recipientCharacterContext(characters.find((entry) => entry.sourceId === 'mark')!, { app: 'whatsup' }))
       .not.toContain('Second name');
   });

@@ -119,20 +119,31 @@ function knownWhatsUpName(
   return whatsUpNameKnownBy(owner, other.name, messages) === 'alias' ? aliasRecipient([owner], identity) : side;
 }
 
-/** Which of the owner's two names a contact has seen so far; undefined when neither or both were used. */
-export function whatsUpNameKnownBy(owner: StorybookCharacter, contactName: string, messages: MessageRecord[]) {
+/** The owner's names a contact has exchanged messages with, and the one their latest message used. */
+export function whatsUpNamesUsedWith(owner: StorybookCharacter, contactName: string, messages: MessageRecord[]) {
   const alias = whatsUpAlias(owner);
-  if (!alias) return undefined;
+  const known = new Set<'real' | 'alias'>();
+  let latest: 'real' | 'alias' | undefined;
+  let count = 0;
+  if (!alias) return { known, latest, count };
   const contactKey = key(contactName);
-  const used = new Set<'real' | 'alias'>();
   for (const message of messages) {
     if (!message.phoneMessage) continue;
     const names = [key(message.phoneFrom ?? ''), key(message.phoneTo ?? '')];
     if (!names.includes(contactKey)) continue;
-    if (names.includes(key(alias.name))) used.add('alias');
-    if (names.includes(key(owner.name))) used.add('real');
+    const used = names.includes(key(alias.name)) ? 'alias' : names.includes(key(owner.name)) ? 'real' : undefined;
+    if (!used) continue;
+    known.add(used);
+    latest = used;
+    count += 1;
   }
-  return used.size === 1 ? [...used][0] : undefined;
+  return { known, latest, count };
+}
+
+/** Which of the owner's two names a contact has seen so far; undefined when neither or both were used. */
+export function whatsUpNameKnownBy(owner: StorybookCharacter, contactName: string, messages: MessageRecord[]) {
+  const { known } = whatsUpNamesUsedWith(owner, contactName, messages);
+  return known.size === 1 ? [...known][0] : undefined;
 }
 
 /** The second-name owner behind a stored WhatsUp identity, or undefined for a real name. */

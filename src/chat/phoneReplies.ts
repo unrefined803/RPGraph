@@ -27,9 +27,33 @@ export function whatsUpMessageInputText(
       messageText: message,
       characters,
     }), ''] : []),
+    ...senderIdentityNote(from, to, characters),
     ...(context ? [context, ''] : []),
     'New message:', `${from}: ${message.trim()}`,
   ].join('\n');
+}
+
+/**
+ * The model reads the whole history, so it knows both names of a sender with a
+ * second WhatsUp name. The recipient does not: each name is its own contact.
+ */
+function senderIdentityNote(from: string, to: string, characters: StorybookCharacter[]) {
+  const fromKey = messageAliasKey(from);
+  const owners = characters.filter((character) => {
+    const alias = whatsUpAlias(character)?.name;
+    return !!alias && (messageAliasKey(character.name) === fromKey || messageAliasKey(alias) === fromKey);
+  });
+  if (owners.length !== 1) return [];
+  const alias = whatsUpAlias(owners[0])!.name.trim();
+  const other = messageAliasKey(alias) === fromKey ? owners[0].name.trim() : alias;
+  return [
+    'Sender identity',
+    `${to} sees this message from the WhatsUp contact "${from}" and knows only what that contact has shown.`,
+    `Earlier messages under the name "${other}" came from a different contact as far as ${to} can tell. ` +
+      `${to} does not know that "${from}" and "${other}" are the same person, must not say or hint that they are, ` +
+      `and must not carry over anything "${other}" said or was told into this chat, unless the story has shown ${to} the connection.`,
+    '',
+  ];
 }
 
 function replyImageIds(message: MessageRecord) {

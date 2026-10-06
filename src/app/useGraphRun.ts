@@ -571,7 +571,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
         inputPhoneParticipants = resolveWhatsUpMessageParticipants(appCharacters(), historyMessages, {
           from: existingInputMessage?.phoneFromAccountId ?? existingInputMessage?.phoneFrom ??
             aliasSenderAccountId ??
-            (phoneSenderAccountId && !phoneRecipientCharacterOverride && selectedCharacter?.id === inputCharacter?.id ? phoneSenderAccountId : undefined) ??
+            (phoneSenderAccountId && selectedCharacter?.id === inputCharacter?.id &&
+              (!phoneRecipientCharacterOverride || phoneRecipientCharacterOverride.id === selectedPhoneContact?.character.id)
+              ? phoneSenderAccountId : undefined) ??
             inputCharacter?.apps?.whatsup?.accountId ?? inputCharacter?.name ?? '',
           to: existingInputMessage?.phoneToAccountId ?? existingInputMessage?.phoneTo ??
             recipient?.apps?.whatsup?.accountId ?? recipient?.name ?? '',

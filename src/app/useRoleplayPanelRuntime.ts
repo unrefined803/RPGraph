@@ -6,7 +6,7 @@ import { nextAutoScrollSpeed } from '../chat/autoScrollSpeed';
 import { bankingRecipientByName } from '../chat/bankingRecipients';
 import { hasAuthoredConnection } from '../characters/relationships';
 import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
-import { whatsUpAccountId, whatsUpAlias, whatsUpAliasAccountId, whatsUpNameKnownBy } from '../characters/messageIdentity';
+import { whatsUpAccountId, whatsUpAlias, whatsUpAliasAccountId, whatsUpNamesUsedWith } from '../characters/messageIdentity';
 import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
 import { appCharacterImage } from '../characters/appRuntime';
 import type { NpcParticipantReference } from '../characters/npcParticipants';
@@ -206,7 +206,7 @@ export function useRoleplayPanelRuntime({
     usePanelNavigationState<SocialDirectMessageOpenRequest>('panel.socialDirectMessageOpenRequest');
   const [phoneDividerAfterByConversation, setPhoneDividerAfterByConversation] = useState<Record<string, number>>({});
   // A deliberate choice of WhatsUp name for one conversation; without one the known name continues.
-  const [phoneSenderNameByConversation, setPhoneSenderNameByConversation] = useState<Record<string, 'real' | 'alias'>>({});
+  const [phoneSenderNameByConversation, setPhoneSenderNameByConversation] = useState<Record<string, { name: 'real' | 'alias'; count: number }>>({});
   const [recentlyUsedEmojis, setRecentlyUsedEmojis] = useState<string[]>([]);
   const [recentChatCharacterIds, setRecentChatCharacterIds] = useState<string[]>([]);
   const [openedPhoneConversationKey, setOpenedPhoneConversationKey] = usePanelNavigationState('panel.openedPhoneConversationKey', '');
@@ -741,18 +741,29 @@ export function useRoleplayPanelRuntime({
   const selectedPhoneConversation = useMemo(() => {
     return selectedPhoneConversationMessages(viewerPhoneMessages, viewedPhoneCharacter, selectedPhoneContact);
   }, [viewerPhoneMessages, selectedPhoneContact, viewedPhoneCharacter]);
-  // The name the viewed character writes under: what this contact already knows, unless chosen otherwise.
+  // The account the viewed character writes from: the one this conversation last used, until switched by hand.
+  // A hand-made choice holds until the conversation moves on, so a message to the other account is followed again.
   const viewedPhoneAlias = whatsUpAlias(viewedPhoneCharacter);
-  const phoneSenderChoice = selectedPhoneContact ? phoneSenderNameByConversation[selectedPhoneContact.conversationKey] : undefined;
-  const phoneWritesAsAlias = !!viewedPhoneCharacter && !!viewedPhoneAlias && !!selectedPhoneContact && (phoneSenderChoice
-    ? phoneSenderChoice === 'alias'
-    : whatsUpNameKnownBy(viewedPhoneCharacter, selectedPhoneContact.character.name, messages) === 'alias');
+  const phoneNamesUsed = viewedPhoneCharacter && viewedPhoneAlias && selectedPhoneContact
+    ? whatsUpNamesUsedWith(viewedPhoneCharacter, selectedPhoneContact.character.name, messages)
+    : undefined;
+  const storedPhoneSenderChoice = selectedPhoneContact ? phoneSenderNameByConversation[selectedPhoneContact.conversationKey] : undefined;
+  const phoneSenderChoice = storedPhoneSenderChoice && storedPhoneSenderChoice.count === phoneNamesUsed?.count
+    ? storedPhoneSenderChoice.name
+    : undefined;
+  const phoneWritesAsAlias = !!phoneNamesUsed && (phoneSenderChoice ?? phoneNamesUsed.latest) === 'alias';
   const phoneSenderAccountId = viewedPhoneCharacter && viewedPhoneAlias && selectedPhoneContact
     ? phoneWritesAsAlias ? whatsUpAliasAccountId(viewedPhoneCharacter) : whatsUpAccountId(viewedPhoneCharacter)
     : undefined;
+  // The contact has only ever seen the other account, so this one reaches them as a stranger.
+  const phoneSenderUnknownToContact = !!phoneNamesUsed && phoneNamesUsed.known.size > 0 &&
+    !phoneNamesUsed.known.has(phoneWritesAsAlias ? 'alias' : 'real');
   const setPhoneWritesAsAlias = (alias: boolean) => {
     if (selectedPhoneContact) {
-      setPhoneSenderNameByConversation((current) => ({ ...current, [selectedPhoneContact.conversationKey]: alias ? 'alias' : 'real' }));
+      setPhoneSenderNameByConversation((current) => ({
+        ...current,
+        [selectedPhoneContact.conversationKey]: { name: alias ? 'alias' : 'real', count: phoneNamesUsed?.count ?? 0 },
+      }));
     }
   };
   const selectedPhoneDividerAfterId = selectedPhoneContact
@@ -1606,6 +1617,7 @@ export function useRoleplayPanelRuntime({
     phoneConversationInfo,
     phoneSenderAccountId,
     phoneWritesAsAlias,
+    phoneSenderUnknownToContact,
     setPhoneWritesAsAlias,
     openPhoneConversation,
     phoneContacts,

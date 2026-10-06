@@ -1075,6 +1075,7 @@ function App() {
     selectedPhoneContact,
     phoneSenderAccountId,
     phoneWritesAsAlias,
+    phoneSenderUnknownToContact,
     setPhoneWritesAsAlias,
     openPhoneContact,
     switchActivePlayer,
@@ -6479,6 +6480,7 @@ function App() {
               onSaveDatingProfile={saveMatchMeProfile}
               onSaveWhatsUpAlias={(owner, alias) => !isRunning && saveWhatsUpAlias(owner, alias)}
               phoneWritesAsAlias={phoneWritesAsAlias}
+              phoneSenderUnknownToContact={phoneSenderUnknownToContact}
               onPhoneWritesAsAliasChange={setPhoneWritesAsAlias}
               onMatchMeAction={submitMatchMeAction}
               onCreateSocialAccount={saveStorybookSocialUsername}

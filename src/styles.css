@@ -7208,6 +7208,23 @@ input[type="number"]::-webkit-outer-spin-button {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* Shown while the chosen account is one this contact has never seen. */
+.phone-alias-sender-warning {
+  flex: none;
+  margin: 0;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.08);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.phone-alias-sender-warning strong {
+  color: #fde68a;
+  font-weight: 650;
+}
+
 .phone-thread {
   display: flex;
   min-height: 0;

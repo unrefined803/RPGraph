@@ -12,7 +12,7 @@ import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
 import { PhoneAppListResizer } from './PhoneAppListResizer';
 import { appDialogCoversPhone } from './phoneEscape';
 import { usePhoneAppListScaleStyle } from './phoneAppListScale';
-import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
+import { phoneCharacterAvatarDataUrl, whatsUpAliasContact } from '../chat/phoneCharacters';
 import type { DatingProfile } from '../chat/datingProfile';
 import {
   Fragment,
@@ -309,6 +309,7 @@ type PhonePanelProps = {
   onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined) => boolean;
   /** Whether the open conversation is written under the second name, and how to change that. */
   phoneWritesAsAlias: boolean;
+  phoneSenderUnknownToContact: boolean;
   onPhoneWritesAsAliasChange: (alias: boolean) => void;
   onCreateSocialAccount: (
     character: StorybookCharacter,
@@ -452,6 +453,7 @@ export function PhonePanel({
   onSaveDatingProfile,
   onSaveWhatsUpAlias,
   phoneWritesAsAlias,
+  phoneSenderUnknownToContact,
   onPhoneWritesAsAliasChange,
   onMatchMeAction,
   onImportSocialPostImage,
@@ -1607,6 +1609,14 @@ export function PhonePanel({
                 </button>
               )}
             </div>
+            {ownWhatsUpAlias && selectedCharacter && selectedCharacterPlayable && phoneSenderUnknownToContact && (
+              <p className="phone-alias-sender-warning" role="status">
+                {selectedPhoneContact.character.name} only knows you as{' '}
+                <strong>{phoneWritesAsAlias ? selectedCharacter.name : ownWhatsUpAlias.name}</strong>. A message from{' '}
+                <strong>{phoneWritesAsAlias ? ownWhatsUpAlias.name : selectedCharacter.name}</strong> reaches them as a new,
+                unknown contact.
+              </p>
+            )}
             <div className="phone-thread" ref={phoneThreadRef}>
               {phoneMessageViews.length > 0 ? (
                 phoneMessageViews.map((view, viewIndex) => {
@@ -1626,6 +1636,11 @@ export function PhonePanel({
                     ? phoneReplyVisibleText(repliedToMessage, englishProcessingEnabled) || 'Image'
                     : '';
                   const fromColor = phoneCharacterColor(view.senderName);
+                  // A message the owner wrote from the second account carries that name and picture.
+                  const ownAliasContact = message.phoneOwnerAlias && view.outgoing && selectedCharacter
+                    ? whatsUpAliasContact(selectedCharacter)
+                    : undefined;
+                  const shownSenderName = ownAliasContact?.name ?? view.senderName;
                   const dayLabel = view.dayRpDateTime
                     ? formatRpDayLabel(view.dayRpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
                     : '';
@@ -1649,7 +1664,7 @@ export function PhonePanel({
                             className="phone-bubble-sender"
                             style={fromColor ? { color: fromColor } : undefined}
                           >
-                            <CharacterName color={fromColor}>{view.senderName}</CharacterName>
+                            <CharacterName color={fromColor}>{shownSenderName}</CharacterName>
                             {phoneAuthorBadgesEnabled && (
                               <span className={`phone-author-badge ${message.role === 'user' ? 'user' : 'ai'}`}>
                                 {message.role === 'user' ? 'USER' : 'AI'}
@@ -1765,7 +1780,7 @@ export function PhonePanel({
                               </svg>
                             </button>
                           )}
-                          <AppMessageAvatar name={view.senderName} character={matchingPhoneName(
+                          <AppMessageAvatar name={shownSenderName} character={ownAliasContact ?? matchingPhoneName(
                             [...(selectedPhoneContact ? [selectedPhoneContact.character] : []), ...appCharacters], view.senderName)} />
                         </div>
                       </div>
