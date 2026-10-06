@@ -5,7 +5,9 @@ import { CharacterName } from './CharacterName';
 import { AppMessageAvatar } from './AppMessageAvatars';
 import { AccountLinkContext } from '../chat/accountLinkContext';
 import { AccountLinkText } from './AccountLinkText';
-import type { CharacterAppAccount } from '../characters/character';
+import type { AppAvatarCrop, CharacterAppAccount, WhatsUpAlias } from '../characters/character';
+import { whatsUpAlias } from '../characters/messageIdentity';
+import { WhatsUpAccounts } from './WhatsUpAccounts';
 import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
 import { PhoneAppListResizer } from './PhoneAppListResizer';
 import { appDialogCoversPhone } from './phoneEscape';
@@ -302,7 +304,12 @@ type PhonePanelProps = {
   }) => Promise<boolean>;
   onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
   onMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
-  onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
+  onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) => boolean;
+  /** Set or remove the viewed character's second WhatsUp name. */
+  onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined) => boolean;
+  /** Whether the open conversation is written under the second name, and how to change that. */
+  phoneWritesAsAlias: boolean;
+  onPhoneWritesAsAliasChange: (alias: boolean) => void;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
@@ -443,6 +450,9 @@ export function PhonePanel({
   onSubmitSocialDirectMessage,
   onCreateSocialAccount,
   onSaveDatingProfile,
+  onSaveWhatsUpAlias,
+  phoneWritesAsAlias,
+  onPhoneWritesAsAliasChange,
   onMatchMeAction,
   onImportSocialPostImage,
   socialImageById,
@@ -705,6 +715,8 @@ export function PhonePanel({
   const isImageManuallySelected = (image: ChatImageAttachment) =>
     !!image.id.trim() && selectedReferenceImageIds.has(image.id.trim());
   const phoneOwnerName = selectedCharacter?.name.trim().split(/\s+/)[0];
+  const ownWhatsUpAlias = whatsUpAlias(selectedCharacter);
+  const [whatsUpAliasEditorOpen, setWhatsUpAliasEditorOpen] = useState(false);
   const wallpaperImageId = selectedCharacter?.phoneSettings.wallpaperId ?? 'wallpaper-1';
   const wallpaperImage = [...defaultPhoneWallpapers, ...phoneGalleryImages]
     .find((image) => image.id === wallpaperImageId) ?? defaultPhoneWallpapers[0];
@@ -1476,6 +1488,20 @@ export function PhonePanel({
           </button>
           <strong>{phoneOwnerName ? <><CharacterName color={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{phoneOwnerName}</CharacterName>'s Chats</> : 'Phone Chats'}</strong>
           <span className="phone-contact-count">{phoneContacts.length}</span>
+          {selectedCharacter && selectedCharacterPlayable && !selectedCharacter.libraryNpc && (
+            <button
+              className="phone-home-button phone-alias-settings-button"
+              type="button"
+              onClick={() => setWhatsUpAliasEditorOpen(true)}
+              aria-label="WhatsUp accounts"
+              title="Accounts"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
+          )}
         </div>
         <div className="phone-contact-list">
           {phoneContacts.map((contact) => (
@@ -1535,7 +1561,19 @@ export function PhonePanel({
         )}
       </div>
       <div className="phone-chat" aria-label="Phone conversation">
-        {selectedPhoneContact ? (
+        {whatsUpAliasEditorOpen && selectedCharacter ? (
+          <div className="phone-alias-editor-scroll">
+            <WhatsUpAccounts
+              key={selectedCharacter.id}
+              realName={selectedCharacter.name}
+              mainAvatarDataUrl={phoneCharacterAvatarDataUrl(selectedCharacter)}
+              alias={ownWhatsUpAlias}
+              images={phoneGalleryImages}
+              onClose={() => setWhatsUpAliasEditorOpen(false)}
+              onSave={(alias) => onSaveWhatsUpAlias(selectedCharacter, alias)}
+            />
+          </div>
+        ) : selectedPhoneContact ? (
           <>
             <div className="phone-chat-header">
               <CharacterAvatar
@@ -1554,6 +1592,16 @@ export function PhonePanel({
                 </strong>
                 <span>Last seen Today</span>
               </div>
+              {ownWhatsUpAlias && selectedCharacter && selectedCharacterPlayable && (
+                <button
+                  className="phone-alias-sender-toggle"
+                  type="button"
+                  onClick={() => onPhoneWritesAsAliasChange(!phoneWritesAsAlias)}
+                  title="Switch the name this contact sees when you write"
+                >
+                  Writing as <strong>{phoneWritesAsAlias ? ownWhatsUpAlias.name : selectedCharacter.name}</strong>
+                </button>
+              )}
             </div>
             <div className="phone-thread" ref={phoneThreadRef}>
               {phoneMessageViews.length > 0 ? (
@@ -1706,7 +1754,8 @@ export function PhonePanel({
                               </svg>
                             </button>
                           )}
-                          <AppMessageAvatar name={view.senderName} character={matchingPhoneName(appCharacters, view.senderName)} />
+                          <AppMessageAvatar name={view.senderName} character={matchingPhoneName(
+                            [...(selectedPhoneContact ? [selectedPhoneContact.character] : []), ...appCharacters], view.senderName)} />
                         </div>
                       </div>
                       </div>

@@ -35,6 +35,12 @@ or dangling references fail validation. Portrait crops remain references rather
 than duplicate media. See [Character creator](character-creator.md) for safe
 inspection, editing, image normalization and portrait tooling.
 
+Two optional account fields support hidden identities and are documented in
+[App profile names](app-profile-names.md): `apps.whatsup.alias` (a second
+WhatsUp name with its own picture, linking to the same account) and
+`apps.matchme.avatarCrop` (the face region of the dating avatar). Both are
+additive; the container version is unchanged.
+
 ## Library discovery and identity
 
 `electron/npcLibrary.cjs` scans bundled containers, the global user NPC directory,

@@ -1,5 +1,5 @@
 import { characterMessageAliases, matchingMessageAliases } from '../characters/messageAliases';
-import { appAvatarDataUrl } from '../characters/portrait';
+import { appAvatarDataUrl, portraitDataUrl } from '../characters/portrait';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import type { ChatImageAttachment, MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -17,7 +17,9 @@ export function datingProfileName(character: StorybookCharacter) {
 export function datingAvatarDataUrl(character: StorybookCharacter | undefined, images: ChatImageAttachment[] = character?.images ?? [], profile = character?.social.plotTwist) {
   const ids = [character?.apps?.matchme?.avatarImageId, ...(profile?.photoIds ?? [])];
   const image = ids.flatMap((id) => images.find((entry) => entry.id === id) ?? [])[0];
-  return image ? appAvatarDataUrl(character, image) : undefined;
+  // A stored face region frames the dating avatar; discovery photos stay uncropped.
+  const crop = character?.apps?.matchme?.avatarCrop;
+  return image ? crop ? portraitDataUrl(image, crop) : appAvatarDataUrl(character, image) : undefined;
 }
 
 export const datingNpcProfiles = [

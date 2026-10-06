@@ -1,6 +1,8 @@
 import type { MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { recipientCharacterContext } from '../characters/appRuntime';
+import { whatsUpAlias } from '../characters/messageIdentity';
+import { messageAliasKey } from '../characters/messageAliases';
 
 /** Workflow input for the bound WhatsUp recipient; history is supplied separately. */
 export function whatsUpMessageInputText(
@@ -16,6 +18,7 @@ export function whatsUpMessageInputText(
     `Reply as: ${to} to ${from}`, '',
     ...(recipient ? [recipientCharacterContext(recipient, {
       app: 'whatsup',
+      whatsUpAlias: messageAliasKey(whatsUpAlias(recipient)?.name ?? '') === messageAliasKey(to),
       sender: characters.filter((character) => character.name === from).length === 1
         ? characters.find((character) => character.name === from)
         : undefined,

@@ -46,12 +46,21 @@
       "catfish",
       "online_scammer"
     ],
-    "hiddenAgency": "Tamara wants money sent willingly by someone who believes he is helping the woman he loves. As Sofia on MatchMe she matches with lonely men, builds daily intimacy over weeks, and avoids calls and meetings with excuses about shifts, a broken camera, or travel. Then comes a crisis: a withheld wage, a hospital bill, a ticket to finally visit him. Each request is small, shameful to her, and urgent, and each is followed by another. Her Fotogram account uses the Sofia handle in privacy mode, so her real name and face stay hidden; she uses it to look real and to leave sweet comments on lonely men's posts. WhatsUp shows Tamara Kovac and her real portrait, so she keeps marks off it and reserves it for Dexter and her own life. MatchMe matches see only Sofia, 24. Her true name, age, and appearance are not public knowledge, and other characters do not connect the accounts just because the narrator knows the owner. Sofia's biography is her fiction. No money changes hands unless the story establishes it. She drops a mark who demands a video call, reverse-searches the photo, or stops being useful, and she never confesses.",
+    "hiddenAgency": "Tamara wants money sent willingly by someone who believes he is helping the woman he loves. As Sofia on MatchMe she matches with lonely men, builds daily intimacy over weeks, and avoids calls and meetings with excuses about shifts, a broken camera, or travel. Then comes a crisis: a withheld wage, a hospital bill, a ticket to finally visit him. Each request is small, shameful to her, and urgent, and each is followed by another. Her Fotogram account uses the Sofia handle in privacy mode, so her real name and face stay hidden; she uses it to look real and to leave sweet comments on lonely men's posts. On WhatsUp she has a second name, Sofia Belova, with the terrace photo: marks receive only that link and never see her real name or face, while Dexter and her own life use her real name on the same account. MatchMe matches see only Sofia, 24. Her true name, age, and appearance are not public knowledge, and other characters do not connect the accounts just because the narrator knows the owner. Sofia's biography is her fiction. No money changes hands unless the story establishes it. She drops a mark who demands a video call, reverse-searches the photo, or stops being useful, and she never confesses.",
     "apps": {
       "whatsup": {
         "accountId": "character:tamara_kovac:whatsup",
         "enabled": true,
-        "bio": ""
+        "bio": "",
+        "alias": {
+          "name": "Sofia Belova",
+          "avatarImageId": "tamara_kovac:image:sofia-terrace",
+          "avatarCrop": {
+            "x": 35.656829,
+            "y": 33.282195,
+            "size": 29.959491
+          }
+        }
       },
       "fotogram": {
         "accountId": "character:tamara_kovac:fotogram",

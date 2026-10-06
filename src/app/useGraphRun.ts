@@ -245,6 +245,8 @@ type UseGraphRunOptions = Pick<
   phoneCharacters: StorybookCharacter[];
   selectedCharacter: StorybookCharacter | undefined;
   selectedPhoneContact: { character: StorybookCharacter } | undefined;
+  /** The WhatsUp name the player currently writes under, when the character has a second name. */
+  phoneSenderAccountId?: string;
   storybooksByNodeId: Map<string, RpStorybook>;
   characterColors: Map<string, string>;
   englishProcessingEnabled: boolean;
@@ -415,6 +417,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     phoneCharacters,
     selectedCharacter,
     selectedPhoneContact,
+    phoneSenderAccountId,
     storybooksByNodeId,
     characterColors,
     englishProcessingEnabled,
@@ -562,6 +565,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       try {
         inputPhoneParticipants = resolveWhatsUpMessageParticipants(appCharacters(), historyMessages, {
           from: existingInputMessage?.phoneFromAccountId ?? existingInputMessage?.phoneFrom ??
+            (phoneSenderAccountId && !phoneRecipientCharacterOverride && selectedCharacter?.id === inputCharacter?.id ? phoneSenderAccountId : undefined) ??
             inputCharacter?.apps?.whatsup?.accountId ?? inputCharacter?.name ?? '',
           to: existingInputMessage?.phoneToAccountId ?? existingInputMessage?.phoneTo ??
             recipient?.apps?.whatsup?.accountId ?? recipient?.name ?? '',

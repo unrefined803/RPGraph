@@ -1,12 +1,24 @@
-import { resolveMessageAccount, type AccountLinkApp } from '../chat/accountLinks';
+import { resolveMessageAccount, type AccountLinkApp, type AccountLinkTarget } from '../chat/accountLinks';
+import { whatsUpAccountId } from './messageIdentity';
 import type { MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
+
+/** True for a WhatsUp identity that is its owner's second name rather than the real account. */
+export function reachedByWhatsUpAlias(target: Pick<AccountLinkTarget, 'app' | 'accountId' | 'character'>) {
+  return target.app === 'whatsup' && target.accountId !== whatsUpAccountId(target.character);
+}
 
 export type MessageContactGrant = { ownerId: string; targetId: string; app: Exclude<AccountLinkApp, 'banking'> };
 
 /** Both directions must resolve to the same two accounts in the same messenger. */
 export function reciprocalMessageContacts(messages: MessageRecord[], characters: StorybookCharacter[]): MessageContactGrant[] {
-  const grants = new Map<string, MessageContactGrant>();
+  return reciprocalExchanges(messages, characters).filter((grant) => !grant.viaAlias)
+    .map(({ ownerId, targetId, app }) => ({ ownerId, targetId, app }));
+}
+
+/** Every two-way exchange, marking targets that were reached under a second WhatsUp name. */
+function reciprocalExchanges(messages: MessageRecord[], characters: StorybookCharacter[]) {
+  const grants = new Map<string, MessageContactGrant & { viaAlias: boolean }>();
   const directions = new Set<string>();
   for (const message of messages) {
     if (message.role !== 'user' && message.role !== 'output') continue;
@@ -20,18 +32,24 @@ export function reciprocalMessageContacts(messages: MessageRecord[], characters:
     if (!sender || !recipient || sender.characterId === recipient.characterId) continue;
     directions.add(JSON.stringify([app, sender.accountId, recipient.accountId]));
     if (!directions.has(JSON.stringify([app, recipient.accountId, sender.accountId]))) continue;
-    for (const [ownerId, targetId] of [[sender.characterId, recipient.characterId], [recipient.characterId, sender.characterId]]) {
-      grants.set(JSON.stringify([app, ownerId, targetId]), { ownerId, targetId, app });
+    for (const [owner, target] of [[sender, recipient], [recipient, sender]]) {
+      // Someone reached under a second WhatsUp name does not become a contact under the real name.
+      const key = JSON.stringify([app, owner.characterId, target.characterId]);
+      const viaAlias = reachedByWhatsUpAlias(target) && grants.get(key)?.viaAlias !== false;
+      grants.set(key, { ownerId: owner.characterId, targetId: target.characterId, app, viaAlias });
     }
   }
   return [...grants.values()];
 }
 
-/** Public activity, shared accounts, matches and one-way DMs never confer this status. */
+/**
+ * Public activity, shared accounts, matches and one-way DMs never confer this status.
+ * An exchange under a second WhatsUp name counts: it is the same character.
+ */
 export function interactedNpcIds(messages: MessageRecord[], characters: StorybookCharacter[]): string[] {
   const players = new Set(characters.filter((character) => character.playerSelectable !== false).map((character) => character.sourceId));
   const npcs = new Set(characters.filter((character) => character.playerSelectable === false).map((character) => character.sourceId));
-  return [...new Set(reciprocalMessageContacts(messages, characters)
+  return [...new Set(reciprocalExchanges(messages, characters)
     .filter((grant) => players.has(grant.ownerId) && npcs.has(grant.targetId))
     .map((grant) => grant.targetId))];
 }

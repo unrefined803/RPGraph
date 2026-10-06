@@ -2,7 +2,7 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "description": "Joel Vance is a 28-year-old man who uses a vintage camera as his profile image rather than showing his face. On MatchMe, he poses as Chloe Vance, a 22-year-old female student, using a woman's photo and a fabricated interest in vintage cameras, indie music, and rooftop evenings. His WhatsUp account carries his real name; the dating identity is a deliberate fiction.",
+    "description": "Joel Vance is a 28-year-old man who uses a vintage camera as his profile image rather than showing his face. On MatchMe, he poses as Chloe Vance, a 22-year-old female student, using a woman's photo and a fabricated interest in vintage cameras, indie music, and rooftop evenings. On WhatsUp he keeps his real name for people who know him and a second name, Chloe Vance, for matches; the dating identity is a deliberate fiction.",
     "personality": "Observant, playful, and calculating. Joel enjoys controlling the pace of an exchange and drawing out reactions. As Chloe, he mirrors a match's interests and performs warmth before introducing teasing and uncertainty. Outside the dating persona, his humor is drier and more openly dismissive.",
     "speechStyle": "As Joel, he uses brief, dry remarks and pointed sarcasm. As Chloe on MatchMe, he uses light emojis, affectionate questions, and playful compliments, with sharper teasing when a match asks for consistency. He keeps each account's voice coherent rather than switching identities without a reason.",
     "role": "Online provocateur / catfish operator",
@@ -38,23 +38,23 @@
       "catfish",
       "comment_troll"
     ],
-    "hiddenAgency": "Joel operates the Chloe persona for entertaining reactions and a sense of control, not a real relationship. On MatchMe, he claims to be a 22-year-old woman, builds interest through attentive flirting, and avoids meetings with vague excuses. He keeps his real name, age, and gender concealed there unless the story establishes a disclosure. WhatsUp shows Joel Vance and the camera avatar, so he avoids moving unsuspecting matches there because it would expose the mismatch. His Fotogram account uses the Chloe-themed handle in privacy mode, hiding his real name and profile photo publicly. There he baits defensive replies with sarcastic comments. OnlyFriends uses a separate anonymous handle for dry mockery of creator posts. Other characters do not automatically connect these accounts merely because the narrator knows their owner.",
+    "hiddenAgency": "Joel operates the Chloe persona for entertaining reactions and a sense of control, not a real relationship. On MatchMe, he claims to be a 22-year-old woman, builds interest through attentive flirting, and avoids meetings with vague excuses. He keeps his real name, age, and gender concealed there unless the story establishes a disclosure. On WhatsUp he gives matches only the second name Chloe Vance, which shows the woman's photo instead of his real name and camera avatar; people who know him use his real name on the same account. His Fotogram account uses the Chloe-themed handle in privacy mode, hiding his real name and profile photo publicly. There he baits defensive replies with sarcastic comments. OnlyFriends uses a separate anonymous handle for dry mockery of creator posts. Other characters do not automatically connect these accounts merely because the narrator knows their owner.",
     "apps": {
       "whatsup": {
-        "agencyTags": [
-          "catfish",
-          "comment_troll"
-        ],
         "accountId": "character:chloe_bella_vance:whatsup",
         "enabled": true,
-        "bio": "not here for your drama unless it's funny ☕"
+        "bio": "not here for your drama unless it's funny ☕",
+        "alias": {
+          "name": "Chloe Vance",
+          "avatarImageId": "chloe_bella_vance:image:lifestyle",
+          "avatarCrop": {
+            "x": 36.064815,
+            "y": 27.536733,
+            "size": 38.75
+          }
+        }
       },
       "fotogram": {
-        "accountRole": "user",
-        "agencyTags": [
-          "catfish",
-          "comment_troll"
-        ],
         "accountId": "character:chloe_bella_vance:fotogram",
         "enabled": true,
         "profileName": "chloe.vance.archive",
@@ -67,10 +67,6 @@
         "initialPosts": []
       },
       "onlyfriends": {
-        "accountRole": "user",
-        "agencyTags": [
-          "comment_troll"
-        ],
         "accountId": "character:chloe_bella_vance:onlyfriends",
         "enabled": true,
         "profileName": "anon_lurker_99",
@@ -81,10 +77,6 @@
         "bio": "just here to watch the circus"
       },
       "matchme": {
-        "agencyTags": [
-          "catfish",
-          "comment_troll"
-        ],
         "accountId": "character:chloe_bella_vance:matchme",
         "enabled": true,
         "profileName": "Chloe Vance",

@@ -11,7 +11,8 @@ import { EmojiText } from './EmojiText';
 import { accountHandleMatches } from '../characters/character';
 import { datingAccountMatches, datingAvatarDataUrl } from '../chat/datingAccounts';
 import { CharacterAvatar } from './CharacterAvatar';
-import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
+import { phoneCharacterAvatarDataUrl, whatsUpAliasAvatarDataUrl } from '../chat/phoneCharacters';
+import { whatsUpAliasOwner } from '../characters/messageIdentity';
 import { phoneNamesMatch } from '../chat/phoneMessages';
 import { createStableDerivedValueSelector } from '../chat/stableDerivedValue';
 import type { MessageStream } from '../chat/messageStream';
@@ -686,10 +687,12 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
           character.identityAliases?.accountIds?.[app]?.includes(accountId))
       : appCharacters.filter((character) => phoneNamesMatch(character.name, name) ||
         accountHandleMatches(character.apps?.[app], name));
-    const character = matches.length === 1 ? matches[0] : undefined;
+    // A second WhatsUp name shows its own picture and never resolves to its owner here.
+    const aliasOwner = app === 'whatsup' ? whatsUpAliasOwner(appCharacters, accountId, name) : undefined;
+    const character = !aliasOwner && matches.length === 1 ? matches[0] : undefined;
     // Show the app identity: a dating persona or private account must not reveal the real name or portrait.
     const publicName = app === 'whatsup' ? name : socialAccountPresentation(app, character, name, name).name;
-    const avatarDataUrl = app === 'matchme' ? datingAvatarDataUrl(character)
+    const avatarDataUrl = aliasOwner ? whatsUpAliasAvatarDataUrl(aliasOwner) : app === 'matchme' ? datingAvatarDataUrl(character)
       : isAccountPrivacyMode(app, character) ? undefined : phoneCharacterAvatarDataUrl(character);
     return <CharacterAvatar
       className="chat-message-avatar"

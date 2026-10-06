@@ -4,7 +4,7 @@ import {
   validateCharacterAccountDirectory,
   withCharacterAppProfile,
 } from '../characters/profiles';
-import { characterPayload, validateCharacterPayload, type CharacterAppAccount } from '../characters/character';
+import { characterPayload, validateCharacterPayload, type CharacterAppAccount, type AppAvatarCrop, type WhatsUpAlias } from '../characters/character';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import { appCharactersFromRegistry } from '../characters/appRuntime';
 import { validateCandidateLegacySeedTimeline } from '../characters/publications';
@@ -170,7 +170,30 @@ export function useStorybookPhoneImages({
     });
   }
 
-  function saveDatingProfile(character: StorybookCharacter, profile: DatingProfile) {
+  /** Set or remove the second WhatsUp name; the account and its real name stay untouched. */
+  function saveWhatsUpAlias(character: StorybookCharacter, alias: WhatsUpAlias | undefined) {
+    const node = nodesRef.current.find((entry) => entry.id === character.storybookNodeId && isStorybookSourceNode(entry));
+    if (!node?.data.storybookJson) return false;
+    const storybook = parseRpStorybookJson(node.data.storybookJson);
+    const source = storybook.characters.find((entry) => entry.id === character.sourceId);
+    if (!source) return false;
+    let next: RpStorybook;
+    try {
+      const { alias: _previous, ...account } = { accountId: `character:${source.id}:whatsup`, enabled: true, bio: '', ...source.apps?.whatsup };
+      next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === source.id
+        ? withCharacterAppProfile(entry, 'whatsup', { ...account, ...(alias ? { alias } : {}) } as CharacterAppAccount) : entry) };
+      validateProfileCandidate(node.id, next);
+    } catch (error) {
+      notifySystem('warning', error instanceof Error ? error.message : String(error));
+      return false;
+    }
+    updateRuntimeNode(node.id, { storybookJson: rpStorybookJsonText(next),
+      storybookStatus: `WhatsUp second name ${alias ? 'saved' : 'removed'} for ${character.name}.` });
+    return true;
+  }
+
+  /** `avatarCrop`: a face region for the dating avatar, null to clear it, undefined to keep the stored one. */
+  function saveDatingProfile(character: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) {
     const normalized = normalizeDatingProfile(profile);
     const node = nodesRef.current.find((entry) => entry.id === character.storybookNodeId && isStorybookSourceNode(entry));
     if (!normalized || !node?.data.storybookJson) return false;
@@ -183,7 +206,7 @@ export function useStorybookPhoneImages({
     let next: RpStorybook;
     try {
       next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === character.sourceId
-        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, enabled: true, profileName: normalized.name, bio: normalized.bio, profile: normalized })
+        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, ...(avatarCrop !== undefined ? { avatarCrop: avatarCrop ?? undefined } : {}), enabled: true, profileName: normalized.name, bio: normalized.bio, profile: normalized })
         : entry) };
       validateProfileCandidate(node.id, next);
     } catch (error) {
@@ -585,6 +608,7 @@ export function useStorybookPhoneImages({
     currentImageSourceById,
     changePhoneWallpaper,
     saveSocialUsername,
+    saveWhatsUpAlias,
     saveDatingProfile,
     imageIdsFromAttachments,
     imageDescriptionFromAttachments,

@@ -17,6 +17,15 @@ function optionalFiniteNumber(value) {
   return value === undefined || (typeof value === 'number' && Number.isFinite(value));
 }
 
+function validateAvatarCrop(value) {
+  if (value === undefined) return;
+  const crop = record(value);
+  if (![crop.x, crop.y, crop.size].every((entry) => typeof entry === 'number' &&
+      Number.isFinite(entry) && entry >= 0 && entry <= 100) || crop.size <= 0) {
+    throw new Error('Portrait crops require finite x, y and size percentages; size must be positive.');
+  }
+}
+
 function validateDatingProfile(value, requireImage, allowMissingPhoto = false) {
   const profile = record(value);
   if (!nonEmptyString(profile.name) || !Number.isInteger(profile.age) || profile.age < 18 || profile.age > 120 ||
@@ -106,13 +115,7 @@ function validateCharacterPayload(value) {
   if (character.profileImage !== undefined) {
     const profile = record(character.profileImage);
     requireImage(profile.imageId);
-    if (profile.crop !== undefined) {
-      const crop = record(profile.crop);
-      if (![crop.x, crop.y, crop.size].every((value) => typeof value === 'number' &&
-          Number.isFinite(value) && value >= 0 && value <= 100) || crop.size <= 0) {
-        throw new Error('Portrait crops require finite x, y and size percentages; size must be positive.');
-      }
-    }
+    validateAvatarCrop(profile.crop);
   }
   const accountIds = new Set();
   for (const [app, raw] of Object.entries(record(character.apps))) {
@@ -138,6 +141,20 @@ function validateCharacterPayload(value) {
     }
     accountIds.add(account.accountId);
     if (account.avatarImageId !== undefined) requireImage(account.avatarImageId);
+    if (account.avatarCrop !== undefined) {
+      if (app !== 'matchme') throw new Error('avatarCrop is only supported on the MatchMe account and the WhatsUp second name.');
+      validateAvatarCrop(account.avatarCrop);
+    }
+    if (account.alias !== undefined) {
+      // A second WhatsUp name is another link to the same account, with its own optional picture.
+      const alias = record(account.alias);
+      if (app !== 'whatsup' || !nonEmptyString(alias.name) || alias.name.trim().length > 60 ||
+          Object.keys(alias).some((key) => !['name', 'avatarImageId', 'avatarCrop'].includes(key))) {
+        throw new Error('A second WhatsUp name requires 1–60 characters.');
+      }
+      if (alias.avatarImageId !== undefined) requireImage(alias.avatarImageId);
+      validateAvatarCrop(alias.avatarCrop);
+    }
     if (account.initialPosts !== undefined && !Array.isArray(account.initialPosts)) {
       throw new Error('Initial posts must be an array.');
     }

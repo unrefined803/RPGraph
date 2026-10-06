@@ -254,8 +254,10 @@ accounts; Kendra, Leon, Gemma, Roxy, Finn and Toby have anonymous browsing
 accounts whose handles and bios avoid their names; Dexter and Tamara have none.
 Damian has a genuine MatchMe profile. Tamara's MatchMe identity is Sofia Belova,
 using the stranger's terrace photo; `npcLibrary.test.ts` lists her with Joel
-Vance as a deliberate dating persona. WhatsUp shows Tamara's real name and
-portrait, so her Hidden Agency keeps marks away from it.
+Vance as a deliberate dating persona. Tamara and Joel also carry a WhatsUp
+second name (Sofia Belova, Chloe Vance) with the persona photo and a detected
+face crop, so marks receive that link while the real name stays on the same
+account.
 
 Source images were 896 x 1200 (3:4) JPEGs. Dexter's supercar image shows a
 different man and is authored as a lifted photo. Face crops come from the

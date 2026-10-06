@@ -1,6 +1,6 @@
 import { matchingMessageAliases } from '../characters/messageAliases';
 import { accountHandle, migratedProfileName } from '../characters/character';
-import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
+import { resolveWhatsUpRecipient, whatsUpAlias, whatsUpAliasAccountId } from '../characters/messageIdentity';
 import { normalizePhoneName } from './phoneMessages';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
@@ -27,8 +27,12 @@ function accountLinkTargets(characters: StorybookCharacter[]) {
     if (app === 'whatsup') {
       try {
         const phone = resolveWhatsUpRecipient(characters, [], character.sourceId);
+        const alias = whatsUpAlias(character);
         return [{ token: '', app, accountId: phone.accountId, characterId: character.sourceId,
-          name: character.name, username: accountHandle(account) ?? '', character }];
+          name: character.name, username: accountHandle(account) ?? '', character },
+          // The second name is its own link to the same account.
+          ...(alias ? [{ token: '', app, accountId: whatsUpAliasAccountId(character), characterId: character.sourceId,
+            name: alias.name, username: alias.name, character }] : [])];
       } catch { return []; }
     }
     if (!account?.enabled) return [];
@@ -84,7 +88,7 @@ export function parseAccountLinks(text: string, characters: StorybookCharacter[]
     const app = appAliases[match[1].toLowerCase()];
     const tail = text.slice(start + match[0].length);
     const candidates = targets.filter((target) => target.app === app).flatMap((target) =>
-      [target.accountId, target.character.name, target.name, target.username,
+      [target.accountId, ...(app === 'whatsup' && target.name !== target.character.name ? [] : [target.character.name]), target.name, target.username,
         ...(app !== 'banking' ? (target.character.apps?.[app]?.legacyHandles ?? []) : []),
         ...(app !== 'banking' ? (target.character.identityAliases?.accountIds?.[app] ?? []) : [])]);
     const bound = bindings?.filter((link) => link.app === app && text.startsWith(link.token, start) &&

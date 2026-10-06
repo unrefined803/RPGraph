@@ -1,6 +1,6 @@
 # Character creator and demo conversion
 
-App naming uses one canonical profileName per social app; WhatsUp uses the real character name. See [App profile names](app-profile-names.md) for the current schema and legacy import rules.
+App naming uses one canonical profileName per social app; WhatsUp uses the real character name and may carry an optional second name (`apps.whatsup.alias`). See [App profile names](app-profile-names.md) for the current schema and legacy import rules.
 
 The application uses `src/characters/creator.ts` for authored payloads and UI character
 exports. Both produce plain `rpgraph-character` 2.0.0 documents validated by

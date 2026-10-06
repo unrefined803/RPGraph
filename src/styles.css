@@ -7144,6 +7144,53 @@ input[type="number"]::-webkit-outer-spin-button {
   font-weight: 550;
 }
 
+/* Second WhatsUp name: settings button, editor area and the per-conversation sender switch. */
+.phone-list-header > .phone-alias-settings-button {
+  width: 28px;
+  height: 28px;
+  margin-left: 0;
+}
+
+.phone-list-header > .phone-alias-settings-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.phone-alias-editor-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.phone-chat-header .phone-alias-sender-toggle {
+  flex: none;
+  max-width: 45%;
+  margin-left: auto;
+  overflow: hidden;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.phone-chat-header .phone-alias-sender-toggle strong {
+  color: var(--soft-white);
+  font-size: inherit;
+  font-weight: 650;
+}
+
+.phone-chat-header .phone-alias-sender-toggle:hover,
+.phone-chat-header .phone-alias-sender-toggle:focus-visible {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .phone-thread {
   display: flex;
   min-height: 0;

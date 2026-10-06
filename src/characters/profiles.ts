@@ -34,8 +34,15 @@ export function withCharacterAppProfile(character: Character, app: keyof Charact
     ...(previous?.legacyHandles ?? []), accountHandle(previous), ...(account.legacyHandles ?? []),
   ].filter(Boolean))] };
   const apps = normalizeCharacterApps({ ...current, [app]: updated }, undefined, character.id, character.name);
-  if (account.avatarImageId && !character.images.some((image) => image.id === account.avatarImageId)) {
+  const aliasAvatarId = app === 'whatsup' ? (account as NonNullable<CharacterApps['whatsup']>).alias?.avatarImageId : undefined;
+  if ([account.avatarImageId, aliasAvatarId].some((id) => id && !character.images.some((image) => image.id === id))) {
     throw new Error('Choose an avatar from this character’s gallery.');
+  }
+  // A face region belongs to one picture: drop an untouched crop once the dating avatar changes.
+  const datingAvatarId = (entry: CharacterApps['matchme']) => entry?.avatarImageId ?? entry?.profile?.photoIds[0];
+  if (app === 'matchme' && apps.matchme?.avatarCrop && datingAvatarId(apps.matchme) !== datingAvatarId(current.matchme) &&
+      JSON.stringify(apps.matchme.avatarCrop) === JSON.stringify(current.matchme?.avatarCrop)) {
+    delete apps.matchme.avatarCrop;
   }
   return { ...character, apps, social: socialFromCharacterApps(apps) };
 }
@@ -75,5 +82,12 @@ export function validateCharacterAccountDirectory(characters: Character[]) {
         posts.add(key);
       }
     }
+  }
+  // A second WhatsUp name is a link target, so it must not collide with a real name or another second name.
+  for (const character of characters) {
+    const alias = character.apps?.whatsup?.alias?.name.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (!alias) continue;
+    if (names.has(alias)) throw new Error(`The second WhatsUp name "${character.apps!.whatsup!.alias!.name.trim()}" is already used as a name in this Storybook.`);
+    names.add(alias);
   }
 }

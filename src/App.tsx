@@ -15,7 +15,7 @@ import { textEffectsStyle } from './chat/textEffects';
 import { CharacterName } from './components/CharacterName';
 import { AppMessageAvatars } from './components/AppMessageAvatars';
 import { CharacterAvatar } from './components/CharacterAvatar';
-import { phoneCharacterAvatarDataUrl } from './chat/phoneCharacters';
+import { phoneCharacterAvatarDataUrl, phoneConversationKeyTwins } from './chat/phoneCharacters';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
 import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
@@ -28,6 +28,7 @@ import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
 import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
+import type { AppAvatarCrop } from './characters/character';
 import { phoneImageSource } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
@@ -1071,6 +1072,9 @@ function App() {
     openPhoneConversation,
     phoneContacts,
     selectedPhoneContact,
+    phoneSenderAccountId,
+    phoneWritesAsAlias,
+    setPhoneWritesAsAlias,
     openPhoneContact,
     switchActivePlayer,
     selectedPhoneConversation,
@@ -1646,6 +1650,7 @@ function App() {
     currentImageSourceById: currentStorybookImageSourceById,
     changePhoneWallpaper: changeStorybookPhoneWallpaper,
     saveSocialUsername: saveStorybookSocialUsername,
+    saveWhatsUpAlias,
     saveDatingProfile,
     imageIdsFromAttachments,
     imageDescriptionFromAttachments,
@@ -4144,13 +4149,15 @@ function App() {
     const phoneView = phoneViewRef.current;
     // Outside the messenger screen the conversation is not visible, so the
     // reply stays unread and raises a badge.
-    const messageShouldBeMarkedSeen = phoneMessageShouldBeMarkedSeen(
-      role,
-      phoneView.phoneScreen === 'whatsup' ? phoneView.chatPanelView : 'chat',
-      conversationKey,
-      phoneView.openedPhoneConversationKey,
-      phoneView.selectedConversationKey,
-    );
+    // A second WhatsUp name shares its owner's inbox, so either key counts as the open conversation.
+    const messageShouldBeMarkedSeen = [conversationKey, ...phoneConversationKeyTwins(conversationKey, npcParticipants.characters())]
+      .some((key) => phoneMessageShouldBeMarkedSeen(
+        role,
+        phoneView.phoneScreen === 'whatsup' ? phoneView.chatPanelView : 'chat',
+        key,
+        phoneView.openedPhoneConversationKey,
+        phoneView.selectedConversationKey,
+      ));
     if (messageShouldBeMarkedSeen) {
       setPhoneSeenByConversation((current) =>
         id > (current[conversationKey] ?? 0)
@@ -4283,6 +4290,7 @@ function App() {
     phoneCharacters,
     selectedCharacter,
     selectedPhoneContact,
+    phoneSenderAccountId,
     storybooksByNodeId,
     characterColors,
     englishProcessingEnabled,
@@ -4984,14 +4992,14 @@ function App() {
     );
   }
 
-  function saveMatchMeProfile(owner: StorybookCharacter, profile: DatingProfile) {
+  function saveMatchMeProfile(owner: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) {
     if (isRunning || activeTurnCollectorRef.current) return false;
     const characters = npcParticipants.characters();
     const currentOwner = characters.find((entry) => entry.id === owner.id);
     if (!currentOwner) return false;
     const state = matchMeState(characters, messagesRef.current);
     const entries = migrateDatingHistory(currentOwner, state, messagesRef.current, new Date().toISOString());
-    return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }));
+    return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }, avatarCrop));
   }
 
   function initializeMatchMe(owner: StorybookCharacter) {
@@ -6468,6 +6476,9 @@ function App() {
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onSaveDatingProfile={saveMatchMeProfile}
+              onSaveWhatsUpAlias={(owner, alias) => !isRunning && saveWhatsUpAlias(owner, alias)}
+              phoneWritesAsAlias={phoneWritesAsAlias}
+              onPhoneWritesAsAliasChange={setPhoneWritesAsAlias}
               onMatchMeAction={submitMatchMeAction}
               onCreateSocialAccount={saveStorybookSocialUsername}
               onImportSocialPostImage={importSocialPostImage}

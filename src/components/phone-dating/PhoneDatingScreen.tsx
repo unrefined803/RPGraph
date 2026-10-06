@@ -10,6 +10,10 @@ import { PhoneAppListResizer } from '../PhoneAppListResizer';
 import { appDialogCoversPhone } from '../phoneEscape';
 import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 import { useEffect, useRef, useState } from 'react';
+import { detectAvatarFaceCrop } from '../../characters/faceCrop';
+import { ProfilePickDialog } from '../ProfilePickDialog';
+import type { RpStorybookCharacterImage } from '../../nodes/rp-storybook/model';
+import type { AppAvatarCrop } from '../../characters/character';
 import type { ChatImageAttachment } from '../../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, resetDatingPasses, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
@@ -36,7 +40,8 @@ type Props = {
   images: ChatImageAttachment[];
   onImportImage: (request: { owner: StorybookCharacter; image: ChatImageAttachment }) => Promise<ChatImageAttachment | undefined>;
   onDecision?: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
-  onSave: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
+  /** `avatarCrop`: detected face region of the main photo, null for the whole photo, undefined to keep the stored one. */
+  onSave: (owner: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) => boolean;
   onBack: () => void;
 };
 
@@ -229,8 +234,34 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const allImages = [...images, ...imported];
   const ownerAvatarDataUrl = datingAvatarDataUrl(owner, allImages, profile);
 
-  function save(next: DatingProfile) {
-    if (!owner || !onSave(owner, next)) { setError('Could not save your profile. Please try again.'); return false; }
+  // The main photo's face becomes the round avatar; without a single face the whole photo is used.
+  const mainPhoto = editing ? allImages.find((entry) => entry.id === draft.photoIds[0]) : undefined;
+  const mainPhotoId = mainPhoto?.id;
+  const mainPhotoDataUrl = mainPhoto?.dataUrl;
+  // A stored face region for the current main photo is kept; detection runs only for a new photo.
+  const storedFace = owner?.apps?.matchme?.avatarCrop && { crop: owner.apps.matchme.avatarCrop,
+    imageId: owner.apps.matchme.avatarImageId ?? owner.apps.matchme.profile?.photoIds[0] ?? '' };
+  const [detectedFace, setDetectedFace] = useState<{ imageId: string; crop?: AppAvatarCrop; manual?: boolean } | undefined>(
+    () => storedFace ? { ...storedFace, manual: true } : undefined);
+  const knownFaceImageId = useRef(storedFace ? storedFace.imageId : undefined);
+  const [manualFaceOpen, setManualFaceOpen] = useState(false);
+  useEffect(() => {
+    if (!mainPhotoId || !mainPhotoDataUrl || knownFaceImageId.current === mainPhotoId) return;
+    let cancelled = false;
+    void detectAvatarFaceCrop({ id: mainPhotoId, dataUrl: mainPhotoDataUrl }).then((crop) => {
+      if (cancelled) return;
+      knownFaceImageId.current = mainPhotoId;
+      setDetectedFace({ imageId: mainPhotoId, crop });
+    });
+    return () => { cancelled = true; };
+  }, [mainPhotoId, mainPhotoDataUrl]);
+  const mainFace = mainPhotoId ? { imageId: mainPhotoId, done: detectedFace?.imageId === mainPhotoId,
+    crop: detectedFace?.imageId === mainPhotoId ? detectedFace.crop : undefined,
+    manual: detectedFace?.imageId === mainPhotoId && !!detectedFace.manual } : undefined;
+
+  function save(next: DatingProfile, withMainFace = false) {
+    const avatarCrop = withMainFace && mainFace?.done && mainFace.imageId === next.photoIds[0] ? mainFace.crop ?? null : undefined;
+    if (!owner || !onSave(owner, next, avatarCrop)) { setError('Could not save your profile. Please try again.'); return false; }
     setProfile(next); setDraft(next); setError(''); return true;
   }
   function decide(decision: 'like' | 'superlike' | 'pass', target = candidate) {
@@ -327,7 +358,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
           }
           const normalized = normalizeDatingProfile(draft);
           if (!normalized) { setError('Add a name, age (18–120), bio, and at least one photo.'); return; }
-          if (save(normalized)) { setEditing(false); setTab('discover'); }
+          if (save(normalized, true)) { setEditing(false); setTab('discover'); }
         }}>
           <div className="pt-intro pt-intro-compact">
             <h2>{profile ? 'Make it you.' : 'Find your match.'}</h2>
@@ -377,6 +408,22 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
                   </button>
                 </div>;
               })}</div>
+              {mainFace && <p className={`pt-face-status${mainFace.done && mainFace.crop ? ' found' : ''}`} role="status">
+                {!mainFace.done ? 'Looking for a face in your main photo…'
+                  : mainFace.crop ? mainFace.manual ? '✓ Profile picture set from your main photo.' : '✓ Face detected for your profile picture.'
+                    : 'No face found, your profile picture shows the whole main photo.'}
+                {mainFace.done && <> <button type="button" className="pt-face-manual" onClick={() => setManualFaceOpen(true)}>Set manually</button></>}
+              </p>}
+              {manualFaceOpen && mainPhoto && <ProfilePickDialog
+                characterName={draft.name || 'MatchMe'}
+                image={{ description: '', ...mainPhoto, name: mainPhoto.name ?? '' } as RpStorybookCharacterImage}
+                currentProfileImage={mainFace?.crop ? { imageId: mainPhoto.id, dataUrl: mainPhoto.dataUrl, crop: mainFace.crop } : undefined}
+                onClose={() => setManualFaceOpen(false)}
+                onApply={(profileImage) => {
+                  knownFaceImageId.current = mainPhoto.id;
+                  setDetectedFace({ imageId: mainPhoto.id, crop: profileImage.crop, manual: true });
+                  setManualFaceOpen(false);
+                }} />}
               <div className="pt-photo-actions"><button type="button" disabled={profileOnly || busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => uploadRef.current?.click()}>{busy ? 'Importing…' : '↑ Upload'}</button>
                 <button type="button" disabled={busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => setGallery(true)}>▧ Character album</button></div>
               <input ref={uploadRef} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
