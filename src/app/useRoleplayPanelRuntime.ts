@@ -38,6 +38,15 @@ import {
   unreadBankTransferCountForCharacter,
   unreadBankTransfersForCharacter,
 } from '../chat/bankTransfers';
+import {
+  bankTransferPhoneBanner,
+  directMessagePhoneBanner,
+  matchMeMatchPhoneBanner,
+  phoneAppEntryPhoneBanner,
+  socialReactionsPhoneBanner,
+  whatsUpPhoneBanner,
+  type PhoneBanner,
+} from '../chat/phoneBanners';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
 import type {
   ChatGpdChatsByCharacter,
@@ -73,6 +82,7 @@ import {
   phoneConversationKey,
   selectedPhoneConversationMessages,
   phoneSwitchCharacters,
+  phoneMessageVisibleText,
   unreadPhoneConversationsForCharacters,
 } from '../data-management/selectors';
 import {
@@ -197,6 +207,11 @@ export function useRoleplayPanelRuntime({
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = usePanelNavigationState('panel.phoneHomeRequestId', 0, false);
+  // Opens an app that has no finer-grained open request (Banking, Notes, ChatGPD).
+  const [phoneAppOpenRequest, setPhoneAppOpenRequest] = usePanelNavigationState<{
+    requestId: number;
+    app: 'banking' | 'notes' | 'ai';
+  }>('panel.phoneAppOpenRequest');
   // Mirrors the screen shown inside PhonePanel so turn actions can follow it.
   const [phoneScreen, setPhoneScreen] = useState('desktop');
   const accountLinkRequestId = useRef(0);
@@ -401,6 +416,7 @@ export function useRoleplayPanelRuntime({
     const byCharacter = new Map<string, {
       counts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends' | 'matchme', number>;
       unreadDirectMessages: Record<SocialMessengerAppKind, SocialDmUnreadByHandle>;
+      banners: PhoneBanner[];
     }>();
     // DMs rendered as embedded app blocks inside a chat bubble were already
     // read there, so they produce no app notification while the option is on.
@@ -422,8 +438,10 @@ export function useRoleplayPanelRuntime({
       // reactions, instead of one badge per message. DM conversations keep
       // their own seen id (marked when the thread is opened, like phone
       // conversations); reactions clear with the app-level seen id.
+      const banners: PhoneBanner[] = [];
       const socialApp = (app: SocialMessengerAppKind) => {
         const unreadDms: SocialDmUnreadByHandle = {};
+        const latestDmByHandle = new Map<string, MessageRecord>();
         messages.forEach((message) => {
           const directMessage = message.socialDirectMessage;
           if (
@@ -444,17 +462,25 @@ export function useRoleplayPanelRuntime({
             count: existing.count + 1,
             tipTotal: existing.tipTotal + (directMessage.tip ?? 0),
           };
+          latestDmByHandle.set(handleKey, message);
         });
-        const reactionPostIds = new Set(messages.flatMap((message) =>
-          !message.isOpening &&
-          message.id > seen(app) &&
-          message.socialReactions?.app === app &&
-          ownedPostIds.has(message.socialReactions.postId)
-            ? [message.socialReactions.postId]
-            : []
-        ));
+        latestDmByHandle.forEach((message, handleKey) => banners.push(
+          directMessagePhoneBanner(message.id, message.socialDirectMessage!, unreadDms[handleKey].count)));
+        const latestReactionsByPostId = new Map<string, MessageRecord>();
+        messages.forEach((message) => {
+          if (
+            !message.isOpening &&
+            message.id > seen(app) &&
+            message.socialReactions?.app === app &&
+            ownedPostIds.has(message.socialReactions.postId)
+          ) {
+            latestReactionsByPostId.set(message.socialReactions.postId, message);
+          }
+        });
+        latestReactionsByPostId.forEach((message) => banners.push(
+          socialReactionsPhoneBanner(message.id, message.socialReactions!)));
         return {
-          count: Object.keys(unreadDms).length + reactionPostIds.size,
+          count: Object.keys(unreadDms).length + latestReactionsByPostId.size,
           unreadDms,
         };
       };
@@ -466,7 +492,19 @@ export function useRoleplayPanelRuntime({
       for (const [partnerId, newMatchId] of Object.entries(newMatches)) {
         if (!matchme.unreadDms[partnerId]) matchme.count += 1;
         matchme.unreadDms[partnerId] = { ...(matchme.unreadDms[partnerId] ?? { count: 0, tipTotal: 0 }), newMatchId };
+        banners.push(matchMeMatchPhoneBanner(newMatchId, partnerId,
+          datingState.accounts.find((account) => account.id === partnerId)?.name ?? 'New match'));
       }
+      (['notes', 'ai'] as const).forEach((app) => {
+        const title = (message: MessageRecord) => {
+          const commit = app === 'notes' ? message.createdPhoneNote : message.simulatedAiChat;
+          if (commit?.characterId !== character.id) return undefined;
+          return 'note' in commit ? commit.note.title : commit.chat.title;
+        };
+        const latest = messages.filter((message) =>
+          !message.isOpening && message.id > seen(app) && title(message) !== undefined).slice(-1)[0];
+        if (latest) banners.push(phoneAppEntryPhoneBanner(app, latest.id, title(latest) ?? ''));
+      });
       byCharacter.set(character.id, {
         counts: {
           notes: count('notes', (message) => message.createdPhoneNote?.characterId === character.id),
@@ -480,6 +518,7 @@ export function useRoleplayPanelRuntime({
           onlyfriends: onlyfriends.unreadDms,
           matchme: matchme.unreadDms,
         },
+        banners,
       });
     });
     return byCharacter;
@@ -1125,6 +1164,50 @@ export function useRoleplayPanelRuntime({
     setChatPanelView('phone');
   }
 
+  // Unread events of the viewed phone owner; the Phone view announces new ones as banners.
+  const phoneBanners = useMemo((): PhoneBanner[] => viewedPhoneCharacter ? [
+    ...phoneContacts.flatMap((contact) => {
+      if (contact.unreadCount <= 0) return [];
+      const latest = viewerPhoneMessages.find((message) => message.id === contact.latestPhoneId);
+      return [whatsUpPhoneBanner(contact, latest && phoneMessageVisibleText(latest, englishProcessingEnabled))];
+    }),
+    ...(unreadBankingByCharacter.find((entry) => entry.character.id === viewedPhoneCharacter.id)?.transfers ?? [])
+      .map((transaction) => bankTransferPhoneBanner(transaction.message.id, transaction.transfer)),
+    ...(phoneAppNotifications.get(viewedPhoneCharacter.id)?.banners ?? []),
+  ] : [], [englishProcessingEnabled, phoneAppNotifications, phoneContacts, unreadBankingByCharacter, viewedPhoneCharacter, viewerPhoneMessages]);
+
+  function openPhoneBanner(banner: PhoneBanner) {
+    if (!viewedPhoneCharacter || !phoneAvailable) {
+      return;
+    }
+    const { target } = banner;
+    setAccountLinkOpenRequest(undefined);
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setSocialDirectMessageOpenRequest(undefined);
+    const requestId = ++accountLinkRequestId.current;
+    if (target.kind === 'whatsup') {
+      openPhoneConversation(target.conversationKey, banner.messageId, {
+        speakerId: viewedPhoneCharacter.id,
+        contactId: target.contactId,
+        activatePlayer: !narratorSelected,
+      });
+      setHighlightedPhoneMessage({ id: banner.messageId, pulseKey: requestId });
+    } else if (target.kind === 'directMessage') {
+      setSocialDirectMessageOpenRequest({
+        requestId,
+        app: target.app,
+        messageId: target.messageId,
+        participantName: target.participantName,
+        participantHandle: target.participantHandle,
+      });
+    } else if (target.kind === 'post') {
+      setSocialPostOpenRequest({ requestId, app: target.app, postId: target.postId });
+    } else {
+      setPhoneAppOpenRequest({ requestId, app: target.app });
+    }
+  }
+
   const newEventIds = useMemo(
     () => upcomingEvents.flatMap((event) => (seenEventIds.has(event.id) ? [] : [event.id])),
     [seenEventIds, upcomingEvents],
@@ -1721,6 +1804,9 @@ export function useRoleplayPanelRuntime({
     accountLinkContext: { characters: appCharacters, owner: (chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter) ?? viewedPhoneCharacter,
       disabled: isRunning, open: openAccountLink, request: accountLinkOpenRequest },
     phoneHomeRequestId,
+    phoneAppOpenRequest,
+    phoneBanners,
+    openPhoneBanner,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,

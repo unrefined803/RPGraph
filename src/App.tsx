@@ -69,6 +69,7 @@ import { runProgress } from './chat/runProgress';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PhoneNotificationBanners } from './components/PhoneNotificationBanners';
 import { PhonePanel } from './components/PhonePanel';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
@@ -1153,6 +1154,9 @@ function App() {
     addBankingContact,
     markSelectedPhoneConversationSeen,
     phoneHomeRequestId,
+    phoneAppOpenRequest,
+    phoneBanners,
+    openPhoneBanner,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,
@@ -6345,6 +6349,12 @@ function App() {
             >
             <PhoneAppListScaleContext.Provider value={phoneAppListScaleContext}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
+            <PhoneNotificationBanners
+              key={`${panelSessionRevision}:${viewedPhoneCharacter?.id ?? ''}`}
+              banners={phoneBanners}
+              latestMessageId={messages.reduce((latestId, message) => Math.max(latestId, message.id), 0)}
+              onOpen={openPhoneBanner}
+            />
             <PhonePanel
               onStartInitiativeTurn={startPhoneInitiativeTurn}
               onScreenChange={setPhoneScreen}
@@ -6376,6 +6386,7 @@ function App() {
               unreadBankingCount={unreadBankingCount}
               phoneAppNotificationCounts={phoneAppNotificationCounts}
               phoneHomeRequestId={phoneHomeRequestId}
+              phoneAppOpenRequest={phoneAppOpenRequest}
               socialPostOpenRequest={socialPostOpenRequest}
               socialDirectMessageOpenRequest={socialDirectMessageOpenRequest}
               phoneImages={phoneImages}

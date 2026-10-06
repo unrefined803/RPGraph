@@ -186,6 +186,7 @@ type PhonePanelProps = {
   unreadBankingCount: number;
   phoneAppNotificationCounts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends' | 'matchme', number>;
   phoneHomeRequestId: number;
+  phoneAppOpenRequest?: { requestId: number; app: 'banking' | 'notes' | 'ai' };
   socialPostOpenRequest?: {
     requestId: number;
     app: 'fotogram' | 'onlyfriends';
@@ -378,6 +379,7 @@ export function PhonePanel({
   unreadBankingCount,
   phoneAppNotificationCounts,
   phoneHomeRequestId,
+  phoneAppOpenRequest,
   socialPostOpenRequest,
   socialDirectMessageOpenRequest,
   phoneImages,
@@ -513,6 +515,14 @@ export function PhonePanel({
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
     if (screen !== 'desktop') {
       setScreen('desktop');
+    }
+  }
+  const [seenPhoneAppOpenRequestId, setSeenPhoneAppOpenRequestId] = usePanelNavigationState('phone.seenPhoneAppOpenRequestId',
+    phoneAppOpenRequest?.requestId ?? 0, false);
+  if (phoneAppOpenRequest && seenPhoneAppOpenRequestId !== phoneAppOpenRequest.requestId) {
+    setSeenPhoneAppOpenRequestId(phoneAppOpenRequest.requestId);
+    if (screen !== phoneAppOpenRequest.app) {
+      setScreen(phoneAppOpenRequest.app);
     }
   }
   const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = usePanelNavigationState('phone.seenSocialPostOpenRequestId',

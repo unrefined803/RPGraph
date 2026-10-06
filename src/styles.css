@@ -30599,3 +30599,200 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
 .phone-social-moderation-reveal[open] .show-image-label {
   display: none;
 }
+
+/* Drop-down banners announcing new phone events above the open phone screen. */
+.phone-banner-anchor {
+  position: relative;
+  z-index: 60;
+  flex: none;
+  width: 100%;
+  height: 0;
+}
+
+.phone-banner-stack {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  display: grid;
+  width: min(560px, calc(100% - 20px));
+  gap: 8px;
+  transform: translateX(-50%);
+}
+
+.phone-banner {
+  --phone-icon: 54px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 20px;
+  color: var(--soft-white);
+  /* Frosted glass: translucent body, bright top edge, dark lower lip for depth. */
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 42%, rgba(255, 255, 255, 0.07)),
+    rgba(14, 21, 35, 0.5);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 22px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(22px) saturate(1.6);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  animation: phone-banner-drop 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Specular sheen across the upper half of the glass. */
+.phone-banner::before {
+  position: absolute;
+  inset: 0 0 52% 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0));
+  content: '';
+  pointer-events: none;
+}
+
+.phone-banner:hover {
+  border-color: rgba(255, 255, 255, 0.36);
+  box-shadow:
+    0 22px 46px rgba(0, 0, 0, 0.55),
+    0 4px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 26px rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+@keyframes phone-banner-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-120%) scale(0.97);
+  }
+}
+
+.phone-banner-body {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 38px 12px 11px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.phone-banner-body:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+.phone-banner-body > [class$='-icon'] {
+  flex: none;
+}
+
+.phone-banner-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.phone-banner-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.phone-banner-heading strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-banner-heading span {
+  flex: none;
+  color: #b4c3dc;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.phone-banner-text {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #e3eaf6;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Quiet close mark in the corner; everything else on the banner opens the event. */
+.phone-banner-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  z-index: 1;
+  color: rgba(253, 126, 146, 0.85);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.phone-banner-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.phone-banner-close:hover,
+.phone-banner-close:focus-visible {
+  color: #fecdd3;
+  background: rgba(244, 63, 94, 0.28);
+  outline: none;
+}
+
+/* Remaining time before the banner closes itself unread. */
+.phone-banner-countdown {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(122, 162, 232, 0.25), rgba(143, 180, 240, 0.85));
+  transform-origin: left;
+  animation: phone-banner-countdown 10s linear forwards;
+}
+
+.phone-banner.held .phone-banner-countdown {
+  animation: none;
+}
+
+@keyframes phone-banner-countdown {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone-banner,
+  .phone-banner-countdown {
+    animation: none;
+  }
+}
