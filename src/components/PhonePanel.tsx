@@ -1565,7 +1565,7 @@ export function PhonePanel({
         )}
       </div>
       <div className="phone-chat" aria-label="Phone conversation">
-        {whatsUpAliasEditorOpen && selectedCharacter ? (
+        {whatsUpAliasEditorOpen && selectedCharacter && selectedCharacterPlayable && !selectedCharacter.libraryNpc ? (
           <div className="phone-alias-editor-scroll">
             <WhatsUpAccounts
               key={selectedCharacter.id}

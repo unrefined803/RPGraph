@@ -53,6 +53,8 @@ import {
   unknownConversationReferenceImageScope,
 } from '../chat/referenceImages';
 import type { usePhoneReply } from '../chat/usePhoneReply';
+import type { PhoneRuntimeCharacter } from '../chat/phoneCharacters';
+import { matchingPhoneName } from '../data-management/selectors';
 import {
   applyTimeCommandsToWorkflowNodes,
   commandInputCommandsFromStructured,
@@ -242,7 +244,7 @@ type UseGraphRunOptions = Pick<
   characterStorybookNodes: readonly unknown[];
   appCharacters: () => StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
-  phoneCharacters: StorybookCharacter[];
+  phoneCharacters: PhoneRuntimeCharacter[];
   selectedCharacter: StorybookCharacter | undefined;
   selectedPhoneContact: { character: StorybookCharacter } | undefined;
   /** The WhatsUp name the player currently writes under, when the character has a second name. */
@@ -542,11 +544,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : undefined
     );
     const selectedReferenceImageOptions = referenceImageOptionsForRun(phoneReplyTo);
-    const inputCharacter = socialDirectMessage && inputCharacterOverride
+    const namedInputCharacter: PhoneRuntimeCharacter | undefined = socialDirectMessage && inputCharacterOverride
       ? inputCharacterOverride
       : existingInputMessage?.speakerName
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.speakerName ?? ''))
+        ? matchingPhoneName(phoneCharacters, existingInputMessage.speakerName ?? '')
         : inputCharacterOverride ?? selectedCharacter;
+    // A message written under a second WhatsUp name belongs to its owner, who keeps that name as the sender.
+    const inputCharacter = namedInputCharacter?.whatsUpAliasOf ?? namedInputCharacter;
+    const aliasSenderAccountId = namedInputCharacter?.whatsUpAliasOf ? namedInputCharacter.apps?.whatsup?.accountId : undefined;
     const isAutoplayRun = messageFormatOverride === autoplayMessageFormat;
     const runPromptSwitchVisionFeaturesEnabled = runtimeNodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'llm-prompt-switch' && nodeHasVision(node),
@@ -565,6 +570,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       try {
         inputPhoneParticipants = resolveWhatsUpMessageParticipants(appCharacters(), historyMessages, {
           from: existingInputMessage?.phoneFromAccountId ?? existingInputMessage?.phoneFrom ??
+            aliasSenderAccountId ??
             (phoneSenderAccountId && !phoneRecipientCharacterOverride && selectedCharacter?.id === inputCharacter?.id ? phoneSenderAccountId : undefined) ??
             inputCharacter?.apps?.whatsup?.accountId ?? inputCharacter?.name ?? '',
           to: existingInputMessage?.phoneToAccountId ?? existingInputMessage?.phoneTo ??

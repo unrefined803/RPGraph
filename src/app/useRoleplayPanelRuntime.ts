@@ -927,11 +927,12 @@ export function useRoleplayPanelRuntime({
       return;
     }
     const named = embeddedPhoneMessageCharacters(phoneCharacters, message);
-    const contact = named.contact;
-    // A message addressed to a second name opens on its owner's phone.
-    const viewer = named.viewer?.whatsUpAliasOf
-      ? phoneCharacters.find((character) => character.id === named.viewer!.whatsUpAliasOf!.id) ?? named.viewer
-      : named.viewer;
+    // A message addressed to a second name opens on its owner's phone, or on the
+    // sender's when the owner has no phone here; a second name has no phone of its own.
+    const aliasOwner = named.viewer?.whatsUpAliasOf
+      ? phoneCharacters.find((character) => character.id === named.viewer!.whatsUpAliasOf!.id) : undefined;
+    const viewer = named.viewer?.whatsUpAliasOf ? aliasOwner ?? named.contact : named.viewer;
+    const contact = named.viewer?.whatsUpAliasOf && !aliasOwner ? named.viewer : named.contact;
     if (!viewer || !contact) {
       notifySystem('warning', 'Could not find both phone characters.');
       return;

@@ -4562,10 +4562,10 @@ function App() {
       const phoneInput = parsePhoneGraphInput(turn.input.graphText);
       const phoneAutoTurn = !!phoneInput;
       const inputCharacter = phoneInput
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, phoneInput.from)) ?? selectedCharacter
+        ? matchingPhoneName(phoneCharacters, phoneInput.from) ?? selectedCharacter
         : selectedCharacter;
       const phoneRecipient = phoneInput
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, phoneInput.to))
+        ? matchingPhoneName(phoneCharacters, phoneInput.to)
         : undefined;
       void runGraph(
         storedAutoTurnInputText(turn.input.graphText),
@@ -4601,7 +4601,7 @@ function App() {
       return;
     }
     const inputCharacter = inputMessage.speakerName
-      ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.speakerName ?? ''))
+      ? matchingPhoneName(phoneCharacters, inputMessage.speakerName ?? '')
       : selectedCharacter;
     void runGraph(
       inputMessage.translatedText ?? inputMessage.originalText,
@@ -4612,7 +4612,7 @@ function App() {
       inputCharacter,
       inputMessage.phoneMessage,
       inputMessage.phoneTo
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.phoneTo ?? ''))
+        ? matchingPhoneName(phoneCharacters, inputMessage.phoneTo ?? '')
         : undefined,
       { turn, replaceInput: false },
     );
@@ -4706,7 +4706,7 @@ function App() {
       return;
     }
     const inputCharacter = inputMessage.speakerName
-      ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.speakerName ?? ''))
+      ? matchingPhoneName(phoneCharacters, inputMessage.speakerName ?? '')
       : selectedCharacter;
     const turn =
       turnsRef.current.find((entry) => entry.id === inputMessage.turnId) ??
@@ -4726,7 +4726,7 @@ function App() {
       inputCharacter,
       inputMessage.phoneMessage,
       inputMessage.phoneTo
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.phoneTo ?? ''))
+        ? matchingPhoneName(phoneCharacters, inputMessage.phoneTo ?? '')
         : undefined,
       { turn, replaceInput: true },
       inputMessage.speakerName === narratorSpeakerName ? 'narrator' : 'user',
@@ -5169,11 +5169,11 @@ function App() {
       const recipientName = eventToRun.phoneTo ?? eventToRun.requestedBy;
       const sender =
         senderName
-          ? phoneCharacters.find((character) => phoneNamesMatch(character.name, senderName))
+          ? matchingPhoneName(phoneCharacters, senderName)
           : selectedCharacter;
       const recipient =
         recipientName
-          ? phoneCharacters.find((character) => phoneNamesMatch(character.name, recipientName))
+          ? matchingPhoneName(phoneCharacters, recipientName)
           : undefined;
       if (!sender || !recipient) {
         notifySystem('warning', 'Phone event needs a sender and recipient character.');
