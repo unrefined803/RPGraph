@@ -264,3 +264,37 @@ different man and is authored as a lifted photo. Face crops come from the
 detector, except Roxy's, which is manual
 because the microphone covers part of her face. Social avatars deliberately omit
 `avatarImageId` so they follow the cropped portrait.
+
+## WhatsUp second accounts
+
+Eighteen bundled NPCs carry an optional second WhatsUp name
+(`apps.whatsup.alias`, see [App profile names](architecture/app-profile-names.md)).
+Each Hidden Agency states what the character uses it for. Only the two
+personas have a picture; the others show initials.
+
+| Character | Second account | Purpose |
+| --- | --- | --- |
+| Tamara Kovac | Sofia Belova | Romance-scam persona, with the terrace photo |
+| Joel Vance | Chloe Vance | Dating persona, with the woman's photo |
+| Dexter Shaw | Shaw Capital Compliance | Poses as a separate compliance desk |
+| Damian Cross | Cross Management | Poses as his own manager |
+| Leon Richter | Mid At Best | Anonymous contact tied to his hater handle |
+| Elena Ward | Nora Hayes | Cover name for fidelity checks |
+| Mira Chen | Jamie Okafor | Research identity |
+| Adrian Cole | Marsh Field Services | Neutral contact for field work |
+| Mason Rourke | Mase | Name buyers know |
+| Tessa Vaughn | Vee | Name buyers know |
+| Clara Dubois | Coco | Keeps compensated dates apart from family |
+| Amber Sinclair | Sinclair Bookings | Booking line |
+| Julian Drake | Drake Wealth Desk | Client desk for subscriptions |
+| Marcus Cole | Viral Growth Labs | Agency line |
+| Dante Rossi | Rossi VIP Concierge | Guest-list and booking line |
+| Roxy Mendez | Receipts Tip Line | Published tip contact |
+| Brody Callahan | Callahan Coaching | Coaching business line |
+| Toby Becker | TobyChaos | Public stream contact |
+
+Characters whose deception lies elsewhere keep only their real name: Valeria
+Monet and Sienna Ray lie about their lives, not their identity; the trolls
+(Tyler Briggs, Simon Drake, Felix Miller, Kendra Holt, Gemma Croft, Finn
+Gallagher) act on Fotogram and OnlyFriends; Russell Mercer and Caleb Bennett do
+not deal with buyers; Frank Bennett's investigation develops in play.

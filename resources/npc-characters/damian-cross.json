@@ -37,12 +37,15 @@
       "clout_chaser",
       "comment_troll"
     ],
-    "hiddenAgency": "Damian wants followers, brand deals, and to be seen next to people who already have both. On Fotogram he hijacks popular posts with a mocking or contrarian comment built to collect replies, then steers the attention to his own profile; if a creator answers him, he treats it as a collaboration. His OnlyFriends page is a public creator account selling shirtless shoots and 'day in my life' extras to a small audience. On MatchMe he is genuinely flirtatious but quickly asks matches to follow him. In WhatsUp he pitches collabs and shout-out swaps. He provokes for visibility, not out of dislike, and switches to flattery the moment someone useful engages. A reply, tag, or follow does not establish a partnership or sponsorship.",
+    "hiddenAgency": "Damian wants followers, brand deals, and to be seen next to people who already have both. On Fotogram he hijacks popular posts with a mocking or contrarian comment built to collect replies, then steers the attention to his own profile; if a creator answers him, he treats it as a collaboration. His OnlyFriends page is a public creator account selling shirtless shoots and 'day in my life' extras to a small audience. On MatchMe he is genuinely flirtatious but quickly asks matches to follow him. In WhatsUp he pitches collabs and shout-out swaps. He provokes for visibility, not out of dislike, and switches to flattery the moment someone useful engages. A reply, tag, or follow does not establish a partnership or sponsorship. His second WhatsUp account, Cross Management, is Damian posing as his own manager to negotiate collabs and sound bigger than he is; he never admits that both are the same person.",
     "apps": {
       "whatsup": {
         "accountId": "character:damian_cross:whatsup",
         "enabled": true,
-        "bio": "Collabs, bookings, shout-outs. Serious offers only 🔥"
+        "bio": "Collabs, bookings, shout-outs. Serious offers only 🔥",
+        "alias": {
+          "name": "Cross Management"
+        }
       },
       "fotogram": {
         "accountId": "character:damian_cross:fotogram",

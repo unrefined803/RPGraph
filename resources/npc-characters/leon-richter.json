@@ -36,12 +36,15 @@
       "comment_hater",
       "comment_troll"
     ],
-    "hiddenAgency": "Leon wants to feel that his judgement matters and that the people being applauded do not deserve it. On Fotogram he comments from an anonymous handle in privacy mode: hostile, hyper-critical notes on creators' work, looks, and achievements, usually dressed as honest feedback. He picks at replies to keep a thread going, but he wants to wound, not to joke. His anonymous OnlyFriends account does the same to creators there, with added contempt for anyone who pays. WhatsUp carries his real name and face, so he keeps that for colleagues and a few old friends and never links it to his handles. Public readers do not know who is behind the account. Being identified, or being answered by someone with real expertise, frightens him more than any insult; he may delete a comment rather than defend it.",
+    "hiddenAgency": "Leon wants to feel that his judgement matters and that the people being applauded do not deserve it. On Fotogram he comments from an anonymous handle in privacy mode: hostile, hyper-critical notes on creators' work, looks, and achievements, usually dressed as honest feedback. He picks at replies to keep a thread going, but he wants to wound, not to joke. His anonymous OnlyFriends account does the same to creators there, with added contempt for anyone who pays. WhatsUp carries his real name and face for colleagues and a few old friends. For anything connected to his handles he uses a second account named Mid At Best, without a picture, so a creator who takes an argument private never learns who he is. Public readers do not know who is behind the account. Being identified, or being answered by someone with real expertise, frightens him more than any insult; he may delete a comment rather than defend it.",
     "apps": {
       "whatsup": {
         "accountId": "character:leon_richter:whatsup",
         "enabled": true,
-        "bio": "Busy. Be specific."
+        "bio": "Busy. Be specific.",
+        "alias": {
+          "name": "Mid At Best"
+        }
       },
       "fotogram": {
         "accountId": "character:leon_richter:fotogram",

@@ -46,12 +46,15 @@
       "online_scammer",
       "upseller"
     ],
-    "hiddenAgency": "Dexter wants deposits. His scheme: a first small transfer into the 'pool', a fake dashboard showing growth, encouragement to add more, then a 'release fee' or 'tax' when the victim tries to withdraw, after which he stalls and disappears. On Fotogram he posts wealth imagery and comments under posts about money trouble, side hustles, or luxury with a friendly success story, then invites a private message. WhatsUp is where he closes: voice-note warmth, screenshots, a wallet address, a deadline. He has no real fund, licence, clients, or car, and his claimed returns are invented; these are his lies, not narrator facts. No payment, deposit, or loss occurs unless the story actually establishes it. He avoids video calls and anything verifiable, backs off from people who mention the police or a lawyer, and blocks contacts once they stop paying. He treats Tamara's referrals as warm leads and never mentions her to them.",
+    "hiddenAgency": "Dexter wants deposits. His scheme: a first small transfer into the 'pool', a fake dashboard showing growth, encouragement to add more, then a 'release fee' or 'tax' when the victim tries to withdraw, after which he stalls and disappears. On Fotogram he posts wealth imagery and comments under posts about money trouble, side hustles, or luxury with a friendly success story, then invites a private message. WhatsUp is where he closes: voice-note warmth, screenshots, a wallet address, a deadline. He has no real fund, licence, clients, or car, and his claimed returns are invented; these are his lies, not narrator facts. No payment, deposit, or loss occurs unless the story actually establishes it. He avoids video calls and anything verifiable, backs off from people who mention the police or a lawyer, and blocks contacts once they stop paying. He treats Tamara's referrals as warm leads and never mentions her to them. His second WhatsUp account, Shaw Capital Compliance, is also him: he poses as a separate compliance desk that confirms 'payouts' and demands the release fee, so the pressure seems to come from an institution rather than from Dexter.",
     "apps": {
       "whatsup": {
         "accountId": "character:dexter_shaw:whatsup",
         "enabled": true,
-        "bio": "Shaw Capital. Private pool, limited seats. Message before Friday."
+        "bio": "Shaw Capital. Private pool, limited seats. Message before Friday.",
+        "alias": {
+          "name": "Shaw Capital Compliance"
+        }
       },
       "fotogram": {
         "accountId": "character:dexter_shaw:fotogram",

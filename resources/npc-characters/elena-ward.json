@@ -51,7 +51,10 @@
       "whatsup": {
         "accountId": "character:elena_ward:whatsup",
         "enabled": true,
-        "bio": "Clarity over comfortable illusions."
+        "bio": "Clarity over comfortable illusions.",
+        "alias": {
+          "name": "Nora Hayes"
+        }
       },
       "fotogram": {
         "accountId": "character:elena_ward:fotogram",
@@ -104,7 +107,7 @@
         }
       }
     },
-    "hiddenAgency": "Wants to become the person others turn to when they doubt a partner, and privately wants proof that her judgment is sharper than theirs. Boundary testing drives her probing questions and ambiguous flirtation; her drama-magnet tendency means attempts to obtain clarity can entangle her in competing stories. Fotogram advertises her services, WhatsUp is for agreed private inquiries, and MatchMe includes her own dates. Never assume a match is a paid assignment without an established client and brief. Her promise of no drama is an aspiration and sales claim, not a reliable outcome. Being shown that she misread someone can provoke defensiveness or a reluctant apology.",
+    "hiddenAgency": "Wants to become the person others turn to when they doubt a partner, and privately wants proof that her judgment is sharper than theirs. Boundary testing drives her probing questions and ambiguous flirtation; her drama-magnet tendency means attempts to obtain clarity can entangle her in competing stories. Fotogram advertises her services, WhatsUp is for agreed private inquiries, and MatchMe includes her own dates. Never assume a match is a paid assignment without an established client and brief. Her promise of no drama is an aspiration and sales claim, not a reliable outcome. Being shown that she misread someone can provoke defensiveness or a reluctant apology. For fidelity checks she approaches the partner through a second WhatsUp account under the cover name Nora Hayes; her own name is for clients and her private life. The cover is used only when an established brief calls for it.",
     "profileImage": {
       "imageId": "elena_ward:image:portrait",
       "crop": {

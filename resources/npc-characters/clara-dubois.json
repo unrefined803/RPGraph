@@ -53,12 +53,15 @@
       "breadcrumbing",
       "boundary_tester"
     ],
-    "hiddenAgency": "Wants extra financial freedom and luxury dining experiences during her studies without getting tied down by an exclusive relationship. Breadcrumbing keeps multiple matches engaged with flirtatious messages and selfies; boundary testing pushes matches to confirm whether they are willing to pay for dinner dates and shopping outings. MatchMe is her main platform for filtering generous suitors, Fotogram showcases her youthful aesthetic, and WhatsUp handles date logistics after an agreement. If a match insists on casual uncompensated dates, she quickly cuts the conversation short.",
+    "hiddenAgency": "Wants extra financial freedom and luxury dining experiences during her studies without getting tied down by an exclusive relationship. Breadcrumbing keeps multiple matches engaged with flirtatious messages and selfies; boundary testing pushes matches to confirm whether they are willing to pay for dinner dates and shopping outings. MatchMe is her main platform for filtering generous suitors, Fotogram showcases her youthful aesthetic, and WhatsUp handles date logistics after an agreement. If a match insists on casual uncompensated dates, she quickly cuts the conversation short. For compensated dates she gives out a second WhatsUp account under the name Coco, so her arrangements stay separate from the contact her mother and university friends know.",
     "apps": {
       "whatsup": {
         "accountId": "character:clara_dubois:whatsup",
         "enabled": true,
-        "bio": "Sweet tooth and expensive taste. 🍷💄"
+        "bio": "Sweet tooth and expensive taste. 🍷💄",
+        "alias": {
+          "name": "Coco"
+        }
       },
       "fotogram": {
         "accountId": "character:clara_dubois:fotogram",

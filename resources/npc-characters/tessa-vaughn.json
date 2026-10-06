@@ -46,7 +46,7 @@
     "name": "Tessa Vaughn",
     "age": 30,
     "gender": "woman",
-    "hiddenAgency": "Sells methamphetamine produced by Russell and Caleb; she is not a producer. Wants enough independence to leave the crew on her own terms, yet finds its money and status difficult to give up. Her friendship with Caleb predates the business. She respects Russell's intelligence without accepting his authority over her personal life, and she objects to Mason making promises for her. Caleb told her his uncle Frank is a police officer; she has never met Frank, has no account connection to him and knows nothing about his current investigation. Her social profiles contain no public invitations or posts about the illegal trade. Knowledge of her role must emerge through actual encounters in play. She is single but not using MatchMe. Attraction does not automatically turn somebody into a customer or confidant. The criminal role is private characterization, not public account text. Other people's secrets become known through actual RP events, not by association. WhatsUp is for established personal contacts. Fotogram is a pseudonymous personal browsing account with privacy mode enabled and no publications. Its handle differs from OnlyFriends. A social DM shows the account identity, not automatic disclosure of the owner's real name or face; knowing the person through WhatsUp does not reveal their social handles. OnlyFriends is a separate pseudonymous private browsing account with no posts or sales; relatives, colleagues, partners and existing contacts do not automatically know its handle. No starting posts are authored on any account.",
+    "hiddenAgency": "Sells methamphetamine produced by Russell and Caleb; she is not a producer. Wants enough independence to leave the crew on her own terms, yet finds its money and status difficult to give up. Her friendship with Caleb predates the business. She respects Russell's intelligence without accepting his authority over her personal life, and she objects to Mason making promises for her. Caleb told her his uncle Frank is a police officer; she has never met Frank, has no account connection to him and knows nothing about his current investigation. Her social profiles contain no public invitations or posts about the illegal trade. Knowledge of her role must emerge through actual encounters in play. She is single but not using MatchMe. Attraction does not automatically turn somebody into a customer or confidant. The criminal role is private characterization, not public account text. Other people's secrets become known through actual RP events, not by association. WhatsUp is for established personal contacts. Fotogram is a pseudonymous personal browsing account with privacy mode enabled and no publications. Its handle differs from OnlyFriends. A social DM shows the account identity, not automatic disclosure of the owner's real name or face; knowing the person through WhatsUp does not reveal their social handles. OnlyFriends is a separate pseudonymous private browsing account with no posts or sales; relatives, colleagues, partners and existing contacts do not automatically know its handle. No starting posts are authored on any account. Buyers know her on WhatsUp only as Vee, a second account without a picture; the crew and her friends use her real name.",
     "agencyTags": [
       "boundary_setter",
       "move_to_private"
@@ -55,7 +55,10 @@
       "whatsup": {
         "accountId": "character:tessa_vaughn:whatsup",
         "enabled": true,
-        "bio": "Bass up. Small circle. Long nights."
+        "bio": "Bass up. Small circle. Long nights.",
+        "alias": {
+          "name": "Vee"
+        }
       },
       "fotogram": {
         "accountId": "character:tessa_vaughn:fotogram",

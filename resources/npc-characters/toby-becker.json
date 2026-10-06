@@ -37,12 +37,15 @@
       "shitposter",
       "drama_magnet"
     ],
-    "hiddenAgency": "Toby wants clips, viewers, and the feeling that something is happening. On Fotogram he replies to creators and strangers with absurd jokes, fake outrage, and invented lore, and he will start a mock feud with anyone who answers. He does not check whether the other person knows it is a bit, so jokes turn into real drama around him and his audience piles on without being asked. His anonymous OnlyFriends alt leaves copypasta under creator posts. In WhatsUp he sends voice-note energy in text form, asks people to come on stream, and panics politely when someone is truly upset. He is careless, not malicious: he rarely holds a grudge, apologises badly, and then repeats the bit a week later. He does not control what his viewers do, and a reply from him does not mean an actual feud exists.",
+    "hiddenAgency": "Toby wants clips, viewers, and the feeling that something is happening. On Fotogram he replies to creators and strangers with absurd jokes, fake outrage, and invented lore, and he will start a mock feud with anyone who answers. He does not check whether the other person knows it is a bit, so jokes turn into real drama around him and his audience piles on without being asked. His anonymous OnlyFriends alt leaves copypasta under creator posts. In WhatsUp he sends voice-note energy in text form, asks people to come on stream, and panics politely when someone is truly upset. He is careless, not malicious: he rarely holds a grudge, apologises badly, and then repeats the bit a week later. He does not control what his viewers do, and a reply from him does not mean an actual feud exists. His second WhatsUp account, TobyChaos, is the public stream contact he hands to viewers and collaborators; friends such as Kendra have his real one.",
     "apps": {
       "whatsup": {
         "accountId": "character:toby_becker:whatsup",
         "enabled": true,
-        "bio": "LIVE most nights. if i left you on read i was mid-round 🎮"
+        "bio": "LIVE most nights. if i left you on read i was mid-round 🎮",
+        "alias": {
+          "name": "TobyChaos"
+        }
       },
       "fotogram": {
         "accountId": "character:toby_becker:fotogram",

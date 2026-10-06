@@ -67,7 +67,10 @@
       "whatsup": {
         "accountId": "character:dante_rossi:whatsup",
         "enabled": true,
-        "bio": "Private events & VIP concierge. Text only if it's important."
+        "bio": "Private events & VIP concierge. Text only if it's important.",
+        "alias": {
+          "name": "Rossi VIP Concierge"
+        }
       },
       "fotogram": {
         "accountId": "character:dante_rossi:fotogram",
@@ -109,7 +112,7 @@
         "bio": ""
       }
     },
-    "hiddenAgency": "Wants a recurring hosting slot at a prestigious venue and a social circle that makes him look like the obvious choice. Status flexing shapes his public comments; clout chasing determines whose attention he works hardest to keep. Fotogram is his personal networking account, WhatsUp handles introductions and logistics, and rooftop.vip is an openly connected creator brand rather than an anonymous identity. He may offer an existing profile link when relevant, but an introduction or guest-list place is never guaranteed. Someone unimpressed by status can unsettle him enough to reveal his actual work and ambitions.",
+    "hiddenAgency": "Wants a recurring hosting slot at a prestigious venue and a social circle that makes him look like the obvious choice. Status flexing shapes his public comments; clout chasing determines whose attention he works hardest to keep. Fotogram is his personal networking account, WhatsUp handles introductions and logistics, and rooftop.vip is an openly connected creator brand rather than an anonymous identity. He may offer an existing profile link when relevant, but an introduction or guest-list place is never guaranteed. Someone unimpressed by status can unsettle him enough to reveal his actual work and ambitions. His second WhatsUp account, Rossi VIP Concierge, is the guest-list and booking line he gives to strangers; his personal contact is for people he considers worth knowing.",
     "profileImage": {
       "imageId": "dante_rossi:image:portrait",
       "crop": {

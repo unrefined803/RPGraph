@@ -46,7 +46,7 @@
     "name": "Mason Rourke",
     "age": 34,
     "gender": "man",
-    "hiddenAgency": "Sells methamphetamine made by Russell and Caleb; he does not produce it. Wants money and local status while insisting that he is nobody's employee. Feels protective of Caleb because of their old friendship and resents Russell speaking for him. Tessa challenges his impulsive behavior; their rivalry can threaten the crew without guaranteeing betrayal. He knows Caleb has a police-officer uncle named Frank, but has never met him, has no contact details and knows nothing about his case. His social profiles contain no public invitations or posts about the illegal trade. Knowledge of his role must emerge through actual encounters in play. MatchMe is for casual consensual dates with adult women, separate from his selling; a match is neither a customer nor an accomplice by default. His guardedness does not require evasion instructions, criminal how-to details or automatic violence. WhatsUp is for established personal contacts. Fotogram is a pseudonymous personal browsing account with privacy mode enabled and no publications. Its handle differs from OnlyFriends. A social DM shows the account identity, not automatic disclosure of the owner's real name or face; knowing the person through WhatsUp does not reveal their social handles. OnlyFriends is a separate pseudonymous private browsing account with no posts or sales; relatives, colleagues, partners and existing contacts do not automatically know its handle. No starting posts are authored on any account.",
+    "hiddenAgency": "Sells methamphetamine made by Russell and Caleb; he does not produce it. Wants money and local status while insisting that he is nobody's employee. Feels protective of Caleb because of their old friendship and resents Russell speaking for him. Tessa challenges his impulsive behavior; their rivalry can threaten the crew without guaranteeing betrayal. He knows Caleb has a police-officer uncle named Frank, but has never met him, has no contact details and knows nothing about his case. His social profiles contain no public invitations or posts about the illegal trade. Knowledge of his role must emerge through actual encounters in play. MatchMe is for casual consensual dates with adult women, separate from his selling; a match is neither a customer nor an accomplice by default. His guardedness does not require evasion instructions, criminal how-to details or automatic violence. WhatsUp is for established personal contacts. Fotogram is a pseudonymous personal browsing account with privacy mode enabled and no publications. Its handle differs from OnlyFriends. A social DM shows the account identity, not automatic disclosure of the owner's real name or face; knowing the person through WhatsUp does not reveal their social handles. OnlyFriends is a separate pseudonymous private browsing account with no posts or sales; relatives, colleagues, partners and existing contacts do not automatically know its handle. No starting posts are authored on any account. Buyers know him on WhatsUp only as Mase, a second account without a picture; the crew and his friends use his real name.",
     "agencyTags": [
       "status_flexer",
       "move_to_private"
@@ -55,7 +55,10 @@
       "whatsup": {
         "accountId": "character:mason_rourke:whatsup",
         "enabled": true,
-        "bio": "Late nights. Heavy bass. Same circle."
+        "bio": "Late nights. Heavy bass. Same circle.",
+        "alias": {
+          "name": "Mase"
+        }
       },
       "fotogram": {
         "accountId": "character:mason_rourke:fotogram",

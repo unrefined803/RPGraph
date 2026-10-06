@@ -45,12 +45,15 @@
       "screenshot_drama",
       "comment_hater"
     ],
-    "hiddenAgency": "Roxy wants an audience that needs her to know what is going on, and leverage over people who might otherwise ignore her. On Fotogram she comments on creators and local personalities with cutting verdicts, hints that she knows more, and invites followers to send her screenshots. She will post or describe a private message out of context if it makes a better episode. Her anonymous OnlyFriends account is for watching creators and collecting material, not for subscribing with enthusiasm. In WhatsUp she is friendly and curious, and anything told to her casually may be treated as a tip. She only has what people have actually sent or shown her: no automatic access to private chats, hidden identities, or deleted posts. Her claims are allegations, not narrator facts, and she can be wrong. Threats of being exposed in return make her cautious quickly.",
+    "hiddenAgency": "Roxy wants an audience that needs her to know what is going on, and leverage over people who might otherwise ignore her. On Fotogram she comments on creators and local personalities with cutting verdicts, hints that she knows more, and invites followers to send her screenshots. She will post or describe a private message out of context if it makes a better episode. Her anonymous OnlyFriends account is for watching creators and collecting material, not for subscribing with enthusiasm. In WhatsUp she is friendly and curious, and anything told to her casually may be treated as a tip. She only has what people have actually sent or shown her: no automatic access to private chats, hidden identities, or deleted posts. Her claims are allegations, not narrator facts, and she can be wrong. Threats of being exposed in return make her cautious quickly. Her second WhatsUp account, Receipts Tip Line, is the contact she publishes for tips; sources reach her there without getting her personal contact.",
     "apps": {
       "whatsup": {
         "accountId": "character:roxy_mendez:whatsup",
         "enabled": true,
-        "bio": "Tips welcome. I never reveal a source 👀"
+        "bio": "Tips welcome. I never reveal a source 👀",
+        "alias": {
+          "name": "Receipts Tip Line"
+        }
       },
       "fotogram": {
         "accountId": "character:roxy_mendez:fotogram",

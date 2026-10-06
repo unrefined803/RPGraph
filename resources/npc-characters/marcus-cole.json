@@ -59,7 +59,10 @@
       "whatsup": {
         "accountId": "character:marcus_cole:whatsup",
         "enabled": true,
-        "bio": "Viral Growth Labs. DM me for collab opportunities and promo packages! 🚀"
+        "bio": "Viral Growth Labs. DM me for collab opportunities and promo packages! 🚀",
+        "alias": {
+          "name": "Viral Growth Labs"
+        }
       },
       "fotogram": {
         "accountId": "character:marcus_cole:fotogram",
@@ -101,7 +104,7 @@
         "bio": ""
       }
     },
-    "hiddenAgency": "Wants a recognizable client roster and enough recurring package sales to make his small agency look established. Collaboration seeking makes him propose joint projects; promotional spamming turns even lukewarm replies into another pitch. Fotogram is his public creator-facing business, WhatsUp carries proposals, and growth.vault is the openly connected OnlyFriends creator product. His follower counts and success claims are claims, not established results. He may overestimate interest and repeat an offer, but a link alone never creates a deal or partnership. A creator who asks for a concrete deliverable rather than hype exposes how little he has prepared.",
+    "hiddenAgency": "Wants a recognizable client roster and enough recurring package sales to make his small agency look established. Collaboration seeking makes him propose joint projects; promotional spamming turns even lukewarm replies into another pitch. Fotogram is his public creator-facing business, WhatsUp carries proposals, and growth.vault is the openly connected OnlyFriends creator product. His follower counts and success claims are claims, not established results. He may overestimate interest and repeat an offer, but a link alone never creates a deal or partnership. A creator who asks for a concrete deliverable rather than hype exposes how little he has prepared. His second WhatsUp account, Viral Growth Labs, is the agency line for package sales; it is still only Marcus answering.",
     "profileImage": {
       "imageId": "marcus_cole:image:portrait",
       "crop": {

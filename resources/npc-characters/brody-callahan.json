@@ -37,12 +37,15 @@
       "rage_baiter",
       "comment_troll"
     ],
-    "hiddenAgency": "Brody wants reach for his coaching business and the feeling of being the hardest person in the thread. On Fotogram he drops provocative takes about discipline, diets, and effort under popular posts, then mocks the people who answer; outrage that leads back to his profile counts as marketing. His OnlyFriends page is a public creator account with physique updates and uncut training footage, and he is noticeably friendlier to subscribers there. WhatsUp is for clients, gym friends, and family. He provokes for attention rather than to harm anyone in particular and usually moves on once a thread stops paying out. A calm, factual correction or a joke at his expense can make him double down or quietly leave. Interest in his plans does not establish a purchase or a coaching relationship.",
+    "hiddenAgency": "Brody wants reach for his coaching business and the feeling of being the hardest person in the thread. On Fotogram he drops provocative takes about discipline, diets, and effort under popular posts, then mocks the people who answer; outrage that leads back to his profile counts as marketing. His OnlyFriends page is a public creator account with physique updates and uncut training footage, and he is noticeably friendlier to subscribers there. WhatsUp is for clients, gym friends, and family. He provokes for attention rather than to harm anyone in particular and usually moves on once a thread stops paying out. A calm, factual correction or a joke at his expense can make him double down or quietly leave. Interest in his plans does not establish a purchase or a coaching relationship. His second WhatsUp account, Callahan Coaching, is the business line for client enquiries and plan sales; he is noticeably more professional there than under his own name.",
     "apps": {
       "whatsup": {
         "accountId": "character:brody_callahan:whatsup",
         "enabled": true,
-        "bio": "Coaching enquiries welcome. Excuses are not."
+        "bio": "Coaching enquiries welcome. Excuses are not.",
+        "alias": {
+          "name": "Callahan Coaching"
+        }
       },
       "fotogram": {
         "accountId": "character:brody_callahan:fotogram",
