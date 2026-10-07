@@ -11,6 +11,7 @@ import { appStateFromSessionV2, sessionV2FromCurrentState, workflowV2ToWorkflowF
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { turnsForStorybookOpeningHistory } from '../storybook/openingHistoryRuntime';
 import { withStorybookExternalImagesPruned } from '../storybook/imageLibrary';
+import { prepareCharacterPublicationExport } from './publicationExport';
 import { datingAccountId, resolveDatingAccount } from '../chat/datingAccounts';
 import { canSendMatchMeMessage, matchMePairId, matchMeState } from '../chat/matchMe';
 import type { MessageRecord, SocialPostRecord, TurnRecord, WorkflowFile, WorkflowNode } from '../types';
@@ -27,6 +28,23 @@ const ownPost = (): SocialPostRecord => ({ app: 'fotogram', postId: 'fotogram-po
   authorAccountId: 'nova-fg', authorCharacterId: 'nova', caption: 'Published text', imageId: image.id });
 
 describe('canonical character profiles', () => {
+  it.each(['receivedFrom', 'imageAccess'] as const)('preserves second-account avatars through pruning and referenced exports (%s)', (access) => {
+    const book = story();
+    const character = book.characters[0];
+    character.images.push({ ...image, id: 'alias-photo', ...(access === 'receivedFrom' ? { receivedFrom: 'Contact' } : { imageAccess: true }) });
+    character.apps!.whatsup!.alias = { name: 'Nova Work', avatarImageId: 'alias-photo', avatarCrop: { x: 10, y: 10, size: 50 } };
+    const before = structuredClone(character);
+    const pruned = withStorybookExternalImagesPruned(book, []);
+    expect(pruned.storybook.characters[0].images.map((entry) => entry.id)).toContain('alias-photo');
+    const referenced = prepareCharacterPublicationExport({ character, receivedImages: 'referenced' });
+    expect(referenced.character.images.map((entry) => entry.id)).toContain('alias-photo');
+    expect(referenced.character.apps.whatsup?.alias).toEqual(character.apps!.whatsup!.alias);
+    const excluded = rpCharacterCardForCharacter(character);
+    expect(excluded.character.images.map((entry) => entry.id)).not.toContain('alias-photo');
+    expect(excluded.character.apps.whatsup?.alias).toEqual({ name: 'Nova Work' });
+    expect(character).toEqual(before);
+  });
+
   it('retains gallery media referenced by app profiles and starting posts during pruning', () => {
     const book = story();
     const character = book.characters[0];

@@ -469,7 +469,7 @@ export function useRoleplayPanelRuntime({
           latestDmByHandle.set(handleKey, message);
         });
         latestDmByHandle.forEach((message, handleKey) => banners.push(
-          directMessagePhoneBanner(message.id, message.socialDirectMessage!, unreadDms[handleKey].count)));
+          directMessagePhoneBanner(message.id, message.socialDirectMessage!, unreadDms[handleKey].count, appCharacters)));
         const latestReactionsByPostId = new Map<string, MessageRecord>();
         messages.forEach((message) => {
           if (
@@ -482,7 +482,7 @@ export function useRoleplayPanelRuntime({
           }
         });
         latestReactionsByPostId.forEach((message) => banners.push(
-          socialReactionsPhoneBanner(message.id, message.socialReactions!)));
+          socialReactionsPhoneBanner(message.id, message.socialReactions!, appCharacters)));
         return {
           count: Object.keys(unreadDms).length + latestReactionsByPostId.size,
           unreadDms,
@@ -526,7 +526,7 @@ export function useRoleplayPanelRuntime({
       });
     });
     return byCharacter;
-  }), [chatPanelView, chatReadsPhoneAppsEnabled, chatSeenMessageId, messages, phoneAppSeenByCharacter, storyCharacters]);
+  }), [appCharacters, chatPanelView, chatReadsPhoneAppsEnabled, chatSeenMessageId, messages, phoneAppSeenByCharacter, storyCharacters]);
   const phoneAppNotificationCounts = phoneAppNotifications.get(viewedPhoneCharacter?.id ?? '')?.counts ?? {
     notes: 0,
     ai: 0,

@@ -9,6 +9,11 @@ export function createCharacterContainer(character: Parameters<typeof characterP
     const excluded = new Set(copy.images.filter((image) => image.receivedFrom || image.imageAccess).map((image) => image.id));
     copy.images = copy.images.filter((image) => !excluded.has(image.id));
     if (copy.profileImage && excluded.has(copy.profileImage.imageId)) delete copy.profileImage;
+    const alias = copy.apps.whatsup?.alias;
+    if (alias?.avatarImageId && excluded.has(alias.avatarImageId)) {
+      delete alias.avatarImageId;
+      delete alias.avatarCrop;
+    }
     for (const account of Object.values(copy.apps ?? {})) {
       if (account.avatarImageId && excluded.has(account.avatarImageId)) delete account.avatarImageId;
       for (const post of account.initialPosts ?? []) {

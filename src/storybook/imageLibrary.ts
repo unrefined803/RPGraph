@@ -220,6 +220,7 @@ export function withStorybookExternalImagesPruned(
     const removed = references(removedMessages);
     const profileImageIds = new Set([
       character.profileImage?.imageId,
+      character.apps?.whatsup?.alias?.avatarImageId,
       ...Object.values(character.apps ?? {}).flatMap((account) => [
         account.avatarImageId,
         ...(account.initialPosts ?? []).map((post) => post.imageId),

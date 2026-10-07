@@ -43,6 +43,7 @@ export function characterLibrarySummary(character: Character) {
   const apps = { ...normalizeCharacterApps(character.apps, character.social, character.id, character.name), ...character.apps };
   const usedIds = new Set<string>();
   if (character.profileImage?.imageId) usedIds.add(character.profileImage.imageId);
+  if (apps.whatsup?.enabled && apps.whatsup.alias?.avatarImageId) usedIds.add(apps.whatsup.alias.avatarImageId);
   for (const account of Object.values(apps)) {
     if (!account.enabled) continue;
     if (account.avatarImageId) usedIds.add(account.avatarImageId);

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { SocialDirectMessageRecord } from '../types';
+import { appCharactersFromRegistry } from '../characters/appRuntime';
+import { buildCharacterRegistry } from '../characters/registry';
+import { normalizeRpStorybook, emptyRpStorybook } from '../nodes/rp-storybook/model';
 import {
   bankTransferPhoneBanner,
   directMessagePhoneBanner,
@@ -21,6 +24,20 @@ const directMessage: SocialDirectMessageRecord = {
 };
 
 describe('phone banners', () => {
+  it.each(['fotogram', 'onlyfriends'] as const)('hides private %s identities in DM and comment banners without changing routing', (app) => {
+    const character = normalizeRpStorybook({ ...emptyRpStorybook, characters: [{ id: 'mara', name: 'Mara',
+      apps: { [app]: { accountId: 'private-account', enabled: true, profileName: 'Secret Persona', legacyHandles: ['Mara.Official'], privacyMode: true, bio: '' } },
+    }] }).characters[0];
+    const characters = appCharactersFromRegistry(buildCharacterRegistry([{ character, tier: 'user', source: 'test' }]));
+    const message = { ...directMessage, app, fromAccountId: 'private-account' };
+    const banner = directMessagePhoneBanner(9, message, 1, characters);
+    expect(banner.title).toBe('Secret Persona');
+    expect(banner.target).toMatchObject({ participantName: 'Mara', participantHandle: 'Mara.Official' });
+    expect(socialReactionsPhoneBanner(10, { app, postId: 'post', likes: 0,
+      comments: [{ from: 'Mara', handle: 'Mara.Official', text: 'Nice' }],
+    }, characters).text).toBe('Secret Persona: Nice');
+  });
+
   it('names sender, recipient and amount of a received transfer', () => {
     const banner = bankTransferPhoneBanner(12, { from: 'Mara', to: 'Jonas', amount: 50, note: 'Rent' });
     expect(banner).toMatchObject({

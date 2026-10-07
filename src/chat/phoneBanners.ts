@@ -6,6 +6,9 @@ import type {
   SocialReactionsRecord,
 } from '../types';
 import { formatBankingAmount } from './bankTransfers';
+import type { StorybookCharacter } from '../storybook/runtime';
+import { accountHandleMatches } from '../characters/character';
+import { socialAccountPresentation, socialDirectMessageParty } from './socialMedia';
 
 export type PhoneBannerApp = 'whatsup' | 'banking' | SocialMessengerAppKind | 'notes' | 'ai';
 
@@ -80,6 +83,7 @@ export function directMessagePhoneBanner(
   messageId: number,
   directMessage: SocialDirectMessageRecord,
   unreadCount: number,
+  characters: StorybookCharacter[] = [],
 ): PhoneBanner {
   const text = bannerText(
     directMessage.displayText ?? directMessage.text,
@@ -94,7 +98,7 @@ export function directMessagePhoneBanner(
     key: `${directMessage.app}:dm:${directMessage.fromHandle.toLowerCase()}:${messageId}`,
     app: directMessage.app,
     messageId,
-    title: directMessage.from,
+    title: socialDirectMessageParty(directMessage, 'from', characters, false),
     text: details.join(' · '),
     target: {
       kind: 'directMessage',
@@ -117,8 +121,10 @@ export function matchMeMatchPhoneBanner(messageId: number, partnerId: string, pa
   };
 }
 
-export function socialReactionsPhoneBanner(messageId: number, reactions: SocialReactionsRecord): PhoneBanner {
+export function socialReactionsPhoneBanner(messageId: number, reactions: SocialReactionsRecord, characters: StorybookCharacter[] = []): PhoneBanner {
   const comment = reactions.comments[0];
+  const authors = comment ? characters.filter((character) => accountHandleMatches(character.apps?.[reactions.app], comment.handle)) : [];
+  const commentName = comment && socialAccountPresentation(reactions.app, authors.length === 1 ? authors[0] : undefined, comment.from, comment.handle).name;
   const counts = [
     ...(reactions.comments.length > 0
       ? [`${reactions.comments.length} new comment${reactions.comments.length === 1 ? '' : 's'}`] : []),
@@ -129,7 +135,7 @@ export function socialReactionsPhoneBanner(messageId: number, reactions: SocialR
     app: reactions.app,
     messageId,
     title: counts ? `Your post: ${counts}` : 'New reactions on your post',
-    text: comment ? bannerText(`${comment.from}: ${comment.text}`, 'New reactions') : 'Open the post to see who reacted',
+    text: comment ? bannerText(`${commentName}: ${comment.text}`, 'New reactions') : 'Open the post to see who reacted',
     target: { kind: 'post', app: reactions.app, postId: reactions.postId },
   };
 }
