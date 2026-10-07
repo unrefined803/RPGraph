@@ -78,6 +78,18 @@ describe('shared portrait slots', () => {
     expect(() => withPortraitSlot({ ...character, profileImage: undefined }, 'custom1', character.customPortraits!.custom1)).toThrow('Create the character portrait first');
   });
 
+  it('lets social accounts and the second WhatsUp account show no portrait, but not MatchMe or the main account', () => {
+    const character = fixture();
+    character.apps!.fotogram!.portraitId = 'none';
+    character.apps!.whatsup!.alias!.portraitId = 'none';
+    expect(accountPortraitUrl(character, character.apps?.fotogram)).toBeUndefined();
+    expect(whatsUpAliasAvatarDataUrl(character as never)).toBeUndefined();
+    expect(() => validateCharacterPayload(characterPayload(character))).not.toThrow();
+    const payload = characterPayload(character);
+    expect(() => validateCharacterPayload({ ...payload, apps: { ...payload.apps, matchme: { ...payload.apps.matchme, portraitId: 'none' } } })).toThrow('Unknown character portrait');
+    expect(() => validateCharacterPayload({ ...payload, apps: { ...payload.apps, whatsup: { ...payload.apps.whatsup, portraitId: 'none' } } })).toThrow('Unknown character portrait');
+  });
+
   it('keeps custom portrait media during external-image pruning', () => {
     const character = fixture();
     character.images[1].receivedFrom = 'Contact';

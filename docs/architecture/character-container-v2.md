@@ -38,6 +38,7 @@ inspection, editing, image normalization and portrait tooling.
 
 All apps select `portraitId`: `character` (the default), `custom1`, or `custom2`.
 The second WhatsUp account selects `apps.whatsup.alias.portraitId` independently.
+Fotogram, OnlyFriends and that second account may select `none` for no portrait.
 Custom slots must exist, reference the same character's gallery and have a real
 Character Portrait configured first. Privacy mode changes public names only;
 the selected portrait remains visible. No app borrows another app's image or a

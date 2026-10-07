@@ -94,8 +94,12 @@ identity. Account IDs, routing aliases and private narrator knowledge do not
 change. MatchMe and WhatsUp have their own public-name rules.
 
 Every app selects `portraitId`: `character`, `custom1` or `custom2`. Missing
-selection means `character`. The shared profile editor offers only these three
-slots. Images and face crops are created in **Manage Portraits** in the gallery.
+selection means `character`. Fotogram, OnlyFriends and the second WhatsUp
+account may also select `none` and then show a letter avatar; MatchMe and the
+main WhatsUp account always require a portrait. The social profile editor
+offers `none` as a fourth choice and selects it when privacy mode is switched
+on. The second WhatsUp account starts without a picture and exposes the three
+slots through its **Set profile picture** checkbox. Images and face crops are created in **Manage Portraits** in the gallery.
 An uncreated custom slot is disabled. App forms never select arbitrary gallery
 images as avatars. Posts and MatchMe discovery photos are separate.
 
@@ -138,7 +142,8 @@ RP saves retain the provenance; portable character exports strip it. Old images
 without the optional IDs remain readable and keep their recorded label.
 
 `apps.whatsup.alias` is optional: `{ "name": "Sofia Belova", "portraitId": "custom1" }`.
-Only `name` (1–60 characters) is required; omitted `portraitId` means `character`.
+Only `name` (1–60 characters) is required; omitted `portraitId` means `character`, and
+`none` shows no picture.
 Select a custom slot for a separate visual identity. The character keeps one
 WhatsUp account ID and inbox; the second name provides another public link.
 

@@ -54,7 +54,7 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
         <label>Profile name<input required maxLength={60} value={draft.profileName} onChange={(event) => setDraft({ ...draft, profileName: event.target.value })} placeholder="How you appear on your profile" /></label>
         <div className="social-profile-visibility-wrap">
           <label className="social-profile-visibility">
-            <input type="checkbox" checked={isPrivate} onChange={(event) => setDraft({ ...draft, privacyMode: event.target.checked })} />
+            <input type="checkbox" checked={isPrivate} onChange={(event) => setDraft({ ...draft, privacyMode: event.target.checked, ...(event.target.checked ? { portraitId: 'none' as const } : {}) })} />
             <span>Privacy mode</span>
           </label>
           <div
@@ -72,7 +72,7 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
               <circle cx="8" cy="4.5" r="0.6" fill="currentColor" stroke="none" />
             </svg>
             <div className="social-profile-info-bubble" role="tooltip">
-              When enabled, your real name is hidden across this app. Choose a custom portrait to show another identity.
+              When enabled, your real name is hidden across this app and no portrait is shown. Choose a custom portrait below to show another identity.
             </div>
           </div>
         </div>
@@ -82,7 +82,7 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
     <section className="social-profile-section">
       <h3><span aria-hidden="true">02</span> Your profile portrait</h3>
       <p>Create and frame portraits in your character gallery, then choose one here.</p>
-      <PortraitSelector owner={owner} value={draft.portraitId} onChange={(portraitId) => setDraft({ ...draft, portraitId, avatarImageId: undefined, avatarCrop: undefined })} />
+      <PortraitSelector owner={owner} allowNone value={draft.portraitId} onChange={(portraitId) => setDraft({ ...draft, portraitId, avatarImageId: undefined, avatarCrop: undefined })} />
     </section>
     {error && <p className="social-profile-error" role="alert">{error}</p>}
     <footer className="social-profile-actions"><button type="button" onClick={onCancel}>Cancel</button><button className="social-profile-save" type="submit">{creating ? 'Create profile' : 'Save changes'} <span aria-hidden="true">→</span></button></footer>

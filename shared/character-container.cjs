@@ -127,8 +127,9 @@ function validateCharacterPayload(value) {
     requireImage(portrait.imageId);
     validateAvatarCrop(portrait.crop);
   }
-  const requirePortrait = (id) => {
-    if (id === undefined) return;
+  // MatchMe and the main WhatsUp account always show a portrait; other accounts may select none.
+  const requirePortrait = (id, optional = false) => {
+    if (id === undefined || (optional && id === 'none')) return;
     if (!['character', 'custom1', 'custom2'].includes(id) ||
         (id !== 'character' && !record(character.customPortraits)[id])) {
       throw new Error(`Unknown character portrait: ${String(id)}`);
@@ -157,7 +158,7 @@ function validateCharacterPayload(value) {
       throw new Error('Historical account handles must be non-empty strings.');
     }
     accountIds.add(account.accountId);
-    requirePortrait(account.portraitId);
+    requirePortrait(account.portraitId, app === 'fotogram' || app === 'onlyfriends');
     if (account.avatarImageId !== undefined) requireImage(account.avatarImageId);
     if (account.avatarCrop !== undefined) {
       if (app !== 'matchme') throw new Error('avatarCrop is only supported on the MatchMe account and the WhatsUp second name.');
@@ -170,7 +171,7 @@ function validateCharacterPayload(value) {
           Object.keys(alias).some((key) => !['name', 'portraitId', 'avatarImageId', 'avatarCrop'].includes(key))) {
         throw new Error('A second WhatsUp name requires 1–60 characters.');
       }
-      requirePortrait(alias.portraitId);
+      requirePortrait(alias.portraitId, true);
       if (alias.avatarImageId !== undefined) requireImage(alias.avatarImageId);
       validateAvatarCrop(alias.avatarCrop);
     }

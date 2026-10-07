@@ -11,6 +11,8 @@ import type {
 } from '../nodes/rp-storybook/model';
 
 export type PortraitId = 'character' | 'custom1' | 'custom2';
+/** An account shows one prepared portrait or none. MatchMe and the main WhatsUp account require one. */
+export type PortraitChoice = PortraitId | 'none';
 export type CustomPortraits = Partial<Record<'custom1' | 'custom2', RpStorybookCharacterProfileImage>>;
 
 export type AppAvatarCrop = { x: number; y: number; size: number };
@@ -20,8 +22,8 @@ export type AppAvatarChoice = { portraitId: PortraitId };
 /** Optional second WhatsUp name: another link to the same account, shown with its own picture. */
 export type WhatsUpAlias = {
   name: string;
-  /** Shared portrait slot. The default is the real character portrait. */
-  portraitId?: PortraitId;
+  /** Shared portrait slot or none. The default is the real character portrait. */
+  portraitId?: PortraitChoice;
   /** Obsolete metadata retained for external conversion, never used to render avatars. */
   avatarImageId?: string;
   avatarCrop?: AppAvatarCrop;
@@ -40,7 +42,7 @@ export type CharacterAppAccount = {
   username?: string;
   displayName?: string;
   bio: string;
-  portraitId?: PortraitId;
+  portraitId?: PortraitChoice;
   /** Obsolete metadata retained for external conversion, never used to render avatars. */
   avatarImageId?: string;
   /** Obsolete per-account crop retained only for external conversion. */
@@ -120,8 +122,8 @@ function avatarCrop(value: unknown): AppAvatarCrop | undefined {
     ? { x: x as number, y: y as number, size: size as number } : undefined;
 }
 /** A second WhatsUp name exists only once it is non-empty. */
-function portraitId(value: unknown): PortraitId | undefined {
-  return value === 'character' || value === 'custom1' || value === 'custom2' ? value : undefined;
+function portraitId(value: unknown, required = false): PortraitChoice | undefined {
+  return value === 'character' || value === 'custom1' || value === 'custom2' || (value === 'none' && !required) ? value : undefined;
 }
 
 function whatsUpAlias(value: unknown): WhatsUpAlias | undefined {
@@ -165,7 +167,7 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
       ...((app === 'fotogram' || app === 'onlyfriends') && typeof account.privacyMode === 'boolean' ? { privacyMode: account.privacyMode } : {}),
       ...(legacyHandles.length ? { legacyHandles } : {}),
       bio: string(account.bio) || profile?.bio || '',
-      ...(portraitId(account.portraitId) ? { portraitId: portraitId(account.portraitId) } : {}),
+      ...(portraitId(account.portraitId, app === 'matchme' || app === 'whatsup') ? { portraitId: portraitId(account.portraitId, app === 'matchme' || app === 'whatsup') } : {}),
       ...(typeof account.avatarImageId === 'string' ? { avatarImageId: account.avatarImageId } : {}),
       ...(app === 'matchme' && avatarCrop(account.avatarCrop) ? { avatarCrop: avatarCrop(account.avatarCrop) } : {}),
       ...(app === 'whatsup' && whatsUpAlias(account.alias) ? { alias: whatsUpAlias(account.alias) } : {}),

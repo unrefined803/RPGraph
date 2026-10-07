@@ -53,7 +53,7 @@ export function WhatsUpAccounts({ realName, alias, owner, removable = true, onSa
     </header>
     <AccountCard label="Main account" name={realName} avatarDataUrl={accountPortraitUrl(owner, owner.apps?.whatsup)}
       note="Uses your real name. Choose one of your prepared portraits." />
-    <PortraitSelector owner={owner} value={owner.apps?.whatsup?.portraitId} onChange={(id) => { const saved = onSave(alias, id); setError(saved === true ? '' : typeof saved === 'string' ? saved : 'Could not save the portrait selection.'); }} />
+    <PortraitSelector owner={owner} value={owner.apps?.whatsup?.portraitId} onChange={(id) => { if (id === 'none') return; const saved = onSave(alias, id); setError(saved === true ? '' : typeof saved === 'string' ? saved : 'Could not save the portrait selection.'); }} />
     {error && <p role="alert">{error}</p>}
     {alias
       ? <AccountCard label="Second account" name={alias.name} avatarDataUrl={accountPortraitUrl(owner, alias)}
@@ -73,7 +73,9 @@ function SecondAccountEditor({ realName, alias, owner, removable, onSave, onBack
   realName: string; alias?: WhatsUpAlias; owner: PortraitOwner; removable: boolean;
   onSave: (alias: WhatsUpAlias | undefined, portraitId?: PortraitId) => boolean | string; onBack: () => void;
 }) {
-  const [draft, setDraft] = useState<WhatsUpAlias>(() => alias ?? { name: '' });
+  // A new second account starts without a picture.
+  const [draft, setDraft] = useState<WhatsUpAlias>(() => alias ?? { name: '', portraitId: 'none' });
+  const hasPicture = draft.portraitId !== 'none';
   const [error, setError] = useState('');
   const name = draft.name.trim();
 
@@ -95,8 +97,11 @@ function SecondAccountEditor({ realName, alias, owner, removable, onSave, onBack
       </label>
     </section>
     <section className="whatsup-account-picture">
-      <strong>Profile portrait</strong><p>Create portraits in your gallery, then select one here.</p>
-      <PortraitSelector owner={owner} value={draft.portraitId} onChange={(portraitId) => setDraft({ name: draft.name, portraitId })} />
+      <label className="social-profile-visibility">
+        <input type="checkbox" checked={hasPicture} onChange={(event) => setDraft({ name: draft.name, portraitId: event.target.checked ? 'character' : 'none' })} />
+        <span>Set profile picture</span>
+      </label>
+      {hasPicture && <PortraitSelector owner={owner} value={draft.portraitId} onChange={(portraitId) => setDraft({ name: draft.name, portraitId })} />}
     </section>
     {error && <p className="social-profile-error" role="alert">{error}</p>}
     <footer className="social-profile-actions">

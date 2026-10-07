@@ -384,7 +384,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
               })}</div>
               <h3>Your profile portrait</h3><p>Manage portraits and face crops in the character gallery.</p>
               <PortraitSelector owner={owner} value={pickedAvatar?.portraitId ?? owner.apps?.matchme?.portraitId}
-                onChange={(portraitId) => setPickedAvatar({ portraitId })} />
+                onChange={(portraitId) => { if (portraitId !== 'none') setPickedAvatar({ portraitId }); }} />
               <div className="pt-photo-actions"><button type="button" disabled={profileOnly || busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => uploadRef.current?.click()}>{busy ? 'Importing…' : '↑ Upload'}</button>
                 <button type="button" disabled={busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => setGallery(true)}>▧ Character album</button></div>
               <input ref={uploadRef} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />

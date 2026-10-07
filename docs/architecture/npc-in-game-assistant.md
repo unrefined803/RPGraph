@@ -219,7 +219,7 @@ center in percent of the image width and height, head height in percent of the
 image height). `faceCropFromEstimate` turns each estimate into the square crop
 of every portrait slot referencing that image; images without a reported face
 stay uncropped. **Manage Portraits** opens the shared slot manager and
-crop dialog (`ProfilePickDialog`) for a manual choice. The Python/MediaPipe
+crop stage (`usePortraitCrop`) for a manual choice. The Python/MediaPipe
 detector from `character:faces:setup` remains a development tool for the
 `character:create`, `character:edit` and `character:faces` scripts and is not
 part of packaged builds.

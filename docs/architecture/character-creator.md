@@ -182,7 +182,8 @@ of image width. The circular avatar masks this square. The radius in pixels is
 **Manage Portraits** in the character gallery or Phone Gallery opens three
 fixed slots: **Character Portrait**, **Custom Portrait 1**, **Custom Portrait 2**.
 Create the real portrait first to enable the custom slots. Select a slot, choose
-a gallery image, then frame the face using **Apply** or choose **Use Full Image**.
+a gallery image, then frame the face and confirm with **Apply**. The phone gallery offers the
+same steps as screens inside the phone.
 A Phone Gallery detail image can be assigned directly after selecting a slot.
 Clearing a custom slot resets accounts using it to the Character Portrait.
 Clear custom slots before clearing the main portrait. Images used by portraits

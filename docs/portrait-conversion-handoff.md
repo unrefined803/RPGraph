@@ -41,6 +41,10 @@ real face or secret identity from filenames alone.
 - Every app, including MatchMe and the main WhatsUp account, selects `portraitId`.
   The second WhatsUp account has its own `alias.portraitId`. An omitted selection
   means `character`; a custom selection requires the corresponding slot.
+- Fotogram, OnlyFriends and the second WhatsUp account may select `none` to show
+  no portrait. MatchMe and the main WhatsUp account always require a portrait.
+  Use `none` for accounts that previously showed no picture, such as private
+  social accounts or a second WhatsUp account without its own avatar.
 - A crop's `x` is a percentage of image width, `y` a percentage of image height,
   and `size` the square side as a percentage of image width. Omit `crop` to use
   the full image. Never store preview `dataUrl` values outside `images`.

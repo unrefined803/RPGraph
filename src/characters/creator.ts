@@ -12,8 +12,8 @@ export function createCharacterContainer(character: Parameters<typeof characterP
     for (const [id, portrait] of Object.entries(copy.customPortraits ?? {})) {
       if (!copy.profileImage || excluded.has(portrait.imageId)) delete copy.customPortraits![id as keyof NonNullable<typeof copy.customPortraits>];
     }
-    const resetPortrait = (account: { portraitId?: import('./character').PortraitId }) => {
-      if (account.portraitId && account.portraitId !== 'character' && !copy.customPortraits?.[account.portraitId]) account.portraitId = 'character';
+    const resetPortrait = (account: { portraitId?: import('./character').PortraitChoice }) => {
+      if (account.portraitId && account.portraitId !== 'character' && account.portraitId !== 'none' && !copy.customPortraits?.[account.portraitId]) account.portraitId = 'character';
     };
     for (const account of Object.values(copy.apps)) resetPortrait(account);
     const alias = copy.apps.whatsup?.alias;

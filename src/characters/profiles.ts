@@ -35,9 +35,10 @@ export function withCharacterAppProfile(character: Character, app: keyof Charact
   ].filter(Boolean))] };
   const apps = normalizeCharacterApps({ ...current, [app]: updated }, undefined, character.id, character.name);
   const selected = [account.portraitId, app === 'whatsup' ? (account as NonNullable<CharacterApps['whatsup']>).alias?.portraitId : undefined];
-  if (selected.some((id) => id && id !== 'character' && !character.customPortraits?.[id])) {
+  if (selected.some((id) => id && id !== 'character' && id !== 'none' && !character.customPortraits?.[id])) {
     throw new Error('Create this portrait in the character gallery first.');
   }
+  if ((app === 'matchme' || app === 'whatsup') && account.portraitId === 'none') throw new Error('This account requires a portrait.');
   return { ...character, apps, social: socialFromCharacterApps(apps) };
 }
 

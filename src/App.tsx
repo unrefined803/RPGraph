@@ -15,7 +15,8 @@ import { textEffectsStyle } from './chat/textEffects';
 import { CharacterName } from './components/CharacterName';
 import { AppMessageAvatars } from './components/AppMessageAvatars';
 import { CharacterAvatar } from './components/CharacterAvatar';
-import { phoneCharacterAvatarDataUrl, phoneConversationKeyTwins } from './chat/phoneCharacters';
+import { phoneConversationKeyTwins } from './chat/phoneCharacters';
+import { characterPortraitUrl } from './characters/portraits';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
 import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
@@ -6829,7 +6830,7 @@ function App() {
                   className="big-screen-rail-avatar"
                   name={bigScreenPlayerName}
                   fallback={bigScreenPlayerName.trim().slice(0, 1).toUpperCase() || '?'}
-                  profileImageDataUrl={narratorSelected ? undefined : phoneCharacterAvatarDataUrl(selectedCharacter)}
+                  profileImageDataUrl={narratorSelected ? undefined : characterPortraitUrl(selectedCharacter)}
                   ringColor={
                     (!narratorSelected && selectedCharacter && characterColors.get(selectedCharacter.name)) || '#cbd5e1'
                   }

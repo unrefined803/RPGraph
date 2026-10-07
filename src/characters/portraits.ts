@@ -1,4 +1,4 @@
-import type { Character, CharacterAppAccount, CustomPortraits, PortraitId } from './character';
+import type { Character, CharacterAppAccount, CustomPortraits, PortraitChoice, PortraitId } from './character';
 import type { RpStorybookCharacterProfileImage } from '../nodes/rp-storybook/model';
 import { portraitDataUrl } from './portrait';
 
@@ -12,16 +12,16 @@ export type PortraitOwner = {
   images?: Array<{ id: string; dataUrl: string; width?: number; height?: number }>;
   apps?: Character['apps'];
 };
-export function characterPortrait(owner: PortraitOwner | undefined, id: PortraitId = 'character') {
-  return id === 'character' ? owner?.profileImage : owner?.customPortraits?.[id];
+export function characterPortrait(owner: PortraitOwner | undefined, id: PortraitChoice = 'character') {
+  return id === 'none' ? undefined : id === 'character' ? owner?.profileImage : owner?.customPortraits?.[id];
 }
-export function characterPortraitUrl(owner: PortraitOwner | undefined, id: PortraitId = 'character') {
+export function characterPortraitUrl(owner: PortraitOwner | undefined, id: PortraitChoice = 'character') {
   const portrait = characterPortrait(owner, id);
   const image = owner?.images?.find((entry) => entry.id === portrait?.imageId);
   return image ? portraitDataUrl(image, portrait?.crop) : owner?.images ? undefined : portrait?.dataUrl || undefined;
 }
 
-/** Every app resolves the same three slots. Privacy mode affects names only. */
+/** Every app resolves the same three slots, or no portrait. Privacy mode affects names only. */
 export function accountPortraitUrl(owner: PortraitOwner | undefined, account?: Pick<CharacterAppAccount, 'portraitId'>) {
   return characterPortraitUrl(owner, account?.portraitId ?? 'character');
 }
@@ -37,7 +37,7 @@ export function withPortraitSlot<T extends PortraitOwner>(owner: T, id: Portrait
     if (portrait) customPortraits[id] = portrait;
     else delete customPortraits[id];
   }
-  const reset = <A extends { portraitId?: PortraitId }>(account: A): A =>
+  const reset = <A extends { portraitId?: PortraitChoice }>(account: A): A =>
     !portrait && account.portraitId === id ? { ...account, portraitId: 'character' } : account;
   const apps = owner.apps && Object.fromEntries(Object.entries(owner.apps).map(([key, account]) => [key,
     { ...reset(account), ...(key === 'whatsup' && owner.apps?.whatsup?.alias ? { alias: reset(owner.apps.whatsup.alias) } : {}) },
