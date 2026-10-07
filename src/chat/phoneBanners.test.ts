@@ -3,6 +3,7 @@ import type { SocialDirectMessageRecord } from '../types';
 import {
   bankTransferPhoneBanner,
   directMessagePhoneBanner,
+  latestRoundBaselineMessageId,
   pendingPhoneBanners,
   socialReactionsPhoneBanner,
   whatsUpPhoneBanner,
@@ -62,5 +63,18 @@ describe('phone banners', () => {
   it('announces only unhandled events newer than the baseline, oldest first', () => {
     const banners = [30, 10, 20, 25].map((id) => bankTransferPhoneBanner(id, { from: 'Mara', to: 'Jonas', amount: id }));
     expect(pendingPhoneBanners(banners, 10, new Set(['banking:25'])).map((banner) => banner.messageId)).toEqual([20, 30]);
+  });
+
+  it('places the latest round after the last message of the previous turn', () => {
+    expect(latestRoundBaselineMessageId([
+      { id: 1 },
+      { id: 2, turnId: 'a' },
+      { id: 3, turnId: 'a' },
+      { id: 4, turnId: 'b' },
+      { id: 5, turnId: 'b' },
+      { id: 6 },
+    ])).toBe(3);
+    expect(latestRoundBaselineMessageId([{ id: 1 }, { id: 2 }])).toBe(2);
+    expect(latestRoundBaselineMessageId([])).toBe(0);
   });
 });

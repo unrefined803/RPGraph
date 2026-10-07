@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   pendingPhoneBanners,
   phoneBannerAppLabels,
@@ -15,7 +15,11 @@ const maxVisiblePhoneBanners = 3;
 type PhoneNotificationBannersProps = {
   /** Unread events of the viewed phone owner. */
   banners: PhoneBanner[];
+  /** Viewed phone owner; switching to another owner announces their latest round. */
+  ownerId: string;
   latestMessageId: number;
+  /** Id of the last message before the latest turn. */
+  latestRoundBaselineMessageId: number;
   onOpen: (banner: PhoneBanner) => void;
 };
 
@@ -138,14 +142,32 @@ function PhoneBannerItem({ banner, onOpen, onDismiss }: {
 
 /**
  * Drop-down banners for phone events that arrive while the Phone view is open.
- * Mounted per phone owner and session, so events from before it opened stay quiet.
+ * Mounted per session, so events from before it opened stay quiet. Switching to
+ * another phone owner also announces that owner's unread events of the latest
+ * round, so they can be opened without a detour through the app.
  */
-export function PhoneNotificationBanners({ banners, latestMessageId, onOpen }: PhoneNotificationBannersProps) {
+export function PhoneNotificationBanners({
+  banners,
+  ownerId,
+  latestMessageId,
+  latestRoundBaselineMessageId,
+  onOpen,
+}: PhoneNotificationBannersProps) {
   const [baselineMessageId, setBaselineMessageId] = useState(latestMessageId);
   const [handled, setHandled] = useState<ReadonlyMap<string, number>>(new Map());
+  const [announcedOwnerId, setAnnouncedOwnerId] = useState(ownerId);
+  // Keys are scoped by owner so a banner closed on one phone stays closed there
+  // and never hides an event on another phone.
+  const ownerBanners = useMemo(
+    () => banners.map((banner) => ({ ...banner, key: `${ownerId}:${banner.key}` })),
+    [banners, ownerId],
+  );
   // Undo and regeneration remove messages and reuse their ids; replacement
   // events must be announced again.
-  if (latestMessageId < baselineMessageId) {
+  if (ownerId !== announcedOwnerId) {
+    setAnnouncedOwnerId(ownerId);
+    setBaselineMessageId(Math.min(baselineMessageId, latestRoundBaselineMessageId, latestMessageId));
+  } else if (latestMessageId < baselineMessageId) {
     setBaselineMessageId(latestMessageId);
   }
   if ([...handled.values()].some((messageId) => messageId > latestMessageId)) {
@@ -155,7 +177,7 @@ export function PhoneNotificationBanners({ banners, latestMessageId, onOpen }: P
     setHandled((current) => new Map(current).set(key, messageId));
   }, []);
 
-  const pending = pendingPhoneBanners(banners, baselineMessageId, new Set(handled.keys()));
+  const pending = pendingPhoneBanners(ownerBanners, baselineMessageId, new Set(handled.keys()));
   const [revealedKeys, setRevealedKeys] = useState<string[]>([]);
   const visible = pending.filter((banner) => revealedKeys.includes(banner.key));
   const nextKey = visible.length < maxVisiblePhoneBanners

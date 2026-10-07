@@ -68,7 +68,7 @@ export function PhoneTab({
           role="status"
         >
           This gray badge means another character has new phone notifications. Double-click Phone
-          to switch. Double-click again to cycle through characters with notifications.
+          or hold Tab to switch. Repeat to cycle through characters with notifications.
         </span>
       )}
     </button>

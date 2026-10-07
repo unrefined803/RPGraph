@@ -70,11 +70,16 @@ import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PhoneNotificationBanners } from './components/PhoneNotificationBanners';
+import { latestRoundBaselineMessageId } from './chat/phoneBanners';
 import { PhonePanel } from './components/PhonePanel';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import { PhoneTab } from './chat/PhoneTab';
-import { panelViewSwitchEvent } from './app/panelViewSwitchEvent';
+import {
+  panelViewSwitchHoldMs,
+  panelViewSwitchPressEvent,
+  panelViewSwitchReleaseEvent,
+} from './app/panelViewSwitchEvent';
 import { PhoneTabletFrame } from './components/PhoneTabletFrame';
 import { PhoneAppListScaleContext } from './components/phoneAppListScale';
 import {
@@ -2504,14 +2509,43 @@ function App() {
     restoreLastDeletedNodesRef.current = restoreLastDeletedNodes;
   });
 
-  // Tab switches between the Chat and Phone views while the panel is on screen.
-  const switchPanelViewRef = useRef(() => {});
+  // A short Tab press switches between the Chat and Phone views while the panel
+  // is on screen. The switch happens on release, because holding Tab on the
+  // Phone view changes its notification owner instead, like a double-click on
+  // the Phone tab.
+  const pressPanelViewSwitchRef = useRef(() => {});
+  const releasePanelViewSwitchRef = useRef(() => {});
+  const holdPanelViewSwitchRef = useRef(() => {});
+  const panelViewSwitchPressRef = useRef<{ holdTimer?: number; held: boolean } | undefined>(undefined);
   useEffect(() => {
-    switchPanelViewRef.current = () => {
+    holdPanelViewSwitchRef.current = () => {
+      if (cyclePhoneNotificationOwner()) {
+        setPhoneNotificationSwitchHintSeen(true);
+      }
+    };
+    pressPanelViewSwitchRef.current = () => {
       if (
         (!bigScreenMode && !isChatPanelOpen) ||
         document.querySelector('[role="dialog"], .dialog-backdrop')
       ) {
+        return;
+      }
+      const press: { holdTimer?: number; held: boolean } = { held: false };
+      if (chatPanelView === 'phone') {
+        press.holdTimer = window.setTimeout(() => {
+          press.held = true;
+          holdPanelViewSwitchRef.current();
+        }, panelViewSwitchHoldMs);
+      }
+      panelViewSwitchPressRef.current = press;
+    };
+    releasePanelViewSwitchRef.current = () => {
+      const press = panelViewSwitchPressRef.current;
+      if (!press) {
+        return;
+      }
+      cancelPanelViewSwitchPress();
+      if (press.held) {
         return;
       }
       if (chatPanelView === 'chat' && phoneAvailable) {
@@ -2521,10 +2555,23 @@ function App() {
       }
     };
   });
+  function cancelPanelViewSwitchPress() {
+    window.clearTimeout(panelViewSwitchPressRef.current?.holdTimer);
+    panelViewSwitchPressRef.current = undefined;
+  }
   useEffect(() => {
-    const onPanelViewSwitch = () => switchPanelViewRef.current();
-    window.addEventListener(panelViewSwitchEvent, onPanelViewSwitch);
-    return () => window.removeEventListener(panelViewSwitchEvent, onPanelViewSwitch);
+    const onPress = () => pressPanelViewSwitchRef.current();
+    const onRelease = () => releasePanelViewSwitchRef.current();
+    window.addEventListener(panelViewSwitchPressEvent, onPress);
+    window.addEventListener(panelViewSwitchReleaseEvent, onRelease);
+    // A press that loses the window never sees its release.
+    window.addEventListener('blur', cancelPanelViewSwitchPress);
+    return () => {
+      window.removeEventListener(panelViewSwitchPressEvent, onPress);
+      window.removeEventListener(panelViewSwitchReleaseEvent, onRelease);
+      window.removeEventListener('blur', cancelPanelViewSwitchPress);
+      cancelPanelViewSwitchPress();
+    };
   }, []);
 
   useEffect(() => {
@@ -6350,9 +6397,11 @@ function App() {
             <PhoneAppListScaleContext.Provider value={phoneAppListScaleContext}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhoneNotificationBanners
-              key={`${panelSessionRevision}:${viewedPhoneCharacter?.id ?? ''}`}
+              key={panelSessionRevision}
               banners={phoneBanners}
+              ownerId={viewedPhoneCharacter?.id ?? ''}
               latestMessageId={messages.reduce((latestId, message) => Math.max(latestId, message.id), 0)}
+              latestRoundBaselineMessageId={latestRoundBaselineMessageId(messages)}
               onOpen={openPhoneBanner}
             />
             <PhonePanel
@@ -6689,7 +6738,7 @@ function App() {
               {phoneAvailable && (
                 <PhoneTab
                   className="big-screen-rail-button"
-                  title="Phone (switch with Tab, double-click to switch notification owner)"
+                  title="Phone (switch with Tab, double-click or hold Tab to switch notification owner)"
                   active={chatPanelView === 'phone'}
                   notificationCount={unreadPhoneNotificationCount}
                   viewedPhoneHasNotifications={viewedPhoneHasNotifications}

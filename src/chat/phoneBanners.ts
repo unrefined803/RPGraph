@@ -146,6 +146,25 @@ export function phoneAppEntryPhoneBanner(app: 'notes' | 'ai', messageId: number,
 }
 
 /**
+ * Id of the last message before the latest turn. Events after it belong to the
+ * round that is still fresh; without any turn there is no such round.
+ */
+export function latestRoundBaselineMessageId(messages: readonly { id: number; turnId?: string }[]) {
+  const latestMessageId = messages.reduce((latestId, message) => Math.max(latestId, message.id), 0);
+  const latestTurnMessage = messages.reduce<{ id: number; turnId?: string } | undefined>(
+    (latest, message) => message.turnId && (!latest || message.id > latest.id) ? message : latest,
+    undefined,
+  );
+  if (!latestTurnMessage) {
+    return latestMessageId;
+  }
+  return messages.reduce(
+    (firstId, message) => message.turnId === latestTurnMessage.turnId ? Math.min(firstId, message.id) : firstId,
+    latestTurnMessage.id,
+  ) - 1;
+}
+
+/**
  * Banners still waiting for a reaction: events newer than the baseline taken
  * when the phone was opened, minus those already closed, read, opened or expired.
  */
