@@ -10,6 +10,7 @@ import { CharacterRelationships } from './CharacterRelationships';
 import { CharacterMentionInput } from './CharacterMentionInput';
 import { HiddenAgencyField } from './HiddenAgencyField';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
+import { CharacterPhoneAppMarks } from './CharacterPhoneAppMarks';
 import { PortraitManager } from './PortraitManager';
 import { socialFromCharacterApps, type CharacterApps } from '../characters/character';
 import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
@@ -1244,24 +1245,9 @@ function withStorybookCharacterPhoneAccounts(
 
 function characterPhoneSummary(character: RpStorybookCharacter) {
   const banking = character.banking ?? defaultRpStorybookCharacterBanking();
-  const accountStatus = (created: boolean) => (
-    <span
-      className={`character-phone-account-status${created ? ' created' : ''}`}
-      aria-label={created ? 'Account created' : 'Account not created'}
-    >
-      {created ? '✓' : '×'}
-    </span>
-  );
-  const onlyFriendsCreated = Boolean(character.apps?.onlyfriends?.enabled);
-  const matchMeCreated = Boolean(character.apps?.matchme?.enabled);
   return <span className="character-phone-summary">
-    <span>Bank: {formatBankingAmount(banking.startBalance)}</span>
-    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
-    <span>Fotogram {accountStatus(true)}</span>
-    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
-    <span>OnlyFriends {accountStatus(onlyFriendsCreated)}</span>
-    <span className="character-phone-summary-separator" aria-hidden="true">·</span>
-    <span>MatchMe {accountStatus(matchMeCreated)}</span>
+    <span>Bank: {formatBankingAmount(banking.startBalance).replace(/\.00$/, '')}</span>
+    <CharacterPhoneAppMarks apps={character.apps} characterName={character.name || character.id} />
   </span>;
 }
 

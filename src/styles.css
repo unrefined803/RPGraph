@@ -5517,7 +5517,8 @@ input[type="number"]::-webkit-outer-spin-button {
 .npc-library-account strong { font-size: 11px; font-weight: 600; }
 .npc-library-handle { display: block; overflow-wrap: anywhere; margin: 3px 0; color: var(--text); }
 .npc-library-account small { color: var(--muted); font-size: 10px; }
-.npc-library-account-mark { width: 18px; flex: 0 0 18px; color: #e0a96a; font-size: 12px; font-weight: 700; }
+.npc-library-account-mark { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: 18px; flex: 0 0 18px; color: #e0a96a; font-size: 12px; font-weight: 700; }
+.privacy-mode-badge { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 15px; height: 15px; padding: 0 3px; border: 1px solid rgba(96, 165, 250, 0.42); border-radius: 4px; background: rgba(96, 165, 250, 0.14); color: #8ec5ff; font-size: 9px; font-weight: 800; letter-spacing: 0.02em; line-height: 1; cursor: help; }
 .npc-library-account.published .npc-library-account-mark { color: #56d99a; }
 .npc-library-account.inactive, .npc-library-account.inactive .npc-library-account-mark { color: var(--muted); }
 .npc-library-images { display: grid; gap: 5px; border-left: 1px solid var(--line); padding-left: 15px; }
@@ -17256,11 +17257,16 @@ button.message-timeline-row.phone:focus-visible {
   color: #f1c46b;
   font-size: 15px;
   font-weight: 900;
+  letter-spacing: -0.12em;
   line-height: 1;
 }
 
 .character-phone-account-status.created {
   color: #6cd3ad;
+}
+
+.character-phone-app {
+  cursor: help;
 }
 
 .storybook-actor-grid {
