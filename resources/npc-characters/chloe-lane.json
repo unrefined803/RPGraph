@@ -66,7 +66,7 @@
           "Chloe Lane"
         ],
         "bio": "",
-        "avatarImageId": "chloe_lane:image:music-night"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountRole": "user",
@@ -83,7 +83,6 @@
           "Chloe Lane"
         ],
         "bio": "Small stages, loud choruses and very slow Sundays.",
-        "avatarImageId": "chloe_lane:image:music-night",
         "initialPosts": [
           {
             "id": "chloe_lane:fotogram:post:music-night",
@@ -95,7 +94,8 @@
             "text": "The quiet songs deserve a room that listens too.",
             "imageId": "chloe_lane:image:acoustic-session"
           }
-        ]
+        ],
+        "portraitId": "character"
       },
       "onlyfriends": {
         "accountRole": "user",
@@ -111,8 +111,8 @@
           "afterglow.tempo"
         ],
         "bio": "Good energy, favorite songs, and a friendly hello to the regulars.",
-        "avatarImageId": "chloe_lane:image:music-night",
-        "initialPosts": []
+        "initialPosts": [],
+        "portraitId": "none"
       },
       "matchme": {
         "agencyTags": [
@@ -127,7 +127,6 @@
           "Chloe Lane"
         ],
         "bio": "I will pick the concert if you pick the late-night food. Bonus points for dancing without pretending to be good at it.",
-        "avatarImageId": "chloe_lane:image:music-night",
         "profile": {
           "age": 24,
           "bio": "I will pick the concert if you pick the late-night food. Bonus points for dancing without pretending to be good at it.",
@@ -141,7 +140,8 @@
             "chloe_lane:image:vinyl-shop"
           ],
           "decisions": {}
-        }
+        },
+        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants to turn scattered gig acquaintances into a dependable little concert circle, with room for a romance that does not require giving up her friends. She recognizes regular commenters and connects through specific songs or small venues rather than generic flirting. She may share a relevant Fotogram post and move agreed gig plans to WhatsUp. MatchMe is for someone who enjoys both the show and the quiet morning after; afterglow.tempo is her separate OnlyFriends listener account. She includes newcomers readily but loses patience when someone treats her venue job as an unlimited source of free entry.",

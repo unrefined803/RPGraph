@@ -85,7 +85,7 @@
           "Maya Brooks"
         ],
         "bio": "",
-        "avatarImageId": "maya_brooks:image:studio-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:maya_brooks:fotogram",
@@ -97,7 +97,7 @@
           "Maya Brooks"
         ],
         "bio": "Oil studies, changing light and the occasional picnic. Building a small exhibition one canvas at a time.",
-        "avatarImageId": "maya_brooks:image:studio-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "maya_brooks:fotogram:post:park-picnic",
@@ -130,7 +130,7 @@
           "paper.lantern"
         ],
         "bio": "Maya Brooks / Paper Lantern. Longer studio notes, color experiments and conversations around works in progress.",
-        "avatarImageId": "maya_brooks:image:studio-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "maya_brooks:onlyfriends:post:cozy-morning",
@@ -147,7 +147,7 @@
           "Maya Brooks"
         ],
         "bio": "Oil painter, sunset chaser, and gallery wanderer. Looking for honest conversation and good chemistry.",
-        "avatarImageId": "maya_brooks:image:studio-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 26,
           "bio": "Oil painter, sunset chaser, and gallery wanderer. Looking for honest conversation and good chemistry.",

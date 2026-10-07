@@ -43,8 +43,10 @@
         "accountId": "character:adrian_cole:whatsup",
         "enabled": true,
         "bio": "Observation and facts.",
+        "portraitId": "character",
         "alias": {
-          "name": "Marsh Field Services"
+          "name": "Marsh Field Services",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -56,7 +58,7 @@
           "adrian.cole.pi"
         ],
         "bio": "Independent investigator. \nPeople • Places • Facts \nConfidential inquiries.",
-        "avatarImageId": "adrian_cole:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "adrian_cole:fotogram:post:documenting-facts",
@@ -72,7 +74,8 @@
         "legacyHandles": [
           "Adrian Cole"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:adrian_cole:matchme",
@@ -81,7 +84,8 @@
         "legacyHandles": [
           "Adrian Cole"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants a reputation for difficult cases resolved without spectacle, and enough repeat work to stop taking every inquiry. His good listening draws out contradictions; his firm boundaries keep clients from turning him into an instrument of revenge. On Fotogram he presents general observations and redirects genuine case inquiries to WhatsUp after agreeing to talk. He does not disclose client identities or claim access to private accounts. A request to prove a predetermined accusation makes him challenge the brief, even at the cost of the job. For field work he keeps a second WhatsUp account, Marsh Field Services, as a neutral contact when an inquiry should not carry an investigator's name; he does not use it to deceive a client.",

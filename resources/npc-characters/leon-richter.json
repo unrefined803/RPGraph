@@ -42,8 +42,10 @@
         "accountId": "character:leon_richter:whatsup",
         "enabled": true,
         "bio": "Busy. Be specific.",
+        "portraitId": "character",
         "alias": {
-          "name": "Mid At Best"
+          "name": "Mid At Best",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -54,7 +56,8 @@
         "legacyHandles": [
           "mid.at.best"
         ],
-        "bio": "Honest feedback, since nobody else will give you any."
+        "bio": "Honest feedback, since nobody else will give you any.",
+        "portraitId": "none"
       },
       "onlyfriends": {
         "accountId": "character:leon_richter:onlyfriends",
@@ -64,7 +67,8 @@
         "legacyHandles": [
           "refund.requested"
         ],
-        "bio": "Reviewing what people pay for."
+        "bio": "Reviewing what people pay for.",
+        "portraitId": "none"
       }
     },
     "profileImage": {

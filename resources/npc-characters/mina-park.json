@@ -67,7 +67,7 @@
           "Mina Park"
         ],
         "bio": "",
-        "avatarImageId": "mina_park:image:ceramic-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:mina_park:fotogram",
@@ -79,7 +79,7 @@
           "Mina Park"
         ],
         "bio": "Beginner pottery, slow weekends and things that do not have to come out perfect.",
-        "avatarImageId": "mina_park:image:ceramic-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "mina_park:fotogram:post:ceramic-class",
@@ -102,7 +102,7 @@
           "moss.and.clay"
         ],
         "bio": "Following makers, kilns and quiet craft. Mostly here to look and learn.",
-        "avatarImageId": "mina_park:image:ceramic-portrait",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -113,7 +113,7 @@
           "Mina Park"
         ],
         "bio": "Handmade pottery, unhurried weekends, and honest appreciation. Here for calm company and authentic connection.",
-        "avatarImageId": "mina_park:image:ceramic-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 25,
           "bio": "Handmade pottery, unhurried weekends, and honest appreciation. Here for calm company and authentic connection.",

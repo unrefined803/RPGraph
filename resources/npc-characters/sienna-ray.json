@@ -50,7 +50,8 @@
       "whatsup": {
         "accountId": "character:sienna_ray:whatsup",
         "enabled": true,
-        "bio": "Here for good energy and genuine people. ❤️"
+        "bio": "Here for good energy and genuine people. ❤️",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:sienna_ray:fotogram",
@@ -61,7 +62,7 @@
           "sienna.ray"
         ],
         "bio": "Cocktails, city lights, and finding someone who actually cares. ✨",
-        "avatarImageId": "sienna_ray:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "sienna_ray:fotogram:post:night-out",
@@ -77,7 +78,8 @@
         "legacyHandles": [
           "Sienna Ray"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:sienna_ray:matchme",
@@ -87,7 +89,7 @@
           "Sienna Ray"
         ],
         "bio": "Looking for a generous, protective man with a big heart who knows how to treat a woman right. Let's get drinks and see where the night takes us.",
-        "avatarImageId": "sienna_ray:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 23,
           "bio": "Looking for a generous, protective man with a big heart who knows how to treat a woman right. Let's get drinks and see where the night takes us.",

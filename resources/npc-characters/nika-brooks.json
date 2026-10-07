@@ -49,7 +49,7 @@
           "Nika Brooks"
         ],
         "bio": "",
-        "avatarImageId": "nika_brooks:image:studio-selfie"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:nika_brooks:fotogram",
@@ -61,7 +61,7 @@
           "Nika Brooks"
         ],
         "bio": "Ink, silver, unfinished sketches and songs after midnight.",
-        "avatarImageId": "nika_brooks:image:studio-selfie",
+        "portraitId": "character",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -73,7 +73,7 @@
           "silver.margin"
         ],
         "bio": "Art, unusual details, and conversation without pressure. Please respect my boundaries.",
-        "avatarImageId": "nika_brooks:image:studio-selfie",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -85,7 +85,7 @@
           "Nika Brooks"
         ],
         "bio": "Draws for a living, overthinks playlists for fun. Tell me about something you care about more than is reasonable.",
-        "avatarImageId": "nika_brooks:image:studio-selfie",
+        "portraitId": "character",
         "profile": {
           "age": 25,
           "bio": "Draws for a living, overthinks playlists for fun. Tell me about something you care about more than is reasonable.",

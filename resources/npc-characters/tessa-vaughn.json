@@ -56,8 +56,10 @@
         "accountId": "character:tessa_vaughn:whatsup",
         "enabled": true,
         "bio": "Bass up. Small circle. Long nights.",
+        "portraitId": "character",
         "alias": {
-          "name": "Vee"
+          "name": "Vee",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -70,6 +72,7 @@
           "midnight.cinder"
         ],
         "bio": "Bass up. Long nights.",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -81,6 +84,7 @@
           "velvet.frequency"
         ],
         "bio": "Here to browse. No posts or content for sale.",
+        "portraitId": "none",
         "initialPosts": []
       }
     },

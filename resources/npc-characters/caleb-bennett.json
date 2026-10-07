@@ -55,7 +55,8 @@
       "whatsup": {
         "accountId": "character:caleb_bennett:whatsup",
         "enabled": true,
-        "bio": "Old cars. Late drives. Working on the rest."
+        "bio": "Old cars. Late drives. Working on the rest.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:caleb_bennett:fotogram",
@@ -67,6 +68,7 @@
           "lowbeam.hours"
         ],
         "bio": "Loud music. Late hours.",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -78,6 +80,7 @@
           "night.idle"
         ],
         "bio": "Here to browse. No posts or content for sale.",
+        "portraitId": "none",
         "initialPosts": []
       }
     },

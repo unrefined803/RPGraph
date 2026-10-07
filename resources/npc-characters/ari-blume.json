@@ -87,7 +87,7 @@
           "Ari Blume"
         ],
         "bio": "",
-        "avatarImageId": "ari_blume:image:market-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:ari_blume:fotogram",
@@ -99,7 +99,7 @@
           "Ari Blume"
         ],
         "bio": "Botanical illustration, small print runs, clay experiments and market treasures. Usually out of shelf space.",
-        "avatarImageId": "ari_blume:image:market-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "ari_blume:fotogram:post:market-find",
@@ -121,7 +121,7 @@
           "Ari Blume"
         ],
         "bio": "Botanical illustrator, sketchbook enthusiast, and plant lover. Looking for someone who appreciates quiet coffee mornings and nature walks.",
-        "avatarImageId": "ari_blume:image:market-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 25,
           "bio": "Botanical illustrator, sketchbook enthusiast, and plant lover. Looking for someone who appreciates quiet coffee mornings and nature walks.",

@@ -57,7 +57,7 @@
           "Nova Reyes"
         ],
         "bio": "",
-        "avatarImageId": "nova_reyes:image:cafe-terrace-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:nova_reyes:fotogram",
@@ -69,7 +69,7 @@
           "Nova Reyes"
         ],
         "bio": "Long brunches, small exhibitions and weekends with room to change my mind.",
-        "avatarImageId": "nova_reyes:image:cafe-terrace-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "nova_reyes:fotogram:post:brunch-table",
@@ -86,7 +86,7 @@
           "Nova Reyes"
         ],
         "bio": "Long brunches, specialty coffee and unhurried conversation. Open to casual dates and good chemistry, without rushing into commitment.",
-        "avatarImageId": "nova_reyes:image:cafe-terrace-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 25,
           "bio": "Long brunches, specialty coffee and unhurried conversation. Open to casual dates and good chemistry, without rushing into commitment.",

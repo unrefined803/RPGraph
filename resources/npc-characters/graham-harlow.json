@@ -64,7 +64,8 @@
       "whatsup": {
         "accountId": "character:graham_harlow:whatsup",
         "enabled": true,
-        "bio": "Small repairs, slow walks and more courgettes than planned."
+        "bio": "Small repairs, slow walks and more courgettes than planned.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:graham_harlow:fotogram",
@@ -74,6 +75,7 @@
           "graham.harlow"
         ],
         "bio": "Small repairs, slow walks and more courgettes than planned.",
+        "portraitId": "character",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -85,6 +87,7 @@
           "shed.and.sparrows"
         ],
         "bio": "Here to browse and follow interesting people. No posts or content for sale.",
+        "portraitId": "none",
         "initialPosts": []
       }
     },

@@ -49,7 +49,8 @@
       "whatsup": {
         "accountId": "character:helen_sterling:whatsup",
         "enabled": true,
-        "bio": "Theatre nights, mended hems and a quiet cup of tea."
+        "bio": "Theatre nights, mended hems and a quiet cup of tea.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:helen_sterling:fotogram",
@@ -59,6 +60,7 @@
           "helen.sterling"
         ],
         "bio": "Theatre nights, mended hems and a quiet cup of tea.",
+        "portraitId": "character",
         "initialPosts": []
       }
     },

@@ -51,7 +51,7 @@
           "Eli Ward"
         ],
         "bio": "",
-        "avatarImageId": "eli_ward:image:mirror-before-class"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:eli_ward:fotogram",
@@ -63,7 +63,7 @@
           "Eli Ward"
         ],
         "bio": "Frames, shadows, side streets and songs without skips.",
-        "avatarImageId": "eli_ward:image:mirror-before-class",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "eli_ward:fotogram:post:campus-stroll",
@@ -81,7 +81,7 @@
           "Eli Ward"
         ],
         "bio": "Quiet until the conversation gets interesting. Show me your favorite overlooked place in the city and I will show you mine.",
-        "avatarImageId": "eli_ward:image:mirror-before-class",
+        "portraitId": "character",
         "profile": {
           "age": 24,
           "bio": "Quiet until the conversation gets interesting. Show me your favorite overlooked place in the city and I will show you mine.",

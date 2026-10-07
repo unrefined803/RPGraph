@@ -52,14 +52,10 @@
         "accountId": "character:tamara_kovac:whatsup",
         "enabled": true,
         "bio": "",
+        "portraitId": "character",
         "alias": {
           "name": "Sofia Belova",
-          "avatarImageId": "tamara_kovac:image:sofia-terrace",
-          "avatarCrop": {
-            "x": 35.656829,
-            "y": 33.282195,
-            "size": 29.959491
-          }
+          "portraitId": "custom1"
         }
       },
       "fotogram": {
@@ -71,7 +67,7 @@
           "sofia.belova.away"
         ],
         "bio": "Sofia 🌿 seasonal work, sea air, strong coffee. Looking for the place that feels like home.",
-        "avatarImageId": "tamara_kovac:image:sofia-terrace",
+        "portraitId": "custom1",
         "initialPosts": [
           {
             "id": "tamara_kovac:fotogram:post:harbour-evening",
@@ -88,7 +84,7 @@
           "Sofia Belova"
         ],
         "bio": "24, seasonal hotel work, always between two places. Tired of small talk. Looking for someone kind and honest 🌿",
-        "avatarImageId": "tamara_kovac:image:sofia-terrace",
+        "portraitId": "custom1",
         "profile": {
           "age": 24,
           "bio": "24, seasonal hotel work, always between two places. Tired of small talk. Looking for someone kind and honest 🌿",
@@ -101,6 +97,16 @@
             "tamara_kovac:image:sofia-terrace"
           ],
           "decisions": {}
+        }
+      }
+    },
+    "customPortraits": {
+      "custom1": {
+        "imageId": "tamara_kovac:image:sofia-terrace",
+        "crop": {
+          "x": 35.656829,
+          "y": 33.282195,
+          "size": 29.959491
         }
       }
     },

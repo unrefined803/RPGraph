@@ -1,9 +1,13 @@
 # Shared portrait conversion handoff
 
-The application now uses three character-owned portrait slots. Existing bundled
-characters are intentionally not rewritten by this implementation; a separate
-authoring pass must select the correct real and persona images. Do not infer a
-real face or secret identity from filenames alone.
+The application uses three character-owned portrait slots. The bundled NPC
+containers and both bundled Storybooks, including their pinned NPC snapshots,
+have been converted: every account carries an explicit `portraitId` and no
+`avatarImageId` or `avatarCrop` remains. Tamara Kovac, Joel Vance and Nia
+Morrison use `custom1`; private social accounts and second WhatsUp accounts
+without their own picture use `none`. Apply the rules below to user-owned or
+newly authored characters. Do not infer a real face or secret identity from
+filenames alone.
 
 ## Canonical payload
 

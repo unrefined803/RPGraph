@@ -58,7 +58,8 @@
       "whatsup": {
         "accountId": "character:tariq_vance:whatsup",
         "enabled": true,
-        "bio": "Studio engineer. Probably listening to a tape loop; happy to talk when I am free."
+        "bio": "Studio engineer. Probably listening to a tape loop; happy to talk when I am free.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:tariq_vance:fotogram",
@@ -69,7 +70,7 @@
           "tariq.frequencies"
         ],
         "bio": "Sound engineer, tape loops, coffee, and quiet late nights.",
-        "avatarImageId": "tariq_vance:image:matchme",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "tariq_vance:fotogram:post:studio-session",
@@ -85,7 +86,8 @@
         "legacyHandles": [
           "Tariq Vance"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:tariq_vance:matchme",
@@ -95,7 +97,7 @@
           "Tariq Vance"
         ],
         "bio": "Sound engineer who listens more than he talks. Looking for genuine connection, good music, and relaxed late-night diner chats.",
-        "avatarImageId": "tariq_vance:image:matchme",
+        "portraitId": "character",
         "profile": {
           "age": 26,
           "bio": "Sound engineer who listens more than he talks. Looking for genuine connection, good music, and relaxed late-night diner chats.",

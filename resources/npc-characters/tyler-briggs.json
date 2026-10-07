@@ -49,7 +49,8 @@
       "whatsup": {
         "accountId": "character:tyler_briggs:whatsup",
         "enabled": true,
-        "bio": "lift heavy, ignore excuses 🏎️💨"
+        "bio": "lift heavy, ignore excuses 🏎️💨",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:tyler_briggs:fotogram",
@@ -60,7 +61,7 @@
           "rex.garage.707"
         ],
         "bio": "HP > Feelings. Not here to make friends.",
-        "avatarImageId": "tyler_briggs:image:portrait",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -71,7 +72,8 @@
         "legacyHandles": [
           "gearhead_v8"
         ],
-        "bio": "just observing the chaos"
+        "bio": "just observing the chaos",
+        "portraitId": "none"
       },
       "matchme": {
         "accountId": "character:tyler_briggs:matchme",
@@ -80,7 +82,8 @@
         "legacyHandles": [
           "Tyler Briggs"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       }
     },
     "profileImage": {

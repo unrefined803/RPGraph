@@ -52,7 +52,8 @@
       "whatsup": {
         "accountId": "character:nia_morrison:whatsup",
         "enabled": true,
-        "bio": "analog heart in a digital mess 🎞️"
+        "bio": "analog heart in a digital mess 🎞️",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:nia_morrison:fotogram",
@@ -63,7 +64,7 @@
           "nia.morrison.archive"
         ],
         "bio": "23 • visual arts & 35mm film • city archives\nnot everything needs to be explained.",
-        "avatarImageId": "nia_morrison:image:portrait",
+        "portraitId": "custom1",
         "initialPosts": [
           {
             "id": "nia_morrison:fotogram:post:coffee-and-negatives",
@@ -79,7 +80,8 @@
         "legacyHandles": [
           "Nia Morrison"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:nia_morrison:matchme",
@@ -89,6 +91,7 @@
           "Nia Morrison"
         ],
         "bio": "23, editorial film photographer and gallery hopper. Looking for genuine chemistry, emotional depth, and someone who actually shows up. If you're still hung up on someone or emotionally half-in, please skip.",
+        "portraitId": "character",
         "profile": {
           "age": 23,
           "bio": "23, editorial film photographer and gallery hopper. Looking for genuine chemistry, emotional depth, and someone who actually shows up. If you're still hung up on someone or emotionally half-in, please skip.",
@@ -102,6 +105,11 @@
           ],
           "decisions": {}
         }
+      }
+    },
+    "customPortraits": {
+      "custom1": {
+        "imageId": "nia_morrison:image:portrait"
       }
     },
     "profileImage": {

@@ -55,7 +55,8 @@
       "whatsup": {
         "accountId": "character:russell_mercer:whatsup",
         "enabled": true,
-        "bio": "Old radios, stubborn machines, work worth doing."
+        "bio": "Old radios, stubborn machines, work worth doing.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:russell_mercer:fotogram",
@@ -67,6 +68,7 @@
           "copper.echo"
         ],
         "bio": "Old songs. Slow evenings.",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -78,6 +80,7 @@
           "dial.static"
         ],
         "bio": "Here to browse. No posts or content for sale.",
+        "portraitId": "none",
         "initialPosts": []
       }
     },

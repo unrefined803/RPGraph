@@ -33,7 +33,8 @@
       "whatsup": {
         "accountId": "character:frank_bennett:whatsup",
         "enabled": true,
-        "bio": "Family, baseball, one unfinished porch."
+        "bio": "Family, baseball, one unfinished porch.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:frank_bennett:fotogram",
@@ -45,6 +46,7 @@
           "extra.innings"
         ],
         "bio": "A quiet evening and a ballgame.",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -56,6 +58,7 @@
           "porch.radio"
         ],
         "bio": "Here to browse. No posts or content for sale.",
+        "portraitId": "none",
         "initialPosts": []
       }
     },

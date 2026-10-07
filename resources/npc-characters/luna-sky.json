@@ -49,7 +49,7 @@
           "Luna Sky"
         ],
         "bio": "",
-        "avatarImageId": "luna_sky:image:lake-runner-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:luna_sky:fotogram",
@@ -61,7 +61,7 @@
           "Luna Sky"
         ],
         "bio": "Lake laps, early shifts and breakfast after the city wakes up. Often away from my phone.",
-        "avatarImageId": "luna_sky:image:lake-runner-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "luna_sky:fotogram:post:lake-run",
@@ -78,7 +78,7 @@
           "Luna Sky"
         ],
         "bio": "Morning lake runs, serene sunrises, and good breakfast spots. Tell me your favorite outdoor place.",
-        "avatarImageId": "luna_sky:image:lake-runner-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 23,
           "bio": "Morning lake runs, serene sunrises, and good breakfast spots. Tell me your favorite outdoor place.",

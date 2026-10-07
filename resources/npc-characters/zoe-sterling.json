@@ -59,7 +59,8 @@
       "whatsup": {
         "accountId": "character:zoe_sterling:whatsup",
         "enabled": true,
-        "bio": "Designer and printmaker. Enthusiastic replies, occasional ink emergencies."
+        "bio": "Designer and printmaker. Enthusiastic replies, occasional ink emergencies.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:zoe_sterling:fotogram",
@@ -70,7 +71,7 @@
           "zoe.in.print"
         ],
         "bio": "Graphic design, printmaking and vintage finds. Usually enthusiastic; sometimes typing one thought too many.",
-        "avatarImageId": "zoe_sterling:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "zoe_sterling:fotogram:post:print-morning",
@@ -88,7 +89,7 @@
           "velvet.notes"
         ],
         "bio": "Following art and candid process notes. Usually have too many thoughts about a sketchbook page.",
-        "avatarImageId": "zoe_sterling:image:portrait",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -99,7 +100,7 @@
           "Zoe Sterling"
         ],
         "bio": "Designer, vintage enthusiast and enthusiastic texter. Likely to tell you an awkward studio story; would like to hear what you are excited about too.",
-        "avatarImageId": "zoe_sterling:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 24,
           "bio": "Designer, vintage enthusiast and enthusiastic texter. Likely to tell you an awkward studio story; would like to hear what you are excited about too.",

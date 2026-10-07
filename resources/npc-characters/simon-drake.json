@@ -41,7 +41,8 @@
       "whatsup": {
         "accountId": "character:simon_drake:whatsup",
         "enabled": true,
-        "bio": "precision in language reflects precision in thought 📖"
+        "bio": "precision in language reflects precision in thought 📖",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:simon_drake:fotogram",
@@ -52,7 +53,7 @@
           "simon.drake.critique"
         ],
         "bio": "Words matter. Fact-checking the feed one thread at a time.",
-        "avatarImageId": "simon_drake:image:portrait",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -63,7 +64,8 @@
         "legacyHandles": [
           "pedant_prime"
         ],
-        "bio": "logic and discourse only"
+        "bio": "logic and discourse only",
+        "portraitId": "none"
       },
       "matchme": {
         "accountId": "character:simon_drake:matchme",
@@ -72,7 +74,8 @@
         "legacyHandles": [
           "Simon Drake"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       }
     },
     "profileImage": {

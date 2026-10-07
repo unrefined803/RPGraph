@@ -57,7 +57,8 @@
       "whatsup": {
         "accountId": "character:noah_voss:whatsup",
         "enabled": true,
-        "bio": "Working. Leave a message."
+        "bio": "Working. Leave a message.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:noah_voss:fotogram",
@@ -68,7 +69,7 @@
           "noah.voss.sys"
         ],
         "bio": "Security and data recovery. Initial inquiries welcome; scope and access come before promises. Keep sensitive details out of comments.",
-        "avatarImageId": "noah_voss:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "noah_voss:fotogram:post:discreet-solutions",
@@ -84,7 +85,8 @@
         "legacyHandles": [
           "Noah Voss"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:noah_voss:matchme",
@@ -93,7 +95,8 @@
         "legacyHandles": [
           "Noah Voss"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants a reputation for solving difficult recovery problems while avoiding the social obligations of a growing client list. Moving to private conversation keeps sensitive details out of Fotogram comments; his ghosting pattern leaves inquiries unfinished and can cost him repeat work. WhatsUp is his chosen channel after an agreed introduction, not a source of automatic access to anyone's devices. He needs supplied information and legitimate access before making claims about a case. Someone confronting a missed commitment can push him toward a concrete update or reveal that he is not willing to take the work.",

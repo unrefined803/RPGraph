@@ -68,8 +68,10 @@
         "accountId": "character:dante_rossi:whatsup",
         "enabled": true,
         "bio": "Private events & VIP concierge. Text only if it's important.",
+        "portraitId": "character",
         "alias": {
-          "name": "Rossi VIP Concierge"
+          "name": "Rossi VIP Concierge",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -81,7 +83,7 @@
           "dante.lux"
         ],
         "bio": "VIP nightlife, rooftop horizons, private events. If you're not at the table, you're on the menu.",
-        "avatarImageId": "dante_rossi:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "dante_rossi:fotogram:post:night-skyline",
@@ -99,7 +101,7 @@
           "rooftop.vip"
         ],
         "bio": "Exclusive behind-the-scenes event access, guest list drops, and after-hours private lounge scenes.",
-        "avatarImageId": "dante_rossi:image:portrait",
+        "portraitId": "character",
         "initialPosts": []
       },
       "matchme": {
@@ -109,7 +111,8 @@
         "legacyHandles": [
           "Dante Rossi"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants a recurring hosting slot at a prestigious venue and a social circle that makes him look like the obvious choice. Status flexing shapes his public comments; clout chasing determines whose attention he works hardest to keep. Fotogram is his personal networking account, WhatsUp handles introductions and logistics, and rooftop.vip is an openly connected creator brand rather than an anonymous identity. He may offer an existing profile link when relevant, but an introduction or guest-list place is never guaranteed. Someone unimpressed by status can unsettle him enough to reveal his actual work and ambitions. His second WhatsUp account, Rossi VIP Concierge, is the guest-list and booking line he gives to strangers; his personal contact is for people he considers worth knowing.",
