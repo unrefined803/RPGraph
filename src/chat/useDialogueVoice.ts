@@ -9,6 +9,7 @@ import {
   dialogueVoiceWholeMessageText,
 } from './dialogueVoiceSegments';
 import { ttsNarratorPrompt } from './ttsNarratorPrompt';
+import { whatsUpAlias } from '../characters/messageIdentity';
 
 const dialogueVoiceCacheMaxEntries = 64;
 // Reserved cache name for the narrator; the NUL byte cannot appear in character names.
@@ -89,6 +90,14 @@ export function useDialogueVoice({
       const sampleDataUrl = character.voiceConfig?.sampleDataUrl;
       if (sampleDataUrl && character.name.trim() && !samples.has(character.name)) {
         samples.set(character.name, sampleDataUrl);
+      }
+    }
+    // A second WhatsUp name speaks with its owner's voice; real names keep priority.
+    for (const character of storyCharacters) {
+      const alias = whatsUpAlias(character)?.name.trim();
+      const sampleDataUrl = character.voiceConfig?.sampleDataUrl;
+      if (alias && sampleDataUrl && !samples.has(alias)) {
+        samples.set(alias, sampleDataUrl);
       }
     }
     return samples;

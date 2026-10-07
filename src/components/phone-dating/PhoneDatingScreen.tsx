@@ -234,11 +234,14 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const allImages = [...images, ...imported];
   const ownerAvatarDataUrl = datingAvatarDataUrl(owner, allImages, profile);
 
-  // The main photo's face becomes the round avatar; without a single face the whole photo is used.
-  const mainPhoto = editing ? allImages.find((entry) => entry.id === draft.photoIds[0]) : undefined;
+  // The round avatar shows the account's own avatar photo, otherwise the main photo. Its face
+  // frames the avatar; without a single face the whole photo is used.
+  const avatarPhoto = (photoIds: string[]) => [owner?.apps?.matchme?.avatarImageId, ...photoIds]
+    .flatMap((id) => allImages.find((entry) => entry.id === id) ?? [])[0];
+  const mainPhoto = editing ? avatarPhoto(draft.photoIds) : undefined;
   const mainPhotoId = mainPhoto?.id;
   const mainPhotoDataUrl = mainPhoto?.dataUrl;
-  // A stored face region for the current main photo is kept; detection runs only for a new photo.
+  // A stored face region for the current avatar photo is kept; detection runs only for a new photo.
   const storedFace = owner?.apps?.matchme?.avatarCrop && { crop: owner.apps.matchme.avatarCrop,
     imageId: owner.apps.matchme.avatarImageId ?? owner.apps.matchme.profile?.photoIds[0] ?? '' };
   const [detectedFace, setDetectedFace] = useState<{ imageId: string; crop?: AppAvatarCrop; manual?: boolean } | undefined>(
@@ -260,7 +263,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
     manual: detectedFace?.imageId === mainPhotoId && !!detectedFace.manual } : undefined;
 
   function save(next: DatingProfile, withMainFace = false) {
-    const avatarCrop = withMainFace && mainFace?.done && mainFace.imageId === next.photoIds[0] ? mainFace.crop ?? null : undefined;
+    const avatarCrop = withMainFace && mainFace?.done && mainFace.imageId === avatarPhoto(next.photoIds)?.id ? mainFace.crop ?? null : undefined;
     if (!owner || !onSave(owner, next, avatarCrop)) { setError('Could not save your profile. Please try again.'); return false; }
     setProfile(next); setDraft(next); setError(''); return true;
   }
@@ -409,9 +412,9 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
                 </div>;
               })}</div>
               {mainFace && <p className={`pt-face-status${mainFace.done && mainFace.crop ? ' found' : ''}`} role="status">
-                {!mainFace.done ? 'Looking for a face in your main photo…'
-                  : mainFace.crop ? mainFace.manual ? '✓ Profile picture set from your main photo.' : '✓ Face detected for your profile picture.'
-                    : 'No face found, your profile picture shows the whole main photo.'}
+                {!mainFace.done ? 'Looking for a face in your profile picture…'
+                  : mainFace.crop ? mainFace.manual ? '✓ Profile picture framed manually.' : '✓ Face detected for your profile picture.'
+                    : 'No face found, your profile picture shows the whole photo.'}
                 {mainFace.done && <> <button type="button" className="pt-face-manual" onClick={() => setManualFaceOpen(true)}>Set manually</button></>}
               </p>}
               {manualFaceOpen && mainPhoto && <ProfilePickDialog

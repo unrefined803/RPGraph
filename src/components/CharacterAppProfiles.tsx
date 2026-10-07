@@ -72,8 +72,9 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
     </div>}
     {selectedApp === 'whatsup' && <div id="character-account-panel-whatsup" role="tabpanel">
       <WhatsUpAccounts realName={character.name} mainAvatarDataUrl={mainPortrait ? portraitDataUrl(mainPortrait, character.profileImage?.crop) : undefined}
-        alias={apps.whatsup?.alias} images={character.images} onClose={() => setSelectedApp(null)}
+        alias={apps.whatsup?.alias} images={character.images} removable={!locked} onClose={() => setSelectedApp(null)}
         onSave={(alias) => {
+          if (!alias && locked) return 'This second account can only be renamed once the story has chat history.';
           const { alias: _previous, ...account } = { accountId: `character:${character.id}:whatsup`, enabled: true, bio: '', ...apps.whatsup };
           return save(withCharacterAppProfile(character, 'whatsup', { ...account, ...(alias ? { alias } : {}) } as CharacterAppAccount));
         }} />

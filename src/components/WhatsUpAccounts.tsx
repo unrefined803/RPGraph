@@ -4,6 +4,7 @@ import { ProfilePickDialog } from './ProfilePickDialog';
 import type { WhatsUpAlias } from '../characters/character';
 import { detectAvatarFaceCrop } from '../characters/faceCrop';
 import { portraitDataUrl } from '../characters/portrait';
+import { copyTextToClipboard } from '../utils/clipboard';
 import type { RpStorybookCharacterImage } from '../nodes/rp-storybook/model';
 import './characterAppProfiles.css';
 
@@ -27,7 +28,7 @@ function AccountCard({ label, name, avatarDataUrl, note, action }: {
       <span className="social-profile-eyebrow">{label}</span>
       <strong>{name}</strong>
       <button type="button" className="whatsup-account-link" title="Copy this link" onClick={() => {
-        void navigator.clipboard?.writeText(link).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1600); });
+        void copyTextToClipboard(link).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1600); }, () => {});
       }}>{copied ? 'Copied' : 'Click to copy'}: <span>{link}</span></button>
       <small>{note}</small>
     </div>
@@ -40,18 +41,20 @@ function AccountCard({ label, name, avatarDataUrl, note, action }: {
  * name and portrait; the optional second account is another name and picture
  * for the same inbox. Images remain gallery references.
  */
-export function WhatsUpAccounts({ realName, mainAvatarDataUrl, alias, images, onSave, onClose }: {
+export function WhatsUpAccounts({ realName, mainAvatarDataUrl, alias, images, removable = true, onSave, onClose }: {
   realName: string;
   mainAvatarDataUrl?: string;
   alias?: WhatsUpAlias;
   images: GalleryImage[];
+  /** False once the second account has chats: it can then be renamed, which renames its chats, but not removed. */
+  removable?: boolean;
   /** True when saved; otherwise false or the reason shown in the form. */
   onSave: (alias: WhatsUpAlias | undefined) => boolean | string;
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   if (editing) {
-    return <SecondAccountEditor realName={realName} alias={alias} images={images} onBack={() => setEditing(false)}
+    return <SecondAccountEditor realName={realName} alias={alias} images={images} removable={removable} onBack={() => setEditing(false)}
       onSave={(next) => { const saved = onSave(next); if (saved === true) setEditing(false); return saved; }} />;
   }
   return <div className="social-profile-editor whatsup-accounts">
@@ -75,8 +78,8 @@ export function WhatsUpAccounts({ realName, mainAvatarDataUrl, alias, images, on
   </div>;
 }
 
-function SecondAccountEditor({ realName, alias, images, onSave, onBack }: {
-  realName: string; alias?: WhatsUpAlias; images: GalleryImage[];
+function SecondAccountEditor({ realName, alias, images, removable, onSave, onBack }: {
+  realName: string; alias?: WhatsUpAlias; images: GalleryImage[]; removable: boolean;
   onSave: (alias: WhatsUpAlias | undefined) => boolean | string; onBack: () => void;
 }) {
   const [draft, setDraft] = useState<WhatsUpAlias>(() => alias ?? { name: '' });
@@ -141,10 +144,11 @@ function SecondAccountEditor({ realName, alias, images, onSave, onBack }: {
     </section>
     {error && <p className="social-profile-error" role="alert">{error}</p>}
     <footer className="social-profile-actions">
-      {alias && <button type="button" className="whatsup-alias-remove" onClick={() => {
+      {alias && removable && <button type="button" className="whatsup-alias-remove" onClick={() => {
         const removed = onSave(undefined);
         if (removed !== true) setError(typeof removed === 'string' ? removed : 'Could not remove the second account.');
       }}>Remove</button>}
+      {alias && !removable && <small className="whatsup-alias-remove-note">This account has chats and can only be renamed. Its chats follow the new name.</small>}
       <button type="button" onClick={onBack}>Cancel</button>
       <button className="social-profile-save" type="submit">Save <span aria-hidden="true">→</span></button>
     </footer>

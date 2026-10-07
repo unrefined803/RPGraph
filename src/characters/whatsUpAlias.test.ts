@@ -3,7 +3,7 @@ import fixture from './fixtures/stage4-npc.json';
 import { appCharactersFromRegistry, recipientCharacterContext } from './appRuntime';
 import { characterPayload, normalizeCharacterApps, validateCharacterPayload, type Character } from './character';
 import {
-  resolveWhatsUpMessageParticipants, resolveWhatsUpRecipient, whatsUpAliasOwner, whatsUpNameKnownBy, whatsUpNamesUsedWith,
+  resolveWhatsUpMessageParticipants, resolveWhatsUpRecipient, whatsUpAliasInUse, whatsUpAliasOwner, whatsUpNameKnownBy, whatsUpNamesUsedWith,
 } from './messageIdentity';
 import { validateCharacterAccountDirectory, whatsUpAliasConflict } from './profiles';
 import { socialPublishedLinkContext, socialReactionAccountContext } from './socialReactionAccounts';
@@ -405,6 +405,20 @@ describe('account links as message participants', () => {
     expect(unpublished.phoneMessages).toEqual([]);
     expect(unpublished.warnings.join(' ')).toMatch(/published/);
     expect(unpublished.reactions?.likes).toBe(1);
+    // Without a reactions block the delivered message is not reported as unparsable JSON.
+    const messageOnly = parseValidatedSocialReactionsOutput(
+      JSON.stringify({ whatsUpApp: [{ from: '@whatsup:Mark Hale', to: '@whatsup:Sofia Belova', message: 'hi' }] }),
+      { app: 'fotogram', postId: 'fotogram-post-01', append: true }, { characters, messages: [], publishedText: published });
+    expect(messageOnly.phoneMessages).toHaveLength(1);
+    expect(messageOnly.warnings).toEqual(['Social Media output is missing the reactions block.']);
+  });
+
+  it('allows removing a second account only while it has no chats', () => {
+    expect(whatsUpAliasInUse(owner, [phone('Tamara Kovac', 'Mark Hale')])).toBe(false);
+    expect(whatsUpAliasInUse(owner, [phone('Mark Hale', 'Sofia Belova')])).toBe(true);
+    // A stored account ID decides, so a renamed account stays in use.
+    expect(whatsUpAliasInUse(owner, [{ ...phone('Old Alias', 'Mark Hale'), phoneFromAccountId: 'tamara:whatsup:alias' }])).toBe(true);
+    expect(whatsUpAliasInUse(characters.find((entry) => entry.sourceId === 'mark'), [phone('Mark Hale', 'Sofia Belova')])).toBe(false);
   });
 });
 

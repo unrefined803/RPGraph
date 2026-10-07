@@ -758,7 +758,7 @@ export function parseSocialReactionsOutput(
     );
   }
   if (!parsed) {
-    if (directMessages.length > 0) {
+    if (directMessages.length > 0 || phoneMessages.length > 0) {
       warnings.push('Social Media output is missing the reactions block.');
       return { directMessages, phoneMessages, warnings };
     }

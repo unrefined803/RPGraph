@@ -6,7 +6,7 @@ import { nextAutoScrollSpeed } from '../chat/autoScrollSpeed';
 import { bankingRecipientByName } from '../chat/bankingRecipients';
 import { hasAuthoredConnection } from '../characters/relationships';
 import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
-import { whatsUpAccountId, whatsUpAlias, whatsUpAliasAccountId, whatsUpNamesUsedWith } from '../characters/messageIdentity';
+import { whatsUpAccountId, whatsUpAlias, whatsUpAliasAccountId, whatsUpAliasInUse, whatsUpNamesUsedWith } from '../characters/messageIdentity';
 import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
 import { appCharacterImage } from '../characters/appRuntime';
 import type { NpcParticipantReference } from '../characters/npcParticipants';
@@ -624,6 +624,7 @@ export function useRoleplayPanelRuntime({
   // conversation is attributed to the characters its names resolve to.
   // The owner of a second WhatsUp name reads both names as one inbox on their own phone.
   const viewedPhoneHasAlias = !!whatsUpAlias(viewedPhoneCharacter);
+  const viewedPhoneAliasInUse = useMemo(() => whatsUpAliasInUse(viewedPhoneCharacter, messages), [messages, viewedPhoneCharacter]);
   const viewerPhoneMessages = useMemo(
     () => phoneMessagesForOwner(messages, viewedPhoneCharacter),
     [messages, viewedPhoneCharacter],
@@ -1732,6 +1733,7 @@ export function useRoleplayPanelRuntime({
     rememberChatCharacter,
     phoneConversationInfo,
     phoneSenderAccountId,
+    viewedPhoneAliasInUse,
     phoneWritesAsAlias,
     phoneSenderUnknownToContact,
     setPhoneWritesAsAlias,

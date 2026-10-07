@@ -541,7 +541,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
     };
     historyMessages = phoneMessagesWithCurrentNames(historyMessages, appCharacters());
     if (existingInputMessage) existingInputMessage = phoneMessagesWithCurrentNames([existingInputMessage], appCharacters())[0];
-    const phoneReplyTo = phoneReplyToOverride ?? (
+    // The phone shows its owner's second-account messages under the real name; the quote names the stored sender.
+    const phoneReplyTo = (phoneReplyToOverride &&
+      (historyMessages.find((message) => message.id === phoneReplyToOverride.id) ?? phoneReplyToOverride)) ?? (
       existingInputMessage?.replyToMessageId !== undefined
         ? historyMessages.find((message) => message.id === existingInputMessage.replyToMessageId)
         : undefined

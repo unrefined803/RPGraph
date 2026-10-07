@@ -27,7 +27,7 @@ import { shieldTranslationAccountLinks, restoreTranslationAccountLinks } from '.
 import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
-import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
+import { resolveWhatsUpMessageParticipants, whatsUpAliasInUse } from './characters/messageIdentity';
 import type { AppAvatarCrop } from './characters/character';
 import { phoneImageSource } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
@@ -1080,6 +1080,7 @@ function App() {
     phoneContacts,
     selectedPhoneContact,
     phoneSenderAccountId,
+    viewedPhoneAliasInUse,
     phoneWritesAsAlias,
     phoneSenderUnknownToContact,
     setPhoneWritesAsAlias,
@@ -6538,7 +6539,10 @@ function App() {
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onSaveDatingProfile={saveMatchMeProfile}
-              onSaveWhatsUpAlias={(owner, alias) => isRunning ? 'Wait until the current run has finished.' : saveWhatsUpAlias(owner, alias)}
+              onSaveWhatsUpAlias={(owner, alias) => isRunning ? 'Wait until the current run has finished.'
+                : !alias && whatsUpAliasInUse(owner, messagesRef.current) ? 'This account has chats and can only be renamed.'
+                : saveWhatsUpAlias(owner, alias)}
+              whatsUpAliasInUse={viewedPhoneAliasInUse}
               phoneWritesAsAlias={phoneWritesAsAlias}
               phoneSenderUnknownToContact={phoneSenderUnknownToContact}
               onPhoneWritesAsAliasChange={setPhoneWritesAsAlias}

@@ -183,6 +183,8 @@ Storybooks and RP Saves without the field behave exactly as before.
   unchanged. Read markers follow those names across renames. Legacy messages
   without account IDs keep their recorded names and name-based fallback.
   Historical identities cannot reactivate a disabled or removed second account.
+  A second account with chats (`whatsUpAliasInUse`) can only be renamed in the
+  phone and Storybook editors; removal stays available while it is unused.
 - The player writes from the account the conversation last used
   (`whatsUpNamesUsedWith`), so a chat opened by a message to the second account
   answers from it. **Writing as** in the chat header switches the account; the

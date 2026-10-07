@@ -201,6 +201,19 @@ export function whatsUpNameKnownBy(owner: StorybookCharacter, contactName: strin
   return known.size === 1 ? [...known][0] : undefined;
 }
 
+/**
+ * Whether any message ran under the owner's second name. Such an account can
+ * still be renamed, which renames its chats with it, but no longer removed.
+ */
+export function whatsUpAliasInUse(owner: StorybookCharacter | undefined, messages: MessageRecord[]) {
+  const alias = whatsUpAlias(owner);
+  if (!owner || !alias) return false;
+  const used = (accountId: string | undefined, name: string | undefined) => accountId
+    ? accountId === whatsUpAliasAccountId(owner) : !!name && key(name) === key(alias.name);
+  return messages.some((message) => message.phoneMessage &&
+    (used(message.phoneFromAccountId, message.phoneFrom) || used(message.phoneToAccountId, message.phoneTo)));
+}
+
 /** The second-name owner behind a stored WhatsUp identity, or undefined for a real name. */
 export function whatsUpAliasOwner(characters: StorybookCharacter[], accountId: string | undefined, name: string) {
   const owners = characters.filter((character) => {

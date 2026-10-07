@@ -308,6 +308,8 @@ type PhonePanelProps = {
   onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) => boolean;
   /** Set or remove the viewed character's second WhatsUp name. */
   onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined) => boolean | string;
+  /** The viewed character's second account already has chats: rename only. */
+  whatsUpAliasInUse: boolean;
   /** Whether the open conversation is written under the second name, and how to change that. */
   phoneWritesAsAlias: boolean;
   phoneSenderUnknownToContact: boolean;
@@ -454,6 +456,7 @@ export function PhonePanel({
   onCreateSocialAccount,
   onSaveDatingProfile,
   onSaveWhatsUpAlias,
+  whatsUpAliasInUse,
   phoneWritesAsAlias,
   phoneSenderUnknownToContact,
   onPhoneWritesAsAliasChange,
@@ -1585,6 +1588,7 @@ export function PhonePanel({
               mainAvatarDataUrl={phoneCharacterAvatarDataUrl(selectedCharacter)}
               alias={ownWhatsUpAlias}
               images={phoneGalleryImages}
+              removable={!whatsUpAliasInUse}
               onClose={() => setWhatsUpAliasEditorOpen(false)}
               onSave={(alias) => onSaveWhatsUpAlias(selectedCharacter, alias)}
             />
