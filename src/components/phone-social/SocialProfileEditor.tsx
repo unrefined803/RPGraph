@@ -54,7 +54,7 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
         <label>Profile name<input required maxLength={60} value={draft.profileName} onChange={(event) => setDraft({ ...draft, profileName: event.target.value })} placeholder="How you appear on your profile" /></label>
         <div className="social-profile-visibility-wrap">
           <label className="social-profile-visibility">
-            <input type="checkbox" checked={isPrivate} onChange={(event) => setDraft({ ...draft, privacyMode: event.target.checked, ...(event.target.checked ? { portraitId: 'none' as const } : {}) })} />
+            <input type="checkbox" checked={isPrivate} onChange={(event) => setDraft({ ...draft, privacyMode: event.target.checked, ...(event.target.checked ? { portraitId: 'none' as const } : draft.portraitId === 'none' ? { portraitId: 'character' as const } : {}) })} />
             <span>Privacy mode</span>
           </label>
           <div

@@ -12,17 +12,21 @@ function AccountCard({ label, name, avatarDataUrl, note, action }: {
 }) {
   const [copied, setCopied] = useState(false);
   const link = `@whatsup:${name}`;
-  return <section className="whatsup-account-card">
-    <CharacterAvatar className="whatsup-account-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.slice(0, 1).toUpperCase()} />
-    <div className="whatsup-account-details">
-      <span className="social-profile-eyebrow">{label}</span>
-      <strong>{name}</strong>
+  return <section className="whatsup-account-card stacked">
+    <div className="whatsup-account-head">
+      <CharacterAvatar className="whatsup-account-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.slice(0, 1).toUpperCase()} />
+      <div className="whatsup-account-details">
+        <span className="social-profile-eyebrow">{label}</span>
+        <strong>{name}</strong>
+      </div>
+      {action && <button type="button" className="whatsup-account-action" onClick={action.onClick}>{action.label}</button>}
+    </div>
+    <div className="whatsup-account-body">
       <button type="button" className="whatsup-account-link" title="Copy this link" onClick={() => {
         void copyTextToClipboard(link).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1600); }, () => {});
-      }}>{copied ? 'Copied' : 'Click to copy'}: <span>{link}</span></button>
+      }}><small>{copied ? 'Copied' : 'Click to copy'}</small><span>{link}</span></button>
       <small>{note}</small>
     </div>
-    {action && <button type="button" className="whatsup-account-action" onClick={action.onClick}>{action.label}</button>}
   </section>;
 }
 
@@ -42,6 +46,7 @@ export function WhatsUpAccounts({ realName, alias, owner, removable = true, onSa
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
+  const [pickingPortrait, setPickingPortrait] = useState(false);
   if (editing) {
     return <SecondAccountEditor realName={realName} alias={alias} owner={owner} removable={removable} onBack={() => setEditing(false)}
       onSave={(next) => { const saved = onSave(next); if (saved === true) setEditing(false); return saved; }} />;
@@ -52,9 +57,16 @@ export function WhatsUpAccounts({ realName, alias, owner, removable = true, onSa
       <button type="button" className="whatsup-account-action" onClick={onClose}>Done</button>
     </header>
     <AccountCard label="Main account" name={realName} avatarDataUrl={accountPortraitUrl(owner, owner.apps?.whatsup)}
-      note="Uses your real name. Choose one of your prepared portraits." />
-    <PortraitSelector owner={owner} value={owner.apps?.whatsup?.portraitId} onChange={(id) => { if (id === 'none') return; const saved = onSave(alias, id); setError(saved === true ? '' : typeof saved === 'string' ? saved : 'Could not save the portrait selection.'); }} />
-    {error && <p role="alert">{error}</p>}
+      note="Uses your real name and one of your prepared portraits."
+      action={{ label: pickingPortrait ? 'Cancel' : 'Edit', onClick: () => setPickingPortrait(!pickingPortrait) }} />
+    {/* Choosing a portrait saves it and folds the choices away again. */}
+    {pickingPortrait && <PortraitSelector owner={owner} value={owner.apps?.whatsup?.portraitId} onChange={(id) => {
+      if (id === 'none') return;
+      const saved = onSave(alias, id);
+      setError(saved === true ? '' : typeof saved === 'string' ? saved : 'Could not save the portrait selection.');
+      if (saved === true) setPickingPortrait(false);
+    }} />}
+    {error && <p className="social-profile-error" role="alert">{error}</p>}
     {alias
       ? <AccountCard label="Second account" name={alias.name} avatarDataUrl={accountPortraitUrl(owner, alias)}
         note="Its own name and picture. Messages arrive in the same inbox."
