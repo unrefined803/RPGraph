@@ -41,7 +41,7 @@
           "Maya Quinn"
         ],
         "bio": "",
-        "avatarImageId": "maya_quinn:image:mirror-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:maya_quinn:fotogram",
@@ -53,7 +53,7 @@
           "Maya Quinn"
         ],
         "bio": "Vintage finds, strong coffee and photos I almost did not post.",
-        "avatarImageId": "maya_quinn:image:mirror-portrait",
+        "portraitId": "character",
         "initialPosts": []
       },
       "matchme": {
@@ -65,7 +65,7 @@
           "Maya Quinn"
         ],
         "bio": "Vintage hunter, accidental night owl, and firm believer that chemistry matters more than a perfect opening line.",
-        "avatarImageId": "maya_quinn:image:mirror-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 23,
           "bio": "Vintage hunter, accidental night owl, and firm believer that chemistry matters more than a perfect opening line.",

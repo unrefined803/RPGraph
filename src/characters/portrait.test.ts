@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { appAvatarDataUrl, socialAvatarDataUrl, portraitDataUrl, withCharacterPortrait } from './portrait';
+import { appAvatarDataUrl, portraitDataUrl, withCharacterPortrait } from './portrait';
 import { characterPayload, validateCharacterPayload } from './character';
 import { normalizeRpStorybook, parseRpStorybookJson, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 import { planCharacterCardImport, rpCharacterCardForCharacter } from '../storybook/characterCard';
@@ -66,11 +66,15 @@ describe('portable character portrait crops', () => {
   it('keeps explicit social album selections when the portrait changes or is cleared', () => {
     const character = normalizeRpStorybook({ characters: [container.character] }).characters[0];
     const original = structuredClone(character);
+    character.apps!.matchme!.avatarCrop = { x: 10, y: 10, size: 40 };
     character.apps!.onlyfriends = { ...character.apps!.fotogram!, accountId: 'separate', avatarImageId: 'scenery' };
     const next = { imageId: character.images[1].id, dataUrl: character.images[1].dataUrl, crop: { x: 5, y: 5, size: 30 } };
     const changed = withCharacterPortrait(character, next);
     expect(changed.apps?.fotogram?.avatarImageId).toBe(original.apps?.fotogram?.avatarImageId);
-    expect(changed.apps?.matchme?.avatarImageId).toBe(next.imageId);
+    expect(changed.apps).toEqual(character.apps);
+    expect(changed.apps?.matchme?.avatarCrop).toEqual({ x: 10, y: 10, size: 40 });
+    expect(character.apps?.matchme?.avatarCrop).toEqual({ x: 10, y: 10, size: 40 });
+    expect(withCharacterPortrait(character, character.profileImage).apps?.matchme?.avatarCrop).toEqual({ x: 10, y: 10, size: 40 });
     expect(changed.apps?.onlyfriends?.avatarImageId).toBe('scenery');
     expect(character.profileImage).toEqual(original.profileImage);
     const cleared = withCharacterPortrait(changed, undefined);
@@ -125,13 +129,3 @@ it('bounds the content cache and re-encodes evicted portraits', () => {
   } finally { encode.mockRestore(); }
 });
 
-it('distinguishes the social portrait crop from an explicit selection of the same album image', () => {
-  const image = { id: 'photo', dataUrl: 'data:image/jpeg;base64,YQ==', width: 800, height: 1200 };
-  const crop = { x: 20, y: 10, size: 40 };
-  const portrait = portraitDataUrl(image, crop);
-  const character = { profileImage: { imageId: image.id, crop, dataUrl: portrait } };
-  expect(socialAvatarDataUrl(character)).toBe(portrait);
-  expect(socialAvatarDataUrl(character, image)).toBe(image.dataUrl);
-  expect(socialAvatarDataUrl(undefined, image)).toBe(image.dataUrl);
-  expect(socialAvatarDataUrl(undefined)).toBeUndefined();
-});

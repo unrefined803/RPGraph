@@ -51,8 +51,10 @@
         "accountId": "character:roxy_mendez:whatsup",
         "enabled": true,
         "bio": "Tips welcome. I never reveal a source 👀",
+        "portraitId": "character",
         "alias": {
-          "name": "Receipts Tip Line"
+          "name": "Receipts Tip Line",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -63,6 +65,7 @@
           "roxy.receipts"
         ],
         "bio": "Host of the show your favourite creator pretends not to watch. Send screenshots 👀",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "roxy_mendez:fotogram:post:podcast-corner",
@@ -79,7 +82,8 @@
         "legacyHandles": [
           "front.row.seat"
         ],
-        "bio": "Research purposes."
+        "bio": "Research purposes.",
+        "portraitId": "none"
       }
     },
     "profileImage": {

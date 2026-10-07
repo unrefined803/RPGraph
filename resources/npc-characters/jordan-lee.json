@@ -49,7 +49,7 @@
           "Jordan Lee"
         ],
         "bio": "",
-        "avatarImageId": "jordan_lee:image:market-cook-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:jordan_lee:fotogram",
@@ -61,7 +61,7 @@
           "Jordan Lee"
         ],
         "bio": "Market hauls, street-food detours and recipes I am still negotiating with.",
-        "avatarImageId": "jordan_lee:image:market-cook-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "jordan_lee:fotogram:post:farmers-market",
@@ -78,7 +78,7 @@
           "Jordan Lee"
         ],
         "bio": "Farmers markets, street food experiments, and hearty home-cooked meals. Show me your favorite local spots.",
-        "avatarImageId": "jordan_lee:image:market-cook-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 28,
           "bio": "Farmers markets, street food experiments, and hearty home-cooked meals. Show me your favorite local spots.",

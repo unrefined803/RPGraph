@@ -2,18 +2,21 @@ import { CharacterAvatar } from '../CharacterAvatar';
 import { CharacterName } from '../CharacterName';
 import { migratedProfileName } from '../../characters/character';
 import { useState } from 'react';
-import { portraitDataUrl, socialAvatarDataUrl } from '../../characters/portrait';
+import { accountPortraitUrl } from '../../characters/portraits';
+import { PortraitSelector } from '../PortraitManager';
+import type { CustomPortraits } from '../../characters/character';
 import type { RpStorybookCharacterProfileImage } from '../../nodes/rp-storybook/model';
 import type { CharacterAppAccount } from '../../characters/character';
 import { profileIdentityError } from '../../characters/profiles';
 import '../characterAppProfiles.css';
 
 /** Shared by Character Setup and the phone apps. Images remain gallery references. */
-export function SocialProfileEditor({ nameColor, account, accountId, name, images, profileImage, locked, app = 'fotogram', onSave, onCancel }: {
+export function SocialProfileEditor({ nameColor, account, accountId, name, images, profileImage, customPortraits, locked, app = 'fotogram', onSave, onCancel }: {
   nameColor?: string;
   account?: CharacterAppAccount; accountId: string; name: string;
   app?: 'fotogram' | 'onlyfriends';
   profileImage?: RpStorybookCharacterProfileImage;
+  customPortraits?: CustomPortraits;
   images: Array<{ id: string; name: string; dataUrl: string; width?: number; height?: number }>;
   locked: boolean; onSave: (account: CharacterAppAccount) => boolean; onCancel: () => void;
 }) {
@@ -21,10 +24,8 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
     ...account, accountId: account?.accountId ?? accountId, enabled: true,
     profileName: account ? migratedProfileName(account, name) : name, bio: account?.bio ?? '',
   }));
-  const portraitImage = images.find((image) => image.id === profileImage?.imageId);
-  const portrait = portraitImage ? portraitDataUrl(portraitImage, profileImage?.crop) : profileImage?.dataUrl;
-  const avatar = socialAvatarDataUrl({ profileImage: profileImage && { ...profileImage, dataUrl: portrait } },
-    images.find((image) => image.id === draft.avatarImageId));
+  const owner = { images, profileImage, customPortraits };
+  const avatar = accountPortraitUrl(owner, draft);
   const [error, setError] = useState('');
   const creating = !account?.enabled && app === 'onlyfriends';
   const appName = app === 'fotogram' ? 'Photogram' : 'OnlyFriends';
@@ -41,10 +42,10 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
     <header className="social-profile-heading">
       <span className="social-profile-eyebrow">{appName} / {creating ? 'Your debut' : 'Your profile'}</span>
       <h2>{creating ? 'Make yourself at home.' : 'A little more you.'}</h2>
-      <p>{creating ? 'Set the scene for your first post.' : 'Give your profile a fresh look.'} Choose a photo, a profile name, and a few words about yourself.</p>
+      <p>{creating ? 'Set the scene for your first post.' : 'Give your profile a fresh look.'} Choose a portrait, a profile name, and a few words about yourself.</p>
     </header>
     <section className="social-profile-preview" aria-label="Live profile preview">
-      <CharacterAvatar className="social-profile-avatar" ringColor={nameColor} name={isPrivate ? draft.profileName ?? name : name} profileImageDataUrl={!isPrivate ? avatar : undefined} fallback={(draft.profileName || name).slice(0, 1).toUpperCase()} />
+      <CharacterAvatar className="social-profile-avatar" ringColor={nameColor} name={isPrivate ? draft.profileName ?? name : name} profileImageDataUrl={avatar} fallback={(draft.profileName || name).slice(0, 1).toUpperCase()} />
       <div><span className="social-profile-eyebrow">Profile preview</span><h3><CharacterName color={nameColor}>{isPrivate ? draft.profileName : name}</CharacterName></h3><p>@{(draft.profileName ?? '').trim().replace(/^@/, '')}</p><p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>
     <section className="social-profile-section">
@@ -53,7 +54,7 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
         <label>Profile name<input required maxLength={60} value={draft.profileName} onChange={(event) => setDraft({ ...draft, profileName: event.target.value })} placeholder="How you appear on your profile" /></label>
         <div className="social-profile-visibility-wrap">
           <label className="social-profile-visibility">
-            <input type="checkbox" checked={isPrivate} onChange={(event) => setDraft({ ...draft, privacyMode: event.target.checked })} />
+            <input type="checkbox" checked={isPrivate} onChange={(event) => setDraft({ ...draft, privacyMode: event.target.checked, ...(event.target.checked ? { portraitId: 'none' as const } : draft.portraitId === 'none' ? { portraitId: 'character' as const } : {}) })} />
             <span>Privacy mode</span>
           </label>
           <div
@@ -71,7 +72,7 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
               <circle cx="8" cy="4.5" r="0.6" fill="currentColor" stroke="none" />
             </svg>
             <div className="social-profile-info-bubble" role="tooltip">
-              When enabled, your character name and profile photo are hidden across this app, using only your profile name.
+              When enabled, your real name is hidden across this app and no portrait is shown. Choose a custom portrait below to show another identity.
             </div>
           </div>
         </div>
@@ -79,16 +80,9 @@ export function SocialProfileEditor({ nameColor, account, accountId, name, image
       <label>Bio<textarea rows={4} maxLength={500} value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} placeholder="A few words, a little personality…" /><small className="social-profile-count">{draft.bio.length} / 500</small></label>
     </section>
     <section className="social-profile-section">
-      <h3><span aria-hidden="true">02</span> Your profile photo</h3>
-      <p>Choose your character portrait or a photo from your album.</p>
-      <div className="social-profile-photos">
-        <button type="button" className="social-profile-photo" aria-pressed={!draft.avatarImageId} onClick={() => setDraft({ ...draft, avatarImageId: undefined })}>
-          {portrait ? <img src={portrait} alt="Character portrait" /> : <span className="social-profile-photo-fallback">{name.slice(0, 1).toUpperCase()}</span>}<span>Portrait</span>
-        </button>
-        {images.map((image) => <button key={image.id} type="button" className="social-profile-photo" aria-pressed={draft.avatarImageId === image.id} onClick={() => setDraft({ ...draft, avatarImageId: image.id })}>
-          <img src={image.dataUrl} alt={image.name || 'Album photo'} loading="lazy" /><span>{image.name || 'Album photo'}</span>
-        </button>)}
-      </div>
+      <h3><span aria-hidden="true">02</span> Your profile portrait</h3>
+      <p>Create and frame portraits in your character gallery, then choose one here.</p>
+      <PortraitSelector owner={owner} allowNone value={draft.portraitId} onChange={(portraitId) => setDraft({ ...draft, portraitId, avatarImageId: undefined, avatarCrop: undefined })} />
     </section>
     {error && <p className="social-profile-error" role="alert">{error}</p>}
     <footer className="social-profile-actions"><button type="button" onClick={onCancel}>Cancel</button><button className="social-profile-save" type="submit">{creating ? 'Create profile' : 'Save changes'} <span aria-hidden="true">→</span></button></footer>

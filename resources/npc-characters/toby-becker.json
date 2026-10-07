@@ -43,8 +43,10 @@
         "accountId": "character:toby_becker:whatsup",
         "enabled": true,
         "bio": "LIVE most nights. if i left you on read i was mid-round 🎮",
+        "portraitId": "character",
         "alias": {
-          "name": "TobyChaos"
+          "name": "TobyChaos",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -55,6 +57,7 @@
           "tobychaos"
         ],
         "bio": "TobyChaos 🎮 Live five nights a week. Everything I say is allegedly.",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "toby_becker:fotogram:post:setup-grin",
@@ -71,7 +74,8 @@
         "legacyHandles": [
           "definitely_not_a_streamer"
         ],
-        "bio": "a normal account run by a normal man"
+        "bio": "a normal account run by a normal man",
+        "portraitId": "none"
       }
     },
     "profileImage": {

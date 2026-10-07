@@ -59,8 +59,10 @@
         "accountId": "character:clara_dubois:whatsup",
         "enabled": true,
         "bio": "Sweet tooth and expensive taste. 🍷💄",
+        "portraitId": "character",
         "alias": {
-          "name": "Coco"
+          "name": "Coco",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -72,7 +74,7 @@
           "clara.dubois.x"
         ],
         "bio": "Studying literature by day, dining at 5-star tables by night. Looking for someone generous to spoil me. 💋",
-        "avatarImageId": "clara_dubois:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "clara_dubois:fotogram:post:candlelit-dinner",
@@ -88,7 +90,8 @@
         "legacyHandles": [
           "Clara Dubois"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:clara_dubois:matchme",
@@ -98,7 +101,7 @@
           "Clara Dubois"
         ],
         "bio": "Not looking for cheap coffee dates or pen-pals. Compensated dinner dates, shopping trips, and mutual fun only. If you're generous, swipe right. 💋",
-        "avatarImageId": "clara_dubois:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 19,
           "bio": "Not looking for cheap coffee dates or pen-pals. Compensated dinner dates, shopping trips, and mutual fun only. If you're generous, swipe right. 💋",

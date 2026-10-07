@@ -50,7 +50,8 @@
       "whatsup": {
         "accountId": "character:kendra_holt:whatsup",
         "enabled": true,
-        "bio": "replies in 3 to 5 business days"
+        "bio": "replies in 3 to 5 business days",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:kendra_holt:fotogram",
@@ -60,6 +61,7 @@
           "kendra.unwell"
         ],
         "bio": "sociology (derogatory). here to lower the tone.",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "kendra_holt:fotogram:post:cafe-side-eye",
@@ -76,7 +78,8 @@
         "legacyHandles": [
           "certified_yapper"
         ],
-        "bio": "emotionally unavailable for comment"
+        "bio": "emotionally unavailable for comment",
+        "portraitId": "none"
       }
     },
     "profileImage": {

@@ -77,7 +77,7 @@
           "Eden Moss"
         ],
         "bio": "",
-        "avatarImageId": "eden_moss:image:pasta-kitchen-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:eden_moss:fotogram",
@@ -89,7 +89,7 @@
           "Eden Moss"
         ],
         "bio": "Pasta experiments, seasonal market hauls and a cat with strong supervisory opinions.",
-        "avatarImageId": "eden_moss:image:pasta-kitchen-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "eden_moss:fotogram:post:pasta-night",
@@ -112,7 +112,7 @@
           "copper.spoon"
         ],
         "bio": "Trading kitchen ideas and finding people who care about the things they make.",
-        "avatarImageId": "eden_moss:image:pasta-kitchen-portrait",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -124,7 +124,7 @@
           "Eden Moss"
         ],
         "bio": "I cook for work and still make pasta on my day off. Looking for easy conversation, shared kitchen experiments and someone who laughs when dinner takes longer than planned.",
-        "avatarImageId": "eden_moss:image:pasta-kitchen-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 26,
           "bio": "I cook for work and still make pasta on my day off. Looking for easy conversation, shared kitchen experiments and someone who laughs when dinner takes longer than planned.",

@@ -57,7 +57,7 @@
           "Kit Harlow"
         ],
         "bio": "",
-        "avatarImageId": "kit_harlow:image:trail-runner-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:kit_harlow:fotogram",
@@ -69,7 +69,7 @@
           "Kit Harlow"
         ],
         "bio": "Local trails, questionable snack combinations and views worth taking slowly.",
-        "avatarImageId": "kit_harlow:image:trail-runner-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "kit_harlow:fotogram:post:trail-view",
@@ -86,7 +86,7 @@
           "Kit Harlow"
         ],
         "bio": "Newish to this side of town and looking for trail companions first. Easy hikes, good snacks, no pace competition. Open to romance if it grows naturally for both of us.",
-        "avatarImageId": "kit_harlow:image:trail-runner-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 25,
           "bio": "Newish to this side of town and looking for trail companions first. Easy hikes, good snacks, no pace competition. Open to romance if it grows naturally for both of us.",

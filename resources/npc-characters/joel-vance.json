@@ -44,14 +44,10 @@
         "accountId": "character:chloe_bella_vance:whatsup",
         "enabled": true,
         "bio": "not here for your drama unless it's funny ☕",
+        "portraitId": "character",
         "alias": {
           "name": "Chloe Vance",
-          "avatarImageId": "chloe_bella_vance:image:lifestyle",
-          "avatarCrop": {
-            "x": 36.064815,
-            "y": 27.536733,
-            "size": 38.75
-          }
+          "portraitId": "custom1"
         }
       },
       "fotogram": {
@@ -63,7 +59,7 @@
           "chloe.vance.archive"
         ],
         "bio": "living rent-free in your comment section",
-        "avatarImageId": "chloe_bella_vance:image:portrait",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -74,7 +70,8 @@
         "legacyHandles": [
           "anon_lurker_99"
         ],
-        "bio": "just here to watch the circus"
+        "bio": "just here to watch the circus",
+        "portraitId": "none"
       },
       "matchme": {
         "accountId": "character:chloe_bella_vance:matchme",
@@ -84,7 +81,7 @@
           "Chloe Vance"
         ],
         "bio": "22, student & vintage lover. Looking for good vibes, honest connection, and someone who doesn't take life too seriously! ✨",
-        "avatarImageId": "chloe_bella_vance:image:lifestyle",
+        "portraitId": "custom1",
         "profile": {
           "age": 22,
           "bio": "22, student & vintage lover. Looking for good vibes, honest connection, and someone who doesn't take life too seriously! ✨",
@@ -97,6 +94,16 @@
             "chloe_bella_vance:image:lifestyle"
           ],
           "decisions": {}
+        }
+      }
+    },
+    "customPortraits": {
+      "custom1": {
+        "imageId": "chloe_bella_vance:image:lifestyle",
+        "crop": {
+          "x": 36.064815,
+          "y": 27.536733,
+          "size": 38.75
         }
       }
     },

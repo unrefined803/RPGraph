@@ -15,7 +15,8 @@ import { textEffectsStyle } from './chat/textEffects';
 import { CharacterName } from './components/CharacterName';
 import { AppMessageAvatars } from './components/AppMessageAvatars';
 import { CharacterAvatar } from './components/CharacterAvatar';
-import { phoneCharacterAvatarDataUrl, phoneConversationKeyTwins } from './chat/phoneCharacters';
+import { phoneConversationKeyTwins } from './chat/phoneCharacters';
+import { characterPortraitUrl } from './characters/portraits';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
 import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
@@ -901,6 +902,7 @@ function App() {
     setActiveRunId,
     lastRunDebugRef,
     activeRunCancelReasonRef,
+    runCancelRequestedRef,
     activeRunLlmReportRef,
     pendingRunRestartRef,
     runStartTimeRef,
@@ -1660,6 +1662,7 @@ function App() {
     imageDescriptionById: storybookImageDescriptionById,
     imageCaptionChangesById: phoneImageCaptionChangesById,
     currentImageSourceById: currentStorybookImageSourceById,
+    changePhonePortraits,
     changePhoneWallpaper: changeStorybookPhoneWallpaper,
     saveSocialUsername: saveStorybookSocialUsername,
     saveWhatsUpAlias,
@@ -4687,6 +4690,12 @@ function App() {
     if (!turn) {
       return;
     }
+    removeTurnAt(turnIndex);
+  }
+
+  function removeTurnAt(turnIndex: number) {
+    const turn = turnsRef.current[turnIndex];
+    if (!turn) return;
     const removedIds = turnMessageIds(turn);
     const nextTurns = turnsRef.current.filter((_, index) => index !== turnIndex);
     turnsRef.current = nextTurns;
@@ -5136,6 +5145,21 @@ function App() {
       false,
       message,
     );
+  }
+
+  async function submitMatchMeMessage(message: SocialDirectMessageRecord, characterId: string) {
+    runCancelRequestedRef.current = false;
+    const delivered = await submitSocialDirectMessage(message, characterId);
+    if (delivered || !runCancelRequestedRef.current) return delivered;
+    // A cancelled send is taken back like an undone turn, so the screen can
+    // return the text to the composer instead of offering a retry.
+    const turnIndex = turnsRef.current.findIndex((turn) =>
+      turn.input.messages.some((entry) => entry.socialDirectMessage?.messageId === message.messageId));
+    if (turnIndex >= 0) {
+      if (turnIndex !== lastSessionTurnIndex(turnsRef.current)) return false;
+      removeTurnAt(turnIndex);
+    }
+    return 'cancelled' as const;
   }
 
   function selectPhoneImagesFromComposer() {
@@ -6538,10 +6562,11 @@ function App() {
               onSubmitSocialPost={submitSocialPost}
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
+              onSubmitMatchMeMessage={submitMatchMeMessage}
               onSaveDatingProfile={saveMatchMeProfile}
-              onSaveWhatsUpAlias={(owner, alias) => isRunning ? 'Wait until the current run has finished.'
+              onSaveWhatsUpAlias={(owner, alias, portraitId) => isRunning ? 'Wait until the current run has finished.'
                 : !alias && whatsUpAliasInUse(owner, messagesRef.current) ? 'This account has chats and can only be renamed.'
-                : saveWhatsUpAlias(owner, alias)}
+                : saveWhatsUpAlias(owner, alias, portraitId)}
               whatsUpAliasInUse={viewedPhoneAliasInUse}
               phoneWritesAsAlias={phoneWritesAsAlias}
               phoneSenderUnknownToContact={phoneSenderUnknownToContact}
@@ -6656,6 +6681,7 @@ function App() {
                 }
                 notifySystem('info', `Saved generated image in ${character.name}'s Phone Gallery.`);
               }}
+              onPhonePortraitsChange={(owner, portraits) => { if (!isRunning && !activeTurnCollectorRef.current) changePhonePortraits(owner, portraits); }}
               onPhoneWallpaperChange={changeStorybookPhoneWallpaper}
               chatGpd={chatGpd}
               chatGpdSidebarOpen={chatGpdSidebarOpen}
@@ -6827,7 +6853,7 @@ function App() {
                   className="big-screen-rail-avatar"
                   name={bigScreenPlayerName}
                   fallback={bigScreenPlayerName.trim().slice(0, 1).toUpperCase() || '?'}
-                  profileImageDataUrl={narratorSelected ? undefined : phoneCharacterAvatarDataUrl(selectedCharacter)}
+                  profileImageDataUrl={narratorSelected ? undefined : characterPortraitUrl(selectedCharacter)}
                   ringColor={
                     (!narratorSelected && selectedCharacter && characterColors.get(selectedCharacter.name)) || '#cbd5e1'
                   }

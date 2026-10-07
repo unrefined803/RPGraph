@@ -48,7 +48,8 @@
       "whatsup": {
         "accountId": "character:celine_dubois:whatsup",
         "enabled": true,
-        "bio": "Books, evening walks and a film worth talking about."
+        "bio": "Books, evening walks and a film worth talking about.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:celine_dubois:fotogram",
@@ -58,6 +59,7 @@
           "celine.dubois"
         ],
         "bio": "Books, evening walks and a film worth talking about.",
+        "portraitId": "character",
         "initialPosts": []
       },
       "matchme": {
@@ -68,7 +70,7 @@
           "Celine Dubois"
         ],
         "bio": "Books, evening walks and a film worth talking about.",
-        "avatarImageId": "celine_dubois:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 43,
           "bio": "Books, evening walks and a film worth talking about.",

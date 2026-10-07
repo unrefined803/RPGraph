@@ -5,7 +5,7 @@ import {
   normalizePhoneName,
   phoneNamesMatch,
 } from './phoneMessages';
-import { appAvatarDataUrl, portraitDataUrl } from '../characters/portrait';
+import { accountPortraitUrl, characterPortrait } from '../characters/portraits';
 import { whatsUpAccountId, whatsUpAlias, whatsUpAliasAccountId } from '../characters/messageIdentity';
 
 export type PhoneRuntimeCharacter = StorybookCharacter & {
@@ -14,11 +14,10 @@ export type PhoneRuntimeCharacter = StorybookCharacter & {
   whatsUpAliasOf?: StorybookCharacter;
 };
 
-/** Picture of a second WhatsUp name; it never falls back to the character portrait. */
+/** The second WhatsUp account resolves its own shared portrait selection. */
 export function whatsUpAliasAvatarDataUrl(character: StorybookCharacter | undefined) {
   const alias = whatsUpAlias(character);
-  const image = character?.images?.find((entry) => entry.id === alias?.avatarImageId);
-  return image ? portraitDataUrl(image, alias?.avatarCrop) : undefined;
+  return accountPortraitUrl(character, alias);
 }
 
 /**
@@ -28,7 +27,8 @@ export function whatsUpAliasAvatarDataUrl(character: StorybookCharacter | undefi
 export function whatsUpAliasContact(character: StorybookCharacter): PhoneRuntimeCharacter | undefined {
   const alias = whatsUpAlias(character);
   if (!alias) return undefined;
-  const image = character.images?.find((entry) => entry.id === alias.avatarImageId);
+  const portrait = characterPortrait(character, alias.portraitId);
+  const image = character.images?.find((entry) => entry.id === portrait?.imageId);
   const id = `${character.id}::whatsup-alias`;
   return {
     id, storybookNodeId: '', kind: 'character', sourceId: `${character.sourceId}::whatsup-alias`,
@@ -36,7 +36,7 @@ export function whatsUpAliasContact(character: StorybookCharacter): PhoneRuntime
     profile: { name: alias.name, description: '', personality: '', speechStyle: '', role: '' },
     apps: { whatsup: { accountId: whatsUpAliasAccountId(character), enabled: true, bio: '' } },
     images: image ? [image] : [],
-    ...(image ? { profileImage: { imageId: image.id, crop: alias.avatarCrop, dataUrl: portraitDataUrl(image, alias.avatarCrop) } } : {}),
+    ...(portrait ? { profileImage: { ...portrait, dataUrl: accountPortraitUrl(character, alias) ?? '' } } : {}),
     phoneSettings: { wallpaperId: 'wallpaper-1' },
     banking: defaultRpStorybookCharacterBanking(),
     social: defaultRpStorybookCharacterSocial(),
@@ -44,17 +44,9 @@ export function whatsUpAliasContact(character: StorybookCharacter): PhoneRuntime
   };
 }
 
-/** Prefer the character portrait, then social avatars; a dating persona is never a WhatsUp fallback. */
+/** Main WhatsUp account portrait; missing selection means the real character. */
 export function phoneCharacterAvatarDataUrl(character: StorybookCharacter | undefined) {
-  if (!character) return undefined;
-  const imageIds = [
-    character.profileImage?.imageId,
-    character.apps?.whatsup?.avatarImageId,
-    character.apps?.fotogram?.avatarImageId,
-    character.apps?.onlyfriends?.avatarImageId,
-  ].filter((id): id is string => !!id);
-  const image = imageIds.flatMap((id) => character.images?.find((entry) => entry.id === id) ?? [])[0];
-  return appAvatarDataUrl(character, image);
+  return accountPortraitUrl(character, character?.apps?.whatsup);
 }
 
 /**

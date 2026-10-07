@@ -22,6 +22,8 @@ export function useRunLifecycle() {
   const activeRunCancelReason = useRef<CancelReason>('cancel');
   const activeRunLlmReport = useRef<RunLlmReport | null>(null);
   const pendingRunRestart = useRef<(() => void) | null>(null);
+  // Set when the user cancels a run; callers reset it before starting their own run.
+  const runCancelRequested = useRef(false);
   const runStartTimeRef = useRef<number | null>(null);
   const runEndTimeRef = useRef<number | null>(null);
   // Render-safe mirror of runStartTimeRef for the <LiveRunClock> instances
@@ -43,6 +45,7 @@ export function useRunLifecycle() {
     activeRunCancelReason.current = reason;
     if (reason === 'cancel') {
       pendingRunRestart.current = null;
+      runCancelRequested.current = true;
     }
     run.controller.abort();
     return true;
@@ -68,6 +71,7 @@ export function useRunLifecycle() {
     activeRunCancelReasonRef: activeRunCancelReason,
     activeRunLlmReportRef: activeRunLlmReport,
     pendingRunRestartRef: pendingRunRestart,
+    runCancelRequestedRef: runCancelRequested,
     runStartTimeRef,
     runEndTimeRef,
     runStartTimeMs,

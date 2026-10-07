@@ -50,7 +50,8 @@
       "whatsup": {
         "accountId": "character:victor_reed:whatsup",
         "enabled": true,
-        "bio": "Good food, coastal roads and an actual day off."
+        "bio": "Good food, coastal roads and an actual day off.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:victor_reed:fotogram",
@@ -60,6 +61,7 @@
           "victor.reed"
         ],
         "bio": "Good food, coastal roads and an actual day off.",
+        "portraitId": "character",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -71,6 +73,7 @@
           "coast.after.hours"
         ],
         "bio": "Here to browse and follow. No posts or content for sale.",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -81,7 +84,7 @@
           "Victor Reed"
         ],
         "bio": "Good food, coastal roads and an actual day off.",
-        "avatarImageId": "victor_reed:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 41,
           "bio": "Good food, coastal roads and an actual day off.",

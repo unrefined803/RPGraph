@@ -51,7 +51,8 @@
       "whatsup": {
         "accountId": "character:valeria_monet:whatsup",
         "enabled": true,
-        "bio": "Always dreaming of my true soulmate. 💋"
+        "bio": "Always dreaming of my true soulmate. 💋",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:valeria_monet:fotogram",
@@ -62,7 +63,7 @@
           "valeria.monet"
         ],
         "bio": "First class views, champagne sunsets, and unconditional devotion. 🥂✨",
-        "avatarImageId": "valeria_monet:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "valeria_monet:fotogram:post:rooftop-golden-hour",
@@ -78,7 +79,8 @@
         "legacyHandles": [
           "Valeria Monet"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:valeria_monet:matchme",
@@ -88,7 +90,7 @@
           "Valeria Monet"
         ],
         "bio": "I believe in love at first sight and deep spiritual bonds. If we match, don't play games—I fall hard and fast, and I expect the same intensity back.",
-        "avatarImageId": "valeria_monet:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 22,
           "bio": "I believe in love at first sight and deep spiritual bonds. If we match, don't play games—I fall hard and fast, and I expect the same intensity back.",

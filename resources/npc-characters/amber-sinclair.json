@@ -53,8 +53,10 @@
         "accountId": "character:amber_sinclair:whatsup",
         "enabled": true,
         "bio": "Discreet inquiries only. ✨🍾",
+        "portraitId": "character",
         "alias": {
-          "name": "Sinclair Bookings"
+          "name": "Sinclair Bookings",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -66,7 +68,7 @@
           "amber.sinclair.vip"
         ],
         "bio": "Fine dining, rooftop sunsets, and curated company. Inquiries & dinner bookings via DM. ✨🥂",
-        "avatarImageId": "amber_sinclair:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "amber_sinclair:fotogram:post:rooftop-champagne",
@@ -82,7 +84,8 @@
         "legacyHandles": [
           "Amber Sinclair"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:amber_sinclair:matchme",
@@ -92,7 +95,7 @@
           "Amber Sinclair"
         ],
         "bio": "Discreet, educated, and fond of the finer things. Seeking generous gentlemen who know how to treat a lady properly.",
-        "avatarImageId": "amber_sinclair:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 21,
           "bio": "Discreet, educated, and fond of the finer things. Seeking generous gentlemen who know how to treat a lady properly.",

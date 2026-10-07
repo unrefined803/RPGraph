@@ -50,7 +50,8 @@
       "whatsup": {
         "accountId": "character:priya_shah:whatsup",
         "enabled": true,
-        "bio": "Ink, exhibitions and keeping a little time for my own sketchbook."
+        "bio": "Ink, exhibitions and keeping a little time for my own sketchbook.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:priya_shah:fotogram",
@@ -60,6 +61,7 @@
           "priya.shah"
         ],
         "bio": "Ink, exhibitions and keeping a little time for my own sketchbook.",
+        "portraitId": "character",
         "initialPosts": []
       }
     },

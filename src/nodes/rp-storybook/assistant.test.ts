@@ -21,6 +21,17 @@ function apply(patch: unknown[], fallback = starterRpStorybook, changedFields = 
 }
 
 describe('Storybook assistant patches', () => {
+  it('keeps every Storybook character playable despite omitted or false assistant values', () => {
+    const result = apply([
+      { op: 'add', path: '/characters/0/playable', value: false },
+      { op: 'add', path: '/characters/-', value: { id: 'alex', name: 'Alex Morgan', images: [], playable: false } },
+      { op: 'add', path: '/characters/-', value: { id: 'sam', name: 'Sam Carter', images: [] } },
+    ]);
+    const restored = parseRpStorybookJson(rpStorybookJsonText(result.storybook));
+    expect(restored.characters).toHaveLength(starterRpStorybook.characters.length + 2);
+    expect(restored.characters.every((character) => character.playable === true)).toBe(true);
+  });
+
   it('adds, edits and clears optional hidden agency through saved Storybooks', () => {
     const added = apply([{ op: 'add', path: '/characters/0/hiddenAgency', value: 'Protect a concealed ally.' }]).storybook;
     const restored = parseRpStorybookJson(rpStorybookJsonText(added));
@@ -200,10 +211,10 @@ it('preserves a photo-less MatchMe draft through patches and storage until activ
 
 it('instructs the assistant to prefer the marked portrait and save drafts without photos', () => {
   const prompt = rpStorybookEditPrompt(rpStorybookPromptJsonText(starterRpStorybook), 'Create profiles');
-  expect(prompt).toContain('prioritize characters[].profileImage.imageId');
-  expect(prompt).toContain('Otherwise choose the first available image');
+  expect(prompt).toContain('profileImage is the Character Portrait');
+  expect(prompt).toContain('App profile portraits select only portraitId');
   expect(prompt).toContain('profile.photoIds: []');
-  expect(prompt).toContain('Fotogram and OnlyFriends can be enabled without avatarImageId');
+  expect(prompt).toContain('Missing portraitId means character');
 });
 
 
@@ -354,5 +365,55 @@ describe('image description context', () => {
   it('keeps the fallback name when the owner is not in the Storybook', () => {
     expect(rpStorybookImageDescriptionContext({ ...storybook, characters: [] }, 'ghost', 'Ghost'))
       .toContain('Name: Ghost');
+  });
+});
+
+describe('assistant account and portrait image assignments', () => {
+  const crop = { x: 10, y: 15, size: 30 };
+  const book = () => normalizeRpStorybook({ ...starterRpStorybook, characters: [{
+    ...starterRpStorybook.characters[0],
+    images: ['first', 'second'].map((id) => ({ id, name: id, description: 'A portrait',
+      mimeType: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,AA==' })),
+    profileImage: { imageId: 'first', crop },
+    apps: {
+      whatsup: { accountId: 'test:whatsup', enabled: true, bio: '',
+        alias: { name: 'Business Line', avatarImageId: 'first', avatarCrop: crop } },
+      matchme: { accountId: 'test:matchme', enabled: false, bio: 'Hello', avatarImageId: 'first', avatarCrop: crop,
+        profile: { age: 25, bio: 'Hello', interests: 'Music', photoIds: ['first'], decisions: {} } },
+    },
+  }] });
+
+  it('preserves crops on unrelated edits and supports second account removal', () => {
+    const changed = apply([{ op: 'replace', path: '/characters/0/apps/whatsup/alias/name', value: 'Office Line' }], book()).storybook;
+    expect(changed.characters[0].apps?.whatsup?.alias?.avatarCrop).toEqual(crop);
+    expect(changed.characters[0].profileImage?.crop).toEqual(crop);
+    const removed = apply([{ op: 'remove', path: '/characters/0/apps/whatsup/alias' }], changed).storybook;
+    expect(removed.characters[0].apps?.whatsup?.alias).toBeUndefined();
+  });
+
+  it('selects and clears the portrait while preserving gallery bytes and app choices', () => {
+    const current = book();
+    const changed = apply([{ op: 'replace', path: '/characters/0/profileImage/imageId', value: 'second' }], current).storybook;
+    expect(changed.characters[0].profileImage).toEqual({ imageId: 'second', dataUrl: current.characters[0].images[1].dataUrl });
+    expect(changed.characters[0].images).toEqual(current.characters[0].images);
+    expect(changed.characters[0].apps).toEqual(current.characters[0].apps);
+    const cleared = apply([{ op: 'remove', path: '/characters/0/profileImage' }], changed).storybook;
+    expect(cleared.characters[0].profileImage).toBeUndefined();
+    const restored = apply([{ op: 'add', path: '/characters/0/profileImage', value: { imageId: 'first' } }], cleared).storybook;
+    expect(parseRpStorybookJson(rpStorybookJsonText(restored)).characters[0].profileImage?.imageId).toBe('first');
+  });
+
+  it('rejects invented portrait references without changing the original', () => {
+    const current = book();
+    expect(() => apply([{ op: 'add', path: '/characters/0/profileImage', value: { imageId: 'missing' } }], current)).toThrow('Choose a portrait');
+    expect(current.characters[0].profileImage?.imageId).toBe('first');
+  });
+
+  it('explains ordinary secondary accounts and description-based image selection', () => {
+    const prompt = rpStorybookEditPrompt(rpStorybookPromptJsonText(book()), 'Set up my accounts');
+    expect(prompt).toContain('a second number, a business line or a hidden identity');
+    expect(prompt).toContain('not the image pixels');
+    expect(prompt).toContain('Never invent crop coordinates');
+    expect(prompt).not.toContain('character profileImage portraits, voice samples');
   });
 });

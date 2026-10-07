@@ -208,7 +208,7 @@ export function characterSearchDirectory(
       return [
         `${app}: account ID ${account.accountId}${app === 'whatsup' ? `; link @whatsup:${character.name.trim()}` : `; profile name ${migratedProfileName(account, character.name)}; link @${app}:${migratedProfileName(account, character.name).trim()}`}`,
         ...(app === 'whatsup' && whatsUpAlias(character) ? [`  Second name: ${whatsUpAlias(character)!.name}; link @whatsup:${whatsUpAlias(character)!.name.trim()} (same account under another name and picture; people who know this name do not know the real one unless the story establishes it)`] : []),
-        ...(social ? [`  Privacy: ${account.privacyMode === true ? 'anonymous (real name and profile photo hidden)' : 'public identity'}; posts: ${postCount}`] : []),
+        ...(social ? [`  Privacy: ${account.privacyMode === true ? 'anonymous (real name hidden; selected portrait visible)' : 'public identity'}; posts: ${postCount}`] : []),
         ...field('  Bio', account.bio),
       ];
     });
@@ -257,7 +257,7 @@ export const previousCharacterSearchInstruction = [
   '{"action":"get_character_list","query":{"app":"fotogram","privacyMode":true,"hasPosts":false,"gender":"man","agencyTags":["drama_magnet"]}}',
   'The example illustrates the fields, not required search values. Omit criteria that are irrelevant; query {} lists existing characters without preferences.',
   'app: whatsup, fotogram, onlyfriends, or matchme. gender: woman, man, or nonbinary. privacyMode and hasPosts: true or false.',
-  'privacyMode and hasPosts require app fotogram or onlyfriends. Privacy mode hides the real name and profile photo publicly; it does not imply a locked account or restricted posts.',
+  'privacyMode and hasPosts require app fotogram or onlyfriends. Privacy mode hides the real name while keeping the selected portrait visible; it does not imply a locked account or restricted posts.',
   'hasPosts checks authored starting posts and current timeline posts, including text-only posts.',
   'Each requested criterion and each distinct agency tag adds one ranking point when matched. These are preferences, not mandatory filters: partial and zero matches can be returned. Missing accounts never match privacy or post criteria.',
   'Agency tags match character tags and tags on the requested enabled app account; without app, all enabled accounts are considered.',

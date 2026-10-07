@@ -442,13 +442,15 @@ describe('account links as message participants', () => {
 
 it('frames the MatchMe avatar with a stored face region', () => {
   const dating = character('dana', 'Dana Moss');
+  dating.profileImage = { imageId, dataUrl: dating.images[0].dataUrl };
   dating.apps!.matchme = { accountId: 'dana:matchme', enabled: true, profileName: 'Dana Moss', bio: 'Hi',
     profile: { name: 'Dana Moss', age: 30, bio: 'Hi', interests: '', photoIds: [imageId], decisions: {} } };
   const [plain] = appCharactersFromRegistry(buildCharacterRegistry([{ character: dating, tier: 'storybook', source: 'book' }]));
   const cropped = structuredClone(dating);
-  cropped.apps!.matchme!.avatarCrop = { x: 10, y: 10, size: 40 };
+  cropped.customPortraits = { custom1: { imageId, dataUrl: '', crop: { x: 10, y: 10, size: 40 } } };
+  cropped.apps!.matchme!.portraitId = 'custom1';
   const [framed] = appCharactersFromRegistry(buildCharacterRegistry([{ character: cropped, tier: 'storybook', source: 'book' }]));
-  expect(framed.apps?.matchme?.avatarCrop).toEqual({ x: 10, y: 10, size: 40 });
+  expect(framed.customPortraits?.custom1?.crop).toEqual({ x: 10, y: 10, size: 40 });
   expect(datingAvatarDataUrl(plain)).toBeTruthy();
   expect(datingAvatarDataUrl(framed)).not.toBe(datingAvatarDataUrl(plain));
   // The whole photo is the centered square a round avatar shows of it.

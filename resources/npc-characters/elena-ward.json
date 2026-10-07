@@ -52,8 +52,10 @@
         "accountId": "character:elena_ward:whatsup",
         "enabled": true,
         "bio": "Clarity over comfortable illusions.",
+        "portraitId": "character",
         "alias": {
-          "name": "Nora Hayes"
+          "name": "Nora Hayes",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -65,7 +67,7 @@
           "elena.ward.consult"
         ],
         "bio": "Trust is easy when nobody tests it. \nRelationship consulting • Discretion \nPrivate inquiries ↓",
-        "avatarImageId": "elena_ward:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "elena_ward:fotogram:post:seeking-clarity",
@@ -81,7 +83,8 @@
         "legacyHandles": [
           "Elena Ward"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:elena_ward:matchme",
@@ -91,7 +94,7 @@
           "Elena Ward"
         ],
         "bio": "Curious about what people really look for when they think nobody is taking notes. Let's see how honest you can be.",
-        "avatarImageId": "elena_ward:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 28,
           "bio": "Curious about what people really look for when they think nobody is taking notes. Let's see how honest you can be.",

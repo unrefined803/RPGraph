@@ -60,8 +60,10 @@
         "accountId": "character:marcus_cole:whatsup",
         "enabled": true,
         "bio": "Viral Growth Labs. DM me for collab opportunities and promo packages! 🚀",
+        "portraitId": "character",
         "alias": {
-          "name": "Viral Growth Labs"
+          "name": "Viral Growth Labs",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -73,7 +75,7 @@
           "marcus.boost"
         ],
         "bio": "Founder @GrowthLabs | Scaled 200+ creators past 100k | Collab inquiries: DM | Algorithm Secrets in Bio 🚀🔥",
-        "avatarImageId": "marcus_cole:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "marcus_cole:fotogram:post:growth-analytics",
@@ -91,7 +93,7 @@
           "growth.vault"
         ],
         "bio": "Behind-the-scenes viral blueprints, creator monetization masterclasses, and verified engagement group access.",
-        "avatarImageId": "marcus_cole:image:portrait",
+        "portraitId": "character",
         "initialPosts": []
       },
       "matchme": {
@@ -101,7 +103,8 @@
         "legacyHandles": [
           "Marcus Cole"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants a recognizable client roster and enough recurring package sales to make his small agency look established. Collaboration seeking makes him propose joint projects; promotional spamming turns even lukewarm replies into another pitch. Fotogram is his public creator-facing business, WhatsUp carries proposals, and growth.vault is the openly connected OnlyFriends creator product. His follower counts and success claims are claims, not established results. He may overestimate interest and repeat an offer, but a link alone never creates a deal or partnership. A creator who asks for a concrete deliverable rather than hype exposes how little he has prepared. His second WhatsUp account, Viral Growth Labs, is the agency line for package sales; it is still only Marcus answering.",

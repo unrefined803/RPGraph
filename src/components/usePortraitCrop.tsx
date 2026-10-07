@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { RpStorybookCharacterImage, RpStorybookCharacterProfileImage } from '../nodes/rp-storybook/model';
-import { useBackdropDismiss } from './useBackdropDismiss';
 
 type ProfileCrop = NonNullable<RpStorybookCharacterProfileImage['crop']>;
 const profilePickOutputSize = 512;
@@ -65,19 +64,11 @@ async function croppedProfileImageDataUrl(image: RpStorybookCharacterImage, crop
   return canvas.toDataURL('image/jpeg', 0.9);
 }
 
-/** Drag a round crop over a gallery image; shared by character portraits and app avatars. */
-export function ProfilePickDialog({
-  characterName,
-  image,
-  currentProfileImage,
-  onApply,
-  onClose,
-}: {
-  characterName: string;
+/** Drag a round crop over a gallery image. The caller places the stage and its Apply control. */
+export function usePortraitCrop({ image, currentProfileImage, onApply }: {
   image: RpStorybookCharacterImage;
   currentProfileImage?: RpStorybookCharacterProfileImage;
   onApply: (profileImage: RpStorybookCharacterProfileImage) => void;
-  onClose: () => void;
 }) {
   const imageFrameRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
@@ -161,93 +152,52 @@ export function ProfilePickDialog({
       setStatus(`Profile pic failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
-  // Escape closes only this dialog: the capture phase runs before the dialogs and
-  // phone screens underneath, which would otherwise close as well.
-  const closeRef = useRef(onClose);
-  useEffect(() => { closeRef.current = onClose; });
-  useEffect(() => {
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      closeRef.current();
-    }
-    window.addEventListener('keydown', closeOnEscape, { capture: true });
-    return () => window.removeEventListener('keydown', closeOnEscape, { capture: true });
-  }, []);
-
-  return (
-    <div
-      className="profile-pick-backdrop"
-      role="presentation"
-      {...backdropDismiss}
-    >
-      <section className="profile-pick-dialog" role="dialog" aria-modal="true" aria-label={`${characterName} profile pic`}>
-        <div className="profile-pick-header">
-          <div>
-            <h4>Change Profile Pic</h4>
-            <p>{image.name}</p>
-          </div>
-          <button type="button" className="close-button" onClick={onClose}>
-            Close
-          </button>
-        </div>
-        {status && <span className="run-note storybook-image-status">{status}</span>}
-        <div className="profile-pick-stage">
-          <div className="profile-pick-image-frame" ref={imageFrameRef}>
-            <img
-              src={image.dataUrl}
-              alt={image.name}
-              onLoad={(event) => {
-                const loadedImage = event.currentTarget;
-                const nextRatio = loadedImage.naturalWidth / loadedImage.naturalHeight || 1;
-                setImageRatio(nextRatio);
-                if (currentProfileImage?.imageId !== image.id) {
-                  setCrop(centeredProfileCrop(nextRatio));
-                }
-              }}
-            />
-            <div className="profile-pick-scrim" aria-hidden="true" />
-            <button
-              type="button"
-              className="profile-pick-crop"
-              style={{
-                left: `${clampedCrop.x}%`,
-                top: `${clampedCrop.y}%`,
-                width: `${clampedCrop.size}%`,
-                height: `${cropHeight}%`,
-              }}
-              onPointerDown={(event) => beginDrag('move', event)}
-              onPointerMove={dragCrop}
-              onPointerUp={endDrag}
-              onPointerCancel={endDrag}
-              aria-label="Move profile crop"
-            >
-              <span className="profile-pick-crop-handle" aria-hidden="true" />
-              <span
-                className="profile-pick-crop-resize"
-                role="presentation"
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  beginDrag('resize', event);
-                }}
-                onPointerMove={dragCrop}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
-              />
-            </button>
-          </div>
-        </div>
-        <div className="profile-pick-actions">
-          <button className="inspect-button nodrag" type="button" onClick={() => onApply({ imageId: image.id, dataUrl: image.dataUrl })}>
-            Use Full Image
-          </button>
-          <button className="contextual-action-button nodrag" type="button" onClick={() => void applyProfileImage()}>
-            Apply
-          </button>
-        </div>
-      </section>
+  const stage = (
+    <div className="profile-pick-stage">
+      <div className="profile-pick-image-frame" ref={imageFrameRef}>
+        <img
+          src={image.dataUrl}
+          alt={image.name}
+          onLoad={(event) => {
+            const loadedImage = event.currentTarget;
+            const nextRatio = loadedImage.naturalWidth / loadedImage.naturalHeight || 1;
+            setImageRatio(nextRatio);
+            if (currentProfileImage?.imageId !== image.id) {
+              setCrop(centeredProfileCrop(nextRatio));
+            }
+          }}
+        />
+        <div className="profile-pick-scrim" aria-hidden="true" />
+        <button
+          type="button"
+          className="profile-pick-crop"
+          style={{
+            left: `${clampedCrop.x}%`,
+            top: `${clampedCrop.y}%`,
+            width: `${clampedCrop.size}%`,
+            height: `${cropHeight}%`,
+          }}
+          onPointerDown={(event) => beginDrag('move', event)}
+          onPointerMove={dragCrop}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          aria-label="Move profile crop"
+        >
+          <span className="profile-pick-crop-handle" aria-hidden="true" />
+          <span
+            className="profile-pick-crop-resize"
+            role="presentation"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              beginDrag('resize', event);
+            }}
+            onPointerMove={dragCrop}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          />
+        </button>
+      </div>
     </div>
   );
+  return { stage, status, apply: () => void applyProfileImage() };
 }

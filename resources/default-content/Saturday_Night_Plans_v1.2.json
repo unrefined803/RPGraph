@@ -91,7 +91,8 @@
           "legacyHandles": [
             "Helga Harper"
           ],
-          "bio": ""
+          "bio": "",
+          "portraitId": "character"
         },
         "fotogram": {
           "agencyTags": [
@@ -104,7 +105,8 @@
             "helga.harper",
             "Helga Harper"
           ],
-          "bio": ""
+          "bio": "",
+          "portraitId": "character"
         }
       },
       "images": [
@@ -247,7 +249,8 @@
           "legacyHandles": [
             "Espen Harper"
           ],
-          "bio": ""
+          "bio": "",
+          "portraitId": "character"
         },
         "fotogram": {
           "agencyTags": [
@@ -260,7 +263,8 @@
             "espen.harper",
             "Espen Harper"
           ],
-          "bio": ""
+          "bio": "",
+          "portraitId": "character"
         }
       },
       "images": [
@@ -430,7 +434,8 @@
           "legacyHandles": [
             "Jack Carter"
           ],
-          "bio": ""
+          "bio": "",
+          "portraitId": "character"
         },
         "fotogram": {
           "agencyTags": [
@@ -443,7 +448,8 @@
             "jack.carter",
             "Jack Carter"
           ],
-          "bio": ""
+          "bio": "",
+          "portraitId": "character"
         }
       },
       "images": [
@@ -546,7 +552,8 @@
           "legacyHandles": [
             "Ryan Parker"
           ],
-          "bio": ""
+          "bio": "",
+          "portraitId": "character"
         },
         "fotogram": {
           "agencyTags": [
@@ -559,7 +566,8 @@
             "ryan.parker",
             "Ryan Parker"
           ],
-          "bio": ""
+          "bio": "",
+          "portraitId": "character"
         },
         "matchme": {
           "agencyTags": [
@@ -573,7 +581,6 @@
             "Ryan Parker"
           ],
           "bio": "Just looking for someone to have fun with and see where things go. I love parties, good music, and great company. Let's grab a drink!",
-          "avatarImageId": "ryan_parker_image_01",
           "profile": {
             "age": 22,
             "bio": "Just looking for someone to have fun with and see where things go. I love parties, good music, and great company. Let's grab a drink!",
@@ -593,7 +600,8 @@
               "character:camila_vega:matchme": "pass",
               "character:chloe_lane:matchme": "superlike"
             }
-          }
+          },
+          "portraitId": "character"
         }
       },
       "images": [
@@ -664,7 +672,7 @@
                 "Avery Hart"
               ],
               "bio": "",
-              "avatarImageId": "avery_hart:image:cafe-afternoon"
+              "portraitId": "character"
             },
             "fotogram": {
               "accountId": "character:avery_hart:fotogram",
@@ -675,14 +683,14 @@
                 "Avery Hart"
               ],
               "bio": "City corners, good coffee, little reasons to dress up.",
-              "avatarImageId": "avery_hart:image:cafe-afternoon",
               "initialPosts": [
                 {
                   "id": "avery_hart:fotogram:post:cafe-afternoon",
                   "text": "Found a sunny table and decided that was the whole plan for the afternoon.",
                   "imageId": "avery_hart:image:cafe-afternoon"
                 }
-              ]
+              ],
+              "portraitId": "character"
             },
             "matchme": {
               "accountId": "character:avery_hart:matchme",
@@ -693,7 +701,6 @@
                 "Avery Hart"
               ],
               "bio": "Equal parts cozy cafe and last-minute night out. Looking for someone kind, curious and able to laugh at a plan going sideways.",
-              "avatarImageId": "avery_hart:image:cafe-afternoon",
               "profile": {
                 "age": 26,
                 "bio": "Equal parts cozy cafe and last-minute night out. Looking for someone kind, curious and able to laugh at a plan going sideways.",
@@ -703,7 +710,8 @@
                   "avery_hart:image:mirror-evening"
                 ],
                 "decisions": {}
-              }
+              },
+              "portraitId": "character"
             }
           },
           "hiddenAgency": "",
@@ -776,7 +784,8 @@
               ],
               "accountId": "character:chloe_bella_vance:whatsup",
               "enabled": true,
-              "bio": "not here for your drama unless it's funny ☕"
+              "bio": "not here for your drama unless it's funny ☕",
+              "portraitId": "character"
             },
             "fotogram": {
               "accountRole": "user",
@@ -792,8 +801,8 @@
                 "chloe.vance.archive"
               ],
               "bio": "living rent-free in your comment section",
-              "avatarImageId": "chloe_bella_vance:image:portrait",
-              "initialPosts": []
+              "initialPosts": [],
+              "portraitId": "none"
             },
             "onlyfriends": {
               "accountRole": "user",
@@ -807,7 +816,8 @@
               "legacyHandles": [
                 "anon_lurker_99"
               ],
-              "bio": "just here to watch the circus"
+              "bio": "just here to watch the circus",
+              "portraitId": "none"
             },
             "matchme": {
               "agencyTags": [
@@ -821,7 +831,6 @@
                 "Chloe Vance"
               ],
               "bio": "22, student & vintage lover. Looking for good vibes, honest connection, and someone who doesn't take life too seriously! ✨",
-              "avatarImageId": "chloe_bella_vance:image:lifestyle",
               "profile": {
                 "age": 22,
                 "bio": "22, student & vintage lover. Looking for good vibes, honest connection, and someone who doesn't take life too seriously! ✨",
@@ -834,11 +843,22 @@
                   "chloe_bella_vance:image:lifestyle"
                 ],
                 "decisions": {}
-              }
+              },
+              "portraitId": "custom1"
             }
           },
           "profileImage": {
             "imageId": "chloe_bella_vance:image:portrait"
+          },
+          "customPortraits": {
+            "custom1": {
+              "imageId": "chloe_bella_vance:image:lifestyle",
+              "crop": {
+                "x": 36.064815,
+                "y": 27.536733,
+                "size": 38.75
+              }
+            }
           }
         },
         "source": "bundled:joel-vance.json",
@@ -927,7 +947,7 @@
                 "Chloe Lane"
               ],
               "bio": "",
-              "avatarImageId": "chloe_lane:image:music-night"
+              "portraitId": "character"
             },
             "fotogram": {
               "accountRole": "user",
@@ -944,7 +964,6 @@
                 "Chloe Lane"
               ],
               "bio": "Small stages, loud choruses and very slow Sundays.",
-              "avatarImageId": "chloe_lane:image:music-night",
               "initialPosts": [
                 {
                   "id": "chloe_lane:fotogram:post:music-night",
@@ -956,7 +975,8 @@
                   "text": "The quiet songs deserve a room that listens too.",
                   "imageId": "chloe_lane:image:acoustic-session"
                 }
-              ]
+              ],
+              "portraitId": "character"
             },
             "onlyfriends": {
               "accountRole": "user",
@@ -972,8 +992,8 @@
                 "afterglow.tempo"
               ],
               "bio": "Good energy, favorite songs, and a friendly hello to the regulars.",
-              "avatarImageId": "chloe_lane:image:music-night",
-              "initialPosts": []
+              "initialPosts": [],
+              "portraitId": "none"
             },
             "matchme": {
               "agencyTags": [
@@ -988,7 +1008,6 @@
                 "Chloe Lane"
               ],
               "bio": "I will pick the concert if you pick the late-night food. Bonus points for dancing without pretending to be good at it.",
-              "avatarImageId": "chloe_lane:image:music-night",
               "profile": {
                 "age": 24,
                 "bio": "I will pick the concert if you pick the late-night food. Bonus points for dancing without pretending to be good at it.",
@@ -1002,7 +1021,8 @@
                   "chloe_lane:image:vinyl-shop"
                 ],
                 "decisions": {}
-              }
+              },
+              "portraitId": "character"
             }
           },
           "hiddenAgency": "Wants to turn scattered gig acquaintances into a dependable little concert circle, with room for a romance that does not require giving up her friends. She recognizes regular commenters and connects through specific songs or small venues rather than generic flirting. She may share a relevant Fotogram post and move agreed gig plans to WhatsUp. MatchMe is for someone who enjoys both the show and the quiet morning after; afterglow.tempo is her separate OnlyFriends listener account. She includes newcomers readily but loses patience when someone treats her venue job as an unlimited source of free entry.",
@@ -1077,7 +1097,8 @@
               ],
               "accountId": "character:camila_vega:whatsup",
               "enabled": true,
-              "bio": "Spoiled by choice. 🛍️✨"
+              "bio": "Spoiled by choice. 🛍️✨",
+              "portraitId": "character"
             },
             "fotogram": {
               "accountRole": "user",
@@ -1093,14 +1114,14 @@
                 "camila.vega"
               ],
               "bio": "Designer bags, beach cabanas, and high expectations. Swipe right only if you're serious. 💅",
-              "avatarImageId": "camila_vega:image:portrait",
               "initialPosts": [
                 {
                   "id": "camila_vega:fotogram:post:shopping-spree",
                   "text": "Retail therapy is the best kind of therapy. Thank you to whoever made today possible. 🛍️💖",
                   "imageId": "camila_vega:image:matchme"
                 }
-              ]
+              ],
+              "portraitId": "character"
             },
             "onlyfriends": {
               "accountId": "character:camila_vega:onlyfriends",
@@ -1109,7 +1130,8 @@
               "legacyHandles": [
                 "Camila Vega"
               ],
-              "bio": ""
+              "bio": "",
+              "portraitId": "character"
             },
             "matchme": {
               "agencyTags": [
@@ -1123,7 +1145,6 @@
                 "Camila Vega"
               ],
               "bio": "I have very expensive taste and zero patience for low-effort dates. Looking for an ambitious, generous man who knows how to treat his queen.",
-              "avatarImageId": "camila_vega:image:portrait",
               "profile": {
                 "age": 22,
                 "bio": "I have very expensive taste and zero patience for low-effort dates. Looking for an ambitious, generous man who knows how to treat his queen.",
@@ -1136,7 +1157,8 @@
                   "camila_vega:image:matchme"
                 ],
                 "decisions": {}
-              }
+              },
+              "portraitId": "character"
             }
           },
           "hiddenAgency": "Wants a regular admirer who funds her luxury outings while letting her feel independent. Gift fishing appears as wistful comments about an item or occasion; boundary testing appears when she asks for a little more after an earlier favor. MatchMe supplies romantic introductions, Fotogram displays the lifestyle she wants to sustain, and WhatsUp is where she prefers to negotiate plans once invited. She interprets generosity as interest but cannot assume a gift buys affection or that anyone will pay. A clear refusal frustrates her and may end her interest; genuine knowledge of fashion can briefly get past her transactional habits.",
@@ -1198,7 +1220,7 @@
                 "Lena Ford"
               ],
               "bio": "",
-              "avatarImageId": "lena_ford:image:cycling-portrait"
+              "portraitId": "character"
             },
             "fotogram": {
               "accountRole": "user",
@@ -1215,14 +1237,14 @@
                 "Lena Ford"
               ],
               "bio": "Two wheels, waterfront coffee and a small stage somewhere after dark.",
-              "avatarImageId": "lena_ford:image:cycling-portrait",
               "initialPosts": [
                 {
                   "id": "lena_ford:fotogram:post:waterfront-ride",
                   "text": "Golden hour is better on two wheels. 🚲",
                   "imageId": "lena_ford:image:waterfront-ride"
                 }
-              ]
+              ],
+              "portraitId": "character"
             },
             "matchme": {
               "agencyTags": [
@@ -1236,7 +1258,6 @@
                 "Lena Ford"
               ],
               "bio": "Bike rides, coffee stops and small gigs. Here for playful chemistry and casual dates; happy to be clear about what we both want.",
-              "avatarImageId": "lena_ford:image:cycling-portrait",
               "profile": {
                 "age": 24,
                 "bio": "Bike rides, coffee stops and small gigs. Here for playful chemistry and casual dates; happy to be clear about what we both want.",
@@ -1249,7 +1270,8 @@
                   "lena_ford:image:cycling-portrait"
                 ],
                 "decisions": {}
-              }
+              },
+              "portraitId": "character"
             }
           },
           "hiddenAgency": "Wants a lively circle for rides and gigs, with room for casual romantic connections. Flirty networking makes her open doors through teasing and introductions; casual dating means she does not assume exclusivity. Fotogram is where she notices shared interests, MatchMe is where she looks for chemistry, and WhatsUp is for mutually agreed plans. She can share a ride or music post as an invitation to talk, not a claim of special intimacy. If someone mistakes her sociability for commitment, she needs to clarify instead of keeping the ambiguity for attention.",

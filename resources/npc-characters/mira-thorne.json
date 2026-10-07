@@ -67,7 +67,8 @@
       "whatsup": {
         "accountId": "character:mira_thorne:whatsup",
         "enabled": true,
-        "bio": "Art & espresso. Sometimes I disappear for a bit, don't take it personally."
+        "bio": "Art & espresso. Sometimes I disappear for a bit, don't take it personally.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:mira_thorne:fotogram",
@@ -78,7 +79,7 @@
           "mira.monochrome"
         ],
         "bio": "Curating spaces, chasing shadows, and overthinking between exhibits.",
-        "avatarImageId": "mira_thorne:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "mira_thorne:fotogram:post:gallery-evening",
@@ -94,7 +95,8 @@
         "legacyHandles": [
           "Mira Thorne"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:mira_thorne:matchme",
@@ -104,7 +106,7 @@
           "Mira Thorne"
         ],
         "bio": "Recently single and looking for someone intriguing to get drinks with and distract me from my thoughts. Alternating between intense curiosity and disappearing for a day.",
-        "avatarImageId": "mira_thorne:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 25,
           "bio": "Recently single and looking for someone intriguing to get drinks with and distract me from my thoughts. Alternating between intense curiosity and disappearing for a day.",

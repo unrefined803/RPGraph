@@ -9,7 +9,15 @@ export function createCharacterContainer(character: Parameters<typeof characterP
     const excluded = new Set(copy.images.filter((image) => image.receivedFrom || image.imageAccess).map((image) => image.id));
     copy.images = copy.images.filter((image) => !excluded.has(image.id));
     if (copy.profileImage && excluded.has(copy.profileImage.imageId)) delete copy.profileImage;
+    for (const [id, portrait] of Object.entries(copy.customPortraits ?? {})) {
+      if (!copy.profileImage || excluded.has(portrait.imageId)) delete copy.customPortraits![id as keyof NonNullable<typeof copy.customPortraits>];
+    }
+    const resetPortrait = (account: { portraitId?: import('./character').PortraitChoice }) => {
+      if (account.portraitId && account.portraitId !== 'character' && account.portraitId !== 'none' && !copy.customPortraits?.[account.portraitId]) account.portraitId = 'character';
+    };
+    for (const account of Object.values(copy.apps)) resetPortrait(account);
     const alias = copy.apps.whatsup?.alias;
+    if (alias) resetPortrait(alias);
     if (alias?.avatarImageId && excluded.has(alias.avatarImageId)) {
       delete alias.avatarImageId;
       delete alias.avatarCrop;
@@ -45,7 +53,7 @@ export type CharacterSpecification = Omit<Partial<Parameters<typeof characterPay
 export function createAuthoredCharacter(specification: CharacterSpecification, newId: () => string) {
   const source = structuredClone(specification);
   const allowed = new Set(['id', 'name', 'description', 'personality', 'speechStyle', 'hiddenAgency', 'agencyTags', 'relationships', 'role', 'playable',
-    'age', 'gender', 'images', 'apps', 'profileImage', 'phoneSettings', 'banking', 'comfyConfig', 'voiceConfig']);
+    'age', 'gender', 'images', 'apps', 'profileImage', 'customPortraits', 'phoneSettings', 'banking', 'comfyConfig', 'voiceConfig']);
   for (const field of Object.keys(source)) {
     if (!allowed.has(field)) throw new Error(`Unsupported authored character field: ${field}`);
   }

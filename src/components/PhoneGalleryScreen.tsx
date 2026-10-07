@@ -1,3 +1,6 @@
+import { PhonePortraits } from './PortraitManager';
+import type { PortraitOwner } from '../characters/portraits';
+import type { RpStorybookCharacterImage } from '../nodes/rp-storybook/model';
 import { useEffect, useState } from 'react';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import type { ChatImageAttachment } from '../types';
@@ -7,6 +10,8 @@ const phoneGalleryPageSize = 100;
 
 type PhoneGalleryScreenProps = {
   title: string;
+  portraitOwner?: PortraitOwner & { name: string };
+  onPortraitsChange?: (owner: PortraitOwner) => void;
   images: ChatImageAttachment[];
   action: 'select' | 'wallpaper';
   selectedWallpaperId?: string;
@@ -16,14 +21,18 @@ type PhoneGalleryScreenProps = {
 
 export function PhoneGalleryScreen({
   title,
+  portraitOwner,
+  onPortraitsChange,
   images,
   action,
   selectedWallpaperId,
   onBack,
   onSelectImage,
 }: PhoneGalleryScreenProps) {
+  const [portraitsOpen, setPortraitsOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ChatImageAttachment>();
   usePanelNavigationOverlay(() => setSelectedImage(undefined), !!selectedImage);
+  usePanelNavigationOverlay(() => setPortraitsOpen(false), portraitsOpen);
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(images.length / phoneGalleryPageSize));
   const visiblePage = Math.min(page, totalPages - 1);
@@ -34,7 +43,7 @@ export function PhoneGalleryScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (appDialogCoversPhone()) {
+      if (portraitsOpen || appDialogCoversPhone()) {
         return;
       }
       if (event.key === 'Escape') {
@@ -50,7 +59,17 @@ export function PhoneGalleryScreen({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onBack, onSelectImage, selectedImage]);
+  }, [onBack, onSelectImage, portraitsOpen, selectedImage]);
+
+  if (portraitsOpen && portraitOwner && onPortraitsChange) {
+    return (
+      <div className="phone-gallery-screen" aria-label={`${portraitOwner.name} portraits`}>
+        <PhonePortraits
+          owner={{ ...portraitOwner, images: images.map((image) => ({ ...image, description: image.description ?? '' })) as RpStorybookCharacterImage[] }}
+          initialImageId={selectedImage?.id} onChange={onPortraitsChange} onClose={() => setPortraitsOpen(false)} />
+      </div>
+    );
+  }
 
   return (
     <div className="phone-gallery-screen" aria-label={title}>
@@ -69,6 +88,16 @@ export function PhoneGalleryScreen({
           <span>Phone Gallery</span>
           <strong>{title}</strong>
         </div>
+        {portraitOwner && onPortraitsChange && (
+          <button type="button" className="phone-gallery-header-button" onClick={() => setPortraitsOpen(true)}>
+            {selectedImage ? 'Portrait' : 'Portraits'}
+          </button>
+        )}
+        {selectedImage && (
+          <button type="button" className="phone-gallery-header-button" onClick={() => { onSelectImage(selectedImage); setSelectedImage(undefined); }}>
+            {action === 'wallpaper' ? 'Wallpaper' : 'Select'}
+          </button>
+        )}
       </header>
 
       {selectedImage ? (
@@ -80,43 +109,6 @@ export function PhoneGalleryScreen({
                 {selectedImage.description}
               </div>
             )}
-            <div className="phone-gallery-detail-overlay-actions">
-              <button
-                type="button"
-                className="phone-gallery-action-btn cancel"
-                onClick={() => setSelectedImage(undefined)}
-                title="Cancel"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className={`phone-gallery-action-btn select${action === 'wallpaper' ? ' wallpaper' : ''}`}
-                onClick={() => {
-                  onSelectImage(selectedImage);
-                  setSelectedImage(undefined);
-                }}
-                title={action === 'wallpaper' ? 'Set as wallpaper' : 'Select image'}
-              >
-                {action === 'wallpaper' ? (
-                  <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <circle cx="8" cy="8" r="1.25" />
-                      <path d="m4 18 5-5 3 3 2-2 6 4" />
-                    </svg>
-                    <span>Wallpaper</span>
-                  </>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       ) : images.length ? (

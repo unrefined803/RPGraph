@@ -16,7 +16,8 @@ envelopes remain readable. See `src/storybook/formatVersions.json`.
 | `description`, `personality`, `speechStyle`, `role` | Authored characterization. |
 | `playable` | Player selection eligibility within the active Storybook. Library entries are non-playable. |
 | `images` | Character-owned gallery with stable IDs, embedded media and descriptions. |
-| `profileImage` | Gallery image reference and optional percentage crop. |
+| `profileImage` | Real Character Portrait: gallery reference and optional percentage crop. |
+| `customPortraits` | Optional `custom1` and `custom2` portrait references and crops. |
 | `apps` | Stable account IDs, enabled state, bio, avatar, profile name and app-specific data. |
 | `relationships` | Stable target character IDs with descriptions and per-app access flags. |
 | `agencyTags`, `hiddenAgency` | Structured traits and private free-text motivations. |
@@ -35,11 +36,21 @@ or dangling references fail validation. Portrait crops remain references rather
 than duplicate media. See [Character creator](character-creator.md) for safe
 inspection, editing, image normalization and portrait tooling.
 
-Two optional account fields support hidden identities and are documented in
-[App profile names](app-profile-names.md): `apps.whatsup.alias` (a second
-WhatsUp name with its own picture, linking to the same account) and
-`apps.matchme.avatarCrop` (the face region of the dating avatar). Both are
-additive; the container version is unchanged.
+All apps select `portraitId`: `character` (the default), `custom1`, or `custom2`.
+The second WhatsUp account selects `apps.whatsup.alias.portraitId` independently.
+Fotogram, OnlyFriends and that second account may select `none` for no portrait.
+Custom slots must exist, reference the same character's gallery and have a real
+Character Portrait configured first. Privacy mode changes public names only;
+the selected portrait remains visible. No app borrows another app's image or a
+MatchMe discovery photo. Gallery sources remain unchanged.
+
+Portrait references contain `imageId` and optional `crop`, never duplicated
+media. Runtime `dataUrl` previews are stripped on serialization. These fields
+are additive in the existing container version. Obsolete `avatarImageId` and
+`avatarCrop` metadata may still be read and preserved for the external data
+conversion, but never controls avatar rendering. See the
+[portrait conversion handoff](../portrait-conversion-handoff.md) for the exact
+conversion contract; bundled character data is converted separately.
 
 ## Library discovery and identity
 
@@ -166,10 +177,9 @@ Use account links directly inside ordinary message text, including messenger JSO
   workflows can copy the short block into their own prompts. Bound replies tolerate aliases
   only when they resolve to the exact expected sender and recipient. Translation
   shields recognized account tokens so names and handles remain unchanged.
-- WhatsUp avatars use the character portrait when present, then fall back to an
-  avatar image referenced by WhatsUp, Fotogram, MatchMe or OnlyFriends in that
-  same container. Adding a library NPC to the Storybook is therefore not required
-  for its existing container image to appear in the phone contact list.
+- WhatsUp avatars resolve the account's selected portrait slot. Its optional
+  second account selects a separate slot. With no portrait, initials are shown.
+  NPC Library rows always show the real Character Portrait.
 
 ## Hidden agency and tags
 

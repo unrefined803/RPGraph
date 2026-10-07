@@ -41,7 +41,8 @@
       "whatsup": {
         "accountId": "character:finn_gallagher:whatsup",
         "enabled": true,
-        "bio": "Open to commissions and to being proven wrong. The second has yet to happen."
+        "bio": "Open to commissions and to being proven wrong. The second has yet to happen.",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:finn_gallagher:fotogram",
@@ -51,6 +52,7 @@
           "finn.gallagher.writes"
         ],
         "bio": "Essayist. I disagree on principle and in detail. Define your terms before replying.",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "finn_gallagher:fotogram:post:cafe-desk",
@@ -67,7 +69,8 @@
         "legacyHandles": [
           "well.actually.esq"
         ],
-        "bio": "Asking the questions nobody here wants asked."
+        "bio": "Asking the questions nobody here wants asked.",
+        "portraitId": "none"
       }
     },
     "profileImage": {

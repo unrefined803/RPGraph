@@ -87,21 +87,21 @@ this does not overwrite files in the user's library. Use the procedure in
 
 ## Public privacy mode and visibility
 
-Fotogram and OnlyFriends accounts may store `privacyMode: true`. The shared
-profile editor exposes this as **Privacy mode**. Omitted or false preserves public
-real-name and avatar photo display for existing containers. When enabled (true), app labels and chat cards use `profileName` as the
-primary name and hide the public avatar photo, showing anonymous fallback initials
-instead; an enabled handle line still shows `@profileName`. The chat card option
-`showProfileNames` controls only that extra handle, never whether a hidden real name is
-revealed. MatchMe and WhatsUp do not support this setting. Character names, account
-IDs and routing aliases stay intact. This is a public presentation preference, not
-anonymization of the character data or the narrator's knowledge.
+Fotogram and OnlyFriends accounts may store `privacyMode: true`. Public labels
+then use `profileName` instead of the real character name. The selected profile
+portrait remains visible, including a Custom Portrait used for a separate
+identity. Account IDs, routing aliases and private narrator knowledge do not
+change. MatchMe and WhatsUp have their own public-name rules.
 
-In the Fotogram/OnlyFriends profile editor, **Portrait** uses the character's
-portrait crop. Selecting an album photo stores `avatarImageId` and uses that
-full image, including when it is also the portrait source. Both render in a
-fixed circular viewport without stretching. Privacy mode still hides either
-choice publicly.
+Every app selects `portraitId`: `character`, `custom1` or `custom2`. Missing
+selection means `character`. Fotogram, OnlyFriends and the second WhatsUp
+account may also select `none` and then show a letter avatar; MatchMe and the
+main WhatsUp account always require a portrait. The social profile editor
+offers `none` as a fourth choice and selects it when privacy mode is switched
+on. The second WhatsUp account starts without a picture and exposes the three
+slots through its **Set profile picture** checkbox. Images and face crops are created in **Manage Portraits** in the gallery.
+An uncreated custom slot is disabled. App forms never select arbitrary gallery
+images as avatars. Posts and MatchMe discovery photos are separate.
 
 ## MatchMe public identity
 
@@ -118,17 +118,10 @@ the dating identity's **First name, age**, without a handle.
 `character.name`, `character.age` and `character.gender` always describe the real
 person. A dating persona can differ in all three fields. Private model context
 explains the distinction without making the real identity public knowledge.
-WhatsUp continues to use the real character name and character portrait unless
-the other person was given the second name.
-MatchMe avatars use an explicit dating avatar or the first dating photo, never
-an unrelated character portrait. An optional `apps.matchme.avatarCrop`
-(`{ x, y, size }`, the portrait crop's units) frames the round avatar on the
-face; discovery photos stay uncropped. The MatchMe profile form detects the face
-of the main photo automatically and stores the crop on save; without exactly one
-face, or without the desktop face tools, the whole photo is used. A crop left
-unchanged is dropped when the avatar image changes. Dating photos remain gallery references;
-no media is duplicated. Account IDs, aliases, matches and saved messages remain
-stable when either name changes.
+WhatsUp uses the real name unless the second account is selected. Its portrait
+and MatchMe's portrait each resolve their selected shared slot. MatchMe discovery
+photos stay uncropped and never implicitly become the avatar. IDs, aliases,
+matches and saved messages remain stable when a portrait or name changes.
 
 ## WhatsUp second name
 
@@ -148,12 +141,11 @@ the latest surviving delivery label when an earlier copy remains. Storybook and
 RP saves retain the provenance; portable character exports strip it. Old images
 without the optional IDs remain readable and keep their recorded label.
 
-`apps.whatsup.alias` is optional: `{ "name": "Sofia Belova", "avatarImageId":
-"<gallery image>", "avatarCrop": { "x": 35, "y": 33, "size": 30 } }`. Only
-`name` (1–60 characters) is required. It is not a second account: the character
-keeps one WhatsUp account, one inbox and one account ID. The second name is
-another link to it, for a character who leads a double life. Containers,
-Storybooks and RP Saves without the field behave exactly as before.
+`apps.whatsup.alias` is optional: `{ "name": "Sofia Belova", "portraitId": "custom1" }`.
+Only `name` (1–60 characters) is required; omitted `portraitId` means `character`, and
+`none` shows no picture.
+Select a custom slot for a separate visual identity. The character keeps one
+WhatsUp account ID and inbox; the second name provides another public link.
 
 - `@whatsup:<real name>` and `@whatsup:<second name>` both reach the same
   character. `resolveWhatsUpRecipient` returns the written name and, for the
@@ -171,8 +163,8 @@ Storybooks and RP Saves without the field behave exactly as before.
   name is stored in the Storybook, so it persists across new chats.
 - The other person sees a separate contact with the second name and its own
   picture (`whatsUpAliasContact` in `src/chat/phoneCharacters.ts`). It carries
-  no characterization and never falls back to the character portrait (initials
-  are shown without a picture). It uses its owner's character color: a two-way
+  no characterization and shows only the explicitly selected slot (the Character
+  Portrait by default, initials when no portrait exists). It uses its owner's character color: a two-way
   exchange under the second name makes the owner an interacted NPC. Someone who has both
   links sees two contacts with separate threads.
 - The owner sees one inbox. On the owner's own phone `phoneMessagesForOwner`
@@ -232,15 +224,10 @@ by opening a chat): the fixed main account and
 the second account, each with its picture and a click-to-copy link. Creating or
 editing the second account opens a nested form; Character Setup offers the same
 panel under **WhatsUp**. The interface calls the second name a second account
-for work or privacy. Choosing a picture opens the shared crop dialog
-(`ProfilePickDialog`) with a centered circle to mark the face; choosing the same
-picture again adjusts it. The MatchMe profile form states what the profile
-picture shows (the character portrait when the avatar photo is the portrait's
-source image, a marked face, or the whole photo) and offers **Change profile
-picture**: choose one of the dating photos, then mark the face or use the full
-image. The choice is saved as `avatarImageId` and `avatarCrop`; the whole photo
-of the portrait's source image is stored as its centered square (`wholeImageCrop`). The Character Assistant knows `apps.whatsup.alias` and frames
-its picture from the vision model's face estimate.
+for work or privacy. Main and second accounts each select one of the three
+prepared portraits. MatchMe uses the same selector. Face framing lives only in
+the central gallery manager or the Character Assistant, which can populate
+portrait slots using existing images and face estimates from attached images.
 
 ## Account links as message participants
 

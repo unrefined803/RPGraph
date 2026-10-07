@@ -43,8 +43,10 @@
         "accountId": "character:brody_callahan:whatsup",
         "enabled": true,
         "bio": "Coaching enquiries welcome. Excuses are not.",
+        "portraitId": "character",
         "alias": {
-          "name": "Callahan Coaching"
+          "name": "Callahan Coaching",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -55,6 +57,7 @@
           "brody.callahan.lifts"
         ],
         "bio": "Strength coach. 12-week plans. I say what your trainer is too polite to say.",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "brody_callahan:fotogram:post:gym-floor",
@@ -70,7 +73,8 @@
         "legacyHandles": [
           "brody.offseason"
         ],
-        "bio": "Full sessions, physique check-ins, no filter. Subscribers get answers."
+        "bio": "Full sessions, physique check-ins, no filter. Subscribers get answers.",
+        "portraitId": "character"
       }
     },
     "profileImage": {

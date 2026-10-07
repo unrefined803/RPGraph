@@ -85,7 +85,7 @@ be attached again by checking **Attach**. The assistant can describe visible
 images, rename them, write captions and update references; this is not a pixel
 editing or image-generation endpoint. File names are not visual descriptions.
 
-Each image exposes F/O/M/P controls, equivalent to the offline assignment tools:
+Each image exposes F/O/M controls, equivalent to the offline assignment tools:
 
 - **F / O** creates or retains a starting publication in Fotogram / OnlyFriends.
   Clearing a flag removes that image's starting publications from that app.
@@ -93,10 +93,10 @@ Each image exposes F/O/M/P controls, equivalent to the offline assignment tools:
   **Starting posts**.
 - **M** adds a reference to an existing MatchMe profile. At most three gallery
   photos are allowed; removing its last photo disables the profile until completed.
-- **P** selects the character portrait. Accounts without a separate avatar use it
-  as their fallback; accounts following the previous portrait follow the new one.
-  Portrait selection alone creates no publication or MatchMe photo. A changed
-  image clears the previous crop; percentage controls edit the new crop.
+- **Manage Portraits** opens the three shared portrait slots. Create the real
+  Character Portrait first, then up to two custom portraits. Every slot has its
+  own image and crop; app editors only select the slot. Portrait changes create
+  no publications or MatchMe discovery photos.
 - Unassigned gallery images remain available for later use. Filename prefixes
   are not interpreted by this graphical importer.
 
@@ -213,14 +213,17 @@ The editor does not schedule autonomous NPC actions.
 ### Avatar face framing
 
 The application runs no local face detector. When the Character Assistant sets
-or changes a portrait, a WhatsUp second-account picture or the first MatchMe
-photo to an attached image, the vision model reports the face next to its patch:
+or changes a real or custom portrait to an attached image, the vision model reports the face next to its patch:
 `"faces": {"<image-id>": {"centerX": 50, "centerY": 30, "height": 25}}` (face
 center in percent of the image width and height, head height in percent of the
 image height). `faceCropFromEstimate` turns each estimate into the square crop
-of every round avatar that shows that image; images without a reported face
-stay uncropped. Ticking **P** or **Portrait crop → Mark Face** opens the shared
-crop dialog (`ProfilePickDialog`) for a manual choice. The Python/MediaPipe
+of unframed portrait slots referencing that attached image. Existing crops are
+preserved independently per slot; estimates for unattached images are ignored.
+Only the main Character Assistant and accounts stage apply these estimates.
+Both assistants ignore patch-authored crop coordinates and retain the existing
+crop when a slot keeps its image; selecting another image clears the old crop.
+Images without an accepted face estimate stay uncropped. **Manage Portraits** opens the shared slot manager and
+crop stage (`usePortraitCrop`) for a manual choice. The Python/MediaPipe
 detector from `character:faces:setup` remains a development tool for the
 `character:create`, `character:edit` and `character:faces` scripts and is not
 part of packaged builds.

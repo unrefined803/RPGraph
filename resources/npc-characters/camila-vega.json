@@ -46,7 +46,8 @@
         ],
         "accountId": "character:camila_vega:whatsup",
         "enabled": true,
-        "bio": "Spoiled by choice. 🛍️✨"
+        "bio": "Spoiled by choice. 🛍️✨",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountRole": "user",
@@ -62,14 +63,14 @@
           "camila.vega"
         ],
         "bio": "Designer bags, beach cabanas, and high expectations. Swipe right only if you're serious. 💅",
-        "avatarImageId": "camila_vega:image:portrait",
         "initialPosts": [
           {
             "id": "camila_vega:fotogram:post:shopping-spree",
             "text": "Retail therapy is the best kind of therapy. Thank you to whoever made today possible. 🛍️💖",
             "imageId": "camila_vega:image:matchme"
           }
-        ]
+        ],
+        "portraitId": "character"
       },
       "onlyfriends": {
         "accountId": "character:camila_vega:onlyfriends",
@@ -78,7 +79,8 @@
         "legacyHandles": [
           "Camila Vega"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "agencyTags": [
@@ -92,7 +94,6 @@
           "Camila Vega"
         ],
         "bio": "I have very expensive taste and zero patience for low-effort dates. Looking for an ambitious, generous man who knows how to treat his queen.",
-        "avatarImageId": "camila_vega:image:portrait",
         "profile": {
           "age": 22,
           "bio": "I have very expensive taste and zero patience for low-effort dates. Looking for an ambitious, generous man who knows how to treat his queen.",
@@ -105,7 +106,8 @@
             "camila_vega:image:matchme"
           ],
           "decisions": {}
-        }
+        },
+        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants a regular admirer who funds her luxury outings while letting her feel independent. Gift fishing appears as wistful comments about an item or occasion; boundary testing appears when she asks for a little more after an earlier favor. MatchMe supplies romantic introductions, Fotogram displays the lifestyle she wants to sustain, and WhatsUp is where she prefers to negotiate plans once invited. She interprets generosity as interest but cannot assume a gift buys affection or that anyone will pay. A clear refusal frustrates her and may end her interest; genuine knowledge of fashion can briefly get past her transactional habits.",

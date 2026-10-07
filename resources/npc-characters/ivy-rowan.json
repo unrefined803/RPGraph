@@ -59,7 +59,7 @@
           "Ivy Rowan"
         ],
         "bio": "",
-        "avatarImageId": "ivy_rowan:image:neighborhood-cafe"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:ivy_rowan:fotogram",
@@ -71,7 +71,7 @@
           "Ivy Rowan"
         ],
         "bio": "Plants, neighborhood coffee and a cat who takes birdwatching very seriously.",
-        "avatarImageId": "ivy_rowan:image:neighborhood-cafe",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "ivy_rowan:fotogram:post:window-cat",
@@ -89,7 +89,7 @@
           "clover.corner"
         ],
         "bio": "A quiet cheer for good work, kind people, and the little things worth sharing.",
-        "avatarImageId": "ivy_rowan:image:neighborhood-cafe",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -101,7 +101,7 @@
           "Ivy Rowan"
         ],
         "bio": "Plant-shop days, cafe detours and a cat with excellent window privileges. Looking for warmth, curiosity and someone who remembers to ask how my day went too.",
-        "avatarImageId": "ivy_rowan:image:neighborhood-cafe",
+        "portraitId": "character",
         "profile": {
           "age": 25,
           "bio": "Plant-shop days, cafe detours and a cat with excellent window privileges. Looking for warmth, curiosity and someone who remembers to ask how my day went too.",

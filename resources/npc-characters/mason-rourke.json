@@ -56,8 +56,10 @@
         "accountId": "character:mason_rourke:whatsup",
         "enabled": true,
         "bio": "Late nights. Heavy bass. Same circle.",
+        "portraitId": "character",
         "alias": {
-          "name": "Mase"
+          "name": "Mase",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -70,6 +72,7 @@
           "afterhours.rail"
         ],
         "bio": "Heavy bass. Same circle.",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -81,6 +84,7 @@
           "last.rack"
         ],
         "bio": "Here to browse. No posts or content for sale.",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -91,7 +95,7 @@
           "Mason Rourke"
         ],
         "bio": "Pool after midnight, heavy bass, straight answers. Not looking to settle down. Bring your own attitude.",
-        "avatarImageId": "mason_rourke:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 34,
           "bio": "Pool after midnight, heavy bass, straight answers. Not looking to settle down. Bring your own attitude.",

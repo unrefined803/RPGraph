@@ -54,7 +54,9 @@ describe('bundled authored MatchMe characters', () => {
       expect(matchme?.legacyHandles).toContain(expected.matchme);
       expect(matchme?.profile).not.toHaveProperty('name');
       expect(matchme?.profile).not.toHaveProperty('username');
-      expect(fotogram?.avatarImageId).toBeTruthy();
+      expect(fotogram?.portraitId).toBeTruthy();
+      expect(matchme?.portraitId).toBe('character');
+      expect(fotogram).not.toHaveProperty('avatarImageId');
       expect(matchme?.profile?.photoIds.length).toBeGreaterThanOrEqual(1);
       expect(matchme?.profile?.gender).toBe(character.gender);
       expect(matchme?.profile?.seeking).toEqual(character.gender === 'woman' ? ['man'] : ['woman']);

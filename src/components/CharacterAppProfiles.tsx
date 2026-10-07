@@ -5,7 +5,6 @@ import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterPhoneSet
 import { SocialProfileEditor } from './phone-social/SocialProfileEditor';
 import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
 import { WhatsUpAccounts } from './WhatsUpAccounts';
-import { portraitDataUrl } from '../characters/portrait';
 
 /** Account management shared by both Storybook editors, using the phone profile forms. */
 export function CharacterAppProfiles({ character, characters, locked, onChange }: {
@@ -16,7 +15,6 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
   const [selectedApp, setSelectedApp] = useState<SocialApp | null>(null);
   const [error, setError] = useState('');
   const apps = normalizeCharacterApps(character.apps, character.social, character.id, character.name);
-  const mainPortrait = character.images.find((image) => image.id === character.profileImage?.imageId);
 
   function appName(app: SocialApp) {
     return app === 'whatsup' ? 'WhatsUp' : app === 'fotogram' ? 'Photogram' : app === 'onlyfriends' ? 'OnlyFriends' : 'MatchMe';
@@ -67,21 +65,21 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
     {(selectedApp === 'fotogram' || selectedApp === 'onlyfriends') && <div id={`character-account-panel-${selectedApp}`} role="tabpanel">
       <SocialProfileEditor key={selectedApp} app={selectedApp}
         account={apps[selectedApp]} accountId={`character:${character.id}:${selectedApp}`} name={character.name}
-        images={character.images} profileImage={character.profileImage} locked={locked} onCancel={() => setSelectedApp(null)}
+        images={character.images} profileImage={character.profileImage} customPortraits={character.customPortraits} locked={locked} onCancel={() => setSelectedApp(null)}
         onSave={(account) => { const saved = save(withCharacterAppProfile(character, selectedApp, account)); if (saved) setSelectedApp(null); return saved; }} />
     </div>}
     {selectedApp === 'whatsup' && <div id="character-account-panel-whatsup" role="tabpanel">
-      <WhatsUpAccounts realName={character.name} mainAvatarDataUrl={mainPortrait ? portraitDataUrl(mainPortrait, character.profileImage?.crop) : undefined}
-        alias={apps.whatsup?.alias} images={character.images} removable={!locked} onClose={() => setSelectedApp(null)}
-        onSave={(alias) => {
-          if (!alias && locked) return 'This second account can only be renamed once the story has chat history.';
+      <WhatsUpAccounts realName={character.name}
+        alias={apps.whatsup?.alias} owner={character} removable={!locked} onClose={() => setSelectedApp(null)}
+        onSave={(alias, portraitId) => {
+          if (!alias && apps.whatsup?.alias && locked) return 'This second account can only be renamed once the story has chat history.';
           const { alias: _previous, ...account } = { accountId: `character:${character.id}:whatsup`, enabled: true, bio: '', ...apps.whatsup };
-          return save(withCharacterAppProfile(character, 'whatsup', { ...account, ...(alias ? { alias } : {}) } as CharacterAppAccount));
+          return save(withCharacterAppProfile(character, 'whatsup', { ...account, ...(portraitId ? { portraitId, avatarImageId: undefined } : {}), ...(alias ? { alias } : {}) } as CharacterAppAccount));
         }} />
     </div>}
     {selectedApp === 'matchme' && <div id="character-account-panel-matchme" role="tabpanel"><PhoneDatingScreen key="profile" profileOnly
       owner={{ id: character.id, sourceId: character.id, storybookNodeId: '', kind: 'character', name: character.name,
-        label: character.name, age: character.age, gender: character.gender, profile: character, apps, profileImage: character.profileImage, social: socialFromCharacterApps(apps),
+        label: character.name, age: character.age, gender: character.gender, profile: character, apps, images: character.images, profileImage: character.profileImage, customPortraits: character.customPortraits, social: socialFromCharacterApps(apps),
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(), banking: character.banking ?? defaultRpStorybookCharacterBanking() }}
       characters={[]} history={[]} unread={{}} onMarkSeen={() => {}} isRunning={false}
       onSendMessage={async () => false} emojiOptions={[]} recentlyUsedEmojis={[]}
@@ -90,7 +88,7 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
         const current = apps.matchme;
         const saved = save(withCharacterAppProfile(character, 'matchme', {
           accountId: current?.accountId ?? `character:${character.id}:matchme`,
-          ...current, ...(avatar ? { avatarImageId: avatar.imageId, avatarCrop: avatar.crop } : {}),
+          ...current, ...(avatar ? { portraitId: avatar.portraitId, avatarImageId: undefined, avatarCrop: undefined } : {}),
           enabled: true, profileName: profile.name, bio: profile.bio, profile,
         }));
         if (saved) setSelectedApp(null);

@@ -22,8 +22,9 @@ with a direct chat action and respect reduced-motion preferences.
 The editable dating name is `apps.matchme.profileName`, defaulting to the real
 character name when omitted. Dating age and gender are independent profile
 fields. Public labels and conversation history use the dating identity.
-Avatars use the explicit dating avatar or first dating photo; WhatsUp keeps the
-real character name and portrait. Renames never change account or match IDs.
+Avatars select one of the character's three prepared portrait slots through
+`apps.matchme.portraitId`. Discovery photos remain separate, uncropped gallery
+references. Face cropping is managed centrally in the character gallery.
 
 ## Accounts and persistence
 

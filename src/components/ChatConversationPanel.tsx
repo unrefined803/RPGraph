@@ -1,3 +1,4 @@
+import { accountPortraitUrl } from '../characters/portraits';
 import { phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { MatchMeActivityCard } from './MatchMeActivityCard';
 import { groupMatchMeHistory, type MatchMeHistoryRow } from '../chat/matchMe';
@@ -12,12 +13,12 @@ import { EmojiText } from './EmojiText';
 import { accountHandleMatches } from '../characters/character';
 import { datingAccountMatches, datingAvatarDataUrl } from '../chat/datingAccounts';
 import { CharacterAvatar } from './CharacterAvatar';
-import { phoneCharacterAvatarDataUrl, whatsUpAliasAvatarDataUrl } from '../chat/phoneCharacters';
+import { whatsUpAliasAvatarDataUrl } from '../chat/phoneCharacters';
 import { whatsUpAliasOwner } from '../characters/messageIdentity';
 import { phoneNamesMatch } from '../chat/phoneMessages';
 import { createStableDerivedValueSelector } from '../chat/stableDerivedValue';
 import type { MessageStream } from '../chat/messageStream';
-import { isAccountPrivacyMode, socialAccountPresentation, socialDirectMessageCharacter, socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
+import { socialAccountPresentation, socialDirectMessageCharacter, socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
 import { socialTimelineGroups, socialTimelineMessageText } from '../chat/socialTimeline';
 import { AccountLinkText } from './AccountLinkText';
 import {
@@ -694,7 +695,7 @@ const MessageRow = memo(function MessageRow(props: MessageRowProps) {
     // Show the app identity: a dating persona or private account must not reveal the real name or portrait.
     const publicName = app === 'whatsup' ? name : socialAccountPresentation(app, character, name, name).name;
     const avatarDataUrl = aliasOwner ? whatsUpAliasAvatarDataUrl(aliasOwner) : app === 'matchme' ? datingAvatarDataUrl(character)
-      : isAccountPrivacyMode(app, character) ? undefined : phoneCharacterAvatarDataUrl(character);
+      : accountPortraitUrl(character, character?.apps?.[app]);
     return <CharacterAvatar
       className="chat-message-avatar"
       style={{ borderColor: characterColors.get(character?.name ?? name) ?? '#ffffff' }}

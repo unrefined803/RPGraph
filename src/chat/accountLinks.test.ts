@@ -53,7 +53,7 @@ function direct(characters = setup().characters, text = 'Here: @whatsup:Third Pe
 describe('inline account links', () => {
   it('resolves the bundled Storybook Fotogram messages with standard WhatsUp accounts', () => {
     const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v42.json', 'utf8')) as WorkflowFile;
-    const storybook = readFileSync('resources/default-content/Saturday_Night_Plans_v1.1.json', 'utf8');
+    const storybook = readFileSync('resources/default-content/Saturday_Night_Plans_v1.2.json', 'utf8');
     const storybookNode = workflow.nodes.find((node) => node.data.nodeType === 'rp-storybook')!;
     storybookNode.data.storybookJson = storybook;
     const characters = structuredClone(storyCharactersFromNodes(workflow.nodes));
@@ -151,7 +151,7 @@ describe('inline account links', () => {
     expect(buildSocialDirectory({ storyCharacters: characters, messages: [] }).users).toHaveLength(3);
   });
 
-  it('registers a library NPC phone identity and reuses its Fotogram avatar after sharing', () => {
+  it('registers a library NPC phone identity without borrowing another app avatar', () => {
     const player = entry('player', 'Alex Player', 'storybook');
     const library = entry('library', 'Library Person');
     delete library.character.apps!.whatsup;
@@ -166,7 +166,7 @@ describe('inline account links', () => {
     });
     expect(phoneRuntimeCharactersFromMessages(characters, [])).not.toContain(npc);
     expect(phoneRuntimeCharactersFromMessages(characters, [], new Set([target.accountId]))).toContain(npc);
-    expect(phoneCharacterAvatarDataUrl(npc)).toBe(fixture.character.images[0].dataUrl);
+    expect(phoneCharacterAvatarDataUrl(npc)).toBeUndefined();
   });
 
   it('accepts app display names for phone/social recipients and enforces the same bound MatchMe accounts', () => {

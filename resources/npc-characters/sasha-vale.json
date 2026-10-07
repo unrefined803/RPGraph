@@ -75,7 +75,7 @@
           "Sasha Vale"
         ],
         "bio": "",
-        "avatarImageId": "sasha_vale:image:book-lover-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:sasha_vale:fotogram",
@@ -87,7 +87,7 @@
           "Sasha Vale"
         ],
         "bio": "Bookshop corners, rainy afternoons and stories that stay with me.",
-        "avatarImageId": "sasha_vale:image:book-lover-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "sasha_vale:fotogram:post:bookshop-rain",
@@ -114,7 +114,7 @@
           "Sasha Vale"
         ],
         "bio": "Rainy days, indie bookshops, and honest conversation. Looking for someone genuine to share quiet moments and good stories with.",
-        "avatarImageId": "sasha_vale:image:book-lover-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 24,
           "bio": "Rainy days, indie bookshops, and honest conversation. Looking for someone genuine to share quiet moments and good stories with.",

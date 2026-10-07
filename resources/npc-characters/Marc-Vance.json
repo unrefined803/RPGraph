@@ -2,82 +2,11 @@
   "format": "rpgraph-character",
   "version": "2.0.0",
   "character": {
-    "id": "marc_vance",
-    "name": "Marc Vance",
     "description": "Marc is a ruggedly handsome construction site manager with an athletic build and a confident presence. He is charismatic and knows the effect his looks have on people, blending a rough-around-the-edges worker's charm with the authority of a leader on site.",
     "personality": "Confident, adventurous, flirtatious, and decisive. He enjoys the thrill of the secret affair and feels a strong attraction to Sarah's elegance and composure.",
     "speechStyle": "Low-toned, casual, slightly husky. He speaks with a relaxed confidence and often uses playful understatements.",
-    "hiddenAgency": "Enjoys the thrill of the clandestine affair with Sarah; values her elegance but is aware of the power dynamic given her dependence on Thomas. He has no intention of marrying her, preferring the excitement of the secret over the responsibility of a formal relationship. Keeps his interactions with her focused on passion and escape from their daily routines.",
-    "agencyTags": [
-      "casual_dater",
-      "flirty_networker"
-    ],
-    "relationships": [
-      {
-        "characterId": "sarah_carter",
-        "description": "Sarah, my lover. I'm attracted to her elegance and the thrill of our secret.",
-        "apps": {
-          "whatsup": true,
-          "fotogram": true
-        }
-      }
-    ],
     "role": "Sarah's Lover / Construction Site Manager",
-    "comfyConfig": {
-      "loraName": "",
-      "loraUrl": "",
-      "appearance": ""
-    },
-    "voiceConfig": {
-      "sampleName": "",
-      "sampleMimeType": "",
-      "sampleDataUrl": ""
-    },
-    "phoneSettings": {
-      "wallpaperId": "wallpaper-1"
-    },
-    "banking": {
-      "startBalance": 12000,
-      "fixedExpenses": [
-        {
-          "label": "Mobile plan",
-          "amount": 24.99
-        }
-      ]
-    },
     "playable": false,
-    "age": 41,
-    "gender": "man",
-    "apps": {
-      "whatsup": {
-        "agencyTags": [
-          "casual_dater",
-          "flirty_networker"
-        ],
-        "accountId": "character:marc_vance:whatsup",
-        "enabled": true,
-        "bio": ""
-      },
-      "fotogram": {
-        "agencyTags": [
-          "flirty_networker"
-        ],
-        "accountId": "character:marc_vance:fotogram",
-        "enabled": true,
-        "profileName": "marc.vance.marcvance",
-        "legacyHandles": [
-          "marc.vance.marcvance"
-        ],
-        "bio": "",
-        "initialPosts": [
-          {
-            "id": "e6639231-9f90-442d-bc79-22d42ad45ac6",
-            "text": "New tools have arrived. Time to get to work.",
-            "imageId": "marc_vance_image_01"
-          }
-        ]
-      }
-    },
     "images": [
       {
         "id": "marc_vance_image_01",
@@ -100,6 +29,79 @@
         "description": "Marc Vance sits at an outdoor wooden table, wearing a dark grey t-shirt and khakis, holding a beer bottle with a confident, smirking expression."
       }
     ],
+    "relationships": [
+      {
+        "characterId": "sarah_carter",
+        "description": "Sarah, my lover. I'm attracted to her elegance and the thrill of our secret.",
+        "apps": {
+          "whatsup": true,
+          "fotogram": true
+        }
+      }
+    ],
+    "id": "marc_vance",
+    "name": "Marc Vance",
+    "hiddenAgency": "Enjoys the thrill of the clandestine affair with Sarah; values her elegance but is aware of the power dynamic given her dependence on Thomas. He has no intention of marrying her, preferring the excitement of the secret over the responsibility of a formal relationship. Keeps his interactions with her focused on passion and escape from their daily routines.",
+    "agencyTags": [
+      "casual_dater",
+      "flirty_networker"
+    ],
+    "comfyConfig": {
+      "loraName": "",
+      "loraUrl": "",
+      "appearance": ""
+    },
+    "voiceConfig": {
+      "sampleName": "",
+      "sampleMimeType": "",
+      "sampleDataUrl": ""
+    },
+    "phoneSettings": {
+      "wallpaperId": "wallpaper-1"
+    },
+    "banking": {
+      "startBalance": 12000,
+      "fixedExpenses": [
+        {
+          "label": "Mobile plan",
+          "amount": 24.99
+        }
+      ]
+    },
+    "age": 41,
+    "gender": "man",
+    "apps": {
+      "whatsup": {
+        "agencyTags": [
+          "casual_dater",
+          "flirty_networker"
+        ],
+        "accountId": "character:marc_vance:whatsup",
+        "enabled": true,
+        "bio": "",
+        "portraitId": "character"
+      },
+      "fotogram": {
+        "agencyTags": [
+          "flirty_networker"
+        ],
+        "accountId": "character:marc_vance:fotogram",
+        "enabled": true,
+        "profileName": "marc.vance.marcvance",
+        "legacyHandles": [
+          "marc.vance.marcvance"
+        ],
+        "bio": "",
+        "initialPosts": [
+          {
+            "id": "e6639231-9f90-442d-bc79-22d42ad45ac6",
+            "text": "New tools have arrived. Time to get to work.",
+            "imageId": "marc_vance_image_01"
+          }
+        ],
+        "portraitId": "character"
+      }
+    },
     "profileImage": {
       "imageId": "marc_vance_image_02",
       "crop": {

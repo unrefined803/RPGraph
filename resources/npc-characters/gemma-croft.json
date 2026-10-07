@@ -42,7 +42,8 @@
       "whatsup": {
         "accountId": "character:gemma_croft:whatsup",
         "enabled": true,
-        "bio": "By appointment 🤍"
+        "bio": "By appointment 🤍",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:gemma_croft:fotogram",
@@ -52,6 +53,7 @@
           "croft.curated"
         ],
         "bio": "Stylist. Taste is not subjective. Outfit notes offered with love 🤍",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "gemma_croft:fotogram:post:terrace-trench",
@@ -68,7 +70,8 @@
         "legacyHandles": [
           "beige.flag"
         ],
-        "bio": "Just looking."
+        "bio": "Just looking.",
+        "portraitId": "none"
       }
     },
     "profileImage": {

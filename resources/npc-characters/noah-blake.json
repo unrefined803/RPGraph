@@ -40,7 +40,7 @@
           "Noah Blake"
         ],
         "bio": "",
-        "avatarImageId": "noah_blake:image:terrace-dinner"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:noah_blake:fotogram",
@@ -52,7 +52,7 @@
           "Noah Blake"
         ],
         "bio": "Good streets, long dinners and notes from wherever I am.",
-        "avatarImageId": "noah_blake:image:terrace-dinner",
+        "portraitId": "character",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -64,7 +64,7 @@
           "quiet.compass"
         ],
         "bio": "Appreciating good stories and thoughtful work. No demands, just a sincere hello.",
-        "avatarImageId": "noah_blake:image:terrace-dinner",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -76,7 +76,7 @@
           "Noah Blake"
         ],
         "bio": "Looking for a lasting relationship, easy conversation and shared everyday plans. Good streets, long dinners, and always room for dessert. Which city would you revisit?",
-        "avatarImageId": "noah_blake:image:terrace-dinner",
+        "portraitId": "character",
         "profile": {
           "age": 30,
           "bio": "Looking for a lasting relationship, easy conversation and shared everyday plans. Good streets, long dinners, and always room for dessert. Which city would you revisit?",

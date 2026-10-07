@@ -1,5 +1,5 @@
 import { accountLinkIdentity, characterMessageAliases, looseAccountLinkIdentity, matchingMessageAliases } from '../characters/messageAliases';
-import { appAvatarDataUrl, portraitDataUrl } from '../characters/portrait';
+import { accountPortraitUrl } from '../characters/portraits';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import type { ChatImageAttachment, MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -13,13 +13,9 @@ export function datingProfileName(character: StorybookCharacter) {
   return character.apps?.matchme?.profileName ?? character.social.plotTwist?.name ?? character.name;
 }
 
-/** Use an explicit dating avatar, then the first dating photo; never leak another app portrait. */
-export function datingAvatarDataUrl(character: StorybookCharacter | undefined, images: ChatImageAttachment[] = character?.images ?? [], profile = character?.social.plotTwist) {
-  const ids = [character?.apps?.matchme?.avatarImageId, ...(profile?.photoIds ?? [])];
-  const image = ids.flatMap((id) => images.find((entry) => entry.id === id) ?? [])[0];
-  // A stored face region frames the dating avatar; discovery photos stay uncropped.
-  const crop = character?.apps?.matchme?.avatarCrop;
-  return image ? crop ? portraitDataUrl(image, crop) : appAvatarDataUrl(character, image) : undefined;
+/** MatchMe uses a shared portrait slot independently of its discovery photos. */
+export function datingAvatarDataUrl(character: StorybookCharacter | undefined, images: ChatImageAttachment[] = character?.images ?? []) {
+  return accountPortraitUrl(character && { ...character, images }, character?.apps?.matchme);
 }
 
 export const datingNpcProfiles = [

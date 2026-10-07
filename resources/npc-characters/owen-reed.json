@@ -49,7 +49,7 @@
           "Owen Reed"
         ],
         "bio": "",
-        "avatarImageId": "owen_reed:image:coastal-roadtrip-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:owen_reed:fotogram",
@@ -61,7 +61,7 @@
           "Owen Reed"
         ],
         "bio": "Coastal detours, roadside food and playlists longer than the drive.",
-        "avatarImageId": "owen_reed:image:coastal-roadtrip-portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "owen_reed:fotogram:post:coastal-drive",
@@ -79,7 +79,7 @@
           "open.road.radio"
         ],
         "bio": "Here to encourage the regulars and discover something worth coming back for.",
-        "avatarImageId": "owen_reed:image:coastal-roadtrip-portrait",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -90,7 +90,7 @@
           "Owen Reed"
         ],
         "bio": "Coastal drives, ocean sunsets, and roadtrip playlists. Always down for good conversation by the sea.",
-        "avatarImageId": "owen_reed:image:coastal-roadtrip-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 27,
           "bio": "Coastal drives, ocean sunsets, and roadtrip playlists. Always down for good conversation by the sea.",

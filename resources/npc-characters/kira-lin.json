@@ -60,7 +60,8 @@
       "whatsup": {
         "accountId": "character:kira_lin:whatsup",
         "enabled": true,
-        "bio": "Spoil me with sushi & sweet words. 🍣💖"
+        "bio": "Spoil me with sushi & sweet words. 🍣💖",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:kira_lin:fotogram",
@@ -71,7 +72,7 @@
           "kira.lin.tokyo"
         ],
         "bio": "Foodie & nightlife lover. Do you think this outfit suits me? Looking for someone generous to take me out. 🌸✨",
-        "avatarImageId": "kira_lin:image:portrait",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "kira_lin:fotogram:post:omakase-night",
@@ -87,7 +88,8 @@
         "legacyHandles": [
           "Kira Lin"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:kira_lin:matchme",
@@ -97,7 +99,7 @@
           "Kira Lin"
         ],
         "bio": "Spoil me or let someone else do it. Looking for a generous date who loves fine dining, omakase dinners, and treating their girl right. 🍣💕",
-        "avatarImageId": "kira_lin:image:portrait",
+        "portraitId": "character",
         "profile": {
           "age": 20,
           "bio": "Spoil me or let someone else do it. Looking for a generous date who loves fine dining, omakase dinners, and treating their girl right. 🍣💕",

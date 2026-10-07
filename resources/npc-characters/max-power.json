@@ -55,7 +55,7 @@
           "Max Power"
         ],
         "bio": "",
-        "avatarImageId": "max_power:image:rooftop-musician-portrait"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:max_power:fotogram",
@@ -68,7 +68,7 @@
           "backstage.static"
         ],
         "bio": "Rooftop sets, loud opinions, and the occasional encore.",
-        "avatarImageId": "max_power:image:rooftop-musician-portrait",
+        "portraitId": "none",
         "initialPosts": [
           {
             "id": "max_power:fotogram:post:rooftop-show",
@@ -85,7 +85,7 @@
           "Max Power"
         ],
         "bio": "Indie musician, late night rooftop jams, and good guitar riffs. Looking for someone with good music taste and spontaneous energy.",
-        "avatarImageId": "max_power:image:rooftop-musician-portrait",
+        "portraitId": "character",
         "profile": {
           "age": 26,
           "bio": "Indie musician, late night rooftop jams, and good guitar riffs. Looking for someone with good music taste and spontaneous energy.",

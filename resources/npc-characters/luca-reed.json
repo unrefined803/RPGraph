@@ -50,7 +50,7 @@
           "Luca Reed"
         ],
         "bio": "",
-        "avatarImageId": "luca_reed:image:day-drive"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:luca_reed:fotogram",
@@ -62,7 +62,7 @@
           "Luca Reed"
         ],
         "bio": "Training days, long drives and nights worth losing sleep over.",
-        "avatarImageId": "luca_reed:image:day-drive",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "luca_reed:fotogram:post:day-drive",
@@ -80,7 +80,7 @@
           "midnight.mileage"
         ],
         "bio": "Good conversation, a little playful chemistry, and respect for your space.",
-        "avatarImageId": "luca_reed:image:day-drive",
+        "portraitId": "none",
         "initialPosts": []
       },
       "matchme": {
@@ -92,7 +92,7 @@
           "Luca Reed"
         ],
         "bio": "Active, easygoing and fond of unplanned drives. Looking for honest chemistry and casual dates while I finish my training. Tell me if you want something different.",
-        "avatarImageId": "luca_reed:image:day-drive",
+        "portraitId": "character",
         "profile": {
           "age": 27,
           "bio": "Active, easygoing and fond of unplanned drives. Looking for honest chemistry and casual dates while I finish my training. Tell me if you want something different.",

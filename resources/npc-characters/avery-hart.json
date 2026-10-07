@@ -46,7 +46,7 @@
           "Avery Hart"
         ],
         "bio": "",
-        "avatarImageId": "avery_hart:image:cafe-afternoon"
+        "portraitId": "character"
       },
       "fotogram": {
         "accountRole": "user",
@@ -63,14 +63,14 @@
           "Avery Hart"
         ],
         "bio": "City corners, good coffee, little reasons to dress up.",
-        "avatarImageId": "avery_hart:image:cafe-afternoon",
         "initialPosts": [
           {
             "id": "avery_hart:fotogram:post:cafe-afternoon",
             "text": "Found a sunny table and decided that was the whole plan for the afternoon.",
             "imageId": "avery_hart:image:cafe-afternoon"
           }
-        ]
+        ],
+        "portraitId": "character"
       },
       "onlyfriends": {
         "accountRole": "user",
@@ -86,8 +86,8 @@
           "velvet.hour"
         ],
         "bio": "Here for thoughtful people, small discoveries, and a little everyday charm.",
-        "avatarImageId": "avery_hart:image:cafe-afternoon",
-        "initialPosts": []
+        "initialPosts": [],
+        "portraitId": "none"
       },
       "matchme": {
         "agencyTags": [
@@ -102,7 +102,6 @@
           "Avery Hart"
         ],
         "bio": "Equal parts cozy cafe and last-minute night out. Looking for a lasting connection with someone kind, curious and willing to make plans together.",
-        "avatarImageId": "avery_hart:image:cafe-afternoon",
         "profile": {
           "age": 26,
           "bio": "Equal parts cozy cafe and last-minute night out. Looking for a lasting connection with someone kind, curious and willing to make plans together.",
@@ -115,7 +114,8 @@
             "avery_hart:image:mirror-evening"
           ],
           "decisions": {}
-        }
+        },
+        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants a relationship in which she is not automatically the person organizing everything. Her sincerity makes her ask direct questions rather than stage tests; her desire for commitment makes her notice whether someone follows through on small plans. Fotogram is an easy conversation starter, MatchMe is where she discusses romantic intentions, and WhatsUp follows mutual interest in meeting. On OnlyFriends she appreciates creative work under velvet.hour, keeping that leisure account separate from her event work. Repeated cancellations make her step back; an imperfect date with real effort can win her over.",

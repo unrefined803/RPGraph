@@ -41,7 +41,8 @@
       "whatsup": {
         "accountId": "character:felix_miller:whatsup",
         "enabled": true,
-        "bio": "buffering since 2012 🐈"
+        "bio": "buffering since 2012 🐈",
+        "portraitId": "character"
       },
       "fotogram": {
         "accountId": "character:felix_miller:fotogram",
@@ -52,7 +53,7 @@
           "felix.cat.exe"
         ],
         "bio": "expert in leaving unhelpful comments",
-        "avatarImageId": "felix_miller:image:portrait",
+        "portraitId": "none",
         "initialPosts": []
       },
       "onlyfriends": {
@@ -63,7 +64,8 @@
         "legacyHandles": [
           "void_whisperer"
         ],
-        "bio": "nothing here move along"
+        "bio": "nothing here move along",
+        "portraitId": "none"
       },
       "matchme": {
         "accountId": "character:felix_miller:matchme",
@@ -72,7 +74,8 @@
         "legacyHandles": [
           "Felix Miller"
         ],
-        "bio": ""
+        "bio": "",
+        "portraitId": "character"
       }
     },
     "profileImage": {

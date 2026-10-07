@@ -43,8 +43,10 @@
         "accountId": "character:damian_cross:whatsup",
         "enabled": true,
         "bio": "Collabs, bookings, shout-outs. Serious offers only 🔥",
+        "portraitId": "character",
         "alias": {
-          "name": "Cross Management"
+          "name": "Cross Management",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -55,6 +57,7 @@
           "damiancross"
         ],
         "bio": "Lifestyle | Menswear | Unfiltered takes. You saw me in the comments. Follow before it gets expensive.",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "damian_cross:fotogram:post:studio-lounge",
@@ -70,7 +73,8 @@
         "legacyHandles": [
           "damian.afterhours"
         ],
-        "bio": "The shoots Fotogram would take down, plus my day behind the scenes."
+        "bio": "The shoots Fotogram would take down, plus my day behind the scenes.",
+        "portraitId": "character"
       },
       "matchme": {
         "accountId": "character:damian_cross:matchme",
@@ -80,6 +84,7 @@
           "Damian Cross"
         ],
         "bio": "Creator, menswear guy, good at restaurants. Tell me your best angle and I will tell you mine.",
+        "portraitId": "character",
         "profile": {
           "age": 26,
           "bio": "Creator, menswear guy, good at restaurants. Tell me your best angle and I will tell you mine.",

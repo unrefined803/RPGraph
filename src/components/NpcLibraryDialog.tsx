@@ -1,5 +1,6 @@
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { CharacterName } from './CharacterName';
+import { PrivacyModeBadge } from './CharacterPhoneAppMarks';
 import { migratedProfileName } from '../characters/character';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
@@ -144,10 +145,20 @@ function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onR
           const activity = !account ? 'No account' : !enabled ? 'Disabled' : app === 'matchme'
             ? (photos ? `${photos} profile photo${photos === 1 ? '' : 's'}` : 'No profile photos')
             : app === 'whatsup' ? 'Account ready' : posts ? `${posts} post${posts === 1 ? '' : 's'}` : 'No posts';
-          return <div key={app} className={`npc-library-account ${enabled ? populated || app === 'whatsup' ? 'published' : 'ready' : 'inactive'}`}>
-            <span className="npc-library-account-mark" aria-hidden="true">{enabled ? populated ? '✓✓' : '✓' : '—'}</span>
-            <div><strong>{label}</strong><span className="npc-library-handle">{app === 'whatsup' ? character.name : account && migratedProfileName(account, character.name) ? `@${migratedProfileName(account, character.name)}` : '—'}</span>
-              <small>{activity}</small></div>
+          const secondAccount = app === 'whatsup' && enabled ? apps.whatsup?.alias?.name.trim() : '';
+          const supportsPrivacy = app === 'fotogram' || app === 'onlyfriends';
+          const privacy = supportsPrivacy && !!enabled && account?.privacyMode === true;
+          const handle = app === 'whatsup' ? character.name : account && migratedProfileName(account, character.name) ? `@${migratedProfileName(account, character.name)}` : '—';
+          const tooltip = !account ? `${label}: no account` : !enabled ? `${label}: disabled`
+            : app === 'whatsup' ? `${label}: ${handle}${secondAccount ? ` · Second account: ${secondAccount}` : ' · No second account'}`
+              : `${label}: ${handle}${supportsPrivacy ? ` · Privacy Mode ${privacy ? 'on (real name hidden)' : 'off'}` : ''}`;
+          return <div key={app} title={tooltip} className={`npc-library-account ${enabled ? populated || app === 'whatsup' ? 'published' : 'ready' : 'inactive'}`}>
+            <span className="npc-library-account-mark">
+              <span aria-hidden="true">{enabled ? populated || secondAccount ? '✓✓' : '✓' : '—'}</span>
+              {privacy && <PrivacyModeBadge />}
+            </span>
+            <div><strong>{label}</strong><span className="npc-library-handle">{handle}</span>
+              <small>{secondAccount ? `Second: ${secondAccount}` : activity}</small></div>
           </div>;
         })}
       </div>

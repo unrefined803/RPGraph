@@ -52,8 +52,10 @@
         "accountId": "character:dexter_shaw:whatsup",
         "enabled": true,
         "bio": "Shaw Capital. Private pool, limited seats. Message before Friday.",
+        "portraitId": "character",
         "alias": {
-          "name": "Shaw Capital Compliance"
+          "name": "Shaw Capital Compliance",
+          "portraitId": "none"
         }
       },
       "fotogram": {
@@ -64,6 +66,7 @@
           "shaw.capital"
         ],
         "bio": "Founder, Shaw Capital 📈 Private crypto pool | Weekly payouts | I reply to every DM",
+        "portraitId": "character",
         "initialPosts": [
           {
             "id": "dexter_shaw:fotogram:post:dubai-supercar",

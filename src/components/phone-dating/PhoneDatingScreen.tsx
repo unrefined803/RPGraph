@@ -10,11 +10,8 @@ import { PhoneAppListResizer } from '../PhoneAppListResizer';
 import { appDialogCoversPhone } from '../phoneEscape';
 import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ProfilePickDialog } from '../ProfilePickDialog';
-import type { RpStorybookCharacterImage } from '../../nodes/rp-storybook/model';
-import type { AppAvatarChoice, AppAvatarCrop } from '../../characters/character';
-import { wholeImageCrop } from '../../characters/faceCrop';
+import { PortraitSelector } from '../PortraitManager';
+import type { AppAvatarChoice } from '../../characters/character';
 import type { ChatImageAttachment } from '../../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, resetDatingPasses, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
@@ -32,7 +29,8 @@ type Props = {
   openRequest?: SocialDirectMessageOpenRequest;
   history: MessageRecord[];
   isRunning: boolean;
-  onSendMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
+  /** `'cancelled'`: the run was cancelled and the message taken back out of the conversation. */
+  onSendMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean | 'cancelled'>;
   emojiOptions: string[];
   recentlyUsedEmojis: string[];
   rpTimeTrackingEnabled?: boolean;
@@ -216,7 +214,13 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
     sending.current = true; setBusy(true); setError('');
     setChatDrafts((current) => ({ ...current, [id]: '' }));
     try {
-      const success = await onSendMessage(message, owner.id);
+      const result = await onSendMessage(message, owner.id);
+      if (result === 'cancelled') {
+        setFailedMessages((current) => { const next = { ...current }; delete next[id]; return next; });
+        setChatDrafts((current) => current[id] ? current : { ...current, [id]: message.text });
+        return;
+      }
+      const success = result;
       setFailedMessages((current) => { const next = { ...current }; if (success) delete next[id]; else next[id] = message; return next; });
       if (!success) setError('No reply was delivered. Check the workflow diagnostics and retry.');
     } catch { setFailedMessages((current) => ({ ...current, [id]: message })); setError('Message failed. You can retry.'); }
@@ -233,38 +237,13 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const previewCandidate = previewCandidateId ? availableProfiles.find((entry) => entry.id === previewCandidateId) : undefined;
   const previewPhotoCount = previewCandidate?.photos?.length ?? 0;
   const allImages = [...images, ...imported];
-  const ownerAvatarDataUrl = datingAvatarDataUrl(owner, allImages, profile);
+  const ownerAvatarDataUrl = datingAvatarDataUrl(owner, allImages);
 
-  // The profile picture is the account's avatar photo, otherwise the first photo. The photo the
-  // character portrait was cut from shows that portrait until a region of its own is chosen.
-  const storedAvatarPhoto = [owner?.apps?.matchme?.avatarImageId, ...draft.photoIds]
-    .flatMap((id) => allImages.find((entry) => entry.id === id) ?? [])[0];
-  const storedAvatar: AppAvatarChoice | undefined = storedAvatarPhoto && { imageId: storedAvatarPhoto.id,
-    ...(owner?.apps?.matchme?.avatarCrop && storedAvatarPhoto.id === (owner.apps.matchme.avatarImageId ?? owner.apps.matchme.profile?.photoIds[0])
-      ? { crop: owner.apps.matchme.avatarCrop } : {}) };
-  // A picture chosen in this form; it is saved with the profile.
   const [pickedAvatar, setPickedAvatar] = useState<AppAvatarChoice>();
-  const [avatarChoiceOpen, setAvatarChoiceOpen] = useState(false);
-  const [facePickImageId, setFacePickImageId] = useState<string>();
-  const chosenAvatar = pickedAvatar && draft.photoIds.includes(pickedAvatar.imageId) ? pickedAvatar : undefined;
-  const avatar = editing ? chosenAvatar ?? storedAvatar : undefined;
-  const avatarPhotos = draft.photoIds.flatMap((id) => allImages.find((entry) => entry.id === id) ?? []);
-  const facePickImage = avatarPhotos.find((entry) => entry.id === facePickImageId);
-  const portraitImageId = owner?.profileImage?.imageId;
-  // The whole photo of the portrait's source image needs an explicit region, or the portrait would show instead.
-  const wholePhotoCrop = (imageId: string) => {
-    const image = imageId === portraitImageId ? allImages.find((entry) => entry.id === imageId) : undefined;
-    return image ? wholeImageCrop(image) : undefined;
-  };
-  const sameCrop = (left?: AppAvatarCrop, right?: AppAvatarCrop) => JSON.stringify(left) === JSON.stringify(right);
-  const avatarShows = !avatar ? undefined
-    : !avatar.crop ? avatar.imageId === portraitImageId ? 'portrait' : 'whole'
-      : sameCrop(avatar.crop, wholePhotoCrop(avatar.imageId)) ? 'whole' : 'face';
-
   function save(next: DatingProfile, withAvatar = false) {
-    const picked = withAvatar && pickedAvatar && next.photoIds.includes(pickedAvatar.imageId) ? pickedAvatar : undefined;
+    const picked = withAvatar && pickedAvatar ? pickedAvatar : undefined;
     if (!owner || !onSave(owner, next, picked)) { setError('Could not save your profile. Please try again.'); return false; }
-    setProfile(next); setDraft(next); setPickedAvatar(undefined); setAvatarChoiceOpen(false); setError(''); return true;
+    setProfile(next); setDraft(next); setPickedAvatar(undefined); setError(''); return true;
   }
   function decide(decision: 'like' | 'superlike' | 'pass', target = candidate) {
     if (!profile || !target || isRunning || busy || celebration) return;
@@ -410,37 +389,9 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
                   </button>
                 </div>;
               })}</div>
-              {avatarShows && <p className={`pt-face-status${avatarShows === 'face' ? ' found' : ''}`} role="status">
-                {avatarShows === 'portrait' ? 'Your profile picture is your character portrait.'
-                  : avatarShows === 'face' ? '✓ Your profile picture is framed on the face.'
-                    : 'Your profile picture shows the whole photo.'}
-                {' '}<button type="button" className="pt-face-manual" onClick={() => {
-                  // With one photo there is nothing to choose: go straight to marking the face.
-                  if (avatarPhotos.length === 1) setFacePickImageId(avatarPhotos[0].id);
-                  else setAvatarChoiceOpen(!avatarChoiceOpen);
-                }}>Change profile picture</button>
-              </p>}
-              {avatarChoiceOpen && avatarPhotos.length > 1 && <div className="pt-face-choices" role="group" aria-label="Choose a profile picture from your photos">
-                {avatarPhotos.map((photo, index) => <button type="button" key={photo.id} aria-pressed={avatar?.imageId === photo.id}
-                  title="Use this photo and mark the face" onClick={() => setFacePickImageId(photo.id)}>
-                  <img src={photo.dataUrl} alt={`Profile photo ${index + 1}`} />
-                </button>)}
-              </div>}
-              {/* Mounted on the page so the dialog keeps its shared look instead of the MatchMe button skin. */}
-              {facePickImage && createPortal(<ProfilePickDialog
-                characterName={draft.name || 'MatchMe'}
-                image={{ description: '', ...facePickImage, name: facePickImage.name ?? '' } as RpStorybookCharacterImage}
-                currentProfileImage={avatar?.imageId !== facePickImage.id ? undefined
-                  : avatarShows === 'face' ? { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, crop: avatar.crop }
-                    // The portrait's own region is the starting point for its source photo.
-                    : avatarShows === 'portrait' && owner?.profileImage?.crop
-                      ? { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, crop: owner.profileImage.crop } : undefined}
-                onClose={() => setFacePickImageId(undefined)}
-                onApply={(profileImage) => {
-                  const crop = profileImage.crop ?? wholePhotoCrop(facePickImage.id);
-                  setPickedAvatar({ imageId: facePickImage.id, ...(crop ? { crop } : {}) });
-                  setFacePickImageId(undefined); setAvatarChoiceOpen(false);
-                }} />, document.body)}
+              <h3>Your profile portrait</h3><p>Manage portraits and face crops in the character gallery.</p>
+              <PortraitSelector owner={owner} value={pickedAvatar?.portraitId ?? owner.apps?.matchme?.portraitId}
+                onChange={(portraitId) => { if (portraitId !== 'none') setPickedAvatar({ portraitId }); }} />
               <div className="pt-photo-actions"><button type="button" disabled={profileOnly || busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => uploadRef.current?.click()}>{busy ? 'Importing…' : '↑ Upload'}</button>
                 <button type="button" disabled={busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => setGallery(true)}>▧ Character album</button></div>
               <input ref={uploadRef} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
