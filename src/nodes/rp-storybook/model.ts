@@ -1341,23 +1341,30 @@ export function parseRpStorybookAssistantResult(text: string, fallback: RpStoryb
     if (character.relationships === undefined && (!previous || previous.relationships !== undefined)) character.relationships = [];
     // Assistant image assignments reference the stored gallery; media bytes stay app-managed.
     if (previous) character.images = structuredClone(previous.images);
-    if (character.profileImage) {
+    if (character.customPortraits !== undefined && (!character.customPortraits || typeof character.customPortraits !== 'object' || Array.isArray(character.customPortraits))) {
+      throw new Error('customPortraits must be an object containing custom1 and/or custom2. No changes were applied.');
+    }
+    if (character.profileImage !== undefined) {
+      if (!character.profileImage || typeof character.profileImage !== 'object' || Array.isArray(character.profileImage)) {
+        throw new Error('profileImage must be a portrait object. Use remove to clear it. No changes were applied.');
+      }
       if (!character.images.some((image) => image.id === character.profileImage!.imageId)) {
         throw new Error('Choose a portrait from this character’s gallery. No changes were applied.');
       }
       // Framing is app-managed: it follows the image, whatever the patch wrote.
-      if (character.profileImage.imageId !== previous?.profileImage?.imageId) delete character.profileImage.crop;
-      else if (previous.profileImage.crop) character.profileImage.crop = previous.profileImage.crop;
+      delete character.profileImage.crop;
+      if (character.profileImage.imageId === previous?.profileImage?.imageId && previous.profileImage.crop) character.profileImage.crop = previous.profileImage.crop;
     }
     for (const [id, portrait] of Object.entries(character.customPortraits ?? {})) {
+      if (!portrait || typeof portrait !== 'object' || Array.isArray(portrait)) throw new Error('Custom portrait slots must be portrait objects. Use remove to clear a slot. No changes were applied.');
       if (!character.images.some((image) => image.id === portrait.imageId)) throw new Error('Choose a custom portrait from this character’s gallery. No changes were applied.');
       const stored = previous?.customPortraits?.[id as 'custom1' | 'custom2'];
-      if (portrait.imageId !== stored?.imageId) delete portrait.crop;
-      else if (stored.crop) portrait.crop = stored.crop;
+      delete portrait.crop;
+      if (portrait.imageId === stored?.imageId && stored.crop) portrait.crop = stored.crop;
     }
     // Reject portrait edits the app would otherwise silently ignore, so the assistant can correct them.
     const selections = (source?: typeof character) => JSON.stringify([Object.keys(source?.customPortraits ?? {}), !!source?.profileImage,
-      Object.entries(source?.apps ?? {}).map(([app, account]) => [app, account.portraitId, (account as { alias?: { portraitId?: string } }).alias?.portraitId])]);
+      Object.entries(source?.apps ?? {}).map(([app, account]) => ({ app, portraitId: account.portraitId, aliasPortraitId: (account as { alias?: { portraitId?: string } }).alias?.portraitId }))]);
     if (selections(character) !== selections(previous)) {
       const slots: Record<string, unknown> = character.customPortraits ?? {};
       if (Object.keys(slots).some((id) => id !== 'custom1' && id !== 'custom2')) throw new Error('customPortraits allows only custom1 and custom2. No changes were applied.');

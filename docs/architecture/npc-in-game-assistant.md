@@ -217,8 +217,12 @@ or changes a real or custom portrait to an attached image, the vision model repo
 `"faces": {"<image-id>": {"centerX": 50, "centerY": 30, "height": 25}}` (face
 center in percent of the image width and height, head height in percent of the
 image height). `faceCropFromEstimate` turns each estimate into the square crop
-of every portrait slot referencing that image; images without a reported face
-stay uncropped. **Manage Portraits** opens the shared slot manager and
+of unframed portrait slots referencing that attached image. Existing crops are
+preserved independently per slot; estimates for unattached images are ignored.
+Only the main Character Assistant and accounts stage apply these estimates.
+Both assistants ignore patch-authored crop coordinates and retain the existing
+crop when a slot keeps its image; selecting another image clears the old crop.
+Images without an accepted face estimate stay uncropped. **Manage Portraits** opens the shared slot manager and
 crop stage (`usePortraitCrop`) for a manual choice. The Python/MediaPipe
 detector from `character:faces:setup` remains a development tool for the
 `character:create`, `character:edit` and `character:faces` scripts and is not

@@ -91,19 +91,18 @@ export function validateAssistantCharacter(character: Character) {
 }
 
 /** Face positions a vision model reported, keyed by the gallery image they were seen in. */
-function assistantFaces(value: unknown, character: Character) {
+function assistantFaces(value: unknown, character: Character, attachmentIds: string[]) {
   const faces = new Map<string, FaceEstimate>();
   if (!value || typeof value !== 'object' || Array.isArray(value)) return faces;
   for (const [imageId, entry] of Object.entries(value)) {
     const face = faceEstimate(entry);
-    if (face && character.images.some((image) => image.id === imageId)) faces.set(imageId, face);
+    if (face && attachmentIds.includes(imageId) && character.images.some((image) => image.id === imageId)) faces.set(imageId, face);
   }
   return faces;
 }
 
 /**
- * Frame every round avatar that shows an image with a reported face: the
- * portrait, the WhatsUp second-account picture and the MatchMe avatar.
+ * Initialize unframed portrait slots from attached images without replacing user crops.
  */
 function withAssistantFaceCrops(character: Character, faces: Map<string, FaceEstimate>): Character {
   if (!faces.size) return character;
@@ -114,16 +113,16 @@ function withAssistantFaceCrops(character: Character, faces: Map<string, FaceEst
   };
   const next = structuredClone(character);
   const portraitCrop = crop(next.profileImage?.imageId);
-  if (next.profileImage && portraitCrop) next.profileImage.crop = portraitCrop;
+  if (next.profileImage && !next.profileImage.crop && portraitCrop) next.profileImage.crop = portraitCrop;
   for (const portrait of Object.values(next.customPortraits ?? {})) {
     const faceCrop = crop(portrait.imageId);
-    if (faceCrop) portrait.crop = faceCrop;
+    if (!portrait.crop && faceCrop) portrait.crop = faceCrop;
   }
   return next;
 }
 
 /** Apply a complete response transactionally, preserving binary data and existing identities. */
-export function parseCharacterAssistantResult(text: string, current: Character) {
+export function parseCharacterAssistantResult(text: string, current: Character, attachmentIds: string[] = []) {
   const response = assistantResponseJson(text) as { reply?: unknown; patch?: unknown; faces?: unknown; steps?: unknown };
   if (!response || typeof response.reply !== 'string' || !Array.isArray(response.patch)) {
     throw new Error('The assistant must return a reply string and a JSON Patch array.');
@@ -133,7 +132,7 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
       new Set(steps).size !== steps.length || (steps.length === 2 && steps[0] !== 'profile')) {
     throw new Error('Assistant steps must be profile followed by accounts, without duplicates.');
   }
-  const faces = assistantFaces(response.faces, current);
+  const faces = assistantFaces(response.faces, current, attachmentIds);
   if (!response.patch.length) {
     const framed = withAssistantFaceCrops(current, faces);
     if (framed !== current) validateAssistantCharacter(framed);
@@ -184,17 +183,19 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
   if (next.profileImage) {
     const image = next.images.find((entry) => entry.id === next.profileImage?.imageId);
     if (!image) throw new Error('The portrait must reference an existing gallery image.');
-    // Framing follows the image: an unchanged portrait keeps its crop when the patch omits it.
-    if (current.profileImage?.imageId !== next.profileImage.imageId) delete next.profileImage.crop;
-    else if (!next.profileImage.crop && current.profileImage.crop) next.profileImage.crop = current.profileImage.crop;
+    // Framing is app-managed, including explicitly uncropped portraits.
+    delete next.profileImage.crop;
+    if (current.profileImage?.imageId === next.profileImage.imageId && current.profileImage.crop) {
+      next.profileImage.crop = current.profileImage.crop;
+    }
     next.profileImage = { ...next.profileImage, dataUrl: image.dataUrl };
   }
   for (const [id, portrait] of Object.entries(next.customPortraits ?? {})) {
     const image = next.images.find((entry) => entry.id === portrait.imageId);
     if (!image) throw new Error('Custom portraits must reference existing gallery images.');
     const stored = current.customPortraits?.[id as keyof NonNullable<Character['customPortraits']>];
-    if (stored?.imageId !== portrait.imageId) delete portrait.crop;
-    else if (!portrait.crop && stored.crop) portrait.crop = stored.crop;
+    delete portrait.crop;
+    if (stored?.imageId === portrait.imageId && stored.crop) portrait.crop = stored.crop;
     portrait.dataUrl = image.dataUrl;
   }
   const framed = withAssistantFaceCrops(next, faces);
@@ -365,7 +366,7 @@ export async function runCharacterAuthoringStep(step: CharacterAuthoringStep, ch
   if (!Array.isArray(raw.patch)) throw new Error(`The ${step} specialist must return a JSON Patch array.`);
   const outside = raw.patch.map((operation: { path?: string }) => operation?.path ?? '').filter((path) => !stepScopes[step].test(path));
   if (outside.length) throw new Error(`The ${step} specialist tried to edit fields outside its step: ${outside.join(', ') || 'missing path'}.`);
-  const result = parseCharacterAssistantResult(text, character);
+  const result = parseCharacterAssistantResult(text, character, step === 'accounts' ? attachmentIds : []);
   // An empty patch is a clarifying question; the stage stays open for the answer.
   return { character: result.character, reply: result.reply, asked: raw.patch.length === 0 };
 }

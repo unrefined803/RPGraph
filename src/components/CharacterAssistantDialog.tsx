@@ -276,7 +276,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
           images: selectedImages });
         if (controller.signal.aborted) return;
         if (startRevision !== revision.current) throw new Error('The character changed during the request. The response was not applied. Send your request again.');
-        const initial = parseCharacterAssistantResult(response.text, original);
+        const initial = parseCharacterAssistantResult(response.text, original, imageIds);
         [stage, requestedNext] = initial.steps;
         result = stage ? await runStage(stage, initial.character) : initial;
       }
@@ -406,7 +406,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
                 })}<label><input type="checkbox" checked={attachments.includes(image.id)} disabled={busy} onChange={(event) => setAttachments((ids) => event.target.checked ? [...ids, image.id] : ids.filter((id) => id !== image.id))} />Attach</label></div>
                 {character.profileImage?.imageId === image.id && <div className="character-assistant-portrait-crop"><span>Portrait crop</span>
                   <button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => setFacePickImageId(image.id)}>Mark Face</button>
-                  <small>Or ask the AI in the chat to frame the face.</small></div>}
+                  <small>Adjust framing in Manage Portraits.</small></div>}
                 <button className="contextual-action-button nodrag" type="button" onClick={() => {
                   const used = Object.values(character.customPortraits ?? {}).some((portrait) => portrait.imageId === image.id) || character.profileImage?.imageId === image.id || character.apps?.whatsup?.alias?.avatarImageId === image.id || Object.values(character.apps ?? {}).some((account) => account.avatarImageId === image.id || account.initialPosts?.some((post) => post.imageId === image.id)) || character.apps?.matchme?.profile?.photoIds.includes(image.id);
                   if (used) { setStatus('Remove this image’s portrait, avatar, post and MatchMe assignments before deleting it.'); return; }

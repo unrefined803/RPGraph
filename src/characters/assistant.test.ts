@@ -42,15 +42,15 @@ describe('Character Assistant edits', () => {
     const result = parseCharacterAssistantResult(JSON.stringify({ reply: 'Selecting the portrait.', faces: { one: face, two: face, missing: face },
       patch: [{ op: 'add', path: '/character/profileImage', value: { imageId: 'one' } },
         { op: 'add', path: '/character/customPortraits', value: { custom1: { imageId: 'two' } } },
-        { op: 'add', path: '/character/apps/whatsup/alias', value: { name: 'Lex Work', portraitId: 'custom1' } }] }), character);
+        { op: 'add', path: '/character/apps/whatsup/alias', value: { name: 'Lex Work', portraitId: 'custom1' } }] }), character, ['one', 'two']);
     // A 400px head with room around it: a 600px square centered on the face.
     expect(result.character.profileImage).toMatchObject({ imageId: 'one', crop: { x: 20, y: 10, size: 60 } });
     expect(result.character.apps?.whatsup?.alias).toEqual({ name: 'Lex Work', portraitId: 'custom1' });
     expect(result.character.customPortraits?.custom1?.crop).toEqual({ x: 20, y: 10, size: 60 });
-    // A face reported without a patch re-centers the existing portrait; unusable estimates are ignored.
+    // Repeated face estimates must not overwrite existing slot framing.
     const recentered = parseCharacterAssistantResult(JSON.stringify({ reply: 'Centered.', patch: [],
-      faces: { one: { centerX: 0, centerY: 100, height: 20 }, two: { centerX: 'left' } } }), result.character);
-    expect(recentered.character.profileImage?.crop).toEqual({ x: 0, y: 70, size: 60 });
+      faces: { one: { centerX: 0, centerY: 100, height: 20 }, two: { centerX: 'left' } } }), result.character, ['one', 'two']);
+    expect(recentered.character.profileImage?.crop).toEqual({ x: 20, y: 10, size: 60 });
     expect(recentered.character.customPortraits?.custom1?.crop).toEqual({ x: 20, y: 10, size: 60 });
     const copy = copyAssistantCharacter(result.character);
     expect(copy.images.map((image) => image.id)).toContain(copy.customPortraits?.custom1?.imageId);

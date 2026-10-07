@@ -107,6 +107,53 @@ describe('shared portrait slots', () => {
     expect(kept.customPortraits?.custom1?.crop).toEqual({ x: 10, y: 20, size: 30 });
   });
 
+  for (const assistant of ['character', 'storybook'] as const) {
+    const apply = (character: Character, patch: Array<Record<string, unknown>>) => {
+      const prefix = assistant === 'character' ? '/character' : '/characters/0';
+      const response = JSON.stringify({ reply: 'Done.', patch: patch.map((op) => ({ ...op, path: prefix + op.path })) });
+      return assistant === 'character' ? parseCharacterAssistantResult(response, character).character
+        : parseRpStorybookAssistantResult(response, normalizeRpStorybook({ characters: [character] })).storybook.characters[0];
+    };
+
+    it(`${assistant} assistant preserves independent crops and ignores authored crop coordinates`, () => {
+      const character = fixture();
+      const invented = { x: 0, y: 0, size: 50 };
+      const next = apply(character, [
+        { op: 'add', path: '/profileImage/crop', value: invented },
+        { op: 'add', path: '/customPortraits/custom1/crop', value: invented },
+        { op: 'remove', path: '/customPortraits/custom2/crop' },
+      ]);
+      expect(next.profileImage?.crop).toBeUndefined();
+      expect(next.customPortraits?.custom1?.crop).toEqual(character.customPortraits?.custom1?.crop);
+      expect(next.customPortraits?.custom2?.crop).toEqual(character.customPortraits?.custom2?.crop);
+    });
+
+    it(`${assistant} assistant rejects malformed portrait values without changing the source`, () => {
+      const character = fixture();
+      delete character.apps!.fotogram!.portraitId;
+      const before = structuredClone(character);
+      for (const [path, value] of [
+        ['/customPortraits', []], ['/customPortraits', null], ['/customPortraits/custom1', null],
+        ['/profileImage', null], ['/apps/fotogram/portraitId', null],
+      ]) {
+        expect(() => apply(character, [{ op: 'add', path, value }])).toThrow();
+        expect(character).toEqual(before);
+      }
+    });
+  }
+
+  it('uses only attached face estimates and leaves existing crops independent', () => {
+    const character = fixture();
+    character.customPortraits!.custom1!.imageId = 'real';
+    const response = JSON.stringify({ reply: 'Done.', patch: [],
+      faces: { real: { centerX: 50, centerY: 50, height: 20 } } });
+    expect(parseCharacterAssistantResult(response, character).character).toEqual(character);
+    const next = parseCharacterAssistantResult(response, character, ['real']).character;
+    expect(next.profileImage?.crop).toBeDefined();
+    expect(next.customPortraits?.custom1?.crop).toEqual(character.customPortraits?.custom1?.crop);
+    expect(character.profileImage?.crop).toBeUndefined();
+  });
+
   it('keeps custom portrait media during external-image pruning', () => {
     const character = fixture();
     character.images[1].receivedFrom = 'Contact';
