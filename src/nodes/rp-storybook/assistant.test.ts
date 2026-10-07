@@ -21,6 +21,17 @@ function apply(patch: unknown[], fallback = starterRpStorybook, changedFields = 
 }
 
 describe('Storybook assistant patches', () => {
+  it('keeps every Storybook character playable despite omitted or false assistant values', () => {
+    const result = apply([
+      { op: 'add', path: '/characters/0/playable', value: false },
+      { op: 'add', path: '/characters/-', value: { id: 'alex', name: 'Alex Morgan', images: [], playable: false } },
+      { op: 'add', path: '/characters/-', value: { id: 'sam', name: 'Sam Carter', images: [] } },
+    ]);
+    const restored = parseRpStorybookJson(rpStorybookJsonText(result.storybook));
+    expect(restored.characters).toHaveLength(starterRpStorybook.characters.length + 2);
+    expect(restored.characters.every((character) => character.playable === true)).toBe(true);
+  });
+
   it('adds, edits and clears optional hidden agency through saved Storybooks', () => {
     const added = apply([{ op: 'add', path: '/characters/0/hiddenAgency', value: 'Protect a concealed ally.' }]).storybook;
     const restored = parseRpStorybookJson(rpStorybookJsonText(added));

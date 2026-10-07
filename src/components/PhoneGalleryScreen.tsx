@@ -43,7 +43,7 @@ export function PhoneGalleryScreen({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (appDialogCoversPhone()) {
+      if (portraitsOpen || appDialogCoversPhone()) {
         return;
       }
       if (event.key === 'Escape') {
@@ -59,7 +59,7 @@ export function PhoneGalleryScreen({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onBack, onSelectImage, selectedImage]);
+  }, [onBack, onSelectImage, portraitsOpen, selectedImage]);
 
   if (portraitsOpen && portraitOwner && onPortraitsChange) {
     return (

@@ -12,6 +12,7 @@ type PhoneAppMark = { app: 'whatsup' | 'fotogram' | 'onlyfriends' | 'matchme'; l
 /** Account marks shared by the Storybook character cards; the tooltip spells out what each mark means. */
 export function characterPhoneAppMarks(apps: CharacterApps | undefined, characterName: string): PhoneAppMark[] {
   const alias = apps?.whatsup?.alias?.name.trim();
+  const whatsUpEnabled = apps?.whatsup?.enabled !== false;
   const social = (app: 'fotogram' | 'onlyfriends' | 'matchme', label: string, enabled: boolean): PhoneAppMark => {
     const account = apps?.[app];
     const name = account ? migratedProfileName(account, characterName) : '';
@@ -21,9 +22,10 @@ export function characterPhoneAppMarks(apps: CharacterApps | undefined, characte
       : `${label}: ${name ? `@${name}` : characterName}${supportsPrivacy ? ` · Privacy Mode ${privacy ? 'on (real name hidden)' : 'off'}` : ''}` };
   };
   return [
-    { app: 'whatsup', label: 'WhatsUp', enabled: true, second: !!alias, privacy: false,
-      tooltip: `WhatsUp: ${characterName}${alias ? ` · Second account: ${alias}` : ' · No second account'}` },
-    social('fotogram', 'Fotogram', true),
+    { app: 'whatsup', label: 'WhatsUp', enabled: whatsUpEnabled, second: whatsUpEnabled && !!alias, privacy: false,
+      tooltip: !whatsUpEnabled ? 'WhatsUp: no account'
+        : `WhatsUp: ${characterName}${alias ? ` · Second account: ${alias}` : ' · No second account'}` },
+    social('fotogram', 'Fotogram', apps?.fotogram?.enabled !== false),
     social('onlyfriends', 'OnlyFriends', !!apps?.onlyfriends?.enabled),
     social('matchme', 'MatchMe', !!apps?.matchme?.enabled),
   ];
