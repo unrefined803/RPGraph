@@ -10,6 +10,7 @@ import {
 } from './dialogueVoiceSegments';
 import { ttsNarratorPrompt } from './ttsNarratorPrompt';
 import { whatsUpAlias } from '../characters/messageIdentity';
+import { phoneMessagesWithCurrentNames } from './phoneIdentity';
 
 const dialogueVoiceCacheMaxEntries = 64;
 // Reserved cache name for the narrator; the NUL byte cannot appear in character names.
@@ -28,7 +29,7 @@ export type DialogueVoiceRequest = {
 export function useDialogueVoice({
   storyCharacters,
   connections,
-  messages,
+  messages: storedMessages,
   englishProcessingEnabled,
   cloneVoiceProviderId,
   narratorOnlyProviderId,
@@ -74,6 +75,8 @@ export function useDialogueVoice({
   const preloadTokenRef = useRef(0);
   const readAloudTokenRef = useRef(0);
   const clipCacheRef = useRef(new Map<string, string>());
+  // A renamed sender keeps their voice: phone messages carry the current name of their account.
+  const messages = useMemo(() => phoneMessagesWithCurrentNames(storedMessages, storyCharacters), [storedMessages, storyCharacters]);
   const messagesRef = useRef(messages);
 
   const voiceConnection = useMemo(
@@ -140,7 +143,8 @@ export function useDialogueVoice({
           .find((message) => message.id === messageId)
           ?.voiceClips
           ?.find((clip) =>
-            clip.speakerName === speakerName &&
+            // A phone message has one sender, so its clip survives a rename of that sender.
+            (source === 'phone' || clip.speakerName === speakerName) &&
             clip.text === speechText &&
             (!source || clip.source === source)
           );
@@ -470,7 +474,6 @@ export function useDialogueVoice({
       const cacheKey = clipCacheKey(speakerName, speechText);
       const hadCachedClip = clipCacheRef.current.has(cacheKey);
       const hadStoredClip = message.voiceClips?.some((clip) =>
-        clip.speakerName === speakerName &&
         clip.text === speechText &&
         clip.source === 'phone' &&
         !!clip.dataUrl
