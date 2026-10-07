@@ -119,7 +119,8 @@ export function withCharacterPortrait<T extends { profileImage?: RpStorybookChar
   const previousId = character.profileImage?.imageId;
   const apps = character.apps && Object.fromEntries(Object.entries(character.apps).map(([app, account]) => [app,
     app !== 'fotogram' && app !== 'onlyfriends' && previousId && account.avatarImageId === previousId
-      ? { ...account, avatarImageId: profileImage?.imageId }
+      ? { ...account, avatarImageId: profileImage?.imageId,
+          ...(app === 'matchme' && previousId !== profileImage?.imageId ? { avatarCrop: undefined } : {}) }
       : account,
   ]));
   return { ...character, profileImage, ...(apps ? { apps } : {}) };

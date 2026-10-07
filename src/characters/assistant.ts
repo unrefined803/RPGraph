@@ -188,6 +188,13 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
     if (current.profileImage?.imageId !== next.profileImage.imageId) delete next.profileImage.crop;
     next.profileImage = { ...next.profileImage, dataUrl: image.dataUrl };
   }
+  // Stored face regions belong to the previous photo, not its replacement.
+  const alias = next.apps.whatsup?.alias;
+  if (alias && alias.avatarImageId !== current.apps?.whatsup?.alias?.avatarImageId) delete alias.avatarCrop;
+  const dating = next.apps.matchme;
+  const previousDating = current.apps?.matchme;
+  if (dating && (dating.avatarImageId ?? dating.profile?.photoIds?.[0]) !==
+      (previousDating?.avatarImageId ?? previousDating?.profile?.photoIds?.[0])) delete dating.avatarCrop;
   const framed = withAssistantFaceCrops(next, faces);
   validateAssistantCharacter(framed);
   return { character: framed, reply: response.reply, steps: steps as CharacterAuthoringStep[] };

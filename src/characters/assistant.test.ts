@@ -15,6 +15,22 @@ function fixture(): Character {
 const response = (patch: unknown[]) => JSON.stringify({ reply: 'Updated.', patch });
 
 describe('Character Assistant edits', () => {
+  it.each(['whatsup/alias', 'matchme'])('clears old %s crops when selecting another image', (account) => {
+    const original = fixture();
+    const crop = { x: 10, y: 10, size: 40 };
+    original.apps!.whatsup!.alias = { name: 'Alex Work', avatarImageId: 'one', avatarCrop: crop };
+    original.apps!.matchme = { accountId: `character:${original.id}:matchme`, enabled: false,
+      profileName: 'Alex', bio: '', avatarImageId: 'one', avatarCrop: crop };
+    const before = structuredClone(original);
+    const changed = parseCharacterAssistantResult(response([
+      { op: 'replace', path: `/character/apps/${account}/avatarImageId`, value: 'two' },
+    ]), original).character;
+    const selected = account === 'matchme' ? changed.apps?.matchme : changed.apps?.whatsup?.alias;
+    expect(selected?.avatarImageId).toBe('two');
+    expect(selected?.avatarCrop).toBeUndefined();
+    expect(original).toEqual(before);
+  });
+
   it('preserves historical routing aliases when replacing an account to rename it', () => {
     const original = fixture();
     original.apps!.fotogram = { accountId: 'alex-fg', enabled: true, bio: '',

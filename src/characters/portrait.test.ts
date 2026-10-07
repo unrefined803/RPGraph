@@ -66,11 +66,15 @@ describe('portable character portrait crops', () => {
   it('keeps explicit social album selections when the portrait changes or is cleared', () => {
     const character = normalizeRpStorybook({ characters: [container.character] }).characters[0];
     const original = structuredClone(character);
+    character.apps!.matchme!.avatarCrop = { x: 10, y: 10, size: 40 };
     character.apps!.onlyfriends = { ...character.apps!.fotogram!, accountId: 'separate', avatarImageId: 'scenery' };
     const next = { imageId: character.images[1].id, dataUrl: character.images[1].dataUrl, crop: { x: 5, y: 5, size: 30 } };
     const changed = withCharacterPortrait(character, next);
     expect(changed.apps?.fotogram?.avatarImageId).toBe(original.apps?.fotogram?.avatarImageId);
     expect(changed.apps?.matchme?.avatarImageId).toBe(next.imageId);
+    expect(changed.apps?.matchme?.avatarCrop).toBeUndefined();
+    expect(character.apps?.matchme?.avatarCrop).toEqual({ x: 10, y: 10, size: 40 });
+    expect(withCharacterPortrait(character, character.profileImage).apps?.matchme?.avatarCrop).toEqual({ x: 10, y: 10, size: 40 });
     expect(changed.apps?.onlyfriends?.avatarImageId).toBe('scenery');
     expect(character.profileImage).toEqual(original.profileImage);
     const cleared = withCharacterPortrait(changed, undefined);
