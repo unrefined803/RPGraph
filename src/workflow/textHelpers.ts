@@ -1,3 +1,5 @@
+import { phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
+import { whatsUpAliasOwner } from '../characters/messageIdentity';
 import { socialDirectMessageDisplayText } from '../chat/socialMedia';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
@@ -121,6 +123,24 @@ function phoneMessagePrefix(message: MessageRecord, from: string, to: string) {
     : `[WhatsUp] ${from} texts ${to}:`;
 }
 
+/**
+ * The model reads every thread, so history names the person behind a second
+ * WhatsUp account; otherwise it loses track of who is writing.
+ */
+function withSecondAccountLabels(messages: MessageRecord[], characters: StorybookCharacter[]) {
+  if (!characters.some((character) => character.apps?.whatsup?.alias?.name.trim())) return messages;
+  const label = (name: string | undefined, accountId: string | undefined) => {
+    const owner = name ? whatsUpAliasOwner(characters, accountId, name) : undefined;
+    return owner ? `${name} (second account of ${owner.name})` : undefined;
+  };
+  return messages.map((message) => {
+    if (message.channel !== 'phone') return message;
+    const from = label(message.phoneFrom, message.phoneFromAccountId);
+    const to = label(message.phoneTo, message.phoneToAccountId);
+    return from || to ? { ...message, phoneHistoryLabels: { from, to } } : message;
+  });
+}
+
 function formatMessageRecordForContext(
   message: MessageRecord,
   translated: boolean,
@@ -151,8 +171,12 @@ function formatMessageRecordForContext(
       ? linkedPhoneMessages.get(contextMessage.replyToMessageId)
       : undefined;
     const formatted = replyTo
-      ? `[WhatsUp] ${formatPhoneReplyInput(phoneMessage.from, replyTo, text, translated)}`
-      : `${phoneMessagePrefix(contextMessage, phoneMessage.from, phoneMessage.to)} ${phoneImageContext(contextMessage)}${text}`;
+      ? `[WhatsUp] ${formatPhoneReplyInput(contextMessage.phoneHistoryLabels?.from ?? contextMessage.phoneFrom ?? phoneMessage.from, replyTo, text, translated)}`
+      : `${phoneMessagePrefix(
+          contextMessage,
+          contextMessage.phoneHistoryLabels?.from ?? contextMessage.phoneFrom ?? phoneMessage.from,
+          contextMessage.phoneHistoryLabels?.to ?? contextMessage.phoneTo ?? phoneMessage.to,
+        )} ${phoneImageContext(contextMessage)}${text}`;
     return includeRpDateTime
       ? withRpDateTime(
           formatted,
@@ -164,8 +188,8 @@ function formatMessageRecordForContext(
   };
 
   if (message.channel === 'phone') {
-    const from = message.phoneFrom || message.speakerName || 'Unknown';
-    const to = message.phoneTo || 'Unknown';
+    const from = message.phoneHistoryLabels?.from || message.phoneFrom || message.speakerName || 'Unknown';
+    const to = message.phoneHistoryLabels?.to || message.phoneTo || 'Unknown';
     const text = translated
       ? message.translatedText ?? message.originalText
       : message.originalText;
@@ -586,6 +610,8 @@ export function formatChatHistorySegments(
   linkedMessages: MessageRecord[] = messages,
   characters: StorybookCharacter[] = [],
 ): FormattedChatHistorySegment[] {
+  messages = withSecondAccountLabels(phoneMessagesWithCurrentNames(messages, characters), characters);
+  linkedMessages = withSecondAccountLabels(phoneMessagesWithCurrentNames(linkedMessages, characters), characters);
   messages = messages.map((message) => message.socialDirectMessage
     ? { ...message,
         originalText: socialDirectMessageDisplayText(message, false, characters, true),

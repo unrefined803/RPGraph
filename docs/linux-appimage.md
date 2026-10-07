@@ -119,9 +119,8 @@ any startup errors. Test on your actual desktop session (Wayland or X11):
 Application data stays in the existing user-data directory, normally
 `~/.config/RPgraph Studio` (or under `XDG_CONFIG_HOME`), independently of where
 the AppImage lives. AI providers and ComfyUI remain external services.
-Optional automatic face detection still requires a separate Python environment
-and model, configured with `RPGRAPH_FACE_PYTHON` and `RPGRAPH_FACE_MODEL`; those
-are not bundled. Manual portrait cropping is available without that setup.
+The application contains no face detector: avatar faces are marked by hand, or
+estimated by the vision provider selected in the Character Assistant.
 
 An Arch Linux build and manual test do not establish compatibility with every
 Linux distribution. Test additional target distributions before publishing a

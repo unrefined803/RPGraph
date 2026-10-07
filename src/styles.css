@@ -7144,6 +7144,87 @@ input[type="number"]::-webkit-outer-spin-button {
   font-weight: 550;
 }
 
+/* Marks where a conversation starts on or switches to the owner's other WhatsUp account. */
+.phone-account-switch-badge {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0;
+}
+
+.phone-account-switch-badge span {
+  padding: 3px 10px;
+  border: 1px solid rgba(94, 234, 212, 0.3);
+  border-radius: 999px;
+  color: #5eead4;
+  background: rgba(94, 234, 212, 0.08);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+/* Second WhatsUp name: settings button, editor area and the per-conversation sender switch. */
+.phone-list-header > .phone-alias-settings-button {
+  width: 28px;
+  height: 28px;
+  margin-left: 0;
+}
+
+.phone-list-header > .phone-alias-settings-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.phone-alias-editor-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.phone-chat-header .phone-alias-sender-toggle {
+  flex: none;
+  max-width: 45%;
+  margin-left: auto;
+  overflow: hidden;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.phone-chat-header .phone-alias-sender-toggle strong {
+  color: var(--soft-white);
+  font-size: inherit;
+  font-weight: 650;
+}
+
+.phone-chat-header .phone-alias-sender-toggle:hover,
+.phone-chat-header .phone-alias-sender-toggle:focus-visible {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Shown while the chosen account is one this contact has never seen. */
+.phone-alias-sender-warning {
+  flex: none;
+  margin: 0;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.08);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.phone-alias-sender-warning strong {
+  color: #fde68a;
+  font-weight: 650;
+}
+
 .phone-thread {
   display: flex;
   min-height: 0;
@@ -30169,6 +30250,37 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   cursor: default;
 }
 
+/* Orbiting ring around the cancel button while a workflow run is active. */
+.big-screen-rail-button.running {
+  color: var(--soft-white);
+}
+
+.big-screen-rail-button.running::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 2px solid rgba(122, 162, 232, 0.16);
+  border-top-color: #7aa2e8;
+  border-right-color: rgba(122, 162, 232, 0.55);
+  border-radius: 50%;
+  filter: drop-shadow(0 0 5px rgba(92, 132, 214, 0.55));
+  pointer-events: none;
+  animation: big-screen-rail-run-spin 1.1s linear infinite;
+}
+
+@keyframes big-screen-rail-run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .big-screen-rail-button.running::after {
+    border-color: rgba(122, 162, 232, 0.7);
+    animation: none;
+  }
+}
+
 .big-screen-rail-label {
   font-size: 16px;
   font-weight: 850;
@@ -30486,4 +30598,201 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
 .phone-social-moderation-reveal:not([open]) .hide-image-label,
 .phone-social-moderation-reveal[open] .show-image-label {
   display: none;
+}
+
+/* Drop-down banners announcing new phone events above the open phone screen. */
+.phone-banner-anchor {
+  position: relative;
+  z-index: 60;
+  flex: none;
+  width: 100%;
+  height: 0;
+}
+
+.phone-banner-stack {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  display: grid;
+  width: min(560px, calc(100% - 20px));
+  gap: 8px;
+  transform: translateX(-50%);
+}
+
+.phone-banner {
+  --phone-icon: 54px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 20px;
+  color: var(--soft-white);
+  /* Frosted glass: translucent body, bright top edge, dark lower lip for depth. */
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 42%, rgba(255, 255, 255, 0.07)),
+    rgba(14, 21, 35, 0.5);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 22px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(22px) saturate(1.6);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  animation: phone-banner-drop 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Specular sheen across the upper half of the glass. */
+.phone-banner::before {
+  position: absolute;
+  inset: 0 0 52% 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0));
+  content: '';
+  pointer-events: none;
+}
+
+.phone-banner:hover {
+  border-color: rgba(255, 255, 255, 0.36);
+  box-shadow:
+    0 22px 46px rgba(0, 0, 0, 0.55),
+    0 4px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 26px rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+@keyframes phone-banner-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-120%) scale(0.97);
+  }
+}
+
+.phone-banner-body {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 38px 12px 11px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.phone-banner-body:focus-visible {
+  background: rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+.phone-banner-body > [class$='-icon'] {
+  flex: none;
+}
+
+.phone-banner-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+
+.phone-banner-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.phone-banner-heading strong {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-banner-heading span {
+  flex: none;
+  color: #b4c3dc;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.phone-banner-text {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #e3eaf6;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Quiet close mark in the corner; everything else on the banner opens the event. */
+.phone-banner-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  z-index: 1;
+  color: rgba(253, 126, 146, 0.85);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.phone-banner-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.phone-banner-close:hover,
+.phone-banner-close:focus-visible {
+  color: #fecdd3;
+  background: rgba(244, 63, 94, 0.28);
+  outline: none;
+}
+
+/* Remaining time before the banner closes itself unread. */
+.phone-banner-countdown {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(122, 162, 232, 0.25), rgba(143, 180, 240, 0.85));
+  transform-origin: left;
+  animation: phone-banner-countdown 10s linear forwards;
+}
+
+.phone-banner.held .phone-banner-countdown {
+  animation: none;
+}
+
+@keyframes phone-banner-countdown {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone-banner,
+  .phone-banner-countdown {
+    animation: none;
+  }
 }

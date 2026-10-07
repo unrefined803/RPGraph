@@ -10,6 +10,18 @@ import type {
   RpStorybookCharacterVoiceConfig,
 } from '../nodes/rp-storybook/model';
 
+export type AppAvatarCrop = { x: number; y: number; size: number };
+/** A gallery photo chosen as an app avatar; without a crop the whole photo is shown. */
+export type AppAvatarChoice = { imageId: string; crop?: AppAvatarCrop };
+
+/** Optional second WhatsUp name: another link to the same account, shown with its own picture. */
+export type WhatsUpAlias = {
+  name: string;
+  /** Own gallery picture; this name never falls back to the character portrait. */
+  avatarImageId?: string;
+  avatarCrop?: AppAvatarCrop;
+};
+
 export type CharacterAppAccount = {
   accountId: string;
   enabled: boolean;
@@ -24,10 +36,12 @@ export type CharacterAppAccount = {
   displayName?: string;
   bio: string;
   avatarImageId?: string;
+  /** MatchMe only: face region of the dating avatar, in the portrait crop's units. */
+  avatarCrop?: AppAvatarCrop;
   initialPosts?: Array<{ id: string; text: string; imageId?: string }>;
 };
 export type CharacterApps = {
-  whatsup?: CharacterAppAccount;
+  whatsup?: CharacterAppAccount & { alias?: WhatsUpAlias };
   fotogram?: CharacterAppAccount;
   onlyfriends?: CharacterAppAccount;
   matchme?: CharacterAppAccount & { profile?: DatingProfile };
@@ -92,6 +106,21 @@ export function accountHandleMatches(account: CharacterAppAccount | undefined, v
 
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const string = (value: unknown) => typeof value === 'string' ? value : '';
+function avatarCrop(value: unknown): AppAvatarCrop | undefined {
+  const { x, y, size } = record(value);
+  return [x, y, size].every((entry) => typeof entry === 'number' && Number.isFinite(entry) && entry >= 0 && entry <= 100) && (size as number) > 0
+    ? { x: x as number, y: y as number, size: size as number } : undefined;
+}
+/** A second WhatsUp name exists only once it is non-empty. */
+function whatsUpAlias(value: unknown): WhatsUpAlias | undefined {
+  const source = record(value);
+  const name = string(source.name).trim();
+  if (!name) return undefined;
+  const crop = avatarCrop(source.avatarCrop);
+  return { name,
+    ...(typeof source.avatarImageId === 'string' && source.avatarImageId ? { avatarImageId: source.avatarImageId } : {}),
+    ...(crop ? { avatarCrop: crop } : {}) };
+}
 export function normalizeCharacterApps(value: unknown, legacy: unknown, id: string, name: string): CharacterApps {
   const source = record(value);
   const social = record(legacy);
@@ -124,6 +153,8 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
       ...(legacyHandles.length ? { legacyHandles } : {}),
       bio: string(account.bio) || profile?.bio || '',
       ...(typeof account.avatarImageId === 'string' ? { avatarImageId: account.avatarImageId } : {}),
+      ...(app === 'matchme' && avatarCrop(account.avatarCrop) ? { avatarCrop: avatarCrop(account.avatarCrop) } : {}),
+      ...(app === 'whatsup' && whatsUpAlias(account.alias) ? { alias: whatsUpAlias(account.alias) } : {}),
       ...(Array.isArray(account.initialPosts) ? { initialPosts: account.initialPosts.map((post) => {
         const entry = record(post);
         return { id: string(entry.id), text: string(entry.text), ...(typeof entry.imageId === 'string' ? { imageId: entry.imageId } : {}) };
@@ -171,7 +202,10 @@ export function characterPayload(character: Omit<Character, 'profileImage'> & {
     apps.matchme = { ...apps.matchme, profile: { ...profile, decisions: {} } };
   }
   return { ...rest, relationships: rest.relationships ?? [],
-    ...(portable ? { images: rest.images.map(({ receivedFrom: _receivedFrom, imageAccess: _imageAccess, turnUpload: _turnUpload, ...image }) => image) } : {}),
+    ...(portable ? { images: rest.images.map(({
+      receivedFrom: _receivedFrom, receivedFromCharacterId: _receivedFromCharacterId,
+      receivedFromAccountId: _receivedFromAccountId, imageAccess: _imageAccess, turnUpload: _turnUpload, ...image
+    }) => image) } : {}),
     playable: character.playable ?? true, apps,
     ...(profileImage ? { profileImage: { imageId: profileImage.imageId, crop: profileImage.crop } } : {}) };
 }

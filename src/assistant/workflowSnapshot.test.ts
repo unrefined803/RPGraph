@@ -18,7 +18,7 @@ describe('workflow assistant overview', () => {
     });
   });
 
-  it.each(['default_normal_v41.json', 'default_planning_v41.json'])(
+  it.each(['default_normal_v42.json', 'default_planning_v42.json'])(
     'keeps every node and connection while reducing %s configuration size',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as { nodes: WorkflowNode[]; edges: Edge[] };

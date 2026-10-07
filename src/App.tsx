@@ -15,7 +15,7 @@ import { textEffectsStyle } from './chat/textEffects';
 import { CharacterName } from './components/CharacterName';
 import { AppMessageAvatars } from './components/AppMessageAvatars';
 import { CharacterAvatar } from './components/CharacterAvatar';
-import { phoneCharacterAvatarDataUrl } from './chat/phoneCharacters';
+import { phoneCharacterAvatarDataUrl, phoneConversationKeyTwins } from './chat/phoneCharacters';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
 import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
@@ -27,7 +27,8 @@ import { shieldTranslationAccountLinks, restoreTranslationAccountLinks } from '.
 import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
-import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
+import { resolveWhatsUpMessageParticipants, whatsUpAliasInUse } from './characters/messageIdentity';
+import type { AppAvatarChoice } from './characters/character';
 import { phoneImageSource } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
@@ -68,11 +69,17 @@ import { runProgress } from './chat/runProgress';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PhoneNotificationBanners } from './components/PhoneNotificationBanners';
+import { latestRoundBaselineMessageId } from './chat/phoneBanners';
 import { PhonePanel } from './components/PhonePanel';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import { PhoneTab } from './chat/PhoneTab';
-import { panelViewSwitchEvent } from './app/panelViewSwitchEvent';
+import {
+  panelViewSwitchHoldMs,
+  panelViewSwitchPressEvent,
+  panelViewSwitchReleaseEvent,
+} from './app/panelViewSwitchEvent';
 import { PhoneTabletFrame } from './components/PhoneTabletFrame';
 import { PhoneAppListScaleContext } from './components/phoneAppListScale';
 import {
@@ -189,6 +196,7 @@ import {
 import { useDirectAppActions } from './app/useDirectAppActions';
 import {
   latestHistoryRpDateTime,
+  matchingPhoneName,
   phoneConversationKey,
   phoneMessageShouldBeMarkedSeen,
 } from './data-management/selectors';
@@ -1071,6 +1079,11 @@ function App() {
     openPhoneConversation,
     phoneContacts,
     selectedPhoneContact,
+    phoneSenderAccountId,
+    viewedPhoneAliasInUse,
+    phoneWritesAsAlias,
+    phoneSenderUnknownToContact,
+    setPhoneWritesAsAlias,
     openPhoneContact,
     switchActivePlayer,
     selectedPhoneConversation,
@@ -1147,6 +1160,9 @@ function App() {
     addBankingContact,
     markSelectedPhoneConversationSeen,
     phoneHomeRequestId,
+    phoneAppOpenRequest,
+    phoneBanners,
+    openPhoneBanner,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,
@@ -1646,6 +1662,7 @@ function App() {
     currentImageSourceById: currentStorybookImageSourceById,
     changePhoneWallpaper: changeStorybookPhoneWallpaper,
     saveSocialUsername: saveStorybookSocialUsername,
+    saveWhatsUpAlias,
     saveDatingProfile,
     imageIdsFromAttachments,
     imageDescriptionFromAttachments,
@@ -2493,14 +2510,43 @@ function App() {
     restoreLastDeletedNodesRef.current = restoreLastDeletedNodes;
   });
 
-  // Tab switches between the Chat and Phone views while the panel is on screen.
-  const switchPanelViewRef = useRef(() => {});
+  // A short Tab press switches between the Chat and Phone views while the panel
+  // is on screen. The switch happens on release, because holding Tab on the
+  // Phone view changes its notification owner instead, like a double-click on
+  // the Phone tab.
+  const pressPanelViewSwitchRef = useRef(() => {});
+  const releasePanelViewSwitchRef = useRef(() => {});
+  const holdPanelViewSwitchRef = useRef(() => {});
+  const panelViewSwitchPressRef = useRef<{ holdTimer?: number; held: boolean } | undefined>(undefined);
   useEffect(() => {
-    switchPanelViewRef.current = () => {
+    holdPanelViewSwitchRef.current = () => {
+      if (cyclePhoneNotificationOwner()) {
+        setPhoneNotificationSwitchHintSeen(true);
+      }
+    };
+    pressPanelViewSwitchRef.current = () => {
       if (
         (!bigScreenMode && !isChatPanelOpen) ||
         document.querySelector('[role="dialog"], .dialog-backdrop')
       ) {
+        return;
+      }
+      const press: { holdTimer?: number; held: boolean } = { held: false };
+      if (chatPanelView === 'phone') {
+        press.holdTimer = window.setTimeout(() => {
+          press.held = true;
+          holdPanelViewSwitchRef.current();
+        }, panelViewSwitchHoldMs);
+      }
+      panelViewSwitchPressRef.current = press;
+    };
+    releasePanelViewSwitchRef.current = () => {
+      const press = panelViewSwitchPressRef.current;
+      if (!press) {
+        return;
+      }
+      cancelPanelViewSwitchPress();
+      if (press.held) {
         return;
       }
       if (chatPanelView === 'chat' && phoneAvailable) {
@@ -2510,10 +2556,23 @@ function App() {
       }
     };
   });
+  function cancelPanelViewSwitchPress() {
+    window.clearTimeout(panelViewSwitchPressRef.current?.holdTimer);
+    panelViewSwitchPressRef.current = undefined;
+  }
   useEffect(() => {
-    const onPanelViewSwitch = () => switchPanelViewRef.current();
-    window.addEventListener(panelViewSwitchEvent, onPanelViewSwitch);
-    return () => window.removeEventListener(panelViewSwitchEvent, onPanelViewSwitch);
+    const onPress = () => pressPanelViewSwitchRef.current();
+    const onRelease = () => releasePanelViewSwitchRef.current();
+    window.addEventListener(panelViewSwitchPressEvent, onPress);
+    window.addEventListener(panelViewSwitchReleaseEvent, onRelease);
+    // A press that loses the window never sees its release.
+    window.addEventListener('blur', cancelPanelViewSwitchPress);
+    return () => {
+      window.removeEventListener(panelViewSwitchPressEvent, onPress);
+      window.removeEventListener(panelViewSwitchReleaseEvent, onRelease);
+      window.removeEventListener('blur', cancelPanelViewSwitchPress);
+      cancelPanelViewSwitchPress();
+    };
   }, []);
 
   useEffect(() => {
@@ -4069,9 +4128,9 @@ function App() {
 
   // A run keeps the appendPhoneMessage closure from its start, so the view the
   // player is on when a reply arrives has to be read through a ref.
-  const phoneViewRef = useRef({ chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey });
+  const phoneViewRef = useRef({ chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey, owner: viewedPhoneCharacter });
   useLayoutEffect(() => {
-    phoneViewRef.current = { chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey };
+    phoneViewRef.current = { chatPanelView, phoneScreen, openedPhoneConversationKey, selectedConversationKey: selectedPhoneContact?.conversationKey, owner: viewedPhoneCharacter };
   });
 
   function appendPhoneMessage(
@@ -4104,8 +4163,8 @@ function App() {
       storedImage?.description ??
       imageDescriptionFromAttachments(sourceImageAttachments);
     const imageAttachments = ensurePhoneImagesInStorybooks(
-      canonicalMessage.from,
-      canonicalMessage.to,
+      participants.from.accountId,
+      participants.to.accountId,
       sourceImageAttachments,
       imageDescription,
       storedImage?.ownerName,
@@ -4144,13 +4203,15 @@ function App() {
     const phoneView = phoneViewRef.current;
     // Outside the messenger screen the conversation is not visible, so the
     // reply stays unread and raises a badge.
-    const messageShouldBeMarkedSeen = phoneMessageShouldBeMarkedSeen(
-      role,
-      phoneView.phoneScreen === 'whatsup' ? phoneView.chatPanelView : 'chat',
-      conversationKey,
-      phoneView.openedPhoneConversationKey,
-      phoneView.selectedConversationKey,
-    );
+    // A second WhatsUp name shares its owner's inbox, so either key counts as the open conversation.
+    const messageShouldBeMarkedSeen = [conversationKey, ...phoneConversationKeyTwins(conversationKey, phoneView.owner)]
+      .some((key) => phoneMessageShouldBeMarkedSeen(
+        role,
+        phoneView.phoneScreen === 'whatsup' ? phoneView.chatPanelView : 'chat',
+        key,
+        phoneView.openedPhoneConversationKey,
+        phoneView.selectedConversationKey,
+      ));
     if (messageShouldBeMarkedSeen) {
       setPhoneSeenByConversation((current) =>
         id > (current[conversationKey] ?? 0)
@@ -4283,6 +4344,7 @@ function App() {
     phoneCharacters,
     selectedCharacter,
     selectedPhoneContact,
+    phoneSenderAccountId,
     storybooksByNodeId,
     characterColors,
     englishProcessingEnabled,
@@ -4554,10 +4616,10 @@ function App() {
       const phoneInput = parsePhoneGraphInput(turn.input.graphText);
       const phoneAutoTurn = !!phoneInput;
       const inputCharacter = phoneInput
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, phoneInput.from)) ?? selectedCharacter
+        ? matchingPhoneName(phoneCharacters, phoneInput.from) ?? selectedCharacter
         : selectedCharacter;
       const phoneRecipient = phoneInput
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, phoneInput.to))
+        ? matchingPhoneName(phoneCharacters, phoneInput.to)
         : undefined;
       void runGraph(
         storedAutoTurnInputText(turn.input.graphText),
@@ -4593,7 +4655,7 @@ function App() {
       return;
     }
     const inputCharacter = inputMessage.speakerName
-      ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.speakerName ?? ''))
+      ? matchingPhoneName(phoneCharacters, inputMessage.speakerName ?? '')
       : selectedCharacter;
     void runGraph(
       inputMessage.translatedText ?? inputMessage.originalText,
@@ -4604,7 +4666,7 @@ function App() {
       inputCharacter,
       inputMessage.phoneMessage,
       inputMessage.phoneTo
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.phoneTo ?? ''))
+        ? matchingPhoneName(phoneCharacters, inputMessage.phoneTo ?? '')
         : undefined,
       { turn, replaceInput: false },
     );
@@ -4698,7 +4760,7 @@ function App() {
       return;
     }
     const inputCharacter = inputMessage.speakerName
-      ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.speakerName ?? ''))
+      ? matchingPhoneName(phoneCharacters, inputMessage.speakerName ?? '')
       : selectedCharacter;
     const turn =
       turnsRef.current.find((entry) => entry.id === inputMessage.turnId) ??
@@ -4718,7 +4780,7 @@ function App() {
       inputCharacter,
       inputMessage.phoneMessage,
       inputMessage.phoneTo
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.phoneTo ?? ''))
+        ? matchingPhoneName(phoneCharacters, inputMessage.phoneTo ?? '')
         : undefined,
       { turn, replaceInput: true },
       inputMessage.speakerName === narratorSpeakerName ? 'narrator' : 'user',
@@ -4984,14 +5046,14 @@ function App() {
     );
   }
 
-  function saveMatchMeProfile(owner: StorybookCharacter, profile: DatingProfile) {
+  function saveMatchMeProfile(owner: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) {
     if (isRunning || activeTurnCollectorRef.current) return false;
     const characters = npcParticipants.characters();
     const currentOwner = characters.find((entry) => entry.id === owner.id);
     if (!currentOwner) return false;
     const state = matchMeState(characters, messagesRef.current);
     const entries = migrateDatingHistory(currentOwner, state, messagesRef.current, new Date().toISOString());
-    return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }));
+    return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }, avatar));
   }
 
   function initializeMatchMe(owner: StorybookCharacter) {
@@ -5161,11 +5223,11 @@ function App() {
       const recipientName = eventToRun.phoneTo ?? eventToRun.requestedBy;
       const sender =
         senderName
-          ? phoneCharacters.find((character) => phoneNamesMatch(character.name, senderName))
+          ? matchingPhoneName(phoneCharacters, senderName)
           : selectedCharacter;
       const recipient =
         recipientName
-          ? phoneCharacters.find((character) => phoneNamesMatch(character.name, recipientName))
+          ? matchingPhoneName(phoneCharacters, recipientName)
           : undefined;
       if (!sender || !recipient) {
         notifySystem('warning', 'Phone event needs a sender and recipient character.');
@@ -6335,6 +6397,14 @@ function App() {
             >
             <PhoneAppListScaleContext.Provider value={phoneAppListScaleContext}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
+            <PhoneNotificationBanners
+              key={panelSessionRevision}
+              banners={phoneBanners}
+              ownerId={viewedPhoneCharacter?.id ?? ''}
+              latestMessageId={messages.reduce((latestId, message) => Math.max(latestId, message.id), 0)}
+              latestRoundBaselineMessageId={latestRoundBaselineMessageId(messages)}
+              onOpen={openPhoneBanner}
+            />
             <PhonePanel
               onStartInitiativeTurn={startPhoneInitiativeTurn}
               onScreenChange={setPhoneScreen}
@@ -6366,6 +6436,7 @@ function App() {
               unreadBankingCount={unreadBankingCount}
               phoneAppNotificationCounts={phoneAppNotificationCounts}
               phoneHomeRequestId={phoneHomeRequestId}
+              phoneAppOpenRequest={phoneAppOpenRequest}
               socialPostOpenRequest={socialPostOpenRequest}
               socialDirectMessageOpenRequest={socialDirectMessageOpenRequest}
               phoneImages={phoneImages}
@@ -6468,6 +6539,13 @@ function App() {
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onSaveDatingProfile={saveMatchMeProfile}
+              onSaveWhatsUpAlias={(owner, alias) => isRunning ? 'Wait until the current run has finished.'
+                : !alias && whatsUpAliasInUse(owner, messagesRef.current) ? 'This account has chats and can only be renamed.'
+                : saveWhatsUpAlias(owner, alias)}
+              whatsUpAliasInUse={viewedPhoneAliasInUse}
+              phoneWritesAsAlias={phoneWritesAsAlias}
+              phoneSenderUnknownToContact={phoneSenderUnknownToContact}
+              onPhoneWritesAsAliasChange={setPhoneWritesAsAlias}
               onMatchMeAction={submitMatchMeAction}
               onCreateSocialAccount={saveStorybookSocialUsername}
               onImportSocialPostImage={importSocialPostImage}
@@ -6664,7 +6742,7 @@ function App() {
               {phoneAvailable && (
                 <PhoneTab
                   className="big-screen-rail-button"
-                  title="Phone (switch with Tab, double-click to switch notification owner)"
+                  title="Phone (switch with Tab, double-click or hold Tab to switch notification owner)"
                   active={chatPanelView === 'phone'}
                   notificationCount={unreadPhoneNotificationCount}
                   viewedPhoneHasNotifications={viewedPhoneHasNotifications}
@@ -6694,7 +6772,7 @@ function App() {
             </div>
             <div className="big-screen-rail-group" aria-label="Turn actions">
               <button
-                className="big-screen-rail-button"
+                className={`big-screen-rail-button${isRunning ? ' running' : ''}`}
                 type="button"
                 onClick={cancelRunOrUndoLastTurn}
                 disabled={undoTurnDisabled}

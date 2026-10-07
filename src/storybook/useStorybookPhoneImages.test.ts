@@ -1,4 +1,4 @@
-import { appCharacterImage, appCharactersFromRegistry } from '../characters/appRuntime';
+import { appCharacterImage, appCharactersFromRegistry, phoneImageSource } from '../characters/appRuntime';
 import { expect, it, vi } from 'vitest';
 import { useStorybookPhoneImages } from './useStorybookPhoneImages';
 import { chatAttachmentFromStorybookImage, storyCharactersFromNodes } from './runtime';
@@ -67,11 +67,13 @@ it('reports an invalid profile avatar without throwing or mutating the Storybook
   expect(updateRuntimeNode).not.toHaveBeenCalled();
 });
 
-it.each([false, true])('links foreign phone images through sender and recipient (library: %s)', (inLibrary) => {
+it.each([false, true].flatMap((inLibrary) => ['main', 'alias', 'link'].map((identity) => ({ inLibrary, identity }))))('links foreign phone images through sender and recipient ($identity, library: $inLibrary)', ({ inLibrary, identity }) => {
   const { options, book, library } = harness();
   const original = book.characters[0];
-  const sender = { ...structuredClone(original), id: 'sender', name: 'Noah Voss', images: [], apps: {}, social: undefined, profileImage: undefined };
-  const recipient = { ...structuredClone(original), id: 'recipient', name: 'Espen Harper', images: [], apps: {}, social: undefined, profileImage: undefined };
+  const sender = { ...structuredClone(original), id: 'sender', name: 'Noah Voss', images: [],
+    apps: { whatsup: { accountId: 'sender-wa', enabled: true, bio: '', alias: { name: 'Work Sender' } } }, social: undefined, profileImage: undefined };
+  const recipient = { ...structuredClone(original), id: 'recipient', name: 'Espen Harper', images: [],
+    apps: { whatsup: { accountId: 'recipient-wa', enabled: true, bio: '', alias: { name: 'Work Recipient' } } }, social: undefined, profileImage: undefined };
   const snapshots = new Map<string, typeof original>();
   if (inLibrary) {
     library.push({ character: sender, tier: 'user', source: 'sender' },
@@ -96,7 +98,9 @@ it.each([false, true])('links foreign phone images through sender and recipient 
     },
   });
   const image = original.images[0];
-  const send = () => api.ensurePhoneImages(sender.name, recipient.name,
+  const from = identity === 'main' ? sender.name : sender.apps.whatsup.alias.name;
+  const to = identity === 'main' ? recipient.name : recipient.apps.whatsup.alias.name;
+  const send = () => api.ensurePhoneImages(identity === 'link' ? `@whatsup:${from}` : from, identity === 'link' ? `@whatsup:${to}` : to,
     [chatAttachmentFromStorybookImage(image)], image.description, original.name);
   expect(send()?.[0].id).toBe(image.id);
   send();
@@ -105,7 +109,8 @@ it.each([false, true])('links foreign phone images through sender and recipient 
     expect.objectContaining({ id: image.id, dataUrl: image.dataUrl, receivedFrom: original.name }),
   ]);
   expect(characters.find((entry) => entry.id === recipient.id)?.images).toEqual([
-    expect.objectContaining({ id: image.id, dataUrl: image.dataUrl, receivedFrom: sender.name }),
+    expect.objectContaining({ id: image.id, dataUrl: image.dataUrl, receivedFrom: from,
+      receivedFromCharacterId: sender.id, receivedFromAccountId: `sender-wa${identity === 'main' ? '' : ':alias'}` }),
   ]);
   expect(original.images[0].receivedFrom).toBeUndefined();
   const retainedPost: MessageRecord = { id: 1, role: 'output', originalText: '', socialPost: {
@@ -113,7 +118,7 @@ it.each([false, true])('links foreign phone images through sender and recipient 
     caption: '', imageId: image.id,
   } };
   const retainedSend: MessageRecord = { id: 2, role: 'output', originalText: '', channel: 'phone',
-    phoneFrom: sender.name, phoneTo: recipient.name, phoneImageIds: [image.id] };
+    phoneFrom: from, phoneTo: to, phoneImageIds: [image.id] };
   const gallery = (id: string) => currentCharacterRegistry().characters.find((entry) => entry.character.id === id)!.character.images;
   // An earlier surviving delivery (or the retained regeneration input) keeps both copies.
   api.pruneExternalImagesForMessages([retainedPost, retainedSend]);
@@ -236,4 +241,104 @@ it('removes a WhatsUp computer upload from both sender and recipient on undo', (
   api.pruneExternalImagesForMessages([], [send]);
   expect(albums()[0].images).toEqual(book.characters[0].images);
   expect(albums()[1].images).toEqual([]);
+});
+
+it.each([false, true])('keeps uploaded alias images through reload and renames, then removes them on undo (sender alias: %s)', (senderAlias) => {
+  const { options, book, upload } = uploadHarness();
+  const sender = structuredClone(book.characters[0]);
+  sender.apps!.whatsup!.alias = { name: 'Hidden Sender' };
+  const recipient = { ...structuredClone(sender), id: 'recipient', name: 'Recipient', images: [], social: undefined,
+    profileImage: undefined, apps: { whatsup: { accountId: 'recipient-wa', enabled: true, bio: '', alias: { name: 'Hidden Recipient' } } } };
+  options.nodesRef.current[0].data.storybookJson = rpStorybookJsonText({ ...book, characters: [sender, recipient] });
+  const api = useStorybookPhoneImages(options);
+  const fromId = `${sender.apps!.whatsup!.accountId}${senderAlias ? ':alias' : ''}`;
+  const from = senderAlias ? 'Hidden Sender' : sender.name;
+  const saved = api.ensurePhoneImages(fromId, 'recipient-wa:alias', [upload])![0];
+  const albums = () => parseRpStorybookJson(options.nodesRef.current[0].data.storybookJson!).characters;
+  const receipt = albums()[1].images[0];
+  expect(receipt).toMatchObject({ receivedFrom: from, receivedFromCharacterId: sender.id, receivedFromAccountId: fromId });
+  expect(chatAttachmentFromStorybookImage(receipt)).toMatchObject({ receivedFrom: from, receivedFromCharacterId: sender.id });
+  const reloaded = albums();
+  reloaded[0].name = 'Renamed Sender';
+  reloaded[0].apps!.whatsup!.alias!.name = 'New Sender Alias';
+  reloaded[1].name = 'Renamed Recipient';
+  reloaded[1].apps!.whatsup!.alias!.name = 'New Recipient Alias';
+  options.nodesRef.current[0].data.storybookJson = rpStorybookJsonText({ ...book, characters: reloaded });
+  const send: MessageRecord = { id: 1, role: 'user', channel: 'phone', phoneMessage: true, originalText: '',
+    phoneFrom: from, phoneTo: 'Hidden Recipient', phoneFromAccountId: fromId, phoneToAccountId: 'recipient-wa:alias',
+    phoneImageIds: [saved.id], imageAttachments: [saved] };
+  api.pruneExternalImagesForMessages([send]);
+  expect(albums()[0].images.some((image) => image.id === saved.id)).toBe(true);
+  expect(albums()[1].images[0]).toMatchObject({ receivedFrom: from, receivedFromCharacterId: sender.id });
+  // The same name on an unrelated account must not retain either gallery copy.
+  api.pruneExternalImagesForMessages([{ ...send, id: 2, phoneFrom: 'New Sender Alias', phoneTo: 'New Recipient Alias',
+    phoneFromAccountId: 'unrelated-sender', phoneToAccountId: 'unrelated-recipient' }], [send]);
+  expect(albums()[0].images).toEqual(sender.images);
+  expect(albums()[1].images).toEqual([]);
+});
+
+it('keeps a received image referenced through a previously issued account ID', () => {
+  const { options, book, library } = harness();
+  const original = book.characters[0];
+  const recipient = { ...structuredClone(original), id: 'recipient', name: 'Recipient', images: [], social: undefined,
+    profileImage: undefined, apps: { whatsup: { accountId: 'recipient-wa', enabled: true, bio: '' } } };
+  library.push({ character: recipient, tier: 'user', source: 'recipient', aliases: { accountIds: { whatsup: ['old-recipient-wa'] } } });
+  const snapshots = new Map<string, typeof original>();
+  const api = useStorybookPhoneImages({ ...options,
+    currentCharacterRegistry: () => {
+      const registry = options.currentCharacterRegistry();
+      return { ...registry, characters: registry.characters.map((entry) => entry.character.id === recipient.id
+        ? { ...entry, character: snapshots.get(entry.character.id) ?? entry.character, provenance: { ...entry.provenance, tier: 'snapshot' as const } } : entry) };
+    },
+    updateNpcImages: (id, images) => snapshots.set(id, { ...recipient, images }),
+  });
+  const image = chatAttachmentFromStorybookImage(original.images[0]);
+  api.ensurePhoneImages(original.name, 'recipient-wa', [image]);
+  expect(snapshots.get(recipient.id)?.images).toHaveLength(1);
+  const delivery: MessageRecord = { id: 1, role: 'output', originalText: '', channel: 'phone', phoneMessage: true,
+    phoneFrom: original.name, phoneTo: 'Earlier Name', phoneToAccountId: 'old-recipient-wa', phoneImageIds: [image.id] };
+  api.pruneExternalImagesForMessages([delivery]);
+  expect(snapshots.get(recipient.id)?.images).toHaveLength(1);
+  api.pruneExternalImagesForMessages([{ ...delivery, phoneToAccountId: 'unrelated-wa' }]);
+  expect(snapshots.get(recipient.id)?.images).toEqual([]);
+});
+
+it('labels forwarded pictures with the forwarding account and keeps one copy across account switches', () => {
+  const { options, book } = uploadHarness();
+  const original = book.characters[0];
+  const makeContact = (id: string, name: string, alias: string) => ({ ...structuredClone(original), id, name,
+    images: [], social: undefined, profileImage: undefined,
+    apps: { whatsup: { accountId: `${id}-wa`, enabled: true, bio: '', alias: { name: alias } } } });
+  const forwarder = makeContact('forwarder', 'Real Forwarder', 'Hidden Forwarder');
+  const recipient = makeContact('recipient', 'Real Recipient', 'Hidden Recipient');
+  options.nodesRef.current[0].data.storybookJson = rpStorybookJsonText({ ...book, characters: [original, forwarder, recipient] });
+  const api = useStorybookPhoneImages(options);
+  const source = chatAttachmentFromStorybookImage(original.images[0]);
+  api.ensurePhoneImages(original.name, 'forwarder-wa', [source]);
+  api.ensurePhoneImages('forwarder-wa:alias', 'recipient-wa:alias', [source]);
+  const received = () => parseRpStorybookJson(options.nodesRef.current[0].data.storybookJson!).characters[2].images;
+  expect(received()).toHaveLength(1);
+  expect(received()[0]).toMatchObject({ receivedFrom: 'Hidden Forwarder', receivedFromCharacterId: 'forwarder', receivedFromAccountId: 'forwarder-wa:alias' });
+  api.ensurePhoneImages('forwarder-wa', 'recipient-wa', [source]);
+  expect(received()).toHaveLength(1);
+  expect(received()[0]).toMatchObject({ receivedFrom: 'Real Forwarder', receivedFromCharacterId: 'forwarder', receivedFromAccountId: 'forwarder-wa' });
+  const earlier: MessageRecord = { id: 1, role: 'output', originalText: '', channel: 'phone', phoneMessage: true,
+    phoneFrom: 'Hidden Forwarder', phoneFromAccountId: 'forwarder-wa:alias', phoneTo: 'Hidden Recipient', phoneToAccountId: 'recipient-wa:alias',
+    phoneImageIds: [source.id] };
+  api.pruneExternalImagesForMessages([earlier], [{ ...earlier, id: 2, phoneFrom: 'Real Forwarder', phoneFromAccountId: 'forwarder-wa' }]);
+  expect(received()).toHaveLength(1);
+  expect(received()[0]).toMatchObject({ receivedFrom: 'Hidden Forwarder', receivedFromCharacterId: 'forwarder', receivedFromAccountId: 'forwarder-wa:alias' });
+});
+
+it('resolves an alias sender to their own image even when another gallery uses a colliding ID', () => {
+  const { options, book } = harness();
+  const owner = book.characters[0];
+  owner.apps!.whatsup!.alias = { name: 'Hidden Owner' };
+  const other = { ...structuredClone(owner), id: 'other', name: 'Other', apps: {},
+    images: [{ ...owner.images[0], dataUrl: 'data:image/jpeg;base64,b3RoZXI=' }] };
+  const characters = appCharactersFromRegistry(buildCharacterRegistry([
+    { character: owner, tier: 'user', source: 'owner' }, { character: other, tier: 'user', source: 'other' },
+  ]));
+  expect(phoneImageSource(characters, owner.images[0].id, `${owner.apps!.whatsup!.accountId}:alias`)?.image.dataUrl).toBe(owner.images[0].dataUrl);
+  expect(options.updateRuntimeNode).not.toHaveBeenCalled();
 });

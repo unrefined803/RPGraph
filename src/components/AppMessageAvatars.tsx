@@ -16,13 +16,14 @@ export function AppMessageAvatars({ enabled, size, colors, children }: {
   </AvatarContext.Provider>;
 }
 
-export function AppMessageAvatar({ character, name, hidePortrait = false }: {
-  character?: StorybookCharacter; name: string; hidePortrait?: boolean;
+/** `avatarDataUrl` is the app identity's own picture and replaces the character portrait. */
+export function AppMessageAvatar({ character, name, hidePortrait = false, avatarDataUrl }: {
+  character?: StorybookCharacter; name: string; hidePortrait?: boolean; avatarDataUrl?: string;
 }) {
   const { enabled, colors } = useContext(AvatarContext);
   if (!enabled) return null;
   return <CharacterAvatar className="chat-message-avatar" name={name}
     fallback={name.trim().slice(0, 2).toUpperCase() || '?'}
-    profileImageDataUrl={hidePortrait ? undefined : phoneCharacterAvatarDataUrl(character)}
+    profileImageDataUrl={hidePortrait ? undefined : avatarDataUrl ?? phoneCharacterAvatarDataUrl(character)}
     style={{ borderColor: hidePortrait ? '#ffffff' : colors.get(character?.name ?? name) ?? '#ffffff' }} />;
 }

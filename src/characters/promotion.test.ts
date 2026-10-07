@@ -44,7 +44,7 @@ describe('Storybook NPC promotion', () => {
     const book = playerBook();
     const source = library();
     const shared = { ...structuredClone(book.characters[0].images[0]),
-      ...(access === 'receivedFrom' ? { receivedFrom: 'Player' } : { imageAccess: true as const }) };
+      ...(access === 'receivedFrom' ? { receivedFrom: 'Player Alias', receivedFromCharacterId: 'player', receivedFromAccountId: 'player-whatsup:alias' } : { imageAccess: true as const }) };
     source.character.images.push(shared);
     const snapshots = captureNpcParticipants({}, [source], [{ kind: 'character', id: source.character.id }]);
     const registry = buildCharacterRegistry([...storybookRegistryEntries([node(book)]), ...npcSnapshotEntries(snapshots)]);

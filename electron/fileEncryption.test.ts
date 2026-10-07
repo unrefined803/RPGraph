@@ -91,8 +91,7 @@ async function filesystemHarness(accountPassword?: string) {
     between('async function listedFilesInDirectory(', 'function isStoredFilePath(') +
     between('async function assertOverwriteType(', 'async function workflowFiles(') +
     between('async function readRpgraphFile(', '\nfunction endpoint(');
-  const routes = between("handleWorkspace('workflow:save-named'", "ipcMain.handle('character:detect-face'") +
-    between("handleWorkspace('character:save'", "ipcMain.handle('text-file:load'") +
+  const routes = between("handleWorkspace('workflow:save-named'", "ipcMain.handle('text-file:load'") +
     between("handleWorkspace('workflow:save-current'", "handleWorkspace('settings:load'") +
     between("handleWorkspace('session:save'", "ipcMain.handle('image:select'") +
     between('async function loadStoredFileRequest(', "ipcMain.handle('window:minimize'");

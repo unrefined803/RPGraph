@@ -100,9 +100,9 @@ Normal RP can display exactly one stored Storybook/phone-gallery image in the Ch
 Use displayImageId only for a fitting image ID returned by an image-list/create-image action or clearly established in recent phone/photo history. It displays the image in Chat and does not add a Phone message.
 
 All three messenger apps use the same array shape:
-{"whatsUpApp":[{"from":"sender name","to":"recipient name","message":"message text","isVoiceMessage":true,"sendImageId":"name_image_01"}]}
-{"fotogramApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
-{"onlyFriendsApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
+{"whatsUpApp":[{"from":"@whatsup:Sender Full Name","to":"@whatsup:Recipient Full Name","message":"message text","isVoiceMessage":true,"sendImageId":"name_image_01"}]}
+{"fotogramApp":[{"from":"@fotogram:sender profile name","to":"@fotogram:recipient profile name","message":"message text"}]}
+{"onlyFriendsApp":[{"from":"@onlyfriends:sender profile name","to":"@onlyfriends:recipient profile name","message":"message text"}]}
 
 from, to, and message are required. isVoiceMessage and sendImageId currently work only in whatsUpApp and are ignored by Fotogram and OnlyFriends. Use displayImageId only for showing one stored image in Normal RP. Use sendImageId for outgoing WhatsUp attachments. An exact known image ID may refer to another character’s gallery; sending it adds gallery links for the sender and recipient. Social image posts use imageId inside their post object.
 
@@ -123,12 +123,12 @@ const phoneOutputPrompt = `Messenger Apps is the dedicated private-message chann
 Use it when the graph generates private messages instead of a normal RP scene. Select exactly one app key: whatsUpApp for WhatsUp, fotogramApp for Fotogram, or onlyFriendsApp for OnlyFriends.
 
 Every app uses the same message-array shape with required from, to, and message fields:
-{"whatsUpApp":[{"from":"Mia","to":"Alex","message":"I am outside. Want me to come up?"}]}
-{"fotogramApp":[{"from":"Mia","to":"Alex","message":"I saw your post."}]}
-{"onlyFriendsApp":[{"from":"Mia","to":"Alex","message":"Thanks for subscribing."}]}
+{"whatsUpApp":[{"from":"@whatsup:Mia Hart","to":"@whatsup:Alex Reed","message":"I am outside. Want me to come up?"}]}
+{"fotogramApp":[{"from":"@fotogram:mia.hart","to":"@fotogram:alex.reed","message":"I saw your post."}]}
+{"onlyFriendsApp":[{"from":"@onlyfriends:mia.private","to":"@onlyfriends:alex.reed","message":"Thanks for subscribing."}]}
 
 An array may contain one message or a short chronological conversation. isVoiceMessage and sendImageId currently work only for WhatsUp; Fotogram and OnlyFriends ignore them:
-{"whatsUpApp":[{"from":"Mia","to":"Alex","message":"Spoken message text.","isVoiceMessage":true,"sendImageId":"mia_image_01"}]}
+{"whatsUpApp":[{"from":"@whatsup:Mia Hart","to":"@whatsup:Alex Reed","message":"Spoken message text.","isVoiceMessage":true,"sendImageId":"mia_image_01"}]}
 
 When the latest incoming WhatsUp message includes an attached image, the output can include a second JSON object after the reply. That second object is an internal image action for the incoming image:
 {"imageId":"new_image","imageAction":"create","caption":"20 to 30 word RP image caption"}
@@ -187,26 +187,26 @@ const socialMediaOutputPrompt = `Social Media is the channel for reactions insid
 It is used by Message Format 2 runs. Post slots are Turn Mode 0 = Fotogram and 1 = OnlyFriends. Comment-thread slots are Turn Mode 2 = Fotogram and 3 = OnlyFriends. Direct-message slots are Turn Mode 4 = Fotogram and 5 = OnlyFriends.
 
 A [SOCIAL MEDIA POST] input creates initial reactions:
-{"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"Name","text":"comment text"},{"from":"Another Name","text":"comment text"}]}}
+{"reactions":{"postId":"the post id from the input","likes":14,"comments":[{"from":"@fotogram:profile name","text":"comment text"},{"from":"@fotogram:another profile name","text":"comment text"}]}}
 
 Post and thread runs may additionally send private messages to the post author or thread actor. Add the matching messenger array to the same outer object as reactions:
-{"reactions":{"postId":"fotogram-post-01","likes":14,"comments":[]},"fotogramApp":[{"from":"Sender Name","to":"Post Author Name","message":"message text","postId":"fotogram-post-01"}]}
-{"reactions":{"postId":"onlyfriends-post-01","likes":14,"comments":[]},"onlyFriendsApp":[{"from":"Fan Name","to":"Creator Name","message":"message text","postId":"onlyfriends-post-01","tip":5}]}
-The app derives handles from exact known or listed names. postId is optional and links a message to the referenced post; omit it for a general DM. tip is optional, OnlyFriends-only, and credits the recipient's wallet. On Fotogram incoming messages are rare. On OnlyFriends one to two fan messages per post are expected.
+{"reactions":{"postId":"fotogram-post-01","likes":14,"comments":[]},"fotogramApp":[{"from":"@fotogram:sender profile name","to":"@fotogram:post author profile name","message":"message text","postId":"fotogram-post-01"}]}
+{"reactions":{"postId":"onlyfriends-post-01","likes":14,"comments":[]},"onlyFriendsApp":[{"from":"@onlyfriends:fan profile name","to":"@onlyfriends:creator profile name","message":"message text","postId":"onlyfriends-post-01","tip":5}]}
+from and to are account links of that app (@fotogram:profile name, @onlyfriends:profile name); a plain exact name or handle remains accepted. When the post or comment published a WhatsUp link, the same outer object may also carry a whatsUpApp array addressed to exactly that link; other WhatsUp recipients are ignored. postId is optional and links a message to the referenced post; omit it for a general DM. tip is optional, OnlyFriends-only, and credits the recipient's wallet. On Fotogram incoming messages are rare. On OnlyFriends one to two fan messages per post are expected.
 
 A [SOCIAL MEDIA THREAD ACTION] input either adds a user comment or loads more comments. Return new reactions to append plus a very short English history summary:
-{"reactions":{"postId":"the post id from the input","additionalLikes":2,"comments":[{"from":"Name","text":"new reply"}]},"summary":"Alex complimented Jamie's photo; Jamie thanked Alex while other people joined the thread."}
+{"reactions":{"postId":"the post id from the input","additionalLikes":2,"comments":[{"from":"@fotogram:profile name","text":"new reply"}]},"summary":"Alex complimented Jamie's photo; Jamie thanked Alex while other people joined the thread."}
 
 A [MATCHME DIRECT MESSAGE] input uses matchMeApp with exactly one message. Use the exact account IDs supplied by the application for from and to, replying only as the specified recipient. Both accounts must have a confirmed active MatchMe match. Never invent accounts, establish matches, or include postId, isVoiceMessage, sendImageId or tip. Normal RP and Messenger_message commands may also emit matchMeApp messages between application-confirmed matched accounts.
 
 A [FOTOGRAM DIRECT MESSAGE] input asks the recipient to answer one private Fotogram message. Return the shared messenger-array shape with one reply:
-{"fotogramApp":[{"from":"recipient name","to":"sender name","message":"Hey! Yes, I would love to."}]}
+{"fotogramApp":[{"from":"@fotogram:recipient profile name","to":"@fotogram:sender profile name","message":"Hey! Yes, I would love to."}]}
 
 An [ONLYFRIENDS DIRECT MESSAGE] input asks the recipient to answer one private OnlyFriends message:
-{"onlyFriendsApp":[{"from":"recipient name","to":"sender name","message":"You look amazing!","tip":10}]}
+{"onlyFriendsApp":[{"from":"@onlyfriends:recipient profile name","to":"@onlyfriends:sender profile name","message":"You look amazing!","tip":10}]}
 
 A DM reply may be followed by extra standalone JSON objects, each on its own, not nested inside the DM block:
-{"whatsUpApp":[{"from":"sender name","to":"recipient name","message":"message text"}]}
+{"whatsUpApp":[{"from":"@whatsup:Sender Full Name","to":"@whatsup:Recipient Full Name","message":"message text"}]}
 {"bankTransfers":[{"from":"sender name","to":"recipient name","amount":20,"note":"reason"}]}
 
 Rules:
@@ -222,7 +222,7 @@ Rules:
 - Add a standalone bankTransfers object only when money is genuinely transferred now. Mentioning money is not a transfer; never invent amounts. When the reply states that money is sent, the bankTransfers object is required in addition to the DM text.
 - When the DM input includes a conversation origin, the sender opened the chat from that exact post comment. Use the supplied post caption, image description, attached post image, and original comment as the subject of the conversation.
 - Fotogram and OnlyFriends direct-message conversations are separate. OnlyFriends DMs may be more personal, but must remain non-explicit.
-- Each comment needs from (a name) and text. An optional handle field overrides the generated @handle.
+- Each comment needs from and text. from is the commenter's account link in this app (@fotogram:profile name or @onlyfriends:profile name); a plain exact name remains accepted. No handle field is needed.
 - Do not repeat existing comments. New comments stay short and natural.
 - For thread actions, summary is mandatory, one short sentence, and is the only text sent to chat history. Summarize what the actor did and any meaningful response without copying the full comment thread or listing background NPC noise.
 - Always use valid JSON with double quotes. Do not wrap the JSON in markdown. Do not add prose.`;

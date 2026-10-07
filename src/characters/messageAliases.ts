@@ -3,6 +3,31 @@ import type { StorybookCharacter } from '../storybook/runtime';
 export const messageAliasKey = (value: string) =>
   value.trim().replace(/^@/, '').trim().replace(/\s+/g, ' ').toLowerCase();
 
+export const accountLinkAppAliases = {
+  whatsup: 'whatsup', whatsapp: 'whatsup', fotogram: 'fotogram', photogram: 'fotogram',
+  onlyfriends: 'onlyfriends', matchme: 'matchme', bank: 'banking', banking: 'banking',
+} as const;
+
+/**
+ * A message participant written as an account link (`@app:Identity`): the
+ * identity without its prefix. Undefined for a bare name or another app's link.
+ */
+export function accountLinkIdentity(value: string, app: (typeof accountLinkAppAliases)[keyof typeof accountLinkAppAliases]) {
+  // The leading @ is required: stored account IDs may themselves start with an app name.
+  const match = /^@([a-z]+):\s*(.+)$/is.exec(value.trim());
+  const linked = match && (accountLinkAppAliases as Record<string, string>)[match[1].toLowerCase()];
+  return linked === app ? match![2].trim().replace(/^@/, '').trim() : undefined;
+}
+
+/**
+ * A link whose leading @ was dropped (`app:Identity`). Resolvers use it only
+ * as a fallback for an otherwise unknown identity.
+ */
+export function looseAccountLinkIdentity(value: string, app: (typeof accountLinkAppAliases)[keyof typeof accountLinkAppAliases]) {
+  const trimmed = value.trim();
+  return trimmed.startsWith('@') ? undefined : accountLinkIdentity(`@${trimmed}`, app);
+}
+
 /** Presentation aliases identify an owner; delivery still requires a target-app account. */
 export function characterMessageAliases(character: StorybookCharacter): string[] {
   const accounts = Object.values(character.apps ?? {});

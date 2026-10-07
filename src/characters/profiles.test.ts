@@ -11,6 +11,7 @@ import { appStateFromSessionV2, sessionV2FromCurrentState, workflowV2ToWorkflowF
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import { turnsForStorybookOpeningHistory } from '../storybook/openingHistoryRuntime';
 import { withStorybookExternalImagesPruned } from '../storybook/imageLibrary';
+import { prepareCharacterPublicationExport } from './publicationExport';
 import { datingAccountId, resolveDatingAccount } from '../chat/datingAccounts';
 import { canSendMatchMeMessage, matchMePairId, matchMeState } from '../chat/matchMe';
 import type { MessageRecord, SocialPostRecord, TurnRecord, WorkflowFile, WorkflowNode } from '../types';
@@ -27,6 +28,23 @@ const ownPost = (): SocialPostRecord => ({ app: 'fotogram', postId: 'fotogram-po
   authorAccountId: 'nova-fg', authorCharacterId: 'nova', caption: 'Published text', imageId: image.id });
 
 describe('canonical character profiles', () => {
+  it.each(['receivedFrom', 'imageAccess'] as const)('preserves second-account avatars through pruning and referenced exports (%s)', (access) => {
+    const book = story();
+    const character = book.characters[0];
+    character.images.push({ ...image, id: 'alias-photo', ...(access === 'receivedFrom' ? { receivedFrom: 'Contact' } : { imageAccess: true }) });
+    character.apps!.whatsup!.alias = { name: 'Nova Work', avatarImageId: 'alias-photo', avatarCrop: { x: 10, y: 10, size: 50 } };
+    const before = structuredClone(character);
+    const pruned = withStorybookExternalImagesPruned(book, []);
+    expect(pruned.storybook.characters[0].images.map((entry) => entry.id)).toContain('alias-photo');
+    const referenced = prepareCharacterPublicationExport({ character, receivedImages: 'referenced' });
+    expect(referenced.character.images.map((entry) => entry.id)).toContain('alias-photo');
+    expect(referenced.character.apps.whatsup?.alias).toEqual(character.apps!.whatsup!.alias);
+    const excluded = rpCharacterCardForCharacter(character);
+    expect(excluded.character.images.map((entry) => entry.id)).not.toContain('alias-photo');
+    expect(excluded.character.apps.whatsup?.alias).toEqual({ name: 'Nova Work' });
+    expect(character).toEqual(before);
+  });
+
   it('retains gallery media referenced by app profiles and starting posts during pruning', () => {
     const book = story();
     const character = book.characters[0];
@@ -95,7 +113,7 @@ describe('portable publication snapshots', () => {
   });
   it('includes required external gallery media once and rejects missing media', () => {
     const character = story().characters[0];
-    const external = { ...image, id: 'external', receivedFrom: 'Private sender', imageAccess: true as const };
+    const external = { ...image, id: 'external', receivedFrom: 'Private sender', receivedFromCharacterId: 'private-owner', receivedFromAccountId: 'private-owner-wa:alias', imageAccess: true as const };
     const posts = [{ ...ownPost(), imageId: 'external' }, { ...ownPost(), postId: 'second', imageId: 'external' }];
     expect(() => rpCharacterCardForCharacter(character, { includePosts: true, posts })).toThrow('missing gallery image');
     const excluded = rpCharacterCardForCharacter(character, { includePosts: true, posts, gallery: [external] });
@@ -105,6 +123,8 @@ describe('portable publication snapshots', () => {
     const card = rpCharacterCardForCharacter(character, { includePosts: true, includeReceivedImages: true, posts, gallery: [external] });
     expect(card.character.images.filter((entry) => entry.id === 'external')).toHaveLength(1);
     expect(card.character.images[1]).not.toHaveProperty('receivedFrom');
+    expect(card.character.images[1]).not.toHaveProperty('receivedFromCharacterId');
+    expect(card.character.images[1]).not.toHaveProperty('receivedFromAccountId');
     expect(card.character.images[1]).not.toHaveProperty('imageAccess');
   });
   it('imports and reexports stable seeds without duplicate posts or accounts', () => {
@@ -181,18 +201,23 @@ it('retains non-playable Storybook participants without making them player-selec
 });
 
 it('preserves profiles through Storybook, Opening History and RP save round trips', () => {
-  const nodes = [node()];
+  const source = story();
+  const receipt = { receivedFrom: 'Hidden Sender', receivedFromCharacterId: 'sender', receivedFromAccountId: 'sender-wa:alias' };
+  Object.assign(source.characters[0].images[0], receipt);
+  const nodes = [node(source)];
   const now = '2026-09-06T12:00:00Z';
   const turns: TurnRecord[] = [{ id: 'turn', number: 1, mode: 'user', createdAt: now,
     input: { graphText: '', messages: [{ id: 1, role: 'user', originalText: '', socialPost: ownPost() }] },
     output: { graphText: '', messages: [{ id: 2, role: 'output', originalText: 'Hello', phoneMessage: true, phoneFrom: 'Nova Testerson', phoneTo: 'Known contact', phoneFromAccountId: 'nova-wa', phoneToAccountId: 'contact-wa' }] } }];
   const opening = turnsForStorybookOpeningHistory(turns, nodes);
-  const book = { ...story(), openingHistory: { ...story().openingHistory, turns: opening.turns, voiceMedia: opening.voiceMedia } };
+  const book = { ...source, openingHistory: { ...source.openingHistory, turns: opening.turns, voiceMedia: opening.voiceMedia } };
   expect(parseRpStorybookJson(rpStorybookJsonText(book)).characters[0].apps).toEqual(story().characters[0].apps);
+  expect(parseRpStorybookJson(rpStorybookJsonText(book)).characters[0].images[0]).toMatchObject(receipt);
   const workflow: WorkflowFile = { format: 'rpgraph-workflow', formatVersion: currentWorkflowFormatVersion, savedAt: now, nodes, edges: [] };
   const saved = sessionV2FromCurrentState({ name: 'Test', settings: { englishProcessingEnabled: true, displayLanguage: 'en' }, workflowVariables: {}, turns, turnCheckpoints: [], openingMessages: [] }, workflow, nodes, now);
   const restored = appStateFromSessionV2(JSON.parse(JSON.stringify(saved)));
   expect(restored.turns[0].input.messages[0].socialPost).toEqual(ownPost());
   expect(restored.turns[0].output.messages[0]).toMatchObject({ phoneFromAccountId: 'nova-wa', phoneToAccountId: 'contact-wa' });
   expect(storyCharactersFromNodes(workflowV2ToWorkflowFile(saved.workflow).nodes)[0].apps).toEqual(story().characters[0].apps);
+  expect(storyCharactersFromNodes(workflowV2ToWorkflowFile(saved.workflow).nodes)[0].images?.[0]).toMatchObject(receipt);
 });

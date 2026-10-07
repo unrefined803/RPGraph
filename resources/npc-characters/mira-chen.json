@@ -40,20 +40,14 @@
     ],
     "apps": {
       "whatsup": {
-        "agencyTags": [
-          "screenshot_drama",
-          "rumor_spreader"
-        ],
         "accountId": "character:mira_chen:whatsup",
         "enabled": true,
-        "bio": "Connecting the dots. 🔍"
+        "bio": "Connecting the dots. 🔍",
+        "alias": {
+          "name": "Jamie Okafor"
+        }
       },
       "fotogram": {
-        "accountRole": "user",
-        "agencyTags": [
-          "screenshot_drama",
-          "rumor_spreader"
-        ],
         "accountId": "character:mira_chen:fotogram",
         "enabled": true,
         "profileName": "mira.traces",
@@ -90,7 +84,7 @@
         "bio": ""
       }
     },
-    "hiddenAgency": "Wants to uncover a story that makes her research indispensable. Screenshot drama is her temptation to win an argument with a fragment of conversation; rumor spreading is her tendency to pass along an interesting suspicion before checking it fully. Fotogram gives her a visible audience, while WhatsUp is for voluntarily shared leads and case discussion. She can follow an actually shared account link, but has no automatic access to private messages or hidden identities. Distinguish her allegations from established facts. A mistaken identification should cost trust and force a correction, rather than magically becoming true because she sounds confident.",
+    "hiddenAgency": "Wants to uncover a story that makes her research indispensable. Screenshot drama is her temptation to win an argument with a fragment of conversation; rumor spreading is her tendency to pass along an interesting suspicion before checking it fully. Fotogram gives her a visible audience, while WhatsUp is for voluntarily shared leads and case discussion. She can follow an actually shared account link, but has no automatic access to private messages or hidden identities. Distinguish her allegations from established facts. A mistaken identification should cost trust and force a correction, rather than magically becoming true because she sounds confident. She keeps a second WhatsUp account, Jamie Okafor, as a research identity for contacting people who would not talk to a known investigator; using it is a choice with consequences if it is exposed.",
     "profileImage": {
       "imageId": "mira_chen:image:portrait",
       "crop": {

@@ -1,8 +1,9 @@
+import { phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { socialReactionsByPostId } from '../chat/socialMedia';
 import { askUserWithTranslation } from './askUserTranslation';
 import type { HighlightingSpeakerContext } from '../nodes/output/speakerSelection';
 import { resolveSocialPostCommand, resolveSocialPostReference, socialThreadImageAttachments, type SocialPostCommandBinding } from '../chat/socialPostCommands';
-import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
+import { socialPublishedLinkContext, socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { applyMatchMeAction, matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
@@ -53,6 +54,8 @@ import {
   unknownConversationReferenceImageScope,
 } from '../chat/referenceImages';
 import type { usePhoneReply } from '../chat/usePhoneReply';
+import type { PhoneRuntimeCharacter } from '../chat/phoneCharacters';
+import { matchingPhoneName } from '../data-management/selectors';
 import {
   applyTimeCommandsToWorkflowNodes,
   commandInputCommandsFromStructured,
@@ -242,9 +245,11 @@ type UseGraphRunOptions = Pick<
   characterStorybookNodes: readonly unknown[];
   appCharacters: () => StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
-  phoneCharacters: StorybookCharacter[];
+  phoneCharacters: PhoneRuntimeCharacter[];
   selectedCharacter: StorybookCharacter | undefined;
   selectedPhoneContact: { character: StorybookCharacter } | undefined;
+  /** The WhatsUp name the player currently writes under, when the character has a second name. */
+  phoneSenderAccountId?: string;
   storybooksByNodeId: Map<string, RpStorybook>;
   characterColors: Map<string, string>;
   englishProcessingEnabled: boolean;
@@ -415,6 +420,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     phoneCharacters,
     selectedCharacter,
     selectedPhoneContact,
+    phoneSenderAccountId,
     storybooksByNodeId,
     characterColors,
     englishProcessingEnabled,
@@ -533,17 +539,24 @@ export function useGraphRun(options: UseGraphRunOptions) {
       nodeLabel: outputNode.data.label,
       nodeType: outputNode.data.nodeType,
     };
-    const phoneReplyTo = phoneReplyToOverride ?? (
+    historyMessages = phoneMessagesWithCurrentNames(historyMessages, appCharacters());
+    if (existingInputMessage) existingInputMessage = phoneMessagesWithCurrentNames([existingInputMessage], appCharacters())[0];
+    // The phone shows its owner's second-account messages under the real name; the quote names the stored sender.
+    const phoneReplyTo = (phoneReplyToOverride &&
+      (historyMessages.find((message) => message.id === phoneReplyToOverride.id) ?? phoneReplyToOverride)) ?? (
       existingInputMessage?.replyToMessageId !== undefined
         ? historyMessages.find((message) => message.id === existingInputMessage.replyToMessageId)
         : undefined
     );
     const selectedReferenceImageOptions = referenceImageOptionsForRun(phoneReplyTo);
-    const inputCharacter = socialDirectMessage && inputCharacterOverride
+    const namedInputCharacter: PhoneRuntimeCharacter | undefined = socialDirectMessage && inputCharacterOverride
       ? inputCharacterOverride
       : existingInputMessage?.speakerName
-        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.speakerName ?? ''))
+        ? matchingPhoneName(phoneCharacters, existingInputMessage.speakerName ?? '')
         : inputCharacterOverride ?? selectedCharacter;
+    // A message written under a second WhatsUp name belongs to its owner, who keeps that name as the sender.
+    const inputCharacter = namedInputCharacter?.whatsUpAliasOf ?? namedInputCharacter;
+    const aliasSenderAccountId = namedInputCharacter?.whatsUpAliasOf ? namedInputCharacter.apps?.whatsup?.accountId : undefined;
     const isAutoplayRun = messageFormatOverride === autoplayMessageFormat;
     const runPromptSwitchVisionFeaturesEnabled = runtimeNodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'llm-prompt-switch' && nodeHasVision(node),
@@ -562,6 +575,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
       try {
         inputPhoneParticipants = resolveWhatsUpMessageParticipants(appCharacters(), historyMessages, {
           from: existingInputMessage?.phoneFromAccountId ?? existingInputMessage?.phoneFrom ??
+            aliasSenderAccountId ??
+            (phoneSenderAccountId && selectedCharacter?.id === inputCharacter?.id &&
+              (!phoneRecipientCharacterOverride || phoneRecipientCharacterOverride.id === selectedPhoneContact?.character.id)
+              ? phoneSenderAccountId : undefined) ??
             inputCharacter?.apps?.whatsup?.accountId ?? inputCharacter?.name ?? '',
           to: existingInputMessage?.phoneToAccountId ?? existingInputMessage?.phoneTo ??
             recipient?.apps?.whatsup?.accountId ?? recipient?.name ?? '',
@@ -1136,8 +1153,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const sentPhoneImages =
       isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length
         ? ensurePhoneImagesInStorybooks(
-            inputCharacterName,
-            phoneRecipientName,
+            inputPhoneParticipants?.from.accountId ?? inputCharacterName,
+            inputPhoneParticipants?.to.accountId ?? phoneRecipientName,
             rawSentPhoneImages,
             imageDescriptionFromAttachments(rawSentPhoneImages),
           ) ?? rawSentPhoneImages
@@ -1306,8 +1323,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
           participantHandles: (socialThreadContext ?? socialThreadRunContextFromInput(originalInput)).existingComments.map((comment) => comment.handle),
         } : undefined)
       : undefined;
+    // Posting or commenting an account link invites contact on exactly that account.
+    const socialLinkContext = !socialCatalogApp ? undefined
+      : socialPost ? socialPublishedLinkContext(appCharacters(), socialCatalogApp, {
+          role: 'post author', characterId: socialPost.authorCharacterId, accountId: socialPost.authorAccountId, handle: socialPost.authorHandle,
+        }, socialPost.caption)
+      : socialThreadAction?.action === 'comment' ? socialPublishedLinkContext(appCharacters(), socialCatalogApp, {
+          role: 'actor', handle: socialThreadAction.actorHandle,
+        }, `${socialThreadAction.postCaption}\n${socialThreadAction.commentText ?? ''}`)
+      : undefined;
     const executionOriginalInput = socialAccountContext
-      ? [originalInput, socialAccountContext.text].join('\n')
+      ? [originalInput, ...(socialLinkContext ? [socialLinkContext] : []), socialAccountContext.text].join('\n')
       : originalInput;
     const storedInputGraphText = socialDirectMessage?.app === 'matchme' ? originalInput : directActionOnly
       ? originalInput
@@ -2916,6 +2942,27 @@ export function useGraphRun(options: UseGraphRunOptions) {
         // Social-media runs record the post itself plus the generated
         // reactions as history messages, mirroring how bank transfers land in
         // the timeline. The post is only persisted when the run succeeds.
+        // WhatsUp messages that answer an account link published in a post or comment.
+        const appendPublishedLinkPhoneMessages = async (phoneMessages: ParsedPhoneMessage[]) => {
+          for (const [index, phoneMessage] of phoneMessages.entries()) {
+            let participants;
+            try { participants = resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, phoneMessage); }
+            catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
+            appendPhoneMessage(
+              {
+                from: participants.from.name,
+                to: participants.to.name,
+                fromAccountId: participants.from.accountId,
+                toAccountId: participants.to.accountId,
+                message: phoneMessage.message,
+                translatedMessage: await translateOutputActionText(phoneMessage.message, { text: phoneMessage.message }),
+                turnContext,
+              },
+              index === 0 ? 'received' : undefined,
+              'output',
+            );
+          }
+        };
         if (socialPost) {
           // The whole input block was translated to English for the run. The
           // persisted record uses that text too, so the app and history agree.
@@ -2935,6 +2982,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const parsedReactions = parseValidatedSocialReactionsOutput(socialMediaOutputText, socialPost, {
             characters: appCharacters(),
             messages: messagesRef.current,
+            publishedText: socialPost.caption,
           });
           reportFormatResult({
             name: 'Social Media JSON',
@@ -2978,6 +3026,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               persistedSocialPost,
             );
           }
+          await appendPublishedLinkPhoneMessages(parsedReactions.phoneMessages);
         }
         if (socialThreadAction) {
           const persistedThreadAction = socialThreadAction.action === 'comment'
@@ -2994,6 +3043,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }, {
             characters: appCharacters(),
             messages: messagesRef.current,
+            publishedText: `${socialThreadAction.postCaption}\n${socialThreadAction.commentText ?? ''}`,
           });
           reportFormatResult({
             name: 'Social Media Thread JSON',
@@ -3037,6 +3087,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               handle: persistedThreadAction.actorHandle,
             });
           }
+          await appendPublishedLinkPhoneMessages(parsedReactions.phoneMessages);
         }
       }
       if (!isPhoneMessage && translationError) {

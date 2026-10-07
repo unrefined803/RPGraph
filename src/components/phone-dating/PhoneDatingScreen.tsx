@@ -10,6 +10,11 @@ import { PhoneAppListResizer } from '../PhoneAppListResizer';
 import { appDialogCoversPhone } from '../phoneEscape';
 import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ProfilePickDialog } from '../ProfilePickDialog';
+import type { RpStorybookCharacterImage } from '../../nodes/rp-storybook/model';
+import type { AppAvatarChoice, AppAvatarCrop } from '../../characters/character';
+import { wholeImageCrop } from '../../characters/faceCrop';
 import type { ChatImageAttachment } from '../../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, resetDatingPasses, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
@@ -36,7 +41,8 @@ type Props = {
   images: ChatImageAttachment[];
   onImportImage: (request: { owner: StorybookCharacter; image: ChatImageAttachment }) => Promise<ChatImageAttachment | undefined>;
   onDecision?: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
-  onSave: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
+  /** `avatar`: a profile picture newly chosen from the photos; undefined keeps the stored one. */
+  onSave: (owner: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) => boolean;
   onBack: () => void;
 };
 
@@ -229,9 +235,36 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const allImages = [...images, ...imported];
   const ownerAvatarDataUrl = datingAvatarDataUrl(owner, allImages, profile);
 
-  function save(next: DatingProfile) {
-    if (!owner || !onSave(owner, next)) { setError('Could not save your profile. Please try again.'); return false; }
-    setProfile(next); setDraft(next); setError(''); return true;
+  // The profile picture is the account's avatar photo, otherwise the first photo. The photo the
+  // character portrait was cut from shows that portrait until a region of its own is chosen.
+  const storedAvatarPhoto = [owner?.apps?.matchme?.avatarImageId, ...draft.photoIds]
+    .flatMap((id) => allImages.find((entry) => entry.id === id) ?? [])[0];
+  const storedAvatar: AppAvatarChoice | undefined = storedAvatarPhoto && { imageId: storedAvatarPhoto.id,
+    ...(owner?.apps?.matchme?.avatarCrop && storedAvatarPhoto.id === (owner.apps.matchme.avatarImageId ?? owner.apps.matchme.profile?.photoIds[0])
+      ? { crop: owner.apps.matchme.avatarCrop } : {}) };
+  // A picture chosen in this form; it is saved with the profile.
+  const [pickedAvatar, setPickedAvatar] = useState<AppAvatarChoice>();
+  const [avatarChoiceOpen, setAvatarChoiceOpen] = useState(false);
+  const [facePickImageId, setFacePickImageId] = useState<string>();
+  const chosenAvatar = pickedAvatar && draft.photoIds.includes(pickedAvatar.imageId) ? pickedAvatar : undefined;
+  const avatar = editing ? chosenAvatar ?? storedAvatar : undefined;
+  const avatarPhotos = draft.photoIds.flatMap((id) => allImages.find((entry) => entry.id === id) ?? []);
+  const facePickImage = avatarPhotos.find((entry) => entry.id === facePickImageId);
+  const portraitImageId = owner?.profileImage?.imageId;
+  // The whole photo of the portrait's source image needs an explicit region, or the portrait would show instead.
+  const wholePhotoCrop = (imageId: string) => {
+    const image = imageId === portraitImageId ? allImages.find((entry) => entry.id === imageId) : undefined;
+    return image ? wholeImageCrop(image) : undefined;
+  };
+  const sameCrop = (left?: AppAvatarCrop, right?: AppAvatarCrop) => JSON.stringify(left) === JSON.stringify(right);
+  const avatarShows = !avatar ? undefined
+    : !avatar.crop ? avatar.imageId === portraitImageId ? 'portrait' : 'whole'
+      : sameCrop(avatar.crop, wholePhotoCrop(avatar.imageId)) ? 'whole' : 'face';
+
+  function save(next: DatingProfile, withAvatar = false) {
+    const picked = withAvatar && pickedAvatar && next.photoIds.includes(pickedAvatar.imageId) ? pickedAvatar : undefined;
+    if (!owner || !onSave(owner, next, picked)) { setError('Could not save your profile. Please try again.'); return false; }
+    setProfile(next); setDraft(next); setPickedAvatar(undefined); setAvatarChoiceOpen(false); setError(''); return true;
   }
   function decide(decision: 'like' | 'superlike' | 'pass', target = candidate) {
     if (!profile || !target || isRunning || busy || celebration) return;
@@ -327,7 +360,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
           }
           const normalized = normalizeDatingProfile(draft);
           if (!normalized) { setError('Add a name, age (18–120), bio, and at least one photo.'); return; }
-          if (save(normalized)) { setEditing(false); setTab('discover'); }
+          if (save(normalized, true)) { setEditing(false); setTab('discover'); }
         }}>
           <div className="pt-intro pt-intro-compact">
             <h2>{profile ? 'Make it you.' : 'Find your match.'}</h2>
@@ -377,6 +410,37 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
                   </button>
                 </div>;
               })}</div>
+              {avatarShows && <p className={`pt-face-status${avatarShows === 'face' ? ' found' : ''}`} role="status">
+                {avatarShows === 'portrait' ? 'Your profile picture is your character portrait.'
+                  : avatarShows === 'face' ? '✓ Your profile picture is framed on the face.'
+                    : 'Your profile picture shows the whole photo.'}
+                {' '}<button type="button" className="pt-face-manual" onClick={() => {
+                  // With one photo there is nothing to choose: go straight to marking the face.
+                  if (avatarPhotos.length === 1) setFacePickImageId(avatarPhotos[0].id);
+                  else setAvatarChoiceOpen(!avatarChoiceOpen);
+                }}>Change profile picture</button>
+              </p>}
+              {avatarChoiceOpen && avatarPhotos.length > 1 && <div className="pt-face-choices" role="group" aria-label="Choose a profile picture from your photos">
+                {avatarPhotos.map((photo, index) => <button type="button" key={photo.id} aria-pressed={avatar?.imageId === photo.id}
+                  title="Use this photo and mark the face" onClick={() => setFacePickImageId(photo.id)}>
+                  <img src={photo.dataUrl} alt={`Profile photo ${index + 1}`} />
+                </button>)}
+              </div>}
+              {/* Mounted on the page so the dialog keeps its shared look instead of the MatchMe button skin. */}
+              {facePickImage && createPortal(<ProfilePickDialog
+                characterName={draft.name || 'MatchMe'}
+                image={{ description: '', ...facePickImage, name: facePickImage.name ?? '' } as RpStorybookCharacterImage}
+                currentProfileImage={avatar?.imageId !== facePickImage.id ? undefined
+                  : avatarShows === 'face' ? { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, crop: avatar.crop }
+                    // The portrait's own region is the starting point for its source photo.
+                    : avatarShows === 'portrait' && owner?.profileImage?.crop
+                      ? { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, crop: owner.profileImage.crop } : undefined}
+                onClose={() => setFacePickImageId(undefined)}
+                onApply={(profileImage) => {
+                  const crop = profileImage.crop ?? wholePhotoCrop(facePickImage.id);
+                  setPickedAvatar({ imageId: facePickImage.id, ...(crop ? { crop } : {}) });
+                  setFacePickImageId(undefined); setAvatarChoiceOpen(false);
+                }} />, document.body)}
               <div className="pt-photo-actions"><button type="button" disabled={profileOnly || busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => uploadRef.current?.click()}>{busy ? 'Importing…' : '↑ Upload'}</button>
                 <button type="button" disabled={busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => setGallery(true)}>▧ Character album</button></div>
               <input ref={uploadRef} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />

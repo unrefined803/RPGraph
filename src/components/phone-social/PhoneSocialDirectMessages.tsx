@@ -259,7 +259,7 @@ export function PhoneSocialDirectMessages({
                 <CharacterAvatar
                   className="phone-avatar large"
                   name={participantIdentity(participant).name}
-                  fallback={participant.name.slice(0, 1).toUpperCase()}
+                  fallback={participantIdentity(participant).name.slice(0, 1).toUpperCase()}
                   profileImageDataUrl={!isAccountPrivacyMode(app, participant.character) ? participant.character?.profileImage?.dataUrl : undefined}
                   style={color ? { borderColor: color, color } : undefined}
                 />
@@ -319,7 +319,7 @@ export function PhoneSocialDirectMessages({
         <CharacterAvatar
           className="phone-avatar"
           name={participantIdentity(selectedParticipant).name}
-          fallback={selectedParticipant.name.slice(0, 1).toUpperCase()}
+          fallback={participantIdentity(selectedParticipant).name.slice(0, 1).toUpperCase()}
           profileImageDataUrl={!isAccountPrivacyMode(app, selectedParticipant.character) ? selectedParticipant.character?.profileImage?.dataUrl : undefined}
           style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
         />
@@ -463,7 +463,7 @@ export function PhoneSocialDirectMessages({
             <CharacterAvatar
               className="phone-avatar large"
               name={participantIdentity(selectedParticipant).name}
-              fallback={selectedParticipant.name.slice(0, 1).toUpperCase()}
+              fallback={participantIdentity(selectedParticipant).name.slice(0, 1).toUpperCase()}
               profileImageDataUrl={!isAccountPrivacyMode(app, selectedParticipant.character) ? selectedParticipant.character?.profileImage?.dataUrl : undefined}
               style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
             />

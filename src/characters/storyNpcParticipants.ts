@@ -1,5 +1,6 @@
 import { storyNpcReferences } from '../../shared/storyNpcReferences.cjs';
 import { resolveMessageAccount } from '../chat/accountLinks';
+import { whatsUpAccountId } from './messageIdentity';
 import { appCharactersFromRegistry } from './appRuntime';
 import { buildCharacterRegistry, type CharacterRegistryEntry } from './registry';
 import { captureNpcParticipants, npcSnapshotEntries, type NpcParticipantSnapshots } from './npcParticipants';
@@ -10,9 +11,14 @@ import { parseImportedNpcSnapshots, type ImportedNpcSnapshots } from './external
 export function captureStoryNpcParticipants(snapshots: NpcParticipantSnapshots,
   entries: CharacterRegistryEntry[], messages: MessageRecord[]) {
   const characters = appCharactersFromRegistry(buildCharacterRegistry([...entries, ...npcSnapshotEntries(snapshots)]));
+  // A second WhatsUp name pins its owner: both names are the same account.
+  const accountId = (id: string | undefined, name: string | undefined) => {
+    const target = resolveMessageAccount('whatsup', id, name, characters);
+    return target && whatsUpAccountId(target.character);
+  };
   const normalized = messages.map((message) => !message.phoneMessage ? message : { ...message,
-    phoneFromAccountId: resolveMessageAccount('whatsup', message.phoneFromAccountId, message.phoneFrom, characters)?.accountId,
-    phoneToAccountId: resolveMessageAccount('whatsup', message.phoneToAccountId, message.phoneTo, characters)?.accountId,
+    phoneFromAccountId: accountId(message.phoneFromAccountId, message.phoneFrom),
+    phoneToAccountId: accountId(message.phoneToAccountId, message.phoneTo),
   });
   return captureNpcParticipants(snapshots, entries, storyNpcReferences(normalized));
 }

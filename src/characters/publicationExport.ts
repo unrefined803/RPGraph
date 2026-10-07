@@ -30,6 +30,7 @@ export function socialPostsFromTurns(turns: TurnRecord[]): SocialPostRecord[] {
 function publicImageIds(character: Character) {
   const ids = new Set<string>();
   if (character.profileImage?.imageId) ids.add(character.profileImage.imageId);
+  if (character.apps?.whatsup?.alias?.avatarImageId) ids.add(character.apps.whatsup.alias.avatarImageId);
   for (const [app, account] of Object.entries(character.apps ?? {})) {
     if (account.avatarImageId) ids.add(account.avatarImageId);
     if (app === 'fotogram' || app === 'onlyfriends') {

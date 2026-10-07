@@ -37,8 +37,8 @@ const legacyAccount = (account: object, agencyTags: string[], accountRole?: stri
 describe('agency catalog and container contract', () => {
   it('defines every catalog tag exactly once with supported role/action combinations', () => {
     const ids = agencyTagCatalog.map((tag) => tag.id);
-    expect(ids).toHaveLength(54);
-    expect(new Set(ids).size).toBe(54);
+    expect(ids).toHaveLength(56);
+    expect(new Set(ids).size).toBe(56);
     for (const tag of agencyTagCatalog) {
       expect(tag.meaning).not.toBe('');
       for (const [app, roles] of Object.entries(tag.apps)) {
@@ -69,7 +69,7 @@ describe('agency catalog and container contract', () => {
     expect(agencyTagSupports('__proto__', 'fotogram')).toBe(false);
   });
 
-  it.each(['comment_troll', 'rage_baiter', 'contrarian_debater', 'shitposter'] as const)(
+  it.each(['comment_troll', 'rage_baiter', 'contrarian_debater', 'shitposter', 'comment_hater', 'online_scammer'] as const)(
     'supports the intended messaging and reaction actions for %s', (tag) => {
       for (const app of ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const) {
         expect(agencyTagSupports(tag, app, 'user', 'dm_reply')).toBe(true);

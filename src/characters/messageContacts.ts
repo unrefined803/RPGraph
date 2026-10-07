@@ -1,4 +1,4 @@
-import { interactedNpcIds, reciprocalMessageContacts, type MessageContactGrant as ContactGrant } from './messageExchanges';
+import { interactedNpcIds, reachedByWhatsUpAlias, reciprocalMessageContacts, type MessageContactGrant as ContactGrant } from './messageExchanges';
 import { automaticAccountLinkGrants } from '../chat/accountLinks';
 import type { MessageRecord, WorkflowNode } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -18,7 +18,7 @@ export function messageContactGrants(messages: MessageRecord[], characters: Stor
     }
   };
   for (const { owner, link } of automaticAccountLinkGrants(messages, characters)) {
-    if (link.app !== 'matchme' && link.app !== 'banking') add(owner.sourceId, link.characterId, link.app);
+    if (link.app !== 'matchme' && link.app !== 'banking' && !reachedByWhatsUpAlias(link)) add(owner.sourceId, link.characterId, link.app);
   }
   return grants;
 }

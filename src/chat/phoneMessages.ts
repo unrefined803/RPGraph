@@ -1,4 +1,4 @@
-import { matchingMessageAliases } from '../characters/messageAliases';
+import { accountLinkIdentity, looseAccountLinkIdentity, matchingMessageAliases } from '../characters/messageAliases';
 import type {
   MatchMeAction,
   BankTransferRecord,
@@ -23,6 +23,9 @@ export type ParsedPhoneMessage = {
   toAccountId?: string;
   from: string;
   to: string;
+  /** The participant was written as an account link: a deliberate choice of account. */
+  fromLink?: boolean;
+  toLink?: boolean;
   message: string;
   isVoiceMessage?: boolean;
   imageId?: string;
@@ -276,6 +279,21 @@ function outgoingPhoneImageIdFromRecord(value: Record<string, unknown>) {
       : undefined;
 }
 
+/**
+ * Generated messages name their participants as account links of the message's
+ * app. The identity inside the link is kept, so previews and reports show the
+ * name while delivery still reaches exactly that account.
+ */
+function messageParticipant(value: string, app: MessengerAppKind) {
+  return accountLinkIdentity(value, app) ?? value.trim();
+}
+
+/** Marks WhatsUp participants that were written as account links rather than bare names. */
+function whatsUpLinkFlags(from: string, to: string) {
+  const linked = (value: string) => /^@?(?:whatsup|whatsapp):/i.test(value.trim());
+  return { ...(linked(from) ? { fromLink: true } : {}), ...(linked(to) ? { toLink: true } : {}) };
+}
+
 function parsePhoneReplyRecord(value: unknown): ParsedPhoneMessage | undefined {
   if (
     !isRecord(value) ||
@@ -293,8 +311,9 @@ function parsePhoneReplyRecord(value: unknown): ParsedPhoneMessage | undefined {
     return undefined;
   }
   const parsed = {
-    from: value.from.trim(),
-    to: value.to.trim(),
+    from: messageParticipant(value.from, 'whatsup'),
+    to: messageParticipant(value.to, 'whatsup'),
+    ...whatsUpLinkFlags(value.from, value.to),
     message: value.message.trim(),
     isVoiceMessage: phoneVoiceMessageFlagFromRecord(value) || undefined,
     imageId: outgoingPhoneImageIdFromRecord(value),
@@ -457,8 +476,9 @@ function parseEmbeddedPhoneMessagesObject(value: unknown): ParsedPhoneMessage[] 
       return [];
     }
     const parsed = {
-      from: entry.from.trim(),
-      to: entry.to.trim(),
+      from: messageParticipant(entry.from, 'whatsup'),
+      to: messageParticipant(entry.to, 'whatsup'),
+      ...whatsUpLinkFlags(entry.from, entry.to),
       isVoiceMessage: phoneVoiceMessageFlagFromRecord(entry) || undefined,
       imageId: outgoingPhoneImageIdFromRecord(entry) ?? phoneImageIdFromRecord(entry),
       imageDescription: phoneImageDescriptionFromRecord(entry),
@@ -476,8 +496,10 @@ export function parseEmbeddedBankTransfersObject(value: unknown): BankTransferRe
     if (!isRecord(entry) || typeof entry.from !== 'string' || typeof entry.to !== 'string') {
       return [];
     }
-    const from = entry.from.trim();
-    const to = entry.to.trim();
+    // A party may be written as its @bank: account link.
+    const party = (value: string) => accountLinkIdentity(value, 'banking') ?? looseAccountLinkIdentity(value, 'banking') ?? value.trim();
+    const from = party(entry.from);
+    const to = party(entry.to);
     const amount = typeof entry.amount === 'number'
       ? entry.amount
       : typeof entry.amount === 'string' && entry.amount.trim()
@@ -599,8 +621,8 @@ export function parseMessengerAppMessagesObject(value: unknown): ParsedMessenger
       ) {
         continue;
       }
-      const from = entry.from.trim();
-      const to = entry.to.trim();
+      const from = messageParticipant(entry.from, app);
+      const to = messageParticipant(entry.to, app);
       const message = entry.message.trim();
       if (!from || !to || !message) {
         continue;
@@ -609,6 +631,7 @@ export function parseMessengerAppMessagesObject(value: unknown): ParsedMessenger
         result.phoneMessages.push({
           from,
           to,
+          ...whatsUpLinkFlags(entry.from, entry.to),
           message,
           isVoiceMessage: phoneVoiceMessageFlagFromRecord(entry) || undefined,
           imageId: outgoingPhoneImageIdFromRecord(entry) ?? phoneImageIdFromRecord(entry),

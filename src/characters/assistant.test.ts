@@ -34,14 +34,27 @@ describe('Character Assistant edits', () => {
     expect(() => parseCharacterAssistantResult(response([{ op: 'add', path: '/character/playable', value: true }]), character)).toThrow();
   });
 
-  it('supports automatic cropping requests and first portrait selection', () => {
+  it('frames avatars on the face positions reported by the vision model', () => {
     const character = fixture();
+    character.images = character.images.map((image) => ({ ...image, width: 1000, height: 2000 }));
     delete character.profileImage;
-    const result = parseCharacterAssistantResult(JSON.stringify({ reply: 'Selecting the portrait.', autoCrop: true,
-      patch: [{ op: 'replace', path: '/character/profileImage', value: { imageId: 'one' } }] }), character);
-    expect(result.autoCrop).toBe(true);
-    expect(result.character.profileImage?.imageId).toBe('one');
-    expect(parseCharacterAssistantResult(JSON.stringify({ reply: 'Detecting.', patch: [], autoCrop: true }), result.character).autoCrop).toBe(true);
+    const face = { centerX: 50, centerY: 25, height: 20 };
+    const result = parseCharacterAssistantResult(JSON.stringify({ reply: 'Selecting the portrait.', faces: { one: face, two: face, missing: face },
+      patch: [{ op: 'add', path: '/character/profileImage', value: { imageId: 'one' } },
+        { op: 'add', path: '/character/apps/whatsup/alias', value: { name: 'Lex Work', avatarImageId: 'two' } }] }), character);
+    // A 400px head with room around it: a 600px square centered on the face.
+    expect(result.character.profileImage).toMatchObject({ imageId: 'one', crop: { x: 20, y: 10, size: 60 } });
+    expect(result.character.apps?.whatsup?.alias).toEqual({ name: 'Lex Work', avatarImageId: 'two', avatarCrop: { x: 20, y: 10, size: 60 } });
+    // A face reported without a patch re-centers the existing portrait; unusable estimates are ignored.
+    const recentered = parseCharacterAssistantResult(JSON.stringify({ reply: 'Centered.', patch: [],
+      faces: { one: { centerX: 0, centerY: 100, height: 20 }, two: { centerX: 'left' } } }), result.character);
+    expect(recentered.character.profileImage?.crop).toEqual({ x: 0, y: 70, size: 60 });
+    expect(recentered.character.apps?.whatsup?.alias?.avatarCrop).toEqual({ x: 20, y: 10, size: 60 });
+    const copy = copyAssistantCharacter(result.character);
+    expect(copy.images.map((image) => image.id)).toContain(copy.apps?.whatsup?.alias?.avatarImageId);
+    expect(() => parseCharacterAssistantResult(JSON.stringify({ reply: 'Same name.', patch: [
+      { op: 'add', path: '/character/apps/whatsup/alias', value: { name: 'Alex' } }] }), character)).toThrow(/second WhatsUp name/);
+    expect(characterAssistantPrompt(character, [], 'Add a work number.', [], 'npc-characters')).toContain('apps.whatsup.alias');
   });
 
   it('preserves source, media, voice and identities when editing text and captions', () => {

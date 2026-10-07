@@ -17,9 +17,9 @@ itself runs with normal user permissions.
 The complete application, Electron, default content, NPC characters, and ComfyUI
 templates are included. Installing does not require Node.js, npm, Wine, or a
 separate Electron runtime. Installation works offline after downloading the
-installer. AI providers and ComfyUI remain external services. Optional automatic
-face detection needs a separate Python environment and model; manual portrait
-cropping does not.
+installer. AI providers and ComfyUI remain external services. The
+application contains no face detector: avatar faces are marked by hand, or
+estimated by the vision provider selected in the Character Assistant.
 
 To update, close RPGraph and run the new version's installer with the same
 installation scope. The standard electron-builder NSIS upgrade replaces the old

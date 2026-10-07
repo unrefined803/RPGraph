@@ -37,7 +37,7 @@ describe.each(['fotogram', 'onlyfriends'] as const)('%s full thread input', (app
     expect(input).not.toContain('[EXISTING THREAD PARTICIPANTS]');
     for (const comment of comments) {
       const index = Number(comment.handle.slice(3));
-      expect(input).toContain(`- "${comment.from}"; character ID: "npc_${index}"; profile name: "${comment.handle}"; privacy: ${index === 1 ? 'anonymous' : 'public'}; ${JSON.stringify(comment.text)}`);
+      expect(input).toContain(`- "${comment.from}"; character ID: "npc_${index}"; profile name: "${comment.handle}"; link: @${app}:${comment.handle}; privacy: ${index === 1 ? 'anonymous' : 'public'}; ${JSON.stringify(comment.text)}`);
     }
     expect(socialThreadRunContextFromInput(input)).toEqual({ existingComments: comments, likeCount: 12 });
   });

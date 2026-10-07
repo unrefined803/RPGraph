@@ -70,6 +70,14 @@ describe('NPC library publication view', () => {
 });
 
 describe('NPC library image inventory', () => {
+  it('counts the second WhatsUp account picture as used while its account is enabled', () => {
+    const npc = character();
+    npc.apps = { whatsup: { ...account(), alias: { name: 'Work Account', avatarImageId: 'reserve' } } };
+    expect(characterLibrarySummary(npc)).toMatchObject({ used: 1, unused: 3 });
+    npc.apps.whatsup!.enabled = false;
+    expect(characterLibrarySummary(npc)).toMatchObject({ used: 0, unused: 4 });
+  });
+
   it('counts shared portraits and post images once, includes dating photos, and leaves reserve images unused', () => {
     const npc = character();
     npc.profileImage = { imageId: 'portrait', dataUrl: '' };

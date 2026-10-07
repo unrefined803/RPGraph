@@ -1,5 +1,6 @@
 import { isSocialPostModeration, socialModerationReasons } from './socialModeration';
 import { accountHandle, accountHandleMatches } from '../characters/character';
+import { accountLinkIdentity } from '../characters/messageAliases';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import { matchMeContext, matchMeState } from './matchMe';
 import { datingFirstName, datingProfileName, datingAccountId, datingAccountMatches, datingAccounts, resolveDatingAccount } from './datingAccounts';
@@ -266,6 +267,10 @@ export function socialDirectMessageInputText(
     `Sender: ${socialDirectMessageParty(message, 'from', characters, true, true, 'explained')}`,
     `Recipient: ${socialDirectMessageParty(message, 'to', characters, true, true, 'explained')}`,
     `Reply as: ${message.to} to ${message.from}`,
+    ...(message.app === 'matchme' ? [] : [
+      `Reply from: @${message.app}:${message.toHandle.replace(/^@/, '')}`,
+      `Reply to: @${message.app}:${message.fromHandle.replace(/^@/, '')}`,
+    ]),
     '',
     ...(message.app === 'matchme'
       ? [matchMeContext(matchMeState(characters, historyMessages), message, recipientContext), '']
@@ -472,7 +477,7 @@ export function socialThreadActionInputText(
       accountHandleMatches(character.apps?.[action.app], comment.handle));
     const character = matches.length === 1 ? matches[0] : undefined;
     const account = character?.apps?.[action.app];
-    return `- ${JSON.stringify(comment.from)}; character ID: ${JSON.stringify(character?.sourceId ?? '')}; profile name: ${JSON.stringify(comment.handle)}; privacy: ${account ? account.privacyMode ? 'anonymous' : 'public' : 'unknown'}; ${JSON.stringify(comment.text)}`;
+    return `- ${JSON.stringify(comment.from)}; character ID: ${JSON.stringify(character?.sourceId ?? '')}; profile name: ${JSON.stringify(comment.handle)}; link: @${action.app}:${comment.handle.replace(/^@/, '')}; privacy: ${account ? account.privacyMode ? 'anonymous' : 'public' : 'unknown'}; ${JSON.stringify(comment.text)}`;
   });
   return [
     '[SOCIAL MEDIA THREAD ACTION]',
@@ -503,7 +508,7 @@ export function socialThreadRunContextFromInput(inputText: string): SocialThread
   const existingComments = commentsBlock
     .split('\n')
     .flatMap((line) => {
-      const combined = line.match(/^- ("(?:[^"\\]|\\.)*"); character ID: ("(?:[^"\\]|\\.)*"); profile name: ("(?:[^"\\]|\\.)*"); privacy: (?:public|anonymous|unknown); ("(?:[^"\\]|\\.)*")$/);
+      const combined = line.match(/^- ("(?:[^"\\]|\\.)*"); character ID: ("(?:[^"\\]|\\.)*"); profile name: ("(?:[^"\\]|\\.)*")(?:; link: [^;]*)?; privacy: (?:public|anonymous|unknown); ("(?:[^"\\]|\\.)*")$/);
       if (combined) {
         try {
           return [{ from: JSON.parse(combined[1]) as string, handle: JSON.parse(combined[3]) as string, text: JSON.parse(combined[4]) as string }];
@@ -675,6 +680,8 @@ export type SocialReactionsParseResult = {
   historySummary?: string;
   /** Incoming DMs the LLM sent alongside the reactions. */
   directMessages: ParsedIncomingSocialDirectMessage[];
+  /** WhatsUp messages sent alongside the reactions, for a WhatsUp link published in the post or thread. */
+  phoneMessages: ParsedPhoneMessage[];
   warnings: string[];
 };
 
@@ -692,10 +699,12 @@ export function parseSocialReactionsOutput(
   target: SocialReactionTarget,
 ): SocialReactionsParseResult {
   const directMessages: ParsedIncomingSocialDirectMessage[] = [];
+  const phoneMessages: ParsedPhoneMessage[] = [];
   const warnings: string[] = [];
   if (!text.trim()) {
     return {
       directMessages,
+      phoneMessages,
       warnings: ['Social Media output was empty; no reactions were generated.'],
     };
   }
@@ -725,11 +734,19 @@ export function parseSocialReactionsOutput(
       }
       directMessages.push(...blockDirectMessages);
     }
+    const whatsUpEntries = block[messengerAppMessageKeys.whatsup];
+    if (Array.isArray(whatsUpEntries)) {
+      const blockPhoneMessages = parseMessengerAppMessagesObject({ [messengerAppMessageKeys.whatsup]: whatsUpEntries }).phoneMessages;
+      if (blockPhoneMessages.length !== whatsUpEntries.length) {
+        warnings.push('A whatsUpApp entry is missing from, to, or message; it was skipped.');
+      }
+      phoneMessages.push(...blockPhoneMessages);
+    }
     const hasReactions = isRecord(block.reactions) ||
       block.likes !== undefined ||
       block.additionalLikes !== undefined ||
       block.comments !== undefined;
-    if (hasDirectMessages && !hasReactions) {
+    if ((hasDirectMessages || Array.isArray(whatsUpEntries)) && !hasReactions) {
       continue;
     }
     if (!parsed) {
@@ -741,12 +758,13 @@ export function parseSocialReactionsOutput(
     );
   }
   if (!parsed) {
-    if (directMessages.length > 0) {
+    if (directMessages.length > 0 || phoneMessages.length > 0) {
       warnings.push('Social Media output is missing the reactions block.');
-      return { directMessages, warnings };
+      return { directMessages, phoneMessages, warnings };
     }
     return {
       directMessages,
+      phoneMessages,
       warnings: [...warnings, 'Social Media output could not be parsed as JSON.'],
     };
   }
@@ -769,9 +787,11 @@ export function parseSocialReactionsOutput(
         return;
       }
       const rawFrom = typeof entry.from === 'string' && entry.from.trim() ? entry.from.trim() : 'Someone';
+      // A commenter is written as this app's account link; the profile name inside it is the handle.
+      const linkedProfileName = accountLinkIdentity(rawFrom, target.app);
       const embeddedHandle = rawFrom.match(/^(.*?)\s*\(@([^()]+)\)\s*$/);
-      const from = embeddedHandle?.[1]?.trim() || rawFrom;
-      const handle =
+      const from = linkedProfileName ?? (embeddedHandle?.[1]?.trim() || rawFrom);
+      const handle = linkedProfileName ? linkedProfileName.toLowerCase() :
         typeof entry.handle === 'string' && entry.handle.trim()
           ? entry.handle.trim().replace(/^@/, '').toLowerCase()
           : embeddedHandle?.[2]
@@ -807,6 +827,7 @@ export function parseSocialReactionsOutput(
     },
     historySummary,
     directMessages,
+    phoneMessages,
     warnings,
   };
 }

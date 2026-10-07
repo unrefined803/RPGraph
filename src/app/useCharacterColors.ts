@@ -1,6 +1,7 @@
 import { createStableDerivedValueSelector } from '../chat/stableDerivedValue';
 import { useMemo, useState, type CSSProperties } from 'react';
 import type { StorybookCharacter } from '../storybook/runtime';
+import { whatsUpAlias } from '../characters/messageIdentity';
 import {
   characterColorToken, characterColorValue, reserveCharacterColors,
   type CharacterColorSlots,
@@ -17,7 +18,11 @@ export function useCharacterColors(characters: StorybookCharacter[], players: St
     const ids = new Set([...players.map((character) => character.sourceId), ...interactedIds]);
     return characters.filter((character) => ids.has(character.sourceId));
   }, [characters, players, interactedIds]);
-  const characterColors = useMemo(() => selectColors(new Map(eligibleCharacters.map((character) => [character.name, characterColorToken(character)]))), [eligibleCharacters, selectColors]);
+  const characterColors = useMemo(() => selectColors(new Map(eligibleCharacters.flatMap((character) => {
+    // A second WhatsUp name shares its owner's color.
+    const alias = whatsUpAlias(character)?.name.trim();
+    return [[character.name, characterColorToken(character)], ...(alias ? [[alias, characterColorToken(character)]] : [])] as Array<[string, string]>;
+  }))), [eligibleCharacters, selectColors]);
   const characterColorStyle = useMemo(() => selectStyle(Object.fromEntries(eligibleCharacters.map((character) => [
     characterColorToken(character).slice(4, -1),
     characterColorValue(characterColorSlots[character.sourceId], character.playerSelectable !== false),

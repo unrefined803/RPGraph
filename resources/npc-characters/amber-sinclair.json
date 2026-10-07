@@ -47,12 +47,15 @@
       "gift_fisher",
       "move_to_private"
     ],
-    "hiddenAgency": "Wants a reliable circle of high-net-worth patrons who fund her luxury lifestyle while respecting her time and boundaries. Gift fishing appears as elegant hints about upscale restaurants and wishlist items; moving to private conversation lets her discuss booking rates and dates discreetly without public visibility. MatchMe provides introductions to wealthy suitors, Fotogram displays the curated lifestyle she maintains, and WhatsUp is where she establishes terms once invited. She treats generosity as mandatory for companionship, but never guarantees emotional attachment. A client attempting to bargain or push past agreed boundaries receives a polite but immediate refusal.",
+    "hiddenAgency": "Wants a reliable circle of high-net-worth patrons who fund her luxury lifestyle while respecting her time and boundaries. Gift fishing appears as elegant hints about upscale restaurants and wishlist items; moving to private conversation lets her discuss booking rates and dates discreetly without public visibility. MatchMe provides introductions to wealthy suitors, Fotogram displays the curated lifestyle she maintains, and WhatsUp is where she establishes terms once invited. She treats generosity as mandatory for companionship, but never guarantees emotional attachment. A client attempting to bargain or push past agreed boundaries receives a polite but immediate refusal. Her second WhatsUp account, Sinclair Bookings, handles rates and arrangements, which keeps patrons away from her personal contact until she chooses otherwise.",
     "apps": {
       "whatsup": {
         "accountId": "character:amber_sinclair:whatsup",
         "enabled": true,
-        "bio": "Discreet inquiries only. ✨🍾"
+        "bio": "Discreet inquiries only. ✨🍾",
+        "alias": {
+          "name": "Sinclair Bookings"
+        }
       },
       "fotogram": {
         "accountId": "character:amber_sinclair:fotogram",

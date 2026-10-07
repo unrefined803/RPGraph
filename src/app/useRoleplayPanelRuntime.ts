@@ -6,6 +6,7 @@ import { nextAutoScrollSpeed } from '../chat/autoScrollSpeed';
 import { bankingRecipientByName } from '../chat/bankingRecipients';
 import { hasAuthoredConnection } from '../characters/relationships';
 import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
+import { whatsUpAccountId, whatsUpAlias, whatsUpAliasAccountId, whatsUpAliasInUse, whatsUpNamesUsedWith } from '../characters/messageIdentity';
 import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
 import { appCharacterImage } from '../characters/appRuntime';
 import type { NpcParticipantReference } from '../characters/npcParticipants';
@@ -23,9 +24,13 @@ import {
 } from '../settings';
 import type { CommandInputCommand } from '../chat/structuredCommands';
 import {
+  phoneConversationKeyTwins,
+  phoneMessagesForOwner,
   phoneRuntimeCharactersFromMessages,
+  whatsUpAliasContact,
   type PhoneRuntimeCharacter,
 } from '../chat/phoneCharacters';
+import { phoneImagesWithCurrentSenders, phoneMarkersWithCurrentNames, phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { usePhoneReply } from '../chat/usePhoneReply';
 import {
   bankTransferMessages,
@@ -33,6 +38,15 @@ import {
   unreadBankTransferCountForCharacter,
   unreadBankTransfersForCharacter,
 } from '../chat/bankTransfers';
+import {
+  bankTransferPhoneBanner,
+  directMessagePhoneBanner,
+  matchMeMatchPhoneBanner,
+  phoneAppEntryPhoneBanner,
+  socialReactionsPhoneBanner,
+  whatsUpPhoneBanner,
+  type PhoneBanner,
+} from '../chat/phoneBanners';
 import type { OnlyFriendsPurchasesByCharacter } from '../chat/onlyFriendsWallet';
 import type {
   ChatGpdChatsByCharacter,
@@ -68,6 +82,7 @@ import {
   phoneConversationKey,
   selectedPhoneConversationMessages,
   phoneSwitchCharacters,
+  phoneMessageVisibleText,
   unreadPhoneConversationsForCharacters,
 } from '../data-management/selectors';
 import {
@@ -132,7 +147,7 @@ export function useRoleplayPanelRuntime({
   captureNpcParticipants,
   nodeViewNodes,
   nodesRef,
-  messages,
+  messages: storedMessages,
   turns,
   storybooksByNodeId,
   characterStorybookNodeCount,
@@ -144,6 +159,7 @@ export function useRoleplayPanelRuntime({
   commitNodes,
   notifySystem,
 }: UseRoleplayPanelRuntimeOptions) {
+  const messages = useMemo(() => phoneMessagesWithCurrentNames(storedMessages, appCharacters), [storedMessages, appCharacters]);
   const [panelSessionRevision, setPanelSessionRevision] = useState(0);
   const [smoothChatAutoScrollActive, setSmoothChatAutoScrollActive] = useState(false);
   const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
@@ -174,7 +190,9 @@ export function useRoleplayPanelRuntime({
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = usePanelNavigationState('panel.viewedPhoneCharacterId', '');
   const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = usePanelNavigationState('panel.selectedPhoneCharacterId', '');
   const [selectedEventId, setSelectedEventId] = usePanelNavigationState('panel.selectedEventId', '');
-  const [phoneSeenByConversation, setPhoneSeenByConversation] = useState<Record<string, number>>({});
+  const [storedPhoneSeenByConversation, setPhoneSeenByConversation] = useState<Record<string, number>>({});
+  const phoneSeenByConversation = useMemo(() => phoneMarkersWithCurrentNames(storedPhoneSeenByConversation, storedMessages, messages),
+    [storedPhoneSeenByConversation, storedMessages, messages]);
   const [bankingSeenByCharacter, setBankingSeenByCharacter] = useState<Record<string, number>>({});
   const [phoneAppSeenByCharacter, setPhoneAppSeenByCharacter] = useState<Record<string, number>>({});
   const [bankingContactsByCharacter, setBankingContactsByCharacter] = useState<Record<string, string[]>>({});
@@ -189,6 +207,11 @@ export function useRoleplayPanelRuntime({
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = usePanelNavigationState('panel.phoneHomeRequestId', 0, false);
+  // Opens an app that has no finer-grained open request (Banking, Notes, ChatGPD).
+  const [phoneAppOpenRequest, setPhoneAppOpenRequest] = usePanelNavigationState<{
+    requestId: number;
+    app: 'banking' | 'notes' | 'ai';
+  }>('panel.phoneAppOpenRequest');
   // Mirrors the screen shown inside PhonePanel so turn actions can follow it.
   const [phoneScreen, setPhoneScreen] = useState('desktop');
   const accountLinkRequestId = useRef(0);
@@ -201,6 +224,17 @@ export function useRoleplayPanelRuntime({
   const [socialDirectMessageOpenRequest, setSocialDirectMessageOpenRequest] =
     usePanelNavigationState<SocialDirectMessageOpenRequest>('panel.socialDirectMessageOpenRequest');
   const [phoneDividerAfterByConversation, setPhoneDividerAfterByConversation] = useState<Record<string, number>>({});
+  const previousPhoneMessages = useRef(messages);
+  useEffect(() => {
+    const previous = previousPhoneMessages.current;
+    previousPhoneMessages.current = messages;
+    // Preserve markers across successive renames, even without a new message
+    // recorded under the intermediate name.
+    setPhoneSeenByConversation((current) => phoneMarkersWithCurrentNames(current, previous, messages));
+    setPhoneDividerAfterByConversation((current) => phoneMarkersWithCurrentNames(current, previous, messages));
+  }, [messages]);
+  // A deliberate choice of WhatsUp name for one conversation; without one the known name continues.
+  const [phoneSenderNameByConversation, setPhoneSenderNameByConversation] = useState<Record<string, { name: 'real' | 'alias'; count: number }>>({});
   const [recentlyUsedEmojis, setRecentlyUsedEmojis] = useState<string[]>([]);
   const [recentChatCharacterIds, setRecentChatCharacterIds] = useState<string[]>([]);
   const [openedPhoneConversationKey, setOpenedPhoneConversationKey] = usePanelNavigationState('panel.openedPhoneConversationKey', '');
@@ -223,6 +257,8 @@ export function useRoleplayPanelRuntime({
     pulseKey: number;
   }>();
   const [lastSeenMessageRecordId, setLastSeenMessageRecordId] = useState(0);
+  // Highest message id that existed while the Chat view was on screen.
+  const [chatSeenMessageId, setChatSeenMessageId] = useState(0);
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(() => new Set());
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<string>>(() => new Set());
   const [phoneDraft, setPhoneDraft] = useState('');
@@ -382,13 +418,16 @@ export function useRoleplayPanelRuntime({
     const byCharacter = new Map<string, {
       counts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends' | 'matchme', number>;
       unreadDirectMessages: Record<SocialMessengerAppKind, SocialDmUnreadByHandle>;
+      banners: PhoneBanner[];
     }>();
     // DMs rendered as embedded app blocks inside a chat bubble were already
     // read there, so they produce no app notification while the option is on.
+    // A bubble that arrived behind another view counts once Chat was shown.
     const chatEmbeddedSocialIds = new Set(
       chatReadsPhoneAppsEnabled
-        ? messages.flatMap((message) =>
-            message.embeddedSocialMessages?.map((link) => link.socialMessageId) ?? [])
+        ? messages.flatMap((message) => chatPanelView === 'chat' || message.id <= chatSeenMessageId
+            ? message.embeddedSocialMessages?.map((link) => link.socialMessageId) ?? []
+            : [])
         : [],
     );
     const datingState = matchMeState(storyCharacters, messages);
@@ -403,8 +442,10 @@ export function useRoleplayPanelRuntime({
       // reactions, instead of one badge per message. DM conversations keep
       // their own seen id (marked when the thread is opened, like phone
       // conversations); reactions clear with the app-level seen id.
+      const banners: PhoneBanner[] = [];
       const socialApp = (app: SocialMessengerAppKind) => {
         const unreadDms: SocialDmUnreadByHandle = {};
+        const latestDmByHandle = new Map<string, MessageRecord>();
         messages.forEach((message) => {
           const directMessage = message.socialDirectMessage;
           if (
@@ -425,17 +466,25 @@ export function useRoleplayPanelRuntime({
             count: existing.count + 1,
             tipTotal: existing.tipTotal + (directMessage.tip ?? 0),
           };
+          latestDmByHandle.set(handleKey, message);
         });
-        const reactionPostIds = new Set(messages.flatMap((message) =>
-          !message.isOpening &&
-          message.id > seen(app) &&
-          message.socialReactions?.app === app &&
-          ownedPostIds.has(message.socialReactions.postId)
-            ? [message.socialReactions.postId]
-            : []
-        ));
+        latestDmByHandle.forEach((message, handleKey) => banners.push(
+          directMessagePhoneBanner(message.id, message.socialDirectMessage!, unreadDms[handleKey].count, appCharacters)));
+        const latestReactionsByPostId = new Map<string, MessageRecord>();
+        messages.forEach((message) => {
+          if (
+            !message.isOpening &&
+            message.id > seen(app) &&
+            message.socialReactions?.app === app &&
+            ownedPostIds.has(message.socialReactions.postId)
+          ) {
+            latestReactionsByPostId.set(message.socialReactions.postId, message);
+          }
+        });
+        latestReactionsByPostId.forEach((message) => banners.push(
+          socialReactionsPhoneBanner(message.id, message.socialReactions!, appCharacters)));
         return {
-          count: Object.keys(unreadDms).length + reactionPostIds.size,
+          count: Object.keys(unreadDms).length + latestReactionsByPostId.size,
           unreadDms,
         };
       };
@@ -447,7 +496,19 @@ export function useRoleplayPanelRuntime({
       for (const [partnerId, newMatchId] of Object.entries(newMatches)) {
         if (!matchme.unreadDms[partnerId]) matchme.count += 1;
         matchme.unreadDms[partnerId] = { ...(matchme.unreadDms[partnerId] ?? { count: 0, tipTotal: 0 }), newMatchId };
+        banners.push(matchMeMatchPhoneBanner(newMatchId, partnerId,
+          datingState.accounts.find((account) => account.id === partnerId)?.name ?? 'New match'));
       }
+      (['notes', 'ai'] as const).forEach((app) => {
+        const title = (message: MessageRecord) => {
+          const commit = app === 'notes' ? message.createdPhoneNote : message.simulatedAiChat;
+          if (commit?.characterId !== character.id) return undefined;
+          return 'note' in commit ? commit.note.title : commit.chat.title;
+        };
+        const latest = messages.filter((message) =>
+          !message.isOpening && message.id > seen(app) && title(message) !== undefined).slice(-1)[0];
+        if (latest) banners.push(phoneAppEntryPhoneBanner(app, latest.id, title(latest) ?? ''));
+      });
       byCharacter.set(character.id, {
         counts: {
           notes: count('notes', (message) => message.createdPhoneNote?.characterId === character.id),
@@ -461,10 +522,11 @@ export function useRoleplayPanelRuntime({
           onlyfriends: onlyfriends.unreadDms,
           matchme: matchme.unreadDms,
         },
+        banners,
       });
     });
     return byCharacter;
-  }), [chatReadsPhoneAppsEnabled, messages, phoneAppSeenByCharacter, storyCharacters]);
+  }), [appCharacters, chatPanelView, chatReadsPhoneAppsEnabled, chatSeenMessageId, messages, phoneAppSeenByCharacter, storyCharacters]);
   const phoneAppNotificationCounts = phoneAppNotifications.get(viewedPhoneCharacter?.id ?? '')?.counts ?? {
     notes: 0,
     ai: 0,
@@ -527,11 +589,11 @@ export function useRoleplayPanelRuntime({
     const imageOwner = storybook?.characters.find(
       (entry) => entry.id === viewedPhoneCharacter?.sourceId,
     );
-    const images = imageOwner?.images.map(chatAttachmentFromStorybookImage) ?? [];
+    const images = phoneImagesWithCurrentSenders(imageOwner?.images.map(chatAttachmentFromStorybookImage) ?? [], appCharacters);
     return imageUploadVisionEnabled
       ? images
       : images.filter((image) => image.description?.trim());
-  }, [imageUploadVisionEnabled, storybooksByNodeId, viewedPhoneCharacter]);
+  }, [appCharacters, imageUploadVisionEnabled, storybooksByNodeId, viewedPhoneCharacter]);
 
   function rememberChatCharacter(characterId: string) {
     setRecentChatCharacterIds((current) => [
@@ -560,22 +622,39 @@ export function useRoleplayPanelRuntime({
   }, [messages, phoneSeenByConversation]);
   // History may name a participant differently than the character, so a
   // conversation is attributed to the characters its names resolve to.
+  // The owner of a second WhatsUp name reads both names as one inbox on their own phone.
+  const viewedPhoneHasAlias = !!whatsUpAlias(viewedPhoneCharacter);
+  const viewedPhoneAliasInUse = useMemo(() => whatsUpAliasInUse(viewedPhoneCharacter, messages), [messages, viewedPhoneCharacter]);
+  const viewerPhoneMessages = useMemo(
+    () => phoneMessagesForOwner(messages, viewedPhoneCharacter),
+    [messages, viewedPhoneCharacter],
+  );
+  const viewerPhoneConversationInfo = useMemo(() => {
+    if (!viewedPhoneHasAlias) return phoneConversationInfo;
+    const seen = { ...phoneSeenByConversation };
+    for (const [key, latestId] of Object.entries(phoneSeenByConversation)) {
+      for (const twin of phoneConversationKeyTwins(key, viewedPhoneCharacter)) seen[twin] = Math.max(seen[twin] ?? 0, latestId);
+    }
+    return phoneConversationInfoFromMessages(viewerPhoneMessages, seen);
+  }, [viewedPhoneHasAlias, phoneConversationInfo, phoneSeenByConversation, viewerPhoneMessages, viewedPhoneCharacter]);
   const phoneConversationPairs = useMemo(() => new Set(
-    Array.from(phoneConversationInfo.values()).flatMap(({ names }) => {
+    [...phoneConversationInfo.values(), ...(viewedPhoneHasAlias ? viewerPhoneConversationInfo.values() : [])].flatMap(({ names }) => {
       const [left, right] = names.map((name) => matchingPhoneName(phoneCharacters, name));
       return left && right ? [phoneConversationKey(left.name, right.name)] : [];
     }),
-  ), [phoneCharacters, phoneConversationInfo]);
+  ), [phoneCharacters, phoneConversationInfo, viewedPhoneHasAlias, viewerPhoneConversationInfo]);
 
   const phoneContactVisibleForViewer = useCallback((
     viewer: PhoneRuntimeCharacter | undefined,
     contact: PhoneRuntimeCharacter,
   ) => {
-    if (!viewer || viewer.id === contact.id) {
+    if (!viewer || viewer.id === contact.id || contact.whatsUpAliasOf?.sourceId === viewer.sourceId) {
       return false;
     }
+    // A shared link reveals exactly the name it carried: the real account or the second name.
     const sharedPhoneIds = socialConnectionIds(socialConnectionsByCharacter, viewer.id, 'whatsup', appCharacters);
-    if (sharedPhoneIds.some((id) => resolveAccountLink('whatsup', id, appCharacters)?.characterId === contact.sourceId)) return true;
+    const contactAccountId = whatsUpAccountId(contact);
+    if (sharedPhoneIds.some((id) => resolveAccountLink('whatsup', id, appCharacters)?.accountId === contactAccountId)) return true;
     if (phoneConversationPairs.has(phoneConversationKey(viewer.name, contact.name))) {
       return true;
     }
@@ -589,14 +668,16 @@ export function useRoleplayPanelRuntime({
     return viewer.relationships === undefined && !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
   }, [phoneConversationPairs, storybooksByNodeId, socialConnectionsByCharacter, appCharacters]);
 
-  const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>) => {
+  const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>, owner: StorybookCharacter | undefined) => {
     if (updates.length === 0) {
       return;
     }
     setPhoneSeenByConversation((current) => {
       let changed = false;
       const next = { ...current };
-      updates.forEach(({ key, latestId }) => {
+      // Reading a conversation also reads its second-name twin; both are one inbox.
+      updates.flatMap((update) => [update, ...phoneConversationKeyTwins(update.key, owner)
+        .map((key) => ({ key, latestId: update.latestId }))]).forEach(({ key, latestId }) => {
         if (latestId > (next[key] ?? 0)) {
           next[key] = latestId;
           changed = true;
@@ -612,6 +693,7 @@ export function useRoleplayPanelRuntime({
     select?: { speakerId: string; contactId: string; activatePlayer?: boolean },
   ) => {
     const seenBefore = phoneSeenByConversation[conversationKey] ?? 0;
+    let readingOwner = viewedPhoneCharacter;
     if (select) {
       let { speakerId, contactId } = select;
       if (select.activatePlayer ?? true) {
@@ -624,14 +706,15 @@ export function useRoleplayPanelRuntime({
       }
       setViewedPhoneCharacterId(speakerId);
       setSelectedPhoneCharacterId(contactId);
+      readingOwner = phoneCharacters.find((character) => character.id === speakerId);
     }
     setOpenedPhoneConversationKey(conversationKey);
     setPhoneDividerAfterByConversation((current) => ({
       ...current,
       [conversationKey]: seenBefore,
     }));
-    markPhoneConversationsSeen([{ key: conversationKey, latestId }]);
-  }, [markPhoneConversationsSeen, phoneSeenByConversation, playerCharacters, setOpenedPhoneConversationKey, setSelectedPhoneCharacterId, setViewedPhoneCharacterId, setSelectedCharacterId]);
+    markPhoneConversationsSeen([{ key: conversationKey, latestId }], readingOwner);
+  }, [markPhoneConversationsSeen, phoneSeenByConversation, playerCharacters, phoneCharacters, viewedPhoneCharacter, setOpenedPhoneConversationKey, setSelectedPhoneCharacterId, setViewedPhoneCharacterId, setSelectedCharacterId]);
 
   const phoneContacts = useMemo(
     () => phoneContactsForViewer(
@@ -643,8 +726,8 @@ export function useRoleplayPanelRuntime({
         : phoneCharacters,
       {
         viewedCharacter: viewedPhoneCharacter,
-        messages,
-        conversations: phoneConversationInfo,
+        messages: viewerPhoneMessages,
+        conversations: viewerPhoneConversationInfo,
         characterColors,
         fallbackColor: '#e8edf3',
         englishProcessingEnabled,
@@ -653,8 +736,8 @@ export function useRoleplayPanelRuntime({
     [
       characterColors,
       englishProcessingEnabled,
-      messages,
-      phoneConversationInfo,
+      viewerPhoneMessages,
+      viewerPhoneConversationInfo,
       phoneCharacters,
       phoneContactVisibleForViewer,
       viewedPhoneCharacter,
@@ -695,7 +778,7 @@ export function useRoleplayPanelRuntime({
       return;
     }
     const latestId =
-      phoneConversationInfo.get(selectedPhoneContact.conversationKey)?.latestId ??
+      viewerPhoneConversationInfo.get(selectedPhoneContact.conversationKey)?.latestId ??
       selectedPhoneContact.latestPhoneId;
     openPhoneConversation(selectedPhoneContact.conversationKey, latestId, {
       speakerId: selectedPhoneContact.character.id,
@@ -715,14 +798,43 @@ export function useRoleplayPanelRuntime({
   }
 
   const selectedPhoneConversation = useMemo(() => {
-    return selectedPhoneConversationMessages(messages, viewedPhoneCharacter, selectedPhoneContact);
-  }, [messages, selectedPhoneContact, viewedPhoneCharacter]);
+    return selectedPhoneConversationMessages(viewerPhoneMessages, viewedPhoneCharacter, selectedPhoneContact);
+  }, [viewerPhoneMessages, selectedPhoneContact, viewedPhoneCharacter]);
+  // The account the viewed character writes from: the one this conversation last used, until switched by hand.
+  // A hand-made choice holds until the conversation moves on, so a message to the other account is followed again.
+  const viewedPhoneAlias = whatsUpAlias(viewedPhoneCharacter);
+  const phoneNamesUsed = viewedPhoneCharacter && viewedPhoneAlias && selectedPhoneContact
+    ? whatsUpNamesUsedWith(viewedPhoneCharacter, selectedPhoneContact.character.name, messages,
+        // A history-only contact has no account of its own; its messages are matched by name.
+        selectedPhoneContact.character.apps?.whatsup?.accountId)
+    : undefined;
+  const phoneSenderChoiceKey = viewedPhoneCharacter && selectedPhoneContact
+    ? JSON.stringify([whatsUpAccountId(viewedPhoneCharacter), whatsUpAccountId(selectedPhoneContact.character)]) : undefined;
+  const storedPhoneSenderChoice = phoneSenderChoiceKey ? phoneSenderNameByConversation[phoneSenderChoiceKey] : undefined;
+  const phoneSenderChoice = storedPhoneSenderChoice && storedPhoneSenderChoice.count === phoneNamesUsed?.count
+    ? storedPhoneSenderChoice.name
+    : undefined;
+  const phoneWritesAsAlias = !!phoneNamesUsed && (phoneSenderChoice ?? phoneNamesUsed.latest) === 'alias';
+  const phoneSenderAccountId = viewedPhoneCharacter && viewedPhoneAlias && selectedPhoneContact
+    ? phoneWritesAsAlias ? whatsUpAliasAccountId(viewedPhoneCharacter) : whatsUpAccountId(viewedPhoneCharacter)
+    : undefined;
+  // The contact has only ever seen the other account, so this one reaches them as a stranger.
+  const phoneSenderUnknownToContact = !!phoneNamesUsed && phoneNamesUsed.known.size > 0 &&
+    !phoneNamesUsed.known.has(phoneWritesAsAlias ? 'alias' : 'real');
+  const setPhoneWritesAsAlias = (alias: boolean) => {
+    if (phoneSenderChoiceKey) {
+      setPhoneSenderNameByConversation((current) => ({
+        ...current,
+        [phoneSenderChoiceKey]: { name: alias ? 'alias' : 'real', count: phoneNamesUsed?.count ?? 0 },
+      }));
+    }
+  };
   const selectedPhoneDividerAfterId = selectedPhoneContact
     ? phoneDividerAfterByConversation[selectedPhoneContact.conversationKey]
     : undefined;
   const selectedPhoneConversationKey = selectedPhoneContact?.conversationKey;
   const selectedPhoneConversationLatestId = selectedPhoneConversationKey
-    ? phoneConversationInfo.get(selectedPhoneConversationKey)?.latestId ?? 0
+    ? viewerPhoneConversationInfo.get(selectedPhoneConversationKey)?.latestId ?? 0
     : 0;
   const markSelectedPhoneConversationSeen = useCallback(() => {
     if (!selectedPhoneConversationKey || selectedPhoneConversationLatestId <= 0) {
@@ -731,9 +843,10 @@ export function useRoleplayPanelRuntime({
     markPhoneConversationsSeen([{
       key: selectedPhoneConversationKey,
       latestId: selectedPhoneConversationLatestId,
-    }]);
+    }], viewedPhoneCharacter);
   }, [
     markPhoneConversationsSeen,
+    viewedPhoneCharacter,
     selectedPhoneConversationKey,
     selectedPhoneConversationLatestId,
   ]);
@@ -888,7 +1001,13 @@ export function useRoleplayPanelRuntime({
     if (!phoneAvailable) {
       return;
     }
-    const { viewer, contact } = embeddedPhoneMessageCharacters(phoneCharacters, message);
+    const named = embeddedPhoneMessageCharacters(phoneCharacters, message);
+    // A message addressed to a second name opens on its owner's phone, or on the
+    // sender's when the owner has no phone here; a second name has no phone of its own.
+    const aliasOwner = named.viewer?.whatsUpAliasOf
+      ? phoneCharacters.find((character) => character.id === named.viewer!.whatsUpAliasOf!.id) : undefined;
+    const viewer = named.viewer?.whatsUpAliasOf ? aliasOwner ?? named.contact : named.viewer;
+    const contact = named.viewer?.whatsUpAliasOf && !aliasOwner ? named.viewer : named.contact;
     if (!viewer || !contact) {
       notifySystem('warning', 'Could not find both phone characters.');
       return;
@@ -921,8 +1040,10 @@ export function useRoleplayPanelRuntime({
     } else {
       if (target.app === 'whatsup') {
         setSocialConnectionsByCharacter((current) => withSocialConnectionAdded(current, owner.sourceId, 'whatsup', target.accountId));
-        openPhoneConversation(phoneConversationKey(owner.name, target.character.name), 0,
-          { speakerId: owner.id, contactId: target.character.id, activatePlayer: false });
+        const linkedContact = target.accountId === whatsUpAccountId(target.character)
+          ? target.character : whatsUpAliasContact(target.character) ?? target.character;
+        openPhoneConversation(phoneConversationKey(owner.name, linkedContact.name), 0,
+          { speakerId: owner.id, contactId: linkedContact.id, activatePlayer: false });
       } else if (target.app !== 'matchme') {
         const user = socialDirectory.users.find((entry) => entry.characterId === target.character.id);
         if (!user) { notifySystem('warning', 'This shared social account is unavailable.'); return; }
@@ -1048,6 +1169,50 @@ export function useRoleplayPanelRuntime({
     setChatPanelView('phone');
   }
 
+  // Unread events of the viewed phone owner; the Phone view announces new ones as banners.
+  const phoneBanners = useMemo((): PhoneBanner[] => viewedPhoneCharacter ? [
+    ...phoneContacts.flatMap((contact) => {
+      if (contact.unreadCount <= 0) return [];
+      const latest = viewerPhoneMessages.find((message) => message.id === contact.latestPhoneId);
+      return [whatsUpPhoneBanner(contact, latest && phoneMessageVisibleText(latest, englishProcessingEnabled))];
+    }),
+    ...(unreadBankingByCharacter.find((entry) => entry.character.id === viewedPhoneCharacter.id)?.transfers ?? [])
+      .map((transaction) => bankTransferPhoneBanner(transaction.message.id, transaction.transfer)),
+    ...(phoneAppNotifications.get(viewedPhoneCharacter.id)?.banners ?? []),
+  ] : [], [englishProcessingEnabled, phoneAppNotifications, phoneContacts, unreadBankingByCharacter, viewedPhoneCharacter, viewerPhoneMessages]);
+
+  function openPhoneBanner(banner: PhoneBanner) {
+    if (!viewedPhoneCharacter || !phoneAvailable) {
+      return;
+    }
+    const { target } = banner;
+    setAccountLinkOpenRequest(undefined);
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setSocialDirectMessageOpenRequest(undefined);
+    const requestId = ++accountLinkRequestId.current;
+    if (target.kind === 'whatsup') {
+      openPhoneConversation(target.conversationKey, banner.messageId, {
+        speakerId: viewedPhoneCharacter.id,
+        contactId: target.contactId,
+        activatePlayer: !narratorSelected,
+      });
+      setHighlightedPhoneMessage({ id: banner.messageId, pulseKey: requestId });
+    } else if (target.kind === 'directMessage') {
+      setSocialDirectMessageOpenRequest({
+        requestId,
+        app: target.app,
+        messageId: target.messageId,
+        participantName: target.participantName,
+        participantHandle: target.participantHandle,
+      });
+    } else if (target.kind === 'post') {
+      setSocialPostOpenRequest({ requestId, app: target.app, postId: target.postId });
+    } else {
+      setPhoneAppOpenRequest({ requestId, app: target.app });
+    }
+  }
+
   const newEventIds = useMemo(
     () => upcomingEvents.flatMap((event) => (seenEventIds.has(event.id) ? [] : [event.id])),
     [seenEventIds, upcomingEvents],
@@ -1092,6 +1257,15 @@ export function useRoleplayPanelRuntime({
       queueMicrotask(() => setLastSeenMessageRecordId(latestMessageRecordId));
     }
   }, [chatPanelView, latestMessageRecordId]);
+  const latestMessageId = useMemo(
+    () => messages.reduce((latestId, message) => Math.max(latestId, message.id), 0),
+    [messages],
+  );
+  useEffect(() => {
+    // Undo and regeneration reuse ids, so the marker never stays above the timeline.
+    queueMicrotask(() => setChatSeenMessageId((current) =>
+      chatPanelView === 'chat' ? latestMessageId : Math.min(current, latestMessageId)));
+  }, [chatPanelView, latestMessageId]);
 
   function changePhoneAuthorBadgesEnabled(enabled: boolean) {
     setPhoneAuthorBadgesEnabled(enabled);
@@ -1558,6 +1732,11 @@ export function useRoleplayPanelRuntime({
     selectChatCharacter,
     rememberChatCharacter,
     phoneConversationInfo,
+    phoneSenderAccountId,
+    viewedPhoneAliasInUse,
+    phoneWritesAsAlias,
+    phoneSenderUnknownToContact,
+    setPhoneWritesAsAlias,
     openPhoneConversation,
     phoneContacts,
     selectedPhoneContact,
@@ -1640,6 +1819,9 @@ export function useRoleplayPanelRuntime({
     accountLinkContext: { characters: appCharacters, owner: (chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter) ?? viewedPhoneCharacter,
       disabled: isRunning, open: openAccountLink, request: accountLinkOpenRequest },
     phoneHomeRequestId,
+    phoneAppOpenRequest,
+    phoneBanners,
+    openPhoneBanner,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,

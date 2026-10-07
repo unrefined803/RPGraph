@@ -2,12 +2,14 @@
 
 ## Current working state
 
-All 55 NPCs are packed in `resources/npc-characters`, including the five
-crime-story characters (see "Fourth batch" below). The unpacked workspace remains the
+All 65 NPCs are packed in `resources/npc-characters`, including the five
+crime-story characters (see "Fourth batch" below) and the ten antagonistic
+commenters and scammers (see "Fifth batch"). The unpacked workspace remains the
 editing source; repack with the inspect/edit procedure described there.
 
 The current review inventory is 55 characters: 42 existing specifications and
-13 new-character specifications. The bundled library contains the same 55 characters.
+13 new-character specifications. The bundled library contains those 55 plus the
+ten fifth-batch characters, whose containers are their only source.
 
 The local workspace is `user_data/npc-authoring/` in this checkout. It is ignored
 by Git, persists across a chat reset on this machine, and is not included in a
@@ -217,3 +219,82 @@ reciprocal relationship targets, enabled accounts, empty publications and Mason'
 shared portrait/dating reference. No application, browser or UI tests were run.
 The five written containers were also validated after packing and checked against
 their source specifications for characterization, accounts and relationships.
+
+## Fifth batch: antagonistic commenters and scammers
+
+Ten characters were packed with `character:create` into
+`resources/npc-characters/<slug>.json`. Their creation specifications and source
+images were deleted afterwards; revise them with the inspect/edit procedure.
+This batch introduced the catalog tags `comment_hater` and `online_scammer`.
+
+| Character | Age | Slug | Role | Agency tags |
+| --- | --- | --- | --- | --- |
+| Brody Callahan | 29 | `brody-callahan` | Personal trainer and online fitness coach | `rage_baiter`, `comment_troll` |
+| Kendra Holt | 23 | `kendra-holt` | Sociology student; Brody's stepsister | `shitposter`, `comment_troll` |
+| Leon Richter | 34 | `leon-richter` | Backend engineer hating from anonymous handles | `comment_hater`, `comment_troll` |
+| Damian Cross | 26 | `damian-cross` | Menswear sales associate and aspiring influencer | `clout_chaser`, `comment_troll` |
+| Gemma Croft | 27 | `gemma-croft` | Boutique styling assistant and fashion commentator | `comment_hater`, `passive_aggressive` |
+| Roxy Mendez | 26 | `roxy-mendez` | Gossip podcaster | `screenshot_drama`, `comment_hater` |
+| Dexter Shaw | 32 | `dexter-shaw` | Fake crypto pool operator | `online_scammer`, `upseller` |
+| Tamara Kovac | 46 | `tamara-kovac` | Romance scammer posing as Sofia Belova, 24 | `catfish`, `online_scammer` |
+| Finn Gallagher | 33 | `finn-gallagher` | Freelance essayist and contrarian | `contrarian_debater`, `rage_baiter` |
+| Toby Becker | 26 | `toby-becker` | Variety game streamer | `shitposter`, `drama_magnet` |
+
+Six reciprocal relationships connect the batch internally: Brody and Kendra are
+step-siblings; Kendra moderates Toby's stream chat; Gemma feeds observations to
+her friend Roxy; Roxy and Damian trade exposure; Finn and Leon are former
+flatmates who still argue; Tamara refers marks to Dexter for a cut. The scammer
+pair and the Finn/Leon pair connect on WhatsUp only, the others on WhatsUp and
+Fotogram. No existing character was changed.
+
+All ten have WhatsUp and Fotogram. Leon's Fotogram and Tamara's Sofia-themed
+Fotogram use privacy mode; the other eight post under their real names with one
+starting post (two for Dexter). Brody and Damian have public OnlyFriends creator
+accounts; Kendra, Leon, Gemma, Roxy, Finn and Toby have anonymous browsing
+accounts whose handles and bios avoid their names; Dexter and Tamara have none.
+Damian has a genuine MatchMe profile. Tamara's MatchMe identity is Sofia Belova,
+using the stranger's terrace photo; `npcLibrary.test.ts` lists her with Joel
+Vance as a deliberate dating persona. Tamara and Joel also carry a WhatsUp
+second name (Sofia Belova, Chloe Vance) with the persona photo and a detected
+face crop, so marks receive that link while the real name stays on the same
+account.
+
+Source images were 896 x 1200 (3:4) JPEGs. Dexter's supercar image shows a
+different man and is authored as a lifted photo. Face crops come from the
+detector, except Roxy's, which is manual
+because the microphone covers part of her face. Social avatars deliberately omit
+`avatarImageId` so they follow the cropped portrait.
+
+## WhatsUp second accounts
+
+Eighteen bundled NPCs carry an optional second WhatsUp name
+(`apps.whatsup.alias`, see [App profile names](architecture/app-profile-names.md)).
+Each Hidden Agency states what the character uses it for. Only the two
+personas have a picture; the others show initials.
+
+| Character | Second account | Purpose |
+| --- | --- | --- |
+| Tamara Kovac | Sofia Belova | Romance-scam persona, with the terrace photo |
+| Joel Vance | Chloe Vance | Dating persona, with the woman's photo |
+| Dexter Shaw | Shaw Capital Compliance | Poses as a separate compliance desk |
+| Damian Cross | Cross Management | Poses as his own manager |
+| Leon Richter | Mid At Best | Anonymous contact tied to his hater handle |
+| Elena Ward | Nora Hayes | Cover name for fidelity checks |
+| Mira Chen | Jamie Okafor | Research identity |
+| Adrian Cole | Marsh Field Services | Neutral contact for field work |
+| Mason Rourke | Mase | Name buyers know |
+| Tessa Vaughn | Vee | Name buyers know |
+| Clara Dubois | Coco | Keeps compensated dates apart from family |
+| Amber Sinclair | Sinclair Bookings | Booking line |
+| Julian Drake | Drake Wealth Desk | Client desk for subscriptions |
+| Marcus Cole | Viral Growth Labs | Agency line |
+| Dante Rossi | Rossi VIP Concierge | Guest-list and booking line |
+| Roxy Mendez | Receipts Tip Line | Published tip contact |
+| Brody Callahan | Callahan Coaching | Coaching business line |
+| Toby Becker | TobyChaos | Public stream contact |
+
+Characters whose deception lies elsewhere keep only their real name: Valeria
+Monet and Sienna Ray lie about their lives, not their identity; the trolls
+(Tyler Briggs, Simon Drake, Felix Miller, Kendra Holt, Gemma Croft, Finn
+Gallagher) act on Fotogram and OnlyFriends; Russell Mercer and Caleb Bennett do
+not deal with buyers; Frank Bennett's investigation develops in play.

@@ -5,12 +5,14 @@ import { CharacterName } from './CharacterName';
 import { AppMessageAvatar } from './AppMessageAvatars';
 import { AccountLinkContext } from '../chat/accountLinkContext';
 import { AccountLinkText } from './AccountLinkText';
-import type { CharacterAppAccount } from '../characters/character';
+import type { AppAvatarChoice, CharacterAppAccount, WhatsUpAlias } from '../characters/character';
+import { whatsUpAlias } from '../characters/messageIdentity';
+import { WhatsUpAccounts } from './WhatsUpAccounts';
 import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
 import { PhoneAppListResizer } from './PhoneAppListResizer';
 import { appDialogCoversPhone } from './phoneEscape';
 import { usePhoneAppListScaleStyle } from './phoneAppListScale';
-import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
+import { phoneCharacterAvatarDataUrl, whatsUpAliasContact } from '../chat/phoneCharacters';
 import type { DatingProfile } from '../chat/datingProfile';
 import {
   Fragment,
@@ -184,6 +186,7 @@ type PhonePanelProps = {
   unreadBankingCount: number;
   phoneAppNotificationCounts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends' | 'matchme', number>;
   phoneHomeRequestId: number;
+  phoneAppOpenRequest?: { requestId: number; app: 'banking' | 'notes' | 'ai' };
   socialPostOpenRequest?: {
     requestId: number;
     app: 'fotogram' | 'onlyfriends';
@@ -302,7 +305,15 @@ type PhonePanelProps = {
   }) => Promise<boolean>;
   onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
   onMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
-  onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
+  onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) => boolean;
+  /** Set or remove the viewed character's second WhatsUp name. */
+  onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined) => boolean | string;
+  /** The viewed character's second account already has chats: rename only. */
+  whatsUpAliasInUse: boolean;
+  /** Whether the open conversation is written under the second name, and how to change that. */
+  phoneWritesAsAlias: boolean;
+  phoneSenderUnknownToContact: boolean;
+  onPhoneWritesAsAliasChange: (alias: boolean) => void;
   onCreateSocialAccount: (
     character: StorybookCharacter,
     app: 'fotogram' | 'onlyfriends',
@@ -370,6 +381,7 @@ export function PhonePanel({
   unreadBankingCount,
   phoneAppNotificationCounts,
   phoneHomeRequestId,
+  phoneAppOpenRequest,
   socialPostOpenRequest,
   socialDirectMessageOpenRequest,
   phoneImages,
@@ -443,6 +455,11 @@ export function PhonePanel({
   onSubmitSocialDirectMessage,
   onCreateSocialAccount,
   onSaveDatingProfile,
+  onSaveWhatsUpAlias,
+  whatsUpAliasInUse,
+  phoneWritesAsAlias,
+  phoneSenderUnknownToContact,
+  onPhoneWritesAsAliasChange,
   onMatchMeAction,
   onImportSocialPostImage,
   socialImageById,
@@ -501,6 +518,14 @@ export function PhonePanel({
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
     if (screen !== 'desktop') {
       setScreen('desktop');
+    }
+  }
+  const [seenPhoneAppOpenRequestId, setSeenPhoneAppOpenRequestId] = usePanelNavigationState('phone.seenPhoneAppOpenRequestId',
+    phoneAppOpenRequest?.requestId ?? 0, false);
+  if (phoneAppOpenRequest && seenPhoneAppOpenRequestId !== phoneAppOpenRequest.requestId) {
+    setSeenPhoneAppOpenRequestId(phoneAppOpenRequest.requestId);
+    if (screen !== phoneAppOpenRequest.app) {
+      setScreen(phoneAppOpenRequest.app);
     }
   }
   const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = usePanelNavigationState('phone.seenSocialPostOpenRequestId',
@@ -582,12 +607,17 @@ export function PhonePanel({
     lastInitiativeEnter.current = null;
     if (screen === 'desktop') desktopRef.current?.focus();
   }, [screen, selectedCharacter?.id, isRunning]);
+  const [whatsUpAliasEditorOpen, setWhatsUpAliasEditorOpen] = useState(false);
   useEffect(() => {
     if (screen !== 'whatsup') {
       return;
     }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || appDialogCoversPhone()) {
+        return;
+      }
+      if (whatsUpAliasEditorOpen) {
+        setWhatsUpAliasEditorOpen(false);
         return;
       }
       if (showPhoneEmojiPicker) {
@@ -705,6 +735,7 @@ export function PhonePanel({
   const isImageManuallySelected = (image: ChatImageAttachment) =>
     !!image.id.trim() && selectedReferenceImageIds.has(image.id.trim());
   const phoneOwnerName = selectedCharacter?.name.trim().split(/\s+/)[0];
+  const ownWhatsUpAlias = whatsUpAlias(selectedCharacter);
   const wallpaperImageId = selectedCharacter?.phoneSettings.wallpaperId ?? 'wallpaper-1';
   const wallpaperImage = [...defaultPhoneWallpapers, ...phoneGalleryImages]
     .find((image) => image.id === wallpaperImageId) ?? defaultPhoneWallpapers[0];
@@ -1476,6 +1507,20 @@ export function PhonePanel({
           </button>
           <strong>{phoneOwnerName ? <><CharacterName color={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{phoneOwnerName}</CharacterName>'s Chats</> : 'Phone Chats'}</strong>
           <span className="phone-contact-count">{phoneContacts.length}</span>
+          {selectedCharacter && selectedCharacterPlayable && !selectedCharacter.libraryNpc && (
+            <button
+              className="phone-home-button phone-alias-settings-button"
+              type="button"
+              onClick={() => setWhatsUpAliasEditorOpen(true)}
+              aria-label="WhatsUp accounts"
+              title="Accounts"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
+          )}
         </div>
         <div className="phone-contact-list">
           {phoneContacts.map((contact) => (
@@ -1485,7 +1530,7 @@ export function PhonePanel({
               }`}
               type="button"
               key={contact.character.id}
-              onClick={() => onOpenPhoneContact(contact)}
+              onClick={() => { setWhatsUpAliasEditorOpen(false); onOpenPhoneContact(contact); }}
             >
               <CharacterAvatar
                 className="phone-avatar"
@@ -1535,7 +1580,20 @@ export function PhonePanel({
         )}
       </div>
       <div className="phone-chat" aria-label="Phone conversation">
-        {selectedPhoneContact ? (
+        {whatsUpAliasEditorOpen && selectedCharacter && selectedCharacterPlayable && !selectedCharacter.libraryNpc ? (
+          <div className="phone-alias-editor-scroll">
+            <WhatsUpAccounts
+              key={selectedCharacter.id}
+              realName={selectedCharacter.name}
+              mainAvatarDataUrl={phoneCharacterAvatarDataUrl(selectedCharacter)}
+              alias={ownWhatsUpAlias}
+              images={phoneGalleryImages}
+              removable={!whatsUpAliasInUse}
+              onClose={() => setWhatsUpAliasEditorOpen(false)}
+              onSave={(alias) => onSaveWhatsUpAlias(selectedCharacter, alias)}
+            />
+          </div>
+        ) : selectedPhoneContact ? (
           <>
             <div className="phone-chat-header">
               <CharacterAvatar
@@ -1554,11 +1612,35 @@ export function PhonePanel({
                 </strong>
                 <span>Last seen Today</span>
               </div>
+              {ownWhatsUpAlias && selectedCharacter && selectedCharacterPlayable && (
+                <button
+                  className="phone-alias-sender-toggle"
+                  type="button"
+                  onClick={() => onPhoneWritesAsAliasChange(!phoneWritesAsAlias)}
+                  title="Switch the name this contact sees when you write"
+                >
+                  Writing as <strong>{phoneWritesAsAlias ? ownWhatsUpAlias.name : selectedCharacter.name}</strong>
+                </button>
+              )}
             </div>
+            {ownWhatsUpAlias && selectedCharacter && selectedCharacterPlayable && phoneSenderUnknownToContact && (
+              <p className="phone-alias-sender-warning" role="status">
+                {selectedPhoneContact.character.name} only knows you as{' '}
+                <strong>{phoneWritesAsAlias ? selectedCharacter.name : ownWhatsUpAlias.name}</strong>. A message from{' '}
+                <strong>{phoneWritesAsAlias ? ownWhatsUpAlias.name : selectedCharacter.name}</strong> reaches them as a new,
+                unknown contact.
+              </p>
+            )}
             <div className="phone-thread" ref={phoneThreadRef}>
               {phoneMessageViews.length > 0 ? (
-                phoneMessageViews.map((view) => {
+                phoneMessageViews.map((view, viewIndex) => {
                   const { message } = view;
+                  // With two accounts, mark once where the conversation starts on or switches to the other one.
+                  const previousOwnerAlias = phoneMessageViews[viewIndex - 1]?.message.phoneOwnerAlias;
+                  const accountSwitch = ownWhatsUpAlias && selectedCharacter && message.phoneOwnerAlias !== undefined &&
+                    (viewIndex === 0 ? message.phoneOwnerAlias : previousOwnerAlias !== undefined && previousOwnerAlias !== message.phoneOwnerAlias)
+                    ? message.phoneOwnerAlias ? `Second account · ${ownWhatsUpAlias.name}` : `Main account · ${selectedCharacter.name}`
+                    : '';
                   const focusHighlighted = highlightedPhoneMessageId === message.id;
                   const repliedToMessage = message.replyToMessageId !== undefined
                     ? selectedPhoneConversation.find((entry) => entry.id === message.replyToMessageId)
@@ -1568,12 +1650,18 @@ export function PhonePanel({
                     ? phoneReplyVisibleText(repliedToMessage, englishProcessingEnabled) || 'Image'
                     : '';
                   const fromColor = phoneCharacterColor(view.senderName);
+                  // A message the owner wrote from the second account carries that name and picture.
+                  const ownAliasContact = message.phoneOwnerAlias && view.outgoing && selectedCharacter
+                    ? whatsUpAliasContact(selectedCharacter)
+                    : undefined;
+                  const shownSenderName = ownAliasContact?.name ?? view.senderName;
                   const dayLabel = view.dayRpDateTime
                     ? formatRpDayLabel(view.dayRpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
                     : '';
                   return (
                     <Fragment key={`${message.id}-${focusHighlighted ? highlightedPhoneMessagePulseKey : 'idle'}`}>
                       {dayLabel && <div className="rp-day-divider"><span>{dayLabel}</span></div>}
+                      {accountSwitch && <div className="phone-account-switch-badge" role="note"><span>{accountSwitch}</span></div>}
                       <div
                         className={`phone-message-row${replySelected ? ' reply-selected' : ''}${
                           focusHighlighted ? ' phone-focus-highlight' : ''
@@ -1590,7 +1678,7 @@ export function PhonePanel({
                             className="phone-bubble-sender"
                             style={fromColor ? { color: fromColor } : undefined}
                           >
-                            <CharacterName color={fromColor}>{view.senderName}</CharacterName>
+                            <CharacterName color={fromColor}>{shownSenderName}</CharacterName>
                             {phoneAuthorBadgesEnabled && (
                               <span className={`phone-author-badge ${message.role === 'user' ? 'user' : 'ai'}`}>
                                 {message.role === 'user' ? 'USER' : 'AI'}
@@ -1706,7 +1794,8 @@ export function PhonePanel({
                               </svg>
                             </button>
                           )}
-                          <AppMessageAvatar name={view.senderName} character={matchingPhoneName(appCharacters, view.senderName)} />
+                          <AppMessageAvatar name={shownSenderName} character={ownAliasContact ?? matchingPhoneName(
+                            [...(selectedPhoneContact ? [selectedPhoneContact.character] : []), ...appCharacters], view.senderName)} />
                         </div>
                       </div>
                       </div>

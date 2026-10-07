@@ -19,6 +19,8 @@ export type StorybookImageLibraryEnsureResult = {
 
 export type StorybookImageLibraryEnsureOptions = {
   receivedFrom?: string;
+  receivedFromCharacterId?: string;
+  receivedFromAccountId?: string;
   imageAccess?: boolean;
   turnUpload?: boolean;
 };
@@ -180,18 +182,30 @@ export function withStorybookExternalImagesPruned(
   storybook: RpStorybook,
   messages: readonly MessageRecord[],
   removedMessages: readonly MessageRecord[] = [],
+  directory: RpStorybook['characters'] = storybook.characters,
+  /** Previously issued WhatsUp account IDs by character ID. */
+  accountAliases: ReadonlyMap<string, readonly string[]> = new Map(),
 ) {
   let removedCount = 0;
+  let updatedCount = 0;
+  const phoneParticipant = (character: RpStorybook['characters'][number], id: string | undefined, name: string | undefined) => {
+    const accountId = character.apps?.whatsup?.accountId ?? `character:${character.id}:whatsup`;
+    return id ? [accountId, ...(accountAliases.get(character.id) ?? [])].some((owned) => id === owned || id === `${owned}:alias`)
+      : !!name && [character.name, character.apps?.whatsup?.alias?.name].some((candidate) => candidate && phoneNamesMatch(name, candidate));
+  };
   const characters = storybook.characters.map((character) => {
     function references(entries: readonly MessageRecord[]) {
       const usedImageIds = new Set<string>();
       const usedDataUrls = new Set<string>();
       entries.forEach((message) => {
         // A reference keeps an external copy only in the participating gallery.
-        const participants = [message.phoneFrom, message.phoneTo,
+        const hasPhoneParticipants = !!(message.phoneFrom || message.phoneTo || message.phoneFromAccountId || message.phoneToAccountId);
+        const participates = hasPhoneParticipants
+          ? phoneParticipant(character, message.phoneFromAccountId, message.phoneFrom) || phoneParticipant(character, message.phoneToAccountId, message.phoneTo)
+          : [
           message.socialDirectMessage?.from, message.socialDirectMessage?.to,
-          message.socialPost?.author, message.speakerName];
-        if (!participants.some((name) => name && phoneNamesMatch(name, character.name))) return;
+          message.socialPost?.author, message.speakerName].some((name) => name && phoneNamesMatch(name, character.name));
+        if (!participates) return;
         message.imageAttachments?.forEach((image) => {
           const imageId = image.id.trim();
           if (imageId) {
@@ -220,6 +234,7 @@ export function withStorybookExternalImagesPruned(
     const removed = references(removedMessages);
     const profileImageIds = new Set([
       character.profileImage?.imageId,
+      character.apps?.whatsup?.alias?.avatarImageId,
       ...Object.values(character.apps ?? {}).flatMap((account) => [
         account.avatarImageId,
         ...(account.initialPosts ?? []).map((post) => post.imageId),
@@ -239,8 +254,24 @@ export function withStorybookExternalImagesPruned(
       }
       removedCount += 1;
       return false;
+    }).map((image) => {
+      if (!image.receivedFrom || !removedMessages.length) return image;
+      // Undo a later delivery without leaving its sender label on an earlier copy.
+      const receipt = messages.filter((message) => message.phoneFrom &&
+        phoneParticipant(character, message.phoneToAccountId, message.phoneTo) &&
+        (message.phoneImageIds?.includes(image.id) || message.imageAttachments?.some((attachment) => attachment.id === image.id || attachment.dataUrl === image.dataUrl)))
+        .reduce<MessageRecord | undefined>((latest, message) => !latest || message.id > latest.id ? message : latest, undefined);
+      if (!receipt) return image;
+      const owners = directory.filter((owner) => phoneParticipant(owner, receipt.phoneFromAccountId, receipt.phoneFrom));
+      const characterId = owners.length === 1 ? owners[0].id : undefined;
+      if (image.receivedFrom === receipt.phoneFrom && image.receivedFromCharacterId === characterId && image.receivedFromAccountId === receipt.phoneFromAccountId) return image;
+      updatedCount += 1;
+      const { receivedFromCharacterId: _characterId, receivedFromAccountId: _accountId, ...rest } = image;
+      return { ...rest, receivedFrom: receipt.phoneFrom,
+        ...(characterId ? { receivedFromCharacterId: characterId } : {}),
+        ...(receipt.phoneFromAccountId ? { receivedFromAccountId: receipt.phoneFromAccountId } : {}) };
     });
-    if (images.length === character.images.length) {
+    if (images.length === character.images.length && images.every((image, index) => image === character.images[index])) {
       return character;
     }
     const profileImage = character.profileImage && images.some((image) => image.id === character.profileImage?.imageId)
@@ -254,8 +285,9 @@ export function withStorybookExternalImagesPruned(
   });
 
   return {
-    storybook: removedCount > 0 ? { ...storybook, characters } : storybook,
+    storybook: removedCount + updatedCount > 0 ? { ...storybook, characters } : storybook,
     removedCount,
+    updatedCount,
   };
 }
 
@@ -282,6 +314,8 @@ function storybookImageFromAttachment(
     ...(image.height ? { height: image.height } : {}),
     description: description.trim(),
     ...(receivedFrom ? { receivedFrom } : {}),
+    ...(receivedFrom && options.receivedFromCharacterId ? { receivedFromCharacterId: options.receivedFromCharacterId } : {}),
+    ...(receivedFrom && options.receivedFromAccountId ? { receivedFromAccountId: options.receivedFromAccountId } : {}),
     ...(imageAccess ? { imageAccess: true } : {}),
     ...(options.turnUpload ? { turnUpload: true } : {}),
   };
@@ -346,16 +380,23 @@ export function withImagesEnsuredForStorybookCharacter(
       const nextReceivedFrom = existingImage.receivedFrom || receivedImageAccess
         ? receivedFrom || existingImage.receivedFrom
         : undefined;
+      const replaceReceipt = !!receivedFrom && !!nextReceivedFrom;
+      const nextCharacterId = replaceReceipt ? options.receivedFromCharacterId : existingImage.receivedFromCharacterId;
+      const nextAccountId = replaceReceipt ? options.receivedFromAccountId : existingImage.receivedFromAccountId;
       if (
         nextDescription !== existingImage.description ||
         nextReceivedFrom !== existingImage.receivedFrom ||
+        nextCharacterId !== existingImage.receivedFromCharacterId ||
+        nextAccountId !== existingImage.receivedFromAccountId ||
         receivedImageAccess
       ) {
-        const { imageAccess: _imageAccess, ...existingWithoutImageAccess } = existingImage;
+        const { imageAccess: _imageAccess, receivedFromCharacterId: _characterId, receivedFromAccountId: _accountId, ...existingWithoutImageAccess } = existingImage;
         const nextImage = {
           ...existingWithoutImageAccess,
           description: nextDescription,
           ...(nextReceivedFrom ? { receivedFrom: nextReceivedFrom } : {}),
+          ...(nextCharacterId ? { receivedFromCharacterId: nextCharacterId } : {}),
+          ...(nextAccountId ? { receivedFromAccountId: nextAccountId } : {}),
           ...(!receivedImageAccess && existingImage.imageAccess ? { imageAccess: true as const } : {}),
         };
         const existingIndex = nextImages.findIndex((entry) => entry.id === existingImage.id);

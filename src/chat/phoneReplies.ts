@@ -1,6 +1,8 @@
 import type { MessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { recipientCharacterContext } from '../characters/appRuntime';
+import { whatsUpAlias } from '../characters/messageIdentity';
+import { messageAliasKey } from '../characters/messageAliases';
 
 /** Workflow input for the bound WhatsUp recipient; history is supplied separately. */
 export function whatsUpMessageInputText(
@@ -13,18 +15,46 @@ export function whatsUpMessageInputText(
 ) {
   return [
     '[WHATSUP MESSAGE]', 'App: WhatsUp', `Sender: ${from}`, `Recipient: ${to}`,
-    `Reply as: ${to} to ${from}`, '',
+    `Reply as: ${to} to ${from}`,
+    // The reply names both sides by account link, which keeps a second name apart from its owner's real one.
+    `Reply from: @whatsup:${to}`, `Reply to: @whatsup:${from}`, '',
     ...(recipient ? [recipientCharacterContext(recipient, {
       app: 'whatsup',
+      whatsUpAlias: messageAliasKey(whatsUpAlias(recipient)?.name ?? '') === messageAliasKey(to),
       sender: characters.filter((character) => character.name === from).length === 1
         ? characters.find((character) => character.name === from)
         : undefined,
       messageText: message,
       characters,
     }), ''] : []),
+    ...senderIdentityNote(from, to, characters),
     ...(context ? [context, ''] : []),
     'New message:', `${from}: ${message.trim()}`,
   ].join('\n');
+}
+
+/**
+ * The model reads the whole history, so it knows both names of a sender with a
+ * second WhatsUp name. The recipient does not: each name is its own contact.
+ */
+function senderIdentityNote(from: string, to: string, characters: StorybookCharacter[]) {
+  const fromKey = messageAliasKey(from);
+  const owners = characters.filter((character) => {
+    const alias = whatsUpAlias(character)?.name;
+    return !!alias && (messageAliasKey(character.name) === fromKey || messageAliasKey(alias) === fromKey);
+  });
+  if (owners.length !== 1) return [];
+  const alias = whatsUpAlias(owners[0])!.name.trim();
+  const other = messageAliasKey(alias) === fromKey ? owners[0].name.trim() : alias;
+  return [
+    'Sender identity',
+    `${to} sees this message from the WhatsUp contact "${from}".`,
+    `Treat "${from}" and "${other}" as separate contacts unless the history establishes that ${to} learned their connection ` +
+      `through their own observations, a disclosure, or another event they could know about. Private author context and access to the full history do not establish that knowledge. ` +
+      `Without such evidence, do not connect the names or carry information from the other contact into this chat. ` +
+      `If the connection was already discovered, preserve that knowledge; using a different account does not undo it. A suspicion remains uncertain until supported.`,
+    '',
+  ];
 }
 
 function replyImageIds(message: MessageRecord) {

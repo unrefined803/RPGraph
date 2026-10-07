@@ -5,12 +5,44 @@ import {
   normalizePhoneName,
   phoneNamesMatch,
 } from './phoneMessages';
-import { appAvatarDataUrl } from '../characters/portrait';
-import { whatsUpAccountId } from '../characters/messageIdentity';
+import { appAvatarDataUrl, portraitDataUrl } from '../characters/portrait';
+import { whatsUpAccountId, whatsUpAlias, whatsUpAliasAccountId } from '../characters/messageIdentity';
 
 export type PhoneRuntimeCharacter = StorybookCharacter & {
   temporaryPhone?: boolean;
+  /** Set on the contact that stands for a character's second WhatsUp name. */
+  whatsUpAliasOf?: StorybookCharacter;
 };
+
+/** Picture of a second WhatsUp name; it never falls back to the character portrait. */
+export function whatsUpAliasAvatarDataUrl(character: StorybookCharacter | undefined) {
+  const alias = whatsUpAlias(character);
+  const image = character?.images?.find((entry) => entry.id === alias?.avatarImageId);
+  return image ? portraitDataUrl(image, alias?.avatarCrop) : undefined;
+}
+
+/**
+ * Other people meet a second name as a separate contact with its own name and
+ * picture. It carries no characterization, so nothing leads back to the owner.
+ */
+export function whatsUpAliasContact(character: StorybookCharacter): PhoneRuntimeCharacter | undefined {
+  const alias = whatsUpAlias(character);
+  if (!alias) return undefined;
+  const image = character.images?.find((entry) => entry.id === alias.avatarImageId);
+  const id = `${character.id}::whatsup-alias`;
+  return {
+    id, storybookNodeId: '', kind: 'character', sourceId: `${character.sourceId}::whatsup-alias`,
+    name: alias.name, label: alias.name,
+    profile: { name: alias.name, description: '', personality: '', speechStyle: '', role: '' },
+    apps: { whatsup: { accountId: whatsUpAliasAccountId(character), enabled: true, bio: '' } },
+    images: image ? [image] : [],
+    ...(image ? { profileImage: { imageId: image.id, crop: alias.avatarCrop, dataUrl: portraitDataUrl(image, alias.avatarCrop) } } : {}),
+    phoneSettings: { wallpaperId: 'wallpaper-1' },
+    banking: defaultRpStorybookCharacterBanking(),
+    social: defaultRpStorybookCharacterSocial(),
+    temporaryPhone: true, whatsUpAliasOf: character,
+  };
+}
 
 /** Prefer the character portrait, then social avatars; a dating persona is never a WhatsUp fallback. */
 export function phoneCharacterAvatarDataUrl(character: StorybookCharacter | undefined) {
@@ -23,6 +55,45 @@ export function phoneCharacterAvatarDataUrl(character: StorybookCharacter | unde
   ].filter((id): id is string => !!id);
   const image = imageIds.flatMap((id) => character.images?.find((entry) => entry.id === id) ?? [])[0];
   return appAvatarDataUrl(character, image);
+}
+
+/**
+ * The owner of a second name has one inbox: for their own phone, messages that
+ * used the second name read as messages under the real name.
+ */
+export function phoneMessagesForOwner(messages: MessageRecord[], owner: StorybookCharacter | undefined): MessageRecord[] {
+  const alias = whatsUpAlias(owner);
+  if (!owner || !alias) return messages;
+  const aliasKey = normalizePhoneName(alias.name);
+  const realKey = normalizePhoneName(owner.name);
+  const own = (name: string | undefined, id: string | undefined) => id
+    ? id === whatsUpAliasAccountId(owner) : !!name && normalizePhoneName(name) === aliasKey;
+  const real = (name: string | undefined, id: string | undefined) => id
+    ? id === whatsUpAccountId(owner) : !!name && normalizePhoneName(name) === realKey;
+  return messages.map((message) => {
+    if (message.channel !== 'phone') return message;
+    if (own(message.phoneFrom, message.phoneFromAccountId) || own(message.phoneTo, message.phoneToAccountId)) {
+      return {
+        ...message, phoneOwnerAlias: true,
+        ...(own(message.phoneFrom, message.phoneFromAccountId) ? { phoneFrom: owner.name, speakerName: owner.name, speakerNames: [owner.name] } : {}),
+        ...(own(message.phoneTo, message.phoneToAccountId) ? { phoneTo: owner.name } : {}),
+      };
+    }
+    // The thread shows which of the two names a conversation is running under.
+    return real(message.phoneFrom, message.phoneFromAccountId) || real(message.phoneTo, message.phoneToAccountId)
+      ? { ...message, phoneOwnerAlias: false } : message;
+  });
+}
+
+/** Only the viewed owner's two names share an inbox; the other person's contacts stay separate. */
+export function phoneConversationKeyTwins(conversationKey: string, owner: StorybookCharacter | undefined) {
+  const parts = conversationKey.split('::');
+  if (parts.length !== 2) return [];
+  const alias = whatsUpAlias(owner);
+  if (!owner || !alias) return [];
+  const names = [normalizePhoneName(owner.name), normalizePhoneName(alias.name)];
+  return parts.flatMap((part, index) => names.includes(part)
+    ? names.filter((name) => name !== part).map((name) => [name, parts[1 - index]].sort().join('::')) : []);
 }
 
 function temporaryPhoneCharacterId(name: string) {
@@ -45,6 +116,13 @@ export function phoneRuntimeCharactersFromMessages(
   messages: MessageRecord[],
   sharedAccountIds: ReadonlySet<string> = new Set(),
 ): PhoneRuntimeCharacter[] {
+  const phoneMessageAccountIds = new Set(messages.flatMap((message) => [message.phoneFromAccountId, message.phoneToAccountId]));
+  const aliasContacts = storyCharacters.flatMap((character) => {
+    const contact = whatsUpAliasContact(character);
+    const accountId = contact && whatsUpAliasAccountId(character);
+    return contact && accountId && (!character.libraryNpc || sharedAccountIds.has(accountId) || phoneMessageAccountIds.has(accountId))
+      ? [contact] : [];
+  });
   storyCharacters = storyCharacters.filter((character) => !character.libraryNpc ||
     (character.apps?.whatsup?.enabled !== false && sharedAccountIds.has(whatsUpAccountId(character))) || messages.some((message) =>
     [message.phoneFromAccountId, message.phoneToAccountId].includes(whatsUpAccountId(character))));
@@ -57,7 +135,7 @@ export function phoneRuntimeCharactersFromMessages(
       if (
         !normalizedName ||
         knownNames.has(normalizedName) ||
-        storyCharacters.some((character) => phoneNamesMatch(character.name, name)) ||
+        [...storyCharacters, ...aliasContacts].some((character) => phoneNamesMatch(character.name, name)) ||
         temporaryCharacters.some((character) => phoneNamesMatch(character.name, name))
       ) {
         return;
@@ -85,5 +163,5 @@ export function phoneRuntimeCharactersFromMessages(
     });
   });
 
-  return [...storyCharacters, ...temporaryCharacters];
+  return [...storyCharacters, ...aliasContacts, ...temporaryCharacters];
 }

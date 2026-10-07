@@ -59,6 +59,8 @@ type PhoneCharacterLike = {
   id: string;
   name: string;
   temporaryPhone?: boolean;
+  /** A second-name contact; unread messages for it belong to this owner's phone. */
+  whatsUpAliasOf?: { name: string };
 };
 
 export type PhoneContactView<TCharacter extends PhoneCharacterLike> = {
@@ -333,7 +335,12 @@ export function unreadPhoneConversationsForCharacters<TCharacter extends PhoneCh
 ) {
   const switchByViewer = new Map<string, UnreadPhoneConversationView>();
   unreadPhoneSwitchesByCharacter(options.conversations).forEach((unreadSwitch) => {
-    const viewer = matchingPhoneName(characters, unreadSwitch.viewerName);
+    const namedViewer = matchingPhoneName(characters, unreadSwitch.viewerName);
+    const aliasOwner = namedViewer?.whatsUpAliasOf && matchingPhoneName(characters, namedViewer.whatsUpAliasOf.name);
+    if (aliasOwner) {
+      unreadSwitch = { ...unreadSwitch, key: normalizePhoneName(aliasOwner.name), viewerName: aliasOwner.name };
+    }
+    const viewer = aliasOwner ?? namedViewer;
     const sourceConversation = options.conversations.get(unreadSwitch.conversationKey);
     const fallbackViewer = sourceConversation?.names
       .map((name) => matchingPhoneName(characters, name))

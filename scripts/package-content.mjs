@@ -98,8 +98,6 @@ export async function verifyPackageContent(projectRoot, appDirectory, metadata, 
       [], 'Unexpected updater metadata or unpacked application files.');
     await verifyResources(resources, 'resources/default-content', 'default-content', projectRoot);
     await verifyResources(resources, 'resources/npc-characters', 'npc-characters', projectRoot);
-    await verifyResources(resources, 'scripts', 'character-face-tools', projectRoot,
-      ['character-faces.mjs', 'detect-character-faces.py']);
   } finally {
     asar.uncacheAll();
   }

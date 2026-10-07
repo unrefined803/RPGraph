@@ -328,6 +328,8 @@ export type ChatImageAttachment = {
   height?: number;
   description?: string;
   receivedFrom?: string;
+  receivedFromCharacterId?: string;
+  receivedFromAccountId?: string;
   imageAccess?: boolean;
 };
 
@@ -859,6 +861,13 @@ export type MessageRecord = {
   phoneFrom?: string;
   phoneTo?: string;
   phoneVoiceMessage?: boolean;
+  /**
+   * Derived for the owner's own phone, never stored: whether this message ran
+   * under the owner's second WhatsUp name (true) or the real name (false).
+   */
+  phoneOwnerAlias?: boolean;
+  /** Derived for model history only, never stored: participant labels that name the owner of a second WhatsUp account. */
+  phoneHistoryLabels?: { from?: string; to?: string };
   phoneAutoTurnSource?: 'narrator';
   embeddedPhoneMessages?: EmbeddedPhoneMessageLink[];
   embeddedSocialMessages?: EmbeddedSocialMessageLink[];
