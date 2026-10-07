@@ -29,7 +29,8 @@ type Props = {
   openRequest?: SocialDirectMessageOpenRequest;
   history: MessageRecord[];
   isRunning: boolean;
-  onSendMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
+  /** `'cancelled'`: the run was cancelled and the message taken back out of the conversation. */
+  onSendMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean | 'cancelled'>;
   emojiOptions: string[];
   recentlyUsedEmojis: string[];
   rpTimeTrackingEnabled?: boolean;
@@ -213,7 +214,13 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
     sending.current = true; setBusy(true); setError('');
     setChatDrafts((current) => ({ ...current, [id]: '' }));
     try {
-      const success = await onSendMessage(message, owner.id);
+      const result = await onSendMessage(message, owner.id);
+      if (result === 'cancelled') {
+        setFailedMessages((current) => { const next = { ...current }; delete next[id]; return next; });
+        setChatDrafts((current) => current[id] ? current : { ...current, [id]: message.text });
+        return;
+      }
+      const success = result;
       setFailedMessages((current) => { const next = { ...current }; if (success) delete next[id]; else next[id] = message; return next; });
       if (!success) setError('No reply was delivered. Check the workflow diagnostics and retry.');
     } catch { setFailedMessages((current) => ({ ...current, [id]: message })); setError('Message failed. You can retry.'); }

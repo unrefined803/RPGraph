@@ -307,6 +307,7 @@ type PhonePanelProps = {
     likeCount: number;
   }) => Promise<boolean>;
   onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
+  onSubmitMatchMeMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean | 'cancelled'>;
   onMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
   onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) => boolean;
   /** Set or remove the viewed character's second WhatsUp name. */
@@ -457,6 +458,7 @@ export function PhonePanel({
   onSubmitSocialPost,
   onSubmitSocialThreadAction,
   onSubmitSocialDirectMessage,
+  onSubmitMatchMeMessage,
   onCreateSocialAccount,
   onSaveDatingProfile,
   onSaveWhatsUpAlias,
@@ -929,7 +931,7 @@ export function PhonePanel({
   if (screen === 'plottwist') {
     return <PhoneDatingScreen characterColors={characterColors} key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
       characters={appCharacters} history={socialMediaMessages} isRunning={isRunning}
-      onSendMessage={onSubmitSocialDirectMessage}
+      onSendMessage={onSubmitMatchMeMessage}
       unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
       openRequest={directMessageRequest?.app === 'matchme' ? directMessageRequest : undefined}
       emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
