@@ -28,12 +28,39 @@ function aliasRecipient(owners: StorybookCharacter[], identity: string) {
     accountId: whatsUpAliasAccountId(owners[0]), alias: true as const };
 }
 
+/** The identity a participant was written as: the content of a WhatsUp link, or the bare name or ID. */
+function writtenWhatsUpIdentity(identity: string) {
+  return accountLinkIdentity(identity, 'whatsup') ?? identity.trim().replace(/^@/, '').trim();
+}
+
+/**
+ * Spellings a model copies loosely: a link without its leading @, or the
+ * history label of a second account ("Name (second account of Owner)").
+ */
+function looseWhatsUpIdentity(identity: string) {
+  return writtenWhatsUpIdentity(identity).replace(/^(?:whatsup|whatsapp):\s*/i, '')
+    .replace(/\s*\(second account of [^()]*\)$/i, '').replace(/^@/, '').trim();
+}
+
 /** WhatsUp recipients must be exact identities, never fuzzy name guesses. */
 export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messages: MessageRecord[], identity: string): {
   name: string; accountId: string; characterId?: string; alias?: true;
 } {
+  try {
+    return resolveWrittenWhatsUpRecipient(characters, messages, identity);
+  } catch (error) {
+    // Stored account IDs may start with an app name, so the loose form is only a fallback for an unknown identity.
+    const loose = looseWhatsUpIdentity(identity);
+    if (!loose || loose === writtenWhatsUpIdentity(identity) || !(error instanceof Error) || !error.message.startsWith('Unknown')) throw error;
+    try { return resolveWrittenWhatsUpRecipient(characters, messages, loose); } catch { throw error; }
+  }
+}
+
+function resolveWrittenWhatsUpRecipient(characters: StorybookCharacter[], messages: MessageRecord[], identity: string): {
+  name: string; accountId: string; characterId?: string; alias?: true;
+} {
   // Generated messages name their participants as account links; a bare name or ID stays valid.
-  identity = accountLinkIdentity(identity, 'whatsup') ?? identity.trim().replace(/^@/, '').trim();
+  identity = writtenWhatsUpIdentity(identity);
   // Temporary UI contacts are projections of history, not newly provisioned accounts.
   characters = characters.filter((character) => !(character as StorybookCharacter & { temporaryPhone?: boolean }).temporaryPhone);
   const aliasById = characters.filter((character) => whatsUpAlias(character) && whatsUpAliasAccountId(character) === identity);
@@ -126,7 +153,7 @@ function knownWhatsUpName(
   identity: string,
 ) {
   const owner = 'characterId' in side ? characters.find((character) => character.sourceId === side.characterId) : undefined;
-  if (!owner || !whatsUpAlias(owner) || 'alias' in side || identity.trim().replace(/^@/, '').trim() === side.accountId) return side;
+  if (!owner || !whatsUpAlias(owner) || 'alias' in side || writtenWhatsUpIdentity(identity) === side.accountId) return side;
   return whatsUpNameKnownBy(owner, other.name, messages, other.accountId) === 'alias' ? aliasRecipient([owner], identity) : side;
 }
 

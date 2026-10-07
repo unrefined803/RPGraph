@@ -226,7 +226,11 @@ Comments and post commands name their author the same way
   account IDs may themselves start with an app name. The message parsers in
   `src/chat/phoneMessages.ts` strip the prefix, so previews and reports show the
   name; `resolveWhatsUpRecipient`, `resolveSocialMessageIdentity` and
-  `resolveDatingAccount` accept the link form directly as well.
+  `resolveDatingAccount` accept the link form directly as well. Inside a link
+  the relaxed name spellings of bare names apply (`@whatsup:FirstLast`,
+  `@whatsup:first.last`). Only when a WhatsUp identity is otherwise unknown,
+  `resolveWhatsUpRecipient` also retries it without a link prefix that lost
+  its `@` and without a copied history label (`Name (second account of Owner)`).
 - Inputs list the links to copy. WhatsUp and social DM inputs carry
   `Reply from:` and `Reply to:` lines; `[AVAILABLE SOCIAL ACCOUNTS]` lists each
   participant's `Account links`; character search lists a link per account.

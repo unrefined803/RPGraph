@@ -306,6 +306,26 @@ describe('account links as message participants', () => {
       .toBe('Sofia Belova');
   });
 
+  it('accepts relaxed spellings inside a link for both accounts', () => {
+    for (const identity of ['@whatsup:TamaraKovac', '@whatsup:tamara.kovac', '@WhatsUp: tamara_kovac', 'whatsup:Tamara Kovac']) {
+      expect(resolveWhatsUpRecipient(characters, [], identity)).toMatchObject({ accountId: 'tamara:whatsup' });
+    }
+    for (const identity of ['@whatsup:SofiaBelova', '@whatsup:sofia.belova', 'whatsapp:Sofia Belova',
+      '@whatsup:Sofia Belova (second account of Tamara Kovac)', 'Sofia Belova (second account of Tamara Kovac)']) {
+      expect(resolveWhatsUpRecipient(characters, [], identity)).toMatchObject({ name: 'Sofia Belova', accountId: 'tamara:whatsup:alias' });
+    }
+    // A first name alone stays a guess, and the loose form never shadows a recorded identity.
+    expect(() => resolveWhatsUpRecipient(characters, [], '@whatsup:Tamara')).toThrow(/Unknown WhatsUp recipient "Tamara"/);
+    const recorded = [{ ...phone('whatsup:Tamara Kovac', 'Mark Hale') }];
+    expect(resolveWhatsUpRecipient(characters, recorded, 'whatsup:Tamara Kovac').accountId).toMatch(/^whatsup:contact:/);
+  });
+
+  it('treats an account ID written as a link as an exact choice', () => {
+    const knowsSecond = [phone('Mark Hale', 'Sofia Belova')];
+    expect(resolveWhatsUpMessageParticipants(characters, knowsSecond, { from: '@whatsup:tamara:whatsup', to: '@whatsup:Mark Hale' }).from)
+      .toMatchObject({ name: 'Tamara Kovac', accountId: 'tamara:whatsup' });
+  });
+
   it('lists the links of a post author and of every participant', () => {
     const context = socialPublishedLinkContext(characters, 'fotogram', { role: 'actor', handle: 'tamara.fotogram' },
       'message me on whatsup @whatsup:Sofia Belova');
