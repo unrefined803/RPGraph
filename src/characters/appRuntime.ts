@@ -6,7 +6,7 @@ import type { StorybookCharacter } from '../storybook/runtime';
 import { socialFromCharacterApps } from './character';
 import type { EffectiveCharacterRegistry } from './registry';
 import { agencyTagCatalog } from '../../shared/agency-tags.cjs';
-import { whatsUpAlias } from './messageIdentity';
+import { whatsUpAlias, whatsUpAliasAccountId } from './messageIdentity';
 
 /** App discovery shares one effective payload; player selection stays Storybook-only. */
 export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry): StorybookCharacter[] {
@@ -37,6 +37,7 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
 /** Never resolve a colliding local image ID to another character's gallery. */
 export function appCharacterImage(characters: StorybookCharacter[], imageId: string, ownerId?: string) {
   const owners = ownerId ? characters.filter((character) => character.sourceId === ownerId || character.id === ownerId ||
+    whatsUpAliasAccountId(character) === ownerId ||
     Object.values(character.apps ?? {}).some((account) => account.accountId === ownerId)) : characters;
   const images = owners.flatMap((character) => character.images?.filter((image) => image.id === imageId) ?? []);
   if (!images.length || images.some((image) => image.dataUrl !== images[0].dataUrl)) return undefined;

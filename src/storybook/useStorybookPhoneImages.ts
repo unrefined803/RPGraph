@@ -6,6 +6,7 @@ import {
   withCharacterAppProfile,
 } from '../characters/profiles';
 import { characterPayload, validateCharacterPayload, type CharacterAppAccount, type AppAvatarChoice, type WhatsUpAlias } from '../characters/character';
+import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import { appCharactersFromRegistry } from '../characters/appRuntime';
 import { validateCandidateLegacySeedTimeline } from '../characters/publications';
@@ -143,9 +144,14 @@ export function useStorybookPhoneImages({
   }
 
   function characterByPhoneName(name: string) {
-    const key = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase();
-    const matches = appCharactersFromRegistry(currentCharacterRegistry()).filter((character) => key(character.name) === key(name));
-    return matches.length === 1 ? matches[0] : undefined;
+    const characters = appCharactersFromRegistry(currentCharacterRegistry());
+    try {
+      const identity = resolveWhatsUpRecipient(characters, messagesRef.current, name);
+      const character = characters.find((entry) => entry.sourceId === identity.characterId);
+      return character ? { character, ...identity } : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   function changePhoneWallpaper(character: StorybookCharacter, wallpaperId: string) {
@@ -441,12 +447,15 @@ export function useStorybookPhoneImages({
 
   function pruneExternalImagesForMessages(activeMessages = messagesRef.current, removedMessages: readonly MessageRecord[] = []) {
     const previousNpcImages: Array<{ id: string; images: RpStorybook['characters'][number]['images'] }> = [];
-    for (const entry of currentCharacterRegistry().characters) {
+    const entries = currentCharacterRegistry().characters;
+    const directory = entries.map((entry) => entry.character);
+    const accountAliases = new Map(entries.map((entry) => [entry.character.id, entry.aliases.accountIds?.whatsup ?? []]));
+    for (const entry of entries) {
       if (entry.provenance.tier !== 'snapshot' || !updateNpcImages) continue;
       const result = withStorybookExternalImagesPruned(
-        { ...emptyRpStorybook, characters: [entry.character] }, activeMessages, removedMessages,
+        { ...emptyRpStorybook, characters: [entry.character] }, activeMessages, removedMessages, directory, accountAliases,
       );
-      if (result.removedCount) {
+      if (result.removedCount + result.updatedCount) {
         previousNpcImages.push({ id: entry.character.id, images: entry.character.images });
         updateNpcImages(entry.character.id, result.storybook.characters[0].images);
       }
@@ -456,13 +465,13 @@ export function useStorybookPhoneImages({
         return;
       }
       const storybook = parseRpStorybookJson(node.data.storybookJson);
-      const result = withStorybookExternalImagesPruned(storybook, activeMessages, removedMessages);
-      if (result.removedCount === 0) {
+      const result = withStorybookExternalImagesPruned(storybook, activeMessages, removedMessages, directory, accountAliases);
+      if (result.removedCount + result.updatedCount === 0) {
         return;
       }
       updateRuntimeNode(node.id, {
         storybookJson: rpStorybookJsonText(result.storybook),
-        storybookStatus: `Removed ${result.removedCount} inactive timeline image${result.removedCount === 1 ? '' : 's'}.`,
+        storybookStatus: `Removed ${result.removedCount} inactive timeline image${result.removedCount === 1 ? '' : 's'}; updated ${result.updatedCount} receipt${result.updatedCount === 1 ? '' : 's'}.`,
       });
     });
     return () => previousNpcImages.forEach(({ id, images }) => updateNpcImages?.(id, images));
@@ -479,19 +488,19 @@ export function useStorybookPhoneImages({
     if (
       !sender ||
       !recipient ||
-      sender.id === recipient.id
+      sender.character.id === recipient.character.id
     ) {
       return;
     }
     ensureImagesForCharacter(
-      recipient,
+      recipient.character,
       images,
       description,
       (addedCount, updatedCount) =>
         addedCount > 0
           ? `Added ${addedCount} phone image${addedCount === 1 ? '' : 's'} to ${recipient.name} from ${sender.name}.`
           : `Updated ${updatedCount} phone image description${updatedCount === 1 ? '' : 's'} for ${recipient.name}.`,
-      { receivedFrom: sender.name },
+      { receivedFrom: sender.name, receivedFromCharacterId: sender.character.sourceId, receivedFromAccountId: sender.accountId },
     );
   }
 
@@ -510,11 +519,11 @@ export function useStorybookPhoneImages({
       const storedImage = currentImageSourceById(image.id)?.image;
       return storedImage?.dataUrl === image.dataUrl;
     });
-    const senderNeedsImageAccess = !!sender && !!sourceOwnerName && !phoneNamesMatch(sender.name, sourceOwnerName);
+    const senderNeedsImageAccess = !!sender && !!sourceOwnerName && !phoneNamesMatch(sender.character.name, sourceOwnerName);
     const senderAttachments = imagesAlreadyStored && !senderNeedsImageAccess
       ? images
       : ensureImagesForCharacter(
-          sender,
+          sender?.character,
           images,
           description,
           (addedCount, updatedCount) =>
@@ -543,8 +552,8 @@ export function useStorybookPhoneImages({
         .find(Boolean) ||
       undefined;
     const storybookAttachments = ensurePhoneImages(
-      message.phoneFrom ?? '',
-      message.phoneTo ?? '',
+      message.phoneFromAccountId ?? message.phoneFrom ?? '',
+      message.phoneToAccountId ?? message.phoneTo ?? '',
       message.imageAttachments,
       trimmedDescription,
     );

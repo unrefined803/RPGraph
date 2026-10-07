@@ -16,7 +16,7 @@ import {
   phoneCharacterAvatarDataUrl, phoneConversationKeyTwins, phoneMessagesForOwner, phoneRuntimeCharactersFromMessages,
   whatsUpAliasAvatarDataUrl,
 } from '../chat/phoneCharacters';
-import { phoneMarkersWithCurrentNames, phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
+import { phoneImagesWithCurrentSenders, phoneMarkersWithCurrentNames, phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { formatChatHistory } from '../workflow/textHelpers';
 import { whatsUpMessageInputText } from '../chat/phoneReplies';
 import { datingAccounts, datingAvatarDataUrl, resolveDatingAccount } from '../chat/datingAccounts';
@@ -190,6 +190,23 @@ describe('WhatsUp second name', () => {
     expect(phoneMarkersWithCurrentNames(nextSeen, current, again)).toBe(nextSeen);
     // Reordered or deleted messages never move another message's marker.
     expect(phoneMarkersWithCurrentNames({ [oldKey]: 10 }, stored, [])).toEqual({ [oldKey]: 10 });
+  });
+
+  it('labels received gallery images with the sender account’s current name, never the owner behind a second name', () => {
+    const renamed = structuredClone(owner);
+    renamed.apps!.whatsup!.alias!.name = 'New Alias';
+    const image = { id: 'img', name: 'img', mimeType: 'image/jpeg', size: 1, dataUrl: 'data:image/jpeg;base64,AA==' };
+    const images = [
+      { ...image, receivedFrom: 'Sofia Belova', receivedFromCharacterId: 'tamara', receivedFromAccountId: 'tamara:whatsup:alias' },
+      { ...image, receivedFrom: 'Old Real Name', receivedFromCharacterId: 'tamara', receivedFromAccountId: 'tamara:whatsup' },
+      { ...image, receivedFrom: 'Removed Account', receivedFromAccountId: 'gone:whatsup:alias' },
+      { ...image, receivedFrom: 'Legacy Sender' },
+      image,
+    ];
+    expect(phoneImagesWithCurrentSenders(images, [renamed]).map((entry) => entry.receivedFrom))
+      .toEqual(['New Alias', 'Tamara Kovac', 'Removed Account', 'Legacy Sender', undefined]);
+    const unchanged = phoneImagesWithCurrentSenders(images.slice(2), [renamed]);
+    expect(unchanged[0]).toBe(images[2]);
   });
 
   it('updates embedded history labels without rewriting message text or account links', () => {

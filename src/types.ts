@@ -328,6 +328,8 @@ export type ChatImageAttachment = {
   height?: number;
   description?: string;
   receivedFrom?: string;
+  receivedFromCharacterId?: string;
+  receivedFromAccountId?: string;
   imageAccess?: boolean;
 };
 

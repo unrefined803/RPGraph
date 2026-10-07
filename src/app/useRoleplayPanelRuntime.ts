@@ -30,7 +30,7 @@ import {
   whatsUpAliasContact,
   type PhoneRuntimeCharacter,
 } from '../chat/phoneCharacters';
-import { phoneMarkersWithCurrentNames, phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
+import { phoneImagesWithCurrentSenders, phoneMarkersWithCurrentNames, phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { usePhoneReply } from '../chat/usePhoneReply';
 import {
   bankTransferMessages,
@@ -589,11 +589,11 @@ export function useRoleplayPanelRuntime({
     const imageOwner = storybook?.characters.find(
       (entry) => entry.id === viewedPhoneCharacter?.sourceId,
     );
-    const images = imageOwner?.images.map(chatAttachmentFromStorybookImage) ?? [];
+    const images = phoneImagesWithCurrentSenders(imageOwner?.images.map(chatAttachmentFromStorybookImage) ?? [], appCharacters);
     return imageUploadVisionEnabled
       ? images
       : images.filter((image) => image.description?.trim());
-  }, [imageUploadVisionEnabled, storybooksByNodeId, viewedPhoneCharacter]);
+  }, [appCharacters, imageUploadVisionEnabled, storybooksByNodeId, viewedPhoneCharacter]);
 
   function rememberChatCharacter(characterId: string) {
     setRecentChatCharacterIds((current) => [

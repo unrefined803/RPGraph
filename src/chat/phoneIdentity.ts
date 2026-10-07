@@ -1,10 +1,10 @@
 import type { StorybookCharacter } from '../storybook/runtime';
-import type { MessageRecord } from '../types';
+import type { ChatImageAttachment, MessageRecord } from '../types';
 import { whatsUpAccountId, whatsUpAliasAccountId } from '../characters/messageIdentity';
 import { normalizePhoneName } from './phoneMessages';
 
-/** Resolve stored participants by stable identity without rewriting dialogue or shared link tokens. */
-export function phoneMessagesWithCurrentNames(messages: MessageRecord[], characters: StorybookCharacter[]): MessageRecord[] {
+/** Current public name per WhatsUp account ID; an ID shared by several characters names nobody. */
+function currentWhatsUpNames(characters: StorybookCharacter[]) {
   const names = new Map<string, string | undefined>();
   const add = (id: string, name: string) => names.set(id, names.has(id) ? undefined : name);
   for (const character of characters) {
@@ -12,6 +12,21 @@ export function phoneMessagesWithCurrentNames(messages: MessageRecord[], charact
     const alias = character.apps?.whatsup?.alias?.name.trim();
     if (alias) add(whatsUpAliasAccountId(character), alias);
   }
+  return names;
+}
+
+/** Gallery labels follow a renamed sender account, like its chat thread; a removed account keeps its recorded name. */
+export function phoneImagesWithCurrentSenders(images: ChatImageAttachment[], characters: StorybookCharacter[]): ChatImageAttachment[] {
+  const names = currentWhatsUpNames(characters);
+  return images.map((image) => {
+    const name = image.receivedFrom && names.get(image.receivedFromAccountId ?? '');
+    return name && name !== image.receivedFrom ? { ...image, receivedFrom: name } : image;
+  });
+}
+
+/** Resolve stored participants by stable identity without rewriting dialogue or shared link tokens. */
+export function phoneMessagesWithCurrentNames(messages: MessageRecord[], characters: StorybookCharacter[]): MessageRecord[] {
+  const names = currentWhatsUpNames(characters);
   const phones = new Map<number, MessageRecord>();
   let changed = false;
   const current = messages.map((message) => {

@@ -132,6 +132,22 @@ stable when either name changes.
 
 ## WhatsUp second name
 
+Phone image delivery resolves either WhatsUp account ID or link to the same
+character-owned gallery. A received image stores `receivedFrom` as the public
+account name at receipt, plus the internal `receivedFromCharacterId` and
+`receivedFromAccountId`. Gallery badges use only `receivedFrom`; the phone gallery
+projects it to the sender account's current name while that account exists, so a
+badge follows a rename like the chat thread does and never falls back to the real
+name behind a second name. Forwarding names
+the forwarding account, not the original image owner. Receiving the same pixels
+again updates that receipt without duplicating the image. Account IDs also bind
+timeline image references during cleanup, so character or alias renames do not
+orphan shared images; previously issued account IDs from the registry aliases
+bind as well, and legacy messages without IDs still match names. Undo restores
+the latest surviving delivery label when an earlier copy remains. Storybook and
+RP saves retain the provenance; portable character exports strip it. Old images
+without the optional IDs remain readable and keep their recorded label.
+
 `apps.whatsup.alias` is optional: `{ "name": "Sofia Belova", "avatarImageId":
 "<gallery image>", "avatarCrop": { "x": 35, "y": 33, "size": 30 } }`. Only
 `name` (1–60 characters) is required. It is not a second account: the character

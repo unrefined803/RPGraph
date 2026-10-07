@@ -76,7 +76,7 @@ export type StorybookImageList = {
   sourceId: string;
   name: string;
   label: string;
-  images: Array<Pick<RpStorybookCharacterImage, 'id' | 'name' | 'mimeType' | 'size' | 'dataUrl' | 'width' | 'height' | 'description' | 'receivedFrom' | 'imageAccess'>>;
+  images: Array<Pick<RpStorybookCharacterImage, 'id' | 'name' | 'mimeType' | 'size' | 'dataUrl' | 'width' | 'height' | 'description' | 'receivedFrom' | 'receivedFromCharacterId' | 'receivedFromAccountId' | 'imageAccess'>>;
 };
 
 export function chatAttachmentFromStorybookImage(image: RpStorybookCharacterImage): ChatImageAttachment {
@@ -90,6 +90,8 @@ export function chatAttachmentFromStorybookImage(image: RpStorybookCharacterImag
     height: image.height,
     description: image.description,
     receivedFrom: image.receivedFrom,
+    receivedFromCharacterId: image.receivedFromCharacterId,
+    receivedFromAccountId: image.receivedFromAccountId,
     imageAccess: image.imageAccess,
   };
 }
@@ -189,6 +191,8 @@ export function storybookImageListsFromNodes(nodes: WorkflowNode[]): StorybookIm
           height: image.height,
           description: image.description,
           receivedFrom: image.receivedFrom,
+          receivedFromCharacterId: image.receivedFromCharacterId,
+          receivedFromAccountId: image.receivedFromAccountId,
           imageAccess: image.imageAccess,
         })),
       }];

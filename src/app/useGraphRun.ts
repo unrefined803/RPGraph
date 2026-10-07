@@ -1153,8 +1153,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const sentPhoneImages =
       isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length
         ? ensurePhoneImagesInStorybooks(
-            inputCharacterName,
-            phoneRecipientName,
+            inputPhoneParticipants?.from.accountId ?? inputCharacterName,
+            inputPhoneParticipants?.to.accountId ?? phoneRecipientName,
             rawSentPhoneImages,
             imageDescriptionFromAttachments(rawSentPhoneImages),
           ) ?? rawSentPhoneImages

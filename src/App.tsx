@@ -4163,8 +4163,8 @@ function App() {
       storedImage?.description ??
       imageDescriptionFromAttachments(sourceImageAttachments);
     const imageAttachments = ensurePhoneImagesInStorybooks(
-      canonicalMessage.from,
-      canonicalMessage.to,
+      participants.from.accountId,
+      participants.to.accountId,
       sourceImageAttachments,
       imageDescription,
       storedImage?.ownerName,

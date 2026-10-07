@@ -37,7 +37,11 @@ export type RpStorybookCharacterImage = {
   width?: number;
   height?: number;
   description: string;
+  /** Public account label at receipt, never replaced with the owner's real name. */
   receivedFrom?: string;
+  /** Internal provenance only; not used for gallery labels. */
+  receivedFromCharacterId?: string;
+  receivedFromAccountId?: string;
   imageAccess?: true;
   /** Imported for a timeline action rather than authored in the gallery. */
   turnUpload?: true;
@@ -510,6 +514,8 @@ function normalizeCharacterImages(
       ...(numberValue(image.height) ? { height: numberValue(image.height) } : {}),
       description: stringValue(image.description),
       ...(receivedFrom ? { receivedFrom } : {}),
+      ...(receivedFrom && stringValue(image.receivedFromCharacterId) ? { receivedFromCharacterId: stringValue(image.receivedFromCharacterId) } : {}),
+      ...(receivedFrom && stringValue(image.receivedFromAccountId) ? { receivedFromAccountId: stringValue(image.receivedFromAccountId) } : {}),
       ...(imageAccess ? { imageAccess: true } : {}),
       ...(image.turnUpload === true ? { turnUpload: true } : {}),
     });
