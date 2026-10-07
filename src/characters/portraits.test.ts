@@ -90,6 +90,23 @@ describe('shared portrait slots', () => {
     expect(() => validateCharacterPayload({ ...payload, apps: { ...payload.apps, whatsup: { ...payload.apps.whatsup, portraitId: 'none' } } })).toThrow('Unknown character portrait');
   });
 
+  it('rejects Storybook assistant selections the app cannot show and keeps app-managed framing', () => {
+    const book = normalizeRpStorybook({ characters: [fixture()] });
+    const patch = (...operations: Array<Record<string, unknown>>) => parseRpStorybookAssistantResult(JSON.stringify({ reply: 'Done.',
+      patch: operations.map((operation) => ({ ...operation, path: `/characters/0${operation.path as string}` })) }), book).storybook.characters[0];
+    expect(() => patch({ op: 'remove', path: '/customPortraits/custom2' })).toThrow('customPortraits.custom2 does not exist');
+    expect(() => patch({ op: 'add', path: '/apps/matchme/portraitId', value: 'none' })).toThrow('always shows a portrait');
+    expect(() => patch({ op: 'add', path: '/apps/fotogram/portraitId', value: 'avatar' })).toThrow('must be "character"');
+    const cleared = patch({ op: 'add', path: '/apps/whatsup/portraitId', value: 'character' }, { op: 'remove', path: '/customPortraits/custom2' });
+    expect(cleared.customPortraits?.custom2).toBeUndefined();
+    expect(patch({ op: 'add', path: '/apps/fotogram/portraitId', value: 'none' }).apps?.fotogram?.portraitId).toBe('none');
+    expect(patch({ op: 'add', path: '/customPortraits/custom1', value: { imageId: 'persona' } }, { op: 'replace', path: '/name', value: 'Renamed' })
+      .customPortraits?.custom1?.crop).toEqual({ x: 10, y: 20, size: 30 });
+    const kept = parseCharacterAssistantResult(JSON.stringify({ reply: 'Done.', patch: [
+      { op: 'add', path: '/character/customPortraits/custom1', value: { imageId: 'persona' } }, { op: 'replace', path: '/character/role', value: 'Guide' }] }), fixture()).character;
+    expect(kept.customPortraits?.custom1?.crop).toEqual({ x: 10, y: 20, size: 30 });
+  });
+
   it('keeps custom portrait media during external-image pruning', () => {
     const character = fixture();
     character.images[1].receivedFrom = 'Contact';
