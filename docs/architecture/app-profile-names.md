@@ -216,10 +216,15 @@ by opening a chat): the fixed main account and
 the second account, each with its picture and a click-to-copy link. Creating or
 editing the second account opens a nested form; Character Setup offers the same
 panel under **WhatsUp**. The interface calls the second name a second account
-for work or privacy. Choosing a picture runs the local face detector: one face
-sets the round crop and shows “Face detected”, otherwise the whole picture is
-used. **Set manually** opens the shared crop dialog (`ProfilePickDialog`); the
-MatchMe profile form offers the same link for its main photo.
+for work or privacy. Choosing a picture opens the shared crop dialog
+(`ProfilePickDialog`) with a centered circle to mark the face; choosing the same
+picture again adjusts it. The MatchMe profile form states what the profile
+picture shows (the character portrait when the avatar photo is the portrait's
+source image, a marked face, or the whole photo) and offers **Change profile
+picture**: choose one of the dating photos, then mark the face or use the full
+image. The choice is saved as `avatarImageId` and `avatarCrop`; the whole photo
+of the portrait's source image is stored as its centered square (`wholeImageCrop`). The Character Assistant knows `apps.whatsup.alias` and frames
+its picture from the vision model's face estimate.
 
 ## Account links as message participants
 

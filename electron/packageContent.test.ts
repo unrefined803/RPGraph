@@ -26,8 +26,6 @@ const sourceOnlyFiles = ['electron/main.test.ts', 'shared/reasoning.d.cts', 'scr
 const resourceFiles = [
   ['resources/default-content/default.json', 'default-content/default.json'],
   ['resources/npc-characters/nested/npc.json', 'npc-characters/nested/npc.json'],
-  ['scripts/character-faces.mjs', 'character-face-tools/character-faces.mjs'],
-  ['scripts/detect-character-faces.py', 'character-face-tools/detect-character-faces.py'],
 ];
 const runtimeFiles = ['chrome_100_percent.pak', 'icudtl.dat', 'locales/en-US.pak', 'resources.pak',
   'snapshot_blob.bin', 'v8_context_snapshot.bin', 'libffmpeg.so'];

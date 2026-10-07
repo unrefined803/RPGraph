@@ -352,7 +352,11 @@
 .whatsup-account-photos .social-profile-photo { flex: 0 0 76px; }
 .whatsup-alias-face-status, .pt-face-status { margin: 0; font-size: 12px; color: #bdc4d6; }
 .pt-face-status { margin-top: 10px; }
-.pt-face-status .pt-face-manual { padding: 0; border: 0; background: none; color: #60a5fa; font: inherit; text-decoration: underline; cursor: pointer; }
+.pt-app .pt-face-status button.pt-face-manual { padding: 0; border-radius: 0; border: 0; background: none; color: #60a5fa; font: inherit; text-decoration: underline; cursor: pointer; }
+.pt-face-choices { display: flex; gap: 8px; margin-top: 8px; }
+.pt-app .pt-face-choices button { width: 56px; height: 56px; padding: 0; overflow: hidden; border-radius: 50%; border: 2px solid transparent; background: none; }
+.pt-app .pt-face-choices button[aria-pressed="true"] { border-color: #60a5fa; }
+.pt-face-choices img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .whatsup-alias-face-status.found, .whatsup-alias-face-status.manual, .pt-face-status.found { color: #5eead4; }
 .social-profile-actions .whatsup-alias-remove { margin-right: auto; color: #ffbcc6; border-color: #fb8a9a66; }
 .social-profile-actions .whatsup-alias-remove-note { margin-right: auto; color: #9fb0c3; }

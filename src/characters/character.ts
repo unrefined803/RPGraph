@@ -11,6 +11,8 @@ import type {
 } from '../nodes/rp-storybook/model';
 
 export type AppAvatarCrop = { x: number; y: number; size: number };
+/** A gallery photo chosen as an app avatar; without a crop the whole photo is shown. */
+export type AppAvatarChoice = { imageId: string; crop?: AppAvatarCrop };
 
 /** Optional second WhatsUp name: another link to the same account, shown with its own picture. */
 export type WhatsUpAlias = {

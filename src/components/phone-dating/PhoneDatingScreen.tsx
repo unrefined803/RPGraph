@@ -10,10 +10,11 @@ import { PhoneAppListResizer } from '../PhoneAppListResizer';
 import { appDialogCoversPhone } from '../phoneEscape';
 import { usePhoneAppListScaleStyle } from '../phoneAppListScale';
 import { useEffect, useRef, useState } from 'react';
-import { detectAvatarFaceCrop } from '../../characters/faceCrop';
+import { createPortal } from 'react-dom';
 import { ProfilePickDialog } from '../ProfilePickDialog';
 import type { RpStorybookCharacterImage } from '../../nodes/rp-storybook/model';
-import type { AppAvatarCrop } from '../../characters/character';
+import type { AppAvatarChoice, AppAvatarCrop } from '../../characters/character';
+import { wholeImageCrop } from '../../characters/faceCrop';
 import type { ChatImageAttachment } from '../../types';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, resetDatingPasses, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
@@ -40,8 +41,8 @@ type Props = {
   images: ChatImageAttachment[];
   onImportImage: (request: { owner: StorybookCharacter; image: ChatImageAttachment }) => Promise<ChatImageAttachment | undefined>;
   onDecision?: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
-  /** `avatarCrop`: detected face region of the main photo, null for the whole photo, undefined to keep the stored one. */
-  onSave: (owner: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) => boolean;
+  /** `avatar`: a profile picture newly chosen from the photos; undefined keeps the stored one. */
+  onSave: (owner: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) => boolean;
   onBack: () => void;
 };
 
@@ -234,38 +235,36 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const allImages = [...images, ...imported];
   const ownerAvatarDataUrl = datingAvatarDataUrl(owner, allImages, profile);
 
-  // The round avatar shows the account's own avatar photo, otherwise the main photo. Its face
-  // frames the avatar; without a single face the whole photo is used.
-  const avatarPhoto = (photoIds: string[]) => [owner?.apps?.matchme?.avatarImageId, ...photoIds]
+  // The profile picture is the account's avatar photo, otherwise the first photo. The photo the
+  // character portrait was cut from shows that portrait until a region of its own is chosen.
+  const storedAvatarPhoto = [owner?.apps?.matchme?.avatarImageId, ...draft.photoIds]
     .flatMap((id) => allImages.find((entry) => entry.id === id) ?? [])[0];
-  const mainPhoto = editing ? avatarPhoto(draft.photoIds) : undefined;
-  const mainPhotoId = mainPhoto?.id;
-  const mainPhotoDataUrl = mainPhoto?.dataUrl;
-  // A stored face region for the current avatar photo is kept; detection runs only for a new photo.
-  const storedFace = owner?.apps?.matchme?.avatarCrop && { crop: owner.apps.matchme.avatarCrop,
-    imageId: owner.apps.matchme.avatarImageId ?? owner.apps.matchme.profile?.photoIds[0] ?? '' };
-  const [detectedFace, setDetectedFace] = useState<{ imageId: string; crop?: AppAvatarCrop; manual?: boolean } | undefined>(
-    () => storedFace ? { ...storedFace, manual: true } : undefined);
-  const knownFaceImageId = useRef(storedFace ? storedFace.imageId : undefined);
-  const [manualFaceOpen, setManualFaceOpen] = useState(false);
-  useEffect(() => {
-    if (!mainPhotoId || !mainPhotoDataUrl || knownFaceImageId.current === mainPhotoId) return;
-    let cancelled = false;
-    void detectAvatarFaceCrop({ id: mainPhotoId, dataUrl: mainPhotoDataUrl }).then((crop) => {
-      if (cancelled) return;
-      knownFaceImageId.current = mainPhotoId;
-      setDetectedFace({ imageId: mainPhotoId, crop });
-    });
-    return () => { cancelled = true; };
-  }, [mainPhotoId, mainPhotoDataUrl]);
-  const mainFace = mainPhotoId ? { imageId: mainPhotoId, done: detectedFace?.imageId === mainPhotoId,
-    crop: detectedFace?.imageId === mainPhotoId ? detectedFace.crop : undefined,
-    manual: detectedFace?.imageId === mainPhotoId && !!detectedFace.manual } : undefined;
+  const storedAvatar: AppAvatarChoice | undefined = storedAvatarPhoto && { imageId: storedAvatarPhoto.id,
+    ...(owner?.apps?.matchme?.avatarCrop && storedAvatarPhoto.id === (owner.apps.matchme.avatarImageId ?? owner.apps.matchme.profile?.photoIds[0])
+      ? { crop: owner.apps.matchme.avatarCrop } : {}) };
+  // A picture chosen in this form; it is saved with the profile.
+  const [pickedAvatar, setPickedAvatar] = useState<AppAvatarChoice>();
+  const [avatarChoiceOpen, setAvatarChoiceOpen] = useState(false);
+  const [facePickImageId, setFacePickImageId] = useState<string>();
+  const chosenAvatar = pickedAvatar && draft.photoIds.includes(pickedAvatar.imageId) ? pickedAvatar : undefined;
+  const avatar = editing ? chosenAvatar ?? storedAvatar : undefined;
+  const avatarPhotos = draft.photoIds.flatMap((id) => allImages.find((entry) => entry.id === id) ?? []);
+  const facePickImage = avatarPhotos.find((entry) => entry.id === facePickImageId);
+  const portraitImageId = owner?.profileImage?.imageId;
+  // The whole photo of the portrait's source image needs an explicit region, or the portrait would show instead.
+  const wholePhotoCrop = (imageId: string) => {
+    const image = imageId === portraitImageId ? allImages.find((entry) => entry.id === imageId) : undefined;
+    return image ? wholeImageCrop(image) : undefined;
+  };
+  const sameCrop = (left?: AppAvatarCrop, right?: AppAvatarCrop) => JSON.stringify(left) === JSON.stringify(right);
+  const avatarShows = !avatar ? undefined
+    : !avatar.crop ? avatar.imageId === portraitImageId ? 'portrait' : 'whole'
+      : sameCrop(avatar.crop, wholePhotoCrop(avatar.imageId)) ? 'whole' : 'face';
 
-  function save(next: DatingProfile, withMainFace = false) {
-    const avatarCrop = withMainFace && mainFace?.done && mainFace.imageId === avatarPhoto(next.photoIds)?.id ? mainFace.crop ?? null : undefined;
-    if (!owner || !onSave(owner, next, avatarCrop)) { setError('Could not save your profile. Please try again.'); return false; }
-    setProfile(next); setDraft(next); setError(''); return true;
+  function save(next: DatingProfile, withAvatar = false) {
+    const picked = withAvatar && pickedAvatar && next.photoIds.includes(pickedAvatar.imageId) ? pickedAvatar : undefined;
+    if (!owner || !onSave(owner, next, picked)) { setError('Could not save your profile. Please try again.'); return false; }
+    setProfile(next); setDraft(next); setPickedAvatar(undefined); setAvatarChoiceOpen(false); setError(''); return true;
   }
   function decide(decision: 'like' | 'superlike' | 'pass', target = candidate) {
     if (!profile || !target || isRunning || busy || celebration) return;
@@ -411,22 +410,37 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
                   </button>
                 </div>;
               })}</div>
-              {mainFace && <p className={`pt-face-status${mainFace.done && mainFace.crop ? ' found' : ''}`} role="status">
-                {!mainFace.done ? 'Looking for a face in your profile picture…'
-                  : mainFace.crop ? mainFace.manual ? '✓ Profile picture framed manually.' : '✓ Face detected for your profile picture.'
-                    : 'No face found, your profile picture shows the whole photo.'}
-                {mainFace.done && <> <button type="button" className="pt-face-manual" onClick={() => setManualFaceOpen(true)}>Set manually</button></>}
+              {avatarShows && <p className={`pt-face-status${avatarShows === 'face' ? ' found' : ''}`} role="status">
+                {avatarShows === 'portrait' ? 'Your profile picture is your character portrait.'
+                  : avatarShows === 'face' ? '✓ Your profile picture is framed on the face.'
+                    : 'Your profile picture shows the whole photo.'}
+                {' '}<button type="button" className="pt-face-manual" onClick={() => {
+                  // With one photo there is nothing to choose: go straight to marking the face.
+                  if (avatarPhotos.length === 1) setFacePickImageId(avatarPhotos[0].id);
+                  else setAvatarChoiceOpen(!avatarChoiceOpen);
+                }}>Change profile picture</button>
               </p>}
-              {manualFaceOpen && mainPhoto && <ProfilePickDialog
+              {avatarChoiceOpen && avatarPhotos.length > 1 && <div className="pt-face-choices" role="group" aria-label="Choose a profile picture from your photos">
+                {avatarPhotos.map((photo, index) => <button type="button" key={photo.id} aria-pressed={avatar?.imageId === photo.id}
+                  title="Use this photo and mark the face" onClick={() => setFacePickImageId(photo.id)}>
+                  <img src={photo.dataUrl} alt={`Profile photo ${index + 1}`} />
+                </button>)}
+              </div>}
+              {/* Mounted on the page so the dialog keeps its shared look instead of the MatchMe button skin. */}
+              {facePickImage && createPortal(<ProfilePickDialog
                 characterName={draft.name || 'MatchMe'}
-                image={{ description: '', ...mainPhoto, name: mainPhoto.name ?? '' } as RpStorybookCharacterImage}
-                currentProfileImage={mainFace?.crop ? { imageId: mainPhoto.id, dataUrl: mainPhoto.dataUrl, crop: mainFace.crop } : undefined}
-                onClose={() => setManualFaceOpen(false)}
+                image={{ description: '', ...facePickImage, name: facePickImage.name ?? '' } as RpStorybookCharacterImage}
+                currentProfileImage={avatar?.imageId !== facePickImage.id ? undefined
+                  : avatarShows === 'face' ? { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, crop: avatar.crop }
+                    // The portrait's own region is the starting point for its source photo.
+                    : avatarShows === 'portrait' && owner?.profileImage?.crop
+                      ? { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, crop: owner.profileImage.crop } : undefined}
+                onClose={() => setFacePickImageId(undefined)}
                 onApply={(profileImage) => {
-                  knownFaceImageId.current = mainPhoto.id;
-                  setDetectedFace({ imageId: mainPhoto.id, crop: profileImage.crop, manual: true });
-                  setManualFaceOpen(false);
-                }} />}
+                  const crop = profileImage.crop ?? wholePhotoCrop(facePickImage.id);
+                  setPickedAvatar({ imageId: facePickImage.id, ...(crop ? { crop } : {}) });
+                  setFacePickImageId(undefined); setAvatarChoiceOpen(false);
+                }} />, document.body)}
               <div className="pt-photo-actions"><button type="button" disabled={profileOnly || busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => uploadRef.current?.click()}>{busy ? 'Importing…' : '↑ Upload'}</button>
                 <button type="button" disabled={busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => setGallery(true)}>▧ Character album</button></div>
               <input ref={uploadRef} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />

@@ -6,6 +6,7 @@ import { characterPayload, normalizeCharacterApps, validateCharacterPayload, typ
 import { createCharacterContainer } from './creator';
 import { validateCharacterAccountDirectory } from './profiles';
 import { withCharacterPortrait } from './portrait';
+import { faceCropFromEstimate, faceEstimate, type FaceEstimate } from './faceCrop';
 
 export type CharacterDestination = 'characters' | 'npc-characters' | 'account-npc-characters';
 export type CharacterAssistantMessage = {
@@ -88,9 +89,43 @@ export function validateAssistantCharacter(character: Character) {
   return createCharacterContainer(character, true);
 }
 
+/** Face positions a vision model reported, keyed by the gallery image they were seen in. */
+function assistantFaces(value: unknown, character: Character) {
+  const faces = new Map<string, FaceEstimate>();
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return faces;
+  for (const [imageId, entry] of Object.entries(value)) {
+    const face = faceEstimate(entry);
+    if (face && character.images.some((image) => image.id === imageId)) faces.set(imageId, face);
+  }
+  return faces;
+}
+
+/**
+ * Frame every round avatar that shows an image with a reported face: the
+ * portrait, the WhatsUp second-account picture and the MatchMe avatar.
+ */
+function withAssistantFaceCrops(character: Character, faces: Map<string, FaceEstimate>): Character {
+  if (!faces.size) return character;
+  const crop = (imageId: string | undefined) => {
+    const image = character.images.find((entry) => entry.id === imageId);
+    const face = image && faces.get(image.id);
+    return image && face ? faceCropFromEstimate(image, face) : undefined;
+  };
+  const next = structuredClone(character);
+  const portraitCrop = crop(next.profileImage?.imageId);
+  if (next.profileImage && portraitCrop) next.profileImage.crop = portraitCrop;
+  const alias = next.apps?.whatsup?.alias;
+  const aliasCrop = crop(alias?.avatarImageId);
+  if (alias && aliasCrop) alias.avatarCrop = aliasCrop;
+  const dating = next.apps?.matchme;
+  const datingCrop = crop(dating?.avatarImageId ?? dating?.profile?.photoIds?.[0]);
+  if (dating && datingCrop) dating.avatarCrop = datingCrop;
+  return next;
+}
+
 /** Apply a complete response transactionally, preserving binary data and existing identities. */
 export function parseCharacterAssistantResult(text: string, current: Character) {
-  const response = assistantResponseJson(text) as { reply?: unknown; patch?: unknown; autoCrop?: unknown; steps?: unknown };
+  const response = assistantResponseJson(text) as { reply?: unknown; patch?: unknown; faces?: unknown; steps?: unknown };
   if (!response || typeof response.reply !== 'string' || !Array.isArray(response.patch)) {
     throw new Error('The assistant must return a reply string and a JSON Patch array.');
   }
@@ -99,7 +134,12 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
       new Set(steps).size !== steps.length || (steps.length === 2 && steps[0] !== 'profile')) {
     throw new Error('Assistant steps must be profile followed by accounts, without duplicates.');
   }
-  if (!response.patch.length) return { character: current, reply: response.reply, autoCrop: response.autoCrop === true, steps: steps as CharacterAuthoringStep[] };
+  const faces = assistantFaces(response.faces, current);
+  if (!response.patch.length) {
+    const framed = withAssistantFaceCrops(current, faces);
+    if (framed !== current) validateAssistantCharacter(framed);
+    return { character: framed, reply: response.reply, steps: steps as CharacterAuthoringStep[] };
+  }
   const projection = characterAssistantProjection(current);
   for (const [index, operation] of response.patch.entries()) {
     if (!operation || !['add', 'replace', 'remove', 'test'].includes(operation.op) || typeof operation.path !== 'string') {
@@ -148,8 +188,9 @@ export function parseCharacterAssistantResult(text: string, current: Character) 
     if (current.profileImage?.imageId !== next.profileImage.imageId) delete next.profileImage.crop;
     next.profileImage = { ...next.profileImage, dataUrl: image.dataUrl };
   }
-  validateAssistantCharacter(next);
-  return { character: next, reply: response.reply, autoCrop: response.autoCrop === true, steps: steps as CharacterAuthoringStep[] };
+  const framed = withAssistantFaceCrops(next, faces);
+  validateAssistantCharacter(framed);
+  return { character: framed, reply: response.reply, steps: steps as CharacterAuthoringStep[] };
 }
 
 export function characterAssistantPrompt(character: Character, messages: CharacterAssistantMessage[], instruction: string,
@@ -167,9 +208,10 @@ export function characterAssistantPrompt(character: Character, messages: Charact
     'banking shape: {"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]}. For a new authored character choose a plausible balance and one mobile plan expense fitting their circumstances. Preserve existing banking unless asked. comfyConfig shape: {"loraName":"","loraUrl":"","appearance":"visual appearance for image generation"}; do not invent LoRA files or URLs.',
     'MatchMe has an optional editable account.profileName. When omitted, use the real character.name; an explicit name takes precedence even when it differs from the real identity. Default new dating profiles to the real name, adult age and gender unless a different persona is requested. Dating profile age and gender may differ from character-level age and gender. Keep the real character identity unchanged when editing an app persona. Public MatchMe labels show the dating first name and age, without @. Keep historical aliases and IDs unchanged.',
     'apps keys: whatsup, fotogram (also called Photogram), onlyfriends, matchme. WhatsUp and Fotogram are standard; OnlyFriends and MatchMe are optional. Account fields: enabled (boolean), profileName, bio, optional avatarImageId and initialPosts. Username, display name, nickname and profile name all mean profileName. Fotogram and OnlyFriends support privacyMode (boolean, default false); set true to hide the real name and profile photo publicly while preserving character.name and using profileName. WhatsUp has no profileName and uses the real character name. Existing accounts have immutable accountId. Profile name is 1–60 characters, spaces allowed; bio is at most 500. Keep legacyHandles and accountId unchanged; they preserve old message routing. Use enabled:false to disable a standard account. Optional accounts may be removed.',
+    'WhatsUp second account (optional; add it only when the user or the character concept calls for a second number, a business line or a hidden identity): apps.whatsup.alias is {"name":"Other Name","avatarImageId":"existing-image-id"}. It is a second name and picture for the same WhatsUp account with its own link @whatsup:Other Name; people who only know it never see the real name or portrait. The name needs 1–60 characters and must differ from the character name. avatarImageId is optional and must be an existing gallery image; for a hidden identity do not use the portrait image. Edit the name to rename it and remove apps.whatsup.alias to delete it. Mention the second account in hiddenAgency or the description only when the user asks for that.',
     'MatchMe additionally requires profile: {"age":25,"gender":"woman","seeking":["man"],"bio":"About me","interests":"Music, hiking","photoIds":["existing-image-id"],"decisions":{}}. The only name is account.profileName; do not duplicate it inside profile. Match profile bio to account bio. Age must be an integer 18–120, interests at most 150 characters, and enabled profiles need one to three unique gallery photo IDs. One photo is sufficient. With no photos prepare enabled:false and photoIds:[]. Ask about unknown required personal details. Preserve existing decisions/messages/historyVersion; never invent private activity.',
     'Gallery metadata is /images/<stable-image-id>/name and /images/<stable-image-id>/description. Rename and describe only existing images. Filenames are not visual evidence. Only images listed under Attached image IDs are visible in this request, in that order; otherwise rely on authored descriptions or ask for an attachment. Never claim to have inspected unattached pictures. No pixel editing or image generation is available here.',
-    'Image assignments use container references, not filenames: P sets /character/profileImage to {"imageId":"existing-id"} and the shared account avatarImageId references; P alone creates no post or MatchMe gallery entry. A changed portrait clears its old crop. For a face-centered portrait crop, return autoCrop:true alongside reply and patch. The application runs its local face detector; do not guess coordinates or claim detection succeeded. Use add at /character/profileImage if the field is absent, never replace an absent field. Playable status is internal and cannot be edited here. F/O adds or retains an initialPosts entry on fotogram/onlyfriends: {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. New post IDs are assigned by the app; preserve existing post IDs. M puts the ID into apps.matchme.profile.photoIds. Gallery-only images need no assignment. Moving F to M must remove that image’s former Fotogram post if the user requests a move rather than an additional use. Keep unrelated posts. Image description describes visible content; post text is the social caption.',
+    'Image assignments use container references, not filenames: P sets /character/profileImage to {"imageId":"existing-id"} and the shared account avatarImageId references; P alone creates no post or MatchMe gallery entry. A changed portrait clears its old crop. Round avatars are framed on the face by you: whenever you set or change the portrait, a WhatsUp second-account picture or the first MatchMe photo to an attached image, or the user asks to center one on the face, also return "faces":{"<image-id>":{"centerX":50,"centerY":30,"height":25}} next to reply and patch. centerX and centerY are the center of the face in percent of the image width and height, measured from the top-left corner; height is the height of the head from chin to the top of the hair in percent of the image height. Look at the attached image to estimate these values. Report a face only for an attached image that shows exactly one clear face and omit it otherwise: the whole picture is then shown and the user can frame it by hand. Never write crop coordinates into the patch and never claim a face was framed for an image you could not see. Use add at /character/profileImage if the field is absent, never replace an absent field. Playable status is internal and cannot be edited here. F/O adds or retains an initialPosts entry on fotogram/onlyfriends: {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. New post IDs are assigned by the app; preserve existing post IDs. M puts the ID into apps.matchme.profile.photoIds. Gallery-only images need no assignment. Moving F to M must remove that image’s former Fotogram post if the user requests a move rather than an additional use. Keep unrelated posts. Image description describes visible content; post text is the social caption.',
     'No model response saves files. Explain the Save controls when asked to save; do not claim a disk write. Characters Folder writes <userData>/characters; NPC Library Folder writes <userData>/npc-characters. The destination is selected by the user. Save keeps identity. The default destination is NPC Library Folder; Characters Folder and Choose Save Location are also available. The dialog offers Plain JSON and Password encrypted. There is no Save as Copy action. Saving a built-in NPC to NPC Library Folder writes a local override, never the program directory. A saved character becomes player-selectable after import into a Storybook with playable enabled; saving does not change a running session.',
     `Selected destination: ${destination}. Attached image IDs: ${JSON.stringify(attachmentIds)}.`,
     `Current draft (authoritative):\n${JSON.stringify(characterAssistantProjection(character))}`,
@@ -187,6 +229,8 @@ export function copyAssistantCharacter(character: Character): Character {
   for (const [app, account] of Object.entries(copy.apps ?? {})) {
     account.accountId = `character:${copy.id}:${app}`;
     if (account.avatarImageId) account.avatarImageId = media.get(account.avatarImageId)!;
+    const alias = (account as NonNullable<NonNullable<Character['apps']>['whatsup']>).alias;
+    if (alias?.avatarImageId) alias.avatarImageId = media.get(alias.avatarImageId)!;
     for (const post of account.initialPosts ?? []) {
       post.id = crypto.randomUUID();
       if (post.imageId) post.imageId = media.get(post.imageId)!;
@@ -278,6 +322,7 @@ function characterAuthoringStepPrompt(step: CharacterAuthoringStep, character: C
     ],
     accounts: [
       'Edit only /character/agencyTags, /character/apps, /character/profileImage and /images/<existing-id>/name or description. Keep character identity and profile text unchanged. WhatsUp and Fotogram are standard; only create OnlyFriends or MatchMe if requested. Account shape: {"enabled":true,"profileName":"Artist name","bio":""}. Preserve existing accountId on replacement; omit accountId on a new account (the app assigns it). Never change an accountId path. Username, display name and nickname mean profileName. WhatsUp has no profileName. Profile names: 1–60 characters, spaces allowed; bios: at most 500.',
+      'WhatsUp second account (optional; add it only when the user or the character concept calls for a second number, a business line or a hidden identity): apps.whatsup.alias is {"name":"Other Name","avatarImageId":"existing-image-id"}. It is a second name and picture for the same WhatsUp account with its own link @whatsup:Other Name; people who only know it never see the real name or portrait. The name needs 1–60 characters and must differ from the character name. avatarImageId is optional and must be an existing gallery image; for a hidden identity do not use the portrait image. Edit the name to rename it and remove apps.whatsup.alias to delete it. Mention the second account in hiddenAgency or the description only when the user asks for that.',
       ...(accountsStagePending(character) ? [
         'This character was just created. Its Fotogram profileName starting with "new.character." is an app placeholder: always replace it with a profile name that fits the character, and write a short Fotogram bio.',
         'Before patching, check the user request and conversation for two decisions: (1) which optional accounts the character gets (OnlyFriends, MatchMe, or none) and (2) its agency tags. Statements such as "only the standard accounts", "no other accounts" or "you choose" are decisions. If a decision was never addressed, return patch [] and ask for exactly the missing decisions in one short question; propose a concrete answer (for example two fitting tag IDs with their meaning) so the user can simply agree. When both are decided, do everything in one patch: Fotogram profile name and bio, the chosen optional accounts, the image assignments, and /character/agencyTags.',
@@ -286,7 +331,8 @@ function characterAuthoringStepPrompt(step: CharacterAuthoringStep, character: C
         ? 'The gallery is empty. Still create the accounts and tags, without portrait, avatars or image posts, and tell the user in reply that no images exist yet and that adding some enables a portrait, profile photos and image posts. MatchMe needs a photo: if it was requested, save it as a disabled draft (enabled:false, photoIds:[]) and say that it becomes active once a photo is added.'
         : 'Use the gallery when configuring accounts. Attached images are visible to you: look at them, and use descriptions for the others. Unless the user names a specific image for a use, decide yourself which image fits where. Portrait (/character/profileImage, when none is set): the image that shows the character alone and most clearly, ideally the face. Fotogram: an everyday or lifestyle image that suits a public feed, as avatar or post. MatchMe: one to three flattering photos that clearly show the character. OnlyFriends: images that suit that account. One image may serve several uses, and not every image must be used. Mention in reply which image you chose for what. An image that is neither attached nor described is unknown: do not assign it, and tell the user to describe it first.',
       agencyAuthoringInstructions,
-      'Gallery metadata is keyed by stable image ID. Only attached images can be inspected visually. Names are not visual evidence. Use existing descriptions for unattached images. Never create media or IDs. Portrait: add /character/profileImage with {"imageId":"existing-id"}. App avatarImageId uses a gallery ID. F/O publications go in apps.fotogram.initialPosts or apps.onlyfriends.initialPosts as {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. Preserve existing post IDs; the app allocates new IDs. Create posts requested by the user; do not duplicate existing posts. Moving an image removes its former app post. P alone creates no post. You may request autoCrop:true for local face detection; do not guess coordinates.',
+      'Gallery metadata is keyed by stable image ID. Only attached images can be inspected visually. Names are not visual evidence. Use existing descriptions for unattached images. Never create media or IDs. Portrait: add /character/profileImage with {"imageId":"existing-id"}. App avatarImageId uses a gallery ID. F/O publications go in apps.fotogram.initialPosts or apps.onlyfriends.initialPosts as {"id":"new-post-label","text":"English caption","imageId":"existing-id"}. Preserve existing post IDs; the app allocates new IDs. Create posts requested by the user; do not duplicate existing posts. Moving an image removes its former app post. P alone creates no post. ' +
+        'Round avatars are framed on the face by you: whenever you set or change the portrait, a WhatsUp second-account picture or the first MatchMe photo to an attached image, or the user asks to center one on the face, also return "faces":{"<image-id>":{"centerX":50,"centerY":30,"height":25}} next to reply and patch. centerX and centerY are the center of the face in percent of the image width and height, measured from the top-left corner; height is the height of the head from chin to the top of the hair in percent of the image height. Look at the attached image to estimate these values. Report a face only for an attached image that shows exactly one clear face and omit it otherwise: the whole picture is then shown and the user can frame it by hand. Never write crop coordinates into the patch and never claim a face was framed for an image you could not see.',
       'MatchMe account additionally needs profile:{"age":25,"bio":"About me","interests":"Music","photoIds":["existing-id"],"decisions":{}}. Keep the optional dating name only in account.profileName; omitted names default to character.name. Dating age and gender can differ from the real character, but default to the real adult identity unless otherwise requested. profile.bio matches account.bio. Integer age 18–120; interests at most 150 characters; one to three unique photos. Optional gender and seeking use woman/man/nonbinary (seeking is an array). With no photo, save enabled:false and photoIds:[]. Enabled MatchMe requires at least one photo. Preserve existing decisions/messages/historyVersion. Ask about missing required personal details instead of inventing them.',
     ],
   };
@@ -312,5 +358,5 @@ export async function runCharacterAuthoringStep(step: CharacterAuthoringStep, ch
   if (outside.length) throw new Error(`The ${step} specialist tried to edit fields outside its step: ${outside.join(', ') || 'missing path'}.`);
   const result = parseCharacterAssistantResult(text, character);
   // An empty patch is a clarifying question; the stage stays open for the answer.
-  return { character: result.character, reply: result.reply, autoCrop: result.autoCrop, asked: raw.patch.length === 0 };
+  return { character: result.character, reply: result.reply, asked: raw.patch.length === 0 };
 }

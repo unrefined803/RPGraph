@@ -5,7 +5,7 @@ import {
   whatsUpAliasConflict,
   withCharacterAppProfile,
 } from '../characters/profiles';
-import { characterPayload, validateCharacterPayload, type CharacterAppAccount, type AppAvatarCrop, type WhatsUpAlias } from '../characters/character';
+import { characterPayload, validateCharacterPayload, type CharacterAppAccount, type AppAvatarChoice, type WhatsUpAlias } from '../characters/character';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import { appCharactersFromRegistry } from '../characters/appRuntime';
 import { validateCandidateLegacySeedTimeline } from '../characters/publications';
@@ -203,8 +203,8 @@ export function useStorybookPhoneImages({
     return true;
   }
 
-  /** `avatarCrop`: a face region for the dating avatar, null to clear it, undefined to keep the stored one. */
-  function saveDatingProfile(character: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) {
+  /** `avatar`: a newly chosen dating profile picture; undefined keeps the stored one. */
+  function saveDatingProfile(character: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) {
     const normalized = normalizeDatingProfile(profile);
     const node = nodesRef.current.find((entry) => entry.id === character.storybookNodeId && isStorybookSourceNode(entry));
     if (!normalized || !node?.data.storybookJson) return false;
@@ -217,7 +217,7 @@ export function useStorybookPhoneImages({
     let next: RpStorybook;
     try {
       next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === character.sourceId
-        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, ...(avatarCrop !== undefined ? { avatarCrop: avatarCrop ?? undefined } : {}), enabled: true, profileName: normalized.name, bio: normalized.bio, profile: normalized })
+        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, ...(avatar ? { avatarImageId: avatar.imageId, avatarCrop: avatar.crop } : {}), enabled: true, profileName: normalized.name, bio: normalized.bio, profile: normalized })
         : entry) };
       validateProfileCandidate(node.id, next);
     } catch (error) {

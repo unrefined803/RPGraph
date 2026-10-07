@@ -28,7 +28,7 @@ import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
 import { resolveWhatsUpMessageParticipants, whatsUpAliasInUse } from './characters/messageIdentity';
-import type { AppAvatarCrop } from './characters/character';
+import type { AppAvatarChoice } from './characters/character';
 import { phoneImageSource } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
@@ -5046,14 +5046,14 @@ function App() {
     );
   }
 
-  function saveMatchMeProfile(owner: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) {
+  function saveMatchMeProfile(owner: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) {
     if (isRunning || activeTurnCollectorRef.current) return false;
     const characters = npcParticipants.characters();
     const currentOwner = characters.find((entry) => entry.id === owner.id);
     if (!currentOwner) return false;
     const state = matchMeState(characters, messagesRef.current);
     const entries = migrateDatingHistory(currentOwner, state, messagesRef.current, new Date().toISOString());
-    return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }, avatarCrop));
+    return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }, avatar));
   }
 
   function initializeMatchMe(owner: StorybookCharacter) {

@@ -1,15 +1,13 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { CharacterAvatar } from './CharacterAvatar';
 import { ProfilePickDialog } from './ProfilePickDialog';
 import type { WhatsUpAlias } from '../characters/character';
-import { detectAvatarFaceCrop } from '../characters/faceCrop';
 import { portraitDataUrl } from '../characters/portrait';
 import { copyTextToClipboard } from '../utils/clipboard';
 import type { RpStorybookCharacterImage } from '../nodes/rp-storybook/model';
 import './characterAppProfiles.css';
 
 type GalleryImage = { id: string; name?: string; dataUrl: string; width?: number; height?: number };
-type FaceStatus = 'idle' | 'detecting' | 'found' | 'full' | 'manual';
 
 function aliasAvatar(alias: WhatsUpAlias | undefined, images: GalleryImage[]) {
   const image = images.find((entry) => entry.id === alias?.avatarImageId);
@@ -83,32 +81,16 @@ function SecondAccountEditor({ realName, alias, images, removable, onSave, onBac
   onSave: (alias: WhatsUpAlias | undefined) => boolean | string; onBack: () => void;
 }) {
   const [draft, setDraft] = useState<WhatsUpAlias>(() => alias ?? { name: '' });
-  const [faceStatus, setFaceStatus] = useState<FaceStatus>(alias?.avatarImageId ? (alias.avatarCrop ? 'found' : 'full') : 'idle');
-  const [manualCrop, setManualCrop] = useState(false);
+  // Choosing a photo leads straight to marking the face in it.
+  const [pickingImageId, setPickingImageId] = useState<string>();
   const [error, setError] = useState('');
-  const detection = useRef(0);
-  const image = images.find((entry) => entry.id === draft.avatarImageId);
+  const pickingImage = images.find((entry) => entry.id === pickingImageId);
   const name = draft.name.trim();
-
-  async function choosePhoto(imageId: string | undefined) {
-    const run = ++detection.current;
-    const selected = images.find((entry) => entry.id === imageId);
-    setDraft((current) => ({ name: current.name, ...(selected ? { avatarImageId: selected.id } : {}) }));
-    if (!selected) { setFaceStatus('idle'); return; }
-    setFaceStatus('detecting');
-    const crop = await detectAvatarFaceCrop(selected);
-    // A later selection supersedes this result.
-    if (run !== detection.current) return;
-    setDraft((current) => current.avatarImageId === selected.id
-      ? { name: current.name, avatarImageId: selected.id, ...(crop ? { avatarCrop: crop } : {}) } : current);
-    setFaceStatus(crop ? 'found' : 'full');
-  }
 
   return <form className="social-profile-editor whatsup-accounts" onSubmit={(event) => {
     event.preventDefault();
     if (!name) { setError('Add a name for the second account.'); return; }
     if (name.toLowerCase() === realName.trim().toLowerCase()) { setError('Choose a name that differs from your main account.'); return; }
-    if (faceStatus === 'detecting') { setError('Still looking for a face. Try again in a moment.'); return; }
     const saved = onSave({ ...draft, name });
     if (saved !== true) setError(typeof saved === 'string' ? saved : 'Could not save the second account.');
   }}>
@@ -125,19 +107,14 @@ function SecondAccountEditor({ realName, alias, images, removable, onSave, onBac
     <section className="whatsup-account-picture">
       <div className="whatsup-account-picture-heading">
         <strong>Profile picture</strong>
-        {faceStatus !== 'idle' && <span className={`whatsup-alias-face-status ${faceStatus}`} role="status">
-          {faceStatus === 'detecting' ? 'Looking for a face…'
-            : faceStatus === 'found' ? '✓ Face detected'
-              : faceStatus === 'manual' ? '✓ Set manually'
-                : 'No face found, showing the whole picture'}
-        </span>}
-        {image && faceStatus !== 'detecting' && <button type="button" className="whatsup-account-manual" onClick={() => setManualCrop(true)}>Set manually</button>}
+        <span className="whatsup-alias-face-status">Pick a photo, then mark the face.</span>
       </div>
       <div className="whatsup-account-photos">
-        <button type="button" className="social-profile-photo" aria-pressed={!draft.avatarImageId} onClick={() => { void choosePhoto(undefined); }}>
+        <button type="button" className="social-profile-photo" aria-pressed={!draft.avatarImageId} onClick={() => setDraft({ name: draft.name })}>
           <span className="social-profile-photo-fallback">{(name || '?').slice(0, 1).toUpperCase()}</span><span>None</span>
         </button>
-        {images.map((entry) => <button key={entry.id} type="button" className="social-profile-photo" aria-pressed={draft.avatarImageId === entry.id} onClick={() => { void choosePhoto(entry.id); }}>
+        {images.map((entry) => <button key={entry.id} type="button" className="social-profile-photo" aria-pressed={draft.avatarImageId === entry.id}
+          title={draft.avatarImageId === entry.id ? 'Adjust the face' : 'Use this photo'} onClick={() => setPickingImageId(entry.id)}>
           <img src={entry.dataUrl} alt={entry.name || 'Album photo'} loading="lazy" /><span>{entry.name || 'Album photo'}</span>
         </button>)}
       </div>
@@ -152,15 +129,15 @@ function SecondAccountEditor({ realName, alias, images, removable, onSave, onBac
       <button type="button" onClick={onBack}>Cancel</button>
       <button className="social-profile-save" type="submit">Save <span aria-hidden="true">→</span></button>
     </footer>
-    {manualCrop && image && <ProfilePickDialog
+    {pickingImage && <ProfilePickDialog
       characterName={name || 'Second account'}
-      image={{ description: '', mimeType: 'image/jpeg', size: 0, ...image, name: image.name ?? '' } as RpStorybookCharacterImage}
-      currentProfileImage={draft.avatarCrop ? { imageId: image.id, dataUrl: image.dataUrl, crop: draft.avatarCrop } : undefined}
-      onClose={() => setManualCrop(false)}
+      image={{ description: '', mimeType: 'image/jpeg', size: 0, ...pickingImage, name: pickingImage.name ?? '' } as RpStorybookCharacterImage}
+      currentProfileImage={draft.avatarImageId === pickingImage.id && draft.avatarCrop
+        ? { imageId: pickingImage.id, dataUrl: pickingImage.dataUrl, crop: draft.avatarCrop } : undefined}
+      onClose={() => setPickingImageId(undefined)}
       onApply={(profileImage) => {
-        setDraft({ name: draft.name, avatarImageId: image.id, ...(profileImage.crop ? { avatarCrop: profileImage.crop } : {}) });
-        setFaceStatus(profileImage.crop ? 'manual' : 'full');
-        setManualCrop(false);
+        setDraft({ name: draft.name, avatarImageId: pickingImage.id, ...(profileImage.crop ? { avatarCrop: profileImage.crop } : {}) });
+        setPickingImageId(undefined);
       }} />}
   </form>;
 }

@@ -5,7 +5,7 @@ import { CharacterName } from './CharacterName';
 import { AppMessageAvatar } from './AppMessageAvatars';
 import { AccountLinkContext } from '../chat/accountLinkContext';
 import { AccountLinkText } from './AccountLinkText';
-import type { AppAvatarCrop, CharacterAppAccount, WhatsUpAlias } from '../characters/character';
+import type { AppAvatarChoice, CharacterAppAccount, WhatsUpAlias } from '../characters/character';
 import { whatsUpAlias } from '../characters/messageIdentity';
 import { WhatsUpAccounts } from './WhatsUpAccounts';
 import { PhoneDatingScreen } from './phone-dating/PhoneDatingScreen';
@@ -305,7 +305,7 @@ type PhonePanelProps = {
   }) => Promise<boolean>;
   onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
   onMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
-  onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) => boolean;
+  onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) => boolean;
   /** Set or remove the viewed character's second WhatsUp name. */
   onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined) => boolean | string;
   /** The viewed character's second account already has chats: rename only. */

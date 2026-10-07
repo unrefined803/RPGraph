@@ -21,6 +21,7 @@ import { visibleLibraryEntries } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { CharacterAvatar } from './CharacterAvatar';
+import { ProfilePickDialog } from './ProfilePickDialog';
 import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
 import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
@@ -71,6 +72,8 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
   const [attachments, setAttachments] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [ioBusy, setIoBusy] = useState(false);
+  // Gallery image whose portrait face region is being marked by hand.
+  const [facePickImageId, setFacePickImageId] = useState<string>();
   const [status, setStatus] = useState('');
   const [choices, setChoices] = useState<LoadChoice[] | null>(null);
   const [choiceKey, setChoiceKey] = useState('');
@@ -233,23 +236,6 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     } catch (error) { setStatus(errorText(error)); }
     finally { setIoBusy(false); }
   }
-  async function autoCrop(imageId: string) {
-    const image = current.current.images.find((entry) => entry.id === imageId);
-    if (!image || !window.rpgraph?.detectCharacterFace) { setStatus('Local face detection requires the desktop application.'); return; }
-    const startRevision = revision.current;
-    setIoBusy(true); setStatus('Detecting the portrait face…');
-    try {
-      const result = await window.rpgraph.detectCharacterFace({ id: image.id, dataUrl: image.dataUrl });
-      if (revision.current !== startRevision) { setStatus('The character changed during detection. No crop was applied.'); return; }
-      if (!result.crop || result.faces !== 1) {
-        setStatus(result.faces === 0 ? 'No face detected. Choose another image or adjust the crop manually.' : 'Multiple faces detected. Choose a single-person photo or adjust the crop manually.'); return;
-      }
-      const next = { ...current.current, profileImage: { imageId, dataUrl: image.dataUrl, crop: result.crop } };
-      validateAssistantCharacter(next);
-      change(next); setStatus('Portrait crop centered on the detected face.');
-    } catch (error) { setStatus(errorText(error)); }
-    finally { setIoBusy(false); }
-  }
   async function send(message = draft.trim(), requestedStage?: CharacterAuthoringStep) {
     if (!message || request.current || ioBusy) return;
     if (!selectedConnection) { setStatus('Select an LLM provider first.'); return; }
@@ -280,7 +266,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         (await nodeLlm.complete({ connectionId, label: `Character Assistant: ${step}`, signal: controller.signal, prompt, images: selectedImages })).text);
     };
     try {
-      let result: { character: Character; reply: string; autoCrop: boolean; asked?: boolean };
+      let result: { character: Character; reply: string; asked?: boolean };
       let requestedNext: CharacterAuthoringStep | undefined;
       if (stage) {
         result = await runStage(stage, original);
@@ -304,8 +290,6 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         : nextCharacterAuthoringStage(original, result.character, stage, { vision: !!selectedConnection.vision, requested: requestedNext });
       setMessages((history) => [...history, { role: 'assistant', text: result.reply,
         ...(result.asked && stage ? { stage } : {}), ...(nextStage ? { nextStage } : {}) }]);
-      const portraitId = result.character.profileImage?.imageId;
-      if (portraitId && (result.autoCrop || (portraitId !== original.profileImage?.imageId && !result.character.profileImage?.crop))) await autoCrop(portraitId);
     } catch (error) {
       if (!controller.signal.aborted) {
         setMessages((history) => [...history, { role: 'error', text: `${errorText(error)} No changes were applied.`, retryMessage: message, ...(stage ? { stage } : {}) }]);
@@ -314,6 +298,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     } finally { if (request.current === controller) { request.current = null; setBusy(false); } }
   }
   const portrait = character.images.find((image) => image.id === character.profileImage?.imageId);
+  const facePickImage = character.images.find((image) => image.id === facePickImageId && image.id === character.profileImage?.imageId);
   return <div className="dialog-backdrop character-assistant-backdrop">
     <section ref={dialogRef} tabIndex={-1} className="storybook-creator-dialog character-assistant-dialog" role="dialog" aria-modal="true" aria-labelledby="character-assistant-title"
       onKeyDown={(event) => {
@@ -418,11 +403,13 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
                 <div className="character-assistant-image-uses">{(['F', 'O', 'M', 'P'] as const).map((use) => {
                   const checked = use === 'P' ? character.profileImage?.imageId === image.id : use === 'M' ? character.apps?.matchme?.profile?.photoIds.includes(image.id)
                     : character.apps?.[use === 'F' ? 'fotogram' : 'onlyfriends']?.initialPosts?.some((post) => post.imageId === image.id);
-                  return <label key={use}><input type="checkbox" checked={!!checked} onChange={(event) => { try { change(assignCharacterImage(character, image.id, use, event.target.checked)); if (use === 'P' && event.target.checked) void autoCrop(image.id); } catch (error) { setStatus(errorText(error)); } }} />{use}</label>;
+                  return <label key={use}><input type="checkbox" checked={!!checked} onChange={(event) => { try { change(assignCharacterImage(character, image.id, use, event.target.checked)); if (use === 'P' && event.target.checked) setFacePickImageId(image.id); } catch (error) { setStatus(errorText(error)); } }} />{use}</label>;
                 })}<label><input type="checkbox" checked={attachments.includes(image.id)} disabled={busy} onChange={(event) => setAttachments((ids) => event.target.checked ? [...ids, image.id] : ids.filter((id) => id !== image.id))} />Attach</label></div>
-                {character.profileImage?.imageId === image.id && <details><summary>Portrait crop</summary><button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => void autoCrop(image.id)}>Auto Crop</button>{(['x', 'y', 'size'] as const).map((field) => <label key={field}><span>{field} (%)</span><input type="number" min={field === 'size' ? 1 : 0} max={100} value={character.profileImage?.crop?.[field] ?? (field === 'size' ? 100 : 0)} onChange={(event) => change({ ...character, profileImage: { ...character.profileImage!, crop: { x: 0, y: 0, size: 100, ...character.profileImage?.crop, [field]: Number(event.target.value) } } })} /></label>)}</details>}
+                {character.profileImage?.imageId === image.id && <div className="character-assistant-portrait-crop"><span>Portrait crop</span>
+                  <button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => setFacePickImageId(image.id)}>Mark Face</button>
+                  <small>Or ask the AI in the chat to frame the face.</small></div>}
                 <button className="contextual-action-button nodrag" type="button" onClick={() => {
-                  const used = character.profileImage?.imageId === image.id || Object.values(character.apps ?? {}).some((account) => account.avatarImageId === image.id || account.initialPosts?.some((post) => post.imageId === image.id)) || character.apps?.matchme?.profile?.photoIds.includes(image.id);
+                  const used = character.profileImage?.imageId === image.id || character.apps?.whatsup?.alias?.avatarImageId === image.id || Object.values(character.apps ?? {}).some((account) => account.avatarImageId === image.id || account.initialPosts?.some((post) => post.imageId === image.id)) || character.apps?.matchme?.profile?.photoIds.includes(image.id);
                   if (used) { setStatus('Remove this image’s portrait, avatar, post and MatchMe assignments before deleting it.'); return; }
                   change({ ...character, images: character.images.filter((entry) => entry.id !== image.id) }); setAttachments((ids) => ids.filter((id) => id !== image.id));
                 }}>Remove image</button>
@@ -495,6 +482,19 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         {status && <p role="status">{status}</p>}<div className="storybook-confirm-actions"><button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => setChoices(null)}>Cancel</button><button className="contextual-action-button nodrag" type="button" disabled={ioBusy || !choiceKey} onClick={() => void loadSelected()}>Load</button></div>
       </section></div>}
       {confirm && <div className="storybook-confirm-backdrop"><section className="storybook-confirm-dialog" role="alertdialog" aria-label="Confirm character action"><p>{confirm.message}</p><div className="storybook-confirm-actions"><button className="contextual-action-button nodrag" type="button" autoFocus onClick={() => setConfirm(null)}>Cancel</button><button className="contextual-action-button nodrag" type="button" onClick={() => { const action = confirm.action; setConfirm(null); action(); }}>{confirm.label}</button></div></section></div>}
+      {facePickImage && <ProfilePickDialog
+        characterName={character.name}
+        image={facePickImage}
+        currentProfileImage={character.profileImage?.crop ? { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, crop: character.profileImage.crop } : undefined}
+        onClose={() => setFacePickImageId(undefined)}
+        onApply={(profileImage) => {
+          try {
+            const next = { ...character, profileImage: { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, ...(profileImage.crop ? { crop: profileImage.crop } : {}) } };
+            validateAssistantCharacter(next);
+            change(next);
+          } catch (error) { setStatus(errorText(error)); }
+          setFacePickImageId(undefined);
+        }} />}
     </section>
   </div>;
 }

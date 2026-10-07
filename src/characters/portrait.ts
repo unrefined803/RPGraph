@@ -69,16 +69,21 @@ function jpegDimensions(dataUrl: string): [number, number] | undefined {
 }
 
 /** A derived, square image for existing avatar consumers; never persisted in a container. */
+/** Pixel size of an embedded gallery JPEG, or undefined when it cannot be determined. */
+export function imageDimensions(image: Pick<RpStorybookCharacterImage, 'dataUrl' | 'width' | 'height'>): [number, number] | undefined {
+  const dimensions = image.width && image.height ? [image.width, image.height] : jpegDimensions(image.dataUrl);
+  return dimensions && dimensions[0] > 0 && dimensions[1] > 0 ? [dimensions[0], dimensions[1]] : undefined;
+}
+
 export function portraitDataUrl(image: Pick<RpStorybookCharacterImage, 'dataUrl' | 'width' | 'height'>, crop?: Crop): string {
   if (!crop || ![crop.x, crop.y, crop.size].every(Number.isFinite) || crop.size <= 0) return image.dataUrl;
   const variant = `${image.width ?? ''}:${image.height ?? ''}:${crop.x}:${crop.y}:${crop.size}`;
   const cached = cachedPortrait(image.dataUrl, variant);
   if (cached !== undefined) return cached;
   if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) return image.dataUrl;
-  const dimensions = image.width && image.height ? [image.width, image.height] : jpegDimensions(image.dataUrl);
+  const dimensions = imageDimensions(image);
   if (!dimensions) return image.dataUrl;
   const [width, height] = dimensions;
-  if (!(width > 0 && height > 0)) return image.dataUrl;
   const size = Math.min(width, height, crop.size * width / 100);
   const x = Math.max(0, Math.min(width - size, crop.x * width / 100));
   const y = Math.max(0, Math.min(height - size, crop.y * height / 100));

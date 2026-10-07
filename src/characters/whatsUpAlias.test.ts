@@ -9,6 +9,7 @@ import { validateCharacterAccountDirectory, whatsUpAliasConflict } from './profi
 import { socialPublishedLinkContext, socialReactionAccountContext } from './socialReactionAccounts';
 import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { messageContactGrants } from './messageContacts';
+import { wholeImageCrop } from './faceCrop';
 import { buildCharacterRegistry } from './registry';
 import { automaticAccountLinkGrants, parseAccountLinks } from '../chat/accountLinks';
 import {
@@ -433,4 +434,7 @@ it('frames the MatchMe avatar with a stored face region', () => {
   expect(framed.apps?.matchme?.avatarCrop).toEqual({ x: 10, y: 10, size: 40 });
   expect(datingAvatarDataUrl(plain)).toBeTruthy();
   expect(datingAvatarDataUrl(framed)).not.toBe(datingAvatarDataUrl(plain));
+  // The whole photo is the centered square a round avatar shows of it.
+  expect(wholeImageCrop({ dataUrl: '', width: 1000, height: 2000 })).toEqual({ x: 0, y: 25, size: 100 });
+  expect(wholeImageCrop({ dataUrl: '', width: 2000, height: 1000 })).toEqual({ x: 25, y: 0, size: 50 });
 });

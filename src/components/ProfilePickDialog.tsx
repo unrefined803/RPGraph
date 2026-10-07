@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { RpStorybookCharacterImage, RpStorybookCharacterProfileImage } from '../nodes/rp-storybook/model';
 import { useBackdropDismiss } from './useBackdropDismiss';
 
@@ -162,6 +162,20 @@ export function ProfilePickDialog({
     }
   }
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
+  // Escape closes only this dialog: the capture phase runs before the dialogs and
+  // phone screens underneath, which would otherwise close as well.
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; });
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeRef.current();
+    }
+    window.addEventListener('keydown', closeOnEscape, { capture: true });
+    return () => window.removeEventListener('keydown', closeOnEscape, { capture: true });
+  }, []);
 
   return (
     <div
@@ -226,9 +240,6 @@ export function ProfilePickDialog({
           </div>
         </div>
         <div className="profile-pick-actions">
-          <button className="inspect-button nodrag" type="button" onClick={onClose}>
-            Cancel
-          </button>
           <button className="inspect-button nodrag" type="button" onClick={() => onApply({ imageId: image.id, dataUrl: image.dataUrl })}>
             Use Full Image
           </button>

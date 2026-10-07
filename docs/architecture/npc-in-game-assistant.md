@@ -210,19 +210,20 @@ Storybook Formatted Text provides an explicit Hidden Agency output switch,
 disabled by default; it does not change this assistant or activate autonomy.
 The editor does not schedule autonomous NPC actions.
 
-### Local portrait detection
+### Avatar face framing
 
-The Character Assistant invokes the existing local MediaPipe detector through
-`character:detect-face`. Selecting a new portrait runs detection automatically;
-**Portrait crop → Auto Crop** retries it explicitly. The assistant may request the
-same operation with `autoCrop: true` in its response. Exactly one detected face
-produces a square crop; no face or multiple faces leave the crop unchanged and
-show a diagnostic. Responses from an older draft revision are discarded.
-
-This uses the Python/model installation from `character:faces:setup`, not the
-selected chat provider. Packaged builds include the detector scripts; the Python
-environment and model must be provided locally using `RPGRAPH_FACE_PYTHON` and
-`RPGRAPH_FACE_MODEL`. A missing installation produces the existing setup message.
+The application runs no local face detector. When the Character Assistant sets
+or changes a portrait, a WhatsUp second-account picture or the first MatchMe
+photo to an attached image, the vision model reports the face next to its patch:
+`"faces": {"<image-id>": {"centerX": 50, "centerY": 30, "height": 25}}` (face
+center in percent of the image width and height, head height in percent of the
+image height). `faceCropFromEstimate` turns each estimate into the square crop
+of every round avatar that shows that image; images without a reported face
+stay uncropped. Ticking **P** or **Portrait crop → Mark Face** opens the shared
+crop dialog (`ProfilePickDialog`) for a manual choice. The Python/MediaPipe
+detector from `character:faces:setup` remains a development tool for the
+`character:create`, `character:edit` and `character:faces` scripts and is not
+part of packaged builds.
 
 The chat composer uses a full-width text area with attachment and send controls
 in one bottom action row. Settings and publication cards use spaced disclosure

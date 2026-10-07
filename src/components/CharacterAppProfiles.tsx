@@ -81,16 +81,16 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
     </div>}
     {selectedApp === 'matchme' && <div id="character-account-panel-matchme" role="tabpanel"><PhoneDatingScreen key="profile" profileOnly
       owner={{ id: character.id, sourceId: character.id, storybookNodeId: '', kind: 'character', name: character.name,
-        label: character.name, age: character.age, gender: character.gender, profile: character, apps, social: socialFromCharacterApps(apps),
+        label: character.name, age: character.age, gender: character.gender, profile: character, apps, profileImage: character.profileImage, social: socialFromCharacterApps(apps),
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(), banking: character.banking ?? defaultRpStorybookCharacterBanking() }}
       characters={[]} history={[]} unread={{}} onMarkSeen={() => {}} isRunning={false}
       onSendMessage={async () => false} emojiOptions={[]} recentlyUsedEmojis={[]}
       images={character.images} onImportImage={async () => undefined} onBack={() => setSelectedApp(null)}
-      onSave={(_, profile, avatarCrop) => {
+      onSave={(_, profile, avatar) => {
         const current = apps.matchme;
         const saved = save(withCharacterAppProfile(character, 'matchme', {
           accountId: current?.accountId ?? `character:${character.id}:matchme`,
-          ...current, ...(avatarCrop !== undefined ? { avatarCrop: avatarCrop ?? undefined } : {}),
+          ...current, ...(avatar ? { avatarImageId: avatar.imageId, avatarCrop: avatar.crop } : {}),
           enabled: true, profileName: profile.name, bio: profile.bio, profile,
         }));
         if (saved) setSelectedApp(null);
