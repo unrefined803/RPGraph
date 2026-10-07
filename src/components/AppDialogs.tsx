@@ -9,9 +9,8 @@ import { characterReferenceCandidates } from '../characters/relationships';
 import { CharacterRelationships } from './CharacterRelationships';
 import { CharacterMentionInput } from './CharacterMentionInput';
 import { HiddenAgencyField } from './HiddenAgencyField';
-import { withCharacterPortrait } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
-import { ProfilePickDialog } from './ProfilePickDialog';
+import { PortraitManager } from './PortraitManager';
 import { socialFromCharacterApps, type CharacterApps } from '../characters/character';
 import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
 import { formatBankingAmount } from '../chat/bankTransfers';
@@ -53,7 +52,6 @@ import {
   type RpStorybookCharacterVoiceConfig,
   type RpStorybookCharacter,
   type RpStorybookCharacterImage,
-  type RpStorybookCharacterProfileImage,
   type RpStorybookFormattedTextSettings,
   type RpStorybook,
 } from '../nodes/rp-storybook/model';
@@ -1162,19 +1160,6 @@ function withStorybookImageOwnerImages(
   };
 }
 
-function withStorybookCharacterProfileImage(
-  storybook: RpStorybook,
-  owner: StorybookImageOwner,
-  profileImage: RpStorybookCharacterProfileImage | undefined,
-): RpStorybook {
-  return {
-    ...storybook,
-    characters: storybook.characters.map((character) =>
-      character.id === owner.characterId ? withCharacterPortrait(character, profileImage) : character
-    ),
-  };
-}
-
 function storybookImageOwnerProfileImage(storybook: RpStorybook, owner: StorybookImageOwner) {
   return storybook.characters.find((character) => character.id === owner.characterId)?.profileImage;
 }
@@ -1357,7 +1342,7 @@ function CharacterImagesDialog({
   const [page, setPage] = useState(0);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [assistantInstruction, setAssistantInstruction] = useState('');
-  const [profilePickImageId, setProfilePickImageId] = useState<string | null>(null);
+  const [profilePickImageId, setProfilePickImageId] = useState<string | null>(initialMode === 'profile' ? '' : null);
   const [promptOpen, setPromptOpen] = useState(false);
   const [workflowPromptText, setWorkflowPromptText] = useState<string | undefined>();
   const characterName = storybookImageOwnerName(storybook, owner);
@@ -1392,9 +1377,7 @@ function CharacterImagesDialog({
     ? imageCaptionChangesById.get(selectedImage.id) ?? []
     : [];
   const selectedImageLatestCaptionChange = lastItem(selectedImageCaptionHistory);
-  const profilePickImage = profilePickImageId
-    ? images.find((image) => image.id === profilePickImageId) ?? null
-    : null;
+  const portraitOwner = storybook.characters.find((entry) => entry.id === owner.characterId);
   const totalPages = Math.max(1, Math.ceil(images.length / storybookImagePageSize));
   const visiblePage = Math.min(page, totalPages - 1);
   const visibleImages = images.slice(
@@ -1521,6 +1504,10 @@ function CharacterImagesDialog({
   }
 
   function removeImage(imageId: string) {
+    if (portraitOwner?.profileImage?.imageId === imageId || Object.values(portraitOwner?.customPortraits ?? {}).some((portrait) => portrait.imageId === imageId)) {
+      setStatus('Clear or change this portrait in Manage Portraits before deleting its image.');
+      return;
+    }
     if (usedImageIds.has(imageId)) {
       setStatus('Cannot delete: image is used in chat history.');
       return;
@@ -1589,15 +1576,6 @@ function CharacterImagesDialog({
     }
     setSelectedImageId(null);
     setAssistantInstruction('');
-  }
-
-  function applyProfileImage(profileImageValue: RpStorybookCharacterProfileImage) {
-    onUpdateStorybook(
-      withStorybookCharacterProfileImage(storybook, owner, profileImageValue),
-      `Updated profile pic for ${characterName}.`,
-    );
-    setProfilePickImageId(null);
-    setStatus('Profile pic applied.');
   }
 
   // With an instruction, the assistant revises the current description instead of starting over.
@@ -1712,19 +1690,13 @@ function CharacterImagesDialog({
               Open Images
             </button>
             <button
-              className={`inspect-button nodrag${mode === 'profile' ? ' active' : ''}`}
+              className="inspect-button nodrag"
               type="button"
               disabled={images.length === 0}
-              onClick={() => setMode((current) => current === 'profile' ? 'images' : 'profile')}
+              onClick={() => setProfilePickImageId('')}
             >
-              Change Profile Pic
+              Manage Portraits
             </button>
-            {profileImage && <button className="inspect-button nodrag" type="button" onClick={() => {
-              onUpdateStorybook(withStorybookCharacterProfileImage(storybook, owner, undefined), `Cleared profile pic for ${characterName}.`);
-              setStatus('Character profile pic cleared.');
-            }}>
-              Clear Profile Pic
-            </button>}
             <button
               className="inspect-button nodrag"
               type="button"
@@ -2024,15 +1996,10 @@ function CharacterImagesDialog({
             </section>
           </div>
         )}
-        {profilePickImage && (
-          <ProfilePickDialog
-            characterName={characterName}
-            image={profilePickImage}
-            currentProfileImage={profileImage}
-            onApply={applyProfileImage}
-            onClose={() => setProfilePickImageId(null)}
-          />
-        )}
+        {profilePickImageId !== null && portraitOwner && <PortraitManager owner={portraitOwner}
+          initialImageId={profilePickImageId || undefined} onClose={() => { setProfilePickImageId(null); setMode('images'); }}
+          onChange={(next) => onUpdateStorybook({ ...storybook, characters: storybook.characters.map((entry) => entry.id === next.id ? next : entry) }, 'Updated character portraits.')} />}
+
       </section>
     </div>
   );

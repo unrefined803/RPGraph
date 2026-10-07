@@ -5,8 +5,8 @@ import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
 import { AccountLinkText } from '../AccountLinkText';
 import { accountHandle } from '../../characters/character';
-import { isAccountPrivacyMode, socialAccountPresentation } from '../../chat/socialMedia';
-import { socialAvatarDataUrl } from '../../characters/portrait';
+import { socialAccountPresentation } from '../../chat/socialMedia';
+import { accountPortraitUrl } from '../../characters/portraits';
 import { postsWithInitialContent } from '../../characters/publications';
 import { SocialProfileEditor } from './SocialProfileEditor';
 import type { CharacterAppAccount } from '../../characters/character';
@@ -1353,12 +1353,12 @@ export function PhoneSocialFeedScreen({
   }
 
   if (editingProfile && owner) return <SocialProfileEditor nameColor={ownerColor} app={app.id} account={owner.apps?.[app.id]}
-    accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages}
+    accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} profileImage={owner.profileImage} customPortraits={owner.customPortraits} images={phoneGalleryImages}
     locked={socialMediaMessages.length > 0 || bankTransferMessages.length > 0}
     onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={() => setEditingProfile(false)} />;
   if (!account && owner) return <SocialProfileEditor nameColor={ownerColor} app={app.id} account={owner.apps?.[app.id]} accountId={`character:${owner.sourceId}:${app.id}`}
-    name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages} locked={false}
+    name={owner.name} profileImage={owner.profileImage} customPortraits={owner.customPortraits} images={phoneGalleryImages} locked={false}
     onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={onBack} />;
   if (!account) return <p>Select a character to open this app.</p>;
@@ -1551,7 +1551,7 @@ export function PhoneSocialFeedScreen({
                 className="phone-avatar"
                 name={owner?.name ?? account}
                 fallback={(owner?.name ?? account).slice(0, 1).toUpperCase()}
-                profileImageDataUrl={!isAccountPrivacyMode(app.id, owner) ? socialAvatarDataUrl(owner, owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId) : undefined) : undefined}
+                profileImageDataUrl={accountPortraitUrl(owner, owner?.apps?.[app.id])}
                 style={ownerColor ? { borderColor: ownerColor, color: ownerColor } : undefined}
               />
               <span className="phone-social-account-main">
@@ -1578,7 +1578,7 @@ export function PhoneSocialFeedScreen({
                     className="phone-avatar"
                     name={socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name}
                     fallback={socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name.slice(0, 1).toUpperCase()}
-                    profileImageDataUrl={!isAccountPrivacyMode(app.id, entry.character) ? socialAvatarDataUrl(entry.character, entry.character?.apps?.[app.id]?.avatarImageId ? socialImageById(entry.character.apps[app.id]!.avatarImageId!, entry.character.sourceId) : undefined) : undefined}
+                    profileImageDataUrl={accountPortraitUrl(entry.character, entry.character?.apps?.[app.id])}
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
@@ -1794,7 +1794,7 @@ export function PhoneSocialFeedScreen({
                   className="phone-avatar"
                   name={owner?.name ?? account}
                   fallback={(owner?.name ?? account).slice(0, 1).toUpperCase()}
-                  profileImageDataUrl={!isAccountPrivacyMode(app.id, owner) ? socialAvatarDataUrl(owner, owner?.apps?.[app.id]?.avatarImageId ? socialImageById(owner.apps[app.id]!.avatarImageId!, owner.sourceId) : undefined) : undefined}
+                  profileImageDataUrl={accountPortraitUrl(owner, owner?.apps?.[app.id])}
                   style={ownerColor ? { borderColor: ownerColor, color: ownerColor } : undefined}
                 />
                 <div className="phone-social-post-author-info">
@@ -1900,7 +1900,7 @@ export function PhoneSocialFeedScreen({
                       className="phone-avatar"
                       name={postIdentity.name}
                       fallback={postIdentity.name.slice(0, 1).toUpperCase()}
-                      profileImageDataUrl={!isAccountPrivacyMode(app.id, postAuthorCharacter) ? socialAvatarDataUrl(postAuthorCharacter, postAuthorCharacter?.apps?.[app.id]?.avatarImageId ? socialImageById(postAuthorCharacter.apps[app.id]!.avatarImageId!, postAuthorCharacter.sourceId) : undefined) : undefined}
+                      profileImageDataUrl={accountPortraitUrl(postAuthorCharacter, postAuthorCharacter?.apps?.[app.id])}
                       style={postAuthorColor
                         ? { borderColor: postAuthorColor, color: postAuthorColor }
                         : undefined}

@@ -10,14 +10,19 @@ import type {
   RpStorybookCharacterVoiceConfig,
 } from '../nodes/rp-storybook/model';
 
+export type PortraitId = 'character' | 'custom1' | 'custom2';
+export type CustomPortraits = Partial<Record<'custom1' | 'custom2', RpStorybookCharacterProfileImage>>;
+
 export type AppAvatarCrop = { x: number; y: number; size: number };
-/** A gallery photo chosen as an app avatar; without a crop the whole photo is shown. */
-export type AppAvatarChoice = { imageId: string; crop?: AppAvatarCrop };
+/** App editors select a prepared portrait; images and crops belong to the character. */
+export type AppAvatarChoice = { portraitId: PortraitId };
 
 /** Optional second WhatsUp name: another link to the same account, shown with its own picture. */
 export type WhatsUpAlias = {
   name: string;
-  /** Own gallery picture; this name never falls back to the character portrait. */
+  /** Shared portrait slot. The default is the real character portrait. */
+  portraitId?: PortraitId;
+  /** Obsolete metadata retained for external conversion, never used to render avatars. */
   avatarImageId?: string;
   avatarCrop?: AppAvatarCrop;
 };
@@ -27,7 +32,7 @@ export type CharacterAppAccount = {
   enabled: boolean;
   /** The only authored app name. WhatsUp has no profile name. */
   profileName?: string;
-  /** Fotogram/OnlyFriends privacy mode; true hides real name and profile photo publicly. */
+  /** Fotogram/OnlyFriends privacy mode; true hides the real name but keeps the selected portrait visible. */
   privacyMode?: boolean;
   /** Historical handles retained for saved conversations and account links. */
   legacyHandles?: string[];
@@ -35,8 +40,10 @@ export type CharacterAppAccount = {
   username?: string;
   displayName?: string;
   bio: string;
+  portraitId?: PortraitId;
+  /** Obsolete metadata retained for external conversion, never used to render avatars. */
   avatarImageId?: string;
-  /** MatchMe only: face region of the dating avatar, in the portrait crop's units. */
+  /** Obsolete per-account crop retained only for external conversion. */
   avatarCrop?: AppAvatarCrop;
   initialPosts?: Array<{ id: string; text: string; imageId?: string }>;
 };
@@ -73,6 +80,7 @@ export type Character = {
   apps?: CharacterApps;
   images: RpStorybookCharacterImage[];
   profileImage?: RpStorybookCharacterProfileImage;
+  customPortraits?: CustomPortraits;
   phoneSettings?: RpStorybookCharacterPhoneSettings;
   banking?: RpStorybookCharacterBanking;
   comfyConfig?: RpStorybookCharacterComfyConfig;
@@ -112,12 +120,17 @@ function avatarCrop(value: unknown): AppAvatarCrop | undefined {
     ? { x: x as number, y: y as number, size: size as number } : undefined;
 }
 /** A second WhatsUp name exists only once it is non-empty. */
+function portraitId(value: unknown): PortraitId | undefined {
+  return value === 'character' || value === 'custom1' || value === 'custom2' ? value : undefined;
+}
+
 function whatsUpAlias(value: unknown): WhatsUpAlias | undefined {
   const source = record(value);
   const name = string(source.name).trim();
   if (!name) return undefined;
   const crop = avatarCrop(source.avatarCrop);
   return { name,
+    ...(portraitId(source.portraitId) ? { portraitId: portraitId(source.portraitId) } : {}),
     ...(typeof source.avatarImageId === 'string' && source.avatarImageId ? { avatarImageId: source.avatarImageId } : {}),
     ...(crop ? { avatarCrop: crop } : {}) };
 }
@@ -152,6 +165,7 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
       ...((app === 'fotogram' || app === 'onlyfriends') && typeof account.privacyMode === 'boolean' ? { privacyMode: account.privacyMode } : {}),
       ...(legacyHandles.length ? { legacyHandles } : {}),
       bio: string(account.bio) || profile?.bio || '',
+      ...(portraitId(account.portraitId) ? { portraitId: portraitId(account.portraitId) } : {}),
       ...(typeof account.avatarImageId === 'string' ? { avatarImageId: account.avatarImageId } : {}),
       ...(app === 'matchme' && avatarCrop(account.avatarCrop) ? { avatarCrop: avatarCrop(account.avatarCrop) } : {}),
       ...(app === 'whatsup' && whatsUpAlias(account.alias) ? { alias: whatsUpAlias(account.alias) } : {}),
@@ -189,7 +203,7 @@ export function socialFromCharacterApps(apps: CharacterApps): RpStorybookCharact
 export function characterPayload(character: Omit<Character, 'profileImage'> & {
   profileImage?: Pick<RpStorybookCharacterProfileImage, 'imageId' | 'crop'>;
 }, portable = false) {
-  const { social, profileImage, ...rest } = character;
+  const { social, profileImage, customPortraits, ...rest } = character;
   const apps = normalizeCharacterApps(character.apps, social, character.id, character.name);
   validateCharacterAgency(character);
   if (apps.matchme?.profile) {
@@ -201,7 +215,7 @@ export function characterPayload(character: Omit<Character, 'profileImage'> & {
     const { messages: _messages, decisions: _decisions, historyVersion: _historyVersion, ...profile } = apps.matchme.profile;
     apps.matchme = { ...apps.matchme, profile: { ...profile, decisions: {} } };
   }
-  return { ...rest, relationships: rest.relationships ?? [],
+  return { ...rest, ...(customPortraits ? { customPortraits: Object.fromEntries(Object.entries(customPortraits).map(([id, portrait]) => [id, { imageId: portrait.imageId, ...(portrait.crop ? { crop: portrait.crop } : {}) }])) } : {}), relationships: rest.relationships ?? [],
     ...(portable ? { images: rest.images.map(({
       receivedFrom: _receivedFrom, receivedFromCharacterId: _receivedFromCharacterId,
       receivedFromAccountId: _receivedFromAccountId, imageAccess: _imageAccess, turnUpload: _turnUpload, ...image

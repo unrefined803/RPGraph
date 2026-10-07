@@ -151,7 +151,7 @@ describe('inline account links', () => {
     expect(buildSocialDirectory({ storyCharacters: characters, messages: [] }).users).toHaveLength(3);
   });
 
-  it('registers a library NPC phone identity and reuses its Fotogram avatar after sharing', () => {
+  it('registers a library NPC phone identity without borrowing another app avatar', () => {
     const player = entry('player', 'Alex Player', 'storybook');
     const library = entry('library', 'Library Person');
     delete library.character.apps!.whatsup;
@@ -166,7 +166,7 @@ describe('inline account links', () => {
     });
     expect(phoneRuntimeCharactersFromMessages(characters, [])).not.toContain(npc);
     expect(phoneRuntimeCharactersFromMessages(characters, [], new Set([target.accountId]))).toContain(npc);
-    expect(phoneCharacterAvatarDataUrl(npc)).toBe(fixture.character.images[0].dataUrl);
+    expect(phoneCharacterAvatarDataUrl(npc)).toBeUndefined();
   });
 
   it('accepts app display names for phone/social recipients and enforces the same bound MatchMe accounts', () => {

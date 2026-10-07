@@ -117,6 +117,23 @@ function validateCharacterPayload(value) {
     requireImage(profile.imageId);
     validateAvatarCrop(profile.crop);
   }
+  if (character.customPortraits !== undefined && (!character.customPortraits || typeof character.customPortraits !== 'object' || Array.isArray(character.customPortraits))) {
+    throw new Error('Custom portraits must be an object with at most two slots.');
+  }
+  for (const [slot, value] of Object.entries(record(character.customPortraits))) {
+    if (!['custom1', 'custom2'].includes(slot)) throw new Error('Unknown custom portrait slot.');
+    if (!character.profileImage) throw new Error('Create the character portrait before custom portraits.');
+    const portrait = record(value);
+    requireImage(portrait.imageId);
+    validateAvatarCrop(portrait.crop);
+  }
+  const requirePortrait = (id) => {
+    if (id === undefined) return;
+    if (!['character', 'custom1', 'custom2'].includes(id) ||
+        (id !== 'character' && !record(character.customPortraits)[id])) {
+      throw new Error(`Unknown character portrait: ${String(id)}`);
+    }
+  };
   const accountIds = new Set();
   for (const [app, raw] of Object.entries(record(character.apps))) {
     if (!appNames.includes(app)) throw new Error(`Unknown character app: ${app}`);
@@ -140,6 +157,7 @@ function validateCharacterPayload(value) {
       throw new Error('Historical account handles must be non-empty strings.');
     }
     accountIds.add(account.accountId);
+    requirePortrait(account.portraitId);
     if (account.avatarImageId !== undefined) requireImage(account.avatarImageId);
     if (account.avatarCrop !== undefined) {
       if (app !== 'matchme') throw new Error('avatarCrop is only supported on the MatchMe account and the WhatsUp second name.');
@@ -149,9 +167,10 @@ function validateCharacterPayload(value) {
       // A second WhatsUp name is another link to the same account, with its own optional picture.
       const alias = record(account.alias);
       if (app !== 'whatsup' || !nonEmptyString(alias.name) || alias.name.trim().length > 60 ||
-          Object.keys(alias).some((key) => !['name', 'avatarImageId', 'avatarCrop'].includes(key))) {
+          Object.keys(alias).some((key) => !['name', 'portraitId', 'avatarImageId', 'avatarCrop'].includes(key))) {
         throw new Error('A second WhatsUp name requires 1–60 characters.');
       }
+      requirePortrait(alias.portraitId);
       if (alias.avatarImageId !== undefined) requireImage(alias.avatarImageId);
       validateAvatarCrop(alias.avatarCrop);
     }

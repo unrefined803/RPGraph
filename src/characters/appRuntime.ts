@@ -1,3 +1,4 @@
+import { characterPortrait } from './portraits';
 import { migratedProfileName } from './character';
 import { runtimeRelationshipContext } from './relationships';
 import { portraitDataUrl } from './portrait';
@@ -26,7 +27,8 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
       agencyTags: character.agencyTags,
       relationshipContext: runtimeRelationshipContext(character, registry.characters.map((entry) => entry.character)),
       apps: character.apps, social: socialFromCharacterApps(character.apps ?? {}), images: character.images,
-      ...(character.profileImage ? { profileImage: { ...character.profileImage, ...(portrait ? { dataUrl: portraitDataUrl(portrait, character.profileImage.crop) } : {}) } } : {}),
+      ...(character.customPortraits ? { customPortraits: character.customPortraits } : {}),
+        ...(character.profileImage ? { profileImage: { ...character.profileImage, ...(portrait ? { dataUrl: portraitDataUrl(portrait, character.profileImage.crop) } : {}) } } : {}),
       phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
       banking: character.banking ?? defaultRpStorybookCharacterBanking(),
       comfyConfig: character.comfyConfig, voiceConfig: character.voiceConfig,
@@ -102,7 +104,7 @@ export function recipientCharacterContext(character: StorybookCharacter, options
     return [app, account?.enabled ? { accountId: account.accountId, profileName: migratedProfileName(account, character.name), privacyMode: isPrivate, bio: account.bio,
       posts: account.initialPosts?.map((post) => ({ text: post.text,
         imageDescription: character.images?.find((image) => image.id === post.imageId)?.description })),
-      photos: (app === 'matchme' ? character.apps?.matchme?.profile?.photoIds ?? [] : (!isPrivate ? [account.avatarImageId] : []))
+      photos: (app === 'matchme' ? character.apps?.matchme?.profile?.photoIds ?? [] : [characterPortrait(character, account.portraitId)?.imageId])
         .flatMap((id) => character.images?.find((image) => image.id === id)?.description || []),
     } : null];
   }));
@@ -132,7 +134,7 @@ export function recipientCharacterContext(character: StorybookCharacter, options
       ...(app === 'matchme' ? field('Public name', `${(account.profileName ?? character.name).trim().split(/\s+/)[0]}, ${character.social.plotTwist?.age ?? ''}`) : []),
       ...(app === 'matchme' ? field('Profile name', account.profileName ? `@${account.profileName}` : undefined) : []),
       ...(app !== 'whatsup' ? field('Link', account.profileName ? `@${app}:${account.profileName}` : undefined) : []),
-      ...(detailed && (app === 'fotogram' || app === 'onlyfriends') ? field('Privacy mode', account.privacyMode ? 'Yes; anonymous profile (hide real name and profile photo publicly)' : 'No; show real name and photo publicly') : []),
+      ...(detailed && (app === 'fotogram' || app === 'onlyfriends') ? field('Privacy mode', account.privacyMode ? 'Yes; anonymous profile (hide real name; show selected portrait)' : 'No; show real name and photo publicly') : []),
       ...(detailed ? field('Bio', account.bio) : []),
       ...(detailed ? account.photos.flatMap((photo, index) => field(`Profile photo ${index + 1}`, photo)) : []),
       ...(detailed ? (account.posts ?? []).flatMap((post, index) => [

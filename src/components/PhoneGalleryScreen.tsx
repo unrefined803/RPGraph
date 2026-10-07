@@ -1,3 +1,6 @@
+import { PortraitManager } from './PortraitManager';
+import type { PortraitOwner } from '../characters/portraits';
+import type { RpStorybookCharacterImage } from '../nodes/rp-storybook/model';
 import { useEffect, useState } from 'react';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import type { ChatImageAttachment } from '../types';
@@ -7,6 +10,8 @@ const phoneGalleryPageSize = 100;
 
 type PhoneGalleryScreenProps = {
   title: string;
+  portraitOwner?: PortraitOwner & { name: string };
+  onPortraitsChange?: (owner: PortraitOwner) => void;
   images: ChatImageAttachment[];
   action: 'select' | 'wallpaper';
   selectedWallpaperId?: string;
@@ -16,12 +21,15 @@ type PhoneGalleryScreenProps = {
 
 export function PhoneGalleryScreen({
   title,
+  portraitOwner,
+  onPortraitsChange,
   images,
   action,
   selectedWallpaperId,
   onBack,
   onSelectImage,
 }: PhoneGalleryScreenProps) {
+  const [portraitsOpen, setPortraitsOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ChatImageAttachment>();
   usePanelNavigationOverlay(() => setSelectedImage(undefined), !!selectedImage);
   const [page, setPage] = useState(0);
@@ -69,6 +77,11 @@ export function PhoneGalleryScreen({
           <span>Phone Gallery</span>
           <strong>{title}</strong>
         </div>
+        {portraitOwner && onPortraitsChange && !selectedImage && (
+          <button type="button" className="phone-gallery-portraits-button" onClick={() => setPortraitsOpen(true)}>
+            Portraits
+          </button>
+        )}
       </header>
 
       {selectedImage ? (
@@ -92,6 +105,20 @@ export function PhoneGalleryScreen({
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
+              {portraitOwner && onPortraitsChange && (
+                <button
+                  type="button"
+                  className="phone-gallery-action-btn portrait"
+                  onClick={() => setPortraitsOpen(true)}
+                  title="Use as portrait"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+                  </svg>
+                  <span>Portrait</span>
+                </button>
+              )}
               <button
                 type="button"
                 className={`phone-gallery-action-btn select${action === 'wallpaper' ? ' wallpaper' : ''}`}
@@ -181,6 +208,9 @@ export function PhoneGalleryScreen({
           <small>Add images to this character in RP Storybook first.</small>
         </div>
       )}
+      {portraitsOpen && portraitOwner && onPortraitsChange && <PortraitManager
+        owner={{ ...portraitOwner, images: images.map((image) => ({ ...image, description: image.description ?? '' })) as RpStorybookCharacterImage[] }}
+        initialImageId={selectedImage?.id} onChange={onPortraitsChange} onClose={() => setPortraitsOpen(false)} />}
     </div>
   );
 }

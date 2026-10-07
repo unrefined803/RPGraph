@@ -1,3 +1,4 @@
+import { accountPortraitUrl } from '../../characters/portraits';
 import { usePanelNavigationOverlay } from '../../navigation/usePanelNavigation';
 import { ChatBubbleText } from '../ChatBubbleText';
 import { CharacterName } from '../CharacterName';
@@ -18,7 +19,7 @@ import type {
 } from '../../types';
 import { formatOnlyFriendsTip } from '../../chat/onlyFriendsWallet';
 import { formatBankingAmount } from '../../chat/bankTransfers';
-import { isAccountPrivacyMode, socialIdentityMatches, socialAccountPresentation, socialCharacterForPost } from '../../chat/socialMedia';
+import { socialIdentityMatches, socialAccountPresentation, socialCharacterForPost } from '../../chat/socialMedia';
 import { formatRpDateTimeParts } from '../../workflow';
 import { CharacterAvatar } from '../CharacterAvatar';
 
@@ -260,7 +261,7 @@ export function PhoneSocialDirectMessages({
                   className="phone-avatar large"
                   name={participantIdentity(participant).name}
                   fallback={participantIdentity(participant).name.slice(0, 1).toUpperCase()}
-                  profileImageDataUrl={!isAccountPrivacyMode(app, participant.character) ? participant.character?.profileImage?.dataUrl : undefined}
+                  profileImageDataUrl={accountPortraitUrl(participant.character, participant.character?.apps?.[app])}
                   style={color ? { borderColor: color, color } : undefined}
                 />
                 <span className="phone-social-dm-contact-copy">
@@ -320,7 +321,7 @@ export function PhoneSocialDirectMessages({
           className="phone-avatar"
           name={participantIdentity(selectedParticipant).name}
           fallback={participantIdentity(selectedParticipant).name.slice(0, 1).toUpperCase()}
-          profileImageDataUrl={!isAccountPrivacyMode(app, selectedParticipant.character) ? selectedParticipant.character?.profileImage?.dataUrl : undefined}
+          profileImageDataUrl={accountPortraitUrl(selectedParticipant.character, selectedParticipant.character?.apps?.[app])}
           style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
         />
         <div>
@@ -464,7 +465,7 @@ export function PhoneSocialDirectMessages({
               className="phone-avatar large"
               name={participantIdentity(selectedParticipant).name}
               fallback={participantIdentity(selectedParticipant).name.slice(0, 1).toUpperCase()}
-              profileImageDataUrl={!isAccountPrivacyMode(app, selectedParticipant.character) ? selectedParticipant.character?.profileImage?.dataUrl : undefined}
+              profileImageDataUrl={accountPortraitUrl(selectedParticipant.character, selectedParticipant.character?.apps?.[app])}
               style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
             />
             <strong><CharacterName color={participantColor}>{participantIdentity(selectedParticipant).name}</CharacterName></strong>
@@ -476,7 +477,7 @@ export function PhoneSocialDirectMessages({
           <div className={`phone-social-dm-message-row ${originOutgoing ? 'outgoing' : 'incoming'} origin-comment`}>
             <AppMessageAvatar name={originOutgoing ? owner.name : participantIdentity(selectedParticipant).name}
               character={originOutgoing ? owner : selectedParticipant.character}
-              hidePortrait={isAccountPrivacyMode(app, originOutgoing ? owner : selectedParticipant.character)} />
+              avatarDataUrl={accountPortraitUrl(originOutgoing ? owner : selectedParticipant.character, (originOutgoing ? owner : selectedParticipant.character)?.apps?.[app])} />
             <div className="phone-social-dm-bubble">
               <ChatBubbleText>{origin.commentText}</ChatBubbleText>
               <time>{originLabel}</time>
@@ -503,7 +504,7 @@ export function PhoneSocialDirectMessages({
             >
               <AppMessageAvatar name={outgoing ? owner.name : participantIdentity(selectedParticipant).name}
                 character={outgoing ? owner : selectedParticipant.character}
-                hidePortrait={isAccountPrivacyMode(app, outgoing ? owner : selectedParticipant.character)} />
+                avatarDataUrl={accountPortraitUrl(outgoing ? owner : selectedParticipant.character, (outgoing ? owner : selectedParticipant.character)?.apps?.[app])} />
               <div className="phone-social-dm-bubble">
                 <ChatBubbleText><AccountLinkText text={message.displayText ?? message.text} bindings={message.accountLinks} /></ChatBubbleText>
                 <div className="phone-social-dm-footer">

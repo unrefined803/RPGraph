@@ -57,6 +57,7 @@ export type StorybookCharacter = {
   comfyConfig?: RpStorybookCharacterComfyConfig;
   voiceConfig?: RpStorybookCharacterVoiceConfig;
   profileImage?: RpStorybookCharacterProfileImage;
+  customPortraits?: import('../characters/character').CustomPortraits;
   phoneSettings: RpStorybookCharacterPhoneSettings;
   banking: RpStorybookCharacterBanking;
   social: RpStorybookCharacterSocial;
@@ -129,6 +130,7 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         },
         ...(character.comfyConfig ? { comfyConfig: character.comfyConfig } : {}),
         ...(character.voiceConfig?.sampleDataUrl ? { voiceConfig: character.voiceConfig } : {}),
+        ...(character.customPortraits ? { customPortraits: character.customPortraits } : {}),
         ...(character.profileImage ? { profileImage: character.profileImage } : {}),
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
         banking: character.banking ?? defaultRpStorybookCharacterBanking(),

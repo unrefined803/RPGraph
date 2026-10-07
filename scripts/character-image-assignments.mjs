@@ -81,10 +81,6 @@ export async function assignCharacterImages(source, specification, directory) {
   }
   character.apps.whatsup ??= { accountId: `character:${character.id}:whatsup`, enabled: true,
     bio: '' };
-  // P is the shared avatar; it does not implicitly create a post or MatchMe photo.
-  for (const account of Object.values(character.apps)) {
-    delete account.avatarImageId;
-    if (portrait) account.avatarImageId = portrait.image.id;
-  }
+  // P changes only the real portrait. App selections and custom portraits are independent.
   return spec;
 }

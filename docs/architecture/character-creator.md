@@ -179,17 +179,22 @@ edge as a percentage of image height, and `size` its side length as a percentage
 of image width. The circular avatar masks this square. The radius in pixels is
 `image.width * size / 200`; do not store a second radius or duplicate JPEG.
 
-The profile picker supports **Apply**, **Use Full Image**, and **Clear Profile
-Pic** in the gallery. Crops survive Character Container V2 exports, Storybook V3
-saves/imports and NPC snapshot projections. The runtime derives an SVG viewport
-around the embedded JPEG for avatar consumers; this generated preview is never
-stored in the portable container. Fotogram and OnlyFriends distinguish the portrait fallback (no `avatarImageId`)
-from an explicit album selection. The fallback uses the character crop; an album
-selection uses the full image, even when it is the same source photo. Explicit
-social album references remain unchanged when the character portrait changes or
-is cleared. Other app avatars using the portrait source inherit its crop and
-continue following portrait changes. Gallery images, feed photos and MatchMe discovery photos remain
-full images. MatchMe match and conversation avatars use the explicit MatchMe avatar or first dating photo; they inherit the portrait crop only when that same image is selected.
+**Manage Portraits** in the character gallery or Phone Gallery opens three
+fixed slots: **Character Portrait**, **Custom Portrait 1**, **Custom Portrait 2**.
+Create the real portrait first to enable the custom slots. Select a slot, choose
+a gallery image, then frame the face using **Apply** or choose **Use Full Image**.
+A Phone Gallery detail image can be assigned directly after selecting a slot.
+Clearing a custom slot resets accounts using it to the Character Portrait.
+Clear custom slots before clearing the main portrait. Images used by portraits
+cannot be deleted until their assignments have been cleared.
+
+Apps show only the three-slot selector; they do not edit images or crops.
+Every slot owns its crop independently, even when several slots reference the
+same source image. Changing a slot updates every app selecting it. The NPC
+Library always shows the Character Portrait. Crops survive container exports,
+Storybook saves and NPC snapshots; generated previews are never stored in the
+portable container. Gallery images, posts and MatchMe discovery photos remain
+full images. See [the conversion handoff](../portrait-conversion-handoff.md).
 
 Install the authoring-only detector once (Python with `venv` and pip required):
 
@@ -272,11 +277,11 @@ authoring metadata, not a runtime format. Keep the manifest and backups intact.
 Packing validates the whole batch before writing; choose a fresh output folder.
 
 Prefix image filenames with uppercase F (Fotogram post), O (OnlyFriends post),
-M (MatchMe gallery) and P (character portrait/shared account avatar). Separate
+M (MatchMe gallery) and P (real character portrait). Separate
 flags and the descriptive filename with hyphens or underscores: `F-P_cafe.png`.
 Order is irrelevant; repeated flags, multiple portraits and more than three
 MatchMe photos fail. G alone explicitly means gallery-only. No P clears the
-portrait and shared avatars. P alone creates neither posts nor MatchMe photos.
+real portrait; app slot selections stay unchanged. P alone creates neither posts nor MatchMe photos.
 Missing M removes the MatchMe profile, while retaining any existing account.
 
 Renamed original files are recognized by exact bytes or their registered stable

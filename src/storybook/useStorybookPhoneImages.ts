@@ -1,3 +1,5 @@
+import type { PortraitOwner } from '../characters/portraits';
+import type { PortraitId } from '../characters/character';
 import {
   profileIdentityError,
   validateCandidateCharacterRegistry,
@@ -154,6 +156,23 @@ export function useStorybookPhoneImages({
     }
   }
 
+  function changePhonePortraits(character: StorybookCharacter, portraits: PortraitOwner) {
+    const node = nodesRef.current.find((entry) => entry.id === character.storybookNodeId && isStorybookSourceNode(entry));
+    if (!node?.data.storybookJson) return;
+    const storybook = parseRpStorybookJson(node.data.storybookJson);
+    const next = { ...storybook, characters: storybook.characters.map((entry) => {
+      if (entry.id !== character.sourceId) return entry;
+      const apps = Object.fromEntries(Object.entries(entry.apps ?? {}).map(([app, account]) => [app, {
+        ...account, portraitId: portraits.apps?.[app as keyof NonNullable<PortraitOwner['apps']>]?.portraitId,
+        ...(app === 'whatsup' && entry.apps?.whatsup?.alias ? { alias: { ...entry.apps.whatsup.alias, portraitId: portraits.apps?.whatsup?.alias?.portraitId } } : {}),
+      }]));
+      return { ...entry, profileImage: portraits.profileImage, customPortraits: portraits.customPortraits, apps };
+    }) };
+    try { validateProfileCandidate(node.id, next); }
+    catch (error) { notifySystem('warning', error instanceof Error ? error.message : String(error)); return; }
+    updateRuntimeNode(node.id, { storybookJson: rpStorybookJsonText(next), storybookStatus: `Portraits updated for ${character.name}.` });
+  }
+
   function changePhoneWallpaper(character: StorybookCharacter, wallpaperId: string) {
     const storybookNode = nodesRef.current.find(
       (node) => node.id === character.storybookNodeId && isStorybookSourceNode(node),
@@ -181,7 +200,7 @@ export function useStorybookPhoneImages({
    * Set or remove the second WhatsUp name; the account and its real name stay
    * untouched. Returns true, or the reason the change was rejected.
    */
-  function saveWhatsUpAlias(character: StorybookCharacter, alias: WhatsUpAlias | undefined): true | string {
+  function saveWhatsUpAlias(character: StorybookCharacter, alias: WhatsUpAlias | undefined, portraitId?: PortraitId): true | string {
     const node = nodesRef.current.find((entry) => entry.id === character.storybookNodeId && isStorybookSourceNode(entry));
     const unavailable = 'This character’s Storybook is not available for editing.';
     if (!node?.data.storybookJson) return unavailable;
@@ -192,7 +211,7 @@ export function useStorybookPhoneImages({
     try {
       const { alias: _previous, ...account } = { accountId: `character:${source.id}:whatsup`, enabled: true, bio: '', ...source.apps?.whatsup };
       next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === source.id
-        ? withCharacterAppProfile(entry, 'whatsup', { ...account, ...(alias ? { alias } : {}) } as CharacterAppAccount) : entry) };
+        ? withCharacterAppProfile(entry, 'whatsup', { ...account, ...(portraitId ? { portraitId, avatarImageId: undefined } : {}), ...(alias ? { alias } : {}) } as CharacterAppAccount) : entry) };
       validateProfileCandidate(node.id, next);
       // NPCs outside this Storybook take part in the same chats, so their names are taken as well.
       const conflict = whatsUpAliasConflict(alias?.name ?? '', source.id,
@@ -223,7 +242,7 @@ export function useStorybookPhoneImages({
     let next: RpStorybook;
     try {
       next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === character.sourceId
-        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, ...(avatar ? { avatarImageId: avatar.imageId, avatarCrop: avatar.crop } : {}), enabled: true, profileName: normalized.name, bio: normalized.bio, profile: normalized })
+        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, ...(avatar ? { portraitId: avatar.portraitId, avatarImageId: undefined, avatarCrop: undefined } : {}), enabled: true, profileName: normalized.name, bio: normalized.bio, profile: normalized })
         : entry) };
       validateProfileCandidate(node.id, next);
     } catch (error) {
@@ -626,6 +645,7 @@ export function useStorybookPhoneImages({
     imageDescriptionById,
     imageCaptionChangesById,
     currentImageSourceById,
+    changePhonePortraits,
     changePhoneWallpaper,
     saveSocialUsername,
     saveWhatsUpAlias,

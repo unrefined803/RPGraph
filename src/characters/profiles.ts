@@ -34,15 +34,9 @@ export function withCharacterAppProfile(character: Character, app: keyof Charact
     ...(previous?.legacyHandles ?? []), accountHandle(previous), ...(account.legacyHandles ?? []),
   ].filter(Boolean))] };
   const apps = normalizeCharacterApps({ ...current, [app]: updated }, undefined, character.id, character.name);
-  const aliasAvatarId = app === 'whatsup' ? (account as NonNullable<CharacterApps['whatsup']>).alias?.avatarImageId : undefined;
-  if ([account.avatarImageId, aliasAvatarId].some((id) => id && !character.images.some((image) => image.id === id))) {
-    throw new Error('Choose an avatar from this character’s gallery.');
-  }
-  // A face region belongs to one picture: drop an untouched crop once the dating avatar changes.
-  const datingAvatarId = (entry: CharacterApps['matchme']) => entry?.avatarImageId ?? entry?.profile?.photoIds[0];
-  if (app === 'matchme' && apps.matchme?.avatarCrop && datingAvatarId(apps.matchme) !== datingAvatarId(current.matchme) &&
-      JSON.stringify(apps.matchme.avatarCrop) === JSON.stringify(current.matchme?.avatarCrop)) {
-    delete apps.matchme.avatarCrop;
+  const selected = [account.portraitId, app === 'whatsup' ? (account as NonNullable<CharacterApps['whatsup']>).alias?.portraitId : undefined];
+  if (selected.some((id) => id && id !== 'character' && !character.customPortraits?.[id])) {
+    throw new Error('Create this portrait in the character gallery first.');
   }
   return { ...character, apps, social: socialFromCharacterApps(apps) };
 }

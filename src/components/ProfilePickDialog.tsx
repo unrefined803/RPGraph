@@ -186,7 +186,7 @@ export function ProfilePickDialog({
       <section className="profile-pick-dialog" role="dialog" aria-modal="true" aria-label={`${characterName} profile pic`}>
         <div className="profile-pick-header">
           <div>
-            <h4>Change Profile Pic</h4>
+            <h4>Frame {characterName}</h4>
             <p>{image.name}</p>
           </div>
           <button type="button" className="close-button" onClick={onClose}>

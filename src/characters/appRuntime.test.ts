@@ -108,7 +108,7 @@ describe('shared NPC app discovery', () => {
     }
     const recipient = characters.find((character) => character.sourceId === 'stage4-nova')!;
     expect(context).toContain(recipient.apps!.fotogram!.bio);
-    const image = recipient.images?.find((item) => item.id === recipient.apps!.fotogram!.avatarImageId);
+    const image = recipient.images?.find((item) => item.id === recipient.profileImage?.imageId);
     if (image?.description) expect(context).toContain(`Profile photo 1: ${image.description}`);
     const onlyFriends = structuredClone(recipient);
     onlyFriends.apps!.onlyfriends = { ...onlyFriends.apps!.fotogram!, accountId: 'nova-of', username: 'nova.private' };

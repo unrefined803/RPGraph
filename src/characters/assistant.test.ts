@@ -15,22 +15,6 @@ function fixture(): Character {
 const response = (patch: unknown[]) => JSON.stringify({ reply: 'Updated.', patch });
 
 describe('Character Assistant edits', () => {
-  it.each(['whatsup/alias', 'matchme'])('clears old %s crops when selecting another image', (account) => {
-    const original = fixture();
-    const crop = { x: 10, y: 10, size: 40 };
-    original.apps!.whatsup!.alias = { name: 'Alex Work', avatarImageId: 'one', avatarCrop: crop };
-    original.apps!.matchme = { accountId: `character:${original.id}:matchme`, enabled: false,
-      profileName: 'Alex', bio: '', avatarImageId: 'one', avatarCrop: crop };
-    const before = structuredClone(original);
-    const changed = parseCharacterAssistantResult(response([
-      { op: 'replace', path: `/character/apps/${account}/avatarImageId`, value: 'two' },
-    ]), original).character;
-    const selected = account === 'matchme' ? changed.apps?.matchme : changed.apps?.whatsup?.alias;
-    expect(selected?.avatarImageId).toBe('two');
-    expect(selected?.avatarCrop).toBeUndefined();
-    expect(original).toEqual(before);
-  });
-
   it('preserves historical routing aliases when replacing an account to rename it', () => {
     const original = fixture();
     original.apps!.fotogram = { accountId: 'alex-fg', enabled: true, bio: '',
@@ -57,17 +41,19 @@ describe('Character Assistant edits', () => {
     const face = { centerX: 50, centerY: 25, height: 20 };
     const result = parseCharacterAssistantResult(JSON.stringify({ reply: 'Selecting the portrait.', faces: { one: face, two: face, missing: face },
       patch: [{ op: 'add', path: '/character/profileImage', value: { imageId: 'one' } },
-        { op: 'add', path: '/character/apps/whatsup/alias', value: { name: 'Lex Work', avatarImageId: 'two' } }] }), character);
+        { op: 'add', path: '/character/customPortraits', value: { custom1: { imageId: 'two' } } },
+        { op: 'add', path: '/character/apps/whatsup/alias', value: { name: 'Lex Work', portraitId: 'custom1' } }] }), character);
     // A 400px head with room around it: a 600px square centered on the face.
     expect(result.character.profileImage).toMatchObject({ imageId: 'one', crop: { x: 20, y: 10, size: 60 } });
-    expect(result.character.apps?.whatsup?.alias).toEqual({ name: 'Lex Work', avatarImageId: 'two', avatarCrop: { x: 20, y: 10, size: 60 } });
+    expect(result.character.apps?.whatsup?.alias).toEqual({ name: 'Lex Work', portraitId: 'custom1' });
+    expect(result.character.customPortraits?.custom1?.crop).toEqual({ x: 20, y: 10, size: 60 });
     // A face reported without a patch re-centers the existing portrait; unusable estimates are ignored.
     const recentered = parseCharacterAssistantResult(JSON.stringify({ reply: 'Centered.', patch: [],
       faces: { one: { centerX: 0, centerY: 100, height: 20 }, two: { centerX: 'left' } } }), result.character);
     expect(recentered.character.profileImage?.crop).toEqual({ x: 0, y: 70, size: 60 });
-    expect(recentered.character.apps?.whatsup?.alias?.avatarCrop).toEqual({ x: 20, y: 10, size: 60 });
+    expect(recentered.character.customPortraits?.custom1?.crop).toEqual({ x: 20, y: 10, size: 60 });
     const copy = copyAssistantCharacter(result.character);
-    expect(copy.images.map((image) => image.id)).toContain(copy.apps?.whatsup?.alias?.avatarImageId);
+    expect(copy.images.map((image) => image.id)).toContain(copy.customPortraits?.custom1?.imageId);
     expect(() => parseCharacterAssistantResult(JSON.stringify({ reply: 'Same name.', patch: [
       { op: 'add', path: '/character/apps/whatsup/alias', value: { name: 'Alex' } }] }), character)).toThrow(/second WhatsUp name/);
     expect(characterAssistantPrompt(character, [], 'Add a work number.', [], 'npc-characters')).toContain('apps.whatsup.alias');

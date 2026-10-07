@@ -42,6 +42,7 @@ export function libraryCharacterContentEqual(active: Parameters<typeof character
 export function characterLibrarySummary(character: Character) {
   const apps = { ...normalizeCharacterApps(character.apps, character.social, character.id, character.name), ...character.apps };
   const usedIds = new Set<string>();
+  for (const portrait of Object.values(character.customPortraits ?? {})) usedIds.add(portrait.imageId);
   if (character.profileImage?.imageId) usedIds.add(character.profileImage.imageId);
   if (apps.whatsup?.enabled && apps.whatsup.alias?.avatarImageId) usedIds.add(apps.whatsup.alias.avatarImageId);
   for (const account of Object.values(apps)) {

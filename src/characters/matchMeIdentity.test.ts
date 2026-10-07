@@ -17,7 +17,8 @@ function source(): Character {
     images: ['camera', 'dating'].map((id) => ({ id, name: id, description: id, mimeType: 'image/jpeg', size: 3,
       dataUrl: `data:image/jpeg;base64,${id === 'camera' ? 'YWJj' : 'ZGVm'}` })),
     profileImage: { imageId: 'camera', dataUrl: 'data:image/jpeg;base64,YWJj' },
-    apps: { matchme: { accountId: 'stable-dating', enabled: true, bio: 'Student',
+    customPortraits: { custom1: { imageId: 'dating', dataUrl: '' } },
+    apps: { matchme: { portraitId: 'custom1', accountId: 'stable-dating', enabled: true, bio: 'Student',
       profile: { name: 'Joel Vance', age: 22, gender: 'woman', bio: 'Student', interests: 'Music', photoIds: ['dating'], decisions: {} } } },
   };
 }
@@ -82,10 +83,9 @@ describe('independent MatchMe identity', () => {
 
   it('does not expose a dating persona as the WhatsUp fallback avatar', () => {
     const character = source();
-    delete character.profileImage;
-    character.apps!.matchme!.avatarImageId = 'dating';
+    character.apps!.whatsup = { accountId: 'phone', enabled: true, bio: '', portraitId: 'character' };
     const person = runtime(character);
-    expect(phoneCharacterAvatarDataUrl(person)).toBeUndefined();
+    expect(phoneCharacterAvatarDataUrl(person)).toBe(character.profileImage?.dataUrl);
     expect(datingAccounts([person])[0].avatarDataUrl).toBe(character.images[1].dataUrl);
   });
 
@@ -103,7 +103,10 @@ describe('independent MatchMe identity', () => {
     }
     const joel = library.entries.find((entry) => entry.character.id === 'chloe_bella_vance')!.character;
     expect(joel).toMatchObject({ name: 'Joel Vance', age: 28, gender: 'man' });
-    const dating = datingAccounts([runtime(joel)])[0];
+    // The bundled data is converted separately; model the new explicit slot here.
+    const converted = { ...joel, customPortraits: { custom1: { imageId: joel.images.find((image) => image.id.endsWith(':lifestyle'))!.id, dataUrl: '' } },
+      apps: { ...joel.apps, matchme: { ...joel.apps!.matchme!, portraitId: 'custom1' as const } } };
+    const dating = datingAccounts([runtime(converted)])[0];
     expect(dating).toMatchObject({ name: 'Chloe Vance', age: 22, gender: 'woman' });
     expect(dating.avatarDataUrl).toBe(joel.images.find((image) => image.id.endsWith(':lifestyle'))!.dataUrl);
     expect(dating.avatarDataUrl).not.toBe(phoneCharacterAvatarDataUrl(runtime(joel)));

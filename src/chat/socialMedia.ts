@@ -199,7 +199,7 @@ export function socialCharacterForPost(
 }
 
 /** Whether the character's account on Fotogram or OnlyFriends is in privacy mode. */
-export function isAccountPrivacyMode(
+function isAccountPrivacyMode(
   app: string,
   character: StorybookCharacter | undefined,
 ): boolean {

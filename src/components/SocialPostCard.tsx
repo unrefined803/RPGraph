@@ -1,3 +1,4 @@
+import { accountPortraitUrl } from '../characters/portraits';
 import { socialModerationReasons } from '../chat/socialModeration';
 import { CharacterName } from './CharacterName';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -7,7 +8,7 @@ import type {
   SocialPostRecord,
   SocialPostModeration,
 } from '../types';
-import { socialAppNames, socialAccountPresentation, isAccountPrivacyMode } from '../chat/socialMedia';
+import { socialAppNames, socialAccountPresentation } from '../chat/socialMedia';
 import { formatRpDateTimeParts } from '../workflow';
 import { CharacterAvatar } from './CharacterAvatar';
 import { formatSocialCount } from './phone-social/socialPostPresentation';
@@ -57,7 +58,7 @@ export function SocialPostCard({
         className="chat-social-post-avatar"
         name={identity.name}
         fallback={identity.name.slice(0, 1).toUpperCase()}
-        profileImageDataUrl={!isAccountPrivacyMode(post.app, authorCharacter) ? authorCharacter?.profileImage?.dataUrl : undefined}
+        profileImageDataUrl={accountPortraitUrl(authorCharacter, authorCharacter?.apps?.[post.app])}
         style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
       />
       <span>

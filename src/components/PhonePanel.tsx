@@ -1,3 +1,5 @@
+import type { PortraitOwner } from '../characters/portraits';
+import type { PortraitId } from '../characters/character';
 import type { ImageGenerationReference } from '../images/references';
 import { usePanelNavigationState } from '../navigation/usePanelNavigation';
 import { ChatBubbleText } from './ChatBubbleText';
@@ -276,6 +278,7 @@ type PhonePanelProps = {
     dataUrl: string;
     description: string;
   }) => Promise<void>;
+  onPhonePortraitsChange: (character: StorybookCharacter, portraits: PortraitOwner) => void;
   onPhoneWallpaperChange: (character: StorybookCharacter, wallpaperId: string) => void;
   bankTransferMessages: MessageRecord[];
   bankingContactNames: string[];
@@ -307,7 +310,7 @@ type PhonePanelProps = {
   onMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
   onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile, avatar?: AppAvatarChoice) => boolean;
   /** Set or remove the viewed character's second WhatsUp name. */
-  onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined) => boolean | string;
+  onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined, portraitId?: PortraitId) => boolean | string;
   /** The viewed character's second account already has chats: rename only. */
   whatsUpAliasInUse: boolean;
   /** Whether the open conversation is written under the second name, and how to change that. */
@@ -443,6 +446,7 @@ export function PhonePanel({
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
   onSaveImageAssistantImage,
+  onPhonePortraitsChange,
   onPhoneWallpaperChange,
   bankTransferMessages,
   bankingContactNames,
@@ -904,6 +908,8 @@ export function PhonePanel({
       <PhoneGalleryScreen
         title={`${phoneOwnerName ?? 'Phone'}'s Gallery`}
         images={phoneGalleryImages}
+        portraitOwner={wallpaperMode && selectedCharacterPlayable && !selectedCharacter?.libraryNpc && !isRunning ? selectedCharacter : undefined}
+        onPortraitsChange={selectedCharacter ? (next) => onPhonePortraitsChange(selectedCharacter, next) : undefined}
         action={wallpaperMode ? 'wallpaper' : 'select'}
         selectedWallpaperId={wallpaperMode ? wallpaperImageId : undefined}
         onBack={() => setScreen(wallpaperMode ? 'desktop' : 'whatsup')}
@@ -1585,12 +1591,11 @@ export function PhonePanel({
             <WhatsUpAccounts
               key={selectedCharacter.id}
               realName={selectedCharacter.name}
-              mainAvatarDataUrl={phoneCharacterAvatarDataUrl(selectedCharacter)}
               alias={ownWhatsUpAlias}
-              images={phoneGalleryImages}
+              owner={{ ...selectedCharacter, images: phoneGalleryImages }}
               removable={!whatsUpAliasInUse}
               onClose={() => setWhatsUpAliasEditorOpen(false)}
-              onSave={(alias) => onSaveWhatsUpAlias(selectedCharacter, alias)}
+              onSave={(alias, portraitId) => onSaveWhatsUpAlias(selectedCharacter, alias, portraitId)}
             />
           </div>
         ) : selectedPhoneContact ? (

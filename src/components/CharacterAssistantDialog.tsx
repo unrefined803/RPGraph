@@ -21,7 +21,7 @@ import { visibleLibraryEntries } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
 import { CharacterAvatar } from './CharacterAvatar';
-import { ProfilePickDialog } from './ProfilePickDialog';
+import { PortraitManager } from './PortraitManager';
 import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
 import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
@@ -298,7 +298,6 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     } finally { if (request.current === controller) { request.current = null; setBusy(false); } }
   }
   const portrait = character.images.find((image) => image.id === character.profileImage?.imageId);
-  const facePickImage = character.images.find((image) => image.id === facePickImageId && image.id === character.profileImage?.imageId);
   return <div className="dialog-backdrop character-assistant-backdrop">
     <section ref={dialogRef} tabIndex={-1} className="storybook-creator-dialog character-assistant-dialog" role="dialog" aria-modal="true" aria-labelledby="character-assistant-title"
       onKeyDown={(event) => {
@@ -389,8 +388,8 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
               </div>)}</details>
             </fieldset>}
           </article>
-          <section className="character-assistant-gallery"><div className="character-assistant-inline"><h3>Gallery · {character.images.length}</h3><button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => imageInput.current?.click()}>Add Images</button></div>
-            <p>F: Fotogram · O: OnlyFriends · M: MatchMe · P: Portrait. Select “Attach” to show an image to the assistant.</p>
+          <section className="character-assistant-gallery"><div className="character-assistant-inline"><h3>Gallery · {character.images.length}</h3><button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => setFacePickImageId('')}>Manage Portraits</button><button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => imageInput.current?.click()}>Add Images</button></div>
+            <p>F: Fotogram post · O: OnlyFriends post · M: MatchMe photo. Select “Attach” to show an image to the assistant.</p>
             {character.images.map((image) => <article key={image.id} className="character-assistant-image">
               <img src={image.dataUrl} alt={image.description || image.name} loading="lazy" />
               <fieldset disabled={ioBusy}>
@@ -400,16 +399,16 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
                 ]} onSave={(values) => { change({ ...character, images: character.images.map((entry) => entry.id === image.id ? { ...entry, name: values.name, description: values.description } : entry) }); return true; }}>
                   <div className="character-field"><span className="field-label">{image.name}</span><p>{image.description || 'Ask the assistant to describe this image.'}</p></div>
                 </StorybookInlineEditor>
-                <div className="character-assistant-image-uses">{(['F', 'O', 'M', 'P'] as const).map((use) => {
-                  const checked = use === 'P' ? character.profileImage?.imageId === image.id : use === 'M' ? character.apps?.matchme?.profile?.photoIds.includes(image.id)
+                <div className="character-assistant-image-uses">{(['F', 'O', 'M'] as const).map((use) => {
+                  const checked = use === 'M' ? character.apps?.matchme?.profile?.photoIds.includes(image.id)
                     : character.apps?.[use === 'F' ? 'fotogram' : 'onlyfriends']?.initialPosts?.some((post) => post.imageId === image.id);
-                  return <label key={use}><input type="checkbox" checked={!!checked} onChange={(event) => { try { change(assignCharacterImage(character, image.id, use, event.target.checked)); if (use === 'P' && event.target.checked) setFacePickImageId(image.id); } catch (error) { setStatus(errorText(error)); } }} />{use}</label>;
+                  return <label key={use}><input type="checkbox" checked={!!checked} onChange={(event) => { try { change(assignCharacterImage(character, image.id, use, event.target.checked)); } catch (error) { setStatus(errorText(error)); } }} />{use}</label>;
                 })}<label><input type="checkbox" checked={attachments.includes(image.id)} disabled={busy} onChange={(event) => setAttachments((ids) => event.target.checked ? [...ids, image.id] : ids.filter((id) => id !== image.id))} />Attach</label></div>
                 {character.profileImage?.imageId === image.id && <div className="character-assistant-portrait-crop"><span>Portrait crop</span>
                   <button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => setFacePickImageId(image.id)}>Mark Face</button>
                   <small>Or ask the AI in the chat to frame the face.</small></div>}
                 <button className="contextual-action-button nodrag" type="button" onClick={() => {
-                  const used = character.profileImage?.imageId === image.id || character.apps?.whatsup?.alias?.avatarImageId === image.id || Object.values(character.apps ?? {}).some((account) => account.avatarImageId === image.id || account.initialPosts?.some((post) => post.imageId === image.id)) || character.apps?.matchme?.profile?.photoIds.includes(image.id);
+                  const used = Object.values(character.customPortraits ?? {}).some((portrait) => portrait.imageId === image.id) || character.profileImage?.imageId === image.id || character.apps?.whatsup?.alias?.avatarImageId === image.id || Object.values(character.apps ?? {}).some((account) => account.avatarImageId === image.id || account.initialPosts?.some((post) => post.imageId === image.id)) || character.apps?.matchme?.profile?.photoIds.includes(image.id);
                   if (used) { setStatus('Remove this image’s portrait, avatar, post and MatchMe assignments before deleting it.'); return; }
                   change({ ...character, images: character.images.filter((entry) => entry.id !== image.id) }); setAttachments((ids) => ids.filter((id) => id !== image.id));
                 }}>Remove image</button>
@@ -482,19 +481,11 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
         {status && <p role="status">{status}</p>}<div className="storybook-confirm-actions"><button className="contextual-action-button nodrag" type="button" disabled={ioBusy} onClick={() => setChoices(null)}>Cancel</button><button className="contextual-action-button nodrag" type="button" disabled={ioBusy || !choiceKey} onClick={() => void loadSelected()}>Load</button></div>
       </section></div>}
       {confirm && <div className="storybook-confirm-backdrop"><section className="storybook-confirm-dialog" role="alertdialog" aria-label="Confirm character action"><p>{confirm.message}</p><div className="storybook-confirm-actions"><button className="contextual-action-button nodrag" type="button" autoFocus onClick={() => setConfirm(null)}>Cancel</button><button className="contextual-action-button nodrag" type="button" onClick={() => { const action = confirm.action; setConfirm(null); action(); }}>{confirm.label}</button></div></section></div>}
-      {facePickImage && <ProfilePickDialog
-        characterName={character.name}
-        image={facePickImage}
-        currentProfileImage={character.profileImage?.crop ? { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, crop: character.profileImage.crop } : undefined}
-        onClose={() => setFacePickImageId(undefined)}
-        onApply={(profileImage) => {
-          try {
-            const next = { ...character, profileImage: { imageId: facePickImage.id, dataUrl: facePickImage.dataUrl, ...(profileImage.crop ? { crop: profileImage.crop } : {}) } };
-            validateAssistantCharacter(next);
-            change(next);
-          } catch (error) { setStatus(errorText(error)); }
-          setFacePickImageId(undefined);
+      {facePickImageId !== undefined && <PortraitManager owner={character} initialImageId={facePickImageId || undefined}
+        onClose={() => setFacePickImageId(undefined)} onChange={(next) => {
+          try { validateAssistantCharacter(next); change(next); } catch (error) { setStatus(errorText(error)); }
         }} />}
+
     </section>
   </div>;
 }

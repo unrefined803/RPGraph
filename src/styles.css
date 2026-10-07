@@ -30796,3 +30796,321 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
     animation: none;
   }
 }
+
+/* Shared character portrait slots and gallery authoring. */
+.portrait-manager {
+  width: min(760px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid rgba(130, 160, 220, 0.12);
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(52, 82, 140, 0.16), transparent 75%),
+    linear-gradient(180deg, #111a2a, #0c1320);
+  box-shadow: 0 0 140px rgba(60, 100, 180, 0.14), 0 24px 80px rgba(0, 0, 0, 0.52);
+  color: #dbe3f2;
+}
+
+.portrait-manager-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.portrait-manager-header h4,
+.portrait-manager-header p {
+  margin: 0;
+}
+
+.portrait-manager-header h4 {
+  color: var(--soft-white);
+  font-size: 16px;
+}
+
+.portrait-manager-header p {
+  margin-top: 4px;
+  color: #8292ae;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.portrait-manager-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: #536079;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.portrait-manager-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #8292ae;
+  font-size: 12px;
+}
+
+.portrait-manager-button,
+.portrait-slot-clear {
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  color: #b7c4da;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.portrait-manager-button:hover,
+.portrait-slot-clear:hover {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: rgba(122, 162, 232, 0.12);
+  color: var(--soft-white);
+}
+
+.portrait-manager-error {
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(232, 112, 112, 0.2);
+  border-radius: 10px;
+  background: rgba(232, 112, 112, 0.06);
+  color: #d9b3b6;
+  font-size: 12px;
+}
+
+.portrait-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.portrait-slot {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  background: rgba(148, 170, 214, 0.035);
+  box-shadow: none;
+  color: #dbe3f2;
+  font: inherit;
+  text-align: center;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* The selector lives inside app forms that skin every button; restate the card look. */
+.portrait-slot-grid button.portrait-slot {
+  padding: 10px 6px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  background: rgba(148, 170, 214, 0.035);
+  color: #dbe3f2;
+  cursor: pointer;
+}
+
+.portrait-slot-grid button.portrait-slot:hover:not(:disabled),
+.portrait-slot:has(.portrait-slot-main:hover:not(:disabled)) {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(148, 170, 214, 0.07);
+}
+
+.portrait-slot-grid button.portrait-slot[aria-pressed="true"],
+.portrait-slot-grid button.portrait-slot[aria-pressed="true"]:hover {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: linear-gradient(180deg, rgba(52, 71, 106, 0.6), rgba(35, 49, 80, 0.6));
+  box-shadow: 0 0 16px rgba(92, 132, 214, 0.18);
+}
+
+.portrait-slot-grid button.portrait-slot:disabled,
+.portrait-slot-main:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.portrait-slot-main {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.portrait-slot img,
+.portrait-slot-empty {
+  display: grid;
+  width: 84px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  flex: none;
+  place-items: center;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.portrait-slot img {
+  border: 1px solid rgba(130, 160, 220, 0.22);
+}
+
+.portrait-slot-empty {
+  border: 1px dashed rgba(148, 163, 184, 0.24);
+  background: rgba(2, 3, 6, 0.22);
+  color: #66738c;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.portrait-slot strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--soft-white);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.portrait-slot small {
+  max-width: 100%;
+  color: #8292ae;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.portrait-slot .portrait-slot-uses {
+  color: #66738c;
+}
+
+.portrait-slot-clear {
+  margin-top: 8px;
+  padding: 5px 12px;
+}
+
+/* Compact variant inside the phone app profile forms. */
+.portrait-slot-grid.compact {
+  gap: 8px;
+}
+
+.portrait-slot-grid.compact .portrait-slot img,
+.portrait-slot-grid.compact .portrait-slot-empty {
+  width: 56px;
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+
+.portrait-slot-grid.compact .portrait-slot strong {
+  font-size: 11px;
+}
+
+.portrait-slot-grid.compact .portrait-slot small {
+  font-size: 10px;
+}
+
+.portrait-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.portrait-gallery button {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.09);
+  border-radius: 12px;
+  background: rgba(148, 170, 214, 0.035);
+  box-shadow: none;
+  color: #b7c4da;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.portrait-gallery button:hover,
+.portrait-gallery button[aria-pressed="true"] {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: rgba(122, 162, 232, 0.12);
+  color: var(--soft-white);
+}
+
+.portrait-gallery img {
+  width: 100%;
+  height: 150px;
+  border-radius: 8px;
+  background: rgba(2, 3, 6, 0.3);
+  object-fit: contain;
+}
+
+.portrait-gallery span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portrait-manager-empty {
+  margin: 0;
+  padding: 28px 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  color: #8292ae;
+  font-size: 12px;
+  text-align: center;
+}
+
+.phone-gallery-header > button.phone-gallery-portraits-button {
+  width: auto;
+  margin-left: auto;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #b7c4da;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.phone-gallery-header > button.phone-gallery-portraits-button:hover,
+.phone-gallery-header > button.phone-gallery-portraits-button:focus-visible {
+  border-color: rgba(122, 162, 232, 0.45);
+  background: rgba(122, 162, 232, 0.12);
+  color: var(--soft-white);
+}
+
+.phone-gallery-action-btn.portrait {
+  width: auto;
+  gap: 6px;
+  padding: 0 13px;
+  border: 1.5px solid rgba(122, 162, 232, 0.4);
+  border-radius: 999px;
+  background: rgba(122, 162, 232, 0.22);
+  color: #bcd0f5;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.phone-gallery-action-btn.portrait:hover {
+  border-color: rgba(122, 162, 232, 0.65);
+  background: rgba(122, 162, 232, 0.45);
+  color: var(--soft-white);
+}

@@ -104,24 +104,9 @@ export function appAvatarDataUrl(
   return portraitDataUrl(image, character?.profileImage?.imageId === image.id ? character.profileImage.crop : undefined);
 }
 
-/** Social album selections use the full image; only the portrait fallback uses its crop. */
-export function socialAvatarDataUrl(
-  character: Parameters<typeof appAvatarDataUrl>[0],
-  image?: Parameters<typeof appAvatarDataUrl>[1],
-) {
-  return image?.dataUrl ?? character?.profileImage?.dataUrl;
-}
-
-/** Keep legacy portrait followers while preserving explicit social album selections. */
+/** The real character portrait is independent of every app's selected slot. */
 export function withCharacterPortrait<T extends { profileImage?: RpStorybookCharacterProfileImage; apps?: CharacterApps }>(
   character: T, profileImage: RpStorybookCharacterProfileImage | undefined,
 ): T {
-  const previousId = character.profileImage?.imageId;
-  const apps = character.apps && Object.fromEntries(Object.entries(character.apps).map(([app, account]) => [app,
-    app !== 'fotogram' && app !== 'onlyfriends' && previousId && account.avatarImageId === previousId
-      ? { ...account, avatarImageId: profileImage?.imageId,
-          ...(app === 'matchme' && previousId !== profileImage?.imageId ? { avatarCrop: undefined } : {}) }
-      : account,
-  ]));
-  return { ...character, profileImage, ...(apps ? { apps } : {}) };
+  return { ...character, profileImage };
 }

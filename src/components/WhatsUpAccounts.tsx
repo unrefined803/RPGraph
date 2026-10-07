@@ -1,18 +1,10 @@
 import { useState } from 'react';
 import { CharacterAvatar } from './CharacterAvatar';
-import { ProfilePickDialog } from './ProfilePickDialog';
-import type { WhatsUpAlias } from '../characters/character';
-import { portraitDataUrl } from '../characters/portrait';
+import { PortraitSelector } from './PortraitManager';
+import { accountPortraitUrl, type PortraitOwner } from '../characters/portraits';
+import type { PortraitId, WhatsUpAlias } from '../characters/character';
 import { copyTextToClipboard } from '../utils/clipboard';
-import type { RpStorybookCharacterImage } from '../nodes/rp-storybook/model';
 import './characterAppProfiles.css';
-
-type GalleryImage = { id: string; name?: string; dataUrl: string; width?: number; height?: number };
-
-function aliasAvatar(alias: WhatsUpAlias | undefined, images: GalleryImage[]) {
-  const image = images.find((entry) => entry.id === alias?.avatarImageId);
-  return image ? portraitDataUrl(image, alias?.avatarCrop) : undefined;
-}
 
 /** One account row: picture, name and the link others use to add it. */
 function AccountCard({ label, name, avatarDataUrl, note, action }: {
@@ -36,23 +28,22 @@ function AccountCard({ label, name, avatarDataUrl, note, action }: {
 
 /**
  * WhatsUp accounts of one character. The main account always uses the real
- * name and portrait; the optional second account is another name and picture
- * for the same inbox. Images remain gallery references.
+ * name; both accounts independently select a prepared portrait for the same inbox.
  */
-export function WhatsUpAccounts({ realName, mainAvatarDataUrl, alias, images, removable = true, onSave, onClose }: {
+export function WhatsUpAccounts({ realName, alias, owner, removable = true, onSave, onClose }: {
   realName: string;
-  mainAvatarDataUrl?: string;
   alias?: WhatsUpAlias;
-  images: GalleryImage[];
+  owner: PortraitOwner;
   /** False once the second account has chats: it can then be renamed, which renames its chats, but not removed. */
   removable?: boolean;
   /** True when saved; otherwise false or the reason shown in the form. */
-  onSave: (alias: WhatsUpAlias | undefined) => boolean | string;
+  onSave: (alias: WhatsUpAlias | undefined, portraitId?: PortraitId) => boolean | string;
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [error, setError] = useState('');
   if (editing) {
-    return <SecondAccountEditor realName={realName} alias={alias} images={images} removable={removable} onBack={() => setEditing(false)}
+    return <SecondAccountEditor realName={realName} alias={alias} owner={owner} removable={removable} onBack={() => setEditing(false)}
       onSave={(next) => { const saved = onSave(next); if (saved === true) setEditing(false); return saved; }} />;
   }
   return <div className="social-profile-editor whatsup-accounts">
@@ -60,10 +51,12 @@ export function WhatsUpAccounts({ realName, mainAvatarDataUrl, alias, images, re
       <div><span className="social-profile-eyebrow">WhatsUp</span><h2>Your accounts</h2></div>
       <button type="button" className="whatsup-account-action" onClick={onClose}>Done</button>
     </header>
-    <AccountCard label="Main account" name={realName} avatarDataUrl={mainAvatarDataUrl}
-      note="Uses your name and portrait. Share this link with people who know you." />
+    <AccountCard label="Main account" name={realName} avatarDataUrl={accountPortraitUrl(owner, owner.apps?.whatsup)}
+      note="Uses your real name. Choose one of your prepared portraits." />
+    <PortraitSelector owner={owner} value={owner.apps?.whatsup?.portraitId} onChange={(id) => { const saved = onSave(alias, id); setError(saved === true ? '' : typeof saved === 'string' ? saved : 'Could not save the portrait selection.'); }} />
+    {error && <p role="alert">{error}</p>}
     {alias
-      ? <AccountCard label="Second account" name={alias.name} avatarDataUrl={aliasAvatar(alias, images)}
+      ? <AccountCard label="Second account" name={alias.name} avatarDataUrl={accountPortraitUrl(owner, alias)}
         note="Its own name and picture. Messages arrive in the same inbox."
         action={{ label: 'Edit', onClick: () => setEditing(true) }} />
       : <section className="whatsup-account-card whatsup-account-create">
@@ -76,15 +69,12 @@ export function WhatsUpAccounts({ realName, mainAvatarDataUrl, alias, images, re
   </div>;
 }
 
-function SecondAccountEditor({ realName, alias, images, removable, onSave, onBack }: {
-  realName: string; alias?: WhatsUpAlias; images: GalleryImage[]; removable: boolean;
-  onSave: (alias: WhatsUpAlias | undefined) => boolean | string; onBack: () => void;
+function SecondAccountEditor({ realName, alias, owner, removable, onSave, onBack }: {
+  realName: string; alias?: WhatsUpAlias; owner: PortraitOwner; removable: boolean;
+  onSave: (alias: WhatsUpAlias | undefined, portraitId?: PortraitId) => boolean | string; onBack: () => void;
 }) {
   const [draft, setDraft] = useState<WhatsUpAlias>(() => alias ?? { name: '' });
-  // Choosing a photo leads straight to marking the face in it.
-  const [pickingImageId, setPickingImageId] = useState<string>();
   const [error, setError] = useState('');
-  const pickingImage = images.find((entry) => entry.id === pickingImageId);
   const name = draft.name.trim();
 
   return <form className="social-profile-editor whatsup-accounts" onSubmit={(event) => {
@@ -99,25 +89,14 @@ function SecondAccountEditor({ realName, alias, images, removable, onSave, onBac
       <button type="button" className="whatsup-account-action" onClick={onBack}>← Accounts</button>
     </header>
     <section className="whatsup-account-card">
-      <CharacterAvatar className="whatsup-account-avatar" name={name || 'Second account'} profileImageDataUrl={aliasAvatar(draft, images)} fallback={(name || '?').slice(0, 1).toUpperCase()} />
+      <CharacterAvatar className="whatsup-account-avatar" name={name || 'Second account'} profileImageDataUrl={accountPortraitUrl(owner, draft)} fallback={(name || '?').slice(0, 1).toUpperCase()} />
       <label className="whatsup-account-details">Name
         <input required maxLength={60} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="For example your work name" />
       </label>
     </section>
     <section className="whatsup-account-picture">
-      <div className="whatsup-account-picture-heading">
-        <strong>Profile picture</strong>
-        <span className="whatsup-alias-face-status">Pick a photo, then mark the face.</span>
-      </div>
-      <div className="whatsup-account-photos">
-        <button type="button" className="social-profile-photo" aria-pressed={!draft.avatarImageId} onClick={() => setDraft({ name: draft.name })}>
-          <span className="social-profile-photo-fallback">{(name || '?').slice(0, 1).toUpperCase()}</span><span>None</span>
-        </button>
-        {images.map((entry) => <button key={entry.id} type="button" className="social-profile-photo" aria-pressed={draft.avatarImageId === entry.id}
-          title={draft.avatarImageId === entry.id ? 'Adjust the face' : 'Use this photo'} onClick={() => setPickingImageId(entry.id)}>
-          <img src={entry.dataUrl} alt={entry.name || 'Album photo'} loading="lazy" /><span>{entry.name || 'Album photo'}</span>
-        </button>)}
-      </div>
+      <strong>Profile portrait</strong><p>Create portraits in your gallery, then select one here.</p>
+      <PortraitSelector owner={owner} value={draft.portraitId} onChange={(portraitId) => setDraft({ name: draft.name, portraitId })} />
     </section>
     {error && <p className="social-profile-error" role="alert">{error}</p>}
     <footer className="social-profile-actions">
@@ -129,15 +108,6 @@ function SecondAccountEditor({ realName, alias, images, removable, onSave, onBac
       <button type="button" onClick={onBack}>Cancel</button>
       <button className="social-profile-save" type="submit">Save <span aria-hidden="true">→</span></button>
     </footer>
-    {pickingImage && <ProfilePickDialog
-      characterName={name || 'Second account'}
-      image={{ description: '', mimeType: 'image/jpeg', size: 0, ...pickingImage, name: pickingImage.name ?? '' } as RpStorybookCharacterImage}
-      currentProfileImage={draft.avatarImageId === pickingImage.id && draft.avatarCrop
-        ? { imageId: pickingImage.id, dataUrl: pickingImage.dataUrl, crop: draft.avatarCrop } : undefined}
-      onClose={() => setPickingImageId(undefined)}
-      onApply={(profileImage) => {
-        setDraft({ name: draft.name, avatarImageId: pickingImage.id, ...(profileImage.crop ? { avatarCrop: profileImage.crop } : {}) });
-        setPickingImageId(undefined);
-      }} />}
+
   </form>;
 }

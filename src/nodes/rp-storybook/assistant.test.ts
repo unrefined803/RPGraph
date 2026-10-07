@@ -200,10 +200,10 @@ it('preserves a photo-less MatchMe draft through patches and storage until activ
 
 it('instructs the assistant to prefer the marked portrait and save drafts without photos', () => {
   const prompt = rpStorybookEditPrompt(rpStorybookPromptJsonText(starterRpStorybook), 'Create profiles');
-  expect(prompt).toContain('prioritize characters[].profileImage.imageId');
-  expect(prompt).toContain('Otherwise choose the first available image');
+  expect(prompt).toContain('profileImage is the Character Portrait');
+  expect(prompt).toContain('App profile portraits select only portraitId');
   expect(prompt).toContain('profile.photoIds: []');
-  expect(prompt).toContain('Fotogram and OnlyFriends can be enabled without avatarImageId');
+  expect(prompt).toContain('Missing portraitId means character');
 });
 
 
@@ -371,16 +371,6 @@ describe('assistant account and portrait image assignments', () => {
         profile: { age: 25, bio: 'Hello', interests: 'Music', photoIds: ['first'], decisions: {} } },
     },
   }] });
-
-  it.each(['whatsup/alias', 'matchme'])('clears stale crops when changing %s photos', (account) => {
-    const current = book();
-    const result = apply([{ op: 'replace', path: `/characters/0/apps/${account}/avatarImageId`, value: 'second' }], current).storybook;
-    const selected = account === 'matchme' ? result.characters[0].apps?.matchme : result.characters[0].apps?.whatsup?.alias;
-    expect(selected?.avatarImageId).toBe('second');
-    expect(selected?.avatarCrop).toBeUndefined();
-    expect(current.characters[0].apps?.whatsup?.alias?.avatarCrop).toEqual(crop);
-    expect(current.characters[0].apps?.matchme?.avatarCrop).toEqual(crop);
-  });
 
   it('preserves crops on unrelated edits and supports second account removal', () => {
     const changed = apply([{ op: 'replace', path: '/characters/0/apps/whatsup/alias/name', value: 'Office Line' }], book()).storybook;

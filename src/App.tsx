@@ -1660,6 +1660,7 @@ function App() {
     imageDescriptionById: storybookImageDescriptionById,
     imageCaptionChangesById: phoneImageCaptionChangesById,
     currentImageSourceById: currentStorybookImageSourceById,
+    changePhonePortraits,
     changePhoneWallpaper: changeStorybookPhoneWallpaper,
     saveSocialUsername: saveStorybookSocialUsername,
     saveWhatsUpAlias,
@@ -6539,9 +6540,9 @@ function App() {
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onSaveDatingProfile={saveMatchMeProfile}
-              onSaveWhatsUpAlias={(owner, alias) => isRunning ? 'Wait until the current run has finished.'
+              onSaveWhatsUpAlias={(owner, alias, portraitId) => isRunning ? 'Wait until the current run has finished.'
                 : !alias && whatsUpAliasInUse(owner, messagesRef.current) ? 'This account has chats and can only be renamed.'
-                : saveWhatsUpAlias(owner, alias)}
+                : saveWhatsUpAlias(owner, alias, portraitId)}
               whatsUpAliasInUse={viewedPhoneAliasInUse}
               phoneWritesAsAlias={phoneWritesAsAlias}
               phoneSenderUnknownToContact={phoneSenderUnknownToContact}
@@ -6656,6 +6657,7 @@ function App() {
                 }
                 notifySystem('info', `Saved generated image in ${character.name}'s Phone Gallery.`);
               }}
+              onPhonePortraitsChange={(owner, portraits) => { if (!isRunning && !activeTurnCollectorRef.current) changePhonePortraits(owner, portraits); }}
               onPhoneWallpaperChange={changeStorybookPhoneWallpaper}
               chatGpd={chatGpd}
               chatGpdSidebarOpen={chatGpdSidebarOpen}
