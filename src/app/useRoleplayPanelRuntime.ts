@@ -257,6 +257,8 @@ export function useRoleplayPanelRuntime({
     pulseKey: number;
   }>();
   const [lastSeenMessageRecordId, setLastSeenMessageRecordId] = useState(0);
+  // Highest message id that existed while the Chat view was on screen.
+  const [chatSeenMessageId, setChatSeenMessageId] = useState(0);
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(() => new Set());
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<string>>(() => new Set());
   const [phoneDraft, setPhoneDraft] = useState('');
@@ -420,10 +422,12 @@ export function useRoleplayPanelRuntime({
     }>();
     // DMs rendered as embedded app blocks inside a chat bubble were already
     // read there, so they produce no app notification while the option is on.
+    // A bubble that arrived behind another view counts once Chat was shown.
     const chatEmbeddedSocialIds = new Set(
       chatReadsPhoneAppsEnabled
-        ? messages.flatMap((message) =>
-            message.embeddedSocialMessages?.map((link) => link.socialMessageId) ?? [])
+        ? messages.flatMap((message) => chatPanelView === 'chat' || message.id <= chatSeenMessageId
+            ? message.embeddedSocialMessages?.map((link) => link.socialMessageId) ?? []
+            : [])
         : [],
     );
     const datingState = matchMeState(storyCharacters, messages);
@@ -522,7 +526,7 @@ export function useRoleplayPanelRuntime({
       });
     });
     return byCharacter;
-  }), [chatReadsPhoneAppsEnabled, messages, phoneAppSeenByCharacter, storyCharacters]);
+  }), [chatPanelView, chatReadsPhoneAppsEnabled, chatSeenMessageId, messages, phoneAppSeenByCharacter, storyCharacters]);
   const phoneAppNotificationCounts = phoneAppNotifications.get(viewedPhoneCharacter?.id ?? '')?.counts ?? {
     notes: 0,
     ai: 0,
@@ -1252,6 +1256,15 @@ export function useRoleplayPanelRuntime({
       queueMicrotask(() => setLastSeenMessageRecordId(latestMessageRecordId));
     }
   }, [chatPanelView, latestMessageRecordId]);
+  const latestMessageId = useMemo(
+    () => messages.reduce((latestId, message) => Math.max(latestId, message.id), 0),
+    [messages],
+  );
+  useEffect(() => {
+    // Undo and regeneration reuse ids, so the marker never stays above the timeline.
+    queueMicrotask(() => setChatSeenMessageId((current) =>
+      chatPanelView === 'chat' ? latestMessageId : Math.min(current, latestMessageId)));
+  }, [chatPanelView, latestMessageId]);
 
   function changePhoneAuthorBadgesEnabled(enabled: boolean) {
     setPhoneAuthorBadgesEnabled(enabled);
