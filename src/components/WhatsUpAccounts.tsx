@@ -45,13 +45,14 @@ export function WhatsUpAccounts({ realName, mainAvatarDataUrl, alias, images, on
   mainAvatarDataUrl?: string;
   alias?: WhatsUpAlias;
   images: GalleryImage[];
-  onSave: (alias: WhatsUpAlias | undefined) => boolean;
+  /** True when saved; otherwise false or the reason shown in the form. */
+  onSave: (alias: WhatsUpAlias | undefined) => boolean | string;
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   if (editing) {
     return <SecondAccountEditor realName={realName} alias={alias} images={images} onBack={() => setEditing(false)}
-      onSave={(next) => { const saved = onSave(next); if (saved) setEditing(false); return saved; }} />;
+      onSave={(next) => { const saved = onSave(next); if (saved === true) setEditing(false); return saved; }} />;
   }
   return <div className="social-profile-editor whatsup-accounts">
     <header className="whatsup-accounts-header">
@@ -76,7 +77,7 @@ export function WhatsUpAccounts({ realName, mainAvatarDataUrl, alias, images, on
 
 function SecondAccountEditor({ realName, alias, images, onSave, onBack }: {
   realName: string; alias?: WhatsUpAlias; images: GalleryImage[];
-  onSave: (alias: WhatsUpAlias | undefined) => boolean; onBack: () => void;
+  onSave: (alias: WhatsUpAlias | undefined) => boolean | string; onBack: () => void;
 }) {
   const [draft, setDraft] = useState<WhatsUpAlias>(() => alias ?? { name: '' });
   const [faceStatus, setFaceStatus] = useState<FaceStatus>(alias?.avatarImageId ? (alias.avatarCrop ? 'found' : 'full') : 'idle');
@@ -105,7 +106,8 @@ function SecondAccountEditor({ realName, alias, images, onSave, onBack }: {
     if (!name) { setError('Add a name for the second account.'); return; }
     if (name.toLowerCase() === realName.trim().toLowerCase()) { setError('Choose a name that differs from your main account.'); return; }
     if (faceStatus === 'detecting') { setError('Still looking for a face. Try again in a moment.'); return; }
-    if (!onSave({ ...draft, name })) setError('Could not save. This name may already be in use.');
+    const saved = onSave({ ...draft, name });
+    if (saved !== true) setError(typeof saved === 'string' ? saved : 'Could not save the second account.');
   }}>
     <header className="whatsup-accounts-header">
       <div><span className="social-profile-eyebrow">WhatsUp / Second account</span><h2>{alias ? 'Edit account' : 'New account'}</h2></div>
@@ -139,7 +141,10 @@ function SecondAccountEditor({ realName, alias, images, onSave, onBack }: {
     </section>
     {error && <p className="social-profile-error" role="alert">{error}</p>}
     <footer className="social-profile-actions">
-      {alias && <button type="button" className="whatsup-alias-remove" onClick={() => { if (!onSave(undefined)) setError('Could not remove the second account.'); }}>Remove</button>}
+      {alias && <button type="button" className="whatsup-alias-remove" onClick={() => {
+        const removed = onSave(undefined);
+        if (removed !== true) setError(typeof removed === 'string' ? removed : 'Could not remove the second account.');
+      }}>Remove</button>}
       <button type="button" onClick={onBack}>Cancel</button>
       <button className="social-profile-save" type="submit">Save <span aria-hidden="true">→</span></button>
     </footer>

@@ -1,4 +1,4 @@
-import { accountLinkIdentity, characterMessageAliases, matchingMessageAliases, messageAliasKey } from '../characters/messageAliases';
+import { accountLinkIdentity, characterMessageAliases, looseAccountLinkIdentity, matchingMessageAliases, messageAliasKey } from '../characters/messageAliases';
 import { accountHandle, accountHandleMatches } from '../characters/character';
 import { matchMeState, incomingMatchMeMessage } from './matchMe';
 import { resolveDatingAccount } from './datingAccounts';
@@ -38,6 +38,19 @@ export type ResolvedSocialMessageIdentity = {
 
 /** Resolve an LLM-supplied name or nickname without inventing accounts for known characters. */
 export function resolveSocialMessageIdentity(options: {
+  characters: StorybookCharacter[];
+  messages: MessageRecord[];
+  app: SocialMessengerAppKind;
+  identity: string;
+}): ResolvedSocialMessageIdentity {
+  const resolved = resolveWrittenSocialMessageIdentity(options);
+  // A link that lost its leading @ is retried only when the identity is otherwise unknown.
+  const loose = resolved.available || resolved.character ? undefined : looseAccountLinkIdentity(options.identity, options.app);
+  const retried = loose ? resolveWrittenSocialMessageIdentity({ ...options, identity: loose }) : undefined;
+  return retried?.available || retried?.character ? retried : resolved;
+}
+
+function resolveWrittenSocialMessageIdentity(options: {
   characters: StorybookCharacter[];
   messages: MessageRecord[];
   app: SocialMessengerAppKind;

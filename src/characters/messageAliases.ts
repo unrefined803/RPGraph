@@ -19,6 +19,15 @@ export function accountLinkIdentity(value: string, app: (typeof accountLinkAppAl
   return linked === app ? match![2].trim().replace(/^@/, '').trim() : undefined;
 }
 
+/**
+ * A link whose leading @ was dropped (`app:Identity`). Resolvers use it only
+ * as a fallback for an otherwise unknown identity.
+ */
+export function looseAccountLinkIdentity(value: string, app: (typeof accountLinkAppAliases)[keyof typeof accountLinkAppAliases]) {
+  const trimmed = value.trim();
+  return trimmed.startsWith('@') ? undefined : accountLinkIdentity(`@${trimmed}`, app);
+}
+
 /** Presentation aliases identify an owner; delivery still requires a target-app account. */
 export function characterMessageAliases(character: StorybookCharacter): string[] {
   const accounts = Object.values(character.apps ?? {});

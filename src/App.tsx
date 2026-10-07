@@ -6489,7 +6489,7 @@ function App() {
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onSaveDatingProfile={saveMatchMeProfile}
-              onSaveWhatsUpAlias={(owner, alias) => !isRunning && saveWhatsUpAlias(owner, alias)}
+              onSaveWhatsUpAlias={(owner, alias) => isRunning ? 'Wait until the current run has finished.' : saveWhatsUpAlias(owner, alias)}
               phoneWritesAsAlias={phoneWritesAsAlias}
               phoneSenderUnknownToContact={phoneSenderUnknownToContact}
               onPhoneWritesAsAliasChange={setPhoneWritesAsAlias}

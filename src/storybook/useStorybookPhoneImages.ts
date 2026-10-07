@@ -2,6 +2,7 @@ import {
   profileIdentityError,
   validateCandidateCharacterRegistry,
   validateCharacterAccountDirectory,
+  whatsUpAliasConflict,
   withCharacterAppProfile,
 } from '../characters/profiles';
 import { characterPayload, validateCharacterPayload, type CharacterAppAccount, type AppAvatarCrop, type WhatsUpAlias } from '../characters/character';
@@ -170,22 +171,32 @@ export function useStorybookPhoneImages({
     });
   }
 
-  /** Set or remove the second WhatsUp name; the account and its real name stay untouched. */
-  function saveWhatsUpAlias(character: StorybookCharacter, alias: WhatsUpAlias | undefined) {
+  /**
+   * Set or remove the second WhatsUp name; the account and its real name stay
+   * untouched. Returns true, or the reason the change was rejected.
+   */
+  function saveWhatsUpAlias(character: StorybookCharacter, alias: WhatsUpAlias | undefined): true | string {
     const node = nodesRef.current.find((entry) => entry.id === character.storybookNodeId && isStorybookSourceNode(entry));
-    if (!node?.data.storybookJson) return false;
+    const unavailable = 'This character’s Storybook is not available for editing.';
+    if (!node?.data.storybookJson) return unavailable;
     const storybook = parseRpStorybookJson(node.data.storybookJson);
     const source = storybook.characters.find((entry) => entry.id === character.sourceId);
-    if (!source) return false;
+    if (!source) return unavailable;
     let next: RpStorybook;
     try {
       const { alias: _previous, ...account } = { accountId: `character:${source.id}:whatsup`, enabled: true, bio: '', ...source.apps?.whatsup };
       next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === source.id
         ? withCharacterAppProfile(entry, 'whatsup', { ...account, ...(alias ? { alias } : {}) } as CharacterAppAccount) : entry) };
       validateProfileCandidate(node.id, next);
+      // NPCs outside this Storybook take part in the same chats, so their names are taken as well.
+      const conflict = whatsUpAliasConflict(alias?.name ?? '', source.id,
+        appCharactersFromRegistry(characterRegistryForStorybook(node.id, next.characters))
+          .map((entry) => ({ id: entry.sourceId, name: entry.name, alias: entry.apps?.whatsup?.alias?.name })));
+      if (conflict) throw new Error(conflict);
     } catch (error) {
-      notifySystem('warning', error instanceof Error ? error.message : String(error));
-      return false;
+      const reason = error instanceof Error ? error.message : String(error);
+      notifySystem('warning', reason);
+      return reason;
     }
     updateRuntimeNode(node.id, { storybookJson: rpStorybookJsonText(next),
       storybookStatus: `WhatsUp second name ${alias ? 'saved' : 'removed'} for ${character.name}.` });

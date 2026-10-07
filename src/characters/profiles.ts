@@ -84,10 +84,28 @@ export function validateCharacterAccountDirectory(characters: Character[]) {
     }
   }
   // A second WhatsUp name is a link target, so it must not collide with a real name or another second name.
+  const directory = characters.map((entry) => ({ id: entry.id, name: entry.name, alias: entry.apps?.whatsup?.alias?.name }));
   for (const character of characters) {
-    const alias = character.apps?.whatsup?.alias?.name.trim().replace(/\s+/g, ' ').toLowerCase();
-    if (!alias) continue;
-    if (names.has(alias)) throw new Error(`The second WhatsUp name "${character.apps!.whatsup!.alias!.name.trim()}" is already used as a name in this Storybook.`);
-    names.add(alias);
+    const conflict = whatsUpAliasConflict(character.apps?.whatsup?.alias?.name ?? '', character.id, directory);
+    if (conflict) throw new Error(conflict);
   }
+}
+
+/**
+ * Why a second WhatsUp name cannot be used, or undefined when it is free. Names
+ * are compared the way message participants are resolved, so spellings that
+ * differ only in case, spaces, dots, underscores or hyphens count as the same.
+ */
+export function whatsUpAliasConflict(alias: string, ownerId: string,
+  directory: Array<{ id: string; name: string; alias?: string }>) {
+  const key = (value: string | undefined) => (value ?? '').trim().toLowerCase().replace(/[\s._-]+/g, '');
+  const aliasKey = key(alias);
+  if (!aliasKey) return undefined;
+  const taken = directory.find((entry) => key(entry.name) === aliasKey) ??
+    directory.find((entry) => entry.id !== ownerId && key(entry.alias) === aliasKey);
+  if (!taken) return undefined;
+  const holder = key(taken.name) === aliasKey
+    ? taken.id === ownerId ? 'this character’s own name' : `the name of ${taken.name.trim()}`
+    : `the second WhatsUp name of ${taken.name.trim()}`;
+  return `The second WhatsUp name "${alias.trim()}" is already used as a name: it matches ${holder}. Choose a different name.`;
 }

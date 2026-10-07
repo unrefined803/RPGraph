@@ -307,7 +307,7 @@ type PhonePanelProps = {
   onMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
   onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile, avatarCrop?: AppAvatarCrop | null) => boolean;
   /** Set or remove the viewed character's second WhatsUp name. */
-  onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined) => boolean;
+  onSaveWhatsUpAlias: (owner: StorybookCharacter, alias: WhatsUpAlias | undefined) => boolean | string;
   /** Whether the open conversation is written under the second name, and how to change that. */
   phoneWritesAsAlias: boolean;
   phoneSenderUnknownToContact: boolean;

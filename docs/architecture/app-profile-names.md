@@ -144,8 +144,15 @@ Storybooks and RP Saves without the field behave exactly as before.
   second name, the link identity `<account ID>:alias`. Messages and contact
   grants store that identity, so nothing that looks an account up by ID arrives
   at the real name by accident. A real name or account handle always wins; the
-  second name answers only to itself and must differ from every character name
-  and other second name in the Storybook.
+  second name answers only to itself. A bare name without a link resolves as
+  long as it identifies exactly one account; a relaxed spelling that reaches
+  both a second name and another name is rejected as ambiguous.
+- A second name must differ from every character name and every other second
+  name (`whatsUpAliasConflict`). The comparison ignores case, spaces, dots,
+  underscores and hyphens, matching how participants are resolved. Storybook
+  editing checks the Storybook; the phone's **Your accounts** form also checks
+  NPCs outside it and shows the reason, naming who holds the name. The second
+  name is stored in the Storybook, so it persists across new chats.
 - The other person sees a separate contact with the second name and its own
   picture (`whatsUpAliasContact` in `src/chat/phoneCharacters.ts`). It carries
   no characterization and never falls back to the character portrait (initials
@@ -160,11 +167,15 @@ Storybooks and RP Saves without the field behave exactly as before.
   badge (“Second account · <name>” or “Main account · <name>”) once where a
   conversation starts on the second account and at every later switch; the
   derived `phoneOwnerAlias` message flag behind it is never stored.
-- The second name is never rewritten: writing under it is always deliberate, so
-  its owner can also contact someone who knows the real name. The reverse is
-  protected: when a conversation has only used the second name
-  (`whatsUpNameKnownBy`), a message a model writes under the real name
-  continues the second name instead. An exact account ID is never rewritten.
+- Which account a message uses is the story's decision; nothing is blocked.
+  An account link, an exact account ID and the second name itself are
+  deliberate choices and are never rewritten, so a narrator can have someone
+  discover or reveal the main account. Only a bare real name, which names no
+  account, is completed from context: when a conversation has only used the
+  second name (`whatsUpNameKnownBy`), it continues the second name instead of
+  opening a thread under the real one. The message parsers keep the name for
+  display and record `fromLink` / `toLink` for participants written as links.
+  Consistency (how a character learned an account) is prompt guidance only.
 - Stored account IDs take precedence over participant names. Renaming either
   party preserves account choice and the second-name protection. `phoneIdentity`
   projects current participant names into phone/chat views, embedded cards,
@@ -228,9 +239,11 @@ Comments and post commands name their author the same way
   name; `resolveWhatsUpRecipient`, `resolveSocialMessageIdentity` and
   `resolveDatingAccount` accept the link form directly as well. Inside a link
   the relaxed name spellings of bare names apply (`@whatsup:FirstLast`,
-  `@whatsup:first.last`). Only when a WhatsUp identity is otherwise unknown,
-  `resolveWhatsUpRecipient` also retries it without a link prefix that lost
-  its `@` and without a copied history label (`Name (second account of Owner)`).
+  `@whatsup:first.last`). Only when an identity is otherwise unknown, the
+  resolvers of every app retry a link that lost its `@` (`fotogram:name`,
+  `whatsup:Name`, `matchme:name`, `bank:Name`; `looseAccountLinkIdentity`).
+  `resolveWhatsUpRecipient` also drops a copied history label
+  (`Name (second account of Owner)`).
 - Inputs list the links to copy. WhatsUp and social DM inputs carry
   `Reply from:` and `Reply to:` lines; `[AVAILABLE SOCIAL ACCOUNTS]` lists each
   participant's `Account links`; character search lists a link per account.

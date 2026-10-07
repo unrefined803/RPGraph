@@ -1,4 +1,4 @@
-import { accountLinkIdentity, matchingMessageAliases } from '../characters/messageAliases';
+import { accountLinkIdentity, looseAccountLinkIdentity, matchingMessageAliases } from '../characters/messageAliases';
 import type {
   MatchMeAction,
   BankTransferRecord,
@@ -23,6 +23,9 @@ export type ParsedPhoneMessage = {
   toAccountId?: string;
   from: string;
   to: string;
+  /** The participant was written as an account link: a deliberate choice of account. */
+  fromLink?: boolean;
+  toLink?: boolean;
   message: string;
   isVoiceMessage?: boolean;
   imageId?: string;
@@ -285,6 +288,12 @@ function messageParticipant(value: string, app: MessengerAppKind) {
   return accountLinkIdentity(value, app) ?? value.trim();
 }
 
+/** Marks WhatsUp participants that were written as account links rather than bare names. */
+function whatsUpLinkFlags(from: string, to: string) {
+  const linked = (value: string) => /^@?(?:whatsup|whatsapp):/i.test(value.trim());
+  return { ...(linked(from) ? { fromLink: true } : {}), ...(linked(to) ? { toLink: true } : {}) };
+}
+
 function parsePhoneReplyRecord(value: unknown): ParsedPhoneMessage | undefined {
   if (
     !isRecord(value) ||
@@ -304,6 +313,7 @@ function parsePhoneReplyRecord(value: unknown): ParsedPhoneMessage | undefined {
   const parsed = {
     from: messageParticipant(value.from, 'whatsup'),
     to: messageParticipant(value.to, 'whatsup'),
+    ...whatsUpLinkFlags(value.from, value.to),
     message: value.message.trim(),
     isVoiceMessage: phoneVoiceMessageFlagFromRecord(value) || undefined,
     imageId: outgoingPhoneImageIdFromRecord(value),
@@ -468,6 +478,7 @@ function parseEmbeddedPhoneMessagesObject(value: unknown): ParsedPhoneMessage[] 
     const parsed = {
       from: messageParticipant(entry.from, 'whatsup'),
       to: messageParticipant(entry.to, 'whatsup'),
+      ...whatsUpLinkFlags(entry.from, entry.to),
       isVoiceMessage: phoneVoiceMessageFlagFromRecord(entry) || undefined,
       imageId: outgoingPhoneImageIdFromRecord(entry) ?? phoneImageIdFromRecord(entry),
       imageDescription: phoneImageDescriptionFromRecord(entry),
@@ -486,8 +497,9 @@ export function parseEmbeddedBankTransfersObject(value: unknown): BankTransferRe
       return [];
     }
     // A party may be written as its @bank: account link.
-    const from = accountLinkIdentity(entry.from, 'banking') ?? entry.from.trim();
-    const to = accountLinkIdentity(entry.to, 'banking') ?? entry.to.trim();
+    const party = (value: string) => accountLinkIdentity(value, 'banking') ?? looseAccountLinkIdentity(value, 'banking') ?? value.trim();
+    const from = party(entry.from);
+    const to = party(entry.to);
     const amount = typeof entry.amount === 'number'
       ? entry.amount
       : typeof entry.amount === 'string' && entry.amount.trim()
@@ -619,6 +631,7 @@ export function parseMessengerAppMessagesObject(value: unknown): ParsedMessenger
         result.phoneMessages.push({
           from,
           to,
+          ...whatsUpLinkFlags(entry.from, entry.to),
           message,
           isVoiceMessage: phoneVoiceMessageFlagFromRecord(entry) || undefined,
           imageId: outgoingPhoneImageIdFromRecord(entry) ?? phoneImageIdFromRecord(entry),

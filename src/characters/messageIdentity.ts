@@ -79,9 +79,14 @@ function resolveWrittenWhatsUpRecipient(characters: StorybookCharacter[], messag
   const aliasByName = localCharacters.length ? [] : matchingMessageAliases(
     characters.filter((character) => whatsUpAlias(character)), identity,
     (character) => [whatsUpAlias(character)!.name]);
-  if (aliasByName.length) return aliasRecipient(aliasByName, identity);
   const identityCharacters = localCharacters.length ? localCharacters
     : matchingMessageAliases(characters, identity, characterMessageAliases);
+  if (aliasByName.length) {
+    // Only a relaxed spelling can reach a second name and another name at once; that is never guessed.
+    const exactAlias = aliasByName.some((character) => key(whatsUpAlias(character)!.name) === key(identity));
+    if (!exactAlias && identityCharacters.length) throw new Error(`Ambiguous WhatsUp recipient "${identity}". Use a unique account ID.`);
+    return aliasRecipient(aliasByName, identity);
+  }
   if (identityCharacters.length > 1) {
     throw new Error(`Ambiguous WhatsUp recipient "${identity}". Use a unique account ID.`);
   }
@@ -129,21 +134,22 @@ function resolveWrittenWhatsUpRecipient(characters: StorybookCharacter[], messag
 export function resolveWhatsUpMessageParticipants(
   characters: StorybookCharacter[],
   messages: MessageRecord[],
-  message: { from: string; to: string },
+  message: { from: string; to: string; fromLink?: boolean; toLink?: boolean },
 ) {
   const from = resolveWhatsUpRecipient(characters, messages, message.from);
   const to = resolveWhatsUpRecipient(characters, messages, message.to);
   return {
-    from: knownWhatsUpName(characters, messages, from, to, message.from),
-    to: knownWhatsUpName(characters, messages, to, from, message.to),
+    from: knownWhatsUpName(characters, messages, from, to, message.from, message.fromLink),
+    to: knownWhatsUpName(characters, messages, to, from, message.to, message.toLink),
   };
 }
 
 /**
- * A character with a second name stays hidden from people who know only that
- * name: a message written under the real name then continues the second name.
- * The second name itself is always a deliberate choice, and so is an exact
- * account ID; neither is rewritten.
+ * A bare real name does not choose an account. When the conversation has only
+ * used the owner's second name, it continues that name instead of opening a
+ * thread under the real one. An account link, an exact account ID and the
+ * second name itself are deliberate choices and are never rewritten: the story
+ * decides who learns which account.
  */
 function knownWhatsUpName(
   characters: StorybookCharacter[],
@@ -151,9 +157,12 @@ function knownWhatsUpName(
   side: ReturnType<typeof resolveWhatsUpRecipient>,
   other: ReturnType<typeof resolveWhatsUpRecipient>,
   identity: string,
+  link?: boolean,
 ) {
   const owner = 'characterId' in side ? characters.find((character) => character.sourceId === side.characterId) : undefined;
-  if (!owner || !whatsUpAlias(owner) || 'alias' in side || writtenWhatsUpIdentity(identity) === side.accountId) return side;
+  const deliberate = link || accountLinkIdentity(identity, 'whatsup') !== undefined || /^(?:whatsup|whatsapp):/i.test(identity.trim()) ||
+    writtenWhatsUpIdentity(identity) === side.accountId;
+  if (!owner || !whatsUpAlias(owner) || 'alias' in side || deliberate) return side;
   return whatsUpNameKnownBy(owner, other.name, messages, other.accountId) === 'alias' ? aliasRecipient([owner], identity) : side;
 }
 

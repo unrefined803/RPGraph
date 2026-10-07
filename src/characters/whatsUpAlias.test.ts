@@ -5,7 +5,7 @@ import { characterPayload, normalizeCharacterApps, validateCharacterPayload, typ
 import {
   resolveWhatsUpMessageParticipants, resolveWhatsUpRecipient, whatsUpAliasOwner, whatsUpNameKnownBy, whatsUpNamesUsedWith,
 } from './messageIdentity';
-import { validateCharacterAccountDirectory } from './profiles';
+import { validateCharacterAccountDirectory, whatsUpAliasConflict } from './profiles';
 import { socialPublishedLinkContext, socialReactionAccountContext } from './socialReactionAccounts';
 import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { messageContactGrants } from './messageContacts';
@@ -18,8 +18,9 @@ import {
 import { phoneMarkersWithCurrentNames, phoneMessagesWithCurrentNames } from '../chat/phoneIdentity';
 import { formatChatHistory } from '../workflow/textHelpers';
 import { whatsUpMessageInputText } from '../chat/phoneReplies';
-import { datingAvatarDataUrl } from '../chat/datingAccounts';
+import { datingAccounts, datingAvatarDataUrl, resolveDatingAccount } from '../chat/datingAccounts';
 import { phoneContactsForViewer, phoneConversationInfoFromMessages, phoneConversationKey, phoneMessageShouldBeMarkedSeen, unreadPhoneConversationsForCharacters } from '../data-management/selectors';
+import { parseEmbeddedBankTransfersObject, parseMessengerAppMessagesObject } from '../chat/phoneMessages';
 import type { MessageRecord } from '../types';
 
 function character(id: string, name: string, alias?: { name: string; avatarImageId?: string }): Character {
@@ -69,7 +70,13 @@ describe('WhatsUp second name', () => {
   it('rejects a second name that collides with a real name', () => {
     expect(() => validateCharacterAccountDirectory([tamara, mark])).not.toThrow();
     expect(() => validateCharacterAccountDirectory([character('a', 'Anna Roe', { name: 'Mark Hale' }), mark]))
-      .toThrow(/already used as a name/);
+      .toThrow(/already used as a name: it matches the name of Mark Hale/);
+    // Spellings that resolve alike count as the same name, also against another second name.
+    expect(() => validateCharacterAccountDirectory([character('a', 'Anna Roe', { name: 'mark.hale' }), mark])).toThrow(/name of Mark Hale/);
+    expect(() => validateCharacterAccountDirectory([character('a', 'Anna Roe', { name: 'SofiaBelova' }), tamara]))
+      .toThrow(/second WhatsUp name of Tamara Kovac/);
+    expect(() => validateCharacterAccountDirectory([character('a', 'Anna Roe', { name: 'anna roe' })])).toThrow(/own name/);
+    expect(whatsUpAliasConflict('Sofia Belova', 'tamara', [{ id: 'tamara', name: 'Tamara Kovac', alias: 'Sofia Belova' }])).toBeUndefined();
   });
 
   it('resolves both names to the same character with separate link identities', () => {
@@ -297,13 +304,47 @@ describe('account links as message participants', () => {
       .toMatchObject({ available: true, characterId: 'mark' });
   });
 
-  it('never rewrites the second name, but hides the real one from people who know only the second', () => {
+  it('continues the known account for a bare name and never overrides a link', () => {
     const knowsReal = [phone('Mark Hale', 'Tamara Kovac')];
     expect(resolveWhatsUpMessageParticipants(characters, knowsReal, { from: '@whatsup:Sofia Belova', to: '@whatsup:Mark Hale' }).from)
       .toMatchObject({ name: 'Sofia Belova', accountId: 'tamara:whatsup:alias' });
     const knowsSecond = [phone('Mark Hale', 'Sofia Belova')];
-    expect(resolveWhatsUpMessageParticipants(characters, knowsSecond, { from: '@whatsup:Tamara Kovac', to: '@whatsup:Mark Hale' }).from.name)
+    // A bare name names no account, so the conversation stays on the one it uses.
+    expect(resolveWhatsUpMessageParticipants(characters, knowsSecond, { from: 'Tamara Kovac', to: 'Mark Hale' }).from.name)
       .toBe('Sofia Belova');
+    // A link is a deliberate choice: the story may reveal or discover the main account.
+    for (const from of ['@whatsup:Tamara Kovac', 'whatsup:Tamara Kovac']) {
+      expect(resolveWhatsUpMessageParticipants(characters, knowsSecond, { from, to: '@whatsup:Mark Hale' }).from)
+        .toMatchObject({ name: 'Tamara Kovac', accountId: 'tamara:whatsup' });
+    }
+    expect(resolveWhatsUpMessageParticipants(characters, knowsSecond, { from: '@whatsup:Mark Hale', to: '@whatsup:Tamara Kovac' }).to.accountId)
+      .toBe('tamara:whatsup');
+    // The message parsers keep the name for display and remember that it was a link.
+    const [parsed] = parseMessengerAppMessagesObject({ whatsUpApp: [{ from: '@whatsup:Tamara Kovac', to: 'Mark Hale', message: 'it is me' }] }).phoneMessages;
+    expect(parsed).toMatchObject({ from: 'Tamara Kovac', fromLink: true });
+    expect(parsed.toLink).toBeUndefined();
+    expect(resolveWhatsUpMessageParticipants(characters, knowsSecond, parsed).from.accountId).toBe('tamara:whatsup');
+  });
+
+  it('resolves a link without its @ and a bare nickname in every app', () => {
+    for (const identity of ['fotogram:mark.fotogram', 'Photogram: mark.fotogram', 'mark.fotogram', '@mark.fotogram']) {
+      expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity })).toMatchObject({ available: true, characterId: 'mark' });
+    }
+    const dating = datingAccounts(characters);
+    expect(resolveDatingAccount('matchme:mark.matchme', dating)?.id).toBe(resolveDatingAccount('@matchme:mark.matchme', dating)?.id);
+    expect(resolveDatingAccount('matchme:mark.matchme', dating)).toBeDefined();
+    expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity: 'fotogram:nobody' }))
+      .toMatchObject({ available: false, name: 'fotogram:nobody' });
+    expect(parseEmbeddedBankTransfersObject({ bankTransfers: [{ from: 'bank:Mark Hale', to: '@bank:Tamara Kovac', amount: 5 }] })[0])
+      .toMatchObject({ from: 'Mark Hale', to: 'Tamara Kovac' });
+  });
+
+  it('refuses a relaxed spelling that reaches a second name and another name', () => {
+    const clash = appCharactersFromRegistry(buildCharacterRegistry(
+      [character('a', 'Anna Roe', { name: 'Night Owl' }), character('b', 'Ben Low')].map((entry) => ({ character: entry, tier: 'storybook' as const, source: 'book' }))));
+    clash.find((entry) => entry.sourceId === 'b')!.apps!.fotogram!.profileName = 'night.owl';
+    expect(resolveWhatsUpRecipient(clash, [], 'Night Owl').accountId).toBe('a:whatsup:alias');
+    expect(() => resolveWhatsUpRecipient(clash, [], 'nightowl')).toThrow(/Ambiguous/);
   });
 
   it('accepts relaxed spellings inside a link for both accounts', () => {
