@@ -52,7 +52,6 @@ import {
   isComfyImageConnection,
   isComfyVoiceConnection,
 } from '../comfy/connectionRole';
-import { bundledComfyNarratorVoice } from '../comfy/defaultNarratorVoice';
 import {
   characterComfyLoraSlots,
   bundledComfyWorkflows,
@@ -500,7 +499,7 @@ export function useProviderConnections({
         : bundledComfyWorkflowPathForRole(currentWorkflowPath, role),
       comfyWorkflowSetupConfirmed: false,
       comfyNarratorVoice: role === 'voice'
-        ? editingConnection.comfyNarratorVoice ?? bundledComfyNarratorVoice()
+        ? editingConnection.comfyNarratorVoice
         : undefined,
     };
     setConnections((current) =>

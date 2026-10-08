@@ -14,7 +14,6 @@ import type {
   PhoneDesktopLayout,
   PhoneAppListScales,
 } from './types';
-import { bundledComfyNarratorVoice } from './comfy/defaultNarratorVoice';
 import {
   promptActionConfigs,
   promptActionRuntimeSettings,
@@ -575,7 +574,7 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
       ? connection.comfyWorkflowSetupConfirmed === true
       : undefined,
     comfyNarratorVoice: comfyRole === 'voice'
-      ? validComfyNarratorVoice(connection.comfyNarratorVoice) ?? bundledComfyNarratorVoice()
+      ? validComfyNarratorVoice(connection.comfyNarratorVoice)
       : undefined,
     comfyDeleteVoiceOutputs: comfyRole === 'voice'
       ? connection.comfyDeleteVoiceOutputs !== false
