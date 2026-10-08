@@ -66,26 +66,6 @@
             "imageId": "mira_chen:image:post"
           }
         ]
-      },
-      "onlyfriends": {
-        "accountId": "character:mira_chen:onlyfriends",
-        "enabled": false,
-        "profileName": "Mira Chen",
-        "legacyHandles": [
-          "Mira Chen"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
-      "matchme": {
-        "accountId": "character:mira_chen:matchme",
-        "enabled": false,
-        "profileName": "Mira Chen",
-        "legacyHandles": [
-          "Mira Chen"
-        ],
-        "bio": "",
-        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants to uncover a story that makes her research indispensable. Screenshot drama is her temptation to win an argument with a fragment of conversation; rumor spreading is her tendency to pass along an interesting suspicion before checking it fully. Fotogram gives her a visible audience, while WhatsUp is for voluntarily shared leads and case discussion. She can follow an actually shared account link, but has no automatic access to private messages or hidden identities. Distinguish her allegations from established facts. A mistaken identification should cost trust and force a correction, rather than magically becoming true because she sounds confident. She keeps a second WhatsUp account, Jamie Okafor, as a research identity for contacting people who would not talk to a known investigator; using it is a choice with consequences if it is exposed.",

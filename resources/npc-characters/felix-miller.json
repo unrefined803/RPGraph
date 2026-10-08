@@ -66,16 +66,6 @@
         ],
         "bio": "nothing here move along",
         "portraitId": "none"
-      },
-      "matchme": {
-        "accountId": "character:felix_miller:matchme",
-        "enabled": false,
-        "profileName": "Felix Miller",
-        "legacyHandles": [
-          "Felix Miller"
-        ],
-        "bio": "",
-        "portraitId": "character"
       }
     },
     "profileImage": {

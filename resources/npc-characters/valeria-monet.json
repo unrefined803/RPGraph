@@ -72,16 +72,6 @@
           }
         ]
       },
-      "onlyfriends": {
-        "accountId": "character:valeria_monet:onlyfriends",
-        "enabled": false,
-        "profileName": "Valeria Monet",
-        "legacyHandles": [
-          "Valeria Monet"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
       "matchme": {
         "accountId": "character:valeria_monet:matchme",
         "enabled": true,

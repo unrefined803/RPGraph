@@ -98,7 +98,7 @@ describe('independent MatchMe identity', () => {
       expect(character.apps?.fotogram?.privacyMode).toBe(true);
       expect(character.apps?.onlyfriends?.privacyMode).toBe(true);
       expect(character.apps?.whatsup).not.toHaveProperty('privacyMode');
-      expect(character.apps?.matchme).not.toHaveProperty('privacyMode');
+      expect(character.apps?.matchme ?? {}).not.toHaveProperty('privacyMode');
       expect(phoneCharacterAvatarDataUrl(runtime(character))).toBeTruthy();
     }
     const joel = library.entries.find((entry) => entry.character.id === 'chloe_bella_vance')!.character;

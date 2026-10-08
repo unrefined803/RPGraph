@@ -74,16 +74,6 @@
         ],
         "bio": "just observing the chaos",
         "portraitId": "none"
-      },
-      "matchme": {
-        "accountId": "character:tyler_briggs:matchme",
-        "enabled": false,
-        "profileName": "Tyler Briggs",
-        "legacyHandles": [
-          "Tyler Briggs"
-        ],
-        "bio": "",
-        "portraitId": "character"
       }
     },
     "profileImage": {
