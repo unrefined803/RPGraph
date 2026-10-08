@@ -6709,6 +6709,17 @@ input[type="number"]::-webkit-outer-spin-button {
   background: #2563eb;
 }
 
+.phone-desktop-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--soft-white);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .phone-whatsup-icon,
 .phone-gallery-icon,
 .phone-camera-icon,
@@ -30462,6 +30473,42 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   flex-direction: column;
   overflow: hidden;
   background: #131b28;
+}
+
+/* Thin device status bar above the Phone view. */
+.phone-status-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  height: 22px;
+  padding: 0 22px 0 34px;
+  color: rgba(255, 255, 255, 0.86);
+  background: #0c121c;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.phone-status-bar-icons,
+.phone-status-bar-battery {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.phone-status-bar-battery {
+  gap: 4px;
+}
+
+.phone-status-bar svg {
+  height: 10px;
+}
+
+.phone-status-bar-network {
+  font-size: 10px;
 }
 
 /* Drag handle on the right edge of a phone app's contact or account list. */

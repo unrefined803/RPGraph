@@ -1054,6 +1054,7 @@ export type AppSettings = {
     dialogueCloneVoiceProviderId?: string;
     phoneDesktopLayout?: PhoneDesktopLayout;
     phoneDesktopIconSize?: PhoneDesktopIconSize;
+    phoneStatusBarEnabled?: boolean;
     chatGpdSidebarOpen?: boolean;
     chatGpdSidebarWidth?: number;
     phoneAppListScales?: PhoneAppListScales;

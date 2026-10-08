@@ -81,6 +81,7 @@ import {
   panelViewSwitchPressEvent,
   panelViewSwitchReleaseEvent,
 } from './app/panelViewSwitchEvent';
+import { PhoneStatusBar } from './components/PhoneStatusBar';
 import { PhoneTabletFrame } from './components/PhoneTabletFrame';
 import { PhoneAppListScaleContext } from './components/phoneAppListScale';
 import {
@@ -763,6 +764,8 @@ function App() {
     setPhoneDesktopLayout,
     phoneDesktopIconSize,
     setPhoneDesktopIconSize,
+    phoneStatusBarEnabled,
+    setPhoneStatusBarEnabled,
     chatGpdSidebarOpen,
     setChatGpdSidebarOpen,
     chatGpdSidebarWidth,
@@ -6449,6 +6452,11 @@ function App() {
               resizing={isPhoneResizing}
               onResizeStart={() => setIsPhoneResizing(true)}
             >
+            {phoneStatusBarEnabled && <PhoneStatusBar
+              rpDateTime={rpTimeTrackingEnabled ? latestHistoryRpDateTime(messages) : undefined}
+              rpDateTimeFormat={rpDateTimeFormat}
+              rpWeekdayLanguage={rpWeekdayLanguage}
+            />}
             <PhoneAppListScaleContext.Provider value={phoneAppListScaleContext}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhoneNotificationBanners
@@ -6732,6 +6740,8 @@ function App() {
               onPhoneDesktopLayoutChange={setPhoneDesktopLayout}
               phoneDesktopIconSize={phoneDesktopIconSize}
               onPhoneDesktopIconSizeChange={setPhoneDesktopIconSize}
+              phoneStatusBarEnabled={phoneStatusBarEnabled}
+              onPhoneStatusBarEnabledChange={setPhoneStatusBarEnabled}
               phoneClockRpDateTime={latestHistoryRpDateTime(messages)}
               imageAssistantModelStateById={imageAssistantModelStateById}
               onSetImageAssistantLlmModelLoaded={setImageAssistantLlmModelLoaded}
