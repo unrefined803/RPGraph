@@ -26196,24 +26196,6 @@ button.message-timeline-row.phone:focus-visible {
   white-space: nowrap;
 }
 
-.phone-social-sidebar .phone-social-header > .phone-social-messages-button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  place-items: center;
-  border: 1px solid var(--social-accent);
-  border-radius: 50%;
-  color: var(--soft-white);
-  background: var(--social-accent-soft);
-  cursor: pointer;
-}
-
-.phone-social-messages-button svg {
-  width: 16px;
-  height: 16px;
-}
-
 .phone-social-wallet {
   flex: none;
   padding: 8px;
@@ -26680,8 +26662,7 @@ button.message-timeline-row.phone:focus-visible {
   transform: translateX(-1px);
 }
 
-.phone-social-dm-header > div,
-.phone-social-dm-contact-copy {
+.phone-social-dm-header > div {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -26692,58 +26673,6 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .phone-social-dm-header span {
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 12px;
-}
-
-.phone-social-dm-list {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
-  overflow-y: auto;
-}
-
-.phone-social-dm-contact {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  padding: 10px 9px;
-  border: 0;
-  border-radius: 12px;
-  color: var(--soft-white);
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
-
-.phone-social-dm-contact:hover,
-.phone-social-dm-contact:focus-visible {
-  outline: none;
-  background: var(--social-accent-soft);
-}
-
-.phone-social-dm-contact-copy {
-  flex: 1;
-  gap: 3px;
-}
-
-.phone-social-dm-contact-copy strong,
-.phone-social-dm-contact-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.phone-social-dm-contact-copy strong {
-  font-size: 14px;
-}
-
-.phone-social-dm-contact-copy span {
   color: rgba(255, 255, 255, 0.58);
   font-size: 12px;
 }

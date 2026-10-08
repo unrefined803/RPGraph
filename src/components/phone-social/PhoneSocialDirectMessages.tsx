@@ -15,7 +15,6 @@ import type {
   RpWeekdayLanguage,
   SocialAppKind,
   SocialDirectMessageRecord,
-  SocialDmUnreadByHandle,
 } from '../../types';
 import { formatOnlyFriendsTip } from '../../chat/onlyFriendsWallet';
 import { formatBankingAmount } from '../../chat/bankTransfers';
@@ -36,9 +35,7 @@ type PhoneSocialDirectMessagesProps = {
   owner: StorybookCharacter;
   characters: StorybookCharacter[];
   ownerHandle: string;
-  participants: SocialDirectMessageParticipant[];
-  unreadByHandle: SocialDmUnreadByHandle;
-  selectedParticipant?: SocialDirectMessageParticipant;
+  selectedParticipant: SocialDirectMessageParticipant;
   messages: SocialDirectMessageRecord[];
   characterColors: Map<string, string>;
   socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
@@ -52,8 +49,6 @@ type PhoneSocialDirectMessagesProps = {
   highlightedMessagePulseKey: number;
   disabled?: boolean;
   walletBalance: number;
-  onSelectParticipant: (participant: SocialDirectMessageParticipant) => void;
-  onCloseConversation: () => void;
   onBack: () => void;
   onSend: (message: SocialDirectMessageRecord) => Promise<boolean>;
 };
@@ -63,8 +58,6 @@ export function PhoneSocialDirectMessages({
   owner,
   characters,
   ownerHandle,
-  participants,
-  unreadByHandle,
   selectedParticipant,
   messages,
   characterColors,
@@ -79,8 +72,6 @@ export function PhoneSocialDirectMessages({
   highlightedMessagePulseKey,
   disabled = false,
   walletBalance,
-  onSelectParticipant,
-  onCloseConversation,
   onBack,
   onSend,
 }: PhoneSocialDirectMessagesProps) {
@@ -94,10 +85,8 @@ export function PhoneSocialDirectMessages({
   // One draft per app, viewing account, and conversation partner, so switching
   // the partner never carries an unsent private message into the wrong chat.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const draftKey = selectedParticipant
-    ? `${app}/${ownerHandle}/${selectedParticipant.handle}`.toLowerCase()
-    : '';
-  const draft = draftKey ? drafts[draftKey] ?? '' : '';
+  const draftKey = `${app}/${ownerHandle}/${selectedParticipant.handle}`.toLowerCase();
+  const draft = drafts[draftKey] ?? '';
   const setDraft = (text: string) =>
     setDrafts((current) => ({ ...current, [draftKey]: text }));
   const [sending, setSending] = useState(false);
@@ -123,19 +112,14 @@ export function PhoneSocialDirectMessages({
   const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
   const emojiMenuRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
-  const conversation = useMemo(() => {
-    if (!selectedParticipant) {
-      return [];
-    }
-    return messages.filter((message) =>
-      message.app === app && (
-        socialIdentityMatches(message.fromHandle, ownerHandle) &&
-        socialIdentityMatches(message.toHandle, selectedParticipant.handle) ||
-        socialIdentityMatches(message.toHandle, ownerHandle) &&
-        socialIdentityMatches(message.fromHandle, selectedParticipant.handle)
-      ),
-    );
-  }, [app, messages, ownerHandle, selectedParticipant]);
+  const conversation = useMemo(() => messages.filter((message) =>
+    message.app === app && (
+      socialIdentityMatches(message.fromHandle, ownerHandle) &&
+      socialIdentityMatches(message.toHandle, selectedParticipant.handle) ||
+      socialIdentityMatches(message.toHandle, ownerHandle) &&
+      socialIdentityMatches(message.fromHandle, selectedParticipant.handle)
+    ),
+  ), [app, messages, ownerHandle, selectedParticipant]);
 
   useEffect(() => {
     if (!emojiPickerOpen) {
@@ -182,7 +166,7 @@ export function PhoneSocialDirectMessages({
   async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (!selectedParticipant || !text || disabled || sending || sendLock.current) {
+    if (!text || disabled || sending || sendLock.current) {
       return;
     }
     if (draftTip !== undefined && draftTip > walletBalance) {
@@ -222,77 +206,6 @@ export function PhoneSocialDirectMessages({
     }
   }
 
-  if (!selectedParticipant) {
-    return (
-      <section className="phone-social-dm" aria-label="Direct messages">
-        <header className="phone-social-dm-header">
-          <button type="button" onClick={onBack} aria-label="Back to feed" title="Back to feed">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div>
-            <strong>Messages</strong>
-            <span>Choose someone to start chatting</span>
-          </div>
-        </header>
-        <div className="phone-social-dm-list">
-          {participants.map((participant) => {
-            const color = participant.character
-              ? characterColors.get(participant.character.name)
-              : undefined;
-            const unread = unreadByHandle[participant.handle.toLowerCase()];
-            const latest = [...messages].reverse().find((message) =>
-              message.app === app && (
-                socialIdentityMatches(message.fromHandle, ownerHandle) &&
-                socialIdentityMatches(message.toHandle, participant.handle) ||
-                socialIdentityMatches(message.toHandle, ownerHandle) &&
-                socialIdentityMatches(message.fromHandle, participant.handle)
-              ),
-            );
-            return (
-              <button
-                type="button"
-                className="phone-social-dm-contact"
-                key={participant.key}
-                onClick={() => onSelectParticipant(participant)}
-              >
-                <CharacterAvatar
-                  className="phone-avatar large"
-                  name={participantIdentity(participant).name}
-                  fallback={participantIdentity(participant).name.slice(0, 1).toUpperCase()}
-                  profileImageDataUrl={accountPortraitUrl(participant.character, participant.character?.apps?.[app])}
-                  style={color ? { borderColor: color, color } : undefined}
-                />
-                <span className="phone-social-dm-contact-copy">
-                  <strong><CharacterName color={color}>{participantIdentity(participant).name}</CharacterName></strong>
-                  <span>{latest?.displayText ?? latest?.text ?? `@${participantIdentity(participant).handle}`}</span>
-                </span>
-                {unread && (
-                  <span className="phone-social-dm-badges">
-                    {app === 'onlyfriends' && unread.tipTotal > 0 && (
-                      <span className="phone-social-tip-badge">
-                        {formatOnlyFriendsTip(unread.tipTotal)}
-                      </span>
-                    )}
-                    <span className="phone-contact-badge">{unread.count}</span>
-                  </span>
-                )}
-                <span aria-hidden="true">›</span>
-              </button>
-            );
-          })}
-          {participants.length === 0 && (
-            <div className="phone-social-dm-empty">
-              <strong>No people yet</strong>
-              <span>Add a person or open a profile from the feed.</span>
-            </div>
-          )}
-        </div>
-      </section>
-    );
-  }
-
   const participantColor = selectedParticipant.character
     ? characterColors.get(selectedParticipant.character.name)
     : undefined;
@@ -312,7 +225,7 @@ export function PhoneSocialDirectMessages({
   return (
     <section className="phone-social-dm" aria-label={`Conversation with ${participantIdentity(selectedParticipant).name}`}>
       <header className="phone-social-dm-header conversation">
-        <button type="button" onClick={onCloseConversation} aria-label="Back to messages" title="Back to messages">
+        <button type="button" onClick={onBack} aria-label="Back to feed" title="Back to feed">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6" />
           </svg>
