@@ -11,8 +11,10 @@ Encryption failure leaves the destination intact and does not fall back to plain
 JSON. Decryption authenticates the envelope before returning parsed content over
 IPC. Unlocked character and filename caches stay in session memory.
 
-Signed-in account saves use the account password. Active protected-game rules
-can require encrypted output and reject a different password or Plain JSON;
+Signed-in account saves use the account password, and the user chooses between
+account encryption and Plain JSON. Protected-game rules, which require encrypted
+output and reject a different password or Plain JSON, apply only without a
+signed-in account;
 see [game protection](npc-in-game-assistant.md#save-destinations-and-overrides).
 Where plain export is available, it includes the selected payload even if some
 of its content originally came from encrypted files.

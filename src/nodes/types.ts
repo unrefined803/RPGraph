@@ -93,6 +93,8 @@ export type ExecuteContext<TLlm = NodeLlmApi, TTextMetrics = TextMetricsApi> = {
   executeInput: (nodeId: string, sourceHandle?: string | null) => Promise<string>;
   updateHistoryMessageTimes: (patches: Array<{ id: number; rpDateTime: string }>) => void;
   updateRuntimeData: (nodeId: string, patch: Partial<WorkflowNode['data']>) => void;
+  // The node data as edited during the run; `node` is the snapshot taken at run start.
+  latestNodeData?: (nodeId: string) => WorkflowNode['data'] | undefined;
   updateEventEntities: (
     nodeId: string,
     events: Record<string, EventEntity>,

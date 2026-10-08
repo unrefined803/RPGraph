@@ -154,11 +154,14 @@ An unprotected game can still use matching account-encrypted NPCs while signed
 in. Closing the application clears this state. IPC library snapshots expose
 unlock status and unlocked characters, never passwords.
 
-Saving or loading a protected Storybook or RP Save establishes mandatory game
-protection. RP Save (including quick save and Save As), Storybook, workflow and
-character exports inherit the same password and cannot select Plain JSON. The
-Electron write handlers reject plain writes and different passwords as a second
-check. A pre-existing plain RP quick-save target is rewritten as an encrypted file.
+Without a signed-in account, saving or loading a protected Storybook or RP Save
+establishes mandatory game protection. RP Save (including quick save and Save
+As), Storybook, workflow and character exports inherit the same password and
+cannot select Plain JSON. The Electron write handlers reject plain writes and
+different passwords as a second check. A pre-existing plain RP quick-save target
+is rewritten as an encrypted file. With a signed-in account, game protection is
+not enforced: saves default to account encryption and the user may select Plain
+JSON.
 Clearing chat history alone does not remove protection. Starting another workflow
 or opening another RP Save establishes that game's protection. Replacing a
 Storybook releases its password when the retained workflow is unprotected; the

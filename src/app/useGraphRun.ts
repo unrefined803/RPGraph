@@ -166,6 +166,7 @@ export type ActiveRun = {
   id: string;
   controller: AbortController;
   retry: () => void;
+  finish: () => void;
 };
 
 export type PhoneMessageSound = 'sent' | 'received';
@@ -470,7 +471,24 @@ export function useGraphRun(options: UseGraphRunOptions) {
   } = options;
 
 
-  async function runGraph(
+  // executeRun reports its own failures. An error escaping it was thrown before
+  // its try block, after the run may already be marked active; without this
+  // the app would stay "running" until restart.
+  async function runGraph(...args: Parameters<typeof executeRun>) {
+    const runBefore = activeRun.current;
+    try {
+      return await executeRun(...args);
+    } catch (error) {
+      const run = activeRun.current;
+      if (run && run !== runBefore) {
+        run.finish();
+      }
+      notifySystem('error', `Graph error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }
+
+  async function executeRun(
     displayText: string,
     inputImages: ChatImageAttachment[] = [],
     existingInputMessage?: MessageRecord,
@@ -524,14 +542,36 @@ export function useGraphRun(options: UseGraphRunOptions) {
       !narratorAutoTurn &&
       messageFormatOverride !== socialMediaMessageFormat &&
       messageFormatOverride !== autoplayMessageFormat;
+    // The composers clear their text on submit. A run refused before it starts
+    // hands the text back, as a cancelled run does.
+    const restoreRefusedInput = () => {
+      if (existingInputMessage || replacement || !shouldRestoreCancelledInput) {
+        return;
+      }
+      const commands = commandInputCommandsFromStructured(structuredInput?.commands ?? []);
+      if ((messageFormatOverride ?? (phoneMessageOverride ? 1 : 0)) === 1) {
+        setPhoneDraft(displayText);
+        setPhoneDraftCommands(commands);
+        setPhoneImages(inputImages);
+        if (phoneReplyToOverride) {
+          selectPhoneReply(phoneReplyToOverride);
+        }
+      } else {
+        setDraft(displayText);
+        setDraftCommands(commands);
+        setDraftImages(inputImages);
+      }
+    };
     let runtimeNodes = nodesRef.current;
     const { inputNode, outputNode } = findChatEndpoints(runtimeNodes);
     if (!outputNode || !inputNode) {
       notifySystem('error', 'The graph requires exactly one User Input and one RP Output.');
+      restoreRefusedInput();
       return false;
     }
     if (characterStorybookNodes.length === 0) {
       notifySystem('error', 'The graph requires at least one Storybook character.');
+      restoreRefusedInput();
       return false;
     }
     const outputNodeTraceInfo: ExecuteTraceNodeInfo = {
@@ -563,6 +603,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     );
     if (!existingInputMessage && !isNarratorTurn && !isAutoTurn && !isAutoplayRun && !inputCharacter) {
       notifySystem('warning', 'Select a Storybook character to play as.');
+      restoreRefusedInput();
       return false;
     }
     const basePhoneMessage = phoneMessageOverride ?? existingInputMessage?.phoneMessage ?? false;
@@ -585,8 +626,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
         });
       } catch (error) {
         notifySystem('warning', error instanceof Error ? error.message : String(error));
+        restoreRefusedInput();
         return false;
       }
+    }
+    if (!inputPhoneParticipants && !existingInputMessage?.speakerName && !isAutoplayRun && !isNarratorTurn &&
+        !isAutoTurn && !inputCharacter) {
+      notifySystem('warning', 'Select a Storybook character to play as.');
+      restoreRefusedInput();
+      return false;
     }
     const runId = createRunId();
     const runController = new AbortController();
@@ -643,6 +691,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       id: runId,
       controller: runController,
       retry: retryRun,
+      finish: finishRun,
     };
     setActiveRunId(runId);
     runStartTimeRef.current = runClock.startTimeMs();
@@ -871,7 +920,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           output: { graphText: '', messages: collector.outputMessages },
         },
         run: report,
-        status: isRunCancelledError(error) ? 'cancelled' : 'error',
+        status: isRunCancelledError(error, runSignal) ? 'cancelled' : 'error',
         warnings: runWarnings, traceEvents: runTraceEvents,
         capturedSteps: traceRecorder.steps, nodeExecutions,
         error: error instanceof Error ? error.message : String(error),
@@ -997,7 +1046,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const cancelled = isRunCancelledError(error);
+        const cancelled = isRunCancelledError(error, runSignal);
         const cancelReason = activeRunCancelReason.current as CancelReason;
         const restarting = cancelled && cancelReason === 'restart';
         recordFailedAttempt(error, inputText);
@@ -1085,7 +1134,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const cancelled = isRunCancelledError(error);
+        const cancelled = isRunCancelledError(error, runSignal);
         const cancelReason = activeRunCancelReason.current as CancelReason;
         const restarting = cancelled && cancelReason === 'restart';
         recordFailedAttempt(error, inputText);
@@ -1563,7 +1612,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               inputHistoryContext,
             ) || undefined;
           } catch (error) {
-            if (isRunCancelledError(error)) {
+            if (isRunCancelledError(error, runSignal)) {
               throw error;
             }
             notifySystem(
@@ -1595,6 +1644,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       };
       const executedOutput = await executeGraph({
         outputNodeId: outputNode.id,
+        latestNodeData: (nodeId) => nodesRef.current.find((entry) => entry.id === nodeId)?.data,
         outputSourceHandle: directActionOnly ? 'direct-actions' : undefined,
         nodes: executionNodes,
         edges,
@@ -2015,7 +2065,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
                 inputHistoryContext,
               );
             } catch (error) {
-              if (isRunCancelledError(error)) {
+              if (isRunCancelledError(error, runSignal)) {
                 throw error;
               }
               notifySystem(
@@ -2258,7 +2308,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               link.translatedMessage = translatedMessage;
               updateMessage(link.phoneMessageId, { translatedText: translatedMessage });
             } catch (error) {
-              if (isRunCancelledError(error)) {
+              if (isRunCancelledError(error, runSignal)) {
                 throw error;
               }
               notifySystem(
@@ -2316,7 +2366,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               : undefined;
           }
         } catch (error) {
-          if (isRunCancelledError(error)) {
+          if (isRunCancelledError(error, runSignal)) {
             throw error;
           }
           const message = error instanceof Error ? error.message : String(error);
@@ -2352,7 +2402,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             },
           );
         } catch (error) {
-          if (isRunCancelledError(error)) {
+          if (isRunCancelledError(error, runSignal)) {
             throw error;
           }
           const message = error instanceof Error ? error.message : String(error);
@@ -2446,7 +2496,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               inputHistoryContext,
             );
           } catch (error) {
-            if (isRunCancelledError(error)) {
+            if (isRunCancelledError(error, runSignal)) {
               throw error;
             }
             notifySystem(
@@ -2571,7 +2621,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
                 inputHistoryContext,
               );
             } catch (error) {
-              if (isRunCancelledError(error)) {
+              if (isRunCancelledError(error, runSignal)) {
                 throw error;
               }
               notifySystem(
@@ -3141,6 +3191,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             .slice(-5);
           await executeGraph({
           outputNodeId: outputNode.id,
+          latestNodeData: (nodeId) => nodesRef.current.find((entry) => entry.id === nodeId)?.data,
           postOutputRun: true,
           postOutputNodeIds: nodesPreparedAfterOutput(nodesRef.current, edges),
           nodes: nodesRef.current,
@@ -3178,7 +3229,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           signal: runSignal,
           });
         } catch (error) {
-          if (isRunCancelledError(error)) {
+          if (isRunCancelledError(error, runSignal)) {
             // The visible reply is already delivered at this point. Only a
             // restart may roll the turn back for its re-run; a plain cancel
             // keeps the turn and just skips the remaining preparation.
@@ -3224,7 +3275,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       return socialDirectMessage?.app === 'matchme' ? matchMeReplyDelivered : true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const cancelled = isRunCancelledError(error);
+      const cancelled = isRunCancelledError(error, runSignal);
       const cancelReason = activeRunCancelReason.current as CancelReason;
       const restarting = cancelled && cancelReason === 'restart';
       recordFailedAttempt(error, storedInputGraphText, promptSlot);

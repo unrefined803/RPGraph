@@ -1499,6 +1499,7 @@ function App() {
     });
   }, [unloadAllProviderModelsForClose]);
   const wasRunningForDialogueVoiceRef = useRef(false);
+  const lastOutputIdBeforeRunRef = useRef(0);
   useEffect(() => {
     const wasRunning = wasRunningForDialogueVoiceRef.current;
     wasRunningForDialogueVoiceRef.current = isRunning;
@@ -1508,6 +1509,14 @@ function App() {
     if (isRunning) {
       // Voice generation unloads local LLM models; never keep it running into a chat run.
       stopDialogueVoice();
+      lastOutputIdBeforeRunRef.current = messages.reduce(
+        (latest, message) => (message.role === 'output' ? Math.max(latest, message.id) : latest),
+        0,
+      );
+      return;
+    }
+    // A cancelled or failed run adds no output; the previous turn must not be voiced again.
+    if (!latestOutputTurnMessages(messages).some((message) => message.id > lastOutputIdBeforeRunRef.current)) {
       return;
     }
     if (dialogueVoiceMode === 'preload') {

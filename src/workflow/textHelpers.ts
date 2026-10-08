@@ -74,7 +74,11 @@ function includeImageContext(text: string, imageDescription?: string, imageName?
   }
   const imageLabel = rpPictureGalleryId(imageName) ?? (imageName?.trim() || 'Image');
   const imageContext = `[${imageLabel}: ${imageDescription}]`;
-  const speakerPrefix = text.match(/^([^:\n]+:\s*)([\s\S]*)$/);
+  // Only a short, name-like label counts as a speaker prefix. Any other first
+  // colon (a time such as 10:30, a sentence) is ordinary text.
+  const speakerPrefix = text.match(
+    /^((?:\*\*|__|\*|_)?\p{L}[\p{L} .'’-]{0,39}:(?:\*\*|__|\*|_)?\s+)([\s\S]*)$/u,
+  );
   return speakerPrefix
     ? `${speakerPrefix[1]}${imageContext} ${speakerPrefix[2]}`
     : `${imageContext} ${text}`;

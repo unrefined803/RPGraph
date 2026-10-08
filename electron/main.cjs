@@ -2346,6 +2346,22 @@ function llmStatsFromUsage(usage, durationMs) {
   };
 }
 
+// Providers can report a failure inside a 200 stream as an error object.
+// Without this, a reply cut off by that failure would count as complete. The
+// message keeps the HTTP error body shape so normalizeLlmError can read it.
+function throwStreamedProviderError(chunk) {
+  const error = chunk?.error;
+  if (!error) {
+    return;
+  }
+  const message = typeof error === 'string'
+    ? error
+    : typeof error.message === 'string' && error.message.trim()
+      ? error.message
+      : JSON.stringify(error);
+  throw new Error(JSON.stringify({ error: { ...(typeof error === 'object' ? error : {}), message } }));
+}
+
 function llmRequestId(request) {
   return typeof request?.requestId === 'number' && Number.isFinite(request.requestId)
     ? request.requestId
@@ -4974,6 +4990,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
         } catch {
           return;
         }
+        throwStreamedProviderError(chunk);
         const candidate = chunk.candidates?.[0];
         const deltaText = textFromGeminiCandidate(candidate);
         if (deltaText) {
@@ -5074,6 +5091,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
         } catch {
           return;
         }
+        throwStreamedProviderError(chunk);
         const choice = chunk.choices?.[0];
         const deltaText = textFromChatMessage(choice?.delta) ||
           (!content ? textFromChatChoice(choice) : '');
@@ -5147,6 +5165,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
         } catch {
           return;
         }
+        throwStreamedProviderError(chunk);
         const choice = chunk.choices?.[0];
         const deltaText = veniceResponseText({ choices: [choice] });
         if (deltaText) {
@@ -5231,6 +5250,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
       } catch {
         return;
       }
+      throwStreamedProviderError(chunk);
       const choice = chunk.choices?.[0];
       const reasoningDelta = reasoningTextFromChatMessage(choice?.delta);
       if (reasoningDelta) {

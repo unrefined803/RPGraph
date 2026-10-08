@@ -155,6 +155,17 @@ export function useCustomNodeAssistant({
         purpose: 'Custom Node Assistant',
         prompt: customNodeAssistantPrompt(currentDefinition, message, assistantContext),
       });
+      // Reset, Apply JSON and Paste stay available during the request. The
+      // reply was written for the definition sent, so it must not replace a
+      // newer one. State changes from a run in between are not a conflict.
+      const withoutState = (definition: ReturnType<typeof customNodeDefinition>) => JSON.stringify({ ...definition, state: undefined });
+      const latestNode = nodesRef.current.find((candidate) => candidate.id === nodeId);
+      if (
+        !latestNode || latestNode.data.nodeType !== 'custom' ||
+        withoutState(customNodeDefinition(latestNode.data.customNodeDefinition)) !== withoutState(currentDefinition)
+      ) {
+        throw new Error('The node changed while the assistant was working. The response was not applied. Please send your request again.');
+      }
       const result = parseCustomNodeAssistantResult(completion.text, currentDefinition);
       if (result.definition) {
         assertCompilableCustomNodeCode(result.definition.code);
@@ -396,7 +407,13 @@ export function useCustomNodeAssistant({
         preview: `${label} ran`,
         customNodeRuntimeDisplays: result.displays,
         runtimePortValues: outputRuntimePortValues(result.outputs, node.data.runtimePortValues),
-        customNodeDefinition: { ...definition, state: result.state },
+        // Keep control values changed while the button code ran.
+        customNodeDefinition: {
+          ...customNodeDefinition(
+            nodesRef.current.find((candidate) => candidate.id === nodeId)?.data.customNodeDefinition ?? definition,
+          ),
+          state: result.state,
+        },
         runActive: false,
         runCompleted: true,
         runPrepared: false,

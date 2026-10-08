@@ -20,35 +20,44 @@ Line numbers refer to commit bb7e64e.
 
 ## Status
 
-Updated 2026-10-08 on branch `Review-Fixes-v0.7.4`. Only defects with one
-clear, low-risk correction were fixed. Fixes were checked with `tsc -b`,
-ESLint and the unit test suite; none was exercised in the running application.
+Updated 2026-10-08. Fixes were checked with `tsc -b`, ESLint and the unit test
+suite; none was exercised in the running application. Item 4 is the only one
+whose defect was reproduced: its regression test fails on the old code.
 
 | Item | Status |
 | --- | --- |
-| 1, 2, 3, 5, 10, 14, 15, 17, 18, 20, 22, 23, 26, 27 | Fixed |
-| 9 | Closed. Maintainer confirmed the current behavior is intended |
+| 1-8, 10-23, 26-28 | Fixed |
+| 9 | Closed. Maintainer confirmed the behavior is intended; documentation aligned |
 | 24 | Not a code defect. See the entry |
-| 25 | Closed. Maintainer confirmed the current behavior is intended |
-| 4, 12, 16 | Deferred. The fix involves a choice of behavior |
-| 6, 7, 8, 11, 13, 19, 21, 28 | Deferred. No single correction was clearly right; see notes below |
+| 25 | Closed. Maintainer confirmed the behavior is intended |
 
-Notes on the deferred items without a behavior decision:
+How the items with a choice of behavior were fixed:
 
-- 6: a run and a concurrent user edit both change the definition state; which
-  one wins has to be decided.
-- 7: the check derives capability fields from the model selected when it
-  started; merging them onto a connection edited in the meantime needs rules
-  per field.
-- 8: `runGraph` also returns `false` after a failed run, so restoring the draft
-  on `false` would change behavior after errors as well.
-- 11: the narrow fix needs a fallback speaker name; the general fix moves the
-  `try` across about 800 lines.
-- 13: the error payload shapes of the providers were not verified.
-- 19: a plan bullet is designed as one either/or roll; rolling several markers
-  on one line needs a rule for the shared otherwise-part.
-- 21: the correct speaker-label format in history text was not established.
-- 28: the message state after a cancelled run was not traced.
+- 4: with a cached summary, the token budget covers only the new text next to
+  that summary (`maxTokens` minus the summary), never the summarized prefix.
+- 6: a run writes its resulting state into the definition as it is at that
+  moment (`latestNodeData` in the execute context). The assistant refuses to
+  apply a reply when the definition changed during the request.
+- 7: a model check applies only the fields it derived, and only while the
+  editor still shows the same connection, server and model.
+- 8: a run refused before it starts hands the text, commands and images back to
+  the composer, as a cancelled run already did.
+- 11: a missing input speaker is refused before the run starts, and `runGraph`
+  wraps the run so that any error thrown outside its `try` ends the run and is
+  reported. Messages added before such an error are not rolled back.
+- 12: a run counts as cancelled when its own signal was aborted or the error is
+  the app's cancellation error. Other messages containing "aborted" or
+  "cancelled" are shown as errors. The assistant dialog uses the same check.
+- 13: an `error` object inside a chat stream ends the request with the
+  provider's message. Covered for the OpenAI-style, composite, Venice and
+  Gemini chat streams; real provider payloads were not available for testing.
+- 16: an unreadable decision is retried once when format retries are enabled,
+  then reported as a format error and a warning; the outputs keep their
+  defaults and the turn continues.
+- 19: every labelled marker on a line gets its own roll.
+- 21: only a short, name-like label without digits counts as a speaker prefix.
+- 28: voice playback after a run starts only when the run added an output
+  message.
 
 ## Lost or overwritten user data
 

@@ -83,16 +83,42 @@ async function runLlmDecision(node: WorkflowNode, context: ExecuteContext) {
       inputValue,
       fastTaskReasoningEnd,
     ].join('\n\n');
-    const output = await context.llm.complete({
-      connectionId: node.data.connectionId,
-      nodeId: node.id,
-      label: `Decision ${index + 1}`,
-      prompt,
-      fastTask: true,
-      images,
-      contributesToTokenCalibration: true,
-    });
-    const parsed = parseLooseJsonObject(output.text);
+    // Prose instead of JSON must not pass silently as "false": retry once
+    // when format retries are enabled, then report the fallback.
+    const maxAttempts = context.retryFormatErrorsEnabled ? 2 : 1;
+    let parsed: Record<string, unknown> | undefined;
+    let responseText = '';
+    for (let attempt = 1; attempt <= maxAttempts && !parsed; attempt += 1) {
+      const output = await context.llm.complete({
+        connectionId: node.data.connectionId,
+        nodeId: node.id,
+        label: `Decision ${index + 1}`,
+        prompt,
+        fastTask: true,
+        images,
+        contributesToTokenCalibration: true,
+      });
+      responseText = output.text;
+      parsed = parseLooseJsonObject(output.text);
+      if (parsed) {
+        context.reportFormatResult({
+          name: `Decision ${index + 1} JSON`,
+          status: 'ok',
+          detail: attempt > 1 ? 'Decision response parsed after retry.' : 'Decision response parsed.',
+        });
+      }
+    }
+    if (!parsed) {
+      context.reportFormatResult({
+        name: `Decision ${index + 1} JSON`,
+        status: 'error',
+        detail: 'Decision response contained no JSON object.',
+        preview: responseText,
+      });
+      context.reportWarning(
+        `${node.data.label}: Decision ${index + 1} returned no JSON object; using false, empty text and 0.`,
+      );
+    }
     return {
       bool: booleanValue(parsed?.bool),
       text: textValue(parsed?.text),

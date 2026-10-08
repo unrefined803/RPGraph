@@ -1593,7 +1593,25 @@ export function useProviderConnections({
           : { text: true };
       setAvailableConnectionModels(models);
       setEditingConnection((current) => {
-        if (connection.providerKind !== 'openai-compatible') return connection;
+        if (connection.providerKind !== 'openai-compatible') {
+          // The check ran on the connection as it was when it started. Apply
+          // only the fields it derived, and only while the editor still shows
+          // the same server and model; anything typed meanwhile is kept.
+          if (
+            current.id !== editingConnection.id ||
+            current.providerKind !== editingConnection.providerKind ||
+            current.baseUrl !== editingConnection.baseUrl ||
+            current.model !== editingConnection.model
+          ) {
+            return current;
+          }
+          const derived = Object.fromEntries(
+            (Object.keys(connection) as Array<keyof ConnectionPreset>)
+              .filter((key) => !Object.is(connection[key], editingConnection[key]))
+              .map((key) => [key, connection[key]]),
+          );
+          return { ...current, ...derived };
+        }
         if (current.providerKind !== connection.providerKind || compatibleCacheKey(current) !== compatibleCacheKey(connection)) return current;
         return connectionWithCompatibleCapabilities({
           ...current, model: current.model === editingConnection.model ? connection.model : current.model,
