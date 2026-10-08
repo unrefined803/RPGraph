@@ -53,6 +53,8 @@ import { storybookWithoutCharacter } from './characterManagement';
 import { storybookAssistantConversationContext } from './assistantConversation';
 import {
   sillyTavernImportInstruction,
+  sillyTavernStoryImportInstruction,
+  validateSillyTavernStoryImportResult,
   validateSillyTavernImportResult,
 } from './sillyTavernImport';
 import type { TurnCheckpoint } from '../data-management/types';
@@ -202,6 +204,7 @@ export function useStorybookActions({
     protection: FileProtection;
   } | null>(null);
   const [storybookCreatorNodeId, setStorybookCreatorNodeId] = useState<string | null>(null);
+  const consumedStoryImportsRef = useRef(new WeakSet<object>());
   const [storybookCreatorMessages, setStorybookCreatorMessages] = useState<StorybookCreatorMessage[]>([]);
   const storybookCreatorMessageNodeIdRef = useRef<string | null>(null);
   const [storybookCreatorSubmitting, setStorybookCreatorSubmitting] = useState(false);
@@ -1156,12 +1159,67 @@ export function useStorybookActions({
     }
   }
 
+  async function importSillyTavernStory(index: number, accept: boolean) {
+    const pending = storybookCreatorMessages[index]?.storyImport;
+    if (creatorRequestActiveRef.current || index !== storybookCreatorMessages.length - 1 ||
+        !pending || consumedStoryImportsRef.current.has(pending) || pending.nodeId !== storybookCreatorNodeId) return;
+    const node = nodesRef.current.find((entry) => entry.id === pending.nodeId);
+    if (!node || !isStorybookSourceNode(node) || pendingConversionRef.current?.nodeId === pending.nodeId) return;
+    consumedStoryImportsRef.current.add(pending);
+    if (!accept) {
+      setStorybookCreatorMessages((current) => [...current, { role: 'user', text: 'Keep the current story. Only import the characters.' }]);
+      return;
+    }
+    creatorRequestActiveRef.current = true;
+    setStorybookCreatorSubmitting(true);
+    setStorybookCreatorMessages((current) => [...current, { role: 'user', text: `Import the story from ${pending.fileName} and overwrite the current title, introduction and scenario.` }]);
+    let failedResponse: string | undefined;
+    try {
+      const book = node.data.storybookJson ? parseRpStorybookJson(node.data.storybookJson) : emptyRpStorybook;
+      updateRuntimeNode(pending.nodeId, { storybookStatus: 'Importing SillyTavern story ...', llmCallStats: [] });
+      const completion = await nodeLlm.complete({
+        connectionId: node.data.connectionId,
+        nodeId: pending.nodeId,
+        label: 'SillyTavern Story Import',
+        prompt: rpStorybookEditPrompt(rpStorybookPromptJsonText(book),
+          sillyTavernStoryImportInstruction(pending.source, pending.fileName), storyHistoryPresent(book)),
+      });
+      failedResponse = completion.text;
+      const latest = nodesRef.current.find((entry) => entry.id === pending.nodeId);
+      if (!latest || !isStorybookSourceNode(latest) || latest.data.storybookJson !== node.data.storybookJson ||
+          pendingConversionRef.current?.nodeId === pending.nodeId) {
+        throw new Error('Storybook changed while the story import was running. The response was not applied.');
+      }
+      const result = parseRpStorybookAssistantResult(completion.text, book);
+      validateSillyTavernStoryImportResult(result);
+      if (result.patchPaths.length) {
+        const error = commitStorybookToNode(pending.nodeId, result.storybook, {
+          storybookStatus: `Imported story from ${pending.fileName} via ${completion.connection.label}`,
+        });
+        if (error) throw new Error(error);
+      } else {
+        updateRuntimeNode(pending.nodeId, { storybookStatus: 'No story changes imported.' });
+      }
+      setStorybookCreatorMessages((current) => [...current, { role: 'assistant', text: result.reply }]);
+    } catch (error) {
+      const text = errorMessage(error);
+      updateRuntimeNode(pending.nodeId, { storybookStatus: `Story import failed: ${text}` });
+      setStorybookCreatorMessages((current) => [...current, { role: 'error', text, failedResponse, storyImport: { ...pending } }]);
+    } finally {
+      creatorRequestActiveRef.current = false;
+      setStorybookCreatorSubmitting(false);
+    }
+  }
+
   async function importSillyTavernCharacter(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || !isStorybookSourceNode(node)) {
+    if (creatorRequestActiveRef.current || !node || !isStorybookSourceNode(node) || pendingConversionRef.current?.nodeId === nodeId) {
       return;
     }
 
+    creatorRequestActiveRef.current = true;
+    setStorybookCreatorSubmitting(true);
+    let failedResponse: string | undefined;
     try {
       const file = await window.rpgraph.loadJsonFile();
       if (file.canceled || !file.contents) {
@@ -1203,6 +1261,7 @@ export function useStorybookActions({
         label: 'SillyTavern Import',
         prompt: rpStorybookEditPrompt(currentJson, instruction, storyHistoryPresent(currentStorybook)),
       });
+      failedResponse = completion.text;
       const latestNode = nodesRef.current.find((entry) => entry.id === nodeId);
       if (
         !latestNode || !isStorybookSourceNode(latestNode) ||
@@ -1224,7 +1283,7 @@ export function useStorybookActions({
       if (commitError) {
         setStorybookCreatorMessages((current) => [
           ...current,
-          { role: 'error', text: commitError },
+          { role: 'error', text: commitError, failedResponse },
         ]);
         return;
       }
@@ -1232,13 +1291,17 @@ export function useStorybookActions({
         ...current,
         {
           role: 'assistant',
-          text: `${validatedImport.action === 'added' ? 'Added' : 'Updated'} character ${validatedImport.characterName}: ${result.reply}`,
+          text: `${validatedImport.action === 'added' ? 'Added' : 'Updated'} character ${validatedImport.characterName}: ${result.reply}\n\nWould you also like to import the story from this card? This will overwrite the current title, introduction and scenario. The card’s greeting and backstory become scenario text.`,
+          storyImport: { nodeId, source: importedCharacter, fileName: file.fileName ?? 'selected JSON file' },
         },
       ]);
     } catch (error) {
       const messageText = errorMessage(error);
       updateRuntimeNode(nodeId, { storybookStatus: `Import failed: ${messageText}` });
-      setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText }]);
+      setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText, failedResponse }]);
+    } finally {
+      creatorRequestActiveRef.current = false;
+      setStorybookCreatorSubmitting(false);
     }
   }
 
@@ -1323,6 +1386,7 @@ export function useStorybookActions({
     submitStorybookCreatorMessage,
     clearStorybookCreatorChat,
     retryStorybookCreatorMessage,
+    importSillyTavernStory,
     updateStorybook,
     commitStorybookToNode,
     applyStorybookToNode,

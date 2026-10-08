@@ -101,6 +101,7 @@ import { callTotalTokens, runLlmReportTotals, tokenCell } from './runLlmReportTo
 export type StorybookCreatorMessage = {
   role: 'user' | 'assistant' | 'storybook' | 'error';
   text: string;
+  storyImport?: { nodeId: string; source: unknown; fileName: string };
   failedResponse?: string;
   retryRequest?: { message: string; visibleMessage: string; referenceIds: string[] };
 };
@@ -1056,6 +1057,7 @@ type StorybookCreatorDialogProps = {
   node: WorkflowNode;
   messages: StorybookCreatorMessage[];
   onRetry: (index: number) => Promise<void>;
+  onImportSillyTavernStory: (index: number, accept: boolean) => Promise<void>;
   onClearChat: () => void;
   isSubmitting: boolean;
   connections: ConnectionPreset[];
@@ -2817,6 +2819,7 @@ export function StorybookCreatorDialog({
   onSubmit,
   onClearChat,
   onRetry,
+  onImportSillyTavernStory,
   onLoad,
   onSaveStorybook,
   promptTextCustomPresets,
@@ -3592,6 +3595,16 @@ export function StorybookCreatorDialog({
                           className="storybook-copy-error-link storybook-retry-link"
                           disabled={isSubmitting || index !== messages.length - 1}
                           onClick={() => void onRetry(index)}>Retry</button>}
+                        {message.storyImport && <>
+                          <button type="button" className="storybook-continue-button"
+                            disabled={isSubmitting || index !== messages.length - 1}
+                            onClick={() => void onImportSillyTavernStory(index, true)}>
+                            {message.role === 'error' ? 'Retry story import' : 'Yes, import story'}
+                          </button>
+                          <button type="button" className="storybook-copy-error-link"
+                            disabled={isSubmitting || index !== messages.length - 1}
+                            onClick={() => void onImportSillyTavernStory(index, false)}>No, keep current story</button>
+                        </>}
                         {continuation.nextPhase && <button type="button" className="storybook-continue-button"
                           disabled={isSubmitting || index !== messages.length - 1}
                           onClick={() => void onSubmit(`Continue with the next phase: ${continuation.nextPhase}`)}>

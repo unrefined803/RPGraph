@@ -1208,8 +1208,8 @@ export function verifyWorkflowValidationFixtures() {
       sillyTavernInstruction.includes('speechStyle') &&
       sillyTavernInstruction.includes('banking.startBalance') &&
       sillyTavernInstruction.includes('social.fotogramUsername') &&
-      sillyTavernInstruction.includes('scenario is completely empty'),
-    'SillyTavern AI imports must describe the complete RPGraph character mapping and allow filling an empty scenario',
+      sillyTavernInstruction.includes('Import only characters in this step'),
+    'SillyTavern AI imports must describe the complete RPGraph character mapping without importing story fields',
   );
   const importedMira = parseRpStorybookAssistantResult(JSON.stringify({
     reply: 'Imported Mira.',
@@ -1231,7 +1231,6 @@ export function verifyWorkflowValidationFixtures() {
           images: [],
         },
       },
-      { op: 'replace', path: '/scenario/summary', value: 'Mira arrives at a sealed library.' },
     ],
   }), emptyRpStorybook);
   const validatedSillyTavernImport = validateSillyTavernImportResult(

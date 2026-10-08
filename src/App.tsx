@@ -1728,6 +1728,7 @@ function App() {
     submitStorybookCreatorMessage,
     clearStorybookCreatorChat,
     retryStorybookCreatorMessage,
+    importSillyTavernStory,
     updateStorybook,
     commitStorybookToNode,
     applyStorybookToNode,
@@ -6952,6 +6953,7 @@ function App() {
           onImportOpeningHistory={() => importCurrentSessionAsOpeningHistory(storybookCreatorNode.id)}
           onClearOpeningHistory={() => clearStorybookOpeningHistory(storybookCreatorNode.id)}
           onResetStorybook={() => resetStorybook(storybookCreatorNode.id)}
+          onImportSillyTavernStory={importSillyTavernStory}
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
           onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}
