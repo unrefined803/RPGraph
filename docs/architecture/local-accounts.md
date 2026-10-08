@@ -39,7 +39,7 @@ This is file encryption, not an encrypted filesystem or OS permission boundary.
 
 Credentials live only in application-session memory. File save dialogs default to
 Account encrypted and reuse the signed-in password with the existing RPGraph file
-envelopes, random salts, and encryption implementation. Users can select Plain JSON when active game protection permits it. Matching files unlock automatically; files encrypted with another
+envelopes, random salts, and encryption implementation. Users can select Plain JSON; game protection is not enforced while signed in. Matching files unlock automatically; files encrypted with another
 password retain the manual unlock flow. Account saves use the account password even
 after importing a file encrypted with another password. New encryption-envelope
 versions retain readers for the previous versions; payload versions are unchanged.

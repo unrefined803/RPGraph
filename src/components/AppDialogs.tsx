@@ -101,6 +101,7 @@ import { callTotalTokens, runLlmReportTotals, tokenCell } from './runLlmReportTo
 export type StorybookCreatorMessage = {
   role: 'user' | 'assistant' | 'storybook' | 'error';
   text: string;
+  storyImport?: { nodeId: string; source: unknown; fileName: string };
   failedResponse?: string;
   retryRequest?: { message: string; visibleMessage: string; referenceIds: string[] };
 };
@@ -1056,6 +1057,7 @@ type StorybookCreatorDialogProps = {
   node: WorkflowNode;
   messages: StorybookCreatorMessage[];
   onRetry: (index: number) => Promise<void>;
+  onImportSillyTavernStory: (index: number, accept: boolean) => Promise<void>;
   onClearChat: () => void;
   isSubmitting: boolean;
   connections: ConnectionPreset[];
@@ -1305,7 +1307,7 @@ function CharacterImagesDialog({
   imageCaptionChangesById,
   promptTextCustomPresets,
   setPromptTextCustomPresets,
-  onUpdateStorybook,
+  onUpdateStorybook: updateStorybook,
   onChangeImageCaptionUpdate,
   onDescribeCharacterImage,
   onClose,
@@ -1373,6 +1375,40 @@ function CharacterImagesDialog({
   const undescribedImages = images.filter((image) => !(descriptionDrafts[image.id] ?? image.description).trim());
 
   const promptTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Describe requests are slow; images can be added, removed or edited before
+  // a description returns, so results are applied to the latest Storybook.
+  const latestStorybookRef = useRef(storybook);
+  useEffect(() => {
+    latestStorybookRef.current = storybook;
+  }, [storybook]);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const descriptionEditVersions = useRef(new Map<string, number>());
+
+  function onUpdateStorybook(nextStorybook: RpStorybook, message?: string) {
+    // Multiple promises may finish before React renders the first update.
+    latestStorybookRef.current = nextStorybook;
+    updateStorybook(nextStorybook, message);
+  }
+
+  function applyImageDescription(image: RpStorybookCharacterImage, description: string, editVersion: number) {
+    if (!mountedRef.current || (descriptionEditVersions.current.get(image.id) ?? 0) !== editVersion) return false;
+    const latestStorybook = latestStorybookRef.current;
+    const latestImages = storybookImageOwnerImages(latestStorybook, owner);
+    const currentImage = latestImages.find((entry) => entry.id === image.id);
+    if (!currentImage || currentImage.description !== image.description) return false;
+    setDescriptionDrafts((current) => ({ ...current, [image.id]: description }));
+    onUpdateStorybook(withStorybookImageOwnerImages(latestStorybook, owner,
+      latestImages.map((entry) => entry.id === image.id ? { ...entry, description } : entry)),
+    `Updated image description for ${characterName}.`);
+    return true;
+  }
 
   useEffect(() => {
     const textarea = promptTextareaRef.current;
@@ -1464,23 +1500,22 @@ function CharacterImagesDialog({
         setStatus('');
         return;
       }
-      const ownerBase = storybookImageOwnerBase(storybook, owner);
-      const reservedImageIds = new Set(storybookImages(storybook).map((image) => image.id));
-      const pendingImages: Array<Pick<RpStorybookCharacterImage, 'id'>> = [...images];
       const attachments = await Promise.all(
-        result.images.map((image) => normalizeImageAttachment(image, () => {
-          const id = nextStorybookCharacterImageId(ownerBase, pendingImages, reservedImageIds);
-          reservedImageIds.add(id);
-          pendingImages.push({ id });
-          return id;
-        })),
+        result.images.map((image) => normalizeImageAttachment(image, () => 'pending-image')),
       );
-      const nextImages = [
-        ...images,
-        ...attachments.map(storybookCharacterImageFromAttachment),
-      ];
+      if (!mountedRef.current) return;
+      const latestStorybook = latestStorybookRef.current;
+      const latestImages = storybookImageOwnerImages(latestStorybook, owner);
+      const ownerBase = storybookImageOwnerBase(latestStorybook, owner);
+      const reservedImageIds = new Set(storybookImages(latestStorybook).map((image) => image.id));
+      const nextImages = [...latestImages];
+      for (const attachment of attachments) {
+        const id = nextStorybookCharacterImageId(ownerBase, nextImages, reservedImageIds);
+        reservedImageIds.add(id);
+        nextImages.push(storybookCharacterImageFromAttachment({ ...attachment, id }));
+      }
       onUpdateStorybook(
-        withStorybookImageOwnerImages(storybook, owner, nextImages),
+        withStorybookImageOwnerImages(latestStorybook, owner, nextImages),
         `Added ${attachments.length} image${attachments.length === 1 ? '' : 's'} for ${characterName}.`,
       );
       setStatus(`Added ${attachments.length} image${attachments.length === 1 ? '' : 's'}.`);
@@ -1509,6 +1544,7 @@ function CharacterImagesDialog({
   }
 
   function draftDescription(imageId: string, description: string) {
+    descriptionEditVersions.current.set(imageId, (descriptionEditVersions.current.get(imageId) ?? 0) + 1);
     setDescriptionDrafts((current) => ({ ...current, [imageId]: description }));
   }
 
@@ -1553,6 +1589,7 @@ function CharacterImagesDialog({
   function closeDialog() {
     const activeStorybook = commitPromptDraft();
     commitAllDescriptionDrafts(activeStorybook);
+    mountedRef.current = false;
     onClose();
   }
 
@@ -1567,6 +1604,7 @@ function CharacterImagesDialog({
   // With an instruction, the assistant revises the current description instead of starting over.
   async function describeImage(image: RpStorybookCharacterImage, instruction = '') {
     const revising = !!instruction.trim();
+    const editVersion = descriptionEditVersions.current.get(image.id) ?? 0;
     setDescribingIds((current) => new Set(current).add(image.id));
     try {
       setStatus(`${revising ? 'Revising' : 'Describing'} ${image.name} ...`);
@@ -1583,13 +1621,13 @@ function CharacterImagesDialog({
             )
           : activePrompt,
       );
-      setDescriptionDrafts((current) => ({ ...current, [image.id]: description }));
-      const nextImages = images.map((entry) =>
-        entry.id === image.id ? { ...entry, description } : entry
-      );
-      const nextStorybook = withStorybookImageOwnerImages(activeStorybook, owner, nextImages);
-      onUpdateStorybook(nextStorybook, `${revising ? 'Revised' : 'Described'} image for ${characterName}.`);
-      setStatus(`${revising ? 'Revised' : 'Described'} ${image.name}.`);
+      if (!mountedRef.current) {
+        // The dialog closed; its Storybook view is stale and must not be written back.
+        return storybook;
+      }
+      const applied = applyImageDescription(image, description, editVersion);
+      const nextStorybook = latestStorybookRef.current;
+      setStatus(applied ? `${revising ? 'Revised' : 'Described'} ${image.name}.` : 'Image changed while describing; newer edits were kept.');
       if (revising) {
         setAssistantInstruction('');
       }
@@ -1613,21 +1651,15 @@ function CharacterImagesDialog({
     }
     const activeStorybook = commitPromptDraft();
     const activePrompt = rpStorybookImageDescriptionPromptText(activeStorybook.imageDescriptionPrompt);
-    let nextImages = images.map((image) => ({
-      ...image,
-      description: descriptionDrafts[image.id] ?? image.description,
-    }));
     let describedCount = 0;
     for (const image of targetImages) {
+      if (!mountedRef.current) return;
+      const editVersion = descriptionEditVersions.current.get(image.id) ?? 0;
       setDescribingIds((current) => new Set(current).add(image.id));
       try {
         setStatus(`Describing ${image.name} ...`);
         const description = await onDescribeCharacterImage(characterContext, image, activePrompt);
-        nextImages = nextImages.map((entry) =>
-          entry.id === image.id ? { ...entry, description } : entry
-        );
-        describedCount += 1;
-        setDescriptionDrafts((current) => ({ ...current, [image.id]: description }));
+        if (applyImageDescription(image, description, editVersion)) describedCount += 1;
       } catch (error) {
         setStatus(`Describe failed: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
@@ -1638,13 +1670,9 @@ function CharacterImagesDialog({
         });
       }
     }
-    if (describedCount === 0) {
+    if (describedCount === 0 || !mountedRef.current) {
       return;
     }
-    onUpdateStorybook(
-      withStorybookImageOwnerImages(activeStorybook, owner, nextImages),
-      `Described ${describedCount} image${describedCount === 1 ? '' : 's'} for ${characterName}.`,
-    );
     setStatus(`Described ${describedCount} image${describedCount === 1 ? '' : 's'}.`);
   }
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(closeDialog);
@@ -2791,6 +2819,7 @@ export function StorybookCreatorDialog({
   onSubmit,
   onClearChat,
   onRetry,
+  onImportSillyTavernStory,
   onLoad,
   onSaveStorybook,
   promptTextCustomPresets,
@@ -3566,6 +3595,16 @@ export function StorybookCreatorDialog({
                           className="storybook-copy-error-link storybook-retry-link"
                           disabled={isSubmitting || index !== messages.length - 1}
                           onClick={() => void onRetry(index)}>Retry</button>}
+                        {message.storyImport && <>
+                          <button type="button" className="storybook-continue-button"
+                            disabled={isSubmitting || index !== messages.length - 1}
+                            onClick={() => void onImportSillyTavernStory(index, true)}>
+                            {message.role === 'error' ? 'Retry story import' : 'Yes, import story'}
+                          </button>
+                          <button type="button" className="storybook-copy-error-link"
+                            disabled={isSubmitting || index !== messages.length - 1}
+                            onClick={() => void onImportSillyTavernStory(index, false)}>No, keep current story</button>
+                        </>}
                         {continuation.nextPhase && <button type="button" className="storybook-continue-button"
                           disabled={isSubmitting || index !== messages.length - 1}
                           onClick={() => void onSubmit(`Continue with the next phase: ${continuation.nextPhase}`)}>

@@ -449,9 +449,10 @@ it('opens WhatsUp links from senders who are not contacts of the recipient', () 
   const stranger = { ...cast[0], id: 'lib-1', sourceId: 'lib-1', name: 'Riley Smith', label: 'Riley Smith', libraryNpc: true,
     storybookNodeId: '', playerSelectable: false,
     apps: { ...cast[0].apps, whatsup: { ...cast[0].apps!.whatsup!, accountId: 'lib-wa' } } };
-  // A namesake's first name and a legacy short name must both reach the sender.
+  // A full name reaches its sender. A first name alone identifies nobody, so
+  // it opens a temporary contact instead of one of the two namesakes.
   for (const [from, accountId, contactId] of [
-    ['Riley Smith', 'lib-wa', 'lib-1'], ['Riley', undefined, cast[0].id],
+    ['Riley Smith', 'lib-wa', 'lib-1'], ['Riley', undefined, '__rpgraph-phone-temp__riley'],
   ] as const) {
     hooks.slots = [];
     const options = { appCharacters: [...cast, stranger], nodeViewNodes: nodes, nodesRef: { current: nodes }, turns: [],

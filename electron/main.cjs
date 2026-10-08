@@ -2346,6 +2346,22 @@ function llmStatsFromUsage(usage, durationMs) {
   };
 }
 
+// Providers can report a failure inside a 200 stream as an error object.
+// Without this, a reply cut off by that failure would count as complete. The
+// message keeps the HTTP error body shape so normalizeLlmError can read it.
+function throwStreamedProviderError(chunk) {
+  const error = chunk?.error;
+  if (!error) {
+    return;
+  }
+  const message = typeof error === 'string'
+    ? error
+    : typeof error.message === 'string' && error.message.trim()
+      ? error.message
+      : JSON.stringify(error);
+  throw new Error(JSON.stringify({ error: { ...(typeof error === 'object' ? error : {}), message } }));
+}
+
 function llmRequestId(request) {
   return typeof request?.requestId === 'number' && Number.isFinite(request.requestId)
     ? request.requestId
@@ -3375,6 +3391,7 @@ async function requestComfyJson(baseUrl, route, init, abort) {
 let pendingComfyFreeBaseUrl = '';
 let pendingComfyFreeLoaded = false;
 const comfyFreeSettleMs = 1500;
+const comfyFreeRequestTimeoutMs = 10000;
 
 function comfyModelStatePath() {
   return path.join(app.getPath('userData'), 'comfy-model-state.json');
@@ -3424,7 +3441,10 @@ async function freeComfyMemoryForLocalLlm(connection) {
   if (!comfyBaseUrl || !shouldFreeBeforeLlm) {
     return;
   }
-  const abort = { signal: new AbortController().signal };
+  // requestLlmResponse needs a full abort handle. The short timeout keeps an
+  // unresponsive ComfyUI from delaying the local LLM request.
+  const abort = createLlmAbortController();
+  const timeout = setTimeout(() => abort.abort('timeout'), comfyFreeRequestTimeoutMs);
   try {
     await requestComfyJson(comfyBaseUrl, 'free', {
       method: 'POST',
@@ -3438,6 +3458,9 @@ async function freeComfyMemoryForLocalLlm(connection) {
   } catch {
     // ComfyUI may already be gone; keep the pending marker so the next local
     // LLM request can try again if the voice model is still occupying VRAM.
+  } finally {
+    clearTimeout(timeout);
+    abort.dispose();
   }
 }
 
@@ -4967,6 +4990,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
         } catch {
           return;
         }
+        throwStreamedProviderError(chunk);
         const candidate = chunk.candidates?.[0];
         const deltaText = textFromGeminiCandidate(candidate);
         if (deltaText) {
@@ -5067,6 +5091,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
         } catch {
           return;
         }
+        throwStreamedProviderError(chunk);
         const choice = chunk.choices?.[0];
         const deltaText = textFromChatMessage(choice?.delta) ||
           (!content ? textFromChatChoice(choice) : '');
@@ -5140,6 +5165,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
         } catch {
           return;
         }
+        throwStreamedProviderError(chunk);
         const choice = chunk.choices?.[0];
         const deltaText = veniceResponseText({ choices: [choice] });
         if (deltaText) {
@@ -5224,6 +5250,7 @@ handleWorkspace('llm:chat-completion-stream', async (event, request) => {
       } catch {
         return;
       }
+      throwStreamedProviderError(chunk);
       const choice = chunk.choices?.[0];
       const reasoningDelta = reasoningTextFromChatMessage(choice?.delta);
       if (reasoningDelta) {
@@ -5846,9 +5873,11 @@ handleWorkspace('file:save-to-path', async (_event, request) => {
   if (previousFilePath) await assertOverwriteType(previousFilePath, expectedType);
   await assertOverwriteType(filePath, expectedType);
   // The native save dialog only confirms the path the user selected. Resolving
-  // an encrypted display name can find a different existing file.
-  if (!previousFilePath && filePath !== normalizedFilePath(result.filePath)) {
-    const exists = await fs.stat(filePath).then(() => true, error => {
+  // an encrypted display name can find a different existing file, which is
+  // either overwritten or, when its name is converted, deleted after the save.
+  const replacedFilePath = previousFilePath ?? filePath;
+  if (replacedFilePath !== normalizedFilePath(result.filePath)) {
+    const exists = await fs.stat(replacedFilePath).then(() => true, error => {
       if (error.code === 'ENOENT') return false;
       throw error;
     });

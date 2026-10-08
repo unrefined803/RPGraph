@@ -345,11 +345,15 @@ function applyEventResponse(
       byId.set(normalized.id, normalized);
     }
   });
+  // Offset the fallback id index so an added event cannot reuse the generated
+  // id of an update entry that arrived without one.
+  const updateCount = responseArray(response.update).length;
   [
     ...responseArray(response.add),
     ...responseArray(response.newEvent),
     ...responseArray(response.newEvents),
-  ].forEach((entry, index) => {
+  ].forEach((entry, addIndex) => {
+    const index = updateCount + addIndex;
     const normalized = normalizeAppointmentEntry(
       entry,
       [...byId.values()],

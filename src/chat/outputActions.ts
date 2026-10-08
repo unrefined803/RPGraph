@@ -624,7 +624,11 @@ function parseJsonSequence(text: string) {
   if (outside.replace(/[,\s]/g, '')) {
     return undefined;
   }
-  return ranges.map((range) => JSON.parse(text.slice(range.start, range.end)) as unknown);
+  try {
+    return ranges.map((range) => JSON.parse(text.slice(range.start, range.end)) as unknown);
+  } catch {
+    return undefined;
+  }
 }
 
 function parseOutputActionsRoot(

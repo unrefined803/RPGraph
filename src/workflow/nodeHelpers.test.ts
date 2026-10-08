@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyTextReplacements, textReplaceEntries } from './nodeHelpers';
+import { applyTextReplacements, buildContextBuilderItems, textReplaceEntries } from './nodeHelpers';
 import type { TextReplaceEntry } from '../types';
 
 const entry = (source: string, replacement: string, id = source): TextReplaceEntry => ({
@@ -56,5 +56,14 @@ describe('textReplaceEntries', () => {
       { id: 'text-replace-0', source: 'a', replacement: '' },
       { id: 'kept', source: 'b', replacement: 'c' },
     ]);
+  });
+});
+
+describe('buildContextBuilderItems', () => {
+  it('title-cases field labels with non-ASCII letters', () => {
+    const items = buildContextBuilderItems([
+      { sourceIndex: 0, sourceLabel: 'Input 1', text: JSON.stringify({ größe: 'klein', user_name: 'Mina' }) },
+    ]);
+    expect(items.map((item) => item.fieldLabel)).toEqual(['Größe', 'User Name']);
   });
 });

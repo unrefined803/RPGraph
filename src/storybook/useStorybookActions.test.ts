@@ -684,3 +684,90 @@ it('imports the refreshed prepared NPC publications rather than stale library ca
     expect(imported.apps?.fotogram?.initialPosts?.some(post => post.text === 'Published in the latest save')).toBe(true);
   } finally { vi.unstubAllGlobals(); }
 });
+
+
+async function importSillyTavernFixture(state: ReturnType<typeof harness>) {
+  vi.stubGlobal('window', { rpgraph: { loadJsonFile: async () => ({
+    contents: JSON.stringify({ name: 'Bob', scenario: 'A quiet village', first_mes: 'Welcome home.' }),
+    fileName: 'bob.json',
+  }) } });
+  const request = state.render().importSillyTavernCharacter('book');
+  await vi.waitFor(() => expect(state.complete).toHaveBeenCalledTimes(1));
+  state.rawReply(JSON.stringify({ reply: 'Imported Bob.', patch: [
+    { op: 'add', path: '/characters/-', value: { id: 'bob', name: 'Bob' } },
+  ] }));
+  await request;
+  vi.unstubAllGlobals();
+  return state.render().storybookCreatorMessages.length - 1;
+}
+
+it('imports characters first and reads the retained card only after story confirmation', async () => {
+  const state = harness();
+  const original = normalizeRpStorybook({ title: 'Existing story', scenario: { summary: 'Existing setting' } });
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(original);
+  const index = await importSillyTavernFixture(state);
+  const characters = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters;
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).scenario).toEqual(original.scenario);
+  expect(state.render().storybookCreatorMessages[index].storyImport?.fileName).toBe('bob.json');
+  expect(state.complete).toHaveBeenCalledTimes(1);
+  const api = state.render();
+  const request = api.importSillyTavernStory(index, true);
+  await api.importSillyTavernStory(index, true);
+  expect(state.complete).toHaveBeenCalledTimes(2);
+  expect(state.complete).toHaveBeenLastCalledWith(expect.objectContaining({
+    label: 'SillyTavern Story Import', prompt: expect.stringContaining('Welcome home.'),
+  }));
+  state.rawReply(JSON.stringify({ reply: 'Imported story.', patch: [
+    { op: 'replace', path: '/title', value: 'Village life' },
+    { op: 'replace', path: '/scenario/summary', value: 'A quiet village' },
+  ] }));
+  await request;
+  await api.importSillyTavernStory(index, true);
+  expect(state.complete).toHaveBeenCalledTimes(2);
+  const book = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!);
+  expect(book.title).toBe('Village life');
+  expect(book.characters).toEqual(characters);
+  expect(book.openingHistory).toEqual(original.openingHistory);
+});
+
+it('declining story import leaves the story intact and consumes the confirmation', async () => {
+  const state = harness();
+  const index = await importSillyTavernFixture(state);
+  const before = state.nodesRef.current[0].data.storybookJson;
+  const api = state.render();
+  await api.importSillyTavernStory(index, false);
+  await api.importSillyTavernStory(index, true);
+  expect(state.complete).toHaveBeenCalledTimes(1);
+  expect(state.nodesRef.current[0].data.storybookJson).toBe(before);
+});
+
+it('retains imported characters and offers response copying and retry after a failed story import', async () => {
+  const state = harness();
+  const index = await importSillyTavernFixture(state);
+  const before = state.nodesRef.current[0].data.storybookJson;
+  const request = state.render().importSillyTavernStory(index, true);
+  const response = JSON.stringify({ patch: [
+    { op: 'replace', path: '/characters/0/description', value: 'Unexpected edit' },
+  ] });
+  state.rawReply(response);
+  await request;
+  expect(state.nodesRef.current[0].data.storybookJson).toBe(before);
+  const messages = state.render().storybookCreatorMessages;
+  expect(messages[messages.length - 1]).toMatchObject({ role: 'error', failedResponse: response, storyImport: { fileName: 'bob.json' } });
+  const retry = state.render().importSillyTavernStory(messages.length - 1, true);
+  state.reply();
+  await retry;
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).title).toBe('AI title');
+});
+
+it('rejects a story response if the storybook changed while waiting', async () => {
+  const state = harness();
+  const index = await importSillyTavernFixture(state);
+  const request = state.render().importSillyTavernStory(index, true);
+  const book = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!);
+  state.render().updateStorybook('book', { ...book, title: 'Manual title' });
+  state.reply();
+  await request;
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).title).toBe('Manual title');
+  expect(state.render().storybookCreatorMessages.slice(-1)[0]?.text).toContain('response was not applied');
+});

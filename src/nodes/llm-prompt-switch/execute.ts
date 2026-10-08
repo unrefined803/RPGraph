@@ -13,6 +13,7 @@ import { llmPromptSwitchMemo } from '../runScratch';
 import { promptActionConfigs, withPromptActionRuntimeSettingsList } from '../shared/promptActions';
 import { promptCommandConfigs } from '../shared/promptCommands';
 import { runActionAwarePrompt } from '../shared/promptRun';
+import { llmCallLabelSeparator } from '../../llm/callDisplay';
 import type { ExecuteContext } from '../types';
 
 export const promptSwitchTextHandle = 'text';
@@ -168,8 +169,7 @@ async function runPromptSwitch(node: WorkflowNode, context: ExecuteContext) {
     onDebug: (debug) => context.updateRuntimeData(node.id, {
       llmPromptSwitchDebug: { ...debug, ...selectionDebug },
     }),
-    callLabel: (actionReplayCount) =>
-      `${outputTitle} / ${promptTitle}${actionReplayCount ? ` / Action replay ${actionReplayCount}` : ''}`,
+    callLabel: `${outputTitle}${llmCallLabelSeparator}${promptTitle}`,
   });
   context.updateRuntimeData(node.id, {
     preview: promptSlotSelection.fallback

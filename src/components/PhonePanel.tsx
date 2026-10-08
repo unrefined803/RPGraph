@@ -360,6 +360,8 @@ type PhonePanelProps = {
   onPhoneDesktopLayoutChange: (layout: PhoneDesktopLayout) => void;
   phoneDesktopIconSize: PhoneDesktopIconSize;
   onPhoneDesktopIconSizeChange: (size: PhoneDesktopIconSize) => void;
+  phoneStatusBarEnabled: boolean;
+  onPhoneStatusBarEnabledChange: (enabled: boolean) => void;
   phoneClockRpDateTime?: string;
   imageAssistantModelStateById: Record<string, ImageAssistantModelState>;
   onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
@@ -492,6 +494,8 @@ export function PhonePanel({
   onPhoneDesktopLayoutChange,
   phoneDesktopIconSize,
   onPhoneDesktopIconSizeChange,
+  phoneStatusBarEnabled,
+  onPhoneStatusBarEnabledChange,
   phoneClockRpDateTime,
   imageAssistantModelStateById,
   onSetImageAssistantLlmModelLoaded,
@@ -1477,6 +1481,14 @@ export function PhonePanel({
                   </button>
                 ))}
               </div>
+              <label className="phone-desktop-settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={phoneStatusBarEnabled}
+                  onChange={(event) => onPhoneStatusBarEnabledChange(event.target.checked)}
+                />
+                Show Status Bar
+              </label>
             </div>
           )}
           <button

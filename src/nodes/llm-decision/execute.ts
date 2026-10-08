@@ -33,38 +33,17 @@ function parseLooseJsonObject(text: string): Record<string, unknown> | undefined
   }
 }
 
-function booleanValue(value: unknown) {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    return ['true', 'yes', '1'].includes(value.trim().toLowerCase());
-  }
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-  return false;
-}
-
-function textValue(value: unknown) {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => String(entry)).join(', ');
-  }
-  return value === undefined || value === null ? '' : String(value);
-}
-
-function fixedNumberValue(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value.trim());
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
+function parseDecision(text: string): LlmDecisionResult | undefined {
+  const parsed = parseLooseJsonObject(text);
+  if (!parsed || typeof parsed.text !== 'string') return undefined;
+  const bool = typeof parsed.bool === 'boolean' ? parsed.bool
+    : parsed.bool === 1 ? true : parsed.bool === 0 ? false
+    : typeof parsed.bool === 'string' ? new Map([['true', true], ['yes', true], ['1', true], ['false', false], ['no', false], ['0', false]]).get(parsed.bool.trim().toLowerCase())
+    : undefined;
+  const number = typeof parsed.number === 'number' ? parsed.number
+    : typeof parsed.number === 'string' && parsed.number.trim() ? Number(parsed.number) : NaN;
+  if (bool === undefined || !Number.isFinite(number)) return undefined;
+  return { bool, text: parsed.text, number };
 }
 
 async function runLlmDecision(node: WorkflowNode, context: ExecuteContext) {
@@ -83,21 +62,43 @@ async function runLlmDecision(node: WorkflowNode, context: ExecuteContext) {
       inputValue,
       fastTaskReasoningEnd,
     ].join('\n\n');
-    const output = await context.llm.complete({
-      connectionId: node.data.connectionId,
-      nodeId: node.id,
-      label: `Decision ${index + 1}`,
-      prompt,
-      fastTask: true,
-      images,
-      contributesToTokenCalibration: true,
-    });
-    const parsed = parseLooseJsonObject(output.text);
-    return {
-      bool: booleanValue(parsed?.bool),
-      text: textValue(parsed?.text),
-      number: fixedNumberValue(parsed?.number),
-    };
+    // Prose instead of JSON must not pass silently as "false": retry once
+    // when format retries are enabled, then report the fallback.
+    const maxAttempts = context.retryFormatErrorsEnabled ? 2 : 1;
+    let parsed: LlmDecisionResult | undefined;
+    let responseText = '';
+    for (let attempt = 1; attempt <= maxAttempts && !parsed; attempt += 1) {
+      const output = await context.llm.complete({
+        connectionId: node.data.connectionId,
+        nodeId: node.id,
+        label: `Decision ${index + 1}`,
+        prompt,
+        fastTask: true,
+        images,
+        contributesToTokenCalibration: true,
+      });
+      responseText = output.text;
+      parsed = parseDecision(output.text);
+      if (parsed) {
+        context.reportFormatResult({
+          name: `Decision ${index + 1} JSON`,
+          status: 'ok',
+          detail: attempt > 1 ? 'Decision response parsed after retry.' : 'Decision response parsed.',
+        });
+      }
+    }
+    if (!parsed) {
+      context.reportFormatResult({
+        name: `Decision ${index + 1} JSON`,
+        status: 'error',
+        detail: 'Decision response did not contain valid bool, text and number fields.',
+        preview: responseText,
+      });
+      context.reportWarning(
+        `${node.data.label}: Decision ${index + 1} returned an invalid decision; using false, empty text and 0.`,
+      );
+    }
+    return parsed ?? { bool: false, text: '', number: 0 };
   }));
 
   context.updateRuntimeData(node.id, {

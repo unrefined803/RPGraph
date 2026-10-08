@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { rollPlanOutcomes } from './promptSteps';
 
 describe('rollPlanOutcomes', () => {
+  it('rolls every labelled marker on one line', () => {
+    const result = rollPlanOutcomes(
+      '- Mina picks the lock (chance: 70%) and Sam slips past (failure: 60%).',
+      () => 0.99,
+    );
+
+    expect(result.rolls.map(({ chance }) => chance)).toEqual([70, 40]);
+    expect(result.text).not.toMatch(/\(chance: 70%\)|failure: 60%/);
+  });
+
   it('accepts chance and success probabilities from zero through one hundred', () => {
     const result = rollPlanOutcomes([
       '- Impossible attempt (chance: 0%); otherwise: it fails.',

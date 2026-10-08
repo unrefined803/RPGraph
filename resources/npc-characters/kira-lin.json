@@ -81,16 +81,6 @@
           }
         ]
       },
-      "onlyfriends": {
-        "accountId": "character:kira_lin:onlyfriends",
-        "enabled": false,
-        "profileName": "Kira Lin",
-        "legacyHandles": [
-          "Kira Lin"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
       "matchme": {
         "accountId": "character:kira_lin:matchme",
         "enabled": true,

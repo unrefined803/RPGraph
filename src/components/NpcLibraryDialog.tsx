@@ -140,21 +140,23 @@ function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onR
           const account = apps[app];
           const posts = account?.initialPosts?.length ?? 0;
           const photos = app === 'matchme' ? apps.matchme?.profile?.photoIds.length ?? 0 : 0;
-          const enabled = account?.enabled;
+          // A disabled entry is an unused placeholder; it reads the same as a missing account.
+          const enabled = account?.enabled === true;
           const populated = enabled && (posts > 0 || photos > 0);
-          const activity = !account ? 'No account' : !enabled ? 'Disabled' : app === 'matchme'
+          const activity = !enabled ? 'No account' : app === 'matchme'
             ? (photos ? `${photos} profile photo${photos === 1 ? '' : 's'}` : 'No profile photos')
             : app === 'whatsup' ? 'Account ready' : posts ? `${posts} post${posts === 1 ? '' : 's'}` : 'No posts';
           const secondAccount = app === 'whatsup' && enabled ? apps.whatsup?.alias?.name.trim() : '';
           const supportsPrivacy = app === 'fotogram' || app === 'onlyfriends';
-          const privacy = supportsPrivacy && !!enabled && account?.privacyMode === true;
-          const handle = app === 'whatsup' ? character.name : account && migratedProfileName(account, character.name) ? `@${migratedProfileName(account, character.name)}` : '—';
-          const tooltip = !account ? `${label}: no account` : !enabled ? `${label}: disabled`
-            : app === 'whatsup' ? `${label}: ${handle}${secondAccount ? ` · Second account: ${secondAccount}` : ' · No second account'}`
-              : `${label}: ${handle}${supportsPrivacy ? ` · Privacy Mode ${privacy ? 'on (real name hidden)' : 'off'}` : ''}`;
-          return <div key={app} title={tooltip} className={`npc-library-account ${enabled ? populated || app === 'whatsup' ? 'published' : 'ready' : 'inactive'}`}>
+          const privacy = supportsPrivacy && enabled && account?.privacyMode === true;
+          const handle = !enabled ? '—' : app === 'whatsup' ? character.name : account && migratedProfileName(account, character.name) ? `@${migratedProfileName(account, character.name)}` : '—';
+          const status = app === 'whatsup' ? `Active account${secondAccount ? ` · Second account: ${secondAccount}` : ' · No second account'}`
+            : `${populated ? 'Active account' : 'Account created'} · ${activity}`;
+          const tooltip = !enabled ? `${label}: no account`
+            : `${label}: ${handle} · ${status}${supportsPrivacy ? ` · Privacy Mode ${privacy ? 'on (real name hidden)' : 'off'}` : ''}`;
+          return <div key={app} title={tooltip} className={`npc-library-account ${enabled ? populated || app === 'whatsup' ? 'published' : 'ready' : 'inactive missing'}`}>
             <span className="npc-library-account-mark">
-              <span aria-hidden="true">{enabled ? populated || secondAccount ? '✓✓' : '✓' : '—'}</span>
+              <span aria-hidden="true">{enabled ? populated || secondAccount ? '✓✓' : '✓' : '✕'}</span>
               {privacy && <PrivacyModeBadge />}
             </span>
             <div><strong>{label}</strong><span className="npc-library-handle">{handle}</span>

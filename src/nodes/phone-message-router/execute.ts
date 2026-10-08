@@ -15,12 +15,13 @@ function isTruthyBooleanText(value: string) {
 }
 
 function routeNumber(value: string, count: number) {
-  const parsed = Number(value.trim());
-  if (!Number.isFinite(parsed)) {
+  const trimmed = value.trim();
+  const parsed = trimmed ? Number(trimmed) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed < 0) {
     return undefined;
   }
   const routeIndex = Math.trunc(parsed);
-  if (routeIndex < 0 || routeIndex >= count) {
+  if (routeIndex >= count) {
     return undefined;
   }
   return routeIndex;

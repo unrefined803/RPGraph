@@ -8,6 +8,7 @@ import { getNodeCodeSnippet } from '../nodes/codeResolver';
 import { getRegisteredCoreNodes } from '../nodes/registry';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import nodeAssistantContext from '../assistant/nodeAssistantContext.md?raw';
+import { isRunCancelledError } from '../app/runOrchestration';
 import { sanitizeDataUrlsInText } from '../utils/sanitize';
 import { useBackdropDismiss } from './useBackdropDismiss';
 import { storybookAssistantContent, storybookContentField } from '../assistant/storybookContext';
@@ -582,10 +583,9 @@ export function AssistantDialog({
       }
 
     } catch (error) {
-      // Ignore abort errors (user closed dialog or cancelled)
-      const isAbort =
-        (error instanceof DOMException && error.name === 'AbortError') ||
-        (error instanceof Error && (error.name === 'AbortError' || error.message.toLowerCase().includes('cancel')));
+      // Ignore abort errors (user closed dialog or cancelled). A provider
+      // error that merely mentions "cancel" is a real failure and is shown.
+      const isAbort = isRunCancelledError(error, abortController.signal);
       if (!isAbort && runSequenceRef.current === runId) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         setMessages((prev) => [...withoutEmptyAssistantPlaceholder(prev), { role: 'error', text: `Failed to get response: ${errorMsg}` }]);

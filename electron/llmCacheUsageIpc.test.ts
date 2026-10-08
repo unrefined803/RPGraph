@@ -149,3 +149,11 @@ it.each(modes)('lm-studio (stream: %s) keeps cache usage unknown because native 
   expect([result.stats.inputTokens, result.stats.outputTokens]).toEqual([4096, 100]);
   expect('cachedInputTokens' in result.stats).toBe(false);
 });
+
+it.each(chatCompletionProviders)('%s rejects a stream that reports an error after partial text', async (provider) => {
+  const reply: Reply = {
+    json: {},
+    events: [{ choices: [{ delta: { content: 'Hello' } }] }, { error: { message: 'Upstream provider failed' } }],
+  };
+  await expect(run(provider, true, reply)).rejects.toThrow('Upstream provider failed');
+});

@@ -141,17 +141,13 @@ export function normalizePhoneName(value: string) {
     .toLocaleLowerCase();
 }
 
-function phoneFirstName(value: string) {
-  return normalizePhoneName(value).split(' ')[0] ?? '';
+// "First Last", "First_Last" and "First.Last" name the same person.
+function compactPhoneName(value: string) {
+  return normalizePhoneName(value).replace(/[\s._-]+/g, '');
 }
 
-function phoneNameTokens(value: string) {
-  return normalizePhoneName(value)
-    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
+// A first name alone never identifies a character: several characters can
+// share it, so messages need a full name or an account link.
 export function phoneNamesMatch(left: string, right: string) {
   const normalizedLeft = normalizePhoneName(left);
   const normalizedRight = normalizePhoneName(right);
@@ -161,9 +157,15 @@ export function phoneNamesMatch(left: string, right: string) {
   if (normalizedLeft === normalizedRight) {
     return true;
   }
-  const leftFirstName = phoneFirstName(left);
-  const rightFirstName = phoneFirstName(right);
-  return !!leftFirstName && leftFirstName === rightFirstName;
+  const compactLeft = compactPhoneName(left);
+  return !!compactLeft && compactLeft === compactPhoneName(right);
+}
+
+function phoneNameTokens(value: string) {
+  return normalizePhoneName(value)
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
 }
 
 function phoneNameMatchScore(characterName: string, inputName: string) {

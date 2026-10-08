@@ -1252,7 +1252,9 @@ function jsonObjectRanges(text: string) {
       }
       continue;
     }
-    if (char === '"') {
+    // Quotes only delimit strings inside an object. Prose around the JSON can
+    // contain unpaired quotes, which would otherwise hide every later object.
+    if (char === '"' && depth > 0) {
       inString = true;
       continue;
     }

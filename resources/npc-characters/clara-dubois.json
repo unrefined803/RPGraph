@@ -83,16 +83,6 @@
           }
         ]
       },
-      "onlyfriends": {
-        "accountId": "character:clara_dubois:onlyfriends",
-        "enabled": false,
-        "profileName": "Clara Dubois",
-        "legacyHandles": [
-          "Clara Dubois"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
       "matchme": {
         "accountId": "character:clara_dubois:matchme",
         "enabled": true,

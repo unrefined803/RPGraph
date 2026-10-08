@@ -66,16 +66,6 @@
         ],
         "bio": "logic and discourse only",
         "portraitId": "none"
-      },
-      "matchme": {
-        "accountId": "character:simon_drake:matchme",
-        "enabled": false,
-        "profileName": "Simon Drake",
-        "legacyHandles": [
-          "Simon Drake"
-        ],
-        "bio": "",
-        "portraitId": "character"
       }
     },
     "profileImage": {

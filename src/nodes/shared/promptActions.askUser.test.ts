@@ -38,7 +38,7 @@ function start(planning: boolean, channel: ReturnType<typeof createUserQuestionC
       ? '@step:planning\nPlan.\n@action:Ask User\n@step:main\nWrite.\n@output:planning\n@action:Ask User'
       : 'Write.\n@action:Ask User',
     actionConfigs: [defaultPromptActionConfig('', 'askUser')], streamsVisibleOutput: false,
-    contributesToTokenCalibration: false, callLabel: () => 'Narrator',
+    contributesToTokenCalibration: false, callLabel: 'Narrator',
   });
   return { calls, result };
 }

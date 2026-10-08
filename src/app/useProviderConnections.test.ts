@@ -37,7 +37,7 @@ const models = [false, true].map((vision) => ({
   id: vision ? 'vision-model' : 'text-model', name: 'Model', type: 'llm',
   vision, text: true, trainedForToolUse: false, status: 'loaded',
   inputModalities: vision ? ['text', 'image'] : ['text'], outputModalities: ['text'],
-  supportedVoices: [], supportedParameters: [], supportedGenerationMethods: ['generateContent'],
+  supportedVoices: [] as string[], supportedParameters: [], supportedGenerationMethods: ['generateContent'],
 }));
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -319,4 +319,45 @@ describe('OpenAI-compatible providers', () => {
     await state.render().prepareImageAssistantLlmProvider({ llmProviderId: 'provider', comfyProviderId: 'comfy' });
     expect(freeComfyMemory).not.toHaveBeenCalled();
   });
+});
+
+it('keeps editor changes when Gemini falls back to its bundled model list', async () => {
+  const pending = deferred<typeof models>();
+  vi.stubGlobal('window', { rpgraph: { listGeminiModels: () => pending.promise.then(() => { throw new Error('404 NOT_FOUND'); }) } });
+  const state = harness('gemini', '');
+  state.render().setEditingConnection(state.connections[0]);
+  const check = state.render().checkConnectionModels();
+  const edited = { ...state.connections[0], apiKey: 'new-key', model: 'chosen-model', label: 'Edited' };
+  state.render().setEditingConnection(edited);
+  pending.resolve(models);
+  await check;
+  expect(state.render().editingConnection).toEqual(edited);
+});
+
+it('keeps edits and selected presets when ComfyUI model lists arrive', async () => {
+  const pending = deferred<string[]>();
+  vi.stubGlobal('window', { rpgraph: {
+    listComfyModels: () => pending.promise,
+    listComfySamplersAndSchedulers: async () => ({ samplers: [], schedulers: [] }),
+  } });
+  const state = harness('openai-compatible');
+  state.render().setEditingConnection({ ...state.connections[0], kind: 'comfyui', comfyRole: 'image' });
+  const check = state.render().loadComfyModelLists();
+  const edited = { ...state.connections[0], id: 'other', label: 'Other connection' };
+  state.render().setEditingConnection(edited);
+  pending.resolve(['model']);
+  await check;
+  expect(state.render().editingConnection).toEqual(edited);
+});
+
+it('preserves a voice chosen while OpenRouter model capabilities are loading', async () => {
+  const pending = deferred<typeof models>();
+  vi.stubGlobal('window', { rpgraph: { listOpenRouterModels: () => pending.promise } });
+  const state = harness('openrouter');
+  state.render().setEditingConnection(state.connections[0]);
+  const check = state.render().checkConnectionModels();
+  state.render().setEditingConnection({ ...state.connections[0], ttsVoice: 'chosen-voice' });
+  pending.resolve(models.map((model) => ({ ...model, supportedVoices: ['default-voice'] })));
+  await check;
+  expect(state.render().editingConnection.ttsVoice).toBe('chosen-voice');
 });

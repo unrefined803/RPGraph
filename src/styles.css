@@ -5517,10 +5517,10 @@ input[type="number"]::-webkit-outer-spin-button {
 .npc-library-account strong { font-size: 11px; font-weight: 600; }
 .npc-library-handle { display: block; overflow-wrap: anywhere; margin: 3px 0; color: var(--text); }
 .npc-library-account small { color: var(--muted); font-size: 10px; }
-.npc-library-account-mark { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: 18px; flex: 0 0 18px; color: #e0a96a; font-size: 12px; font-weight: 700; }
+.npc-library-account-mark { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: 18px; flex: 0 0 18px; color: #56d99a; font-size: 12px; font-weight: 700; }
 .privacy-mode-badge { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 15px; height: 15px; padding: 0 3px; border: 1px solid rgba(96, 165, 250, 0.42); border-radius: 4px; background: rgba(96, 165, 250, 0.14); color: #8ec5ff; font-size: 9px; font-weight: 800; letter-spacing: 0.02em; line-height: 1; cursor: help; }
-.npc-library-account.published .npc-library-account-mark { color: #56d99a; }
 .npc-library-account.inactive, .npc-library-account.inactive .npc-library-account-mark { color: var(--muted); }
+.npc-library-account.missing .npc-library-account-mark { color: #e87070; }
 .npc-library-images { display: grid; gap: 5px; border-left: 1px solid var(--line); padding-left: 15px; }
 .npc-library-images > span { color: var(--muted); font-size: 10px; margin-bottom: 3px; }
 .npc-library-images strong { font-size: 15px; font-variant-numeric: tabular-nums; }
@@ -6707,6 +6707,17 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-desktop-icon-size-options button.active {
   border-color: #3b82f6;
   background: #2563eb;
+}
+
+.phone-desktop-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--soft-white);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .phone-whatsup-icon,
@@ -15191,7 +15202,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .run-llm-report-dialog {
   width: min(1080px, calc(100vw - 40px));
-  max-height: min(720px, calc(100vh - 40px));
+  max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -26196,24 +26207,6 @@ button.message-timeline-row.phone:focus-visible {
   white-space: nowrap;
 }
 
-.phone-social-sidebar .phone-social-header > .phone-social-messages-button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  place-items: center;
-  border: 1px solid var(--social-accent);
-  border-radius: 50%;
-  color: var(--soft-white);
-  background: var(--social-accent-soft);
-  cursor: pointer;
-}
-
-.phone-social-messages-button svg {
-  width: 16px;
-  height: 16px;
-}
-
 .phone-social-wallet {
   flex: none;
   padding: 8px;
@@ -26680,8 +26673,7 @@ button.message-timeline-row.phone:focus-visible {
   transform: translateX(-1px);
 }
 
-.phone-social-dm-header > div,
-.phone-social-dm-contact-copy {
+.phone-social-dm-header > div {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -26692,58 +26684,6 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .phone-social-dm-header span {
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 12px;
-}
-
-.phone-social-dm-list {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
-  overflow-y: auto;
-}
-
-.phone-social-dm-contact {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  padding: 10px 9px;
-  border: 0;
-  border-radius: 12px;
-  color: var(--soft-white);
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
-
-.phone-social-dm-contact:hover,
-.phone-social-dm-contact:focus-visible {
-  outline: none;
-  background: var(--social-accent-soft);
-}
-
-.phone-social-dm-contact-copy {
-  flex: 1;
-  gap: 3px;
-}
-
-.phone-social-dm-contact-copy strong,
-.phone-social-dm-contact-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.phone-social-dm-contact-copy strong {
-  font-size: 14px;
-}
-
-.phone-social-dm-contact-copy span {
   color: rgba(255, 255, 255, 0.58);
   font-size: 12px;
 }
@@ -30058,6 +29998,63 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   font-variant-numeric: tabular-nums;
 }
 
+/* While a run is active the usage summary gives way to the LLM steps, which
+   appear one by one under their route heading. */
+.big-screen-run-steps {
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  margin: 0;
+  padding: 0 12px;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+
+.big-screen-run-step {
+  display: grid;
+  gap: 4px;
+  color: #66738c;
+  font-size: 12px;
+  font-weight: 400;
+  animation: big-screen-run-step-in 0.22s ease-out;
+}
+
+.big-screen-run-step.active {
+  color: #c3cee0;
+}
+
+.big-screen-run-step-group {
+  margin-top: 6px;
+  color: #8292ae;
+  font-weight: 650;
+}
+
+.big-screen-run-step:first-child .big-screen-run-step-group {
+  margin-top: 0;
+}
+
+.big-screen-run-step.grouped .big-screen-run-step-title {
+  padding-left: 10px;
+}
+
+.big-screen-run-step.active .big-screen-run-step-title::after {
+  content: ' ...';
+}
+
+@keyframes big-screen-run-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .big-screen-run-step {
+    animation: none;
+  }
+}
+
 .big-screen-files .topbar-file-status {
   max-width: none;
   overflow: visible;
@@ -30476,6 +30473,42 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
   flex-direction: column;
   overflow: hidden;
   background: #131b28;
+}
+
+/* Thin device status bar above the Phone view. */
+.phone-status-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  height: 22px;
+  padding: 0 22px 0 34px;
+  color: rgba(255, 255, 255, 0.86);
+  background: #0c121c;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.phone-status-bar-icons,
+.phone-status-bar-battery {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.phone-status-bar-battery {
+  gap: 4px;
+}
+
+.phone-status-bar svg {
+  height: 10px;
+}
+
+.phone-status-bar-network {
+  font-size: 10px;
 }
 
 /* Drag handle on the right edge of a phone app's contact or account list. */

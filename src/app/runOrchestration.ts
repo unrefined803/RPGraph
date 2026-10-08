@@ -71,14 +71,16 @@ export function withoutMessageRpDateTime(message: MessageRecord): MessageRecord 
   return nextMessage;
 }
 
-export function isRunCancelledError(error: unknown) {
+// A run counts as cancelled when its own signal was aborted or the error is
+// the app's cancellation error (also when IPC wrapped its message). Provider
+// errors that merely mention "aborted" or "cancelled", such as a request
+// timeout, are real failures and must be shown.
+export function isRunCancelledError(error: unknown, signal?: AbortSignal) {
+  if (signal?.aborted) {
+    return true;
+  }
   return error instanceof Error &&
-    (
-      error.message === 'The LLM request was cancelled.' ||
-      error.name === 'AbortError' ||
-      error.message.toLowerCase().includes('aborted') ||
-      error.message.toLowerCase().includes('cancelled')
-    );
+    error.message.includes('The LLM request was cancelled.');
 }
 
 export function createRunId() {

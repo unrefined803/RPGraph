@@ -73,16 +73,6 @@
           }
         ]
       },
-      "onlyfriends": {
-        "accountId": "character:nia_morrison:onlyfriends",
-        "enabled": false,
-        "profileName": "Nia Morrison",
-        "legacyHandles": [
-          "Nia Morrison"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
       "matchme": {
         "accountId": "character:nia_morrison:matchme",
         "enabled": true,

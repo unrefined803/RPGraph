@@ -568,8 +568,14 @@ export function useDialogueVoice({
     }
   }
 
-  async function generateAndPlayApiNarration(connection: ConnectionPreset, text: string) {
-    const streamAudio = connection.ttsStreamAudio === true;
+  async function generateAndPlayApiNarration(connection: ConnectionPreset, text: string, token: number) {
+    // The request cannot be aborted, so a stopped or superseded narration must
+    // not start playing once its audio arrives.
+    const isCurrent = () => readAloudTokenRef.current === token;
+    // OpenRouter only streams PCM for Gemini speech models; other models
+    // return one clip even when the preset still carries the stream flag.
+    const streamAudio = connection.ttsStreamAudio === true &&
+      (!isOpenRouterConnection(connection) || connection.model.trim().startsWith('google/gemini-'));
     if (streamAudio) {
       beginPcmStream();
     }
@@ -579,10 +585,19 @@ export function useDialogueVoice({
       clip = await generateApiNarratorClip(
         connection,
         ttsNarratorPrompt(connection, text),
-        streamAudio ? schedulePcmChunk : undefined,
+        streamAudio
+          ? (chunk: string) => {
+              if (isCurrent()) {
+                schedulePcmChunk(chunk);
+              }
+            }
+          : undefined,
       );
     } finally {
       setApiNarratorGenerationActive(false);
+    }
+    if (!isCurrent()) {
+      return clip;
     }
     if (streamAudio) {
       await waitForPcmStreamPlayback();
@@ -609,7 +624,7 @@ export function useDialogueVoice({
     earlyNarrationRef.current = { text: speechText };
     setReadAloudActive(true);
     try {
-      const clip = await generateAndPlayApiNarration(narratorOnlyConnection, speechText);
+      const clip = await generateAndPlayApiNarration(narratorOnlyConnection, speechText, token);
       if (readAloudTokenRef.current === token && earlyNarrationRef.current) {
         earlyNarrationRef.current.clip = clip;
       }
@@ -680,7 +695,7 @@ export function useDialogueVoice({
             sampleDataUrl,
           }))[0];
         } else if (isOpenRouterConnection(narratorOnlyConnection) || isGeminiConnection(narratorOnlyConnection)) {
-          clip = await generateAndPlayApiNarration(narratorOnlyConnection, text);
+          clip = await generateAndPlayApiNarration(narratorOnlyConnection, text, token);
         }
         if (!clip?.dataUrl || readAloudTokenRef.current !== token) {
           continue;

@@ -77,26 +77,6 @@
             "imageId": "noah_voss:image:post"
           }
         ]
-      },
-      "onlyfriends": {
-        "accountId": "character:noah_voss:onlyfriends",
-        "enabled": false,
-        "profileName": "Noah Voss",
-        "legacyHandles": [
-          "Noah Voss"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
-      "matchme": {
-        "accountId": "character:noah_voss:matchme",
-        "enabled": false,
-        "profileName": "Noah Voss",
-        "legacyHandles": [
-          "Noah Voss"
-        ],
-        "bio": "",
-        "portraitId": "character"
       }
     },
     "hiddenAgency": "Wants a reputation for solving difficult recovery problems while avoiding the social obligations of a growing client list. Moving to private conversation keeps sensitive details out of Fotogram comments; his ghosting pattern leaves inquiries unfinished and can cost him repeat work. WhatsUp is his chosen channel after an agreed introduction, not a source of automatic access to anyone's devices. He needs supplied information and legitimate access before making claims about a case. Someone confronting a missed commitment can push him toward a concrete update or reveal that he is not willing to take the work.",

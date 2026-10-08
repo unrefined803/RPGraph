@@ -176,13 +176,26 @@ export function rollPlanOutcomes(planText: string, random: () => number = Math.r
       if (!marker) {
         return line;
       }
-      const chance = marker.successChance;
-      const roll = Math.min(100, Math.floor(random() * 100) + 1);
-      const outcome = planRollOutcome(chance, roll);
-      rolls.push({ chance, roll, outcome });
+      const rolledMarker = (chance: number) => {
+        const roll = Math.min(100, Math.floor(random() * 100) + 1);
+        const outcome = planRollOutcome(chance, roll);
+        rolls.push({ chance, roll, outcome });
+        return `(chance: ${chance}%: ${planRollOutcomeTexts[outcome]})`;
+      };
+      if (marker.pattern !== labeledPlanPercentPattern) {
+        return line.replace(marker.pattern, rolledMarker(marker.successChance));
+      }
+      // One line can chain several labelled attempts; each gets its own roll.
       return line.replace(
-        marker.pattern,
-        `(chance: ${chance}%: ${planRollOutcomeTexts[outcome]})`,
+        new RegExp(labeledPlanPercentPattern.source, 'gi'),
+        (match: string, label: string, value: string) => {
+          const probability = Number(value);
+          if (!Number.isFinite(probability) || probability < 0 || probability > 100) {
+            return match;
+          }
+          const inverted = ['failure', 'fail'].includes(label.toLocaleLowerCase());
+          return rolledMarker(inverted ? 100 - probability : probability);
+        },
       );
     })
     .join('\n');

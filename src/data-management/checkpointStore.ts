@@ -266,6 +266,16 @@ export function applyTurnCheckpointToNodes(
   });
 }
 
+// A turn older than the retained checkpoints cannot be rolled back: removing
+// its messages would leave its event, stat and variable changes in place.
+// Opening History turns are authored content and stay removable.
+export function turnUndoAvailable(
+  turn: Pick<TurnRecord, 'id' | 'openingHistory'>,
+  checkpoints: TurnCheckpoint[],
+) {
+  return !!turn.openingHistory || checkpoints.some((checkpoint) => checkpoint.turnId === turn.id);
+}
+
 export function trimCheckpoints(checkpoints: TurnCheckpoint[]) {
   return checkpoints.slice(-DATA_MANAGEMENT_BUDGETS.maxCheckpoints);
 }

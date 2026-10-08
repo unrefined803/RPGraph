@@ -4,16 +4,37 @@ import {
   llmPromptSwitchPromptTitles,
 } from '../workflow';
 
+// Joins the route heading and the pass title of an LLM call label.
+export const llmCallLabelSeparator = ' › ';
+export const llmPromptCallLabel = 'Generate';
+
 function selectedPromptSwitchRoute(data: WorkflowNodeData) {
   const outputIndex = data.llmPromptSwitchSelectedOutputChannel ?? 0;
   const promptIndex = data.llmPromptSwitchSelectedPromptSlot ?? 0;
   const outputTitle = llmPromptSwitchOutputTitles(data)[outputIndex] ?? `Output ${outputIndex}`;
   const promptTitle = llmPromptSwitchPromptTitles(data, outputIndex)[promptIndex] ?? `Prompt ${promptIndex}`;
-  return `${outputTitle} / ${promptTitle}`;
+  return `${outputTitle}${llmCallLabelSeparator}${promptTitle}`;
 }
 
 export function promptSwitchRouteLabel(data: WorkflowNodeData) {
   return data.nodeType === 'llm-prompt-switch' ? selectedPromptSwitchRoute(data) : undefined;
+}
+
+// Splits a call label into the route heading it runs under and its own title.
+// Calls of nodes without a route have no group and keep their whole label.
+export function llmCallDisplayParts(label: string, data: WorkflowNodeData | undefined) {
+  const route = data
+    ? data.nodeType === 'llm-prompt' ? llmPromptCallLabel : promptSwitchRouteLabel(data)
+    : undefined;
+  if (!data || !route) {
+    return { title: label };
+  }
+  const group = data.nodeType === 'llm-prompt' ? data.label : route;
+  if (label === route) {
+    return { group, title: 'Main' };
+  }
+  const prefix = `${route}${llmCallLabelSeparator}`;
+  return label.startsWith(prefix) ? { group, title: label.slice(prefix.length) } : { title: label };
 }
 
 export function readableRuntimeName(value: string) {
@@ -34,7 +55,7 @@ export function llmCallStageLabel(stage: LlmCallStage | undefined, fallbackLabel
   const suffix = 'correction' in stage && stage.correction ? ' · Correction' : '';
   switch (stage.kind) {
     case 'step':
-      return `Step: ${readableRuntimeName(stage.name)}${stage.replay ? ` · Replay ${stage.replay}` : ''}`;
+      return `Step: ${readableRuntimeName(stage.name)}${stage.replay ? ' · Continued' : ''}`;
     case 'action':
       return `Action: ${readableRuntimeName(stage.name)}${suffix}`;
     case 'command':
@@ -49,7 +70,7 @@ export function nodeFallbackStageLabel(data: WorkflowNodeData) {
     return 'Translate';
   }
   if (data.nodeType === 'output') {
-    return data.speakerAnalysisEnabled ? 'Speakers' : 'Translate';
+    return data.speakerAnalysisEnabled ? 'Speaker highlighting' : 'Translate';
   }
   if (data.nodeType === 'llm-prompt-switch') {
     const action = data.preview.match(/Action\s+([A-Za-z0-9_]+)\s+(?:requested|resolved)/i);

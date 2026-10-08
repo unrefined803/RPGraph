@@ -88,16 +88,6 @@
           }
         ]
       },
-      "onlyfriends": {
-        "accountId": "character:mira_thorne:onlyfriends",
-        "enabled": false,
-        "profileName": "Mira Thorne",
-        "legacyHandles": [
-          "Mira Thorne"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
       "matchme": {
         "accountId": "character:mira_thorne:matchme",
         "enabled": true,

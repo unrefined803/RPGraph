@@ -1208,8 +1208,8 @@ export function verifyWorkflowValidationFixtures() {
       sillyTavernInstruction.includes('speechStyle') &&
       sillyTavernInstruction.includes('banking.startBalance') &&
       sillyTavernInstruction.includes('social.fotogramUsername') &&
-      sillyTavernInstruction.includes('scenario is completely empty'),
-    'SillyTavern AI imports must describe the complete RPGraph character mapping and allow filling an empty scenario',
+      sillyTavernInstruction.includes('Import only characters in this step'),
+    'SillyTavern AI imports must describe the complete RPGraph character mapping without importing story fields',
   );
   const importedMira = parseRpStorybookAssistantResult(JSON.stringify({
     reply: 'Imported Mira.',
@@ -1231,7 +1231,6 @@ export function verifyWorkflowValidationFixtures() {
           images: [],
         },
       },
-      { op: 'replace', path: '/scenario/summary', value: 'Mira arrives at a sealed library.' },
     ],
   }), emptyRpStorybook);
   const validatedSillyTavernImport = validateSillyTavernImportResult(
@@ -3193,7 +3192,7 @@ export function verifyWorkflowValidationFixtures() {
     { ...phoneMessages[0]!, translatedText: 'Translated ping', rpDateTime: '2026-06-01T12:00' },
     { ...phoneMessages[1]!, rpDateTime: '2026-06-01T12:30' },
   ], {
-    viewerName: 'Alice Example',
+    viewerName: 'Alice',
     selectedPhoneDividerAfterId: 10,
     englishProcessingEnabled: true,
     rpTimeTrackingEnabled: true,
@@ -3203,7 +3202,8 @@ export function verifyWorkflowValidationFixtures() {
       phoneMessageViews[0]?.visibleText === 'Translated ping' &&
       phoneMessageViews[0]?.dayRpDateTime === '2026-06-01T12:00' &&
       phoneMessageViews[1]?.showNewDivider === true &&
-      matchingPhoneName([{ name: 'Alice Example' }], 'Alice')?.name === 'Alice Example',
+      matchingPhoneName([{ name: 'Alice Example' }], 'Alice_Example')?.name === 'Alice Example' &&
+      matchingPhoneName([{ name: 'Alice Example' }], 'Alice') === undefined,
     'phone selectors must build phone UI message views from canonical message data',
   );
   assertFixture(
@@ -5368,7 +5368,7 @@ async function verifyPromptRunFixtures() {
     ],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Combined image fixture',
+    callLabel: 'Combined image fixture',
   });
   const combinedReplayImages = combinedCaptionRequests[2]?.images ?? [];
   const combinedAfterReplyImages = combinedCaptionRequests[3]?.images ?? [];
@@ -5502,7 +5502,7 @@ async function verifyPromptRunFixtures() {
     actionConfigs: [defaultPromptActionConfig('Describe input image', 'describeInputImage')],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
   });
   assertFixture(
     llmCalls === 2 && warnings.length === 0,
@@ -5554,7 +5554,7 @@ async function verifyPromptRunFixtures() {
     actionConfigs: [defaultPromptActionConfig('Describe input image', 'describeInputImage')],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
   });
   assertFixture(
     describeCorrectionCalls === 3 &&
@@ -5609,7 +5609,7 @@ async function verifyPromptRunFixtures() {
     actionConfigs: [defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption')],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
   });
   assertFixture(
     captionCorrectionCalls === 3 &&
@@ -5662,7 +5662,7 @@ async function verifyPromptRunFixtures() {
     actionConfigs: [defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption')],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
   });
   assertFixture(
     existingCaptionCalls === 2 &&
@@ -5713,7 +5713,7 @@ async function verifyPromptRunFixtures() {
     actionConfigs: [defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption')],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
   });
   assertFixture(
     wrongImageIdCalls === 3 &&
@@ -5794,7 +5794,7 @@ async function verifyPromptRunFixtures() {
     actionConfigs: [],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
   });
   assertFixture(
     socialReplayPrompts.length === 1 &&
@@ -5872,7 +5872,7 @@ async function verifyPromptRunFixtures() {
     actionConfigs: [],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
     random: () => planStepRandomValues.shift() ?? 0.5,
   });
   const planStepPrompts = planStepRequests.map((request) => request.prompt);
@@ -5969,7 +5969,7 @@ async function verifyPromptRunFixtures() {
     actionConfigs: [],
     streamsVisibleOutput: false,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
     random: () => 0.99,
   });
   assertFixture(
@@ -6000,11 +6000,11 @@ async function verifyPromptRunFixtures() {
   } as WorkflowNodeData;
   assertFixture(
     promptSwitchRouteLabel(promptSwitchCallDisplayData) ===
-      'Messenger Apps / WhatsUp Prompt No Image' &&
+      'Messenger Apps › WhatsUp Prompt No Image' &&
       llmCallStageLabel({ kind: 'step', name: 'planning' }, '') === 'Step: Planning' &&
       llmCallStageLabel({ kind: 'step', name: 'main' }, '') === 'Step: Main' &&
       llmCallStageLabel({ kind: 'step', name: 'translation', replay: 2 }, '') ===
-        'Step: Translation · Replay 2' &&
+        'Step: Translation · Continued' &&
       llmCallStageLabel({ kind: 'action', name: 'Get character phone image list' }, '') ===
         'Action: Get character phone image list' &&
       llmCallStageLabel({ kind: 'command', name: 'Bank transfer' }, '') ===
@@ -6053,7 +6053,7 @@ async function verifyPromptRunFixtures() {
       actionConfigs: [defaultPromptActionConfig('Get character phone image list', 'getImageId')],
       streamsVisibleOutput: true,
       contributesToTokenCalibration: false,
-      callLabel: () => 'Fixture call',
+      callLabel: 'Fixture call',
     });
     return { streamedChunks, promptsForCalls, streamResult };
   };
@@ -6136,7 +6136,7 @@ async function verifyPromptRunFixtures() {
     commandConfigs: [defaultPromptCommandConfig('messenger_conversation')],
     streamsVisibleOutput: true,
     contributesToTokenCalibration: false,
-    callLabel: () => 'Fixture call',
+    callLabel: 'Fixture call',
   });
   const streamableCommandChunks = commandChunks.flatMap((chunk) => {
     const previewText = autoplayStreamPreviewText(chunk);

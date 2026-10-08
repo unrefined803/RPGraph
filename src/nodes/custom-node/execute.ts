@@ -79,8 +79,10 @@ async function executeCustomNodeOutputs(node: WorkflowNode, context: ExecuteCont
       ? `Custom code ran: ${sourceHandle}`
       : 'Custom code ran',
     customNodeRuntimeDisplays: result.displays,
+    // Keep control values and definition changes made while the code ran;
+    // only the state is this run's result.
     customNodeDefinition: {
-      ...definition,
+      ...customNodeDefinition(context.latestNodeData?.(node.id)?.customNodeDefinition ?? definition),
       state: result.state,
     },
   });

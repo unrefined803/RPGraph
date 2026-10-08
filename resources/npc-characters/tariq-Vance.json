@@ -79,16 +79,6 @@
           }
         ]
       },
-      "onlyfriends": {
-        "accountId": "character:tariq_vance:onlyfriends",
-        "enabled": false,
-        "profileName": "Tariq Vance",
-        "legacyHandles": [
-          "Tariq Vance"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
       "matchme": {
         "accountId": "character:tariq_vance:matchme",
         "enabled": true,

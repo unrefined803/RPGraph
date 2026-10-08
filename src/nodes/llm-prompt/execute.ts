@@ -5,6 +5,7 @@ import { promptAfterInputHandle, promptBeforeInputHandle } from '../shared/image
 import { promptActionConfigs, withPromptActionRuntimeSettingsList } from '../shared/promptActions';
 import { promptCommandConfigs } from '../shared/promptCommands';
 import { runActionAwarePrompt } from '../shared/promptRun';
+import { llmPromptCallLabel } from '../../llm/callDisplay';
 import type { ExecuteContext } from '../types';
 
 export async function executeLlmPromptNode({
@@ -93,8 +94,7 @@ export async function executeLlmPromptNode({
     streamsVisibleOutput,
     contributesToTokenCalibration: true,
     onDebug: (debug) => context.updateRuntimeData(node.id, { llmPromptDebug: debug }),
-    callLabel: (actionReplayCount) =>
-      `Generate${actionReplayCount ? ` / Action replay ${actionReplayCount}` : ''}`,
+    callLabel: llmPromptCallLabel,
   });
   context.updateRuntimeData(node.id, {
     preview: `Sent via ${result.connectionLabel}${result.referenceImageCount ? ` (+${result.referenceImageCount} reference images)` : ''}`,

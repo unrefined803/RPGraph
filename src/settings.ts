@@ -14,7 +14,6 @@ import type {
   PhoneDesktopLayout,
   PhoneAppListScales,
 } from './types';
-import { bundledComfyNarratorVoice } from './comfy/defaultNarratorVoice';
 import {
   promptActionConfigs,
   promptActionRuntimeSettings,
@@ -575,7 +574,7 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
       ? connection.comfyWorkflowSetupConfirmed === true
       : undefined,
     comfyNarratorVoice: comfyRole === 'voice'
-      ? validComfyNarratorVoice(connection.comfyNarratorVoice) ?? bundledComfyNarratorVoice()
+      ? validComfyNarratorVoice(connection.comfyNarratorVoice)
       : undefined,
     comfyDeleteVoiceOutputs: comfyRole === 'voice'
       ? connection.comfyDeleteVoiceOutputs !== false
@@ -823,6 +822,8 @@ function isAppSettings(value: unknown): value is AppSettings {
         settings.options.phoneChatTextSize > 0)) &&
     (settings.options.phoneDesktopIconSize === undefined ||
       ['medium', 'large'].includes(settings.options.phoneDesktopIconSize)) &&
+    (settings.options.phoneStatusBarEnabled === undefined ||
+      typeof settings.options.phoneStatusBarEnabled === 'boolean') &&
     (settings.options.smoothChatAutoScrollEnabled === undefined ||
       typeof settings.options.smoothChatAutoScrollEnabled === 'boolean') &&
     (settings.options.smoothChatAutoScrollMinSpeed === undefined ||
@@ -936,6 +937,8 @@ type AppSettingsState = {
   setPhoneDesktopLayout: Dispatch<SetStateAction<PhoneDesktopLayout>>;
   phoneDesktopIconSize: PhoneDesktopIconSize;
   setPhoneDesktopIconSize: Dispatch<SetStateAction<PhoneDesktopIconSize>>;
+  phoneStatusBarEnabled: boolean;
+  setPhoneStatusBarEnabled: Dispatch<SetStateAction<boolean>>;
   chatGpdSidebarOpen: boolean;
   setChatGpdSidebarOpen: Dispatch<SetStateAction<boolean>>;
   chatGpdSidebarWidth: number;
@@ -1021,6 +1024,7 @@ export function useAppSettings(): AppSettingsState {
   const [phoneDesktopIconSize, setPhoneDesktopIconSize] = useState<PhoneDesktopIconSize>(
     defaultPhoneDesktopIconSize,
   );
+  const [phoneStatusBarEnabled, setPhoneStatusBarEnabled] = useState(false);
   const [chatGpdSidebarOpen, setChatGpdSidebarOpen] = useState(defaultChatGpdSidebarOpen);
   const [chatGpdSidebarWidth, setChatGpdSidebarWidth] = useState(defaultChatGpdSidebarWidth);
   const [phoneAppListScales, setPhoneAppListScales] = useState(defaultPhoneAppListScales);
@@ -1129,6 +1133,7 @@ export function useAppSettings(): AppSettingsState {
         setPhoneChatTextSize(validPhoneChatTextSize(result.settings.options.phoneChatTextSize));
         setPhoneDesktopLayout(validPhoneDesktopLayout(result.settings.options.phoneDesktopLayout));
         setPhoneDesktopIconSize(validPhoneDesktopIconSize(result.settings.options.phoneDesktopIconSize));
+        setPhoneStatusBarEnabled(result.settings.options.phoneStatusBarEnabled ?? false);
         setChatGpdSidebarOpen(result.settings.options.chatGpdSidebarOpen ?? defaultChatGpdSidebarOpen);
         setChatGpdSidebarWidth(validChatGpdSidebarWidth(result.settings.options.chatGpdSidebarWidth));
         setPhoneAppListScales(
@@ -1235,6 +1240,7 @@ export function useAppSettings(): AppSettingsState {
         phoneChatTextSize: validPhoneChatTextSize(phoneChatTextSize),
         phoneDesktopLayout: validPhoneDesktopLayout(phoneDesktopLayout),
         phoneDesktopIconSize: validPhoneDesktopIconSize(phoneDesktopIconSize),
+        phoneStatusBarEnabled,
         chatGpdSidebarOpen,
         chatGpdSidebarWidth: validChatGpdSidebarWidth(chatGpdSidebarWidth),
         phoneAppListScales: validPhoneAppListScales(phoneAppListScales, defaultPhoneAppListScales),
@@ -1310,6 +1316,7 @@ export function useAppSettings(): AppSettingsState {
     phoneChatTextSize,
     phoneDesktopLayout,
     phoneDesktopIconSize,
+    phoneStatusBarEnabled,
     chatGpdSidebarOpen,
     chatGpdSidebarWidth,
     phoneAppListScales,
@@ -1382,6 +1389,8 @@ export function useAppSettings(): AppSettingsState {
     setPhoneDesktopLayout,
     phoneDesktopIconSize,
     setPhoneDesktopIconSize,
+    phoneStatusBarEnabled,
+    setPhoneStatusBarEnabled,
     chatGpdSidebarOpen,
     setChatGpdSidebarOpen,
     chatGpdSidebarWidth,

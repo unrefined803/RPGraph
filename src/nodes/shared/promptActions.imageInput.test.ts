@@ -77,7 +77,7 @@ describe('gallery search with attached input images', () => {
         + '@step:main\n@output:planning\nWrite the scene.\n@action:Get character phone image list',
       actionConfigs: [{ ...gallery, disableWhenImageAttached: disabled }],
       streamsVisibleOutput: false, contributesToTokenCalibration: false,
-      callLabel: () => 'Narrator',
+      callLabel: 'Narrator',
     });
     expect(prompts).toHaveLength(2);
     for (const prompt of prompts) {

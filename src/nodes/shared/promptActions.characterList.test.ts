@@ -104,7 +104,7 @@ async function run(planning: boolean, answer: string, characters: StorybookChara
     images: [{ id: 'input', name: 'input', mimeType: 'image/png', size: 1, dataUrl: 'SECRET_INPUT_IMAGE' }], referenceImages: [],
     promptBefore: 'SECRET_STORY_PROMPT',
     promptAfter: planning ? '@step:planning\nPlan.\n@action:Ask character information\n@step:main\n@output:planning\nWrite.\n@action:Ask character information' : 'Write.\n@action:Ask character information',
-    actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator',
+    actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: 'Narrator',
   });
   return { result, calls, context, request };
 }

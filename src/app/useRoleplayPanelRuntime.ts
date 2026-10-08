@@ -717,7 +717,7 @@ export function useRoleplayPanelRuntime({
   }, [markPhoneConversationsSeen, phoneSeenByConversation, playerCharacters, phoneCharacters, viewedPhoneCharacter, setOpenedPhoneConversationKey, setSelectedPhoneCharacterId, setViewedPhoneCharacterId, setSelectedCharacterId]);
 
   const phoneContacts = useMemo(
-    () => phoneContactsForViewer(
+    () => measureUiWork('phone.contacts', () => phoneContactsForViewer(
       viewedPhoneCharacter
         ? phoneCharacters.filter((character) =>
             character.id === viewedPhoneCharacter.id ||
@@ -732,7 +732,7 @@ export function useRoleplayPanelRuntime({
         fallbackColor: '#e8edf3',
         englishProcessingEnabled,
       },
-    ),
+    )),
     [
       characterColors,
       englishProcessingEnabled,

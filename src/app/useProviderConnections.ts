@@ -52,7 +52,6 @@ import {
   isComfyImageConnection,
   isComfyVoiceConnection,
 } from '../comfy/connectionRole';
-import { bundledComfyNarratorVoice } from '../comfy/defaultNarratorVoice';
 import {
   characterComfyLoraSlots,
   bundledComfyWorkflows,
@@ -500,7 +499,7 @@ export function useProviderConnections({
         : bundledComfyWorkflowPathForRole(currentWorkflowPath, role),
       comfyWorkflowSetupConfirmed: false,
       comfyNarratorVoice: role === 'voice'
-        ? editingConnection.comfyNarratorVoice ?? bundledComfyNarratorVoice()
+        ? editingConnection.comfyNarratorVoice
         : undefined,
     };
     setConnections((current) =>
@@ -1429,6 +1428,20 @@ export function useProviderConnections({
     return null;
   }
 
+  function applyModelCheckResult(before: ConnectionPreset, result: ConnectionPreset) {
+    setEditingConnection((current) => {
+      if (current.id !== before.id || current.providerKind !== before.providerKind ||
+          current.baseUrl !== before.baseUrl || current.model !== before.model ||
+          current.apiKey !== before.apiKey) return current;
+      const derived = Object.fromEntries(
+        (Object.keys(result) as Array<keyof ConnectionPreset>)
+          .filter((key) => !Object.is(result[key], before[key]) && Object.is(current[key], before[key]))
+          .map((key) => [key, result[key]]),
+      );
+      return { ...current, ...derived };
+    });
+  }
+
   async function loadConnectionModels(selectFallbackModel: boolean) {
     if (editingConnection.providerKind === 'chatgpt') {
       await checkProviderConnection(editingConnection, { showStatus: true });
@@ -1592,13 +1605,17 @@ export function useProviderConnections({
           ? compatibleDetails(connection)?.capabilities ?? {}
           : { text: true };
       setAvailableConnectionModels(models);
-      setEditingConnection((current) => {
-        if (connection.providerKind !== 'openai-compatible') return connection;
-        if (current.providerKind !== connection.providerKind || compatibleCacheKey(current) !== compatibleCacheKey(connection)) return current;
-        return connectionWithCompatibleCapabilities({
-          ...current, model: current.model === editingConnection.model ? connection.model : current.model,
+      if (connection.providerKind !== 'openai-compatible') {
+        applyModelCheckResult(editingConnection, connection);
+      } else {
+        setEditingConnection((current) => {
+          if (current.id !== editingConnection.id || current.providerKind !== connection.providerKind ||
+              compatibleCacheKey(current) !== compatibleCacheKey(connection)) return current;
+          return connectionWithCompatibleCapabilities({
+            ...current, model: current.model === editingConnection.model ? connection.model : current.model,
+          });
         });
-      });
+      }
       // See checkProviderConnection: the public OpenRouter model list also
       // loads without an API key, but generation would fail with 401.
       const missingOpenRouterApiKey =
@@ -1632,7 +1649,7 @@ export function useProviderConnections({
               : editingConnection.model,
         };
         setAvailableConnectionModels(fallbackModels);
-        setEditingConnection(connection);
+        applyModelCheckResult(editingConnection, connection);
         updateProviderHealth(connection.id, {
           status: 'online',
           detail: 'Using bundled model list.',
@@ -1703,7 +1720,6 @@ export function useProviderConnections({
         samplers: samplerSchedulerOptions.samplers,
         schedulers: samplerSchedulerOptions.schedulers,
       });
-      setEditingConnection(connection);
       const total = checkpoints.length + loras.length + vae.length + textEncoders.length + diffusionModels.length;
       if (total === 0) {
         const healthResult = await window.rpgraph.checkComfyConnection({ baseUrl: connection.baseUrl });
@@ -2021,7 +2037,6 @@ export function useProviderConnections({
         deleteOutputs: connection.comfyDeleteImageOutputs !== false,
         timeoutMs: 180000,
       });
-      setEditingConnection(connection);
       setComfyPreview(result);
       updateProviderHealth(connection.id, {
         status: 'online',

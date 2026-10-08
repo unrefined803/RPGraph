@@ -76,16 +76,6 @@
           }
         ]
       },
-      "onlyfriends": {
-        "accountId": "character:elena_ward:onlyfriends",
-        "enabled": false,
-        "profileName": "Elena Ward",
-        "legacyHandles": [
-          "Elena Ward"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
       "matchme": {
         "accountId": "character:elena_ward:matchme",
         "enabled": true,

@@ -71,16 +71,6 @@
           }
         ]
       },
-      "onlyfriends": {
-        "accountId": "character:sienna_ray:onlyfriends",
-        "enabled": false,
-        "profileName": "Sienna Ray",
-        "legacyHandles": [
-          "Sienna Ray"
-        ],
-        "bio": "",
-        "portraitId": "character"
-      },
       "matchme": {
         "accountId": "character:sienna_ray:matchme",
         "enabled": true,

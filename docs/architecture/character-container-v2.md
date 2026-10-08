@@ -73,7 +73,7 @@ NPC copies with their own posts, taken from one selected source per Storybook;
 see [Saved Storybook NPC sources](character-creator.md#saved-storybook-npc-sources).
 
 Character IDs and account IDs establish identity. Same-name Storybook characters
-are rejected after case folding and whitespace normalization. A library character
+are rejected after case folding and whitespace normalization. A library character or retained snapshot
 with another ID but the same normalized name as an active Storybook character is
 hidden from discovery with a warning. Promotion preserves stable identities,
 account references, conversations and seed-post references.
@@ -316,8 +316,9 @@ from the Storybook without deleting a bundled or local library file. A used
 character can be retired as a non-playable NPC; its exact revision is retained
 in the RP participant archive and in portable Opening History. A changed
 revision may additionally be saved to or overwrite a character container in
-the NPC Library folder. Retired revisions remain available to app histories
-and can later be promoted to playable again without changing their stable
+the NPC Library folder. Retired revisions remain available to app histories unless an active Storybook
+character with another ID has the same normalized name; that collision hides
+the retired revision from the effective registry. Otherwise, they can later be promoted to playable again without changing their stable
 character, account, image, or initial-post identities.
 
 A retained snapshot alone does not establish interaction. The Interacted

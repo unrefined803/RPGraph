@@ -1364,65 +1364,14 @@ export function PhoneSocialFeedScreen({
   if (!account) return <p>Select a character to open this app.</p>;
 
 
-  const directMessageCommentAccounts: SocialDirectMessageParticipant[] = posts.flatMap((post) => [
-    ...(post.comments ?? []),
-    ...(persistedCommentsByPostId[post.id] ?? []),
-  ].map((comment) => {
-    const name = comment.authorName ?? `@${comment.authorHandle}`;
-    const character = storyCharacters.find((entry) =>
-      socialIdentityMatches(socialHandleForCharacter(entry, app.id), comment.authorHandle)
-    ) ?? storyCharacters.find((entry) => socialIdentityMatches(entry.name, name));
-    return {
-      key: `comment-author-${app.id}-${comment.authorHandle}`,
-      name: character?.name ?? name,
-      handle: comment.authorHandle,
-      character,
-      origin: {
-        postId: post.id,
-        postAuthor: post.authorName,
-        postAuthorHandle: post.authorHandle,
-        postCaption: post.caption,
-        postImageId: post.imageId,
-        postImageDescription: post.imageDescription,
-        commentAuthor: character?.name ?? name,
-        commentAuthorHandle: comment.authorHandle,
-        commentText: comment.text,
-      },
-    };
-  }));
-  const participantCandidates: SocialDirectMessageParticipant[] = [
-    ...connectedAccounts,
-    ...directMessageCommentAccounts,
-    ...dmPartnerAccounts,
-    ...persistedPosts.map((post) => ({
-      key: `post-author-${app.id}-${post.authorHandle}`,
-      name: post.authorName,
-      handle: post.authorHandle,
-      character: socialCharacterForPost({
-        app: app.id,
-        postId: post.id,
-        author: post.authorName,
-        authorHandle: post.authorHandle,
-        authorAccountId: post.authorAccountId,
-        authorCharacterId: post.authorCharacterId,
-        caption: post.caption,
-      }, storyCharacters),
-    })),
-  ];
-  // Existing conversations bubble to the top, most recent first; contacts
-  // without a conversation keep their original order below them.
-  const directMessageParticipants = participantCandidates
-    .filter((participant, index, entries) =>
-      !socialIdentityMatches(participant.handle, account) &&
-      entries.findIndex((entry) => socialIdentityMatches(entry.handle, participant.handle)) === index,
-    )
-    .sort((left, right) => dmRecency(right.handle) - dmRecency(left.handle));
   const directMessages = visibleDirectMessages;
+  // A conversation is the only direct message view; without a partner the feed shows.
+  const conversationOpen = directMessagesOpen && !!directMessageParticipant;
 
-  function openDirectMessages(participant?: SocialDirectMessageParticipant) {
+  function openDirectMessages(participant: SocialDirectMessageParticipant) {
     // Tapping your own name on posts or comments must never open a DM with
     // yourself; the AI would end up answering its own account.
-    if (participant && account && socialIdentityMatches(participant.handle, account)) {
+    if (account && socialIdentityMatches(participant.handle, account)) {
       return;
     }
     setPostStage(undefined);
@@ -1433,7 +1382,7 @@ export function PhoneSocialFeedScreen({
   return (
     <div
       className={`phone-social-screen ${app.themeClass}`}
-      aria-label={directMessagesOpen ? `${app.name} messages` : app.name}
+      aria-label={conversationOpen ? `${app.name} messages` : app.name}
     >
       {notice && (
         <div
@@ -1465,17 +1414,6 @@ export function PhoneSocialFeedScreen({
             <div className="phone-social-brand">
               <strong>{app.name}</strong>
             </div>
-            <button
-              type="button"
-              className="phone-social-messages-button"
-              onClick={() => openDirectMessages()}
-              aria-label="Open direct messages"
-              title="Messages"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
-              </svg>
-            </button>
           </header>
           {app.id === 'onlyfriends' && owner && (
             <div className="phone-social-wallet">
@@ -1541,7 +1479,7 @@ export function PhoneSocialFeedScreen({
           <div className="phone-social-account-list">
             <button
               type="button"
-              className={`phone-social-account${directMessagesOpen ? '' : ' active'}`}
+              className={`phone-social-account${conversationOpen ? '' : ' active'}`}
               onClick={() => {
                 setDirectMessageParticipant(undefined);
                 setDirectMessagesOpen(false);
@@ -1755,14 +1693,12 @@ export function PhoneSocialFeedScreen({
             />
           </div>
         </div>
-        {directMessagesOpen && owner ? (
+        {directMessagesOpen && directMessageParticipant && owner ? (
           <PhoneSocialDirectMessages
             characters={storyCharacters}
             app={app.id}
             owner={owner}
             ownerHandle={account}
-            participants={directMessageParticipants}
-            unreadByHandle={unreadDirectMessages}
             selectedParticipant={directMessageParticipant}
             messages={directMessages}
             characterColors={characterColors}
@@ -1776,8 +1712,6 @@ export function PhoneSocialFeedScreen({
             highlightedMessageId={openDirectMessageRequest?.messageId}
             highlightedMessagePulseKey={openDirectMessageRequest?.requestId ?? 0}
             disabled={isRunning}
-            onSelectParticipant={setDirectMessageParticipant}
-            onCloseConversation={() => setDirectMessageParticipant(undefined)}
             onBack={() => {
               setDirectMessageParticipant(undefined);
               setDirectMessagesOpen(false);

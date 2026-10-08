@@ -81,6 +81,7 @@ import {
   panelViewSwitchPressEvent,
   panelViewSwitchReleaseEvent,
 } from './app/panelViewSwitchEvent';
+import { PhoneStatusBar } from './components/PhoneStatusBar';
 import { PhoneTabletFrame } from './components/PhoneTabletFrame';
 import { PhoneAppListScaleContext } from './components/phoneAppListScale';
 import {
@@ -155,6 +156,8 @@ import {
   parseImageGenerationAssistantResult,
 } from './chat/imageGenerationAssistant';
 import { lastTurnMessages } from './data-management/historyStore';
+import { DATA_MANAGEMENT_BUDGETS } from './data-management/budgets';
+import { turnUndoAvailable } from './data-management/checkpointStore';
 import {
   chatAttachmentFromStorybookImage,
   findChatEndpoints,
@@ -210,6 +213,7 @@ import {
 } from './data-management/sessionStore';
 import { isRpgraphSessionV2 } from './data-management/validation';
 import type { RpgraphSessionV2 } from './data-management/types';
+import { BigScreenRunSteps } from './components/BigScreenRunSteps';
 import { LiveRunClock } from './components/LiveRunClock';
 import {
   appointmentsFromEventEntities,
@@ -760,6 +764,8 @@ function App() {
     setPhoneDesktopLayout,
     phoneDesktopIconSize,
     setPhoneDesktopIconSize,
+    phoneStatusBarEnabled,
+    setPhoneStatusBarEnabled,
     chatGpdSidebarOpen,
     setChatGpdSidebarOpen,
     chatGpdSidebarWidth,
@@ -985,6 +991,7 @@ function App() {
     turns,
     setTurns,
     turnsRef,
+    turnCheckpoints,
     setTurnCheckpoints,
     turnCheckpointsRef,
     nextMessageIdRef,
@@ -1496,6 +1503,7 @@ function App() {
     });
   }, [unloadAllProviderModelsForClose]);
   const wasRunningForDialogueVoiceRef = useRef(false);
+  const lastOutputIdBeforeRunRef = useRef(0);
   useEffect(() => {
     const wasRunning = wasRunningForDialogueVoiceRef.current;
     wasRunningForDialogueVoiceRef.current = isRunning;
@@ -1505,6 +1513,14 @@ function App() {
     if (isRunning) {
       // Voice generation unloads local LLM models; never keep it running into a chat run.
       stopDialogueVoice();
+      lastOutputIdBeforeRunRef.current = messages.reduce(
+        (latest, message) => (message.role === 'output' ? Math.max(latest, message.id) : latest),
+        0,
+      );
+      return;
+    }
+    // A cancelled or failed run adds no output; the previous turn must not be voiced again.
+    if (!latestOutputTurnMessages(messages).some((message) => message.id > lastOutputIdBeforeRunRef.current)) {
       return;
     }
     if (dialogueVoiceMode === 'preload') {
@@ -1712,6 +1728,7 @@ function App() {
     submitStorybookCreatorMessage,
     clearStorybookCreatorChat,
     retryStorybookCreatorMessage,
+    importSillyTavernStory,
     updateStorybook,
     commitStorybookToNode,
     applyStorybookToNode,
@@ -2352,6 +2369,12 @@ function App() {
 
   function updateDeletedNodeRestoreButton() {
     setShowDeletedNodeRestoreButton(deletedNodeRestoreStack.current.length > 0);
+  }
+
+  // Deleted nodes can only be restored into the graph they were removed from.
+  function clearDeletedNodeRestoreStack() {
+    deletedNodeRestoreStack.current = [];
+    setShowDeletedNodeRestoreButton(false);
   }
 
   function rememberDeletedNodes(deletedNodes: WorkflowNode[]) {
@@ -3077,6 +3100,7 @@ function App() {
     pendingFitView.current = false;
     setNodeMenu(null);
     resetNodeContextMenuState();
+    clearDeletedNodeRestoreStack();
     setTextDialogNodeId(null);
     setJsonDialogNodeId(null);
     activeWorkflowResetSnapshotRef.current = null;
@@ -3399,6 +3423,7 @@ function App() {
     }
     setNodeMenu(null);
     resetNodeContextMenuState();
+    clearDeletedNodeRestoreStack();
     setTextDialogNodeId(null);
     setTextDialogView('text');
     setJsonDialogNodeId(null);
@@ -3619,14 +3644,14 @@ function App() {
     });
     let lastResponseText = '';
     const attemptSpeakerAnalysis = async () => {
-      updateLlmNodeActive(outputNode.id, true, 'Speakers');
+      updateLlmNodeActive(outputNode.id, true, 'Speaker highlighting');
       let completion: Awaited<ReturnType<NodeLlmApi['complete']>>;
       try {
         completion = await nodeLlm.withAbortSignal(signal).complete({
           connectionId: outputNode.data.connectionId,
           purpose: 'RP Output speaker analysis',
           nodeId: outputNode.id,
-          label: 'Speakers',
+          label: 'Speaker highlighting',
           prompt,
           fastTask: true,
         });
@@ -4087,12 +4112,15 @@ function App() {
   }
 
   const currentSessionTurn = lastSessionTurn(turns);
+  const undoLimitReached = !!currentSessionTurn && !turnUndoAvailable(currentSessionTurn, turnCheckpoints);
   const undoTurnTitle = isRunning
     ? 'Cancel the running turn'
-    : currentSessionTurn
-      ? 'Undo the complete last turn'
-      : 'No turn to undo';
-  const undoTurnDisabled = !isRunning && !currentSessionTurn;
+    : !currentSessionTurn
+      ? 'No turn to undo'
+      : undoLimitReached
+        ? `Undo limit reached: only the last ${DATA_MANAGEMENT_BUDGETS.maxCheckpoints} turns can be undone`
+        : 'Undo the complete last turn';
+  const undoTurnDisabled = !isRunning && (!currentSessionTurn || undoLimitReached);
 
   function openImagePreview(image: ChatImageAttachment) {
     setPreviewImage({ image });
@@ -4687,7 +4715,7 @@ function App() {
     if (isRunning) {
       return;
     }
-    if (!turn) {
+    if (!turn || !turnUndoAvailable(turn, turnCheckpointsRef.current)) {
       return;
     }
     removeTurnAt(turnIndex);
@@ -5788,15 +5816,21 @@ function App() {
                   <LiveRunClock isRunning={isRunning} isPaused={isPaused} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
                 </span>
               </button>
-              <dl className="big-screen-runtime-stats" aria-label="LLM usage of the current or last run">
-                <div><dt>Input tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.inputTokens) : '-'}</dd></div>
-                <div><dt>Output tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.outputTokens) : '-'}</dd></div>
-                <div>
-                  <dt>Reasoning</dt>
-                  <dd>{runLlmTotals ? tokenCell(runLlmTotals.hasReasoningTokens ? runLlmTotals.reasoningTokens : undefined) : '-'}</dd>
-                </div>
-                <div><dt>LLM calls</dt><dd>{runLlmReport ? runLlmReport.calls.length : '-'}</dd></div>
-              </dl>
+              <BigScreenRunSteps
+                calls={runLlmReport && (!isRunning || activeRunId === runLlmReport.runId) ? runLlmReport.calls : []}
+                nodes={nodes}
+                isRunning={isRunning}
+              >
+                <dl className="big-screen-runtime-stats" aria-label="LLM usage of the current or last run">
+                  <div><dt>Input tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.inputTokens) : '-'}</dd></div>
+                  <div><dt>Output tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.outputTokens) : '-'}</dd></div>
+                  <div>
+                    <dt>Reasoning</dt>
+                    <dd>{runLlmTotals ? tokenCell(runLlmTotals.hasReasoningTokens ? runLlmTotals.reasoningTokens : undefined) : '-'}</dd>
+                  </div>
+                  <div><dt>LLM calls</dt><dd>{runLlmReport ? runLlmReport.calls.length : '-'}</dd></div>
+                </dl>
+              </BigScreenRunSteps>
             </div>
             {graphSystemToast}
             <button className="big-screen-exit" type="button" onClick={() => setBigScreenMode(false)}>
@@ -6419,6 +6453,11 @@ function App() {
               resizing={isPhoneResizing}
               onResizeStart={() => setIsPhoneResizing(true)}
             >
+            {phoneStatusBarEnabled && <PhoneStatusBar
+              rpDateTime={rpTimeTrackingEnabled ? latestHistoryRpDateTime(messages) : undefined}
+              rpDateTimeFormat={rpDateTimeFormat}
+              rpWeekdayLanguage={rpWeekdayLanguage}
+            />}
             <PhoneAppListScaleContext.Provider value={phoneAppListScaleContext}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhoneNotificationBanners
@@ -6702,6 +6741,8 @@ function App() {
               onPhoneDesktopLayoutChange={setPhoneDesktopLayout}
               phoneDesktopIconSize={phoneDesktopIconSize}
               onPhoneDesktopIconSizeChange={setPhoneDesktopIconSize}
+              phoneStatusBarEnabled={phoneStatusBarEnabled}
+              onPhoneStatusBarEnabledChange={setPhoneStatusBarEnabled}
               phoneClockRpDateTime={latestHistoryRpDateTime(messages)}
               imageAssistantModelStateById={imageAssistantModelStateById}
               onSetImageAssistantLlmModelLoaded={setImageAssistantLlmModelLoaded}
@@ -6912,6 +6953,7 @@ function App() {
           onImportOpeningHistory={() => importCurrentSessionAsOpeningHistory(storybookCreatorNode.id)}
           onClearOpeningHistory={() => clearStorybookOpeningHistory(storybookCreatorNode.id)}
           onResetStorybook={() => resetStorybook(storybookCreatorNode.id)}
+          onImportSillyTavernStory={importSillyTavernStory}
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
           onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}

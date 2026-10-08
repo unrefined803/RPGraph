@@ -83,3 +83,20 @@ describe('on-demand run providers', () => {
     expect(options.activeRun.current).toBeNull();
   });
 });
+
+it('restores a refused input before any run starts', async () => {
+  const { run, options } = harness();
+  options.nodesRef.current = [];
+  expect(await run('Keep this draft')).toBe(false);
+  expect(options.setDraft).toHaveBeenCalledWith('Keep this draft');
+  expect(options.setIsRunning).not.toHaveBeenCalledWith(true);
+});
+
+it('finishes and reports errors thrown before the inner run try block', async () => {
+  const { run, options } = harness();
+  vi.mocked(options.setRunStartTimeMs).mockImplementation(() => { throw new Error('Early setup failure'); });
+  expect(await run('Hello')).toBe(false);
+  expect(options.activeRun.current).toBeNull();
+  expect(options.setIsRunning).toHaveBeenLastCalledWith(false);
+  expect(options.notifySystem).toHaveBeenCalledWith('error', 'Graph error: Early setup failure');
+});

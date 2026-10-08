@@ -50,6 +50,7 @@ type ExecuteGraphOptions = {
   llm: NodeLlmApi;
   textMetrics: TextMetricsApi;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
+  latestNodeData?: (nodeId: string) => WorkflowNodeData | undefined;
   updateEventEntities?: (
     nodeId: string,
     events: Record<string, EventEntity>,
@@ -145,6 +146,7 @@ export async function executeGraph({
   llm,
   textMetrics,
   updateRuntimeNode,
+  latestNodeData,
   updateEventEntities,
   streamOutput,
   askUser,
@@ -369,6 +371,7 @@ export async function executeGraph({
           return definition.execute(node, {
             phase: postOutputRun ? 'prepare-next-turn' : 'response',
             nodes,
+            latestNodeData,
             edges,
             originalInput,
             visibleInput,

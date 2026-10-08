@@ -192,10 +192,21 @@ export async function executeContextCompressionNode({
         semanticPrefixEnd(inputValue, Math.min(cachedPrefix.length, inputValue.length)),
       )
     : currentTokens >= maxTokens
-      ? inputValue.slice(
-          0,
-          prefixEndForTokenBudget(inputValue, maxTokens, textMetrics),
-        )
+      ? (() => {
+          if (!cacheMatches) {
+            return inputValue.slice(0, prefixEndForTokenBudget(inputValue, maxTokens, textMetrics));
+          }
+          // The cached prefix is already summarized. Budget only the new text
+          // next to the summary it is merged with; measuring from the start
+          // of the raw input would cut inside the summarized prefix.
+          const summaryTokens = textMetrics.measure(`EXISTING SUMMARY:\n${cachedSummary}`).tokens;
+          const absorbEnd = prefixEndForTokenBudget(
+            suffixToAbsorb,
+            Math.max(1, maxTokens - summaryTokens),
+            textMetrics,
+          );
+          return `${cachedPrefix}${suffixToAbsorb.slice(0, absorbEnd)}`;
+        })()
     : (() => {
         const targetCharacter = Math.max(
           1,
