@@ -13,8 +13,8 @@ export type ParsedAccountLink = AccountLinkTarget & { start: number; end: number
 const appAliases: Record<string, AccountLinkApp> = accountLinkAppAliases;
 const identityContinuation = /^[\p{L}\p{N}_:@-]|^[.][\p{L}\p{N}_]/u;
 
-function accountLinkTargets(characters: StorybookCharacter[]) {
-  return characters.flatMap((character) => accountLinkApps.flatMap<AccountLinkTarget>((app) => {
+function accountLinkTargets(characters: StorybookCharacter[], owners = characters) {
+  return owners.flatMap((character) => accountLinkApps.flatMap<AccountLinkTarget>((app) => {
     if (app === 'banking') {
       return [{ token: '', app, accountId: character.name, characterId: character.sourceId,
         name: character.name, username: character.name, character }];
@@ -41,7 +41,9 @@ export function resolveAccountLink(app: AccountLinkApp, identity: string, charac
   if (app === 'whatsup') {
     try {
       const phone = resolveWhatsUpRecipient(characters, [], identity);
-      return accountLinkTargets(characters).find((target) => target.app === app &&
+      // Each owner's targets resolve against the whole cast, so build only the recipient's.
+      const owners = characters.filter((character) => character.sourceId === phone.characterId);
+      return accountLinkTargets(characters, owners).find((target) => target.app === app &&
         target.accountId === phone.accountId && target.characterId === phone.characterId);
     } catch { return undefined; }
   }

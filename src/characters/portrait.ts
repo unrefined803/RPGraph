@@ -6,6 +6,20 @@ type Crop = RpStorybookCharacterProfileImage['crop'];
 const portraitCacheMaxEntries = 64;
 const portraitCache = new Map<string, Map<string, string>>();
 let portraitCacheEntries = 0;
+// A cast larger than the content cache would otherwise evict and re-encode every
+// portrait on each pass. Entries live only as long as their image object.
+const portraitImageCacheMaxVariants = 4;
+const portraitImageCache = new WeakMap<object, { dataUrl: string; variants: Map<string, string> }>();
+
+function rememberImagePortrait(image: { dataUrl: string }, variant: string, value: string) {
+  let known = portraitImageCache.get(image);
+  if (!known || known.dataUrl !== image.dataUrl || known.variants.size >= portraitImageCacheMaxVariants) {
+    known = { dataUrl: image.dataUrl, variants: new Map() };
+    portraitImageCache.set(image, known);
+  }
+  known.variants.set(variant, value);
+  return value;
+}
 
 function cachedPortrait(dataUrl: string, variant: string) {
   const variants = portraitCache.get(dataUrl);
@@ -78,8 +92,11 @@ export function imageDimensions(image: Pick<RpStorybookCharacterImage, 'dataUrl'
 export function portraitDataUrl(image: Pick<RpStorybookCharacterImage, 'dataUrl' | 'width' | 'height'>, crop?: Crop): string {
   if (!crop || ![crop.x, crop.y, crop.size].every(Number.isFinite) || crop.size <= 0) return image.dataUrl;
   const variant = `${image.width ?? ''}:${image.height ?? ''}:${crop.x}:${crop.y}:${crop.size}`;
+  const known = portraitImageCache.get(image);
+  const remembered = known?.dataUrl === image.dataUrl ? known.variants.get(variant) : undefined;
+  if (remembered !== undefined) return remembered;
   const cached = cachedPortrait(image.dataUrl, variant);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) return rememberImagePortrait(image, variant, cached);
   if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) return image.dataUrl;
   const dimensions = imageDimensions(image);
   if (!dimensions) return image.dataUrl;
@@ -92,7 +109,7 @@ export function portraitDataUrl(image: Pick<RpStorybookCharacterImage, 'dataUrl'
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" viewBox="${x} ${y} ${size} ${size}"><image width="${width}" height="${height}" xlink:href="${image.dataUrl}"/></svg>`;
   const value = `data:image/svg+xml;base64,${btoa(svg)}`;
   cachePortrait(image.dataUrl, variant, value);
-  return value;
+  return rememberImagePortrait(image, variant, value);
 }
 
 /** An app using the portrait's source photo inherits its manually editable crop. */

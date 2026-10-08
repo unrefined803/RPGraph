@@ -56,8 +56,9 @@ exporting is not part of the chat reproduction, so distinguish those timestamps.
   linked phone/social records, quoted phone replies and own grouping state.
   Unrelated timeline edits preserve these row props. Actual linked changes,
   timestamps, regrouping and undo still invalidate the affected rows.
-- `phone.socialDirectory`, `phone.notifications`, `phone.conversations`: derived
-  phone data work, including when the Phone panel itself is not visible.
+- `phone.socialDirectory`, `phone.notifications`, `phone.conversations`,
+  `phone.contacts`: derived phone data work, including when the Phone panel
+  itself is not visible. `phone.contacts` includes contact visibility checks.
 - `history.serialize`, `history.originalHistory`, `history.translatedHistory`:
   completed-history preparation for graph previews.
 - `react-render`: React Profiler timings for App, Chat and Graph. These measure

@@ -1642,6 +1642,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
           socialDirectMessage: persistedReply,
         });
       };
+      // A run started by a click or key press inherits that event's priority, so React
+      // renders after every node patch. Leaving the event's task lets the patches batch.
+      await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
       const executedOutput = await executeGraph({
         outputNodeId: outputNode.id,
         latestNodeData: (nodeId) => nodesRef.current.find((entry) => entry.id === nodeId)?.data,

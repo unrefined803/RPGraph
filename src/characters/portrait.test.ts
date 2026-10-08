@@ -48,6 +48,22 @@ describe('portable character portrait crops', () => {
     expect(decodedSvg(portraitDataUrl(portrait, { x: 90, y: 90, size: 50 }))).toContain('viewBox="200 600 200 200"');
   });
 
+  it('reuses cropped portraits for a cast larger than the content cache', () => {
+    const source = container.character.images[0];
+    const images = Array.from({ length: 80 }, (_, index) => ({ ...source, width: 400 + index, height: 800 }));
+    const crop = { x: 10, y: 10, size: 40 };
+    const first = images.map((image) => portraitDataUrl(image, crop));
+    const encode = vi.spyOn(globalThis, 'btoa');
+    try {
+      expect(images.map((image) => portraitDataUrl(image, crop))).toEqual(first);
+      expect(encode).not.toHaveBeenCalled();
+      images[0].dataUrl = container.character.images[1].dataUrl;
+      expect(portraitDataUrl(images[0], crop)).not.toBe(first[0]);
+    } finally {
+      encode.mockRestore();
+    }
+  });
+
   it('keeps explicit uncropped pictures and missing portraits distinct, including round trips', () => {
     const source = structuredClone(container.character);
     delete source.profileImage;
