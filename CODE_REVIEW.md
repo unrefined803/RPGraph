@@ -73,6 +73,9 @@ How the items with a choice of behavior were fixed:
   not disabled, and only the same image's Describe button is.
 - Impact: images added in the meantime are gone. Their bytes existed only in
   Storybook state, so they cannot be recovered. Other edits are reverted.
+- Fixed: a finished description is applied to the Storybook as it is at that
+  moment, so images added or edited meanwhile are kept. Nothing is written
+  after the dialog closed.
 
 ### 2. SillyTavern import deletes characters added during the request
 
@@ -88,6 +91,8 @@ How the items with a choice of behavior were fixed:
   (`src/storybook/sillyTavernImport.ts` 99-111) accepts any patch path under
   `/characters/`, so the model can also modify existing characters during an
   import, which the import instruction forbids.
+- Fixed: the import stops with a message when the Storybook changed during the
+  request. The validation gap noted under Related is unchanged.
 
 ### 3. Undo beyond 50 turns removes messages but keeps the turn's state changes
 
@@ -124,6 +129,8 @@ How the items with a choice of behavior were fixed:
   receives duplicated or misplaced context with no error. The report also
   describes a stall variant where each turn spends an LLM call and then fails
   with "result is still too large"; that variant was not traced.
+- Fixed: with a cached summary, the budget covers only the new text next to
+  that summary. A regression test reproduces the old failure.
 
 ### 5. Deleted-node undo stack survives loading another workflow
 
@@ -134,6 +141,8 @@ How the items with a choice of behavior were fixed:
   restore button.
 - Impact: nodes and edges from A are inserted into B. Edges attach to any B
   node with a matching ID, and bundled workflows reuse fixed IDs.
+- Fixed: the stack is cleared when a workflow is loaded and on New/Clear
+  workspace.
 
 ### 6. Custom Node writes back the definition captured at run start
 
@@ -146,6 +155,9 @@ How the items with a choice of behavior were fixed:
 - Trigger: change a slider or toggle, or apply or reset a definition, while a
   Custom Node run or an assistant request is in flight.
 - Impact: the change is reverted when the run or request finishes.
+- Fixed: a run writes only its resulting state into the current definition. The
+  assistant refuses to apply a reply when the definition changed during the
+  request.
 
 ### 7. Provider connection edits are reverted when a model check returns
 
@@ -159,6 +171,8 @@ How the items with a choice of behavior were fixed:
   ComfyUI test generation holds the window open for up to 180 seconds.
 - Impact: the typed value disappears. Closing the connection manager persists
   the reverted state, so the key is lost.
+- Fixed: the check applies only the fields it derived, and only while the
+  editor still shows the same connection, server and model.
 
 ### 8. The chat input is cleared before the run can be refused
 
@@ -170,6 +184,8 @@ How the items with a choice of behavior were fixed:
   without running when the graph has no RP Output or User Input node, no
   Storybook character, or no selectable character.
 - Impact: the typed message is discarded and only a warning appears.
+- Fixed: a run refused before it starts returns the text, commands and images
+  to the composer.
 
 ## Broken privacy guarantees
 
@@ -206,6 +222,8 @@ How the items with a choice of behavior were fixed:
   legacy-named or foreign save with the same display name.
 - Impact: the older save is deleted after the new file is written, with no
   prompt. The in-app save path returns a conflict in the same situation.
+- Fixed: the replace confirmation now also appears when an existing file is
+  converted and then deleted.
 
 ## Runs that hang or fail without a visible reason
 
@@ -221,6 +239,8 @@ How the items with a choice of behavior were fixed:
 - Impact: `isRunning` stays true, every later run returns at line 498, and
   Stop has nothing to cancel. Only a restart recovers. The call is
   `void runGraph(...)`, so no error is shown.
+- Fixed: a missing input speaker is refused before the run starts, and any
+  error thrown outside the run's `try` ends the run and is reported.
 
 ### 12. Real provider errors are reported as user cancellation
 
@@ -232,6 +252,9 @@ How the items with a choice of behavior were fixed:
   to timeout") or a provider message with one of these words.
 - Impact: the run ends with "Run cancelled." and the error text is lost. In the
   assistant dialog an empty reply bubble remains with no error.
+- Fixed: cancellation is detected from the run's own abort signal or the app's
+  cancellation error. Other errors are shown, in runs and in the assistant
+  dialog.
 
 ### 13. Error events inside a streamed response are ignored
 
@@ -242,6 +265,8 @@ How the items with a choice of behavior were fixed:
 - Trigger: a provider reports an error mid-stream after sending some content.
   The exact payload shapes per provider were not verified.
 - Impact: a truncated reply is returned as a successful turn.
+- Fixed: an `error` object in a chat stream ends the request with the
+  provider's message. Tested with the common payload shape only.
 
 ### 14. ComfyUI memory release before a local LLM request never runs
 
@@ -255,6 +280,8 @@ How the items with a choice of behavior were fixed:
   object is created before the throw and never gets an `error` listener, so a
   refused connection may additionally raise an unhandled error in the main
   process; this second effect was not verified.
+- Fixed: the release uses a real abort handle with a 10 second limit, so the
+  request is sent and the marker is cleared.
 
 ### 15. One invalid JSON object in RP Output Actions discards the whole turn
 
@@ -267,6 +294,8 @@ How the items with a choice of behavior were fixed:
   trailing comma. A single invalid object only produces a warning.
 - Impact: the turn is rolled back with "Graph error" after the LLM call was
   already paid for.
+- Fixed: an invalid object in a sequence produces the normal parse warning and
+  the turn continues.
 
 ## Wrong results without a warning
 
@@ -278,6 +307,8 @@ How the items with a choice of behavior were fixed:
   strings such as `"true."` and `"Yes, definitely"` to `false`.
 - Impact: routing takes the false branch whenever the model answers in prose.
   The history node, by comparison, retries and reports format errors.
+- Fixed: an unreadable answer is retried once when format retries are enabled,
+  then reported as a format error and a warning.
 
 ### 17. An empty number selects option 0
 
@@ -288,6 +319,7 @@ How the items with a choice of behavior were fixed:
 - Impact: a Text Selector with no number connected outputs "Number 0 Text"; a
   Phone Message Router sends text to its first output when the model returns
   an empty number.
+- Fixed: an empty value and values below zero select nothing.
 
 ### 18. Action JSON is missed after an unpaired quote
 
@@ -299,6 +331,8 @@ How the items with a choice of behavior were fixed:
   followed by an action object.
 - Impact: the action is not recognized, no warning is raised, and the raw JSON
   appears in the visible reply.
+- Fixed: quotes are tracked only inside an object, so prose before the JSON no
+  longer hides it.
 
 ### 19. Only the first probability marker on a line is rolled
 
@@ -308,6 +342,7 @@ How the items with a choice of behavior were fixed:
 - Trigger: two markers on one line, such as
   `picks the lock (chance: 70%) and slips past (chance: 40%)`.
 - Impact: the second outcome reaches the next pass undecided.
+- Fixed: every labelled marker on a line gets its own roll.
 
 ### 20. Event Manager overwrites an event because of a generated ID collision
 
@@ -317,6 +352,8 @@ How the items with a choice of behavior were fixed:
 - Trigger: the model omits `id` on an update entry that matches no existing
   event, and also adds an event.
 - Impact: both get `<turn>-event-1`; the added event replaces the updated one.
+- Fixed: generated IDs of added events continue after the update list, so they
+  cannot collide.
 
 ### 21. Image context is inserted in the middle of message text
 
@@ -326,6 +363,8 @@ How the items with a choice of behavior were fixed:
 - Example: `At 10:30 the bell rang.` becomes
   `At 10:[Image: ...] 30 the bell rang.` in the history sent to the model.
   `**Narrator:** text` has the marker inserted inside the bold markup.
+- Fixed: only a short, name-like label without digits counts as a speaker
+  prefix; otherwise the image context is placed in front.
 
 ### 22. Context Builder labels capitalize letters after umlauts
 
@@ -334,6 +373,7 @@ How the items with a choice of behavior were fixed:
   letter.
 - Example: `größe` becomes `GrößE`. The label is shown in the UI and sent to
   the model.
+- Fixed: title casing is Unicode-aware.
 
 ## Phone and social apps
 
@@ -401,6 +441,8 @@ How the items with a choice of behavior were fixed:
 - Trigger: press Stop or submit a new message while an OpenRouter or Gemini
   narration request is running.
 - Impact: the narration starts after Stop or over the new run.
+- Fixed: a narration whose request was stopped or superseded no longer plays,
+  and its stream chunks are ignored.
 
 ### 27. OpenRouter narration is silent after switching to a non-Gemini model
 
@@ -412,6 +454,8 @@ How the items with a choice of behavior were fixed:
   only for Gemini models.
 - Impact: the clip is generated and stored, nothing plays, and no error
   appears.
+- Fixed: the renderer streams OpenRouter speech only for Gemini models and
+  plays the returned clip otherwise.
 
 ### 28. A cancelled or failed run re-reads the previous turn
 
@@ -421,6 +465,7 @@ How the items with a choice of behavior were fixed:
 - Impact: the previous reply is read again. If no clip is stored, this starts
   a new ComfyUI or paid TTS request. The message state after a cancel was not
   traced, so this entry is the least certain in the list.
+- Fixed: playback after a run starts only when the run added an output message.
 
 ## Open questions for the maintainer
 
