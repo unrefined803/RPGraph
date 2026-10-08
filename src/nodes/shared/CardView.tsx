@@ -65,9 +65,9 @@ function getExpectedCallLabels(data: WorkflowNode['data']): string[] {
       return [actual?.label ?? (data.characterStatsState ? 'Patch Stats' : 'Init Stats')];
     }
     case 'history':
-      return data.historyTimeTrackingEnabled ? ['RP Time'] : [];
+      return data.historyTimeTrackingEnabled ? ['RP time tracking'] : [];
     case 'output':
-      return data.speakerAnalysisEnabled ? ['Speakers'] : [];
+      return data.speakerAnalysisEnabled ? ['Speaker highlighting'] : [];
     case 'context-compression':
       return ['Compress'];
     case 'llm-decision': {

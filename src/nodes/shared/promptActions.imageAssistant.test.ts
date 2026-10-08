@@ -63,7 +63,7 @@ it.each(['main', 'planning', 'later-planning'] as const)('keeps image selections
   const result = await runActionAwarePrompt({ node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode, context,
     inputValue: 'SECRET_RAW_HISTORY', images: [], referenceImages: [], promptBefore: 'SECRET_STORY_INSTRUCTIONS',
     promptAfter: mode === 'later-planning' ? '@step:lookup\n@action:Get character phone image list\n@step:planning\n@output:lookup\nPlan.\n@step:main\n@output:planning\nWrite.' : planning ? '@step:planning\nPlan.\n@action:Get character phone image list\n@step:main\n@output:planning\nWrite.\n@action:Get character phone image list' : '@action:Get character phone image list',
-    actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator' });
+    actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: 'Narrator' });
   expect(calls).toHaveLength(mode === 'later-planning' ? 5 : planning ? 4 : 3);
   expect(calls[1].prompt).toContain('image-Blake');
   expect(calls[1].prompt).toContain('account-Blake');
@@ -121,7 +121,7 @@ it.each([{ vision: true, count: 20, expected: 8 }, { vision: true, count: 5, exp
     const result = await runActionAwarePrompt({ node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode,
       context, inputValue: '', images: [], referenceImages: [], promptBefore: '',
       promptAfter: '@action:Get character phone image list', actionConfigs: [{ ...config, sendImagesToLlm: false }],
-      streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator' });
+      streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: 'Narrator' });
     expect(calls[1].images).toHaveLength(expected);
     if (expected) {
       expect(calls[1].images[0].id).toBe(`candidate-${count - 1}`);
@@ -203,7 +203,7 @@ it('continues the turn without an image after an unusable image search reply', a
   } as unknown as ExecuteContext;
   const result = await runActionAwarePrompt({ node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode, context,
     inputValue: '', images: [], referenceImages: [], promptBefore: '', promptAfter: 'Write.\n@action:Get character phone image list',
-    actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator' });
+    actionConfigs: [config], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: 'Narrator' });
   expect(result.generatedText).toBe('Reply without image.');
   expect(calls).toHaveLength(3);
   expect(calls[2].prompt).toContain('The image search failed');

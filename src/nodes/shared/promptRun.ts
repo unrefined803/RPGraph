@@ -61,7 +61,7 @@ import {
   validateSocialMessengerAccounts,
 } from '../../chat/socialMessageValidation';
 import { stripPlanBlocks, stripPlanBlocksFromStream } from '../../chat/messageFormats';
-import { readableRuntimeName } from '../../llm/callDisplay';
+import { llmCallLabelSeparator, readableRuntimeName } from '../../llm/callDisplay';
 
 export type PromptPreviewPart = {
   text: string;
@@ -253,7 +253,8 @@ export async function runActionAwarePrompt({
   commandConfigs?: PromptCommandConfig[];
   streamsVisibleOutput: boolean;
   contributesToTokenCalibration: boolean;
-  callLabel: (actionReplayCount: number) => string;
+  // Route heading of every call label, e.g. "Normal RP › RP Narrator".
+  callLabel: string;
   onDebug?: (debug: PromptRunDebug) => void;
   random?: () => number;
 }) {
@@ -321,6 +322,10 @@ export async function runActionAwarePrompt({
   const afterReplyActionConfigs = uniqueAvailableActionConfigs.filter((action) => action.runAfterReply);
   const actionResults = new Map<string, string>();
   const actionResultTexts: string[] = [];
+  // Names the latest action result so a rerun pass says what it continues with.
+  let latestActionResultName = '';
+  const callTitle = (title: string) => `${callLabel}${llmCallLabelSeparator}${title}`;
+  const continuedSuffix = () => ` continued + ${latestActionResultName}`;
   const actionImages: ChatImageAttachment[] = [];
   const finalOutputActionTexts: string[] = [];
   const outputPasses: Array<{ label: string; text: string }> = [];
@@ -494,6 +499,7 @@ export async function runActionAwarePrompt({
     recordOutputPass({ label, text: result });
     actionResults.set(promptActionKey(config.title), result);
     actionResultTexts.push(result);
+    latestActionResultName = 'user answer';
     context.updateRuntimeData(node.id, { preview: 'User answered; replaying prompt ...' });
     return true;
   };
@@ -529,6 +535,7 @@ export async function runActionAwarePrompt({
     const result = characterSearchResult(config.resultTemplate, characterSearchAnswerDetails(answer, selected));
     actionResults.set(promptActionKey(config.title), result);
     actionResultTexts.push(result);
+    latestActionResultName = 'character information';
     context.updateRuntimeData(node.id, { preview: 'Character information resolved; replaying prompt ...' });
     return true;
   };
@@ -566,6 +573,7 @@ export async function runActionAwarePrompt({
     };
     actionResults.set(promptActionKey(config.title), result.text);
     actionResultTexts.push(result.text);
+    latestActionResultName = 'image result';
     actionImages.push(...result.images);
     return true;
   };
@@ -653,7 +661,7 @@ export async function runActionAwarePrompt({
       const stepHistorySegments = cachedHistorySegments(stepTextInput);
       const stepReplayCount = actionResultTexts.length - actionCountAtStepStart;
       const passLabel = stepReplayCount
-        ? `Step ${step.name} replay ${stepReplayCount}`
+        ? `Step ${step.name}${continuedSuffix()}`
         : `Step ${step.name}`;
       recordPromptPass({
         label: passLabel,
@@ -690,7 +698,7 @@ export async function runActionAwarePrompt({
       const stepOutput = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
-        label: `${callLabel(0)} / ${passLabel}`,
+        label: callTitle(passLabel),
         stage: { kind: 'step', name: step.name, replay: stepReplayCount || undefined },
         prompt: [...imageResultSections(stepBefore, stepAfter).map((section) => section.text), stepBefore, stepTextInput, stepAfter].filter(Boolean).join('\n\n'),
         images: stepImagePass.images,
@@ -719,7 +727,7 @@ export async function runActionAwarePrompt({
         break;
       }
       if (actionConfig.actionId === 'getImageId') {
-        if (!await runImageSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} image search`)) break;
+        if (!await runImageSearch(actionConfig, actionRequest.plan, callTitle('@action: Image search'))) break;
         continue;
       }
       if (actionConfig.actionId === 'askUser') {
@@ -727,7 +735,7 @@ export async function runActionAwarePrompt({
         continue;
       }
       if (actionConfig.actionId === 'getCharacterList') {
-        if (!await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} character information`)) break;
+        if (!await runCharacterSearch(actionConfig, actionRequest.plan, callTitle('@action: Character information'))) break;
         continue;
       }
       const followUpInstruction = promptActionInstructionText(
@@ -736,7 +744,7 @@ export async function runActionAwarePrompt({
         stepImagePass.inputImageOffset + 1,
       );
       recordPromptPass({
-        label: `Step ${step.name} action follow-up: ${actionConfig.title}`,
+        label: `@action follow-up: ${actionConfig.title}`,
         images: previewImagesForPass(stepImagePass),
         sections: [
           ...(stepBefore
@@ -765,7 +773,7 @@ export async function runActionAwarePrompt({
       const followUpOutput = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
-        label: `${callLabel(0)} / Step ${step.name} action follow-up: ${actionConfig.title}`,
+        label: callTitle(`@action follow-up: ${actionConfig.title}`),
         stage: { kind: 'action', name: actionConfig.title },
         prompt: [stepBefore, stepTextInput, followUpInstruction].filter(Boolean).join('\n\n'),
         images: stepImagePass.images,
@@ -773,7 +781,7 @@ export async function runActionAwarePrompt({
         useConnectionSampling: true,
       });
       recordOutputPass({
-        label: `Step ${step.name} action follow-up output: ${actionConfig.title}`,
+        label: `@action follow-up output: ${actionConfig.title}`,
         text: followUpOutput.text,
       });
       const actionCall = parsePromptActionCall(followUpOutput.text);
@@ -790,6 +798,7 @@ export async function runActionAwarePrompt({
       });
       actionResults.set(promptActionKey(actionConfig.title), actionResult.text);
       actionResultTexts.push(actionResult.text);
+      latestActionResultName = `${actionConfig.title} result`;
       actionImages.push(...actionResult.images);
       if (actionResult.finalOutputText) {
         finalOutputActionTexts.push(actionResult.finalOutputText);
@@ -846,17 +855,19 @@ export async function runActionAwarePrompt({
   let generatedText = '';
   let connectionLabel = '';
   const maxActionPasses = Math.max(3, preReplyActionConfigs.length + 1);
+  // Results an earlier step already consumed do not make this pass a rerun.
+  const actionCountAtOutputStart = actionResultTexts.length;
   for (let passIndex = 0; passIndex <= maxActionPasses; passIndex += 1) {
     const pendingPreReplyAction = preReplyActionConfigs.some(
       (action) => !actionResults.has(promptActionKey(action.title)),
     );
-    const actionReplayCount = actionResultTexts.length;
+    const actionReplayCount = actionResultTexts.length - actionCountAtOutputStart;
     const actionReplay = actionReplayCount > 0;
     const outputStepLabel = outputStep.name ? `Step ${outputStep.name}` : '';
     const passLabel = outputStepLabel
-      ? `${outputStepLabel}${actionReplay ? ` replay ${actionReplayCount}` : ''}`
+      ? `${outputStepLabel}${actionReplay ? continuedSuffix() : ''}`
       : actionReplay
-        ? `Action replay ${actionReplayCount}`
+        ? `Main${continuedSuffix()}`
         : 'Initial action prompt';
     const imagePass = currentImagePass();
     const textInputForPass = textInputForImagePass(inputValue, imagePass);
@@ -871,9 +882,7 @@ export async function runActionAwarePrompt({
       nodeId: node.id,
       // A named output step carries its name into the call label so the run
       // progress shows e.g. "Step: Translation" instead of the generic main.
-      label: outputStep.name
-        ? `${callLabel(actionReplayCount)} / Step ${outputStep.name}`
-        : callLabel(actionReplayCount),
+      label: outputStep.name || actionReplay ? callTitle(passLabel) : callLabel,
       stage: {
         kind: 'step',
         name: outputStep.name || 'main',
@@ -888,11 +897,7 @@ export async function runActionAwarePrompt({
       useConnectionSampling: true,
     });
     recordOutputPass({
-      label: outputStepLabel
-        ? `${passLabel} output`
-        : actionReplay
-          ? `Action replay ${actionReplayCount} output`
-          : 'Initial action output',
+      label: outputStepLabel || actionReplay ? `${passLabel} output` : 'Initial action output',
       text: output.text,
     });
     const socialAccountValidation = validateSocialMessengerAccounts({
@@ -969,7 +974,7 @@ export async function runActionAwarePrompt({
 
       if (actionConfig.actionId === 'askUser' || actionConfig.actionId === 'getCharacterList' || actionConfig.actionId === 'getImageId') {
         const search = actionConfig.actionId === 'askUser' ? runAskUser : actionConfig.actionId === 'getImageId' ? runImageSearch : runCharacterSearch;
-        const resolved = await search(actionConfig, actionRequest.plan, `${callLabel(actionReplayCount)} / ${actionConfig.title}`);
+        const resolved = await search(actionConfig, actionRequest.plan, callTitle(`@action: ${actionConfig.actionId === 'getImageId' ? 'Image search' : actionConfig.actionId === 'getCharacterList' ? 'Character information' : actionConfig.title}`));
         generatedText = '';
         if (!resolved) break;
         if (passIndex === maxActionPasses) {
@@ -989,7 +994,7 @@ export async function runActionAwarePrompt({
       const promptBeforeForFollowUp = promptSectionValue(promptBefore);
       const followUpHistorySegments = cachedHistorySegments(followUpTextInput);
       recordPromptPass({
-        label: `Action follow-up: ${actionConfig.title}`,
+        label: `@action follow-up: ${actionConfig.title}`,
         images: previewImagesForPass(followUpImagePass),
         sections: [
           {
@@ -1024,7 +1029,7 @@ export async function runActionAwarePrompt({
       const followUpOutput = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
-        label: `${callLabel(actionReplayCount)} / Action follow-up: ${actionConfig.title}`,
+        label: callTitle(`@action follow-up: ${actionConfig.title}`),
         stage: { kind: 'action', name: actionConfig.title },
         prompt: [promptBeforeForFollowUp, followUpTextInput, followUpInstruction]
           .filter(Boolean)
@@ -1034,7 +1039,7 @@ export async function runActionAwarePrompt({
         useConnectionSampling: true,
       });
       recordOutputPass({
-        label: `Action follow-up output: ${actionConfig.title}`,
+        label: `@action follow-up output: ${actionConfig.title}`,
         text: followUpOutput.text,
       });
       actionCall = parsePromptActionCall(followUpOutput.text);
@@ -1078,6 +1083,7 @@ export async function runActionAwarePrompt({
     });
     actionResults.set(actionKey, actionResult.text);
     actionResultTexts.push(actionResult.text);
+    latestActionResultName = `${actionConfig.title} result`;
     actionImages.push(...actionResult.images);
     if (actionResult.finalOutputText) {
       finalOutputActionTexts.push(actionResult.finalOutputText);
@@ -1164,7 +1170,7 @@ export async function runActionAwarePrompt({
       let output = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
-        label: `${callLabel(0)} / Command: ${commandNames}`,
+        label: callTitle(`Command: ${commandNames}`),
         stage: { kind: 'command', name: commandNames },
         prompt: [commandTextInput, instruction].filter(Boolean).join('\n\n'),
         images: commandImagePass.images,
@@ -1270,7 +1276,7 @@ export async function runActionAwarePrompt({
     let output = await context.llm.complete({
       connectionId: node.data.connectionId,
       nodeId: node.id,
-      label: `${callLabel(0)} / After-reply action: ${actionConfig.title}`,
+      label: callTitle(`After-reply action: ${actionConfig.title}`),
       stage: { kind: 'action', name: actionConfig.title },
       prompt: [promptBeforeForPass, textInputForPass, instruction].filter(Boolean).join('\n\n'),
       images: afterReplyImagePass.images,
@@ -1346,7 +1352,7 @@ export async function runActionAwarePrompt({
       output = await context.llm.complete({
         connectionId: node.data.connectionId,
         nodeId: node.id,
-        label: `${callLabel(0)} / After-reply action correction: ${actionConfig.title}`,
+        label: callTitle(`After-reply action correction: ${actionConfig.title}`),
         stage: { kind: 'action', name: actionConfig.title, correction: true },
         prompt: [
           promptBeforeForPass,

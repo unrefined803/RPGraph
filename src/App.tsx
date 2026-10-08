@@ -212,6 +212,7 @@ import {
 } from './data-management/sessionStore';
 import { isRpgraphSessionV2 } from './data-management/validation';
 import type { RpgraphSessionV2 } from './data-management/types';
+import { BigScreenRunSteps } from './components/BigScreenRunSteps';
 import { LiveRunClock } from './components/LiveRunClock';
 import {
   appointmentsFromEventEntities,
@@ -3639,14 +3640,14 @@ function App() {
     });
     let lastResponseText = '';
     const attemptSpeakerAnalysis = async () => {
-      updateLlmNodeActive(outputNode.id, true, 'Speakers');
+      updateLlmNodeActive(outputNode.id, true, 'Speaker highlighting');
       let completion: Awaited<ReturnType<NodeLlmApi['complete']>>;
       try {
         completion = await nodeLlm.withAbortSignal(signal).complete({
           connectionId: outputNode.data.connectionId,
           purpose: 'RP Output speaker analysis',
           nodeId: outputNode.id,
-          label: 'Speakers',
+          label: 'Speaker highlighting',
           prompt,
           fastTask: true,
         });
@@ -5811,15 +5812,21 @@ function App() {
                   <LiveRunClock isRunning={isRunning} isPaused={isPaused} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
                 </span>
               </button>
-              <dl className="big-screen-runtime-stats" aria-label="LLM usage of the current or last run">
-                <div><dt>Input tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.inputTokens) : '-'}</dd></div>
-                <div><dt>Output tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.outputTokens) : '-'}</dd></div>
-                <div>
-                  <dt>Reasoning</dt>
-                  <dd>{runLlmTotals ? tokenCell(runLlmTotals.hasReasoningTokens ? runLlmTotals.reasoningTokens : undefined) : '-'}</dd>
-                </div>
-                <div><dt>LLM calls</dt><dd>{runLlmReport ? runLlmReport.calls.length : '-'}</dd></div>
-              </dl>
+              <BigScreenRunSteps
+                calls={runLlmReport && (!isRunning || activeRunId === runLlmReport.runId) ? runLlmReport.calls : []}
+                nodes={nodes}
+                isRunning={isRunning}
+              >
+                <dl className="big-screen-runtime-stats" aria-label="LLM usage of the current or last run">
+                  <div><dt>Input tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.inputTokens) : '-'}</dd></div>
+                  <div><dt>Output tokens</dt><dd>{runLlmTotals ? tokenCell(runLlmTotals.outputTokens) : '-'}</dd></div>
+                  <div>
+                    <dt>Reasoning</dt>
+                    <dd>{runLlmTotals ? tokenCell(runLlmTotals.hasReasoningTokens ? runLlmTotals.reasoningTokens : undefined) : '-'}</dd>
+                  </div>
+                  <div><dt>LLM calls</dt><dd>{runLlmReport ? runLlmReport.calls.length : '-'}</dd></div>
+                </dl>
+              </BigScreenRunSteps>
             </div>
             {graphSystemToast}
             <button className="big-screen-exit" type="button" onClick={() => setBigScreenMode(false)}>

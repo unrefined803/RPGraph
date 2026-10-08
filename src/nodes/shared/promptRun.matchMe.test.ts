@@ -45,7 +45,7 @@ async function run(history: MessageRecord[], command = false, direct = false, ph
     promptBefore: '', promptAfter: '@step:planning\nPlan the scene.\n@step:main\n@output:planning\nWrite the scene.'
       + (command ? '\n@command:messenger_message' : ''),
     actionConfigs: [], streamsVisibleOutput: false, contributesToTokenCalibration: false,
-    callLabel: () => 'Narrator',
+    callLabel: 'Narrator',
   });
   return { result, prompts, warning };
 }
@@ -113,7 +113,7 @@ it('runs the MatchMe action command follower with its plan and returns action JS
     node: { id: 'prompt', data: { label: 'Narrator' } } as WorkflowNode,
     context, inputValue: 'Ryan: account-Ryan; Avery: account-Avery', images: [], referenceImages: [],
     promptBefore: '', promptAfter: 'Write the scene. @command: MatchMe_action', actionConfigs: [],
-    streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Narrator',
+    streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: 'Narrator',
   });
   expect(prompts).toHaveLength(2);
   expect(prompts[0]).toContain('who likes whom');

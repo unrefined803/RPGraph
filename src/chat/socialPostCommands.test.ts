@@ -54,7 +54,7 @@ describe('social publication commands', () => {
       context, inputValue: mode === 'autoplay' ? '[AUTOPLAY]\nPlayer-controlled character: Narrator' : 'Alex publishes.', images: [], referenceImages: [],
       promptBefore: '', promptAfter: `Write the scene.\n@command: ${command}\n@command: ${app}_post_comment`,
       actionConfigs: [], streamsVisibleOutput: false, contributesToTokenCalibration: false,
-      callLabel: () => 'Narrator',
+      callLabel: 'Narrator',
     });
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain(`"${key}"`);
@@ -227,7 +227,7 @@ describe('social thread image context', () => {
     await runActionAwarePrompt({ node: { id: 'prompt', data: { label: 'Comments' } } as WorkflowNode,
       context, inputValue: 'What color is the dress?', images, referenceImages: [],
       promptBefore: '', promptAfter: '@step:planning\nPlan comments.\n@step:main\n@output:planning\nReply.',
-      actionConfigs: [], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: () => 'Comments',
+      actionConfigs: [], streamsVisibleOutput: false, contributesToTokenCalibration: false, callLabel: 'Comments',
     });
     expect(calls).toHaveLength(2);
     for (const call of calls) expect(call.images ?? []).toEqual(vision ? images : []);

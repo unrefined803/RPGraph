@@ -202,7 +202,7 @@ async function executeHistoryOutputs(node: WorkflowNode, context: ExecuteContext
         const completion = await context.llm.complete({
           connectionId: node.data.connectionId,
           nodeId: node.id,
-          label: 'RP Time',
+          label: 'RP time tracking',
           prompt,
           fastTask: true,
           contributesToTokenCalibration: true,

@@ -15191,7 +15191,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .run-llm-report-dialog {
   width: min(1080px, calc(100vw - 40px));
-  max-height: min(720px, calc(100vh - 40px));
+  max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -30056,6 +30056,63 @@ body:has(.dialog-backdrop.text-effect-preview) .dialog-backdrop {
 .big-screen-runtime-stats dd {
   color: #66738c;
   font-variant-numeric: tabular-nums;
+}
+
+/* While a run is active the usage summary gives way to the LLM steps, which
+   appear one by one under their route heading. */
+.big-screen-run-steps {
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  margin: 0;
+  padding: 0 12px;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+
+.big-screen-run-step {
+  display: grid;
+  gap: 4px;
+  color: #66738c;
+  font-size: 12px;
+  font-weight: 400;
+  animation: big-screen-run-step-in 0.22s ease-out;
+}
+
+.big-screen-run-step.active {
+  color: #c3cee0;
+}
+
+.big-screen-run-step-group {
+  margin-top: 6px;
+  color: #8292ae;
+  font-weight: 650;
+}
+
+.big-screen-run-step:first-child .big-screen-run-step-group {
+  margin-top: 0;
+}
+
+.big-screen-run-step.grouped .big-screen-run-step-title {
+  padding-left: 10px;
+}
+
+.big-screen-run-step.active .big-screen-run-step-title::after {
+  content: ' ...';
+}
+
+@keyframes big-screen-run-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .big-screen-run-step {
+    animation: none;
+  }
 }
 
 .big-screen-files .topbar-file-status {
