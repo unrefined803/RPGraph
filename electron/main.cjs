@@ -3375,6 +3375,7 @@ async function requestComfyJson(baseUrl, route, init, abort) {
 let pendingComfyFreeBaseUrl = '';
 let pendingComfyFreeLoaded = false;
 const comfyFreeSettleMs = 1500;
+const comfyFreeRequestTimeoutMs = 10000;
 
 function comfyModelStatePath() {
   return path.join(app.getPath('userData'), 'comfy-model-state.json');
@@ -3424,7 +3425,10 @@ async function freeComfyMemoryForLocalLlm(connection) {
   if (!comfyBaseUrl || !shouldFreeBeforeLlm) {
     return;
   }
-  const abort = { signal: new AbortController().signal };
+  // requestLlmResponse needs a full abort handle. The short timeout keeps an
+  // unresponsive ComfyUI from delaying the local LLM request.
+  const abort = createLlmAbortController();
+  const timeout = setTimeout(() => abort.abort('timeout'), comfyFreeRequestTimeoutMs);
   try {
     await requestComfyJson(comfyBaseUrl, 'free', {
       method: 'POST',
@@ -3438,6 +3442,9 @@ async function freeComfyMemoryForLocalLlm(connection) {
   } catch {
     // ComfyUI may already be gone; keep the pending marker so the next local
     // LLM request can try again if the voice model is still occupying VRAM.
+  } finally {
+    clearTimeout(timeout);
+    abort.dispose();
   }
 }
 
@@ -5846,9 +5853,11 @@ handleWorkspace('file:save-to-path', async (_event, request) => {
   if (previousFilePath) await assertOverwriteType(previousFilePath, expectedType);
   await assertOverwriteType(filePath, expectedType);
   // The native save dialog only confirms the path the user selected. Resolving
-  // an encrypted display name can find a different existing file.
-  if (!previousFilePath && filePath !== normalizedFilePath(result.filePath)) {
-    const exists = await fs.stat(filePath).then(() => true, error => {
+  // an encrypted display name can find a different existing file, which is
+  // either overwritten or, when its name is converted, deleted after the save.
+  const replacedFilePath = previousFilePath ?? filePath;
+  if (replacedFilePath !== normalizedFilePath(result.filePath)) {
+    const exists = await fs.stat(replacedFilePath).then(() => true, error => {
       if (error.code === 'ENOENT') return false;
       throw error;
     });

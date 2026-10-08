@@ -2354,6 +2354,12 @@ function App() {
     setShowDeletedNodeRestoreButton(deletedNodeRestoreStack.current.length > 0);
   }
 
+  // Deleted nodes can only be restored into the graph they were removed from.
+  function clearDeletedNodeRestoreStack() {
+    deletedNodeRestoreStack.current = [];
+    setShowDeletedNodeRestoreButton(false);
+  }
+
   function rememberDeletedNodes(deletedNodes: WorkflowNode[]) {
     if (deletedNodes.length === 0) {
       return;
@@ -3077,6 +3083,7 @@ function App() {
     pendingFitView.current = false;
     setNodeMenu(null);
     resetNodeContextMenuState();
+    clearDeletedNodeRestoreStack();
     setTextDialogNodeId(null);
     setJsonDialogNodeId(null);
     activeWorkflowResetSnapshotRef.current = null;
@@ -3399,6 +3406,7 @@ function App() {
     }
     setNodeMenu(null);
     resetNodeContextMenuState();
+    clearDeletedNodeRestoreStack();
     setTextDialogNodeId(null);
     setTextDialogView('text');
     setJsonDialogNodeId(null);

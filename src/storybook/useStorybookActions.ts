@@ -1203,6 +1203,13 @@ export function useStorybookActions({
         label: 'SillyTavern Import',
         prompt: rpStorybookEditPrompt(currentJson, instruction, storyHistoryPresent(currentStorybook)),
       });
+      const latestNode = nodesRef.current.find((entry) => entry.id === nodeId);
+      if (
+        !latestNode || !isStorybookSourceNode(latestNode) ||
+        latestNode.data.storybookJson !== node.data.storybookJson
+      ) {
+        throw new Error('Storybook changed while the import was running. The character was not imported. Please import it again.');
+      }
       const result = parseRpStorybookAssistantResult(completion.text, currentStorybook);
       const validatedImport = validateSillyTavernImportResult(
         currentStorybook,

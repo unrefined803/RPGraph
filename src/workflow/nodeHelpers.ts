@@ -290,7 +290,7 @@ function titleCaseField(field: string) {
   return field
     .replace(/[_-]+/g, ' ')
     .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    .replace(/(?<![\p{L}\p{N}_])\p{L}/gu, (letter) => letter.toUpperCase());
 }
 
 function selectorFieldValue(value: unknown) {

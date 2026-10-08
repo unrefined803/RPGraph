@@ -14,12 +14,13 @@ function isTruthyBooleanText(value: string) {
 }
 
 function selectedNumber(value: string, count: number) {
-  const parsed = Number(value.trim());
-  if (!Number.isFinite(parsed)) {
+  const trimmed = value.trim();
+  const parsed = trimmed ? Number(trimmed) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed < 0) {
     return undefined;
   }
   const selectedIndex = Math.trunc(parsed);
-  if (selectedIndex < 0 || selectedIndex >= count) {
+  if (selectedIndex >= count) {
     return undefined;
   }
   return selectedIndex;
