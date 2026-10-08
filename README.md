@@ -7,7 +7,7 @@ Build your world, shape your workflows, and bring your characters to life.
 
 [**⬇️ Download**](https://github.com/unrefined803/RPGraph/releases/latest) · [**▶️ Watch the demo**](https://youtu.be/nweut7o-qnA) · [**🚀 Getting started**](#-getting-started)
 
-[![RPGraph Studio UI slideshow showing seven screenshots](docs/rpgraph-ui-preview.webp)](docs/rpgraph-ui-preview.webp?raw=true)
+[![RPGraph Studio UI slideshow showing twelve screenshots](docs/rpgraph-ui-preview.webp)](docs/rpgraph-ui-preview.webp?raw=true)
 
 </div>
 
