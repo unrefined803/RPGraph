@@ -59,6 +59,44 @@ How the items with a choice of behavior were fixed:
 - 28: voice playback after a run starts only when the run added an output
   message.
 
+## Follow-up verification (2026-10-08)
+
+All 28 entries were compared with the current implementation and the three
+original fix commits. The follow-up found incomplete fixes in items 1, 6, 7,
+12 and 16, and closed the remaining import validation gap in item 2.
+
+| Items | Follow-up result |
+| --- | --- |
+| 1 | Apply each description to the latest gallery immediately, including multiple completions before a render. Keep captions edited during the request. Image imports also merge into the current gallery and allocate fresh IDs after decoding. Closing stops the remaining batch requests. |
+| 2 | The concurrent Storybook guard is present. Import validation now restricts patch destinations and sources to the intended character, with only the documented empty-scenario fields allowed. Existing identity, image and voice fields are protected. |
+| 3 | Both the undo button and the undo handler check checkpoint availability; Opening History remains removable. |
+| 4 | The cached-prefix budget fix and its regression test are present; the cut advances into unsummarized text. |
+| 5 | New/Clear and hydrated workflow loading clear the deleted-node stack. Reset uses the same loading path. |
+| 6 | Runtime execution preserves the latest definition. The assistant now also rejects a response after state changes, which it previously ignored before overwriting that state. |
+| 7 | Fixed stale writes in the Gemini fallback and ComfyUI model-list/test-generation paths. Derived model fields no longer overwrite those fields if edited during the check. |
+| 8, 11 | Refused input restoration and outer exception cleanup are present; added non-UI orchestration regression tests. |
+| 9 | No behavior change; signed-in account choice matches the updated privacy documentation. |
+| 10 | Replacement confirmation covers conversion/deletion of an existing save found under another path. |
+| 12 | Removed the remaining blanket AbortError classification. Only the run signal or the app cancellation message indicates cancellation. |
+| 13 | All four reviewed chat stream paths inspect provider error chunks outside the JSON parse catch. Existing mocked stream tests cover propagation; live provider payloads remain untested. |
+| 14 | ComfyUI release uses the required cancellation handle and disposes it and its timeout. |
+| 15 | Invalid objects in an action sequence return the normal parse failure rather than escaping the catch. |
+| 16 | Validate the decision fields as well as JSON syntax. Empty objects, ambiguous booleans and invalid numbers now retry and warn instead of reporting format success. |
+| 17 | Both selectors reject blank values and negative fractions before truncating. |
+| 18 | Embedded-action quote tracking begins only inside JSON objects. |
+| 19 | Each valid labelled marker on a normal multi-marker line receives a separate roll. |
+| 20 | Added-event fallback indexes start after update indexes. |
+| 21, 22 | Image speaker-prefix and Unicode label changes are present. |
+| 23 | Thread name matching uses full names and supported separator variants; the intentional banking nickname resolver remains separate. |
+| 24, 25 | Kept the confirmed behavior and corrected the wallet and retained-character documentation. The withdrawal statement still displays the booked amount, as noted below. |
+| 26, 27 | Narration checks its generation token before playback and streaming chunks; non-Gemini OpenRouter speech uses clip playback. |
+| 28 | Post-run voice checks for a newly added output message before playing the latest turn. |
+
+Validation: the full non-UI unit suite and TypeScript build passed. ESLint
+reported no errors and one pre-existing Fast Refresh warning in
+`src/components/CharacterPhoneAppMarks.tsx`. No application, browser or UI tests
+were launched. Image-dialog and playback interactions still need manual testing.
+
 ## Lost or overwritten user data
 
 ### 1. Describing a character image overwrites concurrent Storybook changes
@@ -92,7 +130,7 @@ How the items with a choice of behavior were fixed:
   `/characters/`, so the model can also modify existing characters during an
   import, which the import instruction forbids.
 - Fixed: the import stops with a message when the Storybook changed during the
-  request. The validation gap noted under Related is unchanged.
+  request. The follow-up also restricts patches to the imported character and the explicitly allowed empty-scenario fields.
 
 ### 3. Undo beyond 50 turns removes messages but keeps the turn's state changes
 
@@ -207,8 +245,7 @@ How the items with a choice of behavior were fixed:
   says the same for signed-in accounts.
 - Decision (maintainer): the current behavior is intended. With an account
   signed in, the user chooses between Plain JSON and encryption. No code
-  change. The two documents still describe the stricter rule and should be
-  aligned with this decision.
+  change. The privacy documents have been aligned with this decision.
 
 ### 10. Choose Save Location deletes a same-named save without confirmation
 
@@ -407,9 +444,8 @@ How the items with a choice of behavior were fixed:
   statement shows the full amount.
 - Correction after the review: the partial credit is intended. The test
   "moves withdrawals back to the bank without creating money" in
-  `src/chat/moneyLedger.test.ts` asserts it. The code is right; the sentence
-  "the recipient is always credited in full" in `money-ledger.md` is too broad
-  for withdrawals, and the Banking statement still shows the full amount.
+  `src/chat/moneyLedger.test.ts` asserts it. The code is right; `money-ledger.md` now distinguishes tips from withdrawals.
+  The Banking statement still shows the full booked amount.
 
 ### 25. A retained NPC revision is hidden by a same-named Storybook character
 
@@ -425,9 +461,8 @@ How the items with a choice of behavior were fixed:
   and retained messages no longer resolve, and bare-name references go to the
   new character.
 - Decision (maintainer): intended. Two characters cannot share a name, so the
-  older one is hidden. No code change. The sentence in
-  `character-container-v2.md` that limits the rule to library characters is
-  narrower than the behavior.
+  older one is hidden. No code change. `character-container-v2.md` now documents the same-name
+  rule for library characters and retained snapshots.
 
 ## Voice playback
 

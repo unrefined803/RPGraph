@@ -157,12 +157,11 @@ export function useCustomNodeAssistant({
       });
       // Reset, Apply JSON and Paste stay available during the request. The
       // reply was written for the definition sent, so it must not replace a
-      // newer one. State changes from a run in between are not a conflict.
-      const withoutState = (definition: ReturnType<typeof customNodeDefinition>) => JSON.stringify({ ...definition, state: undefined });
+      // newer one, including state changed by a run or Reset in between.
       const latestNode = nodesRef.current.find((candidate) => candidate.id === nodeId);
       if (
         !latestNode || latestNode.data.nodeType !== 'custom' ||
-        withoutState(customNodeDefinition(latestNode.data.customNodeDefinition)) !== withoutState(currentDefinition)
+        JSON.stringify(customNodeDefinition(latestNode.data.customNodeDefinition)) !== JSON.stringify(currentDefinition)
       ) {
         throw new Error('The node changed while the assistant was working. The response was not applied. Please send your request again.');
       }

@@ -1305,7 +1305,7 @@ function CharacterImagesDialog({
   imageCaptionChangesById,
   promptTextCustomPresets,
   setPromptTextCustomPresets,
-  onUpdateStorybook,
+  onUpdateStorybook: updateStorybook,
   onChangeImageCaptionUpdate,
   onDescribeCharacterImage,
   onClose,
@@ -1387,15 +1387,25 @@ function CharacterImagesDialog({
     };
   }, []);
 
-  function withLatestImageDescriptions(descriptions: Record<string, string>) {
+  const descriptionEditVersions = useRef(new Map<string, number>());
+
+  function onUpdateStorybook(nextStorybook: RpStorybook, message?: string) {
+    // Multiple promises may finish before React renders the first update.
+    latestStorybookRef.current = nextStorybook;
+    updateStorybook(nextStorybook, message);
+  }
+
+  function applyImageDescription(image: RpStorybookCharacterImage, description: string, editVersion: number) {
+    if (!mountedRef.current || (descriptionEditVersions.current.get(image.id) ?? 0) !== editVersion) return false;
     const latestStorybook = latestStorybookRef.current;
-    return withStorybookImageOwnerImages(
-      latestStorybook,
-      owner,
-      storybookImageOwnerImages(latestStorybook, owner).map((entry) =>
-        descriptions[entry.id] === undefined ? entry : { ...entry, description: descriptions[entry.id] }
-      ),
-    );
+    const latestImages = storybookImageOwnerImages(latestStorybook, owner);
+    const currentImage = latestImages.find((entry) => entry.id === image.id);
+    if (!currentImage || currentImage.description !== image.description) return false;
+    setDescriptionDrafts((current) => ({ ...current, [image.id]: description }));
+    onUpdateStorybook(withStorybookImageOwnerImages(latestStorybook, owner,
+      latestImages.map((entry) => entry.id === image.id ? { ...entry, description } : entry)),
+    `Updated image description for ${characterName}.`);
+    return true;
   }
 
   useEffect(() => {
@@ -1488,23 +1498,22 @@ function CharacterImagesDialog({
         setStatus('');
         return;
       }
-      const ownerBase = storybookImageOwnerBase(storybook, owner);
-      const reservedImageIds = new Set(storybookImages(storybook).map((image) => image.id));
-      const pendingImages: Array<Pick<RpStorybookCharacterImage, 'id'>> = [...images];
       const attachments = await Promise.all(
-        result.images.map((image) => normalizeImageAttachment(image, () => {
-          const id = nextStorybookCharacterImageId(ownerBase, pendingImages, reservedImageIds);
-          reservedImageIds.add(id);
-          pendingImages.push({ id });
-          return id;
-        })),
+        result.images.map((image) => normalizeImageAttachment(image, () => 'pending-image')),
       );
-      const nextImages = [
-        ...images,
-        ...attachments.map(storybookCharacterImageFromAttachment),
-      ];
+      if (!mountedRef.current) return;
+      const latestStorybook = latestStorybookRef.current;
+      const latestImages = storybookImageOwnerImages(latestStorybook, owner);
+      const ownerBase = storybookImageOwnerBase(latestStorybook, owner);
+      const reservedImageIds = new Set(storybookImages(latestStorybook).map((image) => image.id));
+      const nextImages = [...latestImages];
+      for (const attachment of attachments) {
+        const id = nextStorybookCharacterImageId(ownerBase, nextImages, reservedImageIds);
+        reservedImageIds.add(id);
+        nextImages.push(storybookCharacterImageFromAttachment({ ...attachment, id }));
+      }
       onUpdateStorybook(
-        withStorybookImageOwnerImages(storybook, owner, nextImages),
+        withStorybookImageOwnerImages(latestStorybook, owner, nextImages),
         `Added ${attachments.length} image${attachments.length === 1 ? '' : 's'} for ${characterName}.`,
       );
       setStatus(`Added ${attachments.length} image${attachments.length === 1 ? '' : 's'}.`);
@@ -1533,6 +1542,7 @@ function CharacterImagesDialog({
   }
 
   function draftDescription(imageId: string, description: string) {
+    descriptionEditVersions.current.set(imageId, (descriptionEditVersions.current.get(imageId) ?? 0) + 1);
     setDescriptionDrafts((current) => ({ ...current, [imageId]: description }));
   }
 
@@ -1577,6 +1587,7 @@ function CharacterImagesDialog({
   function closeDialog() {
     const activeStorybook = commitPromptDraft();
     commitAllDescriptionDrafts(activeStorybook);
+    mountedRef.current = false;
     onClose();
   }
 
@@ -1591,6 +1602,7 @@ function CharacterImagesDialog({
   // With an instruction, the assistant revises the current description instead of starting over.
   async function describeImage(image: RpStorybookCharacterImage, instruction = '') {
     const revising = !!instruction.trim();
+    const editVersion = descriptionEditVersions.current.get(image.id) ?? 0;
     setDescribingIds((current) => new Set(current).add(image.id));
     try {
       setStatus(`${revising ? 'Revising' : 'Describing'} ${image.name} ...`);
@@ -1611,10 +1623,9 @@ function CharacterImagesDialog({
         // The dialog closed; its Storybook view is stale and must not be written back.
         return storybook;
       }
-      setDescriptionDrafts((current) => ({ ...current, [image.id]: description }));
-      const nextStorybook = withLatestImageDescriptions({ [image.id]: description });
-      onUpdateStorybook(nextStorybook, `${revising ? 'Revised' : 'Described'} image for ${characterName}.`);
-      setStatus(`${revising ? 'Revised' : 'Described'} ${image.name}.`);
+      const applied = applyImageDescription(image, description, editVersion);
+      const nextStorybook = latestStorybookRef.current;
+      setStatus(applied ? `${revising ? 'Revised' : 'Described'} ${image.name}.` : 'Image changed while describing; newer edits were kept.');
       if (revising) {
         setAssistantInstruction('');
       }
@@ -1638,16 +1649,15 @@ function CharacterImagesDialog({
     }
     const activeStorybook = commitPromptDraft();
     const activePrompt = rpStorybookImageDescriptionPromptText(activeStorybook.imageDescriptionPrompt);
-    const descriptions: Record<string, string> = {};
     let describedCount = 0;
     for (const image of targetImages) {
+      if (!mountedRef.current) return;
+      const editVersion = descriptionEditVersions.current.get(image.id) ?? 0;
       setDescribingIds((current) => new Set(current).add(image.id));
       try {
         setStatus(`Describing ${image.name} ...`);
         const description = await onDescribeCharacterImage(characterContext, image, activePrompt);
-        descriptions[image.id] = description;
-        describedCount += 1;
-        setDescriptionDrafts((current) => ({ ...current, [image.id]: description }));
+        if (applyImageDescription(image, description, editVersion)) describedCount += 1;
       } catch (error) {
         setStatus(`Describe failed: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
@@ -1661,10 +1671,6 @@ function CharacterImagesDialog({
     if (describedCount === 0 || !mountedRef.current) {
       return;
     }
-    onUpdateStorybook(
-      withLatestImageDescriptions(descriptions),
-      `Described ${describedCount} image${describedCount === 1 ? '' : 's'} for ${characterName}.`,
-    );
     setStatus(`Described ${describedCount} image${describedCount === 1 ? '' : 's'}.`);
   }
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(closeDialog);

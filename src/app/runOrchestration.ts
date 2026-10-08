@@ -80,7 +80,7 @@ export function isRunCancelledError(error: unknown, signal?: AbortSignal) {
     return true;
   }
   return error instanceof Error &&
-    (error.name === 'AbortError' || error.message.includes('The LLM request was cancelled.'));
+    error.message.includes('The LLM request was cancelled.');
 }
 
 export function createRunId() {

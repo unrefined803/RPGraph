@@ -96,8 +96,12 @@ export function validateSillyTavernImportResult(
   const before = matchingCharacter(currentStorybook, characterName);
   const after = matchingCharacter(result.storybook, characterName);
   const allowScenario = storybookScenarioIsEmpty(currentStorybook);
+  const characterPath = before
+    ? `/characters/${currentStorybook.characters.indexOf(before)}`
+    : '/characters/-';
   const disallowedPath = result.patchPaths.find((path) =>
-    !path.startsWith('/characters/') && !(allowScenario && path.startsWith('/scenario/'))
+    !(path === characterPath || (before && path.startsWith(`${characterPath}/`))) &&
+    !(allowScenario && ['/scenario/summary', '/scenario/openingSituation'].includes(path))
   );
   if (disallowedPath) {
     throw new Error(`The model tried to change a field outside the character import: ${disallowedPath}`);
@@ -107,6 +111,11 @@ export function validateSillyTavernImportResult(
   }
   if (!before && result.storybook.characters.length !== currentStorybook.characters.length + 1) {
     throw new Error('The model did not add exactly one SillyTavern character. No changes were saved.');
+  }
+  if (before && (before.id !== after.id || JSON.stringify(before.images) !== JSON.stringify(after.images) ||
+      JSON.stringify(before.profileImage) !== JSON.stringify(after.profileImage) ||
+      JSON.stringify(before.voiceConfig) !== JSON.stringify(after.voiceConfig))) {
+    throw new Error('The model tried to replace the existing character identity, images or voice. No changes were saved.');
   }
   return { characterName, action: before ? 'updated' : 'added' };
 }

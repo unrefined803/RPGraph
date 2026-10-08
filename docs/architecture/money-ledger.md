@@ -33,8 +33,10 @@ their money movements automatically.
 - **Bank**: both sides of a transfer are always booked. Accounts may go
   negative; a transfer is never rejected for missing funds.
 - **OnlyFriends wallet**: never negative. An outgoing tip or withdrawal debits
-  only what the wallet holds at that point; the uncovered rest is treated as
-  funds outside the ledger. The recipient is always credited in full.
+  only what the wallet holds at that point. Tip recipients are credited in full;
+  the uncovered part of a tip is treated as funds outside the ledger. A wallet
+  withdrawal credits the bank only with the amount actually debited from the
+  wallet; it never creates money.
 - **Post unlock**: debits the buyer's wallet and credits the creator's wallet
   when the creator is a known character. Purchases have no timeline position:
   sales are booked before the timeline replay, purchases after it.
