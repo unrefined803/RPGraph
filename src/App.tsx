@@ -155,6 +155,8 @@ import {
   parseImageGenerationAssistantResult,
 } from './chat/imageGenerationAssistant';
 import { lastTurnMessages } from './data-management/historyStore';
+import { DATA_MANAGEMENT_BUDGETS } from './data-management/budgets';
+import { turnUndoAvailable } from './data-management/checkpointStore';
 import {
   chatAttachmentFromStorybookImage,
   findChatEndpoints,
@@ -985,6 +987,7 @@ function App() {
     turns,
     setTurns,
     turnsRef,
+    turnCheckpoints,
     setTurnCheckpoints,
     turnCheckpointsRef,
     nextMessageIdRef,
@@ -4095,12 +4098,15 @@ function App() {
   }
 
   const currentSessionTurn = lastSessionTurn(turns);
+  const undoLimitReached = !!currentSessionTurn && !turnUndoAvailable(currentSessionTurn, turnCheckpoints);
   const undoTurnTitle = isRunning
     ? 'Cancel the running turn'
-    : currentSessionTurn
-      ? 'Undo the complete last turn'
-      : 'No turn to undo';
-  const undoTurnDisabled = !isRunning && !currentSessionTurn;
+    : !currentSessionTurn
+      ? 'No turn to undo'
+      : undoLimitReached
+        ? `Undo limit reached: only the last ${DATA_MANAGEMENT_BUDGETS.maxCheckpoints} turns can be undone`
+        : 'Undo the complete last turn';
+  const undoTurnDisabled = !isRunning && (!currentSessionTurn || undoLimitReached);
 
   function openImagePreview(image: ChatImageAttachment) {
     setPreviewImage({ image });
@@ -4695,7 +4701,7 @@ function App() {
     if (isRunning) {
       return;
     }
-    if (!turn) {
+    if (!turn || !turnUndoAvailable(turn, turnCheckpointsRef.current)) {
       return;
     }
     removeTurnAt(turnIndex);

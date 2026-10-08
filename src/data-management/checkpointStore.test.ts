@@ -4,6 +4,7 @@ import type { TurnRecord, WorkflowNode } from '../types';
 import {
   applyTurnCheckpointToNodes,
   createTurnCheckpointFromNodesForTurnRecord,
+  turnUndoAvailable,
 } from './checkpointStore';
 
 const turn = { id: 'turn', number: 1, input: { messages: [] }, output: { messages: [] } } as unknown as TurnRecord;
@@ -55,4 +56,17 @@ it('restores custom state through persisted undo and redo while preserving autho
   expect(customNodeDefinition(redone[0].data.customNodeDefinition).state).toEqual(customNodeDefinition(after.data.customNodeDefinition).state);
   customNodeDefinition(undone[0].data.customNodeDefinition).state.count = 99;
   expect(customNodeDefinition(applyTurnCheckpointToNodes([after], stored, 'before')[0].data.customNodeDefinition).state.count).toBe(0);
+});
+
+describe('turnUndoAvailable', () => {
+  const checkpoints = [{ turnId: 'turn-2', createdTimelineEntryIds: [], nodeSnapshots: {} }];
+
+  it('allows undo only while the turn still has a checkpoint', () => {
+    expect(turnUndoAvailable({ id: 'turn-2' }, checkpoints)).toBe(true);
+    expect(turnUndoAvailable({ id: 'turn-1' }, checkpoints)).toBe(false);
+  });
+
+  it('keeps Opening History turns removable without a checkpoint', () => {
+    expect(turnUndoAvailable({ id: 'opening-1', openingHistory: true }, checkpoints)).toBe(true);
+  });
 });

@@ -3193,7 +3193,7 @@ export function verifyWorkflowValidationFixtures() {
     { ...phoneMessages[0]!, translatedText: 'Translated ping', rpDateTime: '2026-06-01T12:00' },
     { ...phoneMessages[1]!, rpDateTime: '2026-06-01T12:30' },
   ], {
-    viewerName: 'Alice Example',
+    viewerName: 'Alice',
     selectedPhoneDividerAfterId: 10,
     englishProcessingEnabled: true,
     rpTimeTrackingEnabled: true,
@@ -3203,7 +3203,8 @@ export function verifyWorkflowValidationFixtures() {
       phoneMessageViews[0]?.visibleText === 'Translated ping' &&
       phoneMessageViews[0]?.dayRpDateTime === '2026-06-01T12:00' &&
       phoneMessageViews[1]?.showNewDivider === true &&
-      matchingPhoneName([{ name: 'Alice Example' }], 'Alice')?.name === 'Alice Example',
+      matchingPhoneName([{ name: 'Alice Example' }], 'Alice_Example')?.name === 'Alice Example' &&
+      matchingPhoneName([{ name: 'Alice Example' }], 'Alice') === undefined,
     'phone selectors must build phone UI message views from canonical message data',
   );
   assertFixture(

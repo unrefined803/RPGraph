@@ -412,7 +412,7 @@ export function matchingPhoneName<T extends { name: string }>(
   name: string,
 ) {
   // A namesake listed earlier must not shadow the exact identity; the
-  // first-name fallback only serves short names in legacy history.
+  // fallback accepts other separator styles of the same full name.
   const key = normalizePhoneName(name);
   return values.find((value) => normalizePhoneName(value.name) === key) ??
     values.find((value) => phoneNamesMatch(value.name, name));

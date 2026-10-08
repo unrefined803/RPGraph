@@ -26,12 +26,11 @@ ESLint and the unit test suite; none was exercised in the running application.
 
 | Item | Status |
 | --- | --- |
-| 1, 2, 5, 10, 14, 15, 17, 18, 20, 22, 26, 27 | Fixed |
-| 3 | Deferred. Decision: limit undo to the last 30 turns and lock it beyond that |
+| 1, 2, 3, 5, 10, 14, 15, 17, 18, 20, 22, 23, 26, 27 | Fixed |
 | 9 | Closed. Maintainer confirmed the current behavior is intended |
-| 23 | Deferred. To be walked through with the maintainer first |
 | 24 | Not a code defect. See the entry |
-| 4, 12, 16, 25 | Deferred. The fix involves a choice of behavior |
+| 25 | Closed. Maintainer confirmed the current behavior is intended |
+| 4, 12, 16 | Deferred. The fix involves a choice of behavior |
 | 6, 7, 8, 11, 13, 19, 21, 28 | Deferred. No single correction was clearly right; see notes below |
 
 Notes on the deferred items without a behavior decision:
@@ -94,9 +93,11 @@ Notes on the deferred items without a behavior decision:
 - Impact: the turn's messages disappear while its events, stats, memory,
   Storybook and workflow-variable changes stay. Session state no longer
   matches the transcript.
-- Decision (maintainer): keep the checkpoint cap, because every checkpoint
-  adds to the save size. Limit undo to the last 30 turns and disable it beyond
-  that point. Not implemented yet.
+- Decision (maintainer): keep the cap of 50 checkpoints, because every
+  checkpoint stores the before and after state of the nodes a turn changed and
+  adds to the save size. Undo is locked once the last turn has no checkpoint.
+- Fixed: `turnUndoAvailable` in `checkpointStore.ts` gates the undo button and
+  `undoLastTurn`. Opening History turns stay removable.
 
 ### 4. Context Compression measures its budget from the wrong start
 
@@ -337,9 +338,13 @@ Notes on the deferred items without a behavior decision:
   contact.
 - Impact: one person's messages appear in the other's thread, according to the
   report as that person's own outgoing bubbles, with no unread badge.
-- Status: deferred. The maintainer has not seen this in practice; first-name
-  matching is probably deliberate so that a bare first name in model output
-  resolves. To be reviewed together before any change.
+- Decision (maintainer): a phone participant is identified by an account link
+  or the full name. A first name alone must not match.
+- Fixed: `phoneNamesMatch` now compares full names and treats `First Last`,
+  `First_Last` and `First.Last` as equal. Messages that an older save stored
+  under a first name alone no longer join the character's thread; they appear
+  under a temporary contact with that name. `canonicalPhoneName`, which only
+  resolves bank transfer parties and accepts nicknames by design, is unchanged.
 
 ### 24. A wallet withdrawal credits the bank only partially
 
@@ -370,6 +375,10 @@ Notes on the deferred items without a behavior decision:
 - Impact: the earlier character leaves the effective registry, so its accounts
   and retained messages no longer resolve, and bare-name references go to the
   new character.
+- Decision (maintainer): intended. Two characters cannot share a name, so the
+  older one is hidden. No code change. The sentence in
+  `character-container-v2.md` that limits the rule to library characters is
+  narrower than the behavior.
 
 ## Voice playback
 
@@ -407,6 +416,7 @@ Notes on the deferred items without a behavior decision:
 ## Open questions for the maintainer
 
 - Item 9: answered, see the entry.
+- Answered: the next two points stay as they are.
 - `src/app/useRpgraphFiles.ts` `activateWorkflowSnapshot` (220-226) clears the
   open workflow's file path after every RP save, so Save Workflow then opens
   Save As instead of updating the file. This looks unintended for plain
